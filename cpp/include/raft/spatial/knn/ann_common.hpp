@@ -75,33 +75,40 @@ enum QuantizerType : unsigned int {
   QT_6bit
 };
 
-struct knnIndexParam {
-  virtual ~knnIndexParam() {}
+struct knn_index_params {
+  /** Distance type. */
+  raft::distance::DistanceType metric = distance::DistanceType::L2Expanded;
+  /** The argument used by some distance metrics. */
+  float metric_arg = 2.0f;
+
+  virtual ~knn_index_params() = default;
 };
 
-struct IVFParam : knnIndexParam {
+struct knn_search_params {
+  virtual ~knn_search_params() = default;
+};
+
+struct ivf_index_params : knn_index_params {
   /** The number of inverted lists (clusters) */
-  int nlist;
+  uint32_t n_lists = 1024;
+};
+
+struct ivf_search_params : knn_search_params {
   /** The number of clusters to search. */
-  int nprobe;
+  uint32_t n_probes = 20;
 };
 
-struct ivf_flat_params : IVFParam {
-  /** The number of iterations searching for kmeans centers (index building). */
-  uint32_t kmeans_n_iters = 20;
-  /** The fraction of data to use during iterative kmeans building. */
-  double kmeans_trainset_fraction = 0.5;
-};
-
-struct IVFPQParam : IVFParam {
-  int M;
+// TODO: move to ivf_pq
+struct ivf_pq_index_params : ivf_index_params {
+  int n_subquantizers;
   int n_bits;
-  bool usePrecomputedTables;
+  bool use_precomputed_tables;
 };
 
-struct IVFSQParam : IVFParam {
+// TODO: move to ivf_sq
+struct ivf_sq_index_params : ivf_index_params {
   QuantizerType qtype;
-  bool encodeResidual;
+  bool encode_residual;
 };
 
 };  // namespace raft::spatial::knn

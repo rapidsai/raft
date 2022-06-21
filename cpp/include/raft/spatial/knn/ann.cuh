@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "ann_common.h"
+#include "ann_common.hpp"
 #include "detail/ann_quantized.cuh"
 
 #include <raft/spatial/knn/faiss_mr.hpp>
@@ -30,23 +30,19 @@ namespace raft::spatial::knn {
  * @param[in] handle RAFT handle
  * @param[out] index index to be built
  * @param[in] params parametrization of the index to be built
- * @param[in] metric distance metric to use. Euclidean (L2) is used by default
- * @param[in] metricArg metric argument
  * @param[in] index_array the index array to build the index with
  * @param[in] n number of rows in the index array
  * @param[in] D the dimensionality of the index array
  */
 template <typename T = float, typename value_idx = int>
 inline void approx_knn_build_index(const raft::handle_t& handle,
-                                   raft::spatial::knn::knnIndex* index,
-                                   knnIndexParam* params,
-                                   raft::distance::DistanceType metric,
-                                   float metricArg,
+                                   knnIndex* index,
+                                   const knn_index_params& params,
                                    T* index_array,
                                    value_idx n,
                                    value_idx D)
 {
-  detail::approx_knn_build_index(handle, index, params, metric, metricArg, index_array, n, D);
+  detail::approx_knn_build_index(handle, index, params, index_array, n, D);
 }
 
 /**
@@ -58,22 +54,22 @@ inline void approx_knn_build_index(const raft::handle_t& handle,
  *                       their query point
  * @param[out] indices indices of the nearest neighbors
  * @param[in] index index to perform a search with
- * @param[in] params parameters used to build the index
+ * @param[in] params configure search
  * @param[in] k the number of nearest neighbors to search for
  * @param[in] query_array the query to perform a search with
- * @param[in] n number of rows in the query array
+ * @param[in] n_queries number of rows in the query array
  */
 template <typename T = float, typename value_idx = int>
 inline void approx_knn_search(const raft::handle_t& handle,
                               float* distances,
                               int64_t* indices,
-                              raft::spatial::knn::knnIndex* index,
-                              knnIndexParam* params,
+                              knnIndex* index,
+                              const knn_search_params& params,
                               value_idx k,
                               T* query_array,
-                              value_idx n)
+                              value_idx n_queries)
 {
-  detail::approx_knn_search(handle, distances, indices, index, params, k, query_array, n);
+  detail::approx_knn_search(handle, distances, indices, index, params, k, query_array, n_queries);
 }
 
 }  // namespace raft::spatial::knn

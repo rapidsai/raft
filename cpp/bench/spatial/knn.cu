@@ -132,22 +132,20 @@ struct host_uvector {
 template <typename ValT, typename IdxT>
 struct ivf_flat_knn {
   raft::spatial::knn::knnIndex index;
-  raft::spatial::knn::ivf_flat_params ivf_params;
+  raft::spatial::knn::ivf_flat_index_params index_params;
+  raft::spatial::knn::ivf_flat_search_params search_params;
   params ps;
 
   ivf_flat_knn(const raft::handle_t& handle, const params& ps, const ValT* data) : ps(ps)
   {
-    ivf_params.nlist  = 4096;
-    ivf_params.nprobe = 20;
-    raft::spatial::knn::approx_knn_build_index<ValT, IdxT>(
-      const_cast<raft::handle_t&>(handle),
-      &(index),
-      dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivf_params),
-      raft::distance::DistanceType::L2Unexpanded,
-      2.0f,
-      const_cast<ValT*>(data),
-      (IdxT)ps.n_samples,
-      (IdxT)ps.n_dims);
+    index_params.n_lists = 4096;
+    index_params.metric  = raft::distance::DistanceType::L2Expanded;
+    raft::spatial::knn::approx_knn_build_index<ValT, IdxT>(const_cast<raft::handle_t&>(handle),
+                                                           &index,
+                                                           index_params,
+                                                           const_cast<ValT*>(data),
+                                                           (IdxT)ps.n_samples,
+                                                           (IdxT)ps.n_dims);
   }
 
   void search(const raft::handle_t& handle,
@@ -155,15 +153,15 @@ struct ivf_flat_knn {
               ValT* out_dists,
               IdxT* out_idxs)
   {
-    raft::spatial::knn::approx_knn_search<ValT, IdxT>(
-      const_cast<raft::handle_t&>(handle),
-      out_dists,
-      out_idxs,
-      &(index),
-      dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivf_params),
-      (IdxT)ps.k,
-      const_cast<ValT*>(search_items),
-      (IdxT)ps.n_probes);
+    search_params.n_probes = 20;
+    raft::spatial::knn::approx_knn_search<ValT, IdxT>(const_cast<raft::handle_t&>(handle),
+                                                      out_dists,
+                                                      out_idxs,
+                                                      &index,
+                                                      search_params,
+                                                      (IdxT)ps.k,
+                                                      const_cast<ValT*>(search_items),
+                                                      (IdxT)ps.n_probes);
   }
 };
 

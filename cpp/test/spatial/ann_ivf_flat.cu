@@ -145,28 +145,24 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
     {
       rmm::device_uvector<T> distances_ivfflat_dev(queries_size, stream_);
       rmm::device_uvector<int64_t> indices_ivfflat_dev(queries_size, stream_);
-      raft::spatial::knn::ivf_flat_params params;
-      params.nprobe = ps.nprobe;
-      params.nlist  = ps.nlist;
+      raft::spatial::knn::ivf_flat_index_params index_params;
+      raft::spatial::knn::ivf_flat_search_params search_params;
+      index_params.n_lists   = ps.nlist;
+      index_params.metric    = ps.metric;
+      search_params.n_probes = ps.nprobe;
       raft::spatial::knn::knnIndex index;
       index.index   = nullptr;
       index.gpu_res = nullptr;
 
-      approx_knn_build_index(handle_,
-                             &index,
-                             dynamic_cast<raft::spatial::knn::knnIndexParam*>(&params),
-                             ps.metric,
-                             0,
-                             database.data(),
-                             ps.num_db_vecs,
-                             ps.dim);
+      approx_knn_build_index(
+        handle_, &index, index_params, database.data(), ps.num_db_vecs, ps.dim);
       handle_.sync_stream(stream_);
 
       approx_knn_search(handle_,
                         distances_ivfflat_dev.data(),
                         indices_ivfflat_dev.data(),
                         &index,
-                        dynamic_cast<raft::spatial::knn::knnIndexParam*>(&params),
+                        search_params,
                         ps.k,
                         search_queries.data(),
                         ps.num_queries);

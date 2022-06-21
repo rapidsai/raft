@@ -16,7 +16,9 @@
 
 #pragma once
 
-#include "../ann_common.h"
+#include "../ann_common.hpp"
+#include "../ivf_flat.hpp"
+
 #include "ann_ivf_flat_kernel.cuh"
 #include "ann_kmeans_balanced.cuh"
 #include "ann_utils.cuh"
@@ -31,7 +33,7 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/spatial/knn/ann_common.h>
+#include <raft/spatial/knn/ann_common.hpp>
 #include <raft/stats/histogram.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -45,10 +47,7 @@ namespace raft::spatial::knn::detail {
 template <typename T>
 class ivf_flat_handle {
  public:
-  ivf_flat_handle(const handle_t& handle, ivf_flat_params params)
-    : handle_(handle), params_(std::move(params))
-  {
-  }
+  ivf_flat_handle(const handle_t& handle) : handle_(handle) {}
 
   /**
    * @brief Build the index from the dataset for efficient search.
@@ -56,13 +55,13 @@ class ivf_flat_handle {
    * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
    * @param n_rows number of samples
    * @param dim the dimensionality of the data
-   * @param metric distance type
+   * @param params configure the index building
    * @param stream
    */
   void build(const T* dataset,
              uint32_t n_rows,
              uint32_t dim,
-             raft::distance::DistanceType metric,
+             const ivf_flat_index_params& params,
              rmm::cuda_stream_view stream);
 
   /**
@@ -71,7 +70,7 @@ class ivf_flat_handle {
    * @param[in] queries a device pointer to a row-major matrix [n_queries, dim]
    * @param n_queries is the batch size
    * @param k is the number of neighbors to find for each query.
-   * @param n_probes number of clusters to look at for each query (affects speed vs recall).
+   * @param params configure the search
    * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
    * [n_queries, k]
    * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries,
@@ -81,7 +80,7 @@ class ivf_flat_handle {
   void search(const T* queries,
               uint32_t n_queries,
               uint32_t k,
-              uint32_t n_probes,
+              const ivf_flat_search_params& params,
               size_t* neighbors,
               float* distances,
               rmm::cuda_stream_view stream);
@@ -94,7 +93,6 @@ class ivf_flat_handle {
 
  private:
   const handle_t& handle_;
-  const ivf_flat_params params_;
 
   // The built index
   std::optional<const ivf_flat_index<T>> index_ = std::nullopt;
@@ -185,7 +183,7 @@ template <typename T>
 void ivf_flat_handle<T>::build(const T* dataset,
                                uint32_t n_rows,
                                uint32_t dim,
-                               raft::distance::DistanceType metric,
+                               const ivf_flat_index_params& params,
                                rmm::cuda_stream_view stream)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
@@ -200,7 +198,7 @@ void ivf_flat_handle<T>::build(const T* dataset,
   while (dim % veclen != 0) {
     veclen = veclen >> 1;
   }
-  auto n_lists = static_cast<uint32_t>(params_.nlist);
+  auto n_lists = static_cast<uint32_t>(params.n_lists);
 
   // kmeans cluster ids for the dataset
   rmm::device_uvector<uint32_t> labels(n_rows, stream);
@@ -210,7 +208,7 @@ void ivf_flat_handle<T>::build(const T* dataset,
 
   // Predict labels of the whole dataset
   kmeans::build_optimized_kmeans(handle_,
-                                 params_.kmeans_n_iters,
+                                 params.kmeans_n_iters,
                                  dim,
                                  dataset,
                                  n_rows,
@@ -218,8 +216,8 @@ void ivf_flat_handle<T>::build(const T* dataset,
                                  list_sizes_ptr,
                                  centers.data(),
                                  n_lists,
-                                 params_.kmeans_trainset_fraction,
-                                 metric,
+                                 params.kmeans_trainset_fraction,
+                                 params.metric,
                                  stream);
 
   // Calculate offsets into cluster data using exclusive scan
@@ -264,13 +262,13 @@ void ivf_flat_handle<T>::build(const T* dataset,
     RAFT_LOG_TRACE_VEC(r.data(), 20);
     return r;
   };
-  auto&& center_norms = metric == raft::distance::DistanceType::L2Expanded
+  auto&& center_norms = params.metric == raft::distance::DistanceType::L2Expanded
                           ? std::optional(compute_norms())
                           : std::nullopt;
 
   // assemble the index
   index_.emplace(ivf_flat_index<T>{
-    veclen, metric, data, indices, list_sizes, list_offsets, centers, center_norms});
+    veclen, params.metric, data, indices, list_sizes, list_offsets, centers, center_norms});
 
   // check index invariants
   index_->check_consistency();
@@ -280,7 +278,7 @@ template <typename T>
 void ivf_flat_handle<T>::search(const T* queries,
                                 uint32_t n_queries,
                                 uint32_t k,
-                                uint32_t n_probes,
+                                const ivf_flat_search_params& params,
                                 size_t* neighbors,
                                 float* distances,
                                 rmm::cuda_stream_view stream)
@@ -290,8 +288,9 @@ void ivf_flat_handle<T>::search(const T* queries,
 
   RAFT_EXPECTS(is_trained(),
                "The index must be trained before the search (ivf_flat_handle::build)");
-  RAFT_EXPECTS(n_probes > 0,
+  RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
+  auto n_probes = std::min<uint32_t>(params.n_probes, index_->n_lists());
 
   bool select_min;
   switch (index_->metric) {
@@ -326,13 +325,11 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
                                      AccT* distances,
                                      rmm::cuda_stream_view stream)
 {
-  auto n_lists   = index_->n_lists();
-  n_probes       = std::min<uint32_t>(n_probes, n_lists);
   auto search_mr = &(search_mem_res_.value());
   // The norm of query
   rmm::device_uvector<float> query_norm_dev(n_queries, stream, search_mr);
   // The distance value of cluster(list) and queries
-  rmm::device_uvector<float> distance_buffer_dev(n_queries * n_lists, stream, search_mr);
+  rmm::device_uvector<float> distance_buffer_dev(n_queries * index_->n_lists(), stream, search_mr);
   // The topk distance value of cluster(list) and queries
   rmm::device_uvector<float> coarse_distances_dev(n_queries * n_probes, stream, search_mr);
   // The topk  index of cluster(list) and queries
@@ -369,7 +366,7 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
     utils::outer_add(query_norm_dev.data(),
                      n_queries,
                      index_->center_norms->data(),
-                     n_lists,
+                     index_->n_lists(),
                      distance_buffer_dev.data(),
                      stream);
     RAFT_LOG_TRACE_VEC(index_->center_norms->data(), 20);
@@ -382,7 +379,7 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
   linalg::gemm(handle_,
                true,
                false,
-               n_lists,
+               index_->n_lists(),
                n_queries,
                index_->dim(),
                &alpha,
@@ -392,7 +389,7 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
                index_->dim(),
                &beta,
                distance_buffer_dev.data(),
-               n_lists,
+               index_->n_lists(),
                stream);
 
   RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
@@ -400,7 +397,7 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
     topk::warp_sort_topk<AccT, uint32_t>(distance_buffer_dev.data(),
                                          nullptr,
                                          n_queries,
-                                         n_lists,
+                                         index_->n_lists(),
                                          n_probes,
                                          coarse_distances_dev.data(),
                                          coarse_indices_dev.data(),
@@ -410,7 +407,7 @@ void ivf_flat_handle<T>::search_impl(const T* queries,
     topk::radix_topk<AccT, uint32_t, 11, 512>(distance_buffer_dev.data(),
                                               nullptr,
                                               n_queries,
-                                              n_lists,
+                                              index_->n_lists(),
                                               n_probes,
                                               coarse_distances_dev.data(),
                                               coarse_indices_dev.data(),

@@ -18,7 +18,8 @@
 
 // #define USE_FAISS
 
-#include "../ann_common.h"
+#include "../ann_common.hpp"
+#include "../ivf_flat.hpp"
 #include "ann_utils.cuh"
 #include "topk/warpsort_topk.cuh"
 
@@ -44,90 +45,11 @@ namespace raft::spatial::knn::detail {
 
 constexpr int kThreadsPerBlock = 128;
 
-namespace md = std::experimental;
-
-template <typename T>
-struct ivf_flat_index {
-  using row_major = md::layout_right;
-  using extent_1d = md::extents<dynamic_extent>;
-  using extent_2d = md::extents<dynamic_extent, dynamic_extent>;
-
-  /**
-   * Vectorized load/store size in elements, determines the size of interleaved data chunks.
-   */
-  uint32_t veclen;
-  /** Distance metric used for clustering. */
-  raft::distance::DistanceType metric;
-
-  /**
-   * Inverted list data [size, dim].
-   *
-   * The data consists of the dataset rows, grouped by their labels (into clusters/lists).
-   * Within each list (cluster), the data is grouped into blocks of `WarpSize` interleaved
-   * vectors. Note, the total index length is slightly larger than the source dataset length,
-   * because each cluster is padded by `WarpSize` elements.
-   *
-   * Interleaving pattern:
-   * within groups of `WarpSize` rows, the data is interleaved with the block size equal to
-   * `veclen * sizeof(T)`. That is, a chunk of `veclen` consecutive components of one row is
-   * followed by a chunk of the same size of the next row, and so on.
-   *
-   * __Example__: veclen = 2, dim = 6, WarpSize = 32, list_size = 31
-   * `
-   *   x[ 0, 0], x[ 0, 1], x[ 1, 0], x[ 1, 1], ... x[14, 0], x[14, 1], x[15, 0], x[15, 1],
-   *   x[16, 0], x[16, 1], x[17, 0], x[17, 1], ... x[30, 0], x[30, 1],    -    ,    -    ,
-   *   x[ 0, 2], x[ 0, 3], x[ 1, 2], x[ 1, 3], ... x[14, 2], x[14, 3], x[15, 2], x[15, 3],
-   *   x[16, 2], x[16, 3], x[17, 2], x[17, 3], ... x[30, 2], x[30, 3],    -    ,    -    ,
-   *   x[ 0, 4], x[ 0, 5], x[ 1, 4], x[ 1, 5], ... x[14, 4], x[14, 5], x[15, 4], x[15, 5],
-   *   x[16, 4], x[16, 5], x[17, 4], x[17, 5], ... x[30, 4], x[30, 5],    -    ,    -    ,
-   * `
-   */
-  device_mdarray<T, extent_2d, row_major> data;
-  /** Inverted list indices: ids of items in the source data [size] */
-  device_mdarray<uint32_t, extent_1d, row_major> indices;
-  /** Sizes of the lists (clusters) [n_lists] */
-  device_mdarray<uint32_t, extent_1d, row_major> list_sizes;
-  /**
-   * Offsets into the lists [n_lists + 1].
-   * The last value contains the total length of the index.
-   */
-  device_mdarray<uint32_t, extent_1d, row_major> list_offsets;
-  /** k-means cluster centers corresponding to the lists [n_lists, dim] */
-  device_mdarray<float, extent_2d, row_major> centers;
-  /** (Optional) Precomputed norms of the `centers` w.r.t. the chosen distance metrix [n_lists]  */
-  std::optional<device_mdarray<float, extent_1d, row_major>> center_norms;
-
-  /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> size_t { return data.extent(0); }
-  /** Dimensionality of the data. */
-  [[nodiscard]] constexpr inline auto dim() const noexcept -> size_t { return data.extent(1); }
-  /** Number of clusters/inverted lists. */
-  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> size_t
-  {
-    return centers.extent(0);
-  }
-
-  /** Throw an error if the index content is inconsistent. */
-  inline void check_consistency() const
-  {
-    RAFT_EXPECTS(dim() % veclen == 0, "dimensionality is not a multiple of the veclen");
-    RAFT_EXPECTS(data.extent(0) == indices.extent(0), "inconsistent index size");
-    RAFT_EXPECTS(data.extent(1) == centers.extent(1), "inconsistent data dimensionality");
-    RAFT_EXPECTS(                                             //
-      (centers.extent(0) == list_sizes.extent(0)) &&          //
-        (centers.extent(0) + 1 == list_offsets.extent(0)) &&  //
-        (!center_norms.has_value() || centers.extent(0) == center_norms->extent(0)),
-      "inconsistent number of lists (clusters)");
-    RAFT_EXPECTS(reinterpret_cast<size_t>(data.data()) % (veclen * sizeof(T)) == 0,
-                 "The data storage pointer is not aligned to the vector length");
-  }
-};
-
 template <typename T, typename... Extents>
 static inline auto make_array_for_index(rmm::cuda_stream_view stream, Extents... exts)
 {
-  using extent_t  = md::extents<((void)exts, dynamic_extent)...>;
-  using mdarray_t = device_mdarray<T, extent_t, md::layout_right>;
+  using extent_t  = extents<((void)exts, dynamic_extent)...>;
+  using mdarray_t = device_mdarray<T, extent_t, layout_c_contiguous>;
 
   typename mdarray_t::extents_type extent{exts...};
   typename mdarray_t::mapping_type layout{extent};
