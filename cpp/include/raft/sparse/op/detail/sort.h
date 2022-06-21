@@ -24,7 +24,10 @@
 #include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/scan.h>
+#include <thrust/sort.h>
+#include <thrust/tuple.h>
 
 #include <cusparse_v2.h>
 

@@ -25,6 +25,7 @@
 #include <rmm/exec_policy.hpp>
 
 #include <thrust/device_ptr.h>
+#include <thrust/reduce.h>
 #include <thrust/scan.h>
 
 #include <cuda_runtime.h>

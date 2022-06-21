@@ -29,6 +29,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 
+#include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 
 #include <cstddef>

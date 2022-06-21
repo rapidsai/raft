@@ -21,9 +21,15 @@
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 
+#include <thrust/device_ptr.h>
 #include <thrust/fill.h>
+#include <thrust/for_each.h>
+#include <thrust/functional.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
+#include <thrust/tuple.h>
 
 #include <algorithm>
 

@@ -29,6 +29,10 @@
 #include <raft/sparse/hierarchy/common.h>
 #include <raft/sparse/selection/knn_graph.cuh>
 
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/transform.h>
+#include <thrust/tuple.h>
+
 #include <limits>
 
 namespace raft {
