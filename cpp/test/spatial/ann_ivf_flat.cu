@@ -145,8 +145,8 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
     {
       rmm::device_uvector<T> distances_ivfflat_dev(queries_size, stream_);
       rmm::device_uvector<int64_t> indices_ivfflat_dev(queries_size, stream_);
-      raft::spatial::knn::ivf_flat_index_params index_params;
-      raft::spatial::knn::ivf_flat_search_params search_params;
+      raft::spatial::knn::ivf_flat::index_params index_params;
+      raft::spatial::knn::ivf_flat::search_params search_params;
       index_params.n_lists   = ps.nlist;
       index_params.metric    = ps.metric;
       search_params.n_probes = ps.nprobe;

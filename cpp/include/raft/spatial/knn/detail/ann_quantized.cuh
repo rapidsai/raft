@@ -17,6 +17,7 @@
 #pragma once
 
 #include "../ann_common.hpp"
+#include "../ivf_flat.cuh"
 #include "knn_brute_force_faiss.cuh"
 
 #include "common_faiss.h"
@@ -46,8 +47,6 @@
 #include <thrust/iterator/transform_iterator.h>
 
 #include <raft/distance/distance_type.hpp>
-
-#include "ann_ivf_flat.cuh"
 
 #include <iostream>
 #include <set>
@@ -92,13 +91,13 @@ void approx_knn_ivfflat_build_index(knnIndex* index,
 template <typename T = float, typename IntType = int>
 void approx_knn_cuivfl_ivfflat_build_index(const raft::handle_t& handle,
                                            knnIndex* index,
-                                           const ivf_flat_index_params& params,
+                                           const ivf_flat::index_params& params,
                                            T* dataset,
-                                           IntType n,
-                                           IntType D)
+                                           IntType n_rows,
+                                           IntType dim)
 {
-  index->ivf_flat<T>() = std::make_unique<detail::ivf_flat_handle<T>>(handle);
-  index->ivf_flat<T>()->build(dataset, n, D, params, handle.get_stream());
+  index->ivf_flat<T>() = std::make_unique<ivf_flat::index<T>>(
+    ivf_flat::build(handle, params, dataset, n_rows, dim, handle.get_stream()));
 }
 
 template <typename IntType = int>
@@ -148,7 +147,7 @@ void approx_knn_build_index(const handle_t& handle,
   int device;
   RAFT_CUDA_TRY(cudaGetDevice(&device));
   index->device    = device;
-  auto ivf_ft_pams = dynamic_cast<const ivf_flat_index_params*>(&params);
+  auto ivf_ft_pams = dynamic_cast<const ivf_flat::index_params*>(&params);
   auto ivf_pq_pams = dynamic_cast<const ivf_pq_index_params*>(&params);
   auto ivf_sq_pams = dynamic_cast<const ivf_sq_index_params*>(&params);
 
@@ -228,20 +227,34 @@ void approx_knn_search(const handle_t& handle,
   query_metric_processor->preprocess(query_array);
     index->index->search(n, query_array, k, distances, indices);
 #else
-  auto ivf_ft_pams = dynamic_cast<const ivf_flat_search_params*>(&params);
+  auto ivf_ft_pams = dynamic_cast<const ivf_flat::search_params*>(&params);
   if constexpr (std::is_same<T, uint8_t>{} || std::is_same<T, int8_t>{}) {
     if (ivf_ft_pams) {
-      index->ivf_flat<T>()->search(
-        query_array, n, k, *ivf_ft_pams, (size_t*)indices, distances, handle.get_stream());
+      ivf_flat::search(handle,
+                       *ivf_ft_pams,
+                       *(index->ivf_flat<T>()),
+                       query_array,
+                       n,
+                       k,
+                       (size_t*)indices,
+                       distances,
+                       handle.get_stream());
     }
   } else if constexpr (std::is_same<T, float>{}) {
     std::unique_ptr<MetricProcessor<float>> query_metric_processor = create_processor<float>(
-      index->metric, n, index->ivf_flat<T>()->data_dim(), k, false, handle.get_stream());
+      index->metric, n, index->ivf_flat<T>()->dim(), k, false, handle.get_stream());
     query_metric_processor->preprocess(query_array);
 
     if (ivf_ft_pams) {
-      index->ivf_flat<T>()->search(
-        query_array, n, k, *ivf_ft_pams, (size_t*)indices, distances, handle.get_stream());
+      ivf_flat::search(handle,
+                       *ivf_ft_pams,
+                       *(index->ivf_flat<T>()),
+                       query_array,
+                       n,
+                       k,
+                       (size_t*)indices,
+                       distances,
+                       handle.get_stream());
     }
     query_metric_processor->revert(query_array);
 

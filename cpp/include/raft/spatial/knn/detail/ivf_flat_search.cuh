@@ -18,13 +18,15 @@
 
 // #define USE_FAISS
 
-#include "../ann_common.hpp"
-#include "../ivf_flat.hpp"
+#include "../ivf_flat_types.hpp"
 #include "ann_utils.cuh"
+#include "topk/radix_topk.cuh"
 #include "topk/warpsort_topk.cuh"
 
 #include <raft/common/device_loads_stores.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/distance/distance.cuh>
@@ -37,26 +39,16 @@
 #endif
 
 #include <rmm/cuda_stream_view.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <optional>
-#include <raft/core/mdarray.hpp>
 
-namespace raft::spatial::knn::detail {
+namespace raft::spatial::knn::detail::ivf_flat {
+
+using raft::spatial::knn::ivf_flat::index;
+using raft::spatial::knn::ivf_flat::search_params;
 
 constexpr int kThreadsPerBlock = 128;
-
-template <typename T, typename... Extents>
-static inline auto make_array_for_index(rmm::cuda_stream_view stream, Extents... exts)
-{
-  using extent_t  = extents<((void)exts, dynamic_extent)...>;
-  using mdarray_t = device_mdarray<T, extent_t, layout_c_contiguous>;
-
-  typename mdarray_t::extents_type extent{exts...};
-  typename mdarray_t::mapping_type layout{extent};
-  typename mdarray_t::container_policy_type policy{stream};
-
-  return mdarray_t{layout, policy};
-}
 
 /**
  * @brief Copy Veclen elements of type T from `query` to `query_shared` at position `loadDim *
@@ -920,7 +912,7 @@ uint32_t configure_launch_x(uint32_t numQueries, uint32_t nprobe, int32_t sMemSi
 
 template <int Capacity, int Veclen, bool Ascending, typename T, typename AccT, typename Lambda>
 void launch_kernel(Lambda lambda,
-                   const ivf_flat_index<T>& index,
+                   const ivf_flat::index<T>& index,
                    const T* queries,
                    const uint32_t* coarse_index,
                    const uint32_t num_queries,
@@ -1118,7 +1110,7 @@ struct select_interleaved_scan_kernel {
  * @param stream
  */
 template <typename T, typename AccT>
-void ivfflat_interleaved_scan(const ivf_flat_index<T>& index,
+void ivfflat_interleaved_scan(const ivf_flat::index<T>& index,
                               const T* queries,
                               const uint32_t* coarse_query_results,
                               const uint32_t n_queries,
@@ -1148,4 +1140,228 @@ void ivfflat_interleaved_scan(const ivf_flat_index<T>& index,
                                                stream);
 }
 
-}  // namespace raft::spatial::knn::detail
+template <typename T, typename AccT>
+void search_impl(const handle_t& handle,
+                 const index<T>& index,
+                 const T* queries,
+                 uint32_t n_queries,
+                 uint32_t k,
+                 uint32_t n_probes,
+                 bool select_min,
+                 size_t* neighbors,
+                 AccT* distances,
+                 rmm::cuda_stream_view stream,
+                 rmm::mr::device_memory_resource* search_mr)
+{
+  // The norm of query
+  rmm::device_uvector<float> query_norm_dev(n_queries, stream, search_mr);
+  // The distance value of cluster(list) and queries
+  rmm::device_uvector<float> distance_buffer_dev(n_queries * index.n_lists(), stream, search_mr);
+  // The topk distance value of cluster(list) and queries
+  rmm::device_uvector<float> coarse_distances_dev(n_queries * n_probes, stream, search_mr);
+  // The topk  index of cluster(list) and queries
+  rmm::device_uvector<uint32_t> coarse_indices_dev(n_queries * n_probes, stream, search_mr);
+  // The topk distance value of candicate vectors from each cluster(list)
+  rmm::device_uvector<AccT> refined_distances_dev(n_queries * n_probes * k, stream, search_mr);
+  // The topk index of candicate vectors from each cluster(list)
+  rmm::device_uvector<size_t> refined_indices_dev(n_queries * n_probes * k, stream, search_mr);
+
+  size_t float_query_size;
+  if constexpr (std::is_integral_v<T>) {
+    float_query_size = n_queries * index.dim();
+  } else {
+    float_query_size = 0;
+  }
+  rmm::device_uvector<float> converted_queries_dev(float_query_size, stream, search_mr);
+  float* converted_queries_ptr = converted_queries_dev.data();
+
+  if constexpr (std::is_same_v<T, float>) {
+    converted_queries_ptr = const_cast<float*>(queries);
+  } else {
+    linalg::unaryOp(
+      converted_queries_ptr, queries, n_queries * index.dim(), utils::mapping<float>{}, stream);
+  }
+
+  float alpha = 1.0f;
+  float beta  = 0.0f;
+
+  if (index.metric == raft::distance::DistanceType::L2Expanded) {
+    alpha = -2.0f;
+    beta  = 1.0f;
+    utils::dots_along_rows(
+      n_queries, index.dim(), converted_queries_ptr, query_norm_dev.data(), stream);
+    utils::outer_add(query_norm_dev.data(),
+                     n_queries,
+                     index.center_norms->data(),
+                     index.n_lists(),
+                     distance_buffer_dev.data(),
+                     stream);
+    RAFT_LOG_TRACE_VEC(index.center_norms->data(), 20);
+    RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
+  } else {
+    alpha = 1.0f;
+    beta  = 0.0f;
+  }
+
+  linalg::gemm(handle,
+               true,
+               false,
+               index.n_lists(),
+               n_queries,
+               index.dim(),
+               &alpha,
+               index.centers.data(),
+               index.dim(),
+               converted_queries_ptr,
+               index.dim(),
+               &beta,
+               distance_buffer_dev.data(),
+               index.n_lists(),
+               stream);
+
+  RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
+  if (n_probes <= raft::spatial::knn::detail::topk::kMaxCapacity) {
+    topk::warp_sort_topk<AccT, uint32_t>(distance_buffer_dev.data(),
+                                         nullptr,
+                                         n_queries,
+                                         index.n_lists(),
+                                         n_probes,
+                                         coarse_distances_dev.data(),
+                                         coarse_indices_dev.data(),
+                                         select_min,
+                                         stream);
+  } else {
+    topk::radix_topk<AccT, uint32_t, 11, 512>(distance_buffer_dev.data(),
+                                              nullptr,
+                                              n_queries,
+                                              index.n_lists(),
+                                              n_probes,
+                                              coarse_distances_dev.data(),
+                                              coarse_indices_dev.data(),
+                                              select_min,
+                                              stream,
+                                              search_mr);
+  }
+  RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), 1 * n_probes);
+  RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), 1 * n_probes);
+
+  AccT* distances_dev_ptr = refined_distances_dev.data();
+  size_t* indices_dev_ptr = refined_indices_dev.data();
+
+  uint32_t grid_dim_x = 0;
+  if (n_probes > 1) {
+    // query the gridDimX size to store probes topK output
+    ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(index,
+                                                                    nullptr,
+                                                                    nullptr,
+                                                                    n_queries,
+                                                                    index.metric,
+                                                                    n_probes,
+                                                                    k,
+                                                                    select_min,
+                                                                    nullptr,
+                                                                    nullptr,
+                                                                    grid_dim_x,
+                                                                    stream);
+  } else {
+    grid_dim_x = 1;
+  }
+
+  if (grid_dim_x == 1) {
+    distances_dev_ptr = distances;
+    indices_dev_ptr   = neighbors;
+  }
+
+  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t>(index,
+                                                                  queries,
+                                                                  coarse_indices_dev.data(),
+                                                                  n_queries,
+                                                                  index.metric,
+                                                                  n_probes,
+                                                                  k,
+                                                                  select_min,
+                                                                  indices_dev_ptr,
+                                                                  distances_dev_ptr,
+                                                                  grid_dim_x,
+                                                                  stream);
+
+  RAFT_LOG_TRACE_VEC(distances_dev_ptr, 2 * k);
+  RAFT_LOG_TRACE_VEC(indices_dev_ptr, 2 * k);
+
+  // Merge topk values from different blocks
+  if (grid_dim_x > 1) {
+    if (k <= raft::spatial::knn::detail::topk::kMaxCapacity) {
+      topk::warp_sort_topk<AccT, size_t>(refined_distances_dev.data(),
+                                         refined_indices_dev.data(),
+                                         n_queries,
+                                         k * grid_dim_x,
+                                         k,
+                                         distances,
+                                         neighbors,
+                                         select_min,
+                                         stream);
+    } else {
+      topk::radix_topk<AccT, size_t, 11, 512>(refined_distances_dev.data(),
+                                              refined_indices_dev.data(),
+                                              n_queries,
+                                              k * grid_dim_x,
+                                              k,
+                                              distances,
+                                              neighbors,
+                                              select_min,
+                                              stream,
+                                              search_mr);
+    }
+  }
+}
+
+template <typename T>
+inline void search(const handle_t& handle,
+                   const search_params& params,
+                   const index<T>& index,
+                   const T* queries,
+                   uint32_t n_queries,
+                   uint32_t k,
+                   size_t* neighbors,
+                   float* distances,
+                   rmm::cuda_stream_view stream,
+                   rmm::mr::device_memory_resource* mr = nullptr)
+{
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "ivf_flat_handle::search(%u, %u, %zu)", n_queries, k, neighbors);
+
+  RAFT_EXPECTS(params.n_probes > 0,
+               "n_probes (number of clusters to probe in the search) must be positive.");
+  auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
+
+  bool select_min;
+  switch (index.metric) {
+    case raft::distance::DistanceType::InnerProduct:
+    case raft::distance::DistanceType::CosineExpanded:
+    case raft::distance::DistanceType::CorrelationExpanded:
+      // Similarity metrics have the opposite meaning, i.e. nearest neigbours are those with larger
+      // similarity (See the same logic at cpp/include/raft/sparse/selection/detail/knn.cuh:362
+      // {perform_k_selection})
+      select_min = false;
+      break;
+    default: select_min = true;
+  }
+
+  //   // Set memory buffer to be reused across searches
+  //   auto cur_memory_resource = rmm::mr::get_current_device_resource();
+  //   if (!search_mem_res_.has_value() || search_mem_res_->get_upstream() != cur_memory_resource) {
+  //     search_mem_res_.emplace(cur_memory_resource, Pow2<256>::roundUp(n_queries * n_probes * k *
+  //     16));
+  //   }
+  std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> pool_res;
+  if (mr == nullptr) {
+    pool_res.emplace(rmm::mr::get_current_device_resource(),
+                     Pow2<256>::roundUp(n_queries * n_probes * k * 16));
+    mr = &(pool_res.value());
+  }
+
+  return search_impl<T, float>(
+    handle, index, queries, n_queries, k, n_probes, select_min, neighbors, distances, stream, mr);
+}
+
+}  // namespace raft::spatial::knn::detail::ivf_flat

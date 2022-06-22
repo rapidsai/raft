@@ -132,8 +132,8 @@ struct host_uvector {
 template <typename ValT, typename IdxT>
 struct ivf_flat_knn {
   raft::spatial::knn::knnIndex index;
-  raft::spatial::knn::ivf_flat_index_params index_params;
-  raft::spatial::knn::ivf_flat_search_params search_params;
+  raft::spatial::knn::ivf_flat::index_params index_params;
+  raft::spatial::knn::ivf_flat::search_params search_params;
   params ps;
 
   ivf_flat_knn(const raft::handle_t& handle, const params& ps, const ValT* data) : ps(ps)
