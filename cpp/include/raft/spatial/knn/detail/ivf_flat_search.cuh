@@ -1229,7 +1229,8 @@ void search_impl(const handle_t& handle,
                                          coarse_distances_dev.data(),
                                          coarse_indices_dev.data(),
                                          select_min,
-                                         stream);
+                                         stream,
+                                         search_mr);
   } else {
     topk::radix_topk<AccT, uint32_t, 11, 512>(distance_buffer_dev.data(),
                                               nullptr,
@@ -1299,7 +1300,8 @@ void search_impl(const handle_t& handle,
                                          distances,
                                          neighbors,
                                          select_min,
-                                         stream);
+                                         stream,
+                                         search_mr);
     } else {
       topk::radix_topk<AccT, size_t, 11, 512>(refined_distances_dev.data(),
                                               refined_indices_dev.data(),

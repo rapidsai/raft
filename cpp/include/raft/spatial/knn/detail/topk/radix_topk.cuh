@@ -528,12 +528,12 @@ inline dim3 get_optimal_grid_size(size_t req_batch_size, size_t len)
  * @param[in] in_idx
  *   contiguous device array of inputs of size (len * batch_size);
  *   typically, these are indices of the corresponding in_keys.
- * @param[in] batch_size
+ * @param batch_size
  *   number of input rows, i.e. the batch size.
- * @param[in] len
+ * @param len
  *   length of a single input array (row); also sometimes referred as n_cols.
  *   Invariant: len >= k.
- * @param[in] k
+ * @param k
  *   the number of outputs to select in each input row.
  * @param[out] out
  *   contiguous device array of outputs of size (k * batch_size);
@@ -541,9 +541,11 @@ inline dim3 get_optimal_grid_size(size_t req_batch_size, size_t len)
  * @param[out] out_idx
  *   contiguous device array of outputs of size (k * batch_size);
  *   the payload selected together with `out`.
- * @param[in] select_min
+ * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
- * @param[in] stream
+ * @param stream
+ * @param mr an optional memory resource to use across the calls (you can provide a large enough
+ *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 void radix_topk(const T* in,
