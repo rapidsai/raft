@@ -142,8 +142,12 @@ rapids_cpm_init()
 # thrust before rmm/cuco so we get the right version of thrust/cub
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_cuco.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
+
+if(RAFT_ENABLE_cuco_DEPENDENCY)
+  include(${rapids-cmake-dir}/cpm/cuco.cmake)
+  rapids_cpm_cuco(BUILD_EXPORT_SET raft-distance-lib-exports INSTALL_EXPORT_SET  raft-distance-lib-exports)
+endif()
 
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
