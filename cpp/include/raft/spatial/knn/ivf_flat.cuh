@@ -30,12 +30,16 @@ namespace raft::spatial::knn::ivf_flat {
 /**
  * @brief Build the index from the dataset for efficient search.
  *
+ * @tparam T data element type
+ *
  * @param handle
  * @param params configure the index building
  * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
  * @param n_rows the number of samples
  * @param dim the dimensionality of the data
  * @param stream
+ *
+ * @return the constructed ivf-flat index
  */
 template <typename T>
 inline auto build(const handle_t& handle,
@@ -50,6 +54,8 @@ inline auto build(const handle_t& handle,
 
 /**
  * @brief Search ANN using the constructed index.
+ *
+ * @tparam T data element type
  *
  * @param handle
  * @param params configure the search

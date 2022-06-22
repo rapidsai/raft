@@ -1317,6 +1317,7 @@ void search_impl(const handle_t& handle,
   }
 }
 
+/** See raft::spatial::knn::ivf_flat::search docs */
 template <typename T>
 inline void search(const handle_t& handle,
                    const search_params& params,

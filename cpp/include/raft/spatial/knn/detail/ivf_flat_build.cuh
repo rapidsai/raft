@@ -113,6 +113,7 @@ __global__ void build_index_kernel(const uint32_t* labels,
   }
 }
 
+/** See raft::spatial::knn::ivf_flat::build docs */
 template <typename T>
 inline auto build(const handle_t& handle,
                   const index_params& params,
