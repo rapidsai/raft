@@ -739,21 +739,21 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
     // The start address of index of vector for each cluster(list) interleaved
     auto indexBase = list_index + list_prefix_interleave[listId];
     // The number of vectors in each cluster(list); [nlist]
-    const uint32_t numVecs = list_lengths[listId];
+    const uint32_t list_length = list_lengths[listId];
 
-    // The number of interleaved group to be processed
-    const uint32_t numBlocks = ceildiv<uint32_t>(numVecs, WarpSize);
+    // The number of interleaved groups to be processed
+    const uint32_t num_groups = ceildiv<uint32_t>(list_length, WarpSize);
 
     constexpr int kUnroll        = WarpSize / Veclen;
     constexpr uint32_t kNumWarps = kThreadsPerBlock / WarpSize;
     // Every warp reads WarpSize vectors and computes the distances to them.
     // Then, the distances and corresponding ids are distributed among the threads,
     // and each thread adds one (id, dist) pair to the filtering queue.
-    for (uint32_t block = warpId; block < numBlocks; block += kNumWarps) {
+    for (uint32_t block = warpId; block < num_groups; block += kNumWarps) {
       AccT dist = 0;
       // This is the vector a given lane/thread handles
       const uint32_t vec = block * WarpSize + laneId;
-      bool valid         = vec < numVecs;
+      bool valid         = vec < list_length;
       size_t idx         = (valid) ? (size_t)indexBase[vec] : (size_t)laneId;
       // This is where this warp begins reading data
       const T* data = vecsBase + size_t(block) * kGroupSize * dim;  // Start position of this block
@@ -793,7 +793,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
       constexpr float kDummy = Ascending ? upper_bound<float>() : lower_bound<float>();
       float val              = (valid) ? (float)dist : kDummy;
       queue.add(val, idx);
-    }  // end for block < numBlocks
+    }
   }
 
   /// Warp_wise topk
