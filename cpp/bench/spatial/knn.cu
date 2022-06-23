@@ -131,6 +131,8 @@ struct host_uvector {
 
 template <typename ValT, typename IdxT>
 struct ivf_flat_knn {
+  using dist_t = float;
+
   raft::spatial::knn::knnIndex index;
   raft::spatial::knn::ivf_flat::index_params index_params;
   raft::spatial::knn::ivf_flat::search_params search_params;
@@ -150,7 +152,7 @@ struct ivf_flat_knn {
 
   void search(const raft::handle_t& handle,
               const ValT* search_items,
-              ValT* out_dists,
+              dist_t* out_dists,
               IdxT* out_idxs)
   {
     search_params.n_probes = 20;
@@ -167,6 +169,8 @@ struct ivf_flat_knn {
 
 template <typename ValT, typename IdxT>
 struct brute_force_knn {
+  using dist_t = ValT;
+
   ValT* index;
   params ps;
 
@@ -177,7 +181,7 @@ struct brute_force_knn {
 
   void search(const raft::handle_t& handle,
               const ValT* search_items,
-              ValT* out_dists,
+              dist_t* out_dists,
               IdxT* out_idxs)
   {
     std::vector<ValT*> input{index};
@@ -207,8 +211,7 @@ struct knn : public fixture {
       out_idxs_(p.n_probes * p.k, stream)
   {
     raft::random::RngState state{42};
-    raft::random::uniform(
-      state, search_items_.data(), search_items_.size(), ValT(-1.0), ValT(1.0), stream);
+    gen_data(state, search_items_, search_items_.size(), stream);
     try {
       size_t total_size = p.n_samples * p.n_dims;
       data_host_.resize(total_size);
@@ -216,11 +219,27 @@ struct knn : public fixture {
       rmm::device_uvector<ValT> d(std::min(kGenMinibatchSize, total_size), stream);
       for (size_t offset = 0; offset < total_size; offset += kGenMinibatchSize) {
         size_t actual_size = std::min(total_size - offset, kGenMinibatchSize);
-        raft::random::uniform(state, d.data(), actual_size, ValT(-1.0), ValT(1.0), stream);
+        gen_data(state, d, actual_size, stream);
         copy(data_host_.data() + offset, d.data(), actual_size, stream);
       }
     } catch (std::bad_alloc& e) {
       data_does_not_fit_ = true;
+    }
+  }
+
+  template <typename T>
+  void gen_data(raft::random::RngState& state,
+                rmm::device_uvector<T>& vec,
+                size_t n,
+                rmm::cuda_stream_view stream)
+  {
+    constexpr T kRangeMax = T(std::min<double>(
+      raft::spatial::knn::detail::utils::config<T>::kDivisor, std::numeric_limits<T>::max()));
+    constexpr T kRangeMin = std::is_signed_v<T> ? -kRangeMax : T(0);
+    if constexpr (std::is_integral_v<T>) {
+      raft::random::uniformInt(state, vec.data(), n, kRangeMin, kRangeMax, stream);
+    } else {
+      raft::random::uniform(state, vec.data(), n, kRangeMin, kRangeMax, stream);
     }
   }
 
@@ -326,7 +345,7 @@ struct knn : public fixture {
 
   std::vector<ValT> data_host_;
   rmm::device_uvector<ValT> search_items_;
-  rmm::device_uvector<ValT> out_dists_;
+  rmm::device_uvector<typename ImplT::dist_t> out_dists_;
   rmm::device_uvector<IdxT> out_idxs_;
 };
 
@@ -352,5 +371,7 @@ const std::vector<Scope> kAllScopes{Scope::BUILD, Scope::SEARCH, Scope::BUILD_SE
 
 KNN_REGISTER(float, int64_t, brute_force_knn, kInputs, kAllStrategies, kScopeFull);
 KNN_REGISTER(float, int64_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
+KNN_REGISTER(int8_t, int64_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
+KNN_REGISTER(uint8_t, int64_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
 
 }  // namespace raft::bench::spatial
