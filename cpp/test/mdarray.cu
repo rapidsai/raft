@@ -552,10 +552,11 @@ void test_mdspan_layout_padded_general()
     static constexpr int X = -1;
     int data_padded[]      = {1, 2, 3, 4, 5, X, X, X, 6, 7, 8, 9, 10, X, X, X};
 
-    using extents_type          = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
-    using layout_padded_general = stdex::layout_padded_general<int, true, alignment_bytes>;
-    using padded_mdspan         = stdex::mdspan<int, extents_type, layout_padded_general>;
-    using row_major_mdspan      = stdex::mdspan<int, extents_type, stdex::layout_right>;
+    using extents_type = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+    using layout_padded_general =
+      stdex::layout_padded_general<int, stdex::StorageOrderType::row_major_t, alignment_bytes>;
+    using padded_mdspan    = stdex::mdspan<int, extents_type, layout_padded_general>;
+    using row_major_mdspan = stdex::mdspan<int, extents_type, stdex::layout_right>;
 
     layout_padded_general::mapping<extents_type> layout{extents_type{n_rows, n_cols}};
 
@@ -588,8 +589,9 @@ void test_mdarray_padding()
     /**
      * padded device array
      */
-    using layout_padded_general = stdex::layout_padded_general<float, true, alignment_bytes>;
-    using padded_mdarray_type   = device_mdarray<float, extents_type, layout_padded_general>;
+    using layout_padded_general =
+      stdex::layout_padded_general<float, stdex::StorageOrderType::row_major_t, alignment_bytes>;
+    using padded_mdarray_type = device_mdarray<float, extents_type, layout_padded_general>;
     layout_padded_general::mapping<extents_type> layout(extents_type(rows, cols));
 
     auto device_policy = padded_mdarray_type::container_policy_type{s};
@@ -676,9 +678,10 @@ void test_submdspan_padding()
     constexpr int alignment       = 5;
     constexpr int alignment_bytes = sizeof(int) * alignment;
 
-    using layout_padded_general = stdex::layout_padded_general<float, true, alignment_bytes>;
-    using padded_mdarray_type   = device_mdarray<float, extents_type, layout_padded_general>;
-    using padded_mdspan_type    = device_mdspan<float, extents_type, layout_padded_general>;
+    using layout_padded_general =
+      stdex::layout_padded_general<float, stdex::StorageOrderType::row_major_t, alignment_bytes>;
+    using padded_mdarray_type = device_mdarray<float, extents_type, layout_padded_general>;
+    using padded_mdspan_type  = device_mdspan<float, extents_type, layout_padded_general>;
     layout_padded_general::mapping<extents_type> layout{extents_type{rows, cols}};
 
     auto device_policy = padded_mdarray_type::container_policy_type{s};
@@ -829,8 +832,8 @@ void test_mdspan_padding_by_type()
 
     // manually check strides for row major (c style) padding
     {
-      using layout_padded_general =
-        stdex::layout_padded_general<TestElement1, true, alignment_bytes>;
+      using layout_padded_general = stdex::
+        layout_padded_general<TestElement1, stdex::StorageOrderType::row_major_t, alignment_bytes>;
       using padded_mdarray_type = device_mdarray<TestElement1, extents_type, layout_padded_general>;
       auto device_policy        = padded_mdarray_type::container_policy_type{s};
 
@@ -855,7 +858,9 @@ void test_mdspan_padding_by_type()
     // manually check strides for col major (f style) padding
     {
       using layout_padded_general =
-        stdex::layout_padded_general<TestElement1, false, alignment_bytes>;
+        stdex::layout_padded_general<TestElement1,
+                                     stdex::StorageOrderType::column_major_t,
+                                     alignment_bytes>;
       using padded_mdarray_type = device_mdarray<TestElement1, extents_type, layout_padded_general>;
       auto device_policy        = padded_mdarray_type::container_policy_type{s};
 
