@@ -533,7 +533,7 @@ auto build_fine_clusters(const handle_t& handle,
   rmm::device_uvector<uint32_t> mc_trainset_csizes_tmp(
     fine_clusters_nums_max, stream, managed_memory);
 
-  // Training clusters in each meso-clusters
+  // Training clusters in each meso-cluster
   uint32_t n_clusters_done = 0;
   for (uint32_t i = 0; i < n_mesoclusters; i++) {
     uint32_t k = 0;
@@ -541,6 +541,13 @@ auto build_fine_clusters(const handle_t& handle,
       if (labels_mptr[j] == i) { mc_trainset_ids[k++] = j; }
     }
     RAFT_EXPECTS(k == mesocluster_sizes[i], "Incorrect mesocluster size at %d.", i);
+    if (k == 0) {
+      RAFT_LOG_DEBUG("Empty cluster %d", i);
+      RAFT_EXPECTS(fine_clusters_nums[i] == 0,
+                   "Number of fine clusters must be zero for the empty mesocluster (got %d)",
+                   fine_clusters_nums[i]);
+      continue;
+    }
 
     utils::copy_selected<T>(
       mesocluster_sizes[i], dim, dataset_mptr, mc_trainset_ids, dim, mc_trainset, dim, stream);
