@@ -216,6 +216,21 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
 };
 
 const std::vector<AnnIvfFlatInputs> inputs = {
+
+  {1000, 10000, 1, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 2, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 3, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 4, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 2048, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 2049, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 2050, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 2051, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 2052, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 2053, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 2056, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+
   {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::L2Expanded},
