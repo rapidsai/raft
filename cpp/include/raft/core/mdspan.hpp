@@ -22,4 +22,5 @@
  */
 #pragma once
 
+#include <raft/detail/layout_padded_general.hpp>
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>

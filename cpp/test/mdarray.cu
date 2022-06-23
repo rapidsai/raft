@@ -562,7 +562,8 @@ void test_mdarray_padding()
 
 TEST(MDArray, Padding) { test_mdarray_padding(); }
 
-void test_submdspan_padding()
+// Test deactivated as submdspan support requires upstream changes
+/*void test_submdspan_padding()
 {
   using extents_type = stdex::extents<dynamic_extent, dynamic_extent>;
   auto s             = rmm::cuda_stream_default;
@@ -706,7 +707,7 @@ void test_submdspan_padding()
   }
 }
 
-TEST(MDSpan, SubmdspanPadding) { test_submdspan_padding(); }
+TEST(MDSpan, SubmdspanPadding) { test_submdspan_padding(); }*/
 
 struct TestElement1 {
   int a, b;
