@@ -21,6 +21,7 @@
 #include <raft/common/nvtx.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/matrix/detail/linewise_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
@@ -80,6 +81,17 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     rmm::device_uvector<T> blob(workSizeElems, stream);
     uniform(handle, r, blob.data(), workSizeElems, T(-1.0), T(1.0));
     return blob;
+  }
+
+  void runLinewiseSumSpan(detail::padded_matrix<T>& out,
+                          const detail::padded_matrix<T>& in,
+                          const I lineLen,
+                          const I nLines,
+                          const bool alongLines,
+                          const T* vec)
+  {
+    auto f = [] __device__(T a, T b) -> T { return a + b; };
+    matrix::linewiseOpSpan(out, in, lineLen, nLines, alongLines, f, stream, vec);
   }
 
   /**
@@ -179,9 +191,80 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     return r;
   }
 
+  testing::AssertionResult runWithPaddedSpan(std::vector<std::tuple<I, I>>&& dims,
+                                             rmm::device_uvector<T>&& blob)
+  {
+    rmm::device_uvector<T> blob_val(params.checkCorrectness ? blob.size() / 2 : 0, stream);
+
+    stream.synchronize();
+    cudaProfilerStart();
+    testing::AssertionResult r = testing::AssertionSuccess();
+    for (auto alongRows : ::testing::Bool()) {
+      for (auto [n, m] : dims) {
+        if (!r) break;
+        // take dense testdata
+        auto [out, in, vec1, vec2] = assignSafePtrs(blob, n, m);
+        common::nvtx::range dims_scope("Dims-%zu-%zu", std::size_t(n), std::size_t(m));
+        common::nvtx::range dir_scope(alongRows ? "alongRows" : "acrossRows");
+        auto lineLen = alongRows ? m : n;
+        auto nLines  = alongRows ? n : m;
+
+        // create a padded span based on testdata (just for functional testing)
+        typename detail::padded_layout_row_major<T>::mapping<detail::extents_type> layout{
+          detail::extents_type{nLines, lineLen}};
+
+        auto matrix_size_padded = layout.required_span_size();
+        rmm::device_uvector<T> blob_in(matrix_size_padded, stream);
+        rmm::device_uvector<T> blob_out(matrix_size_padded, stream);
+        auto inSpan  = detail::padded_matrix<T>(blob_in.data(), layout);
+        auto outSpan = detail::padded_matrix<T>(blob_out.data(), layout);
+
+        {
+          auto in2 = in;
+          // prep padded input data
+          thrust::for_each_n(rmm::exec_policy(stream),
+                             thrust::make_counting_iterator(0ul),
+                             nLines * lineLen,
+                             [inSpan, in2, lineLen] __device__(size_t i) {
+                               inSpan(i / lineLen, i % lineLen) = in2[i];
+                             });
+
+          // actual testrun
+          {
+            common::nvtx::range vecs_scope("one vec");
+            runLinewiseSumSpan(outSpan, inSpan, lineLen, nLines, alongRows, vec1);
+          }
+
+          if (params.checkCorrectness) {
+            runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1);
+            auto out_dense = blob_val.data();
+            thrust::for_each_n(rmm::exec_policy(stream),
+                               thrust::make_counting_iterator(0ul),
+                               nLines * lineLen,
+                               [outSpan, out_dense, lineLen] __device__(size_t i) {
+                                 out_dense[i] = outSpan(i / lineLen, i % lineLen);
+                               });
+            r = devArrMatch(out_dense, out, n * m, CompareApprox<T>(params.tolerance))
+                << " " << (alongRows ? "alongRows" : "acrossRows")
+                << " with one vec;  lineLen: " << lineLen << "; nLines " << nLines;
+            if (!r) break;
+          }
+        }
+      }
+    }
+    cudaProfilerStop();
+
+    return r;
+  }
+
   testing::AssertionResult run()
   {
     return run(suggestDimensions(2), genData(params.workSizeBytes));
+  }
+
+  testing::AssertionResult runWithPaddedSpan()
+  {
+    return runWithPaddedSpan(suggestDimensions(2), genData(params.workSizeBytes));
   }
 
   testing::AssertionResult runEdgeCases()
@@ -203,6 +286,13 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   typedef LinewiseTest<ElemType, IndexType, TestClass> TestClass##_##ElemType##_##IndexType; \
   TEST_P(TestClass##_##ElemType##_##IndexType, fun) { ASSERT_TRUE(fun()); }                  \
   INSTANTIATE_TEST_SUITE_P(LinewiseOp, TestClass##_##ElemType##_##IndexType, TestClass##Params)
+
+#define TEST_IT_SPAN(fun, TestClass, ElemType, IndexType)                                        \
+  typedef LinewiseTest<ElemType, IndexType, TestClass> TestClass##Span_##ElemType##_##IndexType; \
+  TEST_P(TestClass##Span_##ElemType##_##IndexType, fun) { ASSERT_TRUE(fun()); }                  \
+  INSTANTIATE_TEST_SUITE_P(LinewiseOpSpan, TestClass##Span_##ElemType##_##IndexType, SpanParams)
+
+auto SpanParams = ::testing::Combine(::testing::Values(0), ::testing::Values(0));
 
 auto TinyParams = ::testing::Combine(::testing::Values(0, 1, 2, 4), ::testing::Values(0, 1, 2, 3));
 
@@ -272,6 +362,11 @@ TEST_IT(run, Gigabyte, float, int);
 TEST_IT(run, Gigabyte, double, int);
 TEST_IT(run, TenGigs, float, uint64_t);
 TEST_IT(run, TenGigs, double, uint64_t);
+
+TEST_IT_SPAN(runWithPaddedSpan, Megabyte, float, int);
+TEST_IT_SPAN(runWithPaddedSpan, Megabyte, double, int);
+TEST_IT_SPAN(runWithPaddedSpan, Gigabyte, float, int);
+TEST_IT_SPAN(runWithPaddedSpan, Gigabyte, double, int);
 
 }  // namespace matrix
 }  // end namespace raft
