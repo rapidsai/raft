@@ -926,16 +926,17 @@ auto reshape(const array_interface_type& mda, extents<Extents...> new_shape)
  *
  * \param idx    The linear index.
  * \param shape  The shape of the array to use.
- * \param layout Must be `layout_right` (row-major) in current implementation.
+ * \param layout Must be `layout_c_contiguous` (row-major) in current implementation.
  *
  * \return A std::tuple that represents the coordinate.
  */
 template <typename LayoutPolicy, std::size_t... Exts>
 MDSPAN_INLINE_FUNCTION auto unravel_index(size_t idx,
-                                          detail::stdex::extents<Exts...> shape,
-                                          LayoutPolicy const&)
+                                          extents<Exts...> shape,
+                                          LayoutPolicy const& layout)
 {
-  static_assert(std::is_same<LayoutPolicy, layout_c_contiguous>::value,
+  static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(layout)>>,
+                               layout_c_contiguous>,
                 "Only C layout is supported.");
   if (idx > std::numeric_limits<uint32_t>::max()) {
     return detail::unravel_index_impl<uint64_t, Exts...>(static_cast<uint64_t>(idx), shape);
