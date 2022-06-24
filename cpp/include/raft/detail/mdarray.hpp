@@ -27,7 +27,6 @@
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>
-#include <thrust/tuple.h>
 
 namespace raft::detail {
 /**
