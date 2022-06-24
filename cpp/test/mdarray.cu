@@ -451,7 +451,7 @@ void test_mdarray_unravel()
     ASSERT_EQ(detail::popc(v), 64);
   }
 
-  // examples in numpy unravel_index
+  // examples from numpy unravel_index
   {
     auto coord = unravel_index(22, detail::matrix_extent{7, 6}, stdex::layout_right{});
     static_assert(std::tuple_size<decltype(coord)>::value == 2);
@@ -491,7 +491,7 @@ void test_mdarray_unravel()
     thrust::for_each_n(handle.get_thrust_policy(),
                        thrust::make_counting_iterator(0ul),
                        m_v.size(),
-                       [=] __device__(size_t i) {
+                       [=] HD(size_t i) {
                          auto coord =
                            unravel_index(i, m_v.extents(), typename decltype(m_v)::layout_type{});
                          std::apply(m_v, coord) = static_cast<float>(i);
@@ -501,7 +501,7 @@ void test_mdarray_unravel()
     thrust::for_each_n(handle.get_thrust_policy(),
                        thrust::make_counting_iterator(0ul),
                        m_v.size(),
-                       [=] HD(size_t i) {
+                       [=] __device__(size_t i) {
                          auto coord =
                            unravel_index(i, m_v.extents(), typename decltype(m_v)::layout_type{});
                          auto v = std::apply(m_v, coord);

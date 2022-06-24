@@ -59,7 +59,7 @@ class device_reference {
   auto operator=(T const& other) -> device_reference&
   {
     auto* raw = ptr_.get();
-    raft::update_device(raw, &other, 1, stream_);
+    update_device(raw, &other, 1, stream_);
     return *this;
   }
 };
