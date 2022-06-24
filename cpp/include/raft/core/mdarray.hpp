@@ -920,7 +920,7 @@ auto reshape(const array_interface_type& mda, extents<Extents...> new_shape)
  * \code
  *   auto m = make_host_matrix<float>(7, 6);
  *   auto m_v = m.view();
- *   auto coord = detail::unravel_index(2, m.extents(), typename decltype(m)::layout_type{});
+ *   auto coord = unravel_index(2, m.extents(), typename decltype(m)::layout_type{});
  *   std::apply(m_v, coord) = 2;
  * \endcode
  *
