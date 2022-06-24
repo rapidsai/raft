@@ -255,12 +255,12 @@ __global__ void naiveKLDivergenceDistanceKernel(
   if (midx >= m || nidx >= n) return;
   OutType acc = OutType(0);
   for (int i = 0; i < k; ++i) {
-    int xidx          = isRowMajor ? i + midx * k : i * m + midx;
-    int yidx          = isRowMajor ? i + nidx * k : i * n + nidx;
-    auto a            = x[xidx];
-    auto b            = y[yidx];
-    bool b_zero       = (b == 0);
-    bool a_zero       = (a == 0);
+    int xidx    = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx    = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a      = x[xidx];
+    auto b      = y[yidx];
+    bool b_zero = (b == 0);
+    bool a_zero = (a == 0);
     acc += a * (log(a + a_zero) - log(b + b_zero));
   }
   acc          = 0.5f * acc;
