@@ -64,6 +64,10 @@ void test_template_asserts()
                 "device_matrix_view type not a host_mdspan");
   static_assert(is_host_mdspan_v<host_matrix_view<float>>,
                 "host_matrix_view type is a host_mdspan");
+
+  // checking variadics
+  static_assert(!is_mdspan_v<three_d_mdspan, std::vector<int>>, "variadics mdspans");
+  static_assert(is_mdspan_v<three_d_mdspan, d_mdspan>, "variadics not mdspans");
 }
 
 TEST(MDSpan, TemplateAsserts) { test_template_asserts(); }
