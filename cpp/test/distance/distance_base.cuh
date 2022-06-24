@@ -260,9 +260,8 @@ __global__ void naiveKLDivergenceDistanceKernel(
     auto a            = x[xidx];
     auto b            = y[yidx];
     bool b_zero       = (b == 0);
-    const auto m      = (!b_zero) * (a / b);
-    const bool m_zero = (m == 0);
-    acc += (a * (!m_zero) * log(m + m_zero));
+    bool a_zero       = (a == 0);
+    acc += a * (log(a + a_zero) - log(b + b_zero));
   }
   acc          = 0.5f * acc;
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
@@ -450,10 +449,6 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     }
     naiveDistance(
       dist_ref.data(), x.data(), y.data(), m, n, k, distanceType, isRowMajor, metric_arg, stream);
-    //    size_t worksize = raft::distance::getWorkspaceSize<distanceType, DataType, DataType,
-    //    DataType>(
-    //      x.data(), y.data(), m, n, k);
-    //    rmm::device_uvector<char> workspace(worksize, stream);
 
     DataType threshold = -10000.f;
 
