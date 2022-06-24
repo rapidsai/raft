@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/mdspan.hpp>
+#include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
 #include <algorithm>
 #include <array>
@@ -72,7 +72,9 @@ MDSPAN_INLINE_FUNCTION constexpr auto padded_col_major_strides(size_t ByteAlignm
 }
 
 // similar to layout_strided, but contiguous with padding in second smallest stride dimension
-template <typename ValueType, StorageOrderType StorageOrder, size_t ByteAlignment = 128>
+template <typename ValueType,
+          StorageOrderType StorageOrder = StorageOrderType::row_major_t,
+          size_t ByteAlignment          = 128>
 struct layout_padded_general {
   static_assert(std::is_same<remove_cv_t<ValueType>, ValueType>::value,
                 "std::experimental::layout_padded_general ValueType has to be provided without "
@@ -80,6 +82,11 @@ struct layout_padded_general {
   static_assert(ByteAlignment % sizeof(ValueType) == 0 || sizeof(ValueType) % ByteAlignment == 0,
                 "std::experimental::layout_padded_general sizeof(ValueType) has to be multiple or "
                 "divider of ByteAlignment.");
+
+  using value_type                                = ValueType;
+  static constexpr StorageOrderType storage_order = StorageOrder;
+  static constexpr size_t byte_alignment          = ByteAlignment;
+  static constexpr size_t element_alignment = std::max(ByteAlignment / sizeof(ValueType), 1ul);
 
   template <class Extents>
   class mapping : public layout_stride::mapping<Extents> {
