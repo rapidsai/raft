@@ -122,20 +122,12 @@ struct mapping {
   template <typename S>
   HDI auto operator()(const S& x) -> std::enable_if_t<!std::is_same_v<S, T>, T>
   {
-    constexpr double kMult = config<S>::kDivisor / config<T>::kDivisor;
-    return static_cast<T>(static_cast<double>(x) * kMult);
+    constexpr double kMult = config<T>::kDivisor / config<S>::kDivisor;
+    if constexpr (std::is_floating_point_v<S>) { return static_cast<T>(x * static_cast<S>(kMult)); }
+    if constexpr (std::is_floating_point_v<T>) { return static_cast<T>(x) * static_cast<T>(kMult); }
+    return static_cast<T>(static_cast<float>(x) * static_cast<float>(kMult));
   };
   /** @} */
-};
-
-template <>
-struct mapping<float> {
-  template <typename S>
-  HDI auto operator()(const S& x) -> float
-  {
-    constexpr float kMult = static_cast<float>(config<float>::kDivisor / config<S>::kDivisor);
-    return static_cast<float>(x) * kMult;
-  };
 };
 
 /**
@@ -437,10 +429,10 @@ void outer_add(
 template <typename T, typename S>
 __global__ void copy_selected_kernel(uint32_t n_rows,
                                      uint32_t n_cols,
-                                     const T* src,
+                                     const S* src,
                                      const uint32_t* row_ids,
                                      uint32_t ld_src,
-                                     S* dst,
+                                     T* dst,
                                      uint32_t ld_dst)
 {
   uint64_t gid   = threadIdx.x + blockDim.x * blockIdx.x;
@@ -470,10 +462,10 @@ __global__ void copy_selected_kernel(uint32_t n_rows,
 template <typename T, typename S>
 void copy_selected(uint32_t n_rows,
                    uint32_t n_cols,
-                   const T* src,
+                   const S* src,
                    const uint32_t* row_ids,
                    uint32_t ld_src,
-                   S* dst,
+                   T* dst,
                    uint32_t ld_dst,
                    rmm::cuda_stream_view stream)
 {

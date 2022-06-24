@@ -549,7 +549,7 @@ auto build_fine_clusters(const handle_t& handle,
       continue;
     }
 
-    utils::copy_selected<T>(
+    utils::copy_selected(
       mesocluster_sizes[i], dim, dataset_mptr, mc_trainset_ids, dim, mc_trainset, dim, stream);
 
     build_clusters(handle,
