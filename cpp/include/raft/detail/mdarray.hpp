@@ -277,7 +277,7 @@ MDSPAN_INLINE_FUNCTION auto popc(uint64_t v) -> int32_t
 template <class T, std::size_t N, std::size_t... Idx>
 MDSPAN_INLINE_FUNCTION constexpr auto arr_to_tup(T (&arr)[N], std::index_sequence<Idx...>)
 {
-  return thrust::make_tuple(arr[Idx]...);
+  return std::make_tuple(arr[Idx]...);
 }
 
 template <class T, std::size_t N>
@@ -309,60 +309,5 @@ MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<Extents...>
   }
   index[0] = idx;
   return arr_to_tup(index);
-}
-
-/**
- * \brief Turns linear index into coordinate.  Similar to numpy unravel_index. This is not
- *        exposed to public as it's not part of the mdspan proposal, the returned tuple
- *        can not be directly used for indexing into mdspan and we might change the return
- *        type in the future.
- *
- * \code
- *   auto m = make_host_matrix<float>(7, 6);
- *   auto m_v = m.view();
- *   auto coord = detail::unravel_index(2, m.extents(), typename decltype(m)::layout_type{});
- *   detail::apply(m_v, coord) = 2;
- * \endcode
- *
- * \param idx    The linear index.
- * \param shape  The shape of the array to use.
- * \param layout Must be `layout_right` (row-major) in current implementation.
- *
- * \return A thrust::tuple that represents the coordinate.
- */
-template <typename LayoutPolicy, std::size_t... Exts>
-MDSPAN_INLINE_FUNCTION auto unravel_index(size_t idx,
-                                          detail::stdex::extents<Exts...> shape,
-                                          LayoutPolicy const&)
-{
-  static_assert(std::is_same<LayoutPolicy, stdex::layout_right>::value,
-                "Only C layout is supported.");
-  if (idx > std::numeric_limits<uint32_t>::max()) {
-    return unravel_index_impl<uint64_t, Exts...>(static_cast<uint64_t>(idx), shape);
-  } else {
-    return unravel_index_impl<uint32_t, Exts...>(static_cast<uint32_t>(idx), shape);
-  }
-}
-
-template <typename Fn, typename Tup, size_t... I>
-MDSPAN_INLINE_FUNCTION auto constexpr apply_impl(Fn&& f, Tup&& t, std::index_sequence<I...>)
-  -> decltype(auto)
-{
-  return f(thrust::get<I>(t)...);
-}
-
-/**
- * C++ 17 style apply for thrust tuple.
- *
- * \param f function to apply
- * \param t tuple of arguments
- */
-template <typename Fn,
-          typename Tup,
-          std::size_t kTupSize = thrust::tuple_size<std::remove_reference_t<Tup>>::value>
-MDSPAN_INLINE_FUNCTION auto constexpr apply(Fn&& f, Tup&& t) -> decltype(auto)
-{
-  return apply_impl(
-    std::forward<Fn>(f), std::forward<Tup>(t), std::make_index_sequence<kTupSize>{});
 }
 }  // namespace raft::detail

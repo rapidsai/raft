@@ -453,34 +453,34 @@ void test_mdarray_unravel()
 
   // examples in numpy unravel_index
   {
-    auto coord = detail::unravel_index(22, detail::matrix_extent{7, 6}, stdex::layout_right{});
-    static_assert(thrust::tuple_size<decltype(coord)>::value == 2);
-    ASSERT_EQ(thrust::get<0>(coord), 3);
-    ASSERT_EQ(thrust::get<1>(coord), 4);
+    auto coord = unravel_index(22, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    static_assert(std::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(std::get<0>(coord), 3);
+    ASSERT_EQ(std::get<1>(coord), 4);
   }
   {
-    auto coord = detail::unravel_index(41, detail::matrix_extent{7, 6}, stdex::layout_right{});
-    static_assert(thrust::tuple_size<decltype(coord)>::value == 2);
-    ASSERT_EQ(thrust::get<0>(coord), 6);
-    ASSERT_EQ(thrust::get<1>(coord), 5);
+    auto coord = unravel_index(41, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    static_assert(std::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(std::get<0>(coord), 6);
+    ASSERT_EQ(std::get<1>(coord), 5);
   }
   {
-    auto coord = detail::unravel_index(37, detail::matrix_extent{7, 6}, stdex::layout_right{});
-    static_assert(thrust::tuple_size<decltype(coord)>::value == 2);
-    ASSERT_EQ(thrust::get<0>(coord), 6);
-    ASSERT_EQ(thrust::get<1>(coord), 1);
+    auto coord = unravel_index(37, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    static_assert(std::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(std::get<0>(coord), 6);
+    ASSERT_EQ(std::get<1>(coord), 1);
   }
   // assignment
   {
     auto m   = make_host_matrix<float>(7, 6);
     auto m_v = m.view();
     for (size_t i = 0; i < m.size(); ++i) {
-      auto coord = detail::unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
-      detail::apply(m_v, coord) = i;
+      auto coord             = unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
+      std::apply(m_v, coord) = i;
     }
     for (size_t i = 0; i < m.size(); ++i) {
-      auto coord = detail::unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
-      ASSERT_EQ(detail::apply(m_v, coord), i);
+      auto coord = unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
+      ASSERT_EQ(std::apply(m_v, coord), i);
     }
   }
 
@@ -492,19 +492,19 @@ void test_mdarray_unravel()
                        thrust::make_counting_iterator(0ul),
                        m_v.size(),
                        [=] __device__(size_t i) {
-                         auto coord = detail::unravel_index(
-                           i, m_v.extents(), typename decltype(m_v)::layout_type{});
-                         detail::apply(m_v, coord) = static_cast<float>(i);
+                         auto coord =
+                           unravel_index(i, m_v.extents(), typename decltype(m_v)::layout_type{});
+                         std::apply(m_v, coord) = static_cast<float>(i);
                        });
     thrust::device_vector<int32_t> status(1, 0);
     auto p_status = status.data().get();
     thrust::for_each_n(handle.get_thrust_policy(),
                        thrust::make_counting_iterator(0ul),
                        m_v.size(),
-                       [=] __device__(size_t i) {
-                         auto coord = detail::unravel_index(
-                           i, m_v.extents(), typename decltype(m_v)::layout_type{});
-                         auto v = detail::apply(m_v, coord);
+                       [=] HD(size_t i) {
+                         auto coord =
+                           unravel_index(i, m_v.extents(), typename decltype(m_v)::layout_type{});
+                         auto v = std::apply(m_v, coord);
                          if (v != static_cast<float>(i)) { raft::myAtomicAdd(p_status, 1); }
                        });
     check_status(p_status, handle.get_stream());

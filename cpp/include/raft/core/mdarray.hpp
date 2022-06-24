@@ -914,4 +914,33 @@ auto reshape(const array_interface_type& mda, extents<Extents...> new_shape)
   return reshape(mda.view(), new_shape);
 }
 
+/**
+ * \brief Turns linear index into coordinate.  Similar to numpy unravel_index.
+ *
+ * \code
+ *   auto m = make_host_matrix<float>(7, 6);
+ *   auto m_v = m.view();
+ *   auto coord = detail::unravel_index(2, m.extents(), typename decltype(m)::layout_type{});
+ *   std::apply(m_v, coord) = 2;
+ * \endcode
+ *
+ * \param idx    The linear index.
+ * \param shape  The shape of the array to use.
+ * \param layout Must be `layout_right` (row-major) in current implementation.
+ *
+ * \return A std::tuple that represents the coordinate.
+ */
+template <typename LayoutPolicy, std::size_t... Exts>
+MDSPAN_INLINE_FUNCTION auto unravel_index(size_t idx,
+                                          detail::stdex::extents<Exts...> shape,
+                                          LayoutPolicy const&)
+{
+  static_assert(std::is_same<LayoutPolicy, layout_c_contiguous>::value,
+                "Only C layout is supported.");
+  if (idx > std::numeric_limits<uint32_t>::max()) {
+    return detail::unravel_index_impl<uint64_t, Exts...>(static_cast<uint64_t>(idx), shape);
+  } else {
+    return detail::unravel_index_impl<uint32_t, Exts...>(static_cast<uint32_t>(idx), shape);
+  }
+}
 }  // namespace raft
