@@ -24,8 +24,11 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/detail/span.hpp>  // dynamic_extent
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+
 #include <thrust/device_ptr.h>
 
 namespace raft::detail {
@@ -138,6 +141,7 @@ class device_uvector {
 template <typename ElementType>
 class device_uvector_policy {
   rmm::cuda_stream_view stream_;
+  rmm::mr::device_memory_resource* mr_;
 
  public:
   using element_type   = ElementType;
@@ -152,12 +156,21 @@ class device_uvector_policy {
   using const_accessor_policy = std::experimental::default_accessor<element_type const>;
 
  public:
-  auto create(size_t n) -> container_type { return container_type(n, stream_); }
+  auto create(size_t n) -> container_type
+  {
+    return mr_ ? container_type(n, stream_, mr_) : container_type(n, stream_);
+  }
 
   device_uvector_policy() = delete;
   explicit device_uvector_policy(rmm::cuda_stream_view stream) noexcept(
     std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
-    : stream_{stream}
+    : stream_{stream}, mr_(nullptr)
+  {
+  }
+
+  device_uvector_policy(rmm::cuda_stream_view stream, rmm::mr::device_memory_resource* mr) noexcept(
+    std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
+    : stream_{stream}, mr_(mr)
   {
   }
 
