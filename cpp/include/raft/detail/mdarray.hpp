@@ -292,7 +292,7 @@ template <typename I, size_t... Extents>
 MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<Extents...> shape)
 {
   constexpr auto kRank = static_cast<int32_t>(shape.rank());
-  size_t index[shape.rank()]{0};  // NOLINT
+  std::size_t index[shape.rank()]{0};  // NOLINT
   static_assert(std::is_signed<decltype(kRank)>::value,
                 "Don't change the type without changing the for loop.");
   for (int32_t dim = kRank; --dim > 0;) {

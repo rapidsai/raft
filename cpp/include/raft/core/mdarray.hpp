@@ -930,15 +930,17 @@ auto reshape(const array_interface_type& mda, extents<Extents...> new_shape)
  *
  * \return A std::tuple that represents the coordinate.
  */
-template <typename LayoutPolicy, std::size_t... Exts>
-MDSPAN_INLINE_FUNCTION auto unravel_index(size_t idx,
+template <typename Idx, typename LayoutPolicy, std::size_t... Exts>
+MDSPAN_INLINE_FUNCTION auto unravel_index(Idx idx,
                                           extents<Exts...> shape,
                                           LayoutPolicy const& layout)
 {
   static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(layout)>>,
                                layout_c_contiguous>,
                 "Only C layout is supported.");
-  if (idx > std::numeric_limits<uint32_t>::max()) {
+  static_assert(std::is_integral_v<Idx>, "Index must be integral.");
+  auto constexpr kIs64 = sizeof(std::remove_cv_t<std::remove_reference_t<Idx>>) == sizeof(uint64_t);
+  if (kIs64 && idx > std::numeric_limits<uint32_t>::max()) {
     return detail::unravel_index_impl<uint64_t, Exts...>(static_cast<uint64_t>(idx), shape);
   } else {
     return detail::unravel_index_impl<uint32_t, Exts...>(static_cast<uint32_t>(idx), shape);
