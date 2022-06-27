@@ -25,6 +25,9 @@
 
 namespace raft::spatial::knn::ivf_flat {
 
+/** Size of the interleaved group (see `index::data` description). */
+constexpr static uint32_t kIndexGroupSize = 32;
+
 template <typename T>
 struct index {
   using row_major = layout_c_contiguous;
@@ -45,16 +48,16 @@ struct index {
    * Inverted list data [size, dim].
    *
    * The data consists of the dataset rows, grouped by their labels (into clusters/lists).
-   * Within each list (cluster), the data is grouped into blocks of `WarpSize` interleaved
+   * Within each list (cluster), the data is grouped into blocks of `kGroupSize` interleaved
    * vectors. Note, the total index length is slightly larger than the source dataset length,
-   * because each cluster is padded by `WarpSize` elements.
+   * because each cluster is padded by `kGroupSize` elements.
    *
    * Interleaving pattern:
-   * within groups of `WarpSize` rows, the data is interleaved with the block size equal to
+   * within groups of `kGroupSize` rows, the data is interleaved with the block size equal to
    * `veclen * sizeof(T)`. That is, a chunk of `veclen` consecutive components of one row is
    * followed by a chunk of the same size of the next row, and so on.
    *
-   * __Example__: veclen = 2, dim = 6, WarpSize = 32, list_size = 31
+   * __Example__: veclen = 2, dim = 6, kGroupSize = 32, list_size = 31
    * `
    *   x[ 0, 0], x[ 0, 1], x[ 1, 0], x[ 1, 1], ... x[14, 0], x[14, 1], x[15, 0], x[15, 1],
    *   x[16, 0], x[16, 1], x[17, 0], x[17, 1], ... x[30, 0], x[30, 1],    -    ,    -    ,

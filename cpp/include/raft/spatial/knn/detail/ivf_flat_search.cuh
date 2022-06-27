@@ -46,6 +46,7 @@
 namespace raft::spatial::knn::detail::ivf_flat {
 
 using raft::spatial::knn::ivf_flat::index;
+using raft::spatial::knn::ivf_flat::kIndexGroupSize;
 using raft::spatial::knn::ivf_flat::search_params;
 
 constexpr int kThreadsPerBlock = 128;
@@ -123,7 +124,6 @@ __device__ __forceinline__ void queryLoadToShmem<int8_t, 16>(const int8_t* const
  * and per index item.
  *
  * @tparam kUnroll elements per loop (normally, kUnroll = WarpSize / Veclen)
- * @tparam GroupSize number of vectors in the interleaved groups in the index.
  * @tparam Lambda computing the part of the distance for one dimension and aggregating it:
  *                void (AccT& acc, AccT x, AccT y)
  * @tparam Veclen size of the vectorized load
@@ -131,7 +131,7 @@ __device__ __forceinline__ void queryLoadToShmem<int8_t, 16>(const int8_t* const
  * @tparam AccT type of the accumulated value (an optimization for 8bit values to be loaded as 32bit
  * values)
  */
-template <int kUnroll, int GroupSize, typename Lambda, int Veclen, typename T, typename AccT>
+template <int kUnroll, typename Lambda, int Veclen, typename T, typename AccT>
 struct loadAndComputeDist {
   Lambda compute_dist;
   AccT& dist;
@@ -155,7 +155,7 @@ struct loadAndComputeDist {
 #pragma unroll
     for (int j = 0; j < kUnroll; ++j) {
       T encV[Veclen];
-      ldg(encV, data + (loadIndex + j * GroupSize) * Veclen);
+      ldg(encV, data + (loadIndex + j * kIndexGroupSize) * Veclen);
       T queryRegs[Veclen];
       lds(queryRegs, &query_shared[shmemIndex + j * Veclen]);
 #pragma unroll
@@ -180,13 +180,13 @@ struct loadAndComputeDist {
     T queryReg               = query[baseLoadIndex + laneId];
     constexpr int stride     = kUnroll * Veclen;
     constexpr int totalIter  = WarpSize / stride;
-    constexpr int gmemStride = stride * GroupSize;
+    constexpr int gmemStride = stride * kIndexGroupSize;
 #pragma unroll
     for (int i = 0; i < totalIter; ++i, data += gmemStride) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
         T encV[Veclen];
-        ldg(encV, data + (laneId + j * GroupSize) * Veclen);
+        ldg(encV, data + (laneId + j * kIndexGroupSize) * Veclen);
         const int d = (i * kUnroll + j) * Veclen;
 #pragma unroll
         for (int k = 0; k < Veclen; ++k) {
@@ -206,7 +206,7 @@ struct loadAndComputeDist {
     const int loadDim     = dimBlocks + laneId;
     T queryReg            = loadDim < dim ? query[loadDim] : 0;
     const int loadDataIdx = laneId * Veclen;
-    for (int d = 0; d < dim - dimBlocks; d += Veclen, data += GroupSize * Veclen) {
+    for (int d = 0; d < dim - dimBlocks; d += Veclen, data += kIndexGroupSize * Veclen) {
       T enc[Veclen];
       ldg(enc, data + loadDataIdx);
 #pragma unroll
@@ -218,8 +218,8 @@ struct loadAndComputeDist {
 };
 
 // This handles uint8_t 8, 16 Veclens
-template <int kUnroll, int GroupSize, typename Lambda, int uint8_veclen>
-struct loadAndComputeDist<kUnroll, GroupSize, Lambda, uint8_veclen, uint8_t, uint32_t> {
+template <int kUnroll, typename Lambda, int uint8_veclen>
+struct loadAndComputeDist<kUnroll, Lambda, uint8_veclen, uint8_t, uint32_t> {
   Lambda compute_dist;
   uint32_t& dist;
 
@@ -238,7 +238,8 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, uint8_veclen, uint8_t, uin
 #pragma unroll
     for (int j = 0; j < kUnroll; ++j) {
       uint32_t encV[veclen_int];
-      ldg(encV, reinterpret_cast<unsigned const*>(data) + loadIndex + j * GroupSize * veclen_int);
+      ldg(encV,
+          reinterpret_cast<unsigned const*>(data) + loadIndex + j * kIndexGroupSize * veclen_int);
       uint32_t queryRegs[veclen_int];
       lds(queryRegs, reinterpret_cast<unsigned const*>(query_shared + shmemIndex) + j * veclen_int);
 #pragma unroll
@@ -258,11 +259,12 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, uint8_veclen, uint8_t, uin
     constexpr int stride = kUnroll * uint8_veclen;
 
 #pragma unroll
-    for (int i = 0; i < WarpSize / stride; ++i, data += stride * GroupSize) {
+    for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
         uint32_t encV[veclen_int];
-        ldg(encV, reinterpret_cast<unsigned const*>(data) + (laneId + j * GroupSize) * veclen_int);
+        ldg(encV,
+            reinterpret_cast<unsigned const*>(data) + (laneId + j * kIndexGroupSize) * veclen_int);
         const int d = (i * kUnroll + j) * veclen_int;
 #pragma unroll
         for (int k = 0; k < veclen_int; ++k) {
@@ -281,7 +283,8 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, uint8_veclen, uint8_t, uin
     constexpr int veclen_int = uint8_veclen / 4;
     const int loadDim        = dimBlocks + laneId * 4;  // Here 4 is for 1 - int
     uint32_t queryReg = loadDim < dim ? reinterpret_cast<uint32_t const*>(query + loadDim)[0] : 0;
-    for (int d = 0; d < dim - dimBlocks; d += uint8_veclen, data += GroupSize * uint8_veclen) {
+    for (int d = 0; d < dim - dimBlocks;
+         d += uint8_veclen, data += kIndexGroupSize * uint8_veclen) {
       uint32_t enc[veclen_int];
       ldg(enc, reinterpret_cast<uint32_t const*>(data) + laneId * veclen_int);
 #pragma unroll
@@ -295,8 +298,8 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, uint8_veclen, uint8_t, uin
 
 // Keep this specialized uint8 Veclen = 4, because compiler is generating suboptimal code while
 // using above common template of int2/int4
-template <int kUnroll, int GroupSize, typename Lambda>
-struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 4, uint8_t, uint32_t> {
+template <int kUnroll, typename Lambda>
+struct loadAndComputeDist<kUnroll, Lambda, 4, uint8_t, uint32_t> {
   Lambda compute_dist;
   uint32_t& dist;
 
@@ -312,7 +315,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 4, uint8_t, uint32_t> {
   {
 #pragma unroll
     for (int j = 0; j < kUnroll; ++j) {
-      uint32_t encV      = reinterpret_cast<unsigned const*>(data)[loadIndex + j * GroupSize];
+      uint32_t encV      = reinterpret_cast<unsigned const*>(data)[loadIndex + j * kIndexGroupSize];
       uint32_t queryRegs = reinterpret_cast<unsigned const*>(query_shared + shmemIndex)[j];
       compute_dist(dist, queryRegs, encV);
     }
@@ -328,10 +331,10 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 4, uint8_t, uint32_t> {
     constexpr int stride = kUnroll * veclen;
 
 #pragma unroll
-    for (int i = 0; i < WarpSize / stride; ++i, data += stride * GroupSize) {
+    for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
-        uint32_t encV = reinterpret_cast<unsigned const*>(data)[laneId + j * GroupSize];
+        uint32_t encV = reinterpret_cast<unsigned const*>(data)[laneId + j * kIndexGroupSize];
         uint32_t q    = shfl(queryReg, i * kUnroll + j, WarpSize);
         compute_dist(dist, q, encV);
       }
@@ -347,7 +350,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 4, uint8_t, uint32_t> {
     constexpr int veclen = 4;
     const int loadDim    = dimBlocks + laneId;
     uint32_t queryReg    = loadDim < dim ? reinterpret_cast<unsigned const*>(query)[loadDim] : 0;
-    for (int d = 0; d < dim - dimBlocks; d += veclen, data += GroupSize * veclen) {
+    for (int d = 0; d < dim - dimBlocks; d += veclen, data += kIndexGroupSize * veclen) {
       uint32_t enc = reinterpret_cast<unsigned const*>(data)[laneId];
       uint32_t q   = shfl(queryReg, d / veclen, WarpSize);
       compute_dist(dist, q, enc);
@@ -355,8 +358,8 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 4, uint8_t, uint32_t> {
   }
 };
 
-template <int kUnroll, int GroupSize, typename Lambda>
-struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 2, uint8_t, uint32_t> {
+template <int kUnroll, typename Lambda>
+struct loadAndComputeDist<kUnroll, Lambda, 2, uint8_t, uint32_t> {
   Lambda compute_dist;
   uint32_t& dist;
 
@@ -372,7 +375,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 2, uint8_t, uint32_t> {
   {
 #pragma unroll
     for (int j = 0; j < kUnroll; ++j) {
-      uint32_t encV      = reinterpret_cast<uint16_t const*>(data)[loadIndex + j * GroupSize];
+      uint32_t encV      = reinterpret_cast<uint16_t const*>(data)[loadIndex + j * kIndexGroupSize];
       uint32_t queryRegs = reinterpret_cast<uint16_t const*>(query_shared + shmemIndex)[j];
       compute_dist(dist, queryRegs, encV);
     }
@@ -389,10 +392,10 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 2, uint8_t, uint32_t> {
     constexpr int stride = kUnroll * veclen;
 
 #pragma unroll
-    for (int i = 0; i < WarpSize / stride; ++i, data += stride * GroupSize) {
+    for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
-        uint32_t encV = reinterpret_cast<uint16_t const*>(data)[laneId + j * GroupSize];
+        uint32_t encV = reinterpret_cast<uint16_t const*>(data)[laneId + j * kIndexGroupSize];
         uint32_t q    = shfl(queryReg, i * kUnroll + j, WarpSize);
         compute_dist(dist, q, encV);
       }
@@ -408,7 +411,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 2, uint8_t, uint32_t> {
     constexpr int veclen = 2;
     int loadDim          = dimBlocks + laneId * veclen;
     uint32_t queryReg = loadDim < dim ? reinterpret_cast<uint16_t const*>(query + loadDim)[0] : 0;
-    for (int d = 0; d < dim - dimBlocks; d += veclen, data += GroupSize * veclen) {
+    for (int d = 0; d < dim - dimBlocks; d += veclen, data += kIndexGroupSize * veclen) {
       uint32_t enc = reinterpret_cast<uint16_t const*>(data)[laneId];
       uint32_t q   = shfl(queryReg, d / veclen, WarpSize);
       compute_dist(dist, q, enc);
@@ -416,8 +419,8 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 2, uint8_t, uint32_t> {
   }
 };
 
-template <int kUnroll, int GroupSize, typename Lambda>
-struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 1, uint8_t, uint32_t> {
+template <int kUnroll, typename Lambda>
+struct loadAndComputeDist<kUnroll, Lambda, 1, uint8_t, uint32_t> {
   Lambda compute_dist;
   uint32_t& dist;
 
@@ -433,7 +436,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 1, uint8_t, uint32_t> {
   {
 #pragma unroll
     for (int j = 0; j < kUnroll; ++j) {
-      uint32_t encV      = data[loadIndex + j * GroupSize];
+      uint32_t encV      = data[loadIndex + j * kIndexGroupSize];
       uint32_t queryRegs = query_shared[shmemIndex + j];
       compute_dist(dist, queryRegs, encV);
     }
@@ -449,10 +452,10 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 1, uint8_t, uint32_t> {
     constexpr int stride = kUnroll * veclen;
 
 #pragma unroll
-    for (int i = 0; i < WarpSize / stride; ++i, data += stride * GroupSize) {
+    for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
-        uint32_t encV = data[laneId + j * GroupSize];
+        uint32_t encV = data[laneId + j * kIndexGroupSize];
         uint32_t q    = shfl(queryReg, i * kUnroll + j, WarpSize);
         compute_dist(dist, q, encV);
       }
@@ -468,7 +471,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 1, uint8_t, uint32_t> {
     constexpr int veclen = 1;
     int loadDim          = dimBlocks + laneId;
     uint32_t queryReg    = loadDim < dim ? query[loadDim] : 0;
-    for (int d = 0; d < dim - dimBlocks; d += veclen, data += GroupSize * veclen) {
+    for (int d = 0; d < dim - dimBlocks; d += veclen, data += kIndexGroupSize * veclen) {
       uint32_t enc = data[laneId];
       uint32_t q   = shfl(queryReg, d, WarpSize);
       compute_dist(dist, q, enc);
@@ -477,8 +480,8 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 1, uint8_t, uint32_t> {
 };
 
 // This device function is for int8 veclens 4, 8 and 16
-template <int kUnroll, int GroupSize, typename Lambda, int int8_veclen>
-struct loadAndComputeDist<kUnroll, GroupSize, Lambda, int8_veclen, int8_t, int32_t> {
+template <int kUnroll, typename Lambda, int int8_veclen>
+struct loadAndComputeDist<kUnroll, Lambda, int8_veclen, int8_t, int32_t> {
   Lambda compute_dist;
   int32_t& dist;
 
@@ -497,7 +500,8 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, int8_veclen, int8_t, int32
 #pragma unroll
     for (int j = 0; j < kUnroll; ++j) {
       int32_t encV[veclen_int];
-      ldg(encV, reinterpret_cast<int32_t const*>(data) + (loadIndex + j * GroupSize) * veclen_int);
+      ldg(encV,
+          reinterpret_cast<int32_t const*>(data) + (loadIndex + j * kIndexGroupSize) * veclen_int);
       int32_t queryRegs[veclen_int];
       lds(queryRegs, reinterpret_cast<int32_t const*>(query_shared + shmemIndex) + j * veclen_int);
 #pragma unroll
@@ -519,11 +523,12 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, int8_veclen, int8_t, int32
     constexpr int stride = kUnroll * int8_veclen;
 
 #pragma unroll
-    for (int i = 0; i < WarpSize / stride; ++i, data += stride * GroupSize) {
+    for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
         int32_t encV[veclen_int];
-        ldg(encV, reinterpret_cast<int32_t const*>(data) + (laneId + j * GroupSize) * veclen_int);
+        ldg(encV,
+            reinterpret_cast<int32_t const*>(data) + (laneId + j * kIndexGroupSize) * veclen_int);
         const int d = (i * kUnroll + j) * veclen_int;
 #pragma unroll
         for (int k = 0; k < veclen_int; ++k) {
@@ -540,7 +545,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, int8_veclen, int8_t, int32
     constexpr int veclen_int = int8_veclen / 4;
     const int loadDim        = dimBlocks + laneId * 4;  // Here 4 is for 1 - int;
     int32_t queryReg = loadDim < dim ? reinterpret_cast<int32_t const*>(query + loadDim)[0] : 0;
-    for (int d = 0; d < dim - dimBlocks; d += int8_veclen, data += GroupSize * int8_veclen) {
+    for (int d = 0; d < dim - dimBlocks; d += int8_veclen, data += kIndexGroupSize * int8_veclen) {
       int32_t enc[veclen_int];
       ldg(enc, reinterpret_cast<int32_t const*>(data) + laneId * veclen_int);
 #pragma unroll
@@ -552,8 +557,8 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, int8_veclen, int8_t, int32
   }
 };
 
-template <int kUnroll, int GroupSize, typename Lambda>
-struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 2, int8_t, int32_t> {
+template <int kUnroll, typename Lambda>
+struct loadAndComputeDist<kUnroll, Lambda, 2, int8_t, int32_t> {
   Lambda compute_dist;
   int32_t& dist;
   __device__ __forceinline__ loadAndComputeDist(int32_t& dist, Lambda op)
@@ -567,7 +572,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 2, int8_t, int32_t> {
   {
 #pragma unroll
     for (int j = 0; j < kUnroll; ++j) {
-      int32_t encV      = reinterpret_cast<uint16_t const*>(data)[loadIndex + j * GroupSize];
+      int32_t encV      = reinterpret_cast<uint16_t const*>(data)[loadIndex + j * kIndexGroupSize];
       int32_t queryRegs = reinterpret_cast<uint16_t const*>(query_shared + shmemIndex)[j];
       compute_dist(dist, queryRegs, encV);
     }
@@ -584,10 +589,10 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 2, int8_t, int32_t> {
     constexpr int stride = kUnroll * veclen;
 
 #pragma unroll
-    for (int i = 0; i < WarpSize / stride; ++i, data += stride * GroupSize) {
+    for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
-        int32_t encV = reinterpret_cast<uint16_t const*>(data)[laneId + j * GroupSize];
+        int32_t encV = reinterpret_cast<uint16_t const*>(data)[laneId + j * kIndexGroupSize];
         int32_t q    = shfl(queryReg, i * kUnroll + j, WarpSize);
         compute_dist(dist, q, encV);
       }
@@ -600,7 +605,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 2, int8_t, int32_t> {
     constexpr int veclen = 2;
     int loadDim          = dimBlocks + laneId * veclen;
     int32_t queryReg = loadDim < dim ? reinterpret_cast<uint16_t const*>(query + loadDim)[0] : 0;
-    for (int d = 0; d < dim - dimBlocks; d += veclen, data += GroupSize * veclen) {
+    for (int d = 0; d < dim - dimBlocks; d += veclen, data += kIndexGroupSize * veclen) {
       int32_t enc = reinterpret_cast<uint16_t const*>(data + laneId * veclen)[0];
       int32_t q   = shfl(queryReg, d / veclen, WarpSize);
       compute_dist(dist, q, enc);
@@ -608,8 +613,8 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 2, int8_t, int32_t> {
   }
 };
 
-template <int kUnroll, int GroupSize, typename Lambda>
-struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 1, int8_t, int32_t> {
+template <int kUnroll, typename Lambda>
+struct loadAndComputeDist<kUnroll, Lambda, 1, int8_t, int32_t> {
   Lambda compute_dist;
   int32_t& dist;
   __device__ __forceinline__ loadAndComputeDist(int32_t& dist, Lambda op)
@@ -624,7 +629,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 1, int8_t, int32_t> {
   {
 #pragma unroll
     for (int j = 0; j < kUnroll; ++j) {
-      compute_dist(dist, query_shared[shmemIndex + j], data[loadIndex + j * GroupSize]);
+      compute_dist(dist, query_shared[shmemIndex + j], data[loadIndex + j * kIndexGroupSize]);
     }
   }
 
@@ -638,10 +643,11 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 1, int8_t, int32_t> {
     int32_t queryReg     = query[baseLoadIndex + laneId];
 
 #pragma unroll
-    for (int i = 0; i < WarpSize / stride; ++i, data += stride * GroupSize) {
+    for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
-        compute_dist(dist, shfl(queryReg, i * kUnroll + j, WarpSize), data[laneId + j * GroupSize]);
+        compute_dist(
+          dist, shfl(queryReg, i * kUnroll + j, WarpSize), data[laneId + j * kIndexGroupSize]);
       }
     }
   }
@@ -651,7 +657,7 @@ struct loadAndComputeDist<kUnroll, GroupSize, Lambda, 1, int8_t, int32_t> {
     constexpr int veclen = 1;
     const int loadDim    = dimBlocks + laneId;
     int32_t queryReg     = loadDim < dim ? query[loadDim] : 0;
-    for (int d = 0; d < dim - dimBlocks; d += veclen, data += GroupSize * veclen) {
+    for (int d = 0; d < dim - dimBlocks; d += veclen, data += kIndexGroupSize * veclen) {
       compute_dist(dist, shfl(queryReg, d, WarpSize), data[laneId]);
     }
   }
@@ -761,16 +767,16 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
       if (valid) {
         /// load query from shared mem
         for (int dBase = 0; dBase < shLoadDim; dBase += WarpSize) {
-          loadAndComputeDist<kUnroll, kGroupSize, decltype(compute_dist), Veclen, T, AccT> obj(
-            dist, compute_dist);
+          loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> obj(dist,
+                                                                                   compute_dist);
           obj.runLoadShmemCompute(data, query_shared, laneId, dBase);
           data += WarpSize * kGroupSize;
         }
       }
 
       if (dim > query_smem_elems) {
-        loadAndComputeDist<kUnroll, kGroupSize, decltype(compute_dist), Veclen, T, AccT> obj(
-          dist, compute_dist);
+        loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> obj(dist,
+                                                                                 compute_dist);
         for (int dBase = shLoadDim; dBase < full_warps_along_dim; dBase += WarpSize) {  //
           obj.runLoadShflAndCompute(data, query, dBase, laneId);
         }
@@ -782,8 +788,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
           /// Remainder chunk = dim - full_warps_along_dim
           for (int d = 0; d < dim - full_warps_along_dim;
                d += Veclen, data += kGroupSize * Veclen) {
-            loadAndComputeDist<1, kGroupSize, decltype(compute_dist), Veclen, T, AccT> obj(
-              dist, compute_dist);
+            loadAndComputeDist<1, decltype(compute_dist), Veclen, T, AccT> obj(dist, compute_dist);
             obj.runLoadShmemCompute(data, query_shared, laneId, full_warps_along_dim + d);
           }  // end for d < dim - full_warps_along_dim
         }

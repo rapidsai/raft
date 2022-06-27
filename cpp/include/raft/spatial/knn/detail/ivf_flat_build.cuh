@@ -32,6 +32,7 @@ namespace raft::spatial::knn::detail::ivf_flat {
 
 using raft::spatial::knn::ivf_flat::index;
 using raft::spatial::knn::ivf_flat::index_params;
+using raft::spatial::knn::ivf_flat::kIndexGroupSize;
 
 template <typename T, typename... Extents>
 static inline auto make_array_for_index(rmm::cuda_stream_view stream, Extents... exts)
@@ -93,8 +94,8 @@ __global__ void build_index_kernel(const uint32_t* labels,
   // Record the source vector id in the index
   list_index[list_offset + inlist_id] = i;
 
-  // The data is written in interleaved groups of `WarpSize` vectors
-  using interleaved_group = Pow2<WarpSize>;
+  // The data is written in interleaved groups of `index::kGroupSize` vectors
+  using interleaved_group = Pow2<kIndexGroupSize>;
   auto group_offset       = interleaved_group::roundDown(inlist_id);
   auto ingroup_id         = interleaved_group::mod(inlist_id) * veclen;
 
@@ -108,7 +109,7 @@ __global__ void build_index_kernel(const uint32_t* labels,
   // NB: such `veclen` is selected, that `dim % veclen == 0`
   for (uint32_t l = 0; l < dim; l += veclen) {
     for (uint32_t j = 0; j < veclen; j++) {
-      list_data[l * WarpSize + ingroup_id + j] = dataset[l + j];
+      list_data[l * kIndexGroupSize + ingroup_id + j] = dataset[l + j];
     }
   }
 }
