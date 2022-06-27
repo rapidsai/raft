@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "detail/processing.hpp"
 #include <faiss/gpu/GpuIndex.h>
 #include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/faiss_mr.hpp>
@@ -28,20 +29,16 @@ class index;
 };
 
 struct knnIndex {
-  faiss::gpu::GpuIndex* index;
   raft::distance::DistanceType metric;
   float metricArg;
+  std::unique_ptr<faiss::gpu::GpuIndex> index;
+  std::unique_ptr<MetricProcessor<float>> metric_processor;
   std::unique_ptr<ivf_flat::index<float>> ivf_flat_float_;
   std::unique_ptr<ivf_flat::index<uint8_t>> ivf_flat_uint8_t_;
   std::unique_ptr<ivf_flat::index<int8_t>> ivf_flat_int8_t_;
 
-  raft::spatial::knn::RmmGpuResources* gpu_res;
+  std::unique_ptr<raft::spatial::knn::RmmGpuResources> gpu_res;
   int device;
-  ~knnIndex()
-  {
-    delete index;
-    delete gpu_res;
-  }
 
   template <typename T>
   auto ivf_flat() -> std::unique_ptr<ivf_flat::index<T>>&;
