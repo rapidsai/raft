@@ -940,7 +940,7 @@ MDSPAN_INLINE_FUNCTION auto unravel_index(Idx idx,
                 "Only C layout is supported.");
   static_assert(std::is_integral_v<Idx>, "Index must be integral.");
   auto constexpr kIs64 = sizeof(std::remove_cv_t<std::remove_reference_t<Idx>>) == sizeof(uint64_t);
-  if (kIs64 && idx > std::numeric_limits<uint32_t>::max()) {
+  if (kIs64 && static_cast<uint64_t>(idx) > std::numeric_limits<uint32_t>::max()) {
     return detail::unravel_index_impl<uint64_t, Exts...>(static_cast<uint64_t>(idx), shape);
   } else {
     return detail::unravel_index_impl<uint32_t, Exts...>(static_cast<uint32_t>(idx), shape);
