@@ -49,6 +49,7 @@ using row_major           = layout_right;
 
 /**
  * @defgroup F-Contiguous layout for mdarray and mdspan. Implies column-major and contiguous memory.
+ * @{
  */
 using detail::stdex::layout_left;
 using layout_f_contiguous = layout_left;
@@ -58,6 +59,7 @@ using col_major           = layout_left;
 /**
  * @defgroup Common mdarray/mdspan extent types. The rank is known at compile time, each dimension
  * is known at run time (dynamic_extent in each dimension).
+ * @{
  */
 using detail::matrix_extent;
 using detail::scalar_extent;
@@ -629,7 +631,7 @@ using device_matrix_view = device_mdspan<ElementType, matrix_extent, LayoutPolic
  * @param[in] ptr on device to wrap
  */
 template <typename ElementType>
-inline auto make_host_scalar_view(ElementType* ptr)
+auto make_host_scalar_view(ElementType* ptr)
 {
   scalar_extent extents;
   return host_scalar_view<ElementType>{ptr, extents};
@@ -642,7 +644,7 @@ inline auto make_host_scalar_view(ElementType* ptr)
  * @param[in] ptr on device to wrap
  */
 template <typename ElementType>
-inline auto make_device_scalar_view(ElementType* ptr)
+auto make_device_scalar_view(ElementType* ptr)
 {
   scalar_extent extents;
   return device_scalar_view<ElementType>{ptr, extents};
@@ -659,7 +661,7 @@ inline auto make_device_scalar_view(ElementType* ptr)
  * @param[in] n_cols number of columns in pointer
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-inline auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
+auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
   matrix_extent extents{n_rows, n_cols};
   return host_matrix_view<ElementType, LayoutPolicy>{ptr, extents};
@@ -675,7 +677,7 @@ inline auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols
  * @param[in] n_cols number of columns in pointer
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-inline auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
+auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
   matrix_extent extents{n_rows, n_cols};
   return device_matrix_view<ElementType, LayoutPolicy>{ptr, extents};
@@ -689,7 +691,7 @@ inline auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_co
  * @return raft::host_vector_view
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-inline auto make_host_vector_view(ElementType* ptr, size_t n)
+auto make_host_vector_view(ElementType* ptr, size_t n)
 {
   vector_extent extents{n};
   return host_vector_view<ElementType, LayoutPolicy>{ptr, extents};
@@ -703,15 +705,23 @@ inline auto make_host_vector_view(ElementType* ptr, size_t n)
  * @return raft::device_vector_view
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-inline auto make_device_vector_view(ElementType* ptr, size_t n)
+auto make_device_vector_view(ElementType* ptr, size_t n)
 {
   vector_extent extents{n};
   return device_vector_view<ElementType, LayoutPolicy>{ptr, extents};
 }
 
+namespace detail {
+/**
+ * Ensure all types listed in the parameter pack `Extents` are integral types.
+ * Usage:
+ *   put it as the last nameless template parameter of a function:
+ *     `typename = ensure_integral_extents<Extents...>`
+ */
 template <typename... Extents>
 using ensure_integral_extents =
   std::enable_if_t<(true && ... && std::is_integral_v<Extents>), void>;
+}  // namespace detail
 
 /**
  * @brief Create a host mdarray.
@@ -723,8 +733,8 @@ using ensure_integral_extents =
 template <typename ElementType,
           typename LayoutPolicy = layout_c_contiguous,
           typename... Extents,
-          typename = ensure_integral_extents<Extents...>>
-inline auto make_host_mdarray(Extents... exts)
+          typename = detail::ensure_integral_extents<Extents...>>
+auto make_host_mdarray(Extents... exts)
 {
   using extent_t  = extents<((void)exts, dynamic_extent)...>;
   using mdarray_t = host_mdarray<ElementType, extent_t, LayoutPolicy>;
@@ -747,8 +757,8 @@ inline auto make_host_mdarray(Extents... exts)
 template <typename ElementType,
           typename LayoutPolicy = layout_c_contiguous,
           typename... Extents,
-          typename = ensure_integral_extents<Extents...>>
-inline auto make_device_mdarray(rmm::cuda_stream_view stream, Extents... exts)
+          typename = detail::ensure_integral_extents<Extents...>>
+auto make_device_mdarray(rmm::cuda_stream_view stream, Extents... exts)
 {
   using extent_t  = extents<((void)exts, dynamic_extent)...>;
   using mdarray_t = device_mdarray<ElementType, extent_t, LayoutPolicy>;
@@ -772,10 +782,10 @@ inline auto make_device_mdarray(rmm::cuda_stream_view stream, Extents... exts)
 template <typename ElementType,
           typename LayoutPolicy = layout_c_contiguous,
           typename... Extents,
-          typename = ensure_integral_extents<Extents...>>
-inline auto make_device_mdarray(rmm::cuda_stream_view stream,
-                                rmm::mr::device_memory_resource* mr,
-                                Extents... exts)
+          typename = detail::ensure_integral_extents<Extents...>>
+auto make_device_mdarray(rmm::cuda_stream_view stream,
+                         rmm::mr::device_memory_resource* mr,
+                         Extents... exts)
 {
   using extent_t  = extents<((void)exts, dynamic_extent)...>;
   using mdarray_t = device_mdarray<ElementType, extent_t, LayoutPolicy>;
@@ -796,7 +806,7 @@ inline auto make_device_mdarray(rmm::cuda_stream_view stream,
  * @return raft::host_matrix
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-inline auto make_host_matrix(size_t n_rows, size_t n_cols)
+auto make_host_matrix(size_t n_rows, size_t n_cols)
 {
   return make_host_mdarray<ElementType, LayoutPolicy>(n_rows, n_cols);
 }
@@ -811,7 +821,7 @@ inline auto make_host_matrix(size_t n_rows, size_t n_cols)
  * @return raft::device_matrix
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-inline auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stream)
+auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stream)
 {
   return make_device_mdarray<ElementType, LayoutPolicy>(stream, n_rows, n_cols);
 }
@@ -827,7 +837,7 @@ inline auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_vi
  * @return raft::device_matrix
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-inline auto make_device_matrix(raft::handle_t const& handle, size_t n_rows, size_t n_cols)
+auto make_device_matrix(raft::handle_t const& handle, size_t n_rows, size_t n_cols)
 {
   return make_device_matrix<ElementType, LayoutPolicy>(n_rows, n_cols, handle.get_stream());
 }
@@ -840,7 +850,7 @@ inline auto make_device_matrix(raft::handle_t const& handle, size_t n_rows, size
  * @return raft::host_scalar
  */
 template <typename ElementType>
-inline auto make_host_scalar(ElementType const& v)
+auto make_host_scalar(ElementType const& v)
 {
   // FIXME(jiamingy): We can optimize this by using std::array as container policy, which
   // requires some more compile time dispatching. This is enabled in the ref impl but
@@ -862,7 +872,7 @@ inline auto make_host_scalar(ElementType const& v)
  * @return raft::device_scalar
  */
 template <typename ElementType>
-inline auto make_device_scalar(ElementType const& v, rmm::cuda_stream_view stream)
+auto make_device_scalar(ElementType const& v, rmm::cuda_stream_view stream)
 {
   scalar_extent extents;
   using policy_t = typename device_scalar<ElementType>::container_policy_type;
@@ -881,7 +891,7 @@ inline auto make_device_scalar(ElementType const& v, rmm::cuda_stream_view strea
  * @return raft::device_scalar
  */
 template <typename ElementType>
-inline auto make_device_scalar(raft::handle_t const& handle, ElementType const& v)
+auto make_device_scalar(raft::handle_t const& handle, ElementType const& v)
 {
   return make_device_scalar<ElementType>(v, handle.get_stream());
 }
@@ -893,7 +903,7 @@ inline auto make_device_scalar(raft::handle_t const& handle, ElementType const& 
  * @return raft::host_vector
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-inline auto make_host_vector(size_t n)
+auto make_host_vector(size_t n)
 {
   return make_host_mdarray<ElementType, LayoutPolicy>(n);
 }
@@ -906,7 +916,7 @@ inline auto make_host_vector(size_t n)
  * @return raft::device_vector
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-inline auto make_device_vector(size_t n, rmm::cuda_stream_view stream)
+auto make_device_vector(size_t n, rmm::cuda_stream_view stream)
 {
   return make_device_mdarray<ElementType, LayoutPolicy>(stream, n);
 }
@@ -919,7 +929,7 @@ inline auto make_device_vector(size_t n, rmm::cuda_stream_view stream)
  * @return raft::device_vector
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-inline auto make_device_vector(raft::handle_t const& handle, size_t n)
+auto make_device_vector(raft::handle_t const& handle, size_t n)
 {
   return make_device_vector<ElementType, LayoutPolicy>(n, handle.get_stream());
 }
@@ -933,7 +943,7 @@ inline auto make_device_vector(raft::handle_t const& handle, size_t n)
  *         depending on AccessoryPolicy
  */
 template <typename mdspan_type, std::enable_if_t<is_mdspan_v<mdspan_type>>* = nullptr>
-inline auto flatten(mdspan_type mds)
+auto flatten(mdspan_type mds)
 {
   RAFT_EXPECTS(mds.is_contiguous(), "Input must be contiguous.");
 
@@ -955,7 +965,7 @@ inline auto flatten(mdspan_type mds)
  */
 template <typename array_interface_type,
           std::enable_if_t<is_array_interface_v<array_interface_type>>* = nullptr>
-inline auto flatten(const array_interface_type& mda)
+auto flatten(const array_interface_type& mda)
 {
   return flatten(mda.view());
 }
@@ -972,7 +982,7 @@ inline auto flatten(const array_interface_type& mda)
 template <typename mdspan_type,
           size_t... Extents,
           std::enable_if_t<is_mdspan_v<mdspan_type>>* = nullptr>
-inline auto reshape(mdspan_type mds, extents<Extents...> new_shape)
+auto reshape(mdspan_type mds, extents<Extents...> new_shape)
 {
   RAFT_EXPECTS(mds.is_contiguous(), "Input must be contiguous.");
 
@@ -1001,7 +1011,7 @@ inline auto reshape(mdspan_type mds, extents<Extents...> new_shape)
 template <typename array_interface_type,
           size_t... Extents,
           std::enable_if_t<is_array_interface_v<array_interface_type>>* = nullptr>
-inline auto reshape(const array_interface_type& mda, extents<Extents...> new_shape)
+auto reshape(const array_interface_type& mda, extents<Extents...> new_shape)
 {
   return reshape(mda.view(), new_shape);
 }
