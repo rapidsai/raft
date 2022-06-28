@@ -175,9 +175,9 @@ struct loadAndComputeDist {
   __device__ __forceinline__ void runLoadShflAndCompute(const T*& data,
                                                         const T* query,
                                                         IdxT baseLoadIndex,
-                                                        const int laneId)
+                                                        const int lane_id)
   {
-    T queryReg               = query[baseLoadIndex + laneId];
+    T queryReg               = query[baseLoadIndex + lane_id];
     constexpr int stride     = kUnroll * Veclen;
     constexpr int totalIter  = WarpSize / stride;
     constexpr int gmemStride = stride * kIndexGroupSize;
@@ -186,7 +186,7 @@ struct loadAndComputeDist {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
         T encV[Veclen];
-        ldg(encV, data + (laneId + j * kIndexGroupSize) * Veclen);
+        ldg(encV, data + (lane_id + j * kIndexGroupSize) * Veclen);
         const int d = (i * kUnroll + j) * Veclen;
 #pragma unroll
         for (int k = 0; k < Veclen; ++k) {
@@ -201,11 +201,11 @@ struct loadAndComputeDist {
    * This version augments `runLoadShflAndCompute` when `dim` is not a multiple of `WarpSize`.
    */
   __device__ __forceinline__ void runLoadShflAndComputeRemainder(
-    const T*& data, const T* query, const int laneId, const int dim, const int dimBlocks)
+    const T*& data, const T* query, const int lane_id, const int dim, const int dimBlocks)
   {
-    const int loadDim     = dimBlocks + laneId;
+    const int loadDim     = dimBlocks + lane_id;
     T queryReg            = loadDim < dim ? query[loadDim] : 0;
-    const int loadDataIdx = laneId * Veclen;
+    const int loadDataIdx = lane_id * Veclen;
     for (int d = 0; d < dim - dimBlocks; d += Veclen, data += kIndexGroupSize * Veclen) {
       T enc[Veclen];
       ldg(enc, data + loadDataIdx);
@@ -251,11 +251,11 @@ struct loadAndComputeDist<kUnroll, Lambda, uint8_veclen, uint8_t, uint32_t> {
   __device__ __forceinline__ void runLoadShflAndCompute(const uint8_t*& data,
                                                         const uint8_t* query,
                                                         int baseLoadIndex,
-                                                        const int laneId)
+                                                        const int lane_id)
   {
     constexpr int veclen_int = uint8_veclen / 4;  // converting uint8_t veclens to int
     uint32_t queryReg =
-      (laneId < 8) ? reinterpret_cast<unsigned const*>(query + baseLoadIndex)[laneId] : 0;
+      (lane_id < 8) ? reinterpret_cast<unsigned const*>(query + baseLoadIndex)[lane_id] : 0;
     constexpr int stride = kUnroll * uint8_veclen;
 
 #pragma unroll
@@ -264,7 +264,7 @@ struct loadAndComputeDist<kUnroll, Lambda, uint8_veclen, uint8_t, uint32_t> {
       for (int j = 0; j < kUnroll; ++j) {
         uint32_t encV[veclen_int];
         ldg(encV,
-            reinterpret_cast<unsigned const*>(data) + (laneId + j * kIndexGroupSize) * veclen_int);
+            reinterpret_cast<unsigned const*>(data) + (lane_id + j * kIndexGroupSize) * veclen_int);
         const int d = (i * kUnroll + j) * veclen_int;
 #pragma unroll
         for (int k = 0; k < veclen_int; ++k) {
@@ -276,17 +276,17 @@ struct loadAndComputeDist<kUnroll, Lambda, uint8_veclen, uint8_t, uint32_t> {
 
   __device__ __forceinline__ void runLoadShflAndComputeRemainder(const uint8_t*& data,
                                                                  const uint8_t* query,
-                                                                 const int laneId,
+                                                                 const int lane_id,
                                                                  const int dim,
                                                                  const int dimBlocks)
   {
     constexpr int veclen_int = uint8_veclen / 4;
-    const int loadDim        = dimBlocks + laneId * 4;  // Here 4 is for 1 - int
+    const int loadDim        = dimBlocks + lane_id * 4;  // Here 4 is for 1 - int
     uint32_t queryReg = loadDim < dim ? reinterpret_cast<uint32_t const*>(query + loadDim)[0] : 0;
     for (int d = 0; d < dim - dimBlocks;
          d += uint8_veclen, data += kIndexGroupSize * uint8_veclen) {
       uint32_t enc[veclen_int];
-      ldg(enc, reinterpret_cast<uint32_t const*>(data) + laneId * veclen_int);
+      ldg(enc, reinterpret_cast<uint32_t const*>(data) + lane_id * veclen_int);
 #pragma unroll
       for (int k = 0; k < veclen_int; k++) {
         uint32_t q = shfl(queryReg, (d / 4) + k, WarpSize);
@@ -323,10 +323,10 @@ struct loadAndComputeDist<kUnroll, Lambda, 4, uint8_t, uint32_t> {
   __device__ __forceinline__ void runLoadShflAndCompute(const uint8_t*& data,
                                                         const uint8_t* query,
                                                         int baseLoadIndex,
-                                                        const int laneId)
+                                                        const int lane_id)
   {
     uint32_t queryReg =
-      (laneId < 8) ? reinterpret_cast<unsigned const*>(query + baseLoadIndex)[laneId] : 0;
+      (lane_id < 8) ? reinterpret_cast<unsigned const*>(query + baseLoadIndex)[lane_id] : 0;
     constexpr int veclen = 4;
     constexpr int stride = kUnroll * veclen;
 
@@ -334,7 +334,7 @@ struct loadAndComputeDist<kUnroll, Lambda, 4, uint8_t, uint32_t> {
     for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
-        uint32_t encV = reinterpret_cast<unsigned const*>(data)[laneId + j * kIndexGroupSize];
+        uint32_t encV = reinterpret_cast<unsigned const*>(data)[lane_id + j * kIndexGroupSize];
         uint32_t q    = shfl(queryReg, i * kUnroll + j, WarpSize);
         compute_dist(dist, q, encV);
       }
@@ -343,15 +343,15 @@ struct loadAndComputeDist<kUnroll, Lambda, 4, uint8_t, uint32_t> {
 
   __device__ __forceinline__ void runLoadShflAndComputeRemainder(const uint8_t*& data,
                                                                  const uint8_t* query,
-                                                                 const int laneId,
+                                                                 const int lane_id,
                                                                  const int dim,
                                                                  const int dimBlocks)
   {
     constexpr int veclen = 4;
-    const int loadDim    = dimBlocks + laneId;
+    const int loadDim    = dimBlocks + lane_id;
     uint32_t queryReg    = loadDim < dim ? reinterpret_cast<unsigned const*>(query)[loadDim] : 0;
     for (int d = 0; d < dim - dimBlocks; d += veclen, data += kIndexGroupSize * veclen) {
-      uint32_t enc = reinterpret_cast<unsigned const*>(data)[laneId];
+      uint32_t enc = reinterpret_cast<unsigned const*>(data)[lane_id];
       uint32_t q   = shfl(queryReg, d / veclen, WarpSize);
       compute_dist(dist, q, enc);
     }  // end for d < dim - dimBlocks
@@ -384,10 +384,10 @@ struct loadAndComputeDist<kUnroll, Lambda, 2, uint8_t, uint32_t> {
   __device__ __forceinline__ void runLoadShflAndCompute(const uint8_t*& data,
                                                         const uint8_t* query,
                                                         int baseLoadIndex,
-                                                        const int laneId)
+                                                        const int lane_id)
   {
     uint32_t queryReg =
-      (laneId < 16) ? reinterpret_cast<uint16_t const*>(query + baseLoadIndex)[laneId] : 0;
+      (lane_id < 16) ? reinterpret_cast<uint16_t const*>(query + baseLoadIndex)[lane_id] : 0;
     constexpr int veclen = 2;
     constexpr int stride = kUnroll * veclen;
 
@@ -395,7 +395,7 @@ struct loadAndComputeDist<kUnroll, Lambda, 2, uint8_t, uint32_t> {
     for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
-        uint32_t encV = reinterpret_cast<uint16_t const*>(data)[laneId + j * kIndexGroupSize];
+        uint32_t encV = reinterpret_cast<uint16_t const*>(data)[lane_id + j * kIndexGroupSize];
         uint32_t q    = shfl(queryReg, i * kUnroll + j, WarpSize);
         compute_dist(dist, q, encV);
       }
@@ -404,15 +404,15 @@ struct loadAndComputeDist<kUnroll, Lambda, 2, uint8_t, uint32_t> {
 
   __device__ __forceinline__ void runLoadShflAndComputeRemainder(const uint8_t*& data,
                                                                  const uint8_t* query,
-                                                                 const int laneId,
+                                                                 const int lane_id,
                                                                  const int dim,
                                                                  const int dimBlocks)
   {
     constexpr int veclen = 2;
-    int loadDim          = dimBlocks + laneId * veclen;
+    int loadDim          = dimBlocks + lane_id * veclen;
     uint32_t queryReg = loadDim < dim ? reinterpret_cast<uint16_t const*>(query + loadDim)[0] : 0;
     for (int d = 0; d < dim - dimBlocks; d += veclen, data += kIndexGroupSize * veclen) {
-      uint32_t enc = reinterpret_cast<uint16_t const*>(data)[laneId];
+      uint32_t enc = reinterpret_cast<uint16_t const*>(data)[lane_id];
       uint32_t q   = shfl(queryReg, d / veclen, WarpSize);
       compute_dist(dist, q, enc);
     }
@@ -445,9 +445,9 @@ struct loadAndComputeDist<kUnroll, Lambda, 1, uint8_t, uint32_t> {
   __device__ __forceinline__ void runLoadShflAndCompute(const uint8_t*& data,
                                                         const uint8_t* query,
                                                         int baseLoadIndex,
-                                                        const int laneId)
+                                                        const int lane_id)
   {
-    uint32_t queryReg    = query[baseLoadIndex + laneId];
+    uint32_t queryReg    = query[baseLoadIndex + lane_id];
     constexpr int veclen = 1;
     constexpr int stride = kUnroll * veclen;
 
@@ -455,7 +455,7 @@ struct loadAndComputeDist<kUnroll, Lambda, 1, uint8_t, uint32_t> {
     for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
-        uint32_t encV = data[laneId + j * kIndexGroupSize];
+        uint32_t encV = data[lane_id + j * kIndexGroupSize];
         uint32_t q    = shfl(queryReg, i * kUnroll + j, WarpSize);
         compute_dist(dist, q, encV);
       }
@@ -464,15 +464,15 @@ struct loadAndComputeDist<kUnroll, Lambda, 1, uint8_t, uint32_t> {
 
   __device__ __forceinline__ void runLoadShflAndComputeRemainder(const uint8_t*& data,
                                                                  const uint8_t* query,
-                                                                 const int laneId,
+                                                                 const int lane_id,
                                                                  const int dim,
                                                                  const int dimBlocks)
   {
     constexpr int veclen = 1;
-    int loadDim          = dimBlocks + laneId;
+    int loadDim          = dimBlocks + lane_id;
     uint32_t queryReg    = loadDim < dim ? query[loadDim] : 0;
     for (int d = 0; d < dim - dimBlocks; d += veclen, data += kIndexGroupSize * veclen) {
-      uint32_t enc = data[laneId];
+      uint32_t enc = data[lane_id];
       uint32_t q   = shfl(queryReg, d, WarpSize);
       compute_dist(dist, q, enc);
     }
@@ -514,12 +514,12 @@ struct loadAndComputeDist<kUnroll, Lambda, int8_veclen, int8_t, int32_t> {
   __device__ __forceinline__ void runLoadShflAndCompute(const int8_t*& data,
                                                         const int8_t* query,
                                                         int baseLoadIndex,
-                                                        const int laneId)
+                                                        const int lane_id)
   {
     constexpr int veclen_int = int8_veclen / 4;  // converting int8_t veclens to int
 
     int32_t queryReg =
-      (laneId < 8) ? reinterpret_cast<int32_t const*>(query + baseLoadIndex)[laneId] : 0;
+      (lane_id < 8) ? reinterpret_cast<int32_t const*>(query + baseLoadIndex)[lane_id] : 0;
     constexpr int stride = kUnroll * int8_veclen;
 
 #pragma unroll
@@ -528,7 +528,7 @@ struct loadAndComputeDist<kUnroll, Lambda, int8_veclen, int8_t, int32_t> {
       for (int j = 0; j < kUnroll; ++j) {
         int32_t encV[veclen_int];
         ldg(encV,
-            reinterpret_cast<int32_t const*>(data) + (laneId + j * kIndexGroupSize) * veclen_int);
+            reinterpret_cast<int32_t const*>(data) + (lane_id + j * kIndexGroupSize) * veclen_int);
         const int d = (i * kUnroll + j) * veclen_int;
 #pragma unroll
         for (int k = 0; k < veclen_int; ++k) {
@@ -540,14 +540,14 @@ struct loadAndComputeDist<kUnroll, Lambda, int8_veclen, int8_t, int32_t> {
   }
 
   __device__ __forceinline__ void runLoadShflAndComputeRemainder(
-    const int8_t*& data, const int8_t* query, const int laneId, const int dim, const int dimBlocks)
+    const int8_t*& data, const int8_t* query, const int lane_id, const int dim, const int dimBlocks)
   {
     constexpr int veclen_int = int8_veclen / 4;
-    const int loadDim        = dimBlocks + laneId * 4;  // Here 4 is for 1 - int;
+    const int loadDim        = dimBlocks + lane_id * 4;  // Here 4 is for 1 - int;
     int32_t queryReg = loadDim < dim ? reinterpret_cast<int32_t const*>(query + loadDim)[0] : 0;
     for (int d = 0; d < dim - dimBlocks; d += int8_veclen, data += kIndexGroupSize * int8_veclen) {
       int32_t enc[veclen_int];
-      ldg(enc, reinterpret_cast<int32_t const*>(data) + laneId * veclen_int);
+      ldg(enc, reinterpret_cast<int32_t const*>(data) + lane_id * veclen_int);
 #pragma unroll
       for (int k = 0; k < veclen_int; k++) {
         int32_t q = shfl(queryReg, (d / 4) + k, WarpSize);  // Here 4 is for 1 - int;
@@ -581,10 +581,10 @@ struct loadAndComputeDist<kUnroll, Lambda, 2, int8_t, int32_t> {
   __device__ __forceinline__ void runLoadShflAndCompute(const int8_t*& data,
                                                         const int8_t* query,
                                                         int baseLoadIndex,
-                                                        const int laneId)
+                                                        const int lane_id)
   {
     int32_t queryReg =
-      (laneId < 16) ? reinterpret_cast<uint16_t const*>(query + baseLoadIndex)[laneId] : 0;
+      (lane_id < 16) ? reinterpret_cast<uint16_t const*>(query + baseLoadIndex)[lane_id] : 0;
     constexpr int veclen = 2;
     constexpr int stride = kUnroll * veclen;
 
@@ -592,7 +592,7 @@ struct loadAndComputeDist<kUnroll, Lambda, 2, int8_t, int32_t> {
     for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
-        int32_t encV = reinterpret_cast<uint16_t const*>(data)[laneId + j * kIndexGroupSize];
+        int32_t encV = reinterpret_cast<uint16_t const*>(data)[lane_id + j * kIndexGroupSize];
         int32_t q    = shfl(queryReg, i * kUnroll + j, WarpSize);
         compute_dist(dist, q, encV);
       }
@@ -600,13 +600,13 @@ struct loadAndComputeDist<kUnroll, Lambda, 2, int8_t, int32_t> {
   }
 
   __device__ __forceinline__ void runLoadShflAndComputeRemainder(
-    const int8_t*& data, const int8_t* query, const int laneId, const int dim, const int dimBlocks)
+    const int8_t*& data, const int8_t* query, const int lane_id, const int dim, const int dimBlocks)
   {
     constexpr int veclen = 2;
-    int loadDim          = dimBlocks + laneId * veclen;
+    int loadDim          = dimBlocks + lane_id * veclen;
     int32_t queryReg = loadDim < dim ? reinterpret_cast<uint16_t const*>(query + loadDim)[0] : 0;
     for (int d = 0; d < dim - dimBlocks; d += veclen, data += kIndexGroupSize * veclen) {
-      int32_t enc = reinterpret_cast<uint16_t const*>(data + laneId * veclen)[0];
+      int32_t enc = reinterpret_cast<uint16_t const*>(data + lane_id * veclen)[0];
       int32_t q   = shfl(queryReg, d / veclen, WarpSize);
       compute_dist(dist, q, enc);
     }
@@ -636,29 +636,29 @@ struct loadAndComputeDist<kUnroll, Lambda, 1, int8_t, int32_t> {
   __device__ __forceinline__ void runLoadShflAndCompute(const int8_t*& data,
                                                         const int8_t* query,
                                                         int baseLoadIndex,
-                                                        const int laneId)
+                                                        const int lane_id)
   {
     constexpr int veclen = 1;
     constexpr int stride = kUnroll * veclen;
-    int32_t queryReg     = query[baseLoadIndex + laneId];
+    int32_t queryReg     = query[baseLoadIndex + lane_id];
 
 #pragma unroll
     for (int i = 0; i < WarpSize / stride; ++i, data += stride * kIndexGroupSize) {
 #pragma unroll
       for (int j = 0; j < kUnroll; ++j) {
         compute_dist(
-          dist, shfl(queryReg, i * kUnroll + j, WarpSize), data[laneId + j * kIndexGroupSize]);
+          dist, shfl(queryReg, i * kUnroll + j, WarpSize), data[lane_id + j * kIndexGroupSize]);
       }
     }
   }
   __device__ __forceinline__ void runLoadShflAndComputeRemainder(
-    const int8_t*& data, const int8_t* query, const int laneId, const int dim, const int dimBlocks)
+    const int8_t*& data, const int8_t* query, const int lane_id, const int dim, const int dimBlocks)
   {
     constexpr int veclen = 1;
-    const int loadDim    = dimBlocks + laneId;
+    const int loadDim    = dimBlocks + lane_id;
     int32_t queryReg     = loadDim < dim ? query[loadDim] : 0;
     for (int d = 0; d < dim - dimBlocks; d += veclen, data += kIndexGroupSize * veclen) {
-      compute_dist(dist, shfl(queryReg, d, WarpSize), data[laneId]);
+      compute_dist(dist, shfl(queryReg, d, WarpSize), data[lane_id]);
     }
   }
 };
@@ -678,18 +678,13 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
                           const T* list_data,
                           const uint32_t* list_lengths,
                           const uint32_t* list_prefix_interleave,
-                          const uint32_t nprobe,
+                          const uint32_t n_probes,
                           const uint32_t k,
                           const uint32_t dim,
                           size_t* neighbors,
                           float* distances)
 {
   extern __shared__ __align__(256) uint8_t interleaved_scan_kernel_smem[];
-  // Using shared memory for the (part of the) query;
-  // This allows to save on global memory bandwidth when reading index and query
-  // data at the same time.
-  // Its size is `query_smem_elems`.
-  T* query_shared = reinterpret_cast<T*>(interleaved_scan_kernel_smem);
 #ifdef USE_FAISS
   // temporary use of FAISS blockSelect for development purpose of k <= 32
   // for comparison purpose
@@ -707,97 +702,105 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
       queue(identity, keyMax, smemK, smemV, k);
 
 #else
-  topk::block_sort<topk::warp_sort_filtered, Capacity, Ascending, float, size_t> queue(
+  topk::block_sort<topk::warp_sort_immediate, Capacity, Ascending, float, size_t> queue(
     k, interleaved_scan_kernel_smem + query_smem_elems * sizeof(T));
 #endif
 
-  using align_warp = Pow2<WarpSize>;
-  const int laneId = align_warp::mod(threadIdx.x);
-  const int warpId = align_warp::div(threadIdx.x);
-  int queryId      = blockIdx.y;
+  const int query_id = blockIdx.y;
+  {
+    // Using shared memory for the (part of the) query;
+    // This allows to save on global memory bandwidth when reading index and query
+    // data at the same time.
+    // Its size is `query_smem_elems`.
+    T* query_shared = reinterpret_cast<T*>(interleaved_scan_kernel_smem);
 
-  /// Set the address
-  auto query               = queries + queryId * dim;
-  constexpr int kGroupSize = WarpSize;
+    using align_warp  = Pow2<WarpSize>;
+    const int lane_id = align_warp::mod(threadIdx.x);
+    const int warp_id = align_warp::div(threadIdx.x);
 
-  // How many full warps needed to compute the distance (without remainder)
-  const int full_warps_along_dim = align_warp::roundDown(dim);
+    /// Set the address
+    auto query               = queries + query_id * dim;
+    constexpr int kGroupSize = WarpSize;
 
-  int shLoadDim = (dim < query_smem_elems) ? dim : query_smem_elems;
+    // How many full warps needed to compute the distance (without remainder)
+    const int full_warps_along_dim = align_warp::roundDown(dim);
 
-  // load the query data from global to shared memory
-  for (int loadDim = threadIdx.x; loadDim * Veclen < shLoadDim; loadDim += blockDim.x) {
-    queryLoadToShmem<T, Veclen>(query, query_shared, loadDim);
-  }
-  __syncthreads();
-  shLoadDim = (dim > query_smem_elems) ? shLoadDim : full_warps_along_dim;
+    int shm_assisted_dim = (dim < query_smem_elems) ? dim : query_smem_elems;
 
-  // Every CUDA block scans one cluster at a time.
-  for (int probeId = blockIdx.x; probeId < nprobe; probeId += gridDim.x) {
-    uint32_t listId = coarse_index[queryId * nprobe + probeId];  // The id of cluster(list)
+    // load the query data from global to shared memory
+    for (int i = threadIdx.x; i * Veclen < shm_assisted_dim; i += blockDim.x) {
+      queryLoadToShmem<T, Veclen>(query, query_shared, i);
+    }
+    __syncthreads();
+    shm_assisted_dim = (dim > query_smem_elems) ? query_smem_elems : full_warps_along_dim;
 
-    /**
-     * Uses shared memory
-     */
-    //@TODO The result with dimension
-    // The start address of the full value of vector for each cluster(list) interleaved
-    auto vecsBase = list_data + size_t(list_prefix_interleave[listId]) * dim;
-    // The start address of index of vector for each cluster(list) interleaved
-    auto indexBase = list_index + list_prefix_interleave[listId];
-    // The number of vectors in each cluster(list); [nlist]
-    const uint32_t list_length = list_lengths[listId];
+    // Every CUDA block scans one cluster at a time.
+    for (int probe_id = blockIdx.x; probe_id < n_probes; probe_id += gridDim.x) {
+      const uint32_t list_id =
+        coarse_index[query_id * n_probes + probe_id];  // The id of cluster(list)
 
-    // The number of interleaved groups to be processed
-    const uint32_t num_groups = ceildiv<uint32_t>(list_length, WarpSize);
+      /**
+       * Uses shared memory
+       */
+      // The start address of the full value of vector for each cluster(list) interleaved
+      auto vecsBase = list_data + size_t(list_prefix_interleave[list_id]) * dim;
+      // The start address of index of vector for each cluster(list) interleaved
+      auto indexBase = list_index + list_prefix_interleave[list_id];
+      // The number of vectors in each cluster(list); [nlist]
+      const uint32_t list_length = list_lengths[list_id];
 
-    constexpr int kUnroll        = WarpSize / Veclen;
-    constexpr uint32_t kNumWarps = kThreadsPerBlock / WarpSize;
-    // Every warp reads WarpSize vectors and computes the distances to them.
-    // Then, the distances and corresponding ids are distributed among the threads,
-    // and each thread adds one (id, dist) pair to the filtering queue.
-    for (uint32_t block = warpId; block < num_groups; block += kNumWarps) {
-      AccT dist = 0;
-      // This is the vector a given lane/thread handles
-      const uint32_t vec = block * WarpSize + laneId;
-      bool valid         = vec < list_length;
-      size_t idx         = (valid) ? (size_t)indexBase[vec] : (size_t)laneId;
-      // This is where this warp begins reading data
-      const T* data = vecsBase + size_t(block) * kGroupSize * dim;  // Start position of this block
+      // The number of interleaved groups to be processed
+      const uint32_t num_groups = ceildiv<uint32_t>(list_length, WarpSize);
 
-      if (valid) {
-        /// load query from shared mem
-        for (int dBase = 0; dBase < shLoadDim; dBase += WarpSize) {
-          loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> obj(dist,
-                                                                                   compute_dist);
-          obj.runLoadShmemCompute(data, query_shared, laneId, dBase);
-          data += WarpSize * kGroupSize;
-        }
-      }
+      constexpr int kUnroll        = WarpSize / Veclen;
+      constexpr uint32_t kNumWarps = kThreadsPerBlock / WarpSize;
+      // Every warp reads WarpSize vectors and computes the distances to them.
+      // Then, the distances and corresponding ids are distributed among the threads,
+      // and each thread adds one (id, dist) pair to the filtering queue.
+      for (uint32_t block = warp_id; block < num_groups; block += kNumWarps) {
+        AccT dist = 0;
+        // This is the vector a given lane/thread handles
+        const uint32_t vec = block * WarpSize + lane_id;
+        bool valid         = vec < list_length;
+        size_t idx         = (valid) ? (size_t)indexBase[vec] : (size_t)lane_id;
+        // This is where this warp begins reading data
+        const T* data =
+          vecsBase + size_t(block) * kGroupSize * dim;  // Start position of this block
 
-      if (dim > query_smem_elems) {
-        loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> obj(dist,
-                                                                                 compute_dist);
-        for (int dBase = shLoadDim; dBase < full_warps_along_dim; dBase += WarpSize) {  //
-          obj.runLoadShflAndCompute(data, query, dBase, laneId);
-        }
-        // Remainder chunk = dim - full_warps_along_dim
-        obj.runLoadShflAndComputeRemainder(data, query, laneId, dim, full_warps_along_dim);
-        // end for d < dim - full_warps_along_dim
-      } else {
+        // Process first shm_assisted_dim dimensions (always using shared memory)
         if (valid) {
-          /// Remainder chunk = dim - full_warps_along_dim
-          for (int d = 0; d < dim - full_warps_along_dim;
-               d += Veclen, data += kGroupSize * Veclen) {
-            loadAndComputeDist<1, decltype(compute_dist), Veclen, T, AccT> obj(dist, compute_dist);
-            obj.runLoadShmemCompute(data, query_shared, laneId, full_warps_along_dim + d);
-          }  // end for d < dim - full_warps_along_dim
+          for (int pos = 0; pos < shm_assisted_dim; pos += WarpSize) {
+            loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> lc(dist,
+                                                                                    compute_dist);
+            lc.runLoadShmemCompute(data, query_shared, lane_id, pos);
+            data += WarpSize * kGroupSize;
+          }
         }
-      }
 
-      // Enqueue one element per thread
-      constexpr float kDummy = Ascending ? upper_bound<float>() : lower_bound<float>();
-      float val              = (valid) ? (float)dist : kDummy;
-      queue.add(val, idx);
+        if (dim > query_smem_elems) {
+          // The default path - using shfl ops - for dimensions beyond query_smem_elems
+          loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> lc(dist,
+                                                                                  compute_dist);
+          for (int pos = shm_assisted_dim; pos < full_warps_along_dim; pos += WarpSize) {  //
+            lc.runLoadShflAndCompute(data, query, pos, lane_id);
+          }
+          lc.runLoadShflAndComputeRemainder(data, query, lane_id, dim, full_warps_along_dim);
+        } else {
+          // when  shm_assisted_dim == full_warps_along_dim < dim
+          if (valid) {
+            loadAndComputeDist<1, decltype(compute_dist), Veclen, T, AccT> lc(dist, compute_dist);
+            for (int pos = full_warps_along_dim; pos < dim;
+                 pos += Veclen, data += kGroupSize * Veclen) {
+              lc.runLoadShmemCompute(data, query_shared, lane_id, pos);
+            }
+          }
+        }
+
+        // Enqueue one element per thread
+        constexpr float kDummy = Ascending ? upper_bound<float>() : lower_bound<float>();
+        float val              = valid ? static_cast<float>(dist) : kDummy;
+        queue.add(val, idx);
+      }
     }
   }
 
@@ -805,13 +808,13 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
 #ifdef USE_FAISS
   queue.reduce();
   for (int i = threadIdx.x; i < k; i += kThreadsPerBlock) {
-    neighbors[queryId * k * gridDim.x + blockIdx.x * k + i] = (size_t)smemV[i];
-    distances[queryId * k * gridDim.x + blockIdx.x * k + i] = smemK[i];
+    neighbors[query_id * k * gridDim.x + blockIdx.x * k + i] = (size_t)smemV[i];
+    distances[query_id * k * gridDim.x + blockIdx.x * k + i] = smemK[i];
   }
 #else
   queue.done();
-  queue.store(distances + queryId * k * gridDim.x + blockIdx.x * k,
-              neighbors + queryId * k * gridDim.x + blockIdx.x * k);
+  queue.store(distances + query_id * k * gridDim.x + blockIdx.x * k,
+              neighbors + query_id * k * gridDim.x + blockIdx.x * k);
 #endif
 }  // end kernel
 
@@ -819,7 +822,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
  *  Configure the gridDim.x to maximize GPU occupancy, but reduce the output size
  */
 template <typename T>
-uint32_t configure_launch_x(uint32_t numQueries, uint32_t nprobe, int32_t sMemSize, T func)
+uint32_t configure_launch_x(uint32_t numQueries, uint32_t n_probes, int32_t sMemSize, T func)
 {
   int dev_id;
   RAFT_CUDA_TRY(cudaGetDevice(&dev_id));
@@ -831,7 +834,7 @@ uint32_t configure_launch_x(uint32_t numQueries, uint32_t nprobe, int32_t sMemSi
 
   size_t min_grid_size = num_sms * num_blocks_per_sm;
   size_t min_grid_x    = ceildiv<size_t>(min_grid_size, numQueries);
-  return min_grid_x > nprobe ? nprobe : static_cast<uint32_t>(min_grid_x);
+  return min_grid_x > n_probes ? n_probes : static_cast<uint32_t>(min_grid_x);
 }
 
 template <int Capacity, int Veclen, bool Ascending, typename T, typename AccT, typename Lambda>
@@ -840,7 +843,7 @@ void launch_kernel(Lambda lambda,
                    const T* queries,
                    const uint32_t* coarse_index,
                    const uint32_t num_queries,
-                   const uint32_t nprobe,
+                   const uint32_t n_probes,
                    const uint32_t k,
                    size_t* neighbors,
                    float* distances,
@@ -866,7 +869,7 @@ void launch_kernel(Lambda lambda,
   constexpr uint32_t kMaxGridY = 32768;
 
   if (grid_dim_x == 0) {
-    grid_dim_x = configure_launch_x(std::min(kMaxGridY, num_queries), nprobe, smem_size, kKernel);
+    grid_dim_x = configure_launch_x(std::min(kMaxGridY, num_queries), n_probes, smem_size, kKernel);
     return;
   }
 
@@ -875,12 +878,12 @@ void launch_kernel(Lambda lambda,
     dim3 grid_dim(grid_dim_x, grid_dim_y, 1);
     dim3 block_dim(kThreadsPerBlock);
     RAFT_LOG_TRACE(
-      "Launching the ivf-flat interleaved_scan_kernel (%d, %d, 1) x (%d, 1, 1), nprobe = %d, "
+      "Launching the ivf-flat interleaved_scan_kernel (%d, %d, 1) x (%d, 1, 1), n_probes = %d, "
       "smem_size = %d",
       grid_dim.x,
       grid_dim.y,
       block_dim.x,
-      nprobe,
+      n_probes,
       smem_size);
     kKernel<<<grid_dim, block_dim, smem_size, stream>>>(lambda,
                                                         query_smem_elems,
@@ -890,7 +893,7 @@ void launch_kernel(Lambda lambda,
                                                         index.data.data(),
                                                         index.list_sizes.data(),
                                                         index.list_offsets.data(),
-                                                        nprobe,
+                                                        n_probes,
                                                         k,
                                                         index.dim(),
                                                         neighbors,
@@ -903,22 +906,22 @@ void launch_kernel(Lambda lambda,
 
 template <int Veclen, typename T, typename AccT>
 struct euclidean_dist {
-  __device__ inline void operator()(AccT& acc, AccT x, AccT y)
+  __device__ __forceinline__ void operator()(AccT& acc, AccT x, AccT y)
   {
-    const AccT diff = x - y;
+    const auto diff = x - y;
     acc += diff * diff;
   }
 };
 
 template <int Veclen>
 struct euclidean_dist<Veclen, uint8_t, uint32_t> {
-  __device__ inline void operator()(uint32_t& acc, uint32_t x, uint32_t y)
+  __device__ __forceinline__ void operator()(uint32_t& acc, uint32_t x, uint32_t y)
   {
     if constexpr (Veclen > 1) {
-      const uint32_t diff = __vabsdiffu4(x, y);
-      acc                 = dp4a(diff, diff, acc);
+      const auto diff = __vabsdiffu4(x, y);
+      acc             = dp4a(diff, diff, acc);
     } else {
-      const uint32_t diff = x - y;
+      const auto diff = x - y;
       acc += diff * diff;
     }
   }
@@ -926,13 +929,13 @@ struct euclidean_dist<Veclen, uint8_t, uint32_t> {
 
 template <int Veclen>
 struct euclidean_dist<Veclen, int8_t, int32_t> {
-  __device__ inline void operator()(int32_t& acc, int32_t x, int32_t y)
+  __device__ __forceinline__ void operator()(int32_t& acc, int32_t x, int32_t y)
   {
     if constexpr (Veclen > 1) {
-      const int32_t diff = static_cast<int32_t>(__vabsdiffs4(x, y));
-      acc                = dp4a(diff, diff, acc);
+      const auto diff = static_cast<int32_t>(__vabsdiffs4(x, y));
+      acc             = dp4a(diff, diff, acc);
     } else {
-      const int32_t diff = x - y;
+      const auto diff = x - y;
       acc += diff * diff;
     }
   }
@@ -940,7 +943,7 @@ struct euclidean_dist<Veclen, int8_t, int32_t> {
 
 template <int Veclen, typename T, typename AccT>
 struct inner_prod_dist {
-  __device__ inline void operator()(AccT& acc, AccT x, AccT y)
+  __device__ __forceinline__ void operator()(AccT& acc, AccT x, AccT y)
   {
     if constexpr (Veclen > 1 && (std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t>)) {
       acc = dp4a(x, y, acc);
@@ -1255,7 +1258,7 @@ inline void search(const handle_t& handle,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "ivf_flat_handle::search(%u, %u, %zu)", n_queries, k, neighbors);
+    "ivf_flat::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim());
 
   RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
