@@ -230,7 +230,7 @@ void kmeans_transform(const raft::handle_t& handle,
 template <typename DataT, typename IndexT = int>
 using SamplingOp = detail::SamplingOp<DataT, IndexT>;
 
-template <typename DataT, typename IndexT = int>
+template <typename IndexT, typename DataT>
 using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
 
 /**
@@ -361,7 +361,7 @@ void minClusterAndDistanceCompute(
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
   rmm::device_uvector<char>& workspace)
 {
-  detail::minClusterDistanceCompute<DataT, IndexT>(
+  detail::minClusterAndDistanceCompute<DataT, IndexT>(
     handle, params, X, centroids, minClusterAndDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
 }
 
