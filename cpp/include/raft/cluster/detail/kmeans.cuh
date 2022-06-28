@@ -26,7 +26,7 @@
 #include <thrust/fill.h>
 #include <thrust/transform.h>
 
-#include <raft/cluster/detail/kmeans_helper.cuh>
+#include <raft/cluster/detail/kmeans_common.cuh>
 #include <raft/cluster/kmeans_params.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
