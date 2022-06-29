@@ -268,7 +268,7 @@ const std::vector<AnnIvfFlatInputs> inputs = {
    10,
    raft::spatial::knn::detail::topk::kMaxCapacity * 4,
    raft::spatial::knn::detail::topk::kMaxCapacity * 4,
-   raft::distance::DistanceType::InnerProduct} 1024};
+   raft::distance::DistanceType::InnerProduct}};
 
 typedef AnnIVFFlatTest<float, float> AnnIVFFlatTestF;
 TEST_P(AnnIVFFlatTestF, AnnIVFFlat) { this->testIVFFlat(); }
