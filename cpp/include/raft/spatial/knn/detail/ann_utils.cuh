@@ -67,7 +67,7 @@ struct pointer_residency_count<Type, Types...> {
 
 /** Check if all argument pointers reside on the host or on the device. */
 template <typename... Types>
-inline auto check_pointer_residency(const Types*... ptrs) -> pointer_residency
+auto check_pointer_residency(const Types*... ptrs) -> pointer_residency
 {
   auto [on_device, on_host] = pointer_residency_count<Types...>::run(ptrs...);
   int n_args                = sizeof...(Types);
@@ -137,7 +137,7 @@ struct mapping {
  * @param[in] value
  * @param[in] n_bytes
  */
-void memset(void* ptr, int value, size_t n_bytes, rmm::cuda_stream_view stream)
+inline void memset(void* ptr, int value, size_t n_bytes, rmm::cuda_stream_view stream)
 {
   switch (check_pointer_residency(ptr)) {
     case pointer_residency::host_and_device:
@@ -199,7 +199,7 @@ __global__ void argmin_along_rows_kernel(uint32_t n_rows,
  * @param[out] out device pointer to the vector of selected indices [n_rows]
  * @param stream
  */
-void argmin_along_rows(
+inline void argmin_along_rows(
   uint32_t n_rows, uint32_t n_cols, const float* a, uint32_t* out, rmm::cuda_stream_view stream)
 {
   uint32_t block_dim = 1024;
@@ -239,7 +239,7 @@ __global__ void dots_along_rows_kernel(uint32_t n_rows, uint32_t n_cols, const f
  * @param[out] out device pointer to the vector of dot-products [n_rows]
  * @param stream
  */
-void dots_along_rows(
+inline void dots_along_rows(
   uint32_t n_rows, uint32_t n_cols, const float* a, float* out, rmm::cuda_stream_view stream)
 {
   dim3 threads(32, 4, 1);
@@ -350,7 +350,7 @@ __global__ void normalize_rows_kernel(uint32_t n_rows, uint32_t n_cols, float* a
  * @param[inout] a device pointer to a row-major matrix [n_rows, n_cols]
  * @param stream
  */
-void normalize_rows(uint32_t n_rows, uint32_t n_cols, float* a, rmm::cuda_stream_view stream)
+inline void normalize_rows(uint32_t n_rows, uint32_t n_cols, float* a, rmm::cuda_stream_view stream)
 {
   dim3 threads(32, 4, 1);  // DO NOT CHANGE
   dim3 blocks(ceildiv(n_rows, threads.y), 1, 1);
@@ -379,7 +379,7 @@ __global__ void divide_along_rows_kernel(uint32_t n_rows,
  * @param[inout] a device pointer to a row-major matrix [n_rows, n_cols]
  * @param[in] d device pointer to a vector of divisors [n_rows]
  */
-void divide_along_rows(
+inline void divide_along_rows(
   uint32_t n_rows, uint32_t n_cols, float* a, const uint32_t* d, rmm::cuda_stream_view stream)
 {
   dim3 threads(128, 1, 1);

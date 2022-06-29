@@ -127,10 +127,10 @@ void approx_knn_build_index(const handle_t& handle,
   auto ivf_pq_pams = dynamic_cast<const ivf_pq_index_params*>(&params);
   auto ivf_sq_pams = dynamic_cast<const ivf_sq_index_params*>(&params);
 
-  if constexpr (std::is_same<T, float>{}) {
+  if constexpr (std::is_same_v<T, float>) {
     index->metric_processor = create_processor<float>(metric, n, D, 0, false, stream);
   }
-  if constexpr (std::is_same<T, float>{}) { index->metric_processor->preprocess(index_array); }
+  if constexpr (std::is_same_v<T, float>) { index->metric_processor->preprocess(index_array); }
 
   if (ivf_ft_pams && (metric == raft::distance::DistanceType::L2SqrtExpanded ||
                       metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
@@ -153,7 +153,7 @@ void approx_knn_build_index(const handle_t& handle,
     } else {
       RAFT_FAIL("Unrecognized index type.");
     }
-    if constexpr (std::is_same<T, float>{}) {
+    if constexpr (std::is_same_v<T, float>) {
       index->index->train(n, index_array);
       index->index->add(n, index_array);
     } else {
@@ -161,7 +161,7 @@ void approx_knn_build_index(const handle_t& handle,
     }
   }
 
-  if constexpr (std::is_same<T, float>{}) { index->metric_processor->revert(index_array); }
+  if constexpr (std::is_same_v<T, float>) { index->metric_processor->revert(index_array); }
 }
 
 template <typename T = float, typename IntType = int>
@@ -179,11 +179,11 @@ void approx_knn_search(const handle_t& handle,
   auto faiss_ivf   = dynamic_cast<GpuIndexIVF*>(index->index.get());
   if (ivf_pams && faiss_ivf) { faiss_ivf->setNumProbes(ivf_pams->n_probes); }
 
-  if constexpr (std::is_same<T, float>{}) { index->metric_processor->preprocess(query_array); }
+  if constexpr (std::is_same_v<T, float>) { index->metric_processor->preprocess(query_array); }
 
   // search
   if (faiss_ivf) {
-    if constexpr (std::is_same<T, float>{}) {
+    if constexpr (std::is_same_v<T, float>) {
       faiss_ivf->search(n, query_array, k, distances, indices);
     } else {
       RAFT_FAIL("FAISS-based index supports only float data.");
@@ -203,7 +203,7 @@ void approx_knn_search(const handle_t& handle,
   }
 
   // revert changes to the query
-  if constexpr (std::is_same<T, float>{}) { index->metric_processor->revert(query_array); }
+  if constexpr (std::is_same_v<T, float>) { index->metric_processor->revert(query_array); }
 
   // perform post-processing to show the real distances
   if (index->metric == raft::distance::DistanceType::L2SqrtExpanded ||
@@ -221,7 +221,7 @@ void approx_knn_search(const handle_t& handle,
       [p] __device__(float input) { return powf(input, p); },
       handle.get_stream());
   }
-  if constexpr (std::is_same<T, float>{}) { index->metric_processor->postprocess(distances); }
+  if constexpr (std::is_same_v<T, float>) { index->metric_processor->postprocess(distances); }
 }
 
 }  // namespace raft::spatial::knn::detail
