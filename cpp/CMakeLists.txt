@@ -286,9 +286,12 @@ if(RAFT_COMPILE_DIST_LIBRARY)
 
 endif()
 
+if(TARGET raft_distance_lib AND (NOT TARGET raft::raft_distance_lib))
+  add_library(raft::raft_distance_lib ALIAS raft_distance_lib)
+endif()
+
 target_link_libraries(raft_distance INTERFACE
     raft::raft
-    $<TARGET_NAME_IF_EXISTS:raft_distance_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
 )
 
@@ -341,9 +344,12 @@ if(RAFT_COMPILE_NN_LIBRARY)
           INTERFACE "RAFT_NN_COMPILED")
 endif()
 
+if(TARGET raft_nn_lib AND (NOT TARGET raft::raft_nn_lib))
+  add_library(raft::raft_nn_lib ALIAS raft_nn_lib)
+endif()
+
 target_link_libraries(raft_nn INTERFACE
     raft::raft
-    $<TARGET_NAME_IF_EXISTS:raft_nn_lib>
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
 ##############################################################################
