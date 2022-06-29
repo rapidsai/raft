@@ -203,8 +203,14 @@ inline auto build(const handle_t& handle,
                           : std::nullopt;
 
   // assemble the index
-  index<T> index{
-    veclen, params.metric, data, indices, list_sizes, list_offsets, centers, center_norms};
+  index<T> index{veclen,
+                 params.metric,
+                 std::move(data),
+                 std::move(indices),
+                 std::move(list_sizes),
+                 std::move(list_offsets),
+                 std::move(centers),
+                 std::move(center_norms)};
 
   // check index invariants
   index.check_consistency();
