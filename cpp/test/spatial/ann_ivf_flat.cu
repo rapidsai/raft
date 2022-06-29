@@ -151,8 +151,6 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
       index_params.metric    = ps.metric;
       search_params.n_probes = ps.nprobe;
       raft::spatial::knn::knnIndex index;
-      index.index   = nullptr;
-      index.gpu_res = nullptr;
 
       approx_knn_build_index(
         handle_, &index, index_params, database.data(), ps.num_db_vecs, ps.dim);
@@ -216,21 +214,24 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
 };
 
 const std::vector<AnnIvfFlatInputs> inputs = {
-
+  // test various dims (aligned and not aligned to vector sizes)
   {1000, 10000, 1, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 2, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 3, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 4, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::InnerProduct},
+  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::InnerProduct},
+
+  // test dims that do not fit into kernel shared memory limits
   {1000, 10000, 2048, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 2049, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 2050, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 2051, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 2052, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 2050, 16, 40, 1024, raft::distance::DistanceType::InnerProduct},
+  {1000, 10000, 2051, 16, 40, 1024, raft::distance::DistanceType::InnerProduct},
+  {1000, 10000, 2052, 16, 40, 1024, raft::distance::DistanceType::InnerProduct},
   {1000, 10000, 2053, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 2056, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
 
+  // various random combinations
   {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::L2Expanded},
@@ -249,9 +250,25 @@ const std::vector<AnnIvfFlatInputs> inputs = {
 
   {1000, 10000, 4096, 20, 50, 1024, raft::distance::DistanceType::InnerProduct},
 
+  // test splitting the big query batches  (> max gridDim.y) into smaller batches
   {100000, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct},
+  {98306, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct},
 
-  {98306, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct}};
+  // test radix_sort for getting the cluster selection
+  {1000,
+   10000,
+   16,
+   10,
+   raft::spatial::knn::detail::topk::kMaxCapacity * 2,
+   raft::spatial::knn::detail::topk::kMaxCapacity * 4,
+   raft::distance::DistanceType::L2Expanded},
+  {1000,
+   10000,
+   16,
+   10,
+   raft::spatial::knn::detail::topk::kMaxCapacity * 4,
+   raft::spatial::knn::detail::topk::kMaxCapacity * 4,
+   raft::distance::DistanceType::InnerProduct} 1024};
 
 typedef AnnIVFFlatTest<float, float> AnnIVFFlatTestF;
 TEST_P(AnnIVFFlatTestF, AnnIVFFlat) { this->testIVFFlat(); }
