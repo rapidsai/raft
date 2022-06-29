@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/device_atomics.cuh>
 #include <raft/vectorized.cuh>
 
@@ -26,10 +27,7 @@
 #include <cub/block/radix_rank_sort_operations.cuh>
 
 #include <rmm/device_vector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
-
-#include <optional>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft::spatial::knn::detail::topk {
 
@@ -574,17 +572,17 @@ void radix_topk(const T* in,
   dim3 blocks           = get_optimal_grid_size<T, IdxT, BitsPerPass, BlockSize>(batch_size, len);
   size_t max_chunk_size = blocks.y;
 
-  std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> pool_res;
-  if (mr == nullptr) {
-    pool_res.emplace(
-      rmm::mr::get_current_device_resource(),
-      Pow2<256>::roundUp(max_chunk_size *
-                         (sizeof(Counter<T, IdxT>)            // counters
-                          + sizeof(IdxT) * (num_buckets + 2)  // histograms and IdxT bufs
-                          + sizeof(T) * 2                     // T bufs
-                          )));
-    mr = &(pool_res.value());
+  auto pool_guard = raft::get_pool_memory_resource(
+    mr,
+    max_chunk_size * (sizeof(Counter<T, IdxT>)            // counters
+                      + sizeof(IdxT) * (num_buckets + 2)  // histograms and IdxT bufs
+                      + sizeof(T) * 2                     // T bufs
+                      ));
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("radix_topk: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
   }
+
   rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
   rmm::device_uvector<IdxT> histograms(num_buckets * max_chunk_size, stream, mr);
   rmm::device_uvector<T> buf1(len * max_chunk_size, stream, mr);

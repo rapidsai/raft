@@ -18,6 +18,7 @@
 
 #include "bitonic_sort.cuh"
 
+#include <raft/core/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/pow2_utils.cuh>
 
@@ -26,8 +27,7 @@
 #include <type_traits>
 
 #include <rmm/device_vector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 /*
   Three APIs of different scopes are provided:
@@ -726,12 +726,11 @@ void warp_sort_topk_(int num_of_block,
                      rmm::cuda_stream_view stream,
                      rmm::mr::device_memory_resource* mr = nullptr)
 {
-  std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> pool_res;
-  if (mr == nullptr) {
-    pool_res.emplace(
-      rmm::mr::get_current_device_resource(),
-      Pow2<256>::roundUp(num_of_block * k * batch_size * 2 * std::max(sizeof(T), sizeof(IdxT))));
-    mr = &(pool_res.value());
+  auto pool_guard = raft::get_pool_memory_resource(
+    mr, num_of_block * k * batch_size * 2 * std::max(sizeof(T), sizeof(IdxT)));
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("warp_sort_topk: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
   }
 
   rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream, mr);

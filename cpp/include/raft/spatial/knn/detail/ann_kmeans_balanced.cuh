@@ -20,9 +20,9 @@
 #include "ann_utils.cuh"
 
 #include <raft/common/nvtx.hpp>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/distance/distance.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/gemm.cuh>
@@ -32,11 +32,8 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_vector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
-
-#include <optional>
 
 namespace raft::spatial::knn::detail::kmeans {
 
@@ -210,7 +207,7 @@ void predict(const handle_t& handle,
              uint32_t* cluster_sizes,
              bool shall_update_centers,
              rmm::cuda_stream_view stream,
-             rmm::mr::device_memory_resource* mr = nullptr)
+             rmm::mr::device_memory_resource* mr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "kmeans::predict(%u, %u)", n_rows, n_clusters);
@@ -239,13 +236,6 @@ void predict(const handle_t& handle,
   if (centers_temp != nullptr && cluster_sizes != nullptr) {
     utils::memset(centers_temp, 0, sizeof(float) * n_clusters * dim, stream);
     utils::memset(cluster_sizes, 0, sizeof(uint32_t) * n_clusters, stream);
-  }
-
-  std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> pool_res;
-  if (mr == nullptr) {
-    pool_res.emplace(rmm::mr::get_current_device_resource(),
-                     Pow2<256>::roundUp(max_minibatch_size * dim * 4));
-    mr = &(pool_res.value());
   }
 
   rmm::device_uvector<float> cur_dataset(max_minibatch_size * dim, stream, mr);
@@ -619,10 +609,14 @@ void build_optimized_kmeans(const handle_t& handle,
   RAFT_LOG_DEBUG("(%s) # n_mesoclusters: %u", __func__, n_mesoclusters);
 
   rmm::mr::managed_memory_resource managed_memory;
-  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> device_memory(
-    rmm::mr::get_current_device_resource(),
-    // an arbitrary guess on the upper bound of the workspace size
-    Pow2<256>::roundUp(kmeans::calc_minibatch_size(n_mesoclusters, n_rows) * dim * 4));
+  rmm::mr::device_memory_resource* device_memory = nullptr;
+  auto pool_guard                                = raft::get_pool_memory_resource(
+    device_memory, kmeans::calc_minibatch_size(n_mesoclusters, n_rows) * dim * 4);
+  if (pool_guard) {
+    RAFT_LOG_DEBUG(
+      "kmeans::build_optimized_kmeans: using pool memory resource with initial size %zu bytes",
+      pool_guard->pool_size());
+  }
 
   rmm::device_uvector<T> trainset(n_rows_train * dim, stream, &managed_memory);
   // TODO: a proper sampling
@@ -651,7 +645,7 @@ void build_optimized_kmeans(const handle_t& handle,
                    mesocluster_labels_buf.data(),
                    mesocluster_sizes_buf.data(),
                    metric,
-                   &device_memory,
+                   device_memory,
                    stream);
   }
 
@@ -679,11 +673,11 @@ void build_optimized_kmeans(const handle_t& handle,
                                              cluster_centers,
                                              metric,
                                              &managed_memory,
-                                             &device_memory,
+                                             device_memory,
                                              stream);
   RAFT_EXPECTS(n_clusters_done == n_clusters, "Didn't process all clusters.");
 
-  rmm::device_uvector<float> centers_temp(n_clusters * dim, stream, &device_memory);
+  rmm::device_uvector<float> centers_temp(n_clusters * dim, stream, device_memory);
 
   // fit clusters using the trainset
   for (int iter = 0; iter < 2; iter++) {
@@ -701,7 +695,7 @@ void build_optimized_kmeans(const handle_t& handle,
                     cluster_sizes,
                     true,
                     stream,
-                    &device_memory);
+                    device_memory);
   }
 
   RAFT_LOG_DEBUG("(%s) Final fitting.", __func__);
@@ -720,7 +714,7 @@ void build_optimized_kmeans(const handle_t& handle,
                   cluster_sizes,
                   true,
                   stream,
-                  &device_memory);
+                  device_memory);
 
   kmeans::predict(handle,
                   cluster_centers,
@@ -735,7 +729,7 @@ void build_optimized_kmeans(const handle_t& handle,
                   cluster_sizes,
                   false,
                   stream,
-                  &device_memory);
+                  device_memory);
 }
 
 }  // namespace raft::spatial::knn::detail::kmeans

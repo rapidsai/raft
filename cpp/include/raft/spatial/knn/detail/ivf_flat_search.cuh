@@ -24,11 +24,11 @@
 #include "topk/warpsort_topk.cuh"
 
 #include <raft/common/device_loads_stores.cuh>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/pow2_utils.cuh>
@@ -1277,17 +1277,10 @@ inline void search(const handle_t& handle,
     default: select_min = true;
   }
 
-  //   // Set memory buffer to be reused across searches
-  //   auto cur_memory_resource = rmm::mr::get_current_device_resource();
-  //   if (!search_mem_res_.has_value() || search_mem_res_->get_upstream() != cur_memory_resource) {
-  //     search_mem_res_.emplace(cur_memory_resource, Pow2<256>::roundUp(n_queries * n_probes * k *
-  //     16));
-  //   }
-  std::optional<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> pool_res;
-  if (mr == nullptr) {
-    pool_res.emplace(rmm::mr::get_current_device_resource(),
-                     Pow2<256>::roundUp(n_queries * n_probes * k * 16));
-    mr = &(pool_res.value());
+  auto pool_guard = raft::get_pool_memory_resource(mr, n_queries * n_probes * k * 16);
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("ivf_flat::search: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
   }
 
   return search_impl<T, float>(
