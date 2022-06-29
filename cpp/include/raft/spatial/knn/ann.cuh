@@ -19,6 +19,7 @@
 #include "ann_common.hpp"
 #include "detail/ann_quantized.cuh"
 
+#include <raft/core/nvtx.hpp>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
 namespace raft::spatial::knn {
@@ -42,6 +43,8 @@ inline void approx_knn_build_index(const raft::handle_t& handle,
                                    value_idx n,
                                    value_idx D)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "approx_knn_build_index(n_rows = %u, dim = %u)", n, D);
   detail::approx_knn_build_index(handle, index, params, index_array, n, D);
 }
 
@@ -69,6 +72,8 @@ inline void approx_knn_search(const raft::handle_t& handle,
                               T* query_array,
                               value_idx n_queries)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "approx_knn_search(k = %u, n_queries = %u)", k, n_queries);
   detail::approx_knn_search(handle, distances, indices, index, params, k, query_array, n_queries);
 }
 
