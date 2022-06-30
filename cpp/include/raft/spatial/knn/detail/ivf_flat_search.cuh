@@ -32,6 +32,7 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/pow2_utils.cuh>
+#include <raft/vectorized.cuh>
 
 #ifdef USE_FAISS
 #include <faiss/gpu/utils/Comparators.cuh>
@@ -52,70 +53,49 @@ using raft::spatial::knn::ivf_flat::search_params;
 constexpr int kThreadsPerBlock = 128;
 
 /**
- * @brief Copy Veclen elements of type T from `query` to `query_shared` at position `loadDim *
- * Veclen`.
+ * @brief Copy `n` elements per block from one place to another.
  *
- * @param[in] query a pointer to a device global memory
- * @param[out] query_shared a pointer to a device shared memory
- * @param loadDim position at which to start copying elements.
+ * @param[out] out target pointer (unique per block)
+ * @param[in] in source pointer
+ * @param n number of elements to copy
  */
-template <typename T, int Veclen>
-__device__ __forceinline__ void queryLoadToShmem(const T* const& query,
-                                                 T* query_shared,
-                                                 const int loadDim)
+template <int VecBytes = 16, typename T>
+__device__ inline void copy_vectorized(T* out, const T* in, uint32_t n)
 {
-  T queryReg[Veclen];
-  const int loadIndex = loadDim * Veclen;
-  ldg(queryReg, query + loadIndex);
-  sts(&query_shared[loadIndex], queryReg);
-}
-
-template <>
-__device__ __forceinline__ void queryLoadToShmem<uint8_t, 8>(const uint8_t* const& query,
-                                                             uint8_t* query_shared,
-                                                             const int loadDim)
-{
-  constexpr int veclen = 2;  // 8 uint8_t
-  uint32_t queryReg[veclen];
-  const int loadIndex = loadDim * veclen;
-  ldg(queryReg, reinterpret_cast<uint32_t const*>(query) + loadIndex);
-  sts(reinterpret_cast<uint32_t*>(query_shared) + loadIndex, queryReg);
-}
-
-template <>
-__device__ __forceinline__ void queryLoadToShmem<uint8_t, 16>(const uint8_t* const& query,
-                                                              uint8_t* query_shared,
-                                                              const int loadDim)
-{
-  constexpr int veclen = 4;  // 16 uint8_t
-  uint32_t queryReg[veclen];
-  const int loadIndex = loadDim * veclen;
-  ldg(queryReg, reinterpret_cast<uint32_t const*>(query) + loadIndex);
-  sts(reinterpret_cast<uint32_t*>(query_shared) + loadIndex, queryReg);
-}
-
-template <>
-__device__ __forceinline__ void queryLoadToShmem<int8_t, 8>(const int8_t* const& query,
-                                                            int8_t* query_shared,
-                                                            const int loadDim)
-{
-  constexpr int veclen = 2;  // 8 int8_t
-  int32_t queryReg[veclen];
-  const int loadIndex = loadDim * veclen;
-  ldg(queryReg, reinterpret_cast<int32_t const*>(query) + loadIndex);
-  sts(reinterpret_cast<int32_t*>(query_shared) + loadIndex, queryReg);
-}
-
-template <>
-__device__ __forceinline__ void queryLoadToShmem<int8_t, 16>(const int8_t* const& query,
-                                                             int8_t* query_shared,
-                                                             const int loadDim)
-{
-  constexpr int veclen = 4;  // 16 int8_t
-  int32_t queryReg[veclen];
-  const int loadIndex = loadDim * veclen;
-  ldg(queryReg, reinterpret_cast<int32_t const*>(query) + loadIndex);
-  sts(reinterpret_cast<int32_t*>(query_shared) + loadIndex, queryReg);
+  constexpr int VecElems = VecBytes / sizeof(T);  // NOLINT
+  using align_bytes      = Pow2<(size_t)VecBytes>;
+  if constexpr (VecElems > 1) {
+    using align_elems = Pow2<VecElems>;
+    if (!align_bytes::areSameAlignOffsets(out, in)) {
+      return copy_vectorized<(VecBytes >> 1), T>(out, in, n);
+    }
+    {  // process unaligned head
+      uint32_t head = align_bytes::roundUp(in) - in;
+      if (head > 0) {
+        copy_vectorized<sizeof(T), T>(out, in, head);
+        n -= head;
+        in += head;
+        out += head;
+      }
+    }
+    {  // process main part vectorized
+      using vec_t = typename IOType<T, VecElems>::Type;
+      copy_vectorized<sizeof(vec_t), vec_t>(
+        reinterpret_cast<vec_t*>(out), reinterpret_cast<const vec_t*>(in), align_elems::div(n));
+    }
+    {  // process unaligned tail
+      uint32_t tail = align_elems::mod(n);
+      if (tail > 0) {
+        n -= tail;
+        copy_vectorized<sizeof(T), T>(out + n, in + n, tail);
+      }
+    }
+  }
+  if constexpr (VecElems <= 1) {
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
+      out[i] = in[i];
+    }
+  }
 }
 
 /**
@@ -213,7 +193,7 @@ struct loadAndComputeDist {
       for (int k = 0; k < Veclen; k++) {
         compute_dist(dist, shfl(queryReg, d + k, WarpSize), enc[k]);
       }
-    }  // end for d < dim - dimBlocks
+    }
   }
 };
 
@@ -292,7 +272,7 @@ struct loadAndComputeDist<kUnroll, Lambda, uint8_veclen, uint8_t, uint32_t> {
         uint32_t q = shfl(queryReg, (d / 4) + k, WarpSize);
         compute_dist(dist, q, enc[k]);
       }
-    }  // end for d < dim - dimBlocks
+    }
   }
 };
 
@@ -354,7 +334,7 @@ struct loadAndComputeDist<kUnroll, Lambda, 4, uint8_t, uint32_t> {
       uint32_t enc = reinterpret_cast<unsigned const*>(data)[lane_id];
       uint32_t q   = shfl(queryReg, d / veclen, WarpSize);
       compute_dist(dist, q, enc);
-    }  // end for d < dim - dimBlocks
+    }
   }
 };
 
@@ -553,7 +533,7 @@ struct loadAndComputeDist<kUnroll, Lambda, int8_veclen, int8_t, int32_t> {
         int32_t q = shfl(queryReg, (d / 4) + k, WarpSize);  // Here 4 is for 1 - int;
         compute_dist(dist, q, enc[k]);
       }
-    }  // end for d < dim - dimBlocks
+    }
   }
 };
 
@@ -672,7 +652,7 @@ template <int Capacity, int Veclen, bool Ascending, typename T, typename AccT, t
 __global__ void __launch_bounds__(kThreadsPerBlock)
   interleaved_scan_kernel(Lambda compute_dist,
                           const uint32_t query_smem_elems,
-                          const T* queries,
+                          const T* query,
                           const uint32_t* coarse_index,
                           const uint32_t* list_index,
                           const T* list_data,
@@ -685,6 +665,24 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
                           float* distances)
 {
   extern __shared__ __align__(256) uint8_t interleaved_scan_kernel_smem[];
+  // Using shared memory for the (part of the) query;
+  // This allows to save on global memory bandwidth when reading index and query
+  // data at the same time.
+  // Its size is `query_smem_elems`.
+  T* query_shared = reinterpret_cast<T*>(interleaved_scan_kernel_smem);
+  // Make the query input and output point to this block's shared query
+  {
+    const int query_id = blockIdx.y;
+    query += query_id * dim;
+    neighbors += query_id * k * gridDim.x + blockIdx.x * k;
+    distances += query_id * k * gridDim.x + blockIdx.x * k;
+    coarse_index += query_id * n_probes;
+  }
+
+  // Copy a part of the query into shared memory for faster processing
+  copy_vectorized(query_shared, query, std::min(dim, query_smem_elems));
+  __syncthreads();
+
 #ifdef USE_FAISS
   // temporary use of FAISS blockSelect for development purpose of k <= 32
   // for comparison purpose
@@ -702,78 +700,54 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
       queue(identity, keyMax, smemK, smemV, k);
 
 #else
-  topk::block_sort<topk::warp_sort_immediate, Capacity, Ascending, float, size_t> queue(
+  topk::block_sort<topk::warp_sort_filtered, Capacity, Ascending, float, size_t> queue(
     k, interleaved_scan_kernel_smem + query_smem_elems * sizeof(T));
 #endif
 
-  const int query_id = blockIdx.y;
   {
-    // Using shared memory for the (part of the) query;
-    // This allows to save on global memory bandwidth when reading index and query
-    // data at the same time.
-    // Its size is `query_smem_elems`.
-    T* query_shared = reinterpret_cast<T*>(interleaved_scan_kernel_smem);
-
     using align_warp  = Pow2<WarpSize>;
     const int lane_id = align_warp::mod(threadIdx.x);
-    const int warp_id = align_warp::div(threadIdx.x);
-
-    /// Set the address
-    auto query               = queries + query_id * dim;
-    constexpr int kGroupSize = WarpSize;
 
     // How many full warps needed to compute the distance (without remainder)
-    const int full_warps_along_dim = align_warp::roundDown(dim);
+    const uint32_t full_warps_along_dim = align_warp::roundDown(dim);
 
-    int shm_assisted_dim = (dim < query_smem_elems) ? dim : query_smem_elems;
-
-    // load the query data from global to shared memory
-    for (int i = threadIdx.x; i * Veclen < shm_assisted_dim; i += blockDim.x) {
-      queryLoadToShmem<T, Veclen>(query, query_shared, i);
-    }
-    __syncthreads();
-    shm_assisted_dim = (dim > query_smem_elems) ? query_smem_elems : full_warps_along_dim;
+    const uint32_t shm_assisted_dim =
+      (dim > query_smem_elems) ? query_smem_elems : full_warps_along_dim;
 
     // Every CUDA block scans one cluster at a time.
     for (int probe_id = blockIdx.x; probe_id < n_probes; probe_id += gridDim.x) {
-      const uint32_t list_id =
-        coarse_index[query_id * n_probes + probe_id];  // The id of cluster(list)
+      const uint32_t list_id   = coarse_index[probe_id];  // The id of cluster(list)
+      const size_t list_offset = list_prefix_interleave[list_id];
 
-      /**
-       * Uses shared memory
-       */
-      // The start address of the full value of vector for each cluster(list) interleaved
-      auto vecsBase = list_data + size_t(list_prefix_interleave[list_id]) * dim;
-      // The start address of index of vector for each cluster(list) interleaved
-      auto indexBase = list_index + list_prefix_interleave[list_id];
       // The number of vectors in each cluster(list); [nlist]
       const uint32_t list_length = list_lengths[list_id];
 
       // The number of interleaved groups to be processed
-      const uint32_t num_groups = ceildiv<uint32_t>(list_length, WarpSize);
+      const uint32_t num_groups =
+        align_warp::div(list_length + align_warp::Mask);  // ceildiv by power of 2
 
       constexpr int kUnroll        = WarpSize / Veclen;
       constexpr uint32_t kNumWarps = kThreadsPerBlock / WarpSize;
       // Every warp reads WarpSize vectors and computes the distances to them.
       // Then, the distances and corresponding ids are distributed among the threads,
       // and each thread adds one (id, dist) pair to the filtering queue.
-      for (uint32_t block = warp_id; block < num_groups; block += kNumWarps) {
+      for (uint32_t group_id = align_warp::div(threadIdx.x); group_id < num_groups;
+           group_id += kNumWarps) {
         AccT dist = 0;
+        // This is where this warp begins reading data (start position of an interleaved group)
+        const T* data = list_data + (list_offset + group_id * kIndexGroupSize) * dim;
+
         // This is the vector a given lane/thread handles
-        const uint32_t vec = block * WarpSize + lane_id;
-        bool valid         = vec < list_length;
-        size_t idx         = (valid) ? (size_t)indexBase[vec] : (size_t)lane_id;
-        // This is where this warp begins reading data
-        const T* data =
-          vecsBase + size_t(block) * kGroupSize * dim;  // Start position of this block
+        const uint32_t vec_id = group_id * WarpSize + lane_id;
+        const bool valid      = vec_id < list_length;
 
         // Process first shm_assisted_dim dimensions (always using shared memory)
         if (valid) {
-          for (int pos = 0; pos < shm_assisted_dim; pos += WarpSize) {
-            loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> lc(dist,
-                                                                                    compute_dist);
+          loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> lc(dist,
+                                                                                  compute_dist);
+          for (int pos = 0; pos < shm_assisted_dim;
+               pos += WarpSize, data += kIndexGroupSize * WarpSize) {
             lc.runLoadShmemCompute(data, query_shared, lane_id, pos);
-            data += WarpSize * kGroupSize;
           }
         }
 
@@ -781,7 +755,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
           // The default path - using shfl ops - for dimensions beyond query_smem_elems
           loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> lc(dist,
                                                                                   compute_dist);
-          for (int pos = shm_assisted_dim; pos < full_warps_along_dim; pos += WarpSize) {  //
+          for (int pos = shm_assisted_dim; pos < full_warps_along_dim; pos += WarpSize) {
             lc.runLoadShflAndCompute(data, query, pos, lane_id);
           }
           lc.runLoadShflAndComputeRemainder(data, query, lane_id, dim, full_warps_along_dim);
@@ -790,7 +764,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
           if (valid) {
             loadAndComputeDist<1, decltype(compute_dist), Veclen, T, AccT> lc(dist, compute_dist);
             for (int pos = full_warps_along_dim; pos < dim;
-                 pos += Veclen, data += kGroupSize * Veclen) {
+                 pos += Veclen, data += kIndexGroupSize * Veclen) {
               lc.runLoadShmemCompute(data, query_shared, lane_id, pos);
             }
           }
@@ -798,7 +772,8 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
 
         // Enqueue one element per thread
         constexpr float kDummy = Ascending ? upper_bound<float>() : lower_bound<float>();
-        float val              = valid ? static_cast<float>(dist) : kDummy;
+        const float val        = valid ? static_cast<float>(dist) : kDummy;
+        const size_t idx       = valid ? static_cast<size_t>(list_index[list_offset + vec_id]) : 0;
         queue.add(val, idx);
       }
     }
@@ -808,15 +783,14 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
 #ifdef USE_FAISS
   queue.reduce();
   for (int i = threadIdx.x; i < k; i += kThreadsPerBlock) {
-    neighbors[query_id * k * gridDim.x + blockIdx.x * k + i] = (size_t)smemV[i];
-    distances[query_id * k * gridDim.x + blockIdx.x * k + i] = smemK[i];
+    neighbors[i] = (size_t)smemV[i];
+    distances[i] = smemK[i];
   }
 #else
   queue.done();
-  queue.store(distances + query_id * k * gridDim.x + blockIdx.x * k,
-              neighbors + query_id * k * gridDim.x + blockIdx.x * k);
+  queue.store(distances, neighbors);
 #endif
-}  // end kernel
+}
 
 /**
  *  Configure the gridDim.x to maximize GPU occupancy, but reduce the output size
@@ -850,8 +824,6 @@ void launch_kernel(Lambda lambda,
                    uint32_t& grid_dim_x,
                    rmm::cuda_stream_view stream)
 {
-  RAFT_EXPECTS(reinterpret_cast<size_t>(queries) % (Veclen * sizeof(T)) == 0,
-               "Queries data is not aligned to the vector load size (Veclen).");
   RAFT_EXPECTS(Veclen == index.veclen,
                "Configured Veclen does not match the index interleaving pattern.");
   constexpr auto kKernel   = interleaved_scan_kernel<Capacity, Veclen, Ascending, T, AccT, Lambda>;
@@ -1230,6 +1202,8 @@ void search_impl(const handle_t& handle,
                                          stream,
                                          search_mr);
     } else {
+      // NB: this branch can only be triggered once `ivfflat_interleaved_scan` above supports larger
+      // `k` values (kMaxCapacity limit as a dependency of topk::block_sort)
       topk::radix_topk<AccT, size_t, 11, 512>(refined_distances_dev.data(),
                                               refined_indices_dev.data(),
                                               n_queries,
