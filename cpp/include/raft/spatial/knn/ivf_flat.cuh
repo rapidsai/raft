@@ -30,6 +30,11 @@ namespace raft::spatial::knn::ivf_flat {
 /**
  * @brief Build the index from the dataset for efficient search.
  *
+ * NB: Currently, the following distance metrics are supported:
+ *   L2Expanded
+ *   L2Unexpanded
+ *   InnerProduct
+ *
  * @tparam T data element type
  *
  * @param handle

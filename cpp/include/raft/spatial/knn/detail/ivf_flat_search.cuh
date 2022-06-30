@@ -644,9 +644,27 @@ struct loadAndComputeDist<kUnroll, Lambda, 1, int8_t, int32_t> {
 };
 
 /**
- * See `ivfflat_interleaved_scan` for parameter docs.
+ * Scan clusters for nearest neighbors of the query vectors.
+ * See `ivfflat_interleaved_scan` for more information.
  *
- * query_smem_elems must be multiple of WarpSize * Veclen
+ * The clusters are stored in the interleaved index format described in ivf_flat_types.hpp.
+ * For each query vector, a set of clusters is probed: the distance to each vector in the cluster is
+ * calculated, and the top-k nearest neighbors are selected.
+ *
+ * @param compute_dist distance function
+ * @param query_smem_elems number of dimensions of the query vector to fit in a shared memory of a
+ * block; this number must be a multiple of `WarpSize * Veclen`.
+ * @param[in] query a pointer to all queries in a row-major contiguous format [gridDim.y, dim]
+ * @param[in] coarse_index a pointer to the cluster indices to search through [n_probes]
+ * @param[in] list_indices index<T>.indices
+ * @param[in] list_data index<T>.data
+ * @param[in] list_sizes index<T>.list_sizes
+ * @param[in] list_offsets index<T>.list_offsets
+ * @param n_probes
+ * @param k
+ * @param dim
+ * @param[out] neighbors
+ * @param[out] distances
  */
 template <int Capacity, int Veclen, bool Ascending, typename T, typename AccT, typename Lambda>
 __global__ void __launch_bounds__(kThreadsPerBlock)
@@ -654,10 +672,10 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
                           const uint32_t query_smem_elems,
                           const T* query,
                           const uint32_t* coarse_index,
-                          const uint32_t* list_index,
+                          const uint32_t* list_indices,
                           const T* list_data,
-                          const uint32_t* list_lengths,
-                          const uint32_t* list_prefix_interleave,
+                          const uint32_t* list_sizes,
+                          const uint32_t* list_offsets,
                           const uint32_t n_probes,
                           const uint32_t k,
                           const uint32_t dim,
@@ -717,10 +735,10 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
     // Every CUDA block scans one cluster at a time.
     for (int probe_id = blockIdx.x; probe_id < n_probes; probe_id += gridDim.x) {
       const uint32_t list_id   = coarse_index[probe_id];  // The id of cluster(list)
-      const size_t list_offset = list_prefix_interleave[list_id];
+      const size_t list_offset = list_offsets[list_id];
 
       // The number of vectors in each cluster(list); [nlist]
-      const uint32_t list_length = list_lengths[list_id];
+      const uint32_t list_length = list_sizes[list_id];
 
       // The number of interleaved groups to be processed
       const uint32_t num_groups =
@@ -773,7 +791,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
         // Enqueue one element per thread
         constexpr float kDummy = Ascending ? upper_bound<float>() : lower_bound<float>();
         const float val        = valid ? static_cast<float>(dist) : kDummy;
-        const size_t idx       = valid ? static_cast<size_t>(list_index[list_offset + vec_id]) : 0;
+        const size_t idx = valid ? static_cast<size_t>(list_indices[list_offset + vec_id]) : 0;
         queue.add(val, idx);
       }
     }
@@ -929,13 +947,16 @@ struct inner_prod_dist {
 template <int Capacity, int Veclen, bool Ascending, typename T, typename AccT, typename... Args>
 void launch_with_fixed_consts(raft::distance::DistanceType metric, Args&&... args)
 {
-  if (metric == raft::distance::DistanceType::L2Expanded ||
-      metric == raft::distance::DistanceType::L2Unexpanded) {
-    launch_kernel<Capacity, Veclen, Ascending, T, AccT, euclidean_dist<Veclen, T, AccT>>(
-      {}, std::forward<Args>(args)...);
-  } else {
-    launch_kernel<Capacity, Veclen, Ascending, T, AccT, inner_prod_dist<Veclen, T, AccT>>(
-      {}, std::forward<Args>(args)...);
+  switch (metric) {
+    case raft::distance::DistanceType::L2Expanded:
+    case raft::distance::DistanceType::L2Unexpanded:
+      return launch_kernel<Capacity, Veclen, Ascending, T, AccT, euclidean_dist<Veclen, T, AccT>>(
+        {}, std::forward<Args>(args)...);
+    case raft::distance::DistanceType::InnerProduct:
+      return launch_kernel<Capacity, Veclen, Ascending, T, AccT, inner_prod_dist<Veclen, T, AccT>>(
+        {}, std::forward<Args>(args)...);
+    // NB: update the description of `knn::ivf_flat::build` when adding here a new metric.
+    default: RAFT_FAIL("The chosen distance metric is not supported (%d)", int(metric));
   }
 }
 
@@ -969,6 +990,8 @@ struct select_interleaved_scan_kernel {
           capacity, veclen, select_min, std::forward<Args>(args)...);
       }
     }
+    // NB: this is the limitation of the topk::block_topk stuctures that use a huge number of
+    //     registers (used in the main kernel here).
     RAFT_EXPECTS(capacity == Capacity,
                  "Capacity must be power-of-two not bigger than the maximum allowed size "
                  "topk::kMaxCapacity (%d).",
