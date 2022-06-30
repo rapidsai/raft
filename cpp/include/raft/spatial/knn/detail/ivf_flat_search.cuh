@@ -16,8 +16,6 @@
 
 #pragma once
 
-// #define USE_FAISS
-
 #include "../ivf_flat_types.hpp"
 #include "ann_utils.cuh"
 #include "topk/radix_topk.cuh"
@@ -33,11 +31,6 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/pow2_utils.cuh>
 #include <raft/vectorized.cuh>
-
-#ifdef USE_FAISS
-#include <faiss/gpu/utils/Comparators.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#endif
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
@@ -701,26 +694,8 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
   copy_vectorized(query_shared, query, std::min(dim, query_smem_elems));
   __syncthreads();
 
-#ifdef USE_FAISS
-  // temporary use of FAISS blockSelect for development purpose of k <= 32
-  // for comparison purpose
-  __shared__ float smemK[kThreadsPerBlock];
-  __shared__ size_t smemV[kThreadsPerBlock];
-
-  constexpr auto Dir = !Ascending;
-  constexpr auto identity =
-    Dir ? std::numeric_limits<float>::min() : std::numeric_limits<float>::max();
-  constexpr auto keyMax =
-    Dir ? std::numeric_limits<size_t>::min() : std::numeric_limits<size_t>::max();
-
-  faiss::gpu::
-    BlockSelect<float, size_t, Dir, faiss::gpu::Comparator<float>, 32, 2, kThreadsPerBlock>
-      queue(identity, keyMax, smemK, smemV, k);
-
-#else
   topk::block_sort<topk::warp_sort_filtered, Capacity, Ascending, float, size_t> queue(
     k, interleaved_scan_kernel_smem + query_smem_elems * sizeof(T));
-#endif
 
   {
     using align_warp  = Pow2<WarpSize>;
@@ -797,17 +772,9 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
     }
   }
 
-  /// Warp_wise topk
-#ifdef USE_FAISS
-  queue.reduce();
-  for (int i = threadIdx.x; i < k; i += kThreadsPerBlock) {
-    neighbors[i] = (size_t)smemV[i];
-    distances[i] = smemK[i];
-  }
-#else
+  // finalize and store selected neighbours
   queue.done();
   queue.store(distances, neighbors);
-#endif
 }
 
 /**
@@ -848,12 +815,10 @@ void launch_kernel(Lambda lambda,
   const int max_query_smem = 16384;
   int query_smem_elems =
     std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(index.dim()));
-  int smem_size = query_smem_elems * sizeof(T);
-#ifndef USE_FAISS
+  int smem_size              = query_smem_elems * sizeof(T);
   constexpr int kSubwarpSize = std::min<int>(Capacity, WarpSize);
   smem_size += raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<AccT, size_t>(
     kThreadsPerBlock / kSubwarpSize, k);
-#endif
 
   // power-of-two less than cuda limit (for better addr alignment)
   constexpr uint32_t kMaxGridY = 32768;
