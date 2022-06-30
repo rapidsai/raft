@@ -44,6 +44,56 @@
 namespace raft {
 
 /**
+ * @brief Provide a ceiling division operation ie. ceil(a / b)
+ * @tparam IntType supposed to be only integers for now!
+ */
+template <typename IntType>
+constexpr IntType ceildiv(IntType a, IntType b)
+{
+  return (a + b - 1) / b;
+}
+
+/**
+ * @brief Provide an alignment function ie. ceil(a / b) * b
+ * @tparam IntType supposed to be only integers for now!
+ */
+template <typename IntType>
+constexpr IntType alignTo(IntType a, IntType b)
+{
+  return ceildiv(a, b) * b;
+}
+
+/**
+ * @brief Provide an alignment function ie. (a / b) * b
+ * @tparam IntType supposed to be only integers for now!
+ */
+template <typename IntType>
+constexpr IntType alignDown(IntType a, IntType b)
+{
+  return (a / b) * b;
+}
+
+/**
+ * @brief Check if the input is a power of 2
+ * @tparam IntType data type (checked only for integers)
+ */
+template <typename IntType>
+constexpr bool isPo2(IntType num)
+{
+  return (num && !(num & (num - 1)));
+}
+
+/**
+ * @brief Give logarithm of the number to base-2
+ * @tparam IntType data type (checked only for integers)
+ */
+template <typename IntType>
+constexpr IntType log2(IntType num, IntType ret = IntType(0))
+{
+  return num <= IntType(1) ? ret : log2(num >> IntType(1), ++ret);
+}
+
+/**
  * @brief Exception thrown when a CUDA error is encountered.
  */
 struct cuda_error : public raft::exception {
