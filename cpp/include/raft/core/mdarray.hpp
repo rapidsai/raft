@@ -711,18 +711,6 @@ auto make_device_vector_view(ElementType* ptr, size_t n)
   return device_vector_view<ElementType, LayoutPolicy>{ptr, extents};
 }
 
-namespace detail {
-/**
- * Ensure all types listed in the parameter pack `Extents` are integral types.
- * Usage:
- *   put it as the last nameless template parameter of a function:
- *     `typename = ensure_integral_extents<Extents...>`
- */
-template <typename... Extents>
-using ensure_integral_extents =
-  std::enable_if_t<(true && ... && std::is_integral_v<Extents>), void>;
-}  // namespace detail
-
 /**
  * @brief Create a host mdarray.
  * @tparam ElementType the data type of the matrix elements

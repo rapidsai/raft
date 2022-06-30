@@ -253,4 +253,15 @@ namespace stdex = std::experimental;
 using vector_extent = stdex::extents<dynamic_extent>;
 using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
 using scalar_extent = stdex::extents<1>;
+
+/**
+ * Ensure all types listed in the parameter pack `Extents` are integral types.
+ * Usage:
+ *   put it as the last nameless template parameter of a function:
+ *     `typename = ensure_integral_extents<Extents...>`
+ */
+template <typename... Extents>
+using ensure_integral_extents =
+  std::enable_if_t<(true && ... && std::is_integral_v<Extents>), void>;
+
 }  // namespace raft::detail
