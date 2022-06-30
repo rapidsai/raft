@@ -931,11 +931,11 @@ void launch_with_fixed_consts(raft::distance::DistanceType metric, Args&&... arg
 {
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2Unexpanded) {
-    launch_kernel<Capacity, Veclen, Ascending, T, AccT, euclidean_dist<Veclen, T, AccT>>({},
-                                                                                         args...);
+    launch_kernel<Capacity, Veclen, Ascending, T, AccT, euclidean_dist<Veclen, T, AccT>>(
+      {}, std::forward<Args>(args)...);
   } else {
-    launch_kernel<Capacity, Veclen, Ascending, T, AccT, inner_prod_dist<Veclen, T, AccT>>({},
-                                                                                          args...);
+    launch_kernel<Capacity, Veclen, Ascending, T, AccT, inner_prod_dist<Veclen, T, AccT>>(
+      {}, std::forward<Args>(args)...);
   }
 }
 
@@ -960,13 +960,13 @@ struct select_interleaved_scan_kernel {
     if constexpr (Capacity > 1) {
       if (capacity * 2 <= Capacity) {
         return select_interleaved_scan_kernel<T, AccT, Capacity / 2, Veclen>::run(
-          capacity, veclen, select_min, args...);
+          capacity, veclen, select_min, std::forward<Args>(args)...);
       }
     }
     if constexpr (Veclen > 1) {
       if (veclen * 2 <= Veclen) {
         return select_interleaved_scan_kernel<T, AccT, Capacity, Veclen / 2>::run(
-          capacity, veclen, select_min, args...);
+          capacity, veclen, select_min, std::forward<Args>(args)...);
       }
     }
     RAFT_EXPECTS(capacity == Capacity,
@@ -977,9 +977,9 @@ struct select_interleaved_scan_kernel {
       veclen == Veclen,
       "Veclen must be power-of-two not bigger than the maximum allowed size for this data type.");
     if (select_min) {
-      launch_with_fixed_consts<Capacity, Veclen, true, T, AccT>(args...);
+      launch_with_fixed_consts<Capacity, Veclen, true, T, AccT>(std::forward<Args>(args)...);
     } else {
-      launch_with_fixed_consts<Capacity, Veclen, false, T, AccT>(args...);
+      launch_with_fixed_consts<Capacity, Veclen, false, T, AccT>(std::forward<Args>(args)...);
     }
   }
 };

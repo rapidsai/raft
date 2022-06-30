@@ -33,31 +33,31 @@ struct knnIndex {
   float metricArg;
   std::unique_ptr<faiss::gpu::GpuIndex> index;
   std::unique_ptr<MetricProcessor<float>> metric_processor;
-  std::unique_ptr<ivf_flat::index<float>> ivf_flat_float_;
-  std::unique_ptr<ivf_flat::index<uint8_t>> ivf_flat_uint8_t_;
-  std::unique_ptr<ivf_flat::index<int8_t>> ivf_flat_int8_t_;
+  std::unique_ptr<const ivf_flat::index<float>> ivf_flat_float_;
+  std::unique_ptr<const ivf_flat::index<uint8_t>> ivf_flat_uint8_t_;
+  std::unique_ptr<const ivf_flat::index<int8_t>> ivf_flat_int8_t_;
 
   std::unique_ptr<raft::spatial::knn::RmmGpuResources> gpu_res;
   int device;
 
   template <typename T>
-  auto ivf_flat() -> std::unique_ptr<ivf_flat::index<T>>&;
+  auto ivf_flat() -> std::unique_ptr<const ivf_flat::index<T>>&;
 };
 
 template <>
-auto knnIndex::ivf_flat<float>() -> std::unique_ptr<ivf_flat::index<float>>&
+auto knnIndex::ivf_flat<float>() -> std::unique_ptr<const ivf_flat::index<float>>&
 {
   return ivf_flat_float_;
 }
 
 template <>
-auto knnIndex::ivf_flat<uint8_t>() -> std::unique_ptr<ivf_flat::index<uint8_t>>&
+auto knnIndex::ivf_flat<uint8_t>() -> std::unique_ptr<const ivf_flat::index<uint8_t>>&
 {
   return ivf_flat_uint8_t_;
 }
 
 template <>
-auto knnIndex::ivf_flat<int8_t>() -> std::unique_ptr<ivf_flat::index<int8_t>>&
+auto knnIndex::ivf_flat<int8_t>() -> std::unique_ptr<const ivf_flat::index<int8_t>>&
 {
   return ivf_flat_int8_t_;
 }

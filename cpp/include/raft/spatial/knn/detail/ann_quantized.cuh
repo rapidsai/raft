@@ -45,7 +45,7 @@
 
 #include <thrust/iterator/transform_iterator.h>
 
-namespace raft ::spatial ::knn::detail {
+namespace raft::spatial::knn::detail {
 
 inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(QuantizerType qtype)
 {
@@ -137,7 +137,7 @@ void approx_knn_build_index(const handle_t& handle,
                       metric == raft::distance::DistanceType::L2Unexpanded ||
                       metric == raft::distance::DistanceType::L2Expanded ||
                       metric == raft::distance::DistanceType::InnerProduct)) {
-    index->ivf_flat<T>() = std::make_unique<ivf_flat::index<T>>(
+    index->ivf_flat<T>() = std::make_unique<const ivf_flat::index<T>>(
       ivf_flat::build(handle, *ivf_ft_pams, index_array, n, D, stream));
   } else {
     RAFT_CUDA_TRY(cudaGetDevice(&(index->device)));

@@ -47,7 +47,7 @@ inline auto build(const handle_t& handle,
                   const T* dataset,
                   uint32_t n_rows,
                   uint32_t dim,
-                  rmm::cuda_stream_view stream) -> index<T>
+                  rmm::cuda_stream_view stream) -> const index<T>
 {
   return raft::spatial::knn::detail::ivf_flat::build(handle, params, dataset, n_rows, dim, stream);
 }

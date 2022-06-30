@@ -28,6 +28,22 @@ namespace raft::spatial::knn::ivf_flat {
 /** Size of the interleaved group (see `index::data` description). */
 constexpr static uint32_t kIndexGroupSize = 32;
 
+/**
+ * @brief IVF-flat index.
+ *
+ * This structure is supposed to be immutable: it's only constructed using `ivf_flat::build`,
+ * and should never be modified.
+ * At the same time, we expose all its members and allow the aggregate construction, so that
+ * third-party users can implement custom serialization/deserialization routines or modify
+ * the index building process.
+ *
+ * It would seem logical to make all the type's members constant. However, we can't do that
+ * because it would imply copying data when the index is moved. The current solution to this
+ * is to make all public factory functions, such as `ivf_flat::build` return `const index`.
+ *
+ * @tparam T data element type
+ *
+ */
 template <typename T>
 struct index {
   using row_major = layout_c_contiguous;
@@ -40,9 +56,9 @@ struct index {
    * TODO: in theory, we can lift this to the template parameter and keep it at hardware maximum
    * possible value by padding the `dim` of the data https://github.com/rapidsai/raft/issues/711
    */
-  uint32_t veclen;
+  const uint32_t veclen;
   /** Distance metric used for clustering. */
-  raft::distance::DistanceType metric;
+  const raft::distance::DistanceType metric;
 
   /**
    * Inverted list data [size, dim].
@@ -82,6 +98,13 @@ struct index {
   /** (Optional) Precomputed norms of the `centers` w.r.t. the chosen distance metric [n_lists]  */
   std::optional<device_mdarray<float, extent_1d, row_major>> center_norms;
 
+  // Don't allow copying the index for performance reasons (try avoiding copying data)
+  index(const index&) = delete;
+  index(index&&)      = default;
+  auto operator=(const index&) -> index& = delete;
+  auto operator=(index&&) -> index& = default;
+  ~index()                          = default;
+
   /** Total length of the index. */
   [[nodiscard]] constexpr inline auto size() const noexcept -> size_t { return data.extent(0); }
   /** Dimensionality of the data. */
@@ -117,5 +140,8 @@ struct index_params : ivf_index_params {
 
 struct search_params : ivf_search_params {
 };
+
+static_assert(std::is_standard_layout_v<index<float>>);
+static_assert(std::is_aggregate_v<index<float>>);
 
 }  // namespace raft::spatial::knn::ivf_flat
