@@ -22,6 +22,7 @@ dependencies:
 - doxygen>=1.8.20
 - libfaiss>=1.7.0
 - faiss-proc=*=cuda
+- ccache
 - pip
 - pip:
     - sphinx_markdown_tables

@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --sccache --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --sccache --ccache --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -33,7 +33,8 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"]
  and <flag> is:
    -v                          - verbose build mode
    -g                          - build for debug
-   --sccache                    - enable sccache
+   --sccache                   - enable sccache
+   --ccache                    - enable ccache
    --compile-libs              - compile shared libraries for all components
    --compile-nn                - compile shared library for nn component
    --compile-dist              - compile shared library for distance component
@@ -70,6 +71,7 @@ ENABLE_NN_DEPENDENCIES=OFF
 ENABLE_thrust_DEPENDENCY=ON
 
 SCCACHE_ARGS=""
+CCACHE_ARGS=""
 NVTX=ON
 CLEAN=0
 UNINSTALL=0
@@ -134,8 +136,17 @@ if hasArg --install; then
     INSTALL_TARGET="install"
 fi
 
+if hasArg --sccache && hasArg --ccache; then
+    echo "Cannot enable both sccache and ccache at the same time!"
+    exit 1
+fi
+
 if hasArg --sccache; then
   SCCACHE_ARGS="-DCMAKE_CUDA_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
+fi
+
+if hasArg --ccache; then
+    CCACHE_ARGS="-DCMAKE_CUDA_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
 fi
 
 if hasArg --minimal-deps; then
@@ -258,6 +269,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
           ${SCCACHE_ARGS} \
+          ${CCACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
 
   if [[ ${CMAKE_TARGET} != "" ]]; then
