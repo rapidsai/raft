@@ -34,19 +34,6 @@ using raft::spatial::knn::ivf_flat::index;
 using raft::spatial::knn::ivf_flat::index_params;
 using raft::spatial::knn::ivf_flat::kIndexGroupSize;
 
-template <typename T, typename... Extents>
-static inline auto make_array_for_index(rmm::cuda_stream_view stream, Extents... exts)
-{
-  using extent_t  = extents<((void)exts, dynamic_extent)...>;
-  using mdarray_t = device_mdarray<T, extent_t, layout_c_contiguous>;
-
-  typename mdarray_t::extents_type extent{exts...};
-  typename mdarray_t::mapping_type layout{extent};
-  typename mdarray_t::container_policy_type policy{stream};
-
-  return mdarray_t{layout, policy};
-}
-
 /**
  * @brief Record the dataset into the index, one source row at a time.
  *
@@ -60,6 +47,7 @@ static inline auto make_array_for_index(rmm::cuda_stream_view stream, Extents...
  *   there are no dependencies between threads, hence no constraints on the block size.
  *
  * @tparam T the element type.
+ * @tparam IdxT type of the indices in the source dataset
  *
  * @param[in] labels device pointer to the cluster ids for each row [n_rows]
  * @param[in] list_offsets device pointer to the cluster offsets in the output (index) [n_lists]
@@ -73,18 +61,18 @@ static inline auto make_array_for_index(rmm::cuda_stream_view stream, Extents...
  * @param veclen size of vectorized loads/stores; must satisfy `dim % veclen == 0`.
  *
  */
-template <typename T>
+template <typename T, typename IdxT>
 __global__ void build_index_kernel(const uint32_t* labels,
-                                   const uint32_t* list_offsets,
+                                   const IdxT* list_offsets,
                                    const T* dataset,
                                    T* list_data,
-                                   uint32_t* list_index,
+                                   IdxT* list_index,
                                    uint32_t* list_sizes_ptr,
-                                   uint32_t n_rows,
+                                   IdxT n_rows,
                                    uint32_t dim,
                                    uint32_t veclen)
 {
-  const int i = blockDim.x * blockIdx.x + threadIdx.x;
+  const IdxT i = IdxT(blockDim.x) * IdxT(blockIdx.x) + threadIdx.x;
   if (i >= n_rows) { return; }
 
   auto list_id     = labels[i];
@@ -115,13 +103,13 @@ __global__ void build_index_kernel(const uint32_t* labels,
 }
 
 /** See raft::spatial::knn::ivf_flat::build docs */
-template <typename T>
+template <typename T, typename IdxT>
 inline auto build(const handle_t& handle,
                   const index_params& params,
                   const T* dataset,
-                  uint32_t n_rows,
+                  IdxT n_rows,
                   uint32_t dim,
-                  rmm::cuda_stream_view stream) -> index<T>
+                  rmm::cuda_stream_view stream) -> index<T, IdxT>
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("ivf_flat::build(%u, %u)", n_rows, dim);
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
@@ -138,8 +126,8 @@ inline auto build(const handle_t& handle,
 
   // kmeans cluster ids for the dataset
   rmm::device_uvector<uint32_t> labels(n_rows, stream);
-  auto&& centers      = make_array_for_index<float>(stream, n_lists, dim);
-  auto&& list_sizes   = make_array_for_index<uint32_t>(stream, n_lists);
+  auto&& centers      = make_device_mdarray<float>(stream, n_lists, dim);
+  auto&& list_sizes   = make_device_mdarray<uint32_t>(stream, n_lists);
   auto list_sizes_ptr = list_sizes.data();
 
   // Predict labels of the whole dataset
@@ -157,7 +145,7 @@ inline auto build(const handle_t& handle,
                                  stream);
 
   // Calculate offsets into cluster data using exclusive scan
-  auto&& list_offsets   = make_array_for_index<uint32_t>(stream, n_lists + 1);
+  auto&& list_offsets   = make_device_mdarray<IdxT>(stream, n_lists + 1);
   auto list_offsets_ptr = list_offsets.data();
 
   thrust::exclusive_scan(
@@ -165,21 +153,21 @@ inline auto build(const handle_t& handle,
     list_sizes_ptr,
     list_sizes_ptr + n_lists + 1,
     list_offsets_ptr,
-    uint32_t(0),
-    [] __device__(uint32_t s, uint32_t l) { return s + Pow2<WarpSize>::roundUp(l); });
+    IdxT(0),
+    [] __device__(IdxT s, uint32_t l) { return s + Pow2<WarpSize>::roundUp(l); });
 
-  uint32_t index_size;
+  IdxT index_size;
   update_host(&index_size, list_offsets_ptr + n_lists, 1, stream);
   handle.sync_stream(stream);
 
-  auto&& data    = make_array_for_index<T>(stream, index_size, dim);
-  auto&& indices = make_array_for_index<uint32_t>(stream, index_size);
+  auto&& data    = make_device_mdarray<T>(stream, index_size, dim);
+  auto&& indices = make_device_mdarray<IdxT>(stream, index_size);
 
   // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
   utils::memset(list_sizes_ptr, 0, sizeof(uint32_t) * n_lists, stream);
 
   const dim3 block_dim(256);
-  const dim3 grid_dim(raft::ceildiv<uint32_t>(n_rows, block_dim.x));
+  const dim3 grid_dim(raft::ceildiv<IdxT>(n_rows, block_dim.x));
   build_index_kernel<<<grid_dim, block_dim, 0, stream>>>(labels.data(),
                                                          list_offsets_ptr,
                                                          dataset,
@@ -193,7 +181,7 @@ inline auto build(const handle_t& handle,
 
   // Precompute the centers vector norms for L2Expanded distance
   auto compute_norms = [&]() {
-    auto&& r = make_array_for_index<float>(stream, n_lists);
+    auto&& r = make_device_mdarray<float>(stream, n_lists);
     utils::dots_along_rows(n_lists, dim, centers.data(), r.data(), stream);
     RAFT_LOG_TRACE_VEC(r.data(), 20);
     return r;
@@ -203,14 +191,14 @@ inline auto build(const handle_t& handle,
                           : std::nullopt;
 
   // assemble the index
-  index<T> index{veclen,
-                 params.metric,
-                 std::move(data),
-                 std::move(indices),
-                 std::move(list_sizes),
-                 std::move(list_offsets),
-                 std::move(centers),
-                 std::move(center_norms)};
+  index<T, IdxT> index{veclen,
+                       params.metric,
+                       std::move(data),
+                       std::move(indices),
+                       std::move(list_sizes),
+                       std::move(list_offsets),
+                       std::move(centers),
+                       std::move(center_norms)};
 
   // check index invariants
   index.check_consistency();

@@ -36,6 +36,7 @@ namespace raft::spatial::knn::ivf_flat {
  *   InnerProduct
  *
  * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
  *
  * @param handle
  * @param params configure the index building
@@ -46,13 +47,13 @@ namespace raft::spatial::knn::ivf_flat {
  *
  * @return the constructed ivf-flat index
  */
-template <typename T>
+template <typename T, typename IdxT = uint32_t>
 inline auto build(const handle_t& handle,
                   const index_params& params,
                   const T* dataset,
-                  uint32_t n_rows,
+                  IdxT n_rows,
                   uint32_t dim,
-                  rmm::cuda_stream_view stream) -> const index<T>
+                  rmm::cuda_stream_view stream) -> index<T, IdxT>
 {
   return raft::spatial::knn::detail::ivf_flat::build(handle, params, dataset, n_rows, dim, stream);
 }
@@ -61,6 +62,7 @@ inline auto build(const handle_t& handle,
  * @brief Search ANN using the constructed index.
  *
  * @tparam T data element type
+ * @tparam IdxT type of the indices
  *
  * @param handle
  * @param params configure the search
@@ -75,14 +77,14 @@ inline auto build(const handle_t& handle,
  * @param mr an optional memory resource to use across the searches (you can provide a large enough
  *           memory pool here to avoid memory allocations within search).
  */
-template <typename T>
+template <typename T, typename IdxT>
 inline void search(const handle_t& handle,
                    const search_params& params,
-                   const index<T>& index,
+                   const index<T, IdxT>& index,
                    const T* queries,
                    uint32_t n_queries,
                    uint32_t k,
-                   size_t* neighbors,
+                   IdxT* neighbors,
                    float* distances,
                    rmm::cuda_stream_view stream,
                    rmm::mr::device_memory_resource* mr = nullptr)

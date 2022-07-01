@@ -20,6 +20,7 @@
 
 #include <raft/core/mdarray.hpp>
 #include <raft/distance/distance_type.hpp>
+#include <raft/integer_utils.h>
 
 #include <optional>
 
@@ -42,14 +43,13 @@ constexpr static uint32_t kIndexGroupSize = 32;
  * is to make all public factory functions, such as `ivf_flat::build` return `const index`.
  *
  * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
  *
  */
-template <typename T>
+template <typename T, typename IdxT>
 struct index {
-  using row_major = layout_c_contiguous;
-  using extent_1d = extents<dynamic_extent>;
-  using extent_2d = extents<dynamic_extent, dynamic_extent>;
-
+  static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
+                "IdxT must be able to represent all values of uint32_t");
   /**
    * Vectorized load/store size in elements, determines the size of interleaved data chunks.
    *
@@ -85,14 +85,14 @@ struct index {
    */
   device_mdarray<T, extent_2d, row_major> data;
   /** Inverted list indices: ids of items in the source data [size] */
-  device_mdarray<uint32_t, extent_1d, row_major> indices;
+  device_mdarray<IdxT, extent_1d, row_major> indices;
   /** Sizes of the lists (clusters) [n_lists] */
   device_mdarray<uint32_t, extent_1d, row_major> list_sizes;
   /**
    * Offsets into the lists [n_lists + 1].
    * The last value contains the total length of the index.
    */
-  device_mdarray<uint32_t, extent_1d, row_major> list_offsets;
+  device_mdarray<IdxT, extent_1d, row_major> list_offsets;
   /** k-means cluster centers corresponding to the lists [n_lists, dim] */
   device_mdarray<float, extent_2d, row_major> centers;
   /** (Optional) Precomputed norms of the `centers` w.r.t. the chosen distance metric [n_lists]  */
@@ -106,13 +106,19 @@ struct index {
   ~index()                          = default;
 
   /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> size_t { return data.extent(0); }
-  /** Dimensionality of the data. */
-  [[nodiscard]] constexpr inline auto dim() const noexcept -> size_t { return data.extent(1); }
-  /** Number of clusters/inverted lists. */
-  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> size_t
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
   {
-    return centers.extent(0);
+    return static_cast<uint32_t>(data.extent(0));
+  }
+  /** Dimensionality of the data. */
+  [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t
+  {
+    return static_cast<uint32_t>(data.extent(1));
+  }
+  /** Number of clusters/inverted lists. */
+  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t
+  {
+    return static_cast<uint32_t>(centers.extent(0));
   }
 
   /** Throw an error if the index content is inconsistent. */
@@ -141,7 +147,7 @@ struct index_params : ivf_index_params {
 struct search_params : ivf_search_params {
 };
 
-static_assert(std::is_standard_layout_v<index<float>>);
-static_assert(std::is_aggregate_v<index<float>>);
+static_assert(std::is_standard_layout_v<index<float, uint32_t>>);
+static_assert(std::is_aggregate_v<index<float, uint32_t>>);
 
 }  // namespace raft::spatial::knn::ivf_flat

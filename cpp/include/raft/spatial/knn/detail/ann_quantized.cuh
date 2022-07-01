@@ -132,13 +132,11 @@ void approx_knn_build_index(const handle_t& handle,
   }
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->preprocess(index_array); }
 
-  if (ivf_ft_pams && (metric == raft::distance::DistanceType::L2SqrtExpanded ||
-                      metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
-                      metric == raft::distance::DistanceType::L2Unexpanded ||
+  if (ivf_ft_pams && (metric == raft::distance::DistanceType::L2Unexpanded ||
                       metric == raft::distance::DistanceType::L2Expanded ||
                       metric == raft::distance::DistanceType::InnerProduct)) {
-    index->ivf_flat<T>() = std::make_unique<const ivf_flat::index<T>>(
-      ivf_flat::build(handle, *ivf_ft_pams, index_array, n, D, stream));
+    index->ivf_flat<T, int64_t>() = std::make_unique<const ivf_flat::index<T, int64_t>>(
+      detail::ivf_flat::build(handle, *ivf_ft_pams, index_array, int64_t(n), D, stream));
   } else {
     RAFT_CUDA_TRY(cudaGetDevice(&(index->device)));
     index->gpu_res.reset(new raft::spatial::knn::RmmGpuResources());
@@ -189,15 +187,15 @@ void approx_knn_search(const handle_t& handle,
       RAFT_FAIL("FAISS-based index supports only float data.");
     }
   } else if (ivf_ft_pams) {
-    ivf_flat::search(handle,
-                     *ivf_ft_pams,
-                     *(index->ivf_flat<T>()),
-                     query_array,
-                     n,
-                     k,
-                     (size_t*)indices,
-                     distances,
-                     handle.get_stream());
+    detail::ivf_flat::search(handle,
+                             *ivf_ft_pams,
+                             *(index->ivf_flat<T, int64_t>()),
+                             query_array,
+                             n,
+                             k,
+                             indices,
+                             distances,
+                             handle.get_stream());
   } else {
     RAFT_FAIL("The model is not trained");
   }
