@@ -14,24 +14,21 @@
  * limitations under the License.
  */
 
-#include <optional>
-
 #include <common/benchmark.hpp>
-#include <raft/spatial/knn/ann.cuh>
-#include <raft/spatial/knn/knn.cuh>
-
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
-#endif
 
 #include <raft/random/rng.cuh>
-#include <raft/sparse/detail/utils.h>
+#include <raft/spatial/knn/knn.cuh>
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
 
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
 #include <rmm/mr/host/new_delete_resource.hpp>
 #include <rmm/mr/host/pinned_memory_resource.hpp>
+
+#include <optional>
 
 namespace raft::bench::spatial {
 
@@ -41,14 +38,14 @@ struct params {
   /** Number of dimensions in the dataset. */
   size_t n_dims;
   /** The batch size -- number of KNN searches. */
-  size_t n_probes;
+  size_t n_queries;
   /** Number of nearest neighbours to find for every probe. */
   size_t k;
 };
 
 auto operator<<(std::ostream& os, const params& p) -> std::ostream&
 {
-  os << p.n_samples << "#" << p.n_dims << "#" << p.n_probes << "#" << p.k;
+  os << p.n_samples << "#" << p.n_dims << "#" << p.n_queries << "#" << p.k;
   return os;
 }
 
@@ -130,44 +127,6 @@ struct host_uvector {
 };
 
 template <typename ValT, typename IdxT>
-struct ivf_flat_knn {
-  using dist_t = float;
-
-  raft::spatial::knn::knnIndex index;
-  raft::spatial::knn::ivf_flat::index_params index_params;
-  raft::spatial::knn::ivf_flat::search_params search_params;
-  params ps;
-
-  ivf_flat_knn(const raft::handle_t& handle, const params& ps, const ValT* data) : ps(ps)
-  {
-    index_params.n_lists = 4096;
-    index_params.metric  = raft::distance::DistanceType::L2Expanded;
-    raft::spatial::knn::approx_knn_build_index<ValT, IdxT>(const_cast<raft::handle_t&>(handle),
-                                                           &index,
-                                                           index_params,
-                                                           const_cast<ValT*>(data),
-                                                           (IdxT)ps.n_samples,
-                                                           (IdxT)ps.n_dims);
-  }
-
-  void search(const raft::handle_t& handle,
-              const ValT* search_items,
-              dist_t* out_dists,
-              IdxT* out_idxs)
-  {
-    search_params.n_probes = 20;
-    raft::spatial::knn::approx_knn_search<ValT, IdxT>(const_cast<raft::handle_t&>(handle),
-                                                      out_dists,
-                                                      out_idxs,
-                                                      &index,
-                                                      search_params,
-                                                      (IdxT)ps.k,
-                                                      const_cast<ValT*>(search_items),
-                                                      (IdxT)ps.n_probes);
-  }
-};
-
-template <typename ValT, typename IdxT>
 struct brute_force_knn {
   using dist_t = ValT;
 
@@ -191,7 +150,7 @@ struct brute_force_knn {
                                                             sizes,
                                                             ps.n_dims,
                                                             const_cast<ValT*>(search_items),
-                                                            ps.n_probes,
+                                                            ps.n_queries,
                                                             out_idxs,
                                                             out_dists,
                                                             ps.k);
@@ -206,9 +165,9 @@ struct knn : public fixture {
       scope_(scope),
       dev_mem_res_(strategy == TransferStrategy::MANAGED),
       data_host_(0),
-      search_items_(p.n_probes * p.n_dims, stream),
-      out_dists_(p.n_probes * p.k, stream),
-      out_idxs_(p.n_probes * p.k, stream)
+      search_items_(p.n_queries * p.n_dims, stream),
+      out_dists_(p.n_queries * p.k, stream),
+      out_idxs_(p.n_queries * p.k, stream)
   {
     raft::random::RngState state{42};
     gen_data(state, search_items_, search_items_.size(), stream);
@@ -233,9 +192,8 @@ struct knn : public fixture {
                 size_t n,
                 rmm::cuda_stream_view stream)
   {
-    constexpr T kRangeMax = T(std::min<double>(
-      raft::spatial::knn::detail::utils::config<T>::kDivisor, std::numeric_limits<T>::max()));
-    constexpr T kRangeMin = std::is_signed_v<T> ? -kRangeMax : T(0);
+    constexpr T kRangeMax = std::is_integral_v<T> ? std::numeric_limits<T>::max() : T(1);
+    constexpr T kRangeMin = std::is_integral_v<T> ? std::numeric_limits<T>::min() : T(-1);
     if constexpr (std::is_integral_v<T>) {
       raft::random::uniformInt(state, vec.data(), n, kRangeMin, kRangeMax, stream);
     } else {
@@ -352,15 +310,12 @@ struct knn : public fixture {
 const std::vector<params> kInputs{
   {2000000, 128, 1000, 32}, {10000000, 128, 1000, 32}, {10000, 8192, 1000, 32}};
 
-const std::vector<TransferStrategy> kAllStrategies{TransferStrategy::NO_COPY,
-                                                   TransferStrategy::COPY_PLAIN,
-                                                   TransferStrategy::COPY_PINNED,
-                                                   TransferStrategy::MAP_PINNED,
-                                                   TransferStrategy::MANAGED};
+const std::vector<TransferStrategy> kAllStrategies{
+  TransferStrategy::NO_COPY, TransferStrategy::MAP_PINNED, TransferStrategy::MANAGED};
 const std::vector<TransferStrategy> kNoCopyOnly{TransferStrategy::NO_COPY};
 
 const std::vector<Scope> kScopeFull{Scope::BUILD_SEARCH};
-const std::vector<Scope> kAllScopes{Scope::BUILD, Scope::SEARCH, Scope::BUILD_SEARCH};
+const std::vector<Scope> kAllScopes{Scope::BUILD_SEARCH, Scope::SEARCH, Scope::BUILD};
 
 #define KNN_REGISTER(ValT, IdxT, ImplT, inputs, strats, scope)                   \
   namespace BENCHMARK_PRIVATE_NAME(knn)                                          \
@@ -370,8 +325,7 @@ const std::vector<Scope> kAllScopes{Scope::BUILD, Scope::SEARCH, Scope::BUILD_SE
   }
 
 KNN_REGISTER(float, int64_t, brute_force_knn, kInputs, kAllStrategies, kScopeFull);
-KNN_REGISTER(float, int64_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
-KNN_REGISTER(int8_t, int64_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
-KNN_REGISTER(uint8_t, int64_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
+
+KNN_REGISTER(float, uint32_t, brute_force_knn, kInputs, kNoCopyOnly, kScopeFull);
 
 }  // namespace raft::bench::spatial

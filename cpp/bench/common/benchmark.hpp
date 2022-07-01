@@ -40,7 +40,7 @@ struct using_pool_memory_res {
  private:
   rmm::mr::device_memory_resource* orig_res_;
   rmm::mr::cuda_memory_resource cuda_res_;
-  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_res_;
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_res_;
 
  public:
   using_pool_memory_res(size_t initial_size, size_t max_size)
