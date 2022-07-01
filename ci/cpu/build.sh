@@ -22,7 +22,9 @@ cd $WORKSPACE
 
 # If nightly build, append current YYMMDD to version
 if [[ "$BUILD_MODE" = "branch" && "$SOURCE_BRANCH" = branch-* ]] ; then
-  export VERSION_SUFFIX=`date +%y%m%d`
+  export VERSION_SUFFIX=$(date +%y%m%d)
+else
+  export VERSION_SUFFIX=""
 fi
 
 # Setup 'gpuci_conda_retry' for build retries (results in 2 total attempts)
@@ -65,13 +67,8 @@ conda list --show-channel-urls
 # FIX Added to deal with Anancoda SSL verification issues during conda builds
 conda config --set ssl_verify False
 
-# FIXME: for now, force the building of all packages so they are built on a
-# machine with a single CUDA version, then have the gpu/build.sh script simply
-# install. This should eliminate a mismatch between different CUDA versions on
-# cpu vs. gpu builds that is problematic with CUDA 11.5 Enhanced Compat.
 if [ "$BUILD_LIBRAFT" == "1" ]; then
-  BUILD_RAFT=1
-  # If we are doing CUDA + Python builds, libraft package is located at ${CONDA_BLD_DIR}
+  # If we are doing CUDA builds, libraft package is located at ${CONDA_BLD_DIR}
   CONDA_LOCAL_CHANNEL="${CONDA_BLD_DIR}"
 else
   # If we are doing Python builds only, libraft package is placed here by Project Flash
@@ -85,29 +82,18 @@ gpuci_mamba_retry install -c conda-forge boa
 ###############################################################################
 
 if [ "$BUILD_LIBRAFT" == "1" ]; then
-  gpuci_logger "Building conda packages for libraft-nn, libraft-distance, and libraft-headers"
+  gpuci_logger "Building conda packages for libraft-nn, libraft-distance, libraft-headers and libraft-tests"
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_headers
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_nn
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft_distance
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libraft
   else
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_headers
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft
     gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"
-    mkdir -p ${CONDA_BLD_DIR}/libraft_headers/work
-    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_headers/work
-
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_nn
-    gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"
-    mkdir -p ${CONDA_BLD_DIR}/libraft_nn/work
-    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_nn/work
-
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} --dirty --no-remove-work-dir conda/recipes/libraft_distance
-    gpuci_logger "`ls ${CONDA_BLD_DIR}/work`"
-    mkdir -p ${CONDA_BLD_DIR}/libraft_distance/work
-    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft_distance/work
+    mkdir -p ${CONDA_BLD_DIR}/libraft/work
+    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft/work
   fi
+  sccache --show-stats
 else
-  gpuci_logger "SKIPPING build of conda packages for libraft-nn, libraft-distance and libraft-headers"
+  gpuci_logger "SKIPPING build of conda packages for libraft-nn, libraft-distance, libraft-headers and libraft-tests"
 fi
 
 if [ "$BUILD_RAFT" == '1' ]; then

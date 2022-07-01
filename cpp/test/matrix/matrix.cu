@@ -21,6 +21,10 @@
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/counting_iterator.h>
+
 namespace raft {
 namespace matrix {
 

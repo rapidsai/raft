@@ -32,6 +32,8 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
 
