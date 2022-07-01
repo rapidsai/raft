@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "../ann_common.hpp"
+#include "../ann_common.h"
 #include "../ivf_flat.cuh"
 #include "knn_brute_force_faiss.cuh"
 
@@ -65,67 +65,60 @@ inline faiss::ScalarQuantizer::QuantizerType build_faiss_qtype(QuantizerType qty
 
 template <typename IntType = int>
 void approx_knn_ivfflat_build_index(knnIndex* index,
-                                    const ivf_index_params& params,
+                                    const IVFFlatParam& params,
                                     IntType n,
                                     IntType D)
 {
   faiss::gpu::GpuIndexIVFFlatConfig config;
   config.device                  = index->device;
-  faiss::MetricType faiss_metric = build_faiss_metric(params.metric);
+  faiss::MetricType faiss_metric = build_faiss_metric(index->metric);
   index->index.reset(
-    new faiss::gpu::GpuIndexIVFFlat(index->gpu_res.get(), D, params.n_lists, faiss_metric, config));
+    new faiss::gpu::GpuIndexIVFFlat(index->gpu_res.get(), D, params.nlist, faiss_metric, config));
 }
 
 template <typename IntType = int>
-void approx_knn_ivfpq_build_index(knnIndex* index,
-                                  const ivf_pq_index_params& params,
-                                  IntType n,
-                                  IntType D)
+void approx_knn_ivfpq_build_index(knnIndex* index, const IVFPQParam& params, IntType n, IntType D)
 {
   faiss::gpu::GpuIndexIVFPQConfig config;
   config.device                  = index->device;
-  config.usePrecomputedTables    = params.use_precomputed_tables;
+  config.usePrecomputedTables    = params.usePrecomputedTables;
   config.interleavedLayout       = params.n_bits != 8;
-  faiss::MetricType faiss_metric = build_faiss_metric(params.metric);
-  index->index.reset(new faiss::gpu::GpuIndexIVFPQ(index->gpu_res.get(),
-                                                   D,
-                                                   params.n_lists,
-                                                   params.n_subquantizers,
-                                                   params.n_bits,
-                                                   faiss_metric,
-                                                   config));
+  faiss::MetricType faiss_metric = build_faiss_metric(index->metric);
+  index->index.reset(new faiss::gpu::GpuIndexIVFPQ(
+    index->gpu_res.get(), D, params.nlist, params.M, params.n_bits, faiss_metric, config));
 }
 
 template <typename IntType = int>
-void approx_knn_ivfsq_build_index(knnIndex* index,
-                                  const ivf_sq_index_params& params,
-                                  IntType n,
-                                  IntType D)
+void approx_knn_ivfsq_build_index(knnIndex* index, const IVFSQParam& params, IntType n, IntType D)
 {
   faiss::gpu::GpuIndexIVFScalarQuantizerConfig config;
   config.device                                     = index->device;
-  faiss::MetricType faiss_metric                    = build_faiss_metric(params.metric);
+  faiss::MetricType faiss_metric                    = build_faiss_metric(index->metric);
   faiss::ScalarQuantizer::QuantizerType faiss_qtype = build_faiss_qtype(params.qtype);
   index->index.reset(new faiss::gpu::GpuIndexIVFScalarQuantizer(
-    index->gpu_res.get(), D, params.n_lists, faiss_qtype, faiss_metric, params.encode_residual));
+    index->gpu_res.get(), D, params.nlist, faiss_qtype, faiss_metric, params.encodeResidual));
 }
 
 template <typename T = float, typename IntType = int>
 void approx_knn_build_index(const handle_t& handle,
                             knnIndex* index,
-                            const knn_index_params& params,
+                            knnIndexParam* params,
+                            raft::distance::DistanceType metric,
+                            float metricArg,
                             T* index_array,
                             IntType n,
                             IntType D)
 {
   auto stream      = handle.get_stream();
-  auto metric      = params.metric;
   index->index     = nullptr;
   index->metric    = metric;
-  index->metricArg = params.metric_arg;
-  auto ivf_ft_pams = dynamic_cast<const ivf_flat::index_params*>(&params);
-  auto ivf_pq_pams = dynamic_cast<const ivf_pq_index_params*>(&params);
-  auto ivf_sq_pams = dynamic_cast<const ivf_sq_index_params*>(&params);
+  index->metricArg = metricArg;
+  if (dynamic_cast<const IVFParam*>(params)) {
+    index->nprobe = dynamic_cast<const IVFParam*>(params)->nprobe;
+  }
+  auto ivf_ft_pams = dynamic_cast<IVFFlatParam*>(params);
+  auto ivf_pq_pams = dynamic_cast<IVFPQParam*>(params);
+  auto ivf_sq_pams = dynamic_cast<IVFSQParam*>(params);
 
   if constexpr (std::is_same_v<T, float>) {
     index->metric_processor = create_processor<float>(metric, n, D, 0, false, stream);
@@ -135,8 +128,9 @@ void approx_knn_build_index(const handle_t& handle,
   if (ivf_ft_pams && (metric == raft::distance::DistanceType::L2Unexpanded ||
                       metric == raft::distance::DistanceType::L2Expanded ||
                       metric == raft::distance::DistanceType::InnerProduct)) {
+    auto new_params               = from_legacy_index_params(*ivf_ft_pams, metric, metricArg);
     index->ivf_flat<T, int64_t>() = std::make_unique<const ivf_flat::index<T, int64_t>>(
-      detail::ivf_flat::build(handle, *ivf_ft_pams, index_array, int64_t(n), D, stream));
+      ivf_flat::build(handle, new_params, index_array, int64_t(n), D, stream));
   } else {
     RAFT_CUDA_TRY(cudaGetDevice(&(index->device)));
     index->gpu_res.reset(new raft::spatial::knn::RmmGpuResources());
@@ -167,15 +161,12 @@ void approx_knn_search(const handle_t& handle,
                        float* distances,
                        int64_t* indices,
                        knnIndex* index,
-                       const knn_search_params& params,
                        IntType k,
                        T* query_array,
                        IntType n)
 {
-  auto ivf_ft_pams = dynamic_cast<const ivf_flat::search_params*>(&params);
-  auto ivf_pams    = dynamic_cast<const ivf_search_params*>(&params);
-  auto faiss_ivf   = dynamic_cast<GpuIndexIVF*>(index->index.get());
-  if (ivf_pams && faiss_ivf) { faiss_ivf->setNumProbes(ivf_pams->n_probes); }
+  auto faiss_ivf = dynamic_cast<GpuIndexIVF*>(index->index.get());
+  if (faiss_ivf) { faiss_ivf->setNumProbes(index->nprobe); }
 
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->preprocess(query_array); }
 
@@ -186,16 +177,18 @@ void approx_knn_search(const handle_t& handle,
     } else {
       RAFT_FAIL("FAISS-based index supports only float data.");
     }
-  } else if (ivf_ft_pams) {
-    detail::ivf_flat::search(handle,
-                             *ivf_ft_pams,
-                             *(index->ivf_flat<T, int64_t>()),
-                             query_array,
-                             n,
-                             k,
-                             indices,
-                             distances,
-                             handle.get_stream());
+  } else if (index->ivf_flat<T, int64_t>()) {
+    ivf_flat::search_params params;
+    params.n_probes = index->nprobe;
+    ivf_flat::search(handle,
+                     params,
+                     *(index->ivf_flat<T, int64_t>()),
+                     query_array,
+                     n,
+                     k,
+                     indices,
+                     distances,
+                     handle.get_stream());
   } else {
     RAFT_FAIL("The model is not trained");
   }

@@ -28,11 +28,9 @@
 
 #include <rmm/cuda_stream_view.hpp>
 
-namespace raft::spatial::knn::detail::ivf_flat {
+namespace raft::spatial::knn::ivf_flat::detail {
 
-using raft::spatial::knn::ivf_flat::index;
-using raft::spatial::knn::ivf_flat::index_params;
-using raft::spatial::knn::ivf_flat::kIndexGroupSize;
+using namespace raft::spatial::knn::detail;  // NOLINT
 
 /**
  * @brief Record the dataset into the index, one source row at a time.
@@ -191,7 +189,8 @@ inline auto build(const handle_t& handle,
                           : std::nullopt;
 
   // assemble the index
-  index<T, IdxT> index{veclen,
+  index<T, IdxT> index{{},
+                       veclen,
                        params.metric,
                        std::move(data),
                        std::move(indices),
@@ -206,4 +205,4 @@ inline auto build(const handle_t& handle,
   return index;
 }
 
-}  // namespace raft::spatial::knn::detail::ivf_flat
+}  // namespace raft::spatial::knn::ivf_flat::detail

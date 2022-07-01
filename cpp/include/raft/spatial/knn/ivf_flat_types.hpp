@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "ann_common.hpp"
+#include "common.hpp"
 
 #include <raft/core/mdarray.hpp>
 #include <raft/distance/distance_type.hpp>
@@ -47,7 +47,7 @@ constexpr static uint32_t kIndexGroupSize = 32;
  *
  */
 template <typename T, typename IdxT>
-struct index {
+struct index : knn::index {
   static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
                 "IdxT must be able to represent all values of uint32_t");
   /**
@@ -137,17 +137,23 @@ struct index {
   }
 };
 
-struct index_params : ivf_index_params {
+struct index_params : knn::index_params {
+  /** The number of inverted lists (clusters) */
+  uint32_t n_lists = 1024;
   /** The number of iterations searching for kmeans centers (index building). */
   uint32_t kmeans_n_iters = 20;
   /** The fraction of data to use during iterative kmeans building. */
   double kmeans_trainset_fraction = 0.5;
 };
 
-struct search_params : ivf_search_params {
+struct search_params : knn::search_params {
+  /** The number of clusters to search. */
+  uint32_t n_probes = 20;
 };
 
 static_assert(std::is_standard_layout_v<index<float, uint32_t>>);
 static_assert(std::is_aggregate_v<index<float, uint32_t>>);
+static_assert(std::is_aggregate_v<index_params>);
+static_assert(std::is_aggregate_v<search_params>);
 
 }  // namespace raft::spatial::knn::ivf_flat

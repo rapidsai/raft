@@ -21,6 +21,7 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
+#include <raft/spatial/knn/ivf_flat.cuh>
 #include <raft/spatial/knn/knn.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -143,43 +144,86 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
     }
 
     {
+      // unless something is really wrong with clustering, this could serve as a lower bound on
+      // recall
+      double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
+
       rmm::device_uvector<T> distances_ivfflat_dev(queries_size, stream_);
       rmm::device_uvector<int64_t> indices_ivfflat_dev(queries_size, stream_);
-      raft::spatial::knn::ivf_flat::index_params index_params;
-      raft::spatial::knn::ivf_flat::search_params search_params;
-      index_params.n_lists   = ps.nlist;
-      index_params.metric    = ps.metric;
-      search_params.n_probes = ps.nprobe;
-      raft::spatial::knn::knnIndex index;
 
-      approx_knn_build_index(
-        handle_, &index, index_params, database.data(), ps.num_db_vecs, ps.dim);
-      handle_.sync_stream(stream_);
+      {
+        // legacy interface
+        raft::spatial::knn::IVFFlatParam ivfParams;
+        ivfParams.nprobe = ps.nprobe;
+        ivfParams.nlist  = ps.nlist;
+        raft::spatial::knn::knnIndex index;
+        index.index   = nullptr;
+        index.gpu_res = nullptr;
 
-      approx_knn_search(handle_,
-                        distances_ivfflat_dev.data(),
-                        indices_ivfflat_dev.data(),
-                        &index,
-                        search_params,
-                        ps.k,
-                        search_queries.data(),
-                        ps.num_queries);
-      update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
-      update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
-      handle_.sync_stream(stream_);
-    }
+        approx_knn_build_index(handle_,
+                               &index,
+                               dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivfParams),
+                               ps.metric,
+                               0,
+                               database.data(),
+                               ps.num_db_vecs,
+                               ps.dim);
+        handle_.sync_stream(stream_);
+        approx_knn_search(handle_,
+                          distances_ivfflat_dev.data(),
+                          indices_ivfflat_dev.data(),
+                          &index,
+                          ps.k,
+                          search_queries.data(),
+                          ps.num_queries);
 
-    // unless something is really wrong with clustering, this could serve as a lower bound on recall
-    double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
-    // verify.
-    ASSERT_TRUE(eval_knn(indices_naive,
-                         indices_ivfflat,
-                         distances_naive,
-                         distances_ivfflat,
+        update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
+        update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
+        handle_.sync_stream(stream_);
+      }
+
+      ASSERT_TRUE(eval_knn(indices_naive,
+                           indices_ivfflat,
+                           distances_naive,
+                           distances_ivfflat,
+                           ps.num_queries,
+                           ps.k,
+                           float(0.001),
+                           min_recall));
+      {
+        // new interface
+        raft::spatial::knn::ivf_flat::index_params index_params;
+        raft::spatial::knn::ivf_flat::search_params search_params;
+        index_params.n_lists   = ps.nlist;
+        index_params.metric    = ps.metric;
+        search_params.n_probes = ps.nprobe;
+
+        auto index = ivf_flat::build(
+          handle_, index_params, database.data(), int64_t(ps.num_db_vecs), ps.dim, stream_);
+
+        ivf_flat::search(handle_,
+                         search_params,
+                         index,
+                         search_queries.data(),
                          ps.num_queries,
                          ps.k,
-                         float(0.001),
-                         min_recall));
+                         indices_ivfflat_dev.data(),
+                         distances_ivfflat_dev.data(),
+                         stream_);
+
+        update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
+        update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
+        handle_.sync_stream(stream_);
+      }
+      ASSERT_TRUE(eval_knn(indices_naive,
+                           indices_ivfflat,
+                           distances_naive,
+                           distances_ivfflat,
+                           ps.num_queries,
+                           ps.k,
+                           float(0.001),
+                           min_recall));
+    }
   }
 
   void SetUp() override

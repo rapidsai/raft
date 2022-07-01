@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "../ann_common.hpp"
 #include "ann_utils.cuh"
 
 #include <raft/common/nvtx.hpp>

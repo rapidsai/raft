@@ -55,7 +55,7 @@ inline auto build(const handle_t& handle,
                   uint32_t dim,
                   rmm::cuda_stream_view stream) -> index<T, IdxT>
 {
-  return raft::spatial::knn::detail::ivf_flat::build(handle, params, dataset, n_rows, dim, stream);
+  return raft::spatial::knn::ivf_flat::detail::build(handle, params, dataset, n_rows, dim, stream);
 }
 
 /**
@@ -89,7 +89,7 @@ inline void search(const handle_t& handle,
                    rmm::cuda_stream_view stream,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
-  return raft::spatial::knn::detail::ivf_flat::search(
+  return raft::spatial::knn::ivf_flat::detail::search(
     handle, params, index, queries, n_queries, k, neighbors, distances, stream, mr);
 }
 

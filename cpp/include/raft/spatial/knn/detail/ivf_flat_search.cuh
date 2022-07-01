@@ -37,11 +37,9 @@
 
 #include <optional>
 
-namespace raft::spatial::knn::detail::ivf_flat {
+namespace raft::spatial::knn::ivf_flat::detail {
 
-using raft::spatial::knn::ivf_flat::index;
-using raft::spatial::knn::ivf_flat::kIndexGroupSize;
-using raft::spatial::knn::ivf_flat::search_params;
+using namespace raft::spatial::knn::detail;  // NOLINT
 
 constexpr int kThreadsPerBlock = 128;
 
@@ -1280,4 +1278,4 @@ inline void search(const handle_t& handle,
     handle, index, queries, n_queries, k, n_probes, select_min, neighbors, distances, stream, mr);
 }
 
-}  // namespace raft::spatial::knn::detail::ivf_flat
+}  // namespace raft::spatial::knn::ivf_flat::detail
