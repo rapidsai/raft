@@ -43,19 +43,16 @@ namespace raft::spatial::knn::ivf_flat {
  * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
  * @param n_rows the number of samples
  * @param dim the dimensionality of the data
- * @param stream
  *
  * @return the constructed ivf-flat index
  */
 template <typename T, typename IdxT = uint32_t>
-inline auto build(const handle_t& handle,
-                  const index_params& params,
-                  const T* dataset,
-                  IdxT n_rows,
-                  uint32_t dim,
-                  rmm::cuda_stream_view stream) -> index<T, IdxT>
+inline auto build(
+  const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
+  -> index<T, IdxT>
 {
-  return raft::spatial::knn::ivf_flat::detail::build(handle, params, dataset, n_rows, dim, stream);
+  return raft::spatial::knn::ivf_flat::detail::build(
+    handle, params, dataset, n_rows, dim, handle.get_stream());
 }
 
 /**
@@ -73,7 +70,6 @@ inline auto build(const handle_t& handle,
  * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
- * @param stream
  * @param mr an optional memory resource to use across the searches (you can provide a large enough
  *           memory pool here to avoid memory allocations within search).
  */
@@ -86,11 +82,10 @@ inline void search(const handle_t& handle,
                    uint32_t k,
                    IdxT* neighbors,
                    float* distances,
-                   rmm::cuda_stream_view stream,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
   return raft::spatial::knn::ivf_flat::detail::search(
-    handle, params, index, queries, n_queries, k, neighbors, distances, stream, mr);
+    handle, params, index, queries, n_queries, k, neighbors, distances, handle.get_stream(), mr);
 }
 
 }  // namespace raft::spatial::knn::ivf_flat

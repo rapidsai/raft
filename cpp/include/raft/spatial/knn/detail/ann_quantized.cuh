@@ -130,7 +130,7 @@ void approx_knn_build_index(const handle_t& handle,
                       metric == raft::distance::DistanceType::InnerProduct)) {
     auto new_params               = from_legacy_index_params(*ivf_ft_pams, metric, metricArg);
     index->ivf_flat<T, int64_t>() = std::make_unique<const ivf_flat::index<T, int64_t>>(
-      ivf_flat::build(handle, new_params, index_array, int64_t(n), D, stream));
+      ivf_flat::build(handle, new_params, index_array, int64_t(n), D));
   } else {
     RAFT_CUDA_TRY(cudaGetDevice(&(index->device)));
     index->gpu_res.reset(new raft::spatial::knn::RmmGpuResources());
@@ -180,15 +180,8 @@ void approx_knn_search(const handle_t& handle,
   } else if (index->ivf_flat<T, int64_t>()) {
     ivf_flat::search_params params;
     params.n_probes = index->nprobe;
-    ivf_flat::search(handle,
-                     params,
-                     *(index->ivf_flat<T, int64_t>()),
-                     query_array,
-                     n,
-                     k,
-                     indices,
-                     distances,
-                     handle.get_stream());
+    ivf_flat::search(
+      handle, params, *(index->ivf_flat<T, int64_t>()), query_array, n, k, indices, distances);
   } else {
     RAFT_FAIL("The model is not trained");
   }

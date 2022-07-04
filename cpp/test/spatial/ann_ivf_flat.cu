@@ -198,8 +198,8 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
         index_params.metric    = ps.metric;
         search_params.n_probes = ps.nprobe;
 
-        auto index = ivf_flat::build(
-          handle_, index_params, database.data(), int64_t(ps.num_db_vecs), ps.dim, stream_);
+        auto index =
+          ivf_flat::build(handle_, index_params, database.data(), int64_t(ps.num_db_vecs), ps.dim);
 
         ivf_flat::search(handle_,
                          search_params,
@@ -208,8 +208,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                          ps.num_queries,
                          ps.k,
                          indices_ivfflat_dev.data(),
-                         distances_ivfflat_dev.data(),
-                         stream_);
+                         distances_ivfflat_dev.data());
 
         update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
         update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);

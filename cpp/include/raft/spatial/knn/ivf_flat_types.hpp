@@ -39,8 +39,11 @@ constexpr static uint32_t kIndexGroupSize = 32;
  * the index building process.
  *
  * It would seem logical to make all the type's members constant. However, we can't do that
- * because it would imply copying data when the index is moved. The current solution to this
- * is to make all public factory functions, such as `ivf_flat::build` return `const index`.
+ * because it would imply copying data when the index is moved. And we also cannot return
+ * `const index` in our factory functions, such as `ivf_flat::build`, because then the result
+ * couldn't be moved.
+ * Therefore, we return `index` mutable as-is, with a warning to the users that there are no
+ * protection mechanisms against manipulating the data.
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
