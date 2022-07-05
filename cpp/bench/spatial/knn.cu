@@ -17,8 +17,8 @@
 #include <common/benchmark.hpp>
 
 #include <raft/random/rng.cuh>
+
 #include <raft/spatial/knn/ivf_flat.cuh>
-#include <raft/spatial/knn/knn.cuh>
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
 #endif
@@ -283,7 +283,8 @@ struct knn : public fixture {
               data_ptr, allocation_size, cudaMemAdviseSetPreferredLocation, handle.get_device()));
             CUDA_CHECK(cudaMemAdvise(
               data_ptr, allocation_size, cudaMemAdviseSetAccessedBy, handle.get_device()));
-            CUDA_CHECK(cudaMemAdvise(data_ptr, allocation_size, cudaMemAdviseSetReadMostly, 0));
+            CUDA_CHECK(cudaMemAdvise(
+              data_ptr, allocation_size, cudaMemAdviseSetReadMostly, handle.get_device()));
             std::memcpy(data_ptr, data_host_.data(), allocation_size);
             break;
           default: break;
