@@ -44,7 +44,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
-   --ccache-tool=<tool>        - pass the build ccache tool (eg: ccache, sccache, distcc) that will be used
+   --cache-tool=<tool>         - pass the build cache tool (eg: ccache, sccache, distcc) that will be used
                                  to speedup the build process.
    -h                          - print this text
 
@@ -70,7 +70,7 @@ ENABLE_NN_DEPENDENCIES=OFF
 
 ENABLE_thrust_DEPENDENCY=ON
 
-CCACHE_ARGS=""
+CACHE_ARGS=""
 NVTX=ON
 CLEAN=0
 UNINSTALL=0
@@ -114,22 +114,22 @@ function cmakeArgs {
     fi
 }
 
-function ccacheTool {
-    # Check for multiple ccache options
-    if [[ $(echo $ARGS | { grep -Eo "\-\-ccache\-tool" || true; } | wc -l ) -gt 1 ]]; then
-        echo "Multiple --ccache-tool options were provided, please provide only one: ${ARGS}"
+function cacheTool {
+    # Check for multiple cache options
+    if [[ $(echo $ARGS | { grep -Eo "\-\-cache\-tool" || true; } | wc -l ) -gt 1 ]]; then
+        echo "Multiple --cache-tool options were provided, please provide only one: ${ARGS}"
         exit 1
     fi
-    # Check for ccache tool option
-    if [[ -n $(echo $ARGS | { grep -E "\-\-ccache\-tool" || true; } ) ]]; then
+    # Check for cache tool option
+    if [[ -n $(echo $ARGS | { grep -E "\-\-cache\-tool" || true; } ) ]]; then
         # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
         # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
         # on the invalid option error
-        CCACHE_TOOL=$(echo $ARGS | sed -e 's/.*--ccache-tool=//' -e 's/ .*//')
-        if [[ -n ${CCACHE_TOOL} ]]; then
-            # Remove the full CCACHE_TOOL argument from list of args so that it passes validArgs function
-            ARGS=${ARGS//--ccache-tool=$CCACHE_TOOL/}
-            CCACHE_ARGS="-DCMAKE_CUDA_COMPILER_LAUNCHER=${CCACHE_TOOL} -DCMAKE_C_COMPILER_LAUNCHER=${CCACHE_TOOL} -DCMAKE_CXX_COMPILER_LAUNCHER=${CCACHE_TOOL}"
+        CACHE_TOOL=$(echo $ARGS | sed -e 's/.*--cache-tool=//' -e 's/ .*//')
+        if [[ -n ${CACHE_TOOL} ]]; then
+            # Remove the full CACHE_TOOL argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//--cache-tool=$CACHE_TOOL/}
+            CACHE_ARGS="-DCMAKE_CUDA_COMPILER_LAUNCHER=${CACHE_TOOL} -DCMAKE_C_COMPILER_LAUNCHER=${CACHE_TOOL} -DCMAKE_CXX_COMPILER_LAUNCHER=${CACHE_TOOL}"
         fi
     fi
 }
@@ -142,7 +142,7 @@ fi
 # Check for valid usage
 if (( ${NUMARGS} != 0 )); then
     cmakeArgs
-    ccacheTool
+    cacheTool
     for a in ${ARGS}; do
         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
             echo "Invalid option: ${a}"
@@ -275,7 +275,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
-          ${CCACHE_ARGS} \
+          ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
 
   if [[ ${CMAKE_TARGET} != "" ]]; then
