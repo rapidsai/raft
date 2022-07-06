@@ -185,7 +185,6 @@ void update_centers(float* centers,
  * @param n_rows number samples in the `dataset`
  * @param[out] labels output predictions [n_rows]
  * @param metric
- * @param is_center_set
  * @param[in] centers_temp optional [n_clusters, dim]
  * @param[inout] cluster_sizes (optional) number of rows in each cluster [n_clusters]
  * @param shall_update_centers
@@ -201,7 +200,6 @@ void predict(const handle_t& handle,
              uint32_t n_rows,
              uint32_t* labels,
              raft::distance::DistanceType metric,
-             bool is_center_set,
              float* centers_temp,
              uint32_t* cluster_sizes,
              bool shall_update_centers,
@@ -213,20 +211,6 @@ void predict(const handle_t& handle,
   if (n_rows == 0) {
     RAFT_LOG_WARN(
       "cuann_kmeans_predict: empty dataset (n_rows = %d, n_clusters = %d)", n_rows, n_clusters);
-    return;
-  }
-  if (!is_center_set) {
-    // If centers are not set, the labels will be determined randomly.
-    linalg::writeOnlyUnaryOp(
-      labels,
-      n_rows,
-      [n_clusters] __device__(uint32_t * out, uint32_t i) { *out = i % n_clusters; },
-      stream);
-    if (centers_temp != nullptr && cluster_sizes != nullptr) {
-      // update centers
-      update_centers(
-        centers, n_clusters, dim, dataset, n_rows, labels, metric, cluster_sizes, nullptr, stream);
-    }
     return;
   }
 
@@ -382,7 +366,7 @@ auto adjust_centers(float* centers,
 
 /** predict & adjust_centers combined in an iterative process. */
 template <typename T>
-auto build_clusters(const handle_t& handle,
+void build_clusters(const handle_t& handle,
                     uint32_t n_iters,
                     size_t dim,
                     const T* dataset,  // managedl [n_rows, dim]
@@ -397,6 +381,25 @@ auto build_clusters(const handle_t& handle,
 {
   rmm::device_uvector<float> cluster_centers_tmp(n_clusters * dim, stream, device_memory);
 
+  // "randomly initialize labels"
+  linalg::writeOnlyUnaryOp(
+    cluster_labels,
+    n_rows,
+    [n_clusters] __device__(uint32_t * out, uint32_t i) { *out = i % n_clusters; },
+    stream);
+
+  // update centers to match the initialized labels.
+  update_centers(cluster_centers,
+                 n_clusters,
+                 dim,
+                 dataset,
+                 n_rows,
+                 cluster_labels,
+                 metric,
+                 cluster_sizes,
+                 nullptr,
+                 stream);
+
   for (uint32_t iter = 0; iter < 2 * n_iters; iter += 2) {
     kmeans::predict(handle,
                     cluster_centers,
@@ -406,7 +409,6 @@ auto build_clusters(const handle_t& handle,
                     n_rows,
                     cluster_labels,
                     metric,
-                    (iter != 0),
                     cluster_centers_tmp.data(),
                     cluster_sizes,
                     true,
@@ -689,7 +691,6 @@ void build_optimized_kmeans(const handle_t& handle,
                     n_rows_train,
                     labels,
                     metric,
-                    true,
                     centers_temp.data(),
                     cluster_sizes,
                     true,
@@ -708,7 +709,6 @@ void build_optimized_kmeans(const handle_t& handle,
                   n_rows,
                   labels,
                   metric,
-                  true,
                   centers_temp.data(),
                   cluster_sizes,
                   true,
@@ -723,7 +723,6 @@ void build_optimized_kmeans(const handle_t& handle,
                   n_rows,
                   labels,
                   metric,
-                  true,
                   centers_temp.data(),
                   cluster_sizes,
                   false,
