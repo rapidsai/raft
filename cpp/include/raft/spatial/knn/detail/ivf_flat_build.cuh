@@ -25,6 +25,7 @@
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/pow2_utils.cuh>
+#include <raft/stats/histogram.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 
@@ -124,9 +125,7 @@ inline auto build(const handle_t& handle,
 
   // kmeans cluster ids for the dataset
   rmm::device_uvector<uint32_t> labels(n_rows, stream);
-  auto&& centers      = make_device_mdarray<float>(stream, n_lists, dim);
-  auto&& list_sizes   = make_device_mdarray<uint32_t>(stream, n_lists);
-  auto list_sizes_ptr = list_sizes.data();
+  auto&& centers = make_device_mdarray<float>(stream, n_lists, dim);
 
   // Predict labels of the whole dataset
   kmeans::build_optimized_kmeans(handle,
@@ -135,12 +134,22 @@ inline auto build(const handle_t& handle,
                                  dataset,
                                  n_rows,
                                  labels.data(),
-                                 list_sizes_ptr,
                                  centers.data(),
                                  n_lists,
                                  params.kmeans_trainset_fraction,
                                  params.metric,
                                  stream);
+
+  // sizes of the clusters
+  auto&& list_sizes   = make_device_mdarray<uint32_t>(stream, n_lists);
+  auto list_sizes_ptr = list_sizes.data();
+  raft::stats::histogram<uint32_t, size_t>(raft::stats::HistTypeAuto,
+                                           reinterpret_cast<int32_t*>(list_sizes_ptr),
+                                           size_t(n_lists),
+                                           labels.data(),
+                                           n_rows,
+                                           1,
+                                           stream);
 
   // Calculate offsets into cluster data using exclusive scan
   auto&& list_offsets   = make_device_mdarray<IdxT>(stream, n_lists + 1);

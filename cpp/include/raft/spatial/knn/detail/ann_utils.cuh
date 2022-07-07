@@ -278,13 +278,13 @@ __global__ void accumulate_into_selected_kernel(uint32_t n_rows,
  *
  * @param n_cols number of columns in all matrices
  * @param[out] output output matrix [..., n_cols]
- * @param[out] selection_counters number of occurrences of each row id in row_ids [..., n_cols]
+ * @param[inout] selection_counters number of occurrences of each row id in row_ids [..., n_cols]
  * @param n_rows number of rows in the input
  * @param[in] input row-major input matrix [n_rows, n_cols]
  * @param[in] row_ids row indices in the output matrix [n_rows]
  */
 template <typename T>
-void accumulate_into_selected(uint32_t n_rows,
+void accumulate_into_selected(size_t n_rows,
                               uint32_t n_cols,
                               float* output,
                               uint32_t* selection_counters,
@@ -296,17 +296,17 @@ void accumulate_into_selected(uint32_t n_rows,
     case pointer_residency::host_and_device:
     case pointer_residency::device_only: {
       uint32_t block_dim = 128;
-      auto grid_dim      = static_cast<uint32_t>(ceildiv<uint64_t>(
-        static_cast<uint64_t>(n_rows) * static_cast<uint64_t>(n_cols), block_dim));
+      auto grid_dim =
+        static_cast<uint32_t>(ceildiv<size_t>(n_rows * static_cast<size_t>(n_cols), block_dim));
       accumulate_into_selected_kernel<T><<<grid_dim, block_dim, 0, stream>>>(
         n_rows, n_cols, output, selection_counters, input, row_ids);
     } break;
     case pointer_residency::host_only: {
       stream.synchronize();
-      for (uint64_t i = 0; i < n_rows; i++) {
-        uint64_t l = row_ids[i];
+      for (size_t i = 0; i < n_rows; i++) {
+        uint32_t l = row_ids[i];
         selection_counters[l]++;
-        for (uint64_t j = 0; j < n_cols; j++) {
+        for (uint32_t j = 0; j < n_cols; j++) {
           output[j + n_cols * l] += mapping<float>{}(input[j + n_cols * i]);
         }
       }

@@ -33,36 +33,60 @@
 #include <rmm/device_vector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 namespace raft::spatial::knn::detail::kmeans {
 
-void predict_core_(const handle_t& handle,
-                   const float* centers,  // [n_clusters, dim]
-                   uint32_t n_clusters,
-                   uint32_t dim,
-                   const float* dataset,  // [n_rows, dim]
-                   uint32_t n_rows,
-                   uint32_t* labels,  // [n_rows]
-                   raft::distance::DistanceType metric,
-                   rmm::mr::device_memory_resource* mr,
-                   rmm::cuda_stream_view stream)
+/**
+ * @brief Predict labels for the dataset; floats only.
+ *
+ * NB: no minibatch splitting is done here, it may require large amount of temporary memory (n_rows
+ * * n_cluster * sizeof(float)).
+ *
+ * @param handle
+ * @param[in] centers a pointer to the row-major matrix of cluster centers [n_clusters, dim]
+ * @param n_clusters number of clusters/centers
+ * @param dim dimensionality of the data
+ * @param[in] dataset a pointer to the data [n_rows, dim]
+ * @param n_rows number samples in the `dataset`
+ * @param[out] labels output predictions [n_rows]
+ * @param metric
+ * @param stream
+ * @param mr (optional) memory resource to use for temporary allocations
+ */
+void predict_float_core(const handle_t& handle,
+                        const float* centers,
+                        uint32_t n_clusters,
+                        uint32_t dim,
+                        const float* dataset,
+                        size_t n_rows,
+                        uint32_t* labels,
+                        raft::distance::DistanceType metric,
+                        rmm::cuda_stream_view stream,
+                        rmm::mr::device_memory_resource* mr)
 {
   rmm::device_uvector<float> distances(n_rows * n_clusters, stream, mr);
 
   float alpha;
   float beta;
-  if (metric == raft::distance::DistanceType::InnerProduct) {
-    alpha = -1.0;
-    beta  = 0.0;
-  } else {
-    rmm::device_uvector<float> sqsum_centers(n_clusters, stream, mr);
-    rmm::device_uvector<float> sqsum_data(n_rows, stream, mr);
-    utils::dots_along_rows(n_clusters, dim, centers, sqsum_centers.data(), stream);
-    utils::dots_along_rows(n_rows, dim, dataset, sqsum_data.data(), stream);
-    utils::outer_add(
-      sqsum_data.data(), n_rows, sqsum_centers.data(), n_clusters, distances.data(), stream);
-    alpha = -2.0;
-    beta  = 1.0;
+  switch (metric) {
+    case raft::distance::DistanceType::InnerProduct: {
+      alpha = -1.0;
+      beta  = 0.0;
+    } break;
+    case raft::distance::DistanceType::L2Expanded:
+    case raft::distance::DistanceType::L2Unexpanded: {
+      rmm::device_uvector<float> sqsum_centers(n_clusters, stream, mr);
+      rmm::device_uvector<float> sqsum_data(n_rows, stream, mr);
+      utils::dots_along_rows(n_clusters, dim, centers, sqsum_centers.data(), stream);
+      utils::dots_along_rows(n_rows, dim, dataset, sqsum_data.data(), stream);
+      utils::outer_add(
+        sqsum_data.data(), n_rows, sqsum_centers.data(), n_clusters, distances.data(), stream);
+      alpha = -2.0;
+      beta  = 1.0;
+    } break;
+    // NB: update the description of `knn::ivf_flat::build` when adding here a new metric.
+    default: RAFT_FAIL("The chosen distance metric is not supported (%d)", int(metric));
   }
   linalg::gemm(handle,
                true,
@@ -92,7 +116,7 @@ void predict_core_(const handle_t& handle,
  * @param n_rows dataset size
  * @return a suggested minibatch size
  */
-constexpr auto calc_minibatch_size(uint32_t n_clusters, uint32_t n_rows) -> uint32_t
+constexpr auto calc_minibatch_size(uint32_t n_clusters, size_t n_rows) -> uint32_t
 {
   n_clusters              = std::max<uint32_t>(1, n_clusters);
   uint32_t minibatch_size = (1 << 20);
@@ -101,20 +125,16 @@ constexpr auto calc_minibatch_size(uint32_t n_clusters, uint32_t n_rows) -> uint
     minibatch_size += 32;
     minibatch_size -= minibatch_size % 64;
   }
-  minibatch_size = std::min<uint32_t>(minibatch_size, n_rows);
+  minibatch_size = uint32_t(std::min<size_t>(minibatch_size, n_rows));
   return minibatch_size;
 }
 
 /**
- * @brief update kmeans centers
+ * @brief Given the data and labels, calculate cluster centers and sizes in one sweep.
  *
  * Let S_i = {x_k | x_k \in dataset & labels[k] == i} be the vectors in the dataset with label i.
  *   On exit centers_i = normalize(\sum_{x \in S_i} x), where `normalize` depends on the distance
  * type.
- *
- * If accumulated_centers is not null, then it is expected that the summation is already done and
- * the results are stored in accumulated_centers. In that case only the normalization will be
- * applied.
  *
  * NB: `centers` and `cluster_sizes` must be accessible on GPU due to
  * divide_along_rows/normalize_rows. The rest can be both, under assumption that all pointers are
@@ -128,38 +148,29 @@ constexpr auto calc_minibatch_size(uint32_t n_clusters, uint32_t n_rows) -> uint
  * @tparam T element type
  *
  * @param[out] centers pointer to the output [n_clusters, dim]
+ * @param[out] cluster_sizes number of rows in each cluster [n_clusters]
  * @param n_clusters number of clusters/centers
  * @param dim dimensionality of the data
  * @param[in] dataset a pointer to the data [n_rows, dim]
  * @param n_rows number samples in the `dataset`
  * @param[in] labels output predictions [n_rows]
  * @param metric
- * @param[inout] cluster_sizes (optional) number of rows in each cluster [n_clusters]
- * @param[in] accumulated_centers (optional) pre-computed accumulated sums
- *                                (non-normalized centers) [n_clusters, dim]
  * @param stream
  */
 template <typename T>
-void update_centers(float* centers,
-                    uint32_t n_clusters,
-                    uint32_t dim,
-                    const T* dataset,
-                    uint32_t n_rows,
-                    const uint32_t* labels,
-                    raft::distance::DistanceType metric,
-                    uint32_t* cluster_sizes,
-                    const float* accumulated_centers,
-                    rmm::cuda_stream_view stream)
+void calc_centers_and_sizes(float* centers,
+                            uint32_t* cluster_sizes,
+                            uint32_t n_clusters,
+                            uint32_t dim,
+                            const T* dataset,
+                            size_t n_rows,
+                            const uint32_t* labels,
+                            raft::distance::DistanceType metric,
+                            rmm::cuda_stream_view stream)
 {
-  if (accumulated_centers == nullptr) {
-    // accumulate
-    utils::memset(centers, 0, sizeof(float) * n_clusters * dim, stream);
-    utils::memset(cluster_sizes, 0, sizeof(uint32_t) * n_clusters, stream);
-    utils::accumulate_into_selected<T>(
-      n_rows, dim, centers, cluster_sizes, dataset, labels, stream);
-  } else {
-    raft::copy(centers, accumulated_centers, n_clusters * dim, stream);
-  }
+  utils::memset(centers, 0, sizeof(float) * n_clusters * dim, stream);
+  utils::memset(cluster_sizes, 0, sizeof(uint32_t) * n_clusters, stream);
+  utils::accumulate_into_selected(n_rows, dim, centers, cluster_sizes, dataset, labels, stream);
 
   if (metric == raft::distance::DistanceType::InnerProduct) {
     // normalize
@@ -171,109 +182,72 @@ void update_centers(float* centers,
 }
 
 /**
- * @brief Predict labels for the dataset. For each point we assign the label of the nearest center.
+ * @brief Predict labels for the dataset.
  *
- * NB: seems that all pointers here are accessed by devicie code only
+ * NB: no minibatch splitting is done here, it may require large amount of temporary memory (n_rows
+ * * n_cluster * sizeof(float)).
  *
  * @tparam T element type
  *
  * @param handle
- * @param[inout] centers a pointer to the row-major matrix of cluster centers [n_clusters, dim]
+ * @param[in] centers a pointer to the row-major matrix of cluster centers [n_clusters, dim]
  * @param n_clusters number of clusters/centers
  * @param dim dimensionality of the data
  * @param[in] dataset a pointer to the data [n_rows, dim]
  * @param n_rows number samples in the `dataset`
  * @param[out] labels output predictions [n_rows]
  * @param metric
- * @param[in] centers_temp optional [n_clusters, dim]
- * @param[inout] cluster_sizes (optional) number of rows in each cluster [n_clusters]
- * @param shall_update_centers
  * @param stream
  * @param mr (optional) memory resource to use for temporary allocations
  */
+
 template <typename T>
 void predict(const handle_t& handle,
-             float* centers,
+             const float* centers,
              uint32_t n_clusters,
              uint32_t dim,
              const T* dataset,
-             uint32_t n_rows,
+             size_t n_rows,
              uint32_t* labels,
              raft::distance::DistanceType metric,
-             float* centers_temp,
-             uint32_t* cluster_sizes,
-             bool shall_update_centers,
              rmm::cuda_stream_view stream,
-             rmm::mr::device_memory_resource* mr)
+             rmm::mr::device_memory_resource* mr = nullptr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "kmeans::predict(%u, %u)", n_rows, n_clusters);
-  if (n_rows == 0) {
-    RAFT_LOG_WARN(
-      "cuann_kmeans_predict: empty dataset (n_rows = %d, n_clusters = %d)", n_rows, n_clusters);
-    return;
-  }
-
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
   const uint32_t max_minibatch_size = calc_minibatch_size(n_clusters, n_rows);
-
-  if (centers_temp != nullptr && cluster_sizes != nullptr) {
-    utils::memset(centers_temp, 0, sizeof(float) * n_clusters * dim, stream);
-    utils::memset(cluster_sizes, 0, sizeof(uint32_t) * n_clusters, stream);
-  }
-
-  rmm::device_uvector<float> cur_dataset(max_minibatch_size * dim, stream, mr);
-  for (uint32_t offset = 0; offset < n_rows; offset += max_minibatch_size) {
+  rmm::device_uvector<float> cur_dataset(
+    std::is_same_v<T, float> ? 0 : max_minibatch_size * dim, stream, mr);
+  auto cur_dataset_ptr = cur_dataset.data();
+  for (size_t offset = 0; offset < n_rows; offset += max_minibatch_size) {
     auto minibatch_size = std::min<uint32_t>(max_minibatch_size, n_rows - offset);
 
     if constexpr (std::is_same_v<T, float>) {
-      raft::copy(cur_dataset.data(), dataset + offset * dim, minibatch_size * dim, stream);
+      cur_dataset_ptr = const_cast<float*>(dataset + offset * dim);
     } else {
-      linalg::unaryOp(cur_dataset.data(),
+      linalg::unaryOp(cur_dataset_ptr,
                       dataset + offset * dim,
                       minibatch_size * dim,
                       utils::mapping<float>{},
                       stream);
     }
-    // predict
-    predict_core_(handle,
-                  centers,
-                  n_clusters,
-                  dim,
-                  cur_dataset.data(),
-                  minibatch_size,
-                  labels + offset,
-                  metric,
-                  mr,
-                  stream);
 
-    if ((centers_temp != nullptr) && (cluster_sizes != nullptr)) {
-      // accumulate
-      utils::accumulate_into_selected<float>(minibatch_size,
-                                             dim,
-                                             centers_temp,
-                                             cluster_sizes,
-                                             cur_dataset.data(),
-                                             labels + offset,
-                                             stream);
-    }
-  }
-
-  if ((centers_temp != nullptr) && (cluster_sizes != nullptr) && shall_update_centers) {
-    update_centers(centers,
-                   n_clusters,
-                   dim,
-                   dataset,
-                   n_rows,
-                   labels,
-                   metric,
-                   cluster_sizes,
-                   centers_temp,
-                   stream);
+    predict_float_core(handle,
+                       centers,
+                       n_clusters,
+                       dim,
+                       cur_dataset_ptr,
+                       minibatch_size,
+                       labels + offset,
+                       metric,
+                       stream,
+                       mr);
   }
 }
 
 /**
- * @brief Adjust centers which have small number of entries.
+ * @brief Adjust centers for clusters that have small number of entries.
  *
  * For each cluster, where the cluster size is not bigger than a threshold, the center is moved
  * towards a data point that belongs to a large cluster.
@@ -323,7 +297,7 @@ auto adjust_centers(float* centers,
   static size_t i_primes = 0;
 
   bool adjusted    = false;
-  uint32_t average = n_rows / n_clusters;
+  uint32_t average = static_cast<uint32_t>(n_rows / size_t(n_clusters));
   uint32_t ofst;
 
   do {
@@ -379,8 +353,6 @@ void build_clusters(const handle_t& handle,
                     rmm::mr::device_memory_resource* device_memory,
                     rmm::cuda_stream_view stream)
 {
-  rmm::device_uvector<float> cluster_centers_tmp(n_clusters * dim, stream, device_memory);
-
   // "randomly initialize labels"
   linalg::writeOnlyUnaryOp(
     cluster_labels,
@@ -389,31 +361,36 @@ void build_clusters(const handle_t& handle,
     stream);
 
   // update centers to match the initialized labels.
-  update_centers(cluster_centers,
-                 n_clusters,
-                 dim,
-                 dataset,
-                 n_rows,
-                 cluster_labels,
-                 metric,
-                 cluster_sizes,
-                 nullptr,
-                 stream);
+  calc_centers_and_sizes(cluster_centers,
+                         cluster_sizes,
+                         n_clusters,
+                         dim,
+                         dataset,
+                         n_rows,
+                         cluster_labels,
+                         metric,
+                         stream);
 
   for (uint32_t iter = 0; iter < 2 * n_iters; iter += 2) {
-    kmeans::predict(handle,
-                    cluster_centers,
-                    n_clusters,
-                    dim,
-                    dataset,
-                    n_rows,
-                    cluster_labels,
-                    metric,
-                    cluster_centers_tmp.data(),
-                    cluster_sizes,
-                    true,
-                    stream,
-                    device_memory);
+    predict(handle,
+            cluster_centers,
+            n_clusters,
+            dim,
+            dataset,
+            n_rows,
+            cluster_labels,
+            metric,
+            stream,
+            device_memory);
+    calc_centers_and_sizes(cluster_centers,
+                           cluster_sizes,
+                           n_clusters,
+                           dim,
+                           dataset,
+                           n_rows,
+                           cluster_labels,
+                           metric,
+                           stream);
 
     if (iter + 1 < 2 * n_iters) {
       if (kmeans::adjust_centers(cluster_centers,
@@ -443,7 +420,7 @@ auto arrange_fine_clusters(size_t n_clusters,
   fine_clusters_csum[0] = 0;
 
   uint32_t n_lists_rem            = n_clusters;
-  uint32_t n_rows_rem             = n_rows;
+  size_t n_rows_rem               = n_rows;
   uint32_t mesocluster_size_sum   = 0;
   uint32_t mesocluster_size_max   = 0;
   uint32_t fine_clusters_nums_max = 0;
@@ -528,7 +505,7 @@ auto build_fine_clusters(const handle_t& handle,
   uint32_t n_clusters_done = 0;
   for (uint32_t i = 0; i < n_mesoclusters; i++) {
     uint32_t k = 0;
-    for (uint32_t j = 0; j < n_rows; j++) {
+    for (size_t j = 0; j < n_rows; j++) {
       if (labels_mptr[j] == i) { mc_trainset_ids[k++] = j; }
     }
     RAFT_EXPECTS(k == mesocluster_sizes[i], "Incorrect mesocluster size at %d.", i);
@@ -577,7 +554,6 @@ auto build_fine_clusters(const handle_t& handle,
  * @param[in] dataset a device pointer to the source dataset [n_rows, dim]
  * @param n_rows number of rows in the input
  * @param[out] labels a device pointer to the output labels [n_rows]
- * @param[out] cluster_sizes a device pointer to the found cluster sizes [n_cluster]
  * @param[out] cluster_centers a device pointer to the found cluster centers [n_cluster, dim]
  * @param n_cluster
  * @param trainset_fraction a fraction of rows in the `dataset` to sample for kmeans training;
@@ -592,7 +568,6 @@ void build_optimized_kmeans(const handle_t& handle,
                             const T* dataset,
                             size_t n_rows,
                             uint32_t* labels,
-                            uint32_t* cluster_sizes,
                             float* cluster_centers,
                             size_t n_clusters,
                             double trainset_fraction,
@@ -606,7 +581,7 @@ void build_optimized_kmeans(const handle_t& handle,
     std::max<size_t>(1, n_rows / std::max<size_t>(trainset_fraction * n_rows, n_clusters));
   auto n_rows_train = n_rows / trainset_ratio;
 
-  uint32_t n_mesoclusters = std::pow<double>(n_clusters, 0.5) + 0.5;
+  uint32_t n_mesoclusters = std::min<uint32_t>(n_clusters, std::sqrt(n_clusters) + 0.5);
   RAFT_LOG_DEBUG("(%s) # n_mesoclusters: %u", __func__, n_mesoclusters);
 
   rmm::mr::managed_memory_resource managed_memory;
@@ -678,56 +653,66 @@ void build_optimized_kmeans(const handle_t& handle,
                                              stream);
   RAFT_EXPECTS(n_clusters_done == n_clusters, "Didn't process all clusters.");
 
-  rmm::device_uvector<float> centers_temp(n_clusters * dim, stream, device_memory);
+  rmm::device_uvector<uint32_t> cluster_sizes(n_clusters, stream, device_memory);
 
   // fit clusters using the trainset
   for (int iter = 0; iter < 2; iter++) {
     // NB: labels.size == n_rows >= n_rows_train; the output is not used.
-    kmeans::predict(handle,
-                    cluster_centers,
-                    n_clusters,
-                    dim,
-                    trainset.data(),
-                    n_rows_train,
-                    labels,
-                    metric,
-                    centers_temp.data(),
-                    cluster_sizes,
-                    true,
-                    stream,
-                    device_memory);
+    predict(handle,
+            cluster_centers,
+            n_clusters,
+            dim,
+            trainset.data(),
+            n_rows_train,
+            labels,
+            metric,
+            stream,
+            device_memory);
+    calc_centers_and_sizes(cluster_centers,
+                           cluster_sizes.data(),
+                           n_clusters,
+                           dim,
+                           trainset.data(),
+                           n_rows_train,
+                           labels,
+                           metric,
+                           stream);
   }
 
   RAFT_LOG_DEBUG("(%s) Final fitting.", __func__);
 
   // fit clusters using the whole dataset
-  kmeans::predict(handle,
-                  cluster_centers,
-                  n_clusters,
-                  dim,
-                  dataset,
-                  n_rows,
-                  labels,
-                  metric,
-                  centers_temp.data(),
-                  cluster_sizes,
-                  true,
-                  stream,
-                  device_memory);
+  predict(handle,
+          cluster_centers,
+          n_clusters,
+          dim,
+          dataset,
+          n_rows,
+          labels,
+          metric,
+          stream,
+          device_memory);
+  // update the cluster centers one last time to better represent the whole dataset
+  calc_centers_and_sizes(cluster_centers,
+                         cluster_sizes.data(),
+                         n_clusters,
+                         dim,
+                         dataset,
+                         n_rows,
+                         labels,
+                         metric,
+                         stream);
 
-  kmeans::predict(handle,
-                  cluster_centers,
-                  n_clusters,
-                  dim,
-                  dataset,
-                  n_rows,
-                  labels,
-                  metric,
-                  centers_temp.data(),
-                  cluster_sizes,
-                  false,
-                  stream,
-                  device_memory);
+  predict(handle,
+          cluster_centers,
+          n_clusters,
+          dim,
+          dataset,
+          n_rows,
+          labels,
+          metric,
+          stream,
+          device_memory);
 }
 
 }  // namespace raft::spatial::knn::detail::kmeans
