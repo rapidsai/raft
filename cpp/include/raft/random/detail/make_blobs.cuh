@@ -21,6 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/random/rng_device.cuh>
 #include <rmm/device_uvector.hpp>
 #include <vector>
 
@@ -35,11 +36,11 @@ void generate_labels(IdxT* labels,
                      IdxT n_rows,
                      IdxT n_clusters,
                      bool shuffle,
-                     raft::random::Rng& r,
+                     raft::random::RngState& r,
                      cudaStream_t stream)
 {
   IdxT a, b;
-  r.affine_transform_params(n_clusters, a, b);
+  raft::random::affine_transform_params(r, n_clusters, a, b);
   auto op = [=] __device__(IdxT * ptr, IdxT idx) {
     if (shuffle) { idx = IdxT((a * int64_t(idx)) + b); }
     idx %= n_clusters;
@@ -89,8 +90,9 @@ DI void get_mu_sigma(DataT& mu,
   mu    = centers[center_id];
 }
 
-template <typename DataT, typename IdxT>
-__global__ void generate_data_kernel(DataT* out,
+template <typename DataT, typename IdxT, typename GenType>
+__global__ void generate_data_kernel(raft::random::DeviceState<GenType> rng_state,
+                                     DataT* out,
                                      const IdxT* labels,
                                      IdxT n_rows,
                                      IdxT n_cols,
@@ -98,16 +100,17 @@ __global__ void generate_data_kernel(DataT* out,
                                      bool row_major,
                                      const DataT* centers,
                                      const DataT* cluster_std,
-                                     const DataT cluster_std_scalar,
-                                     raft::random::RngState rng_state)
+                                     const DataT cluster_std_scalar)
 {
   uint64_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;
-  raft::random::PhiloxGenerator gen(rng_state, tid);
+  GenType gen(rng_state, tid);
   const IdxT stride = gridDim.x * blockDim.x;
   IdxT len          = n_rows * n_cols;
   for (IdxT idx = tid; idx < len; idx += stride) {
     DataT val1, val2;
-    gen.next(val1);
+    do {
+      gen.next(val1);
+    } while (val1 == DataT(0.0));
     gen.next(val2);
     DataT mu1, sigma1, mu2, sigma2;
     get_mu_sigma(mu1,
@@ -155,16 +158,19 @@ void generate_data(DataT* out,
 {
   IdxT items   = n_rows * n_cols;
   IdxT nBlocks = (items + 127) / 128;
-  generate_data_kernel<<<nBlocks, 128, 0, stream>>>(out,
-                                                    labels,
-                                                    n_rows,
-                                                    n_cols,
-                                                    n_clusters,
-                                                    row_major,
-                                                    centers,
-                                                    cluster_std,
-                                                    cluster_std_scalar,
-                                                    rng_state);
+  // parentheses needed here for kernel, otherwise macro interprets the arguments
+  // of triple chevron notation as macro arguments
+  RAFT_CALL_RNG_FUNC(rng_state,
+                     (generate_data_kernel<<<nBlocks, 128, 0, stream>>>),
+                     out,
+                     labels,
+                     n_rows,
+                     n_cols,
+                     n_clusters,
+                     row_major,
+                     centers,
+                     cluster_std,
+                     cluster_std_scalar);
 }
 
 /**
@@ -218,13 +224,14 @@ void make_blobs_caller(DataT* out,
                        uint64_t seed,
                        raft::random::GeneratorType type)
 {
-  raft::random::Rng r(seed, type);
+  raft::random::RngState r(seed, type);
   // use the right centers buffer for data generation
   rmm::device_uvector<DataT> rand_centers(0, stream);
   const DataT* _centers;
   if (centers == nullptr) {
     rand_centers.resize(n_clusters * n_cols, stream);
-    r.uniform(rand_centers.data(), n_clusters * n_cols, center_box_min, center_box_max, stream);
+    detail::uniform(
+      r, rand_centers.data(), n_clusters * n_cols, center_box_min, center_box_max, stream);
     _centers = rand_centers.data();
   } else {
     _centers = centers;
@@ -240,7 +247,7 @@ void make_blobs_caller(DataT* out,
                 _centers,
                 cluster_std,
                 cluster_std_scalar,
-                r.state);
+                r);
 }
 
 }  // end namespace detail

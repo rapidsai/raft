@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef __KNN_H
-#define __KNN_H
-
 #pragma once
 
 #include "detail/knn_brute_force_faiss.cuh"
 #include "detail/selection_faiss.cuh"
 
-namespace raft {
-namespace spatial {
-namespace knn {
+#include "detail/topk/radix_topk.cuh"
+#include "detail/topk/warpsort_topk.cuh"
+
+#include <raft/common/nvtx.hpp>
+
+namespace raft::spatial::knn {
 
 /**
  * Performs a k-select across row partitioned index/distance
@@ -38,65 +38,134 @@ namespace knn {
  *
  * etc...
  *
- * @tparam value_idx
+ * @tparam idx_t
  * @tparam value_t
- * @param inK
- * @param inV
- * @param outK
- * @param outV
+ * @param in_keys
+ * @param in_values
+ * @param out_keys
+ * @param out_values
  * @param n_samples
  * @param n_parts
  * @param k
  * @param stream
  * @param translations
  */
-template <typename value_idx = int64_t, typename value_t = float>
-inline void knn_merge_parts(value_t* inK,
-                            value_idx* inV,
-                            value_t* outK,
-                            value_idx* outV,
+template <typename idx_t = int64_t, typename value_t = float>
+inline void knn_merge_parts(value_t* in_keys,
+                            idx_t* in_values,
+                            value_t* out_keys,
+                            idx_t* out_values,
                             size_t n_samples,
                             int n_parts,
                             int k,
                             cudaStream_t stream,
-                            value_idx* translations)
+                            idx_t* translations)
 {
-  detail::knn_merge_parts(inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
+  detail::knn_merge_parts(
+    in_keys, in_values, out_keys, out_values, n_samples, n_parts, k, stream, translations);
 }
 
+/** Choose an implementation for the select-top-k, */
+enum class SelectKAlgo {
+  /** Adapted from the faiss project. Result: sorted (not stable). */
+  FAISS,
+  /** Incomplete series of radix sort passes, comparing 8 bits per pass. Result: unsorted. */
+  RADIX_8_BITS,
+  /** Incomplete series of radix sort passes, comparing 11 bits per pass. Result: unsorted. */
+  RADIX_11_BITS,
+  /** Filtering with a bitonic-sort-based priority queue. Result: sorted (not stable). */
+  WARP_SORT
+};
+
 /**
- * Performs a k-select across column-partitioned index/distance
- * matrices formatted like the following:
- * row1: k0, k1, k2, k0, k1, k2
- * row2: k0, k1, k2, k0, k1, k2
- * row3: k0, k1, k2, k0, k1, k2
+ * Select k smallest or largest key/values from each row in the input data.
  *
- * etc...
+ * If you think of the input data `in_keys` as a row-major matrix with input_len columns and
+ * n_inputs rows, then this function selects k smallest/largest values in each row and fills
+ * in the row-major matrix `out_keys` of size (n_inputs, k).
  *
- * @tparam value_idx
+ * Note, depending on the selected algorithm, the values within rows of `out_keys` are not
+ * necessarily sorted. See the `SelectKAlgo` enumeration for more details.
+ *
+ * @tparam idx_t
+ *   the payload type (what is being selected together with the keys).
  * @tparam value_t
- * @param inK
- * @param inV
- * @param n_rows
- * @param n_cols
- * @param outK
- * @param outV
- * @param select_min
- * @param k
- * @param stream
+ *   the type of the keys (what is being compared).
+ *
+ * @param[in] in_keys
+ *   contiguous device array of inputs of size (input_len * n_inputs);
+ *   these are compared and selected.
+ * @param[in] in_values
+ *   contiguous device array of inputs of size (input_len * n_inputs);
+ *   typically, these are indices of the corresponding in_keys.
+ *   You can pass `NULL` as an argument here; this would imply `in_values` is a homogeneous array
+ *   of indices from `0` to `input_len - 1` for every input and reduce the usage of memory
+ *   bandwidth.
+ * @param[in] n_inputs
+ *   number of input rows, i.e. the batch size.
+ * @param[in] input_len
+ *   length of a single input array (row); also sometimes referred as n_cols.
+ *   Invariant: input_len >= k.
+ * @param[out] out_keys
+ *   contiguous device array of outputs of size (k * n_inputs);
+ *   the k smallest/largest values from each row of the `in_keys`.
+ * @param[out] out_values
+ *   contiguous device array of outputs of size (k * n_inputs);
+ *   the payload selected together with `out_keys`.
+ * @param[in] select_min
+ *   whether to select k smallest (true) or largest (false) keys.
+ * @param[in] k
+ *   the number of outputs to select in each input row.
+ * @param[in] stream
+ * @param[in] algo
+ *   the implementation of the algorithm
  */
-template <typename value_idx = int, typename value_t = float>
-inline void select_k(value_t* inK,
-                     value_idx* inV,
-                     size_t n_rows,
-                     size_t n_cols,
-                     value_t* outK,
-                     value_idx* outV,
+template <typename idx_t = int, typename value_t = float>
+inline void select_k(const value_t* in_keys,
+                     const idx_t* in_values,
+                     size_t n_inputs,
+                     size_t input_len,
+                     value_t* out_keys,
+                     idx_t* out_values,
                      bool select_min,
                      int k,
-                     cudaStream_t stream)
+                     cudaStream_t stream,
+                     SelectKAlgo algo = SelectKAlgo::FAISS)
 {
-  detail::select_k(inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("select-%s-%d (%zu, %zu) algo-%d",
+                                                            select_min ? "min" : "max",
+                                                            k,
+                                                            n_inputs,
+                                                            input_len,
+                                                            int(algo));
+  ASSERT(size_t(input_len) >= size_t(k),
+         "Size of the input (input_len = %zu) must be not smaller than the selection (k = %zu).",
+         size_t(input_len),
+         size_t(k));
+
+  switch (algo) {
+    case SelectKAlgo::FAISS:
+      detail::select_k(
+        in_keys, in_values, n_inputs, input_len, out_keys, out_values, select_min, k, stream);
+      break;
+
+    case SelectKAlgo::RADIX_8_BITS:
+      detail::topk::radix_topk<value_t, idx_t, 8, 512>(
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
+      break;
+
+    case SelectKAlgo::RADIX_11_BITS:
+      detail::topk::radix_topk<value_t, idx_t, 11, 512>(
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
+      break;
+
+    case SelectKAlgo::WARP_SORT:
+      detail::topk::warp_sort_topk<value_t, idx_t>(
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
+      break;
+
+    default: ASSERT(false, "Unknown algorithm (id = %d)", int(algo));
+  }
 }
 
 /**
@@ -122,21 +191,21 @@ inline void select_k(value_t* inK,
  * @param[in] translations starting offsets for partitions. should be the same size
  *            as input vector.
  */
-template <typename value_idx = std::int64_t, typename value_t = float, typename value_int = int>
+template <typename idx_t = std::int64_t, typename value_t = float, typename value_int = int>
 void brute_force_knn(raft::handle_t const& handle,
                      std::vector<value_t*>& input,
                      std::vector<value_int>& sizes,
                      value_int D,
                      value_t* search_items,
                      value_int n,
-                     value_idx* res_I,
+                     idx_t* res_I,
                      value_t* res_D,
                      value_int k,
-                     bool rowMajorIndex                   = true,
-                     bool rowMajorQuery                   = true,
-                     std::vector<value_idx>* translations = nullptr,
-                     distance::DistanceType metric        = distance::DistanceType::L2Unexpanded,
-                     float metric_arg                     = 2.0f)
+                     bool rowMajorIndex               = true,
+                     bool rowMajorQuery               = true,
+                     std::vector<idx_t>* translations = nullptr,
+                     distance::DistanceType metric    = distance::DistanceType::L2Unexpanded,
+                     float metric_arg                 = 2.0f)
 {
   ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
@@ -155,8 +224,4 @@ void brute_force_knn(raft::handle_t const& handle,
                                metric,
                                metric_arg);
 }
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
-
-#endif
+}  // namespace raft::spatial::knn

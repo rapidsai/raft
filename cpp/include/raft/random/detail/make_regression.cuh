@@ -30,7 +30,6 @@
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/buffer.hpp>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
@@ -59,7 +58,7 @@ static void _make_low_rank_matrix(const raft::handle_t& handle,
                                   IdxT n_cols,
                                   IdxT effective_rank,
                                   DataT tail_strength,
-                                  raft::random::Rng& r,
+                                  raft::random::RngState& r,
                                   cudaStream_t stream)
 {
   cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
@@ -70,8 +69,8 @@ static void _make_low_rank_matrix(const raft::handle_t& handle,
   // Generate random (ortho normal) vectors with QR decomposition
   rmm::device_uvector<DataT> rd_mat_0(n_rows * n, stream);
   rmm::device_uvector<DataT> rd_mat_1(n_cols * n, stream);
-  r.normal(rd_mat_0.data(), n_rows * n, (DataT)0.0, (DataT)1.0, stream);
-  r.normal(rd_mat_1.data(), n_cols * n, (DataT)0.0, (DataT)1.0, stream);
+  normal(r, rd_mat_0.data(), n_rows * n, (DataT)0.0, (DataT)1.0, stream);
+  normal(r, rd_mat_1.data(), n_cols * n, (DataT)0.0, (DataT)1.0, stream);
   rmm::device_uvector<DataT> q0(n_rows * n, stream);
   rmm::device_uvector<DataT> q1(n_cols * n, stream);
   raft::linalg::qrGetQ(handle, rd_mat_0.data(), q0.data(), n_rows, n, stream);
@@ -167,11 +166,11 @@ void make_regression_caller(const raft::handle_t& handle,
   cublasHandle_t cublas_handle       = handle.get_cublas_handle();
 
   cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_HOST);
-  raft::random::Rng r(seed, type);
+  raft::random::RngState r(seed, type);
 
   if (effective_rank < 0) {
     // Randomly generate a well conditioned input set
-    r.normal(out, n_rows * n_cols, (DataT)0.0, (DataT)1.0, stream);
+    normal(r, out, n_rows * n_cols, (DataT)0.0, (DataT)1.0, stream);
   } else {
     // Randomly generate a low rank, fat tail input set
     _make_low_rank_matrix(handle, out, n_rows, n_cols, effective_rank, tail_strength, r, stream);
@@ -208,7 +207,7 @@ void make_regression_caller(const raft::handle_t& handle,
   }
 
   // Generate a ground truth model with only n_informative features
-  r.uniform(_coef, n_informative * n_targets, (DataT)1.0, (DataT)100.0, stream);
+  uniform(r, _coef, n_informative * n_targets, (DataT)1.0, (DataT)100.0, stream);
   if (coef && n_informative != n_cols) {
     RAFT_CUDA_TRY(cudaMemsetAsync(_coef + n_informative * n_targets,
                                   0,
@@ -248,7 +247,7 @@ void make_regression_caller(const raft::handle_t& handle,
   if (noise != 0.0) {
     // Add white noise
     white_noise.resize(n_rows * n_targets, stream);
-    r.normal(white_noise.data(), n_rows * n_targets, (DataT)0.0, noise, stream);
+    normal(r, white_noise.data(), n_rows * n_targets, (DataT)0.0, noise, stream);
     raft::linalg::add(_values, _values, white_noise.data(), n_rows * n_targets, stream);
   }
 
