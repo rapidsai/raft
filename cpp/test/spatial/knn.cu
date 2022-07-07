@@ -16,8 +16,8 @@
 
 #include "../test_utils.h"
 
+#include <raft/core/logger.hpp>
 #include <raft/distance/distance_type.hpp>
-
 #include <raft/spatial/knn/knn.cuh>
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
@@ -40,8 +40,9 @@ struct KNNInputs {
   std::vector<int> labels;
 };
 
+template <typename IdxT>
 __global__ void build_actual_output(
-  int* output, int n_rows, int k, const int* idx_labels, const int64_t* indices)
+  int* output, int n_rows, int k, const int* idx_labels, const IdxT* indices)
 {
   int element = threadIdx.x + blockDim.x * blockIdx.x;
   if (element >= n_rows * k) return;
@@ -60,7 +61,7 @@ __global__ void build_expected_output(int* output, int n_rows, int k, const int*
   }
 }
 
-template <typename T>
+template <typename T, typename IdxT>
 class KNNTest : public ::testing::TestWithParam<KNNInputs> {
  public:
   KNNTest()
@@ -79,9 +80,11 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
  protected:
   void testBruteForce()
   {
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
     raft::print_device_vector("Input array: ", input_.data(), rows_ * cols_, std::cout);
-    std::cout << "K: " << k_ << "\n";
+    std::cout << "K: " << k_ << std::endl;
     raft::print_device_vector("Labels array: ", search_labels_.data(), rows_, std::cout);
+#endif
 
     std::vector<float*> input_vec;
     std::vector<int> sizes_vec;
@@ -131,7 +134,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     RAFT_CUDA_TRY(cudaMemsetAsync(input_.data(), 0, input_.size() * sizeof(float), stream));
     RAFT_CUDA_TRY(
       cudaMemsetAsync(search_data_.data(), 0, search_data_.size() * sizeof(float), stream));
-    RAFT_CUDA_TRY(cudaMemsetAsync(indices_.data(), 0, indices_.size() * sizeof(int64_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(indices_.data(), 0, indices_.size() * sizeof(IdxT), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(distances_.data(), 0, distances_.size() * sizeof(float), stream));
     RAFT_CUDA_TRY(
       cudaMemsetAsync(search_labels_.data(), 0, search_labels_.size() * sizeof(int), stream));
@@ -165,7 +168,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   int cols_;
   rmm::device_uvector<float> input_;
   rmm::device_uvector<float> search_data_;
-  rmm::device_uvector<int64_t> indices_;
+  rmm::device_uvector<IdxT> indices_;
   rmm::device_uvector<float> distances_;
   int k_;
 
@@ -191,10 +194,13 @@ const std::vector<KNNInputs> inputs = {
    2,
    {0, 0, 0, 0, 0, 1, 1, 1, 1, 1}}};
 
-typedef KNNTest<float> KNNTestF;
-TEST_P(KNNTestF, BruteForce) { this->testBruteForce(); }
+typedef KNNTest<float, int64_t> KNNTestFint64_t;
+TEST_P(KNNTestFint64_t, BruteForce) { this->testBruteForce(); }
+typedef KNNTest<float, uint32_t> KNNTestFuint32_t;
+TEST_P(KNNTestFuint32_t, BruteForce) { this->testBruteForce(); }
 
-INSTANTIATE_TEST_CASE_P(KNNTest, KNNTestF, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(KNNTest, KNNTestFint64_t, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(KNNTest, KNNTestFuint32_t, ::testing::ValuesIn(inputs));
 
 }  // namespace knn
 }  // namespace spatial
