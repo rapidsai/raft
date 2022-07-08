@@ -25,6 +25,8 @@
 
 #include "detail/add.cuh"
 
+#include <raft/core/mdarray.hpp>
+
 namespace raft {
 namespace linalg {
 
@@ -70,6 +72,18 @@ void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t st
   detail::add(out, in1, in2, len, stream);
 }
 
+template <typename out_t, typename in_t, typename = raft::enable_if_mdspan<out_t, in_t>>
+void add(const raft::handle_t& handle, out_t out, const in_t in1, const in_t in2)
+{
+  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
+  RAFT_EXPECTS(in1.is_contiguous(), "Input 1 must be contiguous");
+  RAFT_EXPECTS(in2.is_contiguous(), "Input 2 must be contiguous");
+  RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
+               "Size mismatch between Output and Inputs");
+
+  add(out.data(), in1.data(), in2.data(), out.size(), handle.get_stream());
+}
+
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
  * write result to outDev[i]
  * @tparam math_t data-type upon which the math operation will be performed
@@ -88,6 +102,23 @@ void addDevScalar(math_t* outDev,
                   cudaStream_t stream)
 {
   detail::addDevScalar(outDev, inDev, singleScalarDev, len, stream);
+}
+
+template <typename out_t, typename in_t, typename = raft::enable_if_mdspan<out_t, in_t>>
+void add_scalar(const raft::handle_t& handle,
+                out_t out,
+                const in_t in,
+                raft::scalar_view<typename in_t::element_type> scalar)
+{
+  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_contiguous(), "Input must be contiguous");
+  RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
+
+  if (raft::is_device_ptr(scalar.data())) {
+    addDevScalar(out.data(), in.data(), scalar.data(), out.size(), handle.get_stream());
+  } else {
+    addScalar(out.data(), in.data(), *scalar.data(), out.size(), handle.get_stream());
+  }
 }
 
 };  // end namespace linalg

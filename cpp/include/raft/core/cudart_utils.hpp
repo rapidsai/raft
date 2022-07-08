@@ -28,6 +28,7 @@
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
+#include <cuda.h>
 #include <cuda_runtime.h>
 
 #include <chrono>
@@ -443,6 +444,15 @@ constexpr T upper_bound()
 {
   if constexpr (std::numeric_limits<T>::has_infinity) { return std::numeric_limits<T>::infinity(); }
   return std::numeric_limits<T>::max();
+}
+
+template <typename T>
+bool is_device_ptr(T* ptr)
+{
+  CUmemorytype mem_type;
+  auto res = cuPointerGetAttribute(&mem_type, CU_POINTER_ATTRIBUTE_MEMORY_TYPE, (CUdeviceptr)ptr);
+
+  return mem_type == CU_MEMORYTYPE_DEVICE;
 }
 
 }  // namespace raft

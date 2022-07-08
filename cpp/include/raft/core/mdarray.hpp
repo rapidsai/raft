@@ -104,23 +104,20 @@ template <typename T>
 inline constexpr bool is_mdspan_v = is_mdspan_t<T>::value;
 }  // namespace detail
 
-template <typename...>
-struct is_mdspan : std::true_type {
-};
-template <typename T1>
-struct is_mdspan<T1> : detail::is_mdspan_t<T1> {
-};
-template <typename T1, typename... Tn>
-struct is_mdspan<T1, Tn...>
-  : std::conditional_t<detail::is_mdspan_v<T1>, is_mdspan<Tn...>, std::false_type> {
-};
-
 /**
  * @\brief Boolean to determine if variadic template types Tn are either
  *          raft::host_mdspan/raft::device_mdspan or their derived types
  */
 template <typename... Tn>
-inline constexpr bool is_mdspan_v = is_mdspan<Tn...>::value;
+inline constexpr bool is_mdspan_v = std::bool_constant<(... && detail::is_mdspan_v<Tn>)>::value;
+
+/**
+ * @\brief Ensure all variadic template types are raft::mdspan
+ *         Usage: as last template paramater of function
+ *         `typename = raft::enable_if_mdspan<T1, T2, ..., Tn>`
+ */
+template <typename... Tn>
+using enable_if_mdspan = std::enable_if_t<is_mdspan_v<Tn...>, void>;
 
 /**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
@@ -579,6 +576,13 @@ template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using device_matrix = device_mdarray<ElementType, matrix_extent, LayoutPolicy>;
 
 /**
+ * @brief Shorthand for 0-dim mdspan (scalar).
+ * @tparam ElementType the data type of the scalar element
+ */
+template <typename ElementType>
+using scalar_view = mdspan<ElementType, scalar_extent>;
+
+/**
  * @brief Shorthand for 0-dim host mdspan (scalar).
  * @tparam ElementType the data type of the scalar element
  */
@@ -593,6 +597,13 @@ template <typename ElementType>
 using device_scalar_view = device_mdspan<ElementType, scalar_extent>;
 
 /**
+ * @brief Shorthand for 1-dim mdspan.
+ * @tparam ElementType the data type of the vector elements
+ */
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
+using vector_view = mdspan<ElementType, vector_extent, LayoutPolicy>;
+
+/**
  * @brief Shorthand for 1-dim host mdspan.
  * @tparam ElementType the data type of the vector elements
  */
@@ -605,6 +616,15 @@ using host_vector_view = host_mdspan<ElementType, vector_extent, LayoutPolicy>;
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using device_vector_view = device_mdspan<ElementType, vector_extent, LayoutPolicy>;
+
+/**
+ * @brief Shorthand for c-contiguous matrix view.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ *
+ */
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
+using matrix_view = mdspan<ElementType, matrix_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for c-contiguous host matrix view.
@@ -623,6 +643,19 @@ using host_matrix_view = host_mdspan<ElementType, matrix_extent, LayoutPolicy>;
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 using device_matrix_view = device_mdspan<ElementType, matrix_extent, LayoutPolicy>;
+
+/**
+ * @brief Create a 0-dim (scalar) mdspan instance.
+ *
+ * @tparam ElementType the data type of the matrix elements
+ * @param[in] ptr on device to wrap
+ */
+template <typename ElementType>
+auto make_scalar_view(ElementType* ptr)
+{
+  scalar_extent extents;
+  return scalar_view<ElementType>{ptr, extents};
+}
 
 /**
  * @brief Create a 0-dim (scalar) mdspan instance for host value.
@@ -648,6 +681,23 @@ auto make_device_scalar_view(ElementType* ptr)
 {
   scalar_extent extents;
   return device_scalar_view<ElementType>{ptr, extents};
+}
+
+/**
+ * @brief Create a 2-dim c-contiguous mdspan instance. It's expected
+ *        that the given layout policy match the layout of the underlying
+ *        pointer.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param[in] ptr on host to wrap
+ * @param[in] n_rows number of rows in pointer
+ * @param[in] n_cols number of columns in pointer
+ */
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
+auto make_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
+{
+  matrix_extent extents{n_rows, n_cols};
+  return matrix_view<ElementType, LayoutPolicy>{ptr, extents};
 }
 
 /**
@@ -681,6 +731,20 @@ auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
   matrix_extent extents{n_rows, n_cols};
   return device_matrix_view<ElementType, LayoutPolicy>{ptr, extents};
+}
+
+/**
+ * @brief Create a 1-dim mdspan instance.
+ * @tparam ElementType the data type of the vector elements
+ * @param[in] ptr on host to wrap
+ * @param[in] n number of elements in pointer
+ * @return raft::host_vector_view
+ */
+template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
+auto make_vector_view(ElementType* ptr, size_t n)
+{
+  vector_extent extents{n};
+  return vector_view<ElementType, LayoutPolicy>{ptr, extents};
 }
 
 /**
