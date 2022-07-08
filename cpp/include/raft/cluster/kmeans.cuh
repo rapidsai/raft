@@ -240,7 +240,6 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  * @tparam IndexT the type of data used for indexing.
  *
  * @param[in]  handle             The raft handle
- * @param[in]  params             The parameters for KMeans
  * @param[in]  X                  The data in row-major format
  *                                [dim = n_samples x n_features]
  * @param[in]  minClusterDistance Distance for every sample to it's nearest centroid
