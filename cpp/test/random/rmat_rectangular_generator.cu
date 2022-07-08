@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-#include <sys/timeb.h>
-
-#include "../test_utils.h"
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
+#include <sys/timeb.h>
+#include <vector>
+
+#include "../test_utils.h"
+
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/random/rmat_rectangular_generator.cuh>
@@ -28,8 +30,8 @@ namespace raft {
 namespace random {
 
 // Courtesy: cuGraph unit-tests
-static constexpr float kTolerance = 0.01f;
-static constexpr size_t kMinEdges = 100000;
+// static constexpr float kTolerance = 0.01f;
+// static constexpr size_t kMinEdges = 100000;
 
 struct RmatInputs {
   size_t r_scale;
@@ -58,12 +60,15 @@ __global__ void normalize_kernel(float* theta, size_t len) {
 class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
  public:
   RmatGenTest()
-    : params(::testing::TestWithParam<RmatInputs>::GetParam()),
-      stream(handle.get_stream()),
-      out(params.n_edges * 2, stream),
-      out_src(params.n_edges, stream),
-      out_dst(params.n_edges, stream),
-      state(seed, GeneratorType::GenPC)
+    : handle{},
+      stream{handle.get_stream()},
+      params{::testing::TestWithParam<RmatInputs>::GetParam()},
+      out{params.n_edges * 2, stream},
+      out_src{params.n_edges, stream},
+      out_dst{params.n_edges, stream},
+      theta{0, stream},
+      h_theta{},
+      state{params.seed, GeneratorType::GenPC}
   {
     auto theta_len = params.theta_array ? max(params.r_scale, params.c_scale) : 1;
     theta.resize(4 * theta_len, stream);
@@ -72,14 +77,15 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
     // won't be that large!
     normalize_kernel<<<1, 256, 0, stream>>>(theta.data(), theta_len);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    raft::update_host(h_theta, theta.data(), 4, stream);
+    h_theta.resize(theta.size());
+    raft::update_host(h_theta, theta.data(), theta.size(), stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
   void SetUp() override
   {
-    if (theta_array) {
+    if (params.theta_array) {
       rmat_rectangular_gen(out.data(), out_src.data(), out_dst.data(), theta.data(), params.r_scale,
 			   params.c_scale, params.n_edges, params.clip_and_flip, stream, state);
     } else {
@@ -102,7 +108,7 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
   RmatInputs params;
   rmm::device_uvector<size_t> out, out_src, out_dst;
   rmm::device_uvector<float> theta;
-  float h_theta[4];
+  std::vector<float> h_theta;
   RngState state;
 };
 

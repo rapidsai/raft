@@ -80,6 +80,7 @@ void rmat_rectangular_gen(IdxT* out,
 				      r_scale,
 				      c_scale,
 				      n_edges,
+				      clip_and_flip,
 				      stream,
 				      r);
 }
@@ -111,6 +112,7 @@ void rmat_rectangular_gen(IdxT* out,
 				      r_scale,
 				      c_scale,
 				      n_edges,
+				      clip_and_flip,
 				      stream,
 				      r);
 }

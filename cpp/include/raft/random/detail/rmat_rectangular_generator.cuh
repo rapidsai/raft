@@ -26,31 +26,34 @@ namespace random {
 namespace detail {
 
 template <typename IdxT, typename ProbT>
-DI void gen_bits(IdxT& src_bit, IdxT& dst_bit, ProbT a, ProbT ab, ProbT abc, bool clip_and_flip,
-		 raft::random::PCGenerator& gen)
+DI void gen_and_update_bits(
+  IdxT& src_id, IdxT& dst_id, ProbT a, ProbT ab, ProbT abc, bool clip_and_flip, IdxT r_scale,
+  IdxT c_scale, IdxT curr_depth, raft::random::PCGenerator& gen)
 {
-  src_bit = dst_bit = 0;
+  bool src_bit, dst_bit;
   ProbT val;
   gen.next(val);
   if (val <= a) {
-    src_bit = dst_bit = 0;
+    src_bit = dst_bit = false;
   } else if (val <= ab) {
-    src_bit = 0;
-    dst_bit = 1;
+    src_bit = false;
+    dst_bit = true;
   } else if (val <= abc) {
-    src_bit = 1;
-    dst_bit = 0;
+    src_bit = true;
+    dst_bit = false;
   } else {
-    src_bit = dst_bit = 1;
+    src_bit = dst_bit = false;
   }
   // Courtesy: clip-and-flip from the existing RMAT generator in cuGraph
-  if (clip_and_flip) {
-    if (src_id == dst_id) {
-      if (!src_bit && dst_bit) {
-	src_bit = !src_bit;
-	dst_bit = !dst_bit;
-      }
-    }
+  if (clip_and_flip && (src_id == dst_id) && (!src_bit && dst_bit)) {
+    src_bit = !src_bit;
+    dst_bit = !dst_bit;
+  }
+  if (curr_depth < r_scale) {
+    src_id += (src_bit << (r_scale - curr_depth));
+  }
+  if (curr_depth < c_scale) {
+    dst_id += (dst_bit << (c_scale - curr_depth));
   }
 }
 
@@ -80,36 +83,32 @@ __global__ void rmat_gen_kernel(
 {
   IdxT idx = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
   extern __shared__ ProbT s_theta[];
-  auto lid = raft::laneId();
-  unsigned mask = 0xfu << (lid / 4);
+  auto lid4 = raft::laneId() % 4;
+  auto theta_len = max_scale * 2 * 2;
+  auto num_theta_aligned = raft::alignTo<IdxT>(theta_len, raft::WarpSize);
   // NOTE: assumes that blockDim.x is a multiple of 4!
-  for (int i = threadIdx.x; i < max_scale * 2 * 2; i += blockDim.x) {
+  for (int i = threadIdx.x; i < num_theta_aligned; i += blockDim.x) {
     // for each consecutive 4 lanes compute the cdf of a, b, c, d (RMAT numbers)
     // this will be used to determine which quadrant to be selected at each level
-    auto r_theta = theta[i];
+    auto r_theta = i < theta_len ? theta[i] : ProbT(0);
     auto other = raft::shfl_up(r_theta, 0x1);
-    if (lid % 4 >= 1) {
+    if (lid4 >= 1) {
       r_theta += other;
     }
     other = raft::shfl_up(r_theta, 0x2);
-    if (lid % 4 >= 2) {
+    if (lid4 >= 2) {
       r_theta += other;
     }
-    s_theta[i] = r_theta;
+    if (i < theta_len) {
+      s_theta[i] = r_theta;
+    }
   }
   __syncthreads();
   IdxT src_id{0}, dst_id{0};
   raft::random::PCGenerator gen{r.seed, r.base_subsequence + idx, 0};
   for (IdxT i = 0; i < max_scale; ++i) {
     auto a = s_theta[i * 4], ab = s_theta[i * 4 + 1], abc = s_theta[i * 4 + 2];
-    IdxT src_bit, dst_bit;
-    gen_bits(src_bit, dst_bit, a, ab, abc, clip_and_flip, gen);
-    if (i < r_scale) {
-      src_id += (src_bit << (r_scale - i));
-    }
-    if (i < c_scale) {
-      dst_id += (dst_bit << (c_scale - i));
-    }
+    gen_and_update_bits(src_id, dst_id, a, ab, abc, clip_and_flip, r_scale, c_scale, i, gen);
   }
   store_ids(out, out_src, out_dst, src_id, dst_id, idx, n_edges);
 }
@@ -146,14 +145,7 @@ __global__ void rmat_gen_kernel(
   IdxT src_id{0}, dst_id{0};
   raft::random::PCGenerator gen{r.seed, r.base_subsequence + idx, 0};
   for (IdxT i = 0; i < max_scale; ++i) {
-    IdxT src_bit, dst_bit;
-    gen_bits(src_bit, dst_bit, a, ab, abc, clip_and_flip, gen);
-    if (i < r_scale) {
-      src_id += (src_bit << (r_scale - i));
-    }
-    if (i < c_scale) {
-      dst_id += (dst_bit << (c_scale - i));
-    }
+    gen_and_update_bits(src_id, dst_id, a, ab, abc, clip_and_flip, r_scale, c_scale, i, gen);
   }
   store_ids(out, out_src, out_dst, src_id, dst_id, idx, n_edges);
 }
@@ -177,7 +169,7 @@ void rmat_rectangular_gen_caller(IdxT* out,
   auto max_scale = max(r_scale, c_scale);
   auto n_blks = raft::ceildiv<IdxT>(n_edges, N_THREADS);
   auto ab = a + b, abc = ab + c;
-  rmat_gen_kernel<<<n_blks, N_THREADS, smem_size, stream>>>(
+  rmat_gen_kernel<<<n_blks, N_THREADS, 0, stream>>>(
     out, out_src, out_dst, a, ab, abc, r_scale, c_scale, n_edges, clip_and_flip, max_scale, r);
   RAFT_CUDA_TRY(cudaGetLastError());
   r.advance(n_edges, max_scale);
