@@ -43,9 +43,6 @@ namespace raft::random {
  * @param[in]  r_scale 2^r_scale represents the number of source nodes
  * @param[in]  c_scale 2^c_scale represents the number of destination nodes
  * @param[in]  n_edges number of edges to generate
- * @param[in]  clip_and_flip Generates only a lower triangular adjacency matrix (including
- *                           the self-loop). Note that this would be meaningful only when
- *                           `r_scale == c_scale`.
  * @param[in]  stream  cuda stream to schedule the work on
  * @param[in]  r       underlying state of the random generator. Especially useful when
  *                     one wants to call this API for multiple times in order to generate
@@ -69,7 +66,6 @@ void rmat_rectangular_gen(IdxT* out,
 			  IdxT r_scale,
 			  IdxT c_scale,
 			  IdxT n_edges,
-			  bool clip_and_flip,
 			  cudaStream_t stream,
 			  raft::random::RngState& r)
 {
@@ -80,7 +76,6 @@ void rmat_rectangular_gen(IdxT* out,
 				      r_scale,
 				      c_scale,
 				      n_edges,
-				      clip_and_flip,
 				      stream,
 				      r);
 }
@@ -99,7 +94,6 @@ void rmat_rectangular_gen(IdxT* out,
 			  IdxT r_scale,
 			  IdxT c_scale,
 			  IdxT n_edges,
-			  bool clip_and_flip,
 			  cudaStream_t stream,
 			  raft::random::RngState& r)
 {
@@ -112,7 +106,6 @@ void rmat_rectangular_gen(IdxT* out,
 				      r_scale,
 				      c_scale,
 				      n_edges,
-				      clip_and_flip,
 				      stream,
 				      r);
 }

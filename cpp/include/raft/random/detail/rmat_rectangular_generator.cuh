@@ -27,7 +27,7 @@ namespace detail {
 
 template <typename IdxT, typename ProbT>
 DI void gen_and_update_bits(
-  IdxT& src_id, IdxT& dst_id, ProbT a, ProbT ab, ProbT abc, bool clip_and_flip, IdxT r_scale,
+  IdxT& src_id, IdxT& dst_id, ProbT a, ProbT ab, ProbT abc, IdxT r_scale,
   IdxT c_scale, IdxT curr_depth, raft::random::PCGenerator& gen)
 {
   bool src_bit, dst_bit;
@@ -42,18 +42,13 @@ DI void gen_and_update_bits(
     src_bit = true;
     dst_bit = false;
   } else {
-    src_bit = dst_bit = false;
-  }
-  // Courtesy: clip-and-flip from the existing RMAT generator in cuGraph
-  if (clip_and_flip && (src_id == dst_id) && (!src_bit && dst_bit)) {
-    src_bit = !src_bit;
-    dst_bit = !dst_bit;
+    src_bit = dst_bit = true;
   }
   if (curr_depth < r_scale) {
-    src_id += (src_bit << (r_scale - curr_depth));
+    src_id += (src_bit << (r_scale - curr_depth - 1));
   }
   if (curr_depth < c_scale) {
-    dst_id += (dst_bit << (c_scale - curr_depth));
+    dst_id += (dst_bit << (c_scale - curr_depth - 1));
   }
 }
 
@@ -79,7 +74,7 @@ DI void store_ids(IdxT* out, IdxT* out_src, IdxT* out_dst, IdxT src_id, IdxT dst
 template <typename IdxT, typename ProbT>
 __global__ void rmat_gen_kernel(
   IdxT* out, IdxT* out_src, IdxT* out_dst, const ProbT* theta, IdxT r_scale, IdxT c_scale,
-  IdxT n_edges, bool clip_and_flip, IdxT max_scale, raft::random::RngState r)
+  IdxT n_edges, IdxT max_scale, raft::random::RngState r)
 {
   IdxT idx = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
   extern __shared__ ProbT s_theta[];
@@ -108,7 +103,7 @@ __global__ void rmat_gen_kernel(
   raft::random::PCGenerator gen{r.seed, r.base_subsequence + idx, 0};
   for (IdxT i = 0; i < max_scale; ++i) {
     auto a = s_theta[i * 4], ab = s_theta[i * 4 + 1], abc = s_theta[i * 4 + 2];
-    gen_and_update_bits(src_id, dst_id, a, ab, abc, clip_and_flip, r_scale, c_scale, i, gen);
+    gen_and_update_bits(src_id, dst_id, a, ab, abc, r_scale, c_scale, i, gen);
   }
   store_ids(out, out_src, out_dst, src_id, dst_id, idx, n_edges);
 }
@@ -121,7 +116,6 @@ void rmat_rectangular_gen_caller(IdxT* out,
 				 IdxT r_scale,
 				 IdxT c_scale,
 				 IdxT n_edges,
-				 bool clip_and_flip,
 				 cudaStream_t stream,
 				 raft::random::RngState& r)
 {
@@ -131,21 +125,29 @@ void rmat_rectangular_gen_caller(IdxT* out,
   size_t smem_size = sizeof(ProbT) * max_scale * 2 * 2;
   auto n_blks = raft::ceildiv<IdxT>(n_edges, N_THREADS);
   rmat_gen_kernel<<<n_blks, N_THREADS, smem_size, stream>>>(
-    out, out_src, out_dst, theta, r_scale, c_scale, n_edges, clip_and_flip, max_scale, r);
+    out, out_src, out_dst, theta, r_scale, c_scale, n_edges, max_scale, r);
   RAFT_CUDA_TRY(cudaGetLastError());
   r.advance(n_edges, max_scale);
 }
 
 template <typename IdxT, typename ProbT>
 __global__ void rmat_gen_kernel(
-  IdxT* out, IdxT* out_src, IdxT* out_dst, ProbT a, ProbT ab, ProbT abc, IdxT r_scale, IdxT c_scale,
-  IdxT n_edges, bool clip_and_flip, IdxT max_scale, raft::random::RngState r)
+  IdxT* out, IdxT* out_src, IdxT* out_dst, ProbT a, ProbT b, ProbT c, IdxT r_scale,
+  IdxT c_scale, IdxT n_edges, IdxT max_scale, raft::random::RngState r)
 {
   IdxT idx = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
   IdxT src_id{0}, dst_id{0};
   raft::random::PCGenerator gen{r.seed, r.base_subsequence + idx, 0};
-  for (IdxT i = 0; i < max_scale; ++i) {
-    gen_and_update_bits(src_id, dst_id, a, ab, abc, clip_and_flip, r_scale, c_scale, i, gen);
+  auto min_scale = min(r_scale, c_scale);
+  IdxT i = 0;
+  for (; i < min_scale; ++i) {
+    gen_and_update_bits(src_id, dst_id, a, a + b, a + b + c, r_scale, c_scale, i, gen);
+  }
+  for (; i < r_scale; ++i) {
+    gen_and_update_bits(src_id, dst_id, a + b, a + b, ProbT(1), r_scale, c_scale, i, gen);
+  }
+  for (; i < c_scale; ++i) {
+    gen_and_update_bits(src_id, dst_id, a + c, ProbT(1), ProbT(1), r_scale, c_scale, i, gen);
   }
   store_ids(out, out_src, out_dst, src_id, dst_id, idx, n_edges);
 }
@@ -160,7 +162,6 @@ void rmat_rectangular_gen_caller(IdxT* out,
 				 IdxT r_scale,
 				 IdxT c_scale,
 				 IdxT n_edges,
-				 bool clip_and_flip,
 				 cudaStream_t stream,
 				 raft::random::RngState& r)
 {
@@ -168,9 +169,8 @@ void rmat_rectangular_gen_caller(IdxT* out,
   static constexpr int N_THREADS = 512;
   auto max_scale = max(r_scale, c_scale);
   auto n_blks = raft::ceildiv<IdxT>(n_edges, N_THREADS);
-  auto ab = a + b, abc = ab + c;
   rmat_gen_kernel<<<n_blks, N_THREADS, 0, stream>>>(
-    out, out_src, out_dst, a, ab, abc, r_scale, c_scale, n_edges, clip_and_flip, max_scale, r);
+    out, out_src, out_dst, a, b, c, r_scale, c_scale, n_edges, max_scale, r);
   RAFT_CUDA_TRY(cudaGetLastError());
   r.advance(n_edges, max_scale);
 }
