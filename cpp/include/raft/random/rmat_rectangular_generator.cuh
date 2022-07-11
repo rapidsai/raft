@@ -50,6 +50,12 @@ namespace raft::random {
  *                     initial seed once and after every call continue to pass the same
  *                     object for the successive calls.
  *
+ * When `r_scale != c_scale` it is referred to as rectangular adjacency matrix case (IOW generating
+ * bipartite graphs). In this case, at `depth >= r_scale`, the distribution is assumed to be:
+ * `[theta[4 * depth] + theta[4 * depth + 2], theta[4 * depth + 1] + theta[4 * depth + 3]; 0, 0]`.
+ * Then for the `depth >= c_scale`, the distribution is assumed to be:
+ * `[theta[4 * depth] + theta[4 * depth + 1], 0; theta[4 * depth + 2] + theta[4 * depth + 3], 0]`.
+ *
  * @note This can generate duplicate edges and self-loops. It is the responsibility of the
  *       caller to clean them up accordingly.
 
