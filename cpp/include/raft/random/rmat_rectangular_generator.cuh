@@ -66,24 +66,17 @@ namespace raft::random {
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(IdxT* out,
-			  IdxT* out_src,
-			  IdxT* out_dst,
-			  const ProbT* theta,
-			  IdxT r_scale,
-			  IdxT c_scale,
-			  IdxT n_edges,
-			  cudaStream_t stream,
-			  raft::random::RngState& r)
+                          IdxT* out_src,
+                          IdxT* out_dst,
+                          const ProbT* theta,
+                          IdxT r_scale,
+                          IdxT c_scale,
+                          IdxT n_edges,
+                          cudaStream_t stream,
+                          raft::random::RngState& r)
 {
-  detail::rmat_rectangular_gen_caller(out,
-				      out_src,
-				      out_dst,
-				      theta,
-				      r_scale,
-				      c_scale,
-				      n_edges,
-				      stream,
-				      r);
+  detail::rmat_rectangular_gen_caller(
+    out, out_src, out_dst, theta, r_scale, c_scale, n_edges, stream, r);
 }
 
 /**
@@ -92,28 +85,19 @@ void rmat_rectangular_gen(IdxT* out,
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(IdxT* out,
-			  IdxT* out_src,
-			  IdxT* out_dst,
-			  ProbT a,
-			  ProbT b,
-			  ProbT c,
-			  IdxT r_scale,
-			  IdxT c_scale,
-			  IdxT n_edges,
-			  cudaStream_t stream,
-			  raft::random::RngState& r)
+                          IdxT* out_src,
+                          IdxT* out_dst,
+                          ProbT a,
+                          ProbT b,
+                          ProbT c,
+                          IdxT r_scale,
+                          IdxT c_scale,
+                          IdxT n_edges,
+                          cudaStream_t stream,
+                          raft::random::RngState& r)
 {
-  detail::rmat_rectangular_gen_caller(out,
-				      out_src,
-				      out_dst,
-				      a,
-				      b,
-				      c,
-				      r_scale,
-				      c_scale,
-				      n_edges,
-				      stream,
-				      r);
+  detail::rmat_rectangular_gen_caller(
+    out, out_src, out_dst, a, b, c, r_scale, c_scale, n_edges, stream, r);
 }
 /** @} */
 

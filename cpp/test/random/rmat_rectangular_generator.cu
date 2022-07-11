@@ -41,20 +41,21 @@ struct RmatInputs {
 };
 
 template <typename OutT, typename InT>
-__global__ void normalize_kernel(OutT* theta, const InT* in_vals, size_t max_scale,
-				 size_t r_scale, size_t c_scale) {
+__global__ void normalize_kernel(
+  OutT* theta, const InT* in_vals, size_t max_scale, size_t r_scale, size_t c_scale)
+{
   size_t idx = threadIdx.x;
   if (idx < max_scale) {
-    auto a = OutT(in_vals[4 * idx]);
-    auto b = OutT(in_vals[4 * idx + 1]);
-    auto c = OutT(in_vals[4 * idx + 2]);
-    auto d = OutT(in_vals[4 * idx + 3]);
+    auto a   = OutT(in_vals[4 * idx]);
+    auto b   = OutT(in_vals[4 * idx + 1]);
+    auto c   = OutT(in_vals[4 * idx + 2]);
+    auto d   = OutT(in_vals[4 * idx + 3]);
     auto sum = a + b + c + d;
     a /= sum;
     b /= sum;
     c /= sum;
     d /= sum;
-    theta[4 * idx] = a;
+    theta[4 * idx]     = a;
     theta[4 * idx + 1] = b;
     theta[4 * idx + 2] = c;
     theta[4 * idx + 3] = d;
@@ -63,7 +64,8 @@ __global__ void normalize_kernel(OutT* theta, const InT* in_vals, size_t max_sca
 
 // handle rectangular cases correctly
 template <typename OutT>
-__global__ void handle_rect_kernel(OutT* theta, size_t max_scale, size_t r_scale, size_t c_scale) {
+__global__ void handle_rect_kernel(OutT* theta, size_t max_scale, size_t r_scale, size_t c_scale)
+{
   size_t idx = threadIdx.x;
   if (idx < max_scale) {
     auto a = theta[4 * idx];
@@ -82,7 +84,7 @@ __global__ void handle_rect_kernel(OutT* theta, size_t max_scale, size_t r_scale
       c += d;
       d = OutT(0);
     }
-    theta[4 * idx] = a;
+    theta[4 * idx]     = a;
     theta[4 * idx + 1] = b;
     theta[4 * idx + 2] = c;
     theta[4 * idx + 3] = d;
@@ -92,7 +94,8 @@ __global__ void handle_rect_kernel(OutT* theta, size_t max_scale, size_t r_scale
 // for a single probability distribution across depths, just replicate the theta's!
 // this will keep the test code simpler
 template <typename OutT>
-__global__ void theta_kernel(OutT* theta, size_t max_scale, size_t r_scale, size_t c_scale) {
+__global__ void theta_kernel(OutT* theta, size_t max_scale, size_t r_scale, size_t c_scale)
+{
   size_t idx = threadIdx.x;
   if (idx != 0 && idx < max_scale) {
     auto a = theta[0];
@@ -111,7 +114,7 @@ __global__ void theta_kernel(OutT* theta, size_t max_scale, size_t r_scale, size
       c += d;
       d = OutT(0);
     }
-    theta[4 * idx] = a;
+    theta[4 * idx]     = a;
     theta[4 * idx + 1] = b;
     theta[4 * idx + 2] = c;
     theta[4 * idx + 3] = d;
@@ -119,8 +122,15 @@ __global__ void theta_kernel(OutT* theta, size_t max_scale, size_t r_scale, size
 }
 
 template <typename OutT, typename InT>
-void normalize(OutT* theta, const InT* in_vals, size_t max_scale, size_t r_scale, size_t c_scale,
-	       bool handle_rect, bool theta_array, cudaStream_t stream) {
+void normalize(OutT* theta,
+               const InT* in_vals,
+               size_t max_scale,
+               size_t r_scale,
+               size_t c_scale,
+               bool handle_rect,
+               bool theta_array,
+               cudaStream_t stream)
+{
   // one threadblock with 256 threads is more than enough as the 'scale' parameters
   // won't be that large!
   normalize_kernel<OutT, InT><<<1, 256, 0, stream>>>(theta, in_vals, max_scale, r_scale, c_scale);
@@ -135,15 +145,16 @@ void normalize(OutT* theta, const InT* in_vals, size_t max_scale, size_t r_scale
   }
 }
 
-__global__ void compute_hist(int* hist, const size_t* out, size_t len, size_t max_scale,
-                             size_t r_scale, size_t c_scale) {
+__global__ void compute_hist(
+  int* hist, const size_t* out, size_t len, size_t max_scale, size_t r_scale, size_t c_scale)
+{
   size_t idx = (threadIdx.x + blockIdx.x * blockDim.x) * 2;
   if (idx + 1 < len) {
     auto src = out[idx], dst = out[idx + 1];
     for (size_t j = 0; j < max_scale; ++j) {
       bool src_bit = j < r_scale ? src & (1 << (r_scale - j - 1)) : 0;
       bool dst_bit = j < c_scale ? dst & (1 << (c_scale - j - 1)) : 0;
-      auto idx = j * 4 + src_bit * 2 + dst_bit;
+      auto idx     = j * 4 + src_bit * 2 + dst_bit;
       atomicAdd(hist + idx, 1);
     }
   }
@@ -165,8 +176,14 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
   {
     theta.resize(4 * max_scale, stream);
     uniform<float>(state, theta.data(), theta.size(), 0.0f, 1.0f, stream);
-    normalize<float, float>(theta.data(), theta.data(), max_scale, params.r_scale, params.c_scale,
-			    params.r_scale != params.c_scale, params.theta_array, stream);
+    normalize<float, float>(theta.data(),
+                            theta.data(),
+                            max_scale,
+                            params.r_scale,
+                            params.c_scale,
+                            params.r_scale != params.c_scale,
+                            params.theta_array,
+                            stream);
     h_theta.resize(theta.size());
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     raft::update_host(h_theta.data(), theta.data(), theta.size(), stream);
@@ -177,12 +194,27 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
   void SetUp() override
   {
     if (params.theta_array) {
-      rmat_rectangular_gen(out.data(), out_src.data(), out_dst.data(), theta.data(), params.r_scale,
-			   params.c_scale, params.n_edges, stream, state);
+      rmat_rectangular_gen(out.data(),
+                           out_src.data(),
+                           out_dst.data(),
+                           theta.data(),
+                           params.r_scale,
+                           params.c_scale,
+                           params.n_edges,
+                           stream,
+                           state);
     } else {
-      rmat_rectangular_gen(out.data(), out_src.data(), out_dst.data(), h_theta[0], h_theta[1],
-			   h_theta[2], params.r_scale, params.c_scale, params.n_edges,
-			   stream, state);
+      rmat_rectangular_gen(out.data(),
+                           out_src.data(),
+                           out_dst.data(),
+                           h_theta[0],
+                           h_theta[1],
+                           h_theta[2],
+                           params.r_scale,
+                           params.c_scale,
+                           params.n_edges,
+                           stream,
+                           state);
     }
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
@@ -195,12 +227,18 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
       hist.data(), out.data(), out.size(), max_scale, params.r_scale, params.c_scale);
     RAFT_CUDA_TRY(cudaGetLastError());
     rmm::device_uvector<float> computed_theta{theta.size(), stream};
-    normalize<float, int>(computed_theta.data(), hist.data(), max_scale, params.r_scale,
-			  params.c_scale, false, true, stream);
+    normalize<float, int>(computed_theta.data(),
+                          hist.data(),
+                          max_scale,
+                          params.r_scale,
+                          params.c_scale,
+                          false,
+                          true,
+                          stream);
     RAFT_CUDA_TRY(cudaGetLastError());
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    ASSERT_TRUE(devArrMatchHost(h_theta.data(), computed_theta.data(), theta.size(),
-				CompareApprox<float>(params.eps)));
+    ASSERT_TRUE(devArrMatchHost(
+      h_theta.data(), computed_theta.data(), theta.size(), CompareApprox<float>(params.eps)));
   }
 
  protected:
@@ -244,10 +282,7 @@ const std::vector<RmatInputs> inputs = {
   {18, 16, 200000, false, 456789ULL, 0.01f},
   {18, 16, 200000, true, 456789ULL, 0.01f}};
 
-TEST_P(RmatGenTest, Result)
-{
-  validate();
-}
+TEST_P(RmatGenTest, Result) { validate(); }
 INSTANTIATE_TEST_SUITE_P(RmatGenTests, RmatGenTest, ::testing::ValuesIn(inputs));
 
 }  // namespace random

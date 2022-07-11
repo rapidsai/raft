@@ -26,9 +26,15 @@ namespace random {
 namespace detail {
 
 template <typename IdxT, typename ProbT>
-DI void gen_and_update_bits(
-  IdxT& src_id, IdxT& dst_id, ProbT a, ProbT ab, ProbT abc, IdxT r_scale,
-  IdxT c_scale, IdxT curr_depth, raft::random::PCGenerator& gen)
+DI void gen_and_update_bits(IdxT& src_id,
+                            IdxT& dst_id,
+                            ProbT a,
+                            ProbT ab,
+                            ProbT abc,
+                            IdxT r_scale,
+                            IdxT c_scale,
+                            IdxT curr_depth,
+                            raft::random::PCGenerator& gen)
 {
   bool src_bit, dst_bit;
   ProbT val;
@@ -44,59 +50,51 @@ DI void gen_and_update_bits(
   } else {
     src_bit = dst_bit = true;
   }
-  if (curr_depth < r_scale) {
-    src_id += (src_bit << (r_scale - curr_depth - 1));
-  }
-  if (curr_depth < c_scale) {
-    dst_id += (dst_bit << (c_scale - curr_depth - 1));
-  }
+  if (curr_depth < r_scale) { src_id += (src_bit << (r_scale - curr_depth - 1)); }
+  if (curr_depth < c_scale) { dst_id += (dst_bit << (c_scale - curr_depth - 1)); }
 }
 
 template <typename IdxT>
-DI void store_ids(IdxT* out, IdxT* out_src, IdxT* out_dst, IdxT src_id, IdxT dst_id,
-		  IdxT idx, IdxT n_edges)
+DI void store_ids(
+  IdxT* out, IdxT* out_src, IdxT* out_dst, IdxT src_id, IdxT dst_id, IdxT idx, IdxT n_edges)
 {
   if (idx < n_edges) {
     if (out != nullptr) {
       // uncoalesced gmem accesses!
-      out[idx * 2] = src_id;
+      out[idx * 2]     = src_id;
       out[idx * 2 + 1] = dst_id;
     }
-    if (out_src != nullptr) {
-      out_src[idx] = src_id;
-    }
-    if (out_dst != nullptr) {
-      out_dst[idx] = dst_id;
-    }
+    if (out_src != nullptr) { out_src[idx] = src_id; }
+    if (out_dst != nullptr) { out_dst[idx] = dst_id; }
   }
 }
 
 template <typename IdxT, typename ProbT>
-__global__ void rmat_gen_kernel(
-  IdxT* out, IdxT* out_src, IdxT* out_dst, const ProbT* theta, IdxT r_scale, IdxT c_scale,
-  IdxT n_edges, IdxT max_scale, raft::random::RngState r)
+__global__ void rmat_gen_kernel(IdxT* out,
+                                IdxT* out_src,
+                                IdxT* out_dst,
+                                const ProbT* theta,
+                                IdxT r_scale,
+                                IdxT c_scale,
+                                IdxT n_edges,
+                                IdxT max_scale,
+                                raft::random::RngState r)
 {
   IdxT idx = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
   extern __shared__ ProbT s_theta[];
-  auto lid4 = raft::laneId() % 4;
-  auto theta_len = max_scale * 2 * 2;
+  auto lid4              = raft::laneId() % 4;
+  auto theta_len         = max_scale * 2 * 2;
   auto num_theta_aligned = raft::alignTo<IdxT>(theta_len, raft::WarpSize);
   // NOTE: assumes that blockDim.x is a multiple of 4!
   for (int i = threadIdx.x; i < num_theta_aligned; i += blockDim.x) {
     // for each consecutive 4 lanes compute the cdf of a, b, c, d (RMAT numbers)
     // this will be used to determine which quadrant to be selected at each level
     auto r_theta = i < theta_len ? theta[i] : ProbT(0);
-    auto other = raft::shfl_up(r_theta, 0x1);
-    if (lid4 >= 1) {
-      r_theta += other;
-    }
+    auto other   = raft::shfl_up(r_theta, 0x1);
+    if (lid4 >= 1) { r_theta += other; }
     other = raft::shfl_up(r_theta, 0x2);
-    if (lid4 >= 2) {
-      r_theta += other;
-    }
-    if (i < theta_len) {
-      s_theta[i] = r_theta;
-    }
+    if (lid4 >= 2) { r_theta += other; }
+    if (i < theta_len) { s_theta[i] = r_theta; }
   }
   __syncthreads();
   IdxT src_id{0}, dst_id{0};
@@ -112,18 +110,18 @@ template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen_caller(IdxT* out,
                                  IdxT* out_src,
                                  IdxT* out_dst,
-				 const ProbT* theta,
-				 IdxT r_scale,
-				 IdxT c_scale,
-				 IdxT n_edges,
-				 cudaStream_t stream,
-				 raft::random::RngState& r)
+                                 const ProbT* theta,
+                                 IdxT r_scale,
+                                 IdxT c_scale,
+                                 IdxT n_edges,
+                                 cudaStream_t stream,
+                                 raft::random::RngState& r)
 {
   if (n_edges <= 0) return;
   static constexpr int N_THREADS = 512;
-  auto max_scale = max(r_scale, c_scale);
-  size_t smem_size = sizeof(ProbT) * max_scale * 2 * 2;
-  auto n_blks = raft::ceildiv<IdxT>(n_edges, N_THREADS);
+  auto max_scale                 = max(r_scale, c_scale);
+  size_t smem_size               = sizeof(ProbT) * max_scale * 2 * 2;
+  auto n_blks                    = raft::ceildiv<IdxT>(n_edges, N_THREADS);
   rmat_gen_kernel<<<n_blks, N_THREADS, smem_size, stream>>>(
     out, out_src, out_dst, theta, r_scale, c_scale, n_edges, max_scale, r);
   RAFT_CUDA_TRY(cudaGetLastError());
@@ -131,15 +129,23 @@ void rmat_rectangular_gen_caller(IdxT* out,
 }
 
 template <typename IdxT, typename ProbT>
-__global__ void rmat_gen_kernel(
-  IdxT* out, IdxT* out_src, IdxT* out_dst, ProbT a, ProbT b, ProbT c, IdxT r_scale,
-  IdxT c_scale, IdxT n_edges, IdxT max_scale, raft::random::RngState r)
+__global__ void rmat_gen_kernel(IdxT* out,
+                                IdxT* out_src,
+                                IdxT* out_dst,
+                                ProbT a,
+                                ProbT b,
+                                ProbT c,
+                                IdxT r_scale,
+                                IdxT c_scale,
+                                IdxT n_edges,
+                                IdxT max_scale,
+                                raft::random::RngState r)
 {
   IdxT idx = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
   IdxT src_id{0}, dst_id{0};
   raft::random::PCGenerator gen{r.seed, r.base_subsequence + idx, 0};
   auto min_scale = min(r_scale, c_scale);
-  IdxT i = 0;
+  IdxT i         = 0;
   for (; i < min_scale; ++i) {
     gen_and_update_bits(src_id, dst_id, a, a + b, a + b + c, r_scale, c_scale, i, gen);
   }
@@ -156,19 +162,19 @@ template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen_caller(IdxT* out,
                                  IdxT* out_src,
                                  IdxT* out_dst,
-				 ProbT a,
-				 ProbT b,
-				 ProbT c,
-				 IdxT r_scale,
-				 IdxT c_scale,
-				 IdxT n_edges,
-				 cudaStream_t stream,
-				 raft::random::RngState& r)
+                                 ProbT a,
+                                 ProbT b,
+                                 ProbT c,
+                                 IdxT r_scale,
+                                 IdxT c_scale,
+                                 IdxT n_edges,
+                                 cudaStream_t stream,
+                                 raft::random::RngState& r)
 {
   if (n_edges <= 0) return;
   static constexpr int N_THREADS = 512;
-  auto max_scale = max(r_scale, c_scale);
-  auto n_blks = raft::ceildiv<IdxT>(n_edges, N_THREADS);
+  auto max_scale                 = max(r_scale, c_scale);
+  auto n_blks                    = raft::ceildiv<IdxT>(n_edges, N_THREADS);
   rmat_gen_kernel<<<n_blks, N_THREADS, 0, stream>>>(
     out, out_src, out_dst, a, b, c, r_scale, c_scale, n_edges, max_scale, r);
   RAFT_CUDA_TRY(cudaGetLastError());
