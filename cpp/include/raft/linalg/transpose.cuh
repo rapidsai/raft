@@ -63,18 +63,18 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
  * @param out Output matirx, storage is pre-allocated by caller and should be contiguous.
  */
 template <typename T, typename LayoutPolicy>
-std::enable_if_t<std::is_floating_point_v<T> &&
-                   (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
-                    std::is_same_v<LayoutPolicy, layout_f_contiguous>),
-                 void>
-transpose(handle_t const& handle,
-          device_matrix_view<T, LayoutPolicy> in,
-          device_matrix_view<T, LayoutPolicy> out)
+auto transpose(handle_t const& handle,
+               device_matrix_view<T, LayoutPolicy> in,
+               device_matrix_view<T, LayoutPolicy> out)
+  -> std::enable_if_t<std::is_floating_point_v<T> &&
+                        (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
+                         std::is_same_v<LayoutPolicy, layout_f_contiguous>),
+                      void>
 {
-  ASSERT(out.extent(0) == in.extent(1), "Invalid shape for transpose.");
-  ASSERT(out.extent(1) == in.extent(0), "Invalid shape for transpose.");
-  ASSERT(in.is_contiguous(), "Invalid format for transpose input.");
-  ASSERT(out.is_contiguous(), "Invalid format for transpose output.");
+  RAFT_EXPECTS(out.extent(0) == in.extent(1), "Invalid shape for transpose.");
+  RAFT_EXPECTS(out.extent(1) == in.extent(0), "Invalid shape for transpose.");
+  RAFT_EXPECTS(in.is_contiguous(), "Invalid format for transpose input.");
+  RAFT_EXPECTS(out.is_contiguous(), "Invalid format for transpose output.");
 
   size_t out_n_rows = in.extent(1);
   size_t out_n_cols = in.extent(0);
@@ -112,7 +112,7 @@ transpose(handle_t const& handle,
                                   out.stride(1),
                                   handle.get_stream()));
   } else {
-    ASSERT(false, "Unknown layout.");
+    RAFT_EXPECTS(false, "Unknown layout.");
   }
 }
 
@@ -120,6 +120,8 @@ transpose(handle_t const& handle,
  * @brief Transpose a contiguous matrix. The output have same layout policy as input.
  *
  * @param in Input matrix, the storage should be contiguous.
+ *
+ * @return The transposed matrix
  */
 template <typename T, typename LayoutPolicy>
 auto transpose(handle_t const& handle, device_matrix_view<T, LayoutPolicy> in)
