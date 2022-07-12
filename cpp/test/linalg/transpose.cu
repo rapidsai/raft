@@ -113,5 +113,38 @@ INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValF, ::testing::ValuesIn(
 
 INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValD, ::testing::ValuesIn(inputsd2));
 
+
+template <typename T, typename LayoutPolicy>
+void test_transpose_with_mdspan()
+{
+  handle_t handle;
+  auto v = make_device_matrix<T, LayoutPolicy>(handle, 32, 3);
+  T k{0};
+  for (size_t i = 0; i < v.extent(0); ++i) {
+    for (size_t j = 0; j < v.extent(1); ++j) {
+      v(i, j) = k++;
+    }
+  }
+  auto out = transpose(handle, v.view());
+  static_assert(std::is_same_v<LayoutPolicy, typename decltype(out)::layout_type>);
+  ASSERT_EQ(out.extent(0), v.extent(1));
+  ASSERT_EQ(out.extent(1), v.extent(0));
+
+  k = 0;
+  for (size_t i = 0; i < out.extent(1); ++i) {
+    for (size_t j = 0; j < out.extent(0); ++j) {
+      ASSERT_EQ(out(j, i), k++);
+    }
+  }
+}
+
+TEST(TransposeTest, MDSpan)
+{
+  test_transpose_with_mdspan<float, layout_c_contiguous>();
+  test_transpose_with_mdspan<double, layout_c_contiguous>();
+
+  test_transpose_with_mdspan<float, layout_f_contiguous>();
+  test_transpose_with_mdspan<double, layout_f_contiguous>();
+}
 }  // end namespace linalg
 }  // end namespace raft

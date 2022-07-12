@@ -78,7 +78,6 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
     }
   });
 }
-
 };  // end namespace detail
 };  // end namespace linalg
 };  // end namespace raft
