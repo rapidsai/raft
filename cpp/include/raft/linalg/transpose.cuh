@@ -76,8 +76,8 @@ auto transpose(handle_t const& handle,
   RAFT_EXPECTS(in.is_contiguous(), "Invalid format for transpose input.");
   RAFT_EXPECTS(out.is_contiguous(), "Invalid format for transpose output.");
 
-  size_t out_n_rows = in.extent(1);
-  size_t out_n_cols = in.extent(0);
+  auto out_n_rows = in.extent(1);
+  auto out_n_cols = in.extent(0);
 
   T constexpr kOne  = 1;
   T constexpr kZero = 0;
@@ -96,7 +96,8 @@ auto transpose(handle_t const& handle,
                                   out.data(),
                                   out.stride(0),
                                   handle.get_stream()));
-  } else if (std::is_same_v<typename decltype(in)::layout_type, layout_f_contiguous>) {
+  } else {
+    static_assert(std::is_same_v<typename decltype(in)::layout_type, layout_f_contiguous>);
     CUBLAS_TRY(detail::cublasgeam(handle.get_cublas_handle(),
                                   CUBLAS_OP_T,
                                   CUBLAS_OP_N,
@@ -111,8 +112,6 @@ auto transpose(handle_t const& handle,
                                   out.data(),
                                   out.stride(1),
                                   handle.get_stream()));
-  } else {
-    RAFT_EXPECTS(false, "Unknown layout.");
   }
 }
 
