@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include "../ball_cover_common.h"
 #include "ball_cover/common.cuh"

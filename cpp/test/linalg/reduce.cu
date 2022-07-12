@@ -17,8 +17,8 @@
 #include "../test_utils.h"
 #include "reduce.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/reduce.cuh>
 #include <raft/random/rng.cuh>
 

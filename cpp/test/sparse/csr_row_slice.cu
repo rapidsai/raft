@@ -15,8 +15,8 @@
  */
 
 #include <cusparse_v2.h>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 
 #include <gtest/gtest.h>
 #include <raft/sparse/detail/cusparse_wrappers.h>

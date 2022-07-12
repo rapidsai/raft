@@ -18,8 +18,8 @@
 
 #pragma once
 
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/stats/detail/minmax.cuh>
 
 #include <limits>

@@ -135,7 +135,6 @@ add_executable(test_raft
     test/stats/trustworthiness.cu
     test/stats/weighted_mean.cu
     test/stats/v_measure.cu
-    test/test.cpp
 )
 
 set_target_properties(test_raft

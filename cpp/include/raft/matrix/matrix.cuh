@@ -22,7 +22,7 @@
 #include "detail/linewise_op.cuh"
 #include "detail/matrix.cuh"
 
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 
 namespace raft {
 namespace matrix {

@@ -29,7 +29,7 @@
 
 #define SPDLOG_HEADER_ONLY
 #include <raft/common/detail/callback_sink.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT
 #include <spdlog/spdlog.h>                    // NOLINT
 

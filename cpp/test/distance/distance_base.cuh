@@ -16,11 +16,11 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/mdarray.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/distance/distance.cuh>
-#include <raft/mdarray.hpp>
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
 #endif

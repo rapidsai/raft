@@ -28,9 +28,9 @@
 
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/util.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/error.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/error.hpp>
+#include <raft/core/handle.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
 

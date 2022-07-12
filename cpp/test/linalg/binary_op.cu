@@ -17,7 +17,7 @@
 #include "../test_utils.h"
 #include "binary_op.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>

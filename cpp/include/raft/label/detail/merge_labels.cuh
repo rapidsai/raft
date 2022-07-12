@@ -19,8 +19,8 @@
 #include <limits>
 #include <math.h>
 
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/init.cuh>
 
 namespace raft {

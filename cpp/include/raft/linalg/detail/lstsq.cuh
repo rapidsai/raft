@@ -17,8 +17,8 @@
 #pragma once
 
 #include <common/nvtx.hpp>
-#include <raft/common/nvtx.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/linalg/eig.cuh>

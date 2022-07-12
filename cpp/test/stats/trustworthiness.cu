@@ -17,7 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/distance/distance.cuh>
 
 #if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED

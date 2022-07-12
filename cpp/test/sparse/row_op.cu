@@ -20,7 +20,7 @@
 #include <raft/sparse/op/row_op.cuh>
 
 #include "../test_utils.h"
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <iostream>
 #include <limits>

@@ -21,7 +21,7 @@
 #include <cub/block/block_store.cuh>
 #include <cub/block/radix_rank_sort_operations.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/device_atomics.cuh>
 #include <raft/vectorized.cuh>
 

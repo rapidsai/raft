@@ -22,8 +22,8 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <raft/cudart_utils.h>
-#include <raft/error.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/error.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <thread>
 #include <unordered_map>

@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>

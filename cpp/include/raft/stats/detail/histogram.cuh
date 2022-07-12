@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/common/seive.hpp>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/stats/common.hpp>
 #include <raft/vectorized.cuh>
 #include <stdint.h>

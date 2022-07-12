@@ -15,7 +15,7 @@
  */
 
 #include <common/benchmark.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/random/rng.cuh>
 
 #include <rmm/device_uvector.hpp>

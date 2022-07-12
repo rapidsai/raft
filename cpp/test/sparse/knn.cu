@@ -21,7 +21,7 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/sparse/selection/knn.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 namespace raft {
 namespace sparse {

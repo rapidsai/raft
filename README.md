@@ -39,7 +39,7 @@ The APIs in RAFT currently accept raw pointers to device memory and we are in th
 The `mdarray` forms a convenience layer over RMM and can be constructed in RAFT using a number of different helper functions:
 
 ```c++
-#include <raft/mdarray.hpp>
+#include <raft/core/mdarray.hpp>
 
 int n_rows = 10;
 int n_cols = 10;
@@ -56,8 +56,8 @@ Most of the primitives in RAFT accept a `raft::handle_t` object for the manageme
 The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
 pairwise Euclidean distances:
 ```c++
-#include <raft/handle.hpp>
-#include <raft/mdarray.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/core/mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/distance/distance.cuh>
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/span.hpp>
+#include <raft/core/span.hpp>
 
 namespace raft {
 

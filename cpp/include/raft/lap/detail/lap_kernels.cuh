@@ -26,8 +26,8 @@
 
 #include "d_structs.h"
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>

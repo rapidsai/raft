@@ -16,7 +16,7 @@
 #include "test_span.hpp"
 #include <gtest/gtest.h>
 #include <numeric>  // iota
-#include <raft/span.hpp>
+#include <raft/core/span.hpp>
 
 namespace raft {
 TEST(Span, DlfConstructors)

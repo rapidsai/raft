@@ -18,12 +18,12 @@
 
 #pragma once
 
+#include <raft/core/handle.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_type.hpp>
-#include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/mdarray.hpp>
+#include <raft/core/mdarray.hpp>
 
 /**
  * @defgroup pairwise_distance pairwise distance prims

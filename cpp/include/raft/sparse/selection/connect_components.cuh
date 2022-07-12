@@ -16,7 +16,7 @@
 #ifndef __CONNECT_COMPONENTS_H
 #define __CONNECT_COMPONENTS_H
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/selection/detail/connect_components.cuh>
 

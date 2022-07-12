@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/hierarchy/common.h>

@@ -18,8 +18,8 @@
 
 #pragma once
 
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_type.hpp>
-#include <raft/handle.hpp>
 #include <raft/sparse/selection/detail/knn.cuh>
 
 namespace raft {

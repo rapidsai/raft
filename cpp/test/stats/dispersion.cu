@@ -16,8 +16,8 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
+#include <raft/core/interruptible.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/interruptible.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/dispersion.cuh>
 #include <rmm/device_uvector.hpp>

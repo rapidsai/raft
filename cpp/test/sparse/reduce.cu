@@ -19,8 +19,8 @@
 #include "../test_utils.h"
 #include <iostream>
 #include <limits>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/reduce.cuh>
 #include <rmm/device_uvector.hpp>

@@ -16,8 +16,8 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/random/rng.cuh>
 

@@ -18,8 +18,8 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/eig.cuh>
 
 namespace raft {

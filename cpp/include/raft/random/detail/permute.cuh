@@ -18,8 +18,8 @@
 
 #include <cooperative_groups.h>
 #include <memory>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/vectorized.cuh>
 
 namespace raft::random {

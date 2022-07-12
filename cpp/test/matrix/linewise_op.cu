@@ -18,8 +18,8 @@
 #include "../test_utils.h"
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
-#include <raft/common/nvtx.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>

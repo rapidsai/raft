@@ -21,8 +21,8 @@
  * limitations under the License.
  */
 #pragma once
+#include <raft/core/cudart_utils.hpp>
 #include <raft/core/mdspan.hpp>
-#include <raft/cudart_utils.h>
 #include <raft/detail/span.hpp>  // dynamic_extent
 
 #include <rmm/cuda_stream_view.hpp>

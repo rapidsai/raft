@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 // This file is a shameless amalgamation of independent works done by
 // Lars Nyland and Andy Adinets

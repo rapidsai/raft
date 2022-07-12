@@ -15,7 +15,7 @@
  */
 
 #include <common/benchmark.hpp>
-#include <raft/linalg/reduce.hpp>
+#include <raft/linalg/reduce.cuh>
 
 #include <rmm/device_uvector.hpp>
 

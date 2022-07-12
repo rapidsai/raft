@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 
 #include <fstream>
 #include <sstream>

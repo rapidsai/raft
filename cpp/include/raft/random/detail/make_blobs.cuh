@@ -17,8 +17,8 @@
 #pragma once
 
 #include "permute.cuh"
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/random/rng_device.cuh>

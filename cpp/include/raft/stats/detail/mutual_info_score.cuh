@@ -27,9 +27,9 @@
 
 #include <cub/cub.cuh>
 #include <math.h>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
 #include <raft/linalg/reduce.cuh>
 #include <raft/stats/contingency_matrix.cuh>
 #include <rmm/device_scalar.hpp>

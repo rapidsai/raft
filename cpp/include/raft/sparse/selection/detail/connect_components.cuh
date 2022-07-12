@@ -24,7 +24,7 @@
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/op/reduce.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>

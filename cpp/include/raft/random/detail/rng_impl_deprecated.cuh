@@ -25,8 +25,8 @@
 #include <curand_kernel.h>
 #include <raft/common/cub_wrappers.cuh>
 #include <raft/common/scatter.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
 #include <raft/random/rng_state.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>

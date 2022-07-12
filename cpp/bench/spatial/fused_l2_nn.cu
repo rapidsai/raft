@@ -16,14 +16,14 @@
 
 #include <common/benchmark.hpp>
 #include <limits>
-#include <raft/cudart_utils.h>
-#include <raft/distance/fused_l2_nn.hpp>
-#include <raft/handle.hpp>
-#include <raft/linalg/norm.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/distance/fused_l2_nn.cuh>
+#include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 namespace raft::bench::spatial {
