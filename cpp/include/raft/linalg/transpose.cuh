@@ -57,15 +57,16 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
 }
 
 /**
- * @brief Transpose a contiguous matrix. The output have same layout policy as input.
+ * @brief Transpose a contiguous matrix. The output has same layout policy as the input.
  *
- * @tparam T Data type of the input matrix elements
+ * @tparam T Data type of input matrix element.
  * @tparam LayoutPolicy Layout type of the input matrix, should be either
- *         layout_c_contiguous or layout_f_contiguous
+ *         `layout_c_contiguous` or `layout_f_contiguous`.
  *
- * @param[in] handle raft handle for managing expensive cuda resources
- * @param[in]  in Input matrix, the storage should be contiguous.
- * @param[out] out Output matirx, storage is pre-allocated by caller and should be contiguous.
+ * @param[in]  handle raft handle for managing expensive cuda resources.
+ * @param[in]  in     Input matrix, the storage should be contiguous.
+ * @param[out] out    Output matirx, storage is pre-allocated by caller and should be
+ *                    contiguous.
  */
 template <typename T, typename LayoutPolicy>
 auto transpose(handle_t const& handle,
@@ -121,16 +122,16 @@ auto transpose(handle_t const& handle,
 }
 
 /**
- * @brief Transpose a contiguous matrix. The output have same layout policy as input.
+ * @brief Transpose a contiguous matrix. The output has same layout policy as the input.
  *
- * @tparam T Data type of the input matrix elements
+ * @tparam T Data type of input matrix elements.
  * @tparam LayoutPolicy Layout type of the input matrix, should be either
- *         layout_c_contiguous or layout_f_contiguous
+ *         `layout_c_contiguous` or `layout_f_contiguous`.
  *
- * @param[in] handle raft handle for managing expensive cuda resources
- * @param[in] in Input matrix, the storage should be contiguous.
+ * @param[in] handle raft handle for managing expensive cuda resources.
+ * @param[in] in     Input matrix, the storage should be contiguous.
  *
- * @return The transposed matrix
+ * @return The transposed matrix.
  */
 template <typename T, typename LayoutPolicy>
 auto transpose(handle_t const& handle, device_matrix_view<T, LayoutPolicy> in)
