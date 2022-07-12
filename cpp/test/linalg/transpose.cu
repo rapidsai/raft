@@ -113,7 +113,6 @@ INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValF, ::testing::ValuesIn(
 
 INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValD, ::testing::ValuesIn(inputsd2));
 
-
 template <typename T, typename LayoutPolicy>
 void test_transpose_with_mdspan()
 {
