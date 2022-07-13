@@ -41,7 +41,8 @@ template <typename T, typename IdxType>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T, typename IdxType>
-void matrixVectorOpLaunch(T* out,
+void matrixVectorOpLaunch(const raft::handle_t& handle,
+                          T* out,
                           const T* in,
                           const T* vec1,
                           const T* vec2,
@@ -49,32 +50,49 @@ void matrixVectorOpLaunch(T* out,
                           IdxType N,
                           bool rowMajor,
                           bool bcastAlongRows,
-                          bool useTwoVectors,
-                          cudaStream_t stream)
+                          bool useTwoVectors)
 {
+  auto out_row_major = raft::make_matrix_view<T, raft::row_major>(out, N, D);
+  auto in_row_major  = raft::make_matrix_view<const T, raft::row_major>(in, N, D);
+
+  auto out_col_major = raft::make_matrix_view<T, raft::col_major>(out, N, D);
+  auto in_col_major  = raft::make_matrix_view<const T, raft::col_major>(in, N, D);
+
+  auto apply     = bcastAlongRows ? Apply::ALONG_ROWS : Apply::ALONG_COLUMNS;
+  auto len       = bcastAlongRows ? D : N;
+  auto vec1_view = raft::make_vector_view(vec1, len);
+  auto vec2_view = raft::make_vector_view(vec2, len);
+
   if (useTwoVectors) {
-    matrixVectorOp(
-      out,
-      in,
-      vec1,
-      vec2,
-      D,
-      N,
-      rowMajor,
-      bcastAlongRows,
-      [] __device__(T a, T b, T c) { return a + b + c; },
-      stream);
+    if (rowMajor) {
+      matrix_vector_op(handle,
+                       out_row_major,
+                       in_row_major,
+                       vec1_view,
+                       vec2_view,
+                       apply,
+                       [] __device__(T a, T b, T c) { return a + b + c; });
+    } else {
+      matrix_vector_op(handle,
+                       out_col_major,
+                       in_col_major,
+                       vec1_view,
+                       vec2_view,
+                       apply,
+                       [] __device__(T a, T b, T c) { return a + b + c; });
+    }
   } else {
-    matrixVectorOp(
-      out,
-      in,
-      vec1,
-      D,
-      N,
-      rowMajor,
-      bcastAlongRows,
-      [] __device__(T a, T b) { return a + b; },
-      stream);
+    if (rowMajor) {
+      matrix_vector_op(
+        handle, out_row_major, in_row_major, vec1_view, apply, [] __device__(T a, T b) {
+          return a + b;
+        });
+    } else {
+      matrix_vector_op(
+        handle, out_col_major, in_col_major, vec1_view, apply, [] __device__(T a, T b) {
+          return a + b;
+        });
+    }
   }
 }
 
@@ -124,7 +142,8 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
                   (T)1.0,
                   stream);
     }
-    matrixVectorOpLaunch(out.data(),
+    matrixVectorOpLaunch(handle,
+                         out.data(),
                          in.data(),
                          vec1.data(),
                          vec2.data(),
@@ -132,9 +151,8 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>
                          N,
                          params.rowMajor,
                          params.bcastAlongRows,
-                         params.useTwoVectors,
-                         stream);
-    handle.sync_stream(stream);
+                         params.useTwoVectors);
+    handle.sync_stream();
   }
 
  protected:
