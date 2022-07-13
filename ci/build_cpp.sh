@@ -10,6 +10,9 @@ source ci/check_environment.sh
 # Use Ninja to build
 export CMAKE_GENERATOR="Ninja"
 
+# ucx-py version
+export UCX_PY_VERSION='0.27.*'
+
 ################################################################################
 # BUILD - Conda package builds (LIBCUGRAPH)
 ################################################################################
