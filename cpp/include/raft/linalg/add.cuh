@@ -48,7 +48,7 @@ using detail::adds_scalar;
  * @param stream cuda stream where to launch work
  */
 template <typename InT, typename OutT = InT, typename IdxType = int>
-void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
+void addScalar(OutT* out, const InT* in, const InT scalar, IdxType len, cudaStream_t stream)
 {
   detail::addScalar(out, in, scalar, len, stream);
 }
@@ -72,18 +72,6 @@ void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t st
   detail::add(out, in1, in2, len, stream);
 }
 
-template <typename out_t, typename in_t, typename = raft::enable_if_mdspan<out_t, in_t>>
-void add(const raft::handle_t& handle, out_t out, const in_t in1, const in_t in2)
-{
-  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
-  RAFT_EXPECTS(in1.is_contiguous(), "Input 1 must be contiguous");
-  RAFT_EXPECTS(in2.is_contiguous(), "Input 2 must be contiguous");
-  RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
-               "Size mismatch between Output and Inputs");
-
-  add(out.data(), in1.data(), in2.data(), out.size(), handle.get_stream());
-}
-
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
  * write result to outDev[i]
  * @tparam math_t data-type upon which the math operation will be performed
@@ -104,11 +92,46 @@ void addDevScalar(math_t* outDev,
   detail::addDevScalar(outDev, inDev, singleScalarDev, len, stream);
 }
 
+/**
+ * @defgroup add Addition Arithmetic
+ * @{
+ */
+
+/**
+ * @brief Elementwise add operation on the input buffers
+ * @tparam out_t   Output Type raft::mdspan
+ * @tparam in_t    Input Type raft::mdspan
+ * @param handle raft::handle_t
+ * @param out    Output
+ * @param in1    First Input
+ * @param in2    Second Input
+ */
 template <typename out_t, typename in_t, typename = raft::enable_if_mdspan<out_t, in_t>>
+void add(const raft::handle_t& handle, out_t out, const in_t in1, const in_t in2)
+{
+  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
+  RAFT_EXPECTS(in1.is_contiguous(), "Input 1 must be contiguous");
+  RAFT_EXPECTS(in2.is_contiguous(), "Input 2 must be contiguous");
+  RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
+               "Size mismatch between Output and Inputs");
+
+  add(out.data(), in1.data(), in2.data(), out.size(), handle.get_stream());
+}
+
+/**
+ * @brief Elementwise addition of scalar to input
+ * @tparam OutType   Output Type raft::mdspan
+ * @tparam InType    Input Type raft::mdspan
+ * @param handle raft::handle_t
+ * @param out    Output
+ * @param in    Input
+ * @param scalar    raft::scalar_view in either host or device memory
+ */
+template <typename OutType, typename InType, typename = raft::enable_if_mdspan<OutType, InType>>
 void add_scalar(const raft::handle_t& handle,
-                out_t out,
-                const in_t in,
-                raft::scalar_view<typename in_t::element_type> scalar)
+                OutType out,
+                const InType in,
+                const raft::scalar_view<typename InType::element_type> scalar)
 {
   RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
   RAFT_EXPECTS(in.is_contiguous(), "Input must be contiguous");
@@ -120,6 +143,8 @@ void add_scalar(const raft::handle_t& handle,
     addScalar(out.data(), in.data(), *scalar.data(), out.size(), handle.get_stream());
   }
 }
+
+/** @} */  // end of group add
 
 };  // end namespace linalg
 };  // end namespace raft

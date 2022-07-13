@@ -109,7 +109,7 @@ namespace linalg {
  * @param L device array for to store the triangular matrix L, and the new
  *     column of A in column major format, size [n*n]
  * @param n number of elements in the new row.
- * @param ld stride of colums in L
+ * @param ld stride of columns in L
  * @param workspace device pointer to workspace shall be nullptr ar an array
  *    of size [n_bytes].
  * @param n_bytes size of workspace is returned here if workspace==nullptr.
@@ -132,6 +132,21 @@ void choleskyRank1Update(const raft::handle_t& handle,
 {
   detail::choleskyRank1Update(handle, L, n, ld, workspace, n_bytes, uplo, stream, eps);
 }
+
+// template <typename math_t>
+// void choleskyRank1Update(const raft::handle_t& handle,
+//                          raft::matrix_view<math_t, col_major> L,
+//                          int n,
+//                          int ld,
+//                          raft::vector_view<char> workspace,
+//                          int* n_bytes,
+//                          cublasFillMode_t uplo,
+//                          cudaStream_t stream,
+//                          math_t eps = -1)
+// {
+//   detail::choleskyRank1Update(handle, L.data(), n, ld, workspace.data(), n_bytes, uplo, stream,
+//   eps);
+// }
 };  // namespace linalg
 };  // namespace raft
 

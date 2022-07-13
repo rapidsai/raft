@@ -20,6 +20,8 @@
 
 #include "detail/divide.cuh"
 
+#include <raft/core/mdarray.hpp>
+
 namespace raft {
 namespace linalg {
 
@@ -27,7 +29,8 @@ using detail::divides_scalar;
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
- * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam OutT output data-type upon which the math operation will be performed
+ * @tparam InT input data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing
  * @param out the output buffer
  * @param in the input buffer
@@ -36,12 +39,45 @@ using detail::divides_scalar;
  * @param stream cuda stream where to launch work
  * @{
  */
-template <typename math_t, typename IdxType = int>
-void divideScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void divideScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
 {
   detail::divideScalar(out, in, scalar, len, stream);
 }
 /** @} */
+
+/**
+ * @defgroup divide Division Arithmetic
+ * @{
+ */
+
+/**
+ * @brief Elementwise addition of scalar to input
+ * @tparam OutType   Output Type raft::mdspan
+ * @tparam InType    Input Type raft::mdspan
+ * @param handle raft::handle_t
+ * @param out    Output
+ * @param in    Input
+ * @param scalar    raft::scalar_view in host memory
+ */
+template <typename OutType, typename InType, typename = raft::enable_if_mdspan<OutType, InType>>
+void divide_scalar(const raft::handle_t& handle,
+                   OutType out,
+                   const InType in,
+                   const raft::scalar_view<typename InType::element_type> scalar)
+{
+  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_contiguous(), "Input must be contiguous");
+  RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
+
+  // if (raft::is_device_ptr(scalar.data())) {
+  //   RAFT_FAIL("Scalar in device memory is not supported");
+  // } else {
+  divideScalar(out.data(), in.data(), *scalar.data(), out.size(), handle.get_stream());
+  // }
+}
+
+/** @} */  // end of group add
 
 };  // end namespace linalg
 };  // end namespace raft

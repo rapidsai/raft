@@ -20,6 +20,7 @@
 
 #include "detail/binary_op.cuh"
 
+#include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
 
 namespace raft {
@@ -51,6 +52,47 @@ void binaryOp(
 {
   detail::binaryOp(out, in1, in2, len, op, stream);
 }
+
+/**
+ * @defgroup binary_op Element-Wise Binary Operation
+ * @{
+ */
+
+/**
+ * @brief perform element-wise binary operation on the input arrays
+ * @tparam InType Input Type raft::mdspan
+ * @tparam Lambda the device-lambda performing the actual operation
+ * @tparam OutType Output Type raft::mdspan
+ * @tparam TPB threads-per-block in the final kernel launched
+ * @param handle raft::handle_t
+ * @param out Output
+ * @param in1 First input
+ * @param in2 Second input
+ * @param op the device-lambda
+ * @note Lambda must be a functor with the following signature:
+ *       `OutType func(const InType& val1, const InType& val2);`
+ */
+template <typename InType,
+          typename Lambda,
+          typename OutType = InType,
+          int TPB          = 256,
+          typename         = raft::enable_if_mdspan<InType, OutType>>
+void binary_op(
+  const raft::handle_t& handle, OutType out, const InType in1, const InType in2, Lambda op)
+{
+  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
+  RAFT_EXPECTS(in1.is_contiguous(), "Input 1 must be contiguous");
+  RAFT_EXPECTS(in2.is_contiguous(), "Input 2 must be contiguous");
+  RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
+               "Size mismatch between Output and Inputs");
+
+  using in_element_t  = typename InType::element_type;
+  using out_element_t = typename OutType::element_type;
+  binaryOp<in_element_t, Lambda, out_element_t, std::size_t, TPB>(
+    out.data(), in1.data(), in2.data(), out.size(), op, handle.get_stream());
+}
+
+/** @} */  // end of group binary_op
 
 };  // end namespace linalg
 };  // end namespace raft

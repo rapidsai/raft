@@ -80,18 +80,21 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
 
     raft::update_device(
       eig_vectors_ref.data(), eig_vectors_ref_h, params.n_eigen_vals * params.n, stream);
-    raft::update_device(eig_vals_ref.data(), eig_vals_ref_h, params.n, stream);
+    raft::update_device(eig_vals_ref.data(), eig_vals_ref_h, params.n_eigen_vals, stream);
 
-    raft::linalg::eigSelDC(handle,
-                           cov_matrix.data(),
-                           params.n,
-                           params.n,
-                           params.n_eigen_vals,
-                           eig_vectors.data(),
-                           eig_vals.data(),
-                           EigVecMemUsage::OVERWRITE_INPUT,
-                           stream);
-    handle.sync_stream(stream);
+    auto cov_matrix_view =
+      raft::make_matrix_view<T, raft::col_major>(cov_matrix.data(), params.n, params.n);
+    auto eig_vectors_view =
+      raft::make_matrix_view<T, raft::col_major>(eig_vectors.data(), params.n_eigen_vals, params.n);
+    auto eig_vals_view = raft::make_vector_view(eig_vals.data(), params.n_eigen_vals);
+
+    raft::linalg::eig_dc_select(handle,
+                                cov_matrix_view,
+                                params.n_eigen_vals,
+                                eig_vectors_view,
+                                eig_vals_view,
+                                EigVecMemUsage::OVERWRITE_INPUT);
+    handle.sync_stream();
   }
 
  protected:
