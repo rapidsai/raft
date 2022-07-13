@@ -48,14 +48,9 @@ class CholeskyR1Test : public ::testing::Test {
     int n_bytes = 0;
     // Initializing in CUBLAS_FILL_MODE_LOWER, because that has larger workspace
     // requirements.
-    raft::linalg::choleskyRank1Update(handle,
-                                      L.data(),
-                                      n_rows,
-                                      n_rows,
-                                      nullptr,
-                                      &n_bytes,
-                                      CUBLAS_FILL_MODE_LOWER,
-                                      handle.get_stream());
+    auto L_view = raft::make_matrix_view<math_t, raft::col_major>(L.data(), n_rows, n_rows);
+    raft::linalg::cholesky_rank1_update(
+      handle, L_view, n_rows, n_rows, std::nullopt, &n_bytes, CUBLAS_FILL_MODE_LOWER);
     Lwork = std::max(Lwork * sizeof(math_t), (size_t)n_bytes);
     workspace.resize(Lwork, handle.get_stream());
   }
@@ -85,8 +80,11 @@ class CholeskyR1Test : public ::testing::Test {
                                                                 handle.get_stream()));
 
         // Incremental Cholesky factorization using rank one updates.
-        raft::linalg::choleskyRank1Update(
-          handle, L.data(), rank, n_rows, workspace.data(), &Lwork, uplo, handle.get_stream());
+        auto L_view = raft::make_matrix_view<math_t, raft::col_major>(L.data(), n_rows, n_rows);
+        auto workspace_view = raft::make_vector_view(workspace.data(), Lwork);
+
+        raft::linalg::cholesky_rank1_update(
+          handle, L_view, rank, n_rows, workspace_view, &Lwork, uplo);
 
         ASSERT_TRUE(raft::devArrMatch(L_exp.data(),
                                       L.data(),
