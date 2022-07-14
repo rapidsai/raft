@@ -24,15 +24,15 @@ def test_should_cancel_via_interruptible():
         "The process seems to have waited, while it shouldn't have."
 
 
-def test_should_cancel_via_python():
-    start_time = time.monotonic()
-    with pytest.raises(KeyboardInterrupt):
-        send_ctrl_c()
-        cuda_yield()
-        time.sleep(1.0)
-    end_time = time.monotonic()
-    assert end_time < start_time + 0.5, \
-        "The process seems to have waited, while it shouldn't have."
+# def test_should_cancel_via_python():
+#     start_time = time.monotonic()
+#     with pytest.raises(KeyboardInterrupt):
+#         send_ctrl_c()
+#         cuda_yield()
+#         time.sleep(1.0)
+#     end_time = time.monotonic()
+#     assert end_time < start_time + 0.5, \
+#         "The process seems to have waited, while it shouldn't have."
 
 
 def test_should_wait_no_interrupt():
