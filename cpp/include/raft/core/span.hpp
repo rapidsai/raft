@@ -19,6 +19,7 @@
 #include <cinttypes>  // size_t
 #include <cstddef>    // std::byte
 #include <raft/detail/span.hpp>
+#include <thrust/distance.h>
 #include <thrust/functional.h>
 #include <thrust/host_vector.h>  // __host__ __device__
 #include <thrust/iterator/reverse_iterator.h>

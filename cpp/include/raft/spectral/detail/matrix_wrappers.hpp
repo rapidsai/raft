@@ -21,8 +21,10 @@
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
+#include <thrust/system/cuda/execution_policy.h>
 
 #include <algorithm>
 

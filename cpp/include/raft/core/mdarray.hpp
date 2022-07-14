@@ -27,7 +27,9 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/detail/mdarray.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft {
 /**
@@ -37,38 +39,88 @@ template <size_t... ExtentsPack>
 using extents = std::experimental::extents<ExtentsPack...>;
 
 /**
- * @\brief C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.
+ * @defgroup C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.
+ * @{
  */
-using layout_c_contiguous = detail::stdex::layout_right;
+using detail::stdex::layout_right;
+using layout_c_contiguous = layout_right;
+using row_major           = layout_right;
+/** @} */
 
 /**
- * @\brief F-Contiguous layout for mdarray and mdspan. Implies column-major and contiguous memory.
+ * @defgroup F-Contiguous layout for mdarray and mdspan. Implies column-major and contiguous memory.
+ * @{
  */
-using layout_f_contiguous = detail::stdex::layout_left;
+using detail::stdex::layout_left;
+using layout_f_contiguous = layout_left;
+using col_major           = layout_left;
+/** @} */
 
+/**
+ * @defgroup Common mdarray/mdspan extent types. The rank is known at compile time, each dimension
+ * is known at run time (dynamic_extent in each dimension).
+ * @{
+ */
+using detail::matrix_extent;
+using detail::scalar_extent;
+using detail::vector_extent;
+
+using extent_1d = vector_extent;
+using extent_2d = matrix_extent;
+using extent_3d = detail::stdex::extents<dynamic_extent, dynamic_extent, dynamic_extent>;
+using extent_4d =
+  detail::stdex::extents<dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
+using extent_5d = detail::stdex::
+  extents<dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
+/** @} */
+
+template <typename ElementType,
+          typename Extents,
+          typename LayoutPolicy   = layout_c_contiguous,
+          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
+using mdspan = detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
+
+namespace detail {
 /**
  * @\brief Template checks and helpers to determine if type T is an std::mdspan
  *         or a derived type
  */
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void __takes_an_mdspan_ptr(
-  detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
+void __takes_an_mdspan_ptr(mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
 
 template <typename T, typename = void>
-struct __is_mdspan : std::false_type {
+struct is_mdspan : std::false_type {
 };
-
 template <typename T>
-struct __is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
+struct is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
   : std::true_type {
 };
 
 template <typename T>
-using __is_mdspan_t = __is_mdspan<std::remove_const_t<T>>;
+using is_mdspan_t = is_mdspan<std::remove_const_t<T>>;
 
 template <typename T>
-inline constexpr bool __is_mdspan_v = __is_mdspan_t<T>::value;
+inline constexpr bool is_mdspan_v = is_mdspan_t<T>::value;
+}  // namespace detail
+
+template <typename...>
+struct is_mdspan : std::true_type {
+};
+template <typename T1>
+struct is_mdspan<T1> : detail::is_mdspan_t<T1> {
+};
+template <typename T1, typename... Tn>
+struct is_mdspan<T1, Tn...>
+  : std::conditional_t<detail::is_mdspan_v<T1>, is_mdspan<Tn...>, std::false_type> {
+};
+
+/**
+ * @\brief Boolean to determine if variadic template types Tn are either
+ *          raft::host_mdspan/raft::device_mdspan or their derived types
+ */
+template <typename... Tn>
+inline constexpr bool is_mdspan_v = is_mdspan<Tn...>::value;
 
 /**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
@@ -77,7 +129,7 @@ template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using device_mdspan = detail::stdex::
+using device_mdspan =
   mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
 
 /**
@@ -88,47 +140,71 @@ template <typename ElementType,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
 using host_mdspan =
-  detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
+  mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
 
+namespace detail {
 template <typename T, bool B>
-struct __is_device_mdspan : std::false_type {
+struct is_device_mdspan : std::false_type {
 };
-
 template <typename T>
-struct __is_device_mdspan<T, true> : std::bool_constant<not T::accessor_type::is_host_type::value> {
+struct is_device_mdspan<T, true> : std::bool_constant<not T::accessor_type::is_host_type::value> {
 };
 
 /**
  * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
  */
 template <typename T>
-inline constexpr bool is_device_mdspan_v = __is_device_mdspan<T, __is_mdspan_v<T>>::value;
+inline constexpr bool is_device_mdspan_v = is_device_mdspan<T, is_mdspan_v<T>>::value;
 
 template <typename T, bool B>
-struct __is_host_mdspan : std::false_type {
+struct is_host_mdspan : std::false_type {
 };
-
 template <typename T>
-struct __is_host_mdspan<T, true> : T::accessor_type::is_host_type {
+struct is_host_mdspan<T, true> : T::accessor_type::is_host_type {
 };
 
 /**
  * @\brief Boolean to determine if template type T is either raft::host_mdspan or a derived type
  */
 template <typename T>
-inline constexpr bool is_host_mdspan_v = __is_host_mdspan<T, __is_mdspan_v<T>>::value;
+inline constexpr bool is_host_mdspan_v = is_host_mdspan<T, is_mdspan_v<T>>::value;
+}  // namespace detail
+
+template <typename...>
+struct is_device_mdspan : std::true_type {
+};
+template <typename T1>
+struct is_device_mdspan<T1> : detail::is_device_mdspan<T1, detail::is_mdspan_v<T1>> {
+};
+template <typename T1, typename... Tn>
+struct is_device_mdspan<T1, Tn...>
+  : std::conditional_t<detail::is_device_mdspan_v<T1>, is_device_mdspan<Tn...>, std::false_type> {
+};
 
 /**
- * @\brief Boolean to determine if template type T is either raft::host_mdspan/raft::device_mdspan
- *         or their derived types
- *         This is structured such that it will short-circuit if the type is not std::mdspan
- *         or a derived type, and otherwise it will check whether it is a raft::device_mdspan
- *         or raft::host_mdspan assuming the type was found to be std::mdspan or a derived type
+ * @\brief Boolean to determine if variadic template types Tn are either raft::device_mdspan or a
+ * derived type
  */
-template <typename T>
-inline constexpr bool is_mdspan_v =
-  std::conjunction_v<__is_mdspan_t<T>,
-                     std::disjunction<__is_device_mdspan<T, true>, __is_host_mdspan<T, true>>>;
+template <typename... Tn>
+inline constexpr bool is_device_mdspan_v = is_device_mdspan<Tn...>::value;
+
+template <typename...>
+struct is_host_mdspan : std::true_type {
+};
+template <typename T1>
+struct is_host_mdspan<T1> : detail::is_host_mdspan<T1, detail::is_mdspan_v<T1>> {
+};
+template <typename T1, typename... Tn>
+struct is_host_mdspan<T1, Tn...>
+  : std::conditional_t<detail::is_host_mdspan_v<T1>, is_host_mdspan<Tn...>, std::false_type> {
+};
+
+/**
+ * @\brief Boolean to determine if variadic template types Tn are either raft::host_mdspan or a
+ * derived type
+ */
+template <typename... Tn>
+inline constexpr bool is_host_mdspan_v = is_host_mdspan<Tn...>::value;
 
 /**
  * @brief Interface to implement an owning multi-dimensional array
@@ -152,14 +228,17 @@ class array_interface {
   auto view() const noexcept { return static_cast<Base*>(this)->view(); }
 };
 
+namespace detail {
 template <typename T, typename = void>
-struct __is_array_interface : std::false_type {
+struct is_array_interface : std::false_type {
+};
+template <typename T>
+struct is_array_interface<T, std::void_t<decltype(std::declval<T>().view())>>
+  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {
 };
 
 template <typename T>
-struct __is_array_interface<T, std::void_t<decltype(std::declval<T>().view())>>
-  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {
-};
+using is_array_interface_t = is_array_interface<std::remove_const_t<T>>;
 
 /**
  * @\brief Boolean to determine if template type T is raft::array_interface or derived type
@@ -167,7 +246,27 @@ struct __is_array_interface<T, std::void_t<decltype(std::declval<T>().view())>>
  *         raft::host_mdspan or raft::device_mdspan
  */
 template <typename T>
-inline constexpr bool is_array_interface_v = __is_array_interface<std::remove_const_t<T>>::value;
+inline constexpr bool is_array_interface_v = is_array_interface<std::remove_const_t<T>>::value;
+}  // namespace detail
+
+template <typename...>
+struct is_array_interface : std::true_type {
+};
+template <typename T1>
+struct is_array_interface<T1> : detail::is_array_interface_t<T1> {
+};
+template <typename T1, typename... Tn>
+struct is_array_interface<T1, Tn...> : std::conditional_t<detail::is_array_interface_v<T1>,
+                                                          is_array_interface<Tn...>,
+                                                          std::false_type> {
+};
+/**
+ * @\brief Boolean to determine if variadic template types Tn are raft::array_interface
+ *         or derived type or any type that has a member function `view()` that returns either
+ *         raft::host_mdspan or raft::device_mdspan
+ */
+template <typename... Tn>
+inline constexpr bool is_array_interface_v = is_array_interface<Tn...>::value;
 
 /**
  * @brief Modified from the c++ mdarray proposal
@@ -440,28 +539,28 @@ using device_mdarray =
  * @tparam ElementType the data type of the scalar element
  */
 template <typename ElementType>
-using host_scalar = host_mdarray<ElementType, detail::scalar_extent>;
+using host_scalar = host_mdarray<ElementType, scalar_extent>;
 
 /**
  * @brief Shorthand for 0-dim host mdarray (scalar).
  * @tparam ElementType the data type of the scalar element
  */
 template <typename ElementType>
-using device_scalar = device_mdarray<ElementType, detail::scalar_extent>;
+using device_scalar = device_mdarray<ElementType, scalar_extent>;
 
 /**
  * @brief Shorthand for 1-dim host mdarray.
  * @tparam ElementType the data type of the vector elements
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using host_vector = host_mdarray<ElementType, detail::vector_extent, LayoutPolicy>;
+using host_vector = host_mdarray<ElementType, vector_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for 1-dim device mdarray.
  * @tparam ElementType the data type of the vector elements
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using device_vector = device_mdarray<ElementType, detail::vector_extent, LayoutPolicy>;
+using device_vector = device_mdarray<ElementType, vector_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for c-contiguous host matrix.
@@ -469,7 +568,7 @@ using device_vector = device_mdarray<ElementType, detail::vector_extent, LayoutP
  * @tparam LayoutPolicy policy for strides and layout ordering
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using host_matrix = host_mdarray<ElementType, detail::matrix_extent, LayoutPolicy>;
+using host_matrix = host_mdarray<ElementType, matrix_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for c-contiguous device matrix.
@@ -477,35 +576,35 @@ using host_matrix = host_mdarray<ElementType, detail::matrix_extent, LayoutPolic
  * @tparam LayoutPolicy policy for strides and layout ordering
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using device_matrix = device_mdarray<ElementType, detail::matrix_extent, LayoutPolicy>;
+using device_matrix = device_mdarray<ElementType, matrix_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for 0-dim host mdspan (scalar).
  * @tparam ElementType the data type of the scalar element
  */
 template <typename ElementType>
-using host_scalar_view = host_mdspan<ElementType, detail::scalar_extent>;
+using host_scalar_view = host_mdspan<ElementType, scalar_extent>;
 
 /**
  * @brief Shorthand for 0-dim host mdspan (scalar).
  * @tparam ElementType the data type of the scalar element
  */
 template <typename ElementType>
-using device_scalar_view = device_mdspan<ElementType, detail::scalar_extent>;
+using device_scalar_view = device_mdspan<ElementType, scalar_extent>;
 
 /**
  * @brief Shorthand for 1-dim host mdspan.
  * @tparam ElementType the data type of the vector elements
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using host_vector_view = host_mdspan<ElementType, detail::vector_extent, LayoutPolicy>;
+using host_vector_view = host_mdspan<ElementType, vector_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for 1-dim device mdspan.
  * @tparam ElementType the data type of the vector elements
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using device_vector_view = device_mdspan<ElementType, detail::vector_extent, LayoutPolicy>;
+using device_vector_view = device_mdspan<ElementType, vector_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for c-contiguous host matrix view.
@@ -514,7 +613,7 @@ using device_vector_view = device_mdspan<ElementType, detail::vector_extent, Lay
  *
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using host_matrix_view = host_mdspan<ElementType, detail::matrix_extent, LayoutPolicy>;
+using host_matrix_view = host_mdspan<ElementType, matrix_extent, LayoutPolicy>;
 
 /**
  * @brief Shorthand for c-contiguous device matrix view.
@@ -523,7 +622,7 @@ using host_matrix_view = host_mdspan<ElementType, detail::matrix_extent, LayoutP
  *
  */
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using device_matrix_view = device_mdspan<ElementType, detail::matrix_extent, LayoutPolicy>;
+using device_matrix_view = device_mdspan<ElementType, matrix_extent, LayoutPolicy>;
 
 /**
  * @brief Create a 0-dim (scalar) mdspan instance for host value.
@@ -534,7 +633,7 @@ using device_matrix_view = device_mdspan<ElementType, detail::matrix_extent, Lay
 template <typename ElementType>
 auto make_host_scalar_view(ElementType* ptr)
 {
-  detail::scalar_extent extents;
+  scalar_extent extents;
   return host_scalar_view<ElementType>{ptr, extents};
 }
 
@@ -547,7 +646,7 @@ auto make_host_scalar_view(ElementType* ptr)
 template <typename ElementType>
 auto make_device_scalar_view(ElementType* ptr)
 {
-  detail::scalar_extent extents;
+  scalar_extent extents;
   return device_scalar_view<ElementType>{ptr, extents};
 }
 
@@ -564,7 +663,7 @@ auto make_device_scalar_view(ElementType* ptr)
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
-  detail::matrix_extent extents{n_rows, n_cols};
+  matrix_extent extents{n_rows, n_cols};
   return host_matrix_view<ElementType, LayoutPolicy>{ptr, extents};
 }
 /**
@@ -580,7 +679,7 @@ auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 {
-  detail::matrix_extent extents{n_rows, n_cols};
+  matrix_extent extents{n_rows, n_cols};
   return device_matrix_view<ElementType, LayoutPolicy>{ptr, extents};
 }
 
@@ -594,7 +693,7 @@ auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_host_vector_view(ElementType* ptr, size_t n)
 {
-  detail::vector_extent extents{n};
+  vector_extent extents{n};
   return host_vector_view<ElementType, LayoutPolicy>{ptr, extents};
 }
 
@@ -608,8 +707,82 @@ auto make_host_vector_view(ElementType* ptr, size_t n)
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_device_vector_view(ElementType* ptr, size_t n)
 {
-  detail::vector_extent extents{n};
+  vector_extent extents{n};
   return device_vector_view<ElementType, LayoutPolicy>{ptr, extents};
+}
+
+/**
+ * @brief Create a host mdarray.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param exts dimensionality of the array (series of integers)
+ * @return raft::host_mdarray
+ */
+template <typename ElementType,
+          typename LayoutPolicy = layout_c_contiguous,
+          typename... Extents,
+          typename = detail::ensure_integral_extents<Extents...>>
+auto make_host_mdarray(Extents... exts)
+{
+  using extent_t  = extents<((void)exts, dynamic_extent)...>;
+  using mdarray_t = host_mdarray<ElementType, extent_t, LayoutPolicy>;
+
+  typename mdarray_t::extents_type extent{exts...};
+  typename mdarray_t::mapping_type layout{extent};
+  typename mdarray_t::container_policy_type policy;
+
+  return mdarray_t{layout, policy};
+}
+
+/**
+ * @brief Create a device mdarray.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param stream cuda stream for ordering events
+ * @param exts dimensionality of the array (series of integers)
+ * @return raft::device_mdarray
+ */
+template <typename ElementType,
+          typename LayoutPolicy = layout_c_contiguous,
+          typename... Extents,
+          typename = detail::ensure_integral_extents<Extents...>>
+auto make_device_mdarray(rmm::cuda_stream_view stream, Extents... exts)
+{
+  using extent_t  = extents<((void)exts, dynamic_extent)...>;
+  using mdarray_t = device_mdarray<ElementType, extent_t, LayoutPolicy>;
+
+  typename mdarray_t::extents_type extent{exts...};
+  typename mdarray_t::mapping_type layout{extent};
+  typename mdarray_t::container_policy_type policy{stream};
+
+  return mdarray_t{layout, policy};
+}
+
+/**
+ * @brief Create a device mdarray.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param stream cuda stream for ordering events
+ * @param mr rmm memory resource used for allocating the memory for the array
+ * @param exts dimensionality of the array (series of integers)
+ * @return raft::device_mdarray
+ */
+template <typename ElementType,
+          typename LayoutPolicy = layout_c_contiguous,
+          typename... Extents,
+          typename = detail::ensure_integral_extents<Extents...>>
+auto make_device_mdarray(rmm::cuda_stream_view stream,
+                         rmm::mr::device_memory_resource* mr,
+                         Extents... exts)
+{
+  using extent_t  = extents<((void)exts, dynamic_extent)...>;
+  using mdarray_t = device_mdarray<ElementType, extent_t, LayoutPolicy>;
+
+  typename mdarray_t::extents_type extent{exts...};
+  typename mdarray_t::mapping_type layout{extent};
+  typename mdarray_t::container_policy_type policy{stream, mr};
+
+  return mdarray_t{layout, policy};
 }
 
 /**
@@ -623,10 +796,7 @@ auto make_device_vector_view(ElementType* ptr, size_t n)
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_host_matrix(size_t n_rows, size_t n_cols)
 {
-  detail::matrix_extent extents{n_rows, n_cols};
-  using policy_t = typename host_matrix<ElementType>::container_policy_type;
-  policy_t policy;
-  return host_matrix<ElementType, LayoutPolicy>{extents, policy};
+  return make_host_mdarray<ElementType, LayoutPolicy>(n_rows, n_cols);
 }
 
 /**
@@ -641,10 +811,7 @@ auto make_host_matrix(size_t n_rows, size_t n_cols)
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stream)
 {
-  detail::matrix_extent extents{n_rows, n_cols};
-  using policy_t = typename device_matrix<ElementType>::container_policy_type;
-  policy_t policy{stream};
-  return device_matrix<ElementType, LayoutPolicy>{extents, policy};
+  return make_device_mdarray<ElementType, LayoutPolicy>(stream, n_rows, n_cols);
 }
 
 /**
@@ -676,7 +843,7 @@ auto make_host_scalar(ElementType const& v)
   // FIXME(jiamingy): We can optimize this by using std::array as container policy, which
   // requires some more compile time dispatching. This is enabled in the ref impl but
   // hasn't been ported here yet.
-  detail::scalar_extent extents;
+  scalar_extent extents;
   using policy_t = typename host_scalar<ElementType>::container_policy_type;
   policy_t policy;
   auto scalar = host_scalar<ElementType>{extents, policy};
@@ -695,7 +862,7 @@ auto make_host_scalar(ElementType const& v)
 template <typename ElementType>
 auto make_device_scalar(ElementType const& v, rmm::cuda_stream_view stream)
 {
-  detail::scalar_extent extents;
+  scalar_extent extents;
   using policy_t = typename device_scalar<ElementType>::container_policy_type;
   policy_t policy{stream};
   auto scalar = device_scalar<ElementType>{extents, policy};
@@ -726,10 +893,7 @@ auto make_device_scalar(raft::handle_t const& handle, ElementType const& v)
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_host_vector(size_t n)
 {
-  detail::vector_extent extents{n};
-  using policy_t = typename host_vector<ElementType, LayoutPolicy>::container_policy_type;
-  policy_t policy;
-  return host_vector<ElementType, LayoutPolicy>{extents, policy};
+  return make_host_mdarray<ElementType, LayoutPolicy>(n);
 }
 
 /**
@@ -742,10 +906,7 @@ auto make_host_vector(size_t n)
 template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
 auto make_device_vector(size_t n, rmm::cuda_stream_view stream)
 {
-  detail::vector_extent extents{n};
-  using policy_t = typename device_vector<ElementType, LayoutPolicy>::container_policy_type;
-  policy_t policy{stream};
-  return device_vector<ElementType, LayoutPolicy>{extents, policy};
+  return make_device_mdarray<ElementType, LayoutPolicy>(stream, n);
 }
 
 /**
@@ -774,10 +935,10 @@ auto flatten(mdspan_type mds)
 {
   RAFT_EXPECTS(mds.is_contiguous(), "Input must be contiguous.");
 
-  detail::vector_extent ext{mds.size()};
+  vector_extent ext{mds.size()};
 
   return detail::stdex::mdspan<typename mdspan_type::element_type,
-                               detail::vector_extent,
+                               vector_extent,
                                typename mdspan_type::layout_type,
                                typename mdspan_type::accessor_type>(mds.data(), ext);
 }
@@ -843,4 +1004,36 @@ auto reshape(const array_interface_type& mda, extents<Extents...> new_shape)
   return reshape(mda.view(), new_shape);
 }
 
+/**
+ * \brief Turns linear index into coordinate.  Similar to numpy unravel_index.
+ *
+ * \code
+ *   auto m = make_host_matrix<float>(7, 6);
+ *   auto m_v = m.view();
+ *   auto coord = unravel_index(2, m.extents(), typename decltype(m)::layout_type{});
+ *   std::apply(m_v, coord) = 2;
+ * \endcode
+ *
+ * \param idx    The linear index.
+ * \param shape  The shape of the array to use.
+ * \param layout Must be `layout_c_contiguous` (row-major) in current implementation.
+ *
+ * \return A std::tuple that represents the coordinate.
+ */
+template <typename Idx, typename LayoutPolicy, std::size_t... Exts>
+MDSPAN_INLINE_FUNCTION auto unravel_index(Idx idx,
+                                          extents<Exts...> shape,
+                                          LayoutPolicy const& layout)
+{
+  static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(layout)>>,
+                               layout_c_contiguous>,
+                "Only C layout is supported.");
+  static_assert(std::is_integral_v<Idx>, "Index must be integral.");
+  auto constexpr kIs64 = sizeof(std::remove_cv_t<std::remove_reference_t<Idx>>) == sizeof(uint64_t);
+  if (kIs64 && static_cast<uint64_t>(idx) > std::numeric_limits<uint32_t>::max()) {
+    return detail::unravel_index_impl<uint64_t, Exts...>(static_cast<uint64_t>(idx), shape);
+  } else {
+    return detail::unravel_index_impl<uint32_t, Exts...>(static_cast<uint32_t>(idx), shape);
+  }
+}
 }  // namespace raft

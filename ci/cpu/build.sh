@@ -91,6 +91,7 @@ if [ "$BUILD_LIBRAFT" == "1" ]; then
     mkdir -p ${CONDA_BLD_DIR}/libraft/work
     mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/libraft/work
   fi
+  sccache --show-stats
 else
   gpuci_logger "SKIPPING build of conda packages for libraft-nn, libraft-distance, libraft-headers and libraft-tests"
 fi

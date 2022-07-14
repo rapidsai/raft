@@ -1,4 +1,6 @@
 #!/bin/bash
+
+
 # Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #########################################
 # RAFT GPU build and test script for CI #
@@ -17,12 +19,13 @@ function hasArg {
 export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 export CUDA_REL=${CUDA_VERSION%.*}
+CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/raft/cpu/.conda-bld/ # notice there is no `linux-64` here
 
 # Set home to the job's workspace
-export HOME="$WORKSPACE"
+export HOME=$WORKSPACE
 
 # Parse git describe
-cd "$WORKSPACE"
+cd $WORKSPACE
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 unset GIT_DESCRIBE_TAG
@@ -46,13 +49,7 @@ conda activate rapids
 
 # Install pre-built conda packages from previous CI step
 gpuci_logger "Install libraft conda packages from CPU job"
-CONDA_ARTIFACT_PATH="$WORKSPACE/ci/artifacts/raft/cpu/.conda-bld/" # notice there is no `linux-64` here
-gpuci_mamba_retry install -c "${CONDA_ARTIFACT_PATH}" libraft-headers libraft-distance libraft-nn libraft-tests
-
-gpuci_logger "Check compiler versions"
-python --version
-$CC --version
-$CXX --version
+gpuci_mamba_retry install -y -c "${CONDA_ARTIFACT_PATH}" libraft-headers libraft-distance libraft-nn libraft-tests
 
 gpuci_logger "Check conda environment"
 conda info
@@ -68,10 +65,7 @@ CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 gpuci_mamba_retry install boa
 gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pyraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
 gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pylibraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
-gpuci_mamba_retry install -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pyraft pylibraft
-
-gpuci_logger "sccache stats"
-sccache --show-stats
+gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pyraft pylibraft
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
@@ -85,16 +79,15 @@ fi
 # Install the master version of dask, distributed, and dask-ml
 gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@2022.05.2" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@2022.05.2" --upgrade --no-deps
+pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
 set +x
 
 gpuci_logger "Check GPU usage"
 nvidia-smi
 
 gpuci_logger "GoogleTest for raft"
-cd "$WORKSPACE"
-GTEST_OUTPUT="xml:$WORKSPACE/test-results/raft_cpp/" "$CONDA_PREFIX/bin/libraft/gtests/test_raft"
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/libraft/gtests/test_raft
 
 gpuci_logger "Python pytest for pyraft"
 cd "$WORKSPACE/python/raft/raft/test"

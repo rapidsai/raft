@@ -21,9 +21,6 @@ outputs:
     script: build_libraft_headers.sh
     build:
       script_env: &script_env
-        - CC
-        - CXX
-        - CUDAHOSTCXX
         - PARALLEL_LEVEL
         - VERSION_SUFFIX
         - CMAKE_GENERATOR
@@ -37,12 +34,19 @@ outputs:
         - SCCACHE_IDLE_TIMEOUT=32768
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
     requirements:
       build:
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
         - cmake {{ cmake_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
         - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - librmm {{ minor_version }}
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
@@ -50,6 +54,7 @@ outputs:
       run:
         - cudatoolkit {{ cuda_spec }}
         - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - librmm {{ minor_version }}
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
@@ -62,12 +67,18 @@ outputs:
     version: {{ version }}
     script: build_libraft_distance.sh
     build:
+      script_env: *script_env
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      script_env: *script_env
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
     requirements:
       build:
         - cmake {{ cmake_version }}
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
         - librmm {{ minor_version }}
@@ -77,11 +88,12 @@ outputs:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
       run:
         - cudatoolkit {{ cuda_spec }}
-        - libcusolver {{ libcusolver_version }}
         - librmm {{ minor_version }}
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
         - ucx-py {{ ucx_py_version }}
+        - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
       home: http://rapids.ai/
@@ -91,12 +103,18 @@ outputs:
     version: {{ version }}
     script: build_libraft_nn.sh
     build:
+      script_env: *script_env
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      script_env: *script_env
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
     requirements:
       build:
         - cmake {{ cmake_version }}
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
         - faiss-proc=*=cuda
@@ -108,6 +126,7 @@ outputs:
         - cudatoolkit {{ cuda_spec }}
         - faiss-proc=*=cuda
         - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - libfaiss {{ libfaiss_version }}
         - librmm {{ minor_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
@@ -119,12 +138,18 @@ outputs:
     version: {{ version }}
     script: build_libraft_tests.sh
     build:
+      script_env: *script_env
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      script_env: *script_env
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
     requirements:
       build:
         - cmake {{ cmake_version }}
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
         - gmock {{ gtest_version }}
@@ -136,6 +161,8 @@ outputs:
         - cudatoolkit {{ cuda_spec }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
+        - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - {{ pin_subpackage('libraft-distance', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_subpackage('libraft-nn', exact=True) }}
