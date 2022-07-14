@@ -329,11 +329,6 @@ MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<Extents...>
  *   put it as the last nameless template parameter of a function:
  *     `typename = ensure_integral_extents<Extents...>`
  */
-/*
-template <typename... Extents>
-using ensure_integral_extents =
-  std::enable_if_t<(true && ... && std::is_integral_v<Extents>), void>;
-  */
 template <typename... Extents>
 using ensure_integral_extents = std::enable_if_t<std::is_integral_v<Extents...>>;
 }  // namespace raft::detail
