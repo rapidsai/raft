@@ -80,10 +80,10 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
   });
 }
 
-template <typename T, typename LayoutPolicy1, typename LayoutPolicy2>
+template <typename T, typename LayoutPolicy>
 void transpose_row_major_impl(handle_t const& handle,
-                              device_matrix_view<T, LayoutPolicy1> in,
-                              device_matrix_view<T, LayoutPolicy2> out)
+                              device_matrix_view<T, LayoutPolicy> in,
+                              device_matrix_view<T, LayoutPolicy> out)
 {
   auto out_n_rows   = in.extent(1);
   auto out_n_cols   = in.extent(0);
@@ -105,10 +105,10 @@ void transpose_row_major_impl(handle_t const& handle,
                         handle.get_stream()));
 }
 
-template <typename T, typename LayoutPolicy1, typename LayoutPolicy2>
+template <typename T, typename LayoutPolicy>
 void transpose_col_major_impl(handle_t const& handle,
-                              device_matrix_view<T, LayoutPolicy1> in,
-                              device_matrix_view<T, LayoutPolicy2> out)
+                              device_matrix_view<T, LayoutPolicy> in,
+                              device_matrix_view<T, LayoutPolicy> out)
 {
   auto out_n_rows   = in.extent(1);
   auto out_n_cols   = in.extent(0);

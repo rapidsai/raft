@@ -132,8 +132,7 @@ template <typename T>
 [[nodiscard]] auto transpose(handle_t const& handle, device_matrix_view<T, layout_stride> in)
   -> std::enable_if_t<std::is_floating_point_v<T>, device_matrix<T, layout_stride>>
 {
-  using extent_type = raft::extents<raft::dynamic_extent, raft::dynamic_extent>;
-  extent_type exts{in.extent(1), in.extent(0)};
+  matrix_extent exts{in.extent(1), in.extent(0)};
   using policy_type = typename raft::device_matrix<T, layout_stride>::container_policy_type;
   policy_type policy(handle.get_stream());
 
@@ -141,15 +140,14 @@ template <typename T>
   if (in.stride(1) == 1) {
     // row-major submatrix
     std::array<size_t, 2> strides{in.extent(0), 1};
-    auto layout = layout_stride::mapping<extent_type>{exts, strides};
+    auto layout = layout_stride::mapping<matrix_extent>{exts, strides};
     raft::device_matrix<T, layout_stride> out{layout, policy};
     transpose(handle, in, out.view());
     return out;
   } else {
-    RAFT_EXPECTS(in.stride(0) == 1, "Unsupported layout type.");
     // col-major submatrix
     std::array<size_t, 2> strides{1, in.extent(1)};
-    auto layout = layout_stride::mapping<extent_type>{exts, strides};
+    auto layout = layout_stride::mapping<matrix_extent>{exts, strides};
     raft::device_matrix<T, layout_stride> out{layout, policy};
     transpose(handle, in, out.view());
     return out;
