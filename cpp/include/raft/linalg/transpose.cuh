@@ -57,84 +57,55 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
 }
 
 /**
- * @brief Transpose a contiguous matrix. The output has same layout policy as the input.
+ * @brief Transpose a matrix. The output has same layout policy as the input.
  *
  * @tparam T Data type of input matrix element.
- * @tparam LayoutPolicy Layout type of the input matrix, should be either
- *         `layout_c_contiguous` or `layout_f_contiguous`.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
  *
  * @param[in]  handle raft handle for managing expensive cuda resources.
- * @param[in]  in     Input matrix, the storage should be contiguous.
- * @param[out] out    Output matirx, storage is pre-allocated by caller and should be
- *                    contiguous.
+ * @param[in]  in     Input matrix.
+ * @param[out] out    Output matirx, storage is pre-allocated by caller.
  */
 template <typename T, typename LayoutPolicy>
 auto transpose(handle_t const& handle,
                device_matrix_view<T, LayoutPolicy> in,
                device_matrix_view<T, LayoutPolicy> out)
-  -> std::enable_if_t<std::is_floating_point_v<T> &&
-                        (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
-                         std::is_same_v<LayoutPolicy, layout_f_contiguous>),
-                      void>
+  -> std::enable_if_t<std::is_floating_point_v<T>, void>
 {
   RAFT_EXPECTS(out.extent(0) == in.extent(1), "Invalid shape for transpose.");
   RAFT_EXPECTS(out.extent(1) == in.extent(0), "Invalid shape for transpose.");
-  RAFT_EXPECTS(in.is_contiguous(), "Invalid format for transpose input.");
-  RAFT_EXPECTS(out.is_contiguous(), "Invalid format for transpose output.");
 
-  auto out_n_rows = in.extent(1);
-  auto out_n_cols = in.extent(0);
-
-  T constexpr kOne  = 1;
-  T constexpr kZero = 0;
   if constexpr (std::is_same_v<typename decltype(in)::layout_type, layout_c_contiguous>) {
-    CUBLAS_TRY(detail::cublasgeam(handle.get_cublas_handle(),
-                                  CUBLAS_OP_T,
-                                  CUBLAS_OP_N,
-                                  out_n_cols,
-                                  out_n_rows,
-                                  &kOne,
-                                  in.data(),
-                                  in.stride(0),
-                                  &kZero,
-                                  static_cast<T*>(nullptr),
-                                  out.stride(0),
-                                  out.data(),
-                                  out.stride(0),
-                                  handle.get_stream()));
+    detail::transpose_row_major_impl(handle, in, out);
+  } else if (std::is_same_v<typename decltype(in)::layout_type, layout_f_contiguous>) {
+    detail::transpose_col_major_impl(handle, in, out);
   } else {
-    static_assert(std::is_same_v<typename decltype(in)::layout_type, layout_f_contiguous>);
-    CUBLAS_TRY(detail::cublasgeam(handle.get_cublas_handle(),
-                                  CUBLAS_OP_T,
-                                  CUBLAS_OP_N,
-                                  out_n_rows,
-                                  out_n_cols,
-                                  &kOne,
-                                  in.data(),
-                                  in.stride(1),
-                                  &kZero,
-                                  static_cast<T*>(nullptr),
-                                  out.stride(1),
-                                  out.data(),
-                                  out.stride(1),
-                                  handle.get_stream()));
+    RAFT_EXPECTS(in.stride(0) == 1 || in.stride(1) == 1, "Unsupported matrix layout.");
+    if (in.stride(1) == 1) {
+      // row-major submatrix
+      detail::transpose_row_major_impl(handle, in, out);
+    } else {
+      // col-major submatrix
+      detail::transpose_col_major_impl(handle, in, out);
+    }
   }
 }
 
 /**
- * @brief Transpose a contiguous matrix. The output has same layout policy as the input.
+ * @brief Transpose a matrix. The output has same layout policy as the input.
  *
  * @tparam T Data type of input matrix elements.
- * @tparam LayoutPolicy Layout type of the input matrix, should be either
- *         `layout_c_contiguous` or `layout_f_contiguous`.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
  *
  * @param[in] handle raft handle for managing expensive cuda resources.
- * @param[in] in     Input matrix, the storage should be contiguous.
+ * @param[in] in     Input matrix.
  *
  * @return The transposed matrix.
  */
 template <typename T, typename LayoutPolicy>
-auto transpose(handle_t const& handle, device_matrix_view<T, LayoutPolicy> in)
+[[nodiscard]] auto transpose(handle_t const& handle, device_matrix_view<T, LayoutPolicy> in)
   -> std::enable_if_t<std::is_floating_point_v<T> &&
                         (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
                          std::is_same_v<LayoutPolicy, layout_f_contiguous>),
@@ -143,6 +114,48 @@ auto transpose(handle_t const& handle, device_matrix_view<T, LayoutPolicy> in)
   auto out = make_device_matrix<T, LayoutPolicy>(handle, in.extent(1), in.extent(0));
   transpose(handle, in, out.view());
   return out;
+}
+
+/**
+ * @brief Transpose a matrix. The output has same layout policy as the input.
+ *
+ * @tparam T Data type of input matrix elements.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ *
+ * @param[in] handle raft handle for managing expensive cuda resources.
+ * @param[in] in     Input matrix.
+ *
+ * @return The transposed matrix.
+ */
+template <typename T>
+[[nodiscard]] auto transpose(handle_t const& handle,
+                             device_matrix_view<T, raft::detail::stdex::layout_stride> in)
+  -> std::enable_if_t<std::is_floating_point_v<T>,
+                      device_matrix<T, raft::detail::stdex::layout_stride>>
+{
+  using extent_type = raft::extents<raft::dynamic_extent, raft::dynamic_extent>;
+  extent_type exts{in.extent(1), in.extent(0)};
+  using policy_type = typename raft::device_matrix<T, layout_stride>::container_policy_type;
+  policy_type policy(handle.get_stream());
+
+  RAFT_EXPECTS(in.stride(0) == 1 || in.stride(1) == 1, "Unsupported matrix layout.");
+  if (in.stride(1) == 1) {
+    // row-major submatrix
+    std::array<size_t, 2> strides{in.extent(0), 1};
+    auto layout = layout_stride::mapping<extent_type>{exts, strides};
+    raft::device_matrix<T, layout_stride> out{layout, policy};
+    transpose(handle, in, out.view());
+    return out;
+  } else {
+    RAFT_EXPECTS(in.stride(0) == 1, "Unsupported layout type.");
+    // col-major submatrix
+    std::array<size_t, 2> strides{1, in.extent(1)};
+    auto layout = layout_stride::mapping<extent_type>{exts, strides};
+    raft::device_matrix<T, layout_stride> out{layout, policy};
+    transpose(handle, in, out.view());
+    return out;
+  }
 }
 };  // end namespace linalg
 };  // end namespace raft

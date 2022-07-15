@@ -113,6 +113,7 @@ INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValF, ::testing::ValuesIn(
 
 INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValD, ::testing::ValuesIn(inputsd2));
 
+namespace {
 template <typename T, typename LayoutPolicy>
 void test_transpose_with_mdspan()
 {
@@ -136,6 +137,7 @@ void test_transpose_with_mdspan()
     }
   }
 }
+}  // namespace
 
 TEST(TransposeTest, MDSpan)
 {
@@ -144,6 +146,47 @@ TEST(TransposeTest, MDSpan)
 
   test_transpose_with_mdspan<float, layout_f_contiguous>();
   test_transpose_with_mdspan<double, layout_f_contiguous>();
+}
+
+namespace {
+template <typename T, typename LayoutPolicy>
+void test_transpose_submatrix()
+{
+  handle_t handle;
+  auto v = make_device_matrix<T, LayoutPolicy>(handle, 32, 33);
+  T k{0};
+  size_t row_beg{3}, row_end{13}, col_beg{2}, col_end{11};
+  for (size_t i = row_beg; i < row_end; ++i) {
+    for (size_t j = col_beg; j < col_end; ++j) {
+      v(i, j) = k++;
+    }
+  }
+
+  auto vv     = v.view();
+  auto submat = raft::detail::stdex::submdspan(
+    vv, std::make_tuple(row_beg, row_end), std::make_tuple(col_beg, col_end));
+  static_assert(std::is_same_v<typename decltype(submat)::layout_type, layout_stride>);
+
+  auto out = transpose(handle, submat);
+  ASSERT_EQ(out.extent(0), submat.extent(1));
+  ASSERT_EQ(out.extent(1), submat.extent(0));
+
+  k = 0;
+  for (size_t i = 0; i < out.extent(1); ++i) {
+    for (size_t j = 0; j < out.extent(0); ++j) {
+      ASSERT_EQ(out(j, i), k++);
+    }
+  }
+}
+}  // namespace
+
+TEST(TransposeTest, SubMatrix)
+{
+  test_transpose_submatrix<float, layout_c_contiguous>();
+  test_transpose_submatrix<double, layout_c_contiguous>();
+
+  test_transpose_submatrix<float, layout_f_contiguous>();
+  test_transpose_submatrix<double, layout_f_contiguous>();
 }
 }  // end namespace linalg
 }  // end namespace raft

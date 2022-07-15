@@ -18,6 +18,7 @@
 
 #include "cublas_wrappers.hpp"
 
+#include <raft/core/mdarray.hpp>
 #include <raft/handle.hpp>
 #include <rmm/exec_policy.hpp>
 #include <thrust/for_each.h>
@@ -77,6 +78,56 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
       d_inout[s_col * m + s_row] = temp;
     }
   });
+}
+
+template <typename T, typename LayoutPolicy1, typename LayoutPolicy2>
+void transpose_row_major_impl(handle_t const& handle,
+                              device_matrix_view<T, LayoutPolicy1> in,
+                              device_matrix_view<T, LayoutPolicy2> out)
+{
+  auto out_n_rows   = in.extent(1);
+  auto out_n_cols   = in.extent(0);
+  T constexpr kOne  = 1;
+  T constexpr kZero = 0;
+  CUBLAS_TRY(cublasgeam(handle.get_cublas_handle(),
+                        CUBLAS_OP_T,
+                        CUBLAS_OP_N,
+                        out_n_cols,
+                        out_n_rows,
+                        &kOne,
+                        in.data(),
+                        in.stride(0),
+                        &kZero,
+                        static_cast<T*>(nullptr),
+                        out.stride(0),
+                        out.data(),
+                        out.stride(0),
+                        handle.get_stream()));
+}
+
+template <typename T, typename LayoutPolicy1, typename LayoutPolicy2>
+void transpose_col_major_impl(handle_t const& handle,
+                              device_matrix_view<T, LayoutPolicy1> in,
+                              device_matrix_view<T, LayoutPolicy2> out)
+{
+  auto out_n_rows   = in.extent(1);
+  auto out_n_cols   = in.extent(0);
+  T constexpr kOne  = 1;
+  T constexpr kZero = 0;
+  CUBLAS_TRY(cublasgeam(handle.get_cublas_handle(),
+                        CUBLAS_OP_T,
+                        CUBLAS_OP_N,
+                        out_n_rows,
+                        out_n_cols,
+                        &kOne,
+                        in.data(),
+                        in.stride(1),
+                        &kZero,
+                        static_cast<T*>(nullptr),
+                        out.stride(1),
+                        out.data(),
+                        out.stride(1),
+                        handle.get_stream()));
 }
 };  // end namespace detail
 };  // end namespace linalg

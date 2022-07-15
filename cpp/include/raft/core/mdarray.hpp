@@ -33,7 +33,7 @@
 
 namespace raft {
 /**
- * @\brief Dimensions extents for raft::host_mdspan or raft::device_mdspan
+ * @brief Dimensions extents for raft::host_mdspan or raft::device_mdspan
  */
 template <size_t... ExtentsPack>
 using extents = std::experimental::extents<ExtentsPack...>;
@@ -55,6 +55,11 @@ using detail::stdex::layout_left;
 using layout_f_contiguous = layout_left;
 using col_major           = layout_left;
 /** @} */
+
+/**
+ * @brief Strided layout for non-contiguous memory.
+ */
+using detail::stdex::layout_stride;
 
 /**
  * @defgroup Common mdarray/mdspan extent types. The rank is known at compile time, each dimension
@@ -409,8 +414,7 @@ class mdarray
   auto operator()(IndexType&&... indices)
     -> std::enable_if_t<sizeof...(IndexType) == extents_type::rank() &&
                           (std::is_convertible_v<IndexType, index_type> && ...) &&
-                          std::is_constructible_v<extents_type, IndexType...> &&
-                          std::is_constructible_v<mapping_type, extents_type>,
+                          std::is_constructible_v<extents_type, IndexType...>,
                         /* device policy is not default constructible due to requirement for CUDA
                            stream. */
                         /* std::is_default_constructible_v<container_policy_type> */
