@@ -129,10 +129,8 @@ template <typename T, typename LayoutPolicy>
  * @return The transposed matrix.
  */
 template <typename T>
-[[nodiscard]] auto transpose(handle_t const& handle,
-                             device_matrix_view<T, raft::detail::stdex::layout_stride> in)
-  -> std::enable_if_t<std::is_floating_point_v<T>,
-                      device_matrix<T, raft::detail::stdex::layout_stride>>
+[[nodiscard]] auto transpose(handle_t const& handle, device_matrix_view<T, layout_stride> in)
+  -> std::enable_if_t<std::is_floating_point_v<T>, device_matrix<T, layout_stride>>
 {
   using extent_type = raft::extents<raft::dynamic_extent, raft::dynamic_extent>;
   extent_type exts{in.extent(1), in.extent(0)};
