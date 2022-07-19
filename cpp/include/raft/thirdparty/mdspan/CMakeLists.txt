@@ -1,9 +1,11 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.14)
 
 project(MDSpan
-  VERSION 0.2.0
+  VERSION 0.4.0
   LANGUAGES CXX
 )
+
+include(GNUInstallDirs)
 
 ################################################################################
 
@@ -17,10 +19,11 @@ option(MDSPAN_ENABLE_BENCHMARKS "Enable benchmarks." Off)
 option(MDSPAN_ENABLE_COMP_BENCH "Enable compilation benchmarks." Off)
 option(MDSPAN_ENABLE_CUDA "Enable Cuda tests/benchmarks/examples if tests/benchmarks/examples are enabled." Off)
 option(MDSPAN_ENABLE_OPENMP "Enable OpenMP benchmarks if benchmarks are enabled." On)
+option(MDSPAN_USE_SYSTEM_GTEST "Use system-installed GoogleTest library for tests." Off)
 
 # Option to override which C++ standard to use
 set(MDSPAN_CXX_STANDARD DETECT CACHE STRING "Override the default CXX_STANDARD to compile with.")
-set_property(CACHE MDSPAN_CXX_STANDARD PROPERTY STRINGS DETECT 14 17 20)
+set_property(CACHE MDSPAN_CXX_STANDARD PROPERTY STRINGS DETECT 14 17 20 23)
 
 option(MDSPAN_ENABLE_CONCEPTS "Try to enable concepts support by giving extra flags." On)
 
@@ -48,8 +51,18 @@ elseif(MDSPAN_CXX_STANDARD STREQUAL "20")
   else()
     message(FATAL_ERROR "Requested MDSPAN_CXX_STANDARD \"20\" not supported by provided C++ compiler")
   endif()
+elseif(MDSPAN_CXX_STANDARD STREQUAL "23")
+  if("cxx_std_23" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
+    message(STATUS "Using C++23 standard")
+    set(CMAKE_CXX_STANDARD 23)
+  else()
+    message(FATAL_ERROR "Requested MDSPAN_CXX_STANDARD \"23\" not supported by provided C++ compiler")
+  endif()
 else()
-  if("cxx_std_20" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
+  if("cxx_std_23" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
+    set(CMAKE_CXX_STANDARD 23)
+    message(STATUS "Detected support for C++23 standard")
+  elseif("cxx_std_20" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
     set(CMAKE_CXX_STANDARD 20)
     message(STATUS "Detected support for C++20 standard")
   elseif("cxx_std_17" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
@@ -66,7 +79,7 @@ endif()
 ################################################################################
 
 if(MDSPAN_ENABLE_CONCEPTS)
-  if(CMAKE_CXX_STANDARD STREQUAL "20")
+  if(CMAKE_CXX_STANDARD GREATER_EQUAL 20)
     include(CheckCXXCompilerFlag)
     check_cxx_compiler_flag("-fconcepts" COMPILER_SUPPORTS_FCONCEPTS)
     if(COMPILER_SUPPORTS_FCONCEPTS)
@@ -109,19 +122,19 @@ add_library(std::mdspan ALIAS mdspan)
 
 target_include_directories(mdspan INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 ################################################################################
 
 install(TARGETS mdspan EXPORT mdspanTargets
-  INCLUDES DESTINATION include
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 install(EXPORT mdspanTargets
     FILE mdspanTargets.cmake
     NAMESPACE std::
-    DESTINATION lib/cmake/mdspan
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mdspan
 )
 
 export(TARGETS mdspan
@@ -129,19 +142,20 @@ export(TARGETS mdspan
     FILE mdspanTargets.cmake
 )
 
-install(DIRECTORY include/experimental DESTINATION include)
+install(DIRECTORY include/experimental DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file(cmake/mdspanConfig.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/mdspanConfig.cmake
-  INSTALL_DESTINATION lib/cmake/mdspan
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mdspan
 )
 write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/mdspanConfigVersion.cmake
   COMPATIBILITY SameMajorVersion
+  ARCH_INDEPENDENT
 )
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/mdspanConfig.cmake ${CMAKE_CURRENT_BINARY_DIR}/mdspanConfigVersion.cmake
-  DESTINATION lib/cmake/mdspan
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mdspan
 )
 
 ################################################################################
