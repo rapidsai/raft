@@ -20,6 +20,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/random/rng.cuh>
+#include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/ivf_flat.cuh>
 #include <raft/spatial/knn/knn.cuh>
@@ -198,12 +199,29 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
         index_params.metric    = ps.metric;
         search_params.n_probes = ps.nprobe;
 
+        index_params.add_data_on_build        = false;
+        index_params.kmeans_trainset_fraction = 0.5;
         auto index =
           ivf_flat::build(handle_, index_params, database.data(), int64_t(ps.num_db_vecs), ps.dim);
 
+        rmm::device_uvector<int64_t> vector_indices(ps.num_db_vecs, stream_);
+        sparse::iota_fill(vector_indices.data(), int64_t(ps.num_db_vecs), int64_t(1), stream_);
+        handle_.sync_stream(stream_);
+
+        int64_t half_of_data = ps.num_db_vecs / 2;
+
+        auto index_2 =
+          ivf_flat::extend<DataT, int64_t>(handle_, index, database.data(), nullptr, half_of_data);
+
+        auto index_3 = ivf_flat::extend<DataT, int64_t>(handle_,
+                                                        index_2,
+                                                        database.data() + half_of_data * ps.dim,
+                                                        vector_indices.data() + half_of_data,
+                                                        int64_t(ps.num_db_vecs) - half_of_data);
+
         ivf_flat::search(handle_,
                          search_params,
-                         index,
+                         index_3,
                          search_queries.data(),
                          ps.num_queries,
                          ps.k,

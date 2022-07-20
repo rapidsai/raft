@@ -56,6 +56,35 @@ inline auto build(
 }
 
 /**
+ * @brief Build a new index containing the data of the original plus new extra vectors.
+ *
+ * Implementation note:
+ *    The new data is clustered according to existing kmeans clusters, then the cluster
+ *    centers are adjusted to match the newly labeled data.
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param handle
+ * @param index original index
+ * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices a device pointer to a vector of indices [n_rows]
+ * @param n_rows the number of samples
+ *
+ * @return the constructed extended ivf-flat index
+ */
+template <typename T, typename IdxT>
+inline auto extend(const handle_t& handle,
+                   const index<T, IdxT>& orig_index,
+                   const T* new_vectors,
+                   const IdxT* new_indices,
+                   IdxT n_rows) -> index<T, IdxT>
+{
+  return raft::spatial::knn::ivf_flat::detail::extend(
+    handle, orig_index, new_vectors, new_indices, n_rows, handle.get_stream());
+}
+
+/**
  * @brief Search ANN using the constructed index.
  *
  * @tparam T data element type

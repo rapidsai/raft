@@ -135,16 +135,17 @@ struct mapping {
  * @param[in] value
  * @param[in] n_bytes
  */
-inline void memset(void* ptr, int value, size_t n_bytes, rmm::cuda_stream_view stream)
+template <typename T>
+inline void memzero(T* ptr, size_t n_elems, rmm::cuda_stream_view stream)
 {
   switch (check_pointer_residency(ptr)) {
     case pointer_residency::host_and_device:
     case pointer_residency::device_only: {
-      RAFT_CUDA_TRY(cudaMemsetAsync(ptr, value, n_bytes, stream));
+      RAFT_CUDA_TRY(cudaMemsetAsync(ptr, 0, n_elems * sizeof(T), stream));
     } break;
     case pointer_residency::host_only: {
       stream.synchronize();
-      ::memset(ptr, value, n_bytes);
+      ::memset(ptr, 0, n_elems * sizeof(T));
     } break;
     default: RAFT_FAIL("memset: unreachable code");
   }
@@ -355,15 +356,15 @@ inline void normalize_rows(uint32_t n_rows, uint32_t n_cols, float* a, rmm::cuda
   normalize_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
 }
 
-__global__ void divide_along_rows_kernel(uint32_t n_rows,
-                                         uint32_t n_cols,
-                                         float* a,
-                                         const uint32_t* d)
+template <typename Lambda>
+__global__ void map_along_rows_kernel(
+  uint32_t n_rows, uint32_t n_cols, float* a, const uint32_t* d, Lambda map)
 {
   uint64_t gid = threadIdx.x + blockDim.x * blockIdx.x;
   uint64_t i   = gid / n_cols;
   if (i >= n_rows) return;
-  if (d[i] != 0) { a[gid] /= d[i]; }
+  float& x = a[gid];
+  x        = map(x, d[i]);
 }
 
 /**
@@ -372,20 +373,28 @@ __global__ void divide_along_rows_kernel(uint32_t n_rows,
  *
  * NB: device-only function
  *
- * @param[in] n_rows
- * @param[in] n_cols
+ * @tparam Lambda
+ *
+ * @param n_rows
+ * @param n_cols
  * @param[inout] a device pointer to a row-major matrix [n_rows, n_cols]
- * @param[in] d device pointer to a vector of divisors [n_rows]
+ * @param[in] d device pointer to a vector [n_rows]
+ * @param map the binary operation to apply on every element of matrix rows and of the vector
  */
-inline void divide_along_rows(
-  uint32_t n_rows, uint32_t n_cols, float* a, const uint32_t* d, rmm::cuda_stream_view stream)
+template <typename Lambda>
+inline void map_along_rows(uint32_t n_rows,
+                           uint32_t n_cols,
+                           float* a,
+                           const uint32_t* d,
+                           Lambda map,
+                           rmm::cuda_stream_view stream)
 {
   dim3 threads(128, 1, 1);
   dim3 blocks(
     ceildiv<uint64_t>(static_cast<uint64_t>(n_rows) * static_cast<uint64_t>(n_cols), threads.x),
     1,
     1);
-  divide_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, a, d);
+  map_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, a, d, map);
 }
 
 template <typename T>
@@ -396,6 +405,66 @@ __global__ void outer_add_kernel(const T* a, uint32_t len_a, const T* b, uint32_
   uint64_t j   = gid % len_b;
   if (i >= len_a) return;
   c[gid] = (a == nullptr ? T(0) : a[i]) + (b == nullptr ? T(0) : b[j]);
+}
+
+template <typename T, typename IdxT>
+__global__ void block_copy_kernel(const IdxT* in_offsets,
+                                  const IdxT* out_offsets,
+                                  IdxT n_blocks,
+                                  const T* in_data,
+                                  T* out_data,
+                                  IdxT n_mult)
+{
+  IdxT i = IdxT(blockDim.x) * IdxT(blockIdx.x) + threadIdx.x;
+  // find the source offset using the binary search.
+  uint32_t l     = 0;
+  uint32_t r     = n_blocks;
+  IdxT in_offset = 0;
+  if (in_offsets[r] * n_mult <= i) return;
+  while (l + 1 < r) {
+    uint32_t c = (l + r) >> 1;
+    IdxT o     = in_offsets[c] * n_mult;
+    if (o <= i) {
+      l         = c;
+      in_offset = o;
+    } else {
+      r = c;
+    }
+  }
+  // copy the data
+  out_data[out_offsets[l] * n_mult - in_offset + i] = in_data[i];
+}
+
+/**
+ * Copy chunks of data from one array to another at given offsets.
+ *
+ * @tparam T element type
+ * @tparam IdxT index type
+ *
+ * @param[in] in_offsets
+ * @param[in] out_offsets
+ * @param n_blocks size of the offset arrays minus one.
+ * @param[in] in_data
+ * @param[out] out_data
+ * @param n_mult constant multiplier for offset values (such as e.g. `dim`)
+ * @param stream
+ */
+template <typename T, typename IdxT>
+void block_copy(const IdxT* in_offsets,
+                const IdxT* out_offsets,
+                IdxT n_blocks,
+                const T* in_data,
+                T* out_data,
+                IdxT n_mult,
+                rmm::cuda_stream_view stream)
+{
+  IdxT in_size;
+  update_host(&in_size, in_offsets + n_blocks, 1, stream);
+  stream.synchronize();
+  dim3 threads(128, 1, 1);
+  dim3 blocks(ceildiv<IdxT>(in_size * n_mult, threads.x), 1, 1);
+  block_copy_kernel<<<blocks, threads, 0, stream>>>(
+    in_offsets, out_offsets, n_blocks, in_data, out_data, n_mult);
 }
 
 /**
