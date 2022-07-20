@@ -32,7 +32,7 @@ namespace detail {
 /**
  * @brief Convert dense adjacency matrix into unsorted CSR format.
  *
- * The dense_to_unsorted_csr kernel converts a boolean adjacency matrix into CSR
+ * The adj_to_csr kernel converts a boolean adjacency matrix into CSR
  * format. High performance comes at the cost of non-deterministic output: the
  * column indices are not guaranteed to be stored in order.
  *
@@ -42,8 +42,7 @@ namespace detail {
  * block. If there are more SMs than rows, multiple blocks operate on a single
  * row. To enable cooperation between these blocks, each row is provided a
  * counter where the current output index can be cooperatively (atomically)
- * incremented. As a result, the order of the output indices is not guaranteed
- * to be in order.
+ * incremented. As a result, the order of the output indices is not guaranteed.
  *
  * @param[in]     adj          A num_rows x num_cols boolean matrix in contiguous row-major
  *                             format.
@@ -59,13 +58,12 @@ namespace detail {
  *                             the number of non-zeros in `adj`.
  */
 template <typename index_t>
-__global__ void dense_bool_to_unsorted_csr_kernel(
-  const bool* adj,         // row-major adjacency matrix
-  const index_t* row_ind,  // precomputed row indices
-  index_t num_rows,        // # rows of adj
-  index_t num_cols,        // # cols of adj
-  index_t* row_counters,   // pre-allocated (zeroed) atomic counters
-  index_t* out_col_ind     // output column indices
+__global__ void adj_to_csr_kernel(const bool* adj,         // row-major adjacency matrix
+                                  const index_t* row_ind,  // precomputed row indices
+                                  index_t num_rows,        // # rows of adj
+                                  index_t num_cols,        // # cols of adj
+                                  index_t* row_counters,   // pre-allocated (zeroed) atomic counters
+                                  index_t* out_col_ind     // output column indices
 )
 {
   const int chunk_size = 16;
@@ -127,18 +125,20 @@ __global__ void dense_bool_to_unsorted_csr_kernel(
  *                         number of non-zeros in adj.
  */
 template <typename index_t = int>
-void dense_bool_to_unsorted_csr(const raft::handle_t& handle,
-                                const bool* adj,         // row-major adjacency matrix
-                                const index_t* row_ind,  // precomputed row indices
-                                index_t num_rows,        // # rows of adj
-                                index_t num_cols,        // # cols of adj
-                                index_t* tmp,            // pre-allocated atomic counters
-                                index_t* out_col_ind     // output column indices
+void adj_to_csr(const raft::handle_t& handle,
+                const bool* adj,         // row-major adjacency matrix
+                const index_t* row_ind,  // precomputed row indices
+                index_t num_rows,        // # rows of adj
+                index_t num_cols,        // # cols of adj
+                index_t* tmp,            // pre-allocated atomic counters
+                index_t* out_col_ind     // output column indices
 )
 {
   auto stream = handle.get_stream();
 
-  RAFT_EXPECTS(tmp != nullptr, "dense_bool_to_unsorted_csr: tmp workspace may not be null.");
+  // Check inputs and return early if possible.
+  if (num_rows == 0 || num_cols == 0) { return; }
+  RAFT_EXPECTS(tmp != nullptr, "adj_to_csr: tmp workspace may not be null.");
 
   // Zero-fill a temporary vector that is be used by the kernel to keep track of
   // the number of entries added to a row.
@@ -153,7 +153,7 @@ void dense_bool_to_unsorted_csr(const raft::handle_t& handle,
   cudaGetDevice(&dev_id);
   cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, dev_id);
   cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-    &blocks_per_sm, dense_bool_to_unsorted_csr_kernel<index_t>, threads_per_block, 0);
+    &blocks_per_sm, adj_to_csr_kernel<index_t>, threads_per_block, 0);
 
   index_t max_active_blocks = sm_count * blocks_per_sm;
   index_t blocks_per_row    = raft::ceildiv(max_active_blocks, num_rows);
@@ -161,43 +161,9 @@ void dense_bool_to_unsorted_csr(const raft::handle_t& handle,
   dim3 block(threads_per_block, 1);
   dim3 grid(blocks_per_row, grid_rows);
 
-  dense_bool_to_unsorted_csr_kernel<index_t>
+  adj_to_csr_kernel<index_t>
     <<<grid, block, 0, stream>>>(adj, row_ind, num_rows, num_cols, tmp, out_col_ind);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
-}
-
-/**
- * @brief Converts a boolean adjacency matrix into unsorted CSR format.
- *
- * The conversion supports non-square matrices.
- *
- * @tparam     index_t     Indexing arithmetic type
- *
- * @param[in]  handle      RAFT handle
- * @param[in]  adj         A num_rows x num_cols boolean matrix in contiguous row-major
- *                         format.
- * @param[in]  row_ind     An array of length num_rows that indicates at which index
- *                         a row starts in out_col_ind. Equivalently, it is the
- *                         exclusive scan of the number of non-zeros in each row of
- *                         adj.
- * @param[in]  num_rows    Number of rows of adj.
- * @param[in]  num_cols    Number of columns of adj.
- * @param[out] out_col_ind An array containing the column indices of the
- *                         non-zero values in adj. Size should be at least the
- *                         number of non-zeros in adj.
- */
-template <typename index_t = int>
-void dense_bool_to_unsorted_csr(const raft::handle_t& handle,
-                                const bool* adj,         // row-major adjacency matrix
-                                const index_t* row_ind,  // precomputed row indices
-                                index_t num_rows,        // # rows of adj
-                                index_t num_cols,        // # cols of adj
-                                index_t* out_col_ind     // output column indices
-)
-{
-  auto stream = handle.get_stream();
-  rmm::device_uvector<index_t> tmp(num_rows, stream);
-  dense_bool_to_unsorted_csr(handle, adj, row_ind, num_rows, num_cols, tmp.data(), out_col_ind);
 }
 
 };  // end NAMESPACE detail

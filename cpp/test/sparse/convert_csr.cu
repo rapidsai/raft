@@ -89,12 +89,27 @@ INSTANTIATE_TEST_CASE_P(SparseConvertCSRTest, SortedCOOToCSR, ::testing::ValuesI
 /******************************** adj graph ********************************/
 
 template <typename index_t>
-__global__ void init_adj(bool* adj, index_t num_rows, index_t num_cols, int divisor)
+__global__ void init_adj_kernel(bool* adj, index_t num_rows, index_t num_cols, index_t divisor)
 {
   index_t r = blockDim.y * blockIdx.y + threadIdx.y;
   index_t c = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if (r < num_rows && c < num_cols) { adj[r * num_cols + c] = c % divisor == 0; }
+  for (; r < num_rows; r += gridDim.y * blockDim.y) {
+    for (; c < num_cols; c += gridDim.x * blockDim.x) {
+      adj[r * num_cols + c] = c % divisor == 0;
+    }
+  }
+}
+
+template <typename index_t>
+void init_adj(bool* adj, index_t num_rows, index_t num_cols, index_t divisor, cudaStream_t stream)
+{
+  // adj matrix: element a_ij is set to one if j is divisible by divisor.
+  dim3 block(32, 32);
+  const index_t max_y_grid_dim = 65535;
+  dim3 grid(num_cols / 32 + 1, (int)min(num_rows / 32 + 1, max_y_grid_dim));
+  init_adj_kernel<index_t><<<grid, block, 0, stream>>>(adj, num_rows, num_cols, divisor);
+  RAFT_CHECK_CUDA(stream);
 }
 
 template <typename index_t>
@@ -123,11 +138,7 @@ class CSRAdjGraphTest : public ::testing::TestWithParam<CSRAdjGraphInputs<index_
   {
     // Initialize adj matrix: element a_ij equals one if j is divisible by
     // params.divisor.
-    dim3 block(32, 32);
-    dim3 grid(params.n_cols / 32 + 1, params.n_rows / 32 + 1);
-    init_adj<index_t>
-      <<<grid, block, 0, stream>>>(adj.data(), params.n_rows, params.n_cols, params.divisor);
-
+    init_adj(adj.data(), params.n_rows, params.n_cols, params.divisor, stream);
     // Initialize row_ind
     for (size_t i = 0; i < row_ind_host.size(); ++i) {
       size_t nnz_per_row = raft::ceildiv(params.n_cols, params.divisor);
@@ -141,13 +152,13 @@ class CSRAdjGraphTest : public ::testing::TestWithParam<CSRAdjGraphInputs<index_
 
   void Run()
   {
-    convert::dense_bool_to_unsorted_csr<index_t>(handle,
-                                                 adj.data(),
-                                                 row_ind.data(),
-                                                 params.n_rows,
-                                                 params.n_cols,
-                                                 row_counters.data(),
-                                                 col_ind.data());
+    convert::adj_to_csr<index_t>(handle,
+                                 adj.data(),
+                                 row_ind.data(),
+                                 params.n_rows,
+                                 params.n_cols,
+                                 row_counters.data(),
+                                 col_ind.data());
 
     std::vector<index_t> col_ind_host(col_ind.size());
     raft::update_host(col_ind_host.data(), col_ind.data(), col_ind.size(), stream);
@@ -158,7 +169,7 @@ class CSRAdjGraphTest : public ::testing::TestWithParam<CSRAdjGraphInputs<index_
     // 1. Check that each row contains enough values
     index_t nnz_per_row = raft::ceildiv(params.n_cols, params.divisor);
     for (index_t i = 0; i < params.n_rows; ++i) {
-      ASSERT_EQ(row_counters_host[i], nnz_per_row);
+      ASSERT_EQ(row_counters_host[i], nnz_per_row) << "where i = " << i;
     }
     // 2. Check that all column indices are divisble by divisor
     for (index_t i = 0; i < params.n_rows; ++i) {
@@ -189,6 +200,7 @@ TEST_P(CSRAdjGraphTestL, Result) { Run(); }
 
 const std::vector<CSRAdjGraphInputs<int>> csradjgraph_inputs_i     = {{10, 10, 2}};
 const std::vector<CSRAdjGraphInputs<int64_t>> csradjgraph_inputs_l = {
+  {0, 0, 2},
   {10, 10, 2},
   {64 * 1024 + 10, 2, 3},  // 64K + 10 is slightly over maximum of blockDim.y
   {16, 16, 3},             // No peeling-remainder

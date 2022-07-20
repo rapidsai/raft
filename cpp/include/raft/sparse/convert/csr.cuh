@@ -18,8 +18,8 @@
 
 #pragma once
 
+#include <raft/sparse/convert/detail/adj_to_csr.cuh>
 #include <raft/sparse/convert/detail/csr.cuh>
-#include <raft/sparse/convert/detail/dense_to_csr.cuh>
 #include <raft/sparse/csr.hpp>
 
 namespace raft {
@@ -90,49 +90,16 @@ void sorted_coo_to_csr(COO<T>* coo, int* row_ind, cudaStream_t stream)
  *                         number of non-zeros in adj.
  */
 template <typename index_t = int>
-void dense_bool_to_unsorted_csr(
-  const raft::handle_t& handle,
-  const bool* adj,         // Row-major adjacency matrix
-  const index_t* row_ind,  // Precomputed row indices
-  index_t num_rows,        // # rows of adj
-  index_t num_cols,        // # cols of adj
-  index_t* tmp,            // Pre-allocated atomic counters. Minimum size: num_rows elements.
-  index_t* out_col_ind     // Output column indices
+void adj_to_csr(const raft::handle_t& handle,
+                const bool* adj,         // Row-major adjacency matrix
+                const index_t* row_ind,  // Precomputed row indices
+                index_t num_rows,        // # rows of adj
+                index_t num_cols,        // # cols of adj
+                index_t* tmp,  // Pre-allocated atomic counters. Minimum size: num_rows elements.
+                index_t* out_col_ind  // Output column indices
 )
 {
-  detail::dense_bool_to_unsorted_csr(handle, adj, row_ind, num_rows, num_cols, tmp, out_col_ind);
-}
-
-/**
- * @brief Converts a boolean adjacency matrix into unsorted CSR format.
- *
- * The conversion supports non-square matrices.
- *
- * @tparam     index_t     Indexing arithmetic type
- *
- * @param[in]  handle      RAFT handle
- * @param[in]  adj         A num_rows x num_cols boolean matrix in contiguous row-major
- *                         format.
- * @param[in]  row_ind     An array of length num_rows that indicates at which index
- *                         a row starts in out_col_ind. Equivalently, it is the
- *                         exclusive scan of the number of non-zeros in each row of
- *                         adj.
- * @param[in]  num_rows    Number of rows of adj.
- * @param[in]  num_cols    Number of columns of adj.
- * @param[out] out_col_ind An array containing the column indices of the
- *                         non-zero values in adj. Size should be at least the
- *                         number of non-zeros in adj.
- */
-template <typename index_t = int>
-void dense_bool_to_unsorted_csr(const raft::handle_t& handle,
-                                const bool* adj,         // row-major adjacency matrix
-                                const index_t* row_ind,  // precomputed row indices
-                                index_t num_rows,        // # rows of adj
-                                index_t num_cols,        // # cols of adj
-                                index_t* out_col_ind     // output column indices
-)
-{
-  detail::dense_bool_to_unsorted_csr(handle, adj, row_ind, num_rows, num_cols, out_col_ind);
+  detail::adj_to_csr(handle, adj, row_ind, num_rows, num_cols, tmp, out_col_ind);
 }
 
 };  // end NAMESPACE convert

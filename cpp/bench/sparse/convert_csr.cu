@@ -24,36 +24,50 @@
 
 namespace raft::bench::sparse {
 
+template <typename index_t>
 struct bench_param {
-  size_t num_cols;
-  size_t num_rows;
-  size_t divisor;
+  index_t num_cols;
+  index_t num_rows;
+  index_t divisor;
 };
 
 template <typename index_t>
-__global__ void init_adj(bool* adj, index_t num_rows, index_t num_cols, int divisor)
+__global__ void init_adj_kernel(bool* adj, index_t num_rows, index_t num_cols, index_t divisor)
 {
   index_t r = blockDim.y * blockIdx.y + threadIdx.y;
   index_t c = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if (r < num_rows && c < num_cols) { adj[r * num_cols + c] = c % divisor == 0; }
+  for (; r < num_rows; r += gridDim.y * blockDim.y) {
+    for (; c < num_cols; c += gridDim.x * blockDim.x) {
+      adj[r * num_cols + c] = c % divisor == 0;
+    }
+  }
+}
+
+template <typename index_t>
+void init_adj(bool* adj, index_t num_rows, index_t num_cols, index_t divisor, cudaStream_t stream)
+{
+  // adj matrix: element a_ij is set to one if j is divisible by divisor.
+  dim3 block(32, 32);
+  const index_t max_y_grid_dim = 65535;
+  dim3 grid(num_cols / 32 + 1, (int)min(num_rows / 32 + 1, max_y_grid_dim));
+  init_adj_kernel<index_t><<<grid, block, 0, stream>>>(adj, num_rows, num_cols, divisor);
+  RAFT_CHECK_CUDA(stream);
 }
 
 template <typename index_t>
 struct bench_base : public fixture {
-  bench_base(const bench_param& p)
+  bench_base(const bench_param<index_t>& p)
     : params(p),
       handle(stream),
       adj(p.num_rows * p.num_cols, stream),
       row_ind(p.num_rows, stream),
       row_ind_host(p.num_rows),
       row_counters(p.num_rows, stream),
-      col_ind(p.num_rows * p.num_cols,
-              stream)  // This is over-dimensioned because nnz is unknown at this point
+      // col_ind is over-dimensioned because nnz is unknown at this point
+      col_ind(p.num_rows * p.num_cols, stream)
   {
-    dim3 block(32, 32);
-    dim3 grid(p.num_cols / 32 + 1, p.num_rows / 32 + 1);
-    init_adj<index_t><<<grid, block, 0, stream>>>(adj.data(), p.num_rows, p.num_cols, p.divisor);
+    init_adj(adj.data(), p.num_rows, p.num_cols, p.divisor, stream);
 
     std::vector<index_t> row_ind_host(p.num_rows);
     for (size_t i = 0; i < row_ind_host.size(); ++i) {
@@ -66,13 +80,13 @@ struct bench_base : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     loop_on_state(state, [this]() {
-      raft::sparse::convert::dense_bool_to_unsorted_csr<index_t>(handle,
-                                                                 adj.data(),
-                                                                 row_ind.data(),
-                                                                 params.num_rows,
-                                                                 params.num_cols,
-                                                                 row_counters.data(),
-                                                                 col_ind.data());
+      raft::sparse::convert::adj_to_csr<index_t>(handle,
+                                                 adj.data(),
+                                                 row_ind.data(),
+                                                 params.num_rows,
+                                                 params.num_cols,
+                                                 row_counters.data(),
+                                                 col_ind.data());
     });
 
     // Estimate bandwidth:
@@ -96,7 +110,7 @@ struct bench_base : public fixture {
 
  protected:
   raft::handle_t handle;
-  bench_param params;
+  bench_param<index_t> params;
   rmm::device_uvector<bool> adj;
   rmm::device_uvector<index_t> row_ind;
   std::vector<index_t> row_ind_host;
@@ -106,7 +120,7 @@ struct bench_base : public fixture {
 
 const int64_t num_cols = 1 << 30;
 
-const std::vector<bench_param> bench_params = {
+const std::vector<bench_param<int64_t>> bench_params = {
   {num_cols, 1, 8},
   {num_cols >> 3, 1 << 3, 8},
   {num_cols >> 6, 1 << 6, 8},
@@ -121,6 +135,5 @@ const std::vector<bench_param> bench_params = {
 };
 
 RAFT_BENCH_REGISTER(bench_base<int64_t>, "", bench_params);
-// RAFT_BENCH_REGISTER(bench_base<int>, "", bench_params);
 
 }  // namespace raft::bench::sparse
