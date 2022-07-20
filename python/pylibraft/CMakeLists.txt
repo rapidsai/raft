@@ -52,15 +52,16 @@ if(NOT raft_FOUND)
   # rapids_cuda_init_architectures relies on `project` including.
   include("${CMAKE_PROJECT_pylibraft_INCLUDE}")
 
-  set(BUILD_TESTS OFF)
-  set(BUILD_BENCH OFF)
-  set(RAFT_COMPILE_LIBRARIES OFF)
-  set(RAFT_COMPILE_DIST_LIBRARY ON)
+  set(BUILD_TESTS OFF CACHE BOOL "")
+  set(BUILD_BENCH OFF CACHE BOOL "")
+  set(RAFT_COMPILE_LIBRARIES OFF CACHE BOOL "")
+  set(RAFT_COMPILE_DIST_LIBRARY ON CACHE BOOL "")
   add_subdirectory(../../cpp raft-cpp)
 
   # When building the C++ libraries from source we must copy
   # libraft_distance.so alongside the pairwise_distance Cython library.
   install(TARGETS raft_distance_lib DESTINATION pylibraft/distance)
+  install(TARGETS raft_nn_lib DESTINATION pylibraft/nn)
 endif()
 
 include(rapids-cython)

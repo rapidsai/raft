@@ -18,9 +18,10 @@ from setuptools import find_packages
 from skbuild import setup
 
 import versioneer
+import os
 
 
-setup(name='raft',
+setup(name='raft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
       description="RAPIDS Analytics Frameworks Toolset",
       version=versioneer.get_version(),
       classifiers=[

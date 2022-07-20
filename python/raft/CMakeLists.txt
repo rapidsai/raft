@@ -52,11 +52,14 @@ if(NOT raft_FOUND)
   # pyraft doesn't actually use raft libraries, it just needs the headers, so
   # we can turn off all library compilation and we don't need to install
   # anything here.
-  set(BUILD_TESTS OFF)
-  set(BUILD_BENCH OFF)
-  set(RAFT_COMPILE_LIBRARIES OFF)
-  set(RAFT_COMPILE_DIST_LIBRARY OFF)
-  set(RAFT_COMPILE_NN_LIBRARY OFF)
+  #
+  # however, when building wheels for PyPI, we want the raft library included
+  # in the raft wheels, so allow these to be overridden by command line -D switches
+  set(BUILD_TESTS OFF CACHE BOOL "")
+  set(BUILD_BENCH OFF CACHE BOOL "")
+  set(RAFT_COMPILE_LIBRARIES OFF CACHE BOOL "")
+  set(RAFT_COMPILE_DIST_LIBRARY OFF CACHE BOOL "")
+  set(RAFT_COMPILE_NN_LIBRARY OFF CACHE BOOL "")
   add_subdirectory(../../cpp raft-cpp)
 endif()
 
