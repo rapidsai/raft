@@ -121,7 +121,7 @@ inline auto extend(const handle_t& handle,
 
   rmm::device_uvector<uint32_t> new_labels(n_rows, stream);
   kmeans::predict(handle,
-                  orig_index.centers.data(),
+                  orig_index.centers().data(),
                   n_lists,
                   dim,
                   new_vectors,
@@ -139,8 +139,8 @@ inline auto extend(const handle_t& handle,
   auto centers_ptr = centers.data();
 
   // Calculate the centers and sizes on the new data, starting from the original values
-  raft::copy(centers_ptr, orig_index.centers.data(), centers.size(), stream);
-  raft::copy(list_sizes_ptr, orig_index.list_sizes.data(), list_sizes.size(), stream);
+  raft::copy(centers_ptr, orig_index.centers().data(), centers.size(), stream);
+  raft::copy(list_sizes_ptr, orig_index.list_sizes().data(), list_sizes.size(), stream);
 
   kmeans::calc_centers_and_sizes(centers_ptr,
                                  list_sizes_ptr,
@@ -170,18 +170,18 @@ inline auto extend(const handle_t& handle,
 
   // Populate index with the old data
   if (orig_index.size() > 0) {
-    utils::block_copy(orig_index.list_offsets.data(),
+    utils::block_copy(orig_index.list_offsets().data(),
                       list_offsets_ptr,
                       IdxT(n_lists),
-                      orig_index.data.data(),
+                      orig_index.data().data(),
                       data.data(),
                       IdxT(dim),
                       stream);
 
-    utils::block_copy(orig_index.list_offsets.data(),
+    utils::block_copy(orig_index.list_offsets().data(),
                       list_offsets_ptr,
                       IdxT(n_lists),
-                      orig_index.indices.data(),
+                      orig_index.indices().data(),
                       indices.data(),
                       IdxT(1),
                       stream);
@@ -189,7 +189,7 @@ inline auto extend(const handle_t& handle,
 
   // Copy the old sizes, so we can start from the current state of the index;
   // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
-  raft::copy(list_sizes_ptr, orig_index.list_sizes.data(), list_sizes.size(), stream);
+  raft::copy(list_sizes_ptr, orig_index.list_sizes().data(), list_sizes.size(), stream);
 
   const dim3 block_dim(256);
   const dim3 grid_dim(raft::ceildiv<IdxT>(n_rows, block_dim.x));
@@ -217,20 +217,14 @@ inline auto extend(const handle_t& handle,
                           : std::nullopt;
 
   // assemble the index
-  index<T, IdxT> new_index{{},
-                           orig_index.veclen,
-                           orig_index.metric,
-                           std::move(data),
-                           std::move(indices),
-                           std::move(list_sizes),
-                           std::move(list_offsets),
-                           std::move(centers),
-                           std::move(center_norms)};
-
-  // check index invariants
-  new_index.check_consistency();
-
-  return new_index;
+  return index<T, IdxT>(orig_index.veclen,
+                        orig_index.metric,
+                        std::move(data),
+                        std::move(indices),
+                        std::move(list_sizes),
+                        std::move(list_offsets),
+                        std::move(centers),
+                        std::move(center_norms));
 }
 
 /** See raft::spatial::knn::ivf_flat::build docs */
@@ -279,18 +273,14 @@ inline auto build(const handle_t& handle,
   utils::memzero(list_offsets.data(), list_offsets.size(), stream);
 
   // assemble the index
-  index<T, IdxT> index{{},
-                       veclen,
+  index<T, IdxT> index(veclen,
                        params.metric,
                        std::move(data),
                        std::move(indices),
                        std::move(list_sizes),
                        std::move(list_offsets),
                        std::move(centers),
-                       std::nullopt};
-
-  // check index invariants
-  index.check_consistency();
+                       std::nullopt);
 
   // add the data if necessary
   if (params.add_data_on_build) {

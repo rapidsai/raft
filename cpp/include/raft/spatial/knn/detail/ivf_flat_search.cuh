@@ -35,8 +35,6 @@
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
-#include <optional>
-
 namespace raft::spatial::knn::ivf_flat::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
@@ -855,10 +853,10 @@ void launch_kernel(Lambda lambda,
                                                         query_smem_elems,
                                                         queries,
                                                         coarse_index,
-                                                        index.indices.data(),
-                                                        index.data.data(),
-                                                        index.list_sizes.data(),
-                                                        index.list_offsets.data(),
+                                                        index.indices().data(),
+                                                        index.data().data(),
+                                                        index.list_sizes().data(),
+                                                        index.list_offsets().data(),
                                                         n_probes,
                                                         k,
                                                         index.dim(),
@@ -1108,12 +1106,12 @@ void search_impl(const handle_t& handle,
       n_queries, index.dim(), converted_queries_ptr, query_norm_dev.data(), stream);
     utils::outer_add(query_norm_dev.data(),
                      n_queries,
-                     index.center_norms->data(),
+                     index.center_norms()->data(),
                      index.n_lists(),
                      distance_buffer_dev.data(),
                      stream);
-    RAFT_LOG_TRACE_VEC(index.center_norms->data(), 20);
-    RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
+    RAFT_LOG_TRACE_VEC(index.center_norms()->data(), std::min<uint32_t>(20, index.dim()));
+    RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), std::min<uint32_t>(20, index.n_lists()));
   } else {
     alpha = 1.0f;
     beta  = 0.0f;
@@ -1126,7 +1124,7 @@ void search_impl(const handle_t& handle,
                n_queries,
                index.dim(),
                &alpha,
-               index.centers.data(),
+               index.centers().data(),
                index.dim(),
                converted_queries_ptr,
                index.dim(),
@@ -1135,7 +1133,7 @@ void search_impl(const handle_t& handle,
                index.n_lists(),
                stream);
 
-  RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
+  RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), std::min<uint32_t>(20, index.n_lists()));
   if (n_probes <= raft::spatial::knn::detail::topk::kMaxCapacity) {
     topk::warp_sort_topk<AccT, uint32_t>(distance_buffer_dev.data(),
                                          nullptr,
@@ -1159,8 +1157,8 @@ void search_impl(const handle_t& handle,
                                               stream,
                                               search_mr);
   }
-  RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), 1 * n_probes);
-  RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), 1 * n_probes);
+  RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), n_probes);
+  RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), n_probes);
 
   auto distances_dev_ptr = refined_distances_dev.data();
   auto indices_dev_ptr   = refined_indices_dev.data();
