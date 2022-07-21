@@ -653,8 +653,8 @@ void build_optimized_kmeans(const handle_t& handle,
 
   if (mesocluster_size_max * n_mesoclusters > 2 * n_rows_train) {
     RAFT_LOG_WARN("build_optimized_kmeans: built unbalanced mesoclusters");
-    RAFT_LOG_INFO_VEC(mesocluster_sizes, n_mesoclusters);
-    RAFT_LOG_INFO_VEC(fine_clusters_nums.data(), n_mesoclusters);
+    RAFT_LOG_TRACE_VEC(mesocluster_sizes, n_mesoclusters);
+    RAFT_LOG_TRACE_VEC(fine_clusters_nums.data(), n_mesoclusters);
   }
 
   auto n_clusters_done = build_fine_clusters(handle,
