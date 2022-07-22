@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
 set(pylibraft_version 22.08.00)
 
-include(../fetch_rapids.cmake)
+include(../../fetch_rapids.cmake)
 
 project(
   pylibraft
