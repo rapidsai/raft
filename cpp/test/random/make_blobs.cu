@@ -80,8 +80,8 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   MakeBlobsTest()
     : params(::testing::TestWithParam<MakeBlobsInputs<T>>::GetParam()),
       stream(handle.get_stream()),
-      mu_vec(make_device_matrix<T, layout>(handle, params.n_clusters, params.cols)),
-      mean_var(make_device_vector<T>(handle, 2 * params.n_clusters * params.cols))
+      mu_vec(make_device_matrix<T, int, layout>(handle, params.n_clusters, params.cols)),
+      mean_var(make_device_vector<T, int>(handle, 2 * params.n_clusters * params.cols))
   {
   }
 
@@ -94,10 +94,10 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     auto len  = params.rows * params.cols;
     raft::random::RngState r(params.seed, params.gtype);
 
-    auto data   = make_device_matrix<T, layout>(handle, params.rows, params.cols);
-    auto labels = make_device_vector<int>(handle, params.rows);
-    auto stats  = make_device_vector<T>(handle, 2 * params.n_clusters * params.cols);
-    auto lens   = make_device_vector<int>(handle, params.n_clusters);
+    auto data   = make_device_matrix<T, int, layout>(handle, params.rows, params.cols);
+    auto labels = make_device_vector<int, int>(handle, params.rows);
+    auto stats  = make_device_vector<T, int>(handle, 2 * params.n_clusters * params.cols);
+    auto lens   = make_device_vector<int, int>(handle, params.n_clusters);
 
     RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, stats.extent(0) * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(lens.data(), 0, lens.extent(0) * sizeof(int), stream));
@@ -146,8 +146,8 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   raft::handle_t handle;
   cudaStream_t stream = 0;
 
-  device_vector<T> mean_var;
-  device_matrix<T, layout> mu_vec;
+  device_vector<T, int> mean_var;
+  device_matrix<T, int, layout> mu_vec;
   int num_sigma;
 };
 

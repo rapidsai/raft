@@ -44,7 +44,7 @@ void test_mdspan()
   auto stream = rmm::cuda_stream_default;
   rmm::device_uvector<float> a{16ul, stream};
   thrust::sequence(rmm::exec_policy(stream), a.begin(), a.end());
-  stdex::mdspan<float, stdex::extents<raft::dynamic_extent, raft::dynamic_extent>> span{
+  stdex::mdspan<float, stdex::extents<int, raft::dynamic_extent, raft::dynamic_extent>> span{
     a.data(), 4, 4};
   thrust::device_vector<int32_t> status(1, 0);
   auto p_status = status.data().get();
@@ -76,7 +76,7 @@ TEST(MDArray, Policy) { test_uvector_policy(); }
 
 void test_mdarray_basic()
 {
-  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
+  using matrix_extent = stdex::extents<int, dynamic_extent, dynamic_extent>;
   auto s              = rmm::cuda_stream_default;
   {
     /**
@@ -157,7 +157,7 @@ void test_mdarray_basic()
     /**
      * static extent
      */
-    using static_extent = stdex::extents<16, 16>;
+    using static_extent = stdex::extents<int, 16, 16>;
     layout_c_contiguous::mapping<static_extent> layout{static_extent{}};
     using mdarray_t = device_mdarray<float, static_extent, layout_c_contiguous>;
     mdarray_t::container_policy_type policy{s};
@@ -182,7 +182,7 @@ TEST(MDArray, Basic) { test_mdarray_basic(); }
 template <typename BasicMDarray, typename PolicyFn, typename ThrustPolicy>
 void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
 {
-  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
+  using matrix_extent = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
 
   using mdarray_t = BasicMDarray;
@@ -253,7 +253,7 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
 
 TEST(MDArray, CopyMove)
 {
-  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
+  using matrix_extent = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   using d_matrix_t    = device_mdarray<float, matrix_extent>;
   using policy_t      = typename d_matrix_t::container_policy_type;
   auto s              = rmm::cuda_stream_default;
@@ -295,34 +295,34 @@ void test_factory_methods()
   size_t n{100};
   rmm::device_uvector<float> d_vec(n, rmm::cuda_stream_default);
   {
-    auto d_matrix = make_device_matrix_view(d_vec.data(), d_vec.size() / 2, 2);
+    auto d_matrix = make_device_matrix_view(d_vec.data(), static_cast<int>(d_vec.size() / 2), 2);
     ASSERT_EQ(d_matrix.extent(0), n / 2);
     ASSERT_EQ(d_matrix.extent(1), 2);
-    ASSERT_EQ(d_matrix.data(), d_vec.data());
+    ASSERT_EQ(d_matrix.data_handle(), d_vec.data());
   }
   {
     auto const& vec_ref = d_vec;
-    auto d_matrix       = make_device_matrix_view(vec_ref.data(), d_vec.size() / 2, 2);
+    auto d_matrix = make_device_matrix_view(vec_ref.data(), static_cast<int>(d_vec.size() / 2), 2);
     ASSERT_EQ(d_matrix.extent(0), n / 2);
     ASSERT_EQ(d_matrix.extent(1), 2);
-    ASSERT_EQ(d_matrix.data(), d_vec.data());
+    ASSERT_EQ(d_matrix.data_handle(), d_vec.data());
   }
 
   std::vector<float> h_vec(n);
   {
-    auto h_matrix = make_host_matrix_view(h_vec.data(), h_vec.size() / 2, 2);
+    auto h_matrix = make_host_matrix_view(h_vec.data(), static_cast<int>(h_vec.size() / 2), 2);
     ASSERT_EQ(h_matrix.extent(0), n / 2);
     ASSERT_EQ(h_matrix.extent(1), 2);
-    ASSERT_EQ(h_matrix.data(), h_vec.data());
+    ASSERT_EQ(h_matrix.data_handle(), h_vec.data());
     h_matrix(0, 0) = 13;
     ASSERT_EQ(h_matrix(0, 0), 13);
   }
   {
     auto const& vec_ref = h_vec;
-    auto h_matrix       = make_host_matrix_view(vec_ref.data(), d_vec.size() / 2, 2);
+    auto h_matrix = make_host_matrix_view(vec_ref.data(), static_cast<int>(d_vec.size() / 2), 2);
     ASSERT_EQ(h_matrix.extent(0), n / 2);
     ASSERT_EQ(h_matrix.extent(1), 2);
-    ASSERT_EQ(h_matrix.data(), h_vec.data());
+    ASSERT_EQ(h_matrix.data_handle(), h_vec.data());
     // const, cannot assign
     // h_matrix(0, 0) = 13;
     ASSERT_EQ(h_matrix(0, 0), 13);
@@ -340,20 +340,22 @@ void test_factory_methods()
     ASSERT_EQ(h_vec.extent(0), n);
   }
   {
+    raft::handle_t handle{};
     // device mdarray
-    auto d_matrix = make_device_matrix<float>(n, n, rmm::cuda_stream_default);
+    auto d_matrix = make_device_matrix<float>(handle, n, n);
     ASSERT_EQ(d_matrix.extent(0), n);
     ASSERT_EQ(d_matrix.extent(1), n);
     static_assert(d_matrix.rank() == 2);
 
-    auto d_vec = make_device_vector<float>(n, rmm::cuda_stream_default);
+    auto d_vec = make_device_vector<float>(handle, n);
     static_assert(d_vec.rank() == 1);
     ASSERT_EQ(d_vec.extent(0), n);
   }
 
   {
+    raft::handle_t handle{};
     // device scalar
-    auto d_scalar = make_device_scalar<double>(17.0, rmm::cuda_stream_default);
+    auto d_scalar = make_device_scalar<double>(handle, 17.0);
     static_assert(d_scalar.rank() == 1);
     static_assert(d_scalar.rank_dynamic() == 0);
     ASSERT_EQ(d_scalar(0), 17.0);
@@ -386,11 +388,11 @@ void test_factory_methods()
 TEST(MDArray, Factory) { test_factory_methods(); }
 
 namespace {
-template <typename T, typename LayoutPolicy>
-void check_matrix_layout(device_matrix_view<T, LayoutPolicy> in)
+template <typename T, typename Index, typename LayoutPolicy>
+void check_matrix_layout(device_matrix_view<T, Index, LayoutPolicy> in)
 {
   static_assert(in.rank() == 2);
-  static_assert(in.is_contiguous());
+  static_assert(in.is_exhaustive());
 
   bool constexpr kIsCContiguous = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
   bool constexpr kIsFContiguous = std::is_same_v<LayoutPolicy, layout_f_contiguous>;
@@ -402,13 +404,13 @@ void check_matrix_layout(device_matrix_view<T, LayoutPolicy> in)
 
 TEST(MDArray, FuncArg)
 {
+  raft::handle_t handle{};
   {
-    auto d_matrix = make_device_matrix<float>(10, 10, rmm::cuda_stream_default);
+    auto d_matrix = make_device_matrix<float>(handle, 10, 10);
     check_matrix_layout(d_matrix.view());
   }
   {
-    auto d_matrix =
-      make_device_matrix<float, layout_f_contiguous>(10, 10, rmm::cuda_stream_default);
+    auto d_matrix = make_device_matrix<float, int, layout_f_contiguous>(handle, 10, 10);
     check_matrix_layout(d_matrix.view());
 
     auto slice =
@@ -453,26 +455,26 @@ void test_mdarray_unravel()
 
   // examples from numpy unravel_index
   {
-    auto coord = unravel_index(22, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    auto coord = unravel_index(22, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
     static_assert(std::tuple_size<decltype(coord)>::value == 2);
     ASSERT_EQ(std::get<0>(coord), 3);
     ASSERT_EQ(std::get<1>(coord), 4);
   }
   {
-    auto coord = unravel_index(41, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    auto coord = unravel_index(41, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
     static_assert(std::tuple_size<decltype(coord)>::value == 2);
     ASSERT_EQ(std::get<0>(coord), 6);
     ASSERT_EQ(std::get<1>(coord), 5);
   }
   {
-    auto coord = unravel_index(37, detail::matrix_extent{7, 6}, stdex::layout_right{});
+    auto coord = unravel_index(37, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
     static_assert(std::tuple_size<decltype(coord)>::value == 2);
     ASSERT_EQ(std::get<0>(coord), 6);
     ASSERT_EQ(std::get<1>(coord), 1);
   }
   // assignment
   {
-    auto m   = make_host_matrix<float>(7, 6);
+    auto m   = make_host_matrix<float, size_t>(7, 6);
     auto m_v = m.view();
     for (size_t i = 0; i < m.size(); ++i) {
       auto coord             = unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
@@ -486,7 +488,7 @@ void test_mdarray_unravel()
 
   {
     handle_t handle;
-    auto m   = make_device_matrix<float>(handle, 7, 6);
+    auto m   = make_device_matrix<float, size_t>(handle, 7, 6);
     auto m_v = m.view();
     thrust::for_each_n(handle.get_thrust_policy(),
                        thrust::make_counting_iterator(0ul),

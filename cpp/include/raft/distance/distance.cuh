@@ -242,9 +242,9 @@ template <raft::distance::DistanceType distanceType,
           typename Index_ = int,
           typename layout = raft::layout_c_contiguous>
 void distance(raft::handle_t const& handle,
-              raft::device_matrix_view<InType, layout> const x,
-              raft::device_matrix_view<InType, layout> const y,
-              raft::device_matrix_view<OutType, layout> dist,
+              raft::device_matrix_view<InType, Index_, layout> const x,
+              raft::device_matrix_view<InType, Index_, layout> const y,
+              raft::device_matrix_view<OutType, Index_, layout> dist,
               InType metric_arg = 2.0f)
 {
   RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
@@ -255,14 +255,14 @@ void distance(raft::handle_t const& handle,
                "Number of columns in output must be equal to "
                "number of rows in Y");
 
-  RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
-  RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
+  RAFT_EXPECTS(x.is_exhaustive(), "Input x must be contiguous.");
+  RAFT_EXPECTS(y.is_exhaustive(), "Input y must be contiguous.");
 
   constexpr auto is_rowmajor = std::is_same_v<layout, layout_c_contiguous>;
 
-  distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
-                                                           y.data(),
-                                                           dist.data(),
+  distance<distanceType, InType, AccType, OutType, Index_>(x.data_handle(),
+                                                           y.data_handle(),
+                                                           dist.data_handle(),
                                                            x.extent(0),
                                                            y.extent(0),
                                                            x.extent(1),
@@ -415,9 +415,9 @@ void pairwise_distance(const raft::handle_t& handle,
  */
 template <typename Type, typename Index_ = int, typename layout = layout_c_contiguous>
 void pairwise_distance(raft::handle_t const& handle,
-                       device_matrix_view<Type, layout> const x,
-                       device_matrix_view<Type, layout> const y,
-                       device_matrix_view<Type, layout> dist,
+                       device_matrix_view<Type, Index_, layout> const x,
+                       device_matrix_view<Type, Index_, layout> const y,
+                       device_matrix_view<Type, Index_, layout> dist,
                        raft::distance::DistanceType metric,
                        Type metric_arg = 2.0f)
 {
@@ -429,18 +429,18 @@ void pairwise_distance(raft::handle_t const& handle,
                "Number of columns in output must be equal to "
                "number of rows in Y");
 
-  RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
-  RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
-  RAFT_EXPECTS(dist.is_contiguous(), "Output must be contiguous.");
+  RAFT_EXPECTS(x.is_exhaustive(), "Input x must be contiguous.");
+  RAFT_EXPECTS(y.is_exhaustive(), "Input y must be contiguous.");
+  RAFT_EXPECTS(dist.is_exhaustive(), "Output must be contiguous.");
 
   constexpr auto rowmajor = std::is_same_v<layout, layout_c_contiguous>;
 
   rmm::device_uvector<char> workspace(0, handle.get_stream());
 
   pairwise_distance(handle,
-                    x.data(),
-                    y.data(),
-                    dist.data(),
+                    x.data_handle(),
+                    y.data_handle(),
+                    dist.data_handle(),
                     x.extent(0),
                     y.extent(0),
                     x.extent(1),
