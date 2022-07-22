@@ -153,15 +153,14 @@ inline auto extend(const handle_t& handle,
                                  stream);
 
   // Calculate new offsets
-  IdxT index_size;
-  thrust::exclusive_scan(
+  IdxT index_size = 0;
+  update_device(list_offsets_ptr, &index_size, 1, stream);
+  thrust::inclusive_scan(
     rmm::exec_policy(stream),
     list_sizes_ptr,
-    list_sizes_ptr + n_lists + 1,
-    list_offsets_ptr,
-    IdxT(0),
+    list_sizes_ptr + n_lists,
+    list_offsets_ptr + 1,
     [] __device__(IdxT s, uint32_t l) { return s + Pow2<WarpSize>::roundUp(l); });
-
   update_host(&index_size, list_offsets_ptr + n_lists, 1, stream);
   handle.sync_stream(stream);
 
