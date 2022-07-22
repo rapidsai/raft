@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "detail/processing.hpp"
 #include "ivf_flat_types.hpp"
 
 #include <raft/distance/distance_type.hpp>
@@ -30,9 +31,6 @@
 namespace raft {
 namespace spatial {
 namespace knn {
-
-template <typename math_t>
-class MetricProcessor;
 
 struct knnIndex {
   raft::distance::DistanceType metric;
