@@ -795,7 +795,7 @@ auto make_host_mdarray(extents<IndexType, Extents...> exts)
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- * @param stream cuda stream for ordering events
+ * @param handle raft::handle_t
  * @param exts dimensionality of the array (series of integers)
  * @return raft::device_mdarray
  */
@@ -818,7 +818,7 @@ auto make_device_mdarray(const raft::handle_t& handle, extents<IndexType, Extent
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- * @param stream cuda stream for ordering events
+ * @param handle raft::handle_t
  * @param mr rmm memory resource used for allocating the memory for the array
  * @param exts dimensionality of the array (series of integers)
  * @return raft::device_mdarray
