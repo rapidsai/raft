@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/stats/detail/scores.cuh>
 
 namespace raft {
@@ -39,6 +40,19 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
   return detail::accuracy_score(predictions, ref_predictions, n, stream);
 }
 
+/**
+ * @brief Compute accuracy of predictions. Useful for classification.
+ * @tparam math_t: data type for predictions (e.g., int for classification)
+ * @param[in] handle: the raft handle.
+ * @param[in] predictions: array of predictions (GPU pointer).
+ * @param[in] ref_predictions: array of reference (ground-truth) predictions (GPU pointer).
+ * @return: Accuracy score in [0, 1]; higher is better.
+ */
+template <typename math_t>
+float accuracy(const raft::handle_t& handle, const raft::device_vector_view<const math_t>& predictions, const raft::device_vector_view<const math_t>& ref_predictions)
+{
+  return detail::accuracy_score(predictions.data(), ref_predictions.data(), predictions.extent(0), handle.get_stream());
+}
 }  // namespace stats
 }  // namespace raft
 

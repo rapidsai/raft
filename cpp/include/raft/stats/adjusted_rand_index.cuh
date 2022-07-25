@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/stats/detail/adjusted_rand_index.cuh>
 
 namespace raft {
@@ -46,6 +47,24 @@ double adjusted_rand_index(const T* firstClusterArray,
                            cudaStream_t stream)
 {
   return detail::compute_adjusted_rand_index(firstClusterArray, secondClusterArray, size, stream);
+}
+
+/**
+ * @brief Function to calculate Adjusted RandIndex as described
+ *        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
+ * @tparam T data-type for input label arrays
+ * @tparam MathT integral data-type used for computing n-choose-r
+ * @param handle: the raft handle.
+ * @param firstClusterArray: the array of classes
+ * @param secondClusterArray: the array of classes
+ */
+template <typename T, typename MathT = int>
+double adjusted_rand_index(const raft::handle_t& handle,
+  const raft::device_vector_view<const T>& firstClusterArray,
+  const raft::device_vector_view<const T>& secondClusterArray)
+{
+  return detail::compute_adjusted_rand_index<T, MathT>(firstClusterArray.data(), secondClusterArray.data(),
+    firstClusterArray.extent(0), handle.get_stream());
 }
 
 };  // end namespace stats

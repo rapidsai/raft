@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/stats/detail/contingencyMatrix.cuh>
 
 namespace raft {
@@ -41,6 +42,25 @@ void getInputClassCardinality(
 }
 
 /**
+ * @brief use this to allocate output matrix size
+ * size of matrix = (maxLabel - minLabel + 1)^2 * sizeof(int)
+ * @param handle: the raft handle.
+ * @param groundTruth: device 1-d array for ground truth (num of rows)
+ * @param nSamples: number of elements in input array
+ * @param minLabel: [out] calculated min value in input array
+ * @param maxLabel: [out] calculated max value in input array
+ */
+template <typename T>
+void getInputClassCardinality(
+  const raft::handle_t& handle,
+  const raft::device_vector_view<const T>& groundTruth,
+  const raft::host_scalar_view<T>& minLabel, 
+  const raft::host_scalar_view<T>& maxLabel)
+{
+  detail::getInputClassCardinality(groundTruth.data(), groundTruth.extent(0), handle.get_stream(), *minLabel.data(), *maxLabel.data());
+}
+ 
+/**
  * @brief Calculate workspace size for running contingency matrix calculations
  * @tparam T label type
  * @tparam OutT output matrix type
@@ -59,6 +79,26 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
 {
   return detail::getContingencyMatrixWorkspaceSize(
     nSamples, groundTruth, stream, minLabel, maxLabel);
+}
+
+/**
+ * @brief Calculate workspace size for running contingency matrix calculations
+ * @tparam T label type
+ * @tparam OutT output matrix type
+ * @param handle: the raft handle.
+ * @param groundTruth: device 1-d array for ground truth (num of rows)
+ * @param minLabel: Optional, min value in input array
+ * @param maxLabel: Optional, max value in input array
+ */
+template <typename T, typename OutT = int>
+size_t getContingencyMatrixWorkspaceSize(
+  const raft::handle_t& handle,
+  const raft::device_vector_view<const T>& groundTruth,
+  T minLabel = std::numeric_limits<T>::max(),
+  T maxLabel = std::numeric_limits<T>::max())
+{
+  return detail::getContingencyMatrixWorkspaceSize(
+    groundTruth.extent(0), groundTruth.data(), handle.get_stream(), minLabel, maxLabel);
 }
 
 /**
@@ -94,6 +134,42 @@ void contingencyMatrix(const T* groundTruth,
                                      nSamples,
                                      outMat,
                                      stream,
+                                     workspace,
+                                     workspaceSize,
+                                     minLabel,
+                                     maxLabel);
+}
+
+/**
+ * @brief contruct contingency matrix given input ground truth and prediction
+ *        labels. Users should call function getInputClassCardinality to find
+ *        and allocate memory for output. Similarly workspace requirements
+ *        should be checked using function getContingencyMatrixWorkspaceSize
+ * @tparam T label type
+ * @tparam OutT output matrix type
+ * @param handle: the raft handle.
+ * @param groundTruth: device 1-d array for ground truth (num of rows)
+ * @param predictedLabel: device 1-d array for prediction (num of columns)
+ * @param outMat: output buffer for contingecy matrix
+ * @param workspace: Optional, workspace memory allocation
+ * @param workspaceSize: Optional, size of workspace memory
+ * @param minLabel: Optional, min value in input ground truth array
+ * @param maxLabel: Optional, max value in input ground truth array
+ */
+template <typename T, typename OutT = int>
+void contingencyMatrix(const raft::device_vector_view<const T>& groundTruth,
+                       const raft::device_vector_view<const T>& predictedLabel,
+                       const raft::device_matrix_view<OutT>& outMat,
+                       void* workspace      = nullptr,
+                       size_t workspaceSize = 0,
+                       T minLabel           = std::numeric_limits<T>::max(),
+                       T maxLabel           = std::numeric_limits<T>::max())
+{
+  detail::contingencyMatrix<T, OutT>(groundTruth.data(),
+                                     predictedLabel.data(),
+                                     groundTruth.extent(0),
+                                     outMat.data(),
+                                     handle.get_stream(),
                                      workspace,
                                      workspaceSize,
                                      minLabel,
