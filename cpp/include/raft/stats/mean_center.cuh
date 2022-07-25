@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include "detail/mean_center.cuh"
+#include <raft/core/mdarray.hpp>
+#include <raft/stats/detail/mean_center.cuh>
 
 namespace raft {
 namespace stats {
@@ -52,6 +53,27 @@ void meanCenter(Type* out,
 }
 
 /**
+ * @brief Center the input matrix wrt its mean
+ * @tparam Type the data type
+ * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam TPB threads per block of the cuda kernel launched
+ * @param handle the raft handle
+ * @param data input matrix
+ * @param mu the mean vector
+ * @param out the output mean-centered matrix
+ * @param bcastAlongRows whether to broadcast vector along rows or columns
+ */
+template <typename Type, typename LayoutPolicy, int TPB = 256>
+void meanCenter(const raft::handle_t& handle,
+                const raft::device_matrix_view<const Type, LayoutPolicy>& data,
+                const raft::device_vector_view<const Type, LayoutPolicy>& mu,
+                const raft::device_matrix_view<Type, LayoutPolicy>& out,
+                bool bcastAlongRows)
+{
+  detail::meanCenter<Type, LayoutPolicy, TPB>(handle, data, mu, out, bcastAlongRows);
+}
+
+/**
  * @brief Add the input matrix wrt its mean
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
@@ -78,6 +100,26 @@ void meanAdd(Type* out,
   detail::meanAdd<Type, IdxType, TPB>(out, data, mu, D, N, rowMajor, bcastAlongRows, stream);
 }
 
+/**
+ * @brief Add the input matrix wrt its mean
+ * @tparam Type the data type
+ * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam TPB threads per block of the cuda kernel launched
+ * @param handle the raft handle
+ * @param data input matrix
+ * @param mu the mean vector
+ * @param out the output mean-added matrix
+ * @param bcastAlongRows whether to broadcast vector along rows or columns
+ */
+template <typename Type, typename LayoutPolicy, int TPB = 256>
+void meanAdd(const raft::handle_t& handle,
+  const raft::device_matrix_view<const Type, LayoutPolicy>& data,
+  const raft::device_vector_view<const Type, LayoutPolicy>& mu,
+  const raft::device_matrix_view<Type, LayoutPolicy>& out,
+  bool bcastAlongRows)
+{
+  detail::meanAdd<Type, LayoutPolicy, TPB>(handle, data, mu, out, bcastAlongRows);
+}
 };  // end namespace stats
 };  // end namespace raft
 

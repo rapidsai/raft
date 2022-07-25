@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/vectorized.cuh>
@@ -61,6 +62,39 @@ void meanCenter(Type* out,
 }
 
 /**
+ * @brief Center the input matrix wrt its mean
+ * @tparam Type the data type
+ * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam TPB threads per block of the cuda kernel launched
+ * @param handle the raft handle
+ * @param data input matrix
+ * @param mu the mean vector
+ * @param out the output mean-centered matrix
+ * @param bcastAlongRows whether to broadcast vector along rows or columns
+ */
+template <typename Type, typename LayoutPolicy, int TPB = 256>
+void meanCenter(const raft::handle_t& handle,
+                const raft::device_matrix_view<const Type, LayoutPolicy>& data,
+                const raft::device_vector_view<const Type, LayoutPolicy>& mu,
+                const raft::device_matrix_view<Type, LayoutPolicy>& out,
+                bool bcastAlongRows)
+{
+  cudaStream_t stream = handle.get_stream();
+  auto N = data.extent(0);
+  auto D = data.extent(1);
+  raft::linalg::matrixVectorOp(
+    out.data(),
+    data.data(),
+    mu.data(),
+    D,
+    N,
+    std::is_same_v<LayoutPolicy, raft::row_major>,
+    bcastAlongRows,
+    [] __device__(Type a, Type b) { return a - b; },
+    stream);
+}
+
+/**
  * @brief Add the input matrix wrt its mean
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
@@ -96,6 +130,38 @@ void meanAdd(Type* out,
     stream);
 }
 
+/**
+ * @brief Add the input matrix wrt its mean
+ * @tparam Type the data type
+ * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam TPB threads per block of the cuda kernel launched
+ * @param handle the raft handle
+ * @param data input matrix
+ * @param mu the mean vector
+ * @param out the output mean-centered matrix
+ * @param bcastAlongRows whether to broadcast vector along rows or columns
+ */
+template <typename Type, typename LayoutPolicy, int TPB = 256>
+void meanAdd(const raft::handle_t& handle,
+  const raft::device_matrix_view<const Type, LayoutPolicy>& data,
+  const raft::device_vector_view<const Type, LayoutPolicy>& mu,
+  const raft::device_matrix_view<Type, LayoutPolicy>& out,
+  bool bcastAlongRows)
+{
+  cudaStream_t stream = handle.get_stream();
+  auto N = data.extent(0);
+  auto D = data.extent(1);
+  raft::linalg::matrixVectorOp(
+    out.data(),
+    data.data(),
+    mu.data(),
+    D,
+    N,
+    std::is_same_v<LayoutPolicy, raft::row_major>,
+    bcastAlongRows,
+    [] __device__(Type a, Type b) { return a + b; },
+    stream);
+}
 };  // end namespace detail
 };  // end namespace stats
 };  // end namespace raft

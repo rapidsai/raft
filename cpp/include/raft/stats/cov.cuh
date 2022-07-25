@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/stats/detail/cov.cuh>
 namespace raft {
 namespace stats {
@@ -56,6 +57,35 @@ void cov(const raft::handle_t& handle,
          cudaStream_t stream)
 {
   detail::cov(handle, covar, data, mu, D, N, sample, rowMajor, stable, stream);
+}
+
+/**
+ * @brief Compute covariance of the input matrix
+ *
+ * Mean operation is assumed to be performed on a given column.
+ *
+ * @tparam Type the data type
+ * @tparam LayoutPolicy Layout type of the input matrix.
+ * @param handle the raft handle
+ * @param data the input matrix (this will get mean-centered at the end!)
+ * @param mu mean vector of the input matrix
+ * @param covar the output covariance matrix
+ * @param sample whether to evaluate sample covariance or not. In other words,
+ * whether to normalize the output using N-1 or N, for true or false,
+ * respectively
+ * @param stable whether to run the slower-but-numerically-stable version or not
+ * @note if stable=true, then the input data will be mean centered after this
+ * function returns!
+ */
+template <typename Type, typename LayoutPolicy>
+void cov(const raft::handle_t& handle,
+        const raft::device_matrix_view<Type, LayoutPolicy>& data,
+        const raft::device_vector_view<const Type>& mu,
+        const raft::device_matrix_view<Type, LayoutPolicy>& covar,
+        bool sample,
+        bool stable)
+{
+  detail::cov(handle, data, mu, covar, sample, stable);
 }
 };  // end namespace stats
 };  // end namespace raft
