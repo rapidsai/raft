@@ -32,6 +32,86 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
+template <typename math_t>
+void randomizedSVD(const raft::handle_t& handle,
+                   math_t* in,
+                   std::size_t n_rows,
+                   std::size_t n_cols,
+                   std::size_t k, //Rank of the k-SVD decomposition of matrix A. rank is less than min(m,n). 
+                   std::size_t p, //Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n). 
+                   std::size_t niters, //Number of iteration of power method. 
+                   math_t* sing_vals,
+                   math_t* left_sing_vecs,
+                   math_t* right_sing_vecs,
+                   bool trans_right, // Transpose the right singular vector back
+                   bool gen_left_vec, // left vector needs to be generated or not?
+                   bool gen_right_vec) // right vector needs to be generated or not?
+{
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "raft::linalg::randomizedSVD(%d, %d)", n_rows, n_cols);
+
+  cudaStream_t stream          = handle.get_stream();
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cusolverDnParams_t dn_params = nullptr;
+  RAFT_CUSOLVER_TRY(cusolverDnCreateParams(&dn_params));
+
+  char jobu  = 'S';
+  char jobv = 'S';
+  if (!gen_left_vec) {
+    char new_u = 'N';
+    strcpy(&jobu, &new_u);
+  }
+  if (!gen_right_vec) {
+    char new_v = 'N';
+    strcpy(&jobv, &new_v);
+  }
+
+  size_t workspaceDevice = 0;
+  size_t workspaceHost   = 0;
+  RAFT_CUSOLVER_TRY(cusolverDnxgesvdr_bufferSize<math_t>(cusolverH, dn_params, jobu, jobv, n_rows, n_cols, k, p, niters, 
+    in, n_rows, sing_vals, left_sing_vecs, n_rows, right_sing_vecs, n_cols, &workspaceDevice, &workspaceHost));
+  
+  auto d_workspace = raft::make_device_vector<char>(workspaceDevice, stream);
+  auto h_workspace = raft::make_host_vector<char>(workspaceHost, stream);
+  auto devInfo = raft::make_device_scalar<int>(0, stream);
+
+  // HERE
+  RAFT_CUSOLVER_TRY(cusolverDnxgesvd(cusolverH,
+                                     dn_params,
+                                     jobu,
+                                     jobv,
+                                     n_rows,
+                                     n_cols,
+                                     k,
+                                     p,
+                                     niters,
+                                     in,
+                                     n_rows,
+                                     sing_vals,
+                                     left_sing_vecs,
+                                     n_rows,
+                                     right_sing_vecs,
+                                     n_cols,
+                                     d_workspace.data(),
+                                     &workspaceDevice,
+                                     h_workspace.data(),
+                                     &workspaceHost,
+                                     devInfo.data(),
+                                     stream));
+
+  // Transpose the right singular vector back
+  if (trans_right) raft::linalg::transpose(right_sing_vecs, n_cols, stream);
+
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+  int dev_info;
+  raft::update_host(&dev_info, devInfo.data(), 1, stream);
+  handle.sync_stream(stream);
+  ASSERT(dev_info == 0,
+          "rsvd.cuh: randomized svd couldn't converge to a solution. "
+          "This usually occurs when some of the features do not vary enough.");
+}
+
 /**
  * @brief randomized singular value decomposition (RSVD) on the column major
  * float type input matrix (Jacobi-based), by specifying no. of PCs and

@@ -23,6 +23,25 @@
 namespace raft {
 namespace linalg {
 
+template <typename math_t>
+void randomizedSVD(const raft::handle_t& handle,
+                    math_t* in,
+                    std::size_t n_rows,
+                    std::size_t n_cols,
+                    std::size_t k, //Rank of the k-SVD decomposition of matrix A. rank is less than min(m,n). 
+                    std::size_t p, //Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n). 
+                    std::size_t niters, //Number of iteration of power method. 
+                    math_t* sing_vals,
+                    math_t* left_sing_vecs,
+                    math_t* right_sing_vecs,
+                    bool trans_right, // Transpose the right singular vector back
+                    bool gen_left_vec, // left vector needs to be generated or not?
+                    bool gen_right_vec) // right vector needs to be generated or not?
+{
+  detail::randomizedSVD<math_t>(handle, in, n_rows, n_cols, k, p, niters, sing_vals, left_sing_vecs,
+    right_sing_vecs, trans_right, gen_left_vec, gen_right_vec);
+}
+
 /**
  * @brief randomized singular value decomposition (RSVD) on the column major
  * float type input matrix (Jacobi-based), by specifying no. of PCs and
