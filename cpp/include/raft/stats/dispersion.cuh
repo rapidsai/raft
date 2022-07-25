@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <optional>
+#include <raft/core/mdarray.hpp>
 #include <raft/stats/detail/dispersion.cuh>
 
 namespace raft {
@@ -55,6 +57,35 @@ DataT dispersion(const DataT* centroids,
     centroids, clusterSizes, globalCentroid, nClusters, nPoints, dim, stream);
 }
 
+/**
+ * @brief Compute cluster dispersion metric. This is very useful for
+ * automatically finding the 'k' (in kmeans) that improves this metric.
+ * @tparam DataT data type
+ * @tparam IdxT index type
+ * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam TPB threads block for kernels launched
+ * @param handle the raft handle
+ * @param centroids the cluster centroids. This is assumed to be row-major
+ *   and of dimension (nClusters x dim)
+ * @param clusterSizes number of points in the dataset which belong to each
+ *   cluster. This is of length nClusters
+ * @param globalCentroid compute the global weighted centroid of all cluster
+ *   centroids. This is of length dim. Use std::nullopt to not return it.
+ * @param nPoints number of points in the dataset
+ * @return the cluster dispersion value
+ */
+template <typename DataT, typename IdxT = int, typename LayoutPolicy = raft::layout_c_contiguous, int TPB = 256>
+DataT dispersion(
+  const raft::handle_t& handle,
+  const raft::device_matrix_view<const DataT, LayoutPolicy>& centroids,
+  const raft::device_vector_view<const IdxT>& clusterSizes,
+  const std::optional<const raft::device_vector_view<DataT>>& globalCentroid,
+  const IdxT nPoints)
+{
+  return detail::dispersion(
+    centroids.data(), clusterSizes.data(), globalCentroid.data(), centroids.extent(0), nPoints, centroids.extent(1), handle.get_stream());
+}
+ 
 }  // end namespace stats
 }  // end namespace raft
 

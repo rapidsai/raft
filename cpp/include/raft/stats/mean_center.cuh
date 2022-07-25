@@ -63,14 +63,15 @@ void meanCenter(Type* out,
  * @param out the output mean-centered matrix
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename Type, typename LayoutPolicy, int TPB = 256>
+template <typename Type, typename IdxType, typename LayoutPolicy, int TPB = 256>
 void meanCenter(const raft::handle_t& handle,
-                const raft::device_matrix_view<const Type, LayoutPolicy>& data,
-                const raft::device_vector_view<const Type, LayoutPolicy>& mu,
-                const raft::device_matrix_view<Type, LayoutPolicy>& out,
+                const raft::device_matrix_view<const Type, IdxType, LayoutPolicy>& data,
+                const raft::device_vector_view<const Type, IdxType, LayoutPolicy>& mu,
+                const raft::device_matrix_view<Type, IdxType, LayoutPolicy>& out,
                 bool bcastAlongRows)
 {
-  detail::meanCenter<Type, LayoutPolicy, TPB>(handle, data, mu, out, bcastAlongRows);
+  detail::meanCenter<Type, IdxType, TPB>(out.data(), data.data(), mu.data(), data.extent(1), data.extent(0),
+    std::is_same_v<LayoutPolicy, raft::row_major>, bcastAlongRows, handle.get_stream());
 }
 
 /**
@@ -111,14 +112,15 @@ void meanAdd(Type* out,
  * @param out the output mean-added matrix
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename Type, typename LayoutPolicy, int TPB = 256>
+template <typename Type, typename IdxType, typename LayoutPolicy, int TPB = 256>
 void meanAdd(const raft::handle_t& handle,
-  const raft::device_matrix_view<const Type, LayoutPolicy>& data,
-  const raft::device_vector_view<const Type, LayoutPolicy>& mu,
-  const raft::device_matrix_view<Type, LayoutPolicy>& out,
+  const raft::device_matrix_view<const Type, IdxType, LayoutPolicy>& data,
+  const raft::device_vector_view<const Type, IdxType, LayoutPolicy>& mu,
+  const raft::device_matrix_view<Type, IdxType, LayoutPolicy>& out,
   bool bcastAlongRows)
 {
-  detail::meanAdd<Type, LayoutPolicy, TPB>(handle, data, mu, out, bcastAlongRows);
+  detail::meanAdd<Type, IdxType, TPB>(out.data(), data.data(), mu.data(), data.extent(1), data.extent(0),
+    std::is_same_v<LayoutPolicy, raft::row_major>, bcastAlongRows, handle.get_stream());
 }
 };  // end namespace stats
 };  // end namespace raft

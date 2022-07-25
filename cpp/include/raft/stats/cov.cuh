@@ -85,7 +85,8 @@ void cov(const raft::handle_t& handle,
         bool sample,
         bool stable)
 {
-  detail::cov(handle, data, mu, covar, sample, stable);
+  detail::cov(handle, covar.data(), data.data(), mu.data(), data.extent(1), data.extent(0),
+    std::is_same_v<LayoutPolicy, raft::row_major>, sample, stable, handle.get_stream());
 }
 };  // end namespace stats
 };  // end namespace raft
