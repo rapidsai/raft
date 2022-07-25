@@ -23,23 +23,48 @@
 namespace raft {
 namespace linalg {
 
+/**
+ * @brief randomized singular value decomposition (RSVD) on the column major
+ * float type input matrix (Jacobi-based), by specifying no. of PCs and
+ * upsamples directly
+ * @param handle:  raft handle
+ * @param in:      input matrix
+ *                 [dim = n_rows * n_cols] 
+ * @param n_rows:  number rows of input matrix
+ * @param n_cols:  number columns of input matrix
+ * @param k:       Rank of the k-SVD decomposition of matrix in. Number of singular values to be computed.
+ *                 The rank is less than min(m,n). 
+ * @param p:       Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n). 
+ * @param niters:  Number of iteration of power method.
+ * @param S:       array of singular values of input matrix.
+ *                 [dim = min(n_rows, n_cols)] 
+ * @param U:       left singular values of input matrix.
+ *                 [dim = n_rows * n_rows] if gen_U
+ *                 [dim = min(n_rows,n_cols) * n_rows] else
+ * @param V:       right singular values of input matrix.
+ *                 [dim = n_cols * n_cols] if gen_V
+ *                 [dim = min(n_rows,n_cols) * n_cols] else
+ * @param trans_V: Transpose V back ?
+ * @param gen_U:   left vector needs to be generated or not?
+ * @param gen_V:   right vector needs to be generated or not?
+ */
 template <typename math_t>
 void randomizedSVD(const raft::handle_t& handle,
-                    math_t* in,
-                    std::size_t n_rows,
-                    std::size_t n_cols,
-                    std::size_t k, //Rank of the k-SVD decomposition of matrix A. rank is less than min(m,n). 
-                    std::size_t p, //Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n). 
-                    std::size_t niters, //Number of iteration of power method. 
-                    math_t* sing_vals,
-                    math_t* left_sing_vecs,
-                    math_t* right_sing_vecs,
-                    bool trans_right, // Transpose the right singular vector back
-                    bool gen_left_vec, // left vector needs to be generated or not?
-                    bool gen_right_vec) // right vector needs to be generated or not?
+                   math_t* in,
+                   std::size_t n_rows,
+                   std::size_t n_cols,
+                   std::size_t k,
+                   std::size_t p,
+                   std::size_t niters,
+                   math_t* S,
+                   math_t* U,
+                   math_t* V,
+                   bool trans_V,
+                   bool gen_U,
+                   bool gen_V)
 {
-  detail::randomizedSVD<math_t>(handle, in, n_rows, n_cols, k, p, niters, sing_vals, left_sing_vecs,
-    right_sing_vecs, trans_right, gen_left_vec, gen_right_vec);
+  detail::randomizedSVD<math_t>(handle, in, n_rows, n_cols, k, p, niters, S, U,
+    V, trans_V, gen_U, gen_V);
 }
 
 /**

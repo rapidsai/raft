@@ -37,15 +37,15 @@ void randomizedSVD(const raft::handle_t& handle,
                    math_t* in,
                    std::size_t n_rows,
                    std::size_t n_cols,
-                   std::size_t k, //Rank of the k-SVD decomposition of matrix A. rank is less than min(m,n). 
-                   std::size_t p, //Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n). 
-                   std::size_t niters, //Number of iteration of power method. 
-                   math_t* sing_vals,
-                   math_t* left_sing_vecs,
-                   math_t* right_sing_vecs,
-                   bool trans_right, // Transpose the right singular vector back
-                   bool gen_left_vec, // left vector needs to be generated or not?
-                   bool gen_right_vec) // right vector needs to be generated or not?
+                   std::size_t k,
+                   std::size_t p,
+                   std::size_t niters,
+                   math_t* S,
+                   math_t* U,
+                   math_t* V,
+                   bool trans_V,
+                   bool gen_U,
+                   bool gen_V)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "raft::linalg::randomizedSVD(%d, %d)", n_rows, n_cols);
@@ -57,11 +57,11 @@ void randomizedSVD(const raft::handle_t& handle,
 
   char jobu  = 'S';
   char jobv = 'S';
-  if (!gen_left_vec) {
+  if (!gen_U) {
     char new_u = 'N';
     strcpy(&jobu, &new_u);
   }
-  if (!gen_right_vec) {
+  if (!gen_V) {
     char new_v = 'N';
     strcpy(&jobv, &new_v);
   }
@@ -69,7 +69,7 @@ void randomizedSVD(const raft::handle_t& handle,
   size_t workspaceDevice = 0;
   size_t workspaceHost   = 0;
   RAFT_CUSOLVER_TRY(cusolverDnxgesvdr_bufferSize<math_t>(cusolverH, dn_params, jobu, jobv, n_rows, n_cols, k, p, niters, 
-    in, n_rows, sing_vals, left_sing_vecs, n_rows, right_sing_vecs, n_cols, &workspaceDevice, &workspaceHost));
+    in, n_rows, S, U, n_rows, V, n_cols, &workspaceDevice, &workspaceHost));
   
   auto d_workspace = raft::make_device_vector<char>(workspaceDevice, stream);
   auto h_workspace = raft::make_host_vector<char>(workspaceHost, stream);
@@ -87,10 +87,10 @@ void randomizedSVD(const raft::handle_t& handle,
                                      niters,
                                      in,
                                      n_rows,
-                                     sing_vals,
-                                     left_sing_vecs,
+                                     S,
+                                     U,
                                      n_rows,
-                                     right_sing_vecs,
+                                     V,
                                      n_cols,
                                      d_workspace.data(),
                                      &workspaceDevice,
@@ -100,7 +100,7 @@ void randomizedSVD(const raft::handle_t& handle,
                                      stream));
 
   // Transpose the right singular vector back
-  if (trans_right) raft::linalg::transpose(right_sing_vecs, n_cols, stream);
+  if (trans_V) raft::linalg::transpose(V, n_cols, stream);
 
   RAFT_CUDA_TRY(cudaGetLastError());
 
