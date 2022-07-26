@@ -21,7 +21,7 @@
 #include "knn_brute_force_faiss.cuh"
 
 #include "common_faiss.h"
-#include "processing.hpp"
+#include "processing.cuh"
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 

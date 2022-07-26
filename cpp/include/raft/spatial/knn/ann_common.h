@@ -52,20 +52,21 @@ struct knnIndex {
 };
 
 template <>
-auto knnIndex::ivf_flat<float, int64_t>() -> std::unique_ptr<const ivf_flat::index<float, int64_t>>&
+inline auto knnIndex::ivf_flat<float, int64_t>()
+  -> std::unique_ptr<const ivf_flat::index<float, int64_t>>&
 {
   return ivf_flat_float_;
 }
 
 template <>
-auto knnIndex::ivf_flat<uint8_t, int64_t>()
+inline auto knnIndex::ivf_flat<uint8_t, int64_t>()
   -> std::unique_ptr<const ivf_flat::index<uint8_t, int64_t>>&
 {
   return ivf_flat_uint8_t_;
 }
 
 template <>
-auto knnIndex::ivf_flat<int8_t, int64_t>()
+inline auto knnIndex::ivf_flat<int8_t, int64_t>()
   -> std::unique_ptr<const ivf_flat::index<int8_t, int64_t>>&
 {
   return ivf_flat_int8_t_;
