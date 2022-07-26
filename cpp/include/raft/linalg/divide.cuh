@@ -66,14 +66,29 @@ void divide_scalar(const raft::handle_t& handle,
                    const InType in,
                    const raft::scalar_view<typename InType::element_type> scalar)
 {
-  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
-  RAFT_EXPECTS(in.is_contiguous(), "Input must be contiguous");
+  using in_element_t  = typename InType::element_type;
+  using out_element_t = typename OutType::element_type;
+
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
   // if (raft::is_device_ptr(scalar.data())) {
   //   RAFT_FAIL("Scalar in device memory is not supported");
   // } else {
-  divideScalar(out.data(), in.data(), *scalar.data(), out.size(), handle.get_stream());
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    divideScalar<in_element_t, out_element_t, std::uint32_t>(out.data_handle(),
+                                                             in.data_handle(),
+                                                             *scalar.data_handle(),
+                                                             static_cast<std::uint32_t>(out.size()),
+                                                             handle.get_stream());
+  } else {
+    divideScalar<in_element_t, out_element_t, std::uint64_t>(out.data_handle(),
+                                                             in.data_handle(),
+                                                             *scalar.data_handle(),
+                                                             static_cast<std::uint64_t>(out.size()),
+                                                             handle.get_stream());
+  }
   // }
 }
 

@@ -78,12 +78,10 @@ void axpy(const raft::handle_t& handle,
           MdspanType y,
           const int incy)
 {
-  RAFT_EXPECTS(y.is_contiguous(), "Output must be contiguous");
-  RAFT_EXPECTS(x.is_contiguous(), "Input must be contiguous");
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input")
 
   axpy<typename MdspanType::element_type, DevicePointerMode>(
-    handle, y.size(), alpha, x.data(), incx, y.data(), incy, handle.get_stream());
+    handle, y.size(), alpha, x.data_handle(), incx, y.data_handle(), incy, handle.get_stream());
 }
 
 /** @} */  // end of group axpy

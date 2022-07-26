@@ -119,6 +119,7 @@ void eigJacobi(const raft::handle_t& handle,
  * @brief eig decomp with divide and conquer method for the column-major
  * symmetric matrices
  * @tparam ElementType the data-type of input and output
+ * @tparam IntegerType Integer used for addressing
  * @param handle raft::handle_t
  * @param in input raft::matrix_view (symmetric matrix that has real eig values and
  * vectors)
@@ -126,24 +127,24 @@ void eigJacobi(const raft::handle_t& handle,
  * @param eig_vals: eigen values output of type raft::vector_view
  * @param memUsage: the memory selection for eig vector output
  */
-template <typename ElementType>
+template <typename ElementType, typename IndexType = std::uint32_t>
 void eig_dc(const raft::handle_t& handle,
-            const raft::matrix_view<ElementType, raft::col_major> in,
-            raft::matrix_view<ElementType, raft::col_major> eig_vectors,
-            raft::vector_view<ElementType> eig_vals)
+            const raft::matrix_view<ElementType, IndexType, raft::col_major> in,
+            raft::matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
+            raft::vector_view<ElementType, IndexType> eig_vals)
 {
-  RAFT_EXPECTS(in.is_contiguous(), "Input must be contiguous");
-  RAFT_EXPECTS(eig_vectors.is_contiguous(), "Eigen Vectors must be contiguous");
-  RAFT_EXPECTS(eig_vals.is_contiguous(), "Eigen Values must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(eig_vectors.is_exhaustive(), "Eigen Vectors must be contiguous");
+  RAFT_EXPECTS(eig_vals.is_exhaustive(), "Eigen Values must be contiguous");
   RAFT_EXPECTS(in.size() == eig_vectors.size(), "Size mismatch between Input and Eigen Vectors");
   RAFT_EXPECTS(eig_vals.size() == in.extent(1), "Size mismatch between Input and Eigen Values");
 
   eigDC(handle,
-        in.data(),
+        in.data_handle(),
         in.extent(0),
         in.extent(1),
-        eig_vectors.data(),
-        eig_vals.data(),
+        eig_vectors.data_handle(),
+        eig_vals.data_handle(),
         handle.get_stream());
 }
 
@@ -151,6 +152,7 @@ void eig_dc(const raft::handle_t& handle,
  * @brief eig decomp to select top-n eigen values with divide and conquer method
  *        for the column-major symmetric matrices
  * @tparam ElementType the data-type of input and output
+ * @tparam IntegerType Integer used for addressing
  * @param handle raft::handle_t
  * @param in input raft::matrix_view (symmetric matrix that has real eig values and
  * vectors)
@@ -158,28 +160,28 @@ void eig_dc(const raft::handle_t& handle,
  * @param eig_vectors: eigenvectors output of type raft::matrix_view
  * @param eig_vals: eigen values output of type raft::vector_view
  */
-template <typename ElementType>
+template <typename ElementType, typename IndexType = std::uint32_t>
 void eig_dc_select(const raft::handle_t& handle,
-                   const raft::matrix_view<ElementType, raft::col_major> in,
+                   const raft::matrix_view<ElementType, IndexType, raft::col_major> in,
                    std::size_t n_eig_vals,
-                   raft::matrix_view<ElementType, raft::col_major> eig_vectors,
-                   raft::vector_view<ElementType> eig_vals,
+                   raft::matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
+                   raft::vector_view<ElementType, IndexType> eig_vals,
                    EigVecMemUsage memUsage)
 {
-  RAFT_EXPECTS(in.is_contiguous(), "Input must be contiguous");
-  RAFT_EXPECTS(eig_vectors.is_contiguous(), "Eigen Vectors must be contiguous");
-  RAFT_EXPECTS(eig_vals.is_contiguous(), "Eigen Values must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(eig_vectors.is_exhaustive(), "Eigen Vectors must be contiguous");
+  RAFT_EXPECTS(eig_vals.is_exhaustive(), "Eigen Values must be contiguous");
   RAFT_EXPECTS(eig_vectors.size() == n_eig_vals * in.extent(0),
                "Size mismatch between Input and Eigen Vectors");
   RAFT_EXPECTS(eig_vals.size() == n_eig_vals, "Size mismatch between Input and Eigen Values");
 
   raft::linalg::eigSelDC(handle,
-                         in.data(),
+                         in.data_handle(),
                          in.extent(0),
                          in.extent(1),
                          n_eig_vals,
-                         eig_vectors.data(),
-                         eig_vals.data(),
+                         eig_vectors.data_handle(),
+                         eig_vals.data_handle(),
                          memUsage,
                          handle.get_stream());
 }
@@ -188,6 +190,7 @@ void eig_dc_select(const raft::handle_t& handle,
  * @brief overloaded function for eig decomp with Jacobi method for the
  * column-major symmetric matrices (in parameter)
  * @tparam ElementType the data-type of input and output
+ * @tparam IntegerType Integer used for addressing
  * @param handle raft::handle_t
  * @param in input raft::matrix_view (symmetric matrix that has real eig values and
  * vectors)
@@ -198,26 +201,26 @@ void eig_dc_select(const raft::handle_t& handle,
  * @param sweeps: number of sweeps in the Jacobi algorithm. The more the better
  * accuracy.
  */
-template <typename ElementType>
+template <typename ElementType, typename IndexType = std::uint32_t>
 void eig_jacobi(const raft::handle_t& handle,
-                const raft::matrix_view<ElementType, raft::col_major> in,
-                raft::matrix_view<ElementType, raft::col_major> eig_vectors,
-                raft::vector_view<ElementType> eig_vals,
+                const raft::matrix_view<ElementType, IndexType, raft::col_major> in,
+                raft::matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
+                raft::vector_view<ElementType, IndexType> eig_vals,
                 ElementType tol = 1.e-7,
                 int sweeps      = 15)
 {
-  RAFT_EXPECTS(in.is_contiguous(), "Input must be contiguous");
-  RAFT_EXPECTS(eig_vectors.is_contiguous(), "Eigen Vectors must be contiguous");
-  RAFT_EXPECTS(eig_vals.is_contiguous(), "Eigen Values must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(eig_vectors.is_exhaustive(), "Eigen Vectors must be contiguous");
+  RAFT_EXPECTS(eig_vals.is_exhaustive(), "Eigen Values must be contiguous");
   RAFT_EXPECTS(in.size() == eig_vectors.size(), "Size mismatch between Input and Eigen Vectors");
   RAFT_EXPECTS(eig_vals.size() == in.extent(1), "Size mismatch between Input and Eigen Values");
 
   eigJacobi(handle,
-            in.data(),
+            in.data_handle(),
             in.extent(0),
             in.extent(1),
-            eig_vectors.data(),
-            eig_vals.data(),
+            eig_vectors.data_handle(),
+            eig_vals.data_handle(),
             handle.get_stream(),
             tol,
             sweeps);

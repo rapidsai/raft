@@ -220,6 +220,8 @@ void choleskyRank1Update(const raft::handle_t& handle,
  * // Now U stores the Cholesky decomposition of A: A = U.T * U
  * @endcode
  *
+ * @tparam ElementType The data-type of raft::mdspan
+ * @tparam IndexType Integer used for addressing
  * @param handle RAFT handle (used to retrive cuBLAS handles).
  * @param L raft::device_matrix_view<ElementType, raft::col_major> to store the
  *        triangular matrix L, and the new column of A in column major format, size [n*n]
@@ -233,9 +235,9 @@ void choleskyRank1Update(const raft::handle_t& handle,
  * @param eps numerical parameter that can act as a regularizer for ill
  *    conditioned systems. Negative values mean no regularizaton.
  */
-template <typename ElementType>
+template <typename ElementType, typename IndexType = std::uint32_t>
 void cholesky_rank1_update(const raft::handle_t& handle,
-                           raft::matrix_view<ElementType, raft::col_major> L,
+                           raft::matrix_view<ElementType, IndexType, raft::col_major> L,
                            int n,
                            int ld,
                            std::optional<raft::vector_view<char>> workspace,
@@ -244,10 +246,18 @@ void cholesky_rank1_update(const raft::handle_t& handle,
                            ElementType eps = -1)
 {
   if (workspace) {
-    choleskyRank1Update(
-      handle, L.data(), n, ld, workspace.value().data(), n_bytes, uplo, handle.get_stream(), eps);
+    choleskyRank1Update(handle,
+                        L.data_handle(),
+                        n,
+                        ld,
+                        workspace.value().data_handle(),
+                        n_bytes,
+                        uplo,
+                        handle.get_stream(),
+                        eps);
   } else {
-    choleskyRank1Update(handle, L.data(), n, ld, nullptr, n_bytes, uplo, handle.get_stream(), eps);
+    choleskyRank1Update(
+      handle, L.data_handle(), n, ld, nullptr, n_bytes, uplo, handle.get_stream(), eps);
   }
 }
 

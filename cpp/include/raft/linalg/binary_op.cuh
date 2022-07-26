@@ -80,16 +80,22 @@ template <typename InType,
 void binary_op(
   const raft::handle_t& handle, OutType out, const InType in1, const InType in2, Lambda op)
 {
-  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
-  RAFT_EXPECTS(in1.is_contiguous(), "Input 1 must be contiguous");
-  RAFT_EXPECTS(in2.is_contiguous(), "Input 2 must be contiguous");
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in1.is_exhaustive(), "Input 1 must be contiguous");
+  RAFT_EXPECTS(in2.is_exhaustive(), "Input 2 must be contiguous");
   RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
                "Size mismatch between Output and Inputs");
 
   using in_element_t  = typename InType::element_type;
   using out_element_t = typename OutType::element_type;
-  binaryOp<in_element_t, Lambda, out_element_t, std::size_t, TPB>(
-    out.data(), in1.data(), in2.data(), out.size(), op, handle.get_stream());
+
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    binaryOp<in_element_t, Lambda, out_element_t, std::uint32_t, TPB>(
+      out.data_handle(), in1.data_handle(), in2.data_handle(), out.size(), op, handle.get_stream());
+  } else {
+    binaryOp<in_element_t, Lambda, out_element_t, std::uint64_t, TPB>(
+      out.data_handle(), in1.data_handle(), in2.data_handle(), out.size(), op, handle.get_stream());
+  }
 }
 
 /** @} */  // end of group binary_op

@@ -119,6 +119,7 @@ void matrixVectorOp(Type* out,
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
  * @tparam OutElementType the data-type of the output raft::matrix_view
+ * @tparam IndexType Integer used for addressing
  * @tparam TPB threads per block of the cuda kernel launched
  * @param handle raft::handle_t
  * @param out output raft::matrix_view
@@ -132,33 +133,33 @@ template <typename InElementType,
           typename LayoutPolicy,
           typename Lambda,
           typename OutElementType = InElementType,
+          typename IndexType      = std::uint32_t,
           int TPB                 = 256>
 void matrix_vector_op(const raft::handle_t& handle,
-                      raft::matrix_view<OutElementType, LayoutPolicy> out,
-                      const raft::matrix_view<InElementType, LayoutPolicy> matrix,
-                      const raft::vector_view<InElementType> vec,
+                      raft::matrix_view<OutElementType, IndexType, LayoutPolicy> out,
+                      const raft::matrix_view<InElementType, IndexType, LayoutPolicy> matrix,
+                      const raft::vector_view<InElementType, IndexType> vec,
                       Apply apply,
                       Lambda op)
 {
-  static_assert(
-    std::is_same_v<typename decltype(out)::layout_type, typename decltype(matrix)::layout_type>,
-    "Layout mismatch between Input and Output");
-  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
-  RAFT_EXPECTS(matrix.is_contiguous(), "Input must be contiguous");
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(matrix.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == matrix.size(), "Size mismatch between Output and Input");
 
   auto constexpr rowMajor = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
   auto bcastAlongRows     = apply == Apply::ALONG_ROWS;
 
   if (bcastAlongRows) {
-    RAFT_EXPECTS(out.extent(1) == vec.size(), "Size mismatch between matrix and vector");
+    RAFT_EXPECTS(out.extent(1) == static_cast<IndexType>(vec.size()),
+                 "Size mismatch between matrix and vector");
   } else {
-    RAFT_EXPECTS(out.extent(0) == vec.size(), "Size mismatch between matrix and vector");
+    RAFT_EXPECTS(out.extent(0) == static_cast<IndexType>(vec.size()),
+                 "Size mismatch between matrix and vector");
   }
 
-  matrixVectorOp(out.data(),
-                 matrix.data(),
-                 vec.data(),
+  matrixVectorOp(out.data_handle(),
+                 matrix.data_handle(),
+                 vec.data_handle(),
                  out.extent(1),
                  out.extent(0),
                  rowMajor,
@@ -179,6 +180,7 @@ void matrix_vector_op(const raft::handle_t& handle,
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
  * @tparam OutElementType the data-type of the output raft::matrix_view
+ * @tparam IndexType Integer used for addressing
  * @tparam TPB threads per block of the cuda kernel launched
  * @param handle raft::handle_t
  * @param out output raft::matrix_view
@@ -193,37 +195,39 @@ template <typename InElementType,
           typename LayoutPolicy,
           typename Lambda,
           typename OutElementType = InElementType,
+          typename IndexType      = std::uint32_t,
           int TPB                 = 256>
 void matrix_vector_op(const raft::handle_t& handle,
-                      raft::matrix_view<OutElementType, LayoutPolicy> out,
-                      const raft::matrix_view<InElementType, LayoutPolicy> matrix,
-                      const raft::vector_view<InElementType> vec1,
-                      const raft::vector_view<InElementType> vec2,
+                      raft::matrix_view<OutElementType, IndexType, LayoutPolicy> out,
+                      const raft::matrix_view<InElementType, IndexType, LayoutPolicy> matrix,
+                      const raft::vector_view<InElementType, IndexType> vec1,
+                      const raft::vector_view<InElementType, IndexType> vec2,
                       Apply apply,
                       Lambda op)
 {
-  static_assert(
-    std::is_same_v<typename decltype(out)::layout_type, typename decltype(matrix)::layout_type>,
-    "Layout mismatch between Input and Output");
-  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
-  RAFT_EXPECTS(matrix.is_contiguous(), "Input must be contiguous");
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(matrix.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == matrix.size(), "Size mismatch between Output and Input");
 
   auto constexpr rowMajor = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
   auto bcastAlongRows     = apply == Apply::ALONG_ROWS;
 
   if (bcastAlongRows) {
-    RAFT_EXPECTS(out.extent(1) == vec1.size(), "Size mismatch between matrix and vector");
-    RAFT_EXPECTS(out.extent(1) == vec2.size(), "Size mismatch between matrix and vector");
+    RAFT_EXPECTS(out.extent(1) == static_cast<IndexType>(vec1.size()),
+                 "Size mismatch between matrix and vector");
+    RAFT_EXPECTS(out.extent(1) == static_cast<IndexType>(vec2.size()),
+                 "Size mismatch between matrix and vector");
   } else {
-    RAFT_EXPECTS(out.extent(0) == vec1.size(), "Size mismatch between matrix and vector");
-    RAFT_EXPECTS(out.extent(0) == vec2.size(), "Size mismatch between matrix and vector");
+    RAFT_EXPECTS(out.extent(0) == static_cast<IndexType>(vec1.size()),
+                 "Size mismatch between matrix and vector");
+    RAFT_EXPECTS(out.extent(0) == static_cast<IndexType>(vec2.size()),
+                 "Size mismatch between matrix and vector");
   }
 
-  matrixVectorOp(out.data(),
-                 matrix.data(),
-                 vec1.data(),
-                 vec2.data(),
+  matrixVectorOp(out.data_handle(),
+                 matrix.data_handle(),
+                 vec1.data_handle(),
+                 vec2.data_handle(),
                  out.extent(1),
                  out.extent(0),
                  rowMajor,

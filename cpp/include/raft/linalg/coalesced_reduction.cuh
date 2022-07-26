@@ -85,6 +85,7 @@ void coalescedReduction(OutType* dots,
  * @tparam InElementType the input data-type of underlying raft::matrix_view
  * @tparam LayoutPolicy The layout of Input/Output (row or col major)
  * @tparam OutElementType the output data-type of underlying raft::matrix_view and reduction
+ * @tparam IndexType Integer type used to for addressing
  * @tparam MainLambda Unary lambda applied while acculumation (eg: L1 or L2 norm)
  * It must be a 'callable' supporting the following input and output:
  * <pre>OutType (*MainLambda)(InType, IdxType);</pre>
@@ -106,25 +107,26 @@ void coalescedReduction(OutType* dots,
 template <typename InElementType,
           typename LayoutPolicy,
           typename OutElementType = InElementType,
+          typename IndexType      = std::uint32_t,
           typename MainLambda     = raft::Nop<InElementType>,
           typename ReduceLambda   = raft::Sum<OutElementType>,
           typename FinalLambda    = raft::Nop<OutElementType>>
 void coalesced_reduction(const raft::handle_t& handle,
-                         raft::matrix_view<OutElementType, LayoutPolicy> dots,
-                         const raft::matrix_view<InElementType, LayoutPolicy> data,
+                         raft::matrix_view<OutElementType, IndexType, LayoutPolicy> dots,
+                         const raft::matrix_view<InElementType, IndexType, LayoutPolicy> data,
                          OutElementType init,
                          bool inplace           = false,
                          MainLambda main_op     = raft::Nop<InElementType>(),
                          ReduceLambda reduce_op = raft::Sum<OutElementType>(),
                          FinalLambda final_op   = raft::Nop<OutElementType>())
 {
-  RAFT_EXPECTS(dots.is_contiguous(), "Output must be contiguous");
-  RAFT_EXPECTS(data.is_contiguous(), "Input must be contiguous");
+  RAFT_EXPECTS(dots.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(data.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(dots.size() == data.size(), "Size mismatch between Output and Input");
 
   if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
-    coalescedReduction(dots.data(),
-                       data.data(),
+    coalescedReduction(dots.data_handle(),
+                       data.data_handle(),
                        data.extent(1),
                        data.extent(0),
                        init,
@@ -134,8 +136,8 @@ void coalesced_reduction(const raft::handle_t& handle,
                        reduce_op,
                        final_op);
   } else if constexpr (std::is_same_v<LayoutPolicy, raft::col_major>) {
-    coalescedReduction(dots.data(),
-                       data.data(),
+    coalescedReduction(dots.data_handle(),
+                       data.data_handle(),
                        data.extent(0),
                        data.extent(1),
                        init,

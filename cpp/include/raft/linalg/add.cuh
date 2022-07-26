@@ -74,7 +74,9 @@ void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t st
 
 /** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
  * write result to outDev[i]
- * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam InT     input data-type. Also the data-type upon which the math ops
+ *                 will be performed
+ * @tparam OutT    output data-type
  * @tparam IdxType Integer type used to for addressing
  * @param outDev the output buffer
  * @param inDev the input buffer
@@ -82,12 +84,9 @@ void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t st
  * @param len number of elements in the input and output buffer
  * @param stream cuda stream
  */
-template <typename math_t, typename IdxType = int>
-void addDevScalar(math_t* outDev,
-                  const math_t* inDev,
-                  const math_t* singleScalarDev,
-                  IdxType len,
-                  cudaStream_t stream)
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void addDevScalar(
+  OutT* outDev, const InT* inDev, const InT* singleScalarDev, IdxType len, cudaStream_t stream)
 {
   detail::addDevScalar(outDev, inDev, singleScalarDev, len, stream);
 }
@@ -99,31 +98,37 @@ void addDevScalar(math_t* outDev,
 
 /**
  * @brief Elementwise add operation on the input buffers
- * @tparam out_t   Output Type raft::mdspan
- * @tparam in_t    Input Type raft::mdspan
+ * @tparam OutType   Output Type raft::mdspan
+ * @tparam InType    Input Type raft::mdspan
  * @param handle raft::handle_t
  * @param out    Output
  * @param in1    First Input
  * @param in2    Second Input
  */
-template <typename out_t, typename in_t, typename = raft::enable_if_mdspan<out_t, in_t>>
-void add(const raft::handle_t& handle, out_t out, const in_t in1, const in_t in2)
+template <typename OutType, typename InType, typename = raft::enable_if_mdspan<OutType, InType>>
+void add(const raft::handle_t& handle, OutType out, const InType in1, const InType in2)
 {
+  using in_element_t  = typename InType::element_type;
+  using out_element_t = typename OutType::element_type;
 
-  using in_element_t = typename in_t::element_type;
-  using out_element_t = typename out_t::element_type;
-
-  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
-  RAFT_EXPECTS(in1.is_contiguous(), "Input 1 must be contiguous");
-  RAFT_EXPECTS(in2.is_contiguous(), "Input 2 must be contiguous");
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in1.is_exhaustive(), "Input 1 must be contiguous");
+  RAFT_EXPECTS(in2.is_exhaustive(), "Input 2 must be contiguous");
   RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
                "Size mismatch between Output and Inputs");
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    add<in_element_t, out_element_t, std::uint32_t>(out.data(), in1.data(), in2.data(), static_cast<std::uint32_t>(out.size()), handle.get_stream());
-  }
-  else {
-    add<in_element_t, out_element_t, std::uint64_t>(out.data(), in1.data(), in2.data(), static_cast<std::uint64_t>(out.size()), handle.get_stream());
+    add<in_element_t, out_element_t, std::uint32_t>(out.data_handle(),
+                                                    in1.data_handle(),
+                                                    in2.data_handle(),
+                                                    static_cast<std::uint32_t>(out.size()),
+                                                    handle.get_stream());
+  } else {
+    add<in_element_t, out_element_t, std::uint64_t>(out.data_handle(),
+                                                    in1.data_handle(),
+                                                    in2.data_handle(),
+                                                    static_cast<std::uint64_t>(out.size()),
+                                                    handle.get_stream());
   }
 }
 
@@ -142,14 +147,43 @@ void add_scalar(const raft::handle_t& handle,
                 const InType in,
                 const raft::scalar_view<typename InType::element_type> scalar)
 {
-  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
-  RAFT_EXPECTS(in.is_contiguous(), "Input must be contiguous");
+  using in_element_t  = typename InType::element_type;
+  using out_element_t = typename OutType::element_type;
+
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
-  if (raft::is_device_ptr(scalar.data())) {
-    addDevScalar(out.data(), in.data(), scalar.data(), out.size(), handle.get_stream());
+  if (raft::is_device_ptr(scalar.data_handle())) {
+    if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+      addDevScalar<in_element_t, out_element_t, std::uint32_t>(
+        out.data_handle(),
+        in.data_handle(),
+        scalar.data_handle(),
+        static_cast<std::uint32_t>(out.size()),
+        handle.get_stream());
+    } else {
+      addDevScalar<in_element_t, out_element_t, std::uint64_t>(
+        out.data_handle(),
+        in.data_handle(),
+        scalar.data_handle(),
+        static_cast<std::uint64_t>(out.size()),
+        handle.get_stream());
+    }
   } else {
-    addScalar(out.data(), in.data(), *scalar.data(), out.size(), handle.get_stream());
+    if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+      addScalar<in_element_t, out_element_t, std::uint32_t>(out.data_handle(),
+                                                            in.data_handle(),
+                                                            *scalar.data_handle(),
+                                                            static_cast<std::uint32_t>(out.size()),
+                                                            handle.get_stream());
+    } else {
+      addScalar<in_element_t, out_element_t, std::uint64_t>(out.data_handle(),
+                                                            in.data_handle(),
+                                                            *scalar.data_handle(),
+                                                            static_cast<std::uint64_t>(out.size()),
+                                                            handle.get_stream());
+    }
   }
 }
 

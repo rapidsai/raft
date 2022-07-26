@@ -52,16 +52,16 @@ void matrixVectorOpLaunch(const raft::handle_t& handle,
                           bool bcastAlongRows,
                           bool useTwoVectors)
 {
-  auto out_row_major = raft::make_matrix_view<T, raft::row_major>(out, N, D);
-  auto in_row_major  = raft::make_matrix_view<const T, raft::row_major>(in, N, D);
+  auto out_row_major = raft::make_matrix_view<T, IdxType, raft::row_major>(out, N, D);
+  auto in_row_major  = raft::make_matrix_view<const T, IdxType, raft::row_major>(in, N, D);
 
-  auto out_col_major = raft::make_matrix_view<T, raft::col_major>(out, N, D);
-  auto in_col_major  = raft::make_matrix_view<const T, raft::col_major>(in, N, D);
+  auto out_col_major = raft::make_matrix_view<T, IdxType, raft::col_major>(out, N, D);
+  auto in_col_major  = raft::make_matrix_view<const T, IdxType, raft::col_major>(in, N, D);
 
   auto apply     = bcastAlongRows ? Apply::ALONG_ROWS : Apply::ALONG_COLUMNS;
   auto len       = bcastAlongRows ? D : N;
-  auto vec1_view = raft::make_vector_view(vec1, len);
-  auto vec2_view = raft::make_vector_view(vec2, len);
+  auto vec1_view = raft::make_vector_view<const T, IdxType>(vec1, len);
+  auto vec2_view = raft::make_vector_view<const T, IdxType>(vec2, len);
 
   if (useTwoVectors) {
     if (rowMajor) {
