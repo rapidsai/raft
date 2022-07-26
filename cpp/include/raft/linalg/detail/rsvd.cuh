@@ -75,7 +75,6 @@ void randomizedSVD(const raft::handle_t& handle,
   auto h_workspace = raft::make_host_vector<char>(workspaceHost, stream);
   auto devInfo = raft::make_device_scalar<int>(0, stream);
 
-  // HERE
   RAFT_CUSOLVER_TRY(cusolverDnxgesvd(cusolverH,
                                      dn_params,
                                      jobu,

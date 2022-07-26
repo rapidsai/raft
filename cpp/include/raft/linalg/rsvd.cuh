@@ -24,9 +24,7 @@ namespace raft {
 namespace linalg {
 
 /**
- * @brief randomized singular value decomposition (RSVD) on the column major
- * float type input matrix (Jacobi-based), by specifying no. of PCs and
- * upsamples directly
+ * @brief randomized singular value decomposition (RSVD)
  * @param handle:  raft handle
  * @param in:      input matrix
  *                 [dim = n_rows * n_cols] 
@@ -34,7 +32,8 @@ namespace linalg {
  * @param n_cols:  number columns of input matrix
  * @param k:       Rank of the k-SVD decomposition of matrix in. Number of singular values to be computed.
  *                 The rank is less than min(m,n). 
- * @param p:       Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n). 
+ * @param p:       Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n).
+ *                 (Recommanded to be at least 2*k)
  * @param niters:  Number of iteration of power method.
  * @param S:       array of singular values of input matrix.
  *                 [dim = min(n_rows, n_cols)] 
@@ -65,6 +64,48 @@ void randomizedSVD(const raft::handle_t& handle,
 {
   detail::randomizedSVD<math_t>(handle, in, n_rows, n_cols, k, p, niters, S, U,
     V, trans_V, gen_U, gen_V);
+}
+
+
+/**
+ * @brief randomized singular value decomposition (RSVD)
+ * @param handle:  raft handle
+ * @param in:      input matrix
+ *                 [dim = n_rows * n_cols] 
+ * @param n_rows:  number rows of input matrix
+ * @param n_cols:  number columns of input matrix
+ * @param k:       Rank of the k-SVD decomposition of matrix in. Number of singular values to be computed.
+ *                 The rank is less than min(m,n). 
+ * @param p:       Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n).
+ *                 (Recommanded to be at least 2*k)
+ * @param niters:  Number of iteration of power method. (2 is recommanded)
+ * @param S:       array of singular values of input matrix.
+ *                 [dim = min(n_rows, n_cols)] 
+ * @param U:       left singular values of input matrix.
+ *                 [dim = n_rows * n_rows] if gen_U
+ *                 [dim = min(n_rows,n_cols) * n_rows] else
+ * @param V:       right singular values of input matrix.
+ *                 [dim = n_cols * n_cols] if gen_V
+ *                 [dim = min(n_rows,n_cols) * n_cols] else
+ * @param trans_V: Transpose V back ?
+ * @param gen_U:   left vector needs to be generated or not?
+ * @param gen_V:   right vector needs to be generated or not?
+ */
+template <typename math_t>
+void randomizedSVD(const raft::handle_t& handle,
+                   const raft::device_matrix_view<math_t>& in,
+                   std::size_t k,
+                   std::size_t p,
+                   std::size_t niters,
+                   const raft::device_vector_view<math_t>& S,
+                   const raft::device_matrix_view<math_t>& U,
+                   const raft::device_matrix_view<math_t>& V,
+                   bool trans_V,
+                   bool gen_U,
+                   bool gen_V)
+{
+  detail::randomizedSVD<math_t>(handle, in, in.extent(0), in.extent(1), k, p, niters, S.data(), U.data(),
+    V.data(), trans_V, gen_U, gen_V);
 }
 
 /**
