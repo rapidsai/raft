@@ -35,6 +35,8 @@ class MetricProcessor {
 
   virtual void postprocess(math_t* data) {}
 
+  virtual void set_num_queries(int k) {}
+
   virtual ~MetricProcessor() = default;
 };
 

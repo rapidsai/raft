@@ -93,6 +93,8 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
       data, data, k_ * n_rows_, [] __device__(math_t in) { return 1 - in; }, stream_);
   }
 
+  virtual void set_num_queries(int k) { k_ = k; }
+
   ~CosineMetricProcessor() = default;
 };
 

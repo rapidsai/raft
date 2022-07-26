@@ -168,7 +168,10 @@ void approx_knn_search(const handle_t& handle,
   auto faiss_ivf = dynamic_cast<GpuIndexIVF*>(index->index.get());
   if (faiss_ivf) { faiss_ivf->setNumProbes(index->nprobe); }
 
-  if constexpr (std::is_same_v<T, float>) { index->metric_processor->preprocess(query_array); }
+  if constexpr (std::is_same_v<T, float>) {
+    index->metric_processor->preprocess(query_array);
+    index->metric_processor->set_num_queries(k);
+  }
 
   // search
   if (faiss_ivf) {
