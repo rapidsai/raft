@@ -114,6 +114,73 @@ INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValF, ::testing::ValuesIn(
 INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValD, ::testing::ValuesIn(inputsd2));
 
 namespace {
+/**
+ * We hide these functions in tests for now until we have a heterogeneous mdarray
+ * implementation.
+ */
+
+/**
+ * @brief Transpose a matrix. The output has same layout policy as the input.
+ *
+ * @tparam T Data type of input matrix elements.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ *
+ * @param[in] handle raft handle for managing expensive cuda resources.
+ * @param[in] in     Input matrix.
+ *
+ * @return The transposed matrix.
+ */
+template <typename T, typename LayoutPolicy>
+[[nodiscard]] auto transpose(handle_t const& handle, device_matrix_view<T, LayoutPolicy> in)
+  -> std::enable_if_t<std::is_floating_point_v<T> &&
+                        (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
+                         std::is_same_v<LayoutPolicy, layout_f_contiguous>),
+                      device_matrix<T, LayoutPolicy>>
+{
+  auto out = make_device_matrix<T, LayoutPolicy>(handle, in.extent(1), in.extent(0));
+  ::raft::linalg::transpose(handle, in, out.view());
+  return out;
+}
+
+/**
+ * @brief Transpose a matrix. The output has same layout policy as the input.
+ *
+ * @tparam T Data type of input matrix elements.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ *
+ * @param[in] handle raft handle for managing expensive cuda resources.
+ * @param[in] in     Input matrix.
+ *
+ * @return The transposed matrix.
+ */
+template <typename T>
+[[nodiscard]] auto transpose(handle_t const& handle, device_matrix_view<T, layout_stride> in)
+  -> std::enable_if_t<std::is_floating_point_v<T>, device_matrix<T, layout_stride>>
+{
+  matrix_extent exts{in.extent(1), in.extent(0)};
+  using policy_type = typename raft::device_matrix<T, layout_stride>::container_policy_type;
+  policy_type policy(handle.get_stream());
+
+  RAFT_EXPECTS(in.stride(0) == 1 || in.stride(1) == 1, "Unsupported matrix layout.");
+  if (in.stride(1) == 1) {
+    // row-major submatrix
+    std::array<size_t, 2> strides{in.extent(0), 1};
+    auto layout = layout_stride::mapping<matrix_extent>{exts, strides};
+    raft::device_matrix<T, layout_stride> out{layout, policy};
+    ::raft::linalg::transpose(handle, in, out.view());
+    return out;
+  } else {
+    // col-major submatrix
+    std::array<size_t, 2> strides{1, in.extent(1)};
+    auto layout = layout_stride::mapping<matrix_extent>{exts, strides};
+    raft::device_matrix<T, layout_stride> out{layout, policy};
+    ::raft::linalg::transpose(handle, in, out.view());
+    return out;
+  }
+}
+
 template <typename T, typename LayoutPolicy>
 void test_transpose_with_mdspan()
 {
