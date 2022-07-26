@@ -123,7 +123,7 @@ void test_mdarray_basic()
     static_assert(array.rank_dynamic() == 2);
     static_assert(array.rank() == 2);
     static_assert(array.is_unique());
-    static_assert(array.is_contiguous());
+    static_assert(array.is_exhaustive());
     static_assert(array.is_strided());
 
     static_assert(!std::is_nothrow_default_constructible<mdarray_t>::value);  // cuda stream
@@ -166,7 +166,7 @@ void test_mdarray_basic()
     static_assert(array.rank_dynamic() == 0);
     static_assert(array.rank() == 2);
     static_assert(array.is_unique());
-    static_assert(array.is_contiguous());
+    static_assert(array.is_exhaustive());
     static_assert(array.is_strided());
 
     array(0, 3) = 1;
@@ -190,7 +190,7 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
   auto policy     = make_policy();
 
   mdarray_t arr_origin{layout, policy};
-  thrust::sequence(exec, arr_origin.data(), arr_origin.data() + arr_origin.size());
+  thrust::sequence(exec, arr_origin.data_handle(), arr_origin.data_handle() + arr_origin.size());
 
   auto check_eq = [](auto const& l, auto const& r) {
     ASSERT_EQ(l.extents(), r.extents());
@@ -205,7 +205,7 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
     // copy ctor
     auto policy = make_policy();
     mdarray_t arr{layout, policy};
-    thrust::sequence(exec, arr.data(), arr.data() + arr.size());
+    thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
     mdarray_t arr_copy_construct{arr};
     check_eq(arr, arr_copy_construct);
 
@@ -218,7 +218,7 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
     // copy assign
     auto policy = make_policy();
     mdarray_t arr{layout, policy};
-    thrust::sequence(exec, arr.data(), arr.data() + arr.size());
+    thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
     mdarray_t arr_copy_assign{layout, policy};
     arr_copy_assign = arr;
     check_eq(arr, arr_copy_assign);
@@ -233,9 +233,9 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
     // move ctor
     auto policy = make_policy();
     mdarray_t arr{layout, policy};
-    thrust::sequence(exec, arr.data(), arr.data() + arr.size());
+    thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
     mdarray_t arr_move_construct{std::move(arr)};
-    ASSERT_EQ(arr.data(), nullptr);
+    ASSERT_EQ(arr.data_handle(), nullptr);
     check_eq(arr_origin, arr_move_construct);
   }
 
@@ -243,10 +243,10 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
     // move assign
     auto policy = make_policy();
     mdarray_t arr{layout, policy};
-    thrust::sequence(exec, arr.data(), arr.data() + arr.size());
+    thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
     mdarray_t arr_move_assign{layout, policy};
     arr_move_assign = std::move(arr);
-    ASSERT_EQ(arr.data(), nullptr);
+    ASSERT_EQ(arr.data_handle(), nullptr);
     check_eq(arr_origin, arr_move_assign);
   }
 }
@@ -272,7 +272,7 @@ TEST(MDArray, CopyMove)
     d_matrix_t non_dft{layout, policy};
 
     arr = non_dft;
-    ASSERT_NE(arr.data(), non_dft.data());
+    ASSERT_NE(arr.data_handle(), non_dft.data_handle());
     ASSERT_EQ(arr.extent(0), non_dft.extent(0));
   }
   {
@@ -284,7 +284,7 @@ TEST(MDArray, CopyMove)
     h_matrix_t non_dft{layout, policy};
 
     arr = non_dft;
-    ASSERT_NE(arr.data(), non_dft.data());
+    ASSERT_NE(arr.data_handle(), non_dft.data_handle());
     ASSERT_EQ(arr.extent(0), non_dft.extent(0));
   }
 }
@@ -379,7 +379,7 @@ void test_factory_methods()
     ASSERT_EQ(h_scalar(0), 17.0);
     ASSERT_EQ(h_scalar.view()(0), 17.0);
 
-    auto view = make_host_scalar_view(h_scalar.data());
+    auto view = make_host_scalar_view(h_scalar.data_handle());
     ASSERT_EQ(view(0), 17.0);
   }
 }

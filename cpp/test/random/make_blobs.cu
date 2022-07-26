@@ -99,11 +99,11 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     auto stats  = make_device_vector<T, int>(handle, 2 * params.n_clusters * params.cols);
     auto lens   = make_device_vector<int, int>(handle, params.n_clusters);
 
-    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, stats.extent(0) * sizeof(T), stream));
-    RAFT_CUDA_TRY(cudaMemsetAsync(lens.data(), 0, lens.extent(0) * sizeof(int), stream));
-    RAFT_CUDA_TRY(cudaMemsetAsync(mean_var.data(), 0, mean_var.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data_handle(), 0, stats.extent(0) * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(lens.data_handle(), 0, lens.extent(0) * sizeof(int), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(mean_var.data_handle(), 0, mean_var.size() * sizeof(T), stream));
 
-    uniform(handle, r, mu_vec.data(), params.cols * params.n_clusters, T(-10.0), T(10.0));
+    uniform(handle, r, mu_vec.data_handle(), params.cols * params.n_clusters, T(-10.0), T(10.0));
 
     make_blobs<T, int, layout>(handle,
                                data.view(),
@@ -120,25 +120,30 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
 
     bool row_major           = std::is_same<layout, raft::layout_c_contiguous>::value;
     static const int threads = 128;
-    meanKernel<T><<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data(),
-                                                                       lens.data(),
-                                                                       data.data(),
-                                                                       labels.data(),
+    meanKernel<T><<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data_handle(),
+                                                                       lens.data_handle(),
+                                                                       data.data_handle(),
+                                                                       labels.data_handle(),
                                                                        params.rows,
                                                                        params.cols,
                                                                        params.n_clusters,
                                                                        row_major);
     int len1 = params.n_clusters * params.cols;
-    compute_mean_var<T><<<raft::ceildiv(len1, threads), threads, 0, stream>>>(
-      mean_var.data(), stats.data(), lens.data(), params.n_clusters, params.cols, row_major);
+    compute_mean_var<T>
+      <<<raft::ceildiv(len1, threads), threads, 0, stream>>>(mean_var.data_handle(),
+                                                             stats.data_handle(),
+                                                             lens.data_handle(),
+                                                             params.n_clusters,
+                                                             params.cols,
+                                                             row_major);
   }
 
   void check()
   {
     int len      = params.n_clusters * params.cols;
     auto compare = raft::CompareApprox<T>(num_sigma * params.tolerance);
-    ASSERT_TRUE(raft::devArrMatch(mu_vec.data(), mean_var.data(), len, compare));
-    ASSERT_TRUE(raft::devArrMatch(params.std, mean_var.data() + len, len, compare));
+    ASSERT_TRUE(raft::devArrMatch(mu_vec.data_handle(), mean_var.data_handle(), len, compare));
+    ASSERT_TRUE(raft::devArrMatch(params.std, mean_var.data_handle() + len, len, compare));
   }
 
  protected:

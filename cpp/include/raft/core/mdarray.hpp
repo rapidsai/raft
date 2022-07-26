@@ -412,8 +412,8 @@ class mdarray
 
   [[nodiscard]] constexpr auto size() const noexcept -> std::size_t { return this->view().size(); }
 
-  [[nodiscard]] auto data() noexcept -> pointer { return c_.data(); }
-  [[nodiscard]] constexpr auto data() const noexcept -> const_pointer { return c_.data(); }
+  [[nodiscard]] auto data_handle() noexcept -> pointer { return c_.data(); }
+  [[nodiscard]] constexpr auto data_handle() const noexcept -> const_pointer { return c_.data(); }
 
   /**
    * @brief Indexing operator, use it sparingly since it triggers a device<->host copy.
@@ -483,7 +483,7 @@ class mdarray
   {
     return map_.is_unique();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_contiguous() const noexcept -> bool
+  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_exhaustive() const noexcept -> bool
   {
     return map_.is_exhaustive();
   }
