@@ -223,7 +223,7 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
   {
     rmm::device_uvector<int> hist{theta.size(), stream};
     RAFT_CUDA_TRY(cudaMemsetAsync(hist.data(), 0, hist.size() * sizeof(int), stream));
-    compute_hist<<<raft::ceildiv<size_t>(out.size(), 256), 256, 0, stream>>>(
+    compute_hist<<<raft::ceildiv<size_t>(out.size() / 2, 256), 256, 0, stream>>>(
       hist.data(), out.data(), out.size(), max_scale, params.r_scale, params.c_scale);
     RAFT_CUDA_TRY(cudaGetLastError());
     rmm::device_uvector<float> computed_theta{theta.size(), stream};
@@ -253,34 +253,36 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
   size_t max_scale;
 };
 
+static const float TOLERANCE = 0.01f;
+
 const std::vector<RmatInputs> inputs = {
   // square adjacency
-  {16, 16, 100000, false, 123456ULL, 0.01f},
-  {16, 16, 100000, true, 123456ULL, 0.01f},
-  {16, 16, 200000, false, 123456ULL, 0.01f},
-  {16, 16, 200000, true, 123456ULL, 0.01f},
-  {18, 18, 100000, false, 123456ULL, 0.01f},
-  {18, 18, 100000, true, 123456ULL, 0.01f},
-  {18, 18, 200000, false, 123456ULL, 0.01f},
-  {18, 18, 200000, true, 123456ULL, 0.01f},
-  {16, 16, 100000, false, 456789ULL, 0.01f},
-  {16, 16, 100000, true, 456789ULL, 0.01f},
-  {16, 16, 200000, false, 456789ULL, 0.01f},
-  {16, 16, 200000, true, 456789ULL, 0.01f},
-  {18, 18, 100000, false, 456789ULL, 0.01f},
-  {18, 18, 100000, true, 456789ULL, 0.01f},
-  {18, 18, 200000, false, 456789ULL, 0.01f},
-  {18, 18, 200000, true, 456789ULL, 0.01f},
+  {16, 16, 100000, false, 123456ULL, TOLERANCE},
+  {16, 16, 100000, true, 123456ULL, TOLERANCE},
+  {16, 16, 200000, false, 123456ULL, TOLERANCE},
+  {16, 16, 200000, true, 123456ULL, TOLERANCE},
+  {18, 18, 100000, false, 123456ULL, TOLERANCE},
+  {18, 18, 100000, true, 123456ULL, TOLERANCE},
+  {18, 18, 200000, false, 123456ULL, TOLERANCE},
+  {18, 18, 200000, true, 123456ULL, TOLERANCE},
+  {16, 16, 100000, false, 456789ULL, TOLERANCE},
+  {16, 16, 100000, true, 456789ULL, TOLERANCE},
+  {16, 16, 200000, false, 456789ULL, TOLERANCE},
+  {16, 16, 200000, true, 456789ULL, TOLERANCE},
+  {18, 18, 100000, false, 456789ULL, TOLERANCE},
+  {18, 18, 100000, true, 456789ULL, TOLERANCE},
+  {18, 18, 200000, false, 456789ULL, TOLERANCE},
+  {18, 18, 200000, true, 456789ULL, TOLERANCE},
 
   // rectangular adjacency
-  {16, 18, 200000, false, 123456ULL, 0.01f},
-  {16, 18, 200000, true, 123456ULL, 0.01f},
-  {18, 16, 200000, false, 123456ULL, 0.01f},
-  {18, 16, 200000, true, 123456ULL, 0.01f},
-  {16, 18, 200000, false, 456789ULL, 0.01f},
-  {16, 18, 200000, true, 456789ULL, 0.01f},
-  {18, 16, 200000, false, 456789ULL, 0.01f},
-  {18, 16, 200000, true, 456789ULL, 0.01f}};
+  {16, 18, 200000, false, 123456ULL, TOLERANCE},
+  {16, 18, 200000, true, 123456ULL, TOLERANCE},
+  {18, 16, 200000, false, 123456ULL, TOLERANCE},
+  {18, 16, 200000, true, 123456ULL, TOLERANCE},
+  {16, 18, 200000, false, 456789ULL, TOLERANCE},
+  {16, 18, 200000, true, 456789ULL, TOLERANCE},
+  {18, 16, 200000, false, 456789ULL, TOLERANCE},
+  {18, 16, 200000, true, 456789ULL, TOLERANCE}};
 
 TEST_P(RmatGenTest, Result) { validate(); }
 INSTANTIATE_TEST_SUITE_P(RmatGenTests, RmatGenTest, ::testing::ValuesIn(inputs));

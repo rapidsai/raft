@@ -50,8 +50,8 @@ DI void gen_and_update_bits(IdxT& src_id,
   } else {
     src_bit = dst_bit = true;
   }
-  if (curr_depth < r_scale) { src_id += (src_bit << (r_scale - curr_depth - 1)); }
-  if (curr_depth < c_scale) { dst_id += (dst_bit << (c_scale - curr_depth - 1)); }
+  if (curr_depth < r_scale) { src_id |= (IdxT(src_bit) << (r_scale - curr_depth - 1)); }
+  if (curr_depth < c_scale) { dst_id |= (IdxT(dst_bit) << (c_scale - curr_depth - 1)); }
 }
 
 template <typename IdxT>
@@ -82,19 +82,20 @@ __global__ void rmat_gen_kernel(IdxT* out,
 {
   IdxT idx = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
   extern __shared__ ProbT s_theta[];
-  auto lid4              = raft::laneId() % 4;
-  auto theta_len         = max_scale * 2 * 2;
-  auto num_theta_aligned = raft::alignTo<IdxT>(theta_len, raft::WarpSize);
-  // NOTE: assumes that blockDim.x is a multiple of 4!
-  for (int i = threadIdx.x; i < num_theta_aligned; i += blockDim.x) {
-    // for each consecutive 4 lanes compute the cdf of a, b, c, d (RMAT numbers)
-    // this will be used to determine which quadrant to be selected at each level
-    auto r_theta = i < theta_len ? theta[i] : ProbT(0);
-    auto other   = raft::shfl_up(r_theta, 0x1);
-    if (lid4 >= 1) { r_theta += other; }
-    other = raft::shfl_up(r_theta, 0x2);
-    if (lid4 >= 2) { r_theta += other; }
-    if (i < theta_len) { s_theta[i] = r_theta; }
+  auto theta_len = max_scale * 2 * 2;
+  // load the probabilities into shared memory and then convert them into cdf's
+  // currently there are smem bank conflicts due to the way these are accessed
+  for (int i = threadIdx.x; i < theta_len; i += blockDim.x) {
+    s_theta[i] = theta[i];
+  }
+  __syncthreads();
+  for (int i = threadIdx.x; i < max_scale; i += blockDim.x) {
+    auto a = s_theta[4 * i];
+    auto b = s_theta[4 * i + 1];
+    auto c = s_theta[4 * i + 2];
+    s_theta[4 * i + 1]  = a + b;
+    s_theta[4 * i + 2]  = a + b + c;
+    s_theta[4 * i + 3] += a + b + c;
   }
   __syncthreads();
   IdxT src_id{0}, dst_id{0};
