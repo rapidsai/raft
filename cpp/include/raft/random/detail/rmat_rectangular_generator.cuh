@@ -90,11 +90,11 @@ __global__ void rmat_gen_kernel(IdxT* out,
   }
   __syncthreads();
   for (int i = threadIdx.x; i < max_scale; i += blockDim.x) {
-    auto a = s_theta[4 * i];
-    auto b = s_theta[4 * i + 1];
-    auto c = s_theta[4 * i + 2];
-    s_theta[4 * i + 1]  = a + b;
-    s_theta[4 * i + 2]  = a + b + c;
+    auto a             = s_theta[4 * i];
+    auto b             = s_theta[4 * i + 1];
+    auto c             = s_theta[4 * i + 2];
+    s_theta[4 * i + 1] = a + b;
+    s_theta[4 * i + 2] = a + b + c;
     s_theta[4 * i + 3] += a + b + c;
   }
   __syncthreads();
