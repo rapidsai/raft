@@ -144,11 +144,7 @@ class device_uvector {
 template <typename ElementType>
 class device_uvector_policy {
   rmm::cuda_stream_view stream_;
-  // FIXME: adding this member makes cuml pytest crash:
-  //    python/cuml/tests/test_nearest_neighbors.py::test_ann_distances_metrics[sqeuclidean-ivfflat]
-  //    this crashes during GC, at the moment any mdarray member of ivf_flat::index is getting
-  //    destroyed
-  // rmm::mr::device_memory_resource* mr_ = nullptr;
+  rmm::mr::device_memory_resource* mr_;
 
  public:
   using element_type   = ElementType;
@@ -163,12 +159,17 @@ class device_uvector_policy {
   using const_accessor_policy = std::experimental::default_accessor<element_type const>;
 
  public:
-  auto create(size_t n) -> container_type { return container_type(n, stream_); }
+  auto create(size_t n) -> container_type
+  {
+    return mr_ ? container_type(n, stream_, mr_) : container_type(n, stream_);
+  }
 
   device_uvector_policy() = delete;
-  explicit device_uvector_policy(rmm::cuda_stream_view stream) noexcept(
-    std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
-    : stream_{stream}
+  explicit device_uvector_policy(
+    rmm::cuda_stream_view stream,
+    rmm::mr::device_memory_resource* mr =
+      nullptr) noexcept(std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
+    : stream_{stream}, mr_(mr)
   {
   }
 

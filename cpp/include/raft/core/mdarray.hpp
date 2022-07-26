@@ -758,31 +758,32 @@ auto make_device_mdarray(rmm::cuda_stream_view stream, Extents... exts)
   return mdarray_t{layout, policy};
 }
 
-// /**
-//  * @brief Create a device mdarray.
-//  * @tparam ElementType the data type of the matrix elements
-//  * @tparam LayoutPolicy policy for strides and layout ordering
-//  * @param stream cuda stream for ordering events
-//  * @param mr rmm memory resource used for allocating the memory for the array
-//  * @param exts dimensionality of the array (series of integers)
-//  * @return raft::device_mdarray
-//  */
-// template <typename ElementType,
-//           typename LayoutPolicy = layout_c_contiguous,
-//           typename... Extents,
-//           typename = detail::ensure_integral_extents<Extents...>>
-// auto make_device_mdarray(rmm::cuda_stream_view stream,
-//                          rmm::mr::device_memory_resource* mr,
-//                          Extents... exts)
-// {
-//   using extent_t  = extents<((void)exts, dynamic_extent)...>;
-//   using mdarray_t = device_mdarray<ElementType, extent_t, LayoutPolicy>;
+/**
+ * @brief Create a device mdarray.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param stream cuda stream for ordering events
+ * @param mr rmm memory resource used for allocating the memory for the array
+ * @param exts dimensionality of the array (series of integers)
+ * @return raft::device_mdarray
+ */
+template <typename ElementType,
+          typename LayoutPolicy = layout_c_contiguous,
+          typename... Extents,
+          typename = detail::ensure_integral_extents<Extents...>>
+auto make_device_mdarray(rmm::cuda_stream_view stream,
+                         rmm::mr::device_memory_resource* mr,
+                         Extents... exts)
+{
+  using extent_t  = extents<((void)exts, dynamic_extent)...>;
+  using mdarray_t = device_mdarray<ElementType, extent_t, LayoutPolicy>;
 
-//   typename mdarray_t::extents_type extent{exts...};
-//   typename mdarray_t::mapping_type layout{extent};
-//   typename mdarray_t::container_policy_type policy{stream, mr};
-//   return mdarray_t{layout, policy};
-// }
+  typename mdarray_t::extents_type extent{exts...};
+  typename mdarray_t::mapping_type layout{extent};
+  typename mdarray_t::container_policy_type policy{stream, mr};
+
+  return mdarray_t{layout, policy};
+}
 
 /**
  * @brief Create a 2-dim c-contiguous host mdarray.
