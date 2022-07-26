@@ -18,13 +18,14 @@ from setuptools import find_packages
 from skbuild import setup
 
 import versioneer
+import os
 
 
 def exclude_libcxx_symlink(cmake_manifest):
     return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
 
 
-setup(name='pylibraft',
+setup(name='pylibraft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
       description="RAFT: Reusable Algorithms Functions and other Tools",
       version=versioneer.get_version(),
       classifiers=[
