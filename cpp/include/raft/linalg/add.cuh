@@ -109,13 +109,22 @@ void addDevScalar(math_t* outDev,
 template <typename out_t, typename in_t, typename = raft::enable_if_mdspan<out_t, in_t>>
 void add(const raft::handle_t& handle, out_t out, const in_t in1, const in_t in2)
 {
+
+  using in_element_t = typename in_t::element_type;
+  using out_element_t = typename out_t::element_type;
+
   RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous");
   RAFT_EXPECTS(in1.is_contiguous(), "Input 1 must be contiguous");
   RAFT_EXPECTS(in2.is_contiguous(), "Input 2 must be contiguous");
   RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
                "Size mismatch between Output and Inputs");
 
-  add(out.data(), in1.data(), in2.data(), out.size(), handle.get_stream());
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    add<in_element_t, out_element_t, std::uint32_t>(out.data(), in1.data(), in2.data(), static_cast<std::uint32_t>(out.size()), handle.get_stream());
+  }
+  else {
+    add<in_element_t, out_element_t, std::uint64_t>(out.data(), in1.data(), in2.data(), static_cast<std::uint64_t>(out.size()), handle.get_stream());
+  }
 }
 
 /**

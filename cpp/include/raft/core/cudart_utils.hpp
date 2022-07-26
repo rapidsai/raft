@@ -455,6 +455,19 @@ bool is_device_ptr(T* ptr)
   return mem_type == CU_MEMORYTYPE_DEVICE;
 }
 
+// enum class BitAddressable {
+//  SINGLE_PRECISION, DOUBLE_PRECISION
+// };
+
+// auto get_size_type(std::size_t size) {
+//   if (size <= std::numeric_limits<std::uint_32>::max()) {
+//     return SINGLE_PRECISION;
+//   }
+//   else {
+//     return bit_addressable<DOUBLE_PRECISION>{};
+//   }
+// }
+
 }  // namespace raft
 
 #endif

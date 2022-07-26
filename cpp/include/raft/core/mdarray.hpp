@@ -109,7 +109,8 @@ inline constexpr bool is_mdspan_v = is_mdspan_t<T>::value;
  *          raft::host_mdspan/raft::device_mdspan or their derived types
  */
 template <typename... Tn>
-inline constexpr bool is_mdspan_v = std::bool_constant<(... && detail::is_mdspan_v<Tn>)>::value;
+// inline constexpr bool is_mdspan_v = std::bool_constant<(... && detail::is_mdspan_v<Tn>)>::value;
+inline constexpr bool is_mdspan_v = std::conjunction_v<detail::is_mdspan_t<Tn>...>;
 
 /**
  * @\brief Ensure all variadic template types are raft::mdspan
