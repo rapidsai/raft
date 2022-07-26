@@ -19,6 +19,11 @@ from skbuild import setup
 
 import versioneer
 
+
+def exclude_libcxx_symlink(cmake_manifest):
+    return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
+
+
 setup(name='pylibraft',
       description="RAFT: Reusable Algorithms Functions and other Tools",
       version=versioneer.get_version(),
@@ -44,6 +49,7 @@ setup(name='pylibraft',
               ]
           )
       },
+      cmake_process_manifest_hook=exclude_libcxx_symlink,
       packages=find_packages(include=['pylibraft', 'pylibraft.*']),
       license="Apache",
       cmdclass=versioneer.get_cmdclass(),

@@ -21,6 +21,10 @@ import versioneer
 import os
 
 
+def exclude_libcxx_symlink(cmake_manifest):
+    return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
+
+
 setup(name='raft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
       description="RAPIDS Analytics Frameworks Toolset",
       version=versioneer.get_version(),
@@ -46,6 +50,7 @@ setup(name='raft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
               ]
           )
       },
+      cmake_process_manifest_hook=exclude_libcxx_symlink,
       packages=find_packages(include=['raft', 'raft.*']),
       license="Apache",
       cmdclass=versioneer.get_cmdclass(),
