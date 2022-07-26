@@ -111,12 +111,12 @@ inline auto extend(const handle_t& handle,
                    IdxT n_rows,
                    rmm::cuda_stream_view stream) -> index<T, IdxT>
 {
-  auto n_lists = orig_index.n_lists();
-  auto dim     = orig_index.dim();
+  auto n_lists = orig_index.n_lists;
+  auto dim     = orig_index.dim;
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::extend(%zu, %u)", size_t(n_rows), dim);
 
-  RAFT_EXPECTS(new_indices != nullptr || orig_index.size() == 0,
+  RAFT_EXPECTS(new_indices != nullptr || orig_index.size == 0,
                "You must pass data indices when the index is non-empty.");
 
   rmm::device_uvector<uint32_t> new_labels(n_rows, stream);
@@ -130,12 +130,12 @@ inline auto extend(const handle_t& handle,
                   orig_index.metric,
                   stream);
 
-  auto&& list_sizes     = make_device_mdarray<uint32_t>(stream, n_lists);
-  auto&& list_offsets   = make_device_mdarray<IdxT>(stream, n_lists + 1);
+  auto&& list_sizes     = rmm::device_uvector<uint32_t>(n_lists, stream);
+  auto&& list_offsets   = rmm::device_uvector<IdxT>(n_lists + 1, stream);
   auto list_sizes_ptr   = list_sizes.data();
   auto list_offsets_ptr = list_offsets.data();
 
-  auto&& centers   = make_device_mdarray<float>(stream, n_lists, dim);
+  auto&& centers   = rmm::device_uvector<float>(size_t(n_lists) * size_t(dim), stream);
   auto centers_ptr = centers.data();
 
   // Calculate the centers and sizes on the new data, starting from the original values
@@ -164,11 +164,11 @@ inline auto extend(const handle_t& handle,
   update_host(&index_size, list_offsets_ptr + n_lists, 1, stream);
   handle.sync_stream(stream);
 
-  auto&& data    = make_device_mdarray<T>(stream, index_size, dim);
-  auto&& indices = make_device_mdarray<IdxT>(stream, index_size);
+  auto&& data    = rmm::device_uvector<T>(index_size * IdxT(dim), stream);
+  auto&& indices = rmm::device_uvector<IdxT>(index_size, stream);
 
   // Populate index with the old data
-  if (orig_index.size() > 0) {
+  if (orig_index.size > 0) {
     utils::block_copy(orig_index.list_offsets.data(),
                       list_offsets_ptr,
                       IdxT(n_lists),
@@ -206,10 +206,10 @@ inline auto extend(const handle_t& handle,
 
   // Precompute the centers vector norms for L2Expanded distance
   auto compute_norms = [&]() {
-    auto&& r = make_device_mdarray<float>(stream, n_lists);
+    auto&& r = rmm::device_uvector<float>(n_lists, stream);
     utils::dots_along_rows(n_lists, dim, centers.data(), r.data(), stream);
     RAFT_LOG_TRACE_VEC(r.data(), 20);
-    return r;
+    return std::move(r);
   };
   auto&& center_norms = orig_index.metric == raft::distance::DistanceType::L2Expanded
                           ? std::optional(compute_norms())
@@ -219,6 +219,9 @@ inline auto extend(const handle_t& handle,
   index<T, IdxT> new_index{{},
                            orig_index.veclen,
                            orig_index.metric,
+                           index_size,
+                           orig_index.dim,
+                           orig_index.n_lists,
                            std::move(data),
                            std::move(indices),
                            std::move(list_sizes),
@@ -256,7 +259,7 @@ inline auto build(const handle_t& handle,
   auto n_lists = static_cast<uint32_t>(params.n_lists);
 
   // kmeans cluster ids for the dataset
-  auto&& centers = make_device_mdarray<float>(stream, n_lists, dim);
+  auto&& centers = rmm::device_uvector<float>(size_t(n_lists) * size_t(dim), stream);
 
   // Predict labels of the whole dataset
   kmeans::build_optimized_kmeans(handle,
@@ -270,10 +273,10 @@ inline auto build(const handle_t& handle,
                                  params.metric,
                                  stream);
 
-  auto&& data         = make_device_mdarray<T>(stream, 0, dim);
-  auto&& indices      = make_device_mdarray<IdxT>(stream, 0);
-  auto&& list_sizes   = make_device_mdarray<uint32_t>(stream, n_lists);
-  auto&& list_offsets = make_device_mdarray<IdxT>(stream, n_lists + 1);
+  auto&& data         = rmm::device_uvector<T>(0, stream);
+  auto&& indices      = rmm::device_uvector<IdxT>(0, stream);
+  auto&& list_sizes   = rmm::device_uvector<uint32_t>(n_lists, stream);
+  auto&& list_offsets = rmm::device_uvector<IdxT>(n_lists + 1, stream);
   utils::memzero(list_sizes.data(), list_sizes.size(), stream);
   utils::memzero(list_offsets.data(), list_offsets.size(), stream);
 
@@ -281,6 +284,9 @@ inline auto build(const handle_t& handle,
   index<T, IdxT> index{{},
                        veclen,
                        params.metric,
+                       IdxT(0),
+                       dim,
+                       n_lists,
                        std::move(data),
                        std::move(indices),
                        std::move(list_sizes),
