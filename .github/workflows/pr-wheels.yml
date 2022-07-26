@@ -11,6 +11,7 @@ jobs:
     with:
       package-name: raft
       package-dir: python/raft
+      cibw-environment: "PYTHON_PACKAGE_CUDA_SUFFIX='-cuda11'"
       cibw-before-all: "dnf install -y blas blas-devel lapack lapack-devel"
       cibw-before-build: "pip install rmm-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: '-DRAFT_COMPILE_LIBRARIES=ON -DRAFT_EXCLUDE_FAISS_FROM_ALL=OFF -DRAFT_USE_FAISS_STATIC=OFF -DRAFT_COMPILE_NN_LIBRARY=ON -DRAFT_COMPILE_DIST_LIBRARY=ON -DBUILD_TESTS=OFF'
@@ -22,6 +23,7 @@ jobs:
     with:
       package-name: pylibraft
       package-dir: python/pylibraft
+      cibw-environment: "PYTHON_PACKAGE_CUDA_SUFFIX='-cuda11'"
       cibw-before-all: "dnf install -y blas blas-devel lapack lapack-devel"
       cibw-before-build: "pip install rmm-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: '-DRAFT_COMPILE_LIBRARIES=ON -DRAFT_EXCLUDE_FAISS_FROM_ALL=OFF -DRAFT_USE_FAISS_STATIC=OFF -DRAFT_COMPILE_NN_LIBRARY=ON -DRAFT_COMPILE_DIST_LIBRARY=ON -DBUILD_TESTS=OFF'
