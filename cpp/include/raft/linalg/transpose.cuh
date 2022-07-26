@@ -71,8 +71,8 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
  */
 template <typename T, typename LayoutPolicy, typename AccessorPolicy>
 auto transpose(handle_t const& handle,
-               mdspan<T, ::raft::detail::matrix_extent, LayoutPolicy, AccessorPolicy> in,
-               mdspan<T, ::raft::detail::matrix_extent, LayoutPolicy, AccessorPolicy> out)
+               raft::mdspan<T, raft::matrix_extent, LayoutPolicy, AccessorPolicy> in,
+               raft::mdspan<T, raft::matrix_extent, LayoutPolicy, AccessorPolicy> out)
   -> std::enable_if_t<std::is_floating_point_v<T>, void>
 {
   RAFT_EXPECTS(out.extent(0) == in.extent(1), "Invalid shape for transpose.");
