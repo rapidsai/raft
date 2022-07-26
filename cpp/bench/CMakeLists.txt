@@ -29,6 +29,7 @@ add_executable(${RAFT_CPP_BENCH_TARGET}
   bench/random/make_blobs.cu
   bench/random/permute.cu
   bench/random/rng.cu
+  bench/sparse/convert_csr.cu
   bench/spatial/fused_l2_nn.cu
   bench/spatial/knn.cu
   bench/spatial/selection.cu
