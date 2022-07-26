@@ -239,8 +239,8 @@ template <raft::distance::DistanceType distanceType,
           typename InType,
           typename AccType,
           typename OutType,
-          typename Index_ = int,
-          typename layout = raft::layout_c_contiguous>
+          typename layout = raft::layout_c_contiguous,
+          typename Index_ = int>
 void distance(raft::handle_t const& handle,
               raft::device_matrix_view<InType, Index_, layout> const x,
               raft::device_matrix_view<InType, Index_, layout> const y,
@@ -413,7 +413,7 @@ void pairwise_distance(const raft::handle_t& handle,
  * @param metric distance metric
  * @param metric_arg metric argument (used for Minkowski distance)
  */
-template <typename Type, typename Index_ = int, typename layout = layout_c_contiguous>
+template <typename Type, typename layout = layout_c_contiguous, typename Index_ = int>
 void pairwise_distance(raft::handle_t const& handle,
                        device_matrix_view<Type, Index_, layout> const x,
                        device_matrix_view<Type, Index_, layout> const y,

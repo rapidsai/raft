@@ -325,6 +325,8 @@ class mdarray
   using value_type      = std::remove_cv_t<element_type>;
   using index_type      = typename extents_type::index_type;
   using difference_type = std::ptrdiff_t;
+  using rank_type       = typename extents_type::rank_type;
+
   // Naming: ref impl: container_policy_type, proposal: container_policy
   using container_policy_type = ContainerPolicy;
   using container_type        = typename container_policy_type::container_type;
@@ -450,11 +452,11 @@ class mdarray
   }
 
   // basic_mdarray observers of the domain multidimensional index space (also in basic_mdspan)
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto rank() noexcept -> std::size_t
+  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto rank() noexcept -> rank_type
   {
     return extents_type::rank();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto rank_dynamic() noexcept -> std::size_t
+  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto rank_dynamic() noexcept -> rank_type
   {
     return extents_type::rank_dynamic();
   }
@@ -500,9 +502,9 @@ class mdarray
   {
     return mapping_type::is_always_unique();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_contiguous() noexcept -> bool
+  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_exhaustive() noexcept -> bool
   {
-    return mapping_type::is_always_contiguous();
+    return mapping_type::is_always_exhaustive();
   }
   [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_strided() noexcept -> bool
   {
