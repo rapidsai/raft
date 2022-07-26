@@ -20,6 +20,7 @@ add_executable(test_raft
     test/common/seive.cu
     test/cudart_utils.cpp
     test/cluster_solvers.cu
+    test/device_atomics.cu
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu
     test/distance/dist_chebyshev.cu

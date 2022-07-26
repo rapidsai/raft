@@ -180,7 +180,7 @@ int main() {
   };
   //----------------------------------------
   // Just use dynamic extents for the purposes of demonstration
-  using extents_type = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+  using extents_type = stdex::dextents<size_t, 2>;
   using tiled_mdspan = stdex::mdspan<int, extents_type, SimpleTileLayout2D>;
   using tiled_layout_type = typename SimpleTileLayout2D::template mapping<extents_type>;
   using row_major_mdspan = stdex::mdspan<int, extents_type, stdex::layout_right>;

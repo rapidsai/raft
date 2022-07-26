@@ -250,9 +250,14 @@ using device_accessor = accessor_mixin<AccessorPolicy, false>;
 
 namespace stdex = std::experimental;
 
-using vector_extent = stdex::extents<dynamic_extent>;
-using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
-using scalar_extent = stdex::extents<1>;
+template <typename IndexType>
+using vector_extent = stdex::extents<IndexType, dynamic_extent>;
+
+template <typename IndexType>
+using matrix_extent = stdex::extents<IndexType, dynamic_extent, dynamic_extent>;
+
+template <typename IndexType>
+using scalar_extent = stdex::extents<IndexType, 1>;
 
 template <typename T>
 MDSPAN_INLINE_FUNCTION auto native_popc(T v) -> int32_t
@@ -301,8 +306,8 @@ MDSPAN_INLINE_FUNCTION constexpr auto arr_to_tup(T (&arr)[N])
 // uint division optimization inspired by the CIndexer in cupy.  Division operation is
 // slow on both CPU and GPU, especially 64 bit integer.  So here we first try to avoid 64
 // bit when the index is smaller, then try to avoid division when it's exp of 2.
-template <typename I, size_t... Extents>
-MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<Extents...> shape)
+template <typename I, typename IndexType, size_t... Extents>
+MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<IndexType, Extents...> shape)
 {
   constexpr auto kRank = static_cast<int32_t>(shape.rank());
   std::size_t index[shape.rank()]{0};  // NOLINT
@@ -330,7 +335,6 @@ MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<Extents...>
  *     `typename = ensure_integral_extents<Extents...>`
  */
 template <typename... Extents>
-using ensure_integral_extents =
-  std::enable_if_t<(true && ... && std::is_integral_v<Extents>), void>;
+using ensure_integral_extents = std::enable_if_t<std::conjunction_v<std::is_integral<Extents>...>>;
 
 }  // namespace raft::detail
