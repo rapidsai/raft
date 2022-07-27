@@ -906,7 +906,8 @@ void kmeans_fit(handle_t const& handle,
     raft::make_device_matrix_view<DataT, IndexT>(centroids, params.n_clusters, n_features);
   std::optional<raft::device_vector_view<const DataT>> sample_weightView = std::nullopt;
   if (sample_weight)
-    sample_weightView = raft::make_device_vector_view<const DataT, IndexT>(sample_weight, n_samples);
+    sample_weightView =
+      raft::make_device_vector_view<const DataT, IndexT>(sample_weight, n_samples);
   auto inertiaView = raft::make_host_scalar_view(&inertia);
   auto n_iterView  = raft::make_host_scalar_view(&n_iter);
 
