@@ -425,9 +425,9 @@ void minClusterAndDistanceCompute(
                initial_value);
 
   // tile over the input dataset
-  for (std::size_t dIdx = 0; dIdx < n_samples; dIdx += dataBatchSize) {
+  for (IndexT dIdx = 0; dIdx < n_samples; dIdx += dataBatchSize) {
     // # of samples for the current batch
-    auto ns = std::min((std::size_t)dataBatchSize, n_samples - dIdx);
+    auto ns = std::min((IndexT)dataBatchSize, n_samples - dIdx);
 
     // datasetView [ns x n_features] - view representing the current batch of
     // input dataset
@@ -443,9 +443,9 @@ void minClusterAndDistanceCompute(
       raft::make_device_vector_view<DataT, IndexT>(L2NormX.data_handle() + dIdx, ns);
 
     // tile over the centroids
-    for (std::size_t cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
+    for (IndexT cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
       // # of centroids for the current batch
-      auto nc = std::min((std::size_t)centroidsBatchSize, n_clusters - cIdx);
+      auto nc = std::min((IndexT)centroidsBatchSize, n_clusters - cIdx);
 
       // centroidsView [nc x n_features] - view representing the current batch
       // of centroids
@@ -561,9 +561,9 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
 
   // tile over the input data and calculate distance matrix [n_samples x
   // n_clusters]
-  for (std::size_t dIdx = 0; dIdx < n_samples; dIdx += dataBatchSize) {
+  for (IndexT dIdx = 0; dIdx < n_samples; dIdx += dataBatchSize) {
     // # of samples for the current batch
-    auto ns = std::min((std::size_t)dataBatchSize, n_samples - dIdx);
+    auto ns = std::min((IndexT)dataBatchSize, n_samples - dIdx);
 
     // datasetView [ns x n_features] - view representing the current batch of
     // input dataset
@@ -578,9 +578,9 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
       raft::make_device_vector_view<DataT, IndexT>(L2NormX.data_handle() + dIdx, ns);
 
     // tile over the centroids
-    for (std::size_t cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
+    for (IndexT cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
       // # of centroids for the current batch
-      auto nc = std::min((std::size_t)centroidsBatchSize, n_clusters - cIdx);
+      auto nc = std::min((IndexT)centroidsBatchSize, n_clusters - cIdx);
 
       // centroidsView [nc x n_features] - view representing the current batch
       // of centroids

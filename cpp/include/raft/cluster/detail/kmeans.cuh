@@ -1037,9 +1037,10 @@ void kmeans_predict(handle_t const& handle,
   auto XView = raft::make_device_matrix_view<DataT, IndexT>(X, n_samples, n_features);
   auto centroidsView =
     raft::make_device_matrix_view<DataT, IndexT>(centroids, params.n_clusters, n_features);
-  std::optional<raft::device_vector_view<const DataT>, IndexT> sample_weightView = std::nullopt;
+  std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weightView{std::nullopt};
   if (sample_weight)
-    sample_weightView = raft::make_device_vector_view<DataT, IndexT>(sample_weight, n_samples);
+    sample_weightView.emplace(
+      raft::make_device_vector_view<DataT, IndexT>(sample_weight, n_samples));
   auto labelsView  = raft::make_device_vector_view<DataT, IndexT>(labels, n_samples);
   auto inertiaView = raft::make_host_scalar_view(&inertia);
 
@@ -1092,13 +1093,14 @@ void kmeans_fit_predict(handle_t const& handle,
                         IndexT& n_iter)
 {
   auto XView = raft::make_device_matrix_view<DataT, IndexT>(X, n_samples, n_features);
-  std::optional<raft::device_vector_view<const DataT>, IndexT> sample_weightView = std::nullopt;
+  std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weightView{std::nullopt};
   if (sample_weight)
-    sample_weightView = raft::make_device_vector_view<DataT, IndexT>(sample_weight, n_samples);
-  std::optional<raft::device_matrix_view<DataT, IndexT>> centroidsView = std::nullopt;
+    sample_weightView.emplace(
+      raft::make_device_vector_view<DataT, IndexT>(sample_weight, n_samples));
+  std::optional<raft::device_matrix_view<DataT, IndexT>> centroidsView{std::nullopt};
   if (centroids)
-    centroidsView =
-      raft::make_device_matrix_view<DataT, IndexT>(centroids, params.n_clusters, n_features);
+    centroidsView.emplace(
+      raft::make_device_matrix_view<DataT, IndexT>(centroids, params.n_clusters, n_features));
   auto labelsView  = raft::make_device_vector_view<DataT, IndexT>(labels, n_samples);
   auto inertiaView = raft::make_host_scalar_view<DataT, IndexT>(&inertia);
   auto n_iterView  = raft::make_host_scalar_view<DataT, IndexT>(&n_iter);
