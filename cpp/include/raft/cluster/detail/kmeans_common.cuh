@@ -165,8 +165,12 @@ void checkWeight(const raft::handle_t& handle,
 
   workspace.resize(temp_storage_bytes, stream);
 
-  RAFT_CUDA_TRY(cub::DeviceReduce::Sum(
-    workspace.data(), temp_storage_bytes, weight.data_handle(), wt_aggr.data_handle(), n_samples, stream));
+  RAFT_CUDA_TRY(cub::DeviceReduce::Sum(workspace.data(),
+                                       temp_storage_bytes,
+                                       weight.data_handle(),
+                                       wt_aggr.data_handle(),
+                                       n_samples,
+                                       stream));
   DataT wt_sum = 0;
   raft::copy(&wt_sum, wt_aggr.data_handle(), 1, stream);
   handle.sync_stream(stream);
@@ -312,15 +316,16 @@ void pairwise_distance_kmeans(const raft::handle_t& handle,
   ASSERT(X.extent(1) == centroids.extent(1),
          "# features in dataset and centroids are different (must be same)");
 
-  raft::distance::pairwise_distance<DataT, typename decltype(X)::layout_type, IndexT>(handle,
-                                                   X.data_handle(),
-                                                   centroids.data_handle(),
-                                                   pairwiseDistance.data_handle(),
-                                                   n_samples,
-                                                   n_clusters,
-                                                   n_features,
-                                                   workspace,
-                                                   metric);
+  raft::distance::pairwise_distance<DataT, typename decltype(X)::layout_type, IndexT>(
+    handle,
+    X.data_handle(),
+    centroids.data_handle(),
+    pairwiseDistance.data_handle(),
+    n_samples,
+    n_clusters,
+    n_features,
+    workspace,
+    metric);
 }
 
 // shuffle and randomly select 'n_samples_to_gather' from input 'in' and stores
@@ -341,8 +346,13 @@ void shuffleAndGather(const raft::handle_t& handle,
 
   if (workspace) {
     // shuffle indices on device
-    raft::random::permute<DataT>(
-      indices.data_handle(), nullptr, nullptr, (IndexT)in.extent(1), (IndexT)in.extent(0), true, stream);
+    raft::random::permute<DataT>(indices.data_handle(),
+                                 nullptr,
+                                 nullptr,
+                                 (IndexT)in.extent(1),
+                                 (IndexT)in.extent(0),
+                                 true,
+                                 stream);
   } else {
     // shuffle indices on host and copy to device...
     std::vector<IndexT> ht_indices(n_samples);
@@ -402,10 +412,11 @@ void minClusterAndDistanceCompute(
 
   // Note - pairwiseDistance and centroidsNorm share the same buffer
   // centroidsNorm [n_clusters] - tensor wrapper around centroids L2 Norm
-  auto centroidsNorm = raft::make_device_vector_view<DataT, IndexT>(L2NormBuf_OR_DistBuf.data(), n_clusters);
+  auto centroidsNorm =
+    raft::make_device_vector_view<DataT, IndexT>(L2NormBuf_OR_DistBuf.data(), n_clusters);
   // pairwiseDistance[ns x nc] - tensor wrapper around the distance buffer
-  auto pairwiseDistance =
-    raft::make_device_matrix_view<DataT, IndexT>(L2NormBuf_OR_DistBuf.data(), dataBatchSize, centroidsBatchSize);
+  auto pairwiseDistance = raft::make_device_matrix_view<DataT, IndexT>(
+    L2NormBuf_OR_DistBuf.data(), dataBatchSize, centroidsBatchSize);
 
   cub::KeyValuePair<IndexT, DataT> initial_value(0, std::numeric_limits<DataT>::max());
 
@@ -421,14 +432,15 @@ void minClusterAndDistanceCompute(
 
     // datasetView [ns x n_features] - view representing the current batch of
     // input dataset
-    auto datasetView =
-      raft::make_device_matrix_view<const DataT, IndexT>(X.data_handle() + (dIdx * n_features), ns, n_features);
+    auto datasetView = raft::make_device_matrix_view<const DataT, IndexT>(
+      X.data_handle() + (dIdx * n_features), ns, n_features);
 
     // minClusterAndDistanceView [ns x n_clusters]
     auto minClusterAndDistanceView =
       raft::make_device_vector_view<DataT, IndexT>(minClusterAndDistance.data_handle() + dIdx, ns);
 
-    auto L2NormXView = raft::make_device_vector_view<DataT, IndexT>(L2NormX.data_handle() + dIdx, ns);
+    auto L2NormXView =
+      raft::make_device_vector_view<DataT, IndexT>(L2NormX.data_handle() + dIdx, ns);
 
     // tile over the centroids
     for (std::size_t cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
@@ -437,12 +449,13 @@ void minClusterAndDistanceCompute(
 
       // centroidsView [nc x n_features] - view representing the current batch
       // of centroids
-      auto centroidsView =
-        raft::make_device_matrix_view<const DataT, IndexT>(centroids.data_handle() + (cIdx * n_features), nc, n_features);
+      auto centroidsView = raft::make_device_matrix_view<const DataT, IndexT>(
+        centroids.data_handle() + (cIdx * n_features), nc, n_features);
 
       if (metric == raft::distance::DistanceType::L2Expanded ||
           metric == raft::distance::DistanceType::L2SqrtExpanded) {
-        auto centroidsNormView = raft::make_device_vector_view<DataT, IndexT>(centroidsNorm.data_handle() + cIdx, nc);
+        auto centroidsNormView =
+          raft::make_device_vector_view<DataT, IndexT>(centroidsNorm.data_handle() + cIdx, nc);
         workspace.resize((sizeof(int)) * ns, stream);
 
         FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
@@ -466,7 +479,8 @@ void minClusterAndDistanceCompute(
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
         // distance for current batch
-        auto pairwiseDistanceView = raft::make_device_matrix_view<DataT, IndexT>(pairwiseDistance.data(), ns, nc);
+        auto pairwiseDistanceView =
+          raft::make_device_matrix_view<DataT, IndexT>(pairwiseDistance.data(), ns, nc);
 
         // calculate pairwise distance between current tile of cluster centroids
         // and input dataset
@@ -553,14 +567,15 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
 
     // datasetView [ns x n_features] - view representing the current batch of
     // input dataset
-    auto datasetView =
-      raft::make_device_matrix_view<const DataT, IndexT>(X.data_handle() + dIdx * n_features, ns, n_features);
+    auto datasetView = raft::make_device_matrix_view<const DataT, IndexT>(
+      X.data_handle() + dIdx * n_features, ns, n_features);
 
     // minClusterDistanceView [ns x n_clusters]
     auto minClusterDistanceView =
       raft::make_device_vector_view<DataT, IndexT>(minClusterDistance.data_handle() + dIdx, ns);
 
-    auto L2NormXView = raft::make_device_vector_view<DataT, IndexT>(L2NormX.data_handle() + dIdx, ns);
+    auto L2NormXView =
+      raft::make_device_vector_view<DataT, IndexT>(L2NormX.data_handle() + dIdx, ns);
 
     // tile over the centroids
     for (std::size_t cIdx = 0; cIdx < n_clusters; cIdx += centroidsBatchSize) {
@@ -569,8 +584,8 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
 
       // centroidsView [nc x n_features] - view representing the current batch
       // of centroids
-      auto centroidsView =
-        raft::make_device_matrix_view<DataT, IndexT>(centroids.data() + cIdx * n_features, nc, n_features);
+      auto centroidsView = raft::make_device_matrix_view<DataT, IndexT>(
+        centroids.data() + cIdx * n_features, nc, n_features);
 
       if (metric == raft::distance::DistanceType::L2Expanded ||
           metric == raft::distance::DistanceType::L2SqrtExpanded) {
@@ -675,8 +690,12 @@ void countSamplesInCluster(const raft::handle_t& handle,
     itr(minClusterAndDistance.data_handle(), conversion_op);
 
   // count # of samples in each cluster
-  countLabels(
-    handle, itr, sampleCountInCluster.data_handle(), (IndexT)n_samples, (IndexT)n_clusters, workspace);
+  countLabels(handle,
+              itr,
+              sampleCountInCluster.data_handle(),
+              (IndexT)n_samples,
+              (IndexT)n_clusters,
+              workspace);
 }
 }  // namespace detail
 }  // namespace cluster
