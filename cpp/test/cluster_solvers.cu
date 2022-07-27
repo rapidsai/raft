@@ -23,7 +23,6 @@
 #include <raft/spectral/specializations.cuh>
 #endif
 
-
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/modularity_maximization.cuh>
 
