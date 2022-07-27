@@ -160,7 +160,7 @@ void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs,
   // Transpose eigenvector matrix
   //   TODO: in-place transpose
   {
-    vector_t<weight_t> work(handle, nEigVecs * n);
+    raft::spectral::matrix::vector_t<weight_t> work(handle, nEigVecs * n);
     // TODO: Call from public API when ready
     RAFT_CUBLAS_TRY(
       raft::linalg::detail::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));

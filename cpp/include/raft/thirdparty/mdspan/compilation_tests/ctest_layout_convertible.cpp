@@ -3,7 +3,7 @@
 // ************************************************************************
 //
 //                        Kokkos v. 2.0
-//              Copyright (2020) Sandia Corporation
+//              Copyright (2019) Sandia Corporation
 //
 // Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 // the U.S. Government retains certain rights in this software.
@@ -45,69 +45,77 @@
 
 #include <experimental/mdspan>
 
-#include <type_traits>
-
 namespace stdex = std::experimental;
 
-//==============================================================================
-// <editor-fold desc="extents"> {{{1
+struct NotARealLayout {
+  template<class Extents>
+  struct mapping {
+    using extents_type = Extents;
+    using rank_type = typename extents_type::rank_type;
+    using index_type = typename extents_type::index_type;
+    using layout_type = NotARealLayout;
+
+    constexpr extents_type& extents() const { return ext; }
+
+    template<class ... Idx>
+    index_type operator()(Idx ...) const { return 0; }
+
+    index_type required_span_size() const { return 0; }
+
+    index_type stride(rank_type) const { return 1; }
+
+    private:
+      extents_type ext;
+  };
+};
+
+template<bool unique>
+struct AStridedLayout {
+  template<class Extents>
+  struct mapping {
+    using extents_type = Extents;
+    using rank_type = typename extents_type::rank_type;
+    using index_type = typename extents_type::index_type;
+    using layout_type = AStridedLayout;
+
+    constexpr extents_type& extents() const { return ext; }
+
+    template<class ... Idx>
+    index_type operator()(Idx ...) const { return 0; }
+
+    index_type required_span_size() const { return 0; }
+
+    index_type stride(rank_type) const { return 1; }
+
+    constexpr static bool is_always_strided() { return true; }
+    constexpr static bool is_always_unique() { return unique; }
+    constexpr static bool is_always_exhaustive() { return true; }
+    constexpr bool is_strided() { return true; }
+    constexpr bool is_unique() { return unique; }
+    constexpr bool is_exhaustive() { return true; }
+
+    private:
+      extents_type ext;
+  };
+};
+
+using E1 = stdex::extents<int32_t, 2,2>;
+using E2 = stdex::extents<int64_t, 2,2>;
+using LS1 = stdex::layout_stride::mapping<E1>;
+using LS2 = stdex::layout_stride::mapping<E2>;
 
 MDSPAN_STATIC_TEST(
-  sizeof(stdex::extents<size_t,1, 2, stdex::dynamic_extent>) == sizeof(ptrdiff_t)
+  !std::is_constructible<LS1, AStridedLayout<false>::mapping<E2>>::value &&
+  !std::is_convertible<AStridedLayout<false>::mapping<E2>, LS1>::value
 );
 
 MDSPAN_STATIC_TEST(
-  sizeof(stdex::extents<size_t,stdex::dynamic_extent>) == sizeof(ptrdiff_t)
+  std::is_constructible<LS2, AStridedLayout<true>::mapping<E1>>::value &&
+  std::is_convertible<AStridedLayout<true>::mapping<E1>, LS2>::value
 );
 
 MDSPAN_STATIC_TEST(
-  sizeof(stdex::extents<size_t,stdex::dynamic_extent, stdex::dynamic_extent>) == 2 * sizeof(ptrdiff_t)
+  !std::is_constructible<LS1, NotARealLayout::mapping<E2>>::value
 );
-
-MDSPAN_STATIC_TEST(
-  sizeof(stdex::extents<size_t,stdex::dynamic_extent, 1, 2, 45>) == sizeof(ptrdiff_t)
-);
-
-MDSPAN_STATIC_TEST(
-  sizeof(stdex::extents<size_t,45, stdex::dynamic_extent, 1>) == sizeof(ptrdiff_t)
-);
-
-MDSPAN_STATIC_TEST(
-  std::is_empty<stdex::extents<size_t,1, 2, 3>>::value
-);
-
-MDSPAN_STATIC_TEST(
-  std::is_empty<stdex::extents<size_t,42>>::value
-);
-
-// </editor-fold> end extents }}}1
-//==============================================================================
-
-//==============================================================================
-// <editor-fold desc="layouts"> {{{1
-
-MDSPAN_STATIC_TEST(
-  sizeof(stdex::layout_left::template mapping<
-    stdex::extents<size_t,42, stdex::dynamic_extent, 73>
-  >) == sizeof(size_t)
-);
-
-#if defined(__GNUC__) && (__GNUC__>8)
-MDSPAN_STATIC_TEST(
-  std::is_empty<stdex::layout_right::template mapping<
-    stdex::extents<size_t,42, 123, 73>
-  >>::value
-);
-#endif
-
-MDSPAN_STATIC_TEST(
-  sizeof(stdex::layout_stride::template mapping<
-    stdex::extents<size_t,42, stdex::dynamic_extent, 73>
-  >) == 4 * sizeof(size_t)
-);
-
-
-// </editor-fold> end layouts }}}1
-//==============================================================================
 
 
