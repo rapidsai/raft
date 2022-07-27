@@ -86,6 +86,7 @@ add_executable(test_raft
     test/random/permute.cu
     test/random/rng.cu
     test/random/rng_int.cu
+    test/random/rmat_rectangular_generator.cu
     test/random/sample_without_replacement.cu
     test/span.cpp
     test/span.cu

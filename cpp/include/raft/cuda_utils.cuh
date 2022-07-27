@@ -631,6 +631,25 @@ DI T shfl(T val, int srcLane, int width = WarpSize, uint32_t mask = 0xffffffffu)
 }
 
 /**
+ * @brief Shuffle the data inside a warp from lower lane IDs
+ * @tparam T the data type (currently assumed to be 4B)
+ * @param val value to be shuffled
+ * @param delta lower lane ID delta from where to shuffle
+ * @param width lane width
+ * @param mask mask of participating threads (Volta+)
+ * @return the shuffled data
+ */
+template <typename T>
+DI T shfl_up(T val, int delta, int width = WarpSize, uint32_t mask = 0xffffffffu)
+{
+#if CUDART_VERSION >= 9000
+  return __shfl_up_sync(mask, val, delta, width);
+#else
+  return __shfl_up(val, delta, width);
+#endif
+}
+
+/**
  * @brief Shuffle the data inside a warp
  * @tparam T the data type (currently assumed to be 4B)
  * @param val value to be shuffled
