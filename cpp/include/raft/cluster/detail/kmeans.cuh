@@ -1034,7 +1034,7 @@ void kmeans_predict(handle_t const& handle,
                     bool normalize_weight,
                     DataT& inertia)
 {
-  auto XView = raft::make_device_matrix_view<DataT, IndexT> w(X, n_samples, n_features);
+  auto XView = raft::make_device_matrix_view<DataT, IndexT>(X, n_samples, n_features);
   auto centroidsView =
     raft::make_device_matrix_view<DataT, IndexT>(centroids, params.n_clusters, n_features);
   std::optional<raft::device_vector_view<const DataT>, IndexT> sample_weightView = std::nullopt;
