@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <raft/cluster/detail/kmeans_2.cuh>
+#include <raft/cluster/detail/kmeans_deprecated.cuh>
 
 namespace raft {
 namespace cluster {

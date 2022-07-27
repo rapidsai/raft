@@ -21,7 +21,7 @@ add_executable(test_raft
     test/common/seive.cu
     test/cudart_utils.cpp
     test/cluster_solvers.cu
-    test/cluster_solvers2.cu
+    test/cluster_solvers_deprecated.cu
     test/device_atomics.cu
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu

@@ -19,7 +19,7 @@
 #include <memory>
 #include <raft/handle.hpp>
 
-#include <raft/spectral/cluster_solvers_2.cuh>
+#include <raft/spectral/cluster_solvers_deprecated.cuh>
 #include <raft/spectral/modularity_maximization.cuh>
 
 namespace raft {
@@ -48,8 +48,8 @@ TEST(Raft, ClusterSolvers)
   value_type* eigvecs{nullptr};
   index_type* codes{nullptr};
 
-  cluster_solver_config_2_t<index_type, value_type> cfg{k, maxiter, tol, seed};
-  kmeans_solver_2_t<index_type, value_type> cluster_solver{cfg};
+  cluster_solver_config_deprecated_t<index_type, value_type> cfg{k, maxiter, tol, seed};
+  kmeans_solver_deprecated_t<index_type, value_type> cluster_solver{cfg};
 
   EXPECT_ANY_THROW(cluster_solver.solve(h, n, d, eigvecs, codes));
 }
@@ -88,8 +88,8 @@ TEST(Raft, ModularitySolvers)
 
   index_type k{5};
 
-  cluster_solver_config_2_t<index_type, value_type> clust_cfg{k, maxiter, tol, seed};
-  kmeans_solver_2_t<index_type, value_type> cluster_solver{clust_cfg};
+  cluster_solver_config_deprecated_t<index_type, value_type> clust_cfg{k, maxiter, tol, seed};
+  kmeans_solver_deprecated_t<index_type, value_type> cluster_solver{clust_cfg};
 
   auto stream = h.get_stream();
   sparse_matrix_t<index_type, value_type> sm{h, nullptr, nullptr, nullptr, 0, 0};

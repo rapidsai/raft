@@ -19,12 +19,12 @@
  * Please use include/raft/cluster/kmeans.cuh instead
  */
 
-#ifndef __CLUSTER_SOLVERS_2_H
-#define __CLUSTER_SOLVERS_2_H
+#ifndef __CLUSTER_SOLVERS_deprecated_H
+#define __CLUSTER_SOLVERS_deprecated_H
 
 #pragma once
 
-#include <raft/cluster/kmeans_2.cuh>
+#include <raft/cluster/kmeans_deprecated.cuh>
 #include <utility>  // for std::pair
 
 namespace raft {
@@ -35,7 +35,7 @@ using namespace matrix;
 // aggregate of control params for Eigen Solver:
 //
 template <typename index_type_t, typename value_type_t, typename size_type_t = index_type_t>
-struct cluster_solver_config_2_t {
+struct cluster_solver_config_deprecated_t {
   size_type_t n_clusters;
   size_type_t maxIter;
 
@@ -45,9 +45,9 @@ struct cluster_solver_config_2_t {
 };
 
 template <typename index_type_t, typename value_type_t, typename size_type_t = index_type_t>
-struct kmeans_solver_2_t {
-  explicit kmeans_solver_2_t(
-    cluster_solver_config_2_t<index_type_t, value_type_t, size_type_t> const& config)
+struct kmeans_solver_deprecated_t {
+  explicit kmeans_solver_deprecated_t(
+    cluster_solver_config_deprecated_t<index_type_t, value_type_t, size_type_t> const& config)
     : config_(config)
   {
   }
@@ -80,7 +80,7 @@ struct kmeans_solver_2_t {
   auto const& get_config(void) const { return config_; }
 
  private:
-  cluster_solver_config_2_t<index_type_t, value_type_t, size_type_t> config_;
+  cluster_solver_config_deprecated_t<index_type_t, value_type_t, size_type_t> config_;
 };
 
 }  // namespace spectral
