@@ -256,7 +256,7 @@ using vector_extent = stdex::extents<IndexType, dynamic_extent>;
 template <typename IndexType>
 using matrix_extent = stdex::extents<IndexType, dynamic_extent, dynamic_extent>;
 
-template <typename IndexType>
+template <typename IndexType = std::uint32_t>
 using scalar_extent = stdex::extents<IndexType, 1>;
 
 template <typename T>
