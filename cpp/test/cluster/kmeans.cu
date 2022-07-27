@@ -64,11 +64,11 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     params.rng_state.seed      = 1;
     params.oversampling_factor = 0;
 
-    auto X      = raft::make_device_matrix<T, int>(n_samples, n_features, stream);
-    auto labels = raft::make_device_vector<int, int>(n_samples, stream);
+    auto X      = raft::make_device_matrix<T, int>(handle, n_samples, n_features);
+    auto labels = raft::make_device_vector<int, int>(handle, n_samples);
 
-    raft::random::make_blobs<T, int>(X.data(),
-                                     labels.data(),
+    raft::random::make_blobs<T, int>(X.data_handle(),
+                                     labels.data_handle(),
                                      n_samples,
                                      n_features,
                                      params.n_clusters,
