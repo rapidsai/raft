@@ -1148,11 +1148,11 @@ void kmeans_transform(const raft::handle_t& handle,
     // datasetView [ns x n_features] - view representing the current batch of
     // input dataset
     auto datasetView =
-      raft::make_device_matrix_view<DataT, IndexT>(X.data() + n_features * dIdx, ns, n_features);
+      raft::make_device_matrix_view<const DataT, IndexT>(X.data_handle() + n_features * dIdx, ns, n_features);
 
     // pairwiseDistanceView [ns x n_clusters]
     auto pairwiseDistanceView = raft::make_device_matrix_view<DataT, IndexT>(
-      X_new.data() + n_clusters * dIdx, ns, n_clusters);
+      X_new.data_handle() + n_clusters * dIdx, ns, n_clusters);
 
     // calculate pairwise distance between cluster centroids and current batch
     // of input dataset
