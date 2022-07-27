@@ -69,34 +69,34 @@ void randomizedSVD(const raft::handle_t& handle,
   size_t workspaceDevice = 0;
   size_t workspaceHost   = 0;
   RAFT_CUSOLVER_TRY(cusolverDnxgesvdr_bufferSize<math_t>(cusolverH, dn_params, jobu, jobv, n_rows, n_cols, k, p, niters, 
-    in, n_rows, S, U, n_rows, V, n_cols, &workspaceDevice, &workspaceHost));
+    in, n_rows, S, U, n_rows, V, n_cols, &workspaceDevice, &workspaceHost, stream));
   
   auto d_workspace = raft::make_device_vector<char>(workspaceDevice, stream);
-  auto h_workspace = raft::make_host_vector<char>(workspaceHost, stream);
+  auto h_workspace = raft::make_host_vector<char>(workspaceHost);
   auto devInfo = raft::make_device_scalar<int>(0, stream);
 
-  RAFT_CUSOLVER_TRY(cusolverDnxgesvd(cusolverH,
-                                     dn_params,
-                                     jobu,
-                                     jobv,
-                                     n_rows,
-                                     n_cols,
-                                     k,
-                                     p,
-                                     niters,
-                                     in,
-                                     n_rows,
-                                     S,
-                                     U,
-                                     n_rows,
-                                     V,
-                                     n_cols,
-                                     d_workspace.data(),
-                                     &workspaceDevice,
-                                     h_workspace.data(),
-                                     &workspaceHost,
-                                     devInfo.data(),
-                                     stream));
+  RAFT_CUSOLVER_TRY(cusolverDnxgesvdr(cusolverH,
+                                      dn_params,
+                                      jobu,
+                                      jobv,
+                                      n_rows,
+                                      n_cols,
+                                      k,
+                                      p,
+                                      niters,
+                                      in,
+                                      n_rows,
+                                      S,
+                                      U,
+                                      n_rows,
+                                      V,
+                                      n_cols,
+                                      d_workspace.data(),
+                                      workspaceDevice,
+                                      h_workspace.data(),
+                                      workspaceHost,
+                                      devInfo.data(),
+                                      stream));
 
   // Transpose the right singular vector back
   if (trans_V) raft::linalg::transpose(V, n_cols, stream);

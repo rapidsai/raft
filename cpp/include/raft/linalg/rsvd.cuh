@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/linalg/detail/rsvd.cuh>
 
 namespace raft {

@@ -744,9 +744,9 @@ cusolverStatus_t cusolverDnxgesvdr(  // NOLINT
   T*                 Vrand,
   int64_t            ldVrand,
   void*              bufferOnDevice,
-  size_t*            workspaceInBytesOnDevice,
+  size_t             workspaceInBytesOnDevice,
   void*              bufferOnHost,
-  size_t*            workspaceInBytesOnHost,
+  size_t             workspaceInBytesOnHost,
   int*               d_info,
   cudaStream_t       stream)
 {
