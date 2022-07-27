@@ -107,10 +107,13 @@ class device_uvector {
   /**
    * @brief Ctor that accepts a size, stream and an optional mr.
    */
-  explicit device_uvector(
-    std::size_t size,
-    rmm::cuda_stream_view stream,
-    rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource())
+  explicit device_uvector(std::size_t size, rmm::cuda_stream_view stream) : data_{size, stream} {}
+  /**
+   * @brief Ctor that accepts a size, stream and a memory resource.
+   */
+  explicit device_uvector(std::size_t size,
+                          rmm::cuda_stream_view stream,
+                          rmm::mr::device_memory_resource* mr)
     : data_{size, stream, mr}
   {
   }
@@ -162,14 +165,10 @@ class device_uvector_policy {
   }
 
   device_uvector_policy() = delete;
-  explicit device_uvector_policy(rmm::cuda_stream_view stream) noexcept(
-    std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
-    : stream_{stream}, mr_(nullptr)
-  {
-  }
-
-  device_uvector_policy(rmm::cuda_stream_view stream, rmm::mr::device_memory_resource* mr) noexcept(
-    std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
+  explicit device_uvector_policy(
+    rmm::cuda_stream_view stream,
+    rmm::mr::device_memory_resource* mr =
+      nullptr) noexcept(std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
     : stream_{stream}, mr_(mr)
   {
   }
