@@ -115,6 +115,28 @@ inline auto extend(const handle_t& handle,
  *
  * See the [ivf_flat::build](#ivf_flat::build) documentation for a usage example.
  *
+ * Note, this function requires a temporary buffer to store intermediate results between cuda kernel
+ * calls, which may lead to undesirable allocations and slowdown. To alleviate the problem, you can
+ * pass a pool memory resource, or a large enough pre-allocated memory resource to reduce or
+ * eliminate entirely allocations happening within `search`:
+ * @code{.cpp}
+ *   ...
+ *   // Create a pooling memory resource with a pre-defined initial size.
+ *   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr(
+ *     rmm::mr::get_current_device_resource(), 1024 * 1024);
+ *   // use default search parameters
+ *   ivf_flat::search_params search_params;
+ *   // Use the same allocator across multiple searches to reduce the number of
+ *   // cuda memory allocations
+ *   ivf_flat::search(handle, search_params, index, queries1, N1, K, out_inds, out_dists, &mr);
+ *   ivf_flat::search(handle, search_params, index, queries2, N2, K, out_inds, out_dists, &mr);
+ *   ivf_flat::search(handle, search_params, index, queries3, N3, K, out_inds, out_dists, &mr);
+ *   ...
+ * @endcode
+ * The exact size of the temporary buffer depends on multiple factors and is an implementation
+ * detail. However, you can safely specify a small initial size for the memory pool, so that only a
+ * few allocation happen to grow it during the first invocations of the `search`.
+ *
  * @tparam T data element type
  * @tparam IdxT type of the indices
  *
