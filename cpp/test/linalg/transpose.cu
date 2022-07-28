@@ -131,14 +131,15 @@ namespace {
  *
  * @return The transposed matrix.
  */
-template <typename T, typename LayoutPolicy>
-[[nodiscard]] auto transpose(handle_t const& handle, device_matrix_view<T, LayoutPolicy> in)
+template <typename T, typename IndexType, typename LayoutPolicy>
+[[nodiscard]] auto transpose(handle_t const& handle,
+                             device_matrix_view<T, IndexType, LayoutPolicy> in)
   -> std::enable_if_t<std::is_floating_point_v<T> &&
                         (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
                          std::is_same_v<LayoutPolicy, layout_f_contiguous>),
-                      device_matrix<T, LayoutPolicy>>
+                      device_matrix<T, IndexType, LayoutPolicy>>
 {
-  auto out = make_device_matrix<T, LayoutPolicy>(handle, in.extent(1), in.extent(0));
+  auto out = make_device_matrix<T, IndexType, LayoutPolicy>(handle, in.extent(1), in.extent(0));
   ::raft::linalg::transpose(handle, in, out.view());
   return out;
 }
@@ -155,27 +156,29 @@ template <typename T, typename LayoutPolicy>
  *
  * @return The transposed matrix.
  */
-template <typename T>
-[[nodiscard]] auto transpose(handle_t const& handle, device_matrix_view<T, layout_stride> in)
-  -> std::enable_if_t<std::is_floating_point_v<T>, device_matrix<T, layout_stride>>
+template <typename T, typename IndexType>
+[[nodiscard]] auto transpose(handle_t const& handle,
+                             device_matrix_view<T, IndexType, layout_stride> in)
+  -> std::enable_if_t<std::is_floating_point_v<T>, device_matrix<T, IndexType, layout_stride>>
 {
-  matrix_extent exts{in.extent(1), in.extent(0)};
-  using policy_type = typename raft::device_matrix<T, layout_stride>::container_policy_type;
+  matrix_extent<size_t> exts{in.extent(1), in.extent(0)};
+  using policy_type =
+    typename raft::device_matrix<T, IndexType, layout_stride>::container_policy_type;
   policy_type policy(handle.get_stream());
 
   RAFT_EXPECTS(in.stride(0) == 1 || in.stride(1) == 1, "Unsupported matrix layout.");
   if (in.stride(1) == 1) {
     // row-major submatrix
     std::array<size_t, 2> strides{in.extent(0), 1};
-    auto layout = layout_stride::mapping<matrix_extent>{exts, strides};
-    raft::device_matrix<T, layout_stride> out{layout, policy};
+    auto layout = layout_stride::mapping<matrix_extent<size_t>>{exts, strides};
+    raft::device_matrix<T, IndexType, layout_stride> out{layout, policy};
     ::raft::linalg::transpose(handle, in, out.view());
     return out;
   } else {
     // col-major submatrix
     std::array<size_t, 2> strides{1, in.extent(1)};
-    auto layout = layout_stride::mapping<matrix_extent>{exts, strides};
-    raft::device_matrix<T, layout_stride> out{layout, policy};
+    auto layout = layout_stride::mapping<matrix_extent<size_t>>{exts, strides};
+    raft::device_matrix<T, IndexType, layout_stride> out{layout, policy};
     ::raft::linalg::transpose(handle, in, out.view());
     return out;
   }
@@ -185,7 +188,7 @@ template <typename T, typename LayoutPolicy>
 void test_transpose_with_mdspan()
 {
   handle_t handle;
-  auto v = make_device_matrix<T, LayoutPolicy>(handle, 32, 3);
+  auto v = make_device_matrix<T, size_t, LayoutPolicy>(handle, 32, 3);
   T k{0};
   for (size_t i = 0; i < v.extent(0); ++i) {
     for (size_t j = 0; j < v.extent(1); ++j) {
@@ -220,7 +223,7 @@ template <typename T, typename LayoutPolicy>
 void test_transpose_submatrix()
 {
   handle_t handle;
-  auto v = make_device_matrix<T, LayoutPolicy>(handle, 32, 33);
+  auto v = make_device_matrix<T, size_t, LayoutPolicy>(handle, 32, 33);
   T k{0};
   size_t row_beg{3}, row_end{13}, col_beg{2}, col_end{11};
   for (size_t i = row_beg; i < row_end; ++i) {

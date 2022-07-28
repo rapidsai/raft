@@ -80,10 +80,11 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
   });
 }
 
-template <typename T, typename LayoutPolicy, typename AccessorPolicy>
-void transpose_row_major_impl(handle_t const& handle,
-                              raft::mdspan<T, LayoutPolicy, AccessorPolicy> in,
-                              raft::mdspan<T, LayoutPolicy, AccessorPolicy> out)
+template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
+void transpose_row_major_impl(
+  handle_t const& handle,
+  raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
+  raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
 {
   auto out_n_rows   = in.extent(1);
   auto out_n_cols   = in.extent(0);
@@ -105,10 +106,11 @@ void transpose_row_major_impl(handle_t const& handle,
                         handle.get_stream()));
 }
 
-template <typename T, typename LayoutPolicy, typename AccessorPolicy>
-void transpose_col_major_impl(handle_t const& handle,
-                              raft::mdspan<T, LayoutPolicy, AccessorPolicy> in,
-                              raft::mdspan<T, LayoutPolicy, AccessorPolicy> out)
+template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
+void transpose_col_major_impl(
+  handle_t const& handle,
+  raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
+  raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
 {
   auto out_n_rows   = in.extent(1);
   auto out_n_cols   = in.extent(0);
