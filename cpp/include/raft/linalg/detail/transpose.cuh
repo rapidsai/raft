@@ -96,12 +96,12 @@ void transpose_row_major_impl(
                         out_n_cols,
                         out_n_rows,
                         &kOne,
-                        in.data(),
+                        in.data_handle(),
                         in.stride(0),
                         &kZero,
                         static_cast<T*>(nullptr),
                         out.stride(0),
-                        out.data(),
+                        out.data_handle(),
                         out.stride(0),
                         handle.get_stream()));
 }
@@ -122,12 +122,12 @@ void transpose_col_major_impl(
                         out_n_rows,
                         out_n_cols,
                         &kOne,
-                        in.data(),
+                        in.data_handle(),
                         in.stride(1),
                         &kZero,
                         static_cast<T*>(nullptr),
                         out.stride(1),
-                        out.data(),
+                        out.data_handle(),
                         out.stride(1),
                         handle.get_stream()));
 }
