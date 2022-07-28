@@ -16,3 +16,12 @@ Nearest Neighbors
 .. doxygennamespace:: raft::spatial::knn
     :project: RAFT
     :members:
+
+
+
+IVF-Flat
+--------
+
+.. doxygennamespace:: raft::spatial::knn::ivf_flat
+    :project: RAFT
+    :members:
