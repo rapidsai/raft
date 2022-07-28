@@ -79,7 +79,7 @@ struct index : knn::index {
    *
    */
   [[nodiscard]] inline auto data() const noexcept
-    -> device_mdspan<const T, extent_2d<IdxT>, row_major>
+    -> device_mdspan<const T, extent_2d<size_t>, row_major>
   {
     return data_.view();
   }
@@ -129,7 +129,7 @@ struct index : knn::index {
   }
 
   /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return data_.extent(0); }
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return indices_.extent(0); }
   /** Dimensionality of the data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t
   {
@@ -154,7 +154,7 @@ struct index : knn::index {
    */
   index(uint32_t veclen,
         raft::distance::DistanceType metric,
-        device_mdarray<T, extent_2d<IdxT>, row_major>&& data,
+        device_mdarray<T, extent_2d<size_t>, row_major>&& data,
         device_mdarray<IdxT, extent_1d<IdxT>, row_major>&& indices,
         device_mdarray<uint32_t, extent_1d<uint32_t>, row_major>&& list_sizes,
         device_mdarray<IdxT, extent_1d<uint32_t>, row_major>&& list_offsets,
@@ -172,8 +172,8 @@ struct index : knn::index {
   {
     // Throw an error if the index content is inconsistent.
     RAFT_EXPECTS(dim() % veclen_ == 0, "dimensionality is not a multiple of the veclen");
-    RAFT_EXPECTS(data_.extent(0) == indices_.extent(0), "inconsistent index size");
-    RAFT_EXPECTS(data_.extent(1) == IdxT(centers_.extent(1)), "inconsistent data dimensionality");
+    RAFT_EXPECTS(data_.extent(0) == size_t(indices_.extent(0)), "inconsistent index size");
+    RAFT_EXPECTS(data_.extent(1) == size_t(centers_.extent(1)), "inconsistent data dimensionality");
     RAFT_EXPECTS(                                               //
       (centers_.extent(0) == list_sizes_.extent(0)) &&          //
         (centers_.extent(0) + 1 == list_offsets_.extent(0)) &&  //
@@ -190,7 +190,7 @@ struct index : knn::index {
    */
   const uint32_t veclen_;
   const raft::distance::DistanceType metric_;
-  device_mdarray<T, extent_2d<IdxT>, row_major> data_;
+  device_mdarray<T, extent_2d<size_t>, row_major> data_;
   device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
   device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
   device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;

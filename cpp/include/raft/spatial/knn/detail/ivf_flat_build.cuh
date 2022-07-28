@@ -164,7 +164,7 @@ inline auto extend(const handle_t& handle,
   update_host(&index_size, list_offsets_ptr + n_lists, 1, stream);
   handle.sync_stream(stream);
 
-  auto&& data    = make_device_mdarray<T>(handle, make_extents<IdxT>(index_size, dim));
+  auto&& data    = make_device_mdarray<T>(handle, make_extents<size_t>(index_size, dim));
   auto&& indices = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
 
   // Populate index with the old data
@@ -262,7 +262,7 @@ inline auto build(
                                  params.metric,
                                  stream);
 
-  auto&& data         = make_device_mdarray<T>(handle, make_extents<IdxT>(0, dim));
+  auto&& data         = make_device_mdarray<T>(handle, make_extents<size_t>(0, dim));
   auto&& indices      = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0));
   auto&& list_sizes   = make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(n_lists));
   auto&& list_offsets = make_device_mdarray<IdxT>(handle, make_extents<uint32_t>(n_lists + 1));
