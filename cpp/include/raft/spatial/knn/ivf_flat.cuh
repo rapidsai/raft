@@ -117,7 +117,7 @@ inline auto extend(const handle_t& handle,
  *
  * Note, this function requires a temporary buffer to store intermediate results between cuda kernel
  * calls, which may lead to undesirable allocations and slowdown. To alleviate the problem, you can
- * pass a pool memory resource, or a large enough pre-allocated memory resource to reduce or
+ * pass a pool memory resource or a large enough pre-allocated memory resource to reduce or
  * eliminate entirely allocations happening within `search`:
  * @code{.cpp}
  *   ...
@@ -128,14 +128,14 @@ inline auto extend(const handle_t& handle,
  *   ivf_flat::search_params search_params;
  *   // Use the same allocator across multiple searches to reduce the number of
  *   // cuda memory allocations
- *   ivf_flat::search(handle, search_params, index, queries1, N1, K, out_inds, out_dists, &mr);
- *   ivf_flat::search(handle, search_params, index, queries2, N2, K, out_inds, out_dists, &mr);
- *   ivf_flat::search(handle, search_params, index, queries3, N3, K, out_inds, out_dists, &mr);
+ *   ivf_flat::search(handle, search_params, index, queries1, N1, K, out_inds1, out_dists1, &mr);
+ *   ivf_flat::search(handle, search_params, index, queries2, N2, K, out_inds2, out_dists2, &mr);
+ *   ivf_flat::search(handle, search_params, index, queries3, N3, K, out_inds3, out_dists3, &mr);
  *   ...
  * @endcode
  * The exact size of the temporary buffer depends on multiple factors and is an implementation
  * detail. However, you can safely specify a small initial size for the memory pool, so that only a
- * few allocation happen to grow it during the first invocations of the `search`.
+ * few allocations happen to grow it during the first invocations of the `search`.
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices
