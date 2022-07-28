@@ -18,6 +18,11 @@ from setuptools import find_packages
 from skbuild import setup
 
 import versioneer
+import os
+
+
+def exclude_libcxx_symlink(cmake_manifest):
+    return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
 
 
 setup(name='raft-dask',
@@ -44,6 +49,7 @@ setup(name='raft-dask',
           )
       },
       packages=find_packages(include=['raft_dask', 'raft_dask.*']),
+      cmake_process_manifest_hook=exclude_libcxx_symlink,
       license="Apache",
       cmdclass=versioneer.get_cmdclass(),
       zip_safe=False

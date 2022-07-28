@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,38 @@
 
 from setuptools import find_packages
 from skbuild import setup
+from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
 
 import versioneer
 import os
+
+
+'''
+copy this trick from https://github.com/ssciwr/clang-format-wheel/blob/main/setup.py
+since the C++ code compiled by this cpp module is not a Python C extension
+override the platform to be py3-none
+'''
+class genericpy_bdist_wheel(_bdist_wheel):
+    def finalize_options(self):
+        _bdist_wheel.finalize_options(self)
+        self.root_is_pure = False
+
+    def get_tag(self):
+        python, abi, plat = _bdist_wheel.get_tag(self)
+        python, abi = "py3", "none"
+        return python, abi, plat
+
+
+cmdclass = versioneer.get_cmdclass()
+cmdclass['bdist_wheel'] = genericpy_bdist_wheel
 
 
 def exclude_libcxx_symlink(cmake_manifest):
     return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
 
 
-setup(name='pylibraft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
-      description="RAFT: Reusable Algorithms Functions and other Tools",
+setup(name='libraft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
+      description="RAFT C++ library",
       version=versioneer.get_version(),
       classifiers=[
         "Intended Audience :: Developers",
@@ -35,26 +56,9 @@ setup(name='pylibraft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
         "Programming Language :: Python :: 3.9"
       ],
       author="NVIDIA Corporation",
-      package_data={
-          # Note: A dict comprehension with an explicit copy is necessary
-          # (rather than something simpler like a dict.fromkeys) because
-          # otherwise every package will refer to the same list and skbuild
-          # modifies it in place.
-          key: ["*.hpp", "*.pxd"]
-          for key in find_packages(
-              include=[
-                  "pylibraft.distance",
-                  "pylibraft.distance.includes",
-                  "pylibraft.common",
-                  "pylibraft.common.includes",
-                  "pylibraft.random",
-                  "pylibraft.random.includes"
-              ]
-          )
-      },
       cmake_process_manifest_hook=exclude_libcxx_symlink,
-      packages=find_packages(include=['pylibraft', 'pylibraft.*']),
+      packages=find_packages(include=['libraft']),
       license="Apache",
-      cmdclass=versioneer.get_cmdclass(),
+      cmdclass=cmdclass,
       zip_safe=False
       )
