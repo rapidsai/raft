@@ -16,10 +16,12 @@
 
 # keep the files in alphabetical order!
 add_executable(test_raft
+#    test/cluster/kmeans.cu
     test/common/logger.cpp
     test/common/seive.cu
     test/cudart_utils.cpp
-    test/cluster_solvers.cu
+#    test/cluster_solvers.cu
+    test/cluster_solvers_deprecated.cu
     test/device_atomics.cu
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu
@@ -71,6 +73,7 @@ add_executable(test_raft
     test/linalg/ternary_op.cu
     test/linalg/transpose.cu
     test/linalg/unary_op.cu
+    test/matrix/gather.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
     test/matrix/columnSort.cu
@@ -84,6 +87,7 @@ add_executable(test_raft
     test/random/permute.cu
     test/random/rng.cu
     test/random/rng_int.cu
+    test/random/rmat_rectangular_generator.cu
     test/random/sample_without_replacement.cu
     test/span.cpp
     test/span.cu

@@ -49,12 +49,13 @@
 #include "sum_3d_common.hpp"
 #include "../fill.hpp"
 
+using index_type = int;
 //================================================================================
 
 template <class T, size_t... Es>
-using lmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_left>;
+using lmdspan = stdex::mdspan<T, stdex::extents<index_type, Es...>, stdex::layout_left>;
 template <class T, size_t... Es>
-using rmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_right>;
+using rmdspan = stdex::mdspan<T, stdex::extents<index_type, Es...>, stdex::layout_right>;
 
 //================================================================================
 
@@ -68,15 +69,15 @@ void BM_MDSpan_Sum_3D_left(benchmark::State& state, MDSpan, DynSizes... dyn) {
   mdspan_benchmark::fill_random(s);
   for (auto _ : state) {
     value_type sum = 0;
-    for (size_t k = 0; k < s.extent(2); ++k) {
-      for (size_t j = 0; j < s.extent(1); ++j) {
-        for(size_t i = 0; i < s.extent(0); ++i) {
+    for (index_type k = 0; k < s.extent(2); ++k) {
+      for (index_type j = 0; j < s.extent(1); ++j) {
+        for(index_type i = 0; i < s.extent(0); ++i) {
           sum += s(i, j, k);
         }
       }
     }
     benchmark::DoNotOptimize(sum);
-    benchmark::DoNotOptimize(s.data());
+    benchmark::DoNotOptimize(s.data_handle());
   }
   state.SetBytesProcessed(s.size() * sizeof(value_type) * state.iterations());
 }

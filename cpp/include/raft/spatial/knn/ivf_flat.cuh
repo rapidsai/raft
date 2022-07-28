@@ -64,8 +64,7 @@ inline auto build(
   const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
   -> index<T, IdxT>
 {
-  return raft::spatial::knn::ivf_flat::detail::build(
-    handle, params, dataset, n_rows, dim, handle.get_stream());
+  return raft::spatial::knn::ivf_flat::detail::build(handle, params, dataset, n_rows, dim);
 }
 
 /**
@@ -108,7 +107,7 @@ inline auto extend(const handle_t& handle,
                    IdxT n_rows) -> index<T, IdxT>
 {
   return raft::spatial::knn::ivf_flat::detail::extend(
-    handle, orig_index, new_vectors, new_indices, n_rows, handle.get_stream());
+    handle, orig_index, new_vectors, new_indices, n_rows);
 }
 
 /**
@@ -143,7 +142,7 @@ inline void search(const handle_t& handle,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
   return raft::spatial::knn::ivf_flat::detail::search(
-    handle, params, index, queries, n_queries, k, neighbors, distances, handle.get_stream(), mr);
+    handle, params, index, queries, n_queries, k, neighbors, distances, mr);
 }
 
 }  // namespace raft::spatial::knn::ivf_flat

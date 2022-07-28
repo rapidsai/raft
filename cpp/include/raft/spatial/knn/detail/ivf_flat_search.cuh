@@ -817,7 +817,7 @@ void launch_kernel(Lambda lambda,
                    uint32_t& grid_dim_x,
                    rmm::cuda_stream_view stream)
 {
-  RAFT_EXPECTS(Veclen == index.veclen,
+  RAFT_EXPECTS(Veclen == index.veclen(),
                "Configured Veclen does not match the index interleaving pattern.");
   constexpr auto kKernel =
     interleaved_scan_kernel<Capacity, Veclen, Ascending, T, AccT, IdxT, Lambda>;
@@ -853,10 +853,10 @@ void launch_kernel(Lambda lambda,
                                                         query_smem_elems,
                                                         queries,
                                                         coarse_index,
-                                                        index.indices().data(),
-                                                        index.data().data(),
-                                                        index.list_sizes().data(),
-                                                        index.list_offsets().data(),
+                                                        index.indices().data_handle(),
+                                                        index.data().data_handle(),
+                                                        index.list_sizes().data_handle(),
+                                                        index.list_offsets().data_handle(),
                                                         n_probes,
                                                         k,
                                                         index.dim(),
@@ -1039,7 +1039,7 @@ void ivfflat_interleaved_scan(const ivf_flat::index<T, IdxT>& index,
 {
   const int capacity = raft::spatial::knn::detail::topk::calc_capacity(k);
   select_interleaved_scan_kernel<T, AccT, IdxT>::run(capacity,
-                                                     index.veclen,
+                                                     index.veclen(),
                                                      select_min,
                                                      metric,
                                                      index,
@@ -1064,9 +1064,9 @@ void search_impl(const handle_t& handle,
                  bool select_min,
                  IdxT* neighbors,
                  AccT* distances,
-                 rmm::cuda_stream_view stream,
                  rmm::mr::device_memory_resource* search_mr)
 {
+  auto stream = handle.get_stream();
   // The norm of query
   rmm::device_uvector<float> query_norm_dev(n_queries, stream, search_mr);
   // The distance value of cluster(list) and queries
@@ -1099,18 +1099,18 @@ void search_impl(const handle_t& handle,
   float alpha = 1.0f;
   float beta  = 0.0f;
 
-  if (index.metric == raft::distance::DistanceType::L2Expanded) {
+  if (index.metric() == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
     utils::dots_along_rows(
       n_queries, index.dim(), converted_queries_ptr, query_norm_dev.data(), stream);
     utils::outer_add(query_norm_dev.data(),
                      n_queries,
-                     index.center_norms()->data(),
+                     index.center_norms()->data_handle(),
                      index.n_lists(),
                      distance_buffer_dev.data(),
                      stream);
-    RAFT_LOG_TRACE_VEC(index.center_norms()->data(), std::min<uint32_t>(20, index.dim()));
+    RAFT_LOG_TRACE_VEC(index.center_norms()->data_handle(), std::min<uint32_t>(20, index.dim()));
     RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), std::min<uint32_t>(20, index.n_lists()));
   } else {
     alpha = 1.0f;
@@ -1124,7 +1124,7 @@ void search_impl(const handle_t& handle,
                n_queries,
                index.dim(),
                &alpha,
-               index.centers().data(),
+               index.centers().data_handle(),
                index.dim(),
                converted_queries_ptr,
                index.dim(),
@@ -1170,7 +1170,7 @@ void search_impl(const handle_t& handle,
                                                                           nullptr,
                                                                           nullptr,
                                                                           n_queries,
-                                                                          index.metric,
+                                                                          index.metric(),
                                                                           n_probes,
                                                                           k,
                                                                           select_min,
@@ -1191,7 +1191,7 @@ void search_impl(const handle_t& handle,
                                                                         queries,
                                                                         coarse_indices_dev.data(),
                                                                         n_queries,
-                                                                        index.metric,
+                                                                        index.metric(),
                                                                         n_probes,
                                                                         k,
                                                                         select_min,
@@ -1243,7 +1243,6 @@ inline void search(const handle_t& handle,
                    uint32_t k,
                    IdxT* neighbors,
                    float* distances,
-                   rmm::cuda_stream_view stream,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
@@ -1254,7 +1253,7 @@ inline void search(const handle_t& handle,
   auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
 
   bool select_min;
-  switch (index.metric) {
+  switch (index.metric()) {
     case raft::distance::DistanceType::InnerProduct:
     case raft::distance::DistanceType::CosineExpanded:
     case raft::distance::DistanceType::CorrelationExpanded:
@@ -1273,7 +1272,7 @@ inline void search(const handle_t& handle,
   }
 
   return search_impl<T, float, IdxT>(
-    handle, index, queries, n_queries, k, n_probes, select_min, neighbors, distances, stream, mr);
+    handle, index, queries, n_queries, k, n_probes, select_min, neighbors, distances, mr);
 }
 
 }  // namespace raft::spatial::knn::ivf_flat::detail

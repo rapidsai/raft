@@ -15,6 +15,9 @@
  */
 #pragma once
 
+#ifndef __RAFT_RT_LOGGER
+#define __RAFT_RT_LOGGER
+
 #include <stdarg.h>
 
 #include <algorithm>
@@ -315,3 +318,5 @@ class logger {
 #define RAFT_LOG_CRITICAL(fmt, ...) void(0)
 #endif
 /** @} */
+
+#endif
