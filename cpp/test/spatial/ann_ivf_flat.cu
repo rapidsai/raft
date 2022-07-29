@@ -94,8 +94,12 @@ auto eval_knn(const std::vector<T>& expected_idx,
   RAFT_LOG_INFO("Recall = %zu/%zu", match_count, total_count);
   double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
   if (actual_recall < min_recall - eps) {
-    RAFT_LOG_WARN("Recall is suspiciously too low (%f < %f)", actual_recall, min_recall);
-    if (match_count == 0 || actual_recall < min_recall * min_recall - eps) {
+    if (actual_recall < min_recall * min_recall - eps) {
+      RAFT_LOG_ERROR("Recall is much lower than the minimum (%f < %f)", actual_recall, min_recall);
+    } else {
+      RAFT_LOG_WARN("Recall is suspiciously too low (%f < %f)", actual_recall, min_recall);
+    }
+    if (match_count == 0 || actual_recall < min_recall * std::min(min_recall, 0.5) - eps) {
       return testing::AssertionFailure()
              << "actual recall (" << actual_recall
              << ") is much smaller than the minimum expected recall (" << min_recall << ").";
