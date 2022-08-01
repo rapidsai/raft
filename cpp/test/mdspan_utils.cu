@@ -32,14 +32,15 @@ struct derived_device_mdspan
 void test_template_asserts()
 {
   // Testing 3d device mdspan to be an mdspan
-  using three_d_extents = extents<dynamic_extent, dynamic_extent, dynamic_extent>;
+  using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
   using three_d_mdspan  = device_mdspan<int, three_d_extents>;
   using d_mdspan        = derived_device_mdspan<int, three_d_extents>;
 
-  static_assert(std::is_same_v<device_matrix_view<int>, device_mdspan<int, detail::matrix_extent>>,
-                "not same");
-  static_assert(std::is_same_v<device_matrix_view<int>,
-                               device_mdspan<int, extents<dynamic_extent, dynamic_extent>>>,
+  static_assert(
+    std::is_same_v<device_matrix_view<int, int>, device_mdspan<int, detail::matrix_extent<int>>>,
+    "not same");
+  static_assert(std::is_same_v<device_matrix_view<int, int>,
+                               device_mdspan<int, extents<int, dynamic_extent, dynamic_extent>>>,
                 "not same");
 
   // Checking if types are mdspan, supposed to fail for std::vector
@@ -76,12 +77,13 @@ void test_host_flatten()
 {
   // flatten 3d host mdspan
   {
-    using three_d_extents = extents<dynamic_extent, dynamic_extent, dynamic_extent>;
+    using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
     using three_d_mdarray = host_mdarray<int, three_d_extents>;
 
     three_d_extents extents{3, 3, 3};
-    three_d_mdarray::container_policy_type policy;
-    three_d_mdarray mda{extents, policy};
+    typename three_d_mdarray::mapping_type layout{extents};
+    typename three_d_mdarray::container_policy_type policy;
+    three_d_mdarray mda{layout, policy};
 
     auto flat_view = flatten(mda);
 
@@ -97,8 +99,6 @@ void test_host_flatten()
   {
     auto hv        = make_host_vector<int>(27);
     auto flat_view = flatten(hv.view());
-
-    static_assert(std::is_same_v<decltype(hv.view()), decltype(flat_view)>, "types not the same");
 
     ASSERT_EQ(hv.extents().rank(), flat_view.extents().rank());
     ASSERT_EQ(hv.extent(0), flat_view.extent(0));
@@ -120,12 +120,13 @@ void test_device_flatten()
   raft::handle_t handle{};
   // flatten 3d device mdspan
   {
-    using three_d_extents = extents<dynamic_extent, dynamic_extent, dynamic_extent>;
+    using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
     using three_d_mdarray = device_mdarray<int, three_d_extents>;
 
     three_d_extents extents{3, 3, 3};
-    three_d_mdarray::container_policy_type policy{handle.get_stream()};
-    three_d_mdarray mda{extents, policy};
+    typename three_d_mdarray::mapping_type layout{extents};
+    typename three_d_mdarray::container_policy_type policy{handle.get_stream()};
+    three_d_mdarray mda{layout, policy};
 
     auto flat_view = flatten(mda);
 
@@ -139,10 +140,8 @@ void test_device_flatten()
 
   // flatten device vector
   {
-    auto dv        = make_device_vector<int>(27, handle.get_stream());
+    auto dv        = make_device_vector<int>(handle, 27);
     auto flat_view = flatten(dv.view());
-
-    static_assert(std::is_same_v<decltype(dv.view()), decltype(flat_view)>, "types not the same");
 
     ASSERT_EQ(dv.extents().rank(), flat_view.extents().rank());
     ASSERT_EQ(dv.extent(0), flat_view.extent(0));
@@ -150,7 +149,7 @@ void test_device_flatten()
 
   // flatten device scalar
   {
-    auto ds        = make_device_scalar<int>(27, handle.get_stream());
+    auto ds        = make_device_scalar<int>(handle, 27);
     auto flat_view = flatten(ds.view());
 
     ASSERT_EQ(flat_view.extent(0), 1);
@@ -163,17 +162,19 @@ void test_reshape()
 {
   // reshape 3d host array to vector
   {
-    using three_d_extents = extents<dynamic_extent, dynamic_extent, dynamic_extent>;
+    using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
     using three_d_mdarray = host_mdarray<int, three_d_extents>;
 
     three_d_extents extents{3, 3, 3};
-    three_d_mdarray::container_policy_type policy;
-    three_d_mdarray mda{extents, policy};
+    typename three_d_mdarray::mapping_type layout{extents};
+    typename three_d_mdarray::container_policy_type policy;
+    three_d_mdarray mda{layout, policy};
 
-    auto flat_view = reshape(mda, raft::extents<dynamic_extent>{27});
+    auto flat_view = reshape(mda, raft::extents<int, dynamic_extent>{27});
     // this confirms aliasing works as intended
     static_assert(std::is_same_v<decltype(flat_view),
                                  host_vector_view<typename decltype(flat_view)::element_type,
+                                                  typename decltype(flat_view)::index_type,
                                                   typename decltype(flat_view)::layout_type>>,
                   "types not the same");
 
@@ -184,17 +185,20 @@ void test_reshape()
   // reshape 4d device array to 2d
   {
     raft::handle_t handle{};
-    using four_d_extents = extents<dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
+    using four_d_extents =
+      extents<int, dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
     using four_d_mdarray = device_mdarray<int, four_d_extents>;
 
     four_d_extents extents{2, 2, 2, 2};
-    four_d_mdarray::container_policy_type policy{handle.get_stream()};
-    four_d_mdarray mda{extents, policy};
+    typename four_d_mdarray::mapping_type layout{extents};
+    typename four_d_mdarray::container_policy_type policy{handle.get_stream()};
+    four_d_mdarray mda{layout, policy};
 
-    auto matrix = reshape(mda, raft::extents<dynamic_extent, dynamic_extent>{4, 4});
+    auto matrix = reshape(mda, raft::extents<int, dynamic_extent, dynamic_extent>{4, 4});
     // this confirms aliasing works as intended
     static_assert(std::is_same_v<decltype(matrix),
                                  device_matrix_view<typename decltype(matrix)::element_type,
+                                                    typename decltype(matrix)::index_type,
                                                     typename decltype(matrix)::layout_type>>,
                   "types not the same");
 
@@ -205,13 +209,14 @@ void test_reshape()
 
   // reshape 2d host matrix with static extents to vector
   {
-    using two_d_extents = extents<5, 5>;
+    using two_d_extents = extents<int, 5, 5>;
     using two_d_mdarray = host_mdarray<float, two_d_extents>;
 
-    two_d_mdarray::container_policy_type policy;
-    two_d_mdarray mda{two_d_extents{}, policy};
+    typename two_d_mdarray::mapping_type layout{two_d_extents{}};
+    typename two_d_mdarray::container_policy_type policy;
+    two_d_mdarray mda{layout, policy};
 
-    auto vector = reshape(mda, raft::extents<25>{});
+    auto vector = reshape(mda, extents<int, 25>{});
 
     ASSERT_EQ(vector.extents().rank(), 1);
     ASSERT_EQ(vector.size(), mda.size());
