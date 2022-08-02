@@ -25,10 +25,9 @@ namespace raft {
 template <typename T, typename... Args>
 void test_serialization(Args... args)
 {
-  handle_t handle;
   T x{args...};
-  auto s = serialize(handle, x);
-  auto y = deserialize<T>(handle, s);
+  auto s = serialize(x);
+  auto y = deserialize<T>(s);
   ASSERT_EQ(x, y);
 }
 
@@ -60,19 +59,17 @@ struct not_initializable {
 namespace detail {
 
 template <>
-struct serialize<not_initializable> {
-  static auto run(const handle_t& handle, const not_initializable& obj, uint8_t* out) -> size_t
+struct serial<not_initializable> {
+  static auto to_bytes(uint8_t* out, const not_initializable& obj) -> size_t
   {
     if (out) { *reinterpret_cast<uint32_t*>(out) = obj.content; }
     return sizeof(not_initializable);
   }
-};
 
-template <>
-struct deserialize<not_initializable> {
-  static void run(const handle_t& handle, not_initializable* obj, const uint8_t* in)
+  static auto from_bytes(not_initializable* obj, const uint8_t* in) -> size_t
   {
     new (obj) not_initializable{*reinterpret_cast<const uint32_t*>(in)};
+    return sizeof(not_initializable);
   }
 };
 
@@ -83,14 +80,13 @@ struct deserialize<not_initializable> {
 //  2. `deserialize` returns by value without extra copy constructors (copy elision)
 TEST(serialize, not_initializable)
 {
-  handle_t handle;
   ASSERT_EQ(not_initializable::count, 0);
   {
     not_initializable x{17};
     ASSERT_EQ(not_initializable::count, 1);
-    auto s = serialize(handle, x);
+    auto s = serialize(x);
     ASSERT_EQ(not_initializable::count, 1);
-    auto y = deserialize<not_initializable>(handle, s);
+    auto y = deserialize<not_initializable>(s);
     ASSERT_EQ(not_initializable::count, 2);
     ASSERT_EQ(x.content, y.content);
   }
@@ -102,12 +98,21 @@ TEST(serialize, mdarray)
   handle_t handle;
   auto exts = make_extents<int>(2, 3, 4);
   auto x    = make_device_mdarray<double>(handle, exts);
-  auto s    = serialize(handle, x);
-  auto y    = deserialize<decltype(x)>(handle, s);
+  auto s    = serialize(x, handle);
+  auto y    = deserialize<decltype(x)>(s, handle);
   ASSERT_EQ(x.extents(), y.extents());
   for (int i = 0; i < exts.extent(2); i++) {
     ASSERT_EQ(x(0, 2, i), y(0, 2, i));
   }
+}
+
+TEST(serialize, device_uvector)
+{
+  auto stream = rmm::cuda_stream_default;
+  auto x      = rmm::device_uvector<int16_t>(10, stream);
+  auto s      = serialize(x, stream);
+  auto y      = deserialize<decltype(x)>(s, stream);
+  ASSERT_EQ(x.size(), y.size());
 }
 
 }  // namespace raft

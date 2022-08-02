@@ -25,93 +25,103 @@ namespace raft {
 /**
  * @brief Write a serializable state of an object to memory.
  *
- * @tparam Type of the serializable object
+ * @tparam T type of the serializable object
+ * @tparam ContextArgs types of context required for serialization
  *
- * @param handle provides a GPU context for objects, whos state depends on it
- * @param obj the object to be serialized
  * @param[out] out a host pointer to the location where to store the state;
  *   when `nullptr`, the actual data is not written (only the size-to-written is calculated).
+ * @param obj the object to be serialized
+ * @param args context required for serialization
  * @return the number of bytes (to be) written by the pointer
  */
-template <typename T>
-auto serialize(const handle_t& handle, const T& obj, void* out) -> size_t
+template <typename T, typename... ContextArgs>
+auto serialize(uint8_t* out, const T& obj, ContextArgs&&... args) -> size_t
 {
-  return detail::call_serialize<T>(handle, obj, reinterpret_cast<uint8_t*>(out));
+  return detail::call_serialize<T, ContextArgs...>(out, obj, std::forward<ContextArgs>(args)...);
 }
 
 /**
  * @brief Write a serializable state of an object to a host vector.
  *
- * @tparam Type of the serializable object
+ * @tparam T type of the serializable object
+ * @tparam ContextArgs types of context required for serialization
  *
- * @param handle provides a GPU context for objects, whos state depends on it
  * @param obj the object to be serialized
+ * @param args context required for serialization
  * @return the serialized state
  */
-template <typename T>
-auto serialize(const handle_t& handle, const T& obj) -> std::vector<uint8_t>
+template <typename T, typename... ContextArgs>
+auto serialize(const T& obj, ContextArgs&&... args) -> std::vector<uint8_t>
 {
-  return detail::call_serialize<T>(handle, obj);
+  return detail::call_serialize<T, ContextArgs...>(obj, std::forward<ContextArgs>(args)...);
 }
 
 /**
  * @brief Read a serializable state of an object from memory.
  *
- * @tparam Type of the serializable object
+ * @tparam T type of the serializable object
+ * @tparam ContextArgs types of context required for serialization
  *
- * @param handle provides a GPU context for objects, whos state depends on it.
  * @param[out] p an unitialized host pointer to a location where the object should be created.
  * @param[in] in a host pointer to the location where the state should be read from.
+ * @param args context required for serialization
+ * @return the number of bytes read by the pointer
  */
-template <typename T>
-void deserialize(const handle_t& handle, T* p, const void* in)
+template <typename T, typename... ContextArgs>
+auto deserialize(T* p, const void* in, ContextArgs&&... args) -> size_t
 {
-  return detail::call_deserialize<T>(handle, p, reinterpret_cast<const uint8_t*>(in));
+  return detail::call_deserialize<T, ContextArgs...>(
+    p, reinterpret_cast<const uint8_t*>(in), std::forward<ContextArgs>(args)...);
 }
 
 /**
  * @brief Read a serializable state of an object from a vector.
  *
- * @tparam Type of the serializable object
+ * @tparam T type of the serializable object
+ * @tparam ContextArgs types of context required for serialization
  *
- * @param handle provides a GPU context for objects, whos state depends on it.
  * @param[out] p an unitialized host pointer to a location where the object should be created.
  * @param in a vector where the state should be read from.
+ * @param args context required for serialization
+ * @return the number of bytes read from the vector
  */
-template <typename T>
-void deserialize(const handle_t& handle, T* p, const std::vector<uint8_t>& in)
+template <typename T, typename... ContextArgs>
+auto deserialize(T* p, const std::vector<uint8_t>& in, ContextArgs&&... args) -> size_t
 {
-  return detail::call_deserialize<T>(handle, p, in);
+  return detail::call_deserialize<T, ContextArgs...>(p, in, std::forward<ContextArgs>(args)...);
 }
 
 /**
  * @brief Read a serializable state of an object.
  *
- * @tparam Type of the serializable object
+ * @tparam T type of the serializable object
+ * @tparam ContextArgs types of context required for serialization
  *
- * @param handle provides a GPU context for objects, whos state depends on it.
  * @param[in] in a host pointer to the location where the state should be read from.
+ * @param args context required for serialization
  * @return the deserialized object;
  */
-template <typename T>
-auto deserialize(const handle_t& handle, const void* in) -> T
+template <typename T, typename... ContextArgs>
+auto deserialize(const void* in, ContextArgs&&... args) -> T
 {
-  return detail::call_deserialize<T>(handle, reinterpret_cast<const uint8_t*>(in));
+  return detail::call_deserialize<T, ContextArgs...>(reinterpret_cast<const uint8_t*>(in),
+                                                     std::forward<ContextArgs>(args)...);
 }
 
 /**
  * @brief Read a serializable state of an object.
  *
- * @tparam Type of the serializable object
+ * @tparam T type of the serializable object
+ * @tparam ContextArgs types of context required for serialization
  *
- * @param handle provides a GPU context for objects, whos state depends on it.
  * @param in a vector where the state should be read from.
+ * @param args context required for serialization
  * @return the deserialized object;
  */
-template <typename T>
-auto deserialize(const handle_t& handle, const std::vector<uint8_t>& in) -> T
+template <typename T, typename... ContextArgs>
+auto deserialize(const std::vector<uint8_t>& in, ContextArgs&&... args) -> T
 {
-  return detail::call_deserialize<T>(handle, in);
+  return detail::call_deserialize<T, ContextArgs...>(in, std::forward<ContextArgs>(args)...);
 }
 
 }  // namespace raft

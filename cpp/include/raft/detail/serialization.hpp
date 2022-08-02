@@ -18,134 +18,134 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/mdarray.hpp>
 
+#include <rmm/device_uvector.hpp>
+
 #include <type_traits>
 #include <vector>
 
 namespace raft::detail {
 
 template <typename T>
-struct serialize;
+struct serial;
 
-template <typename T>
-struct deserialize;
-
-template <typename T>
-auto call_serialize(const handle_t& handle, const T& obj, uint8_t* out) -> size_t
+template <typename T, typename... ContextArgs>
+auto call_serialize(uint8_t* out, const T& obj, ContextArgs&&... args) -> size_t
 {
-  return serialize<T>::run(handle, obj, out);
+  return detail::serial<T>::to_bytes(out, obj, std::forward<ContextArgs>(args)...);
 }
 
-template <typename T>
-auto call_serialize(const handle_t& handle, const T& obj) -> std::vector<uint8_t>
+template <typename T, typename... ContextArgs>
+auto call_serialize(const T& obj, ContextArgs&&... args) -> std::vector<uint8_t>
 {
-  std::vector<uint8_t> v(call_serialize(handle, obj, nullptr));
-  call_serialize<T>(handle, obj, v.data());
+  std::vector<uint8_t> v(
+    call_serialize<T, ContextArgs...>(nullptr, obj, std::forward<ContextArgs>(args)...));
+  call_serialize<T, ContextArgs...>(v.data(), obj, std::forward<ContextArgs>(args)...);
   return v;
 }
 
-template <typename T>
-void call_deserialize(const handle_t& handle, T* p, const uint8_t* in)
+template <typename T, typename... ContextArgs>
+auto call_deserialize(T* p, const uint8_t* in, ContextArgs&&... args) -> size_t
 {
-  return detail::deserialize<T>::run(handle, p, in);
+  return detail::serial<T>::from_bytes(p, in, std::forward<ContextArgs>(args)...);
 }
 
-template <typename T>
-void call_deserialize(const handle_t& handle, T* p, const std::vector<uint8_t>& in)
+template <typename T, typename... ContextArgs>
+auto call_deserialize(T* p, const std::vector<uint8_t>& in, ContextArgs&&... args) -> size_t
 {
-  return call_deserialize<T>(handle, p, in.data());
+  return call_deserialize<T, ContextArgs...>(p, in.data(), std::forward<ContextArgs>(args)...);
 }
 
-template <typename T>
-auto call_deserialize(const handle_t& handle, const uint8_t* in) -> T
+template <typename T, typename... ContextArgs>
+auto call_deserialize(const uint8_t* in, ContextArgs&&... args) -> T
 {
   union res {
-    uint8_t bytes[sizeof(T)];  // NOLINT
     T value;
-    res(const handle_t& handle, const uint8_t* in) { call_deserialize(handle, &value, in); }
+    explicit res(const uint8_t* in, ContextArgs&&... args)
+    {
+      call_deserialize<T, ContextArgs...>(&value, in, std::forward<ContextArgs>(args)...);
+    }
     ~res() { value.~T(); }  // NOLINT
   };
   // using a union to avoid initialization of T and force copy elision.
-  return res(handle, in).value;
+  return res(in, std::forward<ContextArgs>(args)...).value;
 }
 
-template <typename T>
-auto call_deserialize(const handle_t& handle, const std::vector<uint8_t>& in) -> T
+template <typename T, typename... ContextArgs>
+auto call_deserialize(const std::vector<uint8_t>& in, ContextArgs&&... args) -> T
 {
-  return call_deserialize<T>(handle, in.data());
+  return call_deserialize<T, ContextArgs...>(in.data(), std::forward<ContextArgs>(args)...);
 }
 
 template <typename T>
-struct serialize {
+struct serial {
   // Default implementation for all arithmetic types: just write the value by the pointer.
   template <typename S = T>
-  static auto run(const handle_t& handle, const S& obj, uint8_t* out)
+  static auto to_bytes(uint8_t* out, const S& obj)
     -> std::enable_if_t<std::is_arithmetic_v<S>, size_t>
   {
     if (out) { *reinterpret_cast<T*>(out) = obj; }
-    return sizeof(obj);
+    return sizeof(S);
   }
 
   // SFINAE-style failure
-  template <typename S = T>
-  static auto run(const handle_t& handle, const S& obj, uint8_t* out)
+  template <typename S = T, typename... ContextArgs>
+  static auto to_bytes(uint8_t* out, const S& obj, ContextArgs&&... args)
     -> std::enable_if_t<!std::is_arithmetic_v<S>, size_t>
   {
     static_assert(!std::is_same_v<T, S>, "Serialization is not implemented for this type.");
     return 0;
   }
-};
 
-template <typename T>
-struct deserialize {
   // Default implementation for all arithmetic types: just read the value by the pointer.
   template <typename S = T>
-  static auto run(const handle_t& handle, T* p, const uint8_t* in)
-    -> std::enable_if_t<std::is_arithmetic_v<S>>
+  static auto from_bytes(S* p, const uint8_t* in)
+    -> std::enable_if_t<std::is_arithmetic_v<S>, size_t>
   {
-    *p = *reinterpret_cast<const T*>(in);
+    *p = *reinterpret_cast<const S*>(in);
+    return sizeof(S);
   }
 
   // SFINAE-style failure
-  template <typename S = T>
-  static auto run(const handle_t& handle, T* p, const uint8_t* in)
-    -> std::enable_if_t<!std::is_arithmetic_v<S>>
+  template <typename S = T, typename... ContextArgs>
+  static auto from_bytes(S* p, const uint8_t* in, ContextArgs&&... args)
+    -> std::enable_if_t<!std::is_arithmetic_v<S>, size_t>
   {
     static_assert(!std::is_same_v<T, S>, "Deserialization is not implemented for this type.");
+    return 0;
   }
 };
 
 template <typename IndexType, size_t... ExtentsPack>
-struct serialize<extents<IndexType, ExtentsPack...>> {
+struct serial<extents<IndexType, ExtentsPack...>> {
   using obj_t = extents<IndexType, ExtentsPack...>;
-  static auto run(const handle_t& handle, const obj_t& obj, uint8_t* out) -> size_t
+
+  static auto to_bytes(uint8_t* out, const obj_t& obj) -> size_t
   {
     if (out) { *reinterpret_cast<obj_t*>(out) = obj; }
     return sizeof(obj_t);
   }
-};
 
-template <typename IndexType, size_t... ExtentsPack>
-struct deserialize<extents<IndexType, ExtentsPack...>> {
-  using obj_t = extents<IndexType, ExtentsPack...>;
-  static void run(const handle_t& handle, obj_t* p, const uint8_t* in)
+  static auto from_bytes(obj_t* p, const uint8_t* in) -> size_t
   {
     new (p) obj_t{*reinterpret_cast<const obj_t*>(in)};
+    return sizeof(obj_t);
   }
 };
 
 template <typename ElementType, typename Extents, typename LayoutPolicy>
-struct serialize<mdarray<ElementType,
-                         Extents,
-                         LayoutPolicy,
-                         detail::device_accessor<detail::device_uvector_policy<ElementType>>>> {
+struct serial<mdarray<ElementType,
+                      Extents,
+                      LayoutPolicy,
+                      detail::device_accessor<detail::device_uvector_policy<ElementType>>>> {
   using obj_t = mdarray<ElementType,
                         Extents,
                         LayoutPolicy,
                         detail::device_accessor<detail::device_uvector_policy<ElementType>>>;
-  static auto run(const handle_t& handle, const obj_t& obj, uint8_t* out) -> size_t
+
+  static auto to_bytes(uint8_t* out, const obj_t& obj, const handle_t& handle) -> size_t
   {
-    auto extents_size = call_serialize(handle, obj.extents(), out);
-    auto total_size   = obj.size() * sizeof(ElementType);
+    auto extents_size = call_serialize<Extents>(out, obj.extents());
+    auto total_size   = obj.size() * sizeof(ElementType) + extents_size;
     if (out) {
       out += extents_size;
       raft::copy(
@@ -153,27 +153,52 @@ struct serialize<mdarray<ElementType,
     }
     return total_size;
   }
-};
 
-template <typename ElementType, typename Extents, typename LayoutPolicy>
-struct deserialize<mdarray<ElementType,
-                           Extents,
-                           LayoutPolicy,
-                           detail::device_accessor<detail::device_uvector_policy<ElementType>>>> {
-  using obj_t = mdarray<ElementType,
-                        Extents,
-                        LayoutPolicy,
-                        detail::device_accessor<detail::device_uvector_policy<ElementType>>>;
-  static void run(const handle_t& handle, obj_t* p, const uint8_t* in)
+  static auto from_bytes(obj_t* p,
+                         const uint8_t* in,
+                         const handle_t& handle,
+                         rmm::mr::device_memory_resource* mr = nullptr) -> size_t
   {
-    auto exts         = call_deserialize<Extents>(handle, in);
-    auto extents_size = call_serialize(handle, exts, nullptr);
+    Extents exts;
+    auto extents_size = call_deserialize<Extents>(&exts, in);
     in += extents_size;
     typename obj_t::mapping_type layout{exts};
-    typename obj_t::container_policy_type policy{handle.get_stream()};
+    typename obj_t::container_policy_type policy{handle.get_stream(), mr};
     new (p) obj_t{layout, policy};
     raft::copy(
       p->data_handle(), reinterpret_cast<const ElementType*>(in), p->size(), handle.get_stream());
+    return p->size() * sizeof(ElementType) + extents_size;
+  }
+};
+
+template <typename T>
+struct serial<rmm::device_uvector<T>> {
+  static auto to_bytes(uint8_t* out,
+                       const rmm::device_uvector<T>& obj,
+                       rmm::cuda_stream_view stream) -> size_t
+  {
+    if (out) {
+      *reinterpret_cast<size_t*>(out) = obj.size();
+      out += sizeof(size_t);
+      raft::copy(reinterpret_cast<T*>(out), obj.data(), obj.size(), stream);
+    }
+    return obj.size() * sizeof(T) + sizeof(size_t);
+  }
+
+  static auto from_bytes(rmm::device_uvector<T>* p,
+                         const uint8_t* in,
+                         rmm::cuda_stream_view stream,
+                         rmm::mr::device_memory_resource* mr = nullptr) -> size_t
+  {
+    auto n = *reinterpret_cast<const size_t*>(in);
+    in += sizeof(size_t);
+    if (mr) {
+      new (p) rmm::device_uvector<T>{n, stream, mr};
+    } else {
+      new (p) rmm::device_uvector<T>{n, stream};
+    }
+    raft::copy(p->data(), reinterpret_cast<const T*>(in), p->size(), stream);
+    return p->size() * sizeof(T) + sizeof(size_t);
   }
 };
 
