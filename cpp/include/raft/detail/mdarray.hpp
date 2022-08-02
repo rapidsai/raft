@@ -247,12 +247,12 @@ class host_vector_policy {
 // template <typename AccessorPolicy>
 // using device_accessor = accessor_mixin<AccessorPolicy, false>;
 
-template <class ElementType, bool is_device_accessible, bool is_host_accessible>
+template <class wrapped_accessor, bool is_device_accessible, bool is_host_accessible>
 struct base_accessor {
 
-  using element_type = ElementType;
-  using reference = ElementType&;
-  using data_handle_type = ElementType*;
+  using element_type = typename wrapped_accessor::element_type;
+  using reference = wrapped_accessor::element_type&;
+  using data_handle_type = wrapped_accessor::element_type*;
 
   static constexpr auto is_device_accessible = is_device_accessible;
   static constexpr auto is_host_accessible = is_device_accessible;
@@ -271,25 +271,23 @@ struct base_accessor {
   MDSPAN_INLINE_FUNCTION
   constexpr data_handle_type
   offset(data_handle_type p, size_t i) const noexcept {
-    return p + i;
+    return accessor.offset(p, i);
   }
 
   MDSPAN_FORCE_INLINE_FUNCTION
   constexpr reference access(data_handle_type p, size_t i) const noexcept {
-    return p[i];
+    return accessor.access(p, i);
   }
 
+  wrapped_accessor accessor;
 };
 
 template <class ElementType>
-struct device_accessor : public base_accessor<ElementType, true, false> {
+struct device_accessor {
 
   using element_type = ElementType;
   using reference = ElementType&;
   using data_handle_type = ElementType*;
-
-  static constexpr auto is_device_accessible = base_accessor<ElementType, true, false>::is_device_accessible;
-  static constexpr auto is_host_accessible = base_accessor<ElementType, true, false>::is_host_accessible;
 
   MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr device_accessor() noexcept = default;
 
@@ -316,14 +314,11 @@ struct device_accessor : public base_accessor<ElementType, true, false> {
 };
 
 template <class ElementType>
-struct managed_accessor : public managed_accessor<ElementType, true, true> {
+struct managed_accessor {
 
   using element_type = ElementType;
   using reference = ElementType&;
   using data_handle_type = ElementType*;
-
-  static constexpr auto is_device_accessible = base_accessor<ElementType, true, true>::is_device_accessible;
-  static constexpr auto is_host_accessible = base_accessor<ElementType, true, true>::is_host_accessible;
 
   MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr device_accessor() noexcept = default;
 
@@ -350,14 +345,11 @@ struct managed_accessor : public managed_accessor<ElementType, true, true> {
 };
 
 template <class ElementType>
-struct host_accessor : public host_accessor<ElementType, false, true> {
+struct host_accessor {
 
   using element_type = ElementType;
   using reference = ElementType&;
   using data_handle_type = ElementType*;
-
-  static constexpr auto is_device_accessible = base_accessor<ElementType, false, true>::is_device_accessible;
-  static constexpr auto is_host_accessible = base_accessor<ElementType, false, true>::is_host_accessible;
 
   MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr host_accessor() noexcept = default;
 
