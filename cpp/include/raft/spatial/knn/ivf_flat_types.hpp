@@ -30,6 +30,23 @@ namespace raft::spatial::knn::ivf_flat {
 /** Size of the interleaved group (see `index::data` description). */
 constexpr static uint32_t kIndexGroupSize = 32;
 
+struct index_params : knn::index_params {
+  /** The number of inverted lists (clusters) */
+  uint32_t n_lists = 1024;
+  /** The number of iterations searching for kmeans centers (index building). */
+  uint32_t kmeans_n_iters = 20;
+  /** The fraction of data to use during iterative kmeans building. */
+  double kmeans_trainset_fraction = 0.5;
+};
+
+struct search_params : knn::search_params {
+  /** The number of clusters to search. */
+  uint32_t n_probes = 20;
+};
+
+static_assert(std::is_aggregate_v<index_params>);
+static_assert(std::is_aggregate_v<search_params>);
+
 /**
  * @brief IVF-flat index.
  *
@@ -78,6 +95,10 @@ struct index : knn::index {
    *     x[16, 4], x[16, 5], x[17, 4], x[17, 5], ... x[30, 4], x[30, 5],    -    ,    -    ,
    *
    */
+  inline auto data() noexcept -> device_mdspan<T, extent_2d<IdxT>, row_major>
+  {
+    return data_.view();
+  }
   [[nodiscard]] inline auto data() const noexcept
     -> device_mdspan<const T, extent_2d<size_t>, row_major>
   {
@@ -85,38 +106,68 @@ struct index : knn::index {
   }
 
   /** Inverted list indices: ids of items in the source data [size] */
+  inline auto indices() noexcept -> device_mdspan<IdxT, extent_1d<IdxT>, row_major>
+  {
+    return indices_.view();
+  }
   [[nodiscard]] inline auto indices() const noexcept
     -> device_mdspan<const IdxT, extent_1d<IdxT>, row_major>
   {
     return indices_.view();
   }
+
   /** Sizes of the lists (clusters) [n_lists] */
+  inline auto list_sizes() noexcept -> device_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return list_sizes_.view();
+  }
   [[nodiscard]] inline auto list_sizes() const noexcept
     -> device_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
   {
     return list_sizes_.view();
   }
+
   /**
    * Offsets into the lists [n_lists + 1].
    * The last value contains the total length of the index.
    */
+  inline auto list_offsets() noexcept -> device_mdspan<IdxT, extent_1d<uint32_t>, row_major>
+  {
+    return list_offsets_.view();
+  }
   [[nodiscard]] inline auto list_offsets() const noexcept
     -> device_mdspan<const IdxT, extent_1d<uint32_t>, row_major>
   {
     return list_offsets_.view();
   }
+
   /** k-means cluster centers corresponding to the lists [n_lists, dim] */
+  inline auto centers() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  {
+    return centers_.view();
+  }
   [[nodiscard]] inline auto centers() const noexcept
     -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
   {
     return centers_.view();
   }
+
   /**
    * (Optional) Precomputed norms of the `centers` w.r.t. the chosen distance metric [n_lists].
    *
    * NB: this may be empty if the index is empty or if the metric does not require the center norms
    * calculation.
    */
+  inline auto center_norms() noexcept
+    -> std::optional<device_mdspan<float, extent_1d<uint32_t>, row_major>>
+  {
+    if (center_norms_.has_value()) {
+      return std::make_optional<device_mdspan<float, extent_1d<uint32_t>, row_major>>(
+        center_norms_->view());
+    } else {
+      return std::nullopt;
+    }
+  }
   [[nodiscard]] inline auto center_norms() const noexcept
     -> std::optional<device_mdspan<const float, extent_1d<uint32_t>, row_major>>
   {
@@ -148,32 +199,62 @@ struct index : knn::index {
   auto operator=(index&&) -> index& = default;
   ~index()                          = default;
 
-  /**
-   * Construct the index. All data is moved to save the GPU memory
-   * (hint: use std::move when necessary).
-   */
-  index(uint32_t veclen,
-        raft::distance::DistanceType metric,
-        device_mdarray<T, extent_2d<size_t>, row_major>&& data,
-        device_mdarray<IdxT, extent_1d<IdxT>, row_major>&& indices,
-        device_mdarray<uint32_t, extent_1d<uint32_t>, row_major>&& list_sizes,
-        device_mdarray<IdxT, extent_1d<uint32_t>, row_major>&& list_offsets,
-        device_mdarray<float, extent_2d<uint32_t>, row_major>&& centers,
-        std::optional<device_mdarray<float, extent_1d<uint32_t>, row_major>>&& center_norms)
+  /** Construct an empty index. It needs to be trained and then populated. */
+  index(const handle_t& handle, raft::distance::DistanceType metric, uint32_t n_lists, uint32_t dim)
     : knn::index(),
-      veclen_(veclen),
+      veclen_(calculate_veclen(dim)),
       metric_(metric),
-      data_(std::move(data)),
-      indices_(std::move(indices)),
-      list_sizes_(std::move(list_sizes)),
-      list_offsets_(std::move(list_offsets)),
-      centers_(std::move(centers)),
-      center_norms_(std::move(center_norms))
+      data_(make_device_mdarray<T>(handle, make_extents<IdxT>(0, dim))),
+      indices_(make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0))),
+      list_sizes_(make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(n_lists))),
+      list_offsets_(make_device_mdarray<IdxT>(handle, make_extents<uint32_t>(n_lists + 1))),
+      centers_(make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists, dim))),
+      center_norms_(std::nullopt)
   {
-    // Throw an error if the index content is inconsistent.
+    check_consistency();
+  }
+
+  /** Construct an empty index. It needs to be trained and then populated. */
+  index(const handle_t& handle, const index_params& params, uint32_t dim)
+    : index(handle, params.metric, params.n_lists, dim)
+  {
+  }
+
+  /**
+   * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
+   * of data.
+   */
+  void allocate(const handle_t& handle, IdxT index_size, bool allocate_center_norms)
+  {
+    data_    = make_device_mdarray<T>(handle, make_extents<IdxT>(index_size, dim()));
+    indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    center_norms_ =
+      allocate_center_norms
+        ? std::optional(make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists())))
+        : std::nullopt;
+    check_consistency();
+  }
+
+ private:
+  /**
+   * TODO: in theory, we can lift this to the template parameter and keep it at hardware maximum
+   * possible value by padding the `dim` of the data https://github.com/rapidsai/raft/issues/711
+   */
+  uint32_t veclen_;
+  raft::distance::DistanceType metric_;
+  device_mdarray<T, extent_2d<IdxT>, row_major> data_;
+  device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
+  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
+  device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
+  device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
+  std::optional<device_mdarray<float, extent_1d<uint32_t>, row_major>> center_norms_;
+
+  /** Throw an error if the index content is inconsistent. */
+  void check_consistency()
+  {
     RAFT_EXPECTS(dim() % veclen_ == 0, "dimensionality is not a multiple of the veclen");
-    RAFT_EXPECTS(data_.extent(0) == size_t(indices_.extent(0)), "inconsistent index size");
-    RAFT_EXPECTS(data_.extent(1) == size_t(centers_.extent(1)), "inconsistent data dimensionality");
+    RAFT_EXPECTS(data_.extent(0) == indices_.extent(0), "inconsistent index size");
+    RAFT_EXPECTS(data_.extent(1) == IdxT(centers_.extent(1)), "inconsistent data dimensionality");
     RAFT_EXPECTS(                                               //
       (centers_.extent(0) == list_sizes_.extent(0)) &&          //
         (centers_.extent(0) + 1 == list_offsets_.extent(0)) &&  //
@@ -183,36 +264,16 @@ struct index : knn::index {
                  "The data storage pointer is not aligned to the vector length");
   }
 
- private:
-  /**
-   * TODO: in theory, we can lift this to the template parameter and keep it at hardware maximum
-   * possible value by padding the `dim` of the data https://github.com/rapidsai/raft/issues/711
-   */
-  const uint32_t veclen_;
-  const raft::distance::DistanceType metric_;
-  device_mdarray<T, extent_2d<size_t>, row_major> data_;
-  device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
-  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
-  device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
-  device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
-  std::optional<device_mdarray<float, extent_1d<uint32_t>, row_major>> center_norms_;
+  static auto calculate_veclen(uint32_t dim) -> uint32_t
+  {
+    // TODO: consider padding the dimensions and fixing veclen to its maximum possible value as a
+    // template parameter (https://github.com/rapidsai/raft/issues/711)
+    uint32_t veclen = 16 / sizeof(T);
+    while (dim % veclen != 0) {
+      veclen = veclen >> 1;
+    }
+    return veclen;
+  }
 };
-
-struct index_params : knn::index_params {
-  /** The number of inverted lists (clusters) */
-  uint32_t n_lists = 1024;
-  /** The number of iterations searching for kmeans centers (index building). */
-  uint32_t kmeans_n_iters = 20;
-  /** The fraction of data to use during iterative kmeans building. */
-  double kmeans_trainset_fraction = 0.5;
-};
-
-struct search_params : knn::search_params {
-  /** The number of clusters to search. */
-  uint32_t n_probes = 20;
-};
-
-static_assert(std::is_aggregate_v<index_params>);
-static_assert(std::is_aggregate_v<search_params>);
 
 }  // namespace raft::spatial::knn::ivf_flat

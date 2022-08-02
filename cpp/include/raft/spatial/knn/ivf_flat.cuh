@@ -111,6 +111,30 @@ inline auto extend(const handle_t& handle,
 }
 
 /**
+ * @brief Extend the index with the new data.
+ * *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param handle
+ * @param[inout] index
+ * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices a device pointer to a vector of indices [n_rows].
+ *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
+ *    here to imply a continuous range `[0...n_rows)`.
+ * @param n_rows the number of samples
+ */
+template <typename T, typename IdxT>
+inline void extend(const handle_t& handle,
+                   index<T, IdxT>* index,
+                   const T* new_vectors,
+                   const IdxT* new_indices,
+                   IdxT n_rows)
+{
+  *index = extend(handle, *index, new_vectors, new_indices, n_rows);
+}
+
+/**
  * @brief Search ANN using the constructed index.
  *
  * See the [ivf_flat::build](#ivf_flat::build) documentation for a usage example.

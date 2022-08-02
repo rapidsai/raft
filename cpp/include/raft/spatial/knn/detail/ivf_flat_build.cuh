@@ -130,17 +130,16 @@ inline auto extend(const handle_t& handle,
                   orig_index.metric(),
                   stream);
 
-  auto&& list_sizes     = make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(n_lists));
-  auto&& list_offsets   = make_device_mdarray<IdxT>(handle, make_extents<uint32_t>(n_lists + 1));
-  auto list_sizes_ptr   = list_sizes.data_handle();
-  auto list_offsets_ptr = list_offsets.data_handle();
+  index<T, IdxT> ext_index(handle, orig_index.metric(), n_lists, dim);
 
-  auto&& centers   = make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists, dim));
-  auto centers_ptr = centers.data_handle();
+  auto list_sizes_ptr   = ext_index.list_sizes().data_handle();
+  auto list_offsets_ptr = ext_index.list_offsets().data_handle();
+  auto centers_ptr      = ext_index.centers().data_handle();
 
   // Calculate the centers and sizes on the new data, starting from the original values
-  raft::copy(centers_ptr, orig_index.centers().data_handle(), centers.size(), stream);
-  raft::copy(list_sizes_ptr, orig_index.list_sizes().data_handle(), list_sizes.size(), stream);
+  raft::copy(centers_ptr, orig_index.centers().data_handle(), ext_index.centers().size(), stream);
+  raft::copy(
+    list_sizes_ptr, orig_index.list_sizes().data_handle(), ext_index.list_sizes().size(), stream);
 
   kmeans::calc_centers_and_sizes(centers_ptr,
                                  list_sizes_ptr,
@@ -164,8 +163,8 @@ inline auto extend(const handle_t& handle,
   update_host(&index_size, list_offsets_ptr + n_lists, 1, stream);
   handle.sync_stream(stream);
 
-  auto&& data    = make_device_mdarray<T>(handle, make_extents<size_t>(index_size, dim));
-  auto&& indices = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+  ext_index.allocate(
+    handle, index_size, ext_index.metric() == raft::distance::DistanceType::L2Expanded);
 
   // Populate index with the old data
   if (orig_index.size() > 0) {
@@ -173,7 +172,7 @@ inline auto extend(const handle_t& handle,
                       list_offsets_ptr,
                       IdxT(n_lists),
                       orig_index.data().data_handle(),
-                      data.data_handle(),
+                      ext_index.data().data_handle(),
                       IdxT(dim),
                       stream);
 
@@ -181,14 +180,15 @@ inline auto extend(const handle_t& handle,
                       list_offsets_ptr,
                       IdxT(n_lists),
                       orig_index.indices().data_handle(),
-                      indices.data_handle(),
+                      ext_index.indices().data_handle(),
                       IdxT(1),
                       stream);
   }
 
   // Copy the old sizes, so we can start from the current state of the index;
   // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
-  raft::copy(list_sizes_ptr, orig_index.list_sizes().data_handle(), list_sizes.size(), stream);
+  raft::copy(
+    list_sizes_ptr, orig_index.list_sizes().data_handle(), ext_index.list_sizes().size(), stream);
 
   const dim3 block_dim(256);
   const dim3 grid_dim(raft::ceildiv<IdxT>(n_rows, block_dim.x));
@@ -196,34 +196,26 @@ inline auto extend(const handle_t& handle,
                                                          list_offsets_ptr,
                                                          new_vectors,
                                                          new_indices,
-                                                         data.data_handle(),
-                                                         indices.data_handle(),
+                                                         ext_index.data().data_handle(),
+                                                         ext_index.indices().data_handle(),
                                                          list_sizes_ptr,
                                                          n_rows,
                                                          dim,
-                                                         orig_index.veclen());
+                                                         ext_index.veclen());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Precompute the centers vector norms for L2Expanded distance
-  auto compute_norms = [&]() {
-    auto&& r = make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists));
-    utils::dots_along_rows(n_lists, dim, centers.data_handle(), r.data_handle(), stream);
-    RAFT_LOG_TRACE_VEC(r.data_handle(), 20);
-    return r;
-  };
-  auto&& center_norms = orig_index.metric() == raft::distance::DistanceType::L2Expanded
-                          ? std::optional(std::move(compute_norms()))
-                          : std::nullopt;
+  if (ext_index.center_norms().has_value()) {
+    utils::dots_along_rows(n_lists,
+                           dim,
+                           ext_index.centers().data_handle(),
+                           ext_index.center_norms()->data_handle(),
+                           stream);
+    RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
+  }
 
   // assemble the index
-  return index<T, IdxT>(orig_index.veclen(),
-                        orig_index.metric(),
-                        std::move(data),
-                        std::move(indices),
-                        std::move(list_sizes),
-                        std::move(list_offsets),
-                        std::move(centers),
-                        std::move(center_norms));
+  return ext_index;
 }
 
 /** See raft::spatial::knn::ivf_flat::build docs */
@@ -239,16 +231,9 @@ inline auto build(
                 "unsupported data type");
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
 
-  // TODO: consider padding the dimensions and fixing veclen to its maximum possible value as a
-  // template parameter (https://github.com/rapidsai/raft/issues/711)
-  uint32_t veclen = 16 / sizeof(T);
-  while (dim % veclen != 0) {
-    veclen = veclen >> 1;
-  }
-  auto n_lists = static_cast<uint32_t>(params.n_lists);
-
-  // kmeans cluster ids for the dataset
-  auto&& centers = make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists, dim));
+  index<T, IdxT> index(handle, params, dim);
+  utils::memzero(index.list_sizes().data_handle(), index.list_sizes().size(), stream);
+  utils::memzero(index.list_offsets().data_handle(), index.list_offsets().size(), stream);
 
   // Predict labels of the whole dataset
   kmeans::build_optimized_kmeans(handle,
@@ -256,28 +241,11 @@ inline auto build(
                                  dim,
                                  dataset,
                                  n_rows,
-                                 centers.data_handle(),
-                                 n_lists,
+                                 index.centers().data_handle(),
+                                 params.n_lists,
                                  params.kmeans_trainset_fraction,
                                  params.metric,
                                  stream);
-
-  auto&& data         = make_device_mdarray<T>(handle, make_extents<size_t>(0, dim));
-  auto&& indices      = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0));
-  auto&& list_sizes   = make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(n_lists));
-  auto&& list_offsets = make_device_mdarray<IdxT>(handle, make_extents<uint32_t>(n_lists + 1));
-  utils::memzero(list_sizes.data_handle(), list_sizes.size(), stream);
-  utils::memzero(list_offsets.data_handle(), list_offsets.size(), stream);
-
-  // assemble the index
-  index<T, IdxT> index(veclen,
-                       params.metric,
-                       std::move(data),
-                       std::move(indices),
-                       std::move(list_sizes),
-                       std::move(list_offsets),
-                       std::move(centers),
-                       std::nullopt);
 
   // add the data if necessary
   if (params.add_data_on_build) {
