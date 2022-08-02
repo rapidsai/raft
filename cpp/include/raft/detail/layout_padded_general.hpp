@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/cudart_utils.h>
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
 #include <algorithm>
@@ -39,8 +40,7 @@ MDSPAN_INLINE_FUNCTION constexpr auto padded_row_major_strides(size_t ByteAlignm
   for (size_t r = Extents::rank() - 1; r > 0; r--) {
     strides[r] = stride;
     if (stride == 1) {
-      stride *=
-        std::max<size_t>(alignment, (__exts.extent(r) + alignment - 1) / alignment * alignment);
+      stride *= std::max<size_t>(alignment, raft::alignTo(__exts.extent(r), alignment));
     } else {
       stride *= __exts.extent(r);
     }
@@ -61,8 +61,7 @@ MDSPAN_INLINE_FUNCTION constexpr auto padded_col_major_strides(size_t ByteAlignm
   for (size_t r = 0; r + 1 < Extents::rank(); r++) {
     strides[r] = stride;
     if (stride == 1) {
-      stride *=
-        std::max<size_t>(alignment, (__exts.extent(r) + alignment - 1) / alignment * alignment);
+      stride *= std::max<size_t>(alignment, raft::alignTo(__exts.extent(r), alignment));
     } else {
       stride *= __exts.extent(r);
     }
