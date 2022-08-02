@@ -44,6 +44,7 @@ add_executable(test_raft
     test/interruptible.cu
     test/nvtx.cpp
     test/pow2_utils.cu
+    test/serialization.cpp
     test/label/label.cu
     test/label/merge_labels.cu
     test/lap/lap.cu
