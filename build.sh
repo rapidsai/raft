@@ -182,7 +182,7 @@ if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     CMAKE_TARGET="${CMAKE_TARGET};raft_nn_lib"
 fi
 
-if hasArg --compile-dist || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
+if hasArg --compile-dist || hasArg --compile-libs || hasArg pylibraft || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_distance_lib"
 fi
