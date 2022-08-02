@@ -231,21 +231,157 @@ class host_vector_policy {
 /**
  * @brief A mixin to distinguish host and device memory.
  */
-template <typename AccessorPolicy, bool is_host>
-struct accessor_mixin : public AccessorPolicy {
-  using accessor_type = AccessorPolicy;
-  using is_host_type  = std::conditional_t<is_host, std::true_type, std::false_type>;
-  // make sure the explicit ctor can fall through
-  using AccessorPolicy::AccessorPolicy;
-  using offset_policy = accessor_mixin;
-  accessor_mixin(AccessorPolicy const& that) : AccessorPolicy{that} {}  // NOLINT
+// template <typename AccessorPolicy, bool is_host>
+// struct accessor_mixin : public AccessorPolicy {
+//   using accessor_type = AccessorPolicy;
+//   using is_host_type  = std::conditional_t<is_host, std::true_type, std::false_type>;
+//   // make sure the explicit ctor can fall through
+//   using AccessorPolicy::AccessorPolicy;
+//   using offset_policy = accessor_mixin;
+//   accessor_mixin(AccessorPolicy const& that) : AccessorPolicy{that} {}  // NOLINT
+// };
+
+// template <typename AccessorPolicy>
+// using host_accessor = accessor_mixin<AccessorPolicy, true>;
+
+// template <typename AccessorPolicy>
+// using device_accessor = accessor_mixin<AccessorPolicy, false>;
+
+template <class ElementType, bool is_device_accessible, bool is_host_accessible>
+struct base_accessor {
+
+  using element_type = ElementType;
+  using reference = ElementType&;
+  using data_handle_type = ElementType*;
+
+  static constexpr auto is_device_accessible = is_device_accessible;
+  static constexpr auto is_host_accessible = is_device_accessible;
+
+  MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr base_accessor() noexcept = default;
+
+  MDSPAN_TEMPLATE_REQUIRES(
+    class OtherElementType,
+    /* requires */ (
+      _MDSPAN_TRAIT(is_convertible, OtherElementType(*)[], element_type(*)[])
+    )
+  )
+  MDSPAN_INLINE_FUNCTION
+  constexpr base_accessor(base_accessor<OtherElementType>) noexcept {}
+
+  MDSPAN_INLINE_FUNCTION
+  constexpr data_handle_type
+  offset(data_handle_type p, size_t i) const noexcept {
+    return p + i;
+  }
+
+  MDSPAN_FORCE_INLINE_FUNCTION
+  constexpr reference access(data_handle_type p, size_t i) const noexcept {
+    return p[i];
+  }
+
 };
 
-template <typename AccessorPolicy>
-using host_accessor = accessor_mixin<AccessorPolicy, true>;
+template <class ElementType>
+struct device_accessor : public base_accessor<ElementType, true, false> {
 
-template <typename AccessorPolicy>
-using device_accessor = accessor_mixin<AccessorPolicy, false>;
+  using element_type = ElementType;
+  using reference = ElementType&;
+  using data_handle_type = ElementType*;
+
+  static constexpr auto is_device_accessible = base_accessor<ElementType, true, false>::is_device_accessible;
+  static constexpr auto is_host_accessible = base_accessor<ElementType, true, false>::is_host_accessible;
+
+  MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr device_accessor() noexcept = default;
+
+  MDSPAN_TEMPLATE_REQUIRES(
+    class OtherElementType,
+    /* requires */ (
+      _MDSPAN_TRAIT(is_convertible, OtherElementType(*)[], element_type(*)[])
+    )
+  )
+  MDSPAN_INLINE_FUNCTION
+  constexpr device_accessor(device_accessor<OtherElementType>) noexcept {}
+
+  MDSPAN_INLINE_FUNCTION
+  constexpr __device__ data_handle_type
+  offset(data_handle_type p, size_t i) const noexcept {
+    return p + i;
+  }
+
+  MDSPAN_FORCE_INLINE_FUNCTION
+  constexpr __device__ reference access(data_handle_type p, size_t i) const noexcept {
+    return p[i];
+  }
+
+};
+
+template <class ElementType>
+struct managed_accessor : public managed_accessor<ElementType, true, true> {
+
+  using element_type = ElementType;
+  using reference = ElementType&;
+  using data_handle_type = ElementType*;
+
+  static constexpr auto is_device_accessible = base_accessor<ElementType, true, true>::is_device_accessible;
+  static constexpr auto is_host_accessible = base_accessor<ElementType, true, true>::is_host_accessible;
+
+  MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr device_accessor() noexcept = default;
+
+  MDSPAN_TEMPLATE_REQUIRES(
+    class OtherElementType,
+    /* requires */ (
+      _MDSPAN_TRAIT(is_convertible, OtherElementType(*)[], element_type(*)[])
+    )
+  )
+  MDSPAN_INLINE_FUNCTION
+  constexpr managed_accessor(managed_accessor<OtherElementType>) noexcept {}
+
+  MDSPAN_INLINE_FUNCTION
+  constexpr __host__ __device__ data_handle_type
+  offset(data_handle_type p, size_t i) const noexcept {
+    return p + i;
+  }
+
+  MDSPAN_FORCE_INLINE_FUNCTION
+  constexpr __host__ __device__ reference access(data_handle_type p, size_t i) const noexcept {
+    return p[i];
+  }
+
+};
+
+template <class ElementType>
+struct host_accessor : public host_accessor<ElementType, false, true> {
+
+  using element_type = ElementType;
+  using reference = ElementType&;
+  using data_handle_type = ElementType*;
+
+  static constexpr auto is_device_accessible = base_accessor<ElementType, false, true>::is_device_accessible;
+  static constexpr auto is_host_accessible = base_accessor<ElementType, false, true>::is_host_accessible;
+
+  MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr host_accessor() noexcept = default;
+
+  MDSPAN_TEMPLATE_REQUIRES(
+    class OtherElementType,
+    /* requires */ (
+      _MDSPAN_TRAIT(is_convertible, OtherElementType(*)[], element_type(*)[])
+    )
+  )
+  MDSPAN_INLINE_FUNCTION
+  constexpr host_accessor(host_accessor<OtherElementType>) noexcept {}
+
+  MDSPAN_INLINE_FUNCTION
+  constexpr data_handle_type
+  offset(data_handle_type p, size_t i) const noexcept {
+    return p + i;
+  }
+
+  MDSPAN_FORCE_INLINE_FUNCTION
+  constexpr reference access(data_handle_type p, size_t i) const noexcept {
+    return p[i];
+  }
+
+};
 
 namespace stdex = std::experimental;
 

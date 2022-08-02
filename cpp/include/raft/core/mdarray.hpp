@@ -145,20 +145,24 @@ inline constexpr bool is_mdspan_v = is_mdspan<Tn...>::value;
  */
 template <typename ElementType,
           typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
+          typename LayoutPolicy   = layout_c_contiguous>
 using device_mdspan =
-  mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
+  mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<ElementType>>;
 
 /**
  * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
  */
 template <typename ElementType,
           typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
+          typename LayoutPolicy   = layout_c_contiguous>
 using host_mdspan =
-  mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
+  mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<ElementType>>;
+
+template <typename ElementType,
+          typename Extents,
+          typename LayoutPolicy   = layout_c_contiguous>
+using managed_mdspan =
+  mdspan<ElementType, Extents, LayoutPolicy, detail::managed_accessor<ElementType>>;
 
 namespace detail {
 template <typename T, bool B>
