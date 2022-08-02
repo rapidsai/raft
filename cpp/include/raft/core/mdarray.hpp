@@ -669,7 +669,6 @@ using device_vector_view = device_mdspan<ElementType, vector_extent<IndexType>, 
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- *
  */
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
