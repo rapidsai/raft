@@ -25,6 +25,31 @@
 
 namespace raft::detail {
 
+/**
+ * The structure that holds implementation of serialization for a particular type.
+ * To add serialization to a given type, specialize this structure:
+ *
+ * @code{.cpp}
+ *
+ * template <>
+ * struct serial<YourStructure> {
+ *  static auto to_bytes(uint8_t* out, const YourStructure& obj, ...) -> size_t { ... }
+ *  static auto from_bytes(YourStructure* p, const uint8_t* in, ...) -> size_t { ... }
+ * };
+ * @endcode
+ *
+ * `serial::to_bytes` saves the state of the object to memory if `out` is not null;
+ *  returns the size of the output in any case.
+ *
+ * `serial::from_bytes` constructs a new object by a given _uninitialized_ pointer (a.k.a. placement
+ * new), reads the state from memory (`in`), and returns the number of bytes read.
+ *
+ * _See below this file for examples_.
+ *
+ * All of the `call_serialize` and `call_deserialize` are the convenience wrappers providing various
+ * ways to serialize/deserialize on top of `serial`. See `core/serialization.hpp` for their public
+ * documentation.
+ */
 template <typename T>
 struct serial;
 
