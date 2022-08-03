@@ -31,45 +31,45 @@ from libcpp cimport bool
 cdef extern from "raft_random/rmat_rectangular_generator.hpp" \
         namespace "raft::random::runtime":
 
-    void rmat_rectangular_gen(const handle_t &handle,
-                              int* out,
-                              int* out_src,
-                              int* out_dst,
-                              const float* theta,
-                              int r_scale,
-                              int c_scale,
-                              int n_edges,
-                              RngState& r);
+    cdef void rmat_rectangular_gen(const handle_t &handle,
+                                   int* out,
+                                   int* out_src,
+                                   int* out_dst,
+                                   const float* theta,
+                                   int r_scale,
+                                   int c_scale,
+                                   int n_edges,
+                                   RngState& r)
 
-    void rmat_rectangular_gen(const handle_t &handle,
-                              int64_t* out,
-                              int64_t* out_src,
-                              int64_t* out_dst,
-                              const float* theta,
-                              int64_t r_scale,
-                              int64_t c_scale,
-                              int64_t n_edges,
-                              RngState& r);
+    cdef void rmat_rectangular_gen(const handle_t &handle,
+                                   int64_t* out,
+                                   int64_t* out_src,
+                                   int64_t* out_dst,
+                                   const float* theta,
+                                   int64_t r_scale,
+                                   int64_t c_scale,
+                                   int64_t n_edges,
+                                   RngState& r)
 
-    void rmat_rectangular_gen(const handle_t &handle,
-                              int* out,
-                              int* out_src,
-                              int* out_dst,
-                              const double* theta,
-                              int r_scale,
-                              int c_scale,
-                              int n_edges,
-                              RngState& r);
+    cdef void rmat_rectangular_gen(const handle_t &handle,
+                                   int* out,
+                                   int* out_src,
+                                   int* out_dst,
+                                   const double* theta,
+                                   int r_scale,
+                                   int c_scale,
+                                   int n_edges,
+                                   RngState& r)
 
-    void rmat_rectangular_gen(const handle_t &handle,
-                              int64_t* out,
-                              int64_t* out_src,
-                              int64_t* out_dst,
-                              const double* theta,
-                              int64_t r_scale,
-                              int64_t c_scale,
-                              int64_t n_edges,
-                              RngState& r);
+    cdef void rmat_rectangular_gen(const handle_t &handle,
+                                   int64_t* out,
+                                   int64_t* out_src,
+                                   int64_t* out_dst,
+                                   const double* theta,
+                                   int64_t r_scale,
+                                   int64_t c_scale,
+                                   int64_t n_edges,
+                                   RngState& r)
 
 
 def rmat(out, theta, r_scale, c_scale, seed=12345):
@@ -82,8 +82,9 @@ def rmat(out, theta, r_scale, c_scale, seed=12345):
     out: CUDA array interface compliant matrix shape (n_edges, 2). This will
          contain the src/dst node ids stored consecutively like a pair. If this
          output is not needed, pass None.
-    theta: CUDA array interface compliant matrix shape (max(r_scale, c_scale) * 4)
-           This stores the probability distribution at each RMAT level
+    theta: CUDA array interface compliant matrix shape
+           (max(r_scale, c_scale) * 4) This stores the probability distribution
+           at each RMAT level
     r_scale: log2 of number of source nodes
     c_scale: log2 of number of destination nodes
     seed: random seed used for reproducibility
@@ -166,4 +167,5 @@ def rmat(out, theta, r_scale, c_scale, seed=12345):
                              <int64_t>n_edges,
                              deref(rng))
     else:
-        raise ValueError("dtype out=%s and theta=%s not supported" % (out_dt, theta_dt))
+        raise ValueError("dtype out=%s and theta=%s not supported" %
+                         (out_dt, theta_dt))
