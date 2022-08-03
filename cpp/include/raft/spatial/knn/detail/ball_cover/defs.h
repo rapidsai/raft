@@ -4,8 +4,6 @@
 #include <float.h>
 #include <stdint.h>
 
-
-
 #define FLOAT_TOL 1e-7
 
 #define KMAX       32  // Internal parameter.  Do not change!
@@ -51,65 +49,67 @@ typedef float real;
 #define MAXi(i, j, k, l) ((i) > (j) ? (k) : (l))  // indexed version
 #define MINi(i, j, k, l) ((i) <= (j) ? (k) : (l))
 
-
 namespace raft {
-    namespace spatial {
-        namespace knn {
-            namespace detail {
+namespace spatial {
+namespace knn {
+namespace detail {
 
-                typedef uint32_t unint;
+typedef uint32_t unint;
 
-                typedef struct {
-                    real *mat;
-                    unint r;   // rows
-                    unint c;   // cols
-                    unint pr;  // padded rows
-                    unint pc;  // padded cols
-                    unint ld;  // the leading dimension (in this code, this is the same as pc)
-                } matrix;
+typedef struct {
+  real* mat;
+  unint r;   // rows
+  unint c;   // cols
+  unint pr;  // padded rows
+  unint pc;  // padded cols
+  unint ld;  // the leading dimension (in this code, this is the same as pc)
+} matrix;
 
-                typedef struct {
-                    char *mat;
-                    unint r;
-                    unint c;
-                    unint pr;
-                    unint pc;
-                    unint ld;
-                } charMatrix;
+typedef struct {
+  char* mat;
+  unint r;
+  unint c;
+  unint pr;
+  unint pc;
+  unint ld;
+} charMatrix;
 
-                typedef struct {
-                    unint *mat;
-                    unint r;
-                    unint c;
-                    unint pr;
-                    unint pc;
-                    unint ld;
-                } intMatrix;
+typedef struct {
+  unint* mat;
+  unint r;
+  unint c;
+  unint pr;
+  unint pc;
+  unint ld;
+} intMatrix;
 
-                typedef struct {
-                    // TODO: Number of landmarks?
-                    unint *numGroups;  // The number of groups of DB points to be examined.
+typedef struct {
+  // TODO: Number of landmarks?
+  unint* numGroups;  // The number of groups of DB points to be examined.
 
-                    // TODO: Number of elements in each landmark?
-                    unint *groupCountX;  // The number of elements in each DB group.
+  // TODO: Number of elements in each landmark?
+  unint* groupCountX;  // The number of elements in each DB group.
 
-                    // Inverted index from each query to each query group
-                    unint *qToQGroup;  // map from query to query group #.
+  // Inverted index from each query to each query group
+  unint* qToQGroup;  // map from query to query group #.
 
-                    // Map from query landmark to each index landmark
-                    unint *qGroupToXGroup;  // map from query group to DB gruop
+  // Map from query landmark to each index landmark
+  unint* qGroupToXGroup;  // map from query group to DB gruop
 
-                    //
-                    unint ld;  // the width of memPos and groupCount (= max over numGroups)
-                } compPlan;
+  //
+  unint ld;  // the width of memPos and groupCount (= max over numGroups)
+} compPlan;
 
-                typedef struct {
-                    //
-                    matrix dx;
-                    intMatrix dxMap;
-                    matrix dr;
-                    unint *groupCount;
-                } rbcStruct;
+typedef struct {
+  //
+  matrix dx;
+  intMatrix dxMap;
+  matrix dr;
+  unint* groupCount;
+} rbcStruct;
 
-            } } } };
+}  // namespace detail
+}  // namespace knn
+}  // namespace spatial
+};  // namespace raft
 #endif

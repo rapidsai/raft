@@ -16,102 +16,102 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-    inline void getCountsWrap(unint *counts, charMatrix ir, intMatrix sums){
-        dim3 block(BLOCK_SIZE,1);
-        dim3 grid;
-        grid.y=1;
-        unint todo, numDone;
+inline void getCountsWrap(unint* counts, charMatrix ir, intMatrix sums)
+{
+  dim3 block(BLOCK_SIZE, 1);
+  dim3 grid;
+  grid.y = 1;
+  unint todo, numDone;
 
-        numDone = 0;
-        while(numDone < ir.pr){
-            todo = MIN( ir.pr - numDone, MAX_BS*BLOCK_SIZE );
-            grid.x = todo/BLOCK_SIZE;
-            getCountsKernel<<<grid,block>>>(counts, numDone, ir, sums);
-            numDone += todo;
-        }
+  numDone = 0;
+  while (numDone < ir.pr) {
+    todo   = MIN(ir.pr - numDone, MAX_BS * BLOCK_SIZE);
+    grid.x = todo / BLOCK_SIZE;
+    getCountsKernel<<<grid, block>>>(counts, numDone, ir, sums);
+    numDone += todo;
+  }
+}
+
+inline void buildMapWrap(intMatrix map, charMatrix ir, intMatrix sums, unint offSet)
+{
+  unint numScans = (ir.c + SCAN_WIDTH - 1) / SCAN_WIDTH;
+  dim3 block(SCAN_WIDTH / 2, 1);
+  dim3 grid;
+  unint todo, numDone;
+
+  grid.x  = numScans;
+  numDone = 0;
+  while (numDone < ir.r) {
+    todo   = MIN(ir.r - numDone, MAX_BS);
+    grid.y = todo;
+    buildMapKernel<<<grid, block>>>(map, ir, sums, offSet + numDone);
+    numDone += todo;
+  }
+}
+
+inline void sumWrap(charMatrix in, intMatrix sum)
+{
+  uint i;
+  unint todo, numDone, temp;
+  unint n        = in.c;
+  unint numScans = (n + SCAN_WIDTH - 1) / SCAN_WIDTH;
+  unint depth    = ceil(log(n) / log(SCAN_WIDTH)) - 1;
+  unint* width   = (unint*)calloc(depth + 1, sizeof(*width));
+
+  intMatrix* dAux;
+  dAux = (intMatrix*)calloc(depth + 1, sizeof(*dAux));
+
+  for (i = 0, temp = n; i <= depth; i++) {
+    temp      = (temp + SCAN_WIDTH - 1) / SCAN_WIDTH;
+    dAux[i].r = dAux[i].pr = in.r;
+    dAux[i].c = dAux[i].pc = dAux[i].ld = temp;
+    checkErr(cudaMalloc((void**)&dAux[i].mat, dAux[i].pr * dAux[i].pc * sizeof(*dAux[i].mat)));
+  }
+
+  dim3 block(SCAN_WIDTH / 2, 1);
+  dim3 grid;
+
+  numDone = 0;
+  while (numDone < in.r) {
+    todo      = MIN(in.r - numDone, MAX_BS);
+    numScans  = (n + SCAN_WIDTH - 1) / SCAN_WIDTH;
+    dAux[0].r = dAux[0].pr = todo;
+    grid.x                 = numScans;
+    grid.y                 = todo;
+    sumKernel<<<grid, block>>>(in, sum, dAux[0], n);
+    cudaDeviceSynchronize();
+
+    width[0] = numScans;  // Necessary because following loop might not be entered
+    for (i = 0; i < depth; i++) {
+      width[i]      = numScans;
+      numScans      = (numScans + SCAN_WIDTH - 1) / SCAN_WIDTH;
+      dAux[i + 1].r = dAux[i + 1].pr = todo;
+
+      grid.x = numScans;
+      sumKernelI<<<grid, block>>>(dAux[i], dAux[i], dAux[i + 1], width[i]);
+      cudaDeviceSynchronize();
     }
 
-
-    inline void buildMapWrap(intMatrix map, charMatrix ir, intMatrix sums, unint offSet){
-        unint numScans = (ir.c+SCAN_WIDTH-1)/SCAN_WIDTH;
-        dim3 block( SCAN_WIDTH/2, 1 );
-        dim3 grid;
-        unint todo, numDone;
-
-        grid.x = numScans;
-        numDone = 0;
-        while( numDone < ir.r ){
-            todo = MIN( ir.r-numDone, MAX_BS );
-            grid.y = todo;
-            buildMapKernel<<<grid,block>>>(map, ir, sums, offSet+numDone);
-            numDone += todo;
-        }
+    for (i = depth - 1; i > 0; i--) {
+      grid.x = width[i];
+      combineSumKernel<<<grid, block>>>(dAux[i - 1], numDone, dAux[i], width[i - 1]);
+      cudaDeviceSynchronize();
     }
 
+    grid.x = width[0];
+    combineSumKernel<<<grid, block>>>(sum, numDone, dAux[0], n);
+    cudaDeviceSynchronize();
 
-    inline void sumWrap(charMatrix in, intMatrix sum){
-        uint i;
-        unint todo, numDone, temp;
-        unint n = in.c;
-        unint numScans = (n+SCAN_WIDTH-1)/SCAN_WIDTH;
-        unint depth = ceil( log(n) / log(SCAN_WIDTH) ) -1 ;
-        unint *width = (unint*)calloc( depth+1, sizeof(*width) );
+    numDone += todo;
+  }
 
-        intMatrix *dAux;
-        dAux = (intMatrix*)calloc( depth+1, sizeof(*dAux) );
+  for (i = 0; i <= depth; i++)
+    cudaFree(dAux[i].mat);
+  free(dAux);
+  free(width);
+}
 
-        for( i=0, temp=n; i<=depth; i++){
-            temp = (temp+SCAN_WIDTH-1)/SCAN_WIDTH;
-            dAux[i].r=dAux[i].pr=in.r; dAux[i].c=dAux[i].pc=dAux[i].ld=temp;
-            checkErr( cudaMalloc( (void**)&dAux[i].mat, dAux[i].pr*dAux[i].pc*sizeof(*dAux[i].mat) ) );
-        }
-
-        dim3 block( SCAN_WIDTH/2, 1 );
-        dim3 grid;
-
-        numDone=0;
-        while( numDone < in.r ){
-            todo = MIN( in.r - numDone, MAX_BS );
-            numScans = (n+SCAN_WIDTH-1)/SCAN_WIDTH;
-            dAux[0].r=dAux[0].pr=todo;
-            grid.x = numScans;
-            grid.y = todo;
-            sumKernel<<<grid,block>>>(in, sum, dAux[0], n);
-            cudaDeviceSynchronize();
-
-            width[0] = numScans; // Necessary because following loop might not be entered
-            for( i=0; i<depth; i++ ){
-                width[i] = numScans;
-                numScans = (numScans+SCAN_WIDTH-1)/SCAN_WIDTH;
-                dAux[i+1].r=dAux[i+1].pr=todo;
-
-                grid.x = numScans;
-                sumKernelI<<<grid,block>>>(dAux[i], dAux[i], dAux[i+1], width[i]);
-                cudaDeviceSynchronize();
-            }
-
-            for( i=depth-1; i>0; i-- ){
-                grid.x = width[i];
-                combineSumKernel<<<grid,block>>>(dAux[i-1], numDone, dAux[i], width[i-1]);
-                cudaDeviceSynchronize();
-            }
-
-            grid.x = width[0];
-            combineSumKernel<<<grid,block>>>(sum, numDone, dAux[0], n);
-            cudaDeviceSynchronize();
-
-            numDone += todo;
-        }
-
-        for( i=0; i<=depth; i++)
-            cudaFree(dAux[i].mat);
-        free(dAux);
-        free(width);
-    }
-
-
-
-    inline void dist1Wrap(const matrix dq, const matrix dx, matrix dD)
+inline void dist1Wrap(const matrix dq, const matrix dx, matrix dD)
 {
   dim3 block(BLOCK_SIZE, BLOCK_SIZE);
   dim3 grid;
@@ -135,7 +135,7 @@ namespace detail {
   cudaThreadSynchronize();
 }
 
-    inline void findRangeWrap(const matrix dD, real* dranges, unint cntWant)
+inline void findRangeWrap(const matrix dD, real* dranges, unint cntWant)
 {
   dim3 block(4 * BLOCK_SIZE, BLOCK_SIZE / 4);
   dim3 grid(1, 4 * (dD.pr / BLOCK_SIZE));
@@ -152,7 +152,7 @@ namespace detail {
   cudaDeviceSynchronize();
 }
 
-    inline void rangeSearchWrap(const matrix dD, const real* dranges, charMatrix dir)
+inline void rangeSearchWrap(const matrix dD, const real* dranges, charMatrix dir)
 {
   dim3 block(BLOCK_SIZE, BLOCK_SIZE);
   dim3 grid;
@@ -176,7 +176,7 @@ namespace detail {
   cudaThreadSynchronize();
 }
 
-    inline void nnWrap(const matrix dq, const matrix dx, real* dMins, unint* dMinIDs)
+inline void nnWrap(const matrix dq, const matrix dx, real* dMins, unint* dMinIDs)
 {
   dim3 block(BLOCK_SIZE, BLOCK_SIZE);
   dim3 grid;
@@ -194,7 +194,7 @@ namespace detail {
   cudaThreadSynchronize();
 }
 
-    inline void knnWrap(const matrix dq, const matrix dx, matrix dMins, intMatrix dMinIDs)
+inline void knnWrap(const matrix dq, const matrix dx, matrix dMins, intMatrix dMinIDs)
 {
   dim3 block(BLOCK_SIZE, BLOCK_SIZE);
   dim3 grid;
@@ -212,14 +212,14 @@ namespace detail {
   cudaThreadSynchronize();
 }
 
-    inline void planNNWrap(const matrix dq,
-                const unint* dqMap,
-                const matrix dx,
-                const intMatrix dxMap,
-                real* dMins,
-                unint* dMinIDs,
-                compPlan dcP,
-                unint compLength)
+inline void planNNWrap(const matrix dq,
+                       const unint* dqMap,
+                       const matrix dx,
+                       const intMatrix dxMap,
+                       real* dMins,
+                       unint* dMinIDs,
+                       compPlan dcP,
+                       unint compLength)
 {
   dim3 block(BLOCK_SIZE, BLOCK_SIZE);
   dim3 grid;
@@ -236,14 +236,14 @@ namespace detail {
   cudaThreadSynchronize();
 }
 
-    inline void planKNNWrap(const matrix dq,
-                 const unint* dqMap,
-                 const matrix dx,
-                 const intMatrix dxMap,
-                 matrix dMins,
-                 intMatrix dMinIDs,
-                 compPlan dcP,
-                 unint compLength)
+inline void planKNNWrap(const matrix dq,
+                        const unint* dqMap,
+                        const matrix dx,
+                        const intMatrix dxMap,
+                        matrix dMins,
+                        intMatrix dMinIDs,
+                        compPlan dcP,
+                        unint compLength)
 {
   dim3 block(BLOCK_SIZE, BLOCK_SIZE);
   dim3 grid;
@@ -265,7 +265,7 @@ namespace detail {
   cudaThreadSynchronize();
 }
 
-    inline void rangeCountWrap(const matrix dq, const matrix dx, real* dranges, unint* dcounts)
+inline void rangeCountWrap(const matrix dq, const matrix dx, real* dranges, unint* dcounts)
 {
   dim3 block(BLOCK_SIZE, BLOCK_SIZE);
   dim3 grid;

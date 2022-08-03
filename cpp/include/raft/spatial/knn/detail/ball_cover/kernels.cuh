@@ -13,159 +13,156 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-    // min-max gate: it sets the minimum of x and y into x, the maximum into y, and
+// min-max gate: it sets the minimum of x and y into x, the maximum into y, and
 // exchanges the indices (xi and yi) accordingly.
-    __device__ __inline__ void mmGateI(real* x, real* y, unint* xi, unint* yi)
-    {
-        int ti = MINi(*x, *y, *xi, *yi);
-        *yi    = MAXi(*x, *y, *xi, *yi);
-        *xi    = ti;
-        real t = MIN(*x, *y);
-        *y     = MAX(*x, *y);
-        *x     = t;
-    }
+__device__ __inline__ void mmGateI(real* x, real* y, unint* xi, unint* yi)
+{
+  int ti = MINi(*x, *y, *xi, *yi);
+  *yi    = MAXi(*x, *y, *xi, *yi);
+  *xi    = ti;
+  real t = MIN(*x, *y);
+  *y     = MAX(*x, *y);
+  *x     = t;
+}
 
-
-
-    //**************************************************************************
+//**************************************************************************
 // The following functions are an implementation of Batcher's sorting network.
 // All computations take place in (on-chip) shared memory.
 
 // The function name is descriptive; it sorts each row of x, whose indices are xi.
-        __device__ __inline__ void sort16(real x[][16], unint xi[][16])
-        {
-            int i = threadIdx.x;
-            int j = threadIdx.y;
+__device__ __inline__ void sort16(real x[][16], unint xi[][16])
+{
+  int i = threadIdx.x;
+  int j = threadIdx.y;
 
-            if (i % 2 == 0) mmGateI(x[j] + i, x[j] + i + 1, xi[j] + i, xi[j] + i + 1);
-            __syncthreads();
+  if (i % 2 == 0) mmGateI(x[j] + i, x[j] + i + 1, xi[j] + i, xi[j] + i + 1);
+  __syncthreads();
 
-            if (i % 4 < 2) mmGateI(x[j] + i, x[j] + i + 2, xi[j] + i, xi[j] + i + 2);
-            __syncthreads();
+  if (i % 4 < 2) mmGateI(x[j] + i, x[j] + i + 2, xi[j] + i, xi[j] + i + 2);
+  __syncthreads();
 
-            if (i % 4 == 1) mmGateI(x[j] + i, x[j] + i + 1, xi[j] + i, xi[j] + i + 1);
-            __syncthreads();
+  if (i % 4 == 1) mmGateI(x[j] + i, x[j] + i + 1, xi[j] + i, xi[j] + i + 1);
+  __syncthreads();
 
-            if (i % 8 < 4) mmGateI(x[j] + i, x[j] + i + 4, xi[j] + i, xi[j] + i + 4);
-            __syncthreads();
+  if (i % 8 < 4) mmGateI(x[j] + i, x[j] + i + 4, xi[j] + i, xi[j] + i + 4);
+  __syncthreads();
 
-            if (i % 8 == 2 || i % 8 == 3) mmGateI(x[j] + i, x[j] + i + 2, xi[j] + i, xi[j] + i + 2);
-            __syncthreads();
+  if (i % 8 == 2 || i % 8 == 3) mmGateI(x[j] + i, x[j] + i + 2, xi[j] + i, xi[j] + i + 2);
+  __syncthreads();
 
-            if (i % 2 && i % 8 != 7) mmGateI(x[j] + i, x[j] + i + 1, xi[j] + i, xi[j] + i + 1);
-            __syncthreads();
+  if (i % 2 && i % 8 != 7) mmGateI(x[j] + i, x[j] + i + 1, xi[j] + i, xi[j] + i + 1);
+  __syncthreads();
 
-            // 0-7; 8-15 now sorted.  merge time.
-            if (i < 8) mmGateI(x[j] + i, x[j] + i + 8, xi[j] + i, xi[j] + i + 8);
-            __syncthreads();
+  // 0-7; 8-15 now sorted.  merge time.
+  if (i < 8) mmGateI(x[j] + i, x[j] + i + 8, xi[j] + i, xi[j] + i + 8);
+  __syncthreads();
 
-            if (i > 3 && i < 8) mmGateI(x[j] + i, x[j] + i + 4, xi[j] + i, xi[j] + i + 4);
-            __syncthreads();
+  if (i > 3 && i < 8) mmGateI(x[j] + i, x[j] + i + 4, xi[j] + i, xi[j] + i + 4);
+  __syncthreads();
 
-            int os = (i / 2) * 4 + 2 + i % 2;
-            if (i < 6) mmGateI(x[j] + os, x[j] + os + 2, xi[j] + os, xi[j] + os + 2);
-            __syncthreads();
+  int os = (i / 2) * 4 + 2 + i % 2;
+  if (i < 6) mmGateI(x[j] + os, x[j] + os + 2, xi[j] + os, xi[j] + os + 2);
+  __syncthreads();
 
-            if (i % 2 && i < 15) mmGateI(x[j] + i, x[j] + i + 1, xi[j] + i, xi[j] + i + 1);
-        }
+  if (i % 2 && i < 15) mmGateI(x[j] + i, x[j] + i + 1, xi[j] + i, xi[j] + i + 1);
+}
 
 // This function takes an array of lists, each of length 48. It is assumed
 // that the first 32 numbers are sorted, and the last 16 numbers.  The
 // routine then merges these lists into one sorted list of length 48.
-        __device__ __inline__ void merge32x16(real x[][48], unint xi[][48])
-        {
-            int i = threadIdx.x;
-            int j = threadIdx.y;
+__device__ __inline__ void merge32x16(real x[][48], unint xi[][48])
+{
+  int i = threadIdx.x;
+  int j = threadIdx.y;
 
-            mmGateI(x[j] + i, x[j] + i + 32, xi[j] + i, xi[j] + i + 32);
-            __syncthreads();
+  mmGateI(x[j] + i, x[j] + i + 32, xi[j] + i, xi[j] + i + 32);
+  __syncthreads();
 
-            mmGateI(x[j] + i + 16, x[j] + i + 32, xi[j] + i + 16, xi[j] + i + 32);
-            __syncthreads();
+  mmGateI(x[j] + i + 16, x[j] + i + 32, xi[j] + i + 16, xi[j] + i + 32);
+  __syncthreads();
 
-            int os = (i < 8) ? 24 : 0;
-            mmGateI(x[j] + os + i, x[j] + os + i + 8, xi[j] + os + i, xi[j] + os + i + 8);
-            __syncthreads();
+  int os = (i < 8) ? 24 : 0;
+  mmGateI(x[j] + os + i, x[j] + os + i + 8, xi[j] + os + i, xi[j] + os + i + 8);
+  __syncthreads();
 
-            os = (i / 4) * 8 + 4 + i % 4;
-            mmGateI(x[j] + os, x[j] + os + 4, xi[j] + os, xi[j] + os + 4);
-            if (i < 4) mmGateI(x[j] + 36 + i, x[j] + 36 + i + 4, xi[j] + 36 + i, xi[j] + 36 + i + 4);
-            __syncthreads();
+  os = (i / 4) * 8 + 4 + i % 4;
+  mmGateI(x[j] + os, x[j] + os + 4, xi[j] + os, xi[j] + os + 4);
+  if (i < 4) mmGateI(x[j] + 36 + i, x[j] + 36 + i + 4, xi[j] + 36 + i, xi[j] + 36 + i + 4);
+  __syncthreads();
 
-            os = (i / 2) * 4 + 2 + i % 2;
-            mmGateI(x[j] + os, x[j] + os + 2, xi[j] + os, xi[j] + os + 2);
+  os = (i / 2) * 4 + 2 + i % 2;
+  mmGateI(x[j] + os, x[j] + os + 2, xi[j] + os, xi[j] + os + 2);
 
-            os = (i / 2) * 4 + 34 + i % 2;
-            if (i < 6) mmGateI(x[j] + os, x[j] + os + 2, xi[j] + os, xi[j] + os + 2);
-            __syncthreads();
+  os = (i / 2) * 4 + 34 + i % 2;
+  if (i < 6) mmGateI(x[j] + os, x[j] + os + 2, xi[j] + os, xi[j] + os + 2);
+  __syncthreads();
 
-            os = 2 * i + 1;
-            mmGateI(x[j] + os, x[j] + os + 1, xi[j] + os, xi[j] + os + 1);
+  os = 2 * i + 1;
+  mmGateI(x[j] + os, x[j] + os + 1, xi[j] + os, xi[j] + os + 1);
 
-            os = 2 * i + 33;
-            if (i < 7) mmGateI(x[j] + os, x[j] + os + 1, xi[j] + os, xi[j] + os + 1);
-        }
+  os = 2 * i + 33;
+  if (i < 7) mmGateI(x[j] + os, x[j] + os + 1, xi[j] + os, xi[j] + os + 1);
+}
 
 // This is the same as sort16, but takes as input lists of length 48
 // and sorts the last 16 entries.  This cleans up some of the NN code,
 // though it is inelegant.
-        __device__ __inline__ void sort16off(real x[][48], unint xi[][48])
-        {
-            int i = threadIdx.x;
-            int j = threadIdx.y;
+__device__ __inline__ void sort16off(real x[][48], unint xi[][48])
+{
+  int i = threadIdx.x;
+  int j = threadIdx.y;
 
-            if (i % 2 == 0)
-                mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 1, xi[j] + KMAX + i, xi[j] + KMAX + i + 1);
-            __syncthreads();
+  if (i % 2 == 0)
+    mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 1, xi[j] + KMAX + i, xi[j] + KMAX + i + 1);
+  __syncthreads();
 
-            if (i % 4 < 2)
-                mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 2, xi[j] + KMAX + i, xi[j] + KMAX + i + 2);
-            __syncthreads();
+  if (i % 4 < 2)
+    mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 2, xi[j] + KMAX + i, xi[j] + KMAX + i + 2);
+  __syncthreads();
 
-            if (i % 4 == 1)
-                mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 1, xi[j] + KMAX + i, xi[j] + KMAX + i + 1);
-            __syncthreads();
+  if (i % 4 == 1)
+    mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 1, xi[j] + KMAX + i, xi[j] + KMAX + i + 1);
+  __syncthreads();
 
-            if (i % 8 < 4)
-                mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 4, xi[j] + KMAX + i, xi[j] + KMAX + i + 4);
-            __syncthreads();
+  if (i % 8 < 4)
+    mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 4, xi[j] + KMAX + i, xi[j] + KMAX + i + 4);
+  __syncthreads();
 
-            if (i % 8 == 2 || i % 8 == 3)
-                mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 2, xi[j] + KMAX + i, xi[j] + KMAX + i + 2);
-            __syncthreads();
+  if (i % 8 == 2 || i % 8 == 3)
+    mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 2, xi[j] + KMAX + i, xi[j] + KMAX + i + 2);
+  __syncthreads();
 
-            if (i % 2 && i % 8 != 7)
-                mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 1, xi[j] + KMAX + i, xi[j] + KMAX + i + 1);
-            __syncthreads();
+  if (i % 2 && i % 8 != 7)
+    mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 1, xi[j] + KMAX + i, xi[j] + KMAX + i + 1);
+  __syncthreads();
 
-            // 0-7; 8-15 now sorted.  merge time.
-            if (i < 8) mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 8, xi[j] + KMAX + i, xi[j] + KMAX + i + 8);
-            __syncthreads();
+  // 0-7; 8-15 now sorted.  merge time.
+  if (i < 8) mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 8, xi[j] + KMAX + i, xi[j] + KMAX + i + 8);
+  __syncthreads();
 
-            if (i > 3 && i < 8)
-                mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 4, xi[j] + KMAX + i, xi[j] + KMAX + i + 4);
-            __syncthreads();
+  if (i > 3 && i < 8)
+    mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 4, xi[j] + KMAX + i, xi[j] + KMAX + i + 4);
+  __syncthreads();
 
-            int os = (i / 2) * 4 + 2 + i % 2;
-            if (i < 6)
-                mmGateI(x[j] + KMAX + os, x[j] + KMAX + os + 2, xi[j] + KMAX + os, xi[j] + KMAX + os + 2);
-            __syncthreads();
+  int os = (i / 2) * 4 + 2 + i % 2;
+  if (i < 6)
+    mmGateI(x[j] + KMAX + os, x[j] + KMAX + os + 2, xi[j] + KMAX + os, xi[j] + KMAX + os + 2);
+  __syncthreads();
 
-            if (i % 2 && i < 15)
-                mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 1, xi[j] + KMAX + i, xi[j] + KMAX + i + 1);
-        }
+  if (i % 2 && i < 15)
+    mmGateI(x[j] + KMAX + i, x[j] + KMAX + i + 1, xi[j] + KMAX + i, xi[j] + KMAX + i + 1);
+}
 
-
-        // This kernel does the same thing as nnKernel, except it only considers pairs as
+// This kernel does the same thing as nnKernel, except it only considers pairs as
 // specified by the compPlan.
 __global__ __inline__ void planNNKernel(const matrix Q,
-                             const unint* qMap,
-                             const matrix X,
-                             const intMatrix xMap,
-                             real* dMins,
-                             unint* dMinIDs,
-                             compPlan cP,
-                             unint qStartPos)
+                                        const unint* qMap,
+                                        const matrix X,
+                                        const intMatrix xMap,
+                                        real* dMins,
+                                        unint* dMinIDs,
+                                        compPlan cP,
+                                        unint qStartPos)
 {
   unint qB = qStartPos + blockIdx.y * BLOCK_SIZE;  // indexes Q
   unint xB;                                        // X (DB) Block;
@@ -244,13 +241,13 @@ __global__ __inline__ void planNNKernel(const matrix Q,
 // each iteration-chunk, the next 16 distances are computed, then sorted, then merged
 // with the previously computed 32-NNs.
 __global__ __inline__ void planKNNKernel(const matrix Q,
-                              const unint* qMap,
-                              const matrix X,
-                              const intMatrix xMap,
-                              matrix dMins,
-                              intMatrix dMinIDs,
-                              compPlan cP,
-                              unint qStartPos)
+                                         const unint* qMap,
+                                         const matrix X,
+                                         const intMatrix xMap,
+                                         matrix dMins,
+                                         intMatrix dMinIDs,
+                                         compPlan cP,
+                                         unint qStartPos)
 {
   unint qB = qStartPos + blockIdx.y * BLOCK_SIZE;  // indexes Q
   unint xB;                                        // X (DB) Block;
@@ -324,7 +321,8 @@ __global__ __inline__ void planKNNKernel(const matrix Q,
 }
 
 // The basic 1-NN search kernel.
-__global__ __inline__ void nnKernel(const matrix Q, unint numDone, const matrix X, real* dMins, unint* dMinIDs)
+__global__ __inline__ void nnKernel(
+  const matrix Q, unint numDone, const matrix X, real* dMins, unint* dMinIDs)
 {
   unint qB = blockIdx.y * BLOCK_SIZE + numDone;  // indexes Q
   unint xB;                                      // indexes X;
@@ -441,116 +439,109 @@ __global__ __inline__ void knnKernel(
   dMinIDs.mat[IDX(qB + offQ, offX + 16, dMins.ld)] = idNN[offQ][offX + 16];
 }
 
-        __global__ __inline__ void sumKernel(charMatrix in, intMatrix sum, intMatrix sumaux, unint n){
-            unint id = threadIdx.x;
-            unint bo = blockIdx.x*SCAN_WIDTH; //block offset
-            unint r = blockIdx.y;
-            unint d, t;
+__global__ __inline__ void sumKernel(charMatrix in, intMatrix sum, intMatrix sumaux, unint n)
+{
+  unint id = threadIdx.x;
+  unint bo = blockIdx.x * SCAN_WIDTH;  // block offset
+  unint r  = blockIdx.y;
+  unint d, t;
 
-            const unint l=SCAN_WIDTH; //length
+  const unint l = SCAN_WIDTH;  // length
 
-            unint off=1;
+  unint off = 1;
 
-            __shared__ unint ssum[l];
+  __shared__ unint ssum[l];
 
-            ssum[2*id] = (bo+2*id < n) ? in.mat[IDX( r, bo+2*id, in.ld )] : 0;
-            ssum[2*id+1] = (bo+2*id+1 < n) ? in.mat[IDX( r, bo+2*id+1, in.ld)] : 0;
+  ssum[2 * id]     = (bo + 2 * id < n) ? in.mat[IDX(r, bo + 2 * id, in.ld)] : 0;
+  ssum[2 * id + 1] = (bo + 2 * id + 1 < n) ? in.mat[IDX(r, bo + 2 * id + 1, in.ld)] : 0;
 
-            //up-sweep
-            for( d=l>>1; d > 0; d>>=1 ){
-                __syncthreads();
+  // up-sweep
+  for (d = l >> 1; d > 0; d >>= 1) {
+    __syncthreads();
 
-                if( id < d ){
-                    ssum[ off*(2*id+2)-1 ] += ssum[ off*(2*id+1)-1 ];
-                }
-                off *= 2;
-            }
+    if (id < d) { ssum[off * (2 * id + 2) - 1] += ssum[off * (2 * id + 1) - 1]; }
+    off *= 2;
+  }
 
-            __syncthreads();
+  __syncthreads();
 
-            if ( id == 0 ){
-                sumaux.mat[IDX( r, blockIdx.x, sumaux.ld )] = ssum[ l-1 ];
-                ssum[ l-1 ] = 0;
-            }
+  if (id == 0) {
+    sumaux.mat[IDX(r, blockIdx.x, sumaux.ld)] = ssum[l - 1];
+    ssum[l - 1]                               = 0;
+  }
 
-            //down-sweep
-            for ( d=1; d<l; d*=2 ){
-                off >>= 1;
-                __syncthreads();
+  // down-sweep
+  for (d = 1; d < l; d *= 2) {
+    off >>= 1;
+    __syncthreads();
 
-                if( id < d ){
-                    t = ssum[ off*(2*id+1)-1 ];
-                    ssum[ off*(2*id+1)-1 ] = ssum[ off*(2*id+2)-1 ];
-                    ssum[ off*(2*id+2)-1 ] += t;
-                }
-            }
+    if (id < d) {
+      t                            = ssum[off * (2 * id + 1) - 1];
+      ssum[off * (2 * id + 1) - 1] = ssum[off * (2 * id + 2) - 1];
+      ssum[off * (2 * id + 2) - 1] += t;
+    }
+  }
 
-            __syncthreads();
+  __syncthreads();
 
-            if( bo+2*id < n )
-                sum.mat[IDX( r, bo+2*id, sum.ld )] = ssum[2*id];
-            if( bo+2*id+1 < n )
-                sum.mat[IDX( r, bo+2*id+1, sum.ld )] = ssum[2*id+1];
-        }
+  if (bo + 2 * id < n) sum.mat[IDX(r, bo + 2 * id, sum.ld)] = ssum[2 * id];
+  if (bo + 2 * id + 1 < n) sum.mat[IDX(r, bo + 2 * id + 1, sum.ld)] = ssum[2 * id + 1];
+}
 
+// This is the same as sumKernel, but takes an int matrix as input.
+__global__ __inline__ void sumKernelI(intMatrix in, intMatrix sum, intMatrix sumaux, unint n)
+{
+  unint id = threadIdx.x;
+  unint bo = blockIdx.x * SCAN_WIDTH;  // block offset
+  unint r  = blockIdx.y;
+  unint d, t;
 
-//This is the same as sumKernel, but takes an int matrix as input.
-        __global__ __inline__ void sumKernelI(intMatrix in, intMatrix sum, intMatrix sumaux, unint n){
-            unint id = threadIdx.x;
-            unint bo = blockIdx.x*SCAN_WIDTH; //block offset
-            unint r = blockIdx.y;
-            unint d, t;
+  const unint l = SCAN_WIDTH;  // length
 
-            const unint l=SCAN_WIDTH; //length
+  unint off = 1;
 
-            unint off=1;
+  __shared__ unint ssum[l];
 
-            __shared__ unint ssum[l];
+  ssum[2 * id]     = (bo + 2 * id < n) ? in.mat[IDX(r, bo + 2 * id, in.ld)] : 0;
+  ssum[2 * id + 1] = (bo + 2 * id + 1 < n) ? in.mat[IDX(r, bo + 2 * id + 1, in.ld)] : 0;
 
-            ssum[2*id] = (bo+2*id < n) ? in.mat[IDX( r, bo+2*id, in.ld )] : 0;
-            ssum[2*id+1] = (bo+2*id+1 < n) ? in.mat[IDX( r, bo+2*id+1, in.ld)] : 0;
+  // up-sweep
+  for (d = l >> 1; d > 0; d >>= 1) {
+    __syncthreads();
 
-            //up-sweep
-            for( d=l>>1; d > 0; d>>=1 ){
-                __syncthreads();
+    if (id < d) { ssum[off * (2 * id + 2) - 1] += ssum[off * (2 * id + 1) - 1]; }
+    off *= 2;
+  }
 
-                if( id < d ){
-                    ssum[ off*(2*id+2)-1 ] += ssum[ off*(2*id+1)-1 ];
-                }
-                off *= 2;
-            }
+  __syncthreads();
 
-            __syncthreads();
+  if (id == 0) {
+    sumaux.mat[IDX(r, blockIdx.x, sumaux.ld)] = ssum[l - 1];
+    ssum[l - 1]                               = 0;
+  }
 
-            if ( id == 0 ){
-                sumaux.mat[IDX( r, blockIdx.x, sumaux.ld )] = ssum[ l-1 ];
-                ssum[ l-1 ] = 0;
-            }
+  // down-sweep
+  for (d = 1; d < l; d *= 2) {
+    off >>= 1;
+    __syncthreads();
 
-            //down-sweep
-            for ( d=1; d<l; d*=2 ){
-                off >>= 1;
-                __syncthreads();
+    if (id < d) {
+      t                            = ssum[off * (2 * id + 1) - 1];
+      ssum[off * (2 * id + 1) - 1] = ssum[off * (2 * id + 2) - 1];
+      ssum[off * (2 * id + 2) - 1] += t;
+    }
+  }
 
-                if( id < d ){
-                    t = ssum[ off*(2*id+1)-1 ];
-                    ssum[ off*(2*id+1)-1 ] = ssum[ off*(2*id+2)-1 ];
-                    ssum[ off*(2*id+2)-1 ] += t;
-                }
-            }
+  __syncthreads();
 
-            __syncthreads();
+  if (bo + 2 * id < n) sum.mat[IDX(r, bo + 2 * id, sum.ld)] = ssum[2 * id];
 
-            if( bo+2*id < n )
-                sum.mat[IDX( r, bo+2*id, sum.ld )] = ssum[2*id];
-
-            if( bo+2*id+1 < n )
-                sum.mat[IDX( r, bo+2*id+1, sum.ld )] = ssum[2*id+1];
-        }
-
+  if (bo + 2 * id + 1 < n) sum.mat[IDX(r, bo + 2 * id + 1, sum.ld)] = ssum[2 * id + 1];
+}
 
 // Computes all pairs of distances between Q and X.
-__global__ __inline__ void dist1Kernel(const matrix Q, unint qStart, const matrix X, unint xStart, matrix D)
+__global__ __inline__ void dist1Kernel(
+  const matrix Q, unint qStart, const matrix X, unint xStart, matrix D)
 {
   unint c, i, j;
 
@@ -585,7 +576,10 @@ __global__ __inline__ void dist1Kernel(const matrix Q, unint qStart, const matri
 
 // This function is used by the rbc building routine.  It find an appropriate range
 // such that roughly cntWant points fall within this range.  D is a matrix of distances.
-__global__ __inline__ void findRangeKernel(const matrix D, unint numDone, real* ranges, unint cntWant)
+__global__ __inline__ void findRangeKernel(const matrix D,
+                                           unint numDone,
+                                           real* ranges,
+                                           unint cntWant)
 {
   unint row = blockIdx.y * (BLOCK_SIZE / 4) + threadIdx.y + numDone;
   unint ro  = threadIdx.y;
@@ -725,39 +719,44 @@ __global__ __inline__ void rangeCountKernel(
   if (xo == 0 && q + qo < Q.r) counts[q + qo] = scnt[qo][0];
 }
 
+__global__ __inline__ void combineSumKernel(intMatrix sum, unint numDone, intMatrix daux, unint n)
+{
+  unint id = threadIdx.x;
+  unint bo = blockIdx.x * SCAN_WIDTH;
+  unint r  = blockIdx.y + numDone;
 
+  if (bo + 2 * id < n)
+    sum.mat[IDX(r, bo + 2 * id, sum.ld)] += daux.mat[IDX(r, blockIdx.x, daux.ld)];
+  if (bo + 2 * id + 1 < n)
+    sum.mat[IDX(r, bo + 2 * id + 1, sum.ld)] += daux.mat[IDX(r, blockIdx.x, daux.ld)];
+}
 
-        __global__ __inline__ void combineSumKernel(intMatrix sum, unint numDone, intMatrix daux, unint n){
-            unint id = threadIdx.x;
-            unint bo = blockIdx.x * SCAN_WIDTH;
-            unint r = blockIdx.y+numDone;
+__global__ __inline__ void getCountsKernel(unint* counts,
+                                           unint numDone,
+                                           charMatrix ir,
+                                           intMatrix sums)
+{
+  unint r = blockIdx.x * BLOCK_SIZE + threadIdx.x + numDone;
+  if (r < ir.r) {
+    counts[r] = ir.mat[IDX(r, ir.c - 1, ir.ld)] ? sums.mat[IDX(r, sums.c - 1, sums.ld)] + 1
+                                                : sums.mat[IDX(r, sums.c - 1, sums.ld)];
+  }
+}
 
-            if(bo+2*id < n)
-                sum.mat[IDX( r, bo+2*id, sum.ld )] += daux.mat[IDX( r, blockIdx.x, daux.ld )];
-            if(bo+2*id+1 < n)
-                sum.mat[IDX( r, bo+2*id+1, sum.ld )] += daux.mat[IDX( r, blockIdx.x, daux.ld )];
+__global__ __inline__ void buildMapKernel(intMatrix map,
+                                          charMatrix ir,
+                                          intMatrix sums,
+                                          unint offSet)
+{
+  unint id = threadIdx.x;
+  unint bo = blockIdx.x * SCAN_WIDTH;
+  unint r  = blockIdx.y;
 
-        }
-
-
-        __global__ __inline__ void getCountsKernel(unint *counts, unint numDone, charMatrix ir, intMatrix sums){
-            unint r = blockIdx.x*BLOCK_SIZE + threadIdx.x + numDone;
-            if ( r < ir.r ){
-                counts[r] = ir.mat[IDX( r, ir.c-1, ir.ld )] ? sums.mat[IDX( r, sums.c-1, sums.ld )]+1 : sums.mat[IDX( r, sums.c-1, sums.ld )];
-            }
-        }
-
-
-        __global__ __inline__ void buildMapKernel(intMatrix map, charMatrix ir, intMatrix sums, unint offSet){
-            unint id = threadIdx.x;
-            unint bo = blockIdx.x * SCAN_WIDTH;
-            unint r = blockIdx.y;
-
-            if(bo+2*id < ir.c && ir.mat[IDX( r, bo+2*id, ir.ld )])
-                map.mat[IDX( r+offSet, sums.mat[IDX( r, bo+2*id, sums.ld )], map.ld)] = bo+2*id;
-            if(bo+2*id+1 < ir.c && ir.mat[IDX( r, bo+2*id+1, ir.ld )])
-                map.mat[IDX( r+offSet, sums.mat[IDX( r, bo+2*id+1, sums.ld )], map.ld)] = bo+2*id+1;
-        }
+  if (bo + 2 * id < ir.c && ir.mat[IDX(r, bo + 2 * id, ir.ld)])
+    map.mat[IDX(r + offSet, sums.mat[IDX(r, bo + 2 * id, sums.ld)], map.ld)] = bo + 2 * id;
+  if (bo + 2 * id + 1 < ir.c && ir.mat[IDX(r, bo + 2 * id + 1, ir.ld)])
+    map.mat[IDX(r + offSet, sums.mat[IDX(r, bo + 2 * id + 1, sums.ld)], map.ld)] = bo + 2 * id + 1;
+}
 
 }  // namespace detail
 }  // namespace knn
