@@ -419,6 +419,10 @@ class mpi_comms : public comms_iface {
     RAFT_NCCL_TRY(ncclGroupEnd());
   }
 
+  void group_start() const { RAFT_NCCL_TRY(ncclGroupStart()); }
+
+  void group_end() const { RAFT_NCCL_TRY(ncclGroupEnd()); }
+
  private:
   bool owns_mpi_comm_;
   MPI_Comm mpi_comm_;

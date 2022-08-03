@@ -72,7 +72,11 @@ __global__ void haversine_knn_kernel(value_idx* out_inds,
 
   faiss::gpu::
     BlockSelect<value_t, value_idx, false, faiss::gpu::Comparator<value_t>, warp_q, thread_q, tpb>
-      heap(faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
+      heap(faiss::gpu::Limits<value_t>::getMax(),
+           std::numeric_limits<value_idx>::max(),
+           smemK,
+           smemV,
+           k);
 
   // Grid is exactly sized to rows available
   int limit = faiss::gpu::utils::roundDown(n_index_rows, faiss::gpu::kWarpSize);

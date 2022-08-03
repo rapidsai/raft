@@ -14,7 +14,14 @@
  * limitations under the License.
  */
 
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the other approximate KNN implementations defined in spatial/knn/*.")
+
 #pragma once
+
+#include "detail/processing.hpp"
+#include "ivf_flat_types.hpp"
 
 #include <raft/distance/distance_type.hpp>
 
@@ -26,18 +33,42 @@ namespace spatial {
 namespace knn {
 
 struct knnIndex {
-  faiss::gpu::GpuIndex* index;
   raft::distance::DistanceType metric;
   float metricArg;
+  int nprobe;
+  std::unique_ptr<faiss::gpu::GpuIndex> index;
+  std::unique_ptr<MetricProcessor<float>> metric_processor;
+  std::unique_ptr<const ivf_flat::index<float, int64_t>> ivf_flat_float_;
+  std::unique_ptr<const ivf_flat::index<uint8_t, int64_t>> ivf_flat_uint8_t_;
+  std::unique_ptr<const ivf_flat::index<int8_t, int64_t>> ivf_flat_int8_t_;
 
-  raft::spatial::knn::RmmGpuResources* gpu_res;
+  std::unique_ptr<raft::spatial::knn::RmmGpuResources> gpu_res;
   int device;
-  ~knnIndex()
-  {
-    delete index;
-    delete gpu_res;
-  }
+
+  template <typename T, typename IdxT>
+  auto ivf_flat() -> std::unique_ptr<const ivf_flat::index<T, IdxT>>&;
 };
+
+template <>
+inline auto knnIndex::ivf_flat<float, int64_t>()
+  -> std::unique_ptr<const ivf_flat::index<float, int64_t>>&
+{
+  return ivf_flat_float_;
+}
+
+template <>
+inline auto knnIndex::ivf_flat<uint8_t, int64_t>()
+  -> std::unique_ptr<const ivf_flat::index<uint8_t, int64_t>>&
+{
+  return ivf_flat_uint8_t_;
+}
+
+template <>
+inline auto knnIndex::ivf_flat<int8_t, int64_t>()
+  -> std::unique_ptr<const ivf_flat::index<int8_t, int64_t>>&
+{
+  return ivf_flat_int8_t_;
+}
 
 enum QuantizerType : unsigned int {
   QT_8bit,
@@ -71,6 +102,17 @@ struct IVFSQParam : IVFParam {
   QuantizerType qtype;
   bool encodeResidual;
 };
+
+inline auto from_legacy_index_params(const IVFFlatParam& legacy,
+                                     raft::distance::DistanceType metric,
+                                     float metric_arg)
+{
+  ivf_flat::index_params params;
+  params.metric     = metric;
+  params.metric_arg = metric_arg;
+  params.n_lists    = legacy.nlist;
+  return params;
+}
 
 };  // namespace knn
 };  // namespace spatial

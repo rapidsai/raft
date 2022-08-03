@@ -26,7 +26,9 @@
 #include <raft/stats/mean.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#include <thrust/count.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
 
 #define N_THREADS 512

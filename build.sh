@@ -18,8 +18,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --sccache --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
-HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"]
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
@@ -33,7 +33,6 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"]
  and <flag> is:
    -v                          - verbose build mode
    -g                          - build for debug
-   --sccache                    - enable sccache
    --compile-libs              - compile shared libraries for all components
    --compile-nn                - compile shared library for nn component
    --compile-dist              - compile shared library for distance component
@@ -45,6 +44,8 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"]
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
+   --cache-tool=<tool>         - pass the build cache tool (eg: ccache, sccache, distcc) that will be used
+                                 to speedup the build process.
    -h                          - print this text
 
  default action (no args) is to build both libraft and pyraft targets
@@ -69,7 +70,7 @@ ENABLE_NN_DEPENDENCIES=OFF
 
 ENABLE_thrust_DEPENDENCY=ON
 
-SCCACHE_ARGS=""
+CACHE_ARGS=""
 NVTX=ON
 CLEAN=0
 UNINSTALL=0
@@ -113,6 +114,26 @@ function cmakeArgs {
     fi
 }
 
+function cacheTool {
+    # Check for multiple cache options
+    if [[ $(echo $ARGS | { grep -Eo "\-\-cache\-tool" || true; } | wc -l ) -gt 1 ]]; then
+        echo "Multiple --cache-tool options were provided, please provide only one: ${ARGS}"
+        exit 1
+    fi
+    # Check for cache tool option
+    if [[ -n $(echo $ARGS | { grep -E "\-\-cache\-tool" || true; } ) ]]; then
+        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
+        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
+        # on the invalid option error
+        CACHE_TOOL=$(echo $ARGS | sed -e 's/.*--cache-tool=//' -e 's/ .*//')
+        if [[ -n ${CACHE_TOOL} ]]; then
+            # Remove the full CACHE_TOOL argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//--cache-tool=$CACHE_TOOL/}
+            CACHE_ARGS="-DCMAKE_CUDA_COMPILER_LAUNCHER=${CACHE_TOOL} -DCMAKE_C_COMPILER_LAUNCHER=${CACHE_TOOL} -DCMAKE_CXX_COMPILER_LAUNCHER=${CACHE_TOOL}"
+        fi
+    fi
+}
+
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
@@ -121,6 +142,7 @@ fi
 # Check for valid usage
 if (( ${NUMARGS} != 0 )); then
     cmakeArgs
+    cacheTool
     for a in ${ARGS}; do
         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
             echo "Invalid option: ${a}"
@@ -132,10 +154,6 @@ fi
 # Process flags
 if hasArg --install; then
     INSTALL_TARGET="install"
-fi
-
-if hasArg --sccache; then
-  SCCACHE_ARGS="-DCMAKE_CUDA_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
 fi
 
 if hasArg --minimal-deps; then
@@ -257,7 +275,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
-          ${SCCACHE_ARGS} \
+          ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
 
   if [[ ${CMAKE_TARGET} != "" ]]; then

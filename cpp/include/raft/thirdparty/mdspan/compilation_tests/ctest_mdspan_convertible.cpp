@@ -54,15 +54,15 @@ namespace stdex = std::experimental;
 
 MDSPAN_STATIC_TEST(
   std::is_convertible<
-    stdex::mdspan<double, stdex::dextents<1>>,
-    stdex::mdspan<double const, stdex::dextents<1>>
+    stdex::mdspan<double, stdex::dextents<size_t,1>>,
+    stdex::mdspan<double const, stdex::dextents<size_t,1>>
   >::value
 );
 
 MDSPAN_STATIC_TEST(
   !std::is_convertible<
-    stdex::mdspan<double const, stdex::dextents<1>>,
-    stdex::mdspan<double, stdex::dextents<1>>
+    stdex::mdspan<double const, stdex::dextents<size_t,1>>,
+    stdex::mdspan<double, stdex::dextents<size_t,1>>
   >::value
 );
 
