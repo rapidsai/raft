@@ -247,44 +247,25 @@ class host_vector_policy {
 // template <typename AccessorPolicy>
 // using device_accessor = accessor_mixin<AccessorPolicy, false>;
 
-template <class wrapped_accessor, bool is_device_accessible, bool is_host_accessible>
-struct base_accessor {
+template <class WrappedAccessor, bool is_device_accessible_b, bool is_host_accessible_b>
+struct base_accessor : public WrappedAccessor {
 
-  using element_type = typename wrapped_accessor::element_type;
-  using reference = wrapped_accessor::element_type&;
-  using data_handle_type = wrapped_accessor::element_type*;
+  using offset_policy = base_accessor;
+  using accessor_type = WrappedAccessor;
+  using element_type = typename accessor_type::element_type;
+  using reference = typename accessor_type::reference;
+  using data_handle_type = typename accessor_type::data_handle_type;
 
-  static constexpr auto is_device_accessible = is_device_accessible;
-  static constexpr auto is_host_accessible = is_device_accessible;
+  static constexpr auto is_device_accessible = is_device_accessible_b;
+  static constexpr auto is_host_accessible = is_device_accessible_b;
 
-  MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr base_accessor() noexcept = default;
-
-  MDSPAN_TEMPLATE_REQUIRES(
-    class OtherElementType,
-    /* requires */ (
-      _MDSPAN_TRAIT(is_convertible, OtherElementType(*)[], element_type(*)[])
-    )
-  )
-  MDSPAN_INLINE_FUNCTION
-  constexpr base_accessor(base_accessor<OtherElementType>) noexcept {}
-
-  MDSPAN_INLINE_FUNCTION
-  constexpr data_handle_type
-  offset(data_handle_type p, size_t i) const noexcept {
-    return accessor.offset(p, i);
-  }
-
-  MDSPAN_FORCE_INLINE_FUNCTION
-  constexpr reference access(data_handle_type p, size_t i) const noexcept {
-    return accessor.access(p, i);
-  }
-
-  wrapped_accessor accessor;
+  base_accessor(WrappedAccessor const& other) : WrappedAccessor{other} {}
 };
 
 template <class ElementType>
 struct device_accessor {
 
+  using offset_policy = device_accessor;
   using element_type = ElementType;
   using reference = ElementType&;
   using data_handle_type = ElementType*;
@@ -294,7 +275,7 @@ struct device_accessor {
   MDSPAN_TEMPLATE_REQUIRES(
     class OtherElementType,
     /* requires */ (
-      _MDSPAN_TRAIT(is_convertible, OtherElementType(*)[], element_type(*)[])
+      _MDSPAN_TRAIT(std::is_convertible, OtherElementType(*)[], element_type(*)[])
     )
   )
   MDSPAN_INLINE_FUNCTION
@@ -316,16 +297,17 @@ struct device_accessor {
 template <class ElementType>
 struct managed_accessor {
 
+  using offset_policy = managed_accessor;
   using element_type = ElementType;
   using reference = ElementType&;
   using data_handle_type = ElementType*;
 
-  MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr device_accessor() noexcept = default;
+  MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr managed_accessor() noexcept = default;
 
   MDSPAN_TEMPLATE_REQUIRES(
     class OtherElementType,
     /* requires */ (
-      _MDSPAN_TRAIT(is_convertible, OtherElementType(*)[], element_type(*)[])
+      _MDSPAN_TRAIT(std::is_convertible, OtherElementType(*)[], element_type(*)[])
     )
   )
   MDSPAN_INLINE_FUNCTION
@@ -347,6 +329,7 @@ struct managed_accessor {
 template <class ElementType>
 struct host_accessor {
 
+  using offset_policy = host_accessor;
   using element_type = ElementType;
   using reference = ElementType&;
   using data_handle_type = ElementType*;
@@ -356,7 +339,7 @@ struct host_accessor {
   MDSPAN_TEMPLATE_REQUIRES(
     class OtherElementType,
     /* requires */ (
-      _MDSPAN_TRAIT(is_convertible, OtherElementType(*)[], element_type(*)[])
+      _MDSPAN_TRAIT(std::is_convertible, OtherElementType(*)[], element_type(*)[])
     )
   )
   MDSPAN_INLINE_FUNCTION

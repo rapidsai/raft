@@ -122,23 +122,26 @@ template <typename T>
 inline constexpr bool is_mdspan_v = is_mdspan_t<T>::value;
 }  // namespace detail
 
-template <typename...>
-struct is_mdspan : std::true_type {
-};
-template <typename T1>
-struct is_mdspan<T1> : detail::is_mdspan_t<T1> {
-};
-template <typename T1, typename... Tn>
-struct is_mdspan<T1, Tn...>
-  : std::conditional_t<detail::is_mdspan_v<T1>, is_mdspan<Tn...>, std::false_type> {
-};
+// template <typename...>
+// struct is_mdspan : std::true_type {
+// };
+// template <typename T1>
+// struct is_mdspan<T1> : detail::is_mdspan_t<T1> {
+// };
+// template <typename T1, typename... Tn>
+// struct is_mdspan<T1, Tn...>
+//   : std::conditional_t<detail::is_mdspan_v<T1>, is_mdspan<Tn...>, std::false_type> {
+// };
 
 /**
  * @\brief Boolean to determine if variadic template types Tn are either
  *          raft::host_mdspan/raft::device_mdspan or their derived types
  */
 template <typename... Tn>
-inline constexpr bool is_mdspan_v = is_mdspan<Tn...>::value;
+inline constexpr bool is_mdspan_v = std::conjunction_v<detail::is_mdspan_t<Tn>...>;
+
+template <typename... Tn>
+using enable_if_mdspan = std::enable_if_t<is_mdspan_v<Tn...>>;
 
 /**
  * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
@@ -146,7 +149,7 @@ inline constexpr bool is_mdspan_v = is_mdspan<Tn...>::value;
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::base_accessor<detail::device_accessor<ElementType>, true, false>>
+          typename AccessorPolicy = detail::device_accessor<ElementType>>
 using device_mdspan =
   mdspan<ElementType, Extents, LayoutPolicy, detail::base_accessor<AccessorPolicy, true, false>>;
 
@@ -156,80 +159,109 @@ using device_mdspan =
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::base_accessor<detail::host_accessor<ElementType>, false, true>>
+          typename AccessorPolicy = detail::host_accessor<ElementType>>
 using host_mdspan =
-  mdspan<ElementType, Extents, LayoutPolicy, detail::base_accessor<AccessorPolicy, true, false>>;
+  mdspan<ElementType, Extents, LayoutPolicy, detail::base_accessor<AccessorPolicy, false, true>>;
 
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::base_accessor<detail::managed_accessor<ElementType>, true, true>>
+          typename AccessorPolicy = detail::managed_accessor<ElementType>>
 using managed_mdspan =
-  mdspan<ElementType, Extents, LayoutPolicy, detail::base_accessor<AccessorPolicy, true, false>>;
+  mdspan<ElementType, Extents, LayoutPolicy, detail::base_accessor<AccessorPolicy, true, true>>;
 
 namespace detail {
 template <typename T, bool B>
 struct is_device_mdspan : std::false_type {
 };
 template <typename T>
-struct is_device_mdspan<T, true> : std::bool_constant<not T::accessor_type::is_host_type::value> {
+struct is_device_mdspan<T, true> : std::bool_constant<T::accessor_type::is_device_accessible> {
 };
 
 /**
  * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
  */
 template <typename T>
-inline constexpr bool is_device_mdspan_v = is_device_mdspan<T, is_mdspan_v<T>>::value;
+using is_device_mdspan_t = is_device_mdspan<T, is_mdspan_v<T>>;
 
 template <typename T, bool B>
 struct is_host_mdspan : std::false_type {
 };
 template <typename T>
-struct is_host_mdspan<T, true> : T::accessor_type::is_host_type {
+struct is_host_mdspan<T, true> : std::bool_constant<T::accessor_type::is_host_accessible> {
 };
 
 /**
  * @\brief Boolean to determine if template type T is either raft::host_mdspan or a derived type
  */
 template <typename T>
-inline constexpr bool is_host_mdspan_v = is_host_mdspan<T, is_mdspan_v<T>>::value;
+using is_host_mdspan_t = is_host_mdspan<T, is_mdspan_v<T>>;
+
+template <typename T, bool B>
+struct is_managed_mdspan : std::false_type {
+};
+template <typename T>
+struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_host_accessible && T::accessor_type::is_device_accessible> {
+};
+
+/**
+ * @\brief Boolean to determine if template type T is either raft::managed_mdspan or a derived type
+ */
+template <typename T>
+using is_managed_mdspan_t = is_managed_mdspan<T, is_mdspan_v<T>>;
 }  // namespace detail
 
-template <typename...>
-struct is_device_mdspan : std::true_type {
-};
-template <typename T1>
-struct is_device_mdspan<T1> : detail::is_device_mdspan<T1, detail::is_mdspan_v<T1>> {
-};
-template <typename T1, typename... Tn>
-struct is_device_mdspan<T1, Tn...>
-  : std::conditional_t<detail::is_device_mdspan_v<T1>, is_device_mdspan<Tn...>, std::false_type> {
-};
+// template <typename...>
+// struct is_device_mdspan : std::true_type {
+// };
+// template <typename T1>
+// struct is_device_mdspan<T1> : detail::is_device_mdspan<T1, detail::is_mdspan_v<T1>> {
+// };
+// template <typename T1, typename... Tn>
+// struct is_device_mdspan<T1, Tn...>
+//   : std::conditional_t<detail::is_device_mdspan_v<T1>, is_device_mdspan<Tn...>, std::false_type> {
+// };
 
 /**
  * @\brief Boolean to determine if variadic template types Tn are either raft::device_mdspan or a
  * derived type
  */
 template <typename... Tn>
-inline constexpr bool is_device_mdspan_v = is_device_mdspan<Tn...>::value;
+inline constexpr bool is_device_mdspan_v = std::conjunction_v<detail::is_device_mdspan_t<Tn>...>;
 
-template <typename...>
-struct is_host_mdspan : std::true_type {
-};
-template <typename T1>
-struct is_host_mdspan<T1> : detail::is_host_mdspan<T1, detail::is_mdspan_v<T1>> {
-};
-template <typename T1, typename... Tn>
-struct is_host_mdspan<T1, Tn...>
-  : std::conditional_t<detail::is_host_mdspan_v<T1>, is_host_mdspan<Tn...>, std::false_type> {
-};
+template <typename... Tn>
+using enable_if_device_mdspan = std::enable_if_t<is_device_mdspan_v<Tn...>>;
+
+// template <typename...>
+// struct is_host_mdspan : std::true_type {
+// };
+// template <typename T1>
+// struct is_host_mdspan<T1> : detail::is_host_mdspan<T1, detail::is_mdspan_v<T1>> {
+// };
+// template <typename T1, typename... Tn>
+// struct is_host_mdspan<T1, Tn...>
+//   : std::conditional_t<detail::is_host_mdspan_v<T1>, is_host_mdspan<Tn...>, std::false_type> {
+// };
 
 /**
  * @\brief Boolean to determine if variadic template types Tn are either raft::host_mdspan or a
  * derived type
  */
 template <typename... Tn>
-inline constexpr bool is_host_mdspan_v = is_host_mdspan<Tn...>::value;
+inline constexpr bool is_host_mdspan_v = std::conjunction_v<detail::is_host_mdspan_t<Tn>...>;
+
+template <typename... Tn>
+using enable_if_host_mdspan = std::enable_if_t<is_host_mdspan_v<Tn...>>;
+
+/**
+ * @\brief Boolean to determine if variadic template types Tn are either raft::managed_mdspan or a
+ * derived type
+ */
+template <typename... Tn>
+inline constexpr bool is_managed_mdspan_v = std::conjunction_v<detail::is_managed_mdspan_t<Tn>...>;
+
+template <typename... Tn>
+using enable_if_managed_mdspan = std::enable_if_t<is_managed_mdspan_v<Tn...>>;
 
 /**
  * @brief Interface to implement an owning multi-dimensional array
@@ -990,7 +1022,7 @@ auto make_device_vector(raft::handle_t const& handle, IndexType n)
  * @return raft::host_mdspan or raft::device_mdspan with vector_extent
  *         depending on AccessoryPolicy
  */
-template <typename mdspan_type, std::enable_if_t<is_mdspan_v<mdspan_type>>* = nullptr>
+template <typename mdspan_type, typename = enable_if_mdspan<mdspan_type>>
 auto flatten(mdspan_type mds)
 {
   RAFT_EXPECTS(mds.is_exhaustive(), "Input must be contiguous.");
@@ -1031,7 +1063,7 @@ auto flatten(const array_interface_type& mda)
 template <typename mdspan_type,
           typename IndexType = std::uint32_t,
           size_t... Extents,
-          std::enable_if_t<is_mdspan_v<mdspan_type>>* = nullptr>
+          typename = enable_if_mdspan<mdspan_type>>
 auto reshape(mdspan_type mds, extents<IndexType, Extents...> new_shape)
 {
   RAFT_EXPECTS(mds.is_exhaustive(), "Input must be contiguous.");
