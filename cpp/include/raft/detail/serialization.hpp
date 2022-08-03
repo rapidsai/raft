@@ -83,7 +83,7 @@ struct serial {
   static auto to_bytes(uint8_t* out, const S& obj)
     -> std::enable_if_t<std::is_arithmetic_v<S>, size_t>
   {
-    if (out) { *reinterpret_cast<T*>(out) = obj; }
+    if (out) { memcpy(out, &obj, sizeof(S)); }
     return sizeof(S);
   }
 
@@ -101,7 +101,7 @@ struct serial {
   static auto from_bytes(S* p, const uint8_t* in)
     -> std::enable_if_t<std::is_arithmetic_v<S>, size_t>
   {
-    *p = *reinterpret_cast<const S*>(in);
+    memcpy(p, in, sizeof(S));
     return sizeof(S);
   }
 
