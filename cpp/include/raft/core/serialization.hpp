@@ -80,7 +80,7 @@ auto deserialize(T* p, const void* in, ContextArgs&&... args) -> size_t
  * @tparam T type of the serializable object
  * @tparam ContextArgs types of context required for serialization
  *
- * @param[out] p an unitialized host pointer to a location where the object should be created.
+ * @param[out] p an uninitialized host pointer to a location where the object should be created.
  * @param in a vector where the state should be read from.
  * @param args context required for serialization
  * @return the number of bytes read from the vector
