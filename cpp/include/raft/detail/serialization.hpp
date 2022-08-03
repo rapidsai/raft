@@ -177,12 +177,12 @@ struct serial<rmm::device_uvector<T>> {
                        const rmm::device_uvector<T>& obj,
                        rmm::cuda_stream_view stream) -> size_t
   {
+    auto pref_size = call_serialize<size_t>(out, obj.size());
     if (out) {
-      *reinterpret_cast<size_t*>(out) = obj.size();
-      out += sizeof(size_t);
+      out += pref_size;
       raft::copy(reinterpret_cast<T*>(out), obj.data(), obj.size(), stream);
     }
-    return obj.size() * sizeof(T) + sizeof(size_t);
+    return obj.size() * sizeof(T) + pref_size;
   }
 
   static auto from_bytes(rmm::device_uvector<T>* p,
@@ -190,15 +190,16 @@ struct serial<rmm::device_uvector<T>> {
                          rmm::cuda_stream_view stream,
                          rmm::mr::device_memory_resource* mr = nullptr) -> size_t
   {
-    auto n = *reinterpret_cast<const size_t*>(in);
-    in += sizeof(size_t);
+    size_t n;
+    auto pref_size = call_deserialize<size_t>(&n, in);
+    in += pref_size;
     if (mr) {
       new (p) rmm::device_uvector<T>{n, stream, mr};
     } else {
       new (p) rmm::device_uvector<T>{n, stream};
     }
     raft::copy(p->data(), reinterpret_cast<const T*>(in), p->size(), stream);
-    return p->size() * sizeof(T) + sizeof(size_t);
+    return p->size() * sizeof(T) + pref_size;
   }
 };
 
