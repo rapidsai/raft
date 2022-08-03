@@ -14,9 +14,11 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-set(pylibraft_version 22.08.00)
+set(pylibraft_version 22.10.00)
 
-include(../../fetch_rapids.cmake)
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.10/RAPIDS.cmake
+        ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 
 project(
   pylibraft
