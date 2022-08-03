@@ -62,6 +62,7 @@ option(RAFT_NVTX "Enable nvtx markers" OFF)
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
 option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" ${RAFT_COMPILE_LIBRARIES})
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" ${RAFT_COMPILE_LIBRARIES})
+option(RAFT_COMPILE_RAND_LIBRARY "Enable building raft random shared library instantiations" ${RAFT_COMPILE_LIBRARIES})
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
@@ -128,6 +129,7 @@ include(cmake/modules/ConfigureCUDA.cmake)
 if(RAFT_COMPILE_LIBRARIES)
   set(RAFT_COMPILE_DIST_LIBRARY ON)
   set(RAFT_COMPILE_NN_LIBRARY ON)
+  set(RAFT_COMPILE_RAND_LIBRARY ON)
 endif()
 
 if(RAFT_COMPILE_DIST_LIBRARY OR distance IN_LIST raft_FIND_COMPONENTS)
@@ -179,7 +181,7 @@ target_link_libraries(raft INTERFACE
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
-if(RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
+if(RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY OR RAFT_COMPILE_RAND_LIBRARY)
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
           [=[
 SECTIONS
@@ -351,6 +353,60 @@ target_link_libraries(raft_nn INTERFACE
     $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
 
 ##############################################################################
+# - raft_random ------------------------------------------------------------
+add_library(raft_random INTERFACE)
+
+if(TARGET raft_random AND (NOT TARGET raft::random))
+  add_library(raft::random ALIAS raft_random)
+endif()
+
+set_target_properties(raft_random PROPERTIES EXPORT_NAME random)
+
+if(RAFT_COMPILE_RAND_LIBRARY)
+  add_library(raft_random_lib
+    src/random/specializations/rmat_rectangular_generator_int_double.cu
+    src/random/specializations/rmat_rectangular_generator_int64_double.cu
+    src/random/specializations/rmat_rectangular_generator_int_float.cu
+    src/random/specializations/rmat_rectangular_generator_int64_float.cu
+  )
+  set_target_properties(
+    raft_random_lib
+    PROPERTIES OUTPUT_NAME                         raft_random
+               BUILD_RPATH                         "\$ORIGIN"
+               INSTALL_RPATH                       "\$ORIGIN"
+               CXX_STANDARD                        17
+               CXX_STANDARD_REQUIRED               ON
+               CUDA_STANDARD                       17
+               CUDA_STANDARD_REQUIRED              ON
+               POSITION_INDEPENDENT_CODE           ON
+               INTERFACE_POSITION_INDEPENDENT_CODE ON)
+
+  target_link_libraries(raft_random_lib
+    PUBLIC raft::raft
+  )
+  target_compile_options(raft_random_lib
+          PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+  )
+  target_compile_definitions(raft_random_lib
+          INTERFACE "RAFT_RANDOM_COMPILED"
+  )
+
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(raft_random_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+
+endif()
+
+if(TARGET raft_random_lib AND (NOT TARGET raft::raft_random_lib))
+  add_library(raft::raft_random_lib ALIAS raft_random_lib)
+endif()
+
+target_link_libraries(raft_random INTERFACE
+    raft::raft
+    $<TARGET_NAME_IF_EXISTS:raft::raft_random_lib>
+)
+
+##############################################################################
 # - install targets-----------------------------------------------------------
 rapids_cmake_install_lib_dir( lib_dir )
 include(GNUInstallDirs)
@@ -366,6 +422,11 @@ install(TARGETS raft_distance
         COMPONENT raft
         EXPORT raft-distance-exports)
 
+install(TARGETS raft_random
+        DESTINATION ${lib_dir}
+        COMPONENT raft
+        EXPORT raft-random-exports)
+
 install(TARGETS raft_nn
         DESTINATION ${lib_dir}
         COMPONENT raft
@@ -379,6 +440,16 @@ if(TARGET raft_distance_lib)
   install(DIRECTORY include/raft_distance
           DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
           COMPONENT distance)
+endif()
+
+if(TARGET raft_random_lib)
+  install(TARGETS raft_random_lib
+          DESTINATION ${lib_dir}
+          COMPONENT random
+          EXPORT raft-random-lib-exports)
+  install(DIRECTORY include/raft_random
+          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+          COMPONENT random)
 endif()
 
 if(TARGET raft_nn_lib)
@@ -407,7 +478,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/raft/version_config.hpp
 
 include("${rapids-cmake-dir}/export/write_dependencies.cmake")
 
-set(raft_components distance nn)
+set(raft_components distance nn random)
 set(raft_install_comp raft raft)
 if(TARGET raft_distance_lib)
   list(APPEND raft_components distance-lib)
@@ -416,6 +487,10 @@ endif()
 if(TARGET raft_nn_lib)
   list(APPEND raft_components nn-lib)
   list(APPEND raft_install_comp nn)
+endif()
+if(TARGET raft_random_lib)
+  list(APPEND raft_components random-lib)
+  list(APPEND raft_install_comp random)
 endif()
 
 foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
@@ -452,11 +527,13 @@ for data science and machine learning.
 Optional Components:
   - nn
   - distance
+  - random
 
 Imported Targets:
   - raft::raft
   - raft::nn brought in by the `nn` optional component
   - raft::distance brought in by the `distance` optional component
+  - raft::random brought in by the `random` optional component
 
 ]=])
 
@@ -473,7 +550,7 @@ endif()
 
 string(APPEND code_string
 [=[
-if(distance IN_LIST raft_FIND_COMPONENTS)
+if((distance IN_LIST raft_FIND_COMPONENTS) OR (random IN_LIST raft_FIND_COMPONENTS))
   enable_language(CUDA)
 endif()
 
@@ -491,9 +568,9 @@ endif()
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
 raft_export(INSTALL raft
-        COMPONENTS nn distance
+        COMPONENTS nn distance random
         EXPORT_SET raft-exports
-        GLOBAL_TARGETS raft nn distance
+        GLOBAL_TARGETS raft nn distance random
         NAMESPACE raft::
         DOCUMENTATION doc_string
         FINAL_CODE_BLOCK code_string)
@@ -502,8 +579,8 @@ raft_export(INSTALL raft
 # - build export -------------------------------------------------------------
 raft_export(BUILD raft
         EXPORT_SET raft-exports
-        COMPONENTS nn distance
-        GLOBAL_TARGETS raft raft_distance raft_nn
+        COMPONENTS nn distance random
+        GLOBAL_TARGETS raft raft_distance raft_nn raft_random
         DOCUMENTATION doc_string
         NAMESPACE raft::
         FINAL_CODE_BLOCK code_string)
