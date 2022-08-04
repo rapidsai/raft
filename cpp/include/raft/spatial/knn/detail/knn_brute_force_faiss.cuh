@@ -38,7 +38,7 @@
 
 #include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
-#include "processing.hpp"
+#include "processing.cuh"
 
 #include "common_faiss.h"
 
@@ -268,11 +268,11 @@ void brute_force_knn_impl(
   int device;
   RAFT_CUDA_TRY(cudaGetDevice(&device));
 
-  rmm::device_uvector<std::int64_t> trans(id_ranges->size(), userStream);
+  rmm::device_uvector<IdxType> trans(id_ranges->size(), userStream);
   raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
 
   rmm::device_uvector<value_t> all_D(0, userStream);
-  rmm::device_uvector<std::int64_t> all_I(0, userStream);
+  rmm::device_uvector<IdxType> all_I(0, userStream);
 
   value_t* out_D = res_D;
   IdxType* out_I = res_I;
@@ -342,6 +342,8 @@ void brute_force_knn_impl(
           args.numQueries      = n;
           args.outDistances    = out_d_ptr;
           args.outIndices      = out_i_ptr;
+          args.outIndicesType  = sizeof(IdxType) == 4 ? faiss::gpu::IndicesDataType::I32
+                                                      : faiss::gpu::IndicesDataType::I64;
 
           /**
            * @todo: Until FAISS supports pluggable allocation strategies,

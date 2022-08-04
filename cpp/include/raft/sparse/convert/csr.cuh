@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/sparse/convert/detail/adj_to_csr.cuh>
 #include <raft/sparse/convert/detail/csr.cuh>
 #include <raft/sparse/csr.hpp>
 
@@ -37,74 +38,6 @@ void coo_to_csr(const raft::handle_t& handle,
                 value_t* dstVals)
 {
   detail::coo_to_csr(handle, srcRows, srcCols, srcVals, nnz, m, dst_offsets, dstCols, dstVals);
-}
-
-/**
- * @brief Constructs an adjacency graph CSR row_ind_ptr array from
- * a row_ind array and adjacency array.
- * @tparam T the numeric type of the index arrays
- * @tparam TPB_X the number of threads to use per block for kernels
- * @tparam Lambda function for fused operation in the adj_graph construction
- * @param row_ind the input CSR row_ind array
- * @param total_rows number of vertices in graph
- * @param nnz number of non-zeros
- * @param batchSize number of vertices in current batch
- * @param adj an adjacency array (size batchSize x total_rows)
- * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
- * @param stream cuda stream to use
- * @param fused_op: the fused operation
- */
-template <typename Index_, typename Lambda = auto(Index_, Index_, Index_)->void>
-void csr_adj_graph_batched(const Index_* row_ind,
-                           Index_ total_rows,
-                           Index_ nnz,
-                           Index_ batchSize,
-                           const bool* adj,
-                           Index_* row_ind_ptr,
-                           cudaStream_t stream,
-                           Lambda fused_op)
-{
-  detail::csr_adj_graph_batched<Index_, 32, Lambda>(
-    row_ind, total_rows, nnz, batchSize, adj, row_ind_ptr, stream, fused_op);
-}
-
-template <typename Index_, typename Lambda = auto(Index_, Index_, Index_)->void>
-void csr_adj_graph_batched(const Index_* row_ind,
-                           Index_ total_rows,
-                           Index_ nnz,
-                           Index_ batchSize,
-                           const bool* adj,
-                           Index_* row_ind_ptr,
-                           cudaStream_t stream)
-{
-  detail::csr_adj_graph_batched<Index_, 32, Lambda>(
-    row_ind, total_rows, nnz, batchSize, adj, row_ind_ptr, stream);
-}
-
-/**
- * @brief Constructs an adjacency graph CSR row_ind_ptr array from a
- * a row_ind array and adjacency array.
- * @tparam T the numeric type of the index arrays
- * @tparam TPB_X the number of threads to use per block for kernels
- * @param row_ind the input CSR row_ind array
- * @param total_rows number of total vertices in graph
- * @param nnz number of non-zeros
- * @param adj an adjacency array
- * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
- * @param stream cuda stream to use
- * @param fused_op the fused operation
- */
-template <typename Index_, typename Lambda = auto(Index_, Index_, Index_)->void>
-void csr_adj_graph(const Index_* row_ind,
-                   Index_ total_rows,
-                   Index_ nnz,
-                   const bool* adj,
-                   Index_* row_ind_ptr,
-                   cudaStream_t stream,
-                   Lambda fused_op)
-{
-  detail::csr_adj_graph<Index_, 32, Lambda>(
-    row_ind, total_rows, nnz, adj, row_ind_ptr, stream, fused_op);
 }
 
 /**
@@ -133,6 +66,40 @@ template <typename T>
 void sorted_coo_to_csr(COO<T>* coo, int* row_ind, cudaStream_t stream)
 {
   detail::sorted_coo_to_csr(coo->rows(), coo->nnz, row_ind, coo->n_rows, stream);
+}
+
+/**
+ * @brief Converts a boolean adjacency matrix into unsorted CSR format.
+ *
+ * The conversion supports non-square matrices.
+ *
+ * @tparam     index_t     Indexing arithmetic type
+ *
+ * @param[in]  handle      RAFT handle
+ * @param[in]  adj         A num_rows x num_cols boolean matrix in contiguous row-major
+ *                         format.
+ * @param[in]  row_ind     An array of length num_rows that indicates at which index
+ *                         a row starts in out_col_ind. Equivalently, it is the
+ *                         exclusive scan of the number of non-zeros in each row of
+ *                         adj.
+ * @param[in]  num_rows    Number of rows of adj.
+ * @param[in]  num_cols    Number of columns of adj.
+ * @param      tmp         A pre-allocated array of size num_rows.
+ * @param[out] out_col_ind An array containing the column indices of the
+ *                         non-zero values in adj. Size should be at least the
+ *                         number of non-zeros in adj.
+ */
+template <typename index_t = int>
+void adj_to_csr(const raft::handle_t& handle,
+                const bool* adj,         // Row-major adjacency matrix
+                const index_t* row_ind,  // Precomputed row indices
+                index_t num_rows,        // # rows of adj
+                index_t num_cols,        // # cols of adj
+                index_t* tmp,  // Pre-allocated atomic counters. Minimum size: num_rows elements.
+                index_t* out_col_ind  // Output column indices
+)
+{
+  detail::adj_to_csr(handle, adj, row_ind, num_rows, num_cols, tmp, out_col_ind);
 }
 
 };  // end NAMESPACE convert

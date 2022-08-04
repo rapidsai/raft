@@ -40,7 +40,7 @@ struct using_pool_memory_res {
  private:
   rmm::mr::device_memory_resource* orig_res_;
   rmm::mr::cuda_memory_resource cuda_res_;
-  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_res_;
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_res_;
 
  public:
   using_pool_memory_res(size_t initial_size, size_t max_size)
@@ -115,12 +115,19 @@ class fixture {
     int device_id     = 0;
     RAFT_CUDA_TRY(cudaGetDevice(&device_id));
     RAFT_CUDA_TRY(cudaDeviceGetAttribute(&l2_cache_size, cudaDevAttrL2CacheSize, device_id));
-    scratch_buf_ = rmm::device_buffer(l2_cache_size, stream);
+    scratch_buf_ = rmm::device_buffer(l2_cache_size * 3, stream);
   }
 
   // every benchmark should be overriding this
   virtual void run_benchmark(::benchmark::State& state) = 0;
   virtual void generate_metrics(::benchmark::State& state) {}
+
+ protected:
+  /** The helper that writes zeroes to some buffer in GPU memory to flush the L2 cache.  */
+  void flush_L2_cache()
+  {
+    RAFT_CUDA_TRY(cudaMemsetAsync(scratch_buf_.data(), 0, scratch_buf_.size(), stream));
+  }
 
   /**
    * The helper to be used inside `run_benchmark`, to loop over the state and record time using the
@@ -130,9 +137,7 @@ class fixture {
   void loop_on_state(::benchmark::State& state, Lambda benchmark_func, bool flush_L2 = true)
   {
     for (auto _ : state) {
-      if (flush_L2) {
-        RAFT_CUDA_TRY(cudaMemsetAsync(scratch_buf_.data(), 0, scratch_buf_.size(), stream));
-      }
+      if (flush_L2) { flush_L2_cache(); }
       cuda_event_timer timer(state, stream);
       benchmark_func();
     }
@@ -147,9 +152,9 @@ class Fixture : public ::benchmark::Fixture {
 
  public:
   explicit Fixture(const std::string name, const Params&... params)
-    : ::benchmark::Fixture(), params_(params...)
+    : ::benchmark::Fixture(), params_(params...), name_(name)
   {
-    SetName(name.c_str());
+    SetName(name_.c_str());
   }
   Fixture() = delete;
 
@@ -165,6 +170,7 @@ class Fixture : public ::benchmark::Fixture {
  private:
   std::unique_ptr<Class> fixture_;
   std::tuple<Params...> params_;
+  const std::string name_;
 
  protected:
   void BenchmarkCase(State& state) override

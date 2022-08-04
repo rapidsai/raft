@@ -58,10 +58,12 @@ static constexpr int global_repeat = 16;
 
 //================================================================================
 
+using size_type = int;
+
 template <class T, size_t... Es>
-using lmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_left>;
+using lmdspan = stdex::mdspan<T, stdex::extents<size_type, Es...>, stdex::layout_left>;
 template <class T, size_t... Es>
-using rmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_right>;
+using rmdspan = stdex::mdspan<T, stdex::extents<size_type, Es...>, stdex::layout_right>;
 
 void throw_runtime_exception(const std::string &msg) {
   std::ostringstream o;

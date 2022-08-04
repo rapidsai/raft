@@ -18,12 +18,16 @@
 
 #include "bitonic_sort.cuh"
 
+#include <raft/core/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/pow2_utils.cuh>
 
 #include <algorithm>
 #include <functional>
 #include <type_traits>
+
+#include <rmm/device_vector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 /*
   Three APIs of different scopes are provided:
@@ -571,7 +575,7 @@ struct launch_setup {
                      const IdxT* in_idx,
                      T* out_key,
                      IdxT* out_idx,
-                     cudaStream_t stream)
+                     rmm::cuda_stream_view stream)
   {
     const int capacity = calc_capacity(k);
     if constexpr (Capacity > 1) {
@@ -719,10 +723,18 @@ void warp_sort_topk_(int num_of_block,
                      T* out,
                      IdxT* out_idx,
                      bool select_min,
-                     cudaStream_t stream = 0)
+                     rmm::cuda_stream_view stream,
+                     rmm::mr::device_memory_resource* mr = nullptr)
 {
-  rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream);
-  rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream);
+  auto pool_guard = raft::get_pool_memory_resource(
+    mr, num_of_block * k * batch_size * 2 * std::max(sizeof(T), sizeof(IdxT)));
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("warp_sort_topk: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
+  }
+
+  rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream, mr);
+  rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream, mr);
 
   int capacity   = calc_capacity(k);
   int warp_width = std::min(capacity, WarpSize);
@@ -780,12 +792,12 @@ void warp_sort_topk_(int num_of_block,
  * @param[in] in_idx
  *   contiguous device array of inputs of size (len * batch_size);
  *   typically, these are indices of the corresponding in_keys.
- * @param[in] batch_size
+ * @param batch_size
  *   number of input rows, i.e. the batch size.
- * @param[in] len
+ * @param len
  *   length of a single input array (row); also sometimes referred as n_cols.
  *   Invariant: len >= k.
- * @param[in] k
+ * @param k
  *   the number of outputs to select in each input row.
  * @param[out] out
  *   contiguous device array of outputs of size (k * batch_size);
@@ -793,9 +805,11 @@ void warp_sort_topk_(int num_of_block,
  * @param[out] out_idx
  *   contiguous device array of outputs of size (k * batch_size);
  *   the payload selected together with `out`.
- * @param[in] select_min
+ * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
- * @param[in] stream
+ * @param stream
+ * @param mr an optional memory resource to use across the calls (you can provide a large enough
+ *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT>
 void warp_sort_topk(const T* in,
@@ -806,7 +820,8 @@ void warp_sort_topk(const T* in,
                     T* out,
                     IdxT* out_idx,
                     bool select_min,
-                    rmm::cuda_stream_view stream = 0)
+                    rmm::cuda_stream_view stream,
+                    rmm::mr::device_memory_resource* mr = nullptr)
 {
   ASSERT(k <= kMaxCapacity, "Current max k is %d (requested %d)", kMaxCapacity, k);
   ASSERT(len <= size_t(std::numeric_limits<IdxT>::max()),
@@ -821,13 +836,33 @@ void warp_sort_topk(const T* in,
   int len_per_thread = len / (num_of_block * num_of_warp * std::min(capacity, WarpSize));
 
   if (len_per_thread <= LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing) {
-    warp_sort_topk_<warp_sort_immediate, T, IdxT>(
-      num_of_block, num_of_warp, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+    warp_sort_topk_<warp_sort_immediate, T, IdxT>(num_of_block,
+                                                  num_of_warp,
+                                                  in,
+                                                  in_idx,
+                                                  batch_size,
+                                                  len,
+                                                  k,
+                                                  out,
+                                                  out_idx,
+                                                  select_min,
+                                                  stream,
+                                                  mr);
   } else {
     calc_launch_parameter<warp_sort_filtered, T, IdxT>(
       batch_size, len, k, &num_of_block, &num_of_warp);
-    warp_sort_topk_<warp_sort_filtered, T, IdxT>(
-      num_of_block, num_of_warp, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+    warp_sort_topk_<warp_sort_filtered, T, IdxT>(num_of_block,
+                                                 num_of_warp,
+                                                 in,
+                                                 in_idx,
+                                                 batch_size,
+                                                 len,
+                                                 k,
+                                                 out,
+                                                 out_idx,
+                                                 select_min,
+                                                 stream,
+                                                 mr);
   }
 }
 

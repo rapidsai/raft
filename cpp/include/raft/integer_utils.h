@@ -1,7 +1,7 @@
 /*
  * Copyright 2019 BlazingDB, Inc.
  *     Copyright 2019 Eyal Rozenberg <eyalroz@blazingdb.com>
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,5 +160,25 @@ std::enable_if_t<!std::is_signed<T>::value, T> constexpr inline absolute_value(T
 {
   return value;
 }
+
+/**
+ * @defgroup Check whether the numeric conversion is narrowing
+ *
+ * @tparam From source type
+ * @tparam To destination type
+ * @{
+ */
+template <typename From, typename To, typename = void>
+struct is_narrowing : std::true_type {
+};
+
+template <typename From, typename To>
+struct is_narrowing<From, To, std::void_t<decltype(To{std::declval<From>()})>> : std::false_type {
+};
+/** @} */
+
+/** Check whether the numeric conversion is narrowing */
+template <typename From, typename To>
+inline constexpr bool is_narrowing_v = is_narrowing<From, To>::value;  // NOLINT
 
 }  // namespace raft
