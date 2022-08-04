@@ -231,33 +231,21 @@ class host_vector_policy {
 /**
  * @brief A mixin to distinguish host and device memory.
  */
-// template <typename AccessorPolicy, bool is_host>
-// struct accessor_mixin : public AccessorPolicy {
-//   using accessor_type = AccessorPolicy;
-//   using is_host_type  = std::conditional_t<is_host, std::true_type, std::false_type>;
-//   // make sure the explicit ctor can fall through
-//   using AccessorPolicy::AccessorPolicy;
-//   using offset_policy = accessor_mixin;
-//   accessor_mixin(AccessorPolicy const& that) : AccessorPolicy{that} {}  // NOLINT
-// };
-
-// template <typename AccessorPolicy>
-// using host_accessor = accessor_mixin<AccessorPolicy, true>;
-
-// template <typename AccessorPolicy>
-// using device_accessor = accessor_mixin<AccessorPolicy, false>;
-
-template <class WrappedAccessor, bool is_device_accessible_b, bool is_host_accessible_b>
+template <class WrappedAccessor, bool is_device_accessible_v, bool is_host_accessible_v>
 struct base_accessor : public WrappedAccessor {
 
   using offset_policy = base_accessor;
   using accessor_type = WrappedAccessor;
   using element_type = typename accessor_type::element_type;
-  using reference = typename accessor_type::reference;
-  using data_handle_type = typename accessor_type::data_handle_type;
+  using reference = element_type&;
+  using data_handle_type = element_type*;
 
-  static constexpr auto is_device_accessible = is_device_accessible_b;
-  static constexpr auto is_host_accessible = is_device_accessible_b;
+  using WrappedAccessor::WrappedAccessor;
+
+  static constexpr auto is_device_accessible = is_device_accessible_v;
+  static constexpr auto is_host_accessible = is_host_accessible_v;
+
+  MDSPAN_INLINE_FUNCTION_DEFAULTED constexpr base_accessor() noexcept = default;
 
   base_accessor(WrappedAccessor const& other) : WrappedAccessor{other} {}
 };

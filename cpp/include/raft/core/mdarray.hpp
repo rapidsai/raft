@@ -122,17 +122,6 @@ template <typename T>
 inline constexpr bool is_mdspan_v = is_mdspan_t<T>::value;
 }  // namespace detail
 
-// template <typename...>
-// struct is_mdspan : std::true_type {
-// };
-// template <typename T1>
-// struct is_mdspan<T1> : detail::is_mdspan_t<T1> {
-// };
-// template <typename T1, typename... Tn>
-// struct is_mdspan<T1, Tn...>
-//   : std::conditional_t<detail::is_mdspan_v<T1>, is_mdspan<Tn...>, std::false_type> {
-// };
-
 /**
  * @\brief Boolean to determine if variadic template types Tn are either
  *          raft::host_mdspan/raft::device_mdspan or their derived types
@@ -211,17 +200,6 @@ template <typename T>
 using is_managed_mdspan_t = is_managed_mdspan<T, is_mdspan_v<T>>;
 }  // namespace detail
 
-// template <typename...>
-// struct is_device_mdspan : std::true_type {
-// };
-// template <typename T1>
-// struct is_device_mdspan<T1> : detail::is_device_mdspan<T1, detail::is_mdspan_v<T1>> {
-// };
-// template <typename T1, typename... Tn>
-// struct is_device_mdspan<T1, Tn...>
-//   : std::conditional_t<detail::is_device_mdspan_v<T1>, is_device_mdspan<Tn...>, std::false_type> {
-// };
-
 /**
  * @\brief Boolean to determine if variadic template types Tn are either raft::device_mdspan or a
  * derived type
@@ -231,17 +209,6 @@ inline constexpr bool is_device_mdspan_v = std::conjunction_v<detail::is_device_
 
 template <typename... Tn>
 using enable_if_device_mdspan = std::enable_if_t<is_device_mdspan_v<Tn...>>;
-
-// template <typename...>
-// struct is_host_mdspan : std::true_type {
-// };
-// template <typename T1>
-// struct is_host_mdspan<T1> : detail::is_host_mdspan<T1, detail::is_mdspan_v<T1>> {
-// };
-// template <typename T1, typename... Tn>
-// struct is_host_mdspan<T1, Tn...>
-//   : std::conditional_t<detail::is_host_mdspan_v<T1>, is_host_mdspan<Tn...>, std::false_type> {
-// };
 
 /**
  * @\brief Boolean to determine if variadic template types Tn are either raft::host_mdspan or a
@@ -387,7 +354,7 @@ class mdarray
                                  typename container_policy_type::const_accessor_policy,
                                  typename container_policy_type::accessor_policy>>
   using view_type_impl =
-    std::conditional_t<container_policy_type::is_host_type::value,
+    std::conditional_t<container_policy_type::is_host_accessible,
                        host_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>,
                        device_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>>;
 
@@ -576,7 +543,7 @@ template <typename ElementType,
           typename LayoutPolicy    = layout_c_contiguous,
           typename ContainerPolicy = detail::host_vector_policy<ElementType>>
 using host_mdarray =
-  mdarray<ElementType, Extents, LayoutPolicy, detail::host_accessor<ContainerPolicy>>;
+  mdarray<ElementType, Extents, LayoutPolicy, detail::base_accessor<ContainerPolicy, false, true>>;
 
 /**
  * @brief mdarray with device container policy
@@ -590,7 +557,7 @@ template <typename ElementType,
           typename LayoutPolicy    = layout_c_contiguous,
           typename ContainerPolicy = detail::device_uvector_policy<ElementType>>
 using device_mdarray =
-  mdarray<ElementType, Extents, LayoutPolicy, detail::device_accessor<ContainerPolicy>>;
+  mdarray<ElementType, Extents, LayoutPolicy, detail::base_accessor<ContainerPolicy, true, false>>;
 
 /**
  * @brief Shorthand for 0-dim host mdarray (scalar).
