@@ -43,6 +43,8 @@ namespace raft::detail {
  *
  * `serial::from_bytes` constructs a new object by a given _uninitialized_ pointer (a.k.a. placement
  * new), reads the state from memory (`in`), and returns the number of bytes read.
+ * NB: If `serial::from_bytes` throws an exception, it's assumed that the output pointer is still
+ * uninitialized.
  *
  * _See below this file for examples_.
  *

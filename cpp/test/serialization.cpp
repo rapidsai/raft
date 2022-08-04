@@ -68,7 +68,9 @@ struct serial<not_initializable> {
 
   static auto from_bytes(not_initializable* obj, const uint8_t* in) -> size_t
   {
-    new (obj) not_initializable{*reinterpret_cast<const uint32_t*>(in)};
+    auto val = *reinterpret_cast<const uint32_t*>(in);
+    if (val == 7) { throw raft::exception("I don't like this number at all"); }
+    new (obj) not_initializable{val};
     return sizeof(not_initializable);
   }
 };
@@ -89,6 +91,22 @@ TEST(serialize, not_initializable)
     auto y = deserialize<not_initializable>(s);
     ASSERT_EQ(not_initializable::count, 2);
     ASSERT_EQ(x.content, y.content);
+  }
+  ASSERT_EQ(not_initializable::count, 0);
+  {
+    not_initializable x{7};
+    ASSERT_EQ(not_initializable::count, 1);
+    auto s = serialize(x);
+    ASSERT_EQ(not_initializable::count, 1);
+    try {
+      auto y = deserialize<not_initializable>(s);
+      // shouldn't be reachable anyway, because it doesn't like number 7.
+      ASSERT_EQ(not_initializable::count, 2);
+      ASSERT_EQ(x.content, y.content);
+    } catch (raft::exception&) {
+      ASSERT_EQ(not_initializable::count, 1);
+    }
+    ASSERT_EQ(not_initializable::count, 1);
   }
   ASSERT_EQ(not_initializable::count, 0);
 }
