@@ -21,26 +21,7 @@ import rmm
 from pylibraft.random import rmat
 
 
-class TestDeviceBuffer:
-
-    def __init__(self, ndarray):
-        self.ndarray_ = ndarray
-        self.device_buffer_ = \
-            rmm.DeviceBuffer.to_device(ndarray.ravel(order="C").tobytes())
-
-    @property
-    def __cuda_array_interface__(self):
-        device_cai = self.device_buffer_.__cuda_array_interface__
-        host_cai = self.ndarray_.__array_interface__.copy()
-        host_cai["data"] = (device_cai["data"][0], device_cai["data"][1])
-        return host_cai
-
-    def copy_to_host(self):
-        return np.frombuffer(self.device_buffer_.tobytes(),
-                             dtype=self.ndarray_.dtype,
-                             like=self.ndarray_)\
-            .astype(self.ndarray_.dtype)\
-            .reshape(self.ndarray_.shape)
+from .utils import TestDeviceBuffer
 
 
 @pytest.mark.parametrize("n_edges", [10000, 20000])
@@ -60,9 +41,9 @@ def test_rmat(n_edges, r_scale, c_scale, dtype):
         theta[4 * i + 1] = b / total
         theta[4 * i + 2] = c / total
         theta[4 * i + 3] = d / total
-    theta_device = TestDeviceBuffer(theta)
+    theta_device = TestDeviceBuffer(theta, "C")
     out_buff = np.empty((n_edges, 2), dtype=dtype)
-    output_device = TestDeviceBuffer(out_buff)
+    output_device = TestDeviceBuffer(out_buff, "C")
     rmat(output_device, theta_device, r_scale, c_scale, 12345)
     output = output_device.copy_to_host()
     # a more rigorous tests have been done at the c++ level

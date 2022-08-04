@@ -21,28 +21,7 @@ import rmm
 
 from pylibraft.distance import pairwise_distance
 
-
-class TestDeviceBuffer:
-
-    def __init__(self, ndarray, order):
-        self.ndarray_ = ndarray
-        self.device_buffer_ = \
-            rmm.DeviceBuffer.to_device(ndarray.ravel(order=order).tobytes())
-
-    @property
-    def __cuda_array_interface__(self):
-        device_cai = self.device_buffer_.__cuda_array_interface__
-        host_cai = self.ndarray_.__array_interface__.copy()
-        host_cai["data"] = (device_cai["data"][0], device_cai["data"][1])
-
-        return host_cai
-
-    def copy_to_host(self):
-        return np.frombuffer(self.device_buffer_.tobytes(),
-                             dtype=self.ndarray_.dtype,
-                             like=self.ndarray_)\
-            .astype(self.ndarray_.dtype)\
-            .reshape(self.ndarray_.shape)
+from .utils import TestDeviceBuffer
 
 
 @pytest.mark.parametrize("n_rows", [100])
