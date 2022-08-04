@@ -67,7 +67,7 @@ namespace detail {
       RAFT_DEPAREN(func)(r_pc, ##__VA_ARGS__);                                      \
       break;                                                                        \
     }                                                                               \
-    default: RAFT_FAIL("Unepxected generator type '%d'", int((rng_state).type));    \
+    default: RAFT_FAIL("Unexpected generator type '%d'", int((rng_state).type));    \
   }
 
 template <int ITEMS_PER_CALL, typename GenType, typename... ArgsT>

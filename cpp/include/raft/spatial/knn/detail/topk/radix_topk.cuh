@@ -16,14 +16,18 @@
 
 #pragma once
 
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/logger.hpp>
+#include <raft/device_atomics.cuh>
+#include <raft/vectorized.cuh>
+
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_scan.cuh>
 #include <cub/block/block_store.cuh>
 #include <cub/block/radix_rank_sort_operations.cuh>
 
-#include <raft/core/cudart_utils.hpp>
-#include <raft/device_atomics.cuh>
-#include <raft/vectorized.cuh>
+#include <rmm/device_vector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft::spatial::knn::detail::topk {
 
@@ -522,12 +526,12 @@ inline dim3 get_optimal_grid_size(size_t req_batch_size, size_t len)
  * @param[in] in_idx
  *   contiguous device array of inputs of size (len * batch_size);
  *   typically, these are indices of the corresponding in_keys.
- * @param[in] batch_size
+ * @param batch_size
  *   number of input rows, i.e. the batch size.
- * @param[in] len
+ * @param len
  *   length of a single input array (row); also sometimes referred as n_cols.
  *   Invariant: len >= k.
- * @param[in] k
+ * @param k
  *   the number of outputs to select in each input row.
  * @param[out] out
  *   contiguous device array of outputs of size (k * batch_size);
@@ -535,9 +539,11 @@ inline dim3 get_optimal_grid_size(size_t req_batch_size, size_t len)
  * @param[out] out_idx
  *   contiguous device array of outputs of size (k * batch_size);
  *   the payload selected together with `out`.
- * @param[in] select_min
+ * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
- * @param[in] stream
+ * @param stream
+ * @param mr an optional memory resource to use across the calls (you can provide a large enough
+ *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 void radix_topk(const T* in,
@@ -548,7 +554,8 @@ void radix_topk(const T* in,
                 T* out,
                 IdxT* out_idx,
                 bool select_min,
-                rmm::cuda_stream_view stream)
+                rmm::cuda_stream_view stream,
+                rmm::mr::device_memory_resource* mr = nullptr)
 {
   // reduce the block size if the input length is too small.
   if constexpr (BlockSize > calc_min_block_size<BitsPerPass>()) {
@@ -565,12 +572,23 @@ void radix_topk(const T* in,
   dim3 blocks           = get_optimal_grid_size<T, IdxT, BitsPerPass, BlockSize>(batch_size, len);
   size_t max_chunk_size = blocks.y;
 
-  rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream);
-  rmm::device_uvector<IdxT> histograms(num_buckets * max_chunk_size, stream);
-  rmm::device_uvector<T> buf1(len * max_chunk_size, stream);
-  rmm::device_uvector<IdxT> idx_buf1(len * max_chunk_size, stream);
-  rmm::device_uvector<T> buf2(len * max_chunk_size, stream);
-  rmm::device_uvector<IdxT> idx_buf2(len * max_chunk_size, stream);
+  auto pool_guard = raft::get_pool_memory_resource(
+    mr,
+    max_chunk_size * (sizeof(Counter<T, IdxT>)            // counters
+                      + sizeof(IdxT) * (num_buckets + 2)  // histograms and IdxT bufs
+                      + sizeof(T) * 2                     // T bufs
+                      ));
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("radix_topk: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
+  }
+
+  rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> histograms(num_buckets * max_chunk_size, stream, mr);
+  rmm::device_uvector<T> buf1(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf1(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<T> buf2(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf2(len * max_chunk_size, stream, mr);
 
   for (size_t offset = 0; offset < batch_size; offset += max_chunk_size) {
     blocks.y = std::min(max_chunk_size, batch_size - offset);

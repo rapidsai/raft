@@ -41,9 +41,6 @@
 //@HEADER
 */
 
-#include "fill.hpp"
-
-#include <experimental/mdspan>
 
 #include <memory>
 #include <random>
@@ -51,6 +48,16 @@
 #include <stdexcept>
 #include <iostream>
 
+// Whether to let mapping convert index calculation to the type used
+// to index into the mdspan
+//#define _MDSPAN_USE_MAPPING_ARG_CAST
+// Overwrite what extents.extent() returns and what the actual storage type is
+//#define _MDSPAN_OVERWRITE_EXTENTS_SIZE_TYPE int
+// Choose the index type used by the code
+using idx_t = size_t;
+
+#include "fill.hpp"
+#include <experimental/mdspan>
 //================================================================================
 
 static constexpr int global_delta = 1;
@@ -62,6 +69,7 @@ template <class T, size_t... Es>
 using lmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_left>;
 template <class T, size_t... Es>
 using rmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_right>;
+
 
 void throw_runtime_exception(const std::string &msg) {
   std::ostringstream o;
@@ -155,22 +163,24 @@ void BM_MDSpan_Cuda_Stencil_3D(benchmark::State& state, MDSpan, DynSizes... dyn)
   auto s = fill_device_mdspan(MDSpan{}, dyn...);
   auto o = fill_device_mdspan(MDSpan{}, dyn...);
 
-  int d = global_delta;
+  idx_t d = static_cast<idx_t>(global_delta);
   int repeats = global_repeat==0? (s.extent(0)*s.extent(1)*s.extent(2) > (100*100*100) ? 50 : 1000) : global_repeat;
 
   auto lambda =
       [=] __device__ {
         for(int r = 0; r < repeats; ++r) {
-          for(size_t i = blockIdx.x+d; i < s.extent(0)-d; i += gridDim.x) {
-            for(size_t j = threadIdx.z+d; j < s.extent(1)-d; j += blockDim.z) {
-              for(size_t k = threadIdx.y+d; k < s.extent(2)-d; k += blockDim.y) {
-                value_type sum_local = 0;
-                for(size_t di = i-d; di < i+d+1; di++) {
-                for(size_t dj = j-d; dj < j+d+1; dj++) {
-                for(size_t dk = k-d; dk < k+d+1; dk++) {
+          for(idx_t i = blockIdx.x+d; i < static_cast<idx_t>(s.extent(0))-d; i += gridDim.x) {
+            for(idx_t j = threadIdx.z+d; j < static_cast<idx_t>(s.extent(1))-d; j += blockDim.z) {
+              for(idx_t k = threadIdx.y+d; k < static_cast<idx_t>(s.extent(2))-d; k += blockDim.y) {
+                for(int q=0; q<128; q++) {
+                value_type sum_local = o(i,j,k);
+                for(idx_t di = i-d; di < i+d+1; di++) {
+                for(idx_t dj = j-d; dj < j+d+1; dj++) {
+                for(idx_t dk = k-d; dk < k+d+1; dk++) {
                   sum_local += s(di, dj, dk);
                 }}}
                 o(i,j,k) = sum_local;
+                }
               }
             }
           }
@@ -192,14 +202,19 @@ void BM_MDSpan_Cuda_Stencil_3D(benchmark::State& state, MDSpan, DynSizes... dyn)
   CUDA_SAFE_CALL(cudaFree(s.data()));
 }
 MDSPAN_BENCHMARK_ALL_3D_MANUAL(BM_MDSpan_Cuda_Stencil_3D, right_, rmdspan, 80, 80, 80);
-MDSPAN_BENCHMARK_ALL_3D_MANUAL(BM_MDSpan_Cuda_Stencil_3D, left_, lmdspan, 80, 80, 80);
-MDSPAN_BENCHMARK_ALL_3D_MANUAL(BM_MDSpan_Cuda_Stencil_3D, right_, rmdspan, 400, 400, 400);
-MDSPAN_BENCHMARK_ALL_3D_MANUAL(BM_MDSpan_Cuda_Stencil_3D, left_, lmdspan, 400, 400, 400);
+//MDSPAN_BENCHMARK_ALL_3D_MANUAL(BM_MDSpan_Cuda_Stencil_3D, left_, lmdspan, 80, 80, 80);
+//MDSPAN_BENCHMARK_ALL_3D_MANUAL(BM_MDSpan_Cuda_Stencil_3D, right_, rmdspan, 400, 400, 400);
+//MDSPAN_BENCHMARK_ALL_3D_MANUAL(BM_MDSpan_Cuda_Stencil_3D, left_, lmdspan, 400, 400, 400);
 
 //================================================================================
 
 template <class T, class SizeX, class SizeY, class SizeZ>
-void BM_Raw_Cuda_Stencil_3D_right(benchmark::State& state, T, SizeX x, SizeY y, SizeZ z) {
+void BM_Raw_Cuda_Stencil_3D_right(benchmark::State& state, T, SizeX x_, SizeY y_, SizeZ z_) {
+
+  idx_t d = static_cast<idx_t>(global_delta);
+  idx_t x = static_cast<idx_t>(x_);
+  idx_t y = static_cast<idx_t>(y_);
+  idx_t z = static_cast<idx_t>(z_);
 
   using value_type = T;
   value_type* data = nullptr;
@@ -213,22 +228,23 @@ void BM_Raw_Cuda_Stencil_3D_right(benchmark::State& state, T, SizeX x, SizeY y, 
     data_o = o.data();
   }
 
-  int d = global_delta;
   int repeats = global_repeat==0? (x*y*z > (100*100*100) ? 50 : 1000) : global_repeat;
 
   auto lambda =
       [=] __device__ {
         for(int r = 0; r < repeats; ++r) {
-          for(size_t i = blockIdx.x+d; i < x-d; i += gridDim.x) {
-            for(size_t j = threadIdx.z+d; j < y-d; j += blockDim.z) {
-              for(size_t k = threadIdx.y+d; k < z-d; k += blockDim.y) {
-                value_type sum_local = 0;
-                for(size_t di = i-d; di < i+d+1; di++) {
-                for(size_t dj = j-d; dj < j+d+1; dj++) {
-                for(size_t dk = k-d; dk < k+d+1; dk++) {
+          for(idx_t i = blockIdx.x+d; i < x-d; i += gridDim.x) {
+            for(idx_t j = threadIdx.z+d; j < y-d; j += blockDim.z) {
+              for(idx_t k = threadIdx.y+d; k < z-d; k += blockDim.y) {
+                for(int q=0; q<128; q++) {
+                value_type sum_local = data_o[k + j*z + i*z*y];
+                for(idx_t di = i-d; di < i+d+1; di++) {
+                for(idx_t dj = j-d; dj < j+d+1; dj++) {
+                for(idx_t dk = k-d; dk < k+d+1; dk++) {
                   sum_local += data[dk + dj*z + di*z*y];
                 }}}
                 data_o[k + j*z + i*z*y] = sum_local;
+                }
               }
             }
           }
@@ -255,7 +271,12 @@ BENCHMARK_CAPTURE(BM_Raw_Cuda_Stencil_3D_right, size_400_400_400, int(), 400, 40
 //================================================================================
 
 template <class T, class SizeX, class SizeY, class SizeZ>
-void BM_Raw_Cuda_Stencil_3D_left(benchmark::State& state, T, SizeX x, SizeY y, SizeZ z) {
+void BM_Raw_Cuda_Stencil_3D_left(benchmark::State& state, T, SizeX x_, SizeY y_, SizeZ z_) {
+
+  idx_t d = static_cast<idx_t>(global_delta);
+  idx_t x = static_cast<idx_t>(x_);
+  idx_t y = static_cast<idx_t>(y_);
+  idx_t z = static_cast<idx_t>(z_);
 
   using value_type = T;
   value_type* data = nullptr;
@@ -269,21 +290,22 @@ void BM_Raw_Cuda_Stencil_3D_left(benchmark::State& state, T, SizeX x, SizeY y, S
     data_o = o.data();
   }
 
-  int d = global_delta;
   int repeats = global_repeat==0? (x*y*z > (100*100*100) ? 50 : 1000) : global_repeat;
   auto lambda =
     [=] __device__ {
       for(int r = 0; r < repeats; ++r) {
-        for(size_t i = blockIdx.x+d; i < x-d; i += gridDim.x) {
-          for(size_t j = threadIdx.z+d; j < y-d; j += blockDim.z) {
-            for(size_t k = threadIdx.y+d; k < z-d; k += blockDim.y) {
-                value_type sum_local = 0;
-                for(size_t di = i-d; di < i+d+1; di++) {
-                for(size_t dj = j-d; dj < j+d+1; dj++) {
-                for(size_t dk = k-d; dk < k+d+1; dk++) {
+        for(idx_t i = blockIdx.x+d; i < x-d; i += gridDim.x) {
+          for(idx_t j = threadIdx.z+d; j < y-d; j += blockDim.z) {
+            for(idx_t k = threadIdx.y+d; k < z-d; k += blockDim.y) {
+                for(int q=0; q<128; q++) {
+                value_type sum_local = data_o[k*x*y + j*x + i];
+                for(idx_t di = i-d; di < i+d+1; di++) {
+                for(idx_t dj = j-d; dj < j+d+1; dj++) {
+                for(idx_t dk = k-d; dk < k+d+1; dk++) {
                   sum_local += data[dk*x*y + dj*x + di];
                 }}}
                 data_o[k*x*y + j*x + i] = sum_local;
+                }
             }
           }
         }
@@ -306,7 +328,7 @@ void BM_Raw_Cuda_Stencil_3D_left(benchmark::State& state, T, SizeX x, SizeY y, S
   CUDA_SAFE_CALL(cudaFree(data));
 }
 BENCHMARK_CAPTURE(BM_Raw_Cuda_Stencil_3D_left, size_80_80_80, int(), 80, 80, 80);
-BENCHMARK_CAPTURE(BM_Raw_Cuda_Stencil_3D_left, size_400_400_400, int(), 400, 400, 400);
+//BENCHMARK_CAPTURE(BM_Raw_Cuda_Stencil_3D_left, size_400_400_400, int(), 400, 400, 400);
 
 //================================================================================
 

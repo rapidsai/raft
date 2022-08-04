@@ -509,6 +509,10 @@ class std_comms : public comms_iface {
     RAFT_NCCL_TRY(ncclGroupEnd());
   }
 
+  void group_start() const { RAFT_NCCL_TRY(ncclGroupStart()); }
+
+  void group_end() const { RAFT_NCCL_TRY(ncclGroupEnd()); }
+
  private:
   ncclComm_t nccl_comm_;
   cudaStream_t stream_;

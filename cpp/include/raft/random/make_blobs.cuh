@@ -123,41 +123,42 @@ void make_blobs(DataT* out,
  * @param[in]  type               RNG type
  */
 template <typename DataT, typename IdxT, typename layout>
-void make_blobs(raft::handle_t const& handle,
-                raft::device_matrix_view<DataT, layout> out,
-                raft::device_vector_view<IdxT> labels,
-                IdxT n_clusters                                                  = 5,
-                std::optional<raft::device_matrix_view<DataT, layout>> centers   = std::nullopt,
-                std::optional<raft::device_vector_view<DataT>> const cluster_std = std::nullopt,
-                const DataT cluster_std_scalar                                   = (DataT)1.0,
-                bool shuffle                                                     = true,
-                DataT center_box_min                                             = (DataT)-10.0,
-                DataT center_box_max                                             = (DataT)10.0,
-                uint64_t seed                                                    = 0ULL,
-                GeneratorType type                                               = GenPhilox)
+void make_blobs(
+  raft::handle_t const& handle,
+  raft::device_matrix_view<DataT, IdxT, layout> out,
+  raft::device_vector_view<IdxT, IdxT> labels,
+  IdxT n_clusters                                                        = 5,
+  std::optional<raft::device_matrix_view<DataT, IdxT, layout>> centers   = std::nullopt,
+  std::optional<raft::device_vector_view<DataT, IdxT>> const cluster_std = std::nullopt,
+  const DataT cluster_std_scalar                                         = (DataT)1.0,
+  bool shuffle                                                           = true,
+  DataT center_box_min                                                   = (DataT)-10.0,
+  DataT center_box_max                                                   = (DataT)10.0,
+  uint64_t seed                                                          = 0ULL,
+  GeneratorType type                                                     = GenPhilox)
 {
   if (centers.has_value()) {
-    RAFT_EXPECTS(centers.value().extent(0) == (std::size_t)n_clusters,
+    RAFT_EXPECTS(centers.value().extent(0) == (IdxT)n_clusters,
                  "n_centers must equal size of centers");
   }
 
   if (cluster_std.has_value()) {
-    RAFT_EXPECTS(cluster_std.value().extent(0) == (std::size_t)n_clusters,
+    RAFT_EXPECTS(cluster_std.value().extent(0) == (IdxT)n_clusters,
                  "n_centers must equal size of cluster_std");
   }
 
   RAFT_EXPECTS(out.extent(0) == labels.extent(0),
                "Number of labels must equal the number of row in output matrix");
 
-  RAFT_EXPECTS(out.is_contiguous(), "Output must be contiguous.");
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous.");
 
   bool row_major = std::is_same<layout, raft::layout_c_contiguous>::value;
 
-  auto prm_centers     = centers.has_value() ? centers.value().data() : nullptr;
-  auto prm_cluster_std = cluster_std.has_value() ? cluster_std.value().data() : nullptr;
+  auto prm_centers     = centers.has_value() ? centers.value().data_handle() : nullptr;
+  auto prm_cluster_std = cluster_std.has_value() ? cluster_std.value().data_handle() : nullptr;
 
-  detail::make_blobs_caller(out.data(),
-                            labels.data(),
+  detail::make_blobs_caller(out.data_handle(),
+                            labels.data_handle(),
                             (IdxT)out.extent(0),
                             (IdxT)out.extent(1),
                             n_clusters,

@@ -38,7 +38,7 @@
 
 #include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
-#include "processing.hpp"
+#include "processing.cuh"
 
 #include "common_faiss.h"
 

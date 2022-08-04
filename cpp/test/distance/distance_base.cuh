@@ -398,11 +398,11 @@ void distanceLauncher(DataType* x,
 {
   raft::handle_t handle(stream);
 
-  auto x_v    = make_device_matrix_view<DataType, layout>(x, m, k);
-  auto y_v    = make_device_matrix_view<DataType, layout>(y, n, k);
-  auto dist_v = make_device_matrix_view<DataType, layout>(dist, m, n);
+  auto x_v    = make_device_matrix_view<DataType, int, layout>(x, m, k);
+  auto y_v    = make_device_matrix_view<DataType, int, layout>(y, n, k);
+  auto dist_v = make_device_matrix_view<DataType, int, layout>(dist, m, n);
 
-  raft::distance::distance<distanceType, DataType, DataType, DataType, int, layout>(
+  raft::distance::distance<distanceType, DataType, DataType, DataType, layout>(
     handle, x_v, y_v, dist_v, metric_arg);
 }
 

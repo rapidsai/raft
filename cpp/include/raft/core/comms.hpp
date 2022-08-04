@@ -209,6 +209,10 @@ class comms_iface {
                                          std::vector<size_t> const& recvoffsets,
                                          std::vector<int> const& sources,
                                          cudaStream_t stream) const = 0;
+
+  virtual void group_start() const = 0;
+
+  virtual void group_end() const = 0;
 };
 
 class comms_t {
@@ -624,6 +628,20 @@ class comms_t {
                                      sources,
                                      stream);
   }
+
+  /**
+   * Multiple collectives & device send/receive operations placed between group_start() and
+   * group_end() are merged into one big operation. Internally, this function is a wrapper for
+   * ncclGroupStart().
+   */
+  void group_start() const { impl_->group_start(); }
+
+  /**
+   * Multiple collectives & device send/receive operations placed between group_start() and
+   * group_end() are merged into one big operation. Internally, this function is a wrapper for
+   * ncclGroupEnd().
+   */
+  void group_end() const { impl_->group_end(); }
 
  private:
   std::unique_ptr<comms_iface> impl_;
