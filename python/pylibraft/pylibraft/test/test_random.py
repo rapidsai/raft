@@ -16,8 +16,6 @@
 import pytest
 import numpy as np
 
-import rmm
-
 from pylibraft.random import rmat
 
 
@@ -69,12 +67,12 @@ def test_rmat_exception():
         out_buff = np.empty((n_edges, 2), dtype=dtype)
         output_device = TestDeviceBuffer(out_buff, "C")
         rmat(output_device, None, r_scale, c_scale, 12345)
-        assert exception != None
+        assert exception is not None
         assert exception.message == "'theta' cannot be None!"
     with pytest.raises(Exception) as exception:
         theta, theta_device = generate_theta(r_scale, c_scale)
         rmat(None, theta_device, r_scale, c_scale, 12345)
-        assert exception != None
+        assert exception is not None
         assert exception.message == "'out' cannot be None!"
 
 
@@ -86,5 +84,5 @@ def test_rmat_valueerror():
         output_device = TestDeviceBuffer(out_buff, "C")
         theta, theta_device = generate_theta(r_scale, c_scale)
         rmat(output_device, theta_device, r_scale, c_scale, 12345)
-        assert exception != None
+        assert exception is not None
         assert "not supported" in exception.message

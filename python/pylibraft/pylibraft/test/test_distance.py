@@ -17,8 +17,6 @@ from scipy.spatial.distance import cdist
 import pytest
 import numpy as np
 
-import rmm
-
 from pylibraft.distance import pairwise_distance
 
 from .utils import TestDeviceBuffer
