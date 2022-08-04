@@ -45,11 +45,14 @@ void randomizedSVD(const raft::handle_t& handle,
                    math_t* V,
                    bool trans_V,
                    bool gen_U,
-                   bool gen_V)
+                   bool gen_V,
+                   bool rowMajor=false)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "raft::linalg::randomizedSVD(%d, %d)", n_rows, n_cols);
 
+  ASSERT(k < std::min(n_rows, n_cols), "k must be < min(n_rows, n_cols)");
+  ASSERT((k + p) < std::min(n_rows, n_cols), "k + p must be < min(n_rows, n_cols)");
   cudaStream_t stream          = handle.get_stream();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cusolverDnParams_t dn_params = nullptr;
@@ -65,11 +68,14 @@ void randomizedSVD(const raft::handle_t& handle,
     char new_v = 'N';
     strcpy(&jobv, &new_v);
   }
+  auto lda = rowMajor ? n_rows : n_cols;
+  auto ldu = n_rows;
+  auto ldv = n_cols;
 
   size_t workspaceDevice = 0;
   size_t workspaceHost   = 0;
   RAFT_CUSOLVER_TRY(cusolverDnxgesvdr_bufferSize<math_t>(cusolverH, dn_params, jobu, jobv, n_rows, n_cols, k, p, niters, 
-    in, n_rows, S, U, n_rows, V, n_cols, &workspaceDevice, &workspaceHost, stream));
+    in, lda, S, U, ldu, V, ldv, &workspaceDevice, &workspaceHost, stream));
   
   auto d_workspace = raft::make_device_vector<char>(workspaceDevice, stream);
   auto h_workspace = raft::make_host_vector<char>(workspaceHost);
@@ -85,12 +91,12 @@ void randomizedSVD(const raft::handle_t& handle,
                                       p,
                                       niters,
                                       in,
-                                      n_rows,
+                                      lda,
                                       S,
                                       U,
-                                      n_rows,
+                                      ldu,
                                       V,
-                                      n_cols,
+                                      ldv,
                                       d_workspace.data(),
                                       workspaceDevice,
                                       h_workspace.data(),
@@ -98,17 +104,16 @@ void randomizedSVD(const raft::handle_t& handle,
                                       devInfo.data(),
                                       stream));
 
+  RAFT_CUDA_TRY(cudaGetLastError());
+  RAFT_CUSOLVER_TRY(cusolverDnDestroyParams(dn_params));
+
   // Transpose the right singular vector back
   if (trans_V) raft::linalg::transpose(V, n_cols, stream);
-
-  RAFT_CUDA_TRY(cudaGetLastError());
 
   int dev_info;
   raft::update_host(&dev_info, devInfo.data(), 1, stream);
   handle.sync_stream(stream);
-  ASSERT(dev_info == 0,
-          "rsvd.cuh: randomized svd couldn't converge to a solution. "
-          "This usually occurs when some of the features do not vary enough.");
+  ASSERT(dev_info == 0, "rsvd.cuh: Invalid parameter encountered.");
 }
 
 /**
