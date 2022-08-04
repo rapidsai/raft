@@ -80,8 +80,7 @@ def rmat(out, theta, r_scale, c_scale, seed=12345):
     ----------
 
     out: CUDA array interface compliant matrix shape (n_edges, 2). This will
-         contain the src/dst node ids stored consecutively like a pair. If this
-         output is not needed, pass None.
+         contain the src/dst node ids stored consecutively like a pair.
     theta: CUDA array interface compliant matrix shape
            (max(r_scale, c_scale) * 4) This stores the probability distribution
            at each RMAT level

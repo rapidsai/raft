@@ -24,11 +24,7 @@ from pylibraft.random import rmat
 from .utils import TestDeviceBuffer
 
 
-@pytest.mark.parametrize("n_edges", [10000, 20000])
-@pytest.mark.parametrize("r_scale", [16, 18])
-@pytest.mark.parametrize("c_scale", [16, 18])
-@pytest.mark.parametrize("dtype", [np.int32, np.int64])
-def test_rmat(n_edges, r_scale, c_scale, dtype):
+def generate_theta(r_scale, c_scale):
     max_scale = max(r_scale, c_scale)
     theta = np.random.random_sample(max_scale * 4)
     for i in range(max_scale):
@@ -42,6 +38,15 @@ def test_rmat(n_edges, r_scale, c_scale, dtype):
         theta[4 * i + 2] = c / total
         theta[4 * i + 3] = d / total
     theta_device = TestDeviceBuffer(theta, "C")
+    return theta, theta_device
+
+
+@pytest.mark.parametrize("n_edges", [10000, 20000])
+@pytest.mark.parametrize("r_scale", [16, 18])
+@pytest.mark.parametrize("c_scale", [16, 18])
+@pytest.mark.parametrize("dtype", [np.int32, np.int64])
+def test_rmat(n_edges, r_scale, c_scale, dtype):
+    theta, theta_device = generate_theta(r_scale, c_scale)
     out_buff = np.empty((n_edges, 2), dtype=dtype)
     output_device = TestDeviceBuffer(out_buff, "C")
     rmat(output_device, theta_device, r_scale, c_scale, 12345)
@@ -54,3 +59,32 @@ def test_rmat(n_edges, r_scale, c_scale, dtype):
     rmat(output_device, theta_device, r_scale, c_scale, 12345)
     output1 = output_device.copy_to_host()
     assert np.all(np.equal(output, output1))
+
+
+def test_rmat_exception():
+    n_edges = 20000
+    r_scale = c_scale = 16
+    dtype = np.int32
+    with pytest.raises(Exception) as exception:
+        out_buff = np.empty((n_edges, 2), dtype=dtype)
+        output_device = TestDeviceBuffer(out_buff, "C")
+        rmat(output_device, None, r_scale, c_scale, 12345)
+        assert exception != None
+        assert exception.message == "'theta' cannot be None!"
+    with pytest.raises(Exception) as exception:
+        theta, theta_device = generate_theta(r_scale, c_scale)
+        rmat(None, theta_device, r_scale, c_scale, 12345)
+        assert exception != None
+        assert exception.message == "'out' cannot be None!"
+
+
+def test_rmat_valueerror():
+    n_edges = 20000
+    r_scale = c_scale = 16
+    with pytest.raises(ValueError) as exception:
+        out_buff = np.empty((n_edges, 2), dtype=np.int16)
+        output_device = TestDeviceBuffer(out_buff, "C")
+        theta, theta_device = generate_theta(r_scale, c_scale)
+        rmat(output_device, theta_device, r_scale, c_scale, 12345)
+        assert exception != None
+        assert "not supported" in exception.message
