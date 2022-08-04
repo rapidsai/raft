@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include "detail/ann_utils.cuh"
+
 #include <raft/cuda_utils.cuh>
 #include <raft/device_atomics.cuh>
 
@@ -223,8 +225,9 @@ char* _cuann_get_dtype_string(cudaDataType_t dtype, char* string)
 }
 
 //
-size_t _cuann_aligned(size_t size, size_t unit = 128)
+size_t _cuann_aligned(size_t size)
 {
+  size_t unit = 128;
   if (size % unit) { size += unit - (size % unit); }
   return size;
 }
@@ -245,41 +248,6 @@ void _cuann_memset(void* ptr, int value, size_t count)
   }
 }
 
-// square sum along column
-__global__ void kern_sqsum(uint32_t nRows,
-                           uint32_t nCols,
-                           const float* a,  // [nRows, nCols]
-                           float* out       // [nRows]
-)
-{
-  uint64_t iRow = threadIdx.y + (blockDim.y * blockIdx.x);
-  if (iRow >= nRows) return;
-
-  float sqsum = 0.0;
-  for (uint64_t iCol = threadIdx.x; iCol < nCols; iCol += blockDim.x) {
-    float val = a[iCol + (nCols * iRow)];
-    sqsum += val * val;
-  }
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 1);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 2);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 4);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 8);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
-  if (threadIdx.x == 0) { out[iRow] = sqsum; }
-}
-
-// square sum along column
-void _cuann_sqsum(uint32_t nRows,
-                  uint32_t nCols,
-                  const float* a,  // [numDataset, dimDataset]
-                  float* out       // [numDataset,]
-)
-{
-  dim3 threads(32, 4, 1);  // DO NOT CHANGE
-  dim3 blocks((nRows + threads.y - 1) / threads.y, 1, 1);
-  kern_sqsum<<<blocks, threads>>>(nRows, nCols, a, out);
-}
-
 // outer add
 __global__ void kern_outer_add(const float* a,
                                uint32_t numA,
@@ -295,19 +263,6 @@ __global__ void kern_outer_add(const float* a,
   float valA = (a == NULL) ? 0.0 : a[iA];
   float valB = (b == NULL) ? 0.0 : b[iB];
   c[gid]     = valA + valB;
-}
-
-// outer add
-void _cuann_outer_add(const float* a,
-                      uint32_t numA,
-                      const float* b,
-                      uint32_t numB,
-                      float* c  // [numA, numB]
-)
-{
-  dim3 threads(128, 1, 1);
-  dim3 blocks(((uint64_t)numA * numB + threads.x - 1) / threads.x, 1, 1);
-  kern_outer_add<<<blocks, threads>>>(a, numA, b, numB, c);
 }
 
 // argmin along column
@@ -652,8 +607,6 @@ void _cuann_accumulate_with_label(uint32_t nRowsOutput,
   if (attr.type == cudaMemoryTypeUnregistered || attr.type == cudaMemoryTypeHost) { useGPU = 0; }
   cudaPointerGetAttributes(&attr, input);
   if (attr.type == cudaMemoryTypeUnregistered || attr.type == cudaMemoryTypeHost) { useGPU = 0; }
-  // _cuann_memset(output, 0, sizeof(float) * nRowsOutput * nCols);
-  // _cuann_memset(count, 0, sizeof(uint32_t) * nRowsOutput);
 
   if (useGPU) {
     // GPU
@@ -1001,9 +954,13 @@ void _cuann_kmeans_predict_core(cublasHandle_t cublasHandle,
     alpha = -1.0;
     beta  = 0.0;
   } else {
-    _cuann_sqsum(numCenters, dimCenters, centers, sqsumCenters);
-    _cuann_sqsum(numDataset, dimDataset, dataset, sqsumDataset);
-    _cuann_outer_add(sqsumDataset, numDataset, sqsumCenters, numCenters, distances);
+    detail::utils::dots_along_rows(
+      numCenters, dimCenters, centers, sqsumCenters, rmm::cuda_stream_default);
+    detail::utils::dots_along_rows(
+      numDataset, dimDataset, dataset, sqsumDataset, rmm::cuda_stream_default);
+
+    detail::utils::outer_add(
+      sqsumDataset, numDataset, sqsumCenters, numCenters, distances, rmm::cuda_stream_default);
     alpha = -2.0;
     beta  = 1.0;
   }
@@ -1534,7 +1491,7 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
     uint32_t i     = 0;
     uint32_t count = 0;
     for (uint32_t l = 0; l < numCenters; l++) {
-      if (clusterSize[l] > (int)(average * threshold)) continue;
+      if (clusterSize[l] > (uint32_t)(average * threshold)) continue;
       do {
         i = (i + ofst) % numDataset;
       } while (clusterSize[labels[i]] < average);
@@ -1681,7 +1638,7 @@ __device__ inline uint32_t get_element_from_u32_vector(struct u32_vector& vec, i
 
 //
 template <int blockDim_x, int stateBitLen, int vecLen>
-__launch_bounds__(1024, 2) __global__
+__launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   void kern_topk_cg_11(uint32_t topk,
                        uint32_t size_batch,
                        uint32_t max_len_x,
@@ -1931,7 +1888,7 @@ __launch_bounds__(1024, 2) __global__
 
 //
 template <int blockDim_x, int stateBitLen, int vecLen>
-__launch_bounds__(1024, 2) __global__
+__launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   void kern_topk_cta_11(uint32_t topk,
                         uint32_t size_batch,
                         uint32_t max_len_x,
@@ -2239,7 +2196,7 @@ __device__ inline uint16_t get_element_from_u16_vector(struct u16_vector& vec, i
 
 //
 template <int blockDim_x, int stateBitLen, int vecLen>
-__launch_bounds__(1024, 2) __global__
+__launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   void kern_topk_cg_8(uint32_t topk,
                       uint32_t size_batch,
                       uint32_t max_len_x,
@@ -2410,7 +2367,7 @@ __launch_bounds__(1024, 2) __global__
 
 //
 template <int blockDim_x, int stateBitLen, int vecLen>
-__launch_bounds__(1024, 2) __global__
+__launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   void kern_topk_cta_8(uint32_t topk,
                        uint32_t size_batch,
                        uint32_t max_len_x,
@@ -3597,7 +3554,7 @@ void _cuann_get_inclusiveSumSortedClusterSize(
   // [CPU]
   *output                 = (uint32_t*)malloc(sizeof(uint32_t) * desc->numClusters);
   desc->_numClustersSize0 = 0;
-  for (int i = 0; i < desc->numClusters; i++) {
+  for (uint32_t i = 0; i < desc->numClusters; i++) {
     (*output)[i] = indexPtr[i + 1] - indexPtr[i];
     if ((*output)[i] > 0) continue;
 
@@ -3625,7 +3582,7 @@ void _cuann_get_inclusiveSumSortedClusterSize(
   // sort
   qsort(*output, desc->numClusters, sizeof(uint32_t), descending<uint32_t>);
   // scan
-  for (int i = 1; i < desc->numClusters; i++) {
+  for (uint32_t i = 1; i < desc->numClusters; i++) {
     (*output)[i] += (*output)[i - 1];
   }
   assert((*output)[desc->numClusters - 1] == desc->numDataset);
@@ -3643,7 +3600,8 @@ void _cuann_get_sqsumClusters(cuannIvfPqDescriptor_t desc,
     fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
     exit(-1);
   }
-  _cuann_sqsum(desc->numClusters, desc->dimDataset, clusterCenters, *output);
+  detail::utils::dots_along_rows(
+    desc->numClusters, desc->dimDataset, clusterCenters, *output, rmm::cuda_stream_default);
 }
 
 //
@@ -3691,42 +3649,42 @@ void _cuann_make_rotation_matrix(uint32_t nRows,
     double dot, norm;
     double* matrix = (double*)malloc(sizeof(double) * nRows * nCols);
     memset(matrix, 0, sizeof(double) * nRows * nCols);
-    for (int i = 0; i < nRows * nCols; i++) {
+    for (uint32_t i = 0; i < nRows * nCols; i++) {
       matrix[i] = _cuann_rand<double>() - 0.5;
     }
-    for (int j = 0; j < nCols; j++) {
+    for (uint32_t j = 0; j < nCols; j++) {
       // normalize the j-th col vector
       norm = sqrt(_cuann_dot<double>(nRows, matrix + j, nCols, matrix + j, nCols));
-      for (int i = 0; i < nRows; i++) {
+      for (uint32_t i = 0; i < nRows; i++) {
         matrix[j + (nCols * i)] /= norm;
       }
       // orthogonalize the j-th col vector with the previous col vectors
-      for (int k = 0; k < j; k++) {
+      for (uint32_t k = 0; k < j; k++) {
         dot = _cuann_dot<double>(nRows, matrix + j, nCols, matrix + k, nCols);
-        for (int i = 0; i < nRows; i++) {
+        for (uint32_t i = 0; i < nRows; i++) {
           matrix[j + (nCols * i)] -= dot * matrix[k + (nCols * i)];
         }
       }
       // normalize the j-th col vector again
       norm = sqrt(_cuann_dot<double>(nRows, matrix + j, nCols, matrix + j, nCols));
-      for (int i = 0; i < nRows; i++) {
+      for (uint32_t i = 0; i < nRows; i++) {
         matrix[j + (nCols * i)] /= norm;
       }
     }
-    for (int i = 0; i < nRows * nCols; i++) {
+    for (uint32_t i = 0; i < nRows * nCols; i++) {
       rotationMatrix[i] = (float)matrix[i];
     }
     free(matrix);
   } else {
     if (nRows == nCols) {
       memset(rotationMatrix, 0, sizeof(float) * nRows * nCols);
-      for (int i = 0; i < nCols; i++) {
+      for (uint32_t i = 0; i < nCols; i++) {
         rotationMatrix[i + (nCols * i)] = 1.0;
       }
     } else {
       memset(rotationMatrix, 0, sizeof(float) * nRows * nCols);
-      int i = 0;
-      for (int j = 0; j < nCols; j++) {
+      uint32_t i = 0;
+      for (uint32_t j = 0; j < nCols; j++) {
         rotationMatrix[j + (nCols * i)] = 1.0;
         i += lenPq;
         if (i >= nRows) { i = (i % nRows) + 1; }
@@ -3740,7 +3698,7 @@ void _cuann_kmeans_show_centers(const float* centers,  // [numCenters, dimCenter
                                 uint32_t numCenters,
                                 uint32_t dimCenters,
                                 const uint32_t* centerSize,
-                                const int numShow = 5)
+                                const uint32_t numShow = 5)
 {
   for (uint64_t k = 0; k < numCenters; k++) {
     if ((numShow <= k) && (k < numCenters - numShow)) {
@@ -3763,7 +3721,7 @@ void _cuann_kmeans_show_centers(const float* centers,  // [numCenters, dimCenter
 void _cuann_show_dataset(const float* dataset,  // [numDataset, dimDataset]
                          uint32_t numDataset,
                          uint32_t dimDataset,
-                         const int numShow = 5)
+                         const uint32_t numShow = 5)
 {
   for (uint64_t i = 0; i < numDataset; i++) {
     if ((numShow <= i) && (i < numDataset - numShow)) {
@@ -3786,7 +3744,7 @@ void _cuann_show_dataset(const float* dataset,  // [numDataset, dimDataset]
 void _cuann_show_pq_code(const uint8_t* pqDataset,  // [numDataset, dimPq]
                          uint32_t numDataset,
                          uint32_t dimPq,
-                         const int numShow = 5)
+                         const uint32_t numShow = 5)
 {
   for (uint64_t i = 0; i < numDataset; i++) {
     if ((numShow <= i) && (i < numDataset - numShow)) {
@@ -5351,7 +5309,7 @@ cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
     fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
     return CUANN_STATUS_ALLOC_FAILED;
   }
-  for (int i = 0; i < oldDesc->numClusters; i++) {
+  for (uint32_t i = 0; i < oldDesc->numClusters; i++) {
     memcpy(clusterCenters + (uint64_t)i * oldDesc->dimDataset,
            oldClusterCenters + (uint64_t)i * oldDesc->dimDatasetExt,
            sizeof(float) * oldDesc->dimDataset);
@@ -5395,7 +5353,7 @@ cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
     const int _num_show = 10;
     fprintf(stderr, "# numNewVectors: %u\n", numNewVectors);
     fprintf(stderr, "# newVectorLabels: ");
-    for (int i = 0; i < numNewVectors; i++) {
+    for (uint32_t i = 0; i < numNewVectors; i++) {
       if ((i < _num_show) || (numNewVectors - i <= _num_show)) {
         fprintf(stderr, "%u, ", newVectorLabels[i]);
       } else if (i == _num_show) {
@@ -5409,7 +5367,7 @@ cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
     fprintf(stderr, "# oldDesc->numClusters: %u\n", oldDesc->numClusters);
     fprintf(stderr, "# clusterSize: ");
     int _sum = 0;
-    for (int i = 0; i < oldDesc->numClusters; i++) {
+    for (uint32_t i = 0; i < oldDesc->numClusters; i++) {
       _sum += clusterSize[i];
       if ((i < _num_show) || (oldDesc->numClusters - i <= _num_show)) {
         fprintf(stderr, "%u, ", clusterSize[i]);
@@ -6144,6 +6102,1195 @@ cuannStatus_t cuannIvfPqSearch(
 
   _cuann_set_device(orgDevId);
   return CUANN_STATUS_SUCCESS;
+}
+
+//
+template <int bitPq, int vecLen, typename T, typename smemLutDtype = float>
+__device__ inline float ivfpq_compute_score(
+  uint32_t dimPq,
+  uint32_t iDataset,
+  const uint8_t* pqDataset,           // [numDataset, dimPq * bitPq / 8]
+  const smemLutDtype* preCompScores,  // [dimPq, 1 << bitPq]
+  bool earlyStop,
+  float kth_score = FLT_MAX)
+{
+  float score             = 0.0;
+  constexpr uint32_t bitT = sizeof(T) * 8;
+  const T* headPqDataset  = (T*)(pqDataset + (uint64_t)iDataset * (dimPq * bitPq / 8));
+  for (int j = 0; j < dimPq / vecLen; j += 1) {
+    T pqCode = headPqDataset[0];
+    headPqDataset += 1;
+    uint32_t bitLeft = bitT;
+#pragma unroll vecLen
+    for (int k = 0; k < vecLen; k += 1) {
+      uint8_t code = pqCode;
+      if (bitLeft > bitPq) {
+        // This condition is always true here (to make the compiler happy)
+        if constexpr (bitT > bitPq) { pqCode >>= bitPq; }
+        bitLeft -= bitPq;
+      } else {
+        if (k < vecLen - 1) {
+          pqCode = headPqDataset[0];
+          headPqDataset += 1;
+        }
+        code |= (pqCode << bitLeft);
+        pqCode >>= (bitPq - bitLeft);
+        bitLeft += (bitT - bitPq);
+      }
+      code &= (1 << bitPq) - 1;
+      score += (float)preCompScores[code];
+      preCompScores += (1 << bitPq);
+
+      if (earlyStop && (vecLen > 8) && ((k % 8) == 0)) {
+        if (score > kth_score) { return FLT_MAX; }
+      }
+    }
+    if (earlyStop && (vecLen <= 8)) {
+      if (score > kth_score) { return FLT_MAX; }
+    }
+  }
+  return score;
+}
+
+//
+template <typename K>
+__device__ inline void warp_merge(K& key, bool acending = true, int group_size = 32)
+{
+  int lane_id = threadIdx.x % 32;
+  for (int mask = (group_size >> 1); mask > 0; mask >>= 1) {
+    bool direction = ((lane_id & mask) == 0);
+    K opp_key      = __shfl_xor_sync(0xffffffff, key, mask);
+    if ((acending == direction) == (key > opp_key)) { key = opp_key; }
+  }
+}
+
+//
+template <typename K, typename V>
+__device__ inline void warp_merge(K& key, V& val, bool acending = true, int group_size = 32)
+{
+  int lane_id = threadIdx.x % 32;
+  for (int mask = (group_size >> 1); mask > 0; mask >>= 1) {
+    bool direction = ((lane_id & mask) == 0);
+    K opp_key      = __shfl_xor_sync(0xffffffff, key, mask);
+    V opp_val      = __shfl_xor_sync(0xffffffff, val, mask);
+    if ((acending == direction) == ((key > opp_key) || ((key == opp_key) && (val > opp_val)))) {
+      key = opp_key;
+      val = opp_val;
+    }
+  }
+}
+
+//
+template <typename K>
+__device__ inline void warp_sort(K& key, bool acending = true)
+{
+  int lane_id = threadIdx.x % 32;
+  for (int group_size = 2; group_size <= 32; group_size <<= 1) {
+    bool direction = ((lane_id & group_size) == 0);
+    if ((group_size == 32) && (!acending)) { direction = !direction; }
+    warp_merge<K>(key, direction, group_size);
+  }
+}
+
+//
+template <typename K, typename V>
+__device__ inline void warp_sort(K& key, V& val, bool acending = true)
+{
+  int lane_id = threadIdx.x % 32;
+  for (int group_size = 2; group_size <= 32; group_size <<= 1) {
+    bool direction = ((lane_id & group_size) == 0);
+    if ((group_size == 32) && (!acending)) { direction = !direction; }
+    warp_merge<K, V>(key, val, direction, group_size);
+  }
+}
+
+//
+template <typename T>
+__device__ inline void swap(T& val1, T& val2)
+{
+  T val0 = val1;
+  val1   = val2;
+  val2   = val0;
+}
+
+//
+template <typename K, typename V>
+__device__ inline bool swap_if_needed(K& key1, K& key2, V& val1, V& val2)
+{
+  if ((key1 > key2) || ((key1 == key2) && (val1 > val2))) {
+    swap<K>(key1, key2);
+    swap<V>(val1, val2);
+    return true;
+  }
+  return false;
+}
+
+//
+template <typename K>
+__device__ inline bool swap_if_needed(K& key1, K& key2)
+{
+  if (key1 > key2) {
+    swap<K>(key1, key2);
+    return true;
+  }
+  return false;
+}
+
+//
+template <typename T>
+__device__ inline T max_value_of();
+template <>
+__device__ inline float max_value_of<float>()
+{
+  return FLT_MAX;
+}
+template <>
+__device__ inline uint32_t max_value_of<uint32_t>()
+{
+  return ~0u;
+}
+
+//
+template <uint32_t depth, typename K, typename V>
+class BlockTopk {
+ public:
+  __device__ BlockTopk(uint32_t topk, K* ptr_kth_key) : _topk(topk), _lane_id(threadIdx.x % 32)
+  {
+#pragma unroll
+    for (int i = 0; i < depth; i++) {
+      _key[i] = max_value_of<K>();
+      _val[i] = max_value_of<V>();
+    }
+    _nfill = 0;
+    _init_buf();
+    _ptr_kth_key = ptr_kth_key;
+    if (_ptr_kth_key) {
+      _kth_key = _ptr_kth_key[0];
+    } else {
+      _kth_key = max_value_of<K>();
+    }
+    // __syncthreads();
+  }
+
+  __device__ inline K key(int i) { return _key[i]; }
+
+  __device__ inline V val(int i) { return _val[i]; }
+
+  __device__ inline K kth_key() { return _kth_key; }
+
+  __device__ void add(K key, V val)
+  {
+    uint32_t mask = __ballot_sync(0xffffffff, (key < _kth_key));
+    if (mask == 0) { return; }
+    uint32_t nvalid = __popc(mask);
+    if (_buf_nvalid + nvalid > 32) {
+      _add(_buf_key, _buf_val);
+      _init_buf();
+      if (_ptr_kth_key) { _kth_key = min(_kth_key, _ptr_kth_key[0]); }
+    }
+    _push_buf(key, val, mask, nvalid);
+  }
+
+  __device__ void finalize()
+  {
+    if (_buf_nvalid > 0) { _add(_buf_key, _buf_val); }
+    _merge();
+  }
+
+ protected:
+  K _key[depth];
+  V _val[depth];
+  K* _ptr_kth_key;
+  K _kth_key;
+  uint32_t _nfill;  // 0 <= _nfill <= depth
+  K _buf_key;
+  V _buf_val;
+  uint32_t _buf_nvalid;  // 0 <= _buf_nvalid <= 32
+
+  const uint32_t _topk;
+  const uint32_t _lane_id;
+
+  __device__ inline void _init_buf()
+  {
+    _buf_nvalid = 0;
+    _buf_key    = max_value_of<K>();
+    _buf_val    = max_value_of<V>();
+  }
+
+  __device__ inline void _adjust_nfill()
+  {
+#pragma unroll
+    for (int j = 1; j < depth; j++) {
+      if (_nfill == depth - j + 1) {
+        if (__shfl_sync(0xffffffff, _key[depth - j], 0) <= _kth_key) { return; }
+        _nfill = depth - j;
+      }
+    }
+  }
+
+  __device__ inline void _push_buf(K key, V val, uint32_t mask, uint32_t nvalid)
+  {
+    int i = 0;
+    if ((_buf_nvalid <= _lane_id) && (_lane_id < _buf_nvalid + nvalid)) {
+      int j = _lane_id - _buf_nvalid;
+      while (j > 0) {
+        i = __ffs(mask) - 1;
+        mask ^= (0x1u << i);
+        j -= 1;
+      }
+      i = __ffs(mask) - 1;
+    }
+    K temp_key = __shfl_sync(0xffffffff, key, i);
+    K temp_val = __shfl_sync(0xffffffff, val, i);
+    if ((_buf_nvalid <= _lane_id) && (_lane_id < _buf_nvalid + nvalid)) {
+      _buf_key = temp_key;
+      _buf_val = temp_val;
+    }
+    _buf_nvalid += nvalid;
+  }
+
+  __device__ inline void _add(K key, V val)
+  {
+    if (_nfill == 0) {
+      warp_sort<K, V>(key, val);
+      _key[0] = key;
+      _val[0] = val;
+    } else if (_nfill == 1) {
+      warp_sort<K, V>(key, val, false);
+      swap_if_needed<K, V>(_key[0], key, _val[0], val);
+      if (depth > 1) {
+        _key[1] = key;
+        _val[1] = val;
+        warp_merge<K, V>(_key[1], _val[1]);
+      }
+      warp_merge<K, V>(_key[0], _val[0]);
+    } else if ((depth >= 2) && (_nfill == 2)) {
+      warp_sort<K, V>(key, val, false);
+      swap_if_needed<K, V>(_key[1], key, _val[1], val);
+      if (depth > 2) {
+        _key[2] = key;
+        _val[2] = val;
+        warp_merge<K, V>(_key[2], _val[2]);
+      }
+      warp_merge<K, V>(_key[1], _val[1], false);
+      swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
+      warp_merge<K, V>(_key[1], _val[1]);
+      warp_merge<K, V>(_key[0], _val[0]);
+    } else if ((depth >= 3) && (_nfill == 3)) {
+      warp_sort<K, V>(key, val, false);
+      swap_if_needed<K, V>(_key[2], key, _val[2], val);
+      if (depth > 3) {
+        _key[3] = key;
+        _val[3] = val;
+        warp_merge<K, V>(_key[3], _val[3]);
+      }
+      warp_merge<K, V>(_key[2], _val[2], false);
+      swap_if_needed<K, V>(_key[1], _key[2], _val[1], _val[2]);
+      warp_merge<K, V>(_key[2], _val[2]);
+      warp_merge<K, V>(_key[1], _val[1], false);
+      swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
+      warp_merge<K, V>(_key[1], _val[1]);
+      warp_merge<K, V>(_key[0], _val[0]);
+    } else if ((depth >= 4) && (_nfill == 4)) {
+      warp_sort<K, V>(key, val, false);
+      swap_if_needed<K, V>(_key[3], key, _val[3], val);
+      warp_merge<K, V>(_key[3], _val[3], false);
+      swap_if_needed<K, V>(_key[2], _key[3], _val[2], _val[3]);
+      warp_merge<K, V>(_key[3], _val[3]);
+      warp_merge<K, V>(_key[2], _val[2], false);
+      swap_if_needed<K, V>(_key[1], _key[2], _val[1], _val[2]);
+      warp_merge<K, V>(_key[2], _val[2]);
+      warp_merge<K, V>(_key[1], _val[1], false);
+      swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
+      warp_merge<K, V>(_key[1], _val[1]);
+      warp_merge<K, V>(_key[0], _val[0]);
+    }
+    _nfill = min(_nfill + 1, depth);
+    if (_nfill == depth) {
+      _kth_key =
+        min(_kth_key, __shfl_sync(0xffffffff, _key[depth - 1], _topk - 1 - (depth - 1) * 32));
+    }
+  }
+
+  __device__ inline void _merge()
+  {
+    uint32_t warp_id   = threadIdx.x / 32;
+    uint32_t num_warps = blockDim.x / 32;
+    K* smem_key        = smemArray;
+    V* smem_val        = (V*)(smem_key + (blockDim.x / 2) * depth);
+    for (int j = num_warps / 2; j > 0; j /= 2) {
+      __syncthreads();
+      if ((j <= warp_id) && (warp_id < (j * 2))) {
+        uint32_t opp_tid  = threadIdx.x - (j * 32);
+        smem_key[opp_tid] = _key[0];
+        smem_val[opp_tid] = _val[0];
+        if (depth >= 2) {
+          smem_key[opp_tid + (j * 32)] = _key[1];
+          smem_val[opp_tid + (j * 32)] = _val[1];
+        }
+        if (depth >= 3) {
+          smem_key[opp_tid + (j * 32) * 2] = _key[2];
+          smem_val[opp_tid + (j * 32) * 2] = _val[2];
+        }
+        if (depth >= 4) {
+          smem_key[opp_tid + (j * 32) * 3] = _key[3];
+          smem_val[opp_tid + (j * 32) * 3] = _val[3];
+        }
+      }
+      __syncthreads();
+      if (warp_id < j) {
+        K key;
+        V val;
+        if (depth == 1) {
+          key = smem_key[threadIdx.x ^ 31];
+          val = smem_val[threadIdx.x ^ 31];
+          swap_if_needed<K, V>(_key[0], key, _val[0], val);
+
+          warp_merge<K, V>(_key[0], _val[0]);
+        } else if (depth == 2) {
+          key = smem_key[threadIdx.x ^ 31 + (j * 32)];
+          val = smem_val[threadIdx.x ^ 31 + (j * 32)];
+          swap_if_needed<K, V>(_key[0], key, _val[0], val);
+          key = smem_key[threadIdx.x ^ 31];
+          val = smem_val[threadIdx.x ^ 31];
+          swap_if_needed<K, V>(_key[1], key, _val[1], val);
+
+          swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
+          warp_merge<K, V>(_key[1], _val[1]);
+          warp_merge<K, V>(_key[0], _val[0]);
+        } else if (depth == 3) {
+          key = smem_key[threadIdx.x ^ 31 + (j * 32) * 2];
+          val = smem_val[threadIdx.x ^ 31 + (j * 32) * 2];
+          swap_if_needed<K, V>(_key[1], key, _val[1], val);
+          key = smem_key[threadIdx.x ^ 31 + (j * 32)];
+          val = smem_val[threadIdx.x ^ 31 + (j * 32)];
+          swap_if_needed<K, V>(_key[2], key, _val[2], val);
+          K _key_3_ = smem_key[threadIdx.x ^ 31];
+          V _val_3_ = smem_val[threadIdx.x ^ 31];
+
+          swap_if_needed<K, V>(_key[0], _key[2], _val[0], _val[2]);
+          swap_if_needed<K, V>(_key[1], _key_3_, _val[1], _val_3_);
+          swap_if_needed<K, V>(_key[2], _key_3_, _val[2], _val_3_);
+          warp_merge<K, V>(_key[2], _val[2]);
+          swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
+          warp_merge<K, V>(_key[1], _val[1]);
+          warp_merge<K, V>(_key[0], _val[0]);
+        } else if (depth == 4) {
+          key = smem_key[threadIdx.x ^ 31 + (j * 32) * 3];
+          val = smem_val[threadIdx.x ^ 31 + (j * 32) * 3];
+          swap_if_needed<K, V>(_key[0], key, _val[0], val);
+          key = smem_key[threadIdx.x ^ 31 + (j * 32) * 2];
+          val = smem_val[threadIdx.x ^ 31 + (j * 32) * 2];
+          swap_if_needed<K, V>(_key[1], key, _val[1], val);
+          key = smem_key[threadIdx.x ^ 31 + (j * 32)];
+          val = smem_val[threadIdx.x ^ 31 + (j * 32)];
+          swap_if_needed<K, V>(_key[2], key, _val[2], val);
+          key = smem_key[threadIdx.x ^ 31];
+          val = smem_val[threadIdx.x ^ 31];
+          swap_if_needed<K, V>(_key[3], key, _val[3], val);
+
+          swap_if_needed<K, V>(_key[0], _key[2], _val[0], _val[2]);
+          swap_if_needed<K, V>(_key[1], _key[3], _val[1], _val[3]);
+          swap_if_needed<K, V>(_key[2], _key[3], _val[2], _val[3]);
+          warp_merge<K, V>(_key[3], _val[3]);
+          warp_merge<K, V>(_key[2], _val[2]);
+          swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
+          warp_merge<K, V>(_key[1], _val[1]);
+          warp_merge<K, V>(_key[0], _val[0]);
+        }
+      }
+    }
+  }
+};
+
+//
+template <typename K>
+__device__ inline void update_approx_global_score(uint32_t topk,
+                                                  K* my_score,
+                                                  K* approx_global_score)
+{
+  if (!__any_sync(0xffffffff, (my_score[0] < approx_global_score[topk - 1]))) { return; }
+  if (topk <= 32) {
+    K score = max_value_of<K>();
+    if (threadIdx.x < topk) { score = approx_global_score[threadIdx.x]; }
+    warp_sort<K>(score, false);
+    swap_if_needed<K>(my_score[0], score);
+
+    warp_merge<K>(my_score[0]);
+    if (threadIdx.x < topk) { atomicMin(approx_global_score + threadIdx.x, my_score[0]); }
+  } else if (topk <= 64) {
+    K score = max_value_of<K>();
+    if (threadIdx.x + 32 < topk) { score = approx_global_score[threadIdx.x + 32]; }
+    warp_sort<K>(score, false);
+    swap_if_needed<K>(my_score[0], score);
+    score = approx_global_score[threadIdx.x];
+    warp_sort<K>(score, false);
+    swap_if_needed<K>(my_score[1], score);
+
+    swap_if_needed<K>(my_score[0], my_score[1]);
+    warp_merge<K>(my_score[1]);
+    warp_merge<K>(my_score[0]);
+
+    atomicMin(approx_global_score + threadIdx.x, my_score[0]);
+    if (threadIdx.x + 32 < topk) { atomicMin(approx_global_score + threadIdx.x + 32, my_score[1]); }
+  } else if (topk <= 96) {
+    K score = max_value_of<K>();
+    if (threadIdx.x + 64 < topk) { score = approx_global_score[threadIdx.x + 64]; }
+    warp_sort<K>(score, false);
+    swap_if_needed<K>(my_score[1], score);
+    score = approx_global_score[threadIdx.x + 32];
+    warp_sort<K>(score, false);
+    swap_if_needed<K>(my_score[2], score);
+    score = approx_global_score[threadIdx.x];
+    warp_sort<K>(score, false);
+    K my_score_3_ = score;
+
+    swap_if_needed<K>(my_score[0], my_score[2]);
+    swap_if_needed<K>(my_score[1], my_score_3_);
+    swap_if_needed<K>(my_score[2], my_score_3_);
+    warp_merge<K>(my_score[2]);
+    swap_if_needed<K>(my_score[0], my_score[1]);
+    warp_merge<K>(my_score[1]);
+    warp_merge<K>(my_score[0]);
+
+    atomicMin(approx_global_score + threadIdx.x, my_score[0]);
+    atomicMin(approx_global_score + threadIdx.x + 32, my_score[1]);
+    if (threadIdx.x + 64 < topk) { atomicMin(approx_global_score + threadIdx.x + 64, my_score[2]); }
+  } else if (topk <= 128) {
+    K score = max_value_of<K>();
+    if (threadIdx.x + 96 < topk) { score = approx_global_score[threadIdx.x + 96]; }
+    warp_sort<K>(score, false);
+    swap_if_needed<K>(my_score[0], score);
+    score = approx_global_score[threadIdx.x + 64];
+    warp_sort<K>(score, false);
+    swap_if_needed<K>(my_score[1], score);
+    score = approx_global_score[threadIdx.x + 32];
+    warp_sort<K>(score, false);
+    swap_if_needed<K>(my_score[2], score);
+    score = approx_global_score[threadIdx.x];
+    warp_sort<K>(score, false);
+    swap_if_needed<K>(my_score[3], score);
+
+    swap_if_needed<K>(my_score[0], my_score[2]);
+    swap_if_needed<K>(my_score[1], my_score[3]);
+    swap_if_needed<K>(my_score[2], my_score[3]);
+    warp_merge<K>(my_score[3]);
+    warp_merge<K>(my_score[2]);
+    swap_if_needed<K>(my_score[0], my_score[1]);
+    warp_merge<K>(my_score[1]);
+    warp_merge<K>(my_score[0]);
+
+    atomicMin(approx_global_score + threadIdx.x, my_score[0]);
+    atomicMin(approx_global_score + threadIdx.x + 32, my_score[1]);
+    atomicMin(approx_global_score + threadIdx.x + 64, my_score[2]);
+    if (threadIdx.x + 96 < topk) { atomicMin(approx_global_score + threadIdx.x + 96, my_score[3]); }
+  }
+}
+
+//
+template <typename outDtype>
+__device__ inline outDtype get_out_score(float score, cuannSimilarity_t similarity)
+{
+  if (similarity == CUANN_SIMILARITY_INNER) { score = score / 2.0 - 1.0; }
+  if (sizeof(outDtype) == 2) { score = min(score, FP16_MAX); }
+  return (outDtype)score;
+}
+
+//
+// (*) Restrict the peak GPU occupancy up-to 50% by "__launch_bounds__(1024, 1)",
+// as there were cases where performance dropped by a factor of two or more on V100
+// when the peak GPU occupancy was set to more than 50%.
+//
+template <int bitPq,
+          int vecLen,
+          typename T,
+          int depth,
+          bool preCompBaseDiff,
+          typename outDtype,
+          typename smemLutDtype>
+__launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
+  uint32_t numDataset,
+  uint32_t dimDataset,
+  uint32_t numProbes,
+  uint32_t dimPq,
+  uint32_t sizeBatch,
+  uint32_t maxSamples,
+  cuannSimilarity_t similarity,
+  cuannPqCenter_t typePqCenter,
+  uint32_t topk,
+  const float* clusterCenters,      // [numClusters, dimDataset,]
+  const float* pqCenters,           // [dimPq, 1 << bitPq, lenPq,], or
+                                    // [numClusetrs, 1 << bitPq, lenPq,]
+  const uint8_t* pqDataset,         // [numDataset, dimPq * bitPq / 8]
+  const uint32_t* clusterIndexPtr,  // [numClusters + 1,]
+  const uint32_t* _clusterLabels,   // [sizeBatch, numProbes,]
+  const uint32_t* _chunkIndexPtr,   // [sizeBatch, numProbes,]
+  const float* _query,              // [sizeBatch, dimDataset,]
+  const uint32_t* indexList,        // [sizeBatch * numProbes]
+  float* _preCompScores,            // [...]
+  float* _topkScores,               // [sizeBatch, topk]
+  outDtype* _output,                // [sizeBatch, maxSamples,] or [sizeBatch, numProbes, topk]
+  uint32_t* _topkIndex              // [sizeBatch, numProbes, topk]
+)
+{
+  const uint32_t lenPq = dimDataset / dimPq;
+  float* smem          = smemArray;
+
+  smemLutDtype* preCompScores = (smemLutDtype*)smem;
+  float* baseDiff             = NULL;
+  if (preCompBaseDiff) { baseDiff = (float*)(preCompScores + (dimPq << bitPq)); }
+  bool manageLocalTopk = false;
+  if (_topkIndex != NULL) { manageLocalTopk = true; }
+
+  uint32_t iBatch;
+  uint32_t iProbe;
+  if (indexList == NULL) {
+    // iBatch = blockIdx.x / numProbes;
+    // iProbe = blockIdx.x % numProbes;
+    iBatch = blockIdx.x % sizeBatch;
+    iProbe = blockIdx.x / sizeBatch;
+  } else {
+    iBatch = indexList[blockIdx.x] / numProbes;
+    iProbe = indexList[blockIdx.x] % numProbes;
+  }
+  if (iBatch >= sizeBatch || iProbe >= numProbes) return;
+
+  const uint32_t* clusterLabels = _clusterLabels + (numProbes * iBatch);
+  const uint32_t* chunkIndexPtr = _chunkIndexPtr + (numProbes * iBatch);
+  const float* query            = _query + (dimDataset * iBatch);
+  outDtype* output;
+  uint32_t* topkIndex        = NULL;
+  float* approx_global_score = NULL;
+  if (manageLocalTopk) {
+    // Store topk calculated distances to output (and its indices to topkIndex)
+    output              = _output + (topk * (iProbe + (numProbes * iBatch)));
+    topkIndex           = _topkIndex + (topk * (iProbe + (numProbes * iBatch)));
+    approx_global_score = _topkScores + (topk * iBatch);
+  } else {
+    // Store all calculated distances to output
+    output = _output + (maxSamples * iBatch);
+  }
+  uint32_t label               = clusterLabels[iProbe];
+  const float* myClusterCenter = clusterCenters + (dimDataset * label);
+  const float* myPqCenters;
+  if (typePqCenter == CUANN_PQ_CENTER_PER_SUBSPACE) {
+    myPqCenters = pqCenters;
+  } else {
+    myPqCenters = pqCenters + (lenPq << bitPq) * label;
+  }
+
+  if (preCompBaseDiff) {
+    // Reduce computational complexity by pre-computing the difference
+    // between the cluster centroid and the query.
+    for (uint32_t i = threadIdx.x; i < dimDataset; i += blockDim.x) {
+      baseDiff[i] = query[i] - myClusterCenter[i];
+    }
+    __syncthreads();
+  }
+
+  // Create a lookup table
+  for (uint32_t i = threadIdx.x; i < (dimPq << bitPq); i += blockDim.x) {
+    uint32_t iPq   = i >> bitPq;
+    uint32_t iCode = i & ((1 << bitPq) - 1);
+    float score    = 0.0;
+    for (uint32_t j = 0; j < lenPq; j++) {
+      uint32_t k = j + (lenPq * iPq);
+      float diff;
+      if (preCompBaseDiff) {
+        diff = baseDiff[k];
+      } else {
+        diff = query[k] - myClusterCenter[k];
+      }
+      if (typePqCenter == CUANN_PQ_CENTER_PER_SUBSPACE) {
+        diff -= myPqCenters[j + (lenPq * i)];
+      } else {
+        diff -= myPqCenters[j + (lenPq * iCode)];
+      }
+      score += diff * diff;
+    }
+    preCompScores[i] = (smemLutDtype)score;
+  }
+
+  uint32_t iSampleBase = 0;
+  if (iProbe > 0) { iSampleBase = chunkIndexPtr[iProbe - 1]; }
+  uint32_t nSamples   = chunkIndexPtr[iProbe] - iSampleBase;
+  uint32_t nSamples32 = nSamples;
+  if (nSamples32 % 32 > 0) { nSamples32 = nSamples32 + (32 - (nSamples % 32)); }
+  uint32_t iDatasetBase = clusterIndexPtr[label];
+
+  BlockTopk<depth, float, uint32_t> block_topk(
+    topk, manageLocalTopk ? approx_global_score + topk - 1 : NULL);
+  __syncthreads();
+
+  // Compute a distance for each sample
+  for (uint32_t i = threadIdx.x; i < nSamples32; i += blockDim.x) {
+    float score = FLT_MAX;
+    if (i < nSamples) {
+      score = ivfpq_compute_score<bitPq, vecLen, T, smemLutDtype>(
+        dimPq, i + iDatasetBase, pqDataset, preCompScores, manageLocalTopk, block_topk.kth_key());
+    }
+    if (!manageLocalTopk) {
+      if (i < nSamples) { output[i + iSampleBase] = get_out_score<outDtype>(score, similarity); }
+    } else {
+      uint32_t val = i;
+      block_topk.add(score, val);
+    }
+  }
+  if (!manageLocalTopk) { return; }
+  block_topk.finalize();
+
+  // Output topk score and index
+  uint32_t warp_id = threadIdx.x / 32;
+  if (warp_id == 0) {
+    for (int j = 0; j < depth; j++) {
+      if (threadIdx.x + (32 * j) < topk) {
+        output[threadIdx.x + (32 * j)]    = get_out_score<outDtype>(block_topk.key(j), similarity);
+        topkIndex[threadIdx.x + (32 * j)] = block_topk.val(j) + iDatasetBase;
+      }
+    }
+  }
+
+  // Approximate update of global topk entries
+  if (warp_id == 0) {
+    float my_score[depth];
+    for (int j = 0; j < depth; j++) {
+      my_score[j] = block_topk.key(j);
+    }
+    update_approx_global_score<float>(topk, my_score, approx_global_score);
+  }
+}
+
+//
+template <int bitPq, int vecLen, typename T, int depth, bool preCompBaseDiff, typename outDtype>
+__launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
+  uint32_t numDataset,
+  uint32_t dimDataset,
+  uint32_t numProbes,
+  uint32_t dimPq,
+  uint32_t sizeBatch,
+  uint32_t maxSamples,
+  cuannSimilarity_t similarity,
+  cuannPqCenter_t typePqCenter,
+  uint32_t topk,
+  const float* clusterCenters,      // [numClusters, dimDataset,]
+  const float* pqCenters,           // [dimPq, 1 << bitPq, lenPq,], or
+                                    // [numClusetrs, 1 << bitPq, lenPq,]
+  const uint8_t* pqDataset,         // [numDataset, dimPq * bitPq / 8]
+  const uint32_t* clusterIndexPtr,  // [numClusters + 1,]
+  const uint32_t* _clusterLabels,   // [sizeBatch, numProbes,]
+  const uint32_t* _chunkIndexPtr,   // [sizeBatch, numProbes,]
+  const float* _query,              // [sizeBatch, dimDataset,]
+  const uint32_t* indexList,        // [sizeBatch * numProbes]
+  float* _preCompScores,            // [..., dimPq << bitPq,]
+  float* _topkScores,               // [sizeBatch, topk]
+  outDtype* _output,                // [sizeBatch, maxSamples,] or [sizeBatch, numProbes, topk]
+  uint32_t* _topkIndex              // [sizeBatch, numProbes, topk]
+)
+{
+  const uint32_t lenPq = dimDataset / dimPq;
+
+  float* preCompScores = _preCompScores + ((dimPq << bitPq) * blockIdx.x);
+  float* baseDiff      = NULL;
+  if (preCompBaseDiff) { baseDiff = (float*)smemArray; }
+  bool manageLocalTopk = false;
+  if (_topkIndex != NULL) { manageLocalTopk = true; }
+
+  for (int ib = blockIdx.x; ib < sizeBatch * numProbes; ib += gridDim.x) {
+    uint32_t iBatch;
+    uint32_t iProbe;
+    if (indexList == NULL) {
+      // iBatch = ib / numProbes;
+      // iProbe = ib % numProbes;
+      iBatch = ib % sizeBatch;
+      iProbe = ib / sizeBatch;
+    } else {
+      iBatch = indexList[ib] / numProbes;
+      iProbe = indexList[ib] % numProbes;
+    }
+
+    const uint32_t* clusterLabels = _clusterLabels + (numProbes * iBatch);
+    const uint32_t* chunkIndexPtr = _chunkIndexPtr + (numProbes * iBatch);
+    const float* query            = _query + (dimDataset * iBatch);
+    outDtype* output;
+    uint32_t* topkIndex        = NULL;
+    float* approx_global_score = NULL;
+    if (manageLocalTopk) {
+      // Store topk calculated distances to output (and its indices to topkIndex)
+      output              = _output + (topk * (iProbe + (numProbes * iBatch)));
+      topkIndex           = _topkIndex + (topk * (iProbe + (numProbes * iBatch)));
+      approx_global_score = _topkScores + (topk * iBatch);
+    } else {
+      // Store all calculated distances to output
+      output = _output + (maxSamples * iBatch);
+    }
+    uint32_t label               = clusterLabels[iProbe];
+    const float* myClusterCenter = clusterCenters + (dimDataset * label);
+    const float* myPqCenters;
+    if (typePqCenter == CUANN_PQ_CENTER_PER_SUBSPACE) {
+      myPqCenters = pqCenters;
+    } else {
+      myPqCenters = pqCenters + (lenPq << bitPq) * label;
+    }
+
+    if (preCompBaseDiff) {
+      // Reduce computational complexity by pre-computing the difference
+      // between the cluster centroid and the query.
+      for (uint32_t i = threadIdx.x; i < dimDataset; i += blockDim.x) {
+        baseDiff[i] = query[i] - myClusterCenter[i];
+      }
+      __syncthreads();
+    }
+
+    // Create a lookup table
+    for (uint32_t i = threadIdx.x; i < (dimPq << bitPq); i += blockDim.x) {
+      uint32_t iPq   = i >> bitPq;
+      uint32_t iCode = i & ((1 << bitPq) - 1);
+      float score    = 0.0;
+      for (uint32_t j = 0; j < lenPq; j++) {
+        uint32_t k = j + (lenPq * iPq);
+        float diff;
+        if (preCompBaseDiff) {
+          diff = baseDiff[k];
+        } else {
+          diff = query[k] - myClusterCenter[k];
+        }
+        if (typePqCenter == CUANN_PQ_CENTER_PER_SUBSPACE) {
+          diff -= myPqCenters[j + (lenPq * i)];
+        } else {
+          diff -= myPqCenters[j + (lenPq * iCode)];
+        }
+        score += diff * diff;
+      }
+      preCompScores[i] = score;
+    }
+
+    uint32_t iSampleBase = 0;
+    if (iProbe > 0) { iSampleBase = chunkIndexPtr[iProbe - 1]; }
+    uint32_t nSamples   = chunkIndexPtr[iProbe] - iSampleBase;
+    uint32_t nSamples32 = nSamples;
+    if (nSamples32 % 32 > 0) { nSamples32 = nSamples32 + (32 - (nSamples % 32)); }
+    uint32_t iDatasetBase = clusterIndexPtr[label];
+
+    BlockTopk<depth, float, uint32_t> block_topk(
+      topk, manageLocalTopk ? approx_global_score + topk - 1 : NULL);
+    __syncthreads();
+
+    // Compute a distance for each sample
+    for (uint32_t i = threadIdx.x; i < nSamples32; i += blockDim.x) {
+      float score = FLT_MAX;
+      if (i < nSamples) {
+        score = ivfpq_compute_score<bitPq, vecLen, T>(
+          dimPq, i + iDatasetBase, pqDataset, preCompScores, manageLocalTopk, block_topk.kth_key());
+      }
+      if (!manageLocalTopk) {
+        if (i < nSamples) { output[i + iSampleBase] = get_out_score<outDtype>(score, similarity); }
+      } else {
+        uint32_t val = i;
+        block_topk.add(score, val);
+      }
+    }
+    __syncthreads();
+    if (!manageLocalTopk) {
+      continue;  // for (int ib ...)
+    }
+    block_topk.finalize();
+
+    // Output topk score and index
+    uint32_t warp_id = threadIdx.x / 32;
+    if (warp_id == 0) {
+      for (int j = 0; j < depth; j++) {
+        if (threadIdx.x + (32 * j) < topk) {
+          output[threadIdx.x + (32 * j)] = get_out_score<outDtype>(block_topk.key(j), similarity);
+          topkIndex[threadIdx.x + (32 * j)] = block_topk.val(j) + iDatasetBase;
+        }
+      }
+    }
+
+    // Approximate update of global topk entries
+    if (warp_id == 0) {
+      float my_score[depth];
+      for (int j = 0; j < depth; j++) {
+        my_score[j] = block_topk.key(j);
+      }
+      update_approx_global_score<float>(topk, my_score, approx_global_score);
+    }
+    __syncthreads();
+  }
+}
+
+// search
+template <typename scoreDtype, typename smemLutDtype>
+void ivfpq_search(cuannHandle_t handle,
+                  cuannIvfPqDescriptor_t desc,
+                  uint32_t numQueries,
+                  const float* clusterCenters,           // [numDataset, dimRotDataset]
+                  const float* pqCenters,                // [dimPq, 1 << desc->bitPq, lenPq]
+                  const uint8_t* pqDataset,              // [numDataset, dimPq * bitPq / 8]
+                  const uint32_t* originalNumbers,       // [numDataset]
+                  const uint32_t* indexPtr,              // [numClusters + 1]
+                  const uint32_t* clusterLabelsToProbe,  // [numQueries, numProbes]
+                  const float* query,                    // [numQueries, dimRotDataset]
+                  uint64_t* topkNeighbors,               // [numQueries, topK]
+                  float* topkDistances,                  // [numQueries, topK]
+                  void* workspace)
+{
+  assert(numQueries <= desc->maxBatchSize);
+
+  uint32_t* clusterLabelsOut;  // [maxBatchSize, numProbes]
+  uint32_t* indexList;         // [maxBatchSize * numProbes]
+  uint32_t* indexListSorted;   // [maxBatchSize * numProbes]
+  uint32_t* numSamples;        // [maxBatchSize,]
+  void* cubWorkspace;          // ...
+  uint32_t* chunkIndexPtr;     // [maxBatchSize, numProbes]
+  uint32_t* topkSids;          // [maxBatchsize, topk]
+  scoreDtype* similarity;      // [maxBatchSize, maxSamples] or
+                               // [maxBatchSize, numProbes, topk]
+  uint32_t* simTopkIndex;      // [maxBatchSize, numProbes, topk]
+  float* topkScores;           // [maxBatchSize, topk]
+  float* preCompScores = NULL;
+  void* topkWorkspace;
+
+  cudaError_t cudaError;
+
+  clusterLabelsOut = (uint32_t*)workspace;
+  indexList        = (uint32_t*)((uint8_t*)clusterLabelsOut +
+                          _cuann_aligned(sizeof(uint32_t) * desc->maxBatchSize * desc->numProbes));
+  indexListSorted =
+    (uint32_t*)((uint8_t*)indexList +
+                _cuann_aligned(sizeof(uint32_t) * desc->maxBatchSize * desc->numProbes));
+  numSamples = (uint32_t*)((uint8_t*)indexListSorted +
+                           _cuann_aligned(sizeof(uint32_t) * desc->maxBatchSize * desc->numProbes));
+  cubWorkspace =
+    (void*)((uint8_t*)numSamples + _cuann_aligned(sizeof(uint32_t) * desc->maxBatchSize));
+  chunkIndexPtr = (uint32_t*)((uint8_t*)cubWorkspace + desc->sizeCubWorkspace);
+  topkSids      = (uint32_t*)((uint8_t*)chunkIndexPtr +
+                         _cuann_aligned(sizeof(uint32_t) * desc->maxBatchSize * desc->numProbes));
+  similarity    = (scoreDtype*)((uint8_t*)topkSids +
+                             _cuann_aligned(sizeof(uint32_t) * desc->maxBatchSize * desc->topK));
+  if (manage_local_topk(desc)) {
+    topkScores =
+      (float*)((uint8_t*)similarity + _cuann_aligned(sizeof(scoreDtype) * desc->maxBatchSize *
+                                                     desc->numProbes * desc->topK));
+    simTopkIndex = (uint32_t*)((uint8_t*)topkScores +
+                               _cuann_aligned(sizeof(float) * desc->maxBatchSize * desc->topK));
+    preCompScores =
+      (float*)((uint8_t*)simTopkIndex + _cuann_aligned(sizeof(uint32_t) * desc->maxBatchSize *
+                                                       desc->numProbes * desc->topK));
+  } else {
+    topkScores   = NULL;
+    simTopkIndex = NULL;
+    preCompScores =
+      (float*)((uint8_t*)similarity +
+               _cuann_aligned(sizeof(scoreDtype) * desc->maxBatchSize * desc->maxSamples));
+  }
+  topkWorkspace = (void*)((uint8_t*)preCompScores +
+                          _cuann_aligned(sizeof(float) * (handle->deviceProp).multiProcessorCount *
+                                         desc->dimPq * (1 << desc->bitPq)));
+
+  //
+  if (manage_local_topk(desc)) {
+    dim3 iksThreads(128, 1, 1);
+    dim3 iksBlocks(((numQueries * desc->topK) + iksThreads.x - 1) / iksThreads.x, 1, 1);
+    ivfpq_init_topkScores<<<iksBlocks, iksThreads, 0, handle->stream>>>(
+      topkScores, FLT_MAX, numQueries * desc->topK);
+#ifdef CUANN_DEBUG
+    cudaError = cudaDeviceSynchronize();
+    if (cudaError != cudaSuccess) {
+      fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
+      exit(-1);
+    }
+#endif
+  }
+
+  //
+  dim3 mcThreads(1024, 1, 1);  // DO NOT CHANGE
+  dim3 mcBlocks(numQueries, 1, 1);
+  ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, handle->stream>>>(
+    desc->numProbes, numQueries, indexPtr, clusterLabelsToProbe, chunkIndexPtr, numSamples);
+#ifdef CUANN_DEBUG
+  cudaError = cudaDeviceSynchronize();
+  if (cudaError != cudaSuccess) {
+    fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
+    exit(-1);
+  }
+#endif
+
+  if (numQueries * desc->numProbes > 256) {
+    // Sorting index by cluster number (label).
+    // The goal is to incrase the L2 cache hit rate to read the vectors
+    // of a cluster by processing the cluster at the same time as much as
+    // possible.
+    dim3 psThreads(128, 1, 1);
+    dim3 psBlocks((numQueries * desc->numProbes + psThreads.x - 1) / psThreads.x, 1, 1);
+    ivfpq_prep_sort<<<psBlocks, psThreads, 0, handle->stream>>>(numQueries * desc->numProbes,
+                                                                indexList);
+#ifdef CUANN_DEBUG
+    cudaError = cudaDeviceSynchronize();
+    if (cudaError != cudaSuccess) {
+      fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
+      exit(-1);
+    }
+#endif
+
+    int begin_bit = 0;
+    int end_bit   = sizeof(uint32_t) * 8;
+    cub::DeviceRadixSort::SortPairs(cubWorkspace,
+                                    desc->sizeCubWorkspace,
+                                    clusterLabelsToProbe,
+                                    clusterLabelsOut,
+                                    indexList,
+                                    indexListSorted,
+                                    numQueries * desc->numProbes,
+                                    begin_bit,
+                                    end_bit,
+                                    handle->stream);
+#ifdef CUANN_DEBUG
+    cudaError = cudaDeviceSynchronize();
+    if (cudaError != cudaSuccess) {
+      fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
+      exit(-1);
+    }
+    if (0) {
+      for (uint32_t i = 0; i < numQueries * desc->numProbes; i++) {
+        fprintf(stderr, "# i:%u, index:%d, label:%u\n", i, indexListSorted[i], clusterLabelsOut[i]);
+      }
+    }
+#endif
+  } else {
+    indexListSorted = NULL;
+  }
+
+  // Select a GPU kernel for distance calculation
+#define SET_KERNEL1(B, V, T, D)                                                                 \
+  do {                                                                                          \
+    assert((B * V) % (sizeof(T) * 8) == 0);                                                     \
+    kernel_no_basediff = ivfpq_compute_similarity<B, V, T, D, false, scoreDtype, smemLutDtype>; \
+    kernel_fast        = ivfpq_compute_similarity<B, V, T, D, true, scoreDtype, smemLutDtype>;  \
+    kernel_no_smem_lut = ivfpq_compute_similarity_no_smem_lut<B, V, T, D, true, scoreDtype>;    \
+  } while (0)
+
+#define SET_KERNEL2(B, M, D)                 \
+  do {                                       \
+    assert(desc->dimPq % M == 0);            \
+    if (desc->dimPq % (M * 8) == 0) {        \
+      SET_KERNEL1(B, (M * 8), uint64_t, D);  \
+    } else if (desc->dimPq % (M * 4) == 0) { \
+      SET_KERNEL1(B, (M * 4), uint32_t, D);  \
+    } else if (desc->dimPq % (M * 2) == 0) { \
+      SET_KERNEL1(B, (M * 2), uint16_t, D);  \
+    } else if (desc->dimPq % (M * 1) == 0) { \
+      SET_KERNEL1(B, (M * 1), uint8_t, D);   \
+    }                                        \
+  } while (0)
+
+#define SET_KERNEL3(D)                     \
+  do {                                     \
+    switch (desc->bitPq) {                 \
+      case 4: SET_KERNEL2(4, 2, D); break; \
+      case 5: SET_KERNEL2(5, 8, D); break; \
+      case 6: SET_KERNEL2(6, 4, D); break; \
+      case 7: SET_KERNEL2(7, 8, D); break; \
+      case 8: SET_KERNEL2(8, 1, D); break; \
+    }                                      \
+  } while (0)
+
+  typedef void (*kernel_t)(uint32_t,
+                           uint32_t,
+                           uint32_t,
+                           uint32_t,
+                           uint32_t,
+                           uint32_t,
+                           cuannSimilarity_t,
+                           cuannPqCenter_t,
+                           uint32_t,
+                           const float*,
+                           const float*,
+                           const uint8_t*,
+                           const uint32_t*,
+                           const uint32_t*,
+                           const uint32_t*,
+                           const float*,
+                           const uint32_t*,
+                           float*,
+                           float*,
+                           scoreDtype*,
+                           uint32_t*);
+  kernel_t kernel_no_basediff;
+  kernel_t kernel_fast;
+  kernel_t kernel_no_smem_lut;
+  int depth = 1;
+  if (manage_local_topk(desc)) { depth = (desc->topK + 31) / 32; }
+  switch (depth) {
+    case 1: SET_KERNEL3(1); break;
+    case 2: SET_KERNEL3(2); break;
+    case 3: SET_KERNEL3(3); break;
+    case 4: SET_KERNEL3(4); break;
+  }
+  constexpr size_t thresholdSmem = 48 * 1024;
+  size_t sizeSmem                = sizeof(smemLutDtype) * desc->dimPq * (1 << desc->bitPq);
+  size_t sizeSmemBaseDiff        = sizeof(float) * desc->dimDataset;
+
+  uint32_t numCTAs = numQueries * desc->numProbes;
+  int numThreads   = 1024;
+  // desc->preferredThreadBlockSize == 0 means using auto thread block size calculation mode
+  if (desc->preferredThreadBlockSize == 0) {
+    constexpr int minThreads = 256;
+    while (numThreads > minThreads) {
+      if (numCTAs <
+          uint32_t((handle->deviceProp).multiProcessorCount * (1024 / (numThreads / 2)))) {
+        break;
+      }
+      if ((handle->deviceProp).sharedMemPerMultiprocessor * 2 / 3 <
+          sizeSmem * (1024 / (numThreads / 2))) {
+        break;
+      }
+      numThreads /= 2;
+    }
+  } else {
+    numThreads = desc->preferredThreadBlockSize;
+  }
+  // printf("# numThreads: %d\n", numThreads);
+  size_t sizeSmemForLocalTopk = get_sizeSmemForLocalTopk(desc, numThreads);
+  sizeSmem                    = max(sizeSmem, sizeSmemForLocalTopk);
+
+  kernel_t kernel = kernel_no_basediff;
+
+  bool kernel_no_basediff_available = true;
+  if (sizeSmem > thresholdSmem) {
+    cudaError = cudaFuncSetAttribute(
+      kernel_no_basediff, cudaFuncAttributeMaxDynamicSharedMemorySize, sizeSmem);
+    if (cudaError != cudaSuccess) {
+      kernel_no_basediff_available = false;
+
+      // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
+      kernel                      = kernel_no_smem_lut;
+      numThreads                  = 1024;
+      size_t sizeSmemForLocalTopk = get_sizeSmemForLocalTopk(desc, numThreads);
+      sizeSmem                    = max(sizeSmemBaseDiff, sizeSmemForLocalTopk);
+      numCTAs                     = (handle->deviceProp).multiProcessorCount;
+    }
+  }
+  if (kernel_no_basediff_available) {
+    bool kernel_fast_available = true;
+    if (sizeSmem + sizeSmemBaseDiff > thresholdSmem) {
+      cudaError = cudaFuncSetAttribute(
+        kernel_fast, cudaFuncAttributeMaxDynamicSharedMemorySize, sizeSmem + sizeSmemBaseDiff);
+      if (cudaError != cudaSuccess) { kernel_fast_available = false; }
+    }
+#if 0
+        fprintf( stderr,
+                 "# sizeSmem: %lu, sizeSmemBaseDiff: %lu, kernel_fast_available: %d\n",
+                 sizeSmem, sizeSmemBaseDiff, kernel_fast_available );
+#endif
+    if (kernel_fast_available) {
+      int numBlocks_kernel_no_basediff = 0;
+      cudaError                        = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &numBlocks_kernel_no_basediff, kernel_no_basediff, numThreads, sizeSmem);
+      // fprintf(stderr, "# numBlocks_kernel_no_basediff: %d\n", numBlocks_kernel_no_basediff);
+      if (cudaError != cudaSuccess) {
+        fprintf(stderr, "cudaOccupancyMaxActiveBlocksPerMultiprocessor() failed\n");
+        exit(-1);
+      }
+
+      int numBlocks_kernel_fast = 0;
+      cudaError                 = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &numBlocks_kernel_fast, kernel_fast, numThreads, sizeSmem + sizeSmemBaseDiff);
+      // fprintf(stderr, "# numBlocks_kernel_fast: %d\n", numBlocks_kernel_fast);
+      if (cudaError != cudaSuccess) {
+        fprintf(stderr, "cudaOccupancyMaxActiveBlocksPerMultiprocessor() failed\n");
+        exit(-1);
+      }
+
+      // Use "kernel_fast" only if GPU occupancy does not drop
+      if (numBlocks_kernel_no_basediff == numBlocks_kernel_fast) {
+        kernel = kernel_fast;
+        sizeSmem += sizeSmemBaseDiff;
+      }
+    }
+  }
+  dim3 ctaThreads(numThreads, 1, 1);
+  dim3 ctaBlocks(numCTAs, 1, 1);
+  kernel<<<ctaBlocks, ctaThreads, sizeSmem, handle->stream>>>(desc->numDataset,
+                                                              desc->dimRotDataset,
+                                                              desc->numProbes,
+                                                              desc->dimPq,
+                                                              numQueries,
+                                                              desc->maxSamples,
+                                                              desc->similarity,
+                                                              desc->typePqCenter,
+                                                              desc->topK,
+                                                              clusterCenters,
+                                                              pqCenters,
+                                                              pqDataset,
+                                                              indexPtr,
+                                                              clusterLabelsToProbe,
+                                                              chunkIndexPtr,
+                                                              query,
+                                                              indexListSorted,
+                                                              preCompScores,
+                                                              topkScores,
+                                                              (scoreDtype*)similarity,
+                                                              simTopkIndex);
+#ifdef CUANN_DEBUG
+  cudaError = cudaDeviceSynchronize();
+  if (cudaError != cudaSuccess) {
+    fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
+    exit(-1);
+  }
+#endif
+
+  // Select topk vectors for each query
+  if (simTopkIndex == NULL) {
+    _cuann_find_topk(handle,
+                     desc->topK,
+                     numQueries,
+                     desc->maxSamples,
+                     numSamples,
+                     (scoreDtype*)similarity,
+                     topkSids,
+                     topkWorkspace);
+  } else {
+    _cuann_find_topk(handle,
+                     desc->topK,
+                     numQueries,
+                     (desc->numProbes * desc->topK),
+                     NULL,
+                     (scoreDtype*)similarity,
+                     topkSids,
+                     topkWorkspace);
+  }
+#ifdef CUANN_DEBUG
+  cudaError = cudaDeviceSynchronize();
+  if (cudaError != cudaSuccess) {
+    fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
+    exit(-1);
+  }
+#endif
+
+  //
+  dim3 moThreads(128, 1, 1);
+  dim3 moBlocks((desc->topK + moThreads.x - 1) / moThreads.x, numQueries, 1);
+  ivfpq_make_outputs<scoreDtype>
+    <<<moBlocks, moThreads, 0, handle->stream>>>(desc->numProbes,
+                                                 desc->topK,
+                                                 desc->maxSamples,
+                                                 numQueries,
+                                                 indexPtr,
+                                                 originalNumbers,
+                                                 clusterLabelsToProbe,
+                                                 chunkIndexPtr,
+                                                 (scoreDtype*)similarity,
+                                                 simTopkIndex,
+                                                 topkSids,
+                                                 topkNeighbors,
+                                                 topkDistances);
+#ifdef CUANN_DEBUG
+  cudaError = cudaDeviceSynchronize();
+  if (cudaError != cudaSuccess) {
+    fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
+    exit(-1);
+  }
+#endif
 }
 
 }  // namespace raft::spatial::knn::ivf_pq
