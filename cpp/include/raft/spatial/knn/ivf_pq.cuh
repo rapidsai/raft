@@ -209,7 +209,7 @@ struct cuannIvfPqIndexHeader {
 };
 
 //
-char* _cuann_get_dtype_string(cudaDataType_t dtype, char* string)
+inline char* _cuann_get_dtype_string(cudaDataType_t dtype, char* string)
 {
   if (dtype == CUDA_R_32F)
     sprintf(string, "float (CUDA_R_32F)");
@@ -225,7 +225,7 @@ char* _cuann_get_dtype_string(cudaDataType_t dtype, char* string)
 }
 
 //
-size_t _cuann_aligned(size_t size)
+inline size_t _cuann_aligned(size_t size)
 {
   size_t unit = 128;
   if (size % unit) { size += unit - (size % unit); }
@@ -233,7 +233,7 @@ size_t _cuann_aligned(size_t size)
 }
 
 // memset
-void _cuann_memset(void* ptr, int value, size_t count)
+inline void _cuann_memset(void* ptr, int value, size_t count)
 {
   cudaPointerAttributes attr;
   cudaPointerGetAttributes(&attr, ptr);
@@ -304,10 +304,10 @@ __global__ void kern_argmin(uint32_t nRows,
 }
 
 // argmin along column
-void _cuann_argmin(uint32_t nRows,
-                   uint32_t nCols,
-                   const float* a,  // [nRows, nCols]
-                   uint32_t* out    // [nRows]
+inline void _cuann_argmin(uint32_t nRows,
+                          uint32_t nCols,
+                          const float* a,  // [nRows, nCols]
+                          uint32_t* out    // [nRows]
 )
 {
   uint32_t nThreads = 1024;
@@ -337,13 +337,13 @@ __global__ void kern_copy(uint32_t nRows,
 
 // copy
 template <typename S, typename D>
-void _cuann_copy(uint32_t nRows,
-                 uint32_t nCols,
-                 const S* src,  // [nRows, ldSrc]
-                 uint32_t ldSrc,
-                 D* dst,  // [nRows, ldDst]
-                 uint32_t ldDst,
-                 D divisor)
+inline void _cuann_copy(uint32_t nRows,
+                        uint32_t nCols,
+                        const S* src,  // [nRows, ldSrc]
+                        uint32_t ldSrc,
+                        D* dst,  // [nRows, ldDst]
+                        uint32_t ldDst,
+                        D divisor)
 {
   uint32_t nThreads = 128;
   uint32_t nBlocks  = ((nRows * nCols) + nThreads - 1) / nThreads;
@@ -381,12 +381,12 @@ template void _cuann_copy<int8_t, float>(uint32_t nRows,
 
 // copy_CPU
 template <typename S, typename D>
-void _cuann_copy_CPU(uint32_t nRows,
-                     uint32_t nCols,
-                     const S* src,  // [nRows, ldSrc]
-                     uint32_t ldSrc,
-                     D* dst,  // [nRows, ldDst]
-                     uint32_t ldDst)
+inline void _cuann_copy_CPU(uint32_t nRows,
+                            uint32_t nCols,
+                            const S* src,  // [nRows, ldSrc]
+                            uint32_t ldSrc,
+                            D* dst,  // [nRows, ldDst]
+                            uint32_t ldDst)
 {
   for (uint32_t ir = 0; ir < nRows; ir++) {
     for (uint32_t ic = 0; ic < nCols; ic++) {
@@ -422,15 +422,15 @@ __global__ void kern_copy_fill(uint32_t nRows,
 
 // copy_fill
 template <typename S, typename D>
-void _cuann_copy_fill(uint32_t nRows,
-                      uint32_t nCols,
-                      const S* src,  // [nRows, ldSrc]
-                      uint32_t ldSrc,
-                      D* dst,  // [nRows, ldDst]
-                      uint32_t ldDst,
-                      D fillValue,
-                      D divisor,
-                      cudaStream_t stream)
+inline void _cuann_copy_fill(uint32_t nRows,
+                             uint32_t nCols,
+                             const S* src,  // [nRows, ldSrc]
+                             uint32_t ldSrc,
+                             D* dst,  // [nRows, ldDst]
+                             uint32_t ldDst,
+                             D fillValue,
+                             D divisor,
+                             cudaStream_t stream)
 {
   assert(ldSrc >= nCols);
   assert(ldDst >= nCols);
@@ -489,14 +489,14 @@ __global__ void kern_copy_with_list(uint32_t nRows,
 
 // copy with row list
 template <typename T>
-void _cuann_copy_with_list(uint32_t nRows,
-                           uint32_t nCols,
-                           const T* src,             // [..., ldSrc]
-                           const uint32_t* rowList,  // [nRows,]
-                           uint32_t ldSrc,
-                           float* dst,  // [nRows, ldDst]
-                           uint32_t ldDst,
-                           float divisor = 1.0f)
+inline void _cuann_copy_with_list(uint32_t nRows,
+                                  uint32_t nCols,
+                                  const T* src,             // [..., ldSrc]
+                                  const uint32_t* rowList,  // [nRows,]
+                                  uint32_t ldSrc,
+                                  float* dst,  // [nRows, ldDst]
+                                  uint32_t ldDst,
+                                  float divisor = 1.0f)
 {
   cudaPointerAttributes attr;
   cudaPointerGetAttributes(&attr, src);
@@ -556,11 +556,11 @@ __global__ void kern_a_me_b(uint32_t nRows,
 }
 
 // a -= b
-void _cuann_a_me_b(uint32_t nRows,
-                   uint32_t nCols,
-                   float* a,  // [nRows, nCols]
-                   uint32_t ldA,
-                   float* b  // [nCols]
+inline void _cuann_a_me_b(uint32_t nRows,
+                          uint32_t nCols,
+                          float* a,  // [nRows, nCols]
+                          uint32_t ldA,
+                          float* b  // [nCols]
 )
 {
   uint32_t nThreads = 128;
@@ -590,14 +590,14 @@ __global__ void kern_accumulate_with_label(uint32_t nRowsOutput,
 
 // accumulate
 template <typename T>
-void _cuann_accumulate_with_label(uint32_t nRowsOutput,
-                                  uint32_t nCols,
-                                  float* output,    // [nRowsOutput, nCols,]
-                                  uint32_t* count,  // [nRowsOutput,]
-                                  uint32_t nRowsInput,
-                                  const T* input,         // [nRowsInput, nCols,]
-                                  const uint32_t* label,  // [nRowsInput,]
-                                  float divisor = 1.0)
+inline void _cuann_accumulate_with_label(uint32_t nRowsOutput,
+                                         uint32_t nCols,
+                                         float* output,    // [nRowsOutput, nCols,]
+                                         uint32_t* count,  // [nRowsOutput,]
+                                         uint32_t nRowsInput,
+                                         const T* input,         // [nRowsInput, nCols,]
+                                         const uint32_t* label,  // [nRowsInput,]
+                                         float divisor = 1.0)
 {
   bool useGPU = 1;
   cudaPointerAttributes attr;
@@ -655,10 +655,10 @@ __global__ void kern_normalize(uint32_t nRows,
 }
 
 // normalize
-void _cuann_normalize(uint32_t nRows,
-                      uint32_t nCols,
-                      float* a,                             // [nRows, nCols]
-                      const uint32_t* numSamples = nullptr  // [nRows,]
+inline void _cuann_normalize(uint32_t nRows,
+                             uint32_t nCols,
+                             float* a,                             // [nRows, nCols]
+                             const uint32_t* numSamples = nullptr  // [nRows,]
 )
 {
   dim3 threads(32, 4, 1);  // DO NOT CHANGE
@@ -681,10 +681,10 @@ __global__ void kern_divide(uint32_t nRows,
 }
 
 // divide
-void _cuann_divide(uint32_t nRows,
-                   uint32_t nCols,
-                   float* a,                   // [nRows, nCols]
-                   const uint32_t* numSamples  // [nRows,]
+inline void _cuann_divide(uint32_t nRows,
+                          uint32_t nCols,
+                          float* a,                   // [nRows, nCols]
+                          const uint32_t* numSamples  // [nRows,]
 )
 {
   dim3 threads(128, 1, 1);
@@ -716,16 +716,16 @@ __global__ void kern_transpose_copy_3d(uint32_t num0,
 
 // transpose_copy_3d
 template <typename D, typename S>
-void _cuann_transpose_copy_3d(uint32_t num0,
-                              uint32_t num1,
-                              uint32_t num2,
-                              D* dst,  // [num2, ld1, ld0]
-                              uint32_t ld0,
-                              uint32_t ld1,
-                              const S* src,  // [...]
-                              uint32_t stride0,
-                              uint32_t stride1,
-                              uint32_t stride2)
+inline void _cuann_transpose_copy_3d(uint32_t num0,
+                                     uint32_t num1,
+                                     uint32_t num2,
+                                     D* dst,  // [num2, ld1, ld0]
+                                     uint32_t ld0,
+                                     uint32_t ld1,
+                                     const S* src,  // [...]
+                                     uint32_t stride0,
+                                     uint32_t stride1,
+                                     uint32_t stride2)
 {
   uint32_t nThreads = 128;
   uint32_t nBlocks  = ((num0 * num1 * num2) + nThreads - 1) / nThreads;
@@ -755,7 +755,7 @@ __global__ void kern_axpy(int num, T alpha, const T* x, T* y)
 
 //
 template <typename T>
-void _cuann_axpy(int num, T alpha, const T* x, T* y)
+inline void _cuann_axpy(int num, T alpha, const T* x, T* y)
 {
   uint32_t nThreads = 128;
   uint32_t nBlocks  = (num + nThreads - 1) / nThreads;
@@ -823,7 +823,7 @@ T** _cuann_multi_device_malloc(int numDevices,
 
 // multi_device_free
 template <typename T>
-void _cuann_multi_device_free(T** arrays, int numDevices)
+inline void _cuann_multi_device_free(T** arrays, int numDevices)
 {
   for (int devId = 0; devId < numDevices; devId++) {
     cudaFree(arrays[devId]);
@@ -856,16 +856,16 @@ template void _cuann_multi_device_free<uint8_t>(uint8_t** arrays, int numDevices
  */
 
 // update kmeans centers
-void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
-                                  uint32_t numCenters,
-                                  uint32_t dimCenters,
-                                  const void* dataset,  // [numDataset, dimCenters]
-                                  cudaDataType_t dtype,
-                                  uint32_t numDataset,
-                                  uint32_t* labels,  // [numDataset]
-                                  cuannSimilarity_t similarity,
-                                  uint32_t* clusterSize,  // [numCenters]
-                                  float* accumulatedCenters)
+inline void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
+                                         uint32_t numCenters,
+                                         uint32_t dimCenters,
+                                         const void* dataset,  // [numDataset, dimCenters]
+                                         cudaDataType_t dtype,
+                                         uint32_t numDataset,
+                                         uint32_t* labels,  // [numDataset]
+                                         cuannSimilarity_t similarity,
+                                         uint32_t* clusterSize,  // [numCenters]
+                                         float* accumulatedCenters)
 {
   if (accumulatedCenters == NULL) {
     // accumulate
@@ -928,15 +928,15 @@ static cudaStream_t _cuann_set_cublas_stream(cublasHandle_t cublasHandle, cudaSt
 }
 
 // predict label of dataset
-void _cuann_kmeans_predict_core(cublasHandle_t cublasHandle,
-                                const float* centers,  // [numCenters, dimCenters]
-                                uint32_t numCenters,
-                                uint32_t dimCenters,
-                                const float* dataset,  // [numDataset, dimCenters]
-                                uint32_t numDataset,
-                                uint32_t* labels,  // [numDataset]
-                                cuannSimilarity_t similarity,
-                                float* workspace)
+inline void _cuann_kmeans_predict_core(cublasHandle_t cublasHandle,
+                                       const float* centers,  // [numCenters, dimCenters]
+                                       uint32_t numCenters,
+                                       uint32_t dimCenters,
+                                       const float* dataset,  // [numDataset, dimCenters]
+                                       uint32_t numDataset,
+                                       uint32_t* labels,  // [numDataset]
+                                       cuannSimilarity_t similarity,
+                                       float* workspace)
 {
   cublasStatus_t cublasError;
   const uint32_t dimDataset = dimCenters;
@@ -1010,9 +1010,9 @@ uint32_t _cuann_kmeans_predict_chunkSize(uint32_t numCenters, uint32_t numDatase
 }
 
 //
-size_t _cuann_kmeans_predict_bufferSize(uint32_t numCenters,
-                                        uint32_t dimCenters,
-                                        uint32_t numDataset)
+inline size_t _cuann_kmeans_predict_bufferSize(uint32_t numCenters,
+                                               uint32_t dimCenters,
+                                               uint32_t numDataset)
 {
   uint32_t chunk = _cuann_kmeans_predict_chunkSize(numCenters, numDataset);
   size_t size    = 0;
@@ -1026,20 +1026,20 @@ size_t _cuann_kmeans_predict_bufferSize(uint32_t numCenters,
 }
 
 // predict label of dataset
-void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
-                           float* centers,  // [numCenters, dimCenters]
-                           uint32_t numCenters,
-                           uint32_t dimCenters,
-                           const void* dataset,  // [numDataset, dimCenters]
-                           cudaDataType_t dtype,
-                           uint32_t numDataset,
-                           uint32_t* labels,  // [numDataset]
-                           cuannSimilarity_t similarity,
-                           bool isCenterSet,
-                           void* _workspace,
-                           float* tempCenters,     // [numCenters, dimCenters]
-                           uint32_t* clusterSize,  // [numCenters,]
-                           bool updateCenter)
+inline void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
+                                  float* centers,  // [numCenters, dimCenters]
+                                  uint32_t numCenters,
+                                  uint32_t dimCenters,
+                                  const void* dataset,  // [numDataset, dimCenters]
+                                  cudaDataType_t dtype,
+                                  uint32_t numDataset,
+                                  uint32_t* labels,  // [numDataset]
+                                  cuannSimilarity_t similarity,
+                                  bool isCenterSet,
+                                  void* _workspace,
+                                  float* tempCenters,     // [numCenters, dimCenters]
+                                  uint32_t* clusterSize,  // [numCenters,]
+                                  bool updateCenter)
 {
   if (!isCenterSet) {
     // If centers are not set, the labels will be determined randomly.
@@ -1198,19 +1198,19 @@ void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
 //
 // predict label of dataset with multiple devices
 //
-void _cuann_kmeans_predict_MP(int numDevices,
-                              cublasHandle_t* cublasHandles,  // [numDevices]
-                              float* clusterCenters,          // [numCenters, dimCenters]
-                              uint32_t numCenters,
-                              uint32_t dimCenters,
-                              const void* dataset,  // [numDataset, dimCenters]
-                              cudaDataType_t dtype,
-                              uint32_t numDataset,
-                              uint32_t* labels,  // [numDataset]
-                              cuannSimilarity_t similarity,
-                              bool isCenterSet,
-                              uint32_t* clusterSize,  // [numCenters]
-                              bool updateCenter       // If true, cluster Centers will be updated.
+inline void _cuann_kmeans_predict_MP(int numDevices,
+                                     cublasHandle_t* cublasHandles,  // [numDevices]
+                                     float* clusterCenters,          // [numCenters, dimCenters]
+                                     uint32_t numCenters,
+                                     uint32_t dimCenters,
+                                     const void* dataset,  // [numDataset, dimCenters]
+                                     cudaDataType_t dtype,
+                                     uint32_t numDataset,
+                                     uint32_t* labels,  // [numDataset]
+                                     cuannSimilarity_t similarity,
+                                     bool isCenterSet,
+                                     uint32_t* clusterSize,  // [numCenters]
+                                     bool updateCenter  // If true, cluster Centers will be updated.
 )
 {
   // [numDevices][numCenters, dimCenters]
@@ -1305,14 +1305,14 @@ void _cuann_kmeans_predict_MP(int numDevices,
 
 // predict labe of dataset (naive CPU version).
 // (*) available only for prediction, but not for training.
-void _cuann_kmeans_predict_CPU(float* centers,  // [numCenters, dimCenters]
-                               uint32_t numCenters,
-                               uint32_t dimCenters,
-                               const void* dataset,  // [numDataset, dimCenters]
-                               cudaDataType_t dtype,
-                               uint32_t numDataset,
-                               uint32_t* labels,  // [numDataset]
-                               cuannSimilarity_t similarity)
+inline void _cuann_kmeans_predict_CPU(float* centers,  // [numCenters, dimCenters]
+                                      uint32_t numCenters,
+                                      uint32_t dimCenters,
+                                      const void* dataset,  // [numDataset, dimCenters]
+                                      cudaDataType_t dtype,
+                                      uint32_t numDataset,
+                                      uint32_t* labels,  // [numDataset]
+                                      cuannSimilarity_t similarity)
 {
   float multiplier = 1.0;
   if (dtype == CUDA_R_8U) {
@@ -2544,11 +2544,11 @@ __global__ void _sort_topk_prep(uint32_t sizeBatch,
 }
 
 //
-size_t _cuann_find_topk_bufferSize(cuannHandle_t handle,
-                                   uint32_t topK,
-                                   uint32_t sizeBatch,
-                                   uint32_t maxSamples,
-                                   cudaDataType_t sampleDtype = CUDA_R_32F)
+inline size_t _cuann_find_topk_bufferSize(cuannHandle_t handle,
+                                          uint32_t topK,
+                                          uint32_t sizeBatch,
+                                          uint32_t maxSamples,
+                                          cudaDataType_t sampleDtype = CUDA_R_32F)
 {
   constexpr int numThreads  = NUM_THREADS;
   constexpr int stateBitLen = STATE_BIT_LENGTH;
@@ -2609,15 +2609,15 @@ int _get_vecLen(uint32_t maxSamples, int maxVecLen = MAX_VEC_LENGTH)
 }
 
 //
-void _cuann_find_topk(cuannHandle_t handle,
-                      uint32_t topK,
-                      uint32_t sizeBatch,
-                      uint32_t maxSamples,
-                      uint32_t* numSamples,  // [sizeBatch,]
-                      const float* samples,  // [sizeBatch, maxSamples,]
-                      uint32_t* labels,      // [sizeBatch, topK,]
-                      void* workspace,
-                      bool sort = false)
+inline void _cuann_find_topk(cuannHandle_t handle,
+                             uint32_t topK,
+                             uint32_t sizeBatch,
+                             uint32_t maxSamples,
+                             uint32_t* numSamples,  // [sizeBatch,]
+                             const float* samples,  // [sizeBatch, maxSamples,]
+                             uint32_t* labels,      // [sizeBatch, topK,]
+                             void* workspace,
+                             bool sort = false)
 {
   constexpr int numThreads  = NUM_THREADS;
   constexpr int stateBitLen = STATE_BIT_LENGTH;
@@ -2740,15 +2740,15 @@ void _cuann_find_topk(cuannHandle_t handle,
 }
 
 //
-void _cuann_find_topk(cuannHandle_t handle,
-                      uint32_t topK,
-                      uint32_t sizeBatch,
-                      uint32_t maxSamples,
-                      uint32_t* numSamples,  // [sizeBatch,]
-                      const half* samples,   // [sizeBatch, maxSamples,]
-                      uint32_t* labels,      // [sizeBatch, topK,]
-                      void* workspace,
-                      bool sort = false)
+inline void _cuann_find_topk(cuannHandle_t handle,
+                             uint32_t topK,
+                             uint32_t sizeBatch,
+                             uint32_t maxSamples,
+                             uint32_t* numSamples,  // [sizeBatch,]
+                             const half* samples,   // [sizeBatch, maxSamples,]
+                             uint32_t* labels,      // [sizeBatch, topK,]
+                             void* workspace,
+                             bool sort = false)
 {
   constexpr int numThreads  = NUM_THREADS;
   constexpr int stateBitLen = STATE_BIT_LENGTH;
@@ -2837,35 +2837,35 @@ void _cuann_find_topk(cuannHandle_t handle,
  */
 
 //
-size_t ivfpq_search_bufferSize(cuannHandle_t handle, cuannIvfPqDescriptor_t desc);
+inline size_t ivfpq_search_bufferSize(cuannHandle_t handle, cuannIvfPqDescriptor_t desc);
 
 // search
 template <typename scoreDtype, typename smemLutDtype>
-void ivfpq_search(cuannHandle_t handle,
-                  cuannIvfPqDescriptor_t desc,
-                  uint32_t numQueries,
-                  const float* clusterCenters,           // [numDataset, dimDataset]
-                  const float* pqCenters,                // [dimPq, 256, lenPq]
-                  const uint8_t* pqDataset,              // [numDataset, dimPq]
-                  const uint32_t* originalNumbers,       // [numDataset]
-                  const uint32_t* indexPtr,              // [numClusters + 1]
-                  const uint32_t* clusterLabelsToProbe,  // [numQueries, numProbes]
-                  const float* query,                    // [dimDataset]
-                  uint64_t* topKNeighbors,               // [topK]
-                  float* topKDistances,                  // [topK]
-                  void* workspace);
+inline void ivfpq_search(cuannHandle_t handle,
+                         cuannIvfPqDescriptor_t desc,
+                         uint32_t numQueries,
+                         const float* clusterCenters,           // [numDataset, dimDataset]
+                         const float* pqCenters,                // [dimPq, 256, lenPq]
+                         const uint8_t* pqDataset,              // [numDataset, dimPq]
+                         const uint32_t* originalNumbers,       // [numDataset]
+                         const uint32_t* indexPtr,              // [numClusters + 1]
+                         const uint32_t* clusterLabelsToProbe,  // [numQueries, numProbes]
+                         const float* query,                    // [dimDataset]
+                         uint64_t* topKNeighbors,               // [topK]
+                         float* topKDistances,                  // [topK]
+                         void* workspace);
 
-void ivfpq_encode(uint32_t numDataset,
-                  uint32_t ldDataset,  // (*) ldDataset >= numDataset
-                  uint32_t dimPq,
-                  uint32_t bitPq,         // 4 <= bitPq <= 8
-                  const uint32_t* label,  // [dimPq, ldDataset]
-                  uint8_t* output         // [numDataset, dimPq]
+inline void ivfpq_encode(uint32_t numDataset,
+                         uint32_t ldDataset,  // (*) ldDataset >= numDataset
+                         uint32_t dimPq,
+                         uint32_t bitPq,         // 4 <= bitPq <= 8
+                         const uint32_t* label,  // [dimPq, ldDataset]
+                         uint8_t* output         // [numDataset, dimPq]
 );
 
 //
 bool manage_local_topk(cuannIvfPqDescriptor_t desc);
-size_t get_sizeSmemForLocalTopk(cuannIvfPqDescriptor_t desc, int numThreads);
+inline size_t get_sizeSmemForLocalTopk(cuannIvfPqDescriptor_t desc, int numThreads);
 
 //
 __global__ void ivfpq_init_topkScores(float* topkScores,  // [num,]
@@ -3067,7 +3067,7 @@ __global__ void ivfpq_make_outputs(uint32_t numProbes,
 }
 
 //
-bool manage_local_topk(cuannIvfPqDescriptor_t desc)
+inline bool manage_local_topk(cuannIvfPqDescriptor_t desc)
 {
   int depth = (desc->topK + 31) / 32;
   if (depth > 4) { return false; }
@@ -3077,7 +3077,7 @@ bool manage_local_topk(cuannIvfPqDescriptor_t desc)
 }
 
 //
-size_t get_sizeSmemForLocalTopk(cuannIvfPqDescriptor_t desc, int numThreads)
+inline size_t get_sizeSmemForLocalTopk(cuannIvfPqDescriptor_t desc, int numThreads)
 {
   if (manage_local_topk(desc)) {
     int topk_32 = (desc->topK + 31) / 32;
@@ -3087,7 +3087,7 @@ size_t get_sizeSmemForLocalTopk(cuannIvfPqDescriptor_t desc, int numThreads)
 }
 
 // return workspace size
-size_t ivfpq_search_bufferSize(cuannHandle_t handle, cuannIvfPqDescriptor_t desc)
+inline size_t ivfpq_search_bufferSize(cuannHandle_t handle, cuannIvfPqDescriptor_t desc)
 {
   size_t size = 0;
   // clusterLabelsOut  [maxBatchSize, numProbes]
@@ -3251,12 +3251,12 @@ __global__ void ivfpq_encode_kernel(uint32_t numDataset,
 }
 
 //
-void ivfpq_encode(uint32_t numDataset,
-                  uint32_t ldDataset,  // (*) ldDataset >= numDataset
-                  uint32_t dimPq,
-                  uint32_t bitPq,         // 4 <= bitPq <= 8
-                  const uint32_t* label,  // [dimPq, ldDataset]
-                  uint8_t* output         // [numDataset, dimPq]
+inline void ivfpq_encode(uint32_t numDataset,
+                         uint32_t ldDataset,  // (*) ldDataset >= numDataset
+                         uint32_t dimPq,
+                         uint32_t bitPq,         // 4 <= bitPq <= 8
+                         const uint32_t* label,  // [dimPq, ldDataset]
+                         uint8_t* output         // [numDataset, dimPq]
 )
 {
 #if 1
@@ -3318,15 +3318,15 @@ template __global__ void ivfpq_make_outputs<half>(
  *
  */
 
-cuannStatus_t cuannCreate(cuannHandle_t* handle);
-cuannStatus_t cuannDestroy(cuannHandle_t handle);
-cuannStatus_t cuannSetStream(cuannHandle_t handle, cudaStream_t stream);
-cuannStatus_t cuannSetDevice(cuannHandle_t handle, int devId);
+inline cuannStatus_t cuannCreate(cuannHandle_t* handle);
+inline cuannStatus_t cuannDestroy(cuannHandle_t handle);
+inline cuannStatus_t cuannSetStream(cuannHandle_t handle, cudaStream_t stream);
+inline cuannStatus_t cuannSetDevice(cuannHandle_t handle, int devId);
 
-cuannStatus_t cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc);
-cuannStatus_t cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc);
+inline cuannStatus_t cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc);
+inline cuannStatus_t cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc);
 
-cuannStatus_t cuannIvfPqSetIndexParameters(
+inline cuannStatus_t cuannIvfPqSetIndexParameters(
   cuannIvfPqDescriptor_t desc,
   const uint32_t numClusters, /* Number of clusters */
   const uint32_t numDataset,  /* Number of dataset entries */
@@ -3336,19 +3336,19 @@ cuannStatus_t cuannIvfPqSetIndexParameters(
   const cuannSimilarity_t similarity,
   const cuannPqCenter_t typePqCenter);
 
-cuannStatus_t cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
-                                           uint32_t* numClusters,
-                                           uint32_t* numDataset,
-                                           uint32_t* dimDataset,
-                                           uint32_t* dimPq,
-                                           uint32_t* bitPq,
-                                           cuannSimilarity_t* similarity,
-                                           cuannPqCenter_t* typePqCenter);
+inline cuannStatus_t cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
+                                                  uint32_t* numClusters,
+                                                  uint32_t* numDataset,
+                                                  uint32_t* dimDataset,
+                                                  uint32_t* dimPq,
+                                                  uint32_t* bitPq,
+                                                  cuannSimilarity_t* similarity,
+                                                  cuannPqCenter_t* typePqCenter);
 
-cuannStatus_t cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc,
-                                     size_t* size /* bytes of dataset index */);
+inline cuannStatus_t cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc,
+                                            size_t* size /* bytes of dataset index */);
 
-cuannStatus_t cuannIvfPqBuildIndex(
+inline cuannStatus_t cuannIvfPqBuildIndex(
   cuannHandle_t handle,
   cuannIvfPqDescriptor_t desc,
   const void* dataset,  /* [numDataset, dimDataset] */
@@ -3360,74 +3360,75 @@ cuannStatus_t cuannIvfPqBuildIndex(
   bool hierarchicalClustering, /* If true, do kmeans training hierarchically */
   void* index /* database index to build */);
 
-cuannStatus_t cuannIvfPqSaveIndex(cuannHandle_t handle,
-                                  cuannIvfPqDescriptor_t desc,
-                                  const void* index,
-                                  const char* fileName);
+inline cuannStatus_t cuannIvfPqSaveIndex(cuannHandle_t handle,
+                                         cuannIvfPqDescriptor_t desc,
+                                         const void* index,
+                                         const char* fileName);
 
-cuannStatus_t cuannIvfPqLoadIndex(cuannHandle_t handle,
-                                  cuannIvfPqDescriptor_t desc,
-                                  void** index,
-                                  const char* fileName);
+inline cuannStatus_t cuannIvfPqLoadIndex(cuannHandle_t handle,
+                                         cuannIvfPqDescriptor_t desc,
+                                         void** index,
+                                         const char* fileName);
 
-cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
+inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   cuannHandle_t handle,
   const char* oldIndexFileName,
   const char* newIndexFileName,
   const void* newVectors, /* [numVectorsToAdd, dimDataset] */
   uint32_t numNewVectors);
 
-cuannStatus_t cuannIvfPqSetSearchParameters(
+inline cuannStatus_t cuannIvfPqSetSearchParameters(
   cuannIvfPqDescriptor_t desc,
   const uint32_t numProbes, /* Number of clusters to probe */
   const uint32_t topK);     /* Number of search results */
 
-cuannStatus_t cuannIvfPqSetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
-                                                  cudaDataType_t internalDistanceDtype,
-                                                  cudaDataType_t smemLutDtype,
-                                                  const uint32_t preferredThreadBlockSize);
+inline cuannStatus_t cuannIvfPqSetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
+                                                         cudaDataType_t internalDistanceDtype,
+                                                         cudaDataType_t smemLutDtype,
+                                                         const uint32_t preferredThreadBlockSize);
 
-cuannStatus_t cuannIvfPqGetSearchParameters(cuannIvfPqDescriptor_t desc,
-                                            uint32_t* numProbes,
-                                            uint32_t* topK);
+inline cuannStatus_t cuannIvfPqGetSearchParameters(cuannIvfPqDescriptor_t desc,
+                                                   uint32_t* numProbes,
+                                                   uint32_t* topK);
 
-cuannStatus_t cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
-                                                  cudaDataType_t* internalDistanceDtype,
-                                                  cudaDataType_t* smemLutDtype,
-                                                  uint32_t* preferredThreadBlockSize);
+inline cuannStatus_t cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
+                                                         cudaDataType_t* internalDistanceDtype,
+                                                         cudaDataType_t* smemLutDtype,
+                                                         uint32_t* preferredThreadBlockSize);
 
-cuannStatus_t cuannIvfPqSearch_bufferSize(cuannHandle_t handle,
-                                          cuannIvfPqDescriptor_t desc,
-                                          const void* index,
-                                          uint32_t numQueries,
-                                          size_t maxWorkspaceSize,
-                                          size_t* workspaceSize);
+inline cuannStatus_t cuannIvfPqSearch_bufferSize(cuannHandle_t handle,
+                                                 cuannIvfPqDescriptor_t desc,
+                                                 const void* index,
+                                                 uint32_t numQueries,
+                                                 size_t maxWorkspaceSize,
+                                                 size_t* workspaceSize);
 
-cuannStatus_t cuannIvfPqSearch(cuannHandle_t handle,
-                               cuannIvfPqDescriptor_t desc,
-                               const void* index,
-                               const void* queries, /* [numQueries, dimDataset] */
-                               cudaDataType_t dtype,
-                               uint32_t numQueries,
-                               uint64_t* neighbors, /* [numQueries, topK] */
-                               float* distances,    /* [numQueries, topK] */
-                               void* workspace);
+inline cuannStatus_t cuannIvfPqSearch(cuannHandle_t handle,
+                                      cuannIvfPqDescriptor_t desc,
+                                      const void* index,
+                                      const void* queries, /* [numQueries, dimDataset] */
+                                      cudaDataType_t dtype,
+                                      uint32_t numQueries,
+                                      uint64_t* neighbors, /* [numQueries, topK] */
+                                      float* distances,    /* [numQueries, topK] */
+                                      void* workspace);
 
-cuannStatus_t cuannPostprocessingRefine(uint32_t numDataset,
-                                        uint32_t numQueries,
-                                        uint32_t dimDataset,
-                                        const void* dataset, /* [numDataset, dimDataset] */
-                                        const void* queries, /* [numQueries, dimDataset] */
-                                        cudaDataType_t dtype,
-                                        cuannSimilarity_t similarity,
-                                        uint32_t topK,
-                                        const uint64_t* neighbors, /* [numQueries, topK] */
-                                        uint32_t refinedTopK,
-                                        uint64_t* refinedNeighbors, /* [numQueries, refinedTopK] */
-                                        float* refinedDistances     /* [numQueries, refinedTopK] */
+inline cuannStatus_t cuannPostprocessingRefine(
+  uint32_t numDataset,
+  uint32_t numQueries,
+  uint32_t dimDataset,
+  const void* dataset, /* [numDataset, dimDataset] */
+  const void* queries, /* [numQueries, dimDataset] */
+  cudaDataType_t dtype,
+  cuannSimilarity_t similarity,
+  uint32_t topK,
+  const uint64_t* neighbors, /* [numQueries, topK] */
+  uint32_t refinedTopK,
+  uint64_t* refinedNeighbors, /* [numQueries, refinedTopK] */
+  float* refinedDistances     /* [numQueries, refinedTopK] */
 );
 
-cuannStatus_t cuannPostprocessingMerge(
+inline cuannStatus_t cuannPostprocessingMerge(
   uint32_t numSplit,
   uint32_t numQueries,
   uint32_t topK,
@@ -3438,13 +3439,13 @@ cuannStatus_t cuannPostprocessingMerge(
   float* distances                /* [numQueries, topK] */
 );
 
-size_t _cuann_getIndexSize_clusterCenters(cuannIvfPqDescriptor_t desc)
+inline size_t _cuann_getIndexSize_clusterCenters(cuannIvfPqDescriptor_t desc)
 {
   // [numClusters, dimDatasetExt]
   return _cuann_aligned(sizeof(float) * desc->numClusters * desc->dimDatasetExt);
 }
 
-size_t _cuann_getIndexSize_pqCenters(cuannIvfPqDescriptor_t desc)
+inline size_t _cuann_getIndexSize_pqCenters(cuannIvfPqDescriptor_t desc)
 {
   size_t size_base = sizeof(float) * (1 << desc->bitPq) * desc->lenPq;
   if (desc->typePqCenter == CUANN_PQ_CENTER_PER_SUBSPACE) {
@@ -3456,47 +3457,47 @@ size_t _cuann_getIndexSize_pqCenters(cuannIvfPqDescriptor_t desc)
   }
 }
 
-size_t _cuann_getIndexSize_pqDataset(cuannIvfPqDescriptor_t desc)
+inline size_t _cuann_getIndexSize_pqDataset(cuannIvfPqDescriptor_t desc)
 {
   // [numDataset, dimPq * bitPq / 8]
   return _cuann_aligned(sizeof(uint8_t) * desc->numDataset * desc->dimPq * desc->bitPq / 8);
 }
 
-size_t _cuann_getIndexSize_originalNumbers(cuannIvfPqDescriptor_t desc)
+inline size_t _cuann_getIndexSize_originalNumbers(cuannIvfPqDescriptor_t desc)
 {
   // [numDataset,]
   return _cuann_aligned(sizeof(uint32_t) * desc->numDataset);
 }
 
-size_t _cuann_getIndexSize_indexPtr(cuannIvfPqDescriptor_t desc)
+inline size_t _cuann_getIndexSize_indexPtr(cuannIvfPqDescriptor_t desc)
 {
   // [numClusters + 1,]
   return _cuann_aligned(sizeof(uint32_t) * (desc->numClusters + 1));
 }
 
-size_t _cuann_getIndexSize_rotationMatrix(cuannIvfPqDescriptor_t desc)
+inline size_t _cuann_getIndexSize_rotationMatrix(cuannIvfPqDescriptor_t desc)
 {
   // [dimDataset, dimRotDataset]
   return _cuann_aligned(sizeof(float) * desc->dimDataset * desc->dimRotDataset);
 }
 
-size_t _cuann_getIndexSize_clusterRotCenters(cuannIvfPqDescriptor_t desc)
+inline size_t _cuann_getIndexSize_clusterRotCenters(cuannIvfPqDescriptor_t desc)
 {
   // [numClusters, dimRotDataset]
   return _cuann_aligned(sizeof(float) * desc->numClusters * desc->dimRotDataset);
 }
 
-void _cuann_get_index_pointers(cuannIvfPqDescriptor_t desc,
-                               const void* index,
-                               struct cuannIvfPqIndexHeader** header,
-                               float** clusterCenters,      // [numClusters, dimDatasetExt]
-                               float** pqCenters,           // [dimPq, 1 << bitPq, lenPq], or
-                                                            // [numClusters, 1 << bitPq, lenPq]
-                               uint8_t** pqDataset,         // [numDataset, dimPq * bitPq / 8]
-                               uint32_t** originalNumbers,  // [numDataset]
-                               uint32_t** indexPtr,         // [numClusters + 1]
-                               float** rotationMatrix,      // [dimDataset, dimRotDataset]
-                               float** clusterRotCenters    // [numClusters, dimRotDataset]
+inline void _cuann_get_index_pointers(cuannIvfPqDescriptor_t desc,
+                                      const void* index,
+                                      struct cuannIvfPqIndexHeader** header,
+                                      float** clusterCenters,  // [numClusters, dimDatasetExt]
+                                      float** pqCenters,       // [dimPq, 1 << bitPq, lenPq], or
+                                                               // [numClusters, 1 << bitPq, lenPq]
+                                      uint8_t** pqDataset,     // [numDataset, dimPq * bitPq / 8]
+                                      uint32_t** originalNumbers,  // [numDataset]
+                                      uint32_t** indexPtr,         // [numClusters + 1]
+                                      float** rotationMatrix,      // [dimDataset, dimRotDataset]
+                                      float** clusterRotCenters    // [numClusters, dimRotDataset]
 )
 {
   *header         = (struct cuannIvfPqIndexHeader*)index;
@@ -3531,7 +3532,7 @@ int descending(const void* a, const void* b)
 }
 
 // (*) This is temporal. Need to be removed in future.
-void _cuann_get_random_norm_vector(int len, float* vector)
+inline void _cuann_get_random_norm_vector(int len, float* vector)
 {
   float sqsum = 0.0;
   for (int i = 0; i < len; i++) {
@@ -3544,7 +3545,7 @@ void _cuann_get_random_norm_vector(int len, float* vector)
   }
 }
 
-void _cuann_get_inclusiveSumSortedClusterSize(
+inline void _cuann_get_inclusiveSumSortedClusterSize(
   cuannIvfPqDescriptor_t desc,
   const uint32_t* indexPtr,  // [numClusters + 1]
   float* clusterCenters,     // [numClusters, dimDatasetExt]
@@ -3588,9 +3589,9 @@ void _cuann_get_inclusiveSumSortedClusterSize(
   assert((*output)[desc->numClusters - 1] == desc->numDataset);
 }
 
-void _cuann_get_sqsumClusters(cuannIvfPqDescriptor_t desc,
-                              const float* clusterCenters,  // [numClusters, dimDataset,]
-                              float** output                // [numClusters,]
+inline void _cuann_get_sqsumClusters(cuannIvfPqDescriptor_t desc,
+                                     const float* clusterCenters,  // [numClusters, dimDataset,]
+                                     float** output                // [numClusters,]
 )
 {
   cudaError_t cudaError;
@@ -3634,11 +3635,11 @@ T _cuann_rand()
 }
 
 // make rotation matrix
-void _cuann_make_rotation_matrix(uint32_t nRows,
-                                 uint32_t nCols,
-                                 uint32_t lenPq,
-                                 bool randomRotation,
-                                 float* rotationMatrix  // [nRows, nCols]
+inline void _cuann_make_rotation_matrix(uint32_t nRows,
+                                        uint32_t nCols,
+                                        uint32_t lenPq,
+                                        bool randomRotation,
+                                        float* rotationMatrix  // [nRows, nCols]
 )
 {
   assert(nRows >= nCols);
@@ -3694,11 +3695,11 @@ void _cuann_make_rotation_matrix(uint32_t nRows,
 }
 
 // show centers (for debuging)
-void _cuann_kmeans_show_centers(const float* centers,  // [numCenters, dimCenters]
-                                uint32_t numCenters,
-                                uint32_t dimCenters,
-                                const uint32_t* centerSize,
-                                const uint32_t numShow = 5)
+inline void _cuann_kmeans_show_centers(const float* centers,  // [numCenters, dimCenters]
+                                       uint32_t numCenters,
+                                       uint32_t dimCenters,
+                                       const uint32_t* centerSize,
+                                       const uint32_t numShow = 5)
 {
   for (uint64_t k = 0; k < numCenters; k++) {
     if ((numShow <= k) && (k < numCenters - numShow)) {
@@ -3718,10 +3719,10 @@ void _cuann_kmeans_show_centers(const float* centers,  // [numCenters, dimCenter
 }
 
 // show dataset (for debugging)
-void _cuann_show_dataset(const float* dataset,  // [numDataset, dimDataset]
-                         uint32_t numDataset,
-                         uint32_t dimDataset,
-                         const uint32_t numShow = 5)
+inline void _cuann_show_dataset(const float* dataset,  // [numDataset, dimDataset]
+                                uint32_t numDataset,
+                                uint32_t dimDataset,
+                                const uint32_t numShow = 5)
 {
   for (uint64_t i = 0; i < numDataset; i++) {
     if ((numShow <= i) && (i < numDataset - numShow)) {
@@ -3741,10 +3742,10 @@ void _cuann_show_dataset(const float* dataset,  // [numDataset, dimDataset]
 }
 
 // show pq code (for debuging)
-void _cuann_show_pq_code(const uint8_t* pqDataset,  // [numDataset, dimPq]
-                         uint32_t numDataset,
-                         uint32_t dimPq,
-                         const uint32_t numShow = 5)
+inline void _cuann_show_pq_code(const uint8_t* pqDataset,  // [numDataset, dimPq]
+                                uint32_t numDataset,
+                                uint32_t dimPq,
+                                const uint32_t numShow = 5)
 {
   for (uint64_t i = 0; i < numDataset; i++) {
     if ((numShow <= i) && (i < numDataset - numShow)) {
@@ -3787,26 +3788,26 @@ uint32_t _get_num_trainset(uint32_t clusterSize, uint32_t dimPq, uint32_t bitPq)
 }
 
 //
-void _cuann_compute_PQ_code(cuannHandle_t handle,
-                            uint32_t numDataset,
-                            uint32_t dimDataset,
-                            uint32_t dimRotDataset,
-                            uint32_t dimPq,
-                            uint32_t lenPq,
-                            uint32_t bitPq,
-                            uint32_t numClusters,
-                            cudaDataType_t dtype,
-                            cuannPqCenter_t typePqCenter,
-                            uint32_t maxClusterSize,
-                            float* clusterCenters,            // [numClusters, dimDataset]
-                            const float* rotationMatrix,      // [dimRotDataset, dimDataset]
-                            const void* dataset,              // [numDataset]
-                            const uint32_t* originalNumbers,  // [numDataset]
-                            const uint32_t* clusterSize,      // [numClusters]
-                            const uint32_t* indexPtr,         // [numClusters + 1]
-                            float* pqCenters,                 // [...]
-                            uint32_t numIterations,
-                            uint8_t* pqDataset  // [numDataset, dimPq * bitPq / 8]
+inline void _cuann_compute_PQ_code(cuannHandle_t handle,
+                                   uint32_t numDataset,
+                                   uint32_t dimDataset,
+                                   uint32_t dimRotDataset,
+                                   uint32_t dimPq,
+                                   uint32_t lenPq,
+                                   uint32_t bitPq,
+                                   uint32_t numClusters,
+                                   cudaDataType_t dtype,
+                                   cuannPqCenter_t typePqCenter,
+                                   uint32_t maxClusterSize,
+                                   float* clusterCenters,            // [numClusters, dimDataset]
+                                   const float* rotationMatrix,      // [dimRotDataset, dimDataset]
+                                   const void* dataset,              // [numDataset]
+                                   const uint32_t* originalNumbers,  // [numDataset]
+                                   const uint32_t* clusterSize,      // [numClusters]
+                                   const uint32_t* indexPtr,         // [numClusters + 1]
+                                   float* pqCenters,                 // [...]
+                                   uint32_t numIterations,
+                                   uint8_t* pqDataset  // [numDataset, dimPq * bitPq / 8]
 )
 {
   //
@@ -4065,7 +4066,7 @@ void _cuann_compute_PQ_code(cuannHandle_t handle,
 }
 
 // cuannCreate
-cuannStatus_t cuannCreate(cuannHandle_t* handle)
+inline cuannStatus_t cuannCreate(cuannHandle_t* handle)
 {
   cudaError_t cudaError;
   cublasStatus_t cublasError;
@@ -4122,7 +4123,7 @@ cuannStatus_t cuannCreate(cuannHandle_t* handle)
 }
 
 // cuannDestroy
-cuannStatus_t cuannDestroy(cuannHandle_t handle)
+inline cuannStatus_t cuannDestroy(cuannHandle_t handle)
 {
   if (handle == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   cublasStatus_t cublasError;
@@ -4141,7 +4142,7 @@ cuannStatus_t cuannDestroy(cuannHandle_t handle)
 }
 
 // cuannSetStream
-cuannStatus_t cuannSetStream(cuannHandle_t handle, cudaStream_t stream)
+inline cuannStatus_t cuannSetStream(cuannHandle_t handle, cudaStream_t stream)
 {
   if (handle == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   int devId = handle->devId;
@@ -4152,7 +4153,7 @@ cuannStatus_t cuannSetStream(cuannHandle_t handle, cudaStream_t stream)
 }
 
 // cuannSetDevice
-cuannStatus_t cuannSetDevice(cuannHandle_t handle, int devId)
+inline cuannStatus_t cuannSetDevice(cuannHandle_t handle, int devId)
 {
   if (handle == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   if (devId < 0 || devId >= handle->numDevices) {
@@ -4176,7 +4177,7 @@ cuannStatus_t cuannSetDevice(cuannHandle_t handle, int devId)
 }
 
 // cuannIvfPqCreateDescriptor
-cuannStatus_t cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc)
+inline cuannStatus_t cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc)
 {
   *desc = (cuannIvfPqDescriptor_t)malloc(sizeof(struct cuannIvfPqDescriptor));
   if (*desc == NULL) { return CUANN_STATUS_ALLOC_FAILED; }
@@ -4198,7 +4199,7 @@ cuannStatus_t cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc)
 }
 
 // cuannIvfPqDestroyDescriptor
-cuannStatus_t cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc)
+inline cuannStatus_t cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc)
 {
   if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   if (desc->sqsumClusters != NULL) { cudaFree(desc->sqsumClusters); }
@@ -4207,14 +4208,14 @@ cuannStatus_t cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc)
 }
 
 // cuannIvfPqSetIndexParameters
-cuannStatus_t cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t desc,
-                                           const uint32_t numClusters,
-                                           const uint32_t numDataset,
-                                           const uint32_t dimDataset,
-                                           const uint32_t dimPq,
-                                           const uint32_t bitPq,
-                                           const cuannSimilarity_t similarity,
-                                           const cuannPqCenter_t typePqCenter)
+inline cuannStatus_t cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t desc,
+                                                  const uint32_t numClusters,
+                                                  const uint32_t numDataset,
+                                                  const uint32_t dimDataset,
+                                                  const uint32_t dimPq,
+                                                  const uint32_t bitPq,
+                                                  const cuannSimilarity_t similarity,
+                                                  const cuannPqCenter_t typePqCenter)
 {
   if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   if (numClusters == 0) {
@@ -4299,14 +4300,14 @@ cuannStatus_t cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t desc,
 }
 
 // cuannIvfPqGetIndexParameters
-cuannStatus_t cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
-                                           uint32_t* numClusters,
-                                           uint32_t* numDataset,
-                                           uint32_t* dimDataset,
-                                           uint32_t* dimPq,
-                                           uint32_t* bitPq,
-                                           cuannSimilarity_t* similarity,
-                                           cuannPqCenter_t* typePqCenter)
+inline cuannStatus_t cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
+                                                  uint32_t* numClusters,
+                                                  uint32_t* numDataset,
+                                                  uint32_t* dimDataset,
+                                                  uint32_t* dimPq,
+                                                  uint32_t* bitPq,
+                                                  cuannSimilarity_t* similarity,
+                                                  cuannPqCenter_t* typePqCenter)
 {
   if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
 
@@ -4321,7 +4322,7 @@ cuannStatus_t cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
 }
 
 // cuannIvfPqGetIndexSize
-cuannStatus_t cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc, size_t* size)
+inline cuannStatus_t cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc, size_t* size)
 {
   if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
 
@@ -4341,16 +4342,16 @@ cuannStatus_t cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc, size_t* size)
 }
 
 // cuannIvfPqBuildIndex
-cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
-                                   cuannIvfPqDescriptor_t desc,
-                                   const void* dataset,
-                                   const void* trainset,
-                                   cudaDataType_t dtype,
-                                   uint32_t numTrainset,
-                                   uint32_t numIterations,
-                                   bool randomRotation,
-                                   bool hierarchicalClustering,
-                                   void* index)
+inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
+                                          cuannIvfPqDescriptor_t desc,
+                                          const void* dataset,
+                                          const void* trainset,
+                                          cudaDataType_t dtype,
+                                          uint32_t numTrainset,
+                                          uint32_t numIterations,
+                                          bool randomRotation,
+                                          bool hierarchicalClustering,
+                                          void* index)
 {
   if (handle == NULL || desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   int cuannDevId  = handle->devId;
@@ -5111,10 +5112,10 @@ cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
 }
 
 // cuannIvfPqSaveIndex
-cuannStatus_t cuannIvfPqSaveIndex(cuannHandle_t handle,
-                                  cuannIvfPqDescriptor_t desc,
-                                  const void* index,
-                                  const char* fileName)
+inline cuannStatus_t cuannIvfPqSaveIndex(cuannHandle_t handle,
+                                         cuannIvfPqDescriptor_t desc,
+                                         const void* index,
+                                         const char* fileName)
 {
   if (handle == NULL || desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   int orgDevId = _cuann_set_device(handle->devId);
@@ -5137,10 +5138,10 @@ cuannStatus_t cuannIvfPqSaveIndex(cuannHandle_t handle,
 }
 
 // cuannIvfPqLoadIndex
-cuannStatus_t cuannIvfPqLoadIndex(cuannHandle_t handle,
-                                  cuannIvfPqDescriptor_t desc,
-                                  void** index,
-                                  const char* fileName)
+inline cuannStatus_t cuannIvfPqLoadIndex(cuannHandle_t handle,
+                                         cuannIvfPqDescriptor_t desc,
+                                         void** index,
+                                         const char* fileName)
 {
   if (handle == NULL || desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   int orgDevId = _cuann_set_device(handle->devId);
@@ -5245,7 +5246,7 @@ cuannStatus_t cuannIvfPqLoadIndex(cuannHandle_t handle,
 }
 
 // cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex
-cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
+inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   cuannHandle_t handle,
   const char* oldIndexFileName,
   const char* newIndexFileName,
@@ -5587,9 +5588,9 @@ cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
 }
 
 // cuannIvfPqSetSearchParameters
-cuannStatus_t cuannIvfPqSetSearchParameters(cuannIvfPqDescriptor_t desc,
-                                            const uint32_t numProbes,
-                                            const uint32_t topK)
+inline cuannStatus_t cuannIvfPqSetSearchParameters(cuannIvfPqDescriptor_t desc,
+                                                   const uint32_t numProbes,
+                                                   const uint32_t topK)
 {
   if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   if (numProbes == 0) {
@@ -5653,10 +5654,10 @@ cuannStatus_t cuannIvfPqSetSearchParameters(cuannIvfPqDescriptor_t desc,
 }
 
 // cuannIvfPqSetSearchParameters
-cuannStatus_t cuannIvfPqSetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
-                                                  cudaDataType_t internalDistanceDtype,
-                                                  cudaDataType_t smemLutDtype,
-                                                  const uint32_t preferredThreadBlockSize)
+inline cuannStatus_t cuannIvfPqSetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
+                                                         cudaDataType_t internalDistanceDtype,
+                                                         cudaDataType_t smemLutDtype,
+                                                         const uint32_t preferredThreadBlockSize)
 {
   if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   if (internalDistanceDtype != CUDA_R_16F && internalDistanceDtype != CUDA_R_32F) {
@@ -5690,9 +5691,9 @@ cuannStatus_t cuannIvfPqSetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
 }
 
 // cuannIvfPqGetSearchParameters
-cuannStatus_t cuannIvfPqGetSearchParameters(cuannIvfPqDescriptor_t desc,
-                                            uint32_t* numProbes,
-                                            uint32_t* topK)
+inline cuannStatus_t cuannIvfPqGetSearchParameters(cuannIvfPqDescriptor_t desc,
+                                                   uint32_t* numProbes,
+                                                   uint32_t* topK)
 {
   if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   *numProbes = desc->numProbes;
@@ -5701,10 +5702,10 @@ cuannStatus_t cuannIvfPqGetSearchParameters(cuannIvfPqDescriptor_t desc,
 }
 
 // cuannIvfPqGetSearchTuningParameters
-cuannStatus_t cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
-                                                  cudaDataType_t* internalDistanceDtype,
-                                                  cudaDataType_t* smemLutDtype,
-                                                  uint32_t* preferredThreadBlockSize)
+inline cuannStatus_t cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
+                                                         cudaDataType_t* internalDistanceDtype,
+                                                         cudaDataType_t* smemLutDtype,
+                                                         uint32_t* preferredThreadBlockSize)
 {
   if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   *internalDistanceDtype    = desc->internalDistanceDtype;
@@ -5714,12 +5715,12 @@ cuannStatus_t cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
 }
 
 // cuannIvfPqSearch
-cuannStatus_t cuannIvfPqSearch_bufferSize(cuannHandle_t handle,
-                                          cuannIvfPqDescriptor_t desc,
-                                          const void* index,
-                                          uint32_t maxQueries,
-                                          size_t maxWorkspaceSize,
-                                          size_t* workspaceSize)
+inline cuannStatus_t cuannIvfPqSearch_bufferSize(cuannHandle_t handle,
+                                                 cuannIvfPqDescriptor_t desc,
+                                                 const void* index,
+                                                 uint32_t maxQueries,
+                                                 size_t maxWorkspaceSize,
+                                                 size_t* workspaceSize)
 {
   if (handle == NULL || desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
 
@@ -5803,7 +5804,7 @@ cuannStatus_t cuannIvfPqSearch_bufferSize(cuannHandle_t handle,
 }
 
 // cuannIvfPqSearch
-cuannStatus_t cuannIvfPqSearch(
+inline cuannStatus_t cuannIvfPqSearch(
   cuannHandle_t handle,
   cuannIvfPqDescriptor_t desc,
   const void* index,
@@ -6920,19 +6921,19 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
 
 // search
 template <typename scoreDtype, typename smemLutDtype>
-void ivfpq_search(cuannHandle_t handle,
-                  cuannIvfPqDescriptor_t desc,
-                  uint32_t numQueries,
-                  const float* clusterCenters,           // [numDataset, dimRotDataset]
-                  const float* pqCenters,                // [dimPq, 1 << desc->bitPq, lenPq]
-                  const uint8_t* pqDataset,              // [numDataset, dimPq * bitPq / 8]
-                  const uint32_t* originalNumbers,       // [numDataset]
-                  const uint32_t* indexPtr,              // [numClusters + 1]
-                  const uint32_t* clusterLabelsToProbe,  // [numQueries, numProbes]
-                  const float* query,                    // [numQueries, dimRotDataset]
-                  uint64_t* topkNeighbors,               // [numQueries, topK]
-                  float* topkDistances,                  // [numQueries, topK]
-                  void* workspace)
+inline void ivfpq_search(cuannHandle_t handle,
+                         cuannIvfPqDescriptor_t desc,
+                         uint32_t numQueries,
+                         const float* clusterCenters,           // [numDataset, dimRotDataset]
+                         const float* pqCenters,                // [dimPq, 1 << desc->bitPq, lenPq]
+                         const uint8_t* pqDataset,              // [numDataset, dimPq * bitPq / 8]
+                         const uint32_t* originalNumbers,       // [numDataset]
+                         const uint32_t* indexPtr,              // [numClusters + 1]
+                         const uint32_t* clusterLabelsToProbe,  // [numQueries, numProbes]
+                         const float* query,                    // [numQueries, dimRotDataset]
+                         uint64_t* topkNeighbors,               // [numQueries, topK]
+                         float* topkDistances,                  // [numQueries, topK]
+                         void* workspace)
 {
   assert(numQueries <= desc->maxBatchSize);
 

@@ -151,6 +151,7 @@ inline void memzero(T* ptr, size_t n_elems, rmm::cuda_stream_view stream)
   }
 }
 
+namespace {
 __global__ void argmin_along_rows_kernel(uint32_t n_rows,
                                          uint32_t n_cols,
                                          const float* a,
@@ -185,6 +186,7 @@ __global__ void argmin_along_rows_kernel(uint32_t n_rows,
   }
   if (threadIdx.x == 0) { out[i] = shm_ids[0]; }
 }
+}  // namespace
 
 /**
  * @brief Find index of the smallest element in each row.
@@ -209,6 +211,7 @@ inline void argmin_along_rows(
   argmin_along_rows_kernel<<<n_rows, block_dim, 0, stream>>>(n_rows, n_cols, a, out);
 }
 
+namespace {
 __global__ void dots_along_rows_kernel(uint32_t n_rows, uint32_t n_cols, const float* a, float* out)
 {
   uint64_t i = threadIdx.y + (blockDim.y * blockIdx.x);
@@ -226,6 +229,7 @@ __global__ void dots_along_rows_kernel(uint32_t n_rows, uint32_t n_cols, const f
   sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
   if (threadIdx.x == 0) { out[i] = sqsum; }
 }
+}  // namespace
 
 /**
  * @brief Square sum of values in each row (row-major matrix).
@@ -317,6 +321,7 @@ void accumulate_into_selected(size_t n_rows,
   }
 }
 
+namespace {
 __global__ void normalize_rows_kernel(uint32_t n_rows, uint32_t n_cols, float* a)
 {
   uint64_t i = threadIdx.y + (blockDim.y * blockIdx.x);
@@ -338,6 +343,7 @@ __global__ void normalize_rows_kernel(uint32_t n_rows, uint32_t n_cols, float* a
     a[j + n_cols * i] *= sqsum;
   }
 }
+}  // namespace
 
 /**
  * @brief Divide rows by their L2 norm (square root of sum of squares).
