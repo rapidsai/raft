@@ -15,7 +15,7 @@
  */
 
 #include <raft/random/rmat_rectangular_generator.cuh>
-#include <raft_random/rmat_rectangular_generator.hpp>
+#include <raft_compiled/random/rmat_rectangular_generator.hpp>
 
 #define FUNC_DEF(IdxT, ProbT)                                                           \
   void rmat_rectangular_gen(raft::handle_t const& handle,                               \
