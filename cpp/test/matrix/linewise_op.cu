@@ -99,8 +99,8 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     return blob;
   }
 
-  void runLinewiseSumSpan(detail::padded_matrix<T>& out,
-                          const detail::padded_matrix<T>& in,
+  void runLinewiseSumSpan(padded_matrix<T>& out,
+                          const padded_matrix<T>& in,
                           const I lineLen,
                           const I nLines,
                           const bool alongLines,
@@ -235,14 +235,14 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
         auto nLines  = alongRows ? n : m;
 
         // create a padded span based on testdata (just for functional testing)
-        typename detail::padded_layout_row_major<T>::mapping<detail::extents_type> layout{
-          detail::extents_type{nLines, lineLen}};
+        typename padded_layout_row_major<T>::mapping<matrix_extents_type> layout{
+          matrix_extents_type{nLines, lineLen}};
 
         auto matrix_size_padded = layout.required_span_size();
         rmm::device_uvector<T> blob_in(matrix_size_padded, stream);
         rmm::device_uvector<T> blob_out(matrix_size_padded, stream);
-        auto inSpan  = detail::padded_matrix<T>(blob_in.data(), layout);
-        auto outSpan = detail::padded_matrix<T>(blob_out.data(), layout);
+        auto inSpan  = padded_matrix<T>(blob_in.data(), layout);
+        auto outSpan = padded_matrix<T>(blob_out.data(), layout);
 
         {
           auto in2 = in;

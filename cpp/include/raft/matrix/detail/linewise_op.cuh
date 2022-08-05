@@ -26,15 +26,6 @@ namespace raft {
 namespace matrix {
 namespace detail {
 
-namespace stdex    = std::experimental;
-using extents_type = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
-template <typename ValueType>
-using padded_layout_row_major =
-  stdex::layout_padded_general<ValueType, stdex::StorageOrderType::row_major_t, 128>;
-template <typename ElementType>
-using padded_matrix =
-  stdex::mdspan<ElementType, extents_type, padded_layout_row_major<std::remove_cv_t<ElementType>>>;
-
 template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize>
 struct Linewise {
   static constexpr IdxType VecElems = VecBytes / sizeof(Type);
