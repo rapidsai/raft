@@ -274,9 +274,7 @@ struct TxN_t {
     math_t data[Ratio];
   } val;
 
-  __device__ auto* vectorized_data() {
-    return reinterpret_cast<io_t*>(val.data);
-  }
+  __device__ auto* vectorized_data() { return reinterpret_cast<io_t*>(val.data); }
 
   ///@todo: add default constructor
 
@@ -312,14 +310,14 @@ struct TxN_t {
   template <typename idx_t = int>
   DI void load(const math_t* ptr, idx_t idx)
   {
-    const io_t* bptr = reinterpret_cast<const io_t*>(&ptr[idx]);
-    *vectorized_data()     = __ldg(bptr);
+    const io_t* bptr   = reinterpret_cast<const io_t*>(&ptr[idx]);
+    *vectorized_data() = __ldg(bptr);
   }
 
   template <typename idx_t = int>
   DI void load(math_t* ptr, idx_t idx)
   {
-    io_t* bptr   = reinterpret_cast<io_t*>(&ptr[idx]);
+    io_t* bptr         = reinterpret_cast<io_t*>(&ptr[idx]);
     *vectorized_data() = *bptr;
   }
 
