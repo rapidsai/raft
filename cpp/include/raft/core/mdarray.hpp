@@ -52,6 +52,15 @@ template <typename ElementType,
           typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
 using mdspan = detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
+using matrix_extents_type =
+  detail::stdex::extents<detail::stdex::dynamic_extent, detail::stdex::dynamic_extent>;
+template <typename ValueType>
+using padded_layout_row_major = std::experimental::
+  layout_padded_general<ValueType, std::experimental::StorageOrderType::row_major_t, 128>;
+template <typename ElementType>
+using padded_matrix =
+  mdspan<ElementType, matrix_extents_type, padded_layout_row_major<std::remove_cv_t<ElementType>>>;
+
 namespace detail {
 /**
  * @\brief Template checks and helpers to determine if type T is an std::mdspan
