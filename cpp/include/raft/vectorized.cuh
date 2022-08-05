@@ -272,9 +272,11 @@ struct TxN_t {
   union {
     /** the vectorized data that is used for subsequent operations */
     math_t data[Ratio];
-    /** internal data used to ensure vectorized loads/stores */
-    io_t internal;
   } val;
+
+  __device__ auto* vectorized_data() {
+    return reinterpret_cast<io_t*>(val.data);
+  }
 
   ///@todo: add default constructor
 
@@ -311,21 +313,21 @@ struct TxN_t {
   DI void load(const math_t* ptr, idx_t idx)
   {
     const io_t* bptr = reinterpret_cast<const io_t*>(&ptr[idx]);
-    val.internal     = __ldg(bptr);
+    *vectorized_data()     = __ldg(bptr);
   }
 
   template <typename idx_t = int>
   DI void load(math_t* ptr, idx_t idx)
   {
     io_t* bptr   = reinterpret_cast<io_t*>(&ptr[idx]);
-    val.internal = *bptr;
+    *vectorized_data() = *bptr;
   }
 
   template <typename idx_t = int>
   DI void store(math_t* ptr, idx_t idx)
   {
     io_t* bptr = reinterpret_cast<io_t*>(&ptr[idx]);
-    *bptr      = val.internal;
+    *bptr      = *vectorized_data();
   }
   /** @} */
 };
