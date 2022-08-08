@@ -301,8 +301,8 @@ void linewiseOp(m_t* out,
 }
 
 template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
-void linewiseOpSpan(padded_matrix<m_t>& out,
-                    const padded_matrix<m_t>& in,
+void linewiseOpSpan(padded_matrix<m_t, storage_order_type::row_major_t>& out,
+                    const padded_matrix<m_t, storage_order_type::row_major_t>& in,
                     const idx_t lineLen,
                     const idx_t nLines,
                     const bool alongLines,

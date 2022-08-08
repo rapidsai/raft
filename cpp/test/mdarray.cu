@@ -895,4 +895,60 @@ void test_mdspan_padding_by_type()
 
 TEST(MDSpan, MDSpanPaddingType) { test_mdspan_padding_by_type(); }
 
+void test_mdspan_aligned_matrix()
+{
+  using extents_type = stdex::extents<dynamic_extent, dynamic_extent>;
+  constexpr int rows = 2;
+  constexpr int cols = 10;
+
+  // manually aligning the above, using -1 as filler
+  static constexpr int X = -1;
+  long data_padded[]     = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  X, X, X, X, X, X,
+                        10, 11, 12, 13, 14, 15, 16, 17, 18, 19, X, X, X, X, X, X};
+
+  auto my_aligned_host_span =
+    make_aligned_mdspan<long, extents_type, stdex::StorageOrderType::row_major_t>(
+      data_padded, extents_type{rows, cols}, stdex::StorageOrderType::row_major_t);
+
+  int failures = 0;
+  for (int irow = 0; irow < rows; ++irow) {
+    for (int icol = 0; icol < cols; ++icol) {
+      if (my_aligned_host_span(irow, icol) != irow * cols + icol) { ++failures; }
+    }
+  }
+  ASSERT_EQ(failures, 0);
+
+  // now work with device memory
+  // use simple 1D array to allocate some space
+  auto s          = rmm::cuda_stream_default;
+  using extent_1d = stdex::extents<dynamic_extent>;
+  layout_c_contiguous::mapping<extent_1d> layout_1d{extent_1d{rows * 32}};
+  using mdarray_t    = device_mdarray<long, extent_1d, layout_c_contiguous>;
+  auto device_policy = mdarray_t::container_policy_type{s};
+  mdarray_t device_array_1d{layout_1d, device_policy};
+
+  // direct access mdarray -- initialize with above data
+  for (int i = 0; i < 32; ++i) {
+    device_array_1d(i) = data_padded[i];
+  }
+
+  auto my_aligned_device_span =
+    make_aligned_mdspan<long, extents_type, stdex::StorageOrderType::row_major_t>(
+      device_array_1d.data(), extents_type{rows, cols}, stdex::StorageOrderType::row_major_t);
+
+  thrust::device_vector<int32_t> status(1, 0);
+  auto p_status = status.data().get();
+  thrust::for_each_n(rmm::exec_policy(s),
+                     thrust::make_counting_iterator(0ul),
+                     rows * cols,
+                     [rows, cols, my_aligned_device_span, p_status] __device__(size_t i) {
+                       size_t idx = i / cols;
+                       size_t idy = i % cols;
+                       if (my_aligned_device_span(idx, idy) != i) myAtomicAdd(p_status, 1);
+                     });
+  check_status(p_status, s);
+}
+
+TEST(MDSpan, MDSpanAlignedMatrix) { test_mdspan_aligned_matrix(); }
+
 }  // namespace raft
