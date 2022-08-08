@@ -16,7 +16,7 @@
 
 #include <cstdint>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/random/rng_state.hpp>
 
 namespace raft::random::runtime {
