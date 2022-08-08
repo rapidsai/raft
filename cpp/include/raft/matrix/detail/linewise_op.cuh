@@ -528,8 +528,8 @@ template <typename Type,
           int BlockSize,
           typename Lambda,
           typename... Vecs>
-void matrixLinewiseVecColsSpan(padded_matrix<Type>& out,
-                               const padded_matrix<Type>& in,
+void matrixLinewiseVecColsSpan(padded_matrix<Type, storage_order_type::row_major_t>& out,
+                               const padded_matrix<Type, storage_order_type::row_major_t>& in,
                                const IdxType rowLen,
                                const IdxType nRows,
                                Lambda op,
@@ -540,9 +540,11 @@ void matrixLinewiseVecColsSpan(padded_matrix<Type>& out,
   constexpr std::size_t VecElems = VecBytes / sizeof(Type);
 
   static_assert(
-    std::is_same_v<typename padded_matrix<Type>::layout_type, padded_layout_row_major<Type>>,
+    std::is_same_v<typename padded_matrix<Type, storage_order_type::row_major_t>::layout_type,
+                   padded_layout<Type, storage_order_type::row_major_t>>,
     "inconsistent layout");
-  typedef raft::Pow2<padded_layout_row_major<Type>::element_alignment> AlignPadding;
+  typedef raft::Pow2<padded_layout<Type, storage_order_type::row_major_t>::element_alignment>
+    AlignPadding;
 
   const uint paddedRowLen  = AlignPadding::roundUp(rowLen);
   const IdxType alignedLen = paddedRowLen * nRows;
@@ -641,8 +643,8 @@ template <typename Type,
           int BlockSize,
           typename Lambda,
           typename... Vecs>
-void matrixLinewiseVecRowsSpan(padded_matrix<Type>& out,
-                               const padded_matrix<Type>& in,
+void matrixLinewiseVecRowsSpan(padded_matrix<Type, storage_order_type::row_major_t>& out,
+                               const padded_matrix<Type, storage_order_type::row_major_t>& in,
                                const IdxType rowLen,
                                const IdxType nRows,
                                Lambda op,
@@ -653,9 +655,11 @@ void matrixLinewiseVecRowsSpan(padded_matrix<Type>& out,
   typedef raft::Pow2<VecBytes> AlignBytes;
 
   static_assert(
-    std::is_same_v<typename padded_matrix<Type>::layout_type, padded_layout_row_major<Type>>,
+    std::is_same_v<typename padded_matrix<Type, storage_order_type::row_major_t>::layout_type,
+                   padded_layout<Type, storage_order_type::row_major_t>>,
     "inconsistent layout");
-  typedef raft::Pow2<padded_layout_row_major<Type>::element_alignment> AlignPadding;
+  typedef raft::Pow2<padded_layout<Type, storage_order_type::row_major_t>::element_alignment>
+    AlignPadding;
 
   const uint paddedRowLen  = AlignPadding::roundUp(rowLen);
   const IdxType alignedLen = paddedRowLen * nRows;
@@ -732,8 +736,8 @@ struct MatrixLinewiseOp {
 template <std::size_t VecBytes = 16, int BlockSize = 256>
 struct MatrixLinewiseOpSpan {
   template <typename Type, typename IdxType, typename Lambda, typename... Vecs>
-  static void run(padded_matrix<Type>& out,
-                  const padded_matrix<Type>& in,
+  static void run(padded_matrix<Type, storage_order_type::row_major_t>& out,
+                  const padded_matrix<Type, storage_order_type::row_major_t>& in,
                   const IdxType lineLen,
                   const IdxType nLines,
                   const bool alongLines,

@@ -26,6 +26,7 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/cudart_utils.h>
 #include <raft/detail/mdarray.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
@@ -52,15 +53,53 @@ template <typename ElementType,
           typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
 using mdspan = detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
-using matrix_extents_type =
-  detail::stdex::extents<detail::stdex::dynamic_extent, detail::stdex::dynamic_extent>;
-template <typename ElementType>
-using padded_layout_row_major = std::experimental::layout_padded_general<
-  std::experimental::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value,
-  std::experimental::StorageOrderType::row_major_t>;
-template <typename ElementType>
-using padded_matrix =
-  mdspan<ElementType, matrix_extents_type, padded_layout_row_major<ElementType>>;
+using matrix_extent = detail::matrix_extent;
+
+using storage_order_type = detail::stdex::StorageOrderType;
+
+template <typename ElementType, storage_order_type order>
+using padded_layout = detail::stdex::layout_padded_general<
+  detail::stdex::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value,
+  order>;
+
+template <typename ElementType, storage_order_type order>
+using padded_matrix = mdspan<ElementType, matrix_extent, padded_layout<ElementType, order>>;
+
+// alignment_v<remove_cv_t<remove_reference_t<ElementType>>>
+struct alignment {
+  static constexpr size_t value = 128;
+};
+
+template <class ElementType, class Extents, storage_order_type order>
+using aligned_mdspan =
+  mdspan<ElementType,
+         Extents,
+         detail::stdex::layout_padded_general<
+           detail::stdex::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value,
+           order>,
+         detail::stdex::aligned_accessor<ElementType, alignment::value>>;
+
+template <class ElementType, class Extents, storage_order_type order>
+aligned_mdspan<ElementType, Extents, order> make_aligned_mdspan(ElementType* input_pointer,
+                                                                Extents e,
+                                                                storage_order_type /*order*/)
+{
+  using value_type = std::remove_cv_t<std::remove_reference_t<ElementType>>;
+  using pointer = typename detail::stdex::aligned_accessor<ElementType, alignment::value>::pointer;
+
+  // Any run-time check for alignment would happen here.
+  // Taking the alignment value as integral_constant permits interesting checks,
+  // like wrapping ElementType* in a proxy pointer type
+  // that encodes alignment as a non-type template parameter.
+  assert(input_pointer == alignTo(input_pointer, alignment::value));
+
+  pointer aligned_pointer = input_pointer;  // assert_aligned(input_pointer,
+                                            // std::integral_constant<size_t, alignment::value>{});
+  using mapping =
+    typename detail::stdex::layout_padded_general<detail::stdex::padding<value_type>::value,
+                                                  order>::template mapping<Extents>;
+  return {aligned_pointer, mapping{e}};
+};
 
 namespace detail {
 /**

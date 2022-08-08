@@ -130,5 +130,33 @@ struct layout_padded_general {
   };
 };
 
+template <class ElementType, size_t Alignment>
+struct aligned_accessor {
+  using offset_policy               = aligned_accessor;
+  using element_type                = ElementType;
+  using reference                   = ElementType&;
+  using pointer                     = ElementType*;
+  static constexpr size_t alignment = Alignment;
+
+  constexpr aligned_accessor() noexcept = default;
+
+  MDSPAN_TEMPLATE_REQUIRES(
+    class OtherElementType,
+    size_t OtherAlignment,
+    /* requires */
+    (_MDSPAN_TRAIT(is_convertible,
+                   typename aligned_accessor<OtherElementType, OtherAlignment>::element_type (*)[],
+                   element_type (*)[]) &&
+     alignment == OtherAlignment))
+  MDSPAN_INLINE_FUNCTION
+  constexpr aligned_accessor(aligned_accessor<OtherElementType, OtherAlignment>) noexcept {}
+
+  MDSPAN_INLINE_FUNCTION
+  constexpr pointer offset(pointer p, size_t i) const noexcept { return p + i; }
+
+  MDSPAN_FORCE_INLINE_FUNCTION
+  constexpr reference access(pointer p, size_t i) const noexcept { return p[i]; }
+};
+
 }  // end namespace experimental
 }  // end namespace std
