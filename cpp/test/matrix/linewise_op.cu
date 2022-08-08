@@ -83,8 +83,8 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     return blob;
   }
 
-  void runLinewiseSumSpan(padded_matrix<T, storage_order_type::row_major_t>& out,
-                          const padded_matrix<T, storage_order_type::row_major_t>& in,
+  void runLinewiseSumSpan(padded_matrix<T, I, storage_order_type::row_major_t>& out,
+                          const padded_matrix<T, I, storage_order_type::row_major_t>& in,
                           const I lineLen,
                           const I nLines,
                           const bool alongLines,
@@ -216,8 +216,9 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
         auto matrix_size_padded = layout.required_span_size();
         rmm::device_uvector<T> blob_in(matrix_size_padded, stream);
         rmm::device_uvector<T> blob_out(matrix_size_padded, stream);
-        auto inSpan  = padded_matrix<T, storage_order_type::row_major_t>(blob_in.data(), layout);
-        auto outSpan = padded_matrix<T, storage_order_type::row_major_t>(blob_out.data(), layout);
+        auto inSpan = padded_matrix<T, I, storage_order_type::row_major_t>(blob_in.data(), layout);
+        auto outSpan =
+          padded_matrix<T, I, storage_order_type::row_major_t>(blob_out.data(), layout);
 
         {
           auto in2 = in;

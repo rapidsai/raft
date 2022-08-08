@@ -74,7 +74,7 @@ using detail::vector_extent;
 template <typename IndexType>
 using extent_1d = vector_extent<IndexType>;
 
-template <typename IndexType = std::uint32_t>
+template <typename IndexType>
 using extent_2d = matrix_extent<IndexType>;
 
 template <typename IndexType>
@@ -99,9 +99,6 @@ template <typename ElementType,
           typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
 using mdspan = detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
-template <typename IndexType>
-using matrix_extent = detail::matrix_extent<IndexType>;
-
 using storage_order_type = detail::stdex::StorageOrderType;
 
 template <typename ElementType, storage_order_type order>
@@ -109,11 +106,13 @@ using padded_layout = detail::stdex::layout_padded_general<
   detail::stdex::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value,
   order>;
 
-template <typename ElementType, storage_order_type order>
+template <typename ElementType,
+          typename IndexType       = std::uint32_t,
+          storage_order_type order = storage_order_type::row_major_t>
 using padded_matrix =
-  mdspan<ElementType, matrix_extent<uint32_t>, padded_layout<ElementType, order>>;
+  mdspan<ElementType, matrix_extent<IndexType>, padded_layout<ElementType, order>>;
 
-// alignment_v<remove_cv_t<remove_reference_t<ElementType>>>
+// alignment fixed to 128 bytes
 struct alignment {
   static constexpr size_t value = 128;
 };

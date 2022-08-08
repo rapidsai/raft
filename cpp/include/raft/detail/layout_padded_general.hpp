@@ -95,9 +95,9 @@ struct layout_padded_general {
     // instantiated with a Extents having rank > 1.");
 
     using extents_type = Extents;
-    using index_type = typename extents_type::index_type;
-    using size_type = typename extents_type::size_type;
-    using rank_type = typename extents_type::rank_type;
+    using index_type   = typename extents_type::index_type;
+    using size_type    = typename extents_type::size_type;
+    using rank_type    = typename extents_type::rank_type;
     using layout_type  = layout_padded_general;
     using layout_stride::mapping<Extents>::mapping;
 
@@ -157,7 +157,16 @@ struct aligned_accessor {
   constexpr data_handle_type offset(data_handle_type p, size_t i) const noexcept { return p + i; }
 
   MDSPAN_FORCE_INLINE_FUNCTION
-  constexpr reference access(data_handle_type p, size_t i) const noexcept { return p[i]; }
+  constexpr reference access(data_handle_type p, size_t i) const noexcept
+  {
+#if defined(__cpp_lib_assume_aligned)
+    return (std::assume_aligned<alignment>(p))[i];
+#elif defined(__GNUC__)
+    return reinterpret_cast<data_handle_type>(__builtin_assume_aligned(p, alignment))[i];
+#else
+    return p[i];
+#endif
+  }
 };
 
 }  // end namespace experimental
