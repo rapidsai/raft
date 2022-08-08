@@ -54,12 +54,13 @@ using mdspan = detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, Accesso
 
 using matrix_extents_type =
   detail::stdex::extents<detail::stdex::dynamic_extent, detail::stdex::dynamic_extent>;
-template <typename ValueType>
-using padded_layout_row_major = std::experimental::
-  layout_padded_general<ValueType, std::experimental::StorageOrderType::row_major_t, 128>;
+template <typename ElementType>
+using padded_layout_row_major = std::experimental::layout_padded_general<
+  std::experimental::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value,
+  std::experimental::StorageOrderType::row_major_t>;
 template <typename ElementType>
 using padded_matrix =
-  mdspan<ElementType, matrix_extents_type, padded_layout_row_major<std::remove_cv_t<ElementType>>>;
+  mdspan<ElementType, matrix_extents_type, padded_layout_row_major<ElementType>>;
 
 namespace detail {
 /**
