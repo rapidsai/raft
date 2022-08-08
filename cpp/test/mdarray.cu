@@ -45,7 +45,7 @@ void test_mdspan()
   auto stream = rmm::cuda_stream_default;
   rmm::device_uvector<float> a{16ul, stream};
   thrust::sequence(rmm::exec_policy(stream), a.begin(), a.end());
-  stdex::mdspan<float, stdex::extents<raft::dynamic_extent, raft::dynamic_extent>> span{
+  stdex::mdspan<float, stdex::extents<int, raft::dynamic_extent, raft::dynamic_extent>> span{
     a.data(), 4, 4};
   thrust::device_vector<int32_t> status(1, 0);
   auto p_status = status.data().get();
@@ -77,7 +77,7 @@ TEST(MDArray, Policy) { test_uvector_policy(); }
 
 void test_mdarray_basic()
 {
-  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
+  using matrix_extent = stdex::extents<int, dynamic_extent, dynamic_extent>;
   auto s              = rmm::cuda_stream_default;
   {
     /**
@@ -124,7 +124,7 @@ void test_mdarray_basic()
     static_assert(array.rank_dynamic() == 2);
     static_assert(array.rank() == 2);
     static_assert(array.is_unique());
-    static_assert(array.is_contiguous());
+    static_assert(array.is_exhaustive());
     static_assert(array.is_strided());
 
     static_assert(!std::is_nothrow_default_constructible<mdarray_t>::value);  // cuda stream
@@ -158,7 +158,7 @@ void test_mdarray_basic()
     /**
      * static extent
      */
-    using static_extent = stdex::extents<16, 16>;
+    using static_extent = stdex::extents<int, 16, 16>;
     layout_c_contiguous::mapping<static_extent> layout{static_extent{}};
     using mdarray_t = device_mdarray<float, static_extent, layout_c_contiguous>;
     mdarray_t::container_policy_type policy{s};
@@ -167,7 +167,7 @@ void test_mdarray_basic()
     static_assert(array.rank_dynamic() == 0);
     static_assert(array.rank() == 2);
     static_assert(array.is_unique());
-    static_assert(array.is_contiguous());
+    static_assert(array.is_exhaustive());
     static_assert(array.is_strided());
 
     array(0, 3) = 1;
@@ -183,7 +183,7 @@ TEST(MDArray, Basic) { test_mdarray_basic(); }
 template <typename BasicMDarray, typename PolicyFn, typename ThrustPolicy>
 void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
 {
-  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
+  using matrix_extent = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
 
   using mdarray_t = BasicMDarray;
@@ -191,7 +191,7 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
   auto policy     = make_policy();
 
   mdarray_t arr_origin{layout, policy};
-  thrust::sequence(exec, arr_origin.data(), arr_origin.data() + arr_origin.size());
+  thrust::sequence(exec, arr_origin.data_handle(), arr_origin.data_handle() + arr_origin.size());
 
   auto check_eq = [](auto const& l, auto const& r) {
     ASSERT_EQ(l.extents(), r.extents());
@@ -206,7 +206,7 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
     // copy ctor
     auto policy = make_policy();
     mdarray_t arr{layout, policy};
-    thrust::sequence(exec, arr.data(), arr.data() + arr.size());
+    thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
     mdarray_t arr_copy_construct{arr};
     check_eq(arr, arr_copy_construct);
 
@@ -219,7 +219,7 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
     // copy assign
     auto policy = make_policy();
     mdarray_t arr{layout, policy};
-    thrust::sequence(exec, arr.data(), arr.data() + arr.size());
+    thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
     mdarray_t arr_copy_assign{layout, policy};
     arr_copy_assign = arr;
     check_eq(arr, arr_copy_assign);
@@ -234,9 +234,9 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
     // move ctor
     auto policy = make_policy();
     mdarray_t arr{layout, policy};
-    thrust::sequence(exec, arr.data(), arr.data() + arr.size());
+    thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
     mdarray_t arr_move_construct{std::move(arr)};
-    ASSERT_EQ(arr.data(), nullptr);
+    ASSERT_EQ(arr.data_handle(), nullptr);
     check_eq(arr_origin, arr_move_construct);
   }
 
@@ -244,17 +244,17 @@ void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
     // move assign
     auto policy = make_policy();
     mdarray_t arr{layout, policy};
-    thrust::sequence(exec, arr.data(), arr.data() + arr.size());
+    thrust::sequence(exec, arr.data_handle(), arr.data_handle() + arr.size());
     mdarray_t arr_move_assign{layout, policy};
     arr_move_assign = std::move(arr);
-    ASSERT_EQ(arr.data(), nullptr);
+    ASSERT_EQ(arr.data_handle(), nullptr);
     check_eq(arr_origin, arr_move_assign);
   }
 }
 
 TEST(MDArray, CopyMove)
 {
-  using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
+  using matrix_extent = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   using d_matrix_t    = device_mdarray<float, matrix_extent>;
   using policy_t      = typename d_matrix_t::container_policy_type;
   auto s              = rmm::cuda_stream_default;
@@ -273,7 +273,7 @@ TEST(MDArray, CopyMove)
     d_matrix_t non_dft{layout, policy};
 
     arr = non_dft;
-    ASSERT_NE(arr.data(), non_dft.data());
+    ASSERT_NE(arr.data_handle(), non_dft.data_handle());
     ASSERT_EQ(arr.extent(0), non_dft.extent(0));
   }
   {
@@ -285,7 +285,7 @@ TEST(MDArray, CopyMove)
     h_matrix_t non_dft{layout, policy};
 
     arr = non_dft;
-    ASSERT_NE(arr.data(), non_dft.data());
+    ASSERT_NE(arr.data_handle(), non_dft.data_handle());
     ASSERT_EQ(arr.extent(0), non_dft.extent(0));
   }
 }
@@ -296,34 +296,34 @@ void test_factory_methods()
   size_t n{100};
   rmm::device_uvector<float> d_vec(n, rmm::cuda_stream_default);
   {
-    auto d_matrix = make_device_matrix_view(d_vec.data(), d_vec.size() / 2, 2);
+    auto d_matrix = make_device_matrix_view(d_vec.data(), static_cast<int>(d_vec.size() / 2), 2);
     ASSERT_EQ(d_matrix.extent(0), n / 2);
     ASSERT_EQ(d_matrix.extent(1), 2);
-    ASSERT_EQ(d_matrix.data(), d_vec.data());
+    ASSERT_EQ(d_matrix.data_handle(), d_vec.data());
   }
   {
     auto const& vec_ref = d_vec;
-    auto d_matrix       = make_device_matrix_view(vec_ref.data(), d_vec.size() / 2, 2);
+    auto d_matrix = make_device_matrix_view(vec_ref.data(), static_cast<int>(d_vec.size() / 2), 2);
     ASSERT_EQ(d_matrix.extent(0), n / 2);
     ASSERT_EQ(d_matrix.extent(1), 2);
-    ASSERT_EQ(d_matrix.data(), d_vec.data());
+    ASSERT_EQ(d_matrix.data_handle(), d_vec.data());
   }
 
   std::vector<float> h_vec(n);
   {
-    auto h_matrix = make_host_matrix_view(h_vec.data(), h_vec.size() / 2, 2);
+    auto h_matrix = make_host_matrix_view(h_vec.data(), static_cast<int>(h_vec.size() / 2), 2);
     ASSERT_EQ(h_matrix.extent(0), n / 2);
     ASSERT_EQ(h_matrix.extent(1), 2);
-    ASSERT_EQ(h_matrix.data(), h_vec.data());
+    ASSERT_EQ(h_matrix.data_handle(), h_vec.data());
     h_matrix(0, 0) = 13;
     ASSERT_EQ(h_matrix(0, 0), 13);
   }
   {
     auto const& vec_ref = h_vec;
-    auto h_matrix       = make_host_matrix_view(vec_ref.data(), d_vec.size() / 2, 2);
+    auto h_matrix = make_host_matrix_view(vec_ref.data(), static_cast<int>(d_vec.size() / 2), 2);
     ASSERT_EQ(h_matrix.extent(0), n / 2);
     ASSERT_EQ(h_matrix.extent(1), 2);
-    ASSERT_EQ(h_matrix.data(), h_vec.data());
+    ASSERT_EQ(h_matrix.data_handle(), h_vec.data());
     // const, cannot assign
     // h_matrix(0, 0) = 13;
     ASSERT_EQ(h_matrix(0, 0), 13);
@@ -341,20 +341,22 @@ void test_factory_methods()
     ASSERT_EQ(h_vec.extent(0), n);
   }
   {
+    raft::handle_t handle{};
     // device mdarray
-    auto d_matrix = make_device_matrix<float>(n, n, rmm::cuda_stream_default);
+    auto d_matrix = make_device_matrix<float>(handle, n, n);
     ASSERT_EQ(d_matrix.extent(0), n);
     ASSERT_EQ(d_matrix.extent(1), n);
     static_assert(d_matrix.rank() == 2);
 
-    auto d_vec = make_device_vector<float>(n, rmm::cuda_stream_default);
+    auto d_vec = make_device_vector<float>(handle, n);
     static_assert(d_vec.rank() == 1);
     ASSERT_EQ(d_vec.extent(0), n);
   }
 
   {
+    raft::handle_t handle{};
     // device scalar
-    auto d_scalar = make_device_scalar<double>(17.0, rmm::cuda_stream_default);
+    auto d_scalar = make_device_scalar<double>(handle, 17.0);
     static_assert(d_scalar.rank() == 1);
     static_assert(d_scalar.rank_dynamic() == 0);
     ASSERT_EQ(d_scalar(0), 17.0);
@@ -378,7 +380,7 @@ void test_factory_methods()
     ASSERT_EQ(h_scalar(0), 17.0);
     ASSERT_EQ(h_scalar.view()(0), 17.0);
 
-    auto view = make_host_scalar_view(h_scalar.data());
+    auto view = make_host_scalar_view(h_scalar.data_handle());
     ASSERT_EQ(view(0), 17.0);
   }
 }
@@ -387,11 +389,11 @@ void test_factory_methods()
 TEST(MDArray, Factory) { test_factory_methods(); }
 
 namespace {
-template <typename T, typename LayoutPolicy>
-void check_matrix_layout(device_matrix_view<T, LayoutPolicy> in)
+template <typename T, typename Index, typename LayoutPolicy>
+void check_matrix_layout(device_matrix_view<T, Index, LayoutPolicy> in)
 {
   static_assert(in.rank() == 2);
-  static_assert(in.is_contiguous());
+  static_assert(in.is_exhaustive());
 
   bool constexpr kIsCContiguous = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
   bool constexpr kIsFContiguous = std::is_same_v<LayoutPolicy, layout_f_contiguous>;
@@ -403,13 +405,13 @@ void check_matrix_layout(device_matrix_view<T, LayoutPolicy> in)
 
 TEST(MDArray, FuncArg)
 {
+  raft::handle_t handle{};
   {
-    auto d_matrix = make_device_matrix<float>(10, 10, rmm::cuda_stream_default);
+    auto d_matrix = make_device_matrix<float>(handle, 10, 10);
     check_matrix_layout(d_matrix.view());
   }
   {
-    auto d_matrix =
-      make_device_matrix<float, layout_f_contiguous>(10, 10, rmm::cuda_stream_default);
+    auto d_matrix = make_device_matrix<float, int, layout_f_contiguous>(handle, 10, 10);
     check_matrix_layout(d_matrix.view());
 
     auto slice =
@@ -448,7 +450,7 @@ void test_mdspan_layout_padded_general()
     static constexpr int X = -1;
     int data_padded[]      = {1, 2, 3, 4, 5, X, X, X, 6, 7, 8, 9, 10, X, X, X};
 
-    using extents_type = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
+    using extents_type = stdex::extents<size_t, stdex::dynamic_extent, stdex::dynamic_extent>;
     using layout_padded_general =
       stdex::layout_padded_general<stdex::padding<int, alignment_bytes>::value,
                                    stdex::StorageOrderType::row_major_t>;
@@ -474,7 +476,7 @@ TEST(MDSpan, LayoutPaddedGeneral) { test_mdspan_layout_padded_general(); }
 
 void test_mdarray_padding()
 {
-  using extents_type = stdex::extents<dynamic_extent, dynamic_extent>;
+  using extents_type = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   auto s             = rmm::cuda_stream_default;
 
   {
@@ -539,7 +541,7 @@ void test_mdarray_padding()
 
     // manually create span with layout
     {
-      auto data_padded         = padded_device_array.data();
+      auto data_padded         = padded_device_array.data_handle();
       using padded_mdspan_type = device_mdspan<float, extents_type, layout_padded_general>;
       auto padded_span         = padded_mdspan_type(data_padded, layout);
       thrust::for_each_n(rmm::exec_policy(s),
@@ -719,7 +721,7 @@ struct TestElement1 {
 
 void test_mdspan_padding_by_type()
 {
-  using extents_type = stdex::extents<dynamic_extent, dynamic_extent>;
+  using extents_type = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   auto s             = rmm::cuda_stream_default;
 
   {
@@ -793,7 +795,7 @@ TEST(MDSpan, MDSpanPaddingType) { test_mdspan_padding_by_type(); }
 
 void test_mdspan_aligned_matrix()
 {
-  using extents_type = stdex::extents<dynamic_extent, dynamic_extent>;
+  using extents_type = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   constexpr int rows = 2;
   constexpr int cols = 10;
 
@@ -817,7 +819,7 @@ void test_mdspan_aligned_matrix()
   // now work with device memory
   // use simple 1D array to allocate some space
   auto s          = rmm::cuda_stream_default;
-  using extent_1d = stdex::extents<dynamic_extent>;
+  using extent_1d = stdex::extents<size_t, dynamic_extent>;
   layout_c_contiguous::mapping<extent_1d> layout_1d{extent_1d{rows * 32}};
   using mdarray_t    = device_mdarray<long, extent_1d, layout_c_contiguous>;
   auto device_policy = mdarray_t::container_policy_type{s};
@@ -830,7 +832,9 @@ void test_mdspan_aligned_matrix()
 
   auto my_aligned_device_span =
     make_aligned_mdspan<long, extents_type, stdex::StorageOrderType::row_major_t>(
-      device_array_1d.data(), extents_type{rows, cols}, stdex::StorageOrderType::row_major_t);
+      device_array_1d.data_handle(),
+      extents_type{rows, cols},
+      stdex::StorageOrderType::row_major_t);
 
   thrust::device_vector<int32_t> status(1, 0);
   auto p_status = status.data().get();
@@ -846,5 +850,97 @@ void test_mdspan_aligned_matrix()
 }
 
 TEST(MDSpan, MDSpanAlignedMatrix) { test_mdspan_aligned_matrix(); }
+
+namespace {
+void test_mdarray_unravel()
+{
+  {
+    uint32_t v{0};
+    ASSERT_EQ(detail::native_popc(v), 0);
+    ASSERT_EQ(detail::popc(v), 0);
+    v = 1;
+    ASSERT_EQ(detail::native_popc(v), 1);
+    ASSERT_EQ(detail::popc(v), 1);
+    v = 0xffffffff;
+    ASSERT_EQ(detail::native_popc(v), 32);
+    ASSERT_EQ(detail::popc(v), 32);
+  }
+  {
+    uint64_t v{0};
+    ASSERT_EQ(detail::native_popc(v), 0);
+    ASSERT_EQ(detail::popc(v), 0);
+    v = 1;
+    ASSERT_EQ(detail::native_popc(v), 1);
+    ASSERT_EQ(detail::popc(v), 1);
+    v = 0xffffffff;
+    ASSERT_EQ(detail::native_popc(v), 32);
+    ASSERT_EQ(detail::popc(v), 32);
+    v = 0xffffffffffffffff;
+    ASSERT_EQ(detail::native_popc(v), 64);
+    ASSERT_EQ(detail::popc(v), 64);
+  }
+
+  // examples from numpy unravel_index
+  {
+    auto coord = unravel_index(22, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
+    static_assert(std::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(std::get<0>(coord), 3);
+    ASSERT_EQ(std::get<1>(coord), 4);
+  }
+  {
+    auto coord = unravel_index(41, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
+    static_assert(std::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(std::get<0>(coord), 6);
+    ASSERT_EQ(std::get<1>(coord), 5);
+  }
+  {
+    auto coord = unravel_index(37, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
+    static_assert(std::tuple_size<decltype(coord)>::value == 2);
+    ASSERT_EQ(std::get<0>(coord), 6);
+    ASSERT_EQ(std::get<1>(coord), 1);
+  }
+  // assignment
+  {
+    auto m   = make_host_matrix<float, size_t>(7, 6);
+    auto m_v = m.view();
+    for (size_t i = 0; i < m.size(); ++i) {
+      auto coord             = unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
+      std::apply(m_v, coord) = i;
+    }
+    for (size_t i = 0; i < m.size(); ++i) {
+      auto coord = unravel_index(i, m.extents(), typename decltype(m)::layout_type{});
+      ASSERT_EQ(std::apply(m_v, coord), i);
+    }
+  }
+
+  {
+    handle_t handle;
+    auto m   = make_device_matrix<float, size_t>(handle, 7, 6);
+    auto m_v = m.view();
+    thrust::for_each_n(handle.get_thrust_policy(),
+                       thrust::make_counting_iterator(0ul),
+                       m_v.size(),
+                       [=] HD(size_t i) {
+                         auto coord =
+                           unravel_index(i, m_v.extents(), typename decltype(m_v)::layout_type{});
+                         std::apply(m_v, coord) = static_cast<float>(i);
+                       });
+    thrust::device_vector<int32_t> status(1, 0);
+    auto p_status = status.data().get();
+    thrust::for_each_n(handle.get_thrust_policy(),
+                       thrust::make_counting_iterator(0ul),
+                       m_v.size(),
+                       [=] __device__(size_t i) {
+                         auto coord =
+                           unravel_index(i, m_v.extents(), typename decltype(m_v)::layout_type{});
+                         auto v = std::apply(m_v, coord);
+                         if (v != static_cast<float>(i)) { raft::myAtomicAdd(p_status, 1); }
+                       });
+    check_status(p_status, handle.get_stream());
+  }
+}
+}  // anonymous namespace
+
+TEST(MDArray, Unravel) { test_mdarray_unravel(); }
 
 }  // namespace raft
