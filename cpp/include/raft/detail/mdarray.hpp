@@ -24,8 +24,11 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/detail/span.hpp>  // dynamic_extent
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+
 #include <thrust/device_ptr.h>
 
 namespace raft::detail {
@@ -59,7 +62,7 @@ class device_reference {
   auto operator=(T const& other) -> device_reference&
   {
     auto* raw = ptr_.get();
-    raft::update_device(raw, &other, 1, stream_);
+    update_device(raw, &other, 1, stream_);
     return *this;
   }
 };
@@ -104,10 +107,13 @@ class device_uvector {
   /**
    * @brief Ctor that accepts a size, stream and an optional mr.
    */
-  explicit device_uvector(
-    std::size_t size,
-    rmm::cuda_stream_view stream,
-    rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource())
+  explicit device_uvector(std::size_t size, rmm::cuda_stream_view stream) : data_{size, stream} {}
+  /**
+   * @brief Ctor that accepts a size, stream and a memory resource.
+   */
+  explicit device_uvector(std::size_t size,
+                          rmm::cuda_stream_view stream,
+                          rmm::mr::device_memory_resource* mr)
     : data_{size, stream, mr}
   {
   }
@@ -138,6 +144,7 @@ class device_uvector {
 template <typename ElementType>
 class device_uvector_policy {
   rmm::cuda_stream_view stream_;
+  rmm::mr::device_memory_resource* mr_;
 
  public:
   using element_type   = ElementType;
@@ -152,12 +159,17 @@ class device_uvector_policy {
   using const_accessor_policy = std::experimental::default_accessor<element_type const>;
 
  public:
-  auto create(size_t n) -> container_type { return container_type(n, stream_); }
+  auto create(size_t n) -> container_type
+  {
+    return mr_ ? container_type(n, stream_, mr_) : container_type(n, stream_);
+  }
 
   device_uvector_policy() = delete;
-  explicit device_uvector_policy(rmm::cuda_stream_view stream) noexcept(
-    std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
-    : stream_{stream}
+  explicit device_uvector_policy(
+    rmm::cuda_stream_view stream,
+    rmm::mr::device_memory_resource* mr =
+      nullptr) noexcept(std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
+    : stream_{stream}, mr_(mr)
   {
   }
 
@@ -237,7 +249,91 @@ using device_accessor = accessor_mixin<AccessorPolicy, false>;
 
 namespace stdex = std::experimental;
 
-using vector_extent = stdex::extents<dynamic_extent>;
-using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
-using scalar_extent = stdex::extents<1>;
+template <typename IndexType>
+using vector_extent = stdex::extents<IndexType, dynamic_extent>;
+
+template <typename IndexType>
+using matrix_extent = stdex::extents<IndexType, dynamic_extent, dynamic_extent>;
+
+template <typename IndexType = std::uint32_t>
+using scalar_extent = stdex::extents<IndexType, 1>;
+
+template <typename T>
+MDSPAN_INLINE_FUNCTION auto native_popc(T v) -> int32_t
+{
+  int c = 0;
+  for (; v != 0; v &= v - 1) {
+    c++;
+  }
+  return c;
+}
+
+MDSPAN_INLINE_FUNCTION auto popc(uint32_t v) -> int32_t
+{
+#if defined(__CUDA_ARCH__)
+  return __popc(v);
+#elif defined(__GNUC__) || defined(__clang__)
+  return __builtin_popcount(v);
+#else
+  return native_popc(v);
+#endif  // compiler
+}
+
+MDSPAN_INLINE_FUNCTION auto popc(uint64_t v) -> int32_t
+{
+#if defined(__CUDA_ARCH__)
+  return __popcll(v);
+#elif defined(__GNUC__) || defined(__clang__)
+  return __builtin_popcountll(v);
+#else
+  return native_popc(v);
+#endif  // compiler
+}
+
+template <class T, std::size_t N, std::size_t... Idx>
+MDSPAN_INLINE_FUNCTION constexpr auto arr_to_tup(T (&arr)[N], std::index_sequence<Idx...>)
+{
+  return std::make_tuple(arr[Idx]...);
+}
+
+template <class T, std::size_t N>
+MDSPAN_INLINE_FUNCTION constexpr auto arr_to_tup(T (&arr)[N])
+{
+  return arr_to_tup(arr, std::make_index_sequence<N>{});
+}
+
+// uint division optimization inspired by the CIndexer in cupy.  Division operation is
+// slow on both CPU and GPU, especially 64 bit integer.  So here we first try to avoid 64
+// bit when the index is smaller, then try to avoid division when it's exp of 2.
+template <typename I, typename IndexType, size_t... Extents>
+MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<IndexType, Extents...> shape)
+{
+  constexpr auto kRank = static_cast<int32_t>(shape.rank());
+  std::size_t index[shape.rank()]{0};  // NOLINT
+  static_assert(std::is_signed<decltype(kRank)>::value,
+                "Don't change the type without changing the for loop.");
+  for (int32_t dim = kRank; --dim > 0;) {
+    auto s = static_cast<std::remove_const_t<std::remove_reference_t<I>>>(shape.extent(dim));
+    if (s & (s - 1)) {
+      auto t     = idx / s;
+      index[dim] = idx - t * s;
+      idx        = t;
+    } else {  // exp of 2
+      index[dim] = idx & (s - 1);
+      idx >>= popc(s - 1);
+    }
+  }
+  index[0] = idx;
+  return arr_to_tup(index);
+}
+
+/**
+ * Ensure all types listed in the parameter pack `Extents` are integral types.
+ * Usage:
+ *   put it as the last nameless template parameter of a function:
+ *     `typename = ensure_integral_extents<Extents...>`
+ */
+template <typename... Extents>
+using ensure_integral_extents = std::enable_if_t<std::conjunction_v<std::is_integral<Extents>...>>;
+
 }  // namespace raft::detail

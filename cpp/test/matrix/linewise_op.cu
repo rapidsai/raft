@@ -210,8 +210,8 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
         auto nLines  = alongRows ? n : m;
 
         // create a padded span based on testdata (just for functional testing)
-        typename padded_layout<T, storage_order_type::row_major_t>::mapping<matrix_extent> layout{
-          matrix_extent{nLines, lineLen}};
+        typename padded_layout<T, storage_order_type::row_major_t>::mapping<matrix_extent<size_t>>
+          layout{matrix_extent<size_t>{nLines, lineLen}};
 
         auto matrix_size_padded = layout.required_span_size();
         rmm::device_uvector<T> blob_in(matrix_size_padded, stream);
