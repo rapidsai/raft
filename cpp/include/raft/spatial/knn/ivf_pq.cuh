@@ -15,8 +15,10 @@
  */
 #pragma once
 
+#include "detail/ann_kmeans_balanced.cuh"
 #include "detail/ann_utils.cuh"
 
+#include <raft/core/cudart_utils.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/device_atomics.cuh>
 
@@ -144,20 +146,6 @@ typedef enum {
   CUANN_PQ_CENTER_PER_CLUSTER  = 1,
 } cuannPqCenter_t;
 
-/* Context */
-struct cuannContext {
-  int devId;
-  cudaStream_t stream;
-  cudaDeviceProp deviceProp;
-  cublasHandle_t cublasHandle;
-
-  int numDevices;
-  cudaStream_t* streams;
-  cudaDeviceProp* deviceProps;
-  cublasHandle_t* cublasHandles;
-};
-typedef struct cuannContext* cuannHandle_t;
-
 /* IvfPq */
 struct cuannIvfPqDescriptor {
   uint32_t numClusters;
@@ -246,23 +234,6 @@ inline void _cuann_memset(void* ptr, int value, size_t count)
   } else {
     memset(ptr, value, count);
   }
-}
-
-// outer add
-__global__ void kern_outer_add(const float* a,
-                               uint32_t numA,
-                               const float* b,
-                               uint32_t numB,
-                               float* c  // [numA, numB]
-)
-{
-  uint64_t gid = threadIdx.x + (blockDim.x * blockIdx.x);
-  uint64_t iA  = gid / numB;
-  uint64_t iB  = gid % numB;
-  if (iA >= numA) return;
-  float valA = (a == NULL) ? 0.0 : a[iA];
-  float valB = (b == NULL) ? 0.0 : b[iB];
-  c[gid]     = valA + valB;
 }
 
 // argmin along column
@@ -927,71 +898,6 @@ static cudaStream_t _cuann_set_cublas_stream(cublasHandle_t cublasHandle, cudaSt
   return cublasStream;
 }
 
-// predict label of dataset
-inline void _cuann_kmeans_predict_core(cublasHandle_t cublasHandle,
-                                       const float* centers,  // [numCenters, dimCenters]
-                                       uint32_t numCenters,
-                                       uint32_t dimCenters,
-                                       const float* dataset,  // [numDataset, dimCenters]
-                                       uint32_t numDataset,
-                                       uint32_t* labels,  // [numDataset]
-                                       cuannSimilarity_t similarity,
-                                       float* workspace)
-{
-  cublasStatus_t cublasError;
-  const uint32_t dimDataset = dimCenters;
-  float* sqsumCenters;  // [numCenters]
-  float* sqsumDataset;  // [numDataset]
-  float* distances;     // [numDataset, numCenters]
-
-  sqsumCenters = workspace;
-  sqsumDataset = sqsumCenters + numCenters;
-  distances    = sqsumDataset + numDataset;
-
-  float alpha;
-  float beta;
-  if (similarity == CUANN_SIMILARITY_INNER) {
-    alpha = -1.0;
-    beta  = 0.0;
-  } else {
-    detail::utils::dots_along_rows(
-      numCenters, dimCenters, centers, sqsumCenters, rmm::cuda_stream_default);
-    detail::utils::dots_along_rows(
-      numDataset, dimDataset, dataset, sqsumDataset, rmm::cuda_stream_default);
-
-    detail::utils::outer_add(
-      sqsumDataset, numDataset, sqsumCenters, numCenters, distances, rmm::cuda_stream_default);
-    alpha = -2.0;
-    beta  = 1.0;
-  }
-  cudaStream_t cublasStream = _cuann_set_cublas_stream(cublasHandle, NULL);
-  cublasError               = cublasGemmEx(cublasHandle,
-                             CUBLAS_OP_T,
-                             CUBLAS_OP_N,
-                             numCenters,
-                             numDataset,
-                             dimCenters,
-                             &alpha,
-                             centers,
-                             CUDA_R_32F,
-                             dimCenters,
-                             dataset,
-                             CUDA_R_32F,
-                             dimDataset,
-                             &beta,
-                             distances,
-                             CUDA_R_32F,
-                             numCenters,
-                             CUBLAS_COMPUTE_32F,
-                             CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-  if (cublasError != CUBLAS_STATUS_SUCCESS) {
-    fprintf(stderr, "(%s, %d) cublasGemmEx() failed.\n", __func__, __LINE__);
-    exit(-1);
-  }
-  _cuann_set_cublas_stream(cublasHandle, cublasStream);
-  _cuann_argmin(numDataset, numCenters, distances, labels);
-}
-
 //
 uint32_t _cuann_kmeans_predict_chunkSize(uint32_t numCenters, uint32_t numDataset)
 {
@@ -1026,7 +932,7 @@ inline size_t _cuann_kmeans_predict_bufferSize(uint32_t numCenters,
 }
 
 // predict label of dataset
-inline void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
+inline void _cuann_kmeans_predict(const handle_t& handle,
                                   float* centers,  // [numCenters, dimCenters]
                                   uint32_t numCenters,
                                   uint32_t dimCenters,
@@ -1075,11 +981,11 @@ inline void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
   }
   float* curDataset;  // [chunk, dimCenters]
   void* bufDataset;   // [chunk, dimCenters]
-  float* workspace_core;
+  // float* workspace_core;
   curDataset = (float*)workspace;
   bufDataset = (void*)((uint8_t*)curDataset + _cuann_aligned(sizeof(float) * chunk * dimCenters));
-  workspace_core =
-    (float*)((uint8_t*)bufDataset + _cuann_aligned(sizeof(float) * chunk * dimCenters));
+  // workspace_core =
+  //   (float*)((uint8_t*)bufDataset + _cuann_aligned(sizeof(float) * chunk * dimCenters));
 
   if (tempCenters != NULL && clusterSize != NULL) {
     _cuann_memset(tempCenters, 0, sizeof(float) * numCenters * dimCenters);
@@ -1095,28 +1001,40 @@ inline void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
     kind = cudaMemcpyHostToDevice;
   }
 
+  rmm::mr::device_memory_resource* device_memory = nullptr;
+  auto pool_guard = raft::get_pool_memory_resource(device_memory, numCenters * chunk);
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("_cuann_kmeans_predict: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
+  }
+  auto stream = handle.get_stream();
+  auto metric = similarity == CUANN_SIMILARITY_INNER ? raft::distance::DistanceType::InnerProduct
+                                                     : raft::distance::DistanceType::L2Expanded;
+
   for (uint64_t is = 0; is < numDataset; is += chunk) {
     uint64_t ie       = min(is + chunk, (uint64_t)numDataset);
     uint32_t nDataset = ie - is;
 
+    // RAFT_LOG_INFO(
+    //   "_cuann_kmeans_predict(dimCenters = %u, nDataset = %u, is = %zu)", dimCenters, nDataset,
+    //   is);
     if (dtype == CUDA_R_32F) {
-      cudaError = cudaMemcpyAsync(bufDataset,
-                                  (float*)dataset + (is * dimCenters),
-                                  sizeof(float) * nDataset * dimCenters,
-                                  kind,
-                                  NULL);
+      // TODO: CRASH:  Program hit cudaErrorIllegalAddress (error 700) due to "an illegal memory
+      // access was encountered" on CUDA API call to cudaMemcpyAsync_ptsz.
+      cudaError = cudaMemcpy(bufDataset,
+                             (float*)dataset + (is * dimCenters),
+                             sizeof(float) * nDataset * dimCenters,
+                             kind);
     } else if (dtype == CUDA_R_8U) {
-      cudaError = cudaMemcpyAsync(bufDataset,
-                                  (uint8_t*)dataset + (is * dimCenters),
-                                  sizeof(uint8_t) * nDataset * dimCenters,
-                                  kind,
-                                  NULL);
+      cudaError = cudaMemcpy(bufDataset,
+                             (uint8_t*)dataset + (is * dimCenters),
+                             sizeof(uint8_t) * nDataset * dimCenters,
+                             kind);
     } else if (dtype == CUDA_R_8I) {
-      cudaError = cudaMemcpyAsync(bufDataset,
-                                  (int8_t*)dataset + (is * dimCenters),
-                                  sizeof(int8_t) * nDataset * dimCenters,
-                                  kind,
-                                  NULL);
+      cudaError = cudaMemcpy(bufDataset,
+                             (int8_t*)dataset + (is * dimCenters),
+                             sizeof(int8_t) * nDataset * dimCenters,
+                             kind);
     }
     if (cudaError != cudaSuccess) {
       fprintf(stderr, "(%s, %d) cudaMemcpy() failed.\n", __func__, __LINE__);
@@ -1153,15 +1071,19 @@ inline void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
     }
 
     // predict
-    _cuann_kmeans_predict_core(cublasHandle,
-                               centers,
-                               numCenters,
-                               dimCenters,
-                               curDataset,
-                               nDataset,
-                               labels + is,
-                               similarity,
-                               workspace_core);
+    stream.synchronize();
+    detail::kmeans::predict_float_core(handle,
+                                       centers,
+                                       numCenters,
+                                       dimCenters,
+                                       curDataset,
+                                       nDataset,
+                                       labels + is,
+                                       metric,
+                                       stream,
+                                       device_memory);
+    stream.synchronize();
+
 
     if ((tempCenters != NULL) && (clusterSize != NULL)) {
       // accumulate
@@ -1198,9 +1120,8 @@ inline void _cuann_kmeans_predict(cublasHandle_t cublasHandle,
 //
 // predict label of dataset with multiple devices
 //
-inline void _cuann_kmeans_predict_MP(int numDevices,
-                                     cublasHandle_t* cublasHandles,  // [numDevices]
-                                     float* clusterCenters,          // [numCenters, dimCenters]
+inline void _cuann_kmeans_predict_MP(const handle_t& handle,
+                                     float* clusterCenters,  // [numCenters, dimCenters]
                                      uint32_t numCenters,
                                      uint32_t dimCenters,
                                      const void* dataset,  // [numDataset, dimCenters]
@@ -1213,6 +1134,7 @@ inline void _cuann_kmeans_predict_MP(int numDevices,
                                      bool updateCenter  // If true, cluster Centers will be updated.
 )
 {
+  int numDevices = 1;
   // [numDevices][numCenters, dimCenters]
   float** clusterCentersCopy = _cuann_multi_device_malloc<float>(
     numDevices, numCenters * dimCenters, "clusterCentersCopy", true /* use cudaMalloc() */);
@@ -1252,7 +1174,7 @@ inline void _cuann_kmeans_predict_MP(int numDevices,
     } else if (dtype == CUDA_R_8I) {
       ptrDataset = (void*)((int8_t*)dataset + (uint64_t)dimCenters * d0);
     }
-    _cuann_kmeans_predict(cublasHandles[devId],
+    _cuann_kmeans_predict(handle,
                           clusterCentersCopy[devId],
                           numCenters,
                           dimCenters,
@@ -2544,7 +2466,7 @@ __global__ void _sort_topk_prep(uint32_t sizeBatch,
 }
 
 //
-inline size_t _cuann_find_topk_bufferSize(cuannHandle_t handle,
+inline size_t _cuann_find_topk_bufferSize(const handle_t& handle,
                                           uint32_t topK,
                                           uint32_t sizeBatch,
                                           uint32_t maxSamples,
@@ -2564,8 +2486,8 @@ inline size_t _cuann_find_topk_bufferSize(cuannHandle_t handle,
   // state
   if (stateBitLen == 8) {
     // (*) Each thread has at least one array element for state
-    uint32_t numBlocks_perBatch =
-      ((handle->deviceProp).multiProcessorCount * 2 + sizeBatch) / sizeBatch;
+    uint32_t numBlocks_perBatch = (getMultiProcessorCount() * 2 + sizeBatch) / sizeBatch;
+
     uint32_t numThreads_perBatch = numThreads * numBlocks_perBatch;
     uint32_t numSample_perThread = (maxSamples + numThreads_perBatch - 1) / numThreads_perBatch;
     uint32_t numState_perThread  = (numSample_perThread + stateBitLen - 1) / stateBitLen;
@@ -2609,7 +2531,7 @@ int _get_vecLen(uint32_t maxSamples, int maxVecLen = MAX_VEC_LENGTH)
 }
 
 //
-inline void _cuann_find_topk(cuannHandle_t handle,
+inline void _cuann_find_topk(const handle_t& handle,
                              uint32_t topK,
                              uint32_t sizeBatch,
                              uint32_t maxSamples,
@@ -2623,7 +2545,7 @@ inline void _cuann_find_topk(cuannHandle_t handle,
   constexpr int stateBitLen = STATE_BIT_LENGTH;
   assert(stateBitLen == 0 || stateBitLen == 8);
 #ifdef CUANN_DEBUG
-  cudaMemsetAsync(labels, 0xff, sizeof(uint32_t) * sizeBatch * topK, handle->stream);
+  cudaMemsetAsync(labels, 0xff, sizeof(uint32_t) * sizeBatch * topK, handle.get_stream());
 #endif
 
   // Limit the maximum value of vecLen to 4. In the case of FP32,
@@ -2643,9 +2565,9 @@ inline void _cuann_find_topk(cuannHandle_t handle,
   cudaOccupancyMaxActiveBlocksPerMultiprocessor(
     &numBlocksPerSm_topk, cg_kernel, numThreads, dynamicSMemSize);
   int numBlocks_perBatch = (maxSamples + (numThreads * vecLen) - 1) / (numThreads * vecLen);
-  int numBlocks          = min(numBlocks_perBatch * sizeBatch,
-                      (handle->deviceProp).multiProcessorCount * numBlocksPerSm_topk);
-  numBlocks_perBatch     = max(numBlocks / sizeBatch, 1);
+  int numBlocks =
+    min(numBlocks_perBatch * sizeBatch, getMultiProcessorCount() * numBlocksPerSm_topk);
+  numBlocks_perBatch = max(numBlocks / sizeBatch, 1);
   if (maxSamples <= numThreads * 10) {
     // When number of sample is small, using multiple thread-blocks does not
     // improve performance, in which case cta_kernel is used. Tentatively,
@@ -2674,7 +2596,7 @@ inline void _cuann_find_topk(cuannHandle_t handle,
     } else if (vecLen == 1) {
       cta_kernel = kern_topk_cta_11<numThreads, stateBitLen, 1>;
     }
-    cta_kernel<<<blocks, threads, 0, handle->stream>>>(
+    cta_kernel<<<blocks, threads, 0, handle.get_stream()>>>(
       topK, sizeBatch, maxSamples, numSamples, (const uint32_t*)samples, state, labels);
   } else {
     void* args[9];
@@ -2687,7 +2609,7 @@ inline void _cuann_find_topk(cuannHandle_t handle,
     args[6] = {&(labels)};
     args[7] = {&(count)};
     args[8] = {nullptr};
-    cudaLaunchCooperativeKernel((void*)cg_kernel, blocks, threads, args, 0, handle->stream);
+    cudaLaunchCooperativeKernel((void*)cg_kernel, blocks, threads, args, 0, handle.get_stream());
   }
   if (!sort) { return; }
 
@@ -2703,7 +2625,7 @@ inline void _cuann_find_topk(cuannHandle_t handle,
 
   dim3 stpThreads(128, 1, 1);
   dim3 stpBlocks((max(sizeBatch + 1, sizeBatch * topK) + stpThreads.x - 1) / stpThreads.x, 1, 1);
-  _sort_topk_prep<<<stpBlocks, stpThreads, 0, handle->stream>>>(
+  _sort_topk_prep<<<stpBlocks, stpThreads, 0, handle.get_stream()>>>(
     sizeBatch, topK, maxSamples, labels, samples, offsets, keys_in);
 
   size_t cub_ws_size = 0;
@@ -2730,17 +2652,17 @@ inline void _cuann_find_topk(cuannHandle_t handle,
                                            offsets + 1,
                                            (int)0,
                                            (int)(sizeof(float) * 8),
-                                           handle->stream);
+                                           handle.get_stream());
 
   cudaMemcpyAsync(labels,
                   values_out,
                   sizeof(uint32_t) * sizeBatch * topK,
                   cudaMemcpyDeviceToDevice,
-                  handle->stream);
+                  handle.get_stream());
 }
 
 //
-inline void _cuann_find_topk(cuannHandle_t handle,
+inline void _cuann_find_topk(const handle_t& handle,
                              uint32_t topK,
                              uint32_t sizeBatch,
                              uint32_t maxSamples,
@@ -2754,7 +2676,7 @@ inline void _cuann_find_topk(cuannHandle_t handle,
   constexpr int stateBitLen = STATE_BIT_LENGTH;
   assert(stateBitLen == 0 || stateBitLen == 8);
 #ifdef CUANN_DEBUG
-  cudaMemsetAsync(labels, 0xff, sizeof(uint32_t) * sizeBatch * topK, handle->stream);
+  cudaMemsetAsync(labels, 0xff, sizeof(uint32_t) * sizeBatch * topK, handle.get_stream());
 #endif
 
   int vecLen = _get_vecLen(maxSamples);
@@ -2772,9 +2694,9 @@ inline void _cuann_find_topk(cuannHandle_t handle,
   int numBlocksPerSm_topk;
   cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm_topk, cg_kernel, numThreads, 0);
   int numBlocks_perBatch = (maxSamples + (numThreads * vecLen) - 1) / (numThreads * vecLen);
-  int numBlocks          = min(numBlocks_perBatch * sizeBatch,
-                      (handle->deviceProp).multiProcessorCount * numBlocksPerSm_topk);
-  numBlocks_perBatch     = max(numBlocks / sizeBatch, 1);
+  int numBlocks =
+    min(numBlocks_perBatch * sizeBatch, getMultiProcessorCount() * numBlocksPerSm_topk);
+  numBlocks_perBatch = max(numBlocks / sizeBatch, 1);
   if (maxSamples <= numThreads * 10) {
     // When number of sample is small, using multiple thread-blocks does not
     // improve performance, in which case cta_kernel is used. Tentatively,
@@ -2803,7 +2725,7 @@ inline void _cuann_find_topk(cuannHandle_t handle,
     } else if (vecLen == 1) {
       cta_kernel = kern_topk_cta_8<numThreads, stateBitLen, 1>;
     }
-    cta_kernel<<<blocks, threads, 0, handle->stream>>>(
+    cta_kernel<<<blocks, threads, 0, handle.get_stream()>>>(
       topK, sizeBatch, maxSamples, numSamples, (const uint16_t*)samples, state, labels);
   } else {
     void* args[9];
@@ -2816,7 +2738,7 @@ inline void _cuann_find_topk(cuannHandle_t handle,
     args[6] = {&(labels)};
     args[7] = {&(count)};
     args[8] = {nullptr};
-    cudaLaunchCooperativeKernel((void*)cg_kernel, blocks, threads, args, 0, handle->stream);
+    cudaLaunchCooperativeKernel((void*)cg_kernel, blocks, threads, args, 0, handle.get_stream());
   }
 }
 
@@ -2837,11 +2759,11 @@ inline void _cuann_find_topk(cuannHandle_t handle,
  */
 
 //
-inline size_t ivfpq_search_bufferSize(cuannHandle_t handle, cuannIvfPqDescriptor_t desc);
+inline size_t ivfpq_search_bufferSize(const handle_t& handle, cuannIvfPqDescriptor_t desc);
 
 // search
 template <typename scoreDtype, typename smemLutDtype>
-inline void ivfpq_search(cuannHandle_t handle,
+inline void ivfpq_search(const handle_t& handle,
                          cuannIvfPqDescriptor_t desc,
                          uint32_t numQueries,
                          const float* clusterCenters,           // [numDataset, dimDataset]
@@ -3087,7 +3009,7 @@ inline size_t get_sizeSmemForLocalTopk(cuannIvfPqDescriptor_t desc, int numThrea
 }
 
 // return workspace size
-inline size_t ivfpq_search_bufferSize(cuannHandle_t handle, cuannIvfPqDescriptor_t desc)
+inline size_t ivfpq_search_bufferSize(const handle_t& handle, cuannIvfPqDescriptor_t desc)
 {
   size_t size = 0;
   // clusterLabelsOut  [maxBatchSize, numProbes]
@@ -3139,8 +3061,8 @@ inline size_t ivfpq_search_bufferSize(cuannHandle_t handle, cuannIvfPqDescriptor
     size += _cuann_aligned(sizeof(float) * desc->maxBatchSize * desc->topK);
   }
   // preCompScores  [multiProcessorCount, dimPq, 1 << bitPq,]
-  size += _cuann_aligned(sizeof(float) * (handle->deviceProp).multiProcessorCount * desc->dimPq *
-                         (1 << desc->bitPq));
+  size +=
+    _cuann_aligned(sizeof(float) * getMultiProcessorCount() * desc->dimPq * (1 << desc->bitPq));
   // topkWorkspace
   if (manage_local_topk(desc)) {
     size += _cuann_find_topk_bufferSize(handle,
@@ -3318,11 +3240,6 @@ template __global__ void ivfpq_make_outputs<half>(
  *
  */
 
-inline cuannStatus_t cuannCreate(cuannHandle_t* handle);
-inline cuannStatus_t cuannDestroy(cuannHandle_t handle);
-inline cuannStatus_t cuannSetStream(cuannHandle_t handle, cudaStream_t stream);
-inline cuannStatus_t cuannSetDevice(cuannHandle_t handle, int devId);
-
 inline cuannStatus_t cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc);
 inline cuannStatus_t cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc);
 
@@ -3349,7 +3266,7 @@ inline cuannStatus_t cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc,
                                             size_t* size /* bytes of dataset index */);
 
 inline cuannStatus_t cuannIvfPqBuildIndex(
-  cuannHandle_t handle,
+  const handle_t& handle,
   cuannIvfPqDescriptor_t desc,
   const void* dataset,  /* [numDataset, dimDataset] */
   const void* trainset, /* [numTrainset, dimDataset] */
@@ -3360,18 +3277,18 @@ inline cuannStatus_t cuannIvfPqBuildIndex(
   bool hierarchicalClustering, /* If true, do kmeans training hierarchically */
   void* index /* database index to build */);
 
-inline cuannStatus_t cuannIvfPqSaveIndex(cuannHandle_t handle,
+inline cuannStatus_t cuannIvfPqSaveIndex(const handle_t& handle,
                                          cuannIvfPqDescriptor_t desc,
                                          const void* index,
                                          const char* fileName);
 
-inline cuannStatus_t cuannIvfPqLoadIndex(cuannHandle_t handle,
+inline cuannStatus_t cuannIvfPqLoadIndex(const handle_t& handle,
                                          cuannIvfPqDescriptor_t desc,
                                          void** index,
                                          const char* fileName);
 
 inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
-  cuannHandle_t handle,
+  const handle_t& handle,
   const char* oldIndexFileName,
   const char* newIndexFileName,
   const void* newVectors, /* [numVectorsToAdd, dimDataset] */
@@ -3396,14 +3313,14 @@ inline cuannStatus_t cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t 
                                                          cudaDataType_t* smemLutDtype,
                                                          uint32_t* preferredThreadBlockSize);
 
-inline cuannStatus_t cuannIvfPqSearch_bufferSize(cuannHandle_t handle,
+inline cuannStatus_t cuannIvfPqSearch_bufferSize(const handle_t& handle,
                                                  cuannIvfPqDescriptor_t desc,
                                                  const void* index,
                                                  uint32_t numQueries,
                                                  size_t maxWorkspaceSize,
                                                  size_t* workspaceSize);
 
-inline cuannStatus_t cuannIvfPqSearch(cuannHandle_t handle,
+inline cuannStatus_t cuannIvfPqSearch(const handle_t& handle,
                                       cuannIvfPqDescriptor_t desc,
                                       const void* index,
                                       const void* queries, /* [numQueries, dimDataset] */
@@ -3601,8 +3518,15 @@ inline void _cuann_get_sqsumClusters(cuannIvfPqDescriptor_t desc,
     fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
     exit(-1);
   }
+  switch (detail::utils::check_pointer_residency(clusterCenters, *output)) {
+    case detail::utils::pointer_residency::device_only:
+    case detail::utils::pointer_residency::host_and_device: break;
+    default: RAFT_FAIL("_cuann_get_sqsumClusters: not all pointers are available on the device.");
+  }
+  rmm::cuda_stream_default.synchronize();
   detail::utils::dots_along_rows(
     desc->numClusters, desc->dimDataset, clusterCenters, *output, rmm::cuda_stream_default);
+  rmm::cuda_stream_default.synchronize();
 }
 
 //
@@ -3788,7 +3712,7 @@ uint32_t _get_num_trainset(uint32_t clusterSize, uint32_t dimPq, uint32_t bitPq)
 }
 
 //
-inline void _cuann_compute_PQ_code(cuannHandle_t handle,
+inline void _cuann_compute_PQ_code(const handle_t& handle,
                                    uint32_t numDataset,
                                    uint32_t dimDataset,
                                    uint32_t dimRotDataset,
@@ -3819,23 +3743,20 @@ inline void _cuann_compute_PQ_code(cuannHandle_t handle,
   float** subVectors;          // [numDevices][dimPq, maxClusterSize, lenPq]
   uint32_t** subVectorLabels;  // [numDevices][dimPq, maxClusterSize]
   uint8_t** myPqDataset;       // [numDevices][maxCluserSize, dimPq * bitPq / 8]
-  resVectors = _cuann_multi_device_malloc<float>(
-    handle->numDevices, maxClusterSize * dimDataset, "resVectors");
-  rotVectors = _cuann_multi_device_malloc<float>(
-    handle->numDevices, maxClusterSize * dimRotDataset, "rotVectors");
-  subVectors = _cuann_multi_device_malloc<float>(
-    handle->numDevices, dimPq * maxClusterSize * lenPq, "subVectors");
-  subVectorLabels = _cuann_multi_device_malloc<uint32_t>(
-    handle->numDevices, dimPq * maxClusterSize, "subVectorLabels");
-  myPqDataset = _cuann_multi_device_malloc<uint8_t>(
-    handle->numDevices, maxClusterSize * dimPq * bitPq / 8, "myPqDataset");
+  resVectors = _cuann_multi_device_malloc<float>(1, maxClusterSize * dimDataset, "resVectors");
+  rotVectors = _cuann_multi_device_malloc<float>(1, maxClusterSize * dimRotDataset, "rotVectors");
+  subVectors = _cuann_multi_device_malloc<float>(1, dimPq * maxClusterSize * lenPq, "subVectors");
+  subVectorLabels =
+    _cuann_multi_device_malloc<uint32_t>(1, dimPq * maxClusterSize, "subVectorLabels");
+  myPqDataset =
+    _cuann_multi_device_malloc<uint8_t>(1, maxClusterSize * dimPq * bitPq / 8, "myPqDataset");
 
   uint32_t maxTrainset = 0;
   if ((numIterations > 0) && (typePqCenter == CUANN_PQ_CENTER_PER_CLUSTER)) {
     maxTrainset = _get_num_trainset(maxClusterSize, dimPq, bitPq);
   }
   void** pqPredictWorkspace = (void**)_cuann_multi_device_malloc<uint8_t>(
-    handle->numDevices,
+    1,
     _cuann_kmeans_predict_bufferSize((1 << bitPq), lenPq, max(maxClusterSize, maxTrainset)),
     "pqPredictWorkspace");
 
@@ -3846,18 +3767,15 @@ inline void _cuann_compute_PQ_code(cuannHandle_t handle,
   float** myPqCentersTemp;     // [numDevices][1 << bitPq, lenPq]
   if ((numIterations > 0) && (typePqCenter == CUANN_PQ_CENTER_PER_CLUSTER)) {
     memset(pqCenters, 0, sizeof(float) * numClusters * (1 << bitPq) * lenPq);
-    rotVectorLabels = _cuann_multi_device_malloc<uint32_t>(
-      handle->numDevices, maxClusterSize * dimPq, "rotVectorLabels");
-    pqClusterSize =
-      _cuann_multi_device_malloc<uint32_t>(handle->numDevices, (1 << bitPq), "pqClusterSize");
-    wsKAC = _cuann_multi_device_malloc<uint32_t>(handle->numDevices, 1, "wsKAC");
-    myPqCenters =
-      _cuann_multi_device_malloc<float>(handle->numDevices, (1 << bitPq) * lenPq, "myPqCenters");
-    myPqCentersTemp = _cuann_multi_device_malloc<float>(
-      handle->numDevices, (1 << bitPq) * lenPq, "myPqCentersTemp");
+    rotVectorLabels =
+      _cuann_multi_device_malloc<uint32_t>(1, maxClusterSize * dimPq, "rotVectorLabels");
+    pqClusterSize   = _cuann_multi_device_malloc<uint32_t>(1, (1 << bitPq), "pqClusterSize");
+    wsKAC           = _cuann_multi_device_malloc<uint32_t>(1, 1, "wsKAC");
+    myPqCenters     = _cuann_multi_device_malloc<float>(1, (1 << bitPq) * lenPq, "myPqCenters");
+    myPqCentersTemp = _cuann_multi_device_malloc<float>(1, (1 << bitPq) * lenPq, "myPqCentersTemp");
   }
 
-#pragma omp parallel for schedule(dynamic) num_threads(handle->numDevices)
+#pragma omp parallel for schedule(dynamic) num_threads(1)
   for (uint32_t l = 0; l < numClusters; l++) {
     int devId = omp_get_thread_num();
     cudaSetDevice(devId);
@@ -3909,10 +3827,10 @@ inline void _cuann_compute_PQ_code(cuannHandle_t handle,
     //
     // Rotate the residual vectors using a rotation matrix
     //
-    cudaStream_t cublasStream  = _cuann_set_cublas_stream(handle->cublasHandles[devId], NULL);
+    cudaStream_t cublasStream  = _cuann_set_cublas_stream(handle.get_cublas_handle(), NULL);
     float alpha                = 1.0;
     float beta                 = 0.0;
-    cublasStatus_t cublasError = cublasGemmEx(handle->cublasHandles[devId],
+    cublasStatus_t cublasError = cublasGemmEx(handle.get_cublas_handle(),
                                               CUBLAS_OP_T,
                                               CUBLAS_OP_N,
                                               dimRotDataset,
@@ -3936,7 +3854,7 @@ inline void _cuann_compute_PQ_code(cuannHandle_t handle,
       // return CUANN_STATUS_CUBLAS_ERROR;
       exit(-1);
     }
-    _cuann_set_cublas_stream(handle->cublasHandles[devId], cublasStream);
+    _cuann_set_cublas_stream(handle.get_cublas_handle(), cublasStream);
 
     //
     // Training PQ codebook if CUANN_PQ_CENTER_PER_CLUSTER
@@ -3957,7 +3875,7 @@ inline void _cuann_compute_PQ_code(cuannHandle_t handle,
                   (float)iter / 2,
                   numIterations);
         }
-        _cuann_kmeans_predict(handle->cublasHandles[devId],
+        _cuann_kmeans_predict(handle,
                               myPqCenters[devId],
                               (1 << bitPq),
                               lenPq,
@@ -4019,7 +3937,7 @@ inline void _cuann_compute_PQ_code(cuannHandle_t handle,
         curPqCenters = pqCenters + ((1 << bitPq) * lenPq) * l;
         if (numIterations > 0) { curPqCenters = myPqCenters[devId]; }
       }
-      _cuann_kmeans_predict(handle->cublasHandles[devId],
+      _cuann_kmeans_predict(handle,
                             curPqCenters,
                             (1 << bitPq),
                             lenPq,
@@ -4050,130 +3968,19 @@ inline void _cuann_compute_PQ_code(cuannHandle_t handle,
   fprintf(stderr, "\n");
 
   //
-  _cuann_multi_device_free<uint8_t>((uint8_t**)pqPredictWorkspace, handle->numDevices);
-  _cuann_multi_device_free<uint8_t>(myPqDataset, handle->numDevices);
-  _cuann_multi_device_free<uint32_t>(subVectorLabels, handle->numDevices);
-  _cuann_multi_device_free<float>(subVectors, handle->numDevices);
-  _cuann_multi_device_free<float>(rotVectors, handle->numDevices);
-  _cuann_multi_device_free<float>(resVectors, handle->numDevices);
+  _cuann_multi_device_free<uint8_t>((uint8_t**)pqPredictWorkspace, 1);
+  _cuann_multi_device_free<uint8_t>(myPqDataset, 1);
+  _cuann_multi_device_free<uint32_t>(subVectorLabels, 1);
+  _cuann_multi_device_free<float>(subVectors, 1);
+  _cuann_multi_device_free<float>(rotVectors, 1);
+  _cuann_multi_device_free<float>(resVectors, 1);
   if ((numIterations > 0) && (typePqCenter == CUANN_PQ_CENTER_PER_CLUSTER)) {
-    _cuann_multi_device_free<uint32_t>(wsKAC, handle->numDevices);
-    _cuann_multi_device_free<uint32_t>(rotVectorLabels, handle->numDevices);
-    _cuann_multi_device_free<uint32_t>(pqClusterSize, handle->numDevices);
-    _cuann_multi_device_free<float>(myPqCenters, handle->numDevices);
-    _cuann_multi_device_free<float>(myPqCentersTemp, handle->numDevices);
+    _cuann_multi_device_free<uint32_t>(wsKAC, 1);
+    _cuann_multi_device_free<uint32_t>(rotVectorLabels, 1);
+    _cuann_multi_device_free<uint32_t>(pqClusterSize, 1);
+    _cuann_multi_device_free<float>(myPqCenters, 1);
+    _cuann_multi_device_free<float>(myPqCentersTemp, 1);
   }
-}
-
-// cuannCreate
-inline cuannStatus_t cuannCreate(cuannHandle_t* handle)
-{
-  cudaError_t cudaError;
-  cublasStatus_t cublasError;
-
-  *handle = (cuannHandle_t)malloc(sizeof(struct cuannContext));
-  if (*handle == NULL) { return CUANN_STATUS_ALLOC_FAILED; }
-
-  // Keep the current device ID.
-  int devId;
-  cudaError = cudaGetDevice(&devId);
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaGetDevice() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_CUDA_ERROR;
-  }
-
-  // numDevices
-  cudaGetDeviceCount(&((*handle)->numDevices));
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaGetDeviceCount() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_CUDA_ERROR;
-  }
-
-  (*handle)->streams     = (cudaStream_t*)malloc(sizeof(cudaStream_t) * (*handle)->numDevices);
-  (*handle)->deviceProps = (cudaDeviceProp*)malloc(sizeof(cudaDeviceProp) * (*handle)->numDevices);
-  (*handle)->cublasHandles =
-    (cublasHandle_t*)malloc(sizeof(cublasHandle_t) * (*handle)->numDevices);
-
-  for (int i = 0; i < (*handle)->numDevices; i++) {
-    cudaError = cudaSetDevice(i);
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaSetDevice() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_CUDA_ERROR;
-    }
-
-    // stream
-    (*handle)->streams[i] = NULL;
-
-    // deviceProp
-    cudaError = cudaGetDeviceProperties(&((*handle)->deviceProps[i]), i);
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaGetDeviceProperties() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_CUDA_ERROR;
-    }
-
-    // cublasHandle
-    cublasError = cublasCreate(&((*handle)->cublasHandles[i]));
-    if (cublasError != CUBLAS_STATUS_SUCCESS) {
-      fprintf(stderr, "(%s, %d) cublasCreate() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_CUBLAS_ERROR;
-    }
-  }
-
-  return cuannSetDevice(*handle, devId);
-}
-
-// cuannDestroy
-inline cuannStatus_t cuannDestroy(cuannHandle_t handle)
-{
-  if (handle == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
-  cublasStatus_t cublasError;
-  for (int i = 0; i < handle->numDevices; i++) {
-    cublasError = cublasDestroy(handle->cublasHandles[i]);
-    if (cublasError != CUBLAS_STATUS_SUCCESS) {
-      fprintf(stderr, "(%s, %d) cublasDestroy() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_CUBLAS_ERROR;
-    }
-  }
-  free(handle->streams);
-  free(handle->deviceProps);
-  free(handle->cublasHandles);
-  free(handle);
-  return CUANN_STATUS_SUCCESS;
-}
-
-// cuannSetStream
-inline cuannStatus_t cuannSetStream(cuannHandle_t handle, cudaStream_t stream)
-{
-  if (handle == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
-  int devId = handle->devId;
-  cublasSetStream(handle->cublasHandles[devId], stream);
-  handle->streams[devId] = stream;
-
-  return cuannSetDevice(handle, devId);
-}
-
-// cuannSetDevice
-inline cuannStatus_t cuannSetDevice(cuannHandle_t handle, int devId)
-{
-  if (handle == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
-  if (devId < 0 || devId >= handle->numDevices) {
-    fprintf(
-      stderr, "(%s, %d) devId is out of range (devId:%d) failed.\n", __func__, __LINE__, devId);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-
-  // (*) Need to re-consider whether it is good to call cudaSetDevice() here.
-  cudaError_t cudaError = cudaSetDevice(devId);
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaSetDevice() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_CUDA_ERROR;
-  }
-
-  handle->devId        = devId;
-  handle->stream       = handle->streams[devId];
-  handle->deviceProp   = handle->deviceProps[devId];
-  handle->cublasHandle = handle->cublasHandles[devId];
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqCreateDescriptor
@@ -4342,7 +4149,7 @@ inline cuannStatus_t cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc, size_t*
 }
 
 // cuannIvfPqBuildIndex
-inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
+inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
                                           cuannIvfPqDescriptor_t desc,
                                           const void* dataset,
                                           const void* trainset,
@@ -4353,8 +4160,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
                                           bool hierarchicalClustering,
                                           void* index)
 {
-  if (handle == NULL || desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
-  int cuannDevId  = handle->devId;
+  int cuannDevId  = handle.get_device();
   int callerDevId = _cuann_set_device(cuannDevId);
 
   if (dtype != CUDA_R_32F && dtype != CUDA_R_8U && dtype != CUDA_R_8I) {
@@ -4424,7 +4230,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
     return CUANN_STATUS_ALLOC_FAILED;
   }
 
-  uint32_t** wsKAC = _cuann_multi_device_malloc<uint32_t>(handle->numDevices, 1, "wsKAC");
+  uint32_t** wsKAC = _cuann_multi_device_malloc<uint32_t>(1, 1, "wsKAC");
 
   //
   // Training kmeans
@@ -4475,7 +4281,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
               __func__,
               (float)iter / 2,
               numIterations);
-      _cuann_kmeans_predict(handle->cublasHandle,
+      _cuann_kmeans_predict(handle,
                             mesoClusterCenters,
                             numMesoClusters,
                             desc->dimDataset,
@@ -4538,24 +4344,23 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
     assert(csumFineClusters[numMesoClusters] == desc->numClusters);
 
     uint32_t** idsTrainset =
-      _cuann_multi_device_malloc<uint32_t>(handle->numDevices, mesoClusterSizeMax, "idsTrainset");
+      _cuann_multi_device_malloc<uint32_t>(1, mesoClusterSizeMax, "idsTrainset");
 
-    float** subTrainset = _cuann_multi_device_malloc<float>(
-      handle->numDevices, mesoClusterSizeMax * desc->dimDataset, "subTrainset");
+    float** subTrainset =
+      _cuann_multi_device_malloc<float>(1, mesoClusterSizeMax * desc->dimDataset, "subTrainset");
 
     // label (cluster ID) of each vector
-    uint32_t** labelsMP =
-      _cuann_multi_device_malloc<uint32_t>(handle->numDevices, mesoClusterSizeMax, "labelsMP");
+    uint32_t** labelsMP = _cuann_multi_device_malloc<uint32_t>(1, mesoClusterSizeMax, "labelsMP");
 
     float** clusterCentersEach = _cuann_multi_device_malloc<float>(
-      handle->numDevices, numFineClustersMax * desc->dimDataset, "clusterCentersEach");
+      1, numFineClustersMax * desc->dimDataset, "clusterCentersEach");
 
     float** clusterCentersMP = _cuann_multi_device_malloc<float>(
-      handle->numDevices, numFineClustersMax * desc->dimDataset, "clusterCentersMP");
+      1, numFineClustersMax * desc->dimDataset, "clusterCentersMP");
 
     // number of vectors in each cluster
     uint32_t** clusterSizeMP =
-      _cuann_multi_device_malloc<uint32_t>(handle->numDevices, numFineClustersMax, "clusterSizeMP");
+      _cuann_multi_device_malloc<uint32_t>(1, numFineClustersMax, "clusterSizeMP");
 
     size_t sizePredictWorkspace = 0;
     for (uint32_t i = 0; i < numMesoClusters; i++) {
@@ -4566,13 +4371,13 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
                                              mesoClusterSize[i]  // number of vectors
                                              ));
     }
-    void** predictWorkspace = (void**)_cuann_multi_device_malloc<uint8_t>(
-      handle->numDevices, sizePredictWorkspace, "predictWorkspace");
+    void** predictWorkspace =
+      (void**)_cuann_multi_device_malloc<uint8_t>(1, sizePredictWorkspace, "predictWorkspace");
 
     //
     // Training kmeans for clusters in each meso-clusters
     //
-#pragma omp parallel for schedule(dynamic) num_threads(handle->numDevices)
+#pragma omp parallel for schedule(dynamic) num_threads(1)
     for (uint32_t i = 0; i < numMesoClusters; i++) {
       int devId = omp_get_thread_num();
       cudaSetDevice(devId);
@@ -4625,7 +4430,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
                   (float)iter / 2,
                   numIterations);
         }
-        _cuann_kmeans_predict(handle->cublasHandles[devId],
+        _cuann_kmeans_predict(handle,
                               clusterCentersEach[devId],
                               numFineClusters[i],
                               desc->dimDataset,
@@ -4658,20 +4463,20 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
                  sizeof(float) * numFineClusters[i] * desc->dimDataset,
                  cudaMemcpyDeviceToDevice);
     }
-    for (int devId = 0; devId < handle->numDevices; devId++) {
+    for (int devId = 0; devId < 1; devId++) {
       cudaSetDevice(devId);
       cudaDeviceSynchronize();
     }
     fprintf(stderr, "\n");
     cudaSetDevice(cuannDevId);
 
-    _cuann_multi_device_free<uint32_t>(idsTrainset, handle->numDevices);
-    _cuann_multi_device_free<float>(subTrainset, handle->numDevices);
-    _cuann_multi_device_free<uint32_t>(labelsMP, handle->numDevices);
-    _cuann_multi_device_free<float>(clusterCentersEach, handle->numDevices);
-    _cuann_multi_device_free<float>(clusterCentersMP, handle->numDevices);
-    _cuann_multi_device_free<uint32_t>(clusterSizeMP, handle->numDevices);
-    _cuann_multi_device_free<uint8_t>((uint8_t**)predictWorkspace, handle->numDevices);
+    _cuann_multi_device_free<uint32_t>(idsTrainset, 1);
+    _cuann_multi_device_free<float>(subTrainset, 1);
+    _cuann_multi_device_free<uint32_t>(labelsMP, 1);
+    _cuann_multi_device_free<float>(clusterCentersEach, 1);
+    _cuann_multi_device_free<float>(clusterCentersMP, 1);
+    _cuann_multi_device_free<uint32_t>(clusterSizeMP, 1);
+    _cuann_multi_device_free<uint8_t>((uint8_t**)predictWorkspace, 1);
 
     cudaFree(mesoClusterSize);
     cudaFree(mesoClusterLabels);
@@ -4699,8 +4504,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
               __func__,
               (float)iter / X,
               numIterations_X / X);
-      _cuann_kmeans_predict_MP(handle->numDevices,
-                               handle->cublasHandles,
+      _cuann_kmeans_predict_MP(handle,
                                clusterCenters,
                                desc->numClusters,
                                desc->dimDataset,
@@ -4733,7 +4537,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
     for (int iter = 0; iter < numIterations_2; iter += 2) {
       fprintf(
         stderr, "(%s) Training kmeans: %.1f / %u    \r", __func__, (float)iter / 2, numIterations);
-      _cuann_kmeans_predict(handle->cublasHandle,
+      _cuann_kmeans_predict(handle,
                             clusterCenters,
                             desc->numClusters,
                             desc->dimDataset,
@@ -4775,8 +4579,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
   // Predict labels of whole dataset (with multiple GPUs)
   //
   fprintf(stderr, "(%s) Final fitting\n", __func__);
-  _cuann_kmeans_predict_MP(handle->numDevices,
-                           handle->cublasHandles,
+  _cuann_kmeans_predict_MP(handle,
                            clusterCenters,
                            desc->numClusters,
                            desc->dimDataset,
@@ -4802,10 +4605,10 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
     desc->dimRotDataset, desc->dimDataset, desc->lenPq, randomRotation, rotationMatrix);
 
   // Rotate clusterCenters
-  cudaStream_t cublasStream  = _cuann_set_cublas_stream(handle->cublasHandle, NULL);
+  cudaStream_t cublasStream  = _cuann_set_cublas_stream(handle.get_cublas_handle(), NULL);
   float alpha                = 1.0;
   float beta                 = 0.0;
-  cublasStatus_t cublasError = cublasGemmEx(handle->cublasHandle,
+  cublasStatus_t cublasError = cublasGemmEx(handle.get_cublas_handle(),
                                             CUBLAS_OP_T,
                                             CUBLAS_OP_N,
                                             desc->dimRotDataset,
@@ -4828,7 +4631,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
     fprintf(stderr, "(%s, %d) cublasGemmEx() failed.\n", __func__, __LINE__);
     return CUANN_STATUS_CUBLAS_ERROR;
   }
-  _cuann_set_cublas_stream(handle->cublasHandle, cublasStream);
+  _cuann_set_cublas_stream(handle.get_cublas_handle(), cublasStream);
 
   //
   // Make indexPtr, originalNumbers and pqDataset
@@ -4860,21 +4663,21 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
   }
 
   // [numDevices][1 << bitPq, lenPq]
-  float** pqCentersTemp = _cuann_multi_device_malloc<float>(
-    handle->numDevices, (1 << desc->bitPq) * desc->lenPq, "pqCentersTemp");
+  float** pqCentersTemp =
+    _cuann_multi_device_malloc<float>(1, (1 << desc->bitPq) * desc->lenPq, "pqCentersTemp");
 
   // [numDevices][1 << bitPq,]
   uint32_t** pqClusterSize =
-    _cuann_multi_device_malloc<uint32_t>(handle->numDevices, (1 << desc->bitPq), "pqClusterSize");
+    _cuann_multi_device_malloc<uint32_t>(1, (1 << desc->bitPq), "pqClusterSize");
 
   // Allocate workspace for PQ codebook training
   size_t sizePqPredictWorkspace =
     _cuann_kmeans_predict_bufferSize((1 << desc->bitPq), desc->lenPq, numTrainset);
-  sizePqPredictWorkspace    = max(sizePqPredictWorkspace,
+  sizePqPredictWorkspace = max(sizePqPredictWorkspace,
                                _cuann_kmeans_predict_bufferSize(
                                  (1 << desc->bitPq), desc->lenPq, maxClusterSize * desc->dimPq));
-  void** pqPredictWorkspace = (void**)_cuann_multi_device_malloc<uint8_t>(
-    handle->numDevices, sizePqPredictWorkspace, "pqPredictWorkspace");
+  void** pqPredictWorkspace =
+    (void**)_cuann_multi_device_malloc<uint8_t>(1, sizePqPredictWorkspace, "pqPredictWorkspace");
 
   if (desc->typePqCenter == CUANN_PQ_CENTER_PER_SUBSPACE) {
     //
@@ -4884,8 +4687,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
 
     // Predict label of trainset again (with multiple GPUs)
     fprintf(stderr, "(%s) Predict label of trainset again\n", __func__);
-    _cuann_kmeans_predict_MP(handle->numDevices,
-                             handle->cublasHandles,
+    _cuann_kmeans_predict_MP(handle,
                              clusterCenters,
                              desc->numClusters,
                              desc->dimDataset,
@@ -4944,17 +4746,17 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
     }
 
     // [numDevices][numTrainset, lenPq]
-    float** subTrainset = _cuann_multi_device_malloc<float>(
-      handle->numDevices, numTrainset * desc->lenPq, "subTrainset");
+    float** subTrainset =
+      _cuann_multi_device_malloc<float>(1, numTrainset * desc->lenPq, "subTrainset");
 
     // [numDevices][numTrainset]
     uint32_t** subTrainsetLabels =
-      _cuann_multi_device_malloc<uint32_t>(handle->numDevices, numTrainset, "subTrainsetLabels");
+      _cuann_multi_device_malloc<uint32_t>(1, numTrainset, "subTrainsetLabels");
 
-    float** pqCentersEach = _cuann_multi_device_malloc<float>(
-      handle->numDevices, ((1 << desc->bitPq) * desc->lenPq), "pqCentersEach");
+    float** pqCentersEach =
+      _cuann_multi_device_malloc<float>(1, ((1 << desc->bitPq) * desc->lenPq), "pqCentersEach");
 
-#pragma omp parallel for schedule(dynamic) num_threads(handle->numDevices)
+#pragma omp parallel for schedule(dynamic) num_threads(1)
     for (uint32_t j = 0; j < desc->dimPq; j++) {
       int devId = omp_get_thread_num();
       cudaSetDevice(devId);
@@ -4977,7 +4779,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
                   (float)iter / 2,
                   numIterations);
         }
-        _cuann_kmeans_predict(handle->cublasHandles[devId],
+        _cuann_kmeans_predict(handle,
                               pqCentersEach[devId],
                               (1 << desc->bitPq),
                               desc->lenPq,
@@ -5020,9 +4822,9 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
     fprintf(stderr, "\n");
     cudaSetDevice(cuannDevId);
 
-    _cuann_multi_device_free<float>(subTrainset, handle->numDevices);
-    _cuann_multi_device_free<uint32_t>(subTrainsetLabels, handle->numDevices);
-    _cuann_multi_device_free<float>(pqCentersEach, handle->numDevices);
+    _cuann_multi_device_free<float>(subTrainset, 1);
+    _cuann_multi_device_free<uint32_t>(subTrainsetLabels, 1);
+    _cuann_multi_device_free<float>(pqCentersEach, 1);
     free(modTrainset);
   }
 
@@ -5100,25 +4902,24 @@ inline cuannStatus_t cuannIvfPqBuildIndex(cuannHandle_t handle,
   cudaFree(datasetLabels);
   cudaFree(clusterCentersTemp);
 
-  _cuann_multi_device_free<uint32_t>(wsKAC, handle->numDevices);
-  _cuann_multi_device_free<float>(pqCentersTemp, handle->numDevices);
-  _cuann_multi_device_free<uint32_t>(pqClusterSize, handle->numDevices);
-  _cuann_multi_device_free<uint8_t>((uint8_t**)pqPredictWorkspace, handle->numDevices);
+  _cuann_multi_device_free<uint32_t>(wsKAC, 1);
+  _cuann_multi_device_free<float>(pqCentersTemp, 1);
+  _cuann_multi_device_free<uint32_t>(pqClusterSize, 1);
+  _cuann_multi_device_free<uint8_t>((uint8_t**)pqPredictWorkspace, 1);
 
-  cuannSetDevice(handle, cuannDevId);
   _cuann_set_device(callerDevId);
 
   return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqSaveIndex
-inline cuannStatus_t cuannIvfPqSaveIndex(cuannHandle_t handle,
+inline cuannStatus_t cuannIvfPqSaveIndex(const handle_t& handle,
                                          cuannIvfPqDescriptor_t desc,
                                          const void* index,
                                          const char* fileName)
 {
-  if (handle == NULL || desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
-  int orgDevId = _cuann_set_device(handle->devId);
+  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  int orgDevId = _cuann_set_device(handle.get_device());
 
   FILE* fp = fopen(fileName, "w");
   if (fp == NULL) {
@@ -5138,13 +4939,13 @@ inline cuannStatus_t cuannIvfPqSaveIndex(cuannHandle_t handle,
 }
 
 // cuannIvfPqLoadIndex
-inline cuannStatus_t cuannIvfPqLoadIndex(cuannHandle_t handle,
+inline cuannStatus_t cuannIvfPqLoadIndex(const handle_t& handle,
                                          cuannIvfPqDescriptor_t desc,
                                          void** index,
                                          const char* fileName)
 {
-  if (handle == NULL || desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
-  int orgDevId = _cuann_set_device(handle->devId);
+  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  int orgDevId = _cuann_set_device(handle.get_device());
 
   if (1 /* *index == NULL */) {
     FILE* fp = fopen(fileName, "r");
@@ -5167,7 +4968,7 @@ inline cuannStatus_t cuannIvfPqLoadIndex(cuannHandle_t handle,
     }
     fclose(fp);
 
-    cudaMemAdvise(index, indexSize, cudaMemAdviseSetReadMostly, handle->devId);
+    cudaMemAdvise(index, indexSize, cudaMemAdviseSetReadMostly, handle.get_device());
   }
 
   struct cuannIvfPqIndexHeader* header = (struct cuannIvfPqIndexHeader*)(*index);
@@ -5211,34 +5012,34 @@ inline cuannStatus_t cuannIvfPqLoadIndex(cuannHandle_t handle,
   size_t size;
   // pqDataset
   size = sizeof(uint8_t) * desc->numDataset * desc->dimPq * desc->bitPq / 8;
-  if (size < (handle->deviceProp).totalGlobalMem) {
-    cudaMemPrefetchAsync(pqDataset, size, handle->devId);
+  if (size < handle.get_device_properties().totalGlobalMem) {
+    cudaMemPrefetchAsync(pqDataset, size, handle.get_device());
   }
   // clusterCenters
   size = sizeof(float) * desc->numClusters * desc->dimDatasetExt;
-  cudaMemPrefetchAsync(clusterCenters, size, handle->devId);
+  cudaMemPrefetchAsync(clusterCenters, size, handle.get_device());
   // pqCenters
   if (desc->typePqCenter == CUANN_PQ_CENTER_PER_SUBSPACE) {
     size = sizeof(float) * desc->dimPq * (1 << desc->bitPq) * desc->lenPq;
   } else {
     size = sizeof(float) * desc->numClusters * (1 << desc->bitPq) * desc->lenPq;
   }
-  cudaMemPrefetchAsync(pqCenters, size, handle->devId);
+  cudaMemPrefetchAsync(pqCenters, size, handle.get_device());
   // originalNumbers
   size = sizeof(uint32_t) * desc->numDataset;
-  cudaMemPrefetchAsync(originalNumbers, size, handle->devId);
+  cudaMemPrefetchAsync(originalNumbers, size, handle.get_device());
   // indexPtr
   size = sizeof(uint32_t) * (desc->numClusters + 1);
-  cudaMemPrefetchAsync(indexPtr, size, handle->devId);
+  cudaMemPrefetchAsync(indexPtr, size, handle.get_device());
   // rotationMatrix
   if (rotationMatrix != NULL) {
     size = sizeof(float) * desc->dimDataset * desc->dimRotDataset;
-    cudaMemPrefetchAsync(rotationMatrix, size, handle->devId);
+    cudaMemPrefetchAsync(rotationMatrix, size, handle.get_device());
   }
   // clusterRotCenters
   if (clusterRotCenters != NULL) {
     size = sizeof(float) * desc->numClusters * desc->dimRotDataset;
-    cudaMemPrefetchAsync(clusterRotCenters, size, handle->devId);
+    cudaMemPrefetchAsync(clusterRotCenters, size, handle.get_device());
   }
 
   _cuann_set_device(orgDevId);
@@ -5247,7 +5048,7 @@ inline cuannStatus_t cuannIvfPqLoadIndex(cuannHandle_t handle,
 
 // cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex
 inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
-  cuannHandle_t handle,
+  const handle_t& handle,
   const char* oldIndexFileName,
   const char* newIndexFileName,
   const void* newVectors, /* [numNewVectors, dimDataset] */
@@ -5255,14 +5056,13 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
 {
   cudaError_t cudaError;
   cuannStatus_t ret;
-  if (handle == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
   cudaPointerAttributes attr;
   cudaPointerGetAttributes(&attr, newVectors);
   if (attr.type == cudaMemoryTypeDevice) {
     fprintf(stderr, "(%s, %d) newVectors must be accessible from the host.\n", __func__, __LINE__);
     return CUANN_STATUS_INVALID_POINTER;
   }
-  int cuannDevId  = handle->devId;
+  int cuannDevId  = handle.get_device();
   int callerDevId = _cuann_set_device(cuannDevId);
 
   //
@@ -5335,8 +5135,7 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   }
   cudaMemset(clusterSize, 0, sizeof(uint32_t) * oldDesc->numClusters);
   fprintf(stderr, "(%s) Predict label of new vectors\n", __func__);
-  _cuann_kmeans_predict_MP(handle->numDevices,
-                           handle->cublasHandles,
+  _cuann_kmeans_predict_MP(handle,
                            clusterCenters,
                            oldDesc->numClusters,
                            oldDesc->dimDataset,
@@ -5581,7 +5380,6 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   cudaFree(clusterCenters);
   cudaFree(oldIndex);
 
-  cuannSetDevice(handle, cuannDevId);
   _cuann_set_device(callerDevId);
 
   return CUANN_STATUS_SUCCESS;
@@ -5715,14 +5513,14 @@ inline cuannStatus_t cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t 
 }
 
 // cuannIvfPqSearch
-inline cuannStatus_t cuannIvfPqSearch_bufferSize(cuannHandle_t handle,
+inline cuannStatus_t cuannIvfPqSearch_bufferSize(const handle_t& handle,
                                                  cuannIvfPqDescriptor_t desc,
                                                  const void* index,
                                                  uint32_t maxQueries,
                                                  size_t maxWorkspaceSize,
                                                  size_t* workspaceSize)
 {
-  if (handle == NULL || desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
 
   size_t max_ws = maxWorkspaceSize;
   if (max_ws == 0) {
@@ -5771,7 +5569,7 @@ inline cuannStatus_t cuannIvfPqSearch_bufferSize(cuannHandle_t handle,
 
   if (1) {
     // Adjust maxBatchSize to improve GPU occupancy of topk kernel.
-    uint32_t numCta_total    = (handle->deviceProp).multiProcessorCount * 2;
+    uint32_t numCta_total    = getMultiProcessorCount() * 2;
     uint32_t numCta_perBatch = numCta_total / desc->maxBatchSize;
     float utilization        = (float)numCta_perBatch * desc->maxBatchSize / numCta_total;
     if (numCta_perBatch > 1 || (numCta_perBatch == 1 && utilization < 0.6)) {
@@ -5805,7 +5603,7 @@ inline cuannStatus_t cuannIvfPqSearch_bufferSize(cuannHandle_t handle,
 
 // cuannIvfPqSearch
 inline cuannStatus_t cuannIvfPqSearch(
-  cuannHandle_t handle,
+  const handle_t& handle,
   cuannIvfPqDescriptor_t desc,
   const void* index,
   const void* queries,  // [numQueries, dimDataset], host or device pointer
@@ -5815,8 +5613,8 @@ inline cuannStatus_t cuannIvfPqSearch(
   float* distances,     // [numQueries, topK], device pointer
   void* workspace)
 {
-  if (handle == NULL || desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
-  int orgDevId = _cuann_set_device(handle->devId);
+  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  int orgDevId = _cuann_set_device(handle.get_device());
 
   if (dtype != CUDA_R_32F && dtype != CUDA_R_8U && dtype != CUDA_R_8I) {
     return CUANN_STATUS_UNSUPPORTED_DTYPE;
@@ -5866,7 +5664,7 @@ inline cuannStatus_t cuannIvfPqSearch(
   searchWorkspace = (void*)((uint8_t*)clusterLabelsToProbe +
                             _cuann_aligned(sizeof(uint32_t) * desc->maxQueries * desc->numProbes));
 
-  void (*_ivfpq_search)(cuannHandle_t,
+  void (*_ivfpq_search)(const handle_t&,
                         cuannIvfPqDescriptor_t,
                         uint32_t,
                         const float*,
@@ -5933,7 +5731,7 @@ inline cuannStatus_t cuannIvfPqSearch(
                         ptrQueries,
                         sizeof(float) * nQueries * desc->dimDataset,
                         cudaMemcpyHostToDevice,
-                        handle->stream);
+                        handle.get_stream());
         ptrQueries = (float*)devQueries;
       }
       _cuann_copy_fill<float, float>(nQueries,
@@ -5944,7 +5742,7 @@ inline cuannStatus_t cuannIvfPqSearch(
                                      desc->dimDatasetExt,
                                      fillValue,
                                      divisor,
-                                     handle->stream);
+                                     handle.get_stream());
     } else if (dtype == CUDA_R_8U) {
       uint8_t* ptrQueries = (uint8_t*)queries + ((uint64_t)(desc->dimDataset) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
@@ -5952,7 +5750,7 @@ inline cuannStatus_t cuannIvfPqSearch(
                         ptrQueries,
                         sizeof(uint8_t) * nQueries * desc->dimDataset,
                         cudaMemcpyHostToDevice,
-                        handle->stream);
+                        handle.get_stream());
         ptrQueries = (uint8_t*)devQueries;
       }
       _cuann_copy_fill<uint8_t, float>(nQueries,
@@ -5963,7 +5761,7 @@ inline cuannStatus_t cuannIvfPqSearch(
                                        desc->dimDatasetExt,
                                        fillValue,
                                        divisor,
-                                       handle->stream);
+                                       handle.get_stream());
     } else if (dtype == CUDA_R_8I) {
       int8_t* ptrQueries = (int8_t*)queries + ((uint64_t)(desc->dimDataset) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
@@ -5971,7 +5769,7 @@ inline cuannStatus_t cuannIvfPqSearch(
                         ptrQueries,
                         sizeof(int8_t) * nQueries * desc->dimDataset,
                         cudaMemcpyHostToDevice,
-                        handle->stream);
+                        handle.get_stream());
         ptrQueries = (int8_t*)devQueries;
       }
       _cuann_copy_fill<int8_t, float>(nQueries,
@@ -5982,7 +5780,7 @@ inline cuannStatus_t cuannIvfPqSearch(
                                       desc->dimDatasetExt,
                                       fillValue,
                                       divisor,
-                                      handle->stream);
+                                      handle.get_stream());
     }
 
     float alpha;
@@ -5997,7 +5795,7 @@ inline cuannStatus_t cuannIvfPqSearch(
       gemmK = desc->dimDataset + 1;
       assert(gemmK <= desc->dimDatasetExt);
     }
-    cublasError = cublasGemmEx(handle->cublasHandle,
+    cublasError = cublasGemmEx(handle.get_cublas_handle(),
                                CUBLAS_OP_T,
                                CUBLAS_OP_N,
                                desc->numClusters,
@@ -6024,7 +5822,7 @@ inline cuannStatus_t cuannIvfPqSearch(
     // Rotate queries
     alpha       = 1.0;
     beta        = 0.0;
-    cublasError = cublasGemmEx(handle->cublasHandle,
+    cublasError = cublasGemmEx(handle.get_cublas_handle(),
                                CUBLAS_OP_T,
                                CUBLAS_OP_N,
                                desc->dimRotDataset,
@@ -6921,7 +6719,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
 
 // search
 template <typename scoreDtype, typename smemLutDtype>
-inline void ivfpq_search(cuannHandle_t handle,
+inline void ivfpq_search(const handle_t& handle,
                          cuannIvfPqDescriptor_t desc,
                          uint32_t numQueries,
                          const float* clusterCenters,           // [numDataset, dimRotDataset]
@@ -6984,15 +6782,15 @@ inline void ivfpq_search(cuannHandle_t handle,
       (float*)((uint8_t*)similarity +
                _cuann_aligned(sizeof(scoreDtype) * desc->maxBatchSize * desc->maxSamples));
   }
-  topkWorkspace = (void*)((uint8_t*)preCompScores +
-                          _cuann_aligned(sizeof(float) * (handle->deviceProp).multiProcessorCount *
-                                         desc->dimPq * (1 << desc->bitPq)));
+  topkWorkspace =
+    (void*)((uint8_t*)preCompScores + _cuann_aligned(sizeof(float) * getMultiProcessorCount() *
+                                                     desc->dimPq * (1 << desc->bitPq)));
 
   //
   if (manage_local_topk(desc)) {
     dim3 iksThreads(128, 1, 1);
     dim3 iksBlocks(((numQueries * desc->topK) + iksThreads.x - 1) / iksThreads.x, 1, 1);
-    ivfpq_init_topkScores<<<iksBlocks, iksThreads, 0, handle->stream>>>(
+    ivfpq_init_topkScores<<<iksBlocks, iksThreads, 0, handle.get_stream()>>>(
       topkScores, FLT_MAX, numQueries * desc->topK);
 #ifdef CUANN_DEBUG
     cudaError = cudaDeviceSynchronize();
@@ -7006,7 +6804,7 @@ inline void ivfpq_search(cuannHandle_t handle,
   //
   dim3 mcThreads(1024, 1, 1);  // DO NOT CHANGE
   dim3 mcBlocks(numQueries, 1, 1);
-  ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, handle->stream>>>(
+  ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, handle.get_stream()>>>(
     desc->numProbes, numQueries, indexPtr, clusterLabelsToProbe, chunkIndexPtr, numSamples);
 #ifdef CUANN_DEBUG
   cudaError = cudaDeviceSynchronize();
@@ -7023,8 +6821,8 @@ inline void ivfpq_search(cuannHandle_t handle,
     // possible.
     dim3 psThreads(128, 1, 1);
     dim3 psBlocks((numQueries * desc->numProbes + psThreads.x - 1) / psThreads.x, 1, 1);
-    ivfpq_prep_sort<<<psBlocks, psThreads, 0, handle->stream>>>(numQueries * desc->numProbes,
-                                                                indexList);
+    ivfpq_prep_sort<<<psBlocks, psThreads, 0, handle.get_stream()>>>(numQueries * desc->numProbes,
+                                                                     indexList);
 #ifdef CUANN_DEBUG
     cudaError = cudaDeviceSynchronize();
     if (cudaError != cudaSuccess) {
@@ -7044,7 +6842,7 @@ inline void ivfpq_search(cuannHandle_t handle,
                                     numQueries * desc->numProbes,
                                     begin_bit,
                                     end_bit,
-                                    handle->stream);
+                                    handle.get_stream());
 #ifdef CUANN_DEBUG
     cudaError = cudaDeviceSynchronize();
     if (cudaError != cudaSuccess) {
@@ -7126,7 +6924,14 @@ inline void ivfpq_search(cuannHandle_t handle,
     case 2: SET_KERNEL3(2); break;
     case 3: SET_KERNEL3(3); break;
     case 4: SET_KERNEL3(4); break;
+    default: RAFT_FAIL("ivf_pq::search(k = %u): depth value is too big (%d)", desc->topK, depth);
   }
+  RAFT_LOG_INFO("ivf_pq::search(k = %u, depth = %d, dim = %u/%u/%u)",
+                desc->topK,
+                depth,
+                desc->dimDataset,
+                desc->dimRotDataset,
+                desc->dimPq);
   constexpr size_t thresholdSmem = 48 * 1024;
   size_t sizeSmem                = sizeof(smemLutDtype) * desc->dimPq * (1 << desc->bitPq);
   size_t sizeSmemBaseDiff        = sizeof(float) * desc->dimDataset;
@@ -7137,11 +6942,8 @@ inline void ivfpq_search(cuannHandle_t handle,
   if (desc->preferredThreadBlockSize == 0) {
     constexpr int minThreads = 256;
     while (numThreads > minThreads) {
-      if (numCTAs <
-          uint32_t((handle->deviceProp).multiProcessorCount * (1024 / (numThreads / 2)))) {
-        break;
-      }
-      if ((handle->deviceProp).sharedMemPerMultiprocessor * 2 / 3 <
+      if (numCTAs < uint32_t(getMultiProcessorCount() * (1024 / (numThreads / 2)))) { break; }
+      if (handle.get_device_properties().sharedMemPerMultiprocessor * 2 / 3 <
           sizeSmem * (1024 / (numThreads / 2))) {
         break;
       }
@@ -7168,7 +6970,7 @@ inline void ivfpq_search(cuannHandle_t handle,
       numThreads                  = 1024;
       size_t sizeSmemForLocalTopk = get_sizeSmemForLocalTopk(desc, numThreads);
       sizeSmem                    = max(sizeSmemBaseDiff, sizeSmemForLocalTopk);
-      numCTAs                     = (handle->deviceProp).multiProcessorCount;
+      numCTAs                     = getMultiProcessorCount();
     }
   }
   if (kernel_no_basediff_available) {
@@ -7211,27 +7013,27 @@ inline void ivfpq_search(cuannHandle_t handle,
   }
   dim3 ctaThreads(numThreads, 1, 1);
   dim3 ctaBlocks(numCTAs, 1, 1);
-  kernel<<<ctaBlocks, ctaThreads, sizeSmem, handle->stream>>>(desc->numDataset,
-                                                              desc->dimRotDataset,
-                                                              desc->numProbes,
-                                                              desc->dimPq,
-                                                              numQueries,
-                                                              desc->maxSamples,
-                                                              desc->similarity,
-                                                              desc->typePqCenter,
-                                                              desc->topK,
-                                                              clusterCenters,
-                                                              pqCenters,
-                                                              pqDataset,
-                                                              indexPtr,
-                                                              clusterLabelsToProbe,
-                                                              chunkIndexPtr,
-                                                              query,
-                                                              indexListSorted,
-                                                              preCompScores,
-                                                              topkScores,
-                                                              (scoreDtype*)similarity,
-                                                              simTopkIndex);
+  kernel<<<ctaBlocks, ctaThreads, sizeSmem, handle.get_stream()>>>(desc->numDataset,
+                                                                   desc->dimRotDataset,
+                                                                   desc->numProbes,
+                                                                   desc->dimPq,
+                                                                   numQueries,
+                                                                   desc->maxSamples,
+                                                                   desc->similarity,
+                                                                   desc->typePqCenter,
+                                                                   desc->topK,
+                                                                   clusterCenters,
+                                                                   pqCenters,
+                                                                   pqDataset,
+                                                                   indexPtr,
+                                                                   clusterLabelsToProbe,
+                                                                   chunkIndexPtr,
+                                                                   query,
+                                                                   indexListSorted,
+                                                                   preCompScores,
+                                                                   topkScores,
+                                                                   (scoreDtype*)similarity,
+                                                                   simTopkIndex);
 #ifdef CUANN_DEBUG
   cudaError = cudaDeviceSynchronize();
   if (cudaError != cudaSuccess) {
@@ -7272,19 +7074,19 @@ inline void ivfpq_search(cuannHandle_t handle,
   dim3 moThreads(128, 1, 1);
   dim3 moBlocks((desc->topK + moThreads.x - 1) / moThreads.x, numQueries, 1);
   ivfpq_make_outputs<scoreDtype>
-    <<<moBlocks, moThreads, 0, handle->stream>>>(desc->numProbes,
-                                                 desc->topK,
-                                                 desc->maxSamples,
-                                                 numQueries,
-                                                 indexPtr,
-                                                 originalNumbers,
-                                                 clusterLabelsToProbe,
-                                                 chunkIndexPtr,
-                                                 (scoreDtype*)similarity,
-                                                 simTopkIndex,
-                                                 topkSids,
-                                                 topkNeighbors,
-                                                 topkDistances);
+    <<<moBlocks, moThreads, 0, handle.get_stream()>>>(desc->numProbes,
+                                                      desc->topK,
+                                                      desc->maxSamples,
+                                                      numQueries,
+                                                      indexPtr,
+                                                      originalNumbers,
+                                                      clusterLabelsToProbe,
+                                                      chunkIndexPtr,
+                                                      (scoreDtype*)similarity,
+                                                      simTopkIndex,
+                                                      topkSids,
+                                                      topkNeighbors,
+                                                      topkDistances);
 #ifdef CUANN_DEBUG
   cudaError = cudaDeviceSynchronize();
   if (cudaError != cudaSuccess) {

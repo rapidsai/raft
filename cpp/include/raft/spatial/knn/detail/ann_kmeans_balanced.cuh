@@ -53,16 +53,16 @@ namespace raft::spatial::knn::detail::kmeans {
  * @param stream
  * @param mr (optional) memory resource to use for temporary allocations
  */
-void predict_float_core(const handle_t& handle,
-                        const float* centers,
-                        uint32_t n_clusters,
-                        uint32_t dim,
-                        const float* dataset,
-                        size_t n_rows,
-                        uint32_t* labels,
-                        raft::distance::DistanceType metric,
-                        rmm::cuda_stream_view stream,
-                        rmm::mr::device_memory_resource* mr)
+inline void predict_float_core(const handle_t& handle,
+                               const float* centers,
+                               uint32_t n_clusters,
+                               uint32_t dim,
+                               const float* dataset,
+                               size_t n_rows,
+                               uint32_t* labels,
+                               raft::distance::DistanceType metric,
+                               rmm::cuda_stream_view stream,
+                               rmm::mr::device_memory_resource* mr)
 {
   rmm::device_uvector<float> distances(n_rows * n_clusters, stream, mr);
 
@@ -115,7 +115,7 @@ void predict_float_core(const handle_t& handle,
  * @param n_rows dataset size
  * @return a suggested minibatch size
  */
-constexpr auto calc_minibatch_size(uint32_t n_clusters, size_t n_rows) -> uint32_t
+constexpr inline auto calc_minibatch_size(uint32_t n_clusters, size_t n_rows) -> uint32_t
 {
   n_clusters              = std::max<uint32_t>(1, n_clusters);
   uint32_t minibatch_size = (1 << 20);
@@ -411,10 +411,10 @@ void build_clusters(const handle_t& handle,
 }
 
 /** Calculate how many fine clusters should belong to each mesocluster. */
-auto arrange_fine_clusters(uint32_t n_clusters,
-                           uint32_t n_mesoclusters,
-                           size_t n_rows,
-                           const uint32_t* mesocluster_sizes)
+inline auto arrange_fine_clusters(uint32_t n_clusters,
+                                  uint32_t n_mesoclusters,
+                                  size_t n_rows,
+                                  const uint32_t* mesocluster_sizes)
 {
   std::vector<uint32_t> fine_clusters_nums(n_mesoclusters);
   std::vector<uint32_t> fine_clusters_csum(n_mesoclusters + 1);

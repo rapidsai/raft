@@ -159,13 +159,6 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
       rmm::device_uvector<uint64_t> indices_ivf_pq_dev(queries_size, stream_);
 
       {
-        std::unique_ptr<ivf_pq::cuannContext, std::function<void(ivf_pq::cuannHandle_t)>>
-          cuann_handle{[]() {
-                         ivf_pq::cuannHandle_t h;
-                         CUANN_CHECK(ivf_pq::cuannCreate(&h));
-                         return h;
-                       }(),
-                       [](ivf_pq::cuannHandle_t h) { ivf_pq::cuannDestroy(h); }};
         std::unique_ptr<ivf_pq::cuannIvfPqDescriptor,
                         std::function<void(ivf_pq::cuannIvfPqDescriptor_t)>>
           cuann_desc{
@@ -175,9 +168,6 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
               return d;
             }(),
             [](ivf_pq::cuannIvfPqDescriptor_t d) { ivf_pq::cuannIvfPqDestroyDescriptor(d); }};
-
-        CUANN_CHECK(ivf_pq::cuannSetDevice(cuann_handle.get(), handle_.get_device()));
-        CUANN_CHECK(ivf_pq::cuannSetStream(cuann_handle.get(), handle_.get_stream()));
 
         // Number of kmeans clusters.
         //
@@ -244,7 +234,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
           dtype = CUDA_R_32F;
         }
         CUANN_CHECK(ivf_pq::cuannIvfPqBuildIndex(
-          cuann_handle.get(),
+          handle_,
           cuann_desc.get(),
           database.data(),  // dataset
           database.data(),  // ?kmeans? trainset
@@ -284,17 +274,15 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         uint32_t preferredThreadBlockSize = 0;  // 0, 256, 512, or 1024
         CUANN_CHECK(ivf_pq::cuannIvfPqSetSearchTuningParameters(
           cuann_desc.get(), internalDistanceDtype, smemLutDtype, preferredThreadBlockSize));
-        // Maximum number of query vectors to search.
-        uint32_t maxQueries = 1000000;
         // Maximum number of query vectors to search at the same time.
-        uint32_t batchSize = maxQueries;
+        uint32_t batchSize = std::min<uint32_t>(ps.num_queries, 32768);
         // Maximum device memory size that may be used as workspace at search time.
         // maxSearchWorkspaceSize = 0;  // default
         size_t maxSearchWorkspaceSize = (size_t)2 * 1024 * 1024 * 1024;  // 2 GiB
 
         // Allocate memory for index
         size_t ivf_pq_search_workspace_size;
-        CUANN_CHECK(ivf_pq::cuannIvfPqSearch_bufferSize(cuann_handle.get(),
+        CUANN_CHECK(ivf_pq::cuannIvfPqSearch_bufferSize(handle_,
                                                         cuann_desc.get(),
                                                         ivf_pq_index_buf_managed.data(),
                                                         batchSize,
@@ -303,7 +291,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         rmm::device_buffer ivf_pq_search_ws_buf(ivf_pq_search_workspace_size, stream_);
 
         // finally, search!
-        CUANN_CHECK(cuannIvfPqSearch(cuann_handle.get(),
+        CUANN_CHECK(cuannIvfPqSearch(handle_,
                                      cuann_desc.get(),
                                      ivf_pq_index_buf_managed.data(),
                                      search_queries.data(),
