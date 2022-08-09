@@ -46,7 +46,8 @@ TEST(Raft, AtomicIncWarp)
 
   rmm::device_scalar<int> counter{0, s};
   rmm::device_uvector<int> out_device{num_elts, s};
-  std::vector<int> out_host(num_elts, 0);
+  std::vector<int> out_host(num_elts);
+  memset(out_host.data(), 0, num_elts * sizeof(int));
 
   // Write all 1M thread indices to a unique location in `out_device`
   test_atomic_inc_warp_kernel<<<num_blocks, threads_per_block, 0, s>>>(counter.data(),
