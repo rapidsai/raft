@@ -38,7 +38,7 @@ MDSPAN_INLINE_FUNCTION constexpr auto padded_row_major_strides(size_t Alignment,
   for (size_t r = Extents::rank() - 1; r > 0; r--) {
     strides[r] = stride;
     if (stride == 1) {
-      stride *= std::max<size_t>(Alignment, raft::alignTo(__exts.extent(r), Alignment));
+      stride *= std::max<size_t>(Alignment, raft::alignTo((size_t)__exts.extent(r), Alignment));
     } else {
       stride *= __exts.extent(r);
     }
@@ -57,7 +57,7 @@ MDSPAN_INLINE_FUNCTION constexpr auto padded_col_major_strides(size_t Alignment,
   for (size_t r = 0; r + 1 < Extents::rank(); r++) {
     strides[r] = stride;
     if (stride == 1) {
-      stride *= std::max<size_t>(Alignment, raft::alignTo(__exts.extent(r), Alignment));
+      stride *= std::max<size_t>(Alignment, raft::alignTo((size_t)__exts.extent(r), Alignment));
     } else {
       stride *= __exts.extent(r);
     }

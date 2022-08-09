@@ -273,14 +273,15 @@ void linewiseOp(m_t* out,
 }
 
 template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
-void linewiseOpSpan(padded_matrix<m_t, idx_t, storage_order_type::row_major_t>& out,
-                    const padded_matrix<m_t, idx_t, storage_order_type::row_major_t>& in,
-                    const idx_t lineLen,
-                    const idx_t nLines,
-                    const bool alongLines,
-                    Lambda op,
-                    cudaStream_t stream,
-                    Vecs... vecs)
+void linewiseOpSpan(
+  aligned_mdspan<m_t, matrix_extent<idx_t>, storage_order_type::row_major_t>& out,
+  const aligned_mdspan<m_t, matrix_extent<idx_t>, storage_order_type::row_major_t>& in,
+  const idx_t lineLen,
+  const idx_t nLines,
+  const bool alongLines,
+  Lambda op,
+  cudaStream_t stream,
+  Vecs... vecs)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("linewiseOpSpan-%c-%zu (%zu, %zu)",
                                                             alongLines ? 'l' : 'x',

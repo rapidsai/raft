@@ -106,25 +106,18 @@ using padded_layout = detail::stdex::layout_padded_general<
   detail::stdex::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value,
   order>;
 
-template <typename ElementType,
-          typename IndexType       = std::uint32_t,
-          storage_order_type order = storage_order_type::row_major_t>
-using padded_matrix =
-  mdspan<ElementType, matrix_extent<IndexType>, padded_layout<ElementType, order>>;
-
 // alignment fixed to 128 bytes
 struct alignment {
   static constexpr size_t value = 128;
 };
 
 template <class ElementType, class Extents, storage_order_type order>
-using aligned_mdspan =
-  mdspan<ElementType,
-         Extents,
-         detail::stdex::layout_padded_general<
-           detail::stdex::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value,
-           order>,
-         detail::stdex::aligned_accessor<ElementType, alignment::value>>;
+using aligned_mdspan = mdspan<ElementType,
+                              Extents,
+                              padded_layout<ElementType, order>,
+                              detail::stdex::aligned_accessor<ElementType, alignment::value>>;
+
+using detail::stdex::aligned_accessor;
 
 template <class ElementType, class Extents, storage_order_type order>
 aligned_mdspan<ElementType, Extents, order> make_aligned_mdspan(ElementType* input_pointer,
@@ -135,17 +128,11 @@ aligned_mdspan<ElementType, Extents, order> make_aligned_mdspan(ElementType* inp
   using data_handle_type =
     typename detail::stdex::aligned_accessor<ElementType, alignment::value>::data_handle_type;
 
-  // Any run-time check for alignment would happen here.
-  // Taking the alignment value as integral_constant permits interesting checks,
-  // like wrapping ElementType* in a proxy pointer type
-  // that encodes alignment as a non-type template parameter.
   assert(input_pointer == alignTo(input_pointer, alignment::value));
 
   data_handle_type aligned_pointer = input_pointer;
 
-  using mapping =
-    typename detail::stdex::layout_padded_general<detail::stdex::padding<value_type>::value,
-                                                  order>::template mapping<Extents>;
+  using mapping = typename padded_layout<value_type, order>::template mapping<Extents>;
   return {aligned_pointer, mapping{e}};
 };
 
