@@ -99,12 +99,13 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     return blob;
   }
 
-  void runLinewiseSumSpan(padded_matrix<T, I, storage_order_type::row_major_t>& out,
-                          const padded_matrix<T, I, storage_order_type::row_major_t>& in,
-                          const I lineLen,
-                          const I nLines,
-                          const bool alongLines,
-                          const T* vec)
+  void runLinewiseSumSpan(
+    aligned_mdspan<T, matrix_extent<I>, storage_order_type::row_major_t>& out,
+    const aligned_mdspan<T, matrix_extent<I>, storage_order_type::row_major_t>& in,
+    const I lineLen,
+    const I nLines,
+    const bool alongLines,
+    const T* vec)
   {
     auto f = [] __device__(T a, T b) -> T { return a + b; };
     matrix::linewiseOpSpan(out, in, lineLen, nLines, alongLines, f, stream, vec);
@@ -235,15 +236,18 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
         auto nLines  = alongRows ? n : m;
 
         // create a padded span based on testdata (just for functional testing)
-        typename padded_layout<T, storage_order_type::row_major_t>::mapping<matrix_extent> layout{
-          matrix_extent{nLines, lineLen}};
+        auto extents = matrix_extent<I>{nLines, lineLen};
+        typename padded_layout<T, storage_order_type::row_major_t>::mapping<matrix_extent<I>>
+          layout{extents};
 
         auto matrix_size_padded = layout.required_span_size();
         rmm::device_uvector<T> blob_in(matrix_size_padded, stream);
         rmm::device_uvector<T> blob_out(matrix_size_padded, stream);
-        auto inSpan = padded_matrix<T, I, storage_order_type::row_major_t>(blob_in.data(), layout);
-        auto outSpan =
-          padded_matrix<T, I, storage_order_type::row_major_t>(blob_out.data(), layout);
+
+        auto inSpan = make_aligned_mdspan<T, matrix_extent<I>, storage_order_type::row_major_t>(
+          blob_in.data(), extents, storage_order_type::row_major_t);
+        auto outSpan = make_aligned_mdspan<T, matrix_extent<I>, storage_order_type::row_major_t>(
+          blob_out.data(), extents, storage_order_type::row_major_t);
 
         {
           auto in2 = in;
