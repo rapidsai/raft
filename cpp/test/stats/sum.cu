@@ -59,7 +59,7 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
   {
     int len = rows * cols;
 
-    T data_h[len];
+    std::vector<T> data_h;
     for (int i = 0; i < len; i++) {
       data_h[i] = T(1);
     }

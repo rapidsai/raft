@@ -43,7 +43,7 @@ namespace knn {
 using namespace std;
 
 template <typename value_idx, typename value_t>
-__global__ void count_discrepancies_kernel(value_idx* actual_idx,
+__global__ void count_discrepancies_kernel_2(value_idx* actual_idx,
                                            value_idx* expected_idx,
                                            value_t* actual,
                                            value_t* expected,
@@ -81,7 +81,7 @@ uint32_t count_discrepancies(value_idx* actual_idx,
                              cudaStream_t stream)
 {
   uint32_t tpb = 256;
-  count_discrepancies_kernel<<<raft::ceildiv(m, tpb), tpb, 0, stream>>>(
+  count_discrepancies_kernel_2<<<raft::ceildiv(m, tpb), tpb, 0, stream>>>(
     actual_idx, expected_idx, actual, expected, m, n, out);
 
   auto exec_policy = rmm::exec_policy(stream);
@@ -151,6 +151,7 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
     rmm::device_uvector<value_t> X(params.n_rows * params.n_cols, handle.get_stream());
     rmm::device_uvector<uint32_t> Y(params.n_rows, handle.get_stream());
 
+
       rmm::device_uvector<value_t> X_q(params.n_query * params.n_cols, handle.get_stream());
       rmm::device_uvector<uint32_t> Y_q(params.n_query, handle.get_stream());
 
@@ -168,6 +169,7 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
         handle.get_thrust_policy(), X.data(), X.data() + X.size(), X.data(), ToRadians());
     }
 
+
     auto bfknn_start = curTimeMillis();
     compute_bfknn(handle,
                   X.data(),
@@ -183,7 +185,9 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
       std::cout << "bfknn Took: " << (curTimeMillis() - bfknn_start) << "ms." << std::endl;
 
-    // Allocate predicted arrays
+      raft::print_device_vector("X", X.data(), 10, std::cout);
+
+      // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(params.n_query * k, handle.get_stream());
     rmm::device_uvector<value_t> d_pred_D(params.n_query * k, handle.get_stream());
 
@@ -192,7 +196,9 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
     int m = params.n_query;
     int d = params.n_cols;
 
-    uint numReps = std::sqrt(n);
+    uint32_t numReps = std::sqrt(n);
+
+    std::cout << "sizeof: " << sizeof(uint) << std::endl;
 
       detail::matrix x, q;
       detail::intMatrix nnsRBC;
@@ -202,11 +208,11 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
       //Setup matrices
       detail::initMat( &x, n, d );
       detail::initMat( &q, m, d );
-      x.mat = (real*)calloc( sizeOfMat(x), sizeof(*(x.mat)) );
-      q.mat = (real*)calloc( sizeOfMat(q), sizeof(*(q.mat)) );
+      x.mat = (float*)calloc( sizeOfMat(x), sizeof(*(x.mat)) );
+      q.mat = (float*)calloc( sizeOfMat(q), sizeof(*(q.mat)) );
 
       raft::update_host(x.mat, X.data(), n * d, handle.get_stream());
-      raft::update_host(q.mat, X_q.data(), m * d, handle.get_stream());
+      raft::update_host(q.mat, X.data(), m * d, handle.get_stream());
 
       RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
@@ -225,8 +231,8 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
       //Allocate space for NNs and dists
       detail::initIntMat( &nnsRBC, m, KMAX );  //KMAX is defined in defs.h
       detail::initMat( &distsRBC, m, KMAX );
-      nnsRBC.mat = (uint*)calloc( sizeOfIntMat(nnsRBC), sizeof(*nnsRBC.mat) );
-      distsRBC.mat = (real*)calloc( sizeOfMat(distsRBC), sizeof(*distsRBC.mat) );
+      nnsRBC.mat = (uint32_t*)calloc( sizeOfIntMat(nnsRBC), sizeof(*nnsRBC.mat) );
+      distsRBC.mat = (float*)calloc( sizeOfMat(distsRBC), sizeof(*distsRBC.mat) );
 
 
       printf("BUilding rbc\n");
@@ -245,27 +251,48 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
 //    raft::spatial::knn::rbc_knn_query(
 //      handle, index, k, X.data(), params.n_query, d_pred_I.data(), d_pred_D.data(), true, weight);
 //
+
+    cudaDeviceSynchronize();
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+
+
     // What we really want are for the distances to match exactly. The
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
 
     std::cout << "RBC Took: " << (curTimeMillis() - start) << "ms." << std::endl;
 
-    rmm::device_uvector<uint32_t> discrepancies(params.n_query, handle.get_stream());
+
+    printf("nnsRBC: [");
+    for(uint32_t i = 0; i < params.n_query; i+=params.k) {
+        printf("%u, ", nnsRBC.mat[i]);
+    }
+    printf("]\n");
+
+    float res = 0;
+      printf("distsRBC: [");
+      for(uint32_t i = 0; i < params.n_query; i+=params.k) {
+          printf("%f, ", distsRBC.mat[i]);
+          // Distances should all be 0.
+          res += distsRBC.mat[i];
+      }
+      printf("]\n");
+
+
+      rmm::device_uvector<uint32_t> discrepancies(params.n_query, handle.get_stream());
     thrust::fill(handle.get_thrust_policy(),
                  discrepancies.data(),
                  discrepancies.data() + discrepancies.size(),
                  0);
     //
-    int res = count_discrepancies(d_ref_I.data(),
-                                  d_pred_I.data(),
-                                  d_ref_D.data(),
-                                  d_pred_D.data(),
-                                  params.n_query,
-                                  k,
-                                  discrepancies.data(),
-                                  handle.get_stream());
+//    int res = count_discrepancies(d_ref_I.data(),
+//                                  d_pred_I.data(),
+//                                  d_ref_D.data(),
+//                                  d_pred_D.data(),
+//                                  params.n_query,
+//                                  k,
+//                                  discrepancies.data(),
+//                                  handle.get_stream());
 
     ASSERT_TRUE(res == 0);
   }
@@ -281,7 +308,7 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
 typedef BallCoverHighDimsTest<int64_t, float> BallCoverHighDimsTestF;
 
 const std::vector<BallCoverInputs> ballcover_inputs = {
-  {32, 5000000, 16, 1.0, 5000000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {32, 512, 16, 1.0, 512, raft::distance::DistanceType::L2SqrtUnexpanded},
 };
 
 INSTANTIATE_TEST_CASE_P(BallCoverHighDimsTest,

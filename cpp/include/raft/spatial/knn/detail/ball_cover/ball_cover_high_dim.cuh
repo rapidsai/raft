@@ -36,10 +36,10 @@ namespace knn {
 namespace detail {
 
 // Assign each point in dq to its nearest point in dr.
-inline void computeReps(matrix dq, matrix dr, unint* repIDs, real* distToReps)
+inline void computeReps(matrix dq, matrix dr, uint32_t* repIDs, float* distToReps)
 {
-  real* dMins;
-  unint* dMinIDs;
+  float* dMins;
+  uint32_t* dMinIDs;
 
   checkErr(cudaMalloc((void**)&(dMins), dq.pr * sizeof(*dMins)));
   checkErr(cudaMalloc((void**)&(dMinIDs), dq.pr * sizeof(*dMinIDs)));
@@ -54,33 +54,34 @@ inline void computeReps(matrix dq, matrix dr, unint* repIDs, real* distToReps)
 }
 
 // Assumes radii is initialized to 0s
-inline void computeRadii(unint* repIDs, real* distToReps, real* radii, unint n, unint numReps)
+inline void computeRadii(uint32_t* repIDs, float* distToReps, float* radii, uint32_t n, uint32_t numReps)
 {
-  unint i;
+  uint32_t i;
 
   for (i = 0; i < n; i++)
     radii[repIDs[i]] = MAX(distToReps[i], radii[repIDs[i]]);
 }
 
 // Assumes groupCount is initialized to 0s
-inline void computeCounts(unint* repIDs, unint n, unint* groupCount)
+inline void computeCounts(uint32_t* repIDs, uint32_t n, uint32_t* groupCount)
 {
-  unint i;
+  uint32_t i;
 
   for (i = 0; i < n; i++) {
     groupCount[repIDs[i]]++;
   }
 
-  printf("Done counts\n");
+//  printf("Done counts\n");
 }
 
-inline void buildQMap(matrix q, unint* qMap, unint* repIDs, unint numReps, unint* compLength)
+//                    query
+inline void buildQMap(matrix q, uint32_t* qMap, uint32_t* repIDs, uint32_t numReps, uint32_t* compLength)
 {
-  unint n = q.r;
-  unint i;
-  unint* gS;  // groupSize
+  uint32_t n = q.r;
+  uint32_t i;
+  uint32_t* gS;  // groupSize
 
-  gS = (unint*)calloc(numReps + 1, sizeof(*gS));
+  gS = (uint32_t*)calloc(numReps + 1, sizeof(*gS));
 
   for (i = 0; i < n; i++)
     gS[repIDs[i] + 1]++;
@@ -106,7 +107,7 @@ inline void buildQMap(matrix q, unint* qMap, unint* repIDs, unint numReps, unint
 // Sets the computation matrix to the identity.
 inline void idIntersection(charMatrix cM)
 {
-  unint i;
+  uint32_t i;
   for (i = 0; i < cM.r; i++) {
     if (i < cM.c) cM.mat[IDX(i, i, cM.ld)] = 1;
   }
@@ -114,7 +115,7 @@ inline void idIntersection(charMatrix cM)
 
 inline void fullIntersection(charMatrix cM)
 {
-  unint i, j;
+  uint32_t i, j;
   for (i = 0; i < cM.r; i++) {
     for (j = 0; j < cM.c; j++) {
       cM.mat[IDX(i, j, cM.ld)] = 1;
@@ -123,11 +124,11 @@ inline void fullIntersection(charMatrix cM)
 }
 
 // Choose representatives and move them to device
-inline void setupReps(matrix x, rbcStruct* rbcS, unint numReps)
+inline void setupReps(matrix x, rbcStruct* rbcS, uint32_t numReps)
 {
-  unint i;
-  unint* randInds;
-  randInds = (unint*)calloc(PAD(numReps), sizeof(*randInds));
+  uint32_t i;
+  uint32_t* randInds;
+  randInds = (uint32_t*)calloc(PAD(numReps), sizeof(*randInds));
   subRandPerm(numReps, x.r, randInds);
 
   matrix r;
@@ -135,7 +136,7 @@ inline void setupReps(matrix x, rbcStruct* rbcS, unint numReps)
   r.pr = PAD(numReps);
   r.c  = x.c;
   r.pc = r.ld = PAD(r.c);
-  r.mat       = (real*)calloc(r.pr * r.pc, sizeof(*r.mat));
+  r.mat       = (float*)calloc(r.pr * r.pc, sizeof(*r.mat));
 
   for (i = 0; i < numReps; i++)
     copyVector(&r.mat[IDX(i, 0, r.ld)], &x.mat[IDX(randInds[i], 0, x.ld)], x.c);
@@ -146,14 +147,14 @@ inline void setupReps(matrix x, rbcStruct* rbcS, unint numReps)
   free(r.mat);
 }
 
-inline void computeKNNs(matrix dx,
+inline void computeKNNs(matrix dx,          // index matrix
                         intMatrix dxMap,
-                        matrix dq,
-                        unint* dqMap,
+                        matrix dq,          // query matrix
+                        uint32_t* dqMap,
                         compPlan dcP,
                         intMatrix NNs,
                         matrix NNdists,
-                        unint compLength)
+                        uint32_t compLength)
 {
   matrix dNNdists;
   intMatrix dMinIDs;
@@ -184,7 +185,7 @@ inline void computeKNNs(matrix dx,
 // only distances from dr[start,:].. dr[start+length-1] to all of x
 // are computed, resulting in a distance matrix of size
 // length by dx.pr.  It is assumed that length is padded.
-inline void distSubMat(matrix dr, matrix dx, matrix dD, unint start, unint length)
+inline void distSubMat(matrix dr, matrix dx, matrix dD, uint32_t start, uint32_t length)
 {
   dr.r = dr.pr = length;
   dr.mat       = &dr.mat[IDX(start, 0, dr.ld)];
@@ -204,14 +205,14 @@ inline void destroyRBC(rbcStruct* rbcS)
  * See the readme.txt file for a description of why this function is needed.
  */
 inline void initCompPlan(
-  compPlan* dcP, charMatrix cM, unint* groupCountQ, unint* groupCountX, unint numReps)
+  compPlan* dcP, charMatrix cM, uint32_t* groupCountQ, uint32_t* groupCountX, uint32_t numReps)
 {
-  unint i, j, k;
-  unint maxNumGroups = 0;
+  uint32_t i, j, k;
+  uint32_t maxNumGroups = 0;
   compPlan cP;
 
-  unint sNumGroups = numReps;
-  cP.numGroups     = (unint*)calloc(sNumGroups, sizeof(*cP.numGroups));
+  uint32_t sNumGroups = numReps;
+  cP.numGroups     = (uint32_t*)calloc(sNumGroups, sizeof(*cP.numGroups));
 
   for (i = 0; i < numReps; i++) {
     cP.numGroups[i] = 0;
@@ -221,21 +222,21 @@ inline void initCompPlan(
   }
   cP.ld = maxNumGroups;
 
-  unint sQToQGroup;
+  uint32_t sQToQGroup;
   for (i = 0, sQToQGroup = 0; i < numReps; i++)
     sQToQGroup += PAD(groupCountQ[i]);
 
-  cP.qToQGroup = (unint*)calloc(sQToQGroup, sizeof(*cP.qToQGroup));
+  cP.qToQGroup = (uint32_t*)calloc(sQToQGroup, sizeof(*cP.qToQGroup));
 
   for (i = 0, k = 0; i < numReps; i++) {
     for (j = 0; j < PAD(groupCountQ[i]); j++)
       cP.qToQGroup[k++] = i;
   }
 
-  unint sQGroupToXGroup = numReps * maxNumGroups;
-  cP.qGroupToXGroup     = (unint*)calloc(sQGroupToXGroup, sizeof(*cP.qGroupToXGroup));
-  unint sGroupCountX    = maxNumGroups * numReps;
-  cP.groupCountX        = (unint*)calloc(sGroupCountX, sizeof(*cP.groupCountX));
+  uint32_t sQGroupToXGroup = numReps * maxNumGroups;
+  cP.qGroupToXGroup     = (uint32_t*)calloc(sQGroupToXGroup, sizeof(*cP.qGroupToXGroup));
+  uint32_t sGroupCountX    = maxNumGroups * numReps;
+  cP.groupCountX        = (uint32_t*)calloc(sGroupCountX, sizeof(*cP.groupCountX));
 
   for (i = 0; i < numReps; i++) {
     for (j = 0, k = 0; j < numReps; j++) {
@@ -285,32 +286,32 @@ inline void freeCompPlan(compPlan* dcP)
 // k-nn.
 inline void kqueryRBC(const matrix q, const rbcStruct rbcS, intMatrix NNs, matrix NNdists)
 {
-  unint m = q.r;
+  uint32_t m = q.r;
 
   // number of rows
-  unint numReps = rbcS.dr.r;
+  uint32_t numReps = rbcS.dr.r;
 
-  unint compLength;
+  uint32_t compLength;
 
-  printf("Create comp plan\n");
+//  printf("Create comp plan\n");
   compPlan dcP;
-  unint *qMap, *dqMap;
-  qMap = (unint*)calloc(PAD(m + (BLOCK_SIZE - 1) * PAD(numReps)), sizeof(*qMap));
+  uint32_t *qMap, *dqMap;
+  qMap = (uint32_t*)calloc(PAD(m + (BLOCK_SIZE - 1) * PAD(numReps)), sizeof(*qMap));
   matrix dq;
   copyAndMove(&dq, &q);
 
-  printf("Create char matrix\n");
+//  printf("Create char matrix\n");
   charMatrix cM;
   cM.r = cM.c = numReps;
   cM.pr = cM.pc = cM.ld = PAD(numReps);
   cM.mat                = (char*)calloc(cM.pr * cM.pc, sizeof(*cM.mat));
 
-  unint* repIDsQ;
-  repIDsQ = (unint*)calloc(m, sizeof(*repIDsQ));
-  real* distToRepsQ;
-  distToRepsQ = (real*)calloc(m, sizeof(*distToRepsQ));
-  unint* groupCountQ;
-  groupCountQ = (unint*)calloc(PAD(numReps), sizeof(*groupCountQ));
+  uint32_t* repIDsQ;
+  repIDsQ = (uint32_t*)calloc(m, sizeof(*repIDsQ));
+  float* distToRepsQ;
+  distToRepsQ = (float*)calloc(m, sizeof(*distToRepsQ));
+  uint32_t* groupCountQ;
+  groupCountQ = (uint32_t*)calloc(PAD(numReps), sizeof(*groupCountQ));
 
   // Assign each point in dq to its nearest point in dr.
   printf("Compute reps\n");
@@ -352,9 +353,9 @@ inline void kqueryRBC(const matrix q, const rbcStruct rbcS, intMatrix NNs, matri
   free(groupCountQ);
 }
 
-inline void buildRBC(const matrix x, rbcStruct* rbcS, unint numReps, unint s)
+inline void buildRBC(const matrix x, rbcStruct* rbcS, uint32_t numReps, uint32_t s)
 {
-  unint n = x.pr;
+  uint32_t n = x.pr;
   intMatrix xmap;
 
   printf("Setting up reps\n");
@@ -367,30 +368,30 @@ inline void buildRBC(const matrix x, rbcStruct* rbcS, unint numReps, unint s)
   xmap.pr = PAD(numReps);
   xmap.c  = s;
   xmap.pc = xmap.ld = PAD(s);
-  xmap.mat          = (unint*)calloc(xmap.pr * xmap.pc, sizeof(*xmap.mat));
+  xmap.mat          = (uint32_t*)calloc(xmap.pr * xmap.pc, sizeof(*xmap.mat));
   copyAndMoveI(&rbcS->dxMap, &xmap);
 
   printf("numReps: %u\n", numReps);
-  rbcS->groupCount = (unint*)calloc(PAD(numReps), sizeof(*rbcS->groupCount));
+  rbcS->groupCount = (uint32_t*)calloc(PAD(numReps), sizeof(*rbcS->groupCount));
 
   printf("After copy and move 2\n");
 
   // Figure out how much fits into memory
   size_t memFree, memTot;
   cudaMemGetInfo(&memFree, &memTot);
-  memFree = (unint)(((float)memFree) * MEM_USABLE);
+  memFree = (uint32_t)(((float)memFree) * MEM_USABLE);
 
   printf("After get info\n");
   /* mem needed per rep:
-   *  n*sizeof(real) - dist mat
+   *  n*sizeof(float) - dist mat
    *  n*sizeof(char) - dir
    *  n*sizeof(int)  - dSums
-   *  sizeof(real)   - dranges
+   *  sizeof(float)   - dranges
    *  sizeof(int)    - dCnts
    *  MEM_USED_IN_SCAN - memory used internally
    */
-  unint ptsAtOnce = DPAD(memFree / ((n + 1) * sizeof(real) + n * sizeof(char) +
-                                    (n + 1) * sizeof(unint) + 2 * MEM_USED_IN_SCAN(n)));
+  uint32_t ptsAtOnce = DPAD(memFree / ((n + 1) * sizeof(float) + n * sizeof(char) +
+                                    (n + 1) * sizeof(uint32_t) + 2 * MEM_USED_IN_SCAN(n)));
   if (!ptsAtOnce) {
     fprintf(stderr,
             "error: %lu is not enough memory to build the RBC.. exiting\n",
@@ -409,8 +410,8 @@ inline void buildRBC(const matrix x, rbcStruct* rbcS, unint numReps, unint s)
 
   checkErr(cudaMalloc((void**)&dD.mat, dD.pr * dD.pc * sizeof(*dD.mat)));
 
-  real* dranges;
-  checkErr(cudaMalloc((void**)&dranges, ptsAtOnce * sizeof(real)));
+  float* dranges;
+  checkErr(cudaMalloc((void**)&dranges, ptsAtOnce * sizeof(float)));
 
   charMatrix ir;
   ir.r   = dD.r;
@@ -430,13 +431,13 @@ inline void buildRBC(const matrix x, rbcStruct* rbcS, unint numReps, unint s)
   dSums.ld = dir.ld;
   checkErr(cudaMalloc((void**)&dSums.mat, dSums.pc * dSums.pr * sizeof(*dSums.mat)));
 
-  unint* dCnts;
+  uint32_t* dCnts;
   checkErr(cudaMalloc((void**)&dCnts, ptsAtOnce * sizeof(*dCnts)));
 
   // Do the scans to build the dxMap
-  unint numLeft = rbcS->dr.r;  // points left to process
-  unint row     = 0;           // base row for iteration of while loop
-  unint pi, pip;               // pi=pts per it, pip=pad(pi)
+  uint32_t numLeft = rbcS->dr.r;  // points left to process
+  uint32_t row     = 0;           // base row for iteration of while loop
+  uint32_t pi, pip;               // pi=pts per it, pip=pad(pi)
 
   printf("About to start while loop\n");
 
@@ -473,13 +474,14 @@ inline void buildRBC(const matrix x, rbcStruct* rbcS, unint numReps, unint s)
     printf("cudaMemCpy\n");
     cudaMemcpy(
       &rbcS->groupCount[row], dCnts, pi * sizeof(*rbcS->groupCount), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
 
     numLeft -= pi;
     row += pi;
     printf("num_left=%d\n", numLeft);
   }
 
-  printf("Done.\n");
+//  printf("Done.\n");
 
   cudaFree(dCnts);
   free(ir.mat);

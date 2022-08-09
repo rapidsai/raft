@@ -39,6 +39,8 @@
 
 // Format that the data is manipulated in:
 typedef float real;
+typedef uint32_t unint;
+
 #define MAX_REAL FLT_MAX
 
 // To switch to double precision, comment out the above
@@ -71,7 +73,6 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-typedef uint32_t unint;
 
 typedef struct {
   real* mat;

@@ -47,18 +47,18 @@ inline void checkErr(char* loc, cudaError_t cError)
   checkErr(cError);
 }
 
-inline void swap(unint* a, unint* b)
+inline void swap(uint32_t* a, uint32_t* b)
 {
-  unint t;
+  uint32_t t;
   t  = *a;
   *a = *b;
   *b = t;
 }
 
 // generates a rand int in rand [a,b)
-inline unint randBetween(unint a, unint b)
+inline uint32_t randBetween(uint32_t a, uint32_t b)
 {
-  unint val, c;
+  uint32_t val, c;
 
   if (b <= a) {
     fprintf(stderr, "misuse of randBetween.. exiting\n");
@@ -75,7 +75,7 @@ inline unint randBetween(unint a, unint b)
 
 inline void printMat(matrix A)
 {
-  unint i, j;
+  uint32_t i, j;
   for (i = 0; i < A.r; i++) {
     for (j = 0; j < A.c; j++)
       printf("%6.4f ", (float)A.mat[IDX(i, j, A.ld)]);
@@ -83,9 +83,9 @@ inline void printMat(matrix A)
   }
 }
 
-inline void printMatWithIDs(matrix A, unint* id)
+inline void printMatWithIDs(matrix A, uint32_t* id)
 {
-  unint i, j;
+  uint32_t i, j;
   for (i = 0; i < A.r; i++) {
     for (j = 0; j < A.c; j++)
       printf("%6.4f ", (float)A.mat[IDX(i, j, A.ld)]);
@@ -96,7 +96,7 @@ inline void printMatWithIDs(matrix A, unint* id)
 
 inline void printCharMat(charMatrix A)
 {
-  unint i, j;
+  uint32_t i, j;
   for (i = 0; i < A.r; i++) {
     for (j = 0; j < A.c; j++)
       printf("%d ", (char)A.mat[IDX(i, j, A.ld)]);
@@ -106,26 +106,26 @@ inline void printCharMat(charMatrix A)
 
 inline void printIntMat(intMatrix A)
 {
-  unint i, j;
+  uint32_t i, j;
   for (i = 0; i < A.r; i++) {
     for (j = 0; j < A.c; j++)
-      printf("%d ", (unint)A.mat[IDX(i, j, A.ld)]);
+      printf("%d ", (uint32_t)A.mat[IDX(i, j, A.ld)]);
     printf("\n");
   }
 }
 
-inline void printVector(real* x, unint d)
+inline void printVector(float* x, uint32_t d)
 {
-  unint i;
+  uint32_t i;
 
   for (i = 0; i < d; i++)
     printf("%6.2f ", x[i]);
   printf("\n");
 }
 
-inline void copyVector(real* x, real* y, unint d)
+inline void copyVector(float* x, float* y, uint32_t d)
 {
-  unint i;
+  uint32_t i;
 
   for (i = 0; i < d; i++)
     x[i] = y[i];
@@ -133,7 +133,7 @@ inline void copyVector(real* x, real* y, unint d)
 
 inline void copyMat(matrix* x, matrix* y)
 {
-  unint i, j;
+  uint32_t i, j;
 
   x->r  = y->r;
   x->pr = y->pr;
@@ -147,7 +147,7 @@ inline void copyMat(matrix* x, matrix* y)
   }
 }
 
-inline void initMat(matrix* x, unint r, unint c)
+inline void initMat(matrix* x, uint32_t r, uint32_t c)
 {
   x->r  = r;
   x->c  = c;
@@ -156,7 +156,7 @@ inline void initMat(matrix* x, unint r, unint c)
   x->ld = PAD(c);
 }
 
-void initIntMat(intMatrix* x, unint r, unint c)
+void initIntMat(intMatrix* x, uint32_t r, uint32_t c)
 {
   x->r  = r;
   x->c  = c;
@@ -175,10 +175,10 @@ inline size_t sizeOfMat(matrix x) { return ((size_t)x.pr) * x.pc; }
 
 inline size_t sizeOfIntMat(intMatrix x) { return ((size_t)x.pr) * x.pc; }
 
-inline real distVec(matrix x, matrix y, unint k, unint l)
+inline float distVec(matrix x, matrix y, uint32_t k, uint32_t l)
 {
-  unint i;
-  real ans = 0;
+  uint32_t i;
+  float ans = 0;
 
   for (i = 0; i < x.c; i++)
     ans += DIST(x.mat[IDX(k, i, x.ld)], y.mat[IDX(l, i, x.ld)]);
@@ -230,14 +230,14 @@ inline void copyAndMoveC(charMatrix* dx, const charMatrix* x)
 // Returns a length l subset of a random permutation of [0,...,n-1]
 // using the knuth shuffle.
 // Input variable x is assumed to be alloced and of size l.
-void subRandPerm(unint l, unint n, unint* x)
+void subRandPerm(uint32_t l, uint32_t n, uint32_t* x)
 {
-  unint i, ri, *y;
-  y = (unint*)calloc(n, sizeof(*y));
+  uint32_t i, ri, *y;
+  y = (uint32_t*)calloc(n, sizeof(*y));
 
   struct timeval t3;
   gettimeofday(&t3, NULL);
-  srand(t3.tv_usec);
+  srand(0ULL); //srand(t3.tv_usec);
 
   for (i = 0; i < n; i++)
     y[i] = i;
@@ -255,13 +255,13 @@ void subRandPerm(unint l, unint n, unint* x)
 
 // Generates a random permutation of 0, ... , n-1 using the knuth shuffle.
 // This should probably be merged with subRandPerm.
-inline void randPerm(unint n, unint* x)
+inline void randPerm(uint32_t n, uint32_t* x)
 {
-  unint i, ri;
+  uint32_t i, ri;
 
   struct timeval t3;
   gettimeofday(&t3, NULL);
-  srand(t3.tv_usec);
+  srand(0ULL); //srand(t3.tv_usec);
 
   for (i = 0; i < n; i++) {
     x[i] = i;

@@ -32,12 +32,12 @@ namespace detail {
 
 // min-max gate: it sets the minimum of x and y into x, the maximum into y, and
 // exchanges the indices (xi and yi) accordingly.
-__device__ __inline__ void mmGateI(real* x, real* y, unint* xi, unint* yi)
+__device__ __inline__ void mmGateI(float* x, float* y, uint32_t* xi, uint32_t* yi)
 {
   int ti = MINi(*x, *y, *xi, *yi);
   *yi    = MAXi(*x, *y, *xi, *yi);
   *xi    = ti;
-  real t = MIN(*x, *y);
+  float t = MIN(*x, *y);
   *y     = MAX(*x, *y);
   *x     = t;
 }
@@ -47,7 +47,7 @@ __device__ __inline__ void mmGateI(real* x, real* y, unint* xi, unint* yi)
 // All computations take place in (on-chip) shared memory.
 
 // The function name is descriptive; it sorts each row of x, whose indices are xi.
-__device__ __inline__ void sort16(real x[][16], unint xi[][16])
+__device__ __inline__ void sort16(float x[][16], uint32_t xi[][16])
 {
   int i = threadIdx.x;
   int j = threadIdx.y;
@@ -87,7 +87,7 @@ __device__ __inline__ void sort16(real x[][16], unint xi[][16])
 // This function takes an array of lists, each of length 48. It is assumed
 // that the first 32 numbers are sorted, and the last 16 numbers.  The
 // routine then merges these lists into one sorted list of length 48.
-__device__ __inline__ void merge32x16(real x[][48], unint xi[][48])
+__device__ __inline__ void merge32x16(float x[][48], uint32_t xi[][48])
 {
   int i = threadIdx.x;
   int j = threadIdx.y;
@@ -124,7 +124,7 @@ __device__ __inline__ void merge32x16(real x[][48], unint xi[][48])
 // This is the same as sort16, but takes as input lists of length 48
 // and sorts the last 16 entries.  This cleans up some of the NN code,
 // though it is inelegant.
-__device__ __inline__ void sort16off(real x[][48], unint xi[][48])
+__device__ __inline__ void sort16off(float x[][48], uint32_t xi[][48])
 {
   int i = threadIdx.x;
   int j = threadIdx.y;
@@ -173,32 +173,32 @@ __device__ __inline__ void sort16off(real x[][48], unint xi[][48])
 // This kernel does the same thing as nnKernel, except it only considers pairs as
 // specified by the compPlan.
 __global__ __inline__ void planNNKernel(const matrix Q,
-                                        const unint* qMap,
+                                        const uint32_t* qMap,
                                         const matrix X,
                                         const intMatrix xMap,
-                                        real* dMins,
-                                        unint* dMinIDs,
+                                        float* dMins,
+                                        uint32_t* dMinIDs,
                                         compPlan cP,
-                                        unint qStartPos)
+                                        uint32_t qStartPos)
 {
-  unint qB = qStartPos + blockIdx.y * BLOCK_SIZE;  // indexes Q
-  unint xB;                                        // X (DB) Block;
-  unint cB;                                        // column Block
-  unint offQ = threadIdx.y;                        // the offset of qPos in this block
-  unint offX = threadIdx.x;                        // ditto for x
-  unint i, j, k;
-  unint groupIts;
+  uint32_t qB = qStartPos + blockIdx.y * BLOCK_SIZE;  // indexes Q
+  uint32_t xB;                                        // X (DB) Block;
+  uint32_t cB;                                        // column Block
+  uint32_t offQ = threadIdx.y;                        // the offset of qPos in this block
+  uint32_t offX = threadIdx.x;                        // ditto for x
+  uint32_t i, j, k;
+  uint32_t groupIts;
 
-  __shared__ real min[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ unint minPos[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float min[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ uint32_t minPos[BLOCK_SIZE][BLOCK_SIZE];
 
-  __shared__ real Xs[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ real Qs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Xs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Qs[BLOCK_SIZE][BLOCK_SIZE];
 
-  unint g;   // query group of q
-  unint xG;  // DB group currently being examined
-  unint numGroups;
-  unint groupCount;
+  uint32_t g;   // query group of q
+  uint32_t xG;  // DB group currently being examined
+  uint32_t numGroups;
+  uint32_t groupCount;
 
   g         = cP.qToQGroup[qB];
   numGroups = cP.numGroups[g];
@@ -214,7 +214,7 @@ __global__ __inline__ void planNNKernel(const matrix Q,
     for (j = 0; j < groupIts; j++) {  // iterate over elements of group
       xB = j * BLOCK_SIZE;
 
-      real ans = 0;
+      float ans = 0;
       for (cB = 0; cB < X.pc; cB += BLOCK_SIZE) {  // iterate over cols to compute distances
 
         Xs[offX][offQ] = X.mat[IDX(xMap.mat[IDX(xG, xB + offQ, xMap.ld)], cB + offX, X.ld)];
@@ -258,32 +258,32 @@ __global__ __inline__ void planNNKernel(const matrix Q,
 // each iteration-chunk, the next 16 distances are computed, then sorted, then merged
 // with the previously computed 32-NNs.
 __global__ __inline__ void planKNNKernel(const matrix Q,
-                                         const unint* qMap,
+                                         const uint32_t* qMap,
                                          const matrix X,
                                          const intMatrix xMap,
                                          matrix dMins,
                                          intMatrix dMinIDs,
                                          compPlan cP,
-                                         unint qStartPos)
+                                         uint32_t qStartPos)
 {
-  unint qB = qStartPos + blockIdx.y * BLOCK_SIZE;  // indexes Q
-  unint xB;                                        // X (DB) Block;
-  unint cB;                                        // column Block
-  unint offQ = threadIdx.y;                        // the offset of qPos in this block
-  unint offX = threadIdx.x;                        // ditto for x
-  unint i, j, k;
-  unint groupIts;
+  uint32_t qB = qStartPos + blockIdx.y * BLOCK_SIZE;  // indexes Q
+  uint32_t xB;                                        // X (DB) Block;
+  uint32_t cB;                                        // column Block
+  uint32_t offQ = threadIdx.y;                        // the offset of qPos in this block
+  uint32_t offX = threadIdx.x;                        // ditto for x
+  uint32_t i, j, k;
+  uint32_t groupIts;
 
-  __shared__ real dNN[BLOCK_SIZE][KMAX + BLOCK_SIZE];
-  __shared__ unint idNN[BLOCK_SIZE][KMAX + BLOCK_SIZE];
+  __shared__ float dNN[BLOCK_SIZE][KMAX + BLOCK_SIZE];
+  __shared__ uint32_t idNN[BLOCK_SIZE][KMAX + BLOCK_SIZE];
 
-  __shared__ real Xs[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ real Qs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Xs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Qs[BLOCK_SIZE][BLOCK_SIZE];
 
-  unint g;   // query group of q
-  unint xG;  // DB group currently being examined
-  unint numGroups;
-  unint groupCount;
+  uint32_t g;   // query group of q
+  uint32_t xG;  // DB group currently being examined
+  uint32_t numGroups;
+  uint32_t groupCount;
 
   g         = cP.qToQGroup[qB];
   numGroups = cP.numGroups[g];
@@ -302,7 +302,7 @@ __global__ __inline__ void planKNNKernel(const matrix Q,
     for (j = 0; j < groupIts; j++) {  // iterate over elements of group
       xB = j * BLOCK_SIZE;
 
-      real ans = 0;
+      float ans = 0;
       for (cB = 0; cB < X.pc; cB += BLOCK_SIZE) {  // iterate over cols to compute distances
 
         Xs[offX][offQ] = X.mat[IDX(xMap.mat[IDX(xG, xB + offQ, xMap.ld)], cB + offX, X.ld)];
@@ -339,21 +339,21 @@ __global__ __inline__ void planKNNKernel(const matrix Q,
 
 // The basic 1-NN search kernel.
 __global__ __inline__ void nnKernel(
-  const matrix Q, unint numDone, const matrix X, real* dMins, unint* dMinIDs)
+  const matrix Q, uint32_t numDone, const matrix X, float* dMins, uint32_t* dMinIDs)
 {
-  unint qB = blockIdx.y * BLOCK_SIZE + numDone;  // indexes Q
-  unint xB;                                      // indexes X;
-  unint cB;                                      // colBlock
-  unint offQ = threadIdx.y;                      // the offset of qPos in this block
-  unint offX = threadIdx.x;                      // ditto for x
-  unint i;
-  real ans;
+  uint32_t qB = blockIdx.y * BLOCK_SIZE + numDone;  // indexes Q
+  uint32_t xB;                                      // indexes X;
+  uint32_t cB;                                      // colBlock
+  uint32_t offQ = threadIdx.y;                      // the offset of qPos in this block
+  uint32_t offX = threadIdx.x;                      // ditto for x
+  uint32_t i;
+  float ans;
 
-  __shared__ real min[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ unint minPos[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float min[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ uint32_t minPos[BLOCK_SIZE][BLOCK_SIZE];
 
-  __shared__ real Xs[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ real Qs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Xs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Qs[BLOCK_SIZE][BLOCK_SIZE];
 
   min[offQ][offX] = MAX_REAL;
   __syncthreads();
@@ -402,21 +402,21 @@ __global__ __inline__ void nnKernel(
 // batch of 16 points is processed, it sorts these 16 points according to the distance from the
 // query, then merges this list with the other list.
 __global__ __inline__ void knnKernel(
-  const matrix Q, unint numDone, const matrix X, matrix dMins, intMatrix dMinIDs)
+  const matrix Q, uint32_t numDone, const matrix X, matrix dMins, intMatrix dMinIDs)
 {
-  unint qB = blockIdx.y * BLOCK_SIZE + numDone;  // indexes Q
-  unint xB;                                      // indexes X;
-  unint cB;                                      // colBlock
-  unint offQ = threadIdx.y;                      // the offset of qPos in this block
-  unint offX = threadIdx.x;                      // ditto for x
-  unint i;
-  real ans;
+  uint32_t qB = blockIdx.y * BLOCK_SIZE + numDone;  // indexes Q
+  uint32_t xB;                                      // indexes X;
+  uint32_t cB;                                      // colBlock
+  uint32_t offQ = threadIdx.y;                      // the offset of qPos in this block
+  uint32_t offX = threadIdx.x;                      // ditto for x
+  uint32_t i;
+  float ans;
 
-  __shared__ real Xs[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ real Qs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Xs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Qs[BLOCK_SIZE][BLOCK_SIZE];
 
-  __shared__ real dNN[BLOCK_SIZE][KMAX + BLOCK_SIZE];
-  __shared__ unint idNN[BLOCK_SIZE][KMAX + BLOCK_SIZE];
+  __shared__ float dNN[BLOCK_SIZE][KMAX + BLOCK_SIZE];
+  __shared__ uint32_t idNN[BLOCK_SIZE][KMAX + BLOCK_SIZE];
 
   dNN[offQ][offX]       = MAX_REAL;
   dNN[offQ][offX + 16]  = MAX_REAL;
@@ -456,18 +456,18 @@ __global__ __inline__ void knnKernel(
   dMinIDs.mat[IDX(qB + offQ, offX + 16, dMins.ld)] = idNN[offQ][offX + 16];
 }
 
-__global__ __inline__ void sumKernel(charMatrix in, intMatrix sum, intMatrix sumaux, unint n)
+__global__ __inline__ void sumKernel(charMatrix in, intMatrix sum, intMatrix sumaux, uint32_t n)
 {
-  unint id = threadIdx.x;
-  unint bo = blockIdx.x * SCAN_WIDTH;  // block offset
-  unint r  = blockIdx.y;
-  unint d, t;
+  uint32_t id = threadIdx.x;
+  uint32_t bo = blockIdx.x * SCAN_WIDTH;  // block offset
+  uint32_t r  = blockIdx.y;
+  uint32_t d, t;
 
-  const unint l = SCAN_WIDTH;  // length
+  const uint32_t l = SCAN_WIDTH;  // length
 
-  unint off = 1;
+  uint32_t off = 1;
 
-  __shared__ unint ssum[l];
+  __shared__ uint32_t ssum[l];
 
   ssum[2 * id]     = (bo + 2 * id < n) ? in.mat[IDX(r, bo + 2 * id, in.ld)] : 0;
   ssum[2 * id + 1] = (bo + 2 * id + 1 < n) ? in.mat[IDX(r, bo + 2 * id + 1, in.ld)] : 0;
@@ -506,18 +506,18 @@ __global__ __inline__ void sumKernel(charMatrix in, intMatrix sum, intMatrix sum
 }
 
 // This is the same as sumKernel, but takes an int matrix as input.
-__global__ __inline__ void sumKernelI(intMatrix in, intMatrix sum, intMatrix sumaux, unint n)
+__global__ __inline__ void sumKernelI(intMatrix in, intMatrix sum, intMatrix sumaux, uint32_t n)
 {
-  unint id = threadIdx.x;
-  unint bo = blockIdx.x * SCAN_WIDTH;  // block offset
-  unint r  = blockIdx.y;
-  unint d, t;
+  uint32_t id = threadIdx.x;
+  uint32_t bo = blockIdx.x * SCAN_WIDTH;  // block offset
+  uint32_t r  = blockIdx.y;
+  uint32_t d, t;
 
-  const unint l = SCAN_WIDTH;  // length
+  const uint32_t l = SCAN_WIDTH;  // length
 
-  unint off = 1;
+  uint32_t off = 1;
 
-  __shared__ unint ssum[l];
+  __shared__ uint32_t ssum[l];
 
   ssum[2 * id]     = (bo + 2 * id < n) ? in.mat[IDX(r, bo + 2 * id, in.ld)] : 0;
   ssum[2 * id + 1] = (bo + 2 * id + 1 < n) ? in.mat[IDX(r, bo + 2 * id + 1, in.ld)] : 0;
@@ -558,21 +558,21 @@ __global__ __inline__ void sumKernelI(intMatrix in, intMatrix sum, intMatrix sum
 
 // Computes all pairs of distances between Q and X.
 __global__ __inline__ void dist1Kernel(
-  const matrix Q, unint qStart, const matrix X, unint xStart, matrix D)
+  const matrix Q, uint32_t qStart, const matrix X, uint32_t xStart, matrix D)
 {
-  unint c, i, j;
+  uint32_t c, i, j;
 
-  unint qB = blockIdx.y * BLOCK_SIZE + qStart;
-  unint q  = threadIdx.y;
-  unint xB = blockIdx.x * BLOCK_SIZE + xStart;
-  unint x  = threadIdx.x;
+  uint32_t qB = blockIdx.y * BLOCK_SIZE + qStart;
+  uint32_t q  = threadIdx.y;
+  uint32_t xB = blockIdx.x * BLOCK_SIZE + xStart;
+  uint32_t x  = threadIdx.x;
 
-  real ans = 0;
+  float ans = 0;
 
   // This thread is responsible for computing the dist between Q[qB+q] and X[xB+x]
 
-  __shared__ real Qs[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ real Xs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Qs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Xs[BLOCK_SIZE][BLOCK_SIZE];
 
   for (i = 0; i < Q.pc / BLOCK_SIZE; i++) {
     c = i * BLOCK_SIZE;  // current col block
@@ -594,24 +594,24 @@ __global__ __inline__ void dist1Kernel(
 // This function is used by the rbc building routine.  It find an appropriate range
 // such that roughly cntWant points fall within this range.  D is a matrix of distances.
 __global__ __inline__ void findRangeKernel(const matrix D,
-                                           unint numDone,
-                                           real* ranges,
-                                           unint cntWant)
+                                           uint32_t numDone,
+                                           float* ranges,
+                                           uint32_t cntWant)
 {
-  unint row = blockIdx.y * (BLOCK_SIZE / 4) + threadIdx.y + numDone;
-  unint ro  = threadIdx.y;
-  unint co  = threadIdx.x;
-  unint i, c;
-  real t;
+  uint32_t row = blockIdx.y * (BLOCK_SIZE / 4) + threadIdx.y + numDone;
+  uint32_t ro  = threadIdx.y;
+  uint32_t co  = threadIdx.x;
+  uint32_t i, c;
+  float t;
 
-  const unint LB = (90 * cntWant) / 100;
-  const unint UB = cntWant;
+  const uint32_t LB = (90 * cntWant) / 100;
+  const uint32_t UB = cntWant;
 
-  __shared__ real smin[BLOCK_SIZE / 4][4 * BLOCK_SIZE];
-  __shared__ real smax[BLOCK_SIZE / 4][4 * BLOCK_SIZE];
+  __shared__ float smin[BLOCK_SIZE / 4][4 * BLOCK_SIZE];
+  __shared__ float smax[BLOCK_SIZE / 4][4 * BLOCK_SIZE];
 
-  real min = MAX_REAL;
-  real max = 0;
+  float min = MAX_REAL;
+  float max = 0;
   for (c = 0; c < D.pc; c += (4 * BLOCK_SIZE)) {
     if (c + co < D.c) {
       t   = D.mat[IDX(row, c + co, D.ld)];
@@ -634,10 +634,10 @@ __global__ __inline__ void findRangeKernel(const matrix D,
 
   // Now start range counting.
 
-  unint itcount = 0;
-  unint cnt;
-  real rg;
-  __shared__ unint scnt[BLOCK_SIZE / 4][4 * BLOCK_SIZE];
+  uint32_t itcount = 0;
+  uint32_t cnt;
+  float rg;
+  __shared__ uint32_t scnt[BLOCK_SIZE / 4][4 * BLOCK_SIZE];
   __shared__ char cont[BLOCK_SIZE / 4];
 
   if (co == 0) cont[ro] = 1;
@@ -647,7 +647,7 @@ __global__ __inline__ void findRangeKernel(const matrix D,
     __syncthreads();
 
     if (cont[ro])  // if we didn't actually need to cont, leave rg as it was.
-      rg = (smax[ro][0] + smin[ro][0]) / ((real)2.0);
+      rg = (smax[ro][0] + smin[ro][0]) / ((float)2.0);
 
     cnt = 0;
     for (c = 0; c < D.pc; c += (4 * BLOCK_SIZE)) {
@@ -685,33 +685,33 @@ __global__ __inline__ void findRangeKernel(const matrix D,
 }
 
 __global__ __inline__ void rangeSearchKernel(
-  const matrix D, unint xOff, unint yOff, const real* ranges, charMatrix ir)
+  const matrix D, uint32_t xOff, uint32_t yOff, const float* ranges, charMatrix ir)
 {
-  unint col = blockIdx.x * BLOCK_SIZE + threadIdx.x + xOff;
-  unint row = blockIdx.y * BLOCK_SIZE + threadIdx.y + yOff;
+  uint32_t col = blockIdx.x * BLOCK_SIZE + threadIdx.x + xOff;
+  uint32_t row = blockIdx.y * BLOCK_SIZE + threadIdx.y + yOff;
 
   ir.mat[IDX(row, col, ir.ld)] = D.mat[IDX(row, col, D.ld)] < ranges[row];
 }
 
 __global__ __inline__ void rangeCountKernel(
-  const matrix Q, unint numDone, const matrix X, real* ranges, unint* counts)
+  const matrix Q, uint32_t numDone, const matrix X, float* ranges, uint32_t* counts)
 {
-  unint q  = blockIdx.y * BLOCK_SIZE + numDone;
-  unint qo = threadIdx.y;
-  unint xo = threadIdx.x;
+  uint32_t q  = blockIdx.y * BLOCK_SIZE + numDone;
+  uint32_t qo = threadIdx.y;
+  uint32_t xo = threadIdx.x;
 
-  real rg = ranges[q + qo];
+  float rg = ranges[q + qo];
 
-  unint r, c, i;
+  uint32_t r, c, i;
 
-  __shared__ unint scnt[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ uint32_t scnt[BLOCK_SIZE][BLOCK_SIZE];
 
-  __shared__ real xs[BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ real qs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float xs[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float qs[BLOCK_SIZE][BLOCK_SIZE];
 
-  unint cnt = 0;
+  uint32_t cnt = 0;
   for (r = 0; r < X.pr; r += BLOCK_SIZE) {
-    real dist = 0;
+    float dist = 0;
     for (c = 0; c < X.pc; c += BLOCK_SIZE) {
       xs[xo][qo] = X.mat[IDX(r + qo, c + xo, X.ld)];
       qs[xo][qo] = Q.mat[IDX(q + qo, c + xo, Q.ld)];
@@ -736,11 +736,11 @@ __global__ __inline__ void rangeCountKernel(
   if (xo == 0 && q + qo < Q.r) counts[q + qo] = scnt[qo][0];
 }
 
-__global__ __inline__ void combineSumKernel(intMatrix sum, unint numDone, intMatrix daux, unint n)
+__global__ __inline__ void combineSumKernel(intMatrix sum, uint32_t numDone, intMatrix daux, uint32_t n)
 {
-  unint id = threadIdx.x;
-  unint bo = blockIdx.x * SCAN_WIDTH;
-  unint r  = blockIdx.y + numDone;
+  uint32_t id = threadIdx.x;
+  uint32_t bo = blockIdx.x * SCAN_WIDTH;
+  uint32_t r  = blockIdx.y + numDone;
 
   if (bo + 2 * id < n)
     sum.mat[IDX(r, bo + 2 * id, sum.ld)] += daux.mat[IDX(r, blockIdx.x, daux.ld)];
@@ -748,12 +748,12 @@ __global__ __inline__ void combineSumKernel(intMatrix sum, unint numDone, intMat
     sum.mat[IDX(r, bo + 2 * id + 1, sum.ld)] += daux.mat[IDX(r, blockIdx.x, daux.ld)];
 }
 
-__global__ __inline__ void getCountsKernel(unint* counts,
-                                           unint numDone,
+__global__ __inline__ void getCountsKernel(uint32_t* counts,
+                                           uint32_t numDone,
                                            charMatrix ir,
                                            intMatrix sums)
 {
-  unint r = blockIdx.x * BLOCK_SIZE + threadIdx.x + numDone;
+  uint32_t r = blockIdx.x * BLOCK_SIZE + threadIdx.x + numDone;
   if (r < ir.r) {
     counts[r] = ir.mat[IDX(r, ir.c - 1, ir.ld)] ? sums.mat[IDX(r, sums.c - 1, sums.ld)] + 1
                                                 : sums.mat[IDX(r, sums.c - 1, sums.ld)];
@@ -763,11 +763,11 @@ __global__ __inline__ void getCountsKernel(unint* counts,
 __global__ __inline__ void buildMapKernel(intMatrix map,
                                           charMatrix ir,
                                           intMatrix sums,
-                                          unint offSet)
+                                          uint32_t offSet)
 {
-  unint id = threadIdx.x;
-  unint bo = blockIdx.x * SCAN_WIDTH;
-  unint r  = blockIdx.y;
+  uint32_t id = threadIdx.x;
+  uint32_t bo = blockIdx.x * SCAN_WIDTH;
+  uint32_t r  = blockIdx.y;
 
   if (bo + 2 * id < ir.c && ir.mat[IDX(r, bo + 2 * id, ir.ld)])
     map.mat[IDX(r + offSet, sums.mat[IDX(r, bo + 2 * id, sums.ld)], map.ld)] = bo + 2 * id;
