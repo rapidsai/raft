@@ -393,11 +393,6 @@ install(DIRECTORY include/raft
         COMPONENT raft
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-# Temporary install of raft.hpp while the file is removed
-install(FILES include/raft.hpp
-        COMPONENT raft
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/raft)
-
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/raft/version_config.hpp
         COMPONENT raft
         DESTINATION include/raft)
