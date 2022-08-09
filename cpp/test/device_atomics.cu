@@ -15,7 +15,6 @@
  */
 
 #include <algorithm>
-#include <vector>
 #include <cstddef>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -26,6 +25,7 @@
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#include <vector>
 
 namespace raft {
 

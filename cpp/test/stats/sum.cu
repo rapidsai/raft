@@ -23,8 +23,8 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <vector>
 #include <gtest/gtest.h>
+#include <vector>
 
 namespace raft {
 namespace stats {
