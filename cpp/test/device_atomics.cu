@@ -15,7 +15,7 @@
  */
 
 #include <algorithm>
-#include <array>
+#include <vector>
 #include <cstddef>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -46,7 +46,7 @@ TEST(Raft, AtomicIncWarp)
 
   rmm::device_scalar<int> counter{0, s};
   rmm::device_uvector<int> out_device{num_elts, s};
-  std::array<int, num_elts> out_host{0};
+  std::vector<int> out_host(num_elts, 0);
 
   // Write all 1M thread indices to a unique location in `out_device`
   test_atomic_inc_warp_kernel<<<num_blocks, threads_per_block, 0, s>>>(counter.data(),
