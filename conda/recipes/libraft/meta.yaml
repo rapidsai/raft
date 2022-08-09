@@ -135,6 +135,36 @@ outputs:
       home: http://rapids.ai/
       license: Apache-2.0
       summary: libraft-nn library
+  - name: libraft-core
+    version: {{ version }}
+    script: build_libraft_core.sh
+    build:
+      script_env: *script_env
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
+    requirements:
+      build:
+        - cmake {{ cmake_version }}
+        - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
+      host:
+        - cudatoolkit {{ cuda_version }}.*
+        - librmm {{ minor_version }}
+        - {{ pin_subpackage('libraft-headers', exact=True) }}
+      run:
+        - cudatoolkit {{ cuda_spec }}
+        - librmm {{ minor_version }}
+        - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
+        - {{ pin_subpackage('libraft-headers', exact=True) }}
+    about:
+      home: http://rapids.ai/
+      license: Apache-2.0
+      summary: libraft-core library
   - name: libraft-tests
     version: {{ version }}
     script: build_libraft_tests.sh

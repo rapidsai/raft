@@ -33,7 +33,7 @@ gpuci_logger "Starting conda uploads"
 
 if [[ "$BUILD_LIBRAFT" == "1" && "$UPLOAD_LIBRAFT" == "1" ]]; then
   LIBRAFT_FILES=$(conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/libraft --output)
-  echo "Upload libraft-headers, libraft-nn, libraft-distance and libraft-tests"
+  echo "Upload libraft-headers, libraft-core, libraft-nn, libraft-distance and libraft-tests"
   gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing --no-progress ${LIBRAFT_FILES}
 fi
 
