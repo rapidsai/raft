@@ -669,6 +669,67 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize, uint32_t mask = 0xfffff
 }
 
 /**
+ * @brief Four-way byte dot product-accumulate.
+ * @tparam T Four-byte integer: int or unsigned int
+ * @tparam S Either same as T or a 4-byte vector of the same signedness.
+ *
+ * @param a
+ * @param b
+ * @param c
+ * @return dot(a, b) + c
+ */
+template <typename T, typename S = T>
+DI auto dp4a(S a, S b, T c) -> T;
+
+template <>
+DI auto dp4a(char4 a, char4 b, int c) -> int
+{
+#if __CUDA_ARCH__ >= 610
+  return __dp4a(a, b, c);
+#else
+  c += static_cast<int>(a.x) * static_cast<int>(b.x);
+  c += static_cast<int>(a.y) * static_cast<int>(b.y);
+  c += static_cast<int>(a.z) * static_cast<int>(b.z);
+  c += static_cast<int>(a.w) * static_cast<int>(b.w);
+  return c;
+#endif
+}
+
+template <>
+DI auto dp4a(uchar4 a, uchar4 b, unsigned int c) -> unsigned int
+{
+#if __CUDA_ARCH__ >= 610
+  return __dp4a(a, b, c);
+#else
+  c += static_cast<unsigned int>(a.x) * static_cast<unsigned int>(b.x);
+  c += static_cast<unsigned int>(a.y) * static_cast<unsigned int>(b.y);
+  c += static_cast<unsigned int>(a.z) * static_cast<unsigned int>(b.z);
+  c += static_cast<unsigned int>(a.w) * static_cast<unsigned int>(b.w);
+  return c;
+#endif
+}
+
+template <>
+DI auto dp4a(int a, int b, int c) -> int
+{
+#if __CUDA_ARCH__ >= 610
+  return __dp4a(a, b, c);
+#else
+  return dp4a(*reinterpret_cast<char4*>(&a), *reinterpret_cast<char4*>(&b), c);
+#endif
+}
+
+template <>
+DI auto dp4a(unsigned int a, unsigned int b, unsigned int c) -> unsigned int
+{
+#if __CUDA_ARCH__ >= 610
+  return __dp4a(a, b, c);
+#else
+  return dp4a(*reinterpret_cast<uchar4*>(&a), *reinterpret_cast<uchar4*>(&b), c);
+#endif
+}
+
+/**
  * @brief Warp-level sum reduction
  * @param val input value
  * @tparam T Value type to be reduced

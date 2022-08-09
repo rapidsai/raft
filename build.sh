@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -36,6 +36,9 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --compile-libs              - compile shared libraries for all components
    --compile-nn                - compile shared library for nn component
    --compile-dist              - compile shared library for distance component
+   --compile-lib               - compile shared library for raft component (eventually, this
+                                 will be the only option to be supported once nn and dist are
+                                 merged into a single build)
    --minimal-deps              - disables dependencies like thrust so they can be overridden.
                                  can be useful for a pure header-only install
    --allgpuarch                - build for all supported GPU architectures
@@ -66,6 +69,7 @@ BUILD_STATIC_FAISS=OFF
 COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
+COMPILE_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=OFF
 
 ENABLE_thrust_DEPENDENCY=ON
@@ -182,14 +186,20 @@ if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     CMAKE_TARGET="${CMAKE_TARGET};raft_nn_lib"
 fi
 
-if hasArg --compile-dist || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
+if hasArg --compile-dist || hasArg --compile-libs || hasArg pylibraft || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_distance_lib"
+fi
+
+if hasArg --compile-lib || hasArg --compile-libs || hasArg pylibraft || (( ${NUMARGS} == 0 )); then
+    COMPILE_LIBRARY=ON
+    CMAKE_TARGET="${CMAKE_TARGET};raft_compiled_lib"
 fi
 
 if hasArg tests || (( ${NUMARGS} == 0 )); then
     BUILD_TESTS=ON
     COMPILE_DIST_LIBRARY=ON
+    COMPILE_LIBRARY=ON
     ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};test_raft"
@@ -250,7 +260,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
+if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg pylibraft || hasArg docs || hasArg tests || hasArg bench; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -273,6 +283,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
+          -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
           ${CACHE_ARGS} \
@@ -292,7 +303,7 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
     cd ${REPODIR}/python/raft
-    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS}
+    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
@@ -302,7 +313,7 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
 
     cd ${REPODIR}/python/pylibraft
-    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS}
+    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
