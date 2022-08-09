@@ -23,6 +23,7 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <vector>
 #include <gtest/gtest.h>
 
 namespace raft {
@@ -59,12 +60,12 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
   {
     int len = rows * cols;
 
-    T data_h[len];
+    std::vector<T> data_h(len);
     for (int i = 0; i < len; i++) {
       data_h[i] = T(1);
     }
 
-    raft::update_device(data.data(), data_h, len, stream);
+    raft::update_device(data.data(), data_h.data(), len, stream);
     sum(sum_act.data(), data.data(), cols, rows, false, stream);
     handle.sync_stream(stream);
   }
