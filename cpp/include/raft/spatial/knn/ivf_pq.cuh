@@ -204,22 +204,6 @@ inline size_t _cuann_aligned(size_t size)
   return size;
 }
 
-// memset
-inline void _cuann_memset(void* ptr, int value, size_t count)
-{
-  cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, ptr);
-  if (attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged) {
-    cudaError_t ret = cudaMemset(ptr, value, count);
-    if (ret != cudaSuccess) {
-      fprintf(stderr, "(%s) cudaMemset() failed\n", __func__);
-      exit(-1);
-    }
-  } else {
-    memset(ptr, value, count);
-  }
-}
-
 // argmin along column
 __global__ void kern_argmin(uint32_t nRows,
                             uint32_t nCols,
@@ -822,10 +806,11 @@ inline void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCen
                                          uint32_t* clusterSize,  // [numCenters]
                                          float* accumulatedCenters)
 {
+  auto stream = rmm::cuda_stream_default;
   if (accumulatedCenters == NULL) {
     // accumulate
-    _cuann_memset(centers, 0, sizeof(float) * numCenters * dimCenters);
-    _cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters);
+    detail::utils::memzero(centers, numCenters * dimCenters, stream);
+    detail::utils::memzero(clusterSize, numCenters, stream);
     if (dtype == CUDA_R_32F) {
       _cuann_accumulate_with_label<float>(
         numCenters, dimCenters, centers, clusterSize, numDataset, (const float*)dataset, labels);
@@ -953,9 +938,10 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
   // workspace_core =
   //   (float*)((uint8_t*)bufDataset + _cuann_aligned(sizeof(float) * chunk * dimCenters));
 
+  auto stream = handle.get_stream();
   if (tempCenters != NULL && clusterSize != NULL) {
-    _cuann_memset(tempCenters, 0, sizeof(float) * numCenters * dimCenters);
-    _cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters);
+    detail::utils::memzero(tempCenters, numCenters * dimCenters, stream);
+    detail::utils::memzero(clusterSize, numCenters, stream);
   }
 
   cudaMemcpyKind kind;
@@ -973,7 +959,6 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
     RAFT_LOG_DEBUG("_cuann_kmeans_predict: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
   }
-  auto stream = handle.get_stream();
   auto metric = similarity == CUANN_SIMILARITY_INNER ? raft::distance::DistanceType::InnerProduct
                                                      : raft::distance::DistanceType::L2Expanded;
 
@@ -1160,9 +1145,11 @@ inline void _cuann_kmeans_predict_MP(const handle_t& handle,
     cudaDeviceSynchronize();
   }
   cudaSetDevice(orgDevId);
+  auto stream = handle.get_stream();
   if (clusterSize != NULL) {
     // Reduce results to main thread
-    _cuann_memset(clusterSize, 0, sizeof(uint32_t) * numCenters);
+    detail::utils::memzero(clusterSize, numCenters, stream);
+    handle.sync_stream(stream);
     for (int devId = 0; devId < numDevices; devId++) {
       _cuann_axpy<uint32_t>(numCenters, 1, clusterSizeMP[devId], clusterSize);
       if (devId != orgDevId) {
