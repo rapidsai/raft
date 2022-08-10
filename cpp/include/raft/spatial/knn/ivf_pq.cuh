@@ -292,8 +292,8 @@ inline void _cuann_copy_fill(uint32_t nRows,
                              D divisor,
                              cudaStream_t stream)
 {
-  assert(ldSrc >= nCols);
-  assert(ldDst >= nCols);
+  RAFT_EXPECTS(ldSrc >= nCols, "src leading dimension must be larger than nCols");
+  RAFT_EXPECTS(ldDst >= nCols, "dist leading dimension must be larger than nCols");
   uint32_t nThreads = 128;
   uint32_t nBlocks  = ((nRows * ldDst) + nThreads - 1) / nThreads;
   kern_copy_fill<S, D>
@@ -523,7 +523,7 @@ template <typename T>
 inline void _cuann_multi_device_free(T** arrays, int numDevices)
 {
   for (int devId = 0; devId < numDevices; devId++) {
-    cudaFree(arrays[devId]);
+    RAFT_CUDA_TRY(cudaFree(arrays[devId]));
   }
   free(arrays);
 }
@@ -580,8 +580,8 @@ inline void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCen
         numDataset, dimCenters, centers, clusterSize, (const int8_t*)dataset, labels, stream);
     }
   } else {
-    cudaMemcpy(
-      centers, accumulatedCenters, sizeof(float) * numCenters * dimCenters, cudaMemcpyDefault);
+    RAFT_CUDA_TRY(cudaMemcpy(
+      centers, accumulatedCenters, sizeof(float) * numCenters * dimCenters, cudaMemcpyDefault));
   }
 
   if (similarity == CUANN_SIMILARITY_INNER) {
@@ -686,7 +686,7 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
 
   cudaMemcpyKind kind;
   cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, dataset);
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, dataset));
   if (attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged) {
     kind = cudaMemcpyDeviceToDevice;
   } else {
@@ -786,7 +786,7 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
                                  tempCenters);
   }
 
-  if (_workspace == NULL) { cudaFree(workspace); }
+  if (_workspace == NULL) { RAFT_CUDA_TRY(cudaFree(workspace)); }
 }
 
 //
@@ -826,15 +826,15 @@ inline void _cuann_kmeans_predict_MP(const handle_t& handle,
     numDevices, sizePredictWorkspace, "predictWorkspaceMP");
 
   int orgDevId;
-  cudaGetDevice(&orgDevId);
+  RAFT_CUDA_TRY(cudaGetDevice(&orgDevId));
 #pragma omp parallel num_threads(numDevices)
   {
     int devId = omp_get_thread_num();
-    cudaSetDevice(devId);
-    cudaMemcpy(clusterCentersCopy[devId],
-               clusterCenters,
-               sizeof(float) * numCenters * dimCenters,
-               cudaMemcpyDefault);
+    RAFT_CUDA_TRY(cudaSetDevice(devId));
+    RAFT_CUDA_TRY(cudaMemcpy(clusterCentersCopy[devId],
+                             clusterCenters,
+                             sizeof(float) * numCenters * dimCenters,
+                             cudaMemcpyDefault));
     uint64_t d0       = (uint64_t)numDataset * (devId) / numDevices;
     uint64_t d1       = (uint64_t)numDataset * (devId + 1) / numDevices;
     uint64_t nDataset = d1 - d0;
@@ -863,10 +863,10 @@ inline void _cuann_kmeans_predict_MP(const handle_t& handle,
   }
   for (int devId = 0; devId < numDevices; devId++) {
     // Barrier
-    cudaSetDevice(devId);
-    cudaDeviceSynchronize();
+    RAFT_CUDA_TRY(cudaSetDevice(devId));
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
   }
-  cudaSetDevice(orgDevId);
+  RAFT_CUDA_TRY(cudaSetDevice(orgDevId));
   auto stream = handle.get_stream();
   if (clusterSize != NULL) {
     // Reduce results to main thread
@@ -1033,14 +1033,14 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
     ofst    = primes[iPrimes];
   } while (numDataset % ofst == 0);
 
-  cudaDeviceSynchronize();
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
   cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, dataset);
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, dataset));
   if (attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged) {
     // GPU
     uint32_t* count;
     if (ws == NULL) {
-      cudaMallocManaged(&count, sizeof(uint32_t));
+      RAFT_CUDA_TRY(cudaMallocManaged(&count, sizeof(uint32_t)));
     } else {
       count = (uint32_t*)ws;
     }
@@ -1078,9 +1078,9 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
                                 average,
                                 ofst,
                                 count);
-    cudaDeviceSynchronize();
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
     if (count[0] > 0) { adjusted = true; }
-    if (ws == NULL) { cudaFree(count); }
+    if (ws == NULL) { RAFT_CUDA_TRY(cudaFree(count)); }
   } else {
     // CPU
     uint32_t i     = 0;
@@ -2092,7 +2092,7 @@ inline size_t _cuann_find_topk_bufferSize(const handle_t& handle,
 {
   constexpr int numThreads  = NUM_THREADS;
   constexpr int stateBitLen = STATE_BIT_LENGTH;
-  assert(stateBitLen == 0 || stateBitLen == 8);
+  static_assert(stateBitLen == 0 || stateBitLen == 8);
 
   size_t workspaceSize = 0;
   // count
@@ -2161,9 +2161,10 @@ inline void _cuann_find_topk(const handle_t& handle,
 {
   constexpr int numThreads  = NUM_THREADS;
   constexpr int stateBitLen = STATE_BIT_LENGTH;
-  assert(stateBitLen == 0 || stateBitLen == 8);
+  static_assert(stateBitLen == 0 || stateBitLen == 8);
 #ifdef CUANN_DEBUG
-  cudaMemsetAsync(labels, 0xff, sizeof(uint32_t) * sizeBatch * topK, handle.get_stream());
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(labels, 0xff, sizeof(uint32_t) * sizeBatch * topK, handle.get_stream()));
 #endif
 
   // Limit the maximum value of vecLen to 4. In the case of FP32,
@@ -2180,8 +2181,8 @@ inline void _cuann_find_topk(const handle_t& handle,
 
   int numBlocksPerSm_topk;
   size_t dynamicSMemSize = 0;
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-    &numBlocksPerSm_topk, cg_kernel, numThreads, dynamicSMemSize);
+  RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+    &numBlocksPerSm_topk, cg_kernel, numThreads, dynamicSMemSize));
   int numBlocks_perBatch = (maxSamples + (numThreads * vecLen) - 1) / (numThreads * vecLen);
   int numBlocks =
     min(numBlocks_perBatch * sizeBatch, getMultiProcessorCount() * numBlocksPerSm_topk);
@@ -2227,7 +2228,8 @@ inline void _cuann_find_topk(const handle_t& handle,
     args[6] = {&(labels)};
     args[7] = {&(count)};
     args[8] = {nullptr};
-    cudaLaunchCooperativeKernel((void*)cg_kernel, blocks, threads, args, 0, handle.get_stream());
+    RAFT_CUDA_TRY(
+      cudaLaunchCooperativeKernel((void*)cg_kernel, blocks, threads, args, 0, handle.get_stream()));
   }
   if (!sort) { return; }
 
@@ -2273,11 +2275,11 @@ inline void _cuann_find_topk(const handle_t& handle,
                                            (int)(sizeof(float) * 8),
                                            handle.get_stream());
 
-  cudaMemcpyAsync(labels,
-                  values_out,
-                  sizeof(uint32_t) * sizeBatch * topK,
-                  cudaMemcpyDeviceToDevice,
-                  handle.get_stream());
+  RAFT_CUDA_TRY(cudaMemcpyAsync(labels,
+                                values_out,
+                                sizeof(uint32_t) * sizeBatch * topK,
+                                cudaMemcpyDeviceToDevice,
+                                handle.get_stream()));
 }
 
 //
@@ -2293,9 +2295,10 @@ inline void _cuann_find_topk(const handle_t& handle,
 {
   constexpr int numThreads  = NUM_THREADS;
   constexpr int stateBitLen = STATE_BIT_LENGTH;
-  assert(stateBitLen == 0 || stateBitLen == 8);
+  static_assert(stateBitLen == 0 || stateBitLen == 8);
 #ifdef CUANN_DEBUG
-  cudaMemsetAsync(labels, 0xff, sizeof(uint32_t) * sizeBatch * topK, handle.get_stream());
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(labels, 0xff, sizeof(uint32_t) * sizeBatch * topK, handle.get_stream()));
 #endif
 
   int vecLen = _get_vecLen(maxSamples);
@@ -2311,7 +2314,8 @@ inline void _cuann_find_topk(const handle_t& handle,
   }
 
   int numBlocksPerSm_topk;
-  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm_topk, cg_kernel, numThreads, 0);
+  RAFT_CUDA_TRY(
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm_topk, cg_kernel, numThreads, 0));
   int numBlocks_perBatch = (maxSamples + (numThreads * vecLen) - 1) / (numThreads * vecLen);
   int numBlocks =
     min(numBlocks_perBatch * sizeBatch, getMultiProcessorCount() * numBlocksPerSm_topk);
@@ -2357,7 +2361,8 @@ inline void _cuann_find_topk(const handle_t& handle,
     args[6] = {&(labels)};
     args[7] = {&(count)};
     args[8] = {nullptr};
-    cudaLaunchCooperativeKernel((void*)cg_kernel, blocks, threads, args, 0, handle.get_stream());
+    RAFT_CUDA_TRY(
+      cudaLaunchCooperativeKernel((void*)cg_kernel, blocks, threads, args, 0, handle.get_stream()));
   }
 }
 
@@ -2809,7 +2814,7 @@ inline void ivfpq_encode(uint32_t numDataset,
     numDataset, ldDataset, dimPq, bitPq, label, output);
 #else
   // CPU
-  cudaDeviceSynchronize();
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
   for (uint32_t i = 0; i < numDataset; i++) {
     ivfpq_encode_core(ldDataset, dimPq, bitPq, label + i, output + (dimPq * bitPq / 8) * i);
   }
@@ -3106,7 +3111,7 @@ inline void _cuann_get_inclusiveSumSortedClusterSize(
   for (uint32_t i = 1; i < desc->numClusters; i++) {
     (*output)[i] += (*output)[i - 1];
   }
-  assert((*output)[desc->numClusters - 1] == desc->numDataset);
+  RAFT_EXPECTS((*output)[desc->numClusters - 1] == desc->numDataset, "cluster sizes do not add up");
 }
 
 inline void _cuann_get_sqsumClusters(cuannIvfPqDescriptor_t desc,
@@ -3114,7 +3119,7 @@ inline void _cuann_get_sqsumClusters(cuannIvfPqDescriptor_t desc,
                                      float** output                // [numClusters,]
 )
 {
-  if (*output != NULL) { cudaFree(*output); }
+  if (*output != NULL) { RAFT_CUDA_TRY(cudaFree(*output)); }
   RAFT_CUDA_TRY(cudaMallocManaged(output, sizeof(float) * desc->numClusters));
   switch (detail::utils::check_pointer_residency(clusterCenters, *output)) {
     case detail::utils::pointer_residency::device_only:
@@ -3164,8 +3169,10 @@ inline void _cuann_make_rotation_matrix(uint32_t nRows,
                                         float* rotationMatrix  // [nRows, nCols]
 )
 {
-  assert(nRows >= nCols);
-  assert(nRows % lenPq == 0);
+  RAFT_EXPECTS(
+    nRows >= nCols, "number of rows (%u) must be larger than number or cols (%u)", nRows, nCols);
+  RAFT_EXPECTS(
+    nRows % lenPq == 0, "number of rows (%u) must be a multiple of lenPq (%u)", nRows, lenPq);
 
   if (randomRotation) {
     RAFT_LOG_DEBUG("Creating a random rotation matrix.");
@@ -3368,7 +3375,7 @@ inline void _cuann_compute_PQ_code(const handle_t& handle,
 #pragma omp parallel for schedule(dynamic) num_threads(1)
   for (uint32_t l = 0; l < numClusters; l++) {
     int devId = omp_get_thread_num();
-    cudaSetDevice(devId);
+    RAFT_CUDA_TRY(cudaSetDevice(devId));
     if (devId == 0) {
       fprintf(stderr, "(%s) Making PQ dataset: %u / %u    \r", __func__, l, numClusters);
     }
@@ -3481,10 +3488,10 @@ inline void _cuann_compute_PQ_code(const handle_t& handle,
           iter -= 1;
         }
       }
-      cudaMemcpy(pqCenters + ((1 << bitPq) * lenPq) * l,
-                 myPqCenters[devId],
-                 sizeof(float) * (1 << bitPq) * lenPq,
-                 cudaMemcpyDeviceToHost);
+      RAFT_CUDA_TRY(cudaMemcpy(pqCenters + ((1 << bitPq) * lenPq) * l,
+                               myPqCenters[devId],
+                               sizeof(float) * (1 << bitPq) * lenPq,
+                               cudaMemcpyDeviceToHost));
     }
 
     //
@@ -3536,13 +3543,12 @@ inline void _cuann_compute_PQ_code(const handle_t& handle,
     //
     ivfpq_encode(
       clusterSize[l], clusterSize[l], dimPq, bitPq, subVectorLabels[devId], myPqDataset[devId]);
-    cudaMemcpy(pqDataset + ((uint64_t)indexPtr[l] * dimPq * bitPq / 8),
-               myPqDataset[devId],
-               sizeof(uint8_t) * clusterSize[l] * dimPq * bitPq / 8,
-               cudaMemcpyDeviceToHost);
-    // cudaDeviceSynchronize();
+    RAFT_CUDA_TRY(cudaMemcpy(pqDataset + ((uint64_t)indexPtr[l] * dimPq * bitPq / 8),
+                             myPqDataset[devId],
+                             sizeof(uint8_t) * clusterSize[l] * dimPq * bitPq / 8,
+                             cudaMemcpyDeviceToHost));
   }
-  cudaDeviceSynchronize();
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
   fprintf(stderr, "\n");
 
   //
@@ -3586,7 +3592,7 @@ inline void cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc)
 inline void cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc)
 {
   RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
-  if (desc->sqsumClusters != NULL) { cudaFree(desc->sqsumClusters); }
+  if (desc->sqsumClusters != NULL) { RAFT_CUDA_TRY(cudaFree(desc->sqsumClusters)); }
   free(desc);
 }
 
@@ -3625,8 +3631,8 @@ inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t desc,
   desc->dimDataset    = dimDataset;
   desc->dimDatasetExt = dimDataset + 1;
   if (desc->dimDatasetExt % 8) { desc->dimDatasetExt += 8 - (desc->dimDatasetExt % 8); }
-  assert(desc->dimDatasetExt >= dimDataset + 1);
-  assert(desc->dimDatasetExt % 8 == 0);
+  RAFT_EXPECTS(desc->dimDatasetExt >= dimDataset + 1, "unexpected dimDatasetExt");
+  RAFT_EXPECTS(desc->dimDatasetExt % 8 == 0, "unexpected dimDatasetExt");
   desc->dimPq        = dimPq;
   desc->bitPq        = bitPq;
   desc->similarity   = similarity;
@@ -3799,7 +3805,7 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
         iter -= 1;
       }
     }
-    cudaDeviceSynchronize();
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
 
     // Number of centers in each meso cluster
     // [numMesoClusters,]
@@ -3829,8 +3835,9 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
       mesoClusterSizeMax = max(mesoClusterSizeMax, mesoClusterSize[i]);
       numFineClustersMax = max(numFineClustersMax, numFineClusters[i]);
     }
-    assert(mesoClusterSizeSum == numTrainset);
-    assert(csumFineClusters[numMesoClusters] == desc->numClusters);
+    RAFT_EXPECTS(mesoClusterSizeSum == numTrainset, "mesocluster sizes do not add up");
+    RAFT_EXPECTS(csumFineClusters[numMesoClusters] == desc->numClusters,
+                 "fine cluster sizes do not add up");
 
     uint32_t** idsTrainset =
       _cuann_multi_device_malloc<uint32_t>(1, mesoClusterSizeMax, "idsTrainset");
@@ -3869,14 +3876,14 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
 #pragma omp parallel for schedule(dynamic) num_threads(1)
     for (uint32_t i = 0; i < numMesoClusters; i++) {
       int devId = omp_get_thread_num();
-      cudaSetDevice(devId);
+      RAFT_CUDA_TRY(cudaSetDevice(devId));
 
       uint32_t k = 0;
       for (uint32_t j = 0; j < numTrainset; j++) {
         if (mesoClusterLabels[j] != i) continue;
         idsTrainset[devId][k++] = j;
       }
-      assert(k == mesoClusterSize[i]);
+      RAFT_EXPECTS(k == mesoClusterSize[i], "unexpected cluster size for cluster %u", i);
 
       if (dtype == CUDA_R_32F) {
         detail::utils::copy_selected<float, float>(mesoClusterSize[i],
@@ -3936,16 +3943,16 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
           iter -= 1;
         }
       }
-      cudaMemcpy(clusterCenters + (desc->dimDataset * csumFineClusters[i]),
-                 clusterCentersEach[devId],
-                 sizeof(float) * numFineClusters[i] * desc->dimDataset,
-                 cudaMemcpyDeviceToDevice);
+      RAFT_CUDA_TRY(cudaMemcpy(clusterCenters + (desc->dimDataset * csumFineClusters[i]),
+                               clusterCentersEach[devId],
+                               sizeof(float) * numFineClusters[i] * desc->dimDataset,
+                               cudaMemcpyDeviceToDevice));
     }
     for (int devId = 0; devId < 1; devId++) {
-      cudaSetDevice(devId);
-      cudaDeviceSynchronize();
+      RAFT_CUDA_TRY(cudaSetDevice(devId));
+      RAFT_CUDA_TRY(cudaDeviceSynchronize());
     }
-    cudaSetDevice(cuannDevId);
+    RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
 
     _cuann_multi_device_free<uint32_t>(idsTrainset, 1);
     _cuann_multi_device_free<float>(subTrainset, 1);
@@ -4055,7 +4062,7 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
                            true /* to update clusterCenters */);
 
 #ifdef CUANN_DEBUG
-  cudaDeviceSynchronize();
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
   _cuann_kmeans_show_centers(clusterCenters, desc->numClusters, desc->dimDataset, clusterSize);
 #endif
 
@@ -4206,13 +4213,13 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
 #pragma omp parallel for schedule(dynamic) num_threads(1)
     for (uint32_t j = 0; j < desc->dimPq; j++) {
       int devId = omp_get_thread_num();
-      cudaSetDevice(devId);
+      RAFT_CUDA_TRY(cudaSetDevice(devId));
 
       float* curPqCenters = pqCenters + ((1 << desc->bitPq) * desc->lenPq) * j;
-      cudaMemcpy(subTrainset[devId],
-                 modTrainset + ((uint64_t)numTrainset * desc->lenPq * j),
-                 sizeof(float) * numTrainset * desc->lenPq,
-                 cudaMemcpyHostToDevice);
+      RAFT_CUDA_TRY(cudaMemcpy(subTrainset[devId],
+                               modTrainset + ((uint64_t)numTrainset * desc->lenPq * j),
+                               sizeof(float) * numTrainset * desc->lenPq,
+                               cudaMemcpyHostToDevice));
       // Train kmeans for each PQ
       int numIterations_2 = numIterations * 2;
       for (int iter = 0; iter < numIterations_2; iter += 2) {
@@ -4254,20 +4261,20 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
           iter -= 1;
         }
       }
-      cudaMemcpy(curPqCenters,
-                 pqCentersEach[devId],
-                 sizeof(float) * ((1 << desc->bitPq) * desc->lenPq),
-                 cudaMemcpyDeviceToDevice);
+      RAFT_CUDA_TRY(cudaMemcpy(curPqCenters,
+                               pqCentersEach[devId],
+                               sizeof(float) * ((1 << desc->bitPq) * desc->lenPq),
+                               cudaMemcpyDeviceToDevice));
 #ifdef CUANN_DEBUG
       if (j == 0) {
-        cudaDeviceSynchronize();
+        RAFT_CUDA_TRY(cudaDeviceSynchronize());
         _cuann_kmeans_show_centers(
           curPqCenters, (1 << desc->bitPq), desc->lenPq, pqClusterSize[devId]);
       }
 #endif
     }
     fprintf(stderr, "\n");
-    cudaSetDevice(cuannDevId);
+    RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
 
     _cuann_multi_device_free<float>(subTrainset, 1);
     _cuann_multi_device_free<uint32_t>(subTrainsetLabels, 1);
@@ -4298,7 +4305,7 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
                          pqCenters,
                          numIterations,
                          pqDataset);
-  cudaSetDevice(cuannDevId);
+  RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
 
   //
   _cuann_get_inclusiveSumSortedClusterSize(
@@ -4307,7 +4314,7 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
 
   {
     // combine clusterCenters and sqsumClusters
-    cudaDeviceSynchronize();
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
     float* tmpClusterCenters;  // [numClusters, dimDataset]
     RAFT_CUDA_TRY(
       cudaMallocManaged(&tmpClusterCenters, sizeof(float) * desc->numClusters * desc->dimDataset));
@@ -4321,7 +4328,7 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
       }
       clusterCenters[desc->dimDataset + (desc->dimDatasetExt * i)] = desc->sqsumClusters[i];
     }
-    cudaFree(tmpClusterCenters);
+    RAFT_CUDA_TRY(cudaFree(tmpClusterCenters));
   }
 
   //
@@ -4398,7 +4405,7 @@ inline void cuannIvfPqLoadIndex(const handle_t& handle,
     }
     fclose(fp);
 
-    cudaMemAdvise(index, indexSize, cudaMemAdviseSetReadMostly, handle.get_device());
+    RAFT_CUDA_TRY(cudaMemAdvise(index, indexSize, cudaMemAdviseSetReadMostly, handle.get_device()));
   }
 
   struct cuannIvfPqIndexHeader* header = (struct cuannIvfPqIndexHeader*)(*index);
@@ -4443,33 +4450,33 @@ inline void cuannIvfPqLoadIndex(const handle_t& handle,
   // pqDataset
   size = sizeof(uint8_t) * desc->numDataset * desc->dimPq * desc->bitPq / 8;
   if (size < handle.get_device_properties().totalGlobalMem) {
-    cudaMemPrefetchAsync(pqDataset, size, handle.get_device());
+    RAFT_CUDA_TRY(cudaMemPrefetchAsync(pqDataset, size, handle.get_device()));
   }
   // clusterCenters
   size = sizeof(float) * desc->numClusters * desc->dimDatasetExt;
-  cudaMemPrefetchAsync(clusterCenters, size, handle.get_device());
+  RAFT_CUDA_TRY(cudaMemPrefetchAsync(clusterCenters, size, handle.get_device()));
   // pqCenters
   if (desc->typePqCenter == CUANN_PQ_CENTER_PER_SUBSPACE) {
     size = sizeof(float) * desc->dimPq * (1 << desc->bitPq) * desc->lenPq;
   } else {
     size = sizeof(float) * desc->numClusters * (1 << desc->bitPq) * desc->lenPq;
   }
-  cudaMemPrefetchAsync(pqCenters, size, handle.get_device());
+  RAFT_CUDA_TRY(cudaMemPrefetchAsync(pqCenters, size, handle.get_device()));
   // originalNumbers
   size = sizeof(uint32_t) * desc->numDataset;
-  cudaMemPrefetchAsync(originalNumbers, size, handle.get_device());
+  RAFT_CUDA_TRY(cudaMemPrefetchAsync(originalNumbers, size, handle.get_device()));
   // indexPtr
   size = sizeof(uint32_t) * (desc->numClusters + 1);
-  cudaMemPrefetchAsync(indexPtr, size, handle.get_device());
+  RAFT_CUDA_TRY(cudaMemPrefetchAsync(indexPtr, size, handle.get_device()));
   // rotationMatrix
   if (rotationMatrix != NULL) {
     size = sizeof(float) * desc->dimDataset * desc->dimRotDataset;
-    cudaMemPrefetchAsync(rotationMatrix, size, handle.get_device());
+    RAFT_CUDA_TRY(cudaMemPrefetchAsync(rotationMatrix, size, handle.get_device()));
   }
   // clusterRotCenters
   if (clusterRotCenters != NULL) {
     size = sizeof(float) * desc->numClusters * desc->dimRotDataset;
-    cudaMemPrefetchAsync(clusterRotCenters, size, handle.get_device());
+    RAFT_CUDA_TRY(cudaMemPrefetchAsync(clusterRotCenters, size, handle.get_device()));
   }
 
   _cuann_set_device(orgDevId);
@@ -4543,10 +4550,10 @@ inline void cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   //
   uint32_t* newVectorLabels;  // [numNewVectors,]
   RAFT_CUDA_TRY(cudaMallocManaged(&newVectorLabels, sizeof(uint32_t) * numNewVectors));
-  cudaMemset(newVectorLabels, 0, sizeof(uint32_t) * numNewVectors);
+  RAFT_CUDA_TRY(cudaMemset(newVectorLabels, 0, sizeof(uint32_t) * numNewVectors));
   uint32_t* clusterSize;  // [numClusters,]
   RAFT_CUDA_TRY(cudaMallocManaged(&clusterSize, sizeof(uint32_t) * oldDesc->numClusters));
-  cudaMemset(clusterSize, 0, sizeof(uint32_t) * oldDesc->numClusters);
+  RAFT_CUDA_TRY(cudaMemset(clusterSize, 0, sizeof(uint32_t) * oldDesc->numClusters));
   _cuann_kmeans_predict_MP(handle,
                            clusterCenters,
                            oldDesc->numClusters,
@@ -4644,7 +4651,7 @@ inline void cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
                          oldPqCenters,
                          0,
                          pqDataset);
-  cudaSetDevice(cuannDevId);
+  RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
 
   //
   // Create descriptor for new index
@@ -5042,7 +5049,7 @@ inline void cuannIvfPqSearch(
   }
 
   cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, queries);
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, queries));
 
   for (uint32_t i = 0; i < numQueries; i += desc->maxQueries) {
     uint32_t nQueries = min(desc->maxQueries, numQueries - i);
@@ -5058,11 +5065,11 @@ inline void cuannIvfPqSearch(
     if (dtype == CUDA_R_32F) {
       float* ptrQueries = (float*)queries + ((uint64_t)(desc->dimDataset) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        cudaMemcpyAsync(devQueries,
-                        ptrQueries,
-                        sizeof(float) * nQueries * desc->dimDataset,
-                        cudaMemcpyHostToDevice,
-                        handle.get_stream());
+        RAFT_CUDA_TRY(cudaMemcpyAsync(devQueries,
+                                      ptrQueries,
+                                      sizeof(float) * nQueries * desc->dimDataset,
+                                      cudaMemcpyHostToDevice,
+                                      handle.get_stream()));
         ptrQueries = (float*)devQueries;
       }
       _cuann_copy_fill<float, float>(nQueries,
@@ -5077,11 +5084,11 @@ inline void cuannIvfPqSearch(
     } else if (dtype == CUDA_R_8U) {
       uint8_t* ptrQueries = (uint8_t*)queries + ((uint64_t)(desc->dimDataset) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        cudaMemcpyAsync(devQueries,
-                        ptrQueries,
-                        sizeof(uint8_t) * nQueries * desc->dimDataset,
-                        cudaMemcpyHostToDevice,
-                        handle.get_stream());
+        RAFT_CUDA_TRY(cudaMemcpyAsync(devQueries,
+                                      ptrQueries,
+                                      sizeof(uint8_t) * nQueries * desc->dimDataset,
+                                      cudaMemcpyHostToDevice,
+                                      handle.get_stream()));
         ptrQueries = (uint8_t*)devQueries;
       }
       _cuann_copy_fill<uint8_t, float>(nQueries,
@@ -5096,11 +5103,11 @@ inline void cuannIvfPqSearch(
     } else if (dtype == CUDA_R_8I) {
       int8_t* ptrQueries = (int8_t*)queries + ((uint64_t)(desc->dimDataset) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        cudaMemcpyAsync(devQueries,
-                        ptrQueries,
-                        sizeof(int8_t) * nQueries * desc->dimDataset,
-                        cudaMemcpyHostToDevice,
-                        handle.get_stream());
+        RAFT_CUDA_TRY(cudaMemcpyAsync(devQueries,
+                                      ptrQueries,
+                                      sizeof(int8_t) * nQueries * desc->dimDataset,
+                                      cudaMemcpyHostToDevice,
+                                      handle.get_stream()));
         ptrQueries = (int8_t*)devQueries;
       }
       _cuann_copy_fill<int8_t, float>(nQueries,
@@ -5124,7 +5131,7 @@ inline void cuannIvfPqSearch(
       alpha = -2.0;
       beta  = 0.0;
       gemmK = desc->dimDataset + 1;
-      assert(gemmK <= desc->dimDatasetExt);
+      RAFT_EXPECTS(gemmK <= desc->dimDatasetExt, "unexpected gemmK or dimDatasetExt");
     }
     linalg::gemm(handle,
                  true,
@@ -6023,7 +6030,10 @@ inline void ivfpq_search(const handle_t& handle,
                          float* topkDistances,                  // [numQueries, topK]
                          void* workspace)
 {
-  assert(numQueries <= desc->maxBatchSize);
+  RAFT_EXPECTS(numQueries <= desc->maxBatchSize,
+               "number of queries (%u) must be smaller the max batch size (%u)",
+               numQueries,
+               desc->maxBatchSize);
 
   uint32_t* clusterLabelsOut;  // [maxBatchSize, numProbes]
   uint32_t* indexList;         // [maxBatchSize * numProbes]
@@ -6133,24 +6143,24 @@ inline void ivfpq_search(const handle_t& handle,
   // Select a GPU kernel for distance calculation
 #define SET_KERNEL1(B, V, T, D)                                                                 \
   do {                                                                                          \
-    assert((B * V) % (sizeof(T) * 8) == 0);                                                     \
+    static_assert((B * V) % (sizeof(T) * 8) == 0);                                              \
     kernel_no_basediff = ivfpq_compute_similarity<B, V, T, D, false, scoreDtype, smemLutDtype>; \
     kernel_fast        = ivfpq_compute_similarity<B, V, T, D, true, scoreDtype, smemLutDtype>;  \
     kernel_no_smem_lut = ivfpq_compute_similarity_no_smem_lut<B, V, T, D, true, scoreDtype>;    \
   } while (0)
 
-#define SET_KERNEL2(B, M, D)                 \
-  do {                                       \
-    assert(desc->dimPq % M == 0);            \
-    if (desc->dimPq % (M * 8) == 0) {        \
-      SET_KERNEL1(B, (M * 8), uint64_t, D);  \
-    } else if (desc->dimPq % (M * 4) == 0) { \
-      SET_KERNEL1(B, (M * 4), uint32_t, D);  \
-    } else if (desc->dimPq % (M * 2) == 0) { \
-      SET_KERNEL1(B, (M * 2), uint16_t, D);  \
-    } else if (desc->dimPq % (M * 1) == 0) { \
-      SET_KERNEL1(B, (M * 1), uint8_t, D);   \
-    }                                        \
+#define SET_KERNEL2(B, M, D)                                                 \
+  do {                                                                       \
+    RAFT_EXPECTS(desc->dimPq % M == 0, "dimPq must be a multiple of %u", M); \
+    if (desc->dimPq % (M * 8) == 0) {                                        \
+      SET_KERNEL1(B, (M * 8), uint64_t, D);                                  \
+    } else if (desc->dimPq % (M * 4) == 0) {                                 \
+      SET_KERNEL1(B, (M * 4), uint32_t, D);                                  \
+    } else if (desc->dimPq % (M * 2) == 0) {                                 \
+      SET_KERNEL1(B, (M * 2), uint16_t, D);                                  \
+    } else if (desc->dimPq % (M * 1) == 0) {                                 \
+      SET_KERNEL1(B, (M * 1), uint8_t, D);                                   \
+    }                                                                        \
   } while (0)
 
 #define SET_KERNEL3(D)                     \
