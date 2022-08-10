@@ -119,21 +119,6 @@ extern __shared__ float smemArray[];
 
 #define FP16_MAX 65504.0
 
-/* CUANN status type */
-typedef enum {
-  CUANN_STATUS_SUCCESS           = 0,
-  CUANN_STATUS_ALLOC_FAILED      = 1,
-  CUANN_STATUS_NOT_INITIALIZED   = 2,
-  CUANN_STATUS_INVALID_VALUE     = 3,
-  CUANN_STATUS_INTERNAL_ERROR    = 4,
-  CUANN_STATUS_FILEIO_ERROR      = 5,
-  CUANN_STATUS_CUDA_ERROR        = 6,
-  CUANN_STATUS_CUBLAS_ERROR      = 7,
-  CUANN_STATUS_INVALID_POINTER   = 8,
-  CUANN_STATUS_VERSION_ERROR     = 9,
-  CUANN_STATUS_UNSUPPORTED_DTYPE = 10,
-} cuannStatus_t;
-
 /* CUANN similarity type */
 typedef enum {
   CUANN_SIMILARITY_INNER = 0,
@@ -3239,10 +3224,10 @@ template __global__ void ivfpq_make_outputs<half>(
  *
  */
 
-inline cuannStatus_t cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc);
-inline cuannStatus_t cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc);
+inline void cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc);
+inline void cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc);
 
-inline cuannStatus_t cuannIvfPqSetIndexParameters(
+inline void cuannIvfPqSetIndexParameters(
   cuannIvfPqDescriptor_t desc,
   const uint32_t numClusters, /* Number of clusters */
   const uint32_t numDataset,  /* Number of dataset entries */
@@ -3252,19 +3237,19 @@ inline cuannStatus_t cuannIvfPqSetIndexParameters(
   const cuannSimilarity_t similarity,
   const cuannPqCenter_t typePqCenter);
 
-inline cuannStatus_t cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
-                                                  uint32_t* numClusters,
-                                                  uint32_t* numDataset,
-                                                  uint32_t* dimDataset,
-                                                  uint32_t* dimPq,
-                                                  uint32_t* bitPq,
-                                                  cuannSimilarity_t* similarity,
-                                                  cuannPqCenter_t* typePqCenter);
+inline void cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
+                                         uint32_t* numClusters,
+                                         uint32_t* numDataset,
+                                         uint32_t* dimDataset,
+                                         uint32_t* dimPq,
+                                         uint32_t* bitPq,
+                                         cuannSimilarity_t* similarity,
+                                         cuannPqCenter_t* typePqCenter);
 
-inline cuannStatus_t cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc,
-                                            size_t* size /* bytes of dataset index */);
+inline void cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc,
+                                   size_t* size /* bytes of dataset index */);
 
-inline cuannStatus_t cuannIvfPqBuildIndex(
+inline void cuannIvfPqBuildIndex(
   const handle_t& handle,
   cuannIvfPqDescriptor_t desc,
   const void* dataset,  /* [numDataset, dimDataset] */
@@ -3276,75 +3261,74 @@ inline cuannStatus_t cuannIvfPqBuildIndex(
   bool hierarchicalClustering, /* If true, do kmeans training hierarchically */
   void* index /* database index to build */);
 
-inline cuannStatus_t cuannIvfPqSaveIndex(const handle_t& handle,
-                                         cuannIvfPqDescriptor_t desc,
-                                         const void* index,
-                                         const char* fileName);
+inline void cuannIvfPqSaveIndex(const handle_t& handle,
+                                cuannIvfPqDescriptor_t desc,
+                                const void* index,
+                                const char* fileName);
 
-inline cuannStatus_t cuannIvfPqLoadIndex(const handle_t& handle,
-                                         cuannIvfPqDescriptor_t desc,
-                                         void** index,
-                                         const char* fileName);
+inline void cuannIvfPqLoadIndex(const handle_t& handle,
+                                cuannIvfPqDescriptor_t desc,
+                                void** index,
+                                const char* fileName);
 
-inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
+inline void cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   const handle_t& handle,
   const char* oldIndexFileName,
   const char* newIndexFileName,
   const void* newVectors, /* [numVectorsToAdd, dimDataset] */
   uint32_t numNewVectors);
 
-inline cuannStatus_t cuannIvfPqSetSearchParameters(
+inline void cuannIvfPqSetSearchParameters(
   cuannIvfPqDescriptor_t desc,
   const uint32_t numProbes, /* Number of clusters to probe */
   const uint32_t topK);     /* Number of search results */
 
-inline cuannStatus_t cuannIvfPqSetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
-                                                         cudaDataType_t internalDistanceDtype,
-                                                         cudaDataType_t smemLutDtype,
-                                                         const uint32_t preferredThreadBlockSize);
+inline void cuannIvfPqSetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
+                                                cudaDataType_t internalDistanceDtype,
+                                                cudaDataType_t smemLutDtype,
+                                                const uint32_t preferredThreadBlockSize);
 
-inline cuannStatus_t cuannIvfPqGetSearchParameters(cuannIvfPqDescriptor_t desc,
-                                                   uint32_t* numProbes,
-                                                   uint32_t* topK);
+inline void cuannIvfPqGetSearchParameters(cuannIvfPqDescriptor_t desc,
+                                          uint32_t* numProbes,
+                                          uint32_t* topK);
 
-inline cuannStatus_t cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
-                                                         cudaDataType_t* internalDistanceDtype,
-                                                         cudaDataType_t* smemLutDtype,
-                                                         uint32_t* preferredThreadBlockSize);
+inline void cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
+                                                cudaDataType_t* internalDistanceDtype,
+                                                cudaDataType_t* smemLutDtype,
+                                                uint32_t* preferredThreadBlockSize);
 
-inline cuannStatus_t cuannIvfPqSearch_bufferSize(const handle_t& handle,
-                                                 cuannIvfPqDescriptor_t desc,
-                                                 const void* index,
-                                                 uint32_t numQueries,
-                                                 size_t maxWorkspaceSize,
-                                                 size_t* workspaceSize);
+inline void cuannIvfPqSearch_bufferSize(const handle_t& handle,
+                                        cuannIvfPqDescriptor_t desc,
+                                        const void* index,
+                                        uint32_t numQueries,
+                                        size_t maxWorkspaceSize,
+                                        size_t* workspaceSize);
 
-inline cuannStatus_t cuannIvfPqSearch(const handle_t& handle,
-                                      cuannIvfPqDescriptor_t desc,
-                                      const void* index,
+inline void cuannIvfPqSearch(const handle_t& handle,
+                             cuannIvfPqDescriptor_t desc,
+                             const void* index,
+                             const void* queries, /* [numQueries, dimDataset] */
+                             cudaDataType_t dtype,
+                             uint32_t numQueries,
+                             uint64_t* neighbors, /* [numQueries, topK] */
+                             float* distances,    /* [numQueries, topK] */
+                             void* workspace);
+
+inline void cuannPostprocessingRefine(uint32_t numDataset,
+                                      uint32_t numQueries,
+                                      uint32_t dimDataset,
+                                      const void* dataset, /* [numDataset, dimDataset] */
                                       const void* queries, /* [numQueries, dimDataset] */
                                       cudaDataType_t dtype,
-                                      uint32_t numQueries,
-                                      uint64_t* neighbors, /* [numQueries, topK] */
-                                      float* distances,    /* [numQueries, topK] */
-                                      void* workspace);
-
-inline cuannStatus_t cuannPostprocessingRefine(
-  uint32_t numDataset,
-  uint32_t numQueries,
-  uint32_t dimDataset,
-  const void* dataset, /* [numDataset, dimDataset] */
-  const void* queries, /* [numQueries, dimDataset] */
-  cudaDataType_t dtype,
-  cuannSimilarity_t similarity,
-  uint32_t topK,
-  const uint64_t* neighbors, /* [numQueries, topK] */
-  uint32_t refinedTopK,
-  uint64_t* refinedNeighbors, /* [numQueries, refinedTopK] */
-  float* refinedDistances     /* [numQueries, refinedTopK] */
+                                      cuannSimilarity_t similarity,
+                                      uint32_t topK,
+                                      const uint64_t* neighbors, /* [numQueries, topK] */
+                                      uint32_t refinedTopK,
+                                      uint64_t* refinedNeighbors, /* [numQueries, refinedTopK] */
+                                      float* refinedDistances     /* [numQueries, refinedTopK] */
 );
 
-inline cuannStatus_t cuannPostprocessingMerge(
+inline void cuannPostprocessingMerge(
   uint32_t numSplit,
   uint32_t numQueries,
   uint32_t topK,
@@ -3826,33 +3810,28 @@ inline void _cuann_compute_PQ_code(const handle_t& handle,
     //
     // Rotate the residual vectors using a rotation matrix
     //
-    cudaStream_t cublasStream  = _cuann_set_cublas_stream(handle.get_cublas_handle(), NULL);
-    float alpha                = 1.0;
-    float beta                 = 0.0;
-    cublasStatus_t cublasError = cublasGemmEx(handle.get_cublas_handle(),
-                                              CUBLAS_OP_T,
-                                              CUBLAS_OP_N,
-                                              dimRotDataset,
-                                              clusterSize[l],
-                                              dimDataset,
-                                              &alpha,
-                                              rotationMatrix,
-                                              CUDA_R_32F,
-                                              dimDataset,
-                                              resVectors[devId],
-                                              CUDA_R_32F,
-                                              dimDataset,
-                                              &beta,
-                                              rotVectors[devId],
-                                              CUDA_R_32F,
-                                              dimRotDataset,
-                                              CUBLAS_COMPUTE_32F,
-                                              CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-    if (cublasError != CUBLAS_STATUS_SUCCESS) {
-      fprintf(stderr, "(%s, %d) cublasGemmEx() failed.\n", __func__, __LINE__);
-      // return CUANN_STATUS_CUBLAS_ERROR;
-      exit(-1);
-    }
+    cudaStream_t cublasStream = _cuann_set_cublas_stream(handle.get_cublas_handle(), NULL);
+    float alpha               = 1.0;
+    float beta                = 0.0;
+    RAFT_CUBLAS_TRY(cublasGemmEx(handle.get_cublas_handle(),
+                                 CUBLAS_OP_T,
+                                 CUBLAS_OP_N,
+                                 dimRotDataset,
+                                 clusterSize[l],
+                                 dimDataset,
+                                 &alpha,
+                                 rotationMatrix,
+                                 CUDA_R_32F,
+                                 dimDataset,
+                                 resVectors[devId],
+                                 CUDA_R_32F,
+                                 dimDataset,
+                                 &beta,
+                                 rotVectors[devId],
+                                 CUDA_R_32F,
+                                 dimRotDataset,
+                                 CUBLAS_COMPUTE_32F,
+                                 CUBLAS_GEMM_DEFAULT_TENSOR_OP));
     _cuann_set_cublas_stream(handle.get_cublas_handle(), cublasStream);
 
     //
@@ -3983,10 +3962,10 @@ inline void _cuann_compute_PQ_code(const handle_t& handle,
 }
 
 // cuannIvfPqCreateDescriptor
-inline cuannStatus_t cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc)
+inline void cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc)
 {
   *desc = (cuannIvfPqDescriptor_t)malloc(sizeof(struct cuannIvfPqDescriptor));
-  if (*desc == NULL) { return CUANN_STATUS_ALLOC_FAILED; }
+  RAFT_EXPECTS(*desc != nullptr, "cuann allocation failed");
   (*desc)->numClusters                   = 0;
   (*desc)->numDataset                    = 0;
   (*desc)->dimDataset                    = 0;
@@ -4001,92 +3980,46 @@ inline cuannStatus_t cuannIvfPqCreateDescriptor(cuannIvfPqDescriptor_t* desc)
   (*desc)->maxSamples                    = 0;
   (*desc)->inclusiveSumSortedClusterSize = NULL;
   (*desc)->sqsumClusters                 = NULL;
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqDestroyDescriptor
-inline cuannStatus_t cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc)
+inline void cuannIvfPqDestroyDescriptor(cuannIvfPqDescriptor_t desc)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
   if (desc->sqsumClusters != NULL) { cudaFree(desc->sqsumClusters); }
   free(desc);
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqSetIndexParameters
-inline cuannStatus_t cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t desc,
-                                                  const uint32_t numClusters,
-                                                  const uint32_t numDataset,
-                                                  const uint32_t dimDataset,
-                                                  const uint32_t dimPq,
-                                                  const uint32_t bitPq,
-                                                  const cuannSimilarity_t similarity,
-                                                  const cuannPqCenter_t typePqCenter)
+inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t desc,
+                                         const uint32_t numClusters,
+                                         const uint32_t numDataset,
+                                         const uint32_t dimDataset,
+                                         const uint32_t dimPq,
+                                         const uint32_t bitPq,
+                                         const cuannSimilarity_t similarity,
+                                         const cuannPqCenter_t typePqCenter)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
-  if (numClusters == 0) {
-    fprintf(
-      stderr, "(%s) numClusters must be larger than zero (dimDataset:%u).\n", __func__, dimDataset);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (numDataset == 0) {
-    fprintf(
-      stderr, "(%s) numDataset must be larger than zero (numDataset:%u).\n", __func__, numDataset);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (dimDataset == 0) {
-    fprintf(
-      stderr, "(%s) dimDataset must be larger than zero (dimDataset:%u).\n", __func__, dimDataset);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (dimPq == 0) {
-    fprintf(stderr, "(%s) dimPq must be larger than zero (dimPq:%u).\n", __func__, dimPq);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (numClusters > numDataset) {
-    fprintf(stderr,
-            "(%s) numClusters must be smaller than numDataset (numClusters:%u, numDataset:%u).\n",
-            __func__,
-            numClusters,
-            numDataset);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (bitPq < 4 || bitPq > 8) {
-    fprintf(stderr, "(%s) bitPq must be 4, 5, 6, 7 or 8 (bitPq:%u)\n", __func__, bitPq);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (bitPq == 4 && dimPq % 2 != 0) {
-    fprintf(stderr,
-            "(%s) dimPq must be multiple of 2 when bitPq is 4 (dimPq:%u, bitPq:%u)\n",
-            __func__,
-            dimPq,
-            bitPq);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (bitPq == 5 && dimPq % 8 != 0) {
-    fprintf(stderr,
-            "(%s) dimPq must be multiple of 8 when bitPq is 5 (dimPq:%u, bitPq:%u)\n",
-            __func__,
-            dimPq,
-            bitPq);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (bitPq == 6 && dimPq % 4 != 0) {
-    fprintf(stderr,
-            "(%s) dimPq must be multiple of 4 when bitPq is 6 (dimPq:%u, bitPq:%u)\n",
-            __func__,
-            dimPq,
-            bitPq);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (bitPq == 7 && dimPq % 8 != 0) {
-    fprintf(stderr,
-            "(%s) dimPq must be multiple of 8 when bitPq is 7 (dimPq:%u, bitPq:%u)\n",
-            __func__,
-            dimPq,
-            bitPq);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
+  RAFT_EXPECTS(numClusters > 0, "(%s) numClusters must be larger than zero.", __func__);
+  RAFT_EXPECTS(numDataset > 0, "(%s) numDataset must be larger than zero.", __func__);
+  RAFT_EXPECTS(dimDataset > 0, "(%s) dimDataset must be larger than zero.", __func__);
+  RAFT_EXPECTS(dimPq > 0, "(%s) dimPq must be larger than zero.", __func__);
+  RAFT_EXPECTS(numClusters <= numDataset,
+               "(%s) numClusters must be smaller than numDataset (numClusters:%u, numDataset:%u).",
+               __func__,
+               numClusters,
+               numDataset);
+  RAFT_EXPECTS(bitPq >= 4 && bitPq <= 8,
+               "(%s) bitPq must be within closed range [4,8], but got %u.",
+               __func__,
+               bitPq);
+  RAFT_EXPECTS((bitPq * dimPq) % 8 == 0,
+               "(%s) `bitPq * dimPq` must be a multiple of 8, but got %u * %u = %u.",
+               __func__,
+               bitPq,
+               dimPq,
+               bitPq * dimPq);
   desc->numClusters   = numClusters;
   desc->numDataset    = numDataset;
   desc->dimDataset    = dimDataset;
@@ -4102,20 +4035,19 @@ inline cuannStatus_t cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t desc,
   desc->dimRotDataset = dimDataset;
   if (dimDataset % dimPq) { desc->dimRotDataset = ((dimDataset / dimPq) + 1) * dimPq; }
   desc->lenPq = desc->dimRotDataset / dimPq;
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqGetIndexParameters
-inline cuannStatus_t cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
-                                                  uint32_t* numClusters,
-                                                  uint32_t* numDataset,
-                                                  uint32_t* dimDataset,
-                                                  uint32_t* dimPq,
-                                                  uint32_t* bitPq,
-                                                  cuannSimilarity_t* similarity,
-                                                  cuannPqCenter_t* typePqCenter)
+inline void cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
+                                         uint32_t* numClusters,
+                                         uint32_t* numDataset,
+                                         uint32_t* dimDataset,
+                                         uint32_t* dimPq,
+                                         uint32_t* bitPq,
+                                         cuannSimilarity_t* similarity,
+                                         cuannPqCenter_t* typePqCenter)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
 
   *numClusters  = desc->numClusters;
   *numDataset   = desc->numDataset;
@@ -4124,13 +4056,12 @@ inline cuannStatus_t cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
   *bitPq        = desc->bitPq;
   *similarity   = desc->similarity;
   *typePqCenter = desc->typePqCenter;
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqGetIndexSize
-inline cuannStatus_t cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc, size_t* size)
+inline void cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc, size_t* size)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
 
   *size = sizeof(struct cuannIvfPqIndexHeader);
   if (*size != 1024) {
@@ -4144,47 +4075,38 @@ inline cuannStatus_t cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc, size_t*
   *size += _cuann_getIndexSize_indexPtr(desc);
   *size += _cuann_getIndexSize_rotationMatrix(desc);
   *size += _cuann_getIndexSize_clusterRotCenters(desc);
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqBuildIndex
-inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
-                                          cuannIvfPqDescriptor_t desc,
-                                          const void* dataset,
-                                          const void* trainset,
-                                          cudaDataType_t dtype,
-                                          uint32_t numTrainset,
-                                          uint32_t numIterations,
-                                          bool randomRotation,
-                                          bool hierarchicalClustering,
-                                          void* index)
+inline void cuannIvfPqBuildIndex(const handle_t& handle,
+                                 cuannIvfPqDescriptor_t desc,
+                                 const void* dataset,
+                                 const void* trainset,
+                                 cudaDataType_t dtype,
+                                 uint32_t numTrainset,
+                                 uint32_t numIterations,
+                                 bool randomRotation,
+                                 bool hierarchicalClustering,
+                                 void* index)
 {
   int cuannDevId  = handle.get_device();
   int callerDevId = _cuann_set_device(cuannDevId);
 
-  if (dtype != CUDA_R_32F && dtype != CUDA_R_8U && dtype != CUDA_R_8I) {
-    return CUANN_STATUS_UNSUPPORTED_DTYPE;
+  RAFT_EXPECTS(dtype == CUDA_R_32F || dtype == CUDA_R_8U || dtype == CUDA_R_8I,
+               "Unsupported dtype");
+  if (desc->similarity == CUANN_SIMILARITY_INNER) {
+    RAFT_EXPECTS(dtype == CUDA_R_32F,
+                 "Unsupported dtype (inner-product metric support float only)");
   }
-  if (desc->similarity == CUANN_SIMILARITY_INNER && dtype != CUDA_R_32F) {
-    fprintf(
-      stderr, "(%s, %d) CUANN_SIMILARITY_INNER supports float dtype only.\n", __func__, __LINE__);
-    return CUANN_STATUS_UNSUPPORTED_DTYPE;
-  }
+
   desc->dtypeDataset = dtype;
   char dtypeString[64];
   fprintf(stderr, "# dtypeDataset: %s\n", _cuann_get_dtype_string(desc->dtypeDataset, dtypeString));
 
-  cudaError_t cudaError;
-  cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, dataset);
-  if (attr.type == cudaMemoryTypeDevice) {
-    fprintf(stderr, "(%s) dataset must be accessible from the host.\n", __func__);
-    return CUANN_STATUS_INVALID_POINTER;
-  }
-  cudaPointerGetAttributes(&attr, trainset);
-  if (attr.type == cudaMemoryTypeDevice) {
-    fprintf(stderr, "(%s) trainset must be accessible from the host.\n", __func__);
-    return CUANN_STATUS_INVALID_POINTER;
+  switch (detail::utils::check_pointer_residency(dataset, trainset)) {
+    case detail::utils::pointer_residency::host_only:
+    case detail::utils::pointer_residency::host_and_device: break;
+    default: RAFT_FAIL("both dataset and trainsed must be accessible from the host.");
   }
 
   struct cuannIvfPqIndexHeader* header;
@@ -4208,26 +4130,14 @@ inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
                             &clusterRotCenters);
 
   uint32_t* trainsetLabels;  // [numTrainset]
-  cudaError = cudaMallocManaged(&trainsetLabels, sizeof(uint32_t) * numTrainset);
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_ALLOC_FAILED;
-  }
+  RAFT_CUDA_TRY(cudaMallocManaged(&trainsetLabels, sizeof(uint32_t) * numTrainset));
 
   uint32_t* clusterSize;  // [numClusters]
-  cudaError = cudaMallocManaged(&clusterSize, sizeof(uint32_t) * desc->numClusters);
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_ALLOC_FAILED;
-  }
+  RAFT_CUDA_TRY(cudaMallocManaged(&clusterSize, sizeof(uint32_t) * desc->numClusters));
 
   float* clusterCentersTemp;  // [numClusters, dimDataset]
-  cudaError =
-    cudaMallocManaged(&clusterCentersTemp, sizeof(float) * desc->numClusters * desc->dimDataset);
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_ALLOC_FAILED;
-  }
+  RAFT_CUDA_TRY(
+    cudaMallocManaged(&clusterCentersTemp, sizeof(float) * desc->numClusters * desc->dimDataset));
 
   uint32_t** wsKAC = _cuann_multi_device_malloc<uint32_t>(1, 1, "wsKAC");
 
@@ -4241,33 +4151,18 @@ inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
     fprintf(stderr, "# numMesoClusters: %u\n", numMesoClusters);
 
     float* mesoClusterCenters;  // [numMesoClusters, dimDataset]
-    cudaError =
-      cudaMallocManaged(&mesoClusterCenters, sizeof(float) * numMesoClusters * desc->dimDataset);
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_ALLOC_FAILED;
-    }
+    RAFT_CUDA_TRY(
+      cudaMallocManaged(&mesoClusterCenters, sizeof(float) * numMesoClusters * desc->dimDataset));
+
     float* mesoClusterCentersTemp;  // [numMesoClusters, dimDataset]
-    cudaError = cudaMallocManaged(&mesoClusterCentersTemp,
-                                  sizeof(float) * numMesoClusters * desc->dimDataset);
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_ALLOC_FAILED;
-    }
+    RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterCentersTemp,
+                                    sizeof(float) * numMesoClusters * desc->dimDataset));
 
     uint32_t* mesoClusterLabels;  // [numTrainset,]
-    cudaError = cudaMallocManaged(&mesoClusterLabels, sizeof(uint32_t) * numTrainset);
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_ALLOC_FAILED;
-    }
+    RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterLabels, sizeof(uint32_t) * numTrainset));
 
     uint32_t* mesoClusterSize;  // [numMesoClusters,]
-    cudaError = cudaMallocManaged(&mesoClusterSize, sizeof(uint32_t) * numMesoClusters);
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_ALLOC_FAILED;
-    }
+    RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterSize, sizeof(uint32_t) * numMesoClusters));
 
     //
     // Training kmeans for meso-clusters
@@ -4477,10 +4372,10 @@ inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
     _cuann_multi_device_free<uint32_t>(clusterSizeMP, 1);
     _cuann_multi_device_free<uint8_t>((uint8_t**)predictWorkspace, 1);
 
-    cudaFree(mesoClusterSize);
-    cudaFree(mesoClusterLabels);
-    cudaFree(mesoClusterCenters);
-    cudaFree(mesoClusterCentersTemp);
+    RAFT_CUDA_TRY(cudaFree(mesoClusterSize));
+    RAFT_CUDA_TRY(cudaFree(mesoClusterLabels));
+    RAFT_CUDA_TRY(cudaFree(mesoClusterCenters));
+    RAFT_CUDA_TRY(cudaFree(mesoClusterCentersTemp));
 
     free(numFineClusters);
     free(csumFineClusters);
@@ -4568,11 +4463,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
   }
 
   uint32_t* datasetLabels;  // [numDataset]
-  cudaError = cudaMallocManaged(&datasetLabels, sizeof(uint32_t) * desc->numDataset);
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_ALLOC_FAILED;
-  }
+  RAFT_CUDA_TRY(cudaMallocManaged(&datasetLabels, sizeof(uint32_t) * desc->numDataset));
 
   //
   // Predict labels of whole dataset (with multiple GPUs)
@@ -4604,32 +4495,28 @@ inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
     desc->dimRotDataset, desc->dimDataset, desc->lenPq, randomRotation, rotationMatrix);
 
   // Rotate clusterCenters
-  cudaStream_t cublasStream  = _cuann_set_cublas_stream(handle.get_cublas_handle(), NULL);
-  float alpha                = 1.0;
-  float beta                 = 0.0;
-  cublasStatus_t cublasError = cublasGemmEx(handle.get_cublas_handle(),
-                                            CUBLAS_OP_T,
-                                            CUBLAS_OP_N,
-                                            desc->dimRotDataset,
-                                            desc->numClusters,
-                                            desc->dimDataset,
-                                            &alpha,
-                                            rotationMatrix,
-                                            CUDA_R_32F,
-                                            desc->dimDataset,
-                                            clusterCenters,
-                                            CUDA_R_32F,
-                                            desc->dimDataset,
-                                            &beta,
-                                            clusterRotCenters,
-                                            CUDA_R_32F,
-                                            desc->dimRotDataset,
-                                            CUBLAS_COMPUTE_32F,
-                                            CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-  if (cublasError != CUBLAS_STATUS_SUCCESS) {
-    fprintf(stderr, "(%s, %d) cublasGemmEx() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_CUBLAS_ERROR;
-  }
+  cudaStream_t cublasStream = _cuann_set_cublas_stream(handle.get_cublas_handle(), NULL);
+  float alpha               = 1.0;
+  float beta                = 0.0;
+  RAFT_CUBLAS_TRY(cublasGemmEx(handle.get_cublas_handle(),
+                               CUBLAS_OP_T,
+                               CUBLAS_OP_N,
+                               desc->dimRotDataset,
+                               desc->numClusters,
+                               desc->dimDataset,
+                               &alpha,
+                               rotationMatrix,
+                               CUDA_R_32F,
+                               desc->dimDataset,
+                               clusterCenters,
+                               CUDA_R_32F,
+                               desc->dimDataset,
+                               &beta,
+                               clusterRotCenters,
+                               CUDA_R_32F,
+                               desc->dimRotDataset,
+                               CUBLAS_COMPUTE_32F,
+                               CUBLAS_GEMM_DEFAULT_TENSOR_OP));
   _cuann_set_cublas_stream(handle.get_cublas_handle(), cublasStream);
 
   //
@@ -4642,10 +4529,7 @@ inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
     indexPtr[l + 1] = indexPtr[l] + clusterSize[l];
     if (maxClusterSize < clusterSize[l]) { maxClusterSize = clusterSize[l]; }
   }
-  if (indexPtr[desc->numClusters] != desc->numDataset) {
-    fprintf(stderr, "(%s, %d) Unexpected Error.\n", __func__, __LINE__);
-    return CUANN_STATUS_INTERNAL_ERROR;
-  }
+  RAFT_EXPECTS(indexPtr[desc->numClusters] == desc->numDataset, "Cluster sizes do not add up");
   desc->maxClusterSize = maxClusterSize;
   // fprintf(stderr, "(%s) maxClusterSize: %u\n", __func__, maxClusterSize);
 
@@ -4861,12 +4745,8 @@ inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
     // combine clusterCenters and sqsumClusters
     cudaDeviceSynchronize();
     float* tmpClusterCenters;  // [numClusters, dimDataset]
-    cudaError =
-      cudaMallocManaged(&tmpClusterCenters, sizeof(float) * desc->numClusters * desc->dimDataset);
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_ALLOC_FAILED;
-    }
+    RAFT_CUDA_TRY(
+      cudaMallocManaged(&tmpClusterCenters, sizeof(float) * desc->numClusters * desc->dimDataset));
     for (uint32_t i = 0; i < desc->numClusters * desc->dimDataset; i++) {
       tmpClusterCenters[i] = clusterCenters[i];
     }
@@ -4896,10 +4776,10 @@ inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
   header->numDatasetAdded = 0;
 
   //
-  cudaFree(clusterSize);
-  cudaFree(trainsetLabels);
-  cudaFree(datasetLabels);
-  cudaFree(clusterCentersTemp);
+  RAFT_CUDA_TRY(cudaFree(clusterSize));
+  RAFT_CUDA_TRY(cudaFree(trainsetLabels));
+  RAFT_CUDA_TRY(cudaFree(datasetLabels));
+  RAFT_CUDA_TRY(cudaFree(clusterCentersTemp));
 
   _cuann_multi_device_free<uint32_t>(wsKAC, 1);
   _cuann_multi_device_free<float>(pqCentersTemp, 1);
@@ -4907,63 +4787,50 @@ inline cuannStatus_t cuannIvfPqBuildIndex(const handle_t& handle,
   _cuann_multi_device_free<uint8_t>((uint8_t**)pqPredictWorkspace, 1);
 
   _cuann_set_device(callerDevId);
-
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqSaveIndex
-inline cuannStatus_t cuannIvfPqSaveIndex(const handle_t& handle,
-                                         cuannIvfPqDescriptor_t desc,
-                                         const void* index,
-                                         const char* fileName)
+inline void cuannIvfPqSaveIndex(const handle_t& handle,
+                                cuannIvfPqDescriptor_t desc,
+                                const void* index,
+                                const char* fileName)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
   int orgDevId = _cuann_set_device(handle.get_device());
 
   FILE* fp = fopen(fileName, "w");
-  if (fp == NULL) {
-    fprintf(stderr, "(%s) failed to open file (%s).\n", __func__, fileName);
-    return CUANN_STATUS_FILEIO_ERROR;
-  }
+  RAFT_EXPECTS(fp != nullptr, "(%s) failed to open file (%s).", __func__, fileName);
+
   struct cuannIvfPqIndexHeader* header = (struct cuannIvfPqIndexHeader*)index;
   fprintf(stderr, "(%s) indexSize: %lu\n", __func__, header->indexSize);
   if (fwrite(index, 1, header->indexSize, fp) != header->indexSize) {
-    fprintf(stderr, "(%s) failed to save index to file (%s)\n", __func__, fileName);
-    return CUANN_STATUS_FILEIO_ERROR;
+    RAFT_FAIL("(%s) failed to save index to file (%s)\n", __func__, fileName);
   }
   fclose(fp);
 
   _cuann_set_device(orgDevId);
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqLoadIndex
-inline cuannStatus_t cuannIvfPqLoadIndex(const handle_t& handle,
-                                         cuannIvfPqDescriptor_t desc,
-                                         void** index,
-                                         const char* fileName)
+inline void cuannIvfPqLoadIndex(const handle_t& handle,
+                                cuannIvfPqDescriptor_t desc,
+                                void** index,
+                                const char* fileName)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
   int orgDevId = _cuann_set_device(handle.get_device());
 
   if (1 /* *index == NULL */) {
     FILE* fp = fopen(fileName, "r");
-    if (fp == NULL) {
-      fprintf(stderr, "(%s) failed to open file (%s)\n", __func__, fileName);
-      return CUANN_STATUS_FILEIO_ERROR;
-    }
+    RAFT_EXPECTS(fp != nullptr, "(%s) failed to open file (%s).", __func__, fileName);
+
     size_t indexSize;
     fread(&indexSize, sizeof(size_t), 1, fp);
     fprintf(stderr, "(%s) indexSize: %lu\n", __func__, indexSize);
-    cudaError_t cudaError = cudaMallocManaged(index, indexSize);
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s) cudaMallocManaged() failed.\n", __func__);
-      return CUANN_STATUS_ALLOC_FAILED;
-    }
+    RAFT_CUDA_TRY(cudaMallocManaged(index, indexSize));
     fseek(fp, 0, SEEK_SET);
     if (fread(*index, 1, indexSize, fp) != indexSize) {
-      fprintf(stderr, "(%s) failed to load index to from file (%s)\n", __func__, fileName);
-      return CUANN_STATUS_FILEIO_ERROR;
+      RAFT_FAIL("(%s) failed to load index to from file (%s)\n", __func__, fileName);
     }
     fclose(fp);
 
@@ -5042,24 +4909,20 @@ inline cuannStatus_t cuannIvfPqLoadIndex(const handle_t& handle,
   }
 
   _cuann_set_device(orgDevId);
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex
-inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
+inline void cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   const handle_t& handle,
   const char* oldIndexFileName,
   const char* newIndexFileName,
   const void* newVectors, /* [numNewVectors, dimDataset] */
   uint32_t numNewVectors)
 {
-  cudaError_t cudaError;
-  cuannStatus_t ret;
-  cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, newVectors);
-  if (attr.type == cudaMemoryTypeDevice) {
-    fprintf(stderr, "(%s, %d) newVectors must be accessible from the host.\n", __func__, __LINE__);
-    return CUANN_STATUS_INVALID_POINTER;
+  switch (detail::utils::check_pointer_residency(newVectors)) {
+    case detail::utils::pointer_residency::host_only:
+    case detail::utils::pointer_residency::host_and_device: break;
+    default: RAFT_FAIL("newVectors must be accessible from the host.");
   }
   int cuannDevId  = handle.get_device();
   int callerDevId = _cuann_set_device(cuannDevId);
@@ -5068,11 +4931,9 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   // Load old index
   //
   cuannIvfPqDescriptor_t oldDesc;
-  ret = cuannIvfPqCreateDescriptor(&oldDesc);
-  if (ret != CUANN_STATUS_SUCCESS) { return ret; }
+  cuannIvfPqCreateDescriptor(&oldDesc);
   void* oldIndex;
-  ret = cuannIvfPqLoadIndex(handle, oldDesc, &oldIndex, oldIndexFileName);
-  if (ret != CUANN_STATUS_SUCCESS) { return ret; }
+  cuannIvfPqLoadIndex(handle, oldDesc, &oldIndex, oldIndexFileName);
   cudaDataType_t dtype = oldDesc->dtypeDataset;
   char dtypeString[64];
   fprintf(stderr, "(%s) dtype: %s\n", __func__, _cuann_get_dtype_string(dtype, dtypeString));
@@ -5103,12 +4964,8 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   // are extracted.
   //
   float* clusterCenters;  // [numClusters, dimDataset]
-  cudaError =
-    cudaMallocManaged(&clusterCenters, sizeof(float) * oldDesc->numClusters * oldDesc->dimDataset);
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_ALLOC_FAILED;
-  }
+  RAFT_CUDA_TRY(
+    cudaMallocManaged(&clusterCenters, sizeof(float) * oldDesc->numClusters * oldDesc->dimDataset));
   for (uint32_t i = 0; i < oldDesc->numClusters; i++) {
     memcpy(clusterCenters + (uint64_t)i * oldDesc->dimDataset,
            oldClusterCenters + (uint64_t)i * oldDesc->dimDatasetExt,
@@ -5120,18 +4977,10 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   // of the vector to be added.
   //
   uint32_t* newVectorLabels;  // [numNewVectors,]
-  cudaError = cudaMallocManaged(&newVectorLabels, sizeof(uint32_t) * numNewVectors);
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_ALLOC_FAILED;
-  }
+  RAFT_CUDA_TRY(cudaMallocManaged(&newVectorLabels, sizeof(uint32_t) * numNewVectors));
   cudaMemset(newVectorLabels, 0, sizeof(uint32_t) * numNewVectors);
   uint32_t* clusterSize;  // [numClusters,]
-  cudaError = cudaMallocManaged(&clusterSize, sizeof(uint32_t) * oldDesc->numClusters);
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_ALLOC_FAILED;
-  }
+  RAFT_CUDA_TRY(cudaMallocManaged(&clusterSize, sizeof(uint32_t) * oldDesc->numClusters));
   cudaMemset(clusterSize, 0, sizeof(uint32_t) * oldDesc->numClusters);
   fprintf(stderr, "(%s) Predict label of new vectors\n", __func__);
   _cuann_kmeans_predict_MP(handle,
@@ -5193,10 +5042,7 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
     indexPtr[l + 1] = indexPtr[l] + clusterSize[l];
     maxClusterSize  = max(maxClusterSize, clusterSize[l]);
   }
-  if (indexPtr[oldDesc->numClusters] != numNewVectors) {
-    fprintf(stderr, "(%s, %d) Unexpected Error.\n", __func__, __LINE__);
-    return CUANN_STATUS_INTERNAL_ERROR;
-  }
+  RAFT_EXPECTS(indexPtr[oldDesc->numClusters] == numNewVectors, "cluster sizes do not add up.");
   // originalNumbers
   for (uint32_t i = 0; i < numNewVectors; i++) {
     uint32_t l                   = newVectorLabels[i];
@@ -5212,12 +5058,8 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   // Compute PQ code for new vectors
   //
   uint8_t* pqDataset;  // [numNewVectors, dimPq * bitPq / 8]
-  cudaError = cudaMallocManaged(
-    &pqDataset, sizeof(uint8_t) * numNewVectors * oldDesc->dimPq * oldDesc->bitPq / 8);
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaMallocManaged() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_ALLOC_FAILED;
-  }
+  RAFT_CUDA_TRY(cudaMallocManaged(
+    &pqDataset, sizeof(uint8_t) * numNewVectors * oldDesc->dimPq * oldDesc->bitPq / 8));
   _cuann_compute_PQ_code(handle,
                          numNewVectors,
                          oldDesc->dimDataset,
@@ -5244,8 +5086,7 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   // Create descriptor for new index
   //
   cuannIvfPqDescriptor_t newDesc;
-  ret = cuannIvfPqCreateDescriptor(&newDesc);
-  if (ret != CUANN_STATUS_SUCCESS) { return ret; }
+  cuannIvfPqCreateDescriptor(&newDesc);
   memcpy(newDesc, oldDesc, sizeof(struct cuannIvfPqDescriptor));
   newDesc->numDataset += numNewVectors;
   fprintf(
@@ -5255,8 +5096,7 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   // Allocate memory for new index
   //
   size_t newIndexSize;
-  ret = cuannIvfPqGetIndexSize(newDesc, &newIndexSize);
-  if (ret != CUANN_STATUS_SUCCESS) { return ret; }
+  cuannIvfPqGetIndexSize(newDesc, &newIndexSize);
   fprintf(stderr, "(%s) indexSize: %lu -> %lu\n", __func__, oldHeader->indexSize, newIndexSize);
   void* newIndex = malloc(newIndexSize);
   memset(newIndex, 0, newIndexSize);
@@ -5350,8 +5190,7 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   //
   // Save new index
   //
-  ret = cuannIvfPqSaveIndex(handle, newDesc, newIndex, newIndexFileName);
-  if (ret != CUANN_STATUS_SUCCESS) { return ret; }
+  cuannIvfPqSaveIndex(handle, newDesc, newIndex, newIndexFileName);
   if (newHeader->numDatasetAdded * 2 >= newHeader->numDataset) {
     fprintf(stderr,
             "(%s) The total number of vectors in the new index"
@@ -5373,49 +5212,32 @@ inline cuannStatus_t cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   free(indexPtr);
   free(newIndex);
 
-  cudaFree(pqDataset);
-  cudaFree(clusterSize);
-  cudaFree(newVectorLabels);
-  cudaFree(clusterCenters);
-  cudaFree(oldIndex);
+  RAFT_CUDA_TRY(cudaFree(pqDataset));
+  RAFT_CUDA_TRY(cudaFree(clusterSize));
+  RAFT_CUDA_TRY(cudaFree(newVectorLabels));
+  RAFT_CUDA_TRY(cudaFree(clusterCenters));
+  RAFT_CUDA_TRY(cudaFree(oldIndex));
 
   _cuann_set_device(callerDevId);
-
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqSetSearchParameters
-inline cuannStatus_t cuannIvfPqSetSearchParameters(cuannIvfPqDescriptor_t desc,
-                                                   const uint32_t numProbes,
-                                                   const uint32_t topK)
+inline void cuannIvfPqSetSearchParameters(cuannIvfPqDescriptor_t desc,
+                                          const uint32_t numProbes,
+                                          const uint32_t topK)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
-  if (numProbes == 0) {
-    fprintf(
-      stderr, "(%s) numProbes must be larger than zero (numProbes:%u).\n", __func__, numProbes);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (topK == 0) {
-    fprintf(stderr, "(%s) topK must be larger than zero (topK:%u).\n", __func__, topK);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (numProbes > desc->numClusters) {
-    fprintf(stderr,
-            "(%s) numProbes must be smaller than or equal to numClusters (numProbes:%u, "
-            "numClusters:%u).\n",
-            __func__,
-            numProbes,
-            desc->numClusters);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
-  if (topK > desc->numDataset) {
-    fprintf(stderr,
-            "(%s) topK must be smaller than or equal to numDataset (topK:%u, numDataset:%u).\n",
-            __func__,
-            topK,
-            desc->numDataset);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
+  RAFT_EXPECTS(numProbes > 0, "numProbes must be larger than zero");
+  RAFT_EXPECTS(topK > 0, "topK must be larger than zero");
+  RAFT_EXPECTS(numProbes <= desc->numClusters,
+               "numProbes (%u) must be not larger than numClusters (%u)",
+               numProbes,
+               desc->numClusters);
+  RAFT_EXPECTS(topK <= desc->numDataset,
+               "topK (%u) must be not larger than numDataset (%u)",
+               numProbes,
+               desc->numDataset);
+
   uint32_t numSamplesWorstCase = desc->numDataset;
   if (numProbes < desc->numClusters) {
     numSamplesWorstCase =
@@ -5424,16 +5246,12 @@ inline cuannStatus_t cuannIvfPqSetSearchParameters(cuannIvfPqDescriptor_t desc,
                                           desc->_numClustersSize0];  // (*) urgent WA, need to be
                                                                      // fixed.
   }
-  if (topK > numSamplesWorstCase) {
-    fprintf(stderr,
-            "(%s) numProbes is too small to get topK results reliably (numProbes:%u, topK:%u, "
-            "numSamplesWorstCase:%u).\n",
-            __func__,
-            numProbes,
-            topK,
-            numSamplesWorstCase);
-    return CUANN_STATUS_INVALID_VALUE;
-  }
+  RAFT_EXPECTS(topK <= numSamplesWorstCase,
+               "numProbes is too small to get topK results reliably (numProbes: %u, topK: %u, "
+               "numSamplesWorstCase: %u).",
+               numProbes,
+               topK,
+               numSamplesWorstCase);
   desc->numProbes = numProbes;
   desc->topK      = topK;
   if (0) {
@@ -5447,33 +5265,24 @@ inline cuannStatus_t cuannIvfPqSetSearchParameters(cuannIvfPqDescriptor_t desc,
   desc->smemLutDtype             = CUDA_R_32F;
   desc->preferredThreadBlockSize = 0;
   // fprintf(stderr, "# maxSample: %u\n", desc->inclusiveSumSortedClusterSize[0]);
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqSetSearchParameters
-inline cuannStatus_t cuannIvfPqSetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
-                                                         cudaDataType_t internalDistanceDtype,
-                                                         cudaDataType_t smemLutDtype,
-                                                         const uint32_t preferredThreadBlockSize)
+inline void cuannIvfPqSetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
+                                                cudaDataType_t internalDistanceDtype,
+                                                cudaDataType_t smemLutDtype,
+                                                const uint32_t preferredThreadBlockSize)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
-  if (internalDistanceDtype != CUDA_R_16F && internalDistanceDtype != CUDA_R_32F) {
-    fprintf(
-      stderr, "(%s) internalDistanceDtype must be either CUDA_R_16F or CUDA_R_32F\n", __func__);
-    return CUANN_STATUS_UNSUPPORTED_DTYPE;
-  }
-  if (smemLutDtype != CUDA_R_16F && smemLutDtype != CUDA_R_32F && smemLutDtype != CUDA_R_8U) {
-    fprintf(stderr, "(%s) smemLutDtype must be CUDA_R_16F, CUDA_R_32F or CUDA_R_8U\n", __func__);
-    return CUANN_STATUS_UNSUPPORTED_DTYPE;
-  }
-  if (preferredThreadBlockSize != 256 && preferredThreadBlockSize != 512 &&
-      preferredThreadBlockSize != 1024 && preferredThreadBlockSize != 0) {
-    fprintf(stderr,
-            "(%s) preferredThreadBlockSize must be 0, 256, 512 or 1024. %u is given.\n",
-            __func__,
-            preferredThreadBlockSize);
-    return CUANN_STATUS_UNSUPPORTED_DTYPE;
-  }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
+  RAFT_EXPECTS(internalDistanceDtype == CUDA_R_16F || internalDistanceDtype == CUDA_R_32F,
+               "internalDistanceDtype must be either CUDA_R_16F or CUDA_R_32F");
+  RAFT_EXPECTS(
+    smemLutDtype == CUDA_R_16F || smemLutDtype == CUDA_R_32F || smemLutDtype == CUDA_R_8U,
+    "smemLutDtype must be CUDA_R_16F, CUDA_R_32F or CUDA_R_8U");
+  RAFT_EXPECTS(preferredThreadBlockSize == 256 || preferredThreadBlockSize == 512 ||
+                 preferredThreadBlockSize == 1024 || preferredThreadBlockSize == 0,
+               "preferredThreadBlockSize must be 0, 256, 512 or 1024, but %u is given.",
+               preferredThreadBlockSize);
   desc->internalDistanceDtype = internalDistanceDtype;
   desc->smemLutDtype          = smemLutDtype;
   if (0) {
@@ -5484,42 +5293,39 @@ inline cuannStatus_t cuannIvfPqSetSearchTuningParameters(cuannIvfPqDescriptor_t 
   }
   desc->preferredThreadBlockSize = preferredThreadBlockSize;
   // fprintf(stderr, "# maxSample: %u\n", desc->inclusiveSumSortedClusterSize[0]);
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqGetSearchParameters
-inline cuannStatus_t cuannIvfPqGetSearchParameters(cuannIvfPqDescriptor_t desc,
-                                                   uint32_t* numProbes,
-                                                   uint32_t* topK)
+inline void cuannIvfPqGetSearchParameters(cuannIvfPqDescriptor_t desc,
+                                          uint32_t* numProbes,
+                                          uint32_t* topK)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
   *numProbes = desc->numProbes;
   *topK      = desc->topK;
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqGetSearchTuningParameters
-inline cuannStatus_t cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
-                                                         cudaDataType_t* internalDistanceDtype,
-                                                         cudaDataType_t* smemLutDtype,
-                                                         uint32_t* preferredThreadBlockSize)
+inline void cuannIvfPqGetSearchTuningParameters(cuannIvfPqDescriptor_t desc,
+                                                cudaDataType_t* internalDistanceDtype,
+                                                cudaDataType_t* smemLutDtype,
+                                                uint32_t* preferredThreadBlockSize)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
   *internalDistanceDtype    = desc->internalDistanceDtype;
   *smemLutDtype             = desc->smemLutDtype;
   *preferredThreadBlockSize = desc->preferredThreadBlockSize;
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqSearch
-inline cuannStatus_t cuannIvfPqSearch_bufferSize(const handle_t& handle,
-                                                 cuannIvfPqDescriptor_t desc,
-                                                 const void* index,
-                                                 uint32_t maxQueries,
-                                                 size_t maxWorkspaceSize,
-                                                 size_t* workspaceSize)
+inline void cuannIvfPqSearch_bufferSize(const handle_t& handle,
+                                        cuannIvfPqDescriptor_t desc,
+                                        const void* index,
+                                        uint32_t maxQueries,
+                                        size_t maxWorkspaceSize,
+                                        size_t* workspaceSize)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
 
   size_t max_ws = maxWorkspaceSize;
   if (max_ws == 0) {
@@ -5596,12 +5402,10 @@ inline cuannStatus_t cuannIvfPqSearch_bufferSize(const handle_t& handle,
           *workspaceSize,
           (float)*workspaceSize / 1024 / 1024 / 1024);
 #endif
-
-  return CUANN_STATUS_SUCCESS;
 }
 
 // cuannIvfPqSearch
-inline cuannStatus_t cuannIvfPqSearch(
+inline void cuannIvfPqSearch(
   const handle_t& handle,
   cuannIvfPqDescriptor_t desc,
   const void* index,
@@ -5612,12 +5416,11 @@ inline cuannStatus_t cuannIvfPqSearch(
   float* distances,     // [numQueries, topK], device pointer
   void* workspace)
 {
-  if (desc == NULL) { return CUANN_STATUS_NOT_INITIALIZED; }
+  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
   int orgDevId = _cuann_set_device(handle.get_device());
 
-  if (dtype != CUDA_R_32F && dtype != CUDA_R_8U && dtype != CUDA_R_8I) {
-    return CUANN_STATUS_UNSUPPORTED_DTYPE;
-  }
+  RAFT_EXPECTS(dtype == CUDA_R_32F || dtype == CUDA_R_8U || dtype == CUDA_R_8I,
+               "unsupported dtype");
 
   struct cuannIvfPqIndexHeader* header;
   float* clusterCenters;      // [numClusters, dimDatasetExt]
@@ -5694,23 +5497,14 @@ inline cuannStatus_t cuannIvfPqSearch(
     }
   }
 
-  cublasStatus_t cublasError;
-  cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, neighbors);
-  if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-    fprintf(stderr, "(%s) neighbors must be accessible from the device.\n", __func__);
-    return CUANN_STATUS_INVALID_POINTER;
+  switch (detail::utils::check_pointer_residency(neighbors, distances)) {
+    case detail::utils::pointer_residency::device_only:
+    case detail::utils::pointer_residency::host_and_device: break;
+    default: RAFT_FAIL("output pointers must be accessible from the device.");
   }
-  cudaPointerGetAttributes(&attr, distances);
-  if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-    fprintf(stderr, "(%s) distances must be accessible from the device.\n", __func__);
-    return CUANN_STATUS_INVALID_POINTER;
-  }
-  cudaPointerGetAttributes(&attr, queries);
 
-#ifdef CUANN_DEBUG
-  cudaError_t cudaError;
-#endif
+  cudaPointerAttributes attr;
+  cudaPointerGetAttributes(&attr, queries);
 
   for (uint32_t i = 0; i < numQueries; i += desc->maxQueries) {
     uint32_t nQueries = min(desc->maxQueries, numQueries - i);
@@ -5794,56 +5588,48 @@ inline cuannStatus_t cuannIvfPqSearch(
       gemmK = desc->dimDataset + 1;
       assert(gemmK <= desc->dimDatasetExt);
     }
-    cublasError = cublasGemmEx(handle.get_cublas_handle(),
-                               CUBLAS_OP_T,
-                               CUBLAS_OP_N,
-                               desc->numClusters,
-                               nQueries,
-                               gemmK,
-                               &alpha,
-                               clusterCenters,
-                               CUDA_R_32F,
-                               desc->dimDatasetExt,
-                               curQueries,
-                               CUDA_R_32F,
-                               desc->dimDatasetExt,
-                               &beta,
-                               QCDistances,
-                               CUDA_R_32F,
-                               desc->numClusters,
-                               CUBLAS_COMPUTE_32F,
-                               CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-    if (cublasError != CUBLAS_STATUS_SUCCESS) {
-      fprintf(stderr, "(%s, %d) cublasGemmEx() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_CUBLAS_ERROR;
-    }
+    RAFT_CUBLAS_TRY(cublasGemmEx(handle.get_cublas_handle(),
+                                 CUBLAS_OP_T,
+                                 CUBLAS_OP_N,
+                                 desc->numClusters,
+                                 nQueries,
+                                 gemmK,
+                                 &alpha,
+                                 clusterCenters,
+                                 CUDA_R_32F,
+                                 desc->dimDatasetExt,
+                                 curQueries,
+                                 CUDA_R_32F,
+                                 desc->dimDatasetExt,
+                                 &beta,
+                                 QCDistances,
+                                 CUDA_R_32F,
+                                 desc->numClusters,
+                                 CUBLAS_COMPUTE_32F,
+                                 CUBLAS_GEMM_DEFAULT_TENSOR_OP));
 
     // Rotate queries
-    alpha       = 1.0;
-    beta        = 0.0;
-    cublasError = cublasGemmEx(handle.get_cublas_handle(),
-                               CUBLAS_OP_T,
-                               CUBLAS_OP_N,
-                               desc->dimRotDataset,
-                               nQueries,
-                               desc->dimDataset,
-                               &alpha,
-                               rotationMatrix,
-                               CUDA_R_32F,
-                               desc->dimDataset,
-                               curQueries,
-                               CUDA_R_32F,
-                               desc->dimDatasetExt,
-                               &beta,
-                               rotQueries,
-                               CUDA_R_32F,
-                               desc->dimRotDataset,
-                               CUBLAS_COMPUTE_32F,
-                               CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-    if (cublasError != CUBLAS_STATUS_SUCCESS) {
-      fprintf(stderr, "(%s, %d) cublasGemmEx() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_CUBLAS_ERROR;
-    }
+    alpha = 1.0;
+    beta  = 0.0;
+    RAFT_CUBLAS_TRY(cublasGemmEx(handle.get_cublas_handle(),
+                                 CUBLAS_OP_T,
+                                 CUBLAS_OP_N,
+                                 desc->dimRotDataset,
+                                 nQueries,
+                                 desc->dimDataset,
+                                 &alpha,
+                                 rotationMatrix,
+                                 CUDA_R_32F,
+                                 desc->dimDataset,
+                                 curQueries,
+                                 CUDA_R_32F,
+                                 desc->dimDatasetExt,
+                                 &beta,
+                                 rotQueries,
+                                 CUDA_R_32F,
+                                 desc->dimRotDataset,
+                                 CUBLAS_COMPUTE_32F,
+                                 CUBLAS_GEMM_DEFAULT_TENSOR_OP));
 
     // Select neighbor clusters for each query.
     _cuann_find_topk(handle,
@@ -5855,14 +5641,7 @@ inline cuannStatus_t cuannIvfPqSearch(
                      clusterLabelsToProbe,
                      topkWorkspace,
                      false);
-#ifdef CUANN_DEBUG
-    cudaError = cudaDeviceSynchronize();
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
-      return CUANN_STATUS_CUDA_ERROR;
-    }
-#endif
-    //
+
     for (uint32_t j = 0; j < nQueries; j += desc->maxBatchSize) {
       uint32_t batchSize = min(desc->maxBatchSize, nQueries - j);
       _ivfpq_search(handle,
@@ -5878,28 +5657,10 @@ inline cuannStatus_t cuannIvfPqSearch(
                     neighbors + ((uint64_t)(desc->topK) * (i + j)),
                     distances + ((uint64_t)(desc->topK) * (i + j)),
                     searchWorkspace);
-#ifdef CUANN_DEBUG
-      cudaError = cudaDeviceSynchronize();
-      if (cudaError != cudaSuccess) {
-        fprintf(
-          stderr, "(%s, %d) cudaDeviceSynchronize() failed (%d)\n", __func__, __LINE__, cudaError);
-        fprintf(stderr, "# i:%u, nQueries:%u, j:%u, batchSize:%u\n", i, nQueries, j, batchSize);
-        return CUANN_STATUS_CUDA_ERROR;
-      }
-#endif
     }
   }
 
-#ifdef CUANN_DEBUG
-  cudaError = cudaDeviceSynchronize();
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
-    return CUANN_STATUS_CUDA_ERROR;
-  }
-#endif
-
   _cuann_set_device(orgDevId);
-  return CUANN_STATUS_SUCCESS;
 }
 
 //
@@ -6792,11 +6553,7 @@ inline void ivfpq_search(const handle_t& handle,
     ivfpq_init_topkScores<<<iksBlocks, iksThreads, 0, handle.get_stream()>>>(
       topkScores, FLT_MAX, numQueries * desc->topK);
 #ifdef CUANN_DEBUG
-    cudaError = cudaDeviceSynchronize();
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
-      exit(-1);
-    }
+    handle.sync_stream();
 #endif
   }
 
@@ -6806,11 +6563,7 @@ inline void ivfpq_search(const handle_t& handle,
   ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, handle.get_stream()>>>(
     desc->numProbes, numQueries, indexPtr, clusterLabelsToProbe, chunkIndexPtr, numSamples);
 #ifdef CUANN_DEBUG
-  cudaError = cudaDeviceSynchronize();
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
-    exit(-1);
-  }
+  handle.sync_stream();
 #endif
 
   if (numQueries * desc->numProbes > 256) {
@@ -6823,11 +6576,7 @@ inline void ivfpq_search(const handle_t& handle,
     ivfpq_prep_sort<<<psBlocks, psThreads, 0, handle.get_stream()>>>(numQueries * desc->numProbes,
                                                                      indexList);
 #ifdef CUANN_DEBUG
-    cudaError = cudaDeviceSynchronize();
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
-      exit(-1);
-    }
+    handle.sync_stream();
 #endif
 
     int begin_bit = 0;
@@ -6843,16 +6592,7 @@ inline void ivfpq_search(const handle_t& handle,
                                     end_bit,
                                     handle.get_stream());
 #ifdef CUANN_DEBUG
-    cudaError = cudaDeviceSynchronize();
-    if (cudaError != cudaSuccess) {
-      fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
-      exit(-1);
-    }
-    if (0) {
-      for (uint32_t i = 0; i < numQueries * desc->numProbes; i++) {
-        fprintf(stderr, "# i:%u, index:%d, label:%u\n", i, indexListSorted[i], clusterLabelsOut[i]);
-      }
-    }
+    handle.sync_stream();
 #endif
   } else {
     indexListSorted = NULL;
@@ -7042,11 +6782,7 @@ inline void ivfpq_search(const handle_t& handle,
                                                                    (scoreDtype*)similarity,
                                                                    simTopkIndex);
 #ifdef CUANN_DEBUG
-  cudaError = cudaDeviceSynchronize();
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
-    exit(-1);
-  }
+  handle.sync_stream();
 #endif
 
   // Select topk vectors for each query
@@ -7095,11 +6831,7 @@ inline void ivfpq_search(const handle_t& handle,
                                                       topkNeighbors,
                                                       topkDistances);
 #ifdef CUANN_DEBUG
-  cudaError = cudaDeviceSynchronize();
-  if (cudaError != cudaSuccess) {
-    fprintf(stderr, "(%s, %d) cudaDeviceSynchronize() failed.\n", __func__, __LINE__);
-    exit(-1);
-  }
+  handle.sync_stream();
 #endif
 }
 

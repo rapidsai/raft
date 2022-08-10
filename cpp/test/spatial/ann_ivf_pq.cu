@@ -108,8 +108,6 @@ auto eval_knn(const std::vector<T>& expected_idx,
   return testing::AssertionSuccess();
 }
 
-#define CUANN_CHECK(ret) RAFT_EXPECTS(ret == ivf_pq::CUANN_STATUS_SUCCESS, "cuann failure: %d", ret)
-
 template <typename T, typename DataT>
 class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
  public:
@@ -164,7 +162,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
           cuann_desc{
             []() {
               ivf_pq::cuannIvfPqDescriptor_t d;
-              CUANN_CHECK(ivf_pq::cuannIvfPqCreateDescriptor(&d));
+              ivf_pq::cuannIvfPqCreateDescriptor(&d);
               return d;
             }(),
             [](ivf_pq::cuannIvfPqDescriptor_t d) { ivf_pq::cuannIvfPqDestroyDescriptor(d); }};
@@ -209,7 +207,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
                                                                   : ivf_pq::CUANN_SIMILARITY_L2;
         // Specify whether PQ codebooks are created per subspace or per cluster.
         ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_SUBSPACE;
-        CUANN_CHECK(ivf_pq::cuannIvfPqSetIndexParameters(
+        ivf_pq::cuannIvfPqSetIndexParameters(
           cuann_desc.get(),
           n_clusters,               /* Number of clusters */
           uint32_t(ps.num_db_vecs), /* Number of dataset entries */
@@ -217,11 +215,11 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
           dimPq,                    /* Dimension of each entry after product quantization */
           bitPq,                    /* Bit length of PQ */
           similarity,
-          typePqCenter));
+          typePqCenter);
 
         // Allocate memory for index
         size_t ivf_pq_index_size;
-        CUANN_CHECK(ivf_pq::cuannIvfPqGetIndexSize(cuann_desc.get(), &ivf_pq_index_size));
+        ivf_pq::cuannIvfPqGetIndexSize(cuann_desc.get(), &ivf_pq_index_size);
         rmm::device_buffer ivf_pq_index_buf_managed(ivf_pq_index_size, stream_, &managed_memory);
 
         // Build index
@@ -233,7 +231,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         } else if constexpr (std::is_same_v<DataT, float>) {
           dtype = CUDA_R_32F;
         }
-        CUANN_CHECK(ivf_pq::cuannIvfPqBuildIndex(
+        ivf_pq::cuannIvfPqBuildIndex(
           handle_,
           cuann_desc.get(),
           database.data(),  // dataset
@@ -244,11 +242,11 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
           randomRotation,
           true,                            // hierarchialClustering: always true in raft
           ivf_pq_index_buf_managed.data()  // memory allocated for the index
-          ));
+        );
         handle_.sync_stream(stream_);
 
         // set search parameters
-        CUANN_CHECK(ivf_pq::cuannIvfPqSetSearchParameters(cuann_desc.get(), ps.nprobe, ps.k));
+        ivf_pq::cuannIvfPqSetSearchParameters(cuann_desc.get(), ps.nprobe, ps.k);
         // Data type of LUT to be created dynamically at search time.
         //
         // The use of low-precision types reduces the amount of shared memory
@@ -272,8 +270,8 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         // If 0, the thread block size is determined automatically.
         //
         uint32_t preferredThreadBlockSize = 0;  // 0, 256, 512, or 1024
-        CUANN_CHECK(ivf_pq::cuannIvfPqSetSearchTuningParameters(
-          cuann_desc.get(), internalDistanceDtype, smemLutDtype, preferredThreadBlockSize));
+        ivf_pq::cuannIvfPqSetSearchTuningParameters(
+          cuann_desc.get(), internalDistanceDtype, smemLutDtype, preferredThreadBlockSize);
         // Maximum number of query vectors to search at the same time.
         uint32_t batchSize = std::min<uint32_t>(ps.num_queries, 32768);
         // Maximum device memory size that may be used as workspace at search time.
@@ -282,24 +280,24 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
 
         // Allocate memory for index
         size_t ivf_pq_search_workspace_size;
-        CUANN_CHECK(ivf_pq::cuannIvfPqSearch_bufferSize(handle_,
-                                                        cuann_desc.get(),
-                                                        ivf_pq_index_buf_managed.data(),
-                                                        batchSize,
-                                                        maxSearchWorkspaceSize,
-                                                        &ivf_pq_search_workspace_size));
+        ivf_pq::cuannIvfPqSearch_bufferSize(handle_,
+                                            cuann_desc.get(),
+                                            ivf_pq_index_buf_managed.data(),
+                                            batchSize,
+                                            maxSearchWorkspaceSize,
+                                            &ivf_pq_search_workspace_size);
         rmm::device_buffer ivf_pq_search_ws_buf(ivf_pq_search_workspace_size, stream_);
 
         // finally, search!
-        CUANN_CHECK(cuannIvfPqSearch(handle_,
-                                     cuann_desc.get(),
-                                     ivf_pq_index_buf_managed.data(),
-                                     search_queries.data(),
-                                     dtype,
-                                     ps.num_queries,
-                                     indices_ivf_pq_dev.data(),
-                                     distances_ivf_pq_dev.data(),
-                                     ivf_pq_search_ws_buf.data()));
+        cuannIvfPqSearch(handle_,
+                         cuann_desc.get(),
+                         ivf_pq_index_buf_managed.data(),
+                         search_queries.data(),
+                         dtype,
+                         ps.num_queries,
+                         indices_ivf_pq_dev.data(),
+                         distances_ivf_pq_dev.data(),
+                         ivf_pq_search_ws_buf.data());
         handle_.sync_stream(stream_);
 
         update_host(distances_ivf_pq.data(), distances_ivf_pq_dev.data(), queries_size, stream_);
