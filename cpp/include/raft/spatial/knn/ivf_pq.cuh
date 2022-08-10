@@ -454,65 +454,6 @@ inline void _cuann_a_me_b(uint32_t nRows,
   kern_a_me_b<<<nBlocks, nThreads>>>(nRows, nCols, a, ldA, b);
 }
 
-// accumulate
-template <typename T>
-__global__ void kern_accumulate_with_label(uint32_t nRowsOutput,
-                                           uint32_t nCols,
-                                           float* output,    // [nRowsOutput, nCols,]
-                                           uint32_t* count,  // [nRowsOutput,]
-                                           uint32_t nRowsInput,
-                                           const T* input,         // [nRowsInput, nCols,]
-                                           const uint32_t* label,  // [nRowsInput,]
-                                           float divisor)
-{
-  uint64_t gid       = threadIdx.x + (blockDim.x * blockIdx.x);
-  uint64_t iCol      = gid % nCols;
-  uint64_t iRowInput = gid / nCols;
-  if (iRowInput >= nRowsInput) return;
-  uint64_t iRowOutput = label[iRowInput];
-  if (iCol == 0) { atomicAdd(&(count[iRowOutput]), 1); }
-  atomicAdd(&(output[iCol + (nCols * iRowOutput)]), input[gid] / divisor);
-}
-
-// accumulate
-template <typename T>
-inline void _cuann_accumulate_with_label(uint32_t nRowsOutput,
-                                         uint32_t nCols,
-                                         float* output,    // [nRowsOutput, nCols,]
-                                         uint32_t* count,  // [nRowsOutput,]
-                                         uint32_t nRowsInput,
-                                         const T* input,         // [nRowsInput, nCols,]
-                                         const uint32_t* label,  // [nRowsInput,]
-                                         float divisor = 1.0)
-{
-  bool useGPU = 1;
-  cudaPointerAttributes attr;
-  cudaPointerGetAttributes(&attr, output);
-  if (attr.type == cudaMemoryTypeUnregistered || attr.type == cudaMemoryTypeHost) { useGPU = 0; }
-  cudaPointerGetAttributes(&attr, count);
-  if (attr.type == cudaMemoryTypeUnregistered || attr.type == cudaMemoryTypeHost) { useGPU = 0; }
-  cudaPointerGetAttributes(&attr, input);
-  if (attr.type == cudaMemoryTypeUnregistered || attr.type == cudaMemoryTypeHost) { useGPU = 0; }
-
-  if (useGPU) {
-    // GPU
-    uint32_t nThreads = 128;
-    uint64_t nBlocks  = (((uint64_t)nRowsInput * nCols) + nThreads - 1) / nThreads;
-    kern_accumulate_with_label<T>
-      <<<nBlocks, nThreads>>>(nRowsOutput, nCols, output, count, nRowsInput, input, label, divisor);
-  } else {
-    // CPU
-    cudaDeviceSynchronize();
-    for (uint64_t i = 0; i < nRowsInput; i++) {
-      uint64_t l = label[i];
-      count[l] += 1;
-      for (uint64_t j = 0; j < nCols; j++) {
-        output[j + (nCols * l)] += input[j + (nCols * i)] / divisor;
-      }
-    }
-  }
-}
-
 // normalize
 __global__ void kern_normalize(uint32_t nRows,
                                uint32_t nCols,
@@ -727,28 +668,14 @@ inline void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCen
     detail::utils::memzero(centers, numCenters * dimCenters, stream);
     detail::utils::memzero(clusterSize, numCenters, stream);
     if (dtype == CUDA_R_32F) {
-      _cuann_accumulate_with_label<float>(
-        numCenters, dimCenters, centers, clusterSize, numDataset, (const float*)dataset, labels);
+      detail::utils::accumulate_into_selected<float>(
+        numDataset, dimCenters, centers, clusterSize, (const float*)dataset, labels, stream);
     } else if (dtype == CUDA_R_8U) {
-      float divisor = 256.0;
-      _cuann_accumulate_with_label<uint8_t>(numCenters,
-                                            dimCenters,
-                                            centers,
-                                            clusterSize,
-                                            numDataset,
-                                            (const uint8_t*)dataset,
-                                            labels,
-                                            divisor);
+      detail::utils::accumulate_into_selected<uint8_t>(
+        numDataset, dimCenters, centers, clusterSize, (const uint8_t*)dataset, labels, stream);
     } else if (dtype == CUDA_R_8I) {
-      float divisor = 128.0;
-      _cuann_accumulate_with_label<int8_t>(numCenters,
-                                           dimCenters,
-                                           centers,
-                                           clusterSize,
-                                           numDataset,
-                                           (const int8_t*)dataset,
-                                           labels,
-                                           divisor);
+      detail::utils::accumulate_into_selected<int8_t>(
+        numDataset, dimCenters, centers, clusterSize, (const int8_t*)dataset, labels, stream);
     }
   } else {
     cudaMemcpy(
@@ -938,8 +865,8 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
 
     if ((tempCenters != NULL) && (clusterSize != NULL)) {
       // accumulate
-      _cuann_accumulate_with_label<float>(
-        numCenters, dimCenters, tempCenters, clusterSize, nDataset, curDataset, labels + is);
+      detail::utils::accumulate_into_selected<float>(
+        nDataset, dimCenters, tempCenters, clusterSize, curDataset, labels + is, stream);
     }
   }
 
@@ -1318,7 +1245,6 @@ bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
 #define NUM_THREADS      1024  // DO NOT CHANGE
 #define STATE_BIT_LENGTH 8     // 0: state not used,  8: state used
 #define MAX_VEC_LENGTH   8     // 1, 2, 4 or 8
-// #define CUANN_DEBUG
 
 //
 __device__ inline uint32_t convert(uint32_t x)
