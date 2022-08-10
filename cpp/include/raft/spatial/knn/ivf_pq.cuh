@@ -1084,7 +1084,6 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
                                        device_memory);
     stream.synchronize();
 
-
     if ((tempCenters != NULL) && (clusterSize != NULL)) {
       // accumulate
       _cuann_accumulate_with_label<float>(
@@ -6934,7 +6933,7 @@ inline void ivfpq_search(const handle_t& handle,
                 desc->dimPq);
   constexpr size_t thresholdSmem = 48 * 1024;
   size_t sizeSmem                = sizeof(smemLutDtype) * desc->dimPq * (1 << desc->bitPq);
-  size_t sizeSmemBaseDiff        = sizeof(float) * desc->dimDataset;
+  size_t sizeSmemBaseDiff        = sizeof(float) * desc->dimRotDataset;
 
   uint32_t numCTAs = numQueries * desc->numProbes;
   int numThreads   = 1024;
@@ -6963,6 +6962,9 @@ inline void ivfpq_search(const handle_t& handle,
     cudaError = cudaFuncSetAttribute(
       kernel_no_basediff, cudaFuncAttributeMaxDynamicSharedMemorySize, sizeSmem);
     if (cudaError != cudaSuccess) {
+      RAFT_EXPECTS(
+        cudaError == cudaGetLastError(),
+        "Tried to reset the expected cuda error code, but it didn't match the expectation");
       kernel_no_basediff_available = false;
 
       // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
@@ -6978,7 +6980,12 @@ inline void ivfpq_search(const handle_t& handle,
     if (sizeSmem + sizeSmemBaseDiff > thresholdSmem) {
       cudaError = cudaFuncSetAttribute(
         kernel_fast, cudaFuncAttributeMaxDynamicSharedMemorySize, sizeSmem + sizeSmemBaseDiff);
-      if (cudaError != cudaSuccess) { kernel_fast_available = false; }
+      if (cudaError != cudaSuccess) {
+        RAFT_EXPECTS(
+          cudaError == cudaGetLastError(),
+          "Tried to reset the expected cuda error code, but it didn't match the expectation");
+        kernel_fast_available = false;
+      }
     }
 #if 0
         fprintf( stderr,
