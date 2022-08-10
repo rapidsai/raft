@@ -19,10 +19,10 @@
 #include "detail/ann_utils.cuh"
 
 #include <raft/core/cudart_utils.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/device_atomics.cuh>
-
-#include <raft/core/handle.hpp>
+#include <raft/linalg/gemm.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
@@ -30,7 +30,6 @@
 ///////////////////
 #include <cooperative_groups.h>
 #include <cub/cub.cuh>
-#include <cublas_v2.h>
 #include <cuda_fp16.h>
 #include <omp.h>
 
@@ -863,24 +862,6 @@ inline void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCen
     // average
     _cuann_divide(numCenters, dimCenters, centers, clusterSize);
   }
-}
-
-//
-static cudaStream_t _cuann_set_cublas_stream(cublasHandle_t cublasHandle, cudaStream_t stream)
-{
-  cublasStatus_t cublasError;
-  cudaStream_t cublasStream;
-  cublasError = cublasGetStream(cublasHandle, &cublasStream);
-  if (cublasError != CUBLAS_STATUS_SUCCESS) {
-    fprintf(stderr, "(%s, %d) cublasGetStream() failed.\n", __func__, __LINE__);
-    exit(-1);
-  }
-  cublasError = cublasSetStream(cublasHandle, stream);
-  if (cublasError != CUBLAS_STATUS_SUCCESS) {
-    fprintf(stderr, "(%s, %d) cublasSetStream() failed.\n", __func__, __LINE__);
-    exit(-1);
-  }
-  return cublasStream;
 }
 
 //
@@ -3810,29 +3791,23 @@ inline void _cuann_compute_PQ_code(const handle_t& handle,
     //
     // Rotate the residual vectors using a rotation matrix
     //
-    cudaStream_t cublasStream = _cuann_set_cublas_stream(handle.get_cublas_handle(), NULL);
-    float alpha               = 1.0;
-    float beta                = 0.0;
-    RAFT_CUBLAS_TRY(cublasGemmEx(handle.get_cublas_handle(),
-                                 CUBLAS_OP_T,
-                                 CUBLAS_OP_N,
-                                 dimRotDataset,
-                                 clusterSize[l],
-                                 dimDataset,
-                                 &alpha,
-                                 rotationMatrix,
-                                 CUDA_R_32F,
-                                 dimDataset,
-                                 resVectors[devId],
-                                 CUDA_R_32F,
-                                 dimDataset,
-                                 &beta,
-                                 rotVectors[devId],
-                                 CUDA_R_32F,
-                                 dimRotDataset,
-                                 CUBLAS_COMPUTE_32F,
-                                 CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-    _cuann_set_cublas_stream(handle.get_cublas_handle(), cublasStream);
+    float alpha = 1.0;
+    float beta  = 0.0;
+    linalg::gemm(handle,
+                 true,
+                 false,
+                 dimRotDataset,
+                 clusterSize[l],
+                 dimDataset,
+                 &alpha,
+                 rotationMatrix,
+                 dimDataset,
+                 resVectors[devId],
+                 dimDataset,
+                 &beta,
+                 rotVectors[devId],
+                 dimRotDataset,
+                 handle.get_stream());
 
     //
     // Training PQ codebook if CUANN_PQ_CENTER_PER_CLUSTER
@@ -4495,29 +4470,23 @@ inline void cuannIvfPqBuildIndex(const handle_t& handle,
     desc->dimRotDataset, desc->dimDataset, desc->lenPq, randomRotation, rotationMatrix);
 
   // Rotate clusterCenters
-  cudaStream_t cublasStream = _cuann_set_cublas_stream(handle.get_cublas_handle(), NULL);
-  float alpha               = 1.0;
-  float beta                = 0.0;
-  RAFT_CUBLAS_TRY(cublasGemmEx(handle.get_cublas_handle(),
-                               CUBLAS_OP_T,
-                               CUBLAS_OP_N,
-                               desc->dimRotDataset,
-                               desc->numClusters,
-                               desc->dimDataset,
-                               &alpha,
-                               rotationMatrix,
-                               CUDA_R_32F,
-                               desc->dimDataset,
-                               clusterCenters,
-                               CUDA_R_32F,
-                               desc->dimDataset,
-                               &beta,
-                               clusterRotCenters,
-                               CUDA_R_32F,
-                               desc->dimRotDataset,
-                               CUBLAS_COMPUTE_32F,
-                               CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-  _cuann_set_cublas_stream(handle.get_cublas_handle(), cublasStream);
+  float alpha = 1.0;
+  float beta  = 0.0;
+  linalg::gemm(handle,
+               true,
+               false,
+               desc->dimRotDataset,
+               desc->numClusters,
+               desc->dimDataset,
+               &alpha,
+               rotationMatrix,
+               desc->dimDataset,
+               clusterCenters,
+               desc->dimDataset,
+               &beta,
+               clusterRotCenters,
+               desc->dimRotDataset,
+               handle.get_stream());
 
   //
   // Make indexPtr, originalNumbers and pqDataset
@@ -5588,48 +5557,40 @@ inline void cuannIvfPqSearch(
       gemmK = desc->dimDataset + 1;
       assert(gemmK <= desc->dimDatasetExt);
     }
-    RAFT_CUBLAS_TRY(cublasGemmEx(handle.get_cublas_handle(),
-                                 CUBLAS_OP_T,
-                                 CUBLAS_OP_N,
-                                 desc->numClusters,
-                                 nQueries,
-                                 gemmK,
-                                 &alpha,
-                                 clusterCenters,
-                                 CUDA_R_32F,
-                                 desc->dimDatasetExt,
-                                 curQueries,
-                                 CUDA_R_32F,
-                                 desc->dimDatasetExt,
-                                 &beta,
-                                 QCDistances,
-                                 CUDA_R_32F,
-                                 desc->numClusters,
-                                 CUBLAS_COMPUTE_32F,
-                                 CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+    linalg::gemm(handle,
+                 true,
+                 false,
+                 desc->numClusters,
+                 nQueries,
+                 gemmK,
+                 &alpha,
+                 clusterCenters,
+                 desc->dimDatasetExt,
+                 curQueries,
+                 desc->dimDatasetExt,
+                 &beta,
+                 QCDistances,
+                 desc->numClusters,
+                 handle.get_stream());
 
     // Rotate queries
     alpha = 1.0;
     beta  = 0.0;
-    RAFT_CUBLAS_TRY(cublasGemmEx(handle.get_cublas_handle(),
-                                 CUBLAS_OP_T,
-                                 CUBLAS_OP_N,
-                                 desc->dimRotDataset,
-                                 nQueries,
-                                 desc->dimDataset,
-                                 &alpha,
-                                 rotationMatrix,
-                                 CUDA_R_32F,
-                                 desc->dimDataset,
-                                 curQueries,
-                                 CUDA_R_32F,
-                                 desc->dimDatasetExt,
-                                 &beta,
-                                 rotQueries,
-                                 CUDA_R_32F,
-                                 desc->dimRotDataset,
-                                 CUBLAS_COMPUTE_32F,
-                                 CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+    linalg::gemm(handle,
+                 true,
+                 false,
+                 desc->dimRotDataset,
+                 nQueries,
+                 desc->dimDataset,
+                 &alpha,
+                 rotationMatrix,
+                 desc->dimDataset,
+                 curQueries,
+                 desc->dimDatasetExt,
+                 &beta,
+                 rotQueries,
+                 desc->dimRotDataset,
+                 handle.get_stream());
 
     // Select neighbor clusters for each query.
     _cuann_find_topk(handle,
