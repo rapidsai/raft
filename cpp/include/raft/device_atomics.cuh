@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
  * binary operator.
  */
 
+#include <cooperative_groups.h>
 #include <type_traits>
 
 namespace raft {
@@ -462,7 +463,7 @@ struct typesAtomicCASImpl<T, 8> {
  * int8_t, int16_t, int32_t, int64_t, float, double
  *
  * @param[in] address The address of old value in global or shared memory
- * @param[in] val The value to be computed
+ * @param[in] update_value The value to be computed
  * @param[in] op  The binary operator used for compute
  *
  * @returns The old value at `address`
@@ -635,4 +636,33 @@ template <typename T, typename std::enable_if_t<std::is_integral<T>::value, T>* 
 __forceinline__ __device__ T atomicXor(T* address, T val)
 {
   return raft::genericAtomicOperation(address, val, raft::device_atomics::detail::DeviceXor{});
+}
+
+/**
+ * @brief: Warp aggregated atomic increment
+ *
+ * increments an atomic counter using all active threads in a warp. The return
+ * value is the original value of the counter plus the rank of the calling
+ * thread.
+ *
+ * The use of atomicIncWarp is a performance optimization. It can reduce the
+ * amount of atomic memory traffic by a factor of 32.
+ *
+ * Adapted from:
+ * https://developer.nvidia.com/blog/cuda-pro-tip-optimized-filtering-warp-aggregated-atomics/
+ *
+ * @tparam          T An integral type
+ * @param[in,out] ctr The address of old value
+ *
+ * @return The old value of the counter plus the rank of the calling thread.
+ */
+template <typename T                                                = unsigned int,
+          typename std::enable_if_t<std::is_integral<T>::value, T>* = nullptr>
+__device__ T atomicIncWarp(T* ctr)
+{
+  namespace cg = cooperative_groups;
+  auto g       = cg::coalesced_threads();
+  T warp_res;
+  if (g.thread_rank() == 0) { warp_res = atomicAdd(ctr, static_cast<T>(g.size())); }
+  return g.shfl(warp_res, 0) + g.thread_rank();
 }

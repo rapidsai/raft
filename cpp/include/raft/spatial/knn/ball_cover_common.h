@@ -56,6 +56,7 @@ class BallCoverIndex {
       R_indptr(sqrt(m_) + 1, handle.get_stream()),
       R_1nn_cols(m_, handle.get_stream()),
       R_1nn_dists(m_, handle.get_stream()),
+      R_closest_landmark_dists(m_, handle.get_stream()),
       R(sqrt(m_) * n_, handle.get_stream()),
       R_radius(sqrt(m_), handle.get_stream()),
       index_trained(false)
@@ -67,6 +68,7 @@ class BallCoverIndex {
   value_t* get_R_1nn_dists() { return R_1nn_dists.data(); }
   value_t* get_R_radius() { return R_radius.data(); }
   value_t* get_R() { return R.data(); }
+  value_t* get_R_closest_landmark_dists() { return R_closest_landmark_dists.data(); }
   const value_t* get_X() { return X; }
   value_int get_n_landmarks() { return n_landmarks; }
   raft::distance::DistanceType get_metric() { return metric; }
@@ -91,6 +93,7 @@ class BallCoverIndex {
   rmm::device_uvector<value_idx> R_indptr;
   rmm::device_uvector<value_idx> R_1nn_cols;
   rmm::device_uvector<value_t> R_1nn_dists;
+  rmm::device_uvector<value_t> R_closest_landmark_dists;
 
   rmm::device_uvector<value_t> R_radius;
 

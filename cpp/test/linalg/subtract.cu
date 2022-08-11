@@ -84,10 +84,10 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.len;
-    r.uniform(in1.data(), len, T(-1.0), T(1.0), stream);
-    r.uniform(in2.data(), len, T(-1.0), T(1.0), stream);
+    uniform(handle, r, in1.data(), len, T(-1.0), T(1.0));
+    uniform(handle, r, in2.data(), len, T(-1.0), T(1.0));
 
     naiveSubtractElem(out_ref.data(), in1.data(), in2.data(), len, stream);
     naiveSubtractScalar(out_ref.data(), out_ref.data(), T(1), len, stream);

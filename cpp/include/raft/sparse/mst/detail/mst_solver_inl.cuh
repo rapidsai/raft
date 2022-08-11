@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,27 +16,35 @@
 
 #pragma once
 
-#include <chrono>
 #include <curand.h>
 
 #include "mst_kernels.cuh"
 #include "utils.cuh"
 
 #include <raft/cudart_utils.h>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <iostream>
+#include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <thrust/fill.h>
+#include <thrust/functional.h>
 #include <thrust/host_vector.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
+#include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
+#include <thrust/transform_reduce.h>
+#include <thrust/tuple.h>
+#include <thrust/unique.h>
+
+#include <iostream>
 
 namespace raft {
 namespace mst {
-typedef std::chrono::high_resolution_clock Clock;
 
 // curand generator uniform
 inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
@@ -115,21 +123,12 @@ MST_solver<vertex_t, edge_t, weight_t, alteration_t>::solve()
   RAFT_EXPECTS(offsets != nullptr, "Null offsets.");
   RAFT_EXPECTS(indices != nullptr, "Null indices.");
   RAFT_EXPECTS(weights != nullptr, "Null weights.");
-#ifdef MST_TIME
-  double timer0 = 0, timer1 = 0, timer2 = 0, timer3 = 0, timer4 = 0, timer5 = 0;
-  auto start = Clock::now();
-#endif
 
   // Alterating the weights
   // this is done by identifying the lowest cost edge weight gap that is not 0, call this theta.
   // For each edge, add noise that is less than theta. That is, generate a random number in the
   // range [0.0, theta) and add it to each edge weight.
   alteration();
-
-#ifdef MST_TIME
-  auto stop = Clock::now();
-  timer0    = duration_us(stop - start);
-#endif
 
   auto max_mst_edges = symmetrize_output ? 2 * v - 2 : v - 1;
 
@@ -140,34 +139,15 @@ MST_solver<vertex_t, edge_t, weight_t, alteration_t>::solve()
   // track completion with mst_edge_found status and v as upper bound
   auto mst_iterations = iterations > 0 ? iterations : v;
   for (auto i = 0; i < mst_iterations; i++) {
-#ifdef MST_TIME
-    start = Clock::now();
-#endif
     // Finds the minimum edge from each vertex to the lowest color
     // by working at each vertex of the supervertex
     min_edge_per_vertex();
 
-#ifdef MST_TIME
-    stop = Clock::now();
-    timer1 += duration_us(stop - start);
-    start = Clock::now();
-#endif
     // Finds the minimum edge from each supervertex to the lowest color
     min_edge_per_supervertex();
 
-#ifdef MST_TIME
-    stop = Clock::now();
-    timer2 += duration_us(stop - start);
-    start = Clock::now();
-#endif
-
     // check if msf/mst done, count new edges added
     check_termination();
-
-#ifdef MST_TIME
-    stop = Clock::now();
-    timer3 += duration_us(stop - start);
-#endif
 
     auto curr_mst_edge_count = mst_edge_count.value(stream);
     RAFT_EXPECTS(curr_mst_edge_count <= max_mst_edges,
@@ -175,33 +155,15 @@ MST_solver<vertex_t, edge_t, weight_t, alteration_t>::solve()
                  "loss in precision. Try increasing precision of weights.");
 
     if (curr_mst_edge_count == prev_mst_edge_count.value(stream)) {
-#ifdef MST_TIME
-      std::cout << "Iterations: " << i << std::endl;
-      std::cout << timer0 << "," << timer1 << "," << timer2 << "," << timer3 << "," << timer4 << ","
-                << timer5 << std::endl;
-#endif
       // exit here when reaching steady state
       break;
     }
 
-#ifdef MST_TIME
-    start = Clock::now();
-#endif
     // append the newly found MST edges to the final output
     append_src_dst_pair(mst_result.src.data(), mst_result.dst.data(), mst_result.weights.data());
-#ifdef MST_TIME
-    stop = Clock::now();
-    timer4 += duration_us(stop - start);
-    start = Clock::now();
-#endif
 
     // updates colors of vertices by propagating the lower color to the higher
     label_prop(mst_result.src.data(), mst_result.dst.data());
-
-#ifdef MST_TIME
-    stop = Clock::now();
-    timer5 += duration_us(stop - start);
-#endif
 
     // copy this iteration's results and store
     prev_mst_edge_count.set_value_async(curr_mst_edge_count, stream);
@@ -317,9 +279,6 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::label_prop(vertex_t* 
 
   detail::final_color_indices<<<min_pair_nblocks, min_pair_nthreads, 0, stream>>>(
     v, color_ptr, color_index);
-#ifdef MST_TIME
-  std::cout << "Label prop iterations: " << i << std::endl;
-#endif
 }
 
 // Finds the minimum edge from each vertex to the lowest color

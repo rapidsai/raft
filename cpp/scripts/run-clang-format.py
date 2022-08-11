@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,16 +25,10 @@ import tempfile
 EXPECTED_VERSION = "11.1.0"
 VERSION_REGEX = re.compile(r"clang-format version ([0-9.]+)")
 # NOTE: populate this list with more top-level dirs as we add more of them to
-#       to the cuml repo
+#       to the raft repo
 DEFAULT_DIRS = ["cpp/bench",
-                "cpp/comms/mpi/include",
-                "cpp/comms/mpi/src",
-                "cpp/comms/std/include",
-                "cpp/comms/std/src",
                 "cpp/include",
-                "cpp/examples",
                 "cpp/src",
-                "cpp/src_prims",
                 "cpp/test"]
 
 
@@ -51,7 +45,7 @@ def parse_args():
     argparser.add_argument("-regex", type=str,
                            default=r"[.](cu|cuh|h|hpp|cpp)$",
                            help="Regex string to filter in sources")
-    argparser.add_argument("-ignore", type=str, default=r"cannylab/bh[.]cu$",
+    argparser.add_argument("-ignore", type=str, default=r".*thirdparty.*$",
                            help="Regex used to ignore files from matched list")
     argparser.add_argument("-v", dest="verbose", action="store_true",
                            help="Print verbose messages")
@@ -64,7 +58,7 @@ def parse_args():
         args.dstdir = tempfile.mkdtemp()
     ret = subprocess.check_output("%s --version" % args.exe, shell=True)
     ret = ret.decode("utf-8")
-    version = VERSION_REGEX.match(ret)
+    version = VERSION_REGEX.search(ret)
     if version is None:
         raise Exception("Failed to figure out clang-format version!")
     version = version.group(1)

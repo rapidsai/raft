@@ -21,6 +21,10 @@
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/counting_iterator.h>
+
 namespace raft {
 namespace matrix {
 
@@ -53,9 +57,9 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
  protected:
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int len = params.n_row * params.n_col;
-    r.uniform(in1.data(), len, T(-1.0), T(1.0), stream);
+    uniform(handle, r, in1.data(), len, T(-1.0), T(1.0));
 
     copy(in1.data(), in2.data(), params.n_row, params.n_col, stream);
     // copy(in1, in1_revr, params.n_row, params.n_col);

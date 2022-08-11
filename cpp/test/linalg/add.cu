@@ -41,10 +41,10 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
   void SetUp() override
   {
     params = ::testing::TestWithParam<AddInputs<InT, OutT>>::GetParam();
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r{params.seed};
     int len = params.len;
-    r.uniform(in1.data(), len, InT(-1.0), InT(1.0), stream);
-    r.uniform(in2.data(), len, InT(-1.0), InT(1.0), stream);
+    uniform(handle, r, in1.data(), len, InT(-1.0), InT(1.0));
+    uniform(handle, r, in2.data(), len, InT(-1.0), InT(1.0));
     naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len, stream);
     add<InT, OutT>(out.data(), in1.data(), in2.data(), len, stream);
     handle.sync_stream(stream);

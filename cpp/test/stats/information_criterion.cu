@@ -19,7 +19,8 @@
 #include <raft/stats/information_criterion.cuh>
 
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
+#include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <gtest/gtest.h>
 
@@ -59,21 +60,23 @@ struct BatchedICInputs {
 
 template <typename T>
 class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
+ public:
+  BatchedICTest()
+    : params(::testing::TestWithParam<BatchedICInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      res_d(sizeof(T) * params.batch_size, stream)
+  {
+  }
+
  protected:
   void SetUp() override
   {
     using std::vector;
-    params = ::testing::TestWithParam<BatchedICInputs<T>>::GetParam();
-
-    // Create stream and allocator
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-    allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Create arrays
     std::vector<T> loglike_h = std::vector<T>(params.batch_size);
     res_h.resize(params.batch_size);
-    T* loglike_d = (T*)allocator->allocate(sizeof(T) * params.batch_size, stream);
-    res_d        = (T*)allocator->allocate(sizeof(T) * params.batch_size, stream);
+    rmm::device_uvector<T> loglike_d(sizeof(T) * params.batch_size, stream);
 
     // Generate random data
     std::random_device rd;
@@ -83,11 +86,11 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
       loglike_h[i] = std::log(udis(gen));
 
     // Copy the data to the device
-    raft::update_device(loglike_d, loglike_h.data(), params.batch_size, stream);
+    raft::update_device(loglike_d.data(), loglike_h.data(), params.batch_size, stream);
 
     // Compute the tested results
-    information_criterion_batched(res_d,
-                                  loglike_d,
+    information_criterion_batched(res_d.data(),
+                                  loglike_d.data(),
                                   params.ic_type,
                                   params.n_params,
                                   params.batch_size,
@@ -103,22 +106,14 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
              params.n_samples);
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-
-    allocator->deallocate(loglike_d, sizeof(T) * params.batch_size, stream);
-  }
-
-  void TearDown() override
-  {
-    allocator->deallocate(res_d, sizeof(T) * params.batch_size, stream);
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:
-  std::shared_ptr<raft::mr::device::default_allocator> allocator;
-  BatchedICInputs<T> params;
-  T* res_d;
-  std::vector<T> res_h;
+  raft::handle_t handle;
   cudaStream_t stream = 0;
+  BatchedICInputs<T> params;
+  rmm::device_uvector<T> res_d;
+  std::vector<T> res_h;
 };
 
 // Test parameters (op, n_batches, m, n, p, q, tolerance)
@@ -133,13 +128,19 @@ using BatchedICTestD = BatchedICTest<double>;
 using BatchedICTestF = BatchedICTest<float>;
 TEST_P(BatchedICTestD, Result)
 {
-  ASSERT_TRUE(devArrMatchHost(
-    res_h.data(), res_d, params.batch_size, raft::CompareApprox<double>(params.tolerance), stream));
+  ASSERT_TRUE(devArrMatchHost(res_h.data(),
+                              res_d.data(),
+                              params.batch_size,
+                              raft::CompareApprox<double>(params.tolerance),
+                              stream));
 }
 TEST_P(BatchedICTestF, Result)
 {
-  ASSERT_TRUE(devArrMatchHost(
-    res_h.data(), res_d, params.batch_size, raft::CompareApprox<float>(params.tolerance), stream));
+  ASSERT_TRUE(devArrMatchHost(res_h.data(),
+                              res_d.data(),
+                              params.batch_size,
+                              raft::CompareApprox<float>(params.tolerance),
+                              stream));
 }
 
 INSTANTIATE_TEST_CASE_P(BatchedICTests, BatchedICTestD, ::testing::ValuesIn(inputsd));

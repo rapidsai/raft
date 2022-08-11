@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
- * @warning This file is deprecated and will be removed in release 22.06.
+ * This file is deprecated and will be removed in release 22.06.
  * Please use the cuh version instead.
  */
 
@@ -63,7 +63,7 @@ void gemm(const raft::handle_t& handle,
           const math_t* B,
           const int ldb,
           const math_t* beta,
-          const math_t* C,
+          math_t* C,
           const int ldc,
           cudaStream_t stream)
 {

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <sys/timeb.h>
+
 #include "../test_utils.h"
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
@@ -58,28 +60,34 @@ __global__ void meanKernel(T* out, const T* data, int len)
 
 template <typename T>
 struct RngInputs {
-  T tolerance;
   int len;
-  // start, end: for uniform
-  // mean, sigma: for normal/lognormal
-  // mean, beta: for gumbel
-  // mean, scale: for logistic and laplace
-  // lambda: for exponential
-  // sigma: for rayleigh
+  // Meaning of 'start' and 'end' parameter for various distributions
+  //
+  //         Uniform   Normal/Log-Normal   Gumbel   Logistic   Laplace   Exponential   Rayleigh
+  // start    start          mean           mean     mean       mean       lambda       sigma
+  // end       end           sigma          beta     scale      scale      Unused       Unused
   T start, end;
   RandomType type;
   GeneratorType gtype;
-  unsigned long long int seed;
+  uint64_t seed;
 };
 
-template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const RngInputs<T>& dims)
-{
-  return os;
-}
+// In this test we generate pseudo-random values that follow various probability distributions such
+// as Normal, Laplace etc. To check the correctness of generated random variates we compute two
+// measures, mean and variance from the generated data. The computed values are matched against
+// their theoretically expected values for the corresponding distribution. The computed mean and
+// variance are statistical variables themselves and follow a Normal distribution. Which means,
+// there is 99+% chance that the computed values fall in the 3-sigma (standard deviation) interval
+// [theoretical_value - 3*sigma, theoretical_value + 3*sigma]. The values are practically
+// guaranteed to fall in the 4-sigma interval. Reference standard deviation of the computed
+// mean/variance distribution is calculated here
+// https://gist.github.com/vinaydes/cee04f50ff7e3365759603d39b7e079b Maximum standard deviation
+// observed here is ~1.5e-2, thus we use this as sigma in our test.
+// N O T E: Before adding any new test case below, make sure to calculate standard deviation for the
+// test parameters using above notebook.
 
-#include <sys/timeb.h>
-#include <time.h>
+constexpr int NUM_SIGMA    = 4;
+constexpr double MAX_SIGMA = 1.5e-2;
 
 template <typename T>
 class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
@@ -97,23 +105,24 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
  protected:
   void SetUp() override
   {
-    // Tests are configured with their expected test-values sigma. For example,
-    // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
-    num_sigma = 4;
-    Rng r(params.seed, params.gtype);
+    RngState r(params.seed, params.gtype);
     switch (params.type) {
-      case RNG_Normal: r.normal(data.data(), params.len, params.start, params.end, stream); break;
+      case RNG_Normal: normal(handle, r, data.data(), params.len, params.start, params.end); break;
       case RNG_LogNormal:
-        r.lognormal(data.data(), params.len, params.start, params.end, stream);
+        lognormal(handle, r, data.data(), params.len, params.start, params.end);
         break;
-      case RNG_Uniform: r.uniform(data.data(), params.len, params.start, params.end, stream); break;
-      case RNG_Gumbel: r.gumbel(data.data(), params.len, params.start, params.end, stream); break;
+      case RNG_Uniform:
+        uniform(handle, r, data.data(), params.len, params.start, params.end);
+        break;
+      case RNG_Gumbel: gumbel(handle, r, data.data(), params.len, params.start, params.end); break;
       case RNG_Logistic:
-        r.logistic(data.data(), params.len, params.start, params.end, stream);
+        logistic(handle, r, data.data(), params.len, params.start, params.end);
         break;
-      case RNG_Exp: r.exponential(data.data(), params.len, params.start, stream); break;
-      case RNG_Rayleigh: r.rayleigh(data.data(), params.len, params.start, stream); break;
-      case RNG_Laplace: r.laplace(data.data(), params.len, params.start, params.end, stream); break;
+      case RNG_Exp: exponential(handle, r, data.data(), params.len, params.start); break;
+      case RNG_Rayleigh: rayleigh(handle, r, data.data(), params.len, params.start); break;
+      case RNG_Laplace:
+        laplace(handle, r, data.data(), params.len, params.start, params.end);
+        break;
     };
     static const int threads = 128;
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
@@ -176,118 +185,61 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   RngInputs<T> params;
   rmm::device_uvector<T> data, stats;
   T h_stats[2];  // mean, var
-  int num_sigma;
 };
-
-// The measured mean and standard deviation for each tested distribution are,
-// of course, statistical variables. Thus setting an appropriate testing
-// tolerance essentially requires one to set a probability of test failure. We
-// choose to set this at 3-4 x sigma, i.e., a 99.7-99.9% confidence interval so that
-// the test will indeed pass. In quick experiments (using the identical
-// distributions given by NumPy/SciPy), the measured standard deviation is the
-// variable with the greatest variance and so we determined the variance for
-// each distribution and number of samples (32*1024 or 8*1024). Below
-// are listed the standard deviation for these tests.
-
-// Distribution: StdDev 32*1024, StdDev 8*1024
-// Normal: 0.0055, 0.011
-// LogNormal: 0.05, 0.1
-// Uniform: 0.003, 0.005
-// Gumbel: 0.005, 0.01
-// Logistic: 0.005, 0.01
-// Exp: 0.008, 0.015
-// Rayleigh: 0.0125, 0.025
-// Laplace: 0.02, 0.04
-
-// We generally want 4 x sigma >= 99.9% chance of success
 
 typedef RngTest<float> RngTestF;
 const std::vector<RngInputs<float>> inputsf = {
-  {0.0055, 32 * 1024, 1.f, 1.f, RNG_Normal, GenPhilox, 1234ULL},
-  {0.011, 8 * 1024, 1.f, 1.f, RNG_Normal, GenPhilox, 1234ULL},
-  {0.05, 32 * 1024, 1.f, 1.f, RNG_LogNormal, GenPhilox, 1234ULL},
-  {0.1, 8 * 1024, 1.f, 1.f, RNG_LogNormal, GenPhilox, 1234ULL},
-  {0.003, 32 * 1024, -1.f, 1.f, RNG_Uniform, GenPhilox, 1234ULL},
-  {0.005, 8 * 1024, -1.f, 1.f, RNG_Uniform, GenPhilox, 1234ULL},
-  {0.005, 32 * 1024, 1.f, 1.f, RNG_Gumbel, GenPhilox, 1234ULL},
-  {0.01, 8 * 1024, 1.f, 1.f, RNG_Gumbel, GenPhilox, 1234ULL},
-  {0.005, 32 * 1024, 1.f, 1.f, RNG_Logistic, GenPhilox, 67632ULL},
-  {0.01, 8 * 1024, 1.f, 1.f, RNG_Logistic, GenPhilox, 1234ULL},
-  {0.008, 32 * 1024, 1.f, 1.f, RNG_Exp, GenPhilox, 1234ULL},
-  {0.015, 8 * 1024, 1.f, 1.f, RNG_Exp, GenPhilox, 1234ULL},
-  {0.0125, 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPhilox, 1234ULL},
-  {0.025, 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPhilox, 1234ULL},
-  {0.02, 32 * 1024, 1.f, 1.f, RNG_Laplace, GenPhilox, 1234ULL},
-  {0.04, 8 * 1024, 1.f, 1.f, RNG_Laplace, GenPhilox, 1234ULL},
-
-  {0.0055, 32 * 1024, 1.f, 1.f, RNG_Normal, GenPC, 1234ULL},
-  {0.011, 8 * 1024, 1.f, 1.f, RNG_Normal, GenPC, 1234ULL},
-  {0.05, 32 * 1024, 1.f, 1.f, RNG_LogNormal, GenPC, 1234ULL},
-  {0.1, 8 * 1024, 1.f, 1.f, RNG_LogNormal, GenPC, 1234ULL},
-  {0.003, 32 * 1024, -1.f, 1.f, RNG_Uniform, GenPC, 1234ULL},
-  {0.005, 8 * 1024, -1.f, 1.f, RNG_Uniform, GenPC, 1234ULL},
-  {0.005, 32 * 1024, 1.f, 1.f, RNG_Gumbel, GenPC, 1234ULL},
-  {0.01, 8 * 1024, 1.f, 1.f, RNG_Gumbel, GenPC, 1234ULL},
-  {0.005, 32 * 1024, 1.f, 1.f, RNG_Logistic, GenPC, 1234ULL},
-  {0.01, 8 * 1024, 1.f, 1.f, RNG_Logistic, GenPC, 1234ULL},
-  {0.008, 32 * 1024, 1.f, 1.f, RNG_Exp, GenPC, 1234ULL},
-  {0.015, 8 * 1024, 1.f, 1.f, RNG_Exp, GenPC, 1234ULL},
-  {0.0125, 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPC, 1234ULL},
-  {0.025, 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPC, 1234ULL},
-  {0.02, 32 * 1024, 1.f, 1.f, RNG_Laplace, GenPC, 1234ULL},
-  {0.04, 8 * 1024, 1.f, 1.f, RNG_Laplace, GenPC, 1234ULL}};
+  // Test with Philox
+  {1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPhilox, 1234ULL},
+  {1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPhilox, 1234ULL},
+  {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPhilox, 1234ULL},
+  // Test with PCG
+  {1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPC, 1234ULL},
+  {1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPC, 1234ULL},
+  {1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPC, 1234ULL},
+  {1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPC, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPC, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPC, 1234ULL},
+  {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPC, 1234ULL}};
 
 TEST_P(RngTestF, Result)
 {
   float meanvar[2];
   getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(num_sigma * params.tolerance)));
-  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(num_sigma * params.tolerance)));
+  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(NUM_SIGMA * MAX_SIGMA)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(NUM_SIGMA * MAX_SIGMA)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestF, ::testing::ValuesIn(inputsf));
 
 typedef RngTest<double> RngTestD;
 const std::vector<RngInputs<double>> inputsd = {
-  {0.0055, 32 * 1024, 1.0, 1.0, RNG_Normal, GenPhilox, 1234ULL},
-  {0.011, 8 * 1024, 1.0, 1.0, RNG_Normal, GenPhilox, 1234ULL},
-  {0.05, 32 * 1024, 1.0, 1.0, RNG_LogNormal, GenPhilox, 1234ULL},
-  {0.1, 8 * 1024, 1.0, 1.0, RNG_LogNormal, GenPhilox, 1234ULL},
-  {0.003, 32 * 1024, -1.0, 1.0, RNG_Uniform, GenPhilox, 1234ULL},
-  {0.005, 8 * 1024, -1.0, 1.0, RNG_Uniform, GenPhilox, 1234ULL},
-  {0.005, 32 * 1024, 1.0, 1.0, RNG_Gumbel, GenPhilox, 1234ULL},
-  {0.01, 8 * 1024, 1.0, 1.0, RNG_Gumbel, GenPhilox, 1234ULL},
-  {0.005, 32 * 1024, 1.0, 1.0, RNG_Logistic, GenPhilox, 67632ULL},
-  {0.01, 8 * 1024, 1.0, 1.0, RNG_Logistic, GenPhilox, 1234ULL},
-  {0.008, 32 * 1024, 1.0, 1.0, RNG_Exp, GenPhilox, 1234ULL},
-  {0.015, 8 * 1024, 1.0, 1.0, RNG_Exp, GenPhilox, 1234ULL},
-  {0.0125, 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPhilox, 1234ULL},
-  {0.025, 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPhilox, 1234ULL},
-  {0.02, 32 * 1024, 1.0, 1.0, RNG_Laplace, GenPhilox, 1234ULL},
-  {0.04, 8 * 1024, 1.0, 1.0, RNG_Laplace, GenPhilox, 1234ULL},
-
-  {0.0055, 32 * 1024, 1.0, 1.0, RNG_Normal, GenPC, 1234ULL},
-  {0.011, 8 * 1024, 1.0, 1.0, RNG_Normal, GenPC, 1234ULL},
-  {0.05, 32 * 1024, 1.0, 1.0, RNG_LogNormal, GenPC, 1234ULL},
-  {0.1, 8 * 1024, 1.0, 1.0, RNG_LogNormal, GenPC, 1234ULL},
-  {0.003, 32 * 1024, -1.0, 1.0, RNG_Uniform, GenPC, 1234ULL},
-  {0.005, 8 * 1024, -1.0, 1.0, RNG_Uniform, GenPC, 1234ULL},
-  {0.005, 32 * 1024, 1.0, 1.0, RNG_Gumbel, GenPC, 1234ULL},
-  {0.01, 8 * 1024, 1.0, 1.0, RNG_Gumbel, GenPC, 1234ULL},
-  {0.005, 32 * 1024, 1.0, 1.0, RNG_Logistic, GenPC, 1234ULL},
-  {0.01, 8 * 1024, 1.0, 1.0, RNG_Logistic, GenPC, 1234ULL},
-  {0.008, 32 * 1024, 1.0, 1.0, RNG_Exp, GenPC, 1234ULL},
-  {0.015, 8 * 1024, 1.0, 1.0, RNG_Exp, GenPC, 1234ULL},
-  {0.0125, 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPC, 1234ULL},
-  {0.025, 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPC, 1234ULL},
-  {0.02, 32 * 1024, 1.0, 1.0, RNG_Laplace, GenPC, 1234ULL},
-  {0.04, 8 * 1024, 1.0, 1.0, RNG_Laplace, GenPC, 1234ULL}};
+  // Test with Philox
+  {1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPhilox, 1234ULL},
+  {1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPhilox, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPhilox, 1234ULL},
+  {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPhilox, 1234ULL},
+  // Test with PCG
+  {1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPC, 1234ULL},
+  {1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, GenPC, 1234ULL},
+  {1024 * 1024, 1.2f, 5.5f, RNG_Uniform, GenPC, 1234ULL},
+  {1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, GenPC, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Exp, GenPC, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPC, 1234ULL},
+  {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPC, 1234ULL}};
 
 TEST_P(RngTestD, Result)
 {
   double meanvar[2];
   getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<double>(num_sigma * params.tolerance)));
-  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<double>(num_sigma * params.tolerance)));
+  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<double>(NUM_SIGMA * MAX_SIGMA)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<double>(NUM_SIGMA * MAX_SIGMA)));
 }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
 
@@ -326,12 +278,11 @@ std::ostream& operator<<(std::ostream& out, const std::vector<T>& v)
   return out;
 }
 
-// The following tests the 3 random number generators by checking that the
-// measured mean error is close to the well-known analytical result
-// (sigma/sqrt(n_samples)). To compute the mean error, we a number of
-// experiments computing the mean, giving us a distribution of the mean
-// itself. The mean error is simply the standard deviation of this
-// distribution (the standard deviation of the mean).
+// The following tests the two random number generators by checking that the measured mean error is
+// close to the well-known analytical result(sigma/sqrt(n_samples)). To compute the mean error, we
+// a number of experiments computing the mean, giving us a distribution of the mean itself. The
+// mean error is simply the standard deviation of this distribution (the standard deviation of the
+// mean).
 TEST(Rng, MeanError)
 {
   timeb time_struct;
@@ -341,17 +292,17 @@ TEST(Rng, MeanError)
   int num_experiments = 1024;
   int len             = num_samples * num_experiments;
 
-  cudaStream_t stream;
-  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+  raft::handle_t handle;
+  auto stream = handle.get_stream();
 
   rmm::device_uvector<float> data(len, stream);
   rmm::device_uvector<float> mean_result(num_experiments, stream);
   rmm::device_uvector<float> std_result(num_experiments, stream);
 
   for (auto rtype : {GenPhilox, GenPC}) {
-    Rng r(seed, rtype);
-    r.normal(data.data(), len, 3.3f, 0.23f, stream);
-    // r.uniform(data, len, -1.0, 2.0);
+    RngState r(seed, rtype);
+    normal(handle, r, data.data(), len, 3.3f, 0.23f);
+    // uniform(r, data, len, -1.0, 2.0);
     raft::stats::mean(
       mean_result.data(), data.data(), num_samples, num_experiments, false, false, stream);
     raft::stats::stddev(std_result.data(),
@@ -380,9 +331,9 @@ TEST(Rng, MeanError)
     auto diff_expected_vs_measured_mean_error =
       std::abs(d_std_of_mean - d_std / std::sqrt(num_samples));
 
-    ASSERT_TRUE((diff_expected_vs_measured_mean_error / d_std_of_mean_analytical < 0.5));
+    ASSERT_TRUE((diff_expected_vs_measured_mean_error / d_std_of_mean_analytical < 0.5))
+      << "Failed with seed: " << seed << "\nrtype: " << rtype;
   }
-  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 
   // std::cout << "mean_res:" << h_mean_result << "\n";
 }
@@ -396,8 +347,8 @@ class ScaledBernoulliTest : public ::testing::Test {
   void SetUp() override
   {
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-    Rng r(42);
-    r.scaled_bernoulli(data.data(), len, T(0.5), T(scale), stream);
+    RngState r(42);
+    scaled_bernoulli(handle, r, data.data(), len, T(0.5), T(scale));
   }
 
   void rangeCheck()
@@ -429,8 +380,8 @@ class BernoulliTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    Rng r(42);
-    r.bernoulli(data.data(), len, T(0.5), stream);
+    RngState r(42);
+    bernoulli(handle, r, data.data(), len, T(0.5));
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
@@ -492,11 +443,11 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
     num_sigma = 10;
     int len   = params.rows * params.cols;
-    Rng r(params.seed, params.gtype);
-    r.fill(mu_vec.data(), params.cols, params.mu, stream);
+    RngState r(params.seed, params.gtype);
+    fill(handle, r, mu_vec.data(), params.cols, params.mu);
     T* sigma_vec = nullptr;
-    r.normalTable(
-      data.data(), params.rows, params.cols, mu_vec.data(), sigma_vec, params.sigma, stream);
+    normalTable(
+      handle, r, data.data(), params.rows, params.cols, mu_vec.data(), sigma_vec, params.sigma);
     static const int threads = 128;
     meanKernel<T, threads>
       <<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data(), data.data(), len);
@@ -566,8 +517,8 @@ class RngAffineTest : public ::testing::TestWithParam<RngAffineInputs> {
   void SetUp() override
   {
     params = ::testing::TestWithParam<RngAffineInputs>::GetParam();
-    Rng r(params.seed);
-    r.affine_transform_params(params.n, a, b);
+    RngState r(params.seed);
+    affine_transform_params(r, params.n, a, b);
   }
 
   void check()

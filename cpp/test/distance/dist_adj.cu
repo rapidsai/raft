@@ -93,7 +93,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
 
   void SetUp() override
   {
-    raft::random::Rng r(params.seed);
+    raft::random::RngState r(params.seed);
     int m           = params.m;
     int n           = params.n;
     int k           = params.k;
@@ -102,8 +102,8 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
     rmm::device_uvector<DataType> x(m * k, stream);
     rmm::device_uvector<DataType> y(n * k, stream);
 
-    r.uniform(x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
-    r.uniform(y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
+    uniform(handle, r, x.data(), m * k, DataType(-1.0), DataType(1.0));
+    uniform(handle, r, y.data(), n * k, DataType(-1.0), DataType(1.0));
 
     DataType threshold = params.eps;
 

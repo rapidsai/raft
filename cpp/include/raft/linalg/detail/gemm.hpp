@@ -61,7 +61,7 @@ void gemm(const raft::handle_t& handle,
           const math_t* B,
           const int ldb,
           const math_t* beta,
-          const math_t* C,
+          math_t* C,
           const int ldc,
           cudaStream_t stream)
 {

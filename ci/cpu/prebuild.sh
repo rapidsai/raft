@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+export UPLOAD_RAFT=1
+export UPLOAD_LIBRAFT=1
+
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     #If project flash is not activate, always build both
     export BUILD_RAFT=1
     export BUILD_LIBRAFT=1
 fi
-
-export UPLOAD_LIBRAFT=1

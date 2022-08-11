@@ -1,0 +1,64 @@
+name: CMake
+
+on: [push, pull_request]
+
+env:
+  BUILD_TYPE: RelWithDebInfo
+
+jobs:
+  build-mdspan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - compiler_driver: g++
+          compiler_prefix: /usr/bin
+        - compiler_driver: icpx
+          compiler_prefix: /opt/intel/oneapi/compiler/latest/linux/bin
+          compiler_url: https://registrationcenter-download.intel.com/akdlm/irc_nas/18478/l_dpcpp-cpp-compiler_p_2022.0.2.84_offline.sh
+    name: ${{ matrix.compiler_driver }}
+    steps:
+
+    - name: Cache icpx install
+      if: ${{ matrix.compiler_driver == 'icpx' }}
+      id: cache-icpx
+      uses: actions/cache@v2
+      with:
+        path: /opt/intel/oneapi
+        key: oneapi-${{ matrix.compiler_url}}
+    - name: Install icpx
+      if: ${{ matrix.compiler_driver == 'icpx' && steps.cache-icpx.outputs.cache-hit != 'true' }}
+      run: |
+        curl  --url ${{ matrix.compiler_url }} --output download.sh
+        sudo sh -x download.sh -s -a -s --action install --eula accept
+    - name: Install gtest manually
+      run: sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake CMakeLists.txt && sudo make && sudo cp lib/*.a /usr/lib && sudo ln -s /usr/lib/libgtest.a /usr/local/lib/libgtest.a && sudo ln -s /usr/lib/libgtest_main.a /usr/local/lib/libgtest_main.a
+
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{github.workspace}}/mdspan-build
+      
+    - name: Check Out
+      uses: actions/checkout@v2
+      with:
+        path: ${{github.workspace}}/mdspan-src
+      
+    - name: Configure CMake
+      shell: bash
+      working-directory: ${{github.workspace}}/mdspan-build
+      run: CXX=${{ matrix.compiler_prefix}}/${{ matrix.compiler_driver }} cmake $GITHUB_WORKSPACE/mdspan-src -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/mdspan-install -DMDSPAN_ENABLE_TESTS=ON -DMDSPAN_ENABLE_EXAMPLES=ON
+      
+    - name: Build
+      shell: bash
+      working-directory: ${{github.workspace}}/mdspan-build
+      run: make -j
+      
+    - name: Test
+      working-directory: ${{github.workspace}}/mdspan-build
+      shell: bash
+      run: ctest
+            
+    - name: Install
+      shell: bash
+      working-directory: ${{github.workspace}}/mdspan-build
+      run: make install

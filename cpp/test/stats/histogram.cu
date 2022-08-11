@@ -62,19 +62,22 @@ struct HistInputs {
 
 class HistTest : public ::testing::TestWithParam<HistInputs> {
  protected:
-  HistTest() : in(0, stream), bins(0, stream), ref_bins(0, stream) {}
+  HistTest()
+    : in(0, handle.get_stream()), bins(0, handle.get_stream()), ref_bins(0, handle.get_stream())
+  {
+  }
 
   void SetUp() override
   {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
-    raft::random::Rng r(params.seed);
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-    int len = params.nrows * params.ncols;
+    raft::random::RngState r(params.seed);
+    auto stream = handle.get_stream();
+    int len     = params.nrows * params.ncols;
     in.resize(len, stream);
     if (params.isNormal) {
-      r.normalInt(in.data(), len, params.start, params.end, stream);
+      normalInt(handle, r, in.data(), len, params.start, params.end);
     } else {
-      r.uniformInt(in.data(), len, params.start, params.end, stream);
+      uniformInt(handle, r, in.data(), len, params.start, params.end);
     }
     bins.resize(params.nbins * params.ncols, stream);
     ref_bins.resize(params.nbins * params.ncols, stream);
@@ -83,13 +86,11 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     naiveHist(ref_bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
     histogram<int>(
       params.type, bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
-    raft::interruptible::synchronize(stream);
+    handle.sync_stream();
   }
 
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
  protected:
-  cudaStream_t stream = 0;
+  raft::handle_t handle;
   HistInputs params;
   rmm::device_uvector<int> in, bins, ref_bins;
 };

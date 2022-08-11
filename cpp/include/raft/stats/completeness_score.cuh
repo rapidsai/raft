@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <raft/stats/detail/completeness_score.cuh>
+#include <raft/stats/detail/homogeneity_score.cuh>
 
 namespace raft {
 namespace stats {
@@ -42,8 +42,8 @@ double completeness_score(const T* truthClusterArray,
                           T upperLabelRange,
                           cudaStream_t stream)
 {
-  return detail::completeness_score(
-    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
+  return detail::homogeneity_score(
+    predClusterArray, truthClusterArray, size, lowerLabelRange, upperLabelRange, stream);
 }
 
 };  // end namespace stats

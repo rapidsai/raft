@@ -14,43 +14,10 @@
  * limitations under the License.
  */
 /**
- * @warning This file is deprecated and will be removed in release 22.06.
+ * This file is deprecated and will be removed in release 22.06.
  * Please use the cuh version instead.
  */
 
-#ifndef __COMPLETENESS_SCORE_H
-#define __COMPLETENESS_SCORE_H
-
 #pragma once
 
-#include <raft/stats/detail/completeness_score.cuh>
-
-namespace raft {
-namespace stats {
-
-/**
- * @brief Function to calculate the completeness score between two clusters
- *
- * @param truthClusterArray: the array of truth classes of type T
- * @param predClusterArray: the array of predicted classes of type T
- * @param size: the size of the data points of type int
- * @param lowerLabelRange: the lower bound of the range of labels
- * @param upperLabelRange: the upper bound of the range of labels
- * @param stream: the cudaStream object
- */
-template <typename T>
-double completeness_score(const T* truthClusterArray,
-                          const T* predClusterArray,
-                          int size,
-                          T lowerLabelRange,
-                          T upperLabelRange,
-                          cudaStream_t stream)
-{
-  return detail::completeness_score(
-    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
-}
-
-};  // end namespace stats
-};  // end namespace raft
-
-#endif
+#include <raft/stats/completeness_score.cuh>

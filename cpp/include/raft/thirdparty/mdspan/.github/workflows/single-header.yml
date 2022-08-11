@@ -1,0 +1,22 @@
+name: Build Single Header
+
+on:
+  push:
+    branches:
+      - stable
+
+jobs:
+  deploy:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - run: sudo apt-get install python3
+      - run: ./make_single_header.py ./include/experimental/mdarray > /tmp/mdspan.hpp
+      - uses: actions/checkout@v2
+        with:
+          ref: single-header
+      - run: mv /tmp/mdspan.hpp mdspan.hpp
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          branch: single-header
+          commit_message: Update single header build.

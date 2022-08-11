@@ -22,6 +22,8 @@
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 
+#include <thrust/functional.h>
+
 namespace raft {
 namespace linalg {
 namespace detail {

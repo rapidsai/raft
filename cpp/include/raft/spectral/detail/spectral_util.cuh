@@ -21,9 +21,15 @@
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 
+#include <thrust/device_ptr.h>
 #include <thrust/fill.h>
+#include <thrust/for_each.h>
+#include <thrust/functional.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
+#include <thrust/tuple.h>
 
 #include <algorithm>
 
@@ -154,7 +160,7 @@ void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs,
   // Transpose eigenvector matrix
   //   TODO: in-place transpose
   {
-    vector_t<weight_t> work(handle, nEigVecs * n);
+    raft::spectral::matrix::vector_t<weight_t> work(handle, nEigVecs * n);
     // TODO: Call from public API when ready
     RAFT_CUBLAS_TRY(
       raft::linalg::detail::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));

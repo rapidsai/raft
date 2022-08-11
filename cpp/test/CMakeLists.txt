@@ -16,9 +16,13 @@
 
 # keep the files in alphabetical order!
 add_executable(test_raft
+#    test/cluster/kmeans.cu
+    test/common/logger.cpp
     test/common/seive.cu
     test/cudart_utils.cpp
-    test/cluster_solvers.cu
+#    test/cluster_solvers.cu
+    test/cluster_solvers_deprecated.cu
+    test/device_atomics.cu
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu
     test/distance/dist_chebyshev.cu
@@ -69,13 +73,13 @@ add_executable(test_raft
     test/linalg/ternary_op.cu
     test/linalg/transpose.cu
     test/linalg/unary_op.cu
+    test/matrix/gather.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
     test/matrix/columnSort.cu
     test/matrix/linewise_op.cu
     test/mdarray.cu
-    test/mr/host/buffer.cpp
-    test/mr/device/buffer.cpp
+    test/mdspan_utils.cu
     test/mst.cu
     test/random/make_blobs.cu
     test/random/make_regression.cu
@@ -83,6 +87,7 @@ add_executable(test_raft
     test/random/permute.cu
     test/random/rng.cu
     test/random/rng_int.cu
+    test/random/rmat_rectangular_generator.cu
     test/random/sample_without_replacement.cu
     test/span.cpp
     test/span.cu
@@ -105,6 +110,7 @@ add_executable(test_raft
     test/sparse/row_op.cu
     test/sparse/sort.cu
     test/sparse/symmetrize.cu
+    test/spatial/ann_ivf_flat.cu
     test/spatial/knn.cu
     test/spatial/fused_l2_knn.cu
     test/spatial/haversine.cu
@@ -139,44 +145,41 @@ add_executable(test_raft
 )
 
 set_target_properties(test_raft
-PROPERTIES BUILD_RPATH                         "\$ORIGIN"
-           # set target compile options
-           CXX_STANDARD                        17
-           CXX_STANDARD_REQUIRED               ON
-           CUDA_STANDARD                       17
-           CUDA_STANDARD_REQUIRED              ON
-           POSITION_INDEPENDENT_CODE           ON
-           INTERFACE_POSITION_INDEPENDENT_CODE ON
-           INSTALL_RPATH "\$ORIGIN/../../../lib"
-)
+        PROPERTIES BUILD_RPATH                         "\$ORIGIN"
+        # set target compile options
+        CXX_STANDARD                        17
+        CXX_STANDARD_REQUIRED               ON
+        CUDA_STANDARD                       17
+        CUDA_STANDARD_REQUIRED              ON
+        POSITION_INDEPENDENT_CODE           ON
+        INTERFACE_POSITION_INDEPENDENT_CODE ON
+        INSTALL_RPATH "\$ORIGIN/../../../lib"
+        )
 
 target_compile_options(test_raft
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-                "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-)
+        "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+        )
 
 target_include_directories(test_raft
-    PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
-)
+        PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
+        )
 
 
 target_link_libraries(test_raft
-PRIVATE
-  raft::raft
-  raft::distance
-  raft::nn
-  NCCL::NCCL
-  faiss::faiss
-  GTest::gtest
-  GTest::gtest_main
-  Threads::Threads
-  $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-  $<TARGET_NAME_IF_EXISTS:conda_env>
-)
+        PRIVATE
+        raft::raft
+        raft::distance
+        raft::nn
+        GTest::gtest
+        GTest::gtest_main
+        Threads::Threads
+        $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+        $<TARGET_NAME_IF_EXISTS:conda_env>)
 
 install(
-    TARGETS test_raft
-    COMPONENT testing
-    DESTINATION bin/libraft/gtests
-    EXCLUDE_FROM_ALL
+        TARGETS test_raft
+        COMPONENT testing
+        DESTINATION bin/libraft/gtests
+        EXCLUDE_FROM_ALL
 )

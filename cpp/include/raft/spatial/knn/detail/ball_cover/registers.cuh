@@ -32,6 +32,8 @@
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/utils/Heap.h>
 
+#include <thrust/fill.h>
+
 namespace raft {
 namespace spatial {
 namespace knn {
@@ -160,7 +162,7 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
                                               const value_int n_cols,
                                               bitset_type* bitset,
                                               value_int bitset_size,
-                                              const value_t* R_knn_dists,
+                                              const value_t* R_closest_landmark_dists,
                                               const value_idx* R_indptr,
                                               const value_idx* R_1nn_inds,
                                               const value_t* R_1nn_dists,
@@ -200,12 +202,12 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
   value_int i         = threadIdx.x;
   for (; i < n_k; i += tpb) {
     value_idx ind = knn_inds[blockIdx.x * k + i];
-    heap.add(knn_dists[blockIdx.x * k + i], R_knn_dists[ind * k], ind);
+    heap.add(knn_dists[blockIdx.x * k + i], R_closest_landmark_dists[ind], ind);
   }
 
   if (i < k) {
     value_idx ind = knn_inds[blockIdx.x * k + i];
-    heap.addThreadQ(knn_dists[blockIdx.x * k + i], R_knn_dists[ind * k], ind);
+    heap.addThreadQ(knn_dists[blockIdx.x * k + i], R_closest_landmark_dists[ind], ind);
   }
 
   heap.checkThreadQ();
@@ -616,12 +618,12 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
 {
   const value_int bitset_size = ceil(index.n_landmarks / 32.0);
 
-  rmm::device_uvector<std::uint32_t> bitset(bitset_size * index.m, handle.get_stream());
+  rmm::device_uvector<std::uint32_t> bitset(bitset_size * n_query_rows, handle.get_stream());
   thrust::fill(handle.get_thrust_policy(), bitset.data(), bitset.data() + bitset.size(), 0);
 
   perform_post_filter_registers<value_idx, value_t, value_int, dims, 128>
     <<<n_query_rows, 128, bitset_size * sizeof(std::uint32_t), handle.get_stream()>>>(
-      index.get_X(),
+      query,
       index.n,
       R_knn_inds,
       R_knn_dists,
@@ -649,7 +651,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                                       index.n,
                                                       bitset.data(),
                                                       bitset_size,
-                                                      R_knn_dists,
+                                                      index.get_R_closest_landmark_dists(),
                                                       index.get_R_indptr(),
                                                       index.get_R_1nn_cols(),
                                                       index.get_R_1nn_dists(),
@@ -674,7 +676,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                                       index.n,
                                                       bitset.data(),
                                                       bitset_size,
-                                                      R_knn_dists,
+                                                      index.get_R_closest_landmark_dists(),
                                                       index.get_R_indptr(),
                                                       index.get_R_1nn_cols(),
                                                       index.get_R_1nn_dists(),
@@ -699,7 +701,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                                       index.n,
                                                       bitset.data(),
                                                       bitset_size,
-                                                      R_knn_dists,
+                                                      index.get_R_closest_landmark_dists(),
                                                       index.get_R_indptr(),
                                                       index.get_R_1nn_cols(),
                                                       index.get_R_1nn_dists(),
@@ -724,7 +726,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                                       index.n,
                                                       bitset.data(),
                                                       bitset_size,
-                                                      R_knn_dists,
+                                                      index.get_R_closest_landmark_dists(),
                                                       index.get_R_indptr(),
                                                       index.get_R_1nn_cols(),
                                                       index.get_R_1nn_dists(),
@@ -749,7 +751,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                                      index.n,
                                                      bitset.data(),
                                                      bitset_size,
-                                                     R_knn_dists,
+                                                     index.get_R_closest_landmark_dists(),
                                                      index.get_R_indptr(),
                                                      index.get_R_1nn_cols(),
                                                      index.get_R_1nn_dists(),
@@ -774,7 +776,7 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                                      index.n,
                                                      bitset.data(),
                                                      bitset_size,
-                                                     R_knn_dists,
+                                                     index.get_R_closest_landmark_dists(),
                                                      index.get_R_indptr(),
                                                      index.get_R_1nn_cols(),
                                                      index.get_R_1nn_dists(),

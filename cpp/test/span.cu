@@ -19,8 +19,14 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/span.hpp>
+
+#include <thrust/copy.h>
 #include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
 #include <thrust/host_vector.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/memory.h>
 
 namespace raft {
 struct TestStatus {
@@ -30,16 +36,16 @@ struct TestStatus {
  public:
   TestStatus()
   {
-    CUDA_CHECK(cudaMalloc(&status_, sizeof(int)));
+    RAFT_CUDA_TRY(cudaMalloc(&status_, sizeof(int)));
     int h_status = 1;
-    CUDA_CHECK(cudaMemcpy(status_, &h_status, sizeof(int), cudaMemcpyHostToDevice));
+    RAFT_CUDA_TRY(cudaMemcpy(status_, &h_status, sizeof(int), cudaMemcpyHostToDevice));
   }
-  ~TestStatus() noexcept(false) { CUDA_CHECK(cudaFree(status_)); }
+  ~TestStatus() noexcept(false) { RAFT_CUDA_TRY(cudaFree(status_)); }
 
   int Get()
   {
     int h_status;
-    CUDA_CHECK(cudaMemcpy(&h_status, status_, sizeof(int), cudaMemcpyDeviceToHost));
+    RAFT_CUDA_TRY(cudaMemcpy(&h_status, status_, sizeof(int), cudaMemcpyDeviceToHost));
     return h_status;
   }
 

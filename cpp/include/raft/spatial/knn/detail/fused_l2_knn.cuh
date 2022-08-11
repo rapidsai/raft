@@ -19,7 +19,7 @@
 #include <limits>
 #include <raft/linalg/norm.cuh>
 // TODO: Need to hide the PairwiseDistance class impl and expose to public API
-#include "processing.hpp"
+#include "processing.cuh"
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 
@@ -105,8 +105,8 @@ DI void storeWarpQGmem(myWarpSelect** heapArr,
       for (int j = 0; j < myWarpSelect::kNumWarpQRegisters; ++j) {
         const auto idx = j * warpSize + lid;
         if (idx < numOfNN) {
-          out_dists[gmemRowId * numOfNN + idx] = heapArr[i]->warpK[j];
-          out_inds[gmemRowId * numOfNN + idx]  = (IdxT)heapArr[i]->warpV[j];
+          out_dists[std::size_t(gmemRowId) * numOfNN + idx] = heapArr[i]->warpK[j];
+          out_inds[std::size_t(gmemRowId) * numOfNN + idx]  = (IdxT)heapArr[i]->warpV[j];
         }
       }
     }
@@ -130,8 +130,8 @@ DI void loadPrevTopKsGmemWarpQ(myWarpSelect** heapArr,
       for (int j = 0; j < myWarpSelect::kNumWarpQRegisters; ++j) {
         const auto idx = j * warpSize + lid;
         if (idx < numOfNN) {
-          heapArr[i]->warpK[j] = out_dists[gmemRowId * numOfNN + idx];
-          heapArr[i]->warpV[j] = (uint32_t)out_inds[gmemRowId * numOfNN + idx];
+          heapArr[i]->warpK[j] = out_dists[std::size_t(gmemRowId) * numOfNN + idx];
+          heapArr[i]->warpV[j] = (uint32_t)out_inds[std::size_t(gmemRowId) * numOfNN + idx];
         }
       }
       static constexpr auto kLaneWarpKTop = myWarpSelect::kNumWarpQRegisters - 1;
@@ -446,6 +446,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
                   }
                 }
               }
+              __syncwarp();
               const int finalNumVals = raft::shfl(numValsWarpTopK[i], 31);
               loadWarpQShmem<Policy, Pair>(heapArr[i], &shDumpKV[0], rowId, numOfNN);
               updateSortedWarpQ<Pair, myWarpSelect::kNumWarpQRegisters>(
@@ -490,7 +491,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
       }
     }
 
-    if (((gridStrideX + Policy::Nblk * gridDim.x) > n) && gridDim.x == 1) {
+    if (((gridStrideX + Policy::Nblk * gridDim.x) >= n) && gridDim.x == 1) {
       // This is last iteration of grid stride X
       loadAllWarpQShmem<Policy, Pair>(heapArr, &shDumpKV[0], m, numOfNN);
       storeWarpQGmem<Policy, Pair>(heapArr, out_dists, out_inds, m, numOfNN, starty);
