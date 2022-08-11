@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #ifndef DEFS_H
 #define DEFS_H
 
@@ -72,7 +71,6 @@ namespace raft {
 namespace spatial {
 namespace knn {
 namespace detail {
-
 
 typedef struct {
   real* mat;

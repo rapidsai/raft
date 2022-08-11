@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 /* This file is part of the Random Ball Cover (RBC) library.
  * (C) Copyright 2010, Lawrence Cayton [lcayton@tuebingen.mpg.de]
  */
@@ -54,7 +53,8 @@ inline void computeReps(matrix dq, matrix dr, uint32_t* repIDs, float* distToRep
 }
 
 // Assumes radii is initialized to 0s
-inline void computeRadii(uint32_t* repIDs, float* distToReps, float* radii, uint32_t n, uint32_t numReps)
+inline void computeRadii(
+  uint32_t* repIDs, float* distToReps, float* radii, uint32_t n, uint32_t numReps)
 {
   uint32_t i;
 
@@ -71,11 +71,12 @@ inline void computeCounts(uint32_t* repIDs, uint32_t n, uint32_t* groupCount)
     groupCount[repIDs[i]]++;
   }
 
-//  printf("Done counts\n");
+  //  printf("Done counts\n");
 }
 
 //                    query
-inline void buildQMap(matrix q, uint32_t* qMap, uint32_t* repIDs, uint32_t numReps, uint32_t* compLength)
+inline void buildQMap(
+  matrix q, uint32_t* qMap, uint32_t* repIDs, uint32_t numReps, uint32_t* compLength)
 {
   uint32_t n = q.r;
   uint32_t i;
@@ -147,9 +148,9 @@ inline void setupReps(matrix x, rbcStruct* rbcS, uint32_t numReps)
   free(r.mat);
 }
 
-inline void computeKNNs(matrix dx,          // index matrix
+inline void computeKNNs(matrix dx,  // index matrix
                         intMatrix dxMap,
-                        matrix dq,          // query matrix
+                        matrix dq,  // query matrix
                         uint32_t* dqMap,
                         compPlan dcP,
                         intMatrix NNs,
@@ -212,7 +213,7 @@ inline void initCompPlan(
   compPlan cP;
 
   uint32_t sNumGroups = numReps;
-  cP.numGroups     = (uint32_t*)calloc(sNumGroups, sizeof(*cP.numGroups));
+  cP.numGroups        = (uint32_t*)calloc(sNumGroups, sizeof(*cP.numGroups));
 
   for (i = 0; i < numReps; i++) {
     cP.numGroups[i] = 0;
@@ -234,9 +235,9 @@ inline void initCompPlan(
   }
 
   uint32_t sQGroupToXGroup = numReps * maxNumGroups;
-  cP.qGroupToXGroup     = (uint32_t*)calloc(sQGroupToXGroup, sizeof(*cP.qGroupToXGroup));
+  cP.qGroupToXGroup        = (uint32_t*)calloc(sQGroupToXGroup, sizeof(*cP.qGroupToXGroup));
   uint32_t sGroupCountX    = maxNumGroups * numReps;
-  cP.groupCountX        = (uint32_t*)calloc(sGroupCountX, sizeof(*cP.groupCountX));
+  cP.groupCountX           = (uint32_t*)calloc(sGroupCountX, sizeof(*cP.groupCountX));
 
   for (i = 0; i < numReps; i++) {
     for (j = 0, k = 0; j < numReps; j++) {
@@ -293,14 +294,14 @@ inline void kqueryRBC(const matrix q, const rbcStruct rbcS, intMatrix NNs, matri
 
   uint32_t compLength;
 
-//  printf("Create comp plan\n");
+  //  printf("Create comp plan\n");
   compPlan dcP;
   uint32_t *qMap, *dqMap;
   qMap = (uint32_t*)calloc(PAD(m + (BLOCK_SIZE - 1) * PAD(numReps)), sizeof(*qMap));
   matrix dq;
   copyAndMove(&dq, &q);
 
-//  printf("Create char matrix\n");
+  //  printf("Create char matrix\n");
   charMatrix cM;
   cM.r = cM.c = numReps;
   cM.pr = cM.pc = cM.ld = PAD(numReps);
@@ -391,7 +392,7 @@ inline void buildRBC(const matrix x, rbcStruct* rbcS, uint32_t numReps, uint32_t
    *  MEM_USED_IN_SCAN - memory used internally
    */
   uint32_t ptsAtOnce = DPAD(memFree / ((n + 1) * sizeof(float) + n * sizeof(char) +
-                                    (n + 1) * sizeof(uint32_t) + 2 * MEM_USED_IN_SCAN(n)));
+                                       (n + 1) * sizeof(uint32_t) + 2 * MEM_USED_IN_SCAN(n)));
   if (!ptsAtOnce) {
     fprintf(stderr,
             "error: %lu is not enough memory to build the RBC.. exiting\n",
@@ -481,7 +482,7 @@ inline void buildRBC(const matrix x, rbcStruct* rbcS, uint32_t numReps, uint32_t
     printf("num_left=%d\n", numLeft);
   }
 
-//  printf("Done.\n");
+  //  printf("Done.\n");
 
   cudaFree(dCnts);
   free(ir.mat);

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 /* This file is part of the Random Ball Cover (RBC) library.
  * (C) Copyright 2010, Lawrence Cayton [lcayton@tuebingen.mpg.de]
  */
@@ -110,23 +109,23 @@ inline void sumWrap(charMatrix in, intMatrix sum)
 
       grid.x = numScans;
       sumKernelI<<<grid, block>>>(dAux[i], dAux[i], dAux[i + 1], width[i]);
-        RAFT_CUDA_TRY(cudaDeviceSynchronize());
+      RAFT_CUDA_TRY(cudaDeviceSynchronize());
     }
 
     for (i = depth - 1; i > 0; i--) {
       grid.x = width[i];
       combineSumKernel<<<grid, block>>>(dAux[i - 1], numDone, dAux[i], width[i - 1]);
-        RAFT_CUDA_TRY(cudaDeviceSynchronize());
+      RAFT_CUDA_TRY(cudaDeviceSynchronize());
     }
 
     grid.x = width[0];
     combineSumKernel<<<grid, block>>>(sum, numDone, dAux[0], n);
-      RAFT_CUDA_TRY(cudaDeviceSynchronize());
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
 
     numDone += todo;
 
     std::cout << "numDone = " << numDone << std::endl;
-   }
+  }
 
   for (i = 0; i <= depth; i++)
     cudaFree(dAux[i].mat);
@@ -248,7 +247,7 @@ inline void planNNWrap(const matrix dq,
   dim3 grid;
   uint32_t todo;
 
-  grid.x        = 1;
+  grid.x           = 1;
   uint32_t numDone = 0;
   while (numDone < compLength) {
     todo   = MIN((compLength - numDone), MAX_BS * BLOCK_SIZE);
@@ -259,9 +258,9 @@ inline void planNNWrap(const matrix dq,
   cudaThreadSynchronize();
 }
 
-inline void planKNNWrap(const matrix dq,  // query matrix
+inline void planKNNWrap(const matrix dq,        // query matrix
                         const uint32_t* dqMap,  //
-                        const matrix dx,  // index matrix
+                        const matrix dx,        // index matrix
                         const intMatrix dxMap,
                         matrix dMins,  //
                         intMatrix dMinIDs,
@@ -272,7 +271,7 @@ inline void planKNNWrap(const matrix dq,  // query matrix
   dim3 grid;
   uint32_t todo;
 
-  grid.x        = 1;
+  grid.x           = 1;
   uint32_t numDone = 0;
 
   int n_times = 0;

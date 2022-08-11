@@ -30,11 +30,10 @@
 #include <thrust/transform.h>
 
 #include <cstdint>
+#include <cuda.h>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <vector>
-#include <cuda.h>
-
 
 namespace raft {
 namespace spatial {
@@ -44,13 +43,13 @@ using namespace std;
 
 template <typename value_idx, typename value_t>
 __global__ void count_discrepancies_kernel_2(value_idx* actual_idx,
-                                           value_idx* expected_idx,
-                                           value_t* actual,
-                                           value_t* expected,
-                                           uint32_t m,
-                                           uint32_t n,
-                                           uint32_t* out,
-                                           float thres = 1e-3)
+                                             value_idx* expected_idx,
+                                             value_t* actual,
+                                             value_t* expected,
+                                             uint32_t m,
+                                             uint32_t n,
+                                             uint32_t* out,
+                                             float thres = 1e-3)
 {
   uint32_t row = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -145,30 +144,28 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
 
     uint32_t k         = params.k;
     uint32_t n_centers = 25;
-//    float weight       = params.weight;
-    auto metric        = params.metric;
+    //    float weight       = params.weight;
+    auto metric = params.metric;
 
     rmm::device_uvector<value_t> X(params.n_rows * params.n_cols, handle.get_stream());
     rmm::device_uvector<uint32_t> Y(params.n_rows, handle.get_stream());
 
+    rmm::device_uvector<value_t> X_q(params.n_query * params.n_cols, handle.get_stream());
+    rmm::device_uvector<uint32_t> Y_q(params.n_query, handle.get_stream());
 
-      rmm::device_uvector<value_t> X_q(params.n_query * params.n_cols, handle.get_stream());
-      rmm::device_uvector<uint32_t> Y_q(params.n_query, handle.get_stream());
-
-      raft::random::make_blobs(
+    raft::random::make_blobs(
       X.data(), Y.data(), params.n_rows, params.n_cols, n_centers, handle.get_stream());
 
-      raft::random::make_blobs(
-              X_q.data(), Y_q.data(), params.n_query, params.n_cols, n_centers, handle.get_stream());
+    raft::random::make_blobs(
+      X_q.data(), Y_q.data(), params.n_query, params.n_cols, n_centers, handle.get_stream());
 
-      rmm::device_uvector<value_idx> d_ref_I(params.n_query * k, handle.get_stream());
+    rmm::device_uvector<value_idx> d_ref_I(params.n_query * k, handle.get_stream());
     rmm::device_uvector<value_t> d_ref_D(params.n_query * k, handle.get_stream());
 
     if (metric == raft::distance::DistanceType::Haversine) {
       thrust::transform(
         handle.get_thrust_policy(), X.data(), X.data() + X.size(), X.data(), ToRadians());
     }
-
 
     auto bfknn_start = curTimeMillis();
     compute_bfknn(handle,
@@ -183,78 +180,75 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
                   d_ref_I.data());
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
-      std::cout << "bfknn Took: " << (curTimeMillis() - bfknn_start) << "ms." << std::endl;
+    std::cout << "bfknn Took: " << (curTimeMillis() - bfknn_start) << "ms." << std::endl;
 
-      raft::print_device_vector("X", X.data(), 10, std::cout);
+    raft::print_device_vector("X", X.data(), 10, std::cout);
 
-      // Allocate predicted arrays
+    // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(params.n_query * k, handle.get_stream());
     rmm::device_uvector<value_t> d_pred_D(params.n_query * k, handle.get_stream());
 
     auto start = curTimeMillis();
-    int n = params.n_rows;
-    int m = params.n_query;
-    int d = params.n_cols;
+    int n      = params.n_rows;
+    int m      = params.n_query;
+    int d      = params.n_cols;
 
     uint32_t numReps = std::sqrt(n);
 
     std::cout << "sizeof: " << sizeof(uint) << std::endl;
 
-      detail::matrix x, q;
-      detail::intMatrix nnsRBC;
-      detail::matrix distsRBC;
-      detail::rbcStruct rbcS;
+    detail::matrix x, q;
+    detail::intMatrix nnsRBC;
+    detail::matrix distsRBC;
+    detail::rbcStruct rbcS;
 
-      //Setup matrices
-      detail::initMat( &x, n, d );
-      detail::initMat( &q, m, d );
-      x.mat = (float*)calloc( sizeOfMat(x), sizeof(*(x.mat)) );
-      q.mat = (float*)calloc( sizeOfMat(q), sizeof(*(q.mat)) );
+    // Setup matrices
+    detail::initMat(&x, n, d);
+    detail::initMat(&q, m, d);
+    x.mat = (float*)calloc(sizeOfMat(x), sizeof(*(x.mat)));
+    q.mat = (float*)calloc(sizeOfMat(q), sizeof(*(q.mat)));
 
-      raft::update_host(x.mat, X.data(), n * d, handle.get_stream());
-      raft::update_host(q.mat, X.data(), m * d, handle.get_stream());
+    raft::update_host(x.mat, X.data(), n * d, handle.get_stream());
+    raft::update_host(q.mat, X.data(), m * d, handle.get_stream());
 
-      RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
 
+    //      //Load data
+    //      if( dataFileXtxt )
+    //          readDataText( dataFileXtxt, x );
+    //      else
+    //          readData( dataFileX, x );
+    //      if( dataFileQtxt )
+    //          readDataText( dataFileQtxt, q );
+    //      else
+    //          readData( dataFileQ, q );
 
-//      //Load data
-//      if( dataFileXtxt )
-//          readDataText( dataFileXtxt, x );
-//      else
-//          readData( dataFileX, x );
-//      if( dataFileQtxt )
-//          readDataText( dataFileQtxt, q );
-//      else
-//          readData( dataFileQ, q );
+    // Allocate space for NNs and dists
+    detail::initIntMat(&nnsRBC, m, KMAX);  // KMAX is defined in defs.h
+    detail::initMat(&distsRBC, m, KMAX);
+    nnsRBC.mat   = (uint32_t*)calloc(sizeOfIntMat(nnsRBC), sizeof(*nnsRBC.mat));
+    distsRBC.mat = (float*)calloc(sizeOfMat(distsRBC), sizeof(*distsRBC.mat));
 
+    printf("BUilding rbc\n");
+    // Build the RBC
+    detail::buildRBC(x, &rbcS, numReps, numReps);
 
-      //Allocate space for NNs and dists
-      detail::initIntMat( &nnsRBC, m, KMAX );  //KMAX is defined in defs.h
-      detail::initMat( &distsRBC, m, KMAX );
-      nnsRBC.mat = (uint32_t*)calloc( sizeOfIntMat(nnsRBC), sizeof(*nnsRBC.mat) );
-      distsRBC.mat = (float*)calloc( sizeOfMat(distsRBC), sizeof(*distsRBC.mat) );
+    printf("Querying rbc\n");
 
+    // This finds the 32-NNs; if you are only interested in the 1-NN, use queryRBC(..) instead
+    detail::kqueryRBC(q, rbcS, nnsRBC, distsRBC);
 
-      printf("BUilding rbc\n");
-      //Build the RBC
-      detail::buildRBC( x, &rbcS, numReps, numReps );
-
-      printf("Querying rbc\n");
-
-      //This finds the 32-NNs; if you are only interested in the 1-NN, use queryRBC(..) instead
-      detail::kqueryRBC( q, rbcS, nnsRBC, distsRBC );
-
-//      BallCoverIndex<value_idx, value_t> index(
-//      handle, X.data(), params.n_rows, params.n_cols, metric);
-//
-//    raft::spatial::knn::rbc_build_index(handle, index);
-//    raft::spatial::knn::rbc_knn_query(
-//      handle, index, k, X.data(), params.n_query, d_pred_I.data(), d_pred_D.data(), true, weight);
-//
+    //      BallCoverIndex<value_idx, value_t> index(
+    //      handle, X.data(), params.n_rows, params.n_cols, metric);
+    //
+    //    raft::spatial::knn::rbc_build_index(handle, index);
+    //    raft::spatial::knn::rbc_knn_query(
+    //      handle, index, k, X.data(), params.n_query, d_pred_I.data(), d_pred_D.data(), true,
+    //      weight);
+    //
 
     cudaDeviceSynchronize();
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
-
 
     // What we really want are for the distances to match exactly. The
     // indices may or may not match exactly, depending upon the ordering which
@@ -262,37 +256,35 @@ class BallCoverHighDimsTest : public ::testing::TestWithParam<BallCoverInputs> {
 
     std::cout << "RBC Took: " << (curTimeMillis() - start) << "ms." << std::endl;
 
-
     printf("nnsRBC: [");
-    for(uint32_t i = 0; i < params.n_query; i+=params.k) {
-        printf("%u, ", nnsRBC.mat[i]);
+    for (uint32_t i = 0; i < params.n_query; i += params.k) {
+      printf("%u, ", nnsRBC.mat[i]);
     }
     printf("]\n");
 
     float res = 0;
-      printf("distsRBC: [");
-      for(uint32_t i = 0; i < params.n_query; i+=params.k) {
-          printf("%f, ", distsRBC.mat[i]);
-          // Distances should all be 0.
-          res += distsRBC.mat[i];
-      }
-      printf("]\n");
+    printf("distsRBC: [");
+    for (uint32_t i = 0; i < params.n_query; i += params.k) {
+      printf("%f, ", distsRBC.mat[i]);
+      // Distances should all be 0.
+      res += distsRBC.mat[i];
+    }
+    printf("]\n");
 
-
-      rmm::device_uvector<uint32_t> discrepancies(params.n_query, handle.get_stream());
+    rmm::device_uvector<uint32_t> discrepancies(params.n_query, handle.get_stream());
     thrust::fill(handle.get_thrust_policy(),
                  discrepancies.data(),
                  discrepancies.data() + discrepancies.size(),
                  0);
     //
-//    int res = count_discrepancies(d_ref_I.data(),
-//                                  d_pred_I.data(),
-//                                  d_ref_D.data(),
-//                                  d_pred_D.data(),
-//                                  params.n_query,
-//                                  k,
-//                                  discrepancies.data(),
-//                                  handle.get_stream());
+    //    int res = count_discrepancies(d_ref_I.data(),
+    //                                  d_pred_I.data(),
+    //                                  d_ref_D.data(),
+    //                                  d_pred_D.data(),
+    //                                  params.n_query,
+    //                                  k,
+    //                                  discrepancies.data(),
+    //                                  handle.get_stream());
 
     ASSERT_TRUE(res == 0);
   }

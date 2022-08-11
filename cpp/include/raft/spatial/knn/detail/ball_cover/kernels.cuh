@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 /* This file is part of the Random Ball Cover (RBC) library.
  * (C) Copyright 2010, Lawrence Cayton [lcayton@tuebingen.mpg.de]
  */
@@ -34,12 +33,12 @@ namespace detail {
 // exchanges the indices (xi and yi) accordingly.
 __device__ __inline__ void mmGateI(float* x, float* y, uint32_t* xi, uint32_t* yi)
 {
-  int ti = MINi(*x, *y, *xi, *yi);
-  *yi    = MAXi(*x, *y, *xi, *yi);
-  *xi    = ti;
+  int ti  = MINi(*x, *y, *xi, *yi);
+  *yi     = MAXi(*x, *y, *xi, *yi);
+  *xi     = ti;
   float t = MIN(*x, *y);
-  *y     = MAX(*x, *y);
-  *x     = t;
+  *y      = MAX(*x, *y);
+  *x      = t;
 }
 
 //**************************************************************************
@@ -736,7 +735,10 @@ __global__ __inline__ void rangeCountKernel(
   if (xo == 0 && q + qo < Q.r) counts[q + qo] = scnt[qo][0];
 }
 
-__global__ __inline__ void combineSumKernel(intMatrix sum, uint32_t numDone, intMatrix daux, uint32_t n)
+__global__ __inline__ void combineSumKernel(intMatrix sum,
+                                            uint32_t numDone,
+                                            intMatrix daux,
+                                            uint32_t n)
 {
   uint32_t id = threadIdx.x;
   uint32_t bo = blockIdx.x * SCAN_WIDTH;

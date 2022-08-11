@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 /* This file is part of the Random Ball Cover (RBC) library.
  * (C) Copyright 2010, Lawrence Cayton [lcayton@tuebingen.mpg.de]
  */
@@ -237,7 +236,7 @@ void subRandPerm(uint32_t l, uint32_t n, uint32_t* x)
 
   struct timeval t3;
   gettimeofday(&t3, NULL);
-  srand(0ULL); //srand(t3.tv_usec);
+  srand(0ULL);  // srand(t3.tv_usec);
 
   for (i = 0; i < n; i++)
     y[i] = i;
@@ -261,7 +260,7 @@ inline void randPerm(uint32_t n, uint32_t* x)
 
   struct timeval t3;
   gettimeofday(&t3, NULL);
-  srand(0ULL); //srand(t3.tv_usec);
+  srand(0ULL);  // srand(t3.tv_usec);
 
   for (i = 0; i < n; i++) {
     x[i] = i;
