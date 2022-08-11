@@ -69,7 +69,7 @@ class ucp_request {
 };
 
 // by default, match the whole tag
-static const ucp_tag_t default_tag_mask = -1;
+static const ucp_tag_t default_tag_mask = (ucp_tag_t)-1;
 
 /**
  * @brief Asynchronous send callback sets request to completed
