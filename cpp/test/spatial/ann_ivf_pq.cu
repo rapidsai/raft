@@ -157,15 +157,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
       rmm::device_uvector<uint64_t> indices_ivf_pq_dev(queries_size, stream_);
 
       {
-        std::unique_ptr<ivf_pq::cuannIvfPqDescriptor,
-                        std::function<void(ivf_pq::cuannIvfPqDescriptor_t)>>
-          cuann_desc{
-            []() {
-              ivf_pq::cuannIvfPqDescriptor_t d;
-              ivf_pq::cuannIvfPqCreateDescriptor(&d);
-              return d;
-            }(),
-            [](ivf_pq::cuannIvfPqDescriptor_t d) { ivf_pq::cuannIvfPqDestroyDescriptor(d); }};
+        auto cuann_desc = ivf_pq::cuannIvfPqCreateDescriptor();
 
         // Number of kmeans clusters.
         //
@@ -209,7 +201,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_SUBSPACE;
         // ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_CLUSTER;
         ivf_pq::cuannIvfPqSetIndexParameters(
-          cuann_desc.get(),
+          cuann_desc,
           n_clusters,               /* Number of clusters */
           uint32_t(ps.num_db_vecs), /* Number of dataset entries */
           uint32_t(ps.dim),         /* Dimension of each entry */
@@ -218,27 +210,21 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
           similarity,
           typePqCenter);
 
-        // Allocate memory for index
-        size_t ivf_pq_index_size;
-        ivf_pq::cuannIvfPqGetIndexSize(cuann_desc.get(), &ivf_pq_index_size);
-        rmm::device_buffer ivf_pq_index_buf_managed(ivf_pq_index_size, stream_, &managed_memory);
-
         // Build index
         ivf_pq::cuannIvfPqBuildIndex(
           handle_,
-          cuann_desc.get(),
+          cuann_desc,
           database.data(),           // dataset
           database.data(),           // ?kmeans? trainset
           uint32_t(ps.num_db_vecs),  // size of the trainset (I guess for kmeans)
           numIterations,
           randomRotation,
-          true,                            // hierarchialClustering: always true in raft
-          ivf_pq_index_buf_managed.data()  // memory allocated for the index
+          true  // hierarchialClustering: always true in raft
         );
         handle_.sync_stream(stream_);
 
         // set search parameters
-        ivf_pq::cuannIvfPqSetSearchParameters(cuann_desc.get(), ps.nprobe, ps.k);
+        ivf_pq::cuannIvfPqSetSearchParameters(cuann_desc, ps.nprobe, ps.k);
         // Data type of LUT to be created dynamically at search time.
         //
         // The use of low-precision types reduces the amount of shared memory
@@ -263,7 +249,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         //
         uint32_t preferredThreadBlockSize = 0;  // 0, 256, 512, or 1024
         ivf_pq::cuannIvfPqSetSearchTuningParameters(
-          cuann_desc.get(), internalDistanceDtype, smemLutDtype, preferredThreadBlockSize);
+          cuann_desc, internalDistanceDtype, smemLutDtype, preferredThreadBlockSize);
         // Maximum number of query vectors to search at the same time.
         uint32_t batchSize = std::min<uint32_t>(ps.num_queries, 32768);
         // Maximum device memory size that may be used as workspace at search time.
@@ -272,18 +258,13 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
 
         // Allocate memory for index
         size_t ivf_pq_search_workspace_size;
-        ivf_pq::cuannIvfPqSearch_bufferSize(handle_,
-                                            cuann_desc.get(),
-                                            ivf_pq_index_buf_managed.data(),
-                                            batchSize,
-                                            maxSearchWorkspaceSize,
-                                            &ivf_pq_search_workspace_size);
+        ivf_pq::cuannIvfPqSearch_bufferSize(
+          handle_, cuann_desc, batchSize, maxSearchWorkspaceSize, &ivf_pq_search_workspace_size);
         rmm::device_buffer ivf_pq_search_ws_buf(ivf_pq_search_workspace_size, stream_);
 
         // finally, search!
         cuannIvfPqSearch(handle_,
-                         cuann_desc.get(),
-                         ivf_pq_index_buf_managed.data(),
+                         cuann_desc,
                          search_queries.data(),
                          ps.num_queries,
                          indices_ivf_pq_dev.data(),
