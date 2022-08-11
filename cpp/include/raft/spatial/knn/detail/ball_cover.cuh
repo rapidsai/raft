@@ -420,14 +420,18 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                  R_knn_dists.end(),
                  std::numeric_limits<value_t>::max());
 
-  thrust::fill(
-    handle.get_thrust_policy(), inds, inds + (k * index.m), std::numeric_limits<value_idx>::max());
-  thrust::fill(
-    handle.get_thrust_policy(), dists, dists + (k * index.m), std::numeric_limits<value_t>::max());
+    thrust::fill(handle.get_thrust_policy(),
+                 inds,
+                 inds + (k * index.m),
+                 std::numeric_limits<value_idx>::max());
+    thrust::fill(handle.get_thrust_policy(),
+                 dists,
+                 dists + (k * index.m),
+                 std::numeric_limits<value_t>::max());
 
-  // For debugging / verification. Remove before releasing
-  rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
-  rmm::device_uvector<value_int> post_dists_counter(index.m, handle.get_stream());
+    // For debugging / verification. Remove before releasing
+    rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
+    rmm::device_uvector<value_int> post_dists_counter(index.m, handle.get_stream());
 
     sample_landmarks<value_idx, value_t>(handle, index);
 

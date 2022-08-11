@@ -172,7 +172,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
 
     raft::random::make_blobs(
       X.data(), Y.data(), params.n_rows, params.n_cols, n_centers, handle.get_stream());
-        //true, nullptr, nullptr, 1.0, false);
+    // true, nullptr, nullptr, 1.0, false);
 
     raft::random::make_blobs(
       X2.data(), Y2.data(), params.n_query, params.n_cols, n_centers, handle.get_stream());
@@ -187,7 +187,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
         handle.get_thrust_policy(), X2.data(), X2.data() + X2.size(), X2.data(), ToRadians());
     }
 
-      auto bfknn_time = curTimeMillis();
+    auto bfknn_time = curTimeMillis();
     compute_bfknn(handle,
                   X.data(),
                   X2.data(),
@@ -201,11 +201,11 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
 
     handle.sync_stream();
 
-      std::cout << "bfknn_time: " << (curTimeMillis() - bfknn_time) << std::endl;
+    std::cout << "bfknn_time: " << (curTimeMillis() - bfknn_time) << std::endl;
     // Allocate predicted arrays
     rmm::device_uvector<value_idx> d_pred_I(params.n_query * k, handle.get_stream());
     rmm::device_uvector<value_t> d_pred_D(params.n_query * k, handle.get_stream());
-      auto rbc_time = curTimeMillis();
+    auto rbc_time = curTimeMillis();
 
     BallCoverIndex<value_idx, value_t> index(
       handle, X.data(), params.n_rows, params.n_cols, metric);
@@ -218,7 +218,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     // What we really want are for the distances to match exactly. The
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
-      std::cout << "ball cover time: " << (curTimeMillis() - rbc_time) << std::endl;
+    std::cout << "ball cover time: " << (curTimeMillis() - rbc_time) << std::endl;
 
     rmm::device_uvector<uint32_t> discrepancies(params.n_query, handle.get_stream());
     thrust::fill(handle.get_thrust_policy(),
@@ -265,7 +265,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
 
     raft::random::make_blobs(
       X.data(), Y.data(), params.n_rows, params.n_cols, n_centers, handle.get_stream());
-      //true, nullptr, nullptr, 1.0, false);
+    // true, nullptr, nullptr, 1.0, false);
 
     rmm::device_uvector<value_idx> d_ref_I(params.n_rows * k, handle.get_stream());
     rmm::device_uvector<value_t> d_ref_D(params.n_rows * k, handle.get_stream());
@@ -275,9 +275,9 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
         handle.get_thrust_policy(), X.data(), X.data() + X.size(), X.data(), ToRadians());
     }
 
-      auto bfknn_time = curTimeMillis();
+    auto bfknn_time = curTimeMillis();
 
-      compute_bfknn(handle,
+    compute_bfknn(handle,
                   X.data(),
                   X.data(),
                   params.n_rows,
@@ -288,7 +288,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
                   d_ref_D.data(),
                   d_ref_I.data());
 
-      RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
     std::cout << "bfknn_time: " << (curTimeMillis() - bfknn_time) << std::endl;
 
     handle.sync_stream();
@@ -297,9 +297,9 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     rmm::device_uvector<value_idx> d_pred_I(params.n_rows * k, handle.get_stream());
     rmm::device_uvector<value_t> d_pred_D(params.n_rows * k, handle.get_stream());
 
-      auto rbc_time = curTimeMillis();
+    auto rbc_time = curTimeMillis();
 
-      BallCoverIndex<value_idx, value_t> index(
+    BallCoverIndex<value_idx, value_t> index(
       handle, X.data(), params.n_rows, params.n_cols, metric);
 
     raft::spatial::knn::rbc_all_knn_query(
@@ -310,7 +310,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     // indices may or may not match exactly, depending upon the ordering which
     // can be nondeterministic.
 
-      std::cout << "ball cover time: " << (curTimeMillis() - rbc_time) << std::endl;
+    std::cout << "ball cover time: " << (curTimeMillis() - rbc_time) << std::endl;
     rmm::device_uvector<uint32_t> discrepancies(params.n_rows, handle.get_stream());
     thrust::fill(handle.get_thrust_policy(),
                  discrepancies.data(),
@@ -346,22 +346,21 @@ typedef BallCoverKNNQueryTest<std::int64_t, float> BallCoverKNNQueryTestF;
 
 const std::vector<BallCoverInputs> ballcover_inputs = {
 
-
   // Low dim params
-//  {2, 50000, 2, 1.0, 25000, raft::distance::DistanceType::Haversine},
-//  {11, 50000, 2, 1.0, 25000, raft::distance::DistanceType::Haversine},
-//  {25, 50000, 2, 1.0, 25000, raft::distance::DistanceType::Haversine},
-//  {2, 50000, 2, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
-//  {11, 50000, 2, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
-//  {25, 25000, 2, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
-//  {2, 25000, 3, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
-//  {11, 25000, 3, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  //  {2, 50000, 2, 1.0, 25000, raft::distance::DistanceType::Haversine},
+  //  {11, 50000, 2, 1.0, 25000, raft::distance::DistanceType::Haversine},
+  //  {25, 50000, 2, 1.0, 25000, raft::distance::DistanceType::Haversine},
+  //  {2, 50000, 2, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  //  {11, 50000, 2, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  //  {25, 25000, 2, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  //  {2, 25000, 3, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  //  {11, 25000, 3, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
   {32, 25000, 3, 1.0, 25000, raft::distance::DistanceType::L2SqrtUnexpanded},
 
   // High dim params
-//  {2, 500, 16, 1.0, 100, raft::distance::DistanceType::L2SqrtUnexpanded},
-//  {11, 50000, 16, 1.0, 50000, raft::distance::DistanceType::L2SqrtUnexpanded},
-//  {25, 50000, 16, 1.0, 50000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  //  {2, 500, 16, 1.0, 100, raft::distance::DistanceType::L2SqrtUnexpanded},
+  //  {11, 50000, 16, 1.0, 50000, raft::distance::DistanceType::L2SqrtUnexpanded},
+  //  {25, 50000, 16, 1.0, 50000, raft::distance::DistanceType::L2SqrtUnexpanded},
 };
 
 INSTANTIATE_TEST_CASE_P(BallCoverAllKNNTest,
