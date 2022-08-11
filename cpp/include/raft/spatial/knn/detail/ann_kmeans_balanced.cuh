@@ -419,12 +419,12 @@ template <typename T>
 void build_clusters(const handle_t& handle,
                     uint32_t n_iters,
                     uint32_t dim,
-                    const T* dataset,  // managed; [n_rows, dim]
+                    const T* dataset,  // device; [n_rows, dim]
                     size_t n_rows,
                     uint32_t n_clusters,
-                    float* cluster_centers,    // managed; [n_clusters, dim]
-                    uint32_t* cluster_labels,  // managed; [n_rows]
-                    uint32_t* cluster_sizes,   // managed; [n_clusters]
+                    float* cluster_centers,    // device; [n_clusters, dim]
+                    uint32_t* cluster_labels,  // device; [n_rows]
+                    uint32_t* cluster_sizes,   // device; [n_clusters]
                     raft::distance::DistanceType metric,
                     rmm::mr::device_memory_resource* device_memory,
                     rmm::cuda_stream_view stream)
