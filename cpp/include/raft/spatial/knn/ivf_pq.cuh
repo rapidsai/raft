@@ -2890,18 +2890,6 @@ inline void cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t desc,
 inline void cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc,
                                    size_t* size /* bytes of dataset index */);
 
-inline void cuannIvfPqBuildIndex(
-  const handle_t& handle,
-  cuannIvfPqDescriptor_t desc,
-  const void* dataset,  /* [numDataset, dimDataset] */
-  const void* trainset, /* [numTrainset, dimDataset] */
-  cudaDataType_t dtype,
-  uint32_t numTrainset,        /* Number of train-set entries */
-  uint32_t numIterations,      /* Number of iterations to train kmeans */
-  bool randomRotation,         /* If true, rotate vectors with randamly created rotation matrix */
-  bool hierarchicalClustering, /* If true, do kmeans training hierarchically */
-  void* index /* database index to build */);
-
 inline void cuannIvfPqSaveIndex(const handle_t& handle,
                                 cuannIvfPqDescriptor_t desc,
                                 const void* index,
@@ -2944,16 +2932,6 @@ inline void cuannIvfPqSearch_bufferSize(const handle_t& handle,
                                         uint32_t numQueries,
                                         size_t maxWorkspaceSize,
                                         size_t* workspaceSize);
-
-inline void cuannIvfPqSearch(const handle_t& handle,
-                             cuannIvfPqDescriptor_t desc,
-                             const void* index,
-                             const void* queries, /* [numQueries, dimDataset] */
-                             cudaDataType_t dtype,
-                             uint32_t numQueries,
-                             uint64_t* neighbors, /* [numQueries, topK] */
-                             float* distances,    /* [numQueries, topK] */
-                             void* workspace);
 
 inline void cuannPostprocessingRefine(uint32_t numDataset,
                                       uint32_t numQueries,
@@ -3680,23 +3658,33 @@ inline void cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t desc, size_t* size)
   *size += _cuann_getIndexSize_clusterRotCenters(desc);
 }
 
-// cuannIvfPqBuildIndex
-inline void cuannIvfPqBuildIndex(const handle_t& handle,
-                                 cuannIvfPqDescriptor_t desc,
-                                 const void* dataset,
-                                 const void* trainset,
-                                 cudaDataType_t dtype,
-                                 uint32_t numTrainset,
-                                 uint32_t numIterations,
-                                 bool randomRotation,
-                                 bool hierarchicalClustering,
-                                 void* index)
+template <typename T>
+void cuannIvfPqBuildIndex(
+  const handle_t& handle,
+  cuannIvfPqDescriptor_t desc,
+  const T* dataset,            /* [numDataset, dimDataset] */
+  const T* trainset,           /* [numTrainset, dimDataset] */
+  uint32_t numTrainset,        /* Number of train-set entries */
+  uint32_t numIterations,      /* Number of iterations to train kmeans */
+  bool randomRotation,         /* If true, rotate vectors with randamly created rotation matrix */
+  bool hierarchicalClustering, /* If true, do kmeans training hierarchically */
+  void* index /* database index to build */)
 {
   int cuannDevId  = handle.get_device();
   int callerDevId = _cuann_set_device(cuannDevId);
 
-  RAFT_EXPECTS(dtype == CUDA_R_32F || dtype == CUDA_R_8U || dtype == CUDA_R_8I,
-               "Unsupported dtype");
+  cudaDataType_t dtype;
+  if constexpr (std::is_same_v<T, float>) {
+    dtype = CUDA_R_32F;
+  } else if constexpr (std::is_same_v<T, uint8_t>) {
+    dtype = CUDA_R_8U;
+  } else if constexpr (std::is_same_v<T, int8_t>) {
+    dtype = CUDA_R_8I;
+  } else {
+    static_assert(
+      std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+      "unsupported type");
+  }
   if (desc->similarity == CUANN_SIMILARITY_INNER) {
     RAFT_EXPECTS(dtype == CUDA_R_32F,
                  "Unsupported dtype (inner-product metric support float only)");
@@ -4948,23 +4936,31 @@ inline void cuannIvfPqSearch_bufferSize(const handle_t& handle,
     "workspaceSize: %lu (%.3f GiB)", *workspaceSize, (float)*workspaceSize / 1024 / 1024 / 1024);
 }
 
-// cuannIvfPqSearch
-inline void cuannIvfPqSearch(
-  const handle_t& handle,
-  cuannIvfPqDescriptor_t desc,
-  const void* index,
-  const void* queries,  // [numQueries, dimDataset], host or device pointer
-  cudaDataType_t dtype,
-  uint32_t numQueries,
-  uint64_t* neighbors,  // [numQueries, topK], device pointer
-  float* distances,     // [numQueries, topK], device pointer
-  void* workspace)
+template <typename T>
+void cuannIvfPqSearch(const handle_t& handle,
+                      cuannIvfPqDescriptor_t desc,
+                      const void* index,
+                      const T* queries, /* [numQueries, dimDataset], host or device pointer */
+                      uint32_t numQueries,
+                      uint64_t* neighbors, /* [numQueries, topK], device pointer */
+                      float* distances,    /* [numQueries, topK], device pointer */
+                      void* workspace)
 {
   RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
   int orgDevId = _cuann_set_device(handle.get_device());
 
-  RAFT_EXPECTS(dtype == CUDA_R_32F || dtype == CUDA_R_8U || dtype == CUDA_R_8I,
-               "unsupported dtype");
+  cudaDataType_t dtype;
+  if constexpr (std::is_same_v<T, float>) {
+    dtype = CUDA_R_32F;
+  } else if constexpr (std::is_same_v<T, uint8_t>) {
+    dtype = CUDA_R_8U;
+  } else if constexpr (std::is_same_v<T, int8_t>) {
+    dtype = CUDA_R_8I;
+  } else {
+    static_assert(
+      std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+      "unsupported type");
+  }
 
   struct cuannIvfPqIndexHeader* header;
   float* clusterCenters;      // [numClusters, dimDatasetExt]
