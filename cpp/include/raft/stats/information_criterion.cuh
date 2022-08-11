@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/stats/common.hpp>
 #include <raft/stats/detail/batched/information_criterion.cuh>
 
@@ -63,6 +64,32 @@ void information_criterion_batched(ScalarT* d_ic,
     d_ic, d_loglikelihood, ic_type, n_params, batch_size, n_samples, stream);
 }
 
+/**
+ * Compute the given type of information criterion
+ *
+ * @note: it is safe to do the computation in-place (i.e give same pointer
+ *        as input and output)
+ *
+ * @param[in]  handle           the raft handle
+ * @param[out] d_ic             Information criterion to be returned for each
+ *                              series (device) length: batch_size
+ * @param[in]  d_loglikelihood  Log-likelihood for each series (device) length: batch_size
+ * @param[in]  ic_type          Type of criterion to compute. See IC_Type
+ * @param[in]  n_params         Number of parameters in the model
+ * @param[in]  n_samples        Number of samples in each series
+ */
+template <typename ScalarT, typename IdxT>
+void information_criterion_batched(const raft::handle_t& handle,
+                                   const raft::device_vector_view<ScalarT, IdxT>& d_ic,
+                                   const raft::device_vector_view<const ScalarT, IdxT>& d_loglikelihood,
+                                   IC_Type ic_type,
+                                   IdxT n_params,
+                                   IdxT n_samples)
+{
+  batched::detail::information_criterion(
+    d_ic.data_handle(), d_loglikelihood.data_handle(), ic_type, n_params, d_ic.extent(0), n_samples, handle.get_stream());
+}
+ 
 }  // namespace stats
 }  // namespace raft
 #endif

@@ -104,6 +104,7 @@ void meanAdd(Type* out,
 /**
  * @brief Add the input matrix wrt its mean
  * @tparam Type the data type
+ * @tparam IdxType Integer type used for addressing
  * @tparam LayoutPolicy Layout type of the input matrix.
  * @tparam TPB threads per block of the cuda kernel launched
  * @param handle the raft handle
@@ -112,7 +113,7 @@ void meanAdd(Type* out,
  * @param out the output mean-added matrix
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename Type, typename IdxType, typename LayoutPolicy, int TPB = 256>
+template <typename Type, typename IdxType, typename LayoutPolicy = raft::row_major, int TPB = 256>
 void meanAdd(const raft::handle_t& handle,
   const raft::device_matrix_view<const Type, IdxType, LayoutPolicy>& data,
   const raft::device_vector_view<const Type, IdxType, LayoutPolicy>& mu,

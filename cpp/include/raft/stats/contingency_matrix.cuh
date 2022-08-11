@@ -157,7 +157,8 @@ void contingencyMatrix(const T* groundTruth,
  * @param maxLabel: Optional, max value in input ground truth array
  */
 template <typename T, typename OutT = int>
-void contingencyMatrix(const raft::device_vector_view<const T>& groundTruth,
+void contingencyMatrix(const raft::handle_t& handle,
+                       const raft::device_vector_view<const T>& groundTruth,
                        const raft::device_vector_view<const T>& predictedLabel,
                        const raft::device_matrix_view<OutT>& outMat,
                        void* workspace      = nullptr,

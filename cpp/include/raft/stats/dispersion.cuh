@@ -53,7 +53,7 @@ DataT dispersion(const DataT* centroids,
                  IdxT dim,
                  cudaStream_t stream)
 {
-  return detail::dispersion(
+  return detail::dispersion<DataT, IdxT, TPB>(
     centroids, clusterSizes, globalCentroid, nClusters, nPoints, dim, stream);
 }
 
@@ -77,12 +77,12 @@ DataT dispersion(const DataT* centroids,
 template <typename DataT, typename IdxT = int, typename LayoutPolicy = raft::layout_c_contiguous, int TPB = 256>
 DataT dispersion(
   const raft::handle_t& handle,
-  const raft::device_matrix_view<const DataT, LayoutPolicy>& centroids,
-  const raft::device_vector_view<const IdxT>& clusterSizes,
-  const std::optional<const raft::device_vector_view<DataT>>& globalCentroid,
+  const raft::device_matrix_view<const DataT, IdxT, LayoutPolicy>& centroids,
+  const raft::device_vector_view<const IdxT, IdxT>& clusterSizes,
+  const std::optional<const raft::device_vector_view<DataT, IdxT>>& globalCentroid,
   const IdxT nPoints)
 {
-  return detail::dispersion(
+  return detail::dispersion<DataT, IdxT, TPB>(
     centroids.data(), clusterSizes.data(), globalCentroid.data(), centroids.extent(0), nPoints, centroids.extent(1), handle.get_stream());
 }
  

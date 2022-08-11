@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/stats/detail/homogeneity_score.cuh>
 
 namespace raft {
@@ -47,6 +48,26 @@ double homogeneity_score(const T* truthClusterArray,
     truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
 }
 
+/**
+ * @brief Function to calculate the homogeneity score between two clusters
+ * <a href="https://en.wikipedia.org/wiki/Homogeneity_(statistics)">more info on mutual
+ * information</a>
+ * @param handle the raft handle
+ * @param truthClusterArray: the array of truth classes of type T
+ * @param predClusterArray: the array of predicted classes of type T
+ * @param lowerLabelRange: the lower bound of the range of labels
+ * @param upperLabelRange: the upper bound of the range of labels
+ */
+template <typename T>
+double homogeneity_score(const raft::handle_t& handle,
+                        const raft::device_vector_view<const T>& truthClusterArray,
+                        const raft::device_vector_view<const T>& predClusterArray,
+                        T lowerLabelRange,
+                        T upperLabelRange)
+{
+  return detail::homogeneity_score(
+    truthClusterArray.data_handle(), predClusterArray.data_handle(), truthClusterArray.extent(0), lowerLabelRange, upperLabelRange, handle.get_stream());
+}
 };  // end namespace stats
 };  // end namespace raft
 

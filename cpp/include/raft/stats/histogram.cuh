@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/stats/common.hpp>
 #include <raft/stats/detail/histogram.cuh>
 
@@ -42,7 +43,7 @@ namespace stats {
  * @param nbins number of bins
  * @param data input data (length = ncols * nrows)
  * @param nrows data array length in each column (or batch)
- * @param ncols number of columsn (or batch size)
+ * @param ncols number of columns (or batch size)
  * @param stream cuda stream
  * @param binner the operation that computes the bin index of the input data
  *
@@ -61,6 +62,32 @@ void histogram(HistType type,
   detail::histogram<DataT, IdxT, BinnerOp>(type, bins, nbins, data, nrows, ncols, stream, binner);
 }
 
+
+/**
+ * @brief Perform histogram on the input data. It chooses the right load size
+ * based on the input data vector length. It also supports large-bin cases
+ * using a specialized smem-based hashing technique.
+ * @tparam DataT input data type
+ * @tparam IdxT data type used to compute indices
+ * @tparam BinnerOp takes the input data and computes its bin index
+ * @param handle the raft handle
+ * @param type histogram implementation type to choose
+ * @param bins the output bins (length = ncols * nbins)
+ * @param data input data (length = ncols * nrows)
+ * @param binner the operation that computes the bin index of the input data
+ *
+ * @note signature of BinnerOp is `int func(DataT, IdxT);`
+ */
+template <typename DataT, typename IdxT = int, typename BinnerOp = IdentityBinner<DataT, IdxT>>
+void histogram(const raft::handle_t& handle,
+               HistType type,
+               const raft::device_matrix_view<int>& bins,
+               const raft::device_matrix_view<const DataT>& data,
+               BinnerOp binner = IdentityBinner<DataT, IdxT>())
+{
+  detail::histogram<DataT, IdxT, BinnerOp>(type, bins.data_handle(), bins.extent(1), data.data_handle(), data.extent(0), 
+    data.extent(1), handle.get_stream(), binner);
+}
 };  // end namespace stats
 };  // end namespace raft
 

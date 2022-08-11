@@ -65,6 +65,7 @@ void cov(const raft::handle_t& handle,
  * Mean operation is assumed to be performed on a given column.
  *
  * @tparam Type the data type
+ * @tparam IdxT the index type
  * @tparam LayoutPolicy Layout type of the input matrix.
  * @param handle the raft handle
  * @param data the input matrix (this will get mean-centered at the end!)
@@ -77,11 +78,11 @@ void cov(const raft::handle_t& handle,
  * @note if stable=true, then the input data will be mean centered after this
  * function returns!
  */
-template <typename Type, typename LayoutPolicy>
+template <typename Type, typename IdxT, typename LayoutPolicy>
 void cov(const raft::handle_t& handle,
-        const raft::device_matrix_view<Type, LayoutPolicy>& data,
-        const raft::device_vector_view<const Type>& mu,
-        const raft::device_matrix_view<Type, LayoutPolicy>& covar,
+        const raft::device_matrix_view<Type, IdxT, LayoutPolicy>& data,
+        const raft::device_vector_view<const Type, IdxT>& mu,
+        const raft::device_matrix_view<Type, IdxT, LayoutPolicy>& covar,
         bool sample,
         bool stable)
 {

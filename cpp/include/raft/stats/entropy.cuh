@@ -28,6 +28,7 @@ namespace stats {
  * @brief Function to calculate entropy
  * <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
  *
+ * @tparam T data type
  * @param clusterArray: the array of classes of type T
  * @param size: the size of the data points of type int
  * @param lowerLabelRange: the lower bound of the range of labels
@@ -49,15 +50,16 @@ double entropy(const T* clusterArray,
  * @brief Function to calculate entropy
  * <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
  *
+ * @tparam T data type
  * @param handle the raft handle
  * @param clusterArray: the array of classes of type T
  * @param lowerLabelRange: the lower bound of the range of labels
  * @param upperLabelRange: the upper bound of the range of labels
  * @return the entropy score
  */
-template <typename T, typename LayoutPolicy>
+template <typename T>
 double entropy(const raft::handle_t& handle,
-               const raft::device_vector_view<const T, LayoutPolicy>& clusterArray,
+               const raft::device_vector_view<const T>& clusterArray,
                const T lowerLabelRange,
                const T upperLabelRange)
 {

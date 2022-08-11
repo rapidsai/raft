@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/stats/detail/kl_divergence.cuh>
 
 namespace raft {
@@ -39,6 +40,24 @@ template <typename DataT>
 DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, cudaStream_t stream)
 {
   return detail::kl_divergence(modelPDF, candidatePDF, size, stream);
+}
+
+/**
+ * @brief Function to calculate KL Divergence
+ * <a href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence">more info on KL
+ * Divergence</a>
+ *
+ * @tparam DataT: Data type of the input array
+ * @param handle the raft handle
+ * @param modelPDF: the model array of probability density functions of type DataT
+ * @param candidatePDF: the candidate array of probability density functions of type DataT
+ */
+template <typename DataT>
+DataT kl_divergence(const  raft::handle_t& handle,
+  const raft::device_vector_view<const DataT>& modelPDF,
+  const raft::device_vector_view<const DataT> candidatePDF)
+{
+  return detail::kl_divergence(modelPDF.data_handle(), candidatePDF.data_handle(), modelPDF.extent(0), handle.get_stream());
 }
 
 };  // end namespace stats

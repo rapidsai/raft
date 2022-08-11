@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include "detail/mean.cuh"
-
+#include <raft/core/mdarray.hpp>
 #include <raft/handle.hpp>
+#include <raft/stats/detail/mean.cuh>
 
 namespace raft {
 namespace stats {
@@ -50,6 +50,31 @@ void mean(
   detail::mean(mu, data, D, N, sample, rowMajor, stream);
 }
 
+/**
+ * @brief Compute mean of the input matrix
+ *
+ * Mean operation is assumed to be performed on a given column.
+ *
+ * @tparam Type: the data type
+ * @tparam IdxType Integer type used to for addressing
+ * @tparam LayoutPolicy Layout type of the input matrix.
+ * @param handle the raft handle
+ * @param mu: the output mean vector
+ * @param data: the input matrix
+ * @param sample: whether to evaluate sample mean or not. In other words, whether
+ *   to normalize the output using N-1 or N, for true or false, respectively
+ */
+template <typename Type, typename IdxType = int, typename LayoutPolicy = raft::row_major>
+void mean(const raft::handle_t& handle,
+          const raft::device_vector_view<Type, IdxType>& mu,
+          const raft::device_matrix_view<const Type, IdxType, LayoutPolicy>& data,
+          bool sample)
+{
+  detail::mean(mu.data_handle(), data.data_handle(), data.extent(1),
+  data.extent(0), sample, std::is_same_v<LayoutPolicy, raft::row_major>,
+  handle.get_stream());
+}
+ 
 };  // namespace stats
 };  // namespace raft
 
