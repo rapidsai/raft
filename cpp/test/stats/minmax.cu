@@ -17,6 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <limits>
+#include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
@@ -111,22 +112,26 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
     nanKernel<<<raft::ceildiv(len, TPB), TPB, 0, stream>>>(
       data.data(), mask.data(), len, std::numeric_limits<T>::quiet_NaN());
     RAFT_CUDA_TRY(cudaPeekAtLastError());
+    auto data_view = raft::make_device_matrix_view<const T, int, raft::layout_f_contiguous>(
+      data.data(), params.rows, params.cols);
+    std::optional<raft::device_vector_view<const unsigned, int, raft::layout_f_contiguous>> rowids = std::nullopt;
+    std::optional<raft::device_vector_view<const unsigned, int, raft::layout_f_contiguous>> colids = std::nullopt;
+    std::optional<raft::device_vector_view<T, int, raft::layout_f_contiguous>> sampledcols = std::nullopt;
+    auto globalmin = raft::make_device_vector_view<T, int, raft::layout_f_contiguous>(minmax_act.data(), params.cols);
+    auto globalmax = raft::make_device_vector_view<T, int, raft::layout_f_contiguous>(minmax_act.data() + params.cols, params.cols);
     naiveMinMax(data.data(),
                 params.rows,
                 params.cols,
                 minmax_ref.data(),
                 minmax_ref.data() + params.cols,
                 stream);
-    minmax<T, 512>(data.data(),
-                   nullptr,
-                   nullptr,
-                   params.rows,
-                   params.cols,
-                   params.rows,
-                   minmax_act.data(),
-                   minmax_act.data() + params.cols,
-                   nullptr,
-                   stream);
+    raft::stats::minmax<T, int, raft::layout_f_contiguous, typename decltype(data_view)::accessor_type, 512>(handle,
+             data_view,
+             rowids,
+             colids,
+             globalmin,
+             globalmax,
+             sampledcols);
   }
 
  protected:
