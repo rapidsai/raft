@@ -29,12 +29,15 @@
 #include <raft/matrix/matrix.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_vector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
 namespace raft::spatial::knn::detail::kmeans {
+
+constexpr static inline const float kAdjustCentersWeight = 7.0f;
 
 /**
  * @brief Predict labels for the dataset; floats only.
@@ -253,6 +256,53 @@ void predict(const handle_t& handle,
   }
 }
 
+template <typename T, uint32_t BlockDimY>
+__global__ void __launch_bounds__((WarpSize * BlockDimY))
+  adjust_centers_kernel(float* centers,  // [n_clusters, dim]
+                        uint32_t n_clusters,
+                        uint32_t dim,
+                        const T* dataset,  // [n_rows, dim]
+                        size_t n_rows,
+                        const uint32_t* labels,         // [n_rows]
+                        const uint32_t* cluster_sizes,  // [n_clusters]
+                        float threshold,
+                        uint32_t average,
+                        uint32_t seed,
+                        uint32_t* count)
+{
+  uint32_t l = threadIdx.y + BlockDimY * blockIdx.y;
+  if (l >= n_clusters) return;
+  auto csize = cluster_sizes[l];
+  // skip big clusters
+  if (csize > static_cast<uint32_t>(average * threshold)) return;
+
+  // choose a "random" i that belongs to a rather large cluster
+  uint32_t i, j = laneId();
+  if (j == 0) {
+    do {
+      uint32_t old = atomicAdd(count, 1);
+      i            = (seed * (old + 1)) % n_rows;
+    } while (cluster_sizes[labels[i]] < average);
+  }
+  i = raft::shfl(i, 0);
+
+  // Adjust the center of the selected smaller cluster to gravitate towards
+  // a sample from the selected larger cluster.
+  const size_t li = labels[i];
+  // Weight of the current center for the weighted average.
+  // We dump it for anomalously small clusters, but keep constant overwise.
+  const float wc = csize > kAdjustCentersWeight ? kAdjustCentersWeight : float(csize);
+  // Weight for the datapoint used to shift the center.
+  const float wd = 1.0;
+  for (; j < dim; j += WarpSize) {
+    float val = 0;
+    val += wc * centers[j + dim * li];
+    val += wd * utils::mapping<float>{}(dataset[j + size_t(dim) * i]);
+    val /= wc + wd;
+    centers[j + dim * l] = val;
+  }
+}
+
 /**
  * @brief Adjust centers for clusters that have small number of entries.
  *
@@ -261,7 +311,7 @@ void predict(const handle_t& handle,
  *
  * NB: if this function returns `true`, you should update the labels.
  *
- * NB: all pointers are used on the host side.
+ * NB: all pointers are used either on the host side or on the device side together.
  *
  * @tparam T element type
  *
@@ -275,6 +325,7 @@ void predict(const handle_t& handle,
  * @param threshold defines a criterion for adjusting a cluster
  *                   (cluster_sizes <= average_size * threshold)
  *                   0 <= threshold < 1
+ * @param device_memory  memory resource to use for temporary allocations
  * @param stream
  *
  * @return whether any of the centers has been updated (and thus, `labels` need to be recalculated).
@@ -288,11 +339,11 @@ auto adjust_centers(float* centers,
                     const uint32_t* labels,
                     const uint32_t* cluster_sizes,
                     float threshold,
+                    rmm::mr::device_memory_resource* device_memory,
                     rmm::cuda_stream_view stream) -> bool
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "kmeans::adjust_centers(%zu, %u)", n_rows, n_clusters);
-  stream.synchronize();
   if (n_clusters == 0) { return false; }
   constexpr static std::array kPrimes{29,   71,   113,  173,  229,  281,  349,  409,  463,  541,
                                       601,  659,  733,  809,  863,  941,  1013, 1069, 1151, 1223,
@@ -304,38 +355,62 @@ auto adjust_centers(float* centers,
   bool adjusted    = false;
   uint32_t average = static_cast<uint32_t>(n_rows / size_t(n_clusters));
   uint32_t ofst;
-
   do {
     i_primes = (i_primes + 1) % kPrimes.size();
     ofst     = kPrimes[i_primes];
   } while (n_rows % ofst == 0);
 
-  for (uint32_t l = 0; l < n_clusters; l++) {
-    auto csize = cluster_sizes[l];
-    // skip big clusters
-    if (csize > static_cast<uint32_t>(average * threshold)) continue;
-    // choose a "random" i that belongs to a rather large cluster
-    do {
-      i = (i + ofst) % n_rows;
-    } while (cluster_sizes[labels[i]] < average);
-    // Adjust the center of the selected smaller cluster to gravitate towards
-    // a sample from the selected larger cluster.
-    const size_t li = labels[i];
-    // Weight of the current center for the weighted average.
-    // We dump it for anomalously small clusters, but keep constant overwise.
-    const float wc = std::min<float>(csize, 7.0);
-    // Weight for the datapoint used to shift the center.
-    const float wd = 1.0;
-    for (uint32_t j = 0; j < dim; j++) {
-      float val = 0;
-      val += wc * centers[j + dim * li];
-      val += wd * utils::mapping<float>{}(dataset[j + size_t(dim) * i]);
-      val /= wc + wd;
-      centers[j + dim * l] = val;
-    }
-    adjusted = true;
+  switch (utils::check_pointer_residency(centers, dataset, labels, cluster_sizes)) {
+    case utils::pointer_residency::host_and_device:
+    case utils::pointer_residency::device_only: {
+      constexpr uint32_t kBlockDimY = 4;
+      const dim3 block_dim(WarpSize, kBlockDimY, 1);
+      const dim3 grid_dim(1, raft::ceildiv(n_clusters, kBlockDimY), 1);
+      rmm::device_scalar<uint32_t> update_count(0, stream, device_memory);
+      adjust_centers_kernel<T, kBlockDimY><<<grid_dim, block_dim, 0, stream>>>(centers,
+                                                                               n_clusters,
+                                                                               dim,
+                                                                               dataset,
+                                                                               n_rows,
+                                                                               labels,
+                                                                               cluster_sizes,
+                                                                               threshold,
+                                                                               average,
+                                                                               ofst,
+                                                                               update_count.data());
+      adjusted = update_count.value(stream) > 0;  // NB: rmm scalar performs the sync
+    } break;
+    case utils::pointer_residency::host_only: {
+      stream.synchronize();
+      for (uint32_t l = 0; l < n_clusters; l++) {
+        auto csize = cluster_sizes[l];
+        // skip big clusters
+        if (csize > static_cast<uint32_t>(average * threshold)) continue;
+        // choose a "random" i that belongs to a rather large cluster
+        do {
+          i = (i + ofst) % n_rows;
+        } while (cluster_sizes[labels[i]] < average);
+        // Adjust the center of the selected smaller cluster to gravitate towards
+        // a sample from the selected larger cluster.
+        const size_t li = labels[i];
+        // Weight of the current center for the weighted average.
+        // We dump it for anomalously small clusters, but keep constant overwise.
+        const float wc = std::min<float>(csize, kAdjustCentersWeight);
+        // Weight for the datapoint used to shift the center.
+        const float wd = 1.0;
+        for (uint32_t j = 0; j < dim; j++) {
+          float val = 0;
+          val += wc * centers[j + dim * li];
+          val += wd * utils::mapping<float>{}(dataset[j + size_t(dim) * i]);
+          val /= wc + wd;
+          centers[j + dim * l] = val;
+        }
+        adjusted = true;
+      }
+      stream.synchronize();
+    } break;
+    default: RAFT_FAIL("All pointers must reside on the same side, host or device.");
   }
-  stream.synchronize();
   return adjusted;
 }
 
@@ -344,7 +419,7 @@ template <typename T>
 void build_clusters(const handle_t& handle,
                     uint32_t n_iters,
                     uint32_t dim,
-                    const T* dataset,  // managedl [n_rows, dim]
+                    const T* dataset,  // managed; [n_rows, dim]
                     size_t n_rows,
                     uint32_t n_clusters,
                     float* cluster_centers,    // managed; [n_clusters, dim]
@@ -403,6 +478,7 @@ void build_clusters(const handle_t& handle,
                                  cluster_labels,
                                  cluster_sizes,
                                  (float)1.0 / 4,
+                                 device_memory,
                                  stream)) {
         iter -= 1;
       }
@@ -504,18 +580,18 @@ auto build_fine_clusters(const handle_t& handle,
                          rmm::cuda_stream_view stream) -> uint32_t
 {
   rmm::device_uvector<uint32_t> mc_trainset_ids_buf(mesocluster_size_max, stream, managed_memory);
-  rmm::device_uvector<float> mc_trainset_buf(mesocluster_size_max * dim, stream, managed_memory);
+  rmm::device_uvector<float> mc_trainset_buf(mesocluster_size_max * dim, stream, device_memory);
   auto mc_trainset_ids = mc_trainset_ids_buf.data();
   auto mc_trainset     = mc_trainset_buf.data();
 
   // label (cluster ID) of each vector
-  rmm::device_uvector<uint32_t> mc_trainset_labels(mesocluster_size_max, stream, managed_memory);
+  rmm::device_uvector<uint32_t> mc_trainset_labels(mesocluster_size_max, stream, device_memory);
 
   rmm::device_uvector<float> mc_trainset_ccenters(
-    fine_clusters_nums_max * dim, stream, managed_memory);
+    fine_clusters_nums_max * dim, stream, device_memory);
   // number of vectors in each cluster
   rmm::device_uvector<uint32_t> mc_trainset_csizes_tmp(
-    fine_clusters_nums_max, stream, managed_memory);
+    fine_clusters_nums_max, stream, device_memory);
 
   // Training clusters in each meso-cluster
   uint32_t n_clusters_done = 0;
@@ -611,7 +687,7 @@ void build_optimized_kmeans(const handle_t& handle,
       pool_guard->pool_size());
   }
 
-  rmm::device_uvector<T> trainset(n_rows_train * dim, stream, &managed_memory);
+  rmm::device_uvector<T> trainset(n_rows_train * dim, stream, device_memory);
   // TODO: a proper sampling
   RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
                                   sizeof(T) * dim,
@@ -626,8 +702,7 @@ void build_optimized_kmeans(const handle_t& handle,
   rmm::device_uvector<uint32_t> mesocluster_labels_buf(n_rows_train, stream, &managed_memory);
   rmm::device_uvector<uint32_t> mesocluster_sizes_buf(n_mesoclusters, stream, &managed_memory);
   {
-    rmm::device_uvector<float> mesocluster_centers_buf(
-      n_mesoclusters * dim, stream, &managed_memory);
+    rmm::device_uvector<float> mesocluster_centers_buf(n_mesoclusters * dim, stream, device_memory);
     build_clusters(handle,
                    n_iters,
                    dim,
