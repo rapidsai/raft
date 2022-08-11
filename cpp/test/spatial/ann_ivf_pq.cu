@@ -207,6 +207,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
                                                                   : ivf_pq::CUANN_SIMILARITY_L2;
         // Specify whether PQ codebooks are created per subspace or per cluster.
         ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_SUBSPACE;
+        // ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_CLUSTER;
         ivf_pq::cuannIvfPqSetIndexParameters(
           cuann_desc.get(),
           n_clusters,               /* Number of clusters */
@@ -223,20 +224,11 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         rmm::device_buffer ivf_pq_index_buf_managed(ivf_pq_index_size, stream_, &managed_memory);
 
         // Build index
-        cudaDataType_t dtype;
-        if constexpr (std::is_same_v<DataT, uint8_t>) {
-          dtype = CUDA_R_8U;
-        } else if constexpr (std::is_same_v<DataT, int8_t>) {
-          dtype = CUDA_R_8I;
-        } else if constexpr (std::is_same_v<DataT, float>) {
-          dtype = CUDA_R_32F;
-        }
         ivf_pq::cuannIvfPqBuildIndex(
           handle_,
           cuann_desc.get(),
-          database.data(),  // dataset
-          database.data(),  // ?kmeans? trainset
-          dtype,
+          database.data(),           // dataset
+          database.data(),           // ?kmeans? trainset
           uint32_t(ps.num_db_vecs),  // size of the trainset (I guess for kmeans)
           numIterations,
           randomRotation,
@@ -293,7 +285,6 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
                          cuann_desc.get(),
                          ivf_pq_index_buf_managed.data(),
                          search_queries.data(),
-                         dtype,
                          ps.num_queries,
                          indices_ivf_pq_dev.data(),
                          distances_ivf_pq_dev.data(),

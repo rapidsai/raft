@@ -1003,127 +1003,6 @@ __global__ void kern_adjust_centers(float* centers,  // [numCenters, dimCenters]
   }
 }
 
-// adjust centers which have small number of entries
-bool _cuann_kmeans_adjust_centers(float* centers,  // [numCenters, dimCenters]
-                                  uint32_t numCenters,
-                                  uint32_t dimCenters,
-                                  const void* dataset,  // [numDataset, dimCenters]
-                                  cudaDataType_t dtype,
-                                  uint32_t numDataset,
-                                  const uint32_t* labels,  // [numDataset]
-                                  cuannSimilarity_t similarity,
-                                  const uint32_t* clusterSize,  // [numCenters]
-                                  float threshold,
-                                  void* ws)
-{
-  RAFT_EXPECTS(dtype == CUDA_R_32F || dtype == CUDA_R_8U || dtype == CUDA_R_8I,
-               "Unsupported dtype (%d)",
-               dtype);
-  bool adjusted                = false;
-  static uint32_t iPrimes      = 0;
-  constexpr uint32_t numPrimes = 40;
-  uint32_t primes[numPrimes]   = {29,   71,   113,  173,  229,  281,  349,  409,  463,  541,
-                                601,  659,  733,  809,  863,  941,  1013, 1069, 1151, 1223,
-                                1291, 1373, 1451, 1511, 1583, 1657, 1733, 1811, 1889, 1987,
-                                2053, 2129, 2213, 2287, 2357, 2423, 2531, 2617, 2687, 2741};
-  uint32_t average             = (numDataset + numCenters - 1) / numCenters;
-  uint32_t ofst;
-  do {
-    iPrimes = (iPrimes + 1) % numPrimes;
-    ofst    = primes[iPrimes];
-  } while (numDataset % ofst == 0);
-
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  cudaPointerAttributes attr;
-  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, dataset));
-  if (attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged) {
-    // GPU
-    uint32_t* count;
-    if (ws == NULL) {
-      RAFT_CUDA_TRY(cudaMallocManaged(&count, sizeof(uint32_t)));
-    } else {
-      count = (uint32_t*)ws;
-    }
-    count[0] = 0;
-    void (*kernel)(float*,
-                   uint32_t,
-                   uint32_t,
-                   const void*,
-                   uint32_t,
-                   const uint32_t*,
-                   cuannSimilarity_t,
-                   const uint32_t*,
-                   float,
-                   uint32_t,
-                   uint32_t,
-                   uint32_t*);
-    if (dtype == CUDA_R_32F) {
-      kernel = kern_adjust_centers<float, 1>;
-    } else if (dtype == CUDA_R_8U) {
-      kernel = kern_adjust_centers<uint8_t, 256>;
-    } else if (dtype == CUDA_R_8I) {
-      kernel = kern_adjust_centers<int8_t, 128>;
-    }
-    dim3 threads(32, 4, 1);
-    dim3 blocks(1, (numCenters + threads.y - 1) / threads.y, 1);
-    kernel<<<blocks, threads>>>(centers,
-                                numCenters,
-                                dimCenters,
-                                dataset,
-                                numDataset,
-                                labels,
-                                similarity,
-                                clusterSize,
-                                threshold,
-                                average,
-                                ofst,
-                                count);
-    RAFT_CUDA_TRY(cudaDeviceSynchronize());
-    if (count[0] > 0) { adjusted = true; }
-    if (ws == NULL) { RAFT_CUDA_TRY(cudaFree(count)); }
-  } else {
-    // CPU
-    uint32_t i     = 0;
-    uint32_t count = 0;
-    for (uint32_t l = 0; l < numCenters; l++) {
-      if (clusterSize[l] > (uint32_t)(average * threshold)) continue;
-      do {
-        i = (i + ofst) % numDataset;
-      } while (clusterSize[labels[i]] < average);
-      uint32_t li = labels[i];
-      float sqsum = 0.0;
-      for (uint32_t j = 0; j < dimCenters; j++) {
-        float val = centers[j + ((uint64_t)dimCenters * li)] * (R_FACTOR - 1);
-        if (dtype == CUDA_R_32F) {
-          val += ((float*)dataset)[j + ((uint64_t)dimCenters * i)];
-        } else if (dtype == CUDA_R_8U) {
-          float divisor = 256.0;
-          val += ((uint8_t*)dataset)[j + ((uint64_t)dimCenters * i)] / divisor;
-        } else if (dtype == CUDA_R_8I) {
-          float divisor = 128.0;
-          val += ((int8_t*)dataset)[j + ((uint64_t)dimCenters * i)] / divisor;
-        }
-        val /= R_FACTOR;
-        sqsum += val * val;
-        centers[j + ((uint64_t)dimCenters * l)] = val;
-      }
-      if (similarity == CUANN_SIMILARITY_INNER) {
-        sqsum = sqrt(sqsum);
-        for (uint32_t j = 0; j < dimCenters; j++) {
-          centers[j + ((uint64_t)dimCenters * l)] /= sqsum;
-        }
-      }
-      count += 1;
-    }
-    if (count > 0) {
-      adjusted = true;
-      RAFT_LOG_DEBUG(
-        "num adjusted: %u / %u, threshold: %d \n", count, numCenters, (int)(average * threshold));
-    }
-  }
-  return adjusted;
-}
-
 /**
  * end of kmeans
  *
@@ -3287,28 +3166,34 @@ uint32_t _get_num_trainset(uint32_t clusterSize, uint32_t dimPq, uint32_t bitPq)
 }
 
 //
-inline void _cuann_compute_PQ_code(const handle_t& handle,
-                                   uint32_t numDataset,
-                                   uint32_t dimDataset,
-                                   uint32_t dimRotDataset,
-                                   uint32_t dimPq,
-                                   uint32_t lenPq,
-                                   uint32_t bitPq,
-                                   uint32_t numClusters,
-                                   cudaDataType_t dtype,
-                                   cuannPqCenter_t typePqCenter,
-                                   uint32_t maxClusterSize,
-                                   float* clusterCenters,            // [numClusters, dimDataset]
-                                   const float* rotationMatrix,      // [dimRotDataset, dimDataset]
-                                   const void* dataset,              // [numDataset]
-                                   const uint32_t* originalNumbers,  // [numDataset]
-                                   const uint32_t* clusterSize,      // [numClusters]
-                                   const uint32_t* indexPtr,         // [numClusters + 1]
-                                   float* pqCenters,                 // [...]
-                                   uint32_t numIterations,
-                                   uint8_t* pqDataset  // [numDataset, dimPq * bitPq / 8]
+template <typename T>
+void _cuann_compute_PQ_code(const handle_t& handle,
+                            uint32_t numDataset,
+                            uint32_t dimDataset,
+                            uint32_t dimRotDataset,
+                            uint32_t dimPq,
+                            uint32_t lenPq,
+                            uint32_t bitPq,
+                            uint32_t numClusters,
+                            cuannPqCenter_t typePqCenter,
+                            uint32_t maxClusterSize,
+                            float* clusterCenters,            // [numClusters, dimDataset]
+                            const float* rotationMatrix,      // [dimRotDataset, dimDataset]
+                            const T* dataset,                 // [numDataset]
+                            const uint32_t* originalNumbers,  // [numDataset]
+                            const uint32_t* clusterSize,      // [numClusters]
+                            const uint32_t* indexPtr,         // [numClusters + 1]
+                            float* pqCenters,                 // [...]
+                            uint32_t numIterations,
+                            uint8_t* pqDataset  // [numDataset, dimPq * bitPq / 8]
 )
 {
+  rmm::mr::device_memory_resource* device_memory = nullptr;
+  auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("_cuann_compute_PQ_code: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
+  }
   //
   // Compute PQ code
   //
@@ -3364,34 +3249,14 @@ inline void _cuann_compute_PQ_code(const handle_t& handle,
     // centroids.
     //   resVectors[..] = newVectors[..] - clusterCenters[..]
     //
-    if (dtype == CUDA_R_32F) {
-      detail::utils::copy_selected<float, float>(clusterSize[l],
-                                                 dimDataset,
-                                                 (float*)dataset,
-                                                 originalNumbers + indexPtr[l],
-                                                 dimDataset,
-                                                 resVectors[devId],
-                                                 dimDataset,
-                                                 handle.get_stream());
-    } else if (dtype == CUDA_R_8U) {
-      detail::utils::copy_selected<float, uint8_t>(clusterSize[l],
-                                                   dimDataset,
-                                                   (uint8_t*)dataset,
-                                                   originalNumbers + indexPtr[l],
-                                                   dimDataset,
-                                                   resVectors[devId],
-                                                   dimDataset,
-                                                   handle.get_stream());
-    } else if (dtype == CUDA_R_8I) {
-      detail::utils::copy_selected<float, int8_t>(clusterSize[l],
-                                                  dimDataset,
-                                                  (int8_t*)dataset,
-                                                  originalNumbers + indexPtr[l],
-                                                  dimDataset,
-                                                  resVectors[devId],
-                                                  dimDataset,
-                                                  handle.get_stream());
-    }
+    detail::utils::copy_selected<float, T>(clusterSize[l],
+                                           dimDataset,
+                                           dataset,
+                                           originalNumbers + indexPtr[l],
+                                           dimDataset,
+                                           resVectors[devId],
+                                           dimDataset,
+                                           handle.get_stream());
     _cuann_a_me_b(clusterSize[l],
                   dimDataset,
                   resVectors[devId],
@@ -3452,17 +3317,16 @@ inline void _cuann_compute_PQ_code(const handle_t& handle,
                               myPqCentersTemp[devId],
                               pqClusterSize[devId],
                               true);
-        if ((iter + 1 < numIterations_2) && _cuann_kmeans_adjust_centers(myPqCenters[devId],
-                                                                         (1 << bitPq),
-                                                                         lenPq,
-                                                                         rotVectors[devId],
-                                                                         CUDA_R_32F,
-                                                                         numTrainset,
-                                                                         rotVectorLabels[devId],
-                                                                         CUANN_SIMILARITY_L2,
-                                                                         pqClusterSize[devId],
-                                                                         (float)1.0 / 4,
-                                                                         wsKAC[devId])) {
+        if ((iter + 1 < numIterations_2) && detail::kmeans::adjust_centers(myPqCenters[devId],
+                                                                           (1 << bitPq),
+                                                                           lenPq,
+                                                                           rotVectors[devId],
+                                                                           numTrainset,
+                                                                           rotVectorLabels[devId],
+                                                                           pqClusterSize[devId],
+                                                                           (float)1.0 / 4,
+                                                                           device_memory,
+                                                                           handle.get_stream())) {
           iter -= 1;
         }
       }
@@ -3690,6 +3554,13 @@ void cuannIvfPqBuildIndex(
                  "Unsupported dtype (inner-product metric support float only)");
   }
 
+  rmm::mr::device_memory_resource* device_memory = nullptr;
+  auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("cuannIvfPqBuildIndex: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
+  }
+
   desc->dtypeDataset = dtype;
   char dtypeString[64];
   _cuann_get_dtype_string(desc->dtypeDataset, dtypeString);
@@ -3779,18 +3650,21 @@ void cuannIvfPqBuildIndex(
                             mesoClusterCentersTemp,
                             mesoClusterSize,
                             true);
-      if ((iter + 1 < numIterations_2) && _cuann_kmeans_adjust_centers(mesoClusterCenters,
-                                                                       numMesoClusters,
-                                                                       desc->dimDataset,
-                                                                       trainset,
-                                                                       dtype,
-                                                                       numTrainset,
-                                                                       mesoClusterLabels,
-                                                                       desc->similarity,
-                                                                       mesoClusterSize,
-                                                                       (float)1.0 / 4,
-                                                                       nullptr)) {
+      if ((iter + 1 < numIterations_2) && detail::kmeans::adjust_centers<T>(mesoClusterCenters,
+                                                                            numMesoClusters,
+                                                                            desc->dimDataset,
+                                                                            trainset,
+                                                                            numTrainset,
+                                                                            mesoClusterLabels,
+                                                                            mesoClusterSize,
+                                                                            (float)1.0 / 4,
+                                                                            device_memory,
+                                                                            handle.get_stream())) {
         iter -= 1;
+        if (desc->similarity == CUANN_SIMILARITY_INNER) {
+          detail::utils::normalize_rows(
+            numMesoClusters, desc->dimDataset, mesoClusterCenters, handle.get_stream());
+        }
       }
     }
     RAFT_CUDA_TRY(cudaDeviceSynchronize());
@@ -3873,34 +3747,15 @@ void cuannIvfPqBuildIndex(
       }
       RAFT_EXPECTS(k == mesoClusterSize[i], "unexpected cluster size for cluster %u", i);
 
-      if (dtype == CUDA_R_32F) {
-        detail::utils::copy_selected<float, float>(mesoClusterSize[i],
-                                                   desc->dimDataset,
-                                                   (const float*)trainset,
-                                                   (const uint32_t*)(idsTrainset[devId]),
-                                                   desc->dimDataset,
-                                                   subTrainset[devId],
-                                                   desc->dimDataset,
-                                                   handle.get_stream());
-      } else if (dtype == CUDA_R_8U) {
-        detail::utils::copy_selected<float, uint8_t>(mesoClusterSize[i],
-                                                     desc->dimDataset,
-                                                     (const uint8_t*)trainset,
-                                                     (const uint32_t*)(idsTrainset[devId]),
-                                                     desc->dimDataset,
-                                                     subTrainset[devId],
-                                                     desc->dimDataset,
-                                                     handle.get_stream());
-      } else if (dtype == CUDA_R_8I) {
-        detail::utils::copy_selected<float, int8_t>(mesoClusterSize[i],
-                                                    desc->dimDataset,
-                                                    (const int8_t*)trainset,
-                                                    (const uint32_t*)(idsTrainset[devId]),
-                                                    desc->dimDataset,
-                                                    subTrainset[devId],
-                                                    desc->dimDataset,
-                                                    handle.get_stream());
-      }
+      detail::utils::copy_selected<float, T>(mesoClusterSize[i],
+                                             desc->dimDataset,
+                                             trainset,
+                                             idsTrainset[devId],
+                                             desc->dimDataset,
+                                             subTrainset[devId],
+                                             desc->dimDataset,
+                                             handle.get_stream());
+
       int numIterations_2 = numIterations * 2;
       for (int iter = 0; iter < numIterations_2; iter += 2) {
         _cuann_kmeans_predict(handle,
@@ -3917,18 +3772,22 @@ void cuannIvfPqBuildIndex(
                               clusterCentersMP[devId],
                               clusterSizeMP[devId],
                               true);
-        if ((iter + 1 < numIterations_2) && _cuann_kmeans_adjust_centers(clusterCentersEach[devId],
-                                                                         numFineClusters[i],
-                                                                         desc->dimDataset,
-                                                                         subTrainset[devId],
-                                                                         CUDA_R_32F,
-                                                                         mesoClusterSize[i],
-                                                                         labelsMP[devId],
-                                                                         desc->similarity,
-                                                                         clusterSizeMP[devId],
-                                                                         (float)1.0 / 4,
-                                                                         wsKAC[devId])) {
+        if ((iter + 1 < numIterations_2) &&
+            detail::kmeans::adjust_centers(clusterCentersEach[devId],
+                                           numFineClusters[i],
+                                           desc->dimDataset,
+                                           subTrainset[devId],
+                                           mesoClusterSize[i],
+                                           labelsMP[devId],
+                                           clusterSizeMP[devId],
+                                           (float)1.0 / 4,
+                                           device_memory,
+                                           handle.get_stream())) {
           iter -= 1;
+          if (desc->similarity == CUANN_SIMILARITY_INNER) {
+            detail::utils::normalize_rows(
+              numFineClusters[i], desc->dimDataset, clusterCentersEach[devId], handle.get_stream());
+          }
         }
       }
       RAFT_CUDA_TRY(cudaMemcpy(clusterCenters + (desc->dimDataset * csumFineClusters[i]),
@@ -3982,18 +3841,21 @@ void cuannIvfPqBuildIndex(
                                true,
                                clusterSize,
                                true /* to update clusterCenters */);
-      if ((iter + 1 < numIterations_X) && _cuann_kmeans_adjust_centers(clusterCenters,
-                                                                       desc->numClusters,
-                                                                       desc->dimDataset,
-                                                                       trainset,
-                                                                       dtype,
-                                                                       numTrainset,
-                                                                       trainsetLabels,
-                                                                       desc->similarity,
-                                                                       clusterSize,
-                                                                       (float)1.0 / 5,
-                                                                       nullptr)) {
+      if ((iter + 1 < numIterations_X) && detail::kmeans::adjust_centers(clusterCenters,
+                                                                         desc->numClusters,
+                                                                         desc->dimDataset,
+                                                                         trainset,
+                                                                         numTrainset,
+                                                                         trainsetLabels,
+                                                                         clusterSize,
+                                                                         (float)1.0 / 5,
+                                                                         device_memory,
+                                                                         handle.get_stream())) {
         iter -= (X - 1);
+        if (desc->similarity == CUANN_SIMILARITY_INNER) {
+          detail::utils::normalize_rows(
+            desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
+        }
       }
     }
   } else {
@@ -4014,18 +3876,21 @@ void cuannIvfPqBuildIndex(
                             clusterCentersTemp,
                             clusterSize,
                             true);
-      if ((iter + 1 < numIterations_2) && _cuann_kmeans_adjust_centers(clusterCenters,
-                                                                       desc->numClusters,
-                                                                       desc->dimDataset,
-                                                                       trainset,
-                                                                       dtype,
-                                                                       numTrainset,
-                                                                       trainsetLabels,
-                                                                       desc->similarity,
-                                                                       clusterSize,
-                                                                       (float)1.0 / 4,
-                                                                       nullptr)) {
+      if ((iter + 1 < numIterations_2) && detail::kmeans::adjust_centers(clusterCenters,
+                                                                         desc->numClusters,
+                                                                         desc->dimDataset,
+                                                                         trainset,
+                                                                         numTrainset,
+                                                                         trainsetLabels,
+                                                                         clusterSize,
+                                                                         (float)1.0 / 4,
+                                                                         device_memory,
+                                                                         handle.get_stream())) {
         iter -= 1;
+        if (desc->similarity == CUANN_SIMILARITY_INNER) {
+          detail::utils::normalize_rows(
+            desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
+        }
       }
     }
   }
@@ -4235,17 +4100,16 @@ void cuannIvfPqBuildIndex(
                               pqCentersTemp[devId],
                               pqClusterSize[devId],
                               true);
-        if ((iter + 1 < numIterations_2) && _cuann_kmeans_adjust_centers(pqCentersEach[devId],
-                                                                         (1 << desc->bitPq),
-                                                                         desc->lenPq,
-                                                                         subTrainset[devId],
-                                                                         CUDA_R_32F,
-                                                                         numTrainset,
-                                                                         subTrainsetLabels[devId],
-                                                                         CUANN_SIMILARITY_L2,
-                                                                         pqClusterSize[devId],
-                                                                         (float)1.0 / 4,
-                                                                         wsKAC[devId])) {
+        if ((iter + 1 < numIterations_2) && detail::kmeans::adjust_centers(pqCentersEach[devId],
+                                                                           (1 << desc->bitPq),
+                                                                           desc->lenPq,
+                                                                           subTrainset[devId],
+                                                                           numTrainset,
+                                                                           subTrainsetLabels[devId],
+                                                                           pqClusterSize[devId],
+                                                                           (float)1.0 / 4,
+                                                                           device_memory,
+                                                                           handle.get_stream())) {
           iter -= 1;
         }
       }
@@ -4273,26 +4137,25 @@ void cuannIvfPqBuildIndex(
   //
   // Compute PQ code for whole dataset
   //
-  _cuann_compute_PQ_code(handle,
-                         desc->numDataset,
-                         desc->dimDataset,
-                         desc->dimRotDataset,
-                         desc->dimPq,
-                         desc->lenPq,
-                         desc->bitPq,
-                         desc->numClusters,
-                         dtype,
-                         desc->typePqCenter,
-                         maxClusterSize,
-                         clusterCenters,
-                         rotationMatrix,
-                         dataset,
-                         originalNumbers,
-                         clusterSize,
-                         indexPtr,
-                         pqCenters,
-                         numIterations,
-                         pqDataset);
+  _cuann_compute_PQ_code<T>(handle,
+                            desc->numDataset,
+                            desc->dimDataset,
+                            desc->dimRotDataset,
+                            desc->dimPq,
+                            desc->lenPq,
+                            desc->bitPq,
+                            desc->numClusters,
+                            desc->typePqCenter,
+                            maxClusterSize,
+                            clusterCenters,
+                            rotationMatrix,
+                            dataset,
+                            originalNumbers,
+                            clusterSize,
+                            indexPtr,
+                            pqCenters,
+                            numIterations,
+                            pqDataset);
   RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
 
   //
@@ -4471,11 +4334,12 @@ inline void cuannIvfPqLoadIndex(const handle_t& handle,
 }
 
 // cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex
-inline void cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
+template <typename T>
+void cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   const handle_t& handle,
   const char* oldIndexFileName,
   const char* newIndexFileName,
-  const void* newVectors, /* [numNewVectors, dimDataset] */
+  const T* newVectors, /* [numNewVectors, dimDataset] */
   uint32_t numNewVectors)
 {
   switch (detail::utils::check_pointer_residency(newVectors)) {
@@ -4619,26 +4483,25 @@ inline void cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   uint8_t* pqDataset;  // [numNewVectors, dimPq * bitPq / 8]
   RAFT_CUDA_TRY(cudaMallocManaged(
     &pqDataset, sizeof(uint8_t) * numNewVectors * oldDesc->dimPq * oldDesc->bitPq / 8));
-  _cuann_compute_PQ_code(handle,
-                         numNewVectors,
-                         oldDesc->dimDataset,
-                         oldDesc->dimRotDataset,
-                         oldDesc->dimPq,
-                         oldDesc->lenPq,
-                         oldDesc->bitPq,
-                         oldDesc->numClusters,
-                         dtype,
-                         oldDesc->typePqCenter,
-                         maxClusterSize,
-                         clusterCenters,
-                         oldRotationMatrix,
-                         newVectors,
-                         originalNumbers,
-                         clusterSize,
-                         indexPtr,
-                         oldPqCenters,
-                         0,
-                         pqDataset);
+  _cuann_compute_PQ_code<T>(handle,
+                            numNewVectors,
+                            oldDesc->dimDataset,
+                            oldDesc->dimRotDataset,
+                            oldDesc->dimPq,
+                            oldDesc->lenPq,
+                            oldDesc->bitPq,
+                            oldDesc->numClusters,
+                            oldDesc->typePqCenter,
+                            maxClusterSize,
+                            clusterCenters,
+                            oldRotationMatrix,
+                            newVectors,
+                            originalNumbers,
+                            clusterSize,
+                            indexPtr,
+                            oldPqCenters,
+                            0,
+                            pqDataset);
   RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
 
   //
