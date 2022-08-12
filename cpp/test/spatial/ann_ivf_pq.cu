@@ -157,7 +157,12 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
       rmm::device_uvector<uint64_t> indices_ivf_pq_dev(queries_size, stream_);
 
       {
-        auto cuann_desc = ivf_pq::cuannIvfPqCreateDescriptor();
+        auto size_1 = uint32_t(ps.num_db_vecs) / 2;
+        auto size_2 = uint32_t(ps.num_db_vecs) - size_1;
+        auto vecs_1 = database.data();
+        auto vecs_2 = database.data() + size_t(size_1) * size_t(ps.dim);
+
+        auto cuann_desc_1 = ivf_pq::cuannIvfPqCreateDescriptor();
 
         // Number of kmeans clusters.
         //
@@ -201,20 +206,20 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_SUBSPACE;
         // ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_CLUSTER;
         ivf_pq::cuannIvfPqSetIndexParameters(
-          cuann_desc,
-          n_clusters,               /* Number of clusters */
-          uint32_t(ps.num_db_vecs), /* Number of dataset entries */
-          uint32_t(ps.dim),         /* Dimension of each entry */
-          dimPq,                    /* Dimension of each entry after product quantization */
-          bitPq,                    /* Bit length of PQ */
+          cuann_desc_1,
+          n_clusters,       /* Number of clusters */
+          size_1,           /* Number of dataset entries */
+          uint32_t(ps.dim), /* Dimension of each entry */
+          dimPq,            /* Dimension of each entry after product quantization */
+          bitPq,            /* Bit length of PQ */
           similarity,
           typePqCenter);
 
         // Build index
         ivf_pq::cuannIvfPqBuildIndex(
           handle_,
-          cuann_desc,
-          database.data(),           // dataset
+          cuann_desc_1,
+          vecs_1,                    // dataset
           database.data(),           // ?kmeans? trainset
           uint32_t(ps.num_db_vecs),  // size of the trainset (I guess for kmeans)
           numIterations,
@@ -223,8 +228,11 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         );
         handle_.sync_stream(stream_);
 
+        auto cuann_desc_2 = ivf_pq::cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
+          handle_, cuann_desc_1, vecs_2, size_2);
+
         // set search parameters
-        ivf_pq::cuannIvfPqSetSearchParameters(cuann_desc, ps.nprobe, ps.k);
+        ivf_pq::cuannIvfPqSetSearchParameters(cuann_desc_2, ps.nprobe, ps.k);
         // Data type of LUT to be created dynamically at search time.
         //
         // The use of low-precision types reduces the amount of shared memory
@@ -249,7 +257,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         //
         uint32_t preferredThreadBlockSize = 0;  // 0, 256, 512, or 1024
         ivf_pq::cuannIvfPqSetSearchTuningParameters(
-          cuann_desc, internalDistanceDtype, smemLutDtype, preferredThreadBlockSize);
+          cuann_desc_2, internalDistanceDtype, smemLutDtype, preferredThreadBlockSize);
         // Maximum number of query vectors to search at the same time.
         uint32_t batchSize = std::min<uint32_t>(ps.num_queries, 32768);
         // Maximum device memory size that may be used as workspace at search time.
@@ -259,12 +267,12 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         // Allocate memory for index
         size_t ivf_pq_search_workspace_size;
         ivf_pq::cuannIvfPqSearch_bufferSize(
-          handle_, cuann_desc, batchSize, maxSearchWorkspaceSize, &ivf_pq_search_workspace_size);
+          handle_, cuann_desc_2, batchSize, maxSearchWorkspaceSize, &ivf_pq_search_workspace_size);
         rmm::device_buffer ivf_pq_search_ws_buf(ivf_pq_search_workspace_size, stream_);
 
         // finally, search!
         cuannIvfPqSearch(handle_,
-                         cuann_desc,
+                         cuann_desc_2,
                          search_queries.data(),
                          ps.num_queries,
                          indices_ivf_pq_dev.data(),

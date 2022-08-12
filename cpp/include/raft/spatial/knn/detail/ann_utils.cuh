@@ -542,7 +542,7 @@ void copy_selected(uint32_t n_rows,
                    uint32_t ld_dst,
                    rmm::cuda_stream_view stream)
 {
-  switch (check_pointer_residency(src, dst)) {
+  switch (check_pointer_residency(src, dst, row_ids)) {
     case pointer_residency::host_and_device:
     case pointer_residency::device_only: {
       uint32_t block_dim = 128;
