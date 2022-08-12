@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <cooperative_groups.h>
-#include <cooperative_groups/scan.h>
 #include <stdio.h>
 
 #include <common/benchmark.hpp>
