@@ -157,123 +157,36 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
       rmm::device_uvector<uint64_t> indices_ivf_pq_dev(queries_size, stream_);
 
       {
-        auto size_1 = uint32_t(ps.num_db_vecs) / 2;
-        auto size_2 = uint32_t(ps.num_db_vecs) - size_1;
+        auto size_1 = uint64_t(ps.num_db_vecs) / 2;
+        auto size_2 = uint64_t(ps.num_db_vecs) - size_1;
         auto vecs_1 = database.data();
         auto vecs_2 = database.data() + size_t(size_1) * size_t(ps.dim);
-
-        auto cuann_desc_1 = ivf_pq::cuannIvfPqCreateDescriptor();
-
-        // Number of kmeans clusters.
-        //
-        // The number of vectors per cluster, or 'numDataset' / 'numClusters',
-        // should be approximately 1,000 to 10,000.
-        uint32_t n_clusters = ps.nlist;
-        // Important parameters of the index to create.
-        //
-        // 'bitPq' is the bit length of the vector element after compression by PQ.
-        // 'dimPq' is the dimensionality of the vector after compression by PQ.
-        //
-        // 'bitPq' is 4, 5, 6, 7, or 8. The smaller the 'bitPq', the smaller the
-        // index size and the better the search performance, but the lower the recall.
-        //
-        // Similarly, a smaller 'dimPq' results in a smaller index size and better
-        // search performance, but lower recall. If 'bitPq' is 8, 'dimPq' can be set
-        // to any number, but multiple of 8 are desirable for good performance.
-        // If 'bitPq' is not 8, 'dimPq' must be basically multiple of 8. For good
-        // performance, multiple 32 is desirable.
-        //
-        uint32_t bitPq = 8;
-        uint32_t dimPq = ps.dim;
-        if (dimPq >= 128) {
-          dimPq = raft::alignDown<uint32_t>(dimPq / 2, 32);
-        } else if (dimPq >= 32) {
-          dimPq = raft::alignDown<uint32_t>(dimPq, 32);
-        } else if (dimPq >= 8) {
-          dimPq = raft::alignDown<uint32_t>(dimPq, 8);
-        }
-        // If true, dataset and query vectors are rotated by random rotation matrix
-        // created at indexing time.
-        //
-        bool randomRotation = ps.dim < 1024;  // disable for large-dimensional data (CPU intensive)
-        // Number of iterations for kmeans training.
-        uint32_t numIterations = 25;
-        // Specify whether PQ codebooks are created per subspace or per cluster.
-        ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_SUBSPACE;
-        // ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_CLUSTER;
-        ivf_pq::cuannIvfPqSetIndexParameters(
-          cuann_desc_1,
-          n_clusters,       /* Number of clusters */
-          size_1,           /* Number of dataset entries */
-          uint32_t(ps.dim), /* Dimension of each entry */
-          dimPq,            /* Dimension of each entry after product quantization */
-          bitPq,            /* Bit length of PQ */
-          ps.metric,
-          typePqCenter);
-
-        // Build index
-        ivf_pq::cuannIvfPqBuildIndex(
-          handle_,
-          cuann_desc_1,
-          vecs_1,                    // dataset
-          database.data(),           // ?kmeans? trainset
-          uint32_t(ps.num_db_vecs),  // size of the trainset (I guess for kmeans)
-          numIterations,
-          randomRotation,
-          true  // hierarchialClustering: always true in raft
-        );
+        rmm::device_uvector<uint64_t> db_indices(ps.num_db_vecs, stream_);
+        sparse::iota_fill(db_indices.data(), uint64_t(ps.num_db_vecs), uint64_t(1), stream_);
         handle_.sync_stream(stream_);
 
-        auto cuann_desc_2 = ivf_pq::cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
-          handle_, cuann_desc_1, vecs_2, size_2);
+        raft::spatial::knn::ivf_pq::index_params index_params;
+        raft::spatial::knn::ivf_pq::search_params search_params;
+        index_params.n_lists   = ps.nlist;
+        index_params.metric    = ps.metric;
+        search_params.n_probes = ps.nprobe;
 
-        // set search parameters
-        ivf_pq::cuannIvfPqSetSearchParameters(cuann_desc_2, ps.nprobe, ps.k);
-        // Data type of LUT to be created dynamically at search time.
-        //
-        // The use of low-precision types reduces the amount of shared memory
-        // required at search time, so fast shared memory kernels can be used even
-        // for datasets with large dimansionality. Note that the recall is slightly
-        // degraded when low-precision type is selected.
-        //
-        cudaDataType_t smemLutDtype = CUDA_R_32F;
-        // smemLutDtype = CUDA_R_16F;
-        // smemLutDtype = CUDA_R_8U;
-        // Storage data type for distance/similarity computed at search time.
-        //
-        // If the performance limiter at search time is device memory access,
-        // selecting FP16 will improve performance slightly.
-        //
-        cudaDataType_t internalDistanceDtype = CUDA_R_32F;
-        // internalDistanceDtype = CUDA_R_16F;
+        auto index = ivf_pq::build<DataT, uint64_t>(handle_, index_params, vecs_1, size_1, ps.dim);
+        handle_.sync_stream(stream_);
 
-        // Thread block size of the distance calculation kernel at search time.
-        //
-        // If 0, the thread block size is determined automatically.
-        //
-        uint32_t preferredThreadBlockSize = 0;  // 0, 256, 512, or 1024
-        ivf_pq::cuannIvfPqSetSearchTuningParameters(
-          cuann_desc_2, internalDistanceDtype, smemLutDtype, preferredThreadBlockSize);
-        // Maximum number of query vectors to search at the same time.
-        uint32_t batchSize = std::min<uint32_t>(ps.num_queries, 32768);
-        // Maximum device memory size that may be used as workspace at search time.
-        // maxSearchWorkspaceSize = 0;  // default
-        size_t maxSearchWorkspaceSize = (size_t)2 * 1024 * 1024 * 1024;  // 2 GiB
-
-        // Allocate memory for index
-        size_t ivf_pq_search_workspace_size;
-        ivf_pq::cuannIvfPqSearch_bufferSize(
-          handle_, cuann_desc_2, batchSize, maxSearchWorkspaceSize, &ivf_pq_search_workspace_size);
-        rmm::device_buffer ivf_pq_search_ws_buf(ivf_pq_search_workspace_size, stream_);
+        auto index_2 = ivf_pq::extend<DataT, uint64_t>(
+          handle_, index, vecs_2, db_indices.data() + size_1, size_2);
+        handle_.sync_stream(stream_);
 
         // finally, search!
-        cuannIvfPqSearch(handle_,
-                         cuann_desc_2,
-                         search_queries.data(),
-                         ps.num_queries,
-                         indices_ivf_pq_dev.data(),
-                         distances_ivf_pq_dev.data(),
-                         ivf_pq_search_ws_buf.data());
+        ivf_pq::search<DataT, uint64_t>(handle_,
+                                        search_params,
+                                        index_2,
+                                        search_queries.data(),
+                                        ps.num_queries,
+                                        ps.k,
+                                        indices_ivf_pq_dev.data(),
+                                        distances_ivf_pq_dev.data());
         handle_.sync_stream(stream_);
 
         update_host(distances_ivf_pq.data(), distances_ivf_pq_dev.data(), queries_size, stream_);
