@@ -54,17 +54,31 @@ double adjusted_rand_index(const T* firstClusterArray,
  *        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
  * @tparam T data-type for input label arrays
  * @tparam MathT integral data-type used for computing n-choose-r
+ * @tparam IdxType Index type of matrix extent.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @param handle: the raft handle.
  * @param firstClusterArray: the array of classes
  * @param secondClusterArray: the array of classes
  */
-template <typename T, typename MathT = int>
-double adjusted_rand_index(const raft::handle_t& handle,
-  const raft::device_vector_view<const T>& firstClusterArray,
-  const raft::device_vector_view<const T>& secondClusterArray)
+template <typename T,
+          typename MathT = int,
+          typename IdxType,
+          typename LayoutPolicy,
+          typename AccessorPolicy>
+double adjusted_rand_index(
+  const raft::handle_t& handle,
+  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>
+    firstClusterArray,
+  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>
+    secondClusterArray)
 {
-  return detail::compute_adjusted_rand_index<T, MathT>(firstClusterArray.data(), secondClusterArray.data(),
-    firstClusterArray.extent(0), handle.get_stream());
+  return detail::compute_adjusted_rand_index<T, MathT>(firstClusterArray.data_handle(),
+                                                       secondClusterArray.data_handle(),
+                                                       firstClusterArray.extent(0),
+                                                       handle.get_stream());
 }
 
 };  // end namespace stats

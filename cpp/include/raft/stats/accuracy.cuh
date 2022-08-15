@@ -43,15 +43,25 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
 /**
  * @brief Compute accuracy of predictions. Useful for classification.
  * @tparam math_t: data type for predictions (e.g., int for classification)
+ * @tparam IdxType Index type of matrix extent.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @param[in] handle: the raft handle.
  * @param[in] predictions: array of predictions (GPU pointer).
  * @param[in] ref_predictions: array of reference (ground-truth) predictions (GPU pointer).
  * @return: Accuracy score in [0, 1]; higher is better.
  */
-template <typename math_t>
-float accuracy(const raft::handle_t& handle, const raft::device_vector_view<const math_t>& predictions, const raft::device_vector_view<const math_t>& ref_predictions)
+template <typename math_t, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
+float accuracy(const raft::handle_t& handle,
+               raft::mdspan<const math_t, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> predictions,
+               raft::mdspan<const math_t, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> ref_predictions,
 {
-  return detail::accuracy_score(predictions.data(), ref_predictions.data(), predictions.extent(0), handle.get_stream());
+  return detail::accuracy_score(predictions.data_handle(),
+                                ref_predictions.data_handle(),
+                                predictions.extent(0),
+                                handle.get_stream());
 }
 }  // namespace stats
 }  // namespace raft

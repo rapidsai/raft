@@ -70,12 +70,16 @@ void minmax(const T* data,
     data, rowids, colids, nrows, ncols, row_stride, globalmin, globalmax, sampledcols, stream);
 }
 
-
 /**
  * @brief Computes min/max across every column of the input matrix, as well as
  * optionally allow to subsample based on the given row/col ID mapping vectors
  *
- * @tparam T the data type
+ * @tparam T Data type of input matrix element.
+ * @tparam IndexType Index type of matrix extent.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @tparam TPB number of threads per block
  * @param handle the raft handle
  * @param data input data col-major of size [nrows, ncols], unless rowids or
@@ -84,7 +88,6 @@ void minmax(const T* data,
  * skip this index lookup entirely, pass nullptr
  * @param colids actual col ID mappings. It is of length ncols. If you want to
  * skip this index lookup entirely, pass nullptr
- * @param row_stride stride (in number of elements) between 2 adjacent columns
  * @param globalmin final col-wise global minimum (size = ncols)
  * @param globalmax final col-wise global maximum (size = ncols)
  * @param sampledcols output sampled data. Pass nullptr if you don't need this
@@ -93,38 +96,45 @@ void minmax(const T* data,
  * 2. ncols is small enough to fit the whole of min/max values across all cols
  *    in shared memory
  */
-template <typename T, typename IdxType, typename LayoutPolicy, typename AccessorPolicy, int TPB = 512>
+template <typename T,
+          typename IdxType,
+          typename LayoutPolicy,
+          typename AccessorPolicy,
+          int TPB = 512>
 void minmax(const raft::handle_t& handle,
             raft::mdspan<const T, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
-            std::optional<raft::mdspan<const unsigned, raft::vector_extent<IdxType>, LayoutPolicy>> rowids,
-            std::optional<raft::mdspan<const unsigned, raft::vector_extent<IdxType>, LayoutPolicy>> colids,
-            raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy> globalmin,
-            raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy> globalmax,
-            std::optional<raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy>> sampledcols)
+            std::optional<raft::mdspan<const unsigned, raft::vector_extent<IdxType>>> rowids,
+            std::optional<raft::mdspan<const unsigned, raft::vector_extent<IdxType>>> colids,
+            raft::mdspan<T, raft::vector_extent<IdxType>> globalmin,
+            raft::mdspan<T, raft::vector_extent<IdxType>> globalmax,
+            std::optional<raft::mdspan<T, raft::vector_extent<IdxType>>> sampledcols)
 {
   static_assert(std::is_same_v<LayoutPolicy, raft::col_major>, "Data should be col-major");
   const unsigned* rowids_ptr = nullptr;
   const unsigned* colids_ptr = nullptr;
-  T* sampledcols_ptr = nullptr;
-  auto nrows = data.extent(0);
-  auto ncols = data.extent(1);
-  int row_stride = data.stride(0);
-  if (rowids.has_value())
-  {
+  T* sampledcols_ptr         = nullptr;
+  auto nrows                 = data.extent(0);
+  auto ncols                 = data.extent(1);
+  auto row_stride            = data.stride(1);
+  if (rowids.has_value()) {
     rowids_ptr = rowids.value().data_handle();
-    nrows = rowids.value().extent(0);
+    nrows      = rowids.value().extent(0);
   }
-  if (colids.has_value())
-  {
+  if (colids.has_value()) {
     colids_ptr = colids.value().data_handle();
-    ncols = colids.value().extent(0);
+    ncols      = colids.value().extent(0);
   }
-  if (sampledcols.has_value())
-  {
-    sampledcols_ptr = sampledcols.value().data_handle();
-  }
-  detail::minmax<T, TPB>(
-    data.data_handle(), rowids_ptr, colids_ptr, nrows, ncols, row_stride, globalmin.data_handle(), globalmax.data_handle(), sampledcols_ptr, handle.get_stream());
+  if (sampledcols.has_value()) { sampledcols_ptr = sampledcols.value().data_handle(); }
+  detail::minmax<T, TPB>(data.data_handle(),
+                         rowids_ptr,
+                         colids_ptr,
+                         nrows,
+                         ncols,
+                         row_stride,
+                         globalmin.data_handle(),
+                         globalmax.data_handle(),
+                         sampledcols_ptr,
+                         handle.get_stream());
 }
 
 };  // namespace stats

@@ -50,21 +50,34 @@ double completeness_score(const T* truthClusterArray,
 /**
  * @brief Function to calculate the completeness score between two clusters
  *
+ * @tparam T the data type
+ * @tparam IdxType Index type of matrix extent.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @param handle: the raft handle.
  * @param truthClusterArray: the array of truth classes of type T
  * @param predClusterArray: the array of predicted classes of type T
  * @param lowerLabelRange: the lower bound of the range of labels
  * @param upperLabelRange: the upper bound of the range of labels
  */
-template <typename T>
-double completeness_score(const raft::handle_t& handle,
-                          const raft::device_vector_view<const T>& truthClusterArray,
-                          const raft::device_vector_view<const T>& predClusterArray,
-                          T lowerLabelRange,
-                          T upperLabelRange)
+template <typename T, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
+double completeness_score(
+  const raft::handle_t& handle,
+  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>
+    truthClusterArray,
+  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>
+    predClusterArray,
+  T lowerLabelRange,
+  T upperLabelRange)
 {
-  return detail::homogeneity_score(
-    predClusterArray.data(), truthClusterArray.data(), truthClusterArray.extent(0), lowerLabelRange, upperLabelRange, handle.get_stream());
+  return detail::homogeneity_score(predClusterArray.data_handle(),
+                                   truthClusterArray.data_handle(),
+                                   truthClusterArray.extent(0),
+                                   lowerLabelRange,
+                                   upperLabelRange,
+                                   handle.get_stream());
 }
 
 };  // end namespace stats

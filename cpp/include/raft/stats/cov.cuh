@@ -78,16 +78,24 @@ void cov(const raft::handle_t& handle,
  * @note if stable=true, then the input data will be mean centered after this
  * function returns!
  */
-template <typename Type, typename IdxT, typename LayoutPolicy>
+template <typename Type, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
 void cov(const raft::handle_t& handle,
-        const raft::device_matrix_view<Type, IdxT, LayoutPolicy>& data,
-        const raft::device_vector_view<const Type, IdxT>& mu,
-        const raft::device_matrix_view<Type, IdxT, LayoutPolicy>& covar,
-        bool sample,
-        bool stable)
+         raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+         raft::mdspan<const Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
+         raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> covar,
+         bool sample,
+         bool stable)
 {
-  detail::cov(handle, covar.data(), data.data(), mu.data(), data.extent(1), data.extent(0),
-    std::is_same_v<LayoutPolicy, raft::row_major>, sample, stable, handle.get_stream());
+  detail::cov(handle,
+              covar.data_handle(),
+              data.data_handle(),
+              mu.data_handle(),
+              data.extent(1),
+              data.extent(0),
+              std::is_same_v<LayoutPolicy, raft::row_major>,
+              sample,
+              stable,
+              handle.get_stream());
 }
 };  // end namespace stats
 };  // end namespace raft

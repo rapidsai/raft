@@ -50,16 +50,20 @@ void getInputClassCardinality(
  * @param minLabel: [out] calculated min value in input array
  * @param maxLabel: [out] calculated max value in input array
  */
-template <typename T>
+template <typename T, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
 void getInputClassCardinality(
   const raft::handle_t& handle,
-  const raft::device_vector_view<const T>& groundTruth,
-  const raft::host_scalar_view<T>& minLabel, 
+  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> groundTruth,
+  const raft::host_scalar_view<T>& minLabel,
   const raft::host_scalar_view<T>& maxLabel)
 {
-  detail::getInputClassCardinality(groundTruth.data(), groundTruth.extent(0), handle.get_stream(), *minLabel.data(), *maxLabel.data());
+  detail::getInputClassCardinality(groundTruth.data_handle(),
+                                   groundTruth.extent(0),
+                                   handle.get_stream(),
+                                   *minLabel.data_handle(),
+                                   *maxLabel.data_handle());
 }
- 
+
 /**
  * @brief Calculate workspace size for running contingency matrix calculations
  * @tparam T label type
@@ -90,15 +94,19 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
  * @param minLabel: Optional, min value in input array
  * @param maxLabel: Optional, max value in input array
  */
-template <typename T, typename OutT = int>
+template <typename T,
+          typename OutT = int,
+          typename IdxType,
+          typename LayoutPolicy,
+          typename AccessorPolicy>
 size_t getContingencyMatrixWorkspaceSize(
   const raft::handle_t& handle,
-  const raft::device_vector_view<const T>& groundTruth,
+  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> groundTruth,
   T minLabel = std::numeric_limits<T>::max(),
   T maxLabel = std::numeric_limits<T>::max())
 {
   return detail::getContingencyMatrixWorkspaceSize(
-    groundTruth.extent(0), groundTruth.data(), handle.get_stream(), minLabel, maxLabel);
+    groundTruth.extent(0), groundTruth.data_handle(), handle.get_stream(), minLabel, maxLabel);
 }
 
 /**
@@ -147,6 +155,11 @@ void contingencyMatrix(const T* groundTruth,
  *        should be checked using function getContingencyMatrixWorkspaceSize
  * @tparam T label type
  * @tparam OutT output matrix type
+ * @tparam IdxType Index type of matrix extent.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @param handle: the raft handle.
  * @param groundTruth: device 1-d array for ground truth (num of rows)
  * @param predictedLabel: device 1-d array for prediction (num of columns)
@@ -156,20 +169,25 @@ void contingencyMatrix(const T* groundTruth,
  * @param minLabel: Optional, min value in input ground truth array
  * @param maxLabel: Optional, max value in input ground truth array
  */
-template <typename T, typename OutT = int>
-void contingencyMatrix(const raft::handle_t& handle,
-                       const raft::device_vector_view<const T>& groundTruth,
-                       const raft::device_vector_view<const T>& predictedLabel,
-                       const raft::device_matrix_view<OutT>& outMat,
-                       void* workspace      = nullptr,
-                       size_t workspaceSize = 0,
-                       T minLabel           = std::numeric_limits<T>::max(),
-                       T maxLabel           = std::numeric_limits<T>::max())
+template <typename T,
+          typename OutT = int,
+          typename IdxType,
+          typename LayoutPolicy,
+          typename AccessorPolicy>
+void contingencyMatrix(
+  const raft::handle_t& handle,
+  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> groundTruth,
+  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> predictedLabel,
+  raft::mdspan<OutT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> outMat,
+  void* workspace      = nullptr,
+  size_t workspaceSize = 0,
+  T minLabel           = std::numeric_limits<T>::max(),
+  T maxLabel           = std::numeric_limits<T>::max())
 {
-  detail::contingencyMatrix<T, OutT>(groundTruth.data(),
-                                     predictedLabel.data(),
+  detail::contingencyMatrix<T, OutT>(groundTruth.data_handle(),
+                                     predictedLabel.data_handle(),
                                      groundTruth.extent(0),
-                                     outMat.data(),
+                                     outMat.data_handle(),
                                      handle.get_stream(),
                                      workspace,
                                      workspaceSize,
