@@ -22,6 +22,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/device_atomics.cuh>
+#include <raft/distance/distance_type.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/pow2_utils.cuh>
 
@@ -119,12 +120,6 @@ extern __shared__ float smemArray[];
 
 #define FP16_MAX 65504.0
 
-/* CUANN similarity type */
-typedef enum {
-  CUANN_SIMILARITY_INNER = 0,
-  CUANN_SIMILARITY_L2    = 1,
-} cuannSimilarity_t;
-
 /* CUANN PQ center type */
 typedef enum {
   CUANN_PQ_CENTER_PER_SUBSPACE = 0,
@@ -140,7 +135,7 @@ struct cuannIvfPqDescriptor {
   uint32_t dimRotDataset;
   uint32_t dimPq;
   uint32_t bitPq;
-  cuannSimilarity_t similarity;
+  distance::DistanceType metric;
   cuannPqCenter_t typePqCenter;
   cudaDataType_t dtypeDataset;
   cudaDataType_t internalDistanceDtype;
@@ -207,7 +202,7 @@ struct cuannIvfPqIndexHeader {
   uint32_t numDataset;
   uint32_t dimDataset;
   uint32_t dimPq;
-  uint32_t similarity;
+  uint32_t metric;
   uint32_t maxClusterSize;
   uint32_t dimRotDataset;
   uint32_t bitPq;
@@ -597,7 +592,7 @@ inline void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCen
                                          cudaDataType_t dtype,
                                          uint32_t numDataset,
                                          uint32_t* labels,  // [numDataset]
-                                         cuannSimilarity_t similarity,
+                                         distance::DistanceType metric,
                                          uint32_t* clusterSize,  // [numCenters]
                                          float* accumulatedCenters)
 {
@@ -621,7 +616,7 @@ inline void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCen
       centers, accumulatedCenters, sizeof(float) * numCenters * dimCenters, cudaMemcpyDefault));
   }
 
-  if (similarity == CUANN_SIMILARITY_INNER) {
+  if (metric == distance::DistanceType::InnerProduct) {
     // normalize
     _cuann_normalize(numCenters, dimCenters, centers, clusterSize);
   } else {
@@ -672,7 +667,7 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
                                   cudaDataType_t dtype,
                                   uint32_t numDataset,
                                   uint32_t* labels,  // [numDataset]
-                                  cuannSimilarity_t similarity,
+                                  distance::DistanceType metric,
                                   bool isCenterSet,
                                   void* _workspace,
                                   float* tempCenters,     // [numCenters, dimCenters]
@@ -693,7 +688,7 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
                                    dtype,
                                    numDataset,
                                    labels,
-                                   similarity,
+                                   metric,
                                    clusterSize,
                                    nullptr);
     }
@@ -736,8 +731,6 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
     RAFT_LOG_DEBUG("_cuann_kmeans_predict: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
   }
-  auto metric = similarity == CUANN_SIMILARITY_INNER ? raft::distance::DistanceType::InnerProduct
-                                                     : raft::distance::DistanceType::L2Expanded;
 
   for (uint64_t is = 0; is < numDataset; is += chunk) {
     uint64_t ie       = min(is + chunk, (uint64_t)numDataset);
@@ -818,7 +811,7 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
                                  dtype,
                                  numDataset,
                                  labels,
-                                 similarity,
+                                 metric,
                                  clusterSize,
                                  tempCenters);
   }
@@ -837,7 +830,7 @@ inline void _cuann_kmeans_predict_MP(const handle_t& handle,
                                      cudaDataType_t dtype,
                                      uint32_t numDataset,
                                      uint32_t* labels,  // [numDataset]
-                                     cuannSimilarity_t similarity,
+                                     distance::DistanceType metric,
                                      bool isCenterSet,
                                      uint32_t* clusterSize,  // [numCenters]
                                      bool updateCenter  // If true, cluster Centers will be updated.
@@ -891,7 +884,7 @@ inline void _cuann_kmeans_predict_MP(const handle_t& handle,
                           dtype,
                           nDataset,
                           labels + d0,
-                          similarity,
+                          metric,
                           isCenterSet,
                           predictWorkspaceMP[devId],
                           clusterCentersMP[devId],
@@ -924,7 +917,7 @@ inline void _cuann_kmeans_predict_MP(const handle_t& handle,
                                    dtype,
                                    numDataset,
                                    labels,
-                                   similarity,
+                                   metric,
                                    clusterSize,
                                    clusterCentersMP[orgDevId]);
     }
@@ -945,7 +938,7 @@ inline void _cuann_kmeans_predict_CPU(float* centers,  // [numCenters, dimCenter
                                       cudaDataType_t dtype,
                                       uint32_t numDataset,
                                       uint32_t* labels,  // [numDataset]
-                                      cuannSimilarity_t similarity)
+                                      distance::DistanceType metric)
 {
   float multiplier = 1.0;
   if (dtype == CUDA_R_8U) {
@@ -970,7 +963,7 @@ inline void _cuann_kmeans_predict_CPU(float* centers,  // [numCenters, dimCenter
     for (uint32_t l = 0; l < numCenters; l++) {
       float score = 0.0;
       for (uint32_t j = 0; j < dimCenters; j++) {
-        if (similarity == CUANN_SIMILARITY_INNER) {
+        if (metric == distance::DistanceType::InnerProduct) {
           score -= vector[j] * centers[j + (dimCenters * l)];
         } else {
           float diff = vector[j] - centers[j + (dimCenters * l)];
@@ -996,7 +989,7 @@ __global__ void kern_adjust_centers(float* centers,  // [numCenters, dimCenters]
                                     const void* _dataset,  // [numDataet, dimCenters]
                                     uint32_t numDataset,
                                     const uint32_t* labels,  // [numDataset]
-                                    cuannSimilarity_t similarity,
+                                    distance::DistanceType metric,
                                     const uint32_t* clusterSize,  // [numCenters]
                                     float threshold,
                                     uint32_t average,
@@ -1027,7 +1020,7 @@ __global__ void kern_adjust_centers(float* centers,  // [numCenters, dimCenters]
     sqsum += val * val;
     centers[j + (uint64_t)dimCenters * l] = val;
   }
-  if (similarity == CUANN_SIMILARITY_INNER) {
+  if (metric == distance::DistanceType::InnerProduct) {
     sqsum += __shfl_xor_sync(0xffffffff, sqsum, 1);
     sqsum += __shfl_xor_sync(0xffffffff, sqsum, 2);
     sqsum += __shfl_xor_sync(0xffffffff, sqsum, 4);
@@ -2788,7 +2781,7 @@ inline void cuannIvfPqSetIndexParameters(
   const uint32_t dimDataset,  /* Dimension of each entry */
   const uint32_t dimPq,       /* Dimension of each entry after product quantization */
   const uint32_t bitPq,       /* Bit length of PQ */
-  const cuannSimilarity_t similarity,
+  const distance::DistanceType metric,
   const cuannPqCenter_t typePqCenter);
 
 inline void cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t& desc,
@@ -2797,7 +2790,7 @@ inline void cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t& desc,
                                          uint32_t* dimDataset,
                                          uint32_t* dimPq,
                                          uint32_t* bitPq,
-                                         cuannSimilarity_t* similarity,
+                                         distance::DistanceType* metric,
                                          cuannPqCenter_t* typePqCenter);
 
 inline void cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t& desc,
@@ -3278,7 +3271,7 @@ void _cuann_compute_PQ_code(const handle_t& handle,
                               CUDA_R_32F,
                               numTrainset,
                               rotVectorLabels[devId],
-                              CUANN_SIMILARITY_L2,
+                              raft::distance::DistanceType::L2Expanded,
                               (iter != 0),
                               pqPredictWorkspace[devId],
                               myPqCentersTemp[devId],
@@ -3339,7 +3332,7 @@ void _cuann_compute_PQ_code(const handle_t& handle,
                             CUDA_R_32F,
                             clusterSize[l],
                             subVectorLabels[devId] + j * clusterSize[l],
-                            CUANN_SIMILARITY_L2,
+                            raft::distance::DistanceType::L2Expanded,
                             true,
                             pqPredictWorkspace[devId],
                             nullptr,
@@ -3383,7 +3376,7 @@ inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t& desc,
                                          const uint32_t dimDataset,
                                          const uint32_t dimPq,
                                          const uint32_t bitPq,
-                                         const cuannSimilarity_t similarity,
+                                         const distance::DistanceType metric,
                                          const cuannPqCenter_t typePqCenter)
 {
   RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
@@ -3415,7 +3408,7 @@ inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t& desc,
   RAFT_EXPECTS(desc->dimDatasetExt % 8 == 0, "unexpected dimDatasetExt");
   desc->dimPq        = dimPq;
   desc->bitPq        = bitPq;
-  desc->similarity   = similarity;
+  desc->metric       = metric;
   desc->typePqCenter = typePqCenter;
 
   desc->dimRotDataset = dimDataset;
@@ -3430,7 +3423,7 @@ inline void cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t& desc,
                                          uint32_t* dimDataset,
                                          uint32_t* dimPq,
                                          uint32_t* bitPq,
-                                         cuannSimilarity_t* similarity,
+                                         distance::DistanceType* metric,
                                          cuannPqCenter_t* typePqCenter)
 {
   RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
@@ -3440,7 +3433,7 @@ inline void cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t& desc,
   *dimDataset   = desc->dimDataset;
   *dimPq        = desc->dimPq;
   *bitPq        = desc->bitPq;
-  *similarity   = desc->similarity;
+  *metric       = desc->metric;
   *typePqCenter = desc->typePqCenter;
 }
 
@@ -3486,7 +3479,7 @@ void cuannIvfPqBuildIndex(
       std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
       "unsupported type");
   }
-  if (desc->similarity == CUANN_SIMILARITY_INNER) {
+  if (desc->metric == distance::DistanceType::InnerProduct) {
     RAFT_EXPECTS(dtype == CUDA_R_32F,
                  "Unsupported dtype (inner-product metric support float only)");
   }
@@ -3585,7 +3578,7 @@ void cuannIvfPqBuildIndex(
                             dtype,
                             numTrainset,
                             mesoClusterLabels,
-                            desc->similarity,
+                            desc->metric,
                             (iter != 0),
                             NULL,
                             mesoClusterCentersTemp,
@@ -3602,7 +3595,7 @@ void cuannIvfPqBuildIndex(
                                                                             device_memory,
                                                                             handle.get_stream())) {
         iter -= 1;
-        if (desc->similarity == CUANN_SIMILARITY_INNER) {
+        if (desc->metric == distance::DistanceType::InnerProduct) {
           detail::utils::normalize_rows(
             numMesoClusters, desc->dimDataset, mesoClusterCenters, handle.get_stream());
         }
@@ -3707,7 +3700,7 @@ void cuannIvfPqBuildIndex(
                               CUDA_R_32F,
                               mesoClusterSize[i],
                               labelsMP[devId],
-                              desc->similarity,
+                              desc->metric,
                               (iter != 0),
                               predictWorkspace[devId],
                               clusterCentersMP[devId],
@@ -3725,7 +3718,7 @@ void cuannIvfPqBuildIndex(
                                            device_memory,
                                            handle.get_stream())) {
           iter -= 1;
-          if (desc->similarity == CUANN_SIMILARITY_INNER) {
+          if (desc->metric == distance::DistanceType::InnerProduct) {
             detail::utils::normalize_rows(
               numFineClusters[i], desc->dimDataset, clusterCentersEach[devId], handle.get_stream());
           }
@@ -3778,7 +3771,7 @@ void cuannIvfPqBuildIndex(
                                dtype,
                                numTrainset,
                                trainsetLabels,
-                               desc->similarity,
+                               desc->metric,
                                true,
                                clusterSize,
                                true /* to update clusterCenters */);
@@ -3793,7 +3786,7 @@ void cuannIvfPqBuildIndex(
                                                                          device_memory,
                                                                          handle.get_stream())) {
         iter -= (X - 1);
-        if (desc->similarity == CUANN_SIMILARITY_INNER) {
+        if (desc->metric == distance::DistanceType::InnerProduct) {
           detail::utils::normalize_rows(
             desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
         }
@@ -3811,7 +3804,7 @@ void cuannIvfPqBuildIndex(
                             dtype,
                             numTrainset,
                             trainsetLabels,
-                            desc->similarity,
+                            desc->metric,
                             (iter != 0),
                             NULL,
                             clusterCentersTemp,
@@ -3828,7 +3821,7 @@ void cuannIvfPqBuildIndex(
                                                                          device_memory,
                                                                          handle.get_stream())) {
         iter -= 1;
-        if (desc->similarity == CUANN_SIMILARITY_INNER) {
+        if (desc->metric == distance::DistanceType::InnerProduct) {
           detail::utils::normalize_rows(
             desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
         }
@@ -3850,7 +3843,7 @@ void cuannIvfPqBuildIndex(
                            dtype,
                            desc->numDataset,
                            datasetLabels,
-                           desc->similarity,
+                           desc->metric,
                            true,
                            clusterSize,
                            true /* to update clusterCenters */);
@@ -3944,7 +3937,7 @@ void cuannIvfPqBuildIndex(
                              dtype,
                              numTrainset,
                              trainsetLabels,
-                             desc->similarity,
+                             desc->metric,
                              true,
                              NULL,
                              false /* do not update clusterCenters */);
@@ -4036,7 +4029,7 @@ void cuannIvfPqBuildIndex(
                               CUDA_R_32F,
                               numTrainset,
                               subTrainsetLabels[devId],
-                              CUANN_SIMILARITY_L2,
+                              raft::distance::DistanceType::L2Expanded,
                               (iter != 0),
                               pqPredictWorkspace[devId],
                               pqCentersTemp[devId],
@@ -4126,7 +4119,7 @@ void cuannIvfPqBuildIndex(
 
   //
   cuannIvfPqGetIndexSize(desc, &(header->indexSize));
-  header->similarity      = desc->similarity;
+  header->metric          = desc->metric;
   header->numClusters     = desc->numClusters;
   header->numDataset      = desc->numDataset;
   header->dimDataset      = desc->dimDataset;
@@ -4206,7 +4199,7 @@ inline void cuannIvfPqLoadIndex(const handle_t& handle,
   desc->numDataset                     = header->numDataset;
   desc->dimDataset                     = header->dimDataset;
   desc->dimPq                          = header->dimPq;
-  desc->similarity                     = (cuannSimilarity_t)header->similarity;
+  desc->metric                         = (distance::DistanceType)header->metric;
   desc->maxClusterSize                 = header->maxClusterSize;
   desc->dimRotDataset                  = header->dimRotDataset;
   desc->lenPq                          = desc->dimRotDataset / desc->dimPq;
@@ -4366,7 +4359,7 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
                            dtype,
                            numNewVectors,
                            newVectorLabels,
-                           oldDesc->similarity,
+                           oldDesc->metric,
                            true,
                            clusterSize,
                            false /* do not update clusterCenters */);
@@ -4860,7 +4853,7 @@ void cuannIvfPqSearch(const handle_t& handle,
     uint32_t nQueries = min(desc->maxQueries, numQueries - i);
 
     float fillValue = 0.0;
-    if (desc->similarity == CUANN_SIMILARITY_L2) { fillValue = 1.0 / -2.0; }
+    if (desc->metric != raft::distance::DistanceType::InnerProduct) { fillValue = 1.0 / -2.0; }
     float divisor = 1.0;
     if (desc->dtypeDataset == CUDA_R_8U) {
       divisor = 256.0;
@@ -4929,7 +4922,7 @@ void cuannIvfPqSearch(const handle_t& handle,
     float alpha;
     float beta;
     uint32_t gemmK = desc->dimDataset;
-    if (desc->similarity == CUANN_SIMILARITY_INNER) {
+    if (desc->metric == distance::DistanceType::InnerProduct) {
       alpha = -1.0;
       beta  = 0.0;
     } else {
@@ -5490,9 +5483,9 @@ __device__ inline void update_approx_global_score(uint32_t topk,
 
 //
 template <typename outDtype>
-__device__ inline outDtype get_out_score(float score, cuannSimilarity_t similarity)
+__device__ inline outDtype get_out_score(float score, distance::DistanceType metric)
 {
-  if (similarity == CUANN_SIMILARITY_INNER) { score = score / 2.0 - 1.0; }
+  if (metric == distance::DistanceType::InnerProduct) { score = score / 2.0 - 1.0; }
   if (sizeof(outDtype) == 2) { score = min(score, FP16_MAX); }
   return (outDtype)score;
 }
@@ -5516,7 +5509,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   uint32_t dimPq,
   uint32_t sizeBatch,
   uint32_t maxSamples,
-  cuannSimilarity_t similarity,
+  distance::DistanceType metric,
   cuannPqCenter_t typePqCenter,
   uint32_t topk,
   const float* clusterCenters,      // [numClusters, dimDataset,]
@@ -5631,7 +5624,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
         dimPq, i + iDatasetBase, pqDataset, preCompScores, manageLocalTopk, block_topk.kth_key());
     }
     if (!manageLocalTopk) {
-      if (i < nSamples) { output[i + iSampleBase] = get_out_score<outDtype>(score, similarity); }
+      if (i < nSamples) { output[i + iSampleBase] = get_out_score<outDtype>(score, metric); }
     } else {
       uint32_t val = i;
       block_topk.add(score, val);
@@ -5645,7 +5638,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   if (warp_id == 0) {
     for (int j = 0; j < depth; j++) {
       if (threadIdx.x + (32 * j) < topk) {
-        output[threadIdx.x + (32 * j)]    = get_out_score<outDtype>(block_topk.key(j), similarity);
+        output[threadIdx.x + (32 * j)]    = get_out_score<outDtype>(block_topk.key(j), metric);
         topkIndex[threadIdx.x + (32 * j)] = block_topk.val(j) + iDatasetBase;
       }
     }
@@ -5670,7 +5663,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
   uint32_t dimPq,
   uint32_t sizeBatch,
   uint32_t maxSamples,
-  cuannSimilarity_t similarity,
+  distance::DistanceType metric,
   cuannPqCenter_t typePqCenter,
   uint32_t topk,
   const float* clusterCenters,      // [numClusters, dimDataset,]
@@ -5784,7 +5777,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
           dimPq, i + iDatasetBase, pqDataset, preCompScores, manageLocalTopk, block_topk.kth_key());
       }
       if (!manageLocalTopk) {
-        if (i < nSamples) { output[i + iSampleBase] = get_out_score<outDtype>(score, similarity); }
+        if (i < nSamples) { output[i + iSampleBase] = get_out_score<outDtype>(score, metric); }
       } else {
         uint32_t val = i;
         block_topk.add(score, val);
@@ -5801,7 +5794,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
     if (warp_id == 0) {
       for (int j = 0; j < depth; j++) {
         if (threadIdx.x + (32 * j) < topk) {
-          output[threadIdx.x + (32 * j)] = get_out_score<outDtype>(block_topk.key(j), similarity);
+          output[threadIdx.x + (32 * j)]    = get_out_score<outDtype>(block_topk.key(j), metric);
           topkIndex[threadIdx.x + (32 * j)] = block_topk.val(j) + iDatasetBase;
         }
       }
@@ -5985,7 +5978,7 @@ inline void ivfpq_search(const handle_t& handle,
                            uint32_t,
                            uint32_t,
                            uint32_t,
-                           cuannSimilarity_t,
+                           distance::DistanceType,
                            cuannPqCenter_t,
                            uint32_t,
                            const float*,
@@ -6097,7 +6090,7 @@ inline void ivfpq_search(const handle_t& handle,
                                                                    desc->dimPq,
                                                                    numQueries,
                                                                    desc->maxSamples,
-                                                                   desc->similarity,
+                                                                   desc->metric,
                                                                    desc->typePqCenter,
                                                                    desc->topK,
                                                                    clusterCenters,

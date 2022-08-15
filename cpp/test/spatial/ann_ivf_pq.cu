@@ -198,10 +198,6 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         bool randomRotation = ps.dim < 1024;  // disable for large-dimensional data (CPU intensive)
         // Number of iterations for kmeans training.
         uint32_t numIterations = 25;
-        // metric
-        ivf_pq::cuannSimilarity_t similarity =
-          ps.metric == raft::distance::DistanceType::InnerProduct ? ivf_pq::CUANN_SIMILARITY_INNER
-                                                                  : ivf_pq::CUANN_SIMILARITY_L2;
         // Specify whether PQ codebooks are created per subspace or per cluster.
         ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_SUBSPACE;
         // ivf_pq::cuannPqCenter_t typePqCenter = ivf_pq::CUANN_PQ_CENTER_PER_CLUSTER;
@@ -212,7 +208,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
           uint32_t(ps.dim), /* Dimension of each entry */
           dimPq,            /* Dimension of each entry after product quantization */
           bitPq,            /* Bit length of PQ */
-          similarity,
+          ps.metric,
           typePqCenter);
 
         // Build index
