@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,8 +36,6 @@
 #include <omp.h>
 
 //////////////////
-
-#define CUANN_DEBUG
 
 namespace raft::spatial::knn::ivf_pq {
 
@@ -2071,7 +2069,7 @@ inline void _cuann_find_topk(const handle_t& handle,
   constexpr int numThreads  = NUM_THREADS;
   constexpr int stateBitLen = STATE_BIT_LENGTH;
   static_assert(stateBitLen == 0 || stateBitLen == 8);
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   RAFT_CUDA_TRY(
     cudaMemsetAsync(labels, 0xff, sizeof(uint32_t) * sizeBatch * topK, handle.get_stream()));
 #endif
@@ -2205,7 +2203,7 @@ inline void _cuann_find_topk(const handle_t& handle,
   constexpr int numThreads  = NUM_THREADS;
   constexpr int stateBitLen = STATE_BIT_LENGTH;
   static_assert(stateBitLen == 0 || stateBitLen == 8);
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   RAFT_CUDA_TRY(
     cudaMemsetAsync(labels, 0xff, sizeof(uint32_t) * sizeBatch * topK, handle.get_stream()));
 #endif
@@ -3047,6 +3045,7 @@ inline void _cuann_kmeans_show_centers(const float* centers,  // [numCenters, di
                                        const uint32_t* centerSize,
                                        const uint32_t numShow = 5)
 {
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   for (uint64_t k = 0; k < numCenters; k++) {
     if ((numShow <= k) && (k < numCenters - numShow)) {
       if (k == numShow) fprintf(stderr, "...\n");
@@ -3062,6 +3061,7 @@ inline void _cuann_kmeans_show_centers(const float* centers,  // [numCenters, di
     }
     fprintf(stderr, " %d\n", centerSize[k]);
   }
+#endif
 }
 
 // show dataset (for debugging)
@@ -3070,6 +3070,7 @@ inline void _cuann_show_dataset(const float* dataset,  // [numDataset, dimDatase
                                 uint32_t dimDataset,
                                 const uint32_t numShow = 5)
 {
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   for (uint64_t i = 0; i < numDataset; i++) {
     if ((numShow <= i) && (i < numDataset - numShow)) {
       if (i == numShow) fprintf(stderr, "...\n");
@@ -3085,6 +3086,7 @@ inline void _cuann_show_dataset(const float* dataset,  // [numDataset, dimDatase
     }
     fprintf(stderr, "\n");
   }
+#endif
 }
 
 // show pq code (for debuging)
@@ -3093,6 +3095,7 @@ inline void _cuann_show_pq_code(const uint8_t* pqDataset,  // [numDataset, dimPq
                                 uint32_t dimPq,
                                 const uint32_t numShow = 5)
 {
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   for (uint64_t i = 0; i < numDataset; i++) {
     if ((numShow <= i) && (i < numDataset - numShow)) {
       if (i == numShow) fprintf(stderr, "...\n");
@@ -3108,6 +3111,7 @@ inline void _cuann_show_pq_code(const uint8_t* pqDataset,  // [numDataset, dimPq
     }
     fprintf(stderr, "\n");
   }
+#endif
 }
 
 //
@@ -3848,7 +3852,7 @@ void cuannIvfPqBuildIndex(
                            clusterSize,
                            true /* to update clusterCenters */);
 
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
   _cuann_kmeans_show_centers(clusterCenters, desc->numClusters, desc->dimDataset, clusterSize);
 #endif
@@ -4052,7 +4056,7 @@ void cuannIvfPqBuildIndex(
                                pqCentersEach[devId],
                                sizeof(float) * ((1 << desc->bitPq) * desc->lenPq),
                                cudaMemcpyDeviceToDevice));
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
       if (j == 0) {
         RAFT_CUDA_TRY(cudaDeviceSynchronize());
         _cuann_kmeans_show_centers(
@@ -4364,8 +4368,8 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
                            clusterSize,
                            false /* do not update clusterCenters */);
 
-#ifdef CUANN_DEBUG
-  if (1) {
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
+  {
     const int _num_show = 10;
     fprintf(stderr, "# numNewVectors: %u\n", numNewVectors);
     fprintf(stderr, "# newVectorLabels: ");
@@ -4378,7 +4382,7 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
     }
     fprintf(stderr, "\n");
   }
-  if (1) {
+  {
     const int _num_show = 10;
     fprintf(stderr, "# oldDesc->numClusters: %u\n", oldDesc->numClusters);
     fprintf(stderr, "# clusterSize: ");
@@ -5892,7 +5896,7 @@ inline void ivfpq_search(const handle_t& handle,
     dim3 iksBlocks(((numQueries * desc->topK) + iksThreads.x - 1) / iksThreads.x, 1, 1);
     ivfpq_init_topkScores<<<iksBlocks, iksThreads, 0, handle.get_stream()>>>(
       topkScores, FLT_MAX, numQueries * desc->topK);
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
     handle.sync_stream();
 #endif
   }
@@ -5902,7 +5906,7 @@ inline void ivfpq_search(const handle_t& handle,
   dim3 mcBlocks(numQueries, 1, 1);
   ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, handle.get_stream()>>>(
     desc->numProbes, numQueries, cluster_offsets, clusterLabelsToProbe, chunkIndexPtr, numSamples);
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   handle.sync_stream();
 #endif
 
@@ -5915,7 +5919,7 @@ inline void ivfpq_search(const handle_t& handle,
     dim3 psBlocks((numQueries * desc->numProbes + psThreads.x - 1) / psThreads.x, 1, 1);
     ivfpq_prep_sort<<<psBlocks, psThreads, 0, handle.get_stream()>>>(numQueries * desc->numProbes,
                                                                      indexList);
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
     handle.sync_stream();
 #endif
 
@@ -5931,7 +5935,7 @@ inline void ivfpq_search(const handle_t& handle,
                                     begin_bit,
                                     end_bit,
                                     handle.get_stream());
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
     handle.sync_stream();
 #endif
   } else {
@@ -6005,12 +6009,12 @@ inline void ivfpq_search(const handle_t& handle,
     case 4: SET_KERNEL3(4); break;
     default: RAFT_FAIL("ivf_pq::search(k = %u): depth value is too big (%d)", desc->topK, depth);
   }
-  RAFT_LOG_INFO("ivf_pq::search(k = %u, depth = %d, dim = %u/%u/%u)",
-                desc->topK,
-                depth,
-                desc->dimDataset,
-                desc->dimRotDataset,
-                desc->dimPq);
+  RAFT_LOG_DEBUG("ivf_pq::search(k = %u, depth = %d, dim = %u/%u/%u)",
+                 desc->topK,
+                 depth,
+                 desc->dimDataset,
+                 desc->dimRotDataset,
+                 desc->dimPq);
   constexpr size_t thresholdSmem = 48 * 1024;
   size_t sizeSmem                = sizeof(smemLutDtype) * desc->dimPq * (1 << desc->bitPq);
   size_t sizeSmemBaseDiff        = sizeof(float) * desc->dimRotDataset;
@@ -6105,7 +6109,7 @@ inline void ivfpq_search(const handle_t& handle,
                                                                    topkScores,
                                                                    (scoreDtype*)similarity,
                                                                    simTopkIndex);
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   handle.sync_stream();
 #endif
 
@@ -6129,7 +6133,7 @@ inline void ivfpq_search(const handle_t& handle,
                      topkSids,
                      topkWorkspace);
   }
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   handle.sync_stream();
 #endif
 
@@ -6150,7 +6154,7 @@ inline void ivfpq_search(const handle_t& handle,
                                                       topkSids,
                                                       topkNeighbors,
                                                       topkDistances);
-#ifdef CUANN_DEBUG
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   handle.sync_stream();
 #endif
 }
