@@ -29,16 +29,16 @@ namespace experimental {
 enum class StorageOrderType { column_major_t, row_major_t };
 
 template <class Extents>
-MDSPAN_INLINE_FUNCTION constexpr auto padded_row_major_strides(size_t Alignment,
+MDSPAN_INLINE_FUNCTION constexpr auto padded_row_major_strides(size_t alignment,
                                                                Extents const& __exts)
   -> std::array<size_t, Extents::rank()>
 {
-  std::array<size_t, Extents::rank()> strides = std::array<size_t, Extents::rank()>{};
-  size_t stride                               = 1;
+  auto strides  = std::array<size_t, Extents::rank()>{};
+  size_t stride = 1;
   for (size_t r = Extents::rank() - 1; r > 0; r--) {
     strides[r] = stride;
     if (stride == 1) {
-      stride *= std::max<size_t>(Alignment, raft::alignTo((size_t)__exts.extent(r), Alignment));
+      stride *= std::max<size_t>(alignment, raft::alignTo((size_t)__exts.extent(r), alignment));
     } else {
       stride *= __exts.extent(r);
     }
@@ -48,16 +48,16 @@ MDSPAN_INLINE_FUNCTION constexpr auto padded_row_major_strides(size_t Alignment,
 }
 
 template <class Extents>
-MDSPAN_INLINE_FUNCTION constexpr auto padded_col_major_strides(size_t Alignment,
+MDSPAN_INLINE_FUNCTION constexpr auto padded_col_major_strides(size_t alignment,
                                                                Extents const& __exts)
   -> std::array<size_t, Extents::rank()>
 {
-  std::array<size_t, Extents::rank()> strides = std::array<size_t, Extents::rank()>{};
-  size_t stride                               = 1;
+  auto strides  = std::array<size_t, Extents::rank()>{};
+  size_t stride = 1;
   for (size_t r = 0; r + 1 < Extents::rank(); r++) {
     strides[r] = stride;
     if (stride == 1) {
-      stride *= std::max<size_t>(Alignment, raft::alignTo((size_t)__exts.extent(r), Alignment));
+      stride *= std::max<size_t>(alignment, raft::alignTo((size_t)__exts.extent(r), alignment));
     } else {
       stride *= __exts.extent(r);
     }
