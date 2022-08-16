@@ -857,130 +857,6 @@ inline void _cuann_kmeans_predict_MP(const handle_t& handle,
   _cuann_multi_device_free<uint8_t>((uint8_t**)predictWorkspaceMP, numDevices);
 }
 
-// predict labe of dataset (naive CPU version).
-// (*) available only for prediction, but not for training.
-inline void _cuann_kmeans_predict_CPU(float* centers,  // [numCenters, dimCenters]
-                                      uint32_t numCenters,
-                                      uint32_t dimCenters,
-                                      const void* dataset,  // [numDataset, dimCenters]
-                                      cudaDataType_t dtype,
-                                      uint32_t numDataset,
-                                      uint32_t* labels,  // [numDataset]
-                                      distance::DistanceType metric)
-{
-  float multiplier = 1.0;
-  if (dtype == CUDA_R_8U) {
-    multiplier = 1.0 / 256.0;
-  } else if (dtype == CUDA_R_8I) {
-    multiplier = 1.0 / 128.0;
-  }
-  for (uint32_t i = 0; i < numDataset; i++) {
-    float* vector = (float*)malloc(sizeof(float) * dimCenters);
-    for (uint32_t j = 0; j < dimCenters; j++) {
-      if (dtype == CUDA_R_32F) {
-        vector[j] = ((float*)dataset)[j + (dimCenters * i)];
-      } else if (dtype == CUDA_R_8U) {
-        vector[j] = ((uint8_t*)dataset)[j + (dimCenters * i)];
-        vector[j] *= multiplier;
-      } else if (dtype == CUDA_R_8I) {
-        vector[j] = ((int8_t*)dataset)[j + (dimCenters * i)];
-        vector[j] *= multiplier;
-      }
-    }
-    float best_score;
-    for (uint32_t l = 0; l < numCenters; l++) {
-      float score = 0.0;
-      for (uint32_t j = 0; j < dimCenters; j++) {
-        if (metric == distance::DistanceType::InnerProduct) {
-          score -= vector[j] * centers[j + (dimCenters * l)];
-        } else {
-          float diff = vector[j] - centers[j + (dimCenters * l)];
-          score += diff * diff;
-        }
-      }
-      if ((l == 0) || (score < best_score)) {
-        labels[i]  = l;
-        best_score = score;
-      }
-    }
-    free(vector);
-  }
-}
-
-#define R_FACTOR 8
-
-//
-template <typename T, int _divisor>
-__global__ void kern_adjust_centers(float* centers,  // [numCenters, dimCenters]
-                                    uint32_t numCenters,
-                                    uint32_t dimCenters,
-                                    const void* _dataset,  // [numDataet, dimCenters]
-                                    uint32_t numDataset,
-                                    const uint32_t* labels,  // [numDataset]
-                                    distance::DistanceType metric,
-                                    const uint32_t* clusterSize,  // [numCenters]
-                                    float threshold,
-                                    uint32_t average,
-                                    uint32_t ofst,
-                                    uint32_t* count)
-{
-  const T* dataset = (const T*)_dataset;
-  float divisor    = (float)_divisor;
-  uint32_t l       = threadIdx.y + blockDim.y * blockIdx.y;
-  if (l >= numCenters) return;
-  if (clusterSize[l] > (int)(average * threshold)) return;
-
-  uint32_t laneId = threadIdx.x % 32;
-  uint32_t i;
-  if (laneId == 0) {
-    do {
-      uint32_t old = atomicAdd(count, 1);
-      i            = (ofst * (old + 1)) % numDataset;
-    } while (clusterSize[labels[i]] < average);
-  }
-  i           = __shfl_sync(0xffffffff, i, 0);
-  uint32_t li = labels[i];
-  float sqsum = 0.0;
-  for (uint32_t j = laneId; j < dimCenters; j += 32) {
-    float val = centers[j + (uint64_t)dimCenters * li] * (R_FACTOR - 1);
-    val += (float)(dataset[j + (uint64_t)dimCenters * i]) / divisor;
-    val /= R_FACTOR;
-    sqsum += val * val;
-    centers[j + (uint64_t)dimCenters * l] = val;
-  }
-  if (metric == distance::DistanceType::InnerProduct) {
-    sqsum += __shfl_xor_sync(0xffffffff, sqsum, 1);
-    sqsum += __shfl_xor_sync(0xffffffff, sqsum, 2);
-    sqsum += __shfl_xor_sync(0xffffffff, sqsum, 4);
-    sqsum += __shfl_xor_sync(0xffffffff, sqsum, 8);
-    sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
-    sqsum = sqrt(sqsum);
-    for (uint32_t j = laneId; j < dimCenters; j += 32) {
-      centers[j + ((uint64_t)dimCenters * l)] /= sqsum;
-    }
-  }
-}
-
-/**
- * end of kmeans
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- * Start of topk
- */
-
 //
 #define NUM_THREADS      1024  // DO NOT CHANGE
 #define STATE_BIT_LENGTH 8     // 0: state not used,  8: state used
@@ -2203,25 +2079,6 @@ inline void _cuann_find_topk(const handle_t& handle,
   }
 }
 
-/**
- *
- * End of topk
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- * Start of ivfpq
- */
-
-//
-inline size_t ivfpq_search_bufferSize(const handle_t& handle, cuannIvfPqDescriptor_t& desc);
-
 // search
 template <typename scoreDtype, typename smemLutDtype>
 inline void ivfpq_search(const handle_t& handle,
@@ -2237,54 +2094,6 @@ inline void ivfpq_search(const handle_t& handle,
                          uint64_t* topKNeighbors,               // [topK]
                          float* topKDistances,                  // [topK]
                          void* workspace);
-
-inline void ivfpq_encode(uint32_t numDataset,
-                         uint32_t ldDataset,  // (*) ldDataset >= numDataset
-                         uint32_t dimPq,
-                         uint32_t bitPq,         // 4 <= bitPq <= 8
-                         const uint32_t* label,  // [dimPq, ldDataset]
-                         uint8_t* output         // [numDataset, dimPq]
-);
-
-//
-bool manage_local_topk(cuannIvfPqDescriptor_t& desc);
-inline size_t get_sizeSmemForLocalTopk(cuannIvfPqDescriptor_t& desc, int numThreads);
-
-//
-__global__ void ivfpq_init_topkScores(float* topkScores,  // [num,]
-                                      float initValue,
-                                      uint32_t num);
-
-//
-__global__ void ivfpq_prep_sort(uint32_t numElement, uint32_t* indexList);
-
-//
-__global__ void ivfpq_make_chunk_index_ptr(
-  uint32_t numProbes,
-  uint32_t sizeBatch,
-  const uint32_t* cluster_offsets,        // [numClusters + 1,]
-  const uint32_t* _clusterLabelsToProbe,  // [sizeBatch, numProbes,]
-  uint32_t* _chunkIndexPtr,               // [sizeBetch, numProbes,]
-  uint32_t* numSamples                    // [sizeBatch,]
-);
-
-//
-template <typename scoreDtype>
-__global__ void ivfpq_make_outputs(uint32_t numProbes,
-                                   uint32_t topk,
-                                   uint32_t maxSamples,
-                                   uint32_t sizeBatch,
-                                   const uint32_t* clusterIndexPtr,  // [numClusters + 1]
-                                   const uint32_t* originalNumbers,  // [numDataset]
-                                   const uint32_t* clusterLabels,    // [sizeBatch, numProbes]
-                                   const uint32_t* chunkIndexPtr,    // [sizeBatch, numProbes]
-                                   const scoreDtype* scores,         // [sizeBatch, maxSamples] or
-                                                                     // [sizeBatch, numProbes, topk]
-                                   const uint32_t* scoreTopkIndex,   // [sizeBatch, numProbes, topk]
-                                   const uint32_t* topkSampleIds,    // [sizeBatch, topk]
-                                   uint64_t* topkNeighbors,          // [sizeBatch, topk]
-                                   float* topkScores                 // [sizeBatch, topk]
-);
 
 //
 __device__ inline uint32_t warp_scan(uint32_t x)
@@ -2658,69 +2467,6 @@ inline void ivfpq_encode(uint32_t numDataset,
 #endif
 }
 
-//
-template __global__ void ivfpq_make_outputs<float>(
-  uint32_t numProbes,
-  uint32_t topk,
-  uint32_t maxSamples,
-  uint32_t sizeBatch,
-  const uint32_t* clusterIndexPtr,  // [numClusters + 1]
-  const uint32_t* originalNumbers,  // [numDataset]
-  const uint32_t* clusterLabels,    // [sizeBatch, numProbes]
-  const uint32_t* chunkIndexPtr,    // [sizeBatch, numProbes]
-  const float* scores,              // [sizeBatch, maxSamples] or
-                                    // [sizeBatch, numProbes, topk]
-  const uint32_t* scoreTopkIndex,   // [sizeBatch, numProbes, topk]
-  const uint32_t* topkSampleIds,    // [sizeBatch, topk]
-  uint64_t* topkNeighbors,          // [sizeBatch, topk]
-  float* topkScores                 // [sizeBatch, topk]
-);
-
-//
-template __global__ void ivfpq_make_outputs<half>(
-  uint32_t numProbes,
-  uint32_t topk,
-  uint32_t maxSamples,
-  uint32_t sizeBatch,
-  const uint32_t* clusterIndexPtr,  // [numClusters + 1]
-  const uint32_t* originalNumbers,  // [numDataset]
-  const uint32_t* clusterLabels,    // [sizeBatch, numProbes]
-  const uint32_t* chunkIndexPtr,    // [sizeBatch, numProbes]
-  const half* scores,               // [sizeBatch, maxSamples] or
-                                    // [sizeBatch, numProbes, topk]
-  const uint32_t* scoreTopkIndex,   // [sizeBatch, numProbes, topk]
-  const uint32_t* topkSampleIds,    // [sizeBatch, topk]
-  uint64_t* topkNeighbors,          // [sizeBatch, topk]
-  float* topkScores                 // [sizeBatch, topk]
-);
-
-/**
- * End of ivfpq
- *
- *
- *
- *
- */
-
-inline void cuannIvfPqSetIndexParameters(
-  cuannIvfPqDescriptor_t& desc,
-  const uint32_t numClusters, /* Number of clusters */
-  const uint32_t numDataset,  /* Number of dataset entries */
-  const uint32_t dimDataset,  /* Dimension of each entry */
-  const uint32_t dimPq,       /* Dimension of each entry after product quantization */
-  const uint32_t bitPq,       /* Bit length of PQ */
-  const distance::DistanceType metric,
-  const codebook_gen typePqCenter);
-
-inline void cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t& desc,
-                                         uint32_t* numClusters,
-                                         uint32_t* numDataset,
-                                         uint32_t* dimDataset,
-                                         uint32_t* dimPq,
-                                         uint32_t* bitPq,
-                                         distance::DistanceType* metric,
-                                         codebook_gen* typePqCenter);
-
 inline void cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t& desc,
                                    size_t* size /* bytes of dataset index */);
 
@@ -2794,16 +2540,6 @@ inline void _cuann_get_index_pointers(cuannIvfPqDescriptor_t& desc,
   *rotationMatrix = (float*)((uint8_t*)(*cluster_offsets) + _cuann_getIndexSize_indexPtr(desc));
   *clusterRotCenters =
     (float*)((uint8_t*)(*rotationMatrix) + _cuann_getIndexSize_rotationMatrix(desc));
-}
-
-__global__ void kern_get_cluster_size(uint32_t numClusters,
-                                      const uint32_t* cluster_offsets,  // [numClusters + 1,]
-                                      uint32_t* clusterSize             // [numClusters,]
-)
-{
-  uint32_t i = threadIdx.x + (blockDim.x * blockIdx.x);
-  if (i >= numClusters) return;
-  clusterSize[i] = cluster_offsets[i + 1] - cluster_offsets[i];
 }
 
 template <typename T>
@@ -3303,7 +3039,6 @@ void _cuann_compute_PQ_code(const handle_t& handle,
   }
 }
 
-// cuannIvfPqSetIndexParameters
 inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t& desc,
                                          const uint32_t numClusters,
                                          const uint32_t numDataset,
@@ -3348,27 +3083,6 @@ inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t& desc,
   desc->dimRotDataset = dimDataset;
   if (dimDataset % dimPq) { desc->dimRotDataset = ((dimDataset / dimPq) + 1) * dimPq; }
   desc->lenPq = desc->dimRotDataset / dimPq;
-}
-
-// cuannIvfPqGetIndexParameters
-inline void cuannIvfPqGetIndexParameters(cuannIvfPqDescriptor_t& desc,
-                                         uint32_t* numClusters,
-                                         uint32_t* numDataset,
-                                         uint32_t* dimDataset,
-                                         uint32_t* dimPq,
-                                         uint32_t* bitPq,
-                                         distance::DistanceType* metric,
-                                         codebook_gen* typePqCenter)
-{
-  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
-
-  *numClusters  = desc->numClusters;
-  *numDataset   = desc->numDataset;
-  *dimDataset   = desc->dimDataset;
-  *dimPq        = desc->dimPq;
-  *bitPq        = desc->bitPq;
-  *metric       = desc->metric;
-  *typePqCenter = desc->typePqCenter;
 }
 
 // cuannIvfPqGetIndexSize
@@ -4077,127 +3791,6 @@ void cuannIvfPqBuildIndex(
   _cuann_multi_device_free<uint8_t>((uint8_t**)pqPredictWorkspace, 1);
 
   _cuann_set_device(callerDevId);
-}
-
-// cuannIvfPqSaveIndex
-inline void cuannIvfPqSaveIndex(const handle_t& handle,
-                                cuannIvfPqDescriptor_t& desc,
-                                const char* fileName)
-{
-  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
-  int orgDevId = _cuann_set_device(handle.get_device());
-
-  FILE* fp = fopen(fileName, "w");
-  RAFT_EXPECTS(fp != nullptr, "(%s) failed to open file (%s).", __func__, fileName);
-
-  struct cuannIvfPqIndexHeader* header = (struct cuannIvfPqIndexHeader*)(desc->index_ptr);
-  RAFT_LOG_DEBUG("indexSize: %lu\n", header->indexSize);
-  if (fwrite(desc->index_ptr, 1, header->indexSize, fp) != header->indexSize) {
-    RAFT_FAIL("(%s) failed to save index to file (%s)\n", __func__, fileName);
-  }
-  fclose(fp);
-
-  _cuann_set_device(orgDevId);
-}
-
-// cuannIvfPqLoadIndex
-inline void cuannIvfPqLoadIndex(const handle_t& handle,
-                                cuannIvfPqDescriptor_t& desc,
-                                const char* fileName)
-{
-  RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
-  int orgDevId = _cuann_set_device(handle.get_device());
-
-  if (1 /* *index == NULL */) {
-    FILE* fp = fopen(fileName, "r");
-    RAFT_EXPECTS(fp != nullptr, "(%s) failed to open file (%s).", __func__, fileName);
-
-    if (desc->index_ptr != NULL) { RAFT_CUDA_TRY(cudaFree(desc->index_ptr)); }
-    size_t indexSize;
-    fread(&indexSize, sizeof(size_t), 1, fp);
-    RAFT_LOG_DEBUG("indexSize: %lu\n", indexSize);
-    RAFT_CUDA_TRY(cudaMallocManaged(&(desc->index_ptr), indexSize));
-    fseek(fp, 0, SEEK_SET);
-    if (fread(desc->index_ptr, 1, indexSize, fp) != indexSize) {
-      RAFT_FAIL("(%s) failed to load index to from file (%s)\n", __func__, fileName);
-    }
-    fclose(fp);
-
-    RAFT_CUDA_TRY(
-      cudaMemAdvise(desc->index_ptr, indexSize, cudaMemAdviseSetReadMostly, handle.get_device()));
-  }
-
-  struct cuannIvfPqIndexHeader* header = (struct cuannIvfPqIndexHeader*)(desc->index_ptr);
-  desc->numClusters                    = header->numClusters;
-  desc->numDataset                     = header->numDataset;
-  desc->dimDataset                     = header->dimDataset;
-  desc->dimPq                          = header->dimPq;
-  desc->metric                         = (distance::DistanceType)header->metric;
-  desc->maxClusterSize                 = header->maxClusterSize;
-  desc->dimRotDataset                  = header->dimRotDataset;
-  desc->lenPq                          = desc->dimRotDataset / desc->dimPq;
-  desc->bitPq                          = header->bitPq;
-  desc->typePqCenter                   = (codebook_gen)header->typePqCenter;
-  desc->dtypeDataset                   = (cudaDataType_t)header->dtypeDataset;
-  desc->dimDatasetExt                  = header->dimDatasetExt;
-  desc->indexVersion                   = header->version;
-
-  float* clusterCenters;      // [numClusters, dimDatasetExt]
-  float* pqCenters;           // [dimPq, 1 << bitPq, lenPq], or
-                              // [numClusters, 1 << bitPq, lenPq]
-  uint8_t* pqDataset;         // [numDataset, dimPq * bitPq / 8]
-  uint32_t* originalNumbers;  // [numDataset]
-  uint32_t* cluster_offsets;  // [numClusters + 1]
-  float* rotationMatrix;      // [dimDataset, dimRotDataset]
-  float* clusterRotCenters;   // [numClusters, dimRotDataset]
-  _cuann_get_index_pointers(desc,
-                            &header,
-                            &clusterCenters,
-                            &pqCenters,
-                            &pqDataset,
-                            &originalNumbers,
-                            &cluster_offsets,
-                            &rotationMatrix,
-                            &clusterRotCenters);
-
-  //
-  _cuann_get_inclusiveSumSortedClusterSize(
-    desc, cluster_offsets, clusterCenters, &(desc->inclusiveSumSortedClusterSize));
-
-  size_t size;
-  // pqDataset
-  size = sizeof(uint8_t) * desc->numDataset * desc->dimPq * desc->bitPq / 8;
-  if (size < handle.get_device_properties().totalGlobalMem) {
-    RAFT_CUDA_TRY(cudaMemPrefetchAsync(pqDataset, size, handle.get_device()));
-  }
-  // clusterCenters
-  size = sizeof(float) * desc->numClusters * desc->dimDatasetExt;
-  RAFT_CUDA_TRY(cudaMemPrefetchAsync(clusterCenters, size, handle.get_device()));
-  // pqCenters
-  if (desc->typePqCenter == codebook_gen::PER_SUBSPACE) {
-    size = sizeof(float) * desc->dimPq * (1 << desc->bitPq) * desc->lenPq;
-  } else {
-    size = sizeof(float) * desc->numClusters * (1 << desc->bitPq) * desc->lenPq;
-  }
-  RAFT_CUDA_TRY(cudaMemPrefetchAsync(pqCenters, size, handle.get_device()));
-  // originalNumbers
-  size = sizeof(uint32_t) * desc->numDataset;
-  RAFT_CUDA_TRY(cudaMemPrefetchAsync(originalNumbers, size, handle.get_device()));
-  // cluster_offsets
-  size = sizeof(uint32_t) * (desc->numClusters + 1);
-  RAFT_CUDA_TRY(cudaMemPrefetchAsync(cluster_offsets, size, handle.get_device()));
-  // rotationMatrix
-  if (rotationMatrix != NULL) {
-    size = sizeof(float) * desc->dimDataset * desc->dimRotDataset;
-    RAFT_CUDA_TRY(cudaMemPrefetchAsync(rotationMatrix, size, handle.get_device()));
-  }
-  // clusterRotCenters
-  if (clusterRotCenters != NULL) {
-    size = sizeof(float) * desc->numClusters * desc->dimRotDataset;
-    RAFT_CUDA_TRY(cudaMemPrefetchAsync(clusterRotCenters, size, handle.get_device()));
-  }
-
-  _cuann_set_device(orgDevId);
 }
 
 template <typename T>
