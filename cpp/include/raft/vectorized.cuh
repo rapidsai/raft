@@ -334,9 +334,7 @@ struct TxN_t<math_, 0> {
   typedef math_ math_t;
   static const int Ratio = 1;
 
-  struct {
-    math_t data[1];
-  } val;
+  math_t data[1];
 
   DI void fill(math_t _val) {}
   template <typename idx_t = int>
