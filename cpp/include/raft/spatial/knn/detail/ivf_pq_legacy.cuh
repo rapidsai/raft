@@ -771,7 +771,7 @@ inline void _cuann_kmeans_predict_MP(const handle_t& handle,
     uint64_t d0       = (uint64_t)numDataset * (devId) / numDevices;
     uint64_t d1       = (uint64_t)numDataset * (devId + 1) / numDevices;
     uint64_t nDataset = d1 - d0;
-    void* ptrDataset;
+    void* ptrDataset  = nullptr;
     if (dtype == CUDA_R_32F) {
       ptrDataset = (void*)((float*)dataset + (uint64_t)dimCenters * d0);
     } else if (dtype == CUDA_R_8U) {
@@ -1902,6 +1902,8 @@ inline void _cuann_find_topk(const handle_t& handle,
       cta_kernel = kern_topk_cta_11<numThreads, stateBitLen, 2>;
     } else if (vecLen == 1) {
       cta_kernel = kern_topk_cta_11<numThreads, stateBitLen, 1>;
+    } else {
+      RAFT_FAIL("Unexpected vecLen (%d)", vecLen);
     }
     cta_kernel<<<blocks, threads, 0, handle.get_stream()>>>(
       topK, sizeBatch, maxSamples, numSamples, (const uint32_t*)samples, state, labels);
@@ -2035,6 +2037,8 @@ inline void _cuann_find_topk(const handle_t& handle,
       cta_kernel = kern_topk_cta_8<numThreads, stateBitLen, 2>;
     } else if (vecLen == 1) {
       cta_kernel = kern_topk_cta_8<numThreads, stateBitLen, 1>;
+    } else {
+      RAFT_FAIL("Unexpected vecLen (%d)", vecLen);
     }
     cta_kernel<<<blocks, threads, 0, handle.get_stream()>>>(
       topK, sizeBatch, maxSamples, numSamples, (const uint16_t*)samples, state, labels);
@@ -2807,11 +2811,11 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     _cuann_kmeans_predict_bufferSize((1 << bitPq), lenPq, max(maxClusterSize, maxTrainset)),
     "pqPredictWorkspace");
 
-  uint32_t** rotVectorLabels;  // [numDevices][maxClusterSize, dimPq,]
-  uint32_t** pqClusterSize;    // [numDevices][1 << bitPq,]
-  uint32_t** wsKAC;            // [numDevices][1]
-  float** myPqCenters;         // [numDevices][1 << bitPq, lenPq]
-  float** myPqCentersTemp;     // [numDevices][1 << bitPq, lenPq]
+  uint32_t** rotVectorLabels = nullptr;  // [numDevices][maxClusterSize, dimPq,]
+  uint32_t** pqClusterSize   = nullptr;  // [numDevices][1 << bitPq,]
+  uint32_t** wsKAC           = nullptr;  // [numDevices][1]
+  float** myPqCenters        = nullptr;  // [numDevices][1 << bitPq, lenPq]
+  float** myPqCentersTemp    = nullptr;  // [numDevices][1 << bitPq, lenPq]
   if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
     memset(pqCenters, 0, sizeof(float) * numClusters * (1 << bitPq) * lenPq);
     rotVectorLabels =
@@ -3556,7 +3560,7 @@ void cuannIvfPqBuildIndex(
     for (uint32_t i = 0; i < numTrainset; i++) {
       uint32_t l = trainsetLabels[i];
       for (uint32_t j = 0; j < desc->dimRotDataset; j++) {
-        float val;
+        float val = FLT_MAX;
         if (dtype == CUDA_R_32F) {
           val =
             _cuann_dot<float, float, float>(desc->dimDataset,
