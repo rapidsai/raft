@@ -18,6 +18,7 @@
 #include "../ivf_pq_types.hpp"
 #include "ann_kmeans_balanced.cuh"
 #include "ann_utils.cuh"
+#include "topk/warpsort_topk.cuh"
 
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
@@ -29,6 +30,8 @@
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+
+#include <thrust/fill.h>
 
 ///////////////////
 #include <cooperative_groups.h>
@@ -259,34 +262,6 @@ inline void _cuann_copy_fill(uint32_t nRows,
   kern_copy_fill<S, D>
     <<<nBlocks, nThreads, 0, stream>>>(nRows, nCols, src, ldSrc, dst, ldDst, fillValue, divisor);
 }
-
-template void _cuann_copy_fill<float, float>(uint32_t nRows,
-                                             uint32_t nCols,
-                                             const float* src,
-                                             uint32_t ldSrc,
-                                             float* dst,
-                                             uint32_t ldDst,
-                                             float fillValue,
-                                             float divisor,
-                                             cudaStream_t stream);
-template void _cuann_copy_fill<uint8_t, float>(uint32_t nRows,
-                                               uint32_t nCols,
-                                               const uint8_t* src,
-                                               uint32_t ldSrc,
-                                               float* dst,
-                                               uint32_t ldDst,
-                                               float fillValue,
-                                               float divisor,
-                                               cudaStream_t stream);
-template void _cuann_copy_fill<int8_t, float>(uint32_t nRows,
-                                              uint32_t nCols,
-                                              const int8_t* src,
-                                              uint32_t ldSrc,
-                                              float* dst,
-                                              uint32_t ldDst,
-                                              float fillValue,
-                                              float divisor,
-                                              cudaStream_t stream);
 
 // a -= b
 __global__ void kern_a_me_b(uint32_t nRows,
@@ -2163,24 +2138,6 @@ __global__ void ivfpq_make_chunk_index_ptr(
 
     if ((j < j_end - 1) && (threadIdx.x == 1023)) { smem_base[j & 0x1] = val; }
   }
-}
-
-//
-__global__ void ivfpq_init_topkScores(float* topkScores,  // [num,]
-                                      float initValue,
-                                      uint32_t num)
-{
-  uint32_t i = threadIdx.x + (blockDim.x * blockIdx.x);
-  if (i >= num) return;
-  topkScores[i] = initValue;
-}
-
-//
-__global__ void ivfpq_prep_sort(uint32_t numElement, uint32_t* indexList)
-{
-  uint32_t i = threadIdx.x + (blockDim.x * blockIdx.x);
-  if (i >= numElement) return;
-  indexList[i] = i;
 }
 
 //
@@ -4670,10 +4627,18 @@ __device__ inline uint32_t max_value_of<uint32_t>()
   return ~0u;
 }
 
-//
+// depth == kMaxArrLen = Capacity / kWarpWidth; (kWarpWidth fixed to 32)
 template <uint32_t depth, typename K, typename V>
 class BlockTopk {
  public:
+  /**
+   * @param topk - k, must be not greater than depth * 32
+   * @param ptr_kth_key - initial value for k-th element; it's never updated here,
+   *   seems to be needed only for optimization. It's read multiple times though. Is it updated
+   *   elsewhere? Perhaps, only when other blocks in the grid finish their execution.
+   *   Also, this parameter is optional; when null, the value is simply not used.
+   *
+   */
   __device__ BlockTopk(uint32_t topk, K* ptr_kth_key) : _topk(topk), _lane_id(threadIdx.x % 32)
   {
 #pragma unroll
@@ -4923,27 +4888,34 @@ class BlockTopk {
   }
 };
 
-//
+/**
+ * Update the scores stored in the device memory from the scores in per-thread
+ * memory as obtained by BlockTopk
+ *
+ * TODO: global_output is not volatile and is accessed using both atomics and plain reads...
+ *
+ * @param topk
+ * @param my_score - small per-thread buffer containing scores for this thread
+ * @param global_output - global scores
+ */
 template <typename K>
-__device__ inline void update_approx_global_score(uint32_t topk,
-                                                  K* my_score,
-                                                  K* approx_global_score)
+__device__ inline void update_approx_global_score(uint32_t topk, K* my_score, K* global_output)
 {
-  if (!__any_sync(0xffffffff, (my_score[0] < approx_global_score[topk - 1]))) { return; }
+  if (!__any_sync(0xffffffff, (my_score[0] < global_output[topk - 1]))) { return; }
   if (topk <= 32) {
     K score = max_value_of<K>();
-    if (threadIdx.x < topk) { score = approx_global_score[threadIdx.x]; }
+    if (threadIdx.x < topk) { score = global_output[threadIdx.x]; }
     warp_sort<K>(score, false);
     swap_if_needed<K>(my_score[0], score);
 
     warp_merge<K>(my_score[0]);
-    if (threadIdx.x < topk) { atomicMin(approx_global_score + threadIdx.x, my_score[0]); }
+    if (threadIdx.x < topk) { atomicMin(global_output + threadIdx.x, my_score[0]); }
   } else if (topk <= 64) {
     K score = max_value_of<K>();
-    if (threadIdx.x + 32 < topk) { score = approx_global_score[threadIdx.x + 32]; }
+    if (threadIdx.x + 32 < topk) { score = global_output[threadIdx.x + 32]; }
     warp_sort<K>(score, false);
     swap_if_needed<K>(my_score[0], score);
-    score = approx_global_score[threadIdx.x];
+    score = global_output[threadIdx.x];
     warp_sort<K>(score, false);
     swap_if_needed<K>(my_score[1], score);
 
@@ -4951,17 +4923,17 @@ __device__ inline void update_approx_global_score(uint32_t topk,
     warp_merge<K>(my_score[1]);
     warp_merge<K>(my_score[0]);
 
-    atomicMin(approx_global_score + threadIdx.x, my_score[0]);
-    if (threadIdx.x + 32 < topk) { atomicMin(approx_global_score + threadIdx.x + 32, my_score[1]); }
+    atomicMin(global_output + threadIdx.x, my_score[0]);
+    if (threadIdx.x + 32 < topk) { atomicMin(global_output + threadIdx.x + 32, my_score[1]); }
   } else if (topk <= 96) {
     K score = max_value_of<K>();
-    if (threadIdx.x + 64 < topk) { score = approx_global_score[threadIdx.x + 64]; }
+    if (threadIdx.x + 64 < topk) { score = global_output[threadIdx.x + 64]; }
     warp_sort<K>(score, false);
     swap_if_needed<K>(my_score[1], score);
-    score = approx_global_score[threadIdx.x + 32];
+    score = global_output[threadIdx.x + 32];
     warp_sort<K>(score, false);
     swap_if_needed<K>(my_score[2], score);
-    score = approx_global_score[threadIdx.x];
+    score = global_output[threadIdx.x];
     warp_sort<K>(score, false);
     K my_score_3_ = score;
 
@@ -4973,21 +4945,21 @@ __device__ inline void update_approx_global_score(uint32_t topk,
     warp_merge<K>(my_score[1]);
     warp_merge<K>(my_score[0]);
 
-    atomicMin(approx_global_score + threadIdx.x, my_score[0]);
-    atomicMin(approx_global_score + threadIdx.x + 32, my_score[1]);
-    if (threadIdx.x + 64 < topk) { atomicMin(approx_global_score + threadIdx.x + 64, my_score[2]); }
+    atomicMin(global_output + threadIdx.x, my_score[0]);
+    atomicMin(global_output + threadIdx.x + 32, my_score[1]);
+    if (threadIdx.x + 64 < topk) { atomicMin(global_output + threadIdx.x + 64, my_score[2]); }
   } else if (topk <= 128) {
     K score = max_value_of<K>();
-    if (threadIdx.x + 96 < topk) { score = approx_global_score[threadIdx.x + 96]; }
+    if (threadIdx.x + 96 < topk) { score = global_output[threadIdx.x + 96]; }
     warp_sort<K>(score, false);
     swap_if_needed<K>(my_score[0], score);
-    score = approx_global_score[threadIdx.x + 64];
+    score = global_output[threadIdx.x + 64];
     warp_sort<K>(score, false);
     swap_if_needed<K>(my_score[1], score);
-    score = approx_global_score[threadIdx.x + 32];
+    score = global_output[threadIdx.x + 32];
     warp_sort<K>(score, false);
     swap_if_needed<K>(my_score[2], score);
-    score = approx_global_score[threadIdx.x];
+    score = global_output[threadIdx.x];
     warp_sort<K>(score, false);
     swap_if_needed<K>(my_score[3], score);
 
@@ -5000,10 +4972,10 @@ __device__ inline void update_approx_global_score(uint32_t topk,
     warp_merge<K>(my_score[1]);
     warp_merge<K>(my_score[0]);
 
-    atomicMin(approx_global_score + threadIdx.x, my_score[0]);
-    atomicMin(approx_global_score + threadIdx.x + 32, my_score[1]);
-    atomicMin(approx_global_score + threadIdx.x + 64, my_score[2]);
-    if (threadIdx.x + 96 < topk) { atomicMin(approx_global_score + threadIdx.x + 96, my_score[3]); }
+    atomicMin(global_output + threadIdx.x, my_score[0]);
+    atomicMin(global_output + threadIdx.x + 32, my_score[1]);
+    atomicMin(global_output + threadIdx.x + 64, my_score[2]);
+    if (threadIdx.x + 96 < topk) { atomicMin(global_output + threadIdx.x + 96, my_score[3]); }
   }
 }
 
@@ -5138,6 +5110,8 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   if (nSamples32 % 32 > 0) { nSamples32 = nSamples32 + (32 - (nSamples % 32)); }
   uint32_t iDatasetBase = clusterIndexPtr[label];
 
+  // topk::block_sort<topk::warp_sort_filtered, depth * WarpSize, true, float, uint32_t>
+  //   block_topk(topk, ___);
   BlockTopk<depth, float, uint32_t> block_topk(
     topk, manageLocalTopk ? approx_global_score + topk - 1 : NULL);
   __syncthreads();
@@ -5158,6 +5132,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   }
   if (!manageLocalTopk) { return; }
   block_topk.finalize();
+  // block_topk.done();
 
   // Output topk score and index
   uint32_t warp_id = threadIdx.x / 32;
@@ -5369,7 +5344,8 @@ inline void ivfpq_search(const handle_t& handle,
   scoreDtype* similarity;      // [maxBatchSize, maxSamples] or
                                // [maxBatchSize, numProbes, topk]
   uint32_t* simTopkIndex;      // [maxBatchSize, numProbes, topk]
-  float* topkScores;           // [maxBatchSize, topk]
+  /* Preset with the dummy value and only accessed within the main kernel. */
+  float* topkScores;  // [maxBatchSize, topk]
   float* preCompScores = NULL;
   void* topkWorkspace;
 
@@ -5414,13 +5390,10 @@ inline void ivfpq_search(const handle_t& handle,
 
   //
   if (manage_local_topk(desc)) {
-    dim3 iksThreads(128, 1, 1);
-    dim3 iksBlocks(((numQueries * desc->topK) + iksThreads.x - 1) / iksThreads.x, 1, 1);
-    ivfpq_init_topkScores<<<iksBlocks, iksThreads, 0, handle.get_stream()>>>(
-      topkScores, FLT_MAX, numQueries * desc->topK);
-#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
-    handle.sync_stream();
-#endif
+    thrust::fill_n(handle.get_thrust_policy(),
+                   thrust::device_pointer_cast(topkScores),
+                   numQueries * desc->topK,
+                   FLT_MAX);
   }
 
   //
@@ -5437,13 +5410,9 @@ inline void ivfpq_search(const handle_t& handle,
     // The goal is to incrase the L2 cache hit rate to read the vectors
     // of a cluster by processing the cluster at the same time as much as
     // possible.
-    dim3 psThreads(128, 1, 1);
-    dim3 psBlocks((numQueries * desc->numProbes + psThreads.x - 1) / psThreads.x, 1, 1);
-    ivfpq_prep_sort<<<psBlocks, psThreads, 0, handle.get_stream()>>>(numQueries * desc->numProbes,
-                                                                     indexList);
-#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
-    handle.sync_stream();
-#endif
+    thrust::sequence(handle.get_thrust_policy(),
+                     thrust::device_pointer_cast(indexList),
+                     thrust::device_pointer_cast(indexList + numQueries * desc->numProbes));
 
     int begin_bit = 0;
     int end_bit   = sizeof(uint32_t) * 8;
