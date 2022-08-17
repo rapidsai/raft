@@ -272,7 +272,7 @@ struct TxN_t {
   /** the vectorized data that is used for subsequent operations */
   math_t data[Ratio];
 
-  __device__ auto* vectorized_data() {return reinterpret_cast<io_t*>(data); }
+  __device__ auto* vectorized_data() { return reinterpret_cast<io_t*>(data); }
 
   ///@todo: add default constructor
 
