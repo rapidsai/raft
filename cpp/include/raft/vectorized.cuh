@@ -269,7 +269,7 @@ struct TxN_t {
   /** defines the number of 'math_t' types stored by this struct */
   static const int Ratio = veclen_;
 
-  union {
+  struct {
     /** the vectorized data that is used for subsequent operations */
     math_t data[Ratio];
   } val;
@@ -336,7 +336,7 @@ struct TxN_t<math_, 0> {
   typedef math_ math_t;
   static const int Ratio = 1;
 
-  union {
+  struct {
     math_t data[1];
   } val;
 
