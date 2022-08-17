@@ -62,7 +62,7 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner, C
     if (i < nrows) { a.load(data, offset + i); }
 #pragma unroll
     for (int j = 0; j < VecLen; ++j) {
-      int binId = binner(a.val.data[j], i + j, col);
+      int binId = binner(a.data[j], i + j, col);
       op(binId, i + j, col);
     }
   }

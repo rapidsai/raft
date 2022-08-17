@@ -134,7 +134,7 @@ __device__ void vectorized_process(const T* in, IdxT len, Func f)
       wide.load(in, i);
 #pragma unroll
       for (int j = 0; j < wide_t::Ratio; ++j) {
-        f(wide.val.data[j], i + j);
+        f(wide.data[j], i + j);
       }
     }
 
