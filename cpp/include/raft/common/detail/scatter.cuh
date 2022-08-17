@@ -34,7 +34,7 @@ __global__ void scatterKernel(DataT* out, const DataT* in, const IdxT* idx, IdxT
   DataVec dataIn;
 #pragma unroll
   for (int i = 0; i < VecLen; ++i) {
-    auto inPos         = idxIn.data[i];
+    auto inPos     = idxIn.data[i];
     dataIn.data[i] = op(in[inPos], tid + i);
   }
   dataIn.store(out, tid);

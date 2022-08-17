@@ -102,7 +102,7 @@ struct Linewise {
           int l = 0;
           ((args[l] = vecs[rowDiv], l++), ...);
         }
-        int l         = 0;
+        int l     = 0;
         w.data[k] = op(v.data[k], (std::ignore = vecs, args[l++])...);
       }
       *out = *w.vectorized_data();
