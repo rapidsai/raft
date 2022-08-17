@@ -32,18 +32,17 @@ requirements:
     - python x.x
     - setuptools
     - cython>=0.29,<0.30
-    - cmake {{ cmake_version }}
     - scikit-build>=0.13.1
     - rmm {{ minor_version }}
     - libraft-headers {{ version }}
     - libraft-distance {{ version }}
     - cudatoolkit {{ cuda_version }}.*
-    - cuda-python >=11.5,<12.0
+    - cuda-python >=11.5,<11.7.1
   run:
     - python x.x
     - libraft-headers {{ version }}
     - libraft-distance {{ version }}
-    - cuda-python >=11.5,<12.0
+    - cuda-python >=11.5,<11.7.1
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
 
 tests:                                 # [linux64]

@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/transpose.cuh"
+#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace linalg {
@@ -55,6 +56,44 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
   detail::transpose(inout, n, stream);
 }
 
+/**
+ * @brief Transpose a matrix. The output has same layout policy as the input.
+ *
+ * @tparam T Data type of input matrix element.
+ * @tparam IndexType Index type of matrix extent.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
+ *
+ * @param[in]  handle raft handle for managing expensive cuda resources.
+ * @param[in]  in     Input matrix.
+ * @param[out] out    Output matirx, storage is pre-allocated by caller.
+ */
+template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
+auto transpose(handle_t const& handle,
+               raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
+               raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
+  -> std::enable_if_t<std::is_floating_point_v<T>, void>
+{
+  RAFT_EXPECTS(out.extent(0) == in.extent(1), "Invalid shape for transpose.");
+  RAFT_EXPECTS(out.extent(1) == in.extent(0), "Invalid shape for transpose.");
+
+  if constexpr (std::is_same_v<typename decltype(in)::layout_type, layout_c_contiguous>) {
+    detail::transpose_row_major_impl(handle, in, out);
+  } else if (std::is_same_v<typename decltype(in)::layout_type, layout_f_contiguous>) {
+    detail::transpose_col_major_impl(handle, in, out);
+  } else {
+    RAFT_EXPECTS(in.stride(0) == 1 || in.stride(1) == 1, "Unsupported matrix layout.");
+    if (in.stride(1) == 1) {
+      // row-major submatrix
+      detail::transpose_row_major_impl(handle, in, out);
+    } else {
+      // col-major submatrix
+      detail::transpose_col_major_impl(handle, in, out);
+    }
+  }
+}
 };  // end namespace linalg
 };  // end namespace raft
 
