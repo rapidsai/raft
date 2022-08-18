@@ -4892,97 +4892,6 @@ class BlockTopk {
   }
 };
 
-/**
- * Update the scores stored in the device memory from the scores in per-thread
- * memory as obtained by BlockTopk
- *
- * TODO: global_output is not volatile and is accessed using both atomics and plain reads...
- *
- * @param topk
- * @param my_score - small per-thread buffer containing scores for this thread
- * @param global_output - global scores
- */
-template <typename K>
-__device__ inline void update_approx_global_score(uint32_t topk, K* my_score, K* global_output)
-{
-  if (!__any_sync(0xffffffff, (my_score[0] < global_output[topk - 1]))) { return; }
-  if (topk <= 32) {
-    K score = max_value_of<K>();
-    if (threadIdx.x < topk) { score = global_output[threadIdx.x]; }
-    warp_sort<K>(score, false);
-    swap_if_needed<K>(my_score[0], score);
-
-    warp_merge<K>(my_score[0]);
-    if (threadIdx.x < topk) { atomicMin(global_output + threadIdx.x, my_score[0]); }
-  } else if (topk <= 64) {
-    K score = max_value_of<K>();
-    if (threadIdx.x + 32 < topk) { score = global_output[threadIdx.x + 32]; }
-    warp_sort<K>(score, false);
-    swap_if_needed<K>(my_score[0], score);
-    score = global_output[threadIdx.x];
-    warp_sort<K>(score, false);
-    swap_if_needed<K>(my_score[1], score);
-
-    swap_if_needed<K>(my_score[0], my_score[1]);
-    warp_merge<K>(my_score[1]);
-    warp_merge<K>(my_score[0]);
-
-    atomicMin(global_output + threadIdx.x, my_score[0]);
-    if (threadIdx.x + 32 < topk) { atomicMin(global_output + threadIdx.x + 32, my_score[1]); }
-  } else if (topk <= 96) {
-    K score = max_value_of<K>();
-    if (threadIdx.x + 64 < topk) { score = global_output[threadIdx.x + 64]; }
-    warp_sort<K>(score, false);
-    swap_if_needed<K>(my_score[1], score);
-    score = global_output[threadIdx.x + 32];
-    warp_sort<K>(score, false);
-    swap_if_needed<K>(my_score[2], score);
-    score = global_output[threadIdx.x];
-    warp_sort<K>(score, false);
-    K my_score_3_ = score;
-
-    swap_if_needed<K>(my_score[0], my_score[2]);
-    swap_if_needed<K>(my_score[1], my_score_3_);
-    swap_if_needed<K>(my_score[2], my_score_3_);
-    warp_merge<K>(my_score[2]);
-    swap_if_needed<K>(my_score[0], my_score[1]);
-    warp_merge<K>(my_score[1]);
-    warp_merge<K>(my_score[0]);
-
-    atomicMin(global_output + threadIdx.x, my_score[0]);
-    atomicMin(global_output + threadIdx.x + 32, my_score[1]);
-    if (threadIdx.x + 64 < topk) { atomicMin(global_output + threadIdx.x + 64, my_score[2]); }
-  } else if (topk <= 128) {
-    K score = max_value_of<K>();
-    if (threadIdx.x + 96 < topk) { score = global_output[threadIdx.x + 96]; }
-    warp_sort<K>(score, false);
-    swap_if_needed<K>(my_score[0], score);
-    score = global_output[threadIdx.x + 64];
-    warp_sort<K>(score, false);
-    swap_if_needed<K>(my_score[1], score);
-    score = global_output[threadIdx.x + 32];
-    warp_sort<K>(score, false);
-    swap_if_needed<K>(my_score[2], score);
-    score = global_output[threadIdx.x];
-    warp_sort<K>(score, false);
-    swap_if_needed<K>(my_score[3], score);
-
-    swap_if_needed<K>(my_score[0], my_score[2]);
-    swap_if_needed<K>(my_score[1], my_score[3]);
-    swap_if_needed<K>(my_score[2], my_score[3]);
-    warp_merge<K>(my_score[3]);
-    warp_merge<K>(my_score[2]);
-    swap_if_needed<K>(my_score[0], my_score[1]);
-    warp_merge<K>(my_score[1]);
-    warp_merge<K>(my_score[0]);
-
-    atomicMin(global_output + threadIdx.x, my_score[0]);
-    atomicMin(global_output + threadIdx.x + 32, my_score[1]);
-    atomicMin(global_output + threadIdx.x + 64, my_score[2]);
-    if (threadIdx.x + 96 < topk) { atomicMin(global_output + threadIdx.x + 96, my_score[3]); }
-  }
-}
-
 //
 template <typename outDtype>
 __device__ inline outDtype get_out_score(float score, distance::DistanceType metric)
@@ -5024,7 +4933,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   const float* _query,              // [sizeBatch, dimDataset,]
   const uint32_t* indexList,        // [sizeBatch * numProbes]
   float* _preCompScores,            // [...]
-  float* _topkScores,               // [sizeBatch, topk]
+  float* _topkScores,               // [sizeBatch]
   outDtype* _output,                // [sizeBatch, maxSamples,] or [sizeBatch, numProbes, topk]
   uint32_t* _topkIndex              // [sizeBatch, numProbes, topk]
 )
@@ -5061,7 +4970,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
     // Store topk calculated distances to output (and its indices to topkIndex)
     output              = _output + (topk * (iProbe + (numProbes * iBatch)));
     topkIndex           = _topkIndex + (topk * (iProbe + (numProbes * iBatch)));
-    approx_global_score = _topkScores + (topk * iBatch);
+    approx_global_score = _topkScores + iBatch;
   } else {
     // Store all calculated distances to output
     output = _output + (maxSamples * iBatch);
@@ -5116,8 +5025,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
 
   // topk::block_sort<topk::warp_sort_filtered, depth * WarpSize, true, float, uint32_t>
   //   block_topk(topk, ___);
-  BlockTopk<depth, float, uint32_t> block_topk(
-    topk, manageLocalTopk ? approx_global_score + topk - 1 : NULL);
+  BlockTopk<depth, float, uint32_t> block_topk(topk, approx_global_score);
   __syncthreads();
 
   // Compute a distance for each sample
@@ -5150,12 +5058,8 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   }
 
   // Approximate update of global topk entries
-  if (warp_id == 0) {
-    float my_score[depth];
-    for (int j = 0; j < depth; j++) {
-      my_score[j] = block_topk.key(j);
-    }
-    update_approx_global_score<float>(topk, my_score, approx_global_score);
+  if (threadIdx.x == (topk - 1) % 32) {
+    atomicMin(approx_global_score, block_topk.key((topk - 1) / 32));
   }
 }
 
@@ -5181,7 +5085,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
   const float* _query,              // [sizeBatch, dimDataset,]
   const uint32_t* indexList,        // [sizeBatch * numProbes]
   float* _preCompScores,            // [..., dimPq << bitPq,]
-  float* _topkScores,               // [sizeBatch, topk]
+  float* _topkScores,               // [sizeBatch]
   outDtype* _output,                // [sizeBatch, maxSamples,] or [sizeBatch, numProbes, topk]
   uint32_t* _topkIndex              // [sizeBatch, numProbes, topk]
 )
@@ -5217,7 +5121,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
       // Store topk calculated distances to output (and its indices to topkIndex)
       output              = _output + (topk * (iProbe + (numProbes * iBatch)));
       topkIndex           = _topkIndex + (topk * (iProbe + (numProbes * iBatch)));
-      approx_global_score = _topkScores + (topk * iBatch);
+      approx_global_score = _topkScores + iBatch;
     } else {
       // Store all calculated distances to output
       output = _output + (maxSamples * iBatch);
@@ -5270,8 +5174,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
     if (nSamples32 % 32 > 0) { nSamples32 = nSamples32 + (32 - (nSamples % 32)); }
     uint32_t iDatasetBase = clusterIndexPtr[label];
 
-    BlockTopk<depth, float, uint32_t> block_topk(
-      topk, manageLocalTopk ? approx_global_score + topk - 1 : NULL);
+    BlockTopk<depth, float, uint32_t> block_topk(topk, approx_global_score);
     __syncthreads();
 
     // Compute a distance for each sample
@@ -5306,12 +5209,8 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
     }
 
     // Approximate update of global topk entries
-    if (warp_id == 0) {
-      float my_score[depth];
-      for (int j = 0; j < depth; j++) {
-        my_score[j] = block_topk.key(j);
-      }
-      update_approx_global_score<float>(topk, my_score, approx_global_score);
+    if (threadIdx.x == (topk - 1) % 32) {
+      atomicMin(approx_global_score, block_topk.key((topk - 1) / 32));
     }
     __syncthreads();
   }
