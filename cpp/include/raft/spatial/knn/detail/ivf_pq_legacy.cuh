@@ -27,6 +27,7 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/pow2_utils.cuh>
+#include <raft/stats/histogram.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
@@ -720,116 +721,6 @@ inline void _cuann_kmeans_predict(const handle_t& handle,
   }
 
   if (_workspace == NULL) { RAFT_CUDA_TRY(cudaFree(workspace)); }
-}
-
-//
-// predict label of dataset with multiple devices
-//
-inline void _cuann_kmeans_predict_MP(const handle_t& handle,
-                                     float* clusterCenters,  // [numCenters, dimCenters]
-                                     uint32_t numCenters,
-                                     uint32_t dimCenters,
-                                     const void* dataset,  // [numDataset, dimCenters]
-                                     cudaDataType_t dtype,
-                                     uint32_t numDataset,
-                                     uint32_t* labels,  // [numDataset]
-                                     distance::DistanceType metric,
-                                     bool isCenterSet,
-                                     uint32_t* clusterSize,  // [numCenters]
-                                     bool updateCenter  // If true, cluster Centers will be updated.
-)
-{
-  int numDevices = 1;
-  // [numDevices][numCenters, dimCenters]
-  float** clusterCentersCopy = _cuann_multi_device_malloc<float>(
-    numDevices, numCenters * dimCenters, "clusterCentersCopy", true /* use cudaMalloc() */);
-
-  // [numDevices][numCenters, dimCenters]
-  float** clusterCentersMP =
-    _cuann_multi_device_malloc<float>(numDevices, numCenters * dimCenters, "clusterCentersMP");
-
-  // [numDevices][numCenters]
-  uint32_t** clusterSizeMP =
-    _cuann_multi_device_malloc<uint32_t>(numDevices, numCenters, "clusterSizeMP");
-
-  // [numDevices][...]
-  size_t sizePredictWorkspace =
-    _cuann_kmeans_predict_bufferSize(numCenters, dimCenters, numDataset);
-  void** predictWorkspaceMP = (void**)_cuann_multi_device_malloc<uint8_t>(
-    numDevices, sizePredictWorkspace, "predictWorkspaceMP");
-
-  int orgDevId;
-  RAFT_CUDA_TRY(cudaGetDevice(&orgDevId));
-#pragma omp parallel num_threads(numDevices)
-  {
-    int devId = omp_get_thread_num();
-    RAFT_CUDA_TRY(cudaSetDevice(devId));
-    RAFT_CUDA_TRY(cudaMemcpy(clusterCentersCopy[devId],
-                             clusterCenters,
-                             sizeof(float) * numCenters * dimCenters,
-                             cudaMemcpyDefault));
-    uint64_t d0       = (uint64_t)numDataset * (devId) / numDevices;
-    uint64_t d1       = (uint64_t)numDataset * (devId + 1) / numDevices;
-    uint64_t nDataset = d1 - d0;
-    void* ptrDataset  = nullptr;
-    if (dtype == CUDA_R_32F) {
-      ptrDataset = (void*)((float*)dataset + (uint64_t)dimCenters * d0);
-    } else if (dtype == CUDA_R_8U) {
-      ptrDataset = (void*)((uint8_t*)dataset + (uint64_t)dimCenters * d0);
-    } else if (dtype == CUDA_R_8I) {
-      ptrDataset = (void*)((int8_t*)dataset + (uint64_t)dimCenters * d0);
-    }
-    _cuann_kmeans_predict(handle,
-                          clusterCentersCopy[devId],
-                          numCenters,
-                          dimCenters,
-                          ptrDataset,
-                          dtype,
-                          nDataset,
-                          labels + d0,
-                          metric,
-                          isCenterSet,
-                          predictWorkspaceMP[devId],
-                          clusterCentersMP[devId],
-                          clusterSizeMP[devId],
-                          false /* do not update centers */);
-  }
-  for (int devId = 0; devId < numDevices; devId++) {
-    // Barrier
-    RAFT_CUDA_TRY(cudaSetDevice(devId));
-    RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  }
-  RAFT_CUDA_TRY(cudaSetDevice(orgDevId));
-  auto stream = handle.get_stream();
-  if (clusterSize != NULL) {
-    // Reduce results to main thread
-    utils::memzero(clusterSize, numCenters, stream);
-    handle.sync_stream(stream);
-    for (int devId = 0; devId < numDevices; devId++) {
-      _cuann_axpy<uint32_t>(numCenters, 1, clusterSizeMP[devId], clusterSize);
-      if (devId != orgDevId) {
-        _cuann_axpy<float>(
-          numCenters * dimCenters, 1, clusterCentersMP[devId], clusterCentersMP[orgDevId]);
-      }
-    }
-    if (updateCenter) {
-      _cuann_kmeans_update_centers(clusterCenters,
-                                   numCenters,
-                                   dimCenters,
-                                   dataset,
-                                   dtype,
-                                   numDataset,
-                                   labels,
-                                   metric,
-                                   clusterSize,
-                                   clusterCentersMP[orgDevId]);
-    }
-  }
-
-  _cuann_multi_device_free<float>(clusterCentersCopy, numDevices);
-  _cuann_multi_device_free<float>(clusterCentersMP, numDevices);
-  _cuann_multi_device_free<uint32_t>(clusterSizeMP, numDevices);
-  _cuann_multi_device_free<uint8_t>((uint8_t**)predictWorkspaceMP, numDevices);
 }
 
 //
@@ -3055,8 +2946,7 @@ void cuannIvfPqBuildIndex(
   const T* trainset,      /* [numTrainset, dimDataset] */
   uint32_t numTrainset,   /* Number of train-set entries */
   uint32_t numIterations, /* Number of iterations to train kmeans */
-  bool randomRotation,    /* If true, rotate vectors with randamly created rotation matrix */
-  bool hierarchicalClustering /* If true, do kmeans training hierarchically */)
+  bool randomRotation /* If true, rotate vectors with randamly created rotation matrix */)
 {
   int cuannDevId  = handle.get_device();
   int callerDevId = _cuann_set_device(cuannDevId);
@@ -3132,292 +3022,264 @@ void cuannIvfPqBuildIndex(
 
   uint32_t** wsKAC = _cuann_multi_device_malloc<uint32_t>(1, 1, "wsKAC");
 
+  uint32_t numMesoClusters = pow((double)(desc->numClusters), (double)1.0 / 2.0) + 0.5;
+  RAFT_LOG_DEBUG("numMesoClusters: %u", numMesoClusters);
+
+  float* mesoClusterCenters;  // [numMesoClusters, dimDataset]
+  RAFT_CUDA_TRY(
+    cudaMallocManaged(&mesoClusterCenters, sizeof(float) * numMesoClusters * desc->dimDataset));
+
+  float* mesoClusterCentersTemp;  // [numMesoClusters, dimDataset]
+  RAFT_CUDA_TRY(
+    cudaMallocManaged(&mesoClusterCentersTemp, sizeof(float) * numMesoClusters * desc->dimDataset));
+
+  uint32_t* mesoClusterLabels;  // [numTrainset,]
+  RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterLabels, sizeof(uint32_t) * numTrainset));
+
+  uint32_t* mesoClusterSize;  // [numMesoClusters,]
+  RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterSize, sizeof(uint32_t) * numMesoClusters));
+
   //
-  // Training kmeans
+  // Training kmeans for meso-clusters
   //
-  if (hierarchicalClustering) {
-    RAFT_LOG_DEBUG("Hierarchical clustering: enabled");
-  } else {
-    RAFT_LOG_DEBUG("Hierarchical clustering: disabled");
+  int numIterations_2 = numIterations * 2;
+  for (int iter = 0; iter < numIterations_2; iter += 2) {
+    _cuann_kmeans_predict(handle,
+                          mesoClusterCenters,
+                          numMesoClusters,
+                          desc->dimDataset,
+                          trainset,
+                          dtype,
+                          numTrainset,
+                          mesoClusterLabels,
+                          desc->metric,
+                          (iter != 0),
+                          NULL,
+                          mesoClusterCentersTemp,
+                          mesoClusterSize,
+                          true);
+    if ((iter + 1 < numIterations_2) && kmeans::adjust_centers<T>(mesoClusterCenters,
+                                                                  numMesoClusters,
+                                                                  desc->dimDataset,
+                                                                  trainset,
+                                                                  numTrainset,
+                                                                  mesoClusterLabels,
+                                                                  mesoClusterSize,
+                                                                  (float)1.0 / 4,
+                                                                  device_memory,
+                                                                  handle.get_stream())) {
+      iter -= 1;
+      if (desc->metric == distance::DistanceType::InnerProduct) {
+        utils::normalize_rows(
+          numMesoClusters, desc->dimDataset, mesoClusterCenters, handle.get_stream());
+      }
+    }
   }
-  if (hierarchicalClustering) {
-    // Hierarchical kmeans
-    uint32_t numMesoClusters = pow((double)(desc->numClusters), (double)1.0 / 2.0) + 0.5;
-    RAFT_LOG_DEBUG("numMesoClusters: %u", numMesoClusters);
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
 
-    float* mesoClusterCenters;  // [numMesoClusters, dimDataset]
-    RAFT_CUDA_TRY(
-      cudaMallocManaged(&mesoClusterCenters, sizeof(float) * numMesoClusters * desc->dimDataset));
+  // Number of centers in each meso cluster
+  // [numMesoClusters,]
+  uint32_t* numFineClusters = (uint32_t*)malloc(sizeof(uint32_t) * numMesoClusters);
 
-    float* mesoClusterCentersTemp;  // [numMesoClusters, dimDataset]
-    RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterCentersTemp,
-                                    sizeof(float) * numMesoClusters * desc->dimDataset));
+  // [numMesoClusters + 1,]
+  uint32_t* csumFineClusters = (uint32_t*)malloc(sizeof(uint32_t) * (numMesoClusters + 1));
+  csumFineClusters[0]        = 0;
 
-    uint32_t* mesoClusterLabels;  // [numTrainset,]
-    RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterLabels, sizeof(uint32_t) * numTrainset));
-
-    uint32_t* mesoClusterSize;  // [numMesoClusters,]
-    RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterSize, sizeof(uint32_t) * numMesoClusters));
-
-    //
-    // Training kmeans for meso-clusters
-    //
-    int numIterations_2 = numIterations * 2;
-    for (int iter = 0; iter < numIterations_2; iter += 2) {
-      _cuann_kmeans_predict(handle,
-                            mesoClusterCenters,
-                            numMesoClusters,
-                            desc->dimDataset,
-                            trainset,
-                            dtype,
-                            numTrainset,
-                            mesoClusterLabels,
-                            desc->metric,
-                            (iter != 0),
-                            NULL,
-                            mesoClusterCentersTemp,
-                            mesoClusterSize,
-                            true);
-      if ((iter + 1 < numIterations_2) && kmeans::adjust_centers<T>(mesoClusterCenters,
-                                                                    numMesoClusters,
-                                                                    desc->dimDataset,
-                                                                    trainset,
-                                                                    numTrainset,
-                                                                    mesoClusterLabels,
-                                                                    mesoClusterSize,
-                                                                    (float)1.0 / 4,
-                                                                    device_memory,
-                                                                    handle.get_stream())) {
-        iter -= 1;
-        if (desc->metric == distance::DistanceType::InnerProduct) {
-          utils::normalize_rows(
-            numMesoClusters, desc->dimDataset, mesoClusterCenters, handle.get_stream());
-        }
-      }
+  uint32_t numClustersRemain  = desc->numClusters;
+  uint32_t numTrainsetRemain  = numTrainset;
+  uint32_t mesoClusterSizeSum = 0;  // check
+  uint32_t mesoClusterSizeMax = 0;
+  uint32_t numFineClustersMax = 0;
+  for (uint32_t i = 0; i < numMesoClusters; i++) {
+    if (i < numMesoClusters - 1) {
+      numFineClusters[i] = (double)numClustersRemain * mesoClusterSize[i] / numTrainsetRemain + .5;
+    } else {
+      numFineClusters[i] = numClustersRemain;
     }
-    RAFT_CUDA_TRY(cudaDeviceSynchronize());
+    csumFineClusters[i + 1] = csumFineClusters[i] + numFineClusters[i];
 
-    // Number of centers in each meso cluster
-    // [numMesoClusters,]
-    uint32_t* numFineClusters = (uint32_t*)malloc(sizeof(uint32_t) * numMesoClusters);
+    numClustersRemain -= numFineClusters[i];
+    numTrainsetRemain -= mesoClusterSize[i];
+    mesoClusterSizeSum += mesoClusterSize[i];
+    mesoClusterSizeMax = max(mesoClusterSizeMax, mesoClusterSize[i]);
+    numFineClustersMax = max(numFineClustersMax, numFineClusters[i]);
+  }
+  RAFT_EXPECTS(mesoClusterSizeSum == numTrainset, "mesocluster sizes do not add up");
+  RAFT_EXPECTS(csumFineClusters[numMesoClusters] == desc->numClusters,
+               "fine cluster sizes do not add up");
 
-    // [numMesoClusters + 1,]
-    uint32_t* csumFineClusters = (uint32_t*)malloc(sizeof(uint32_t) * (numMesoClusters + 1));
-    csumFineClusters[0]        = 0;
+  uint32_t** idsTrainset =
+    _cuann_multi_device_malloc<uint32_t>(1, mesoClusterSizeMax, "idsTrainset");
 
-    uint32_t numClustersRemain  = desc->numClusters;
-    uint32_t numTrainsetRemain  = numTrainset;
-    uint32_t mesoClusterSizeSum = 0;  // check
-    uint32_t mesoClusterSizeMax = 0;
-    uint32_t numFineClustersMax = 0;
-    for (uint32_t i = 0; i < numMesoClusters; i++) {
-      if (i < numMesoClusters - 1) {
-        numFineClusters[i] =
-          (double)numClustersRemain * mesoClusterSize[i] / numTrainsetRemain + .5;
-      } else {
-        numFineClusters[i] = numClustersRemain;
-      }
-      csumFineClusters[i + 1] = csumFineClusters[i] + numFineClusters[i];
+  float** subTrainset =
+    _cuann_multi_device_malloc<float>(1, mesoClusterSizeMax * desc->dimDataset, "subTrainset");
 
-      numClustersRemain -= numFineClusters[i];
-      numTrainsetRemain -= mesoClusterSize[i];
-      mesoClusterSizeSum += mesoClusterSize[i];
-      mesoClusterSizeMax = max(mesoClusterSizeMax, mesoClusterSize[i]);
-      numFineClustersMax = max(numFineClustersMax, numFineClusters[i]);
-    }
-    RAFT_EXPECTS(mesoClusterSizeSum == numTrainset, "mesocluster sizes do not add up");
-    RAFT_EXPECTS(csumFineClusters[numMesoClusters] == desc->numClusters,
-                 "fine cluster sizes do not add up");
+  // label (cluster ID) of each vector
+  uint32_t** labelsMP = _cuann_multi_device_malloc<uint32_t>(1, mesoClusterSizeMax, "labelsMP");
 
-    uint32_t** idsTrainset =
-      _cuann_multi_device_malloc<uint32_t>(1, mesoClusterSizeMax, "idsTrainset");
+  float** clusterCentersEach = _cuann_multi_device_malloc<float>(
+    1, numFineClustersMax * desc->dimDataset, "clusterCentersEach");
 
-    float** subTrainset =
-      _cuann_multi_device_malloc<float>(1, mesoClusterSizeMax * desc->dimDataset, "subTrainset");
+  float** clusterCentersMP =
+    _cuann_multi_device_malloc<float>(1, numFineClustersMax * desc->dimDataset, "clusterCentersMP");
 
-    // label (cluster ID) of each vector
-    uint32_t** labelsMP = _cuann_multi_device_malloc<uint32_t>(1, mesoClusterSizeMax, "labelsMP");
+  // number of vectors in each cluster
+  uint32_t** clusterSizeMP =
+    _cuann_multi_device_malloc<uint32_t>(1, numFineClustersMax, "clusterSizeMP");
 
-    float** clusterCentersEach = _cuann_multi_device_malloc<float>(
-      1, numFineClustersMax * desc->dimDataset, "clusterCentersEach");
+  size_t sizePredictWorkspace = 0;
+  for (uint32_t i = 0; i < numMesoClusters; i++) {
+    sizePredictWorkspace =
+      max(sizePredictWorkspace,
+          _cuann_kmeans_predict_bufferSize(numFineClusters[i],  // number of centers
+                                           desc->dimDataset,
+                                           mesoClusterSize[i]  // number of vectors
+                                           ));
+  }
+  void** predictWorkspace =
+    (void**)_cuann_multi_device_malloc<uint8_t>(1, sizePredictWorkspace, "predictWorkspace");
 
-    float** clusterCentersMP = _cuann_multi_device_malloc<float>(
-      1, numFineClustersMax * desc->dimDataset, "clusterCentersMP");
-
-    // number of vectors in each cluster
-    uint32_t** clusterSizeMP =
-      _cuann_multi_device_malloc<uint32_t>(1, numFineClustersMax, "clusterSizeMP");
-
-    size_t sizePredictWorkspace = 0;
-    for (uint32_t i = 0; i < numMesoClusters; i++) {
-      sizePredictWorkspace =
-        max(sizePredictWorkspace,
-            _cuann_kmeans_predict_bufferSize(numFineClusters[i],  // number of centers
-                                             desc->dimDataset,
-                                             mesoClusterSize[i]  // number of vectors
-                                             ));
-    }
-    void** predictWorkspace =
-      (void**)_cuann_multi_device_malloc<uint8_t>(1, sizePredictWorkspace, "predictWorkspace");
-
-    //
-    // Training kmeans for clusters in each meso-clusters
-    //
+  //
+  // Training kmeans for clusters in each meso-clusters
+  //
 #pragma omp parallel for schedule(dynamic) num_threads(1)
-    for (uint32_t i = 0; i < numMesoClusters; i++) {
-      int devId = omp_get_thread_num();
-      RAFT_CUDA_TRY(cudaSetDevice(devId));
+  for (uint32_t i = 0; i < numMesoClusters; i++) {
+    int devId = omp_get_thread_num();
+    RAFT_CUDA_TRY(cudaSetDevice(devId));
 
-      uint32_t k = 0;
-      for (uint32_t j = 0; j < numTrainset; j++) {
-        if (mesoClusterLabels[j] != i) continue;
-        idsTrainset[devId][k++] = j;
-      }
-      RAFT_EXPECTS(k == mesoClusterSize[i], "unexpected cluster size for cluster %u", i);
-
-      utils::copy_selected<float, T>(mesoClusterSize[i],
-                                     desc->dimDataset,
-                                     trainset,
-                                     idsTrainset[devId],
-                                     desc->dimDataset,
-                                     subTrainset[devId],
-                                     desc->dimDataset,
-                                     handle.get_stream());
-
-      int numIterations_2 = numIterations * 2;
-      for (int iter = 0; iter < numIterations_2; iter += 2) {
-        _cuann_kmeans_predict(handle,
-                              clusterCentersEach[devId],
-                              numFineClusters[i],
-                              desc->dimDataset,
-                              subTrainset[devId],
-                              CUDA_R_32F,
-                              mesoClusterSize[i],
-                              labelsMP[devId],
-                              desc->metric,
-                              (iter != 0),
-                              predictWorkspace[devId],
-                              clusterCentersMP[devId],
-                              clusterSizeMP[devId],
-                              true);
-        if ((iter + 1 < numIterations_2) && kmeans::adjust_centers(clusterCentersEach[devId],
-                                                                   numFineClusters[i],
-                                                                   desc->dimDataset,
-                                                                   subTrainset[devId],
-                                                                   mesoClusterSize[i],
-                                                                   labelsMP[devId],
-                                                                   clusterSizeMP[devId],
-                                                                   (float)1.0 / 4,
-                                                                   device_memory,
-                                                                   handle.get_stream())) {
-          iter -= 1;
-          if (desc->metric == distance::DistanceType::InnerProduct) {
-            utils::normalize_rows(
-              numFineClusters[i], desc->dimDataset, clusterCentersEach[devId], handle.get_stream());
-          }
-        }
-      }
-      RAFT_CUDA_TRY(cudaMemcpy(clusterCenters + (desc->dimDataset * csumFineClusters[i]),
-                               clusterCentersEach[devId],
-                               sizeof(float) * numFineClusters[i] * desc->dimDataset,
-                               cudaMemcpyDeviceToDevice));
+    uint32_t k = 0;
+    for (uint32_t j = 0; j < numTrainset; j++) {
+      if (mesoClusterLabels[j] != i) continue;
+      idsTrainset[devId][k++] = j;
     }
-    for (int devId = 0; devId < 1; devId++) {
-      RAFT_CUDA_TRY(cudaSetDevice(devId));
-      RAFT_CUDA_TRY(cudaDeviceSynchronize());
-    }
-    RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
+    RAFT_EXPECTS(k == mesoClusterSize[i], "unexpected cluster size for cluster %u", i);
 
-    _cuann_multi_device_free<uint32_t>(idsTrainset, 1);
-    _cuann_multi_device_free<float>(subTrainset, 1);
-    _cuann_multi_device_free<uint32_t>(labelsMP, 1);
-    _cuann_multi_device_free<float>(clusterCentersEach, 1);
-    _cuann_multi_device_free<float>(clusterCentersMP, 1);
-    _cuann_multi_device_free<uint32_t>(clusterSizeMP, 1);
-    _cuann_multi_device_free<uint8_t>((uint8_t**)predictWorkspace, 1);
+    utils::copy_selected<float, T>(mesoClusterSize[i],
+                                   desc->dimDataset,
+                                   trainset,
+                                   idsTrainset[devId],
+                                   desc->dimDataset,
+                                   subTrainset[devId],
+                                   desc->dimDataset,
+                                   handle.get_stream());
 
-    RAFT_CUDA_TRY(cudaFree(mesoClusterSize));
-    RAFT_CUDA_TRY(cudaFree(mesoClusterLabels));
-    RAFT_CUDA_TRY(cudaFree(mesoClusterCenters));
-    RAFT_CUDA_TRY(cudaFree(mesoClusterCentersTemp));
-
-    free(numFineClusters);
-    free(csumFineClusters);
-
-    //
-    // Fine-tuning kmeans for whole clusters (with multipel GPUs)
-    //
-    // (*) Since the likely cluster centroids have been calculated
-    // hierarchically already, the number of iteration for fine-tuning
-    // kmeans for whole clusters should be reduced. However, there
-    // is a possibility that the clusters could be unbalanced here,
-    // in which case the actual number of iterations would be increased.
-    //
-    const int X         = 5;
-    int numIterations_X = max(numIterations / 10, 2) * X;
-    for (int iter = 0; iter < numIterations_X; iter += X) {
-      _cuann_kmeans_predict_MP(handle,
-                               clusterCenters,
-                               desc->numClusters,
-                               desc->dimDataset,
-                               trainset,
-                               dtype,
-                               numTrainset,
-                               trainsetLabels,
-                               desc->metric,
-                               true,
-                               clusterSize,
-                               true /* to update clusterCenters */);
-      if ((iter + 1 < numIterations_X) && kmeans::adjust_centers(clusterCenters,
-                                                                 desc->numClusters,
-                                                                 desc->dimDataset,
-                                                                 trainset,
-                                                                 numTrainset,
-                                                                 trainsetLabels,
-                                                                 clusterSize,
-                                                                 (float)1.0 / 5,
-                                                                 device_memory,
-                                                                 handle.get_stream())) {
-        iter -= (X - 1);
-        if (desc->metric == distance::DistanceType::InnerProduct) {
-          utils::normalize_rows(
-            desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
-        }
-      }
-    }
-  } else {
-    // Flat kmeans
     int numIterations_2 = numIterations * 2;
     for (int iter = 0; iter < numIterations_2; iter += 2) {
       _cuann_kmeans_predict(handle,
-                            clusterCenters,
-                            desc->numClusters,
+                            clusterCentersEach[devId],
+                            numFineClusters[i],
                             desc->dimDataset,
-                            trainset,
-                            dtype,
-                            numTrainset,
-                            trainsetLabels,
+                            subTrainset[devId],
+                            CUDA_R_32F,
+                            mesoClusterSize[i],
+                            labelsMP[devId],
                             desc->metric,
                             (iter != 0),
-                            NULL,
-                            clusterCentersTemp,
-                            clusterSize,
+                            predictWorkspace[devId],
+                            clusterCentersMP[devId],
+                            clusterSizeMP[devId],
                             true);
-      if ((iter + 1 < numIterations_2) && kmeans::adjust_centers(clusterCenters,
-                                                                 desc->numClusters,
+      if ((iter + 1 < numIterations_2) && kmeans::adjust_centers(clusterCentersEach[devId],
+                                                                 numFineClusters[i],
                                                                  desc->dimDataset,
-                                                                 trainset,
-                                                                 numTrainset,
-                                                                 trainsetLabels,
-                                                                 clusterSize,
+                                                                 subTrainset[devId],
+                                                                 mesoClusterSize[i],
+                                                                 labelsMP[devId],
+                                                                 clusterSizeMP[devId],
                                                                  (float)1.0 / 4,
                                                                  device_memory,
                                                                  handle.get_stream())) {
         iter -= 1;
         if (desc->metric == distance::DistanceType::InnerProduct) {
           utils::normalize_rows(
-            desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
+            numFineClusters[i], desc->dimDataset, clusterCentersEach[devId], handle.get_stream());
         }
+      }
+    }
+    RAFT_CUDA_TRY(cudaMemcpy(clusterCenters + (desc->dimDataset * csumFineClusters[i]),
+                             clusterCentersEach[devId],
+                             sizeof(float) * numFineClusters[i] * desc->dimDataset,
+                             cudaMemcpyDeviceToDevice));
+  }
+  for (int devId = 0; devId < 1; devId++) {
+    RAFT_CUDA_TRY(cudaSetDevice(devId));
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
+  }
+  RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
+
+  _cuann_multi_device_free<uint32_t>(idsTrainset, 1);
+  _cuann_multi_device_free<float>(subTrainset, 1);
+  _cuann_multi_device_free<uint32_t>(labelsMP, 1);
+  _cuann_multi_device_free<float>(clusterCentersEach, 1);
+  _cuann_multi_device_free<float>(clusterCentersMP, 1);
+  _cuann_multi_device_free<uint32_t>(clusterSizeMP, 1);
+  _cuann_multi_device_free<uint8_t>((uint8_t**)predictWorkspace, 1);
+
+  RAFT_CUDA_TRY(cudaFree(mesoClusterSize));
+  RAFT_CUDA_TRY(cudaFree(mesoClusterLabels));
+  RAFT_CUDA_TRY(cudaFree(mesoClusterCenters));
+  RAFT_CUDA_TRY(cudaFree(mesoClusterCentersTemp));
+
+  free(numFineClusters);
+  free(csumFineClusters);
+
+  //
+  // Fine-tuning kmeans for whole clusters
+  //
+  // (*) Since the likely cluster centroids have been calculated
+  // hierarchically already, the number of iteration for fine-tuning
+  // kmeans for whole clusters should be reduced. However, there
+  // is a possibility that the clusters could be unbalanced here,
+  // in which case the actual number of iterations would be increased.
+  //
+  const int X         = 5;
+  int numIterations_X = max(numIterations / 10, 2) * X;
+  for (int iter = 0; iter < numIterations_X; iter += X) {
+    kmeans::predict(handle,
+                    clusterCenters,
+                    desc->numClusters,
+                    desc->dimDataset,
+                    trainset,
+                    numTrainset,
+                    trainsetLabels,
+                    desc->metric,
+                    handle.get_stream(),
+                    device_memory);
+    kmeans::calc_centers_and_sizes(clusterCenters,
+                                   clusterSize,
+                                   desc->numClusters,
+                                   desc->dimDataset,
+                                   trainset,
+                                   numTrainset,
+                                   trainsetLabels,
+                                   true,
+                                   handle.get_stream());
+    switch (desc->metric) {
+      // For some metrics, cluster calculation and adjustment tends to favor zero center vectors.
+      // To avoid converging to zero, we normalize the center vectors on every iteration.
+      case raft::distance::DistanceType::InnerProduct:
+      case raft::distance::DistanceType::CosineExpanded:
+      case raft::distance::DistanceType::CorrelationExpanded:
+        utils::normalize_rows(
+          desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
+      default: break;
+    }
+    handle.sync_stream();
+
+    if ((iter + 1 < numIterations_X) && kmeans::adjust_centers(clusterCenters,
+                                                               desc->numClusters,
+                                                               desc->dimDataset,
+                                                               trainset,
+                                                               numTrainset,
+                                                               trainsetLabels,
+                                                               clusterSize,
+                                                               (float)1.0 / 5,
+                                                               device_memory,
+                                                               handle.get_stream())) {
+      iter -= (X - 1);
+      if (desc->metric == distance::DistanceType::InnerProduct) {
+        utils::normalize_rows(
+          desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
       }
     }
   }
@@ -3426,20 +3288,38 @@ void cuannIvfPqBuildIndex(
   RAFT_CUDA_TRY(cudaMallocManaged(&datasetLabels, sizeof(uint32_t) * desc->numDataset));
 
   //
-  // Predict labels of whole dataset (with multiple GPUs)
+  // Predict labels of whole dataset
   //
-  _cuann_kmeans_predict_MP(handle,
-                           clusterCenters,
-                           desc->numClusters,
-                           desc->dimDataset,
-                           dataset,
-                           dtype,
-                           desc->numDataset,
-                           datasetLabels,
-                           desc->metric,
-                           true,
-                           clusterSize,
-                           true /* to update clusterCenters */);
+  kmeans::predict(handle,
+                  clusterCenters,
+                  desc->numClusters,
+                  desc->dimDataset,
+                  dataset,
+                  desc->numDataset,
+                  datasetLabels,
+                  desc->metric,
+                  handle.get_stream(),
+                  device_memory);
+  kmeans::calc_centers_and_sizes(clusterCenters,
+                                 clusterSize,
+                                 desc->numClusters,
+                                 desc->dimDataset,
+                                 dataset,
+                                 desc->numDataset,
+                                 datasetLabels,
+                                 true,
+                                 handle.get_stream());
+  switch (desc->metric) {
+    // For some metrics, cluster calculation and adjustment tends to favor zero center vectors.
+    // To avoid converging to zero, we normalize the center vectors on every iteration.
+    case raft::distance::DistanceType::InnerProduct:
+    case raft::distance::DistanceType::CosineExpanded:
+    case raft::distance::DistanceType::CorrelationExpanded:
+      utils::normalize_rows(
+        desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
+    default: break;
+  }
+  handle.sync_stream();
 
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
@@ -3521,19 +3401,18 @@ void cuannIvfPqBuildIndex(
     // (*) PQ codebooks are trained for each subspace.
     //
 
-    // Predict label of trainset again (with multiple GPUs)
-    _cuann_kmeans_predict_MP(handle,
-                             clusterCenters,
-                             desc->numClusters,
-                             desc->dimDataset,
-                             trainset,
-                             dtype,
-                             numTrainset,
-                             trainsetLabels,
-                             desc->metric,
-                             true,
-                             NULL,
-                             false /* do not update clusterCenters */);
+    // Predict label of trainset again
+    kmeans::predict(handle,
+                    clusterCenters,
+                    desc->numClusters,
+                    desc->dimDataset,
+                    trainset,
+                    numTrainset,
+                    trainsetLabels,
+                    desc->metric,
+                    handle.get_stream(),
+                    device_memory);
+    handle.sync_stream();
 
     // [dimPq, numTrainset, lenPq]
     size_t sizeModTrainset = sizeof(float) * desc->dimPq * numTrainset * desc->lenPq;
@@ -3823,18 +3702,24 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   uint32_t* clusterSize;  // [numClusters,]
   RAFT_CUDA_TRY(cudaMallocManaged(&clusterSize, sizeof(uint32_t) * oldDesc->numClusters));
   RAFT_CUDA_TRY(cudaMemset(clusterSize, 0, sizeof(uint32_t) * oldDesc->numClusters));
-  _cuann_kmeans_predict_MP(handle,
-                           clusterCenters,
-                           oldDesc->numClusters,
-                           oldDesc->dimDataset,
-                           newVectors,
-                           dtype,
-                           numNewVectors,
-                           newVectorLabels,
-                           oldDesc->metric,
-                           true,
-                           clusterSize,
-                           false /* do not update clusterCenters */);
+
+  kmeans::predict(handle,
+                  clusterCenters,
+                  oldDesc->numClusters,
+                  oldDesc->dimDataset,
+                  newVectors,
+                  numNewVectors,
+                  newVectorLabels,
+                  oldDesc->metric,
+                  handle.get_stream());
+  raft::stats::histogram<uint32_t, size_t>(raft::stats::HistTypeAuto,
+                                           reinterpret_cast<int32_t*>(clusterSize),
+                                           size_t(oldDesc->numClusters),
+                                           newVectorLabels,
+                                           numNewVectors,
+                                           1,
+                                           handle.get_stream());
+  handle.sync_stream();
 
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   {

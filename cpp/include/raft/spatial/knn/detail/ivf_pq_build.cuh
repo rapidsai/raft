@@ -88,9 +88,7 @@ inline auto build(
     dataset,                                          // ?kmeans? trainset
     uint32_t(params.add_data_on_build ? n_rows : 0),  // size of the trainset (I guess for kmeans)
     params.kmeans_n_iters,
-    params.random_rotation,
-    true  // hierarchialClustering: always true in raft
-  );
+    params.random_rotation);
 
   return index;
 }
