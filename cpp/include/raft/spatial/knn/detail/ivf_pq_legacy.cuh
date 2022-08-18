@@ -161,67 +161,6 @@ inline char* _cuann_get_dtype_string(cudaDataType_t dtype, char* string)
   return string;
 }
 
-// copy
-template <typename S, typename D>
-__global__ void kern_copy(uint32_t nRows,
-                          uint32_t nCols,
-                          const S* src,  // [nRows, ldSrc]
-                          uint32_t ldSrc,
-                          D* dst,  // [nRows, ldDst]
-                          uint32_t ldDst,
-                          D divisor)
-{
-  uint32_t gid  = threadIdx.x + (blockDim.x * blockIdx.x);
-  uint32_t iCol = gid % nCols;
-  uint32_t iRow = gid / nCols;
-  if (iRow >= nRows) return;
-  dst[iCol + (ldDst * iRow)] = src[iCol + (ldSrc * iRow)] / divisor;
-}
-
-// copy
-template <typename S, typename D>
-inline void _cuann_copy(uint32_t nRows,
-                        uint32_t nCols,
-                        const S* src,  // [nRows, ldSrc]
-                        uint32_t ldSrc,
-                        D* dst,  // [nRows, ldDst]
-                        uint32_t ldDst,
-                        D divisor)
-{
-  uint32_t nThreads = 128;
-  uint32_t nBlocks  = ((nRows * nCols) + nThreads - 1) / nThreads;
-  kern_copy<S, D><<<nBlocks, nThreads>>>(nRows, nCols, src, ldSrc, dst, ldDst, divisor);
-}
-
-template void _cuann_copy<float, float>(uint32_t nRows,
-                                        uint32_t nCols,
-                                        const float* src,
-                                        uint32_t ldSrc,
-                                        float* dst,
-                                        uint32_t ldDst,
-                                        float divisor);
-template void _cuann_copy<uint32_t, uint8_t>(uint32_t nRows,
-                                             uint32_t nCols,
-                                             const uint32_t* src,
-                                             uint32_t ldSrc,
-                                             uint8_t* dst,
-                                             uint32_t ldDst,
-                                             uint8_t divisor);
-template void _cuann_copy<uint8_t, float>(uint32_t nRows,
-                                          uint32_t nCols,
-                                          const uint8_t* src,
-                                          uint32_t ldSrc,
-                                          float* dst,
-                                          uint32_t ldDst,
-                                          float divisor);
-template void _cuann_copy<int8_t, float>(uint32_t nRows,
-                                         uint32_t nCols,
-                                         const int8_t* src,
-                                         uint32_t ldSrc,
-                                         float* dst,
-                                         uint32_t ldDst,
-                                         float divisor);
-
 // copy_fill
 template <typename S, typename D>
 __global__ void kern_copy_fill(uint32_t nRows,
@@ -292,71 +231,6 @@ inline void _cuann_a_me_b(uint32_t nRows,
   kern_a_me_b<<<nBlocks, nThreads>>>(nRows, nCols, a, ldA, b);
 }
 
-// normalize
-__global__ void kern_normalize(uint32_t nRows,
-                               uint32_t nCols,
-                               float* a,                   // [nRows, nCols]
-                               const uint32_t* numSamples  // [nRows,]
-)
-{
-  uint64_t iRow = threadIdx.y + (blockDim.y * blockIdx.x);
-  if (iRow >= nRows) return;
-  if (numSamples != NULL and numSamples[iRow] < 1) return;
-
-  float sqsum = 0.0;
-  for (uint32_t iCol = threadIdx.x; iCol < nCols; iCol += blockDim.x) {
-    float val = a[iCol + (nCols * iRow)];
-    sqsum += val * val;
-  }
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 1);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 2);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 4);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 8);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
-  sqsum = sqrt(sqsum);
-  for (uint32_t iCol = threadIdx.x; iCol < nCols; iCol += blockDim.x) {
-    a[iCol + (nCols * iRow)] /= sqsum;
-  }
-}
-
-// normalize
-inline void _cuann_normalize(uint32_t nRows,
-                             uint32_t nCols,
-                             float* a,                             // [nRows, nCols]
-                             const uint32_t* numSamples = nullptr  // [nRows,]
-)
-{
-  dim3 threads(32, 4, 1);  // DO NOT CHANGE
-  dim3 blocks((nRows + threads.y - 1) / threads.y, 1, 1);
-  kern_normalize<<<blocks, threads>>>(nRows, nCols, a, numSamples);
-}
-
-// divide
-__global__ void kern_divide(uint32_t nRows,
-                            uint32_t nCols,
-                            float* a,                   // [nRows, nCols]
-                            const uint32_t* numSamples  // [nRows,]
-)
-{
-  uint64_t gid  = threadIdx.x + (blockDim.x * blockIdx.x);
-  uint64_t iRow = gid / nCols;
-  if (iRow >= nRows) return;
-  if (numSamples[iRow] == 0) return;
-  a[gid] /= numSamples[iRow];
-}
-
-// divide
-inline void _cuann_divide(uint32_t nRows,
-                          uint32_t nCols,
-                          float* a,                   // [nRows, nCols]
-                          const uint32_t* numSamples  // [nRows,]
-)
-{
-  dim3 threads(128, 1, 1);
-  dim3 blocks(((uint64_t)nRows * nCols + threads.x - 1) / threads.x, 1, 1);
-  kern_divide<<<blocks, threads>>>(nRows, nCols, a, numSamples);
-}
-
 //
 template <typename D, typename S>
 __global__ void kern_transpose_copy_3d(uint32_t num0,
@@ -411,27 +285,6 @@ template void _cuann_transpose_copy_3d<float, float>(uint32_t num0,
 
 //
 template <typename T>
-__global__ void kern_axpy(int num, T alpha, const T* x, T* y)
-{
-  uint32_t tid = threadIdx.x + (blockDim.x * blockIdx.x);
-  if (tid >= num) return;
-  y[tid] += alpha * x[tid];
-}
-
-//
-template <typename T>
-inline void _cuann_axpy(int num, T alpha, const T* x, T* y)
-{
-  uint32_t nThreads = 128;
-  uint32_t nBlocks  = (num + nThreads - 1) / nThreads;
-  kern_axpy<T><<<nBlocks, nThreads>>>(num, alpha, x, y);
-}
-
-template void _cuann_axpy<float>(int num, float alpha, const float* x, float* y);
-template void _cuann_axpy<uint32_t>(int num, uint32_t alpha, const uint32_t* x, uint32_t* y);
-
-//
-template <typename T>
 T** _cuann_multi_device_malloc(int numDevices,
                                size_t numArrayElements,
                                const char* arrayName,
@@ -468,67 +321,6 @@ template void _cuann_multi_device_free<float>(float** arrays, int numDevices);
 template void _cuann_multi_device_free<uint32_t>(uint32_t** arrays, int numDevices);
 template void _cuann_multi_device_free<uint8_t>(uint8_t** arrays, int numDevices);
 
-/**
- * End of utils
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- * start of kmeans
- */
-
-// update kmeans centers
-inline void _cuann_kmeans_update_centers(float* centers,  // [numCenters, dimCenters]
-                                         uint32_t numCenters,
-                                         uint32_t dimCenters,
-                                         const void* dataset,  // [numDataset, dimCenters]
-                                         cudaDataType_t dtype,
-                                         uint32_t numDataset,
-                                         uint32_t* labels,  // [numDataset]
-                                         distance::DistanceType metric,
-                                         uint32_t* clusterSize,  // [numCenters]
-                                         float* accumulatedCenters)
-{
-  auto stream = rmm::cuda_stream_default;
-  if (accumulatedCenters == NULL) {
-    // accumulate
-    utils::memzero(centers, numCenters * dimCenters, stream);
-    utils::memzero(clusterSize, numCenters, stream);
-    if (dtype == CUDA_R_32F) {
-      utils::accumulate_into_selected<float>(
-        numDataset, dimCenters, centers, clusterSize, (const float*)dataset, labels, stream);
-    } else if (dtype == CUDA_R_8U) {
-      utils::accumulate_into_selected<uint8_t>(
-        numDataset, dimCenters, centers, clusterSize, (const uint8_t*)dataset, labels, stream);
-    } else if (dtype == CUDA_R_8I) {
-      utils::accumulate_into_selected<int8_t>(
-        numDataset, dimCenters, centers, clusterSize, (const int8_t*)dataset, labels, stream);
-    }
-  } else {
-    RAFT_CUDA_TRY(cudaMemcpy(
-      centers, accumulatedCenters, sizeof(float) * numCenters * dimCenters, cudaMemcpyDefault));
-  }
-
-  if (metric == distance::DistanceType::InnerProduct) {
-    // normalize
-    _cuann_normalize(numCenters, dimCenters, centers, clusterSize);
-  } else {
-    // average
-    _cuann_divide(numCenters, dimCenters, centers, clusterSize);
-  }
-}
-
 //
 uint32_t _cuann_kmeans_predict_chunkSize(uint32_t numCenters, uint32_t numDataset)
 {
@@ -560,167 +352,6 @@ inline size_t _cuann_kmeans_predict_bufferSize(uint32_t numCenters,
   // float *workspace;
   size += Pow2<128>::roundUp(sizeof(float) * (numCenters + chunk + (numCenters * chunk)));
   return size;
-}
-
-// predict label of dataset
-inline void _cuann_kmeans_predict(const handle_t& handle,
-                                  float* centers,  // [numCenters, dimCenters]
-                                  uint32_t numCenters,
-                                  uint32_t dimCenters,
-                                  const void* dataset,  // [numDataset, dimCenters]
-                                  cudaDataType_t dtype,
-                                  uint32_t numDataset,
-                                  uint32_t* labels,  // [numDataset]
-                                  distance::DistanceType metric,
-                                  bool isCenterSet,
-                                  void* _workspace,
-                                  float* tempCenters,     // [numCenters, dimCenters]
-                                  uint32_t* clusterSize,  // [numCenters,]
-                                  bool updateCenter)
-{
-  if (!isCenterSet) {
-    // If centers are not set, the labels will be determined randomly.
-    for (uint32_t i = 0; i < numDataset; i++) {
-      labels[i] = i % numCenters;
-    }
-    if (tempCenters != NULL && clusterSize != NULL) {
-      // update centers
-      _cuann_kmeans_update_centers(centers,
-                                   numCenters,
-                                   dimCenters,
-                                   dataset,
-                                   dtype,
-                                   numDataset,
-                                   labels,
-                                   metric,
-                                   clusterSize,
-                                   nullptr);
-    }
-    return;
-  }
-
-  uint32_t chunk  = _cuann_kmeans_predict_chunkSize(numCenters, numDataset);
-  void* workspace = _workspace;
-  if (_workspace == NULL) {
-    size_t sizeWorkspace = _cuann_kmeans_predict_bufferSize(numCenters, dimCenters, numDataset);
-    RAFT_CUDA_TRY(cudaMallocManaged(&workspace, sizeWorkspace));
-  }
-  float* curDataset;  // [chunk, dimCenters]
-  void* bufDataset;   // [chunk, dimCenters]
-  // float* workspace_core;
-  curDataset = (float*)workspace;
-  bufDataset =
-    (void*)((uint8_t*)curDataset + Pow2<128>::roundUp(sizeof(float) * chunk * dimCenters));
-  // workspace_core =
-  //   (float*)((uint8_t*)bufDataset + Pow2<128>::roundUp(sizeof(float) * chunk * dimCenters));
-
-  auto stream = handle.get_stream();
-  if (tempCenters != NULL && clusterSize != NULL) {
-    utils::memzero(tempCenters, numCenters * dimCenters, stream);
-    utils::memzero(clusterSize, numCenters, stream);
-  }
-
-  cudaMemcpyKind kind;
-  cudaPointerAttributes attr;
-  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, dataset));
-  if (attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged) {
-    kind = cudaMemcpyDeviceToDevice;
-  } else {
-    kind = cudaMemcpyHostToDevice;
-  }
-
-  rmm::mr::device_memory_resource* device_memory = nullptr;
-  auto pool_guard = raft::get_pool_memory_resource(device_memory, numCenters * chunk);
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("_cuann_kmeans_predict: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
-  }
-
-  for (uint64_t is = 0; is < numDataset; is += chunk) {
-    uint64_t ie       = min(is + chunk, (uint64_t)numDataset);
-    uint32_t nDataset = ie - is;
-
-    if (dtype == CUDA_R_32F) {
-      RAFT_CUDA_TRY(cudaMemcpy(bufDataset,
-                               (float*)dataset + (is * dimCenters),
-                               sizeof(float) * nDataset * dimCenters,
-                               kind));
-    } else if (dtype == CUDA_R_8U) {
-      RAFT_CUDA_TRY(cudaMemcpy(bufDataset,
-                               (uint8_t*)dataset + (is * dimCenters),
-                               sizeof(uint8_t) * nDataset * dimCenters,
-                               kind));
-    } else if (dtype == CUDA_R_8I) {
-      RAFT_CUDA_TRY(cudaMemcpy(bufDataset,
-                               (int8_t*)dataset + (is * dimCenters),
-                               sizeof(int8_t) * nDataset * dimCenters,
-                               kind));
-    }
-
-    if (dtype == CUDA_R_32F) {
-#if 0
-            _cuann_copy<float, float>(nDataset, dimCenters,
-                                      (const float*)bufDataset, dimCenters,
-                                      curDataset, dimCenters);
-#else
-      // No need to copy when dtype is CUDA_R_32F
-      curDataset = (float*)bufDataset;
-#endif
-    } else if (dtype == CUDA_R_8U) {
-      float divisor = 256.0;
-      _cuann_copy<uint8_t, float>(nDataset,
-                                  dimCenters,
-                                  (const uint8_t*)bufDataset,
-                                  dimCenters,
-                                  curDataset,
-                                  dimCenters,
-                                  divisor);
-    } else if (dtype == CUDA_R_8I) {
-      float divisor = 128.0;
-      _cuann_copy<int8_t, float>(nDataset,
-                                 dimCenters,
-                                 (const int8_t*)bufDataset,
-                                 dimCenters,
-                                 curDataset,
-                                 dimCenters,
-                                 divisor);
-    }
-
-    // predict
-    stream.synchronize();
-    kmeans::predict_float_core(handle,
-                               centers,
-                               numCenters,
-                               dimCenters,
-                               curDataset,
-                               nDataset,
-                               labels + is,
-                               metric,
-                               stream,
-                               device_memory);
-    stream.synchronize();
-
-    if ((tempCenters != NULL) && (clusterSize != NULL)) {
-      // accumulate
-      utils::accumulate_into_selected<float>(
-        nDataset, dimCenters, tempCenters, clusterSize, curDataset, labels + is, stream);
-    }
-  }
-
-  if ((tempCenters != NULL) && (clusterSize != NULL) && updateCenter) {
-    _cuann_kmeans_update_centers(centers,
-                                 numCenters,
-                                 dimCenters,
-                                 dataset,
-                                 dtype,
-                                 numDataset,
-                                 labels,
-                                 metric,
-                                 clusterSize,
-                                 tempCenters);
-  }
-
-  if (_workspace == NULL) { RAFT_CUDA_TRY(cudaFree(workspace)); }
 }
 
 //
@@ -2757,51 +2388,34 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     //
     if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
       uint32_t numTrainset = _get_num_trainset(clusterSize[l], dimPq, bitPq);
-      int numIterations_2  = numIterations * 2;
-      for (int iter = 0; iter < numIterations_2; iter += 2) {
-        if (devId == 0) {
-          fprintf(stderr,
-                  "(%s) Making PQ dataset: %u / %u, "
-                  "Training PQ codebook (%u): %.1f / %u    \r",
-                  __func__,
-                  l,
-                  numClusters,
-                  numTrainset,
-                  (float)iter / 2,
-                  numIterations);
-        }
-        _cuann_kmeans_predict(handle,
-                              myPqCenters[devId],
-                              (1 << bitPq),
-                              lenPq,
-                              rotVectors[devId],
-                              CUDA_R_32F,
-                              numTrainset,
-                              rotVectorLabels[devId],
-                              raft::distance::DistanceType::L2Expanded,
-                              (iter != 0),
-                              pqPredictWorkspace[devId],
-                              myPqCentersTemp[devId],
-                              pqClusterSize[devId],
-                              true);
-        if ((iter + 1 < numIterations_2) && kmeans::adjust_centers(myPqCenters[devId],
-                                                                   (1 << bitPq),
-                                                                   lenPq,
-                                                                   rotVectors[devId],
-                                                                   numTrainset,
-                                                                   rotVectorLabels[devId],
-                                                                   pqClusterSize[devId],
-                                                                   (float)1.0 / 4,
-                                                                   device_memory,
-                                                                   handle.get_stream())) {
-          iter -= 1;
-        }
+      if (devId == 0) {
+        fprintf(stderr,
+                "(%s) Making PQ dataset: %u / %u, "
+                "Training PQ codebook (%u)           \r",
+                __func__,
+                l,
+                numClusters,
+                numTrainset);
       }
-      RAFT_CUDA_TRY(cudaMemcpy(pqCenters + ((1 << bitPq) * lenPq) * l,
-                               myPqCenters[devId],
-                               sizeof(float) * (1 << bitPq) * lenPq,
-                               cudaMemcpyDeviceToHost));
+      kmeans::build_clusters(handle,
+                             numIterations,
+                             lenPq,
+                             rotVectors[devId],
+                             numTrainset,
+                             (1 << bitPq),
+                             myPqCenters[devId],
+                             rotVectorLabels[devId],
+                             pqClusterSize[devId],
+                             raft::distance::DistanceType::L2Expanded,
+                             device_memory,
+                             handle.get_stream());
+      RAFT_CUDA_TRY(cudaMemcpyAsync(pqCenters + ((1 << bitPq) * lenPq) * l,
+                                    myPqCenters[devId],
+                                    sizeof(float) * (1 << bitPq) * lenPq,
+                                    cudaMemcpyDeviceToHost,
+                                    handle.get_stream()));
     }
+    handle.sync_stream();
 
     //
     // Change the order of the vector data to facilitate processing in
@@ -2831,20 +2445,16 @@ void _cuann_compute_PQ_code(const handle_t& handle,
         curPqCenters = pqCenters + ((1 << bitPq) * lenPq) * l;
         if (numIterations > 0) { curPqCenters = myPqCenters[devId]; }
       }
-      _cuann_kmeans_predict(handle,
-                            curPqCenters,
-                            (1 << bitPq),
-                            lenPq,
-                            subVectors[devId] + j * (clusterSize[l] * lenPq),
-                            CUDA_R_32F,
-                            clusterSize[l],
-                            subVectorLabels[devId] + j * clusterSize[l],
-                            raft::distance::DistanceType::L2Expanded,
-                            true,
-                            pqPredictWorkspace[devId],
-                            nullptr,
-                            nullptr,
-                            true);
+      kmeans::predict(handle,
+                      curPqCenters,
+                      (1 << bitPq),
+                      lenPq,
+                      subVectors[devId] + j * (clusterSize[l] * lenPq),
+                      clusterSize[l],
+                      subVectorLabels[devId] + j * clusterSize[l],
+                      raft::distance::DistanceType::L2Expanded,
+                      handle.get_stream(),
+                      device_memory);
     }
 
     //
@@ -3042,40 +2652,19 @@ void cuannIvfPqBuildIndex(
   //
   // Training kmeans for meso-clusters
   //
-  int numIterations_2 = numIterations * 2;
-  for (int iter = 0; iter < numIterations_2; iter += 2) {
-    _cuann_kmeans_predict(handle,
-                          mesoClusterCenters,
-                          numMesoClusters,
-                          desc->dimDataset,
-                          trainset,
-                          dtype,
-                          numTrainset,
-                          mesoClusterLabels,
-                          desc->metric,
-                          (iter != 0),
-                          NULL,
-                          mesoClusterCentersTemp,
-                          mesoClusterSize,
-                          true);
-    if ((iter + 1 < numIterations_2) && kmeans::adjust_centers<T>(mesoClusterCenters,
-                                                                  numMesoClusters,
-                                                                  desc->dimDataset,
-                                                                  trainset,
-                                                                  numTrainset,
-                                                                  mesoClusterLabels,
-                                                                  mesoClusterSize,
-                                                                  (float)1.0 / 4,
-                                                                  device_memory,
-                                                                  handle.get_stream())) {
-      iter -= 1;
-      if (desc->metric == distance::DistanceType::InnerProduct) {
-        utils::normalize_rows(
-          numMesoClusters, desc->dimDataset, mesoClusterCenters, handle.get_stream());
-      }
-    }
-  }
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
+  kmeans::build_clusters(handle,
+                         numIterations,
+                         desc->dimDataset,
+                         trainset,
+                         numTrainset,
+                         numMesoClusters,
+                         mesoClusterCenters,
+                         mesoClusterLabels,
+                         mesoClusterSize,
+                         desc->metric,
+                         device_memory,
+                         handle.get_stream());
+  handle.sync_stream();
 
   // Number of centers in each meso cluster
   // [numMesoClusters,]
@@ -3163,39 +2752,19 @@ void cuannIvfPqBuildIndex(
                                    desc->dimDataset,
                                    handle.get_stream());
 
-    int numIterations_2 = numIterations * 2;
-    for (int iter = 0; iter < numIterations_2; iter += 2) {
-      _cuann_kmeans_predict(handle,
-                            clusterCentersEach[devId],
-                            numFineClusters[i],
-                            desc->dimDataset,
-                            subTrainset[devId],
-                            CUDA_R_32F,
-                            mesoClusterSize[i],
-                            labelsMP[devId],
-                            desc->metric,
-                            (iter != 0),
-                            predictWorkspace[devId],
-                            clusterCentersMP[devId],
-                            clusterSizeMP[devId],
-                            true);
-      if ((iter + 1 < numIterations_2) && kmeans::adjust_centers(clusterCentersEach[devId],
-                                                                 numFineClusters[i],
-                                                                 desc->dimDataset,
-                                                                 subTrainset[devId],
-                                                                 mesoClusterSize[i],
-                                                                 labelsMP[devId],
-                                                                 clusterSizeMP[devId],
-                                                                 (float)1.0 / 4,
-                                                                 device_memory,
-                                                                 handle.get_stream())) {
-        iter -= 1;
-        if (desc->metric == distance::DistanceType::InnerProduct) {
-          utils::normalize_rows(
-            numFineClusters[i], desc->dimDataset, clusterCentersEach[devId], handle.get_stream());
-        }
-      }
-    }
+    kmeans::build_clusters(handle,
+                           numIterations,
+                           desc->dimDataset,
+                           subTrainset[devId],
+                           mesoClusterSize[i],
+                           numFineClusters[i],
+                           clusterCentersEach[devId],
+                           labelsMP[devId],
+                           clusterSizeMP[devId],
+                           desc->metric,
+                           device_memory,
+                           handle.get_stream());
+    handle.sync_stream();
     RAFT_CUDA_TRY(cudaMemcpy(clusterCenters + (desc->dimDataset * csumFineClusters[i]),
                              clusterCentersEach[devId],
                              sizeof(float) * numFineClusters[i] * desc->dimDataset,
@@ -3481,45 +3050,19 @@ void cuannIvfPqBuildIndex(
                                sizeof(float) * numTrainset * desc->lenPq,
                                cudaMemcpyHostToDevice));
       // Train kmeans for each PQ
-      int numIterations_2 = numIterations * 2;
-      for (int iter = 0; iter < numIterations_2; iter += 2) {
-        if (devId == 0) {
-          fprintf(stderr,
-                  "(%s) Training PQ codebook %u (out of %u): "
-                  "%.1f / %u    \r",
-                  __func__,
-                  j,
-                  desc->dimPq,
-                  (float)iter / 2,
-                  numIterations);
-        }
-        _cuann_kmeans_predict(handle,
-                              pqCentersEach[devId],
-                              (1 << desc->bitPq),
-                              desc->lenPq,
-                              subTrainset[devId],
-                              CUDA_R_32F,
-                              numTrainset,
-                              subTrainsetLabels[devId],
-                              raft::distance::DistanceType::L2Expanded,
-                              (iter != 0),
-                              pqPredictWorkspace[devId],
-                              pqCentersTemp[devId],
-                              pqClusterSize[devId],
-                              true);
-        if ((iter + 1 < numIterations_2) && kmeans::adjust_centers(pqCentersEach[devId],
-                                                                   (1 << desc->bitPq),
-                                                                   desc->lenPq,
-                                                                   subTrainset[devId],
-                                                                   numTrainset,
-                                                                   subTrainsetLabels[devId],
-                                                                   pqClusterSize[devId],
-                                                                   (float)1.0 / 4,
-                                                                   device_memory,
-                                                                   handle.get_stream())) {
-          iter -= 1;
-        }
-      }
+      kmeans::build_clusters(handle,
+                             numIterations,
+                             desc->lenPq,
+                             subTrainset[devId],
+                             numTrainset,
+                             (1 << desc->bitPq),
+                             pqCentersEach[devId],
+                             subTrainsetLabels[devId],
+                             pqClusterSize[devId],
+                             raft::distance::DistanceType::L2Expanded,
+                             device_memory,
+                             handle.get_stream());
+      handle.sync_stream();
       RAFT_CUDA_TRY(cudaMemcpy(curPqCenters,
                                pqCentersEach[devId],
                                sizeof(float) * ((1 << desc->bitPq) * desc->lenPq),
