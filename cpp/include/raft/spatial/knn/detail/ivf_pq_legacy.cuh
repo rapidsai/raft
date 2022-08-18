@@ -2276,15 +2276,13 @@ void _cuann_compute_PQ_code(const handle_t& handle,
   uint32_t** pqClusterSize   = nullptr;  // [numDevices][1 << bitPq,]
   uint32_t** wsKAC           = nullptr;  // [numDevices][1]
   float** myPqCenters        = nullptr;  // [numDevices][1 << bitPq, lenPq]
-  float** myPqCentersTemp    = nullptr;  // [numDevices][1 << bitPq, lenPq]
   if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
     memset(pqCenters, 0, sizeof(float) * numClusters * (1 << bitPq) * lenPq);
     rotVectorLabels =
       _cuann_multi_device_malloc<uint32_t>(1, maxClusterSize * dimPq, "rotVectorLabels");
-    pqClusterSize   = _cuann_multi_device_malloc<uint32_t>(1, (1 << bitPq), "pqClusterSize");
-    wsKAC           = _cuann_multi_device_malloc<uint32_t>(1, 1, "wsKAC");
-    myPqCenters     = _cuann_multi_device_malloc<float>(1, (1 << bitPq) * lenPq, "myPqCenters");
-    myPqCentersTemp = _cuann_multi_device_malloc<float>(1, (1 << bitPq) * lenPq, "myPqCentersTemp");
+    pqClusterSize = _cuann_multi_device_malloc<uint32_t>(1, (1 << bitPq), "pqClusterSize");
+    wsKAC         = _cuann_multi_device_malloc<uint32_t>(1, 1, "wsKAC");
+    myPqCenters   = _cuann_multi_device_malloc<float>(1, (1 << bitPq) * lenPq, "myPqCenters");
   }
 
 #pragma omp parallel for schedule(dynamic) num_threads(1)
@@ -2435,7 +2433,6 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     _cuann_multi_device_free<uint32_t>(rotVectorLabels, 1);
     _cuann_multi_device_free<uint32_t>(pqClusterSize, 1);
     _cuann_multi_device_free<float>(myPqCenters, 1);
-    _cuann_multi_device_free<float>(myPqCentersTemp, 1);
   }
 }
 
