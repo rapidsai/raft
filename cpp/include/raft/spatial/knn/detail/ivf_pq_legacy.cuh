@@ -322,39 +322,6 @@ template void _cuann_multi_device_free<uint32_t>(uint32_t** arrays, int numDevic
 template void _cuann_multi_device_free<uint8_t>(uint8_t** arrays, int numDevices);
 
 //
-uint32_t _cuann_kmeans_predict_chunkSize(uint32_t numCenters, uint32_t numDataset)
-{
-  uint32_t chunk = (1 << 20);
-  if (chunk > (1 << 28) / numCenters) {
-    chunk = (1 << 28) / numCenters;
-    if (chunk > 31) {
-      chunk += 32;
-      chunk -= chunk % 64;
-    } else {
-      chunk = 64;
-    }
-  }
-  chunk = min(chunk, numDataset);
-  return chunk;
-}
-
-//
-inline size_t _cuann_kmeans_predict_bufferSize(uint32_t numCenters,
-                                               uint32_t dimCenters,
-                                               uint32_t numDataset)
-{
-  uint32_t chunk = _cuann_kmeans_predict_chunkSize(numCenters, numDataset);
-  size_t size    = 0;
-  // float *curDataset;  // [chunk, dimCenters]
-  size += Pow2<128>::roundUp(sizeof(float) * chunk * dimCenters);
-  // void *bufDataset;  // [chunk, dimCenters]
-  size += Pow2<128>::roundUp(sizeof(float) * chunk * dimCenters);
-  // float *workspace;
-  size += Pow2<128>::roundUp(sizeof(float) * (numCenters + chunk + (numCenters * chunk)));
-  return size;
-}
-
-//
 #define NUM_THREADS      1024  // DO NOT CHANGE
 #define STATE_BIT_LENGTH 8     // 0: state not used,  8: state used
 #define MAX_VEC_LENGTH   8     // 1, 2, 4 or 8
@@ -1487,11 +1454,7 @@ inline void _cuann_find_topk(const handle_t& handle,
                                            (int)(sizeof(float) * 8),
                                            handle.get_stream());
 
-  RAFT_CUDA_TRY(cudaMemcpyAsync(labels,
-                                values_out,
-                                sizeof(uint32_t) * sizeBatch * topK,
-                                cudaMemcpyDeviceToDevice,
-                                handle.get_stream()));
+  raft::copy(labels, values_out, sizeBatch * topK, handle.get_stream());
 }
 
 //
@@ -2309,15 +2272,6 @@ void _cuann_compute_PQ_code(const handle_t& handle,
   myPqDataset =
     _cuann_multi_device_malloc<uint8_t>(1, maxClusterSize * dimPq * bitPq / 8, "myPqDataset");
 
-  uint32_t maxTrainset = 0;
-  if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
-    maxTrainset = _get_num_trainset(maxClusterSize, dimPq, bitPq);
-  }
-  void** pqPredictWorkspace = (void**)_cuann_multi_device_malloc<uint8_t>(
-    1,
-    _cuann_kmeans_predict_bufferSize((1 << bitPq), lenPq, max(maxClusterSize, maxTrainset)),
-    "pqPredictWorkspace");
-
   uint32_t** rotVectorLabels = nullptr;  // [numDevices][maxClusterSize, dimPq,]
   uint32_t** pqClusterSize   = nullptr;  // [numDevices][1 << bitPq,]
   uint32_t** wsKAC           = nullptr;  // [numDevices][1]
@@ -2409,11 +2363,10 @@ void _cuann_compute_PQ_code(const handle_t& handle,
                              raft::distance::DistanceType::L2Expanded,
                              device_memory,
                              handle.get_stream());
-      RAFT_CUDA_TRY(cudaMemcpyAsync(pqCenters + ((1 << bitPq) * lenPq) * l,
-                                    myPqCenters[devId],
-                                    sizeof(float) * (1 << bitPq) * lenPq,
-                                    cudaMemcpyDeviceToHost,
-                                    handle.get_stream()));
+      raft::copy(pqCenters + ((1 << bitPq) * lenPq) * l,
+                 myPqCenters[devId],
+                 (1 << bitPq) * lenPq,
+                 handle.get_stream());
     }
     handle.sync_stream();
 
@@ -2456,6 +2409,7 @@ void _cuann_compute_PQ_code(const handle_t& handle,
                       handle.get_stream(),
                       device_memory);
     }
+    handle.sync_stream();
 
     //
     // PQ encoding
@@ -2471,7 +2425,6 @@ void _cuann_compute_PQ_code(const handle_t& handle,
   fprintf(stderr, "\n");
 
   //
-  _cuann_multi_device_free<uint8_t>((uint8_t**)pqPredictWorkspace, 1);
   _cuann_multi_device_free<uint8_t>(myPqDataset, 1);
   _cuann_multi_device_free<uint32_t>(subVectorLabels, 1);
   _cuann_multi_device_free<float>(subVectors, 1);
@@ -2639,10 +2592,6 @@ void cuannIvfPqBuildIndex(
   RAFT_CUDA_TRY(
     cudaMallocManaged(&mesoClusterCenters, sizeof(float) * numMesoClusters * desc->dimDataset));
 
-  float* mesoClusterCentersTemp;  // [numMesoClusters, dimDataset]
-  RAFT_CUDA_TRY(
-    cudaMallocManaged(&mesoClusterCentersTemp, sizeof(float) * numMesoClusters * desc->dimDataset));
-
   uint32_t* mesoClusterLabels;  // [numTrainset,]
   RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterLabels, sizeof(uint32_t) * numTrainset));
 
@@ -2709,24 +2658,9 @@ void cuannIvfPqBuildIndex(
   float** clusterCentersEach = _cuann_multi_device_malloc<float>(
     1, numFineClustersMax * desc->dimDataset, "clusterCentersEach");
 
-  float** clusterCentersMP =
-    _cuann_multi_device_malloc<float>(1, numFineClustersMax * desc->dimDataset, "clusterCentersMP");
-
   // number of vectors in each cluster
   uint32_t** clusterSizeMP =
     _cuann_multi_device_malloc<uint32_t>(1, numFineClustersMax, "clusterSizeMP");
-
-  size_t sizePredictWorkspace = 0;
-  for (uint32_t i = 0; i < numMesoClusters; i++) {
-    sizePredictWorkspace =
-      max(sizePredictWorkspace,
-          _cuann_kmeans_predict_bufferSize(numFineClusters[i],  // number of centers
-                                           desc->dimDataset,
-                                           mesoClusterSize[i]  // number of vectors
-                                           ));
-  }
-  void** predictWorkspace =
-    (void**)_cuann_multi_device_malloc<uint8_t>(1, sizePredictWorkspace, "predictWorkspace");
 
   //
   // Training kmeans for clusters in each meso-clusters
@@ -2764,11 +2698,11 @@ void cuannIvfPqBuildIndex(
                            desc->metric,
                            device_memory,
                            handle.get_stream());
+    raft::copy(clusterCenters + (desc->dimDataset * csumFineClusters[i]),
+               clusterCentersEach[devId],
+               numFineClusters[i] * desc->dimDataset,
+               handle.get_stream());
     handle.sync_stream();
-    RAFT_CUDA_TRY(cudaMemcpy(clusterCenters + (desc->dimDataset * csumFineClusters[i]),
-                             clusterCentersEach[devId],
-                             sizeof(float) * numFineClusters[i] * desc->dimDataset,
-                             cudaMemcpyDeviceToDevice));
   }
   for (int devId = 0; devId < 1; devId++) {
     RAFT_CUDA_TRY(cudaSetDevice(devId));
@@ -2780,14 +2714,11 @@ void cuannIvfPqBuildIndex(
   _cuann_multi_device_free<float>(subTrainset, 1);
   _cuann_multi_device_free<uint32_t>(labelsMP, 1);
   _cuann_multi_device_free<float>(clusterCentersEach, 1);
-  _cuann_multi_device_free<float>(clusterCentersMP, 1);
   _cuann_multi_device_free<uint32_t>(clusterSizeMP, 1);
-  _cuann_multi_device_free<uint8_t>((uint8_t**)predictWorkspace, 1);
 
   RAFT_CUDA_TRY(cudaFree(mesoClusterSize));
   RAFT_CUDA_TRY(cudaFree(mesoClusterLabels));
   RAFT_CUDA_TRY(cudaFree(mesoClusterCenters));
-  RAFT_CUDA_TRY(cudaFree(mesoClusterCentersTemp));
 
   free(numFineClusters);
   free(csumFineClusters);
@@ -2955,15 +2886,6 @@ void cuannIvfPqBuildIndex(
   uint32_t** pqClusterSize =
     _cuann_multi_device_malloc<uint32_t>(1, (1 << desc->bitPq), "pqClusterSize");
 
-  // Allocate workspace for PQ codebook training
-  size_t sizePqPredictWorkspace =
-    _cuann_kmeans_predict_bufferSize((1 << desc->bitPq), desc->lenPq, numTrainset);
-  sizePqPredictWorkspace = max(sizePqPredictWorkspace,
-                               _cuann_kmeans_predict_bufferSize(
-                                 (1 << desc->bitPq), desc->lenPq, maxClusterSize * desc->dimPq));
-  void** pqPredictWorkspace =
-    (void**)_cuann_multi_device_malloc<uint8_t>(1, sizePqPredictWorkspace, "pqPredictWorkspace");
-
   if (desc->typePqCenter == codebook_gen::PER_SUBSPACE) {
     //
     // Training PQ codebook (codebook_gen::PER_SUBSPACE)
@@ -3062,11 +2984,9 @@ void cuannIvfPqBuildIndex(
                              raft::distance::DistanceType::L2Expanded,
                              device_memory,
                              handle.get_stream());
+      raft::copy(
+        curPqCenters, pqCentersEach[devId], (1 << desc->bitPq) * desc->lenPq, handle.get_stream());
       handle.sync_stream();
-      RAFT_CUDA_TRY(cudaMemcpy(curPqCenters,
-                               pqCentersEach[devId],
-                               sizeof(float) * ((1 << desc->bitPq) * desc->lenPq),
-                               cudaMemcpyDeviceToDevice));
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
       if (j == 0) {
         RAFT_CUDA_TRY(cudaDeviceSynchronize());
@@ -3156,7 +3076,6 @@ void cuannIvfPqBuildIndex(
   _cuann_multi_device_free<uint32_t>(wsKAC, 1);
   _cuann_multi_device_free<float>(pqCentersTemp, 1);
   _cuann_multi_device_free<uint32_t>(pqClusterSize, 1);
-  _cuann_multi_device_free<uint8_t>((uint8_t**)pqPredictWorkspace, 1);
 
   _cuann_set_device(callerDevId);
 }
@@ -3763,11 +3682,10 @@ void cuannIvfPqSearch(const handle_t& handle,
     if (dtype == CUDA_R_32F) {
       float* ptrQueries = (float*)queries + ((uint64_t)(desc->dimDataset) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        RAFT_CUDA_TRY(cudaMemcpyAsync(devQueries,
-                                      ptrQueries,
-                                      sizeof(float) * nQueries * desc->dimDataset,
-                                      cudaMemcpyHostToDevice,
-                                      handle.get_stream()));
+        raft::copy(reinterpret_cast<float*>(devQueries),
+                   ptrQueries,
+                   nQueries * desc->dimDataset,
+                   handle.get_stream());
         ptrQueries = (float*)devQueries;
       }
       _cuann_copy_fill<float, float>(nQueries,
@@ -3782,11 +3700,10 @@ void cuannIvfPqSearch(const handle_t& handle,
     } else if (dtype == CUDA_R_8U) {
       uint8_t* ptrQueries = (uint8_t*)queries + ((uint64_t)(desc->dimDataset) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        RAFT_CUDA_TRY(cudaMemcpyAsync(devQueries,
-                                      ptrQueries,
-                                      sizeof(uint8_t) * nQueries * desc->dimDataset,
-                                      cudaMemcpyHostToDevice,
-                                      handle.get_stream()));
+        raft::copy(reinterpret_cast<uint8_t*>(devQueries),
+                   ptrQueries,
+                   nQueries * desc->dimDataset,
+                   handle.get_stream());
         ptrQueries = (uint8_t*)devQueries;
       }
       _cuann_copy_fill<uint8_t, float>(nQueries,
@@ -3801,11 +3718,10 @@ void cuannIvfPqSearch(const handle_t& handle,
     } else if (dtype == CUDA_R_8I) {
       int8_t* ptrQueries = (int8_t*)queries + ((uint64_t)(desc->dimDataset) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        RAFT_CUDA_TRY(cudaMemcpyAsync(devQueries,
-                                      ptrQueries,
-                                      sizeof(int8_t) * nQueries * desc->dimDataset,
-                                      cudaMemcpyHostToDevice,
-                                      handle.get_stream()));
+        raft::copy(reinterpret_cast<int8_t*>(devQueries),
+                   ptrQueries,
+                   nQueries * desc->dimDataset,
+                   handle.get_stream());
         ptrQueries = (int8_t*)devQueries;
       }
       _cuann_copy_fill<int8_t, float>(nQueries,
