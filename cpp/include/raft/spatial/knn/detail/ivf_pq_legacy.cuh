@@ -2222,21 +2222,11 @@ __global__ void ivfpq_make_outputs(uint32_t numProbes,
 //
 inline bool manage_local_topk(cuannIvfPqDescriptor_t& desc)
 {
-  int depth = (desc->topK + 31) / 32;
+  int depth = raft::ceildiv<int>(desc->topK, 32);
   if (depth > 4) { return false; }
   if (desc->numProbes < 16) { return false; }
   if (desc->maxBatchSize * desc->numProbes < 256) { return false; }
   return true;
-}
-
-//
-inline size_t get_sizeSmemForLocalTopk(cuannIvfPqDescriptor_t& desc, int numThreads)
-{
-  if (manage_local_topk(desc)) {
-    int topk_32 = (desc->topK + 31) / 32;
-    return (sizeof(float) + sizeof(uint32_t)) * (numThreads / 2) * topk_32;
-  }
-  return 0;
 }
 
 // return workspace size
@@ -2286,11 +2276,6 @@ inline size_t ivfpq_search_bufferSize(const handle_t& handle, cuannIvfPqDescript
     // [matBatchSize, numProbes, topk]
     size +=
       Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize * desc->numProbes * desc->topK);
-  }
-  // topkScores
-  if (manage_local_topk(desc)) {
-    // [maxBatchSize, topk]
-    size += Pow2<128>::roundUp(sizeof(float) * desc->maxBatchSize * desc->topK);
   }
   // preCompScores  [multiProcessorCount, dimPq, 1 << bitPq,]
   size +=
@@ -4490,10 +4475,9 @@ template <int bitPq, int vecLen, typename T, typename smemLutDtype = float>
 __device__ inline float ivfpq_compute_score(
   uint32_t dimPq,
   uint32_t iDataset,
-  const uint8_t* pqDataset,           // [numDataset, dimPq * bitPq / 8]
-  const smemLutDtype* preCompScores,  // [dimPq, 1 << bitPq]
-  bool earlyStop,
-  float kth_score = FLT_MAX)
+  const uint8_t* pqDataset,          // [numDataset, dimPq * bitPq / 8]
+  const smemLutDtype* preCompScores  // [dimPq, 1 << bitPq]
+)
 {
   float score             = 0.0;
   constexpr uint32_t bitT = sizeof(T) * 8;
@@ -4521,384 +4505,9 @@ __device__ inline float ivfpq_compute_score(
       code &= (1 << bitPq) - 1;
       score += (float)preCompScores[code];
       preCompScores += (1 << bitPq);
-
-      if (earlyStop && (vecLen > 8) && ((k % 8) == 0)) {
-        if (score > kth_score) { return FLT_MAX; }
-      }
-    }
-    if (earlyStop && (vecLen <= 8)) {
-      if (score > kth_score) { return FLT_MAX; }
     }
   }
   return score;
-}
-
-//
-template <typename K>
-__device__ inline void warp_merge(K& key, bool acending = true, int group_size = 32)
-{
-  int lane_id = threadIdx.x % 32;
-  for (int mask = (group_size >> 1); mask > 0; mask >>= 1) {
-    bool direction = ((lane_id & mask) == 0);
-    K opp_key      = __shfl_xor_sync(0xffffffff, key, mask);
-    if ((acending == direction) == (key > opp_key)) { key = opp_key; }
-  }
-}
-
-//
-template <typename K, typename V>
-__device__ inline void warp_merge(K& key, V& val, bool acending = true, int group_size = 32)
-{
-  int lane_id = threadIdx.x % 32;
-  for (int mask = (group_size >> 1); mask > 0; mask >>= 1) {
-    bool direction = ((lane_id & mask) == 0);
-    K opp_key      = __shfl_xor_sync(0xffffffff, key, mask);
-    V opp_val      = __shfl_xor_sync(0xffffffff, val, mask);
-    if ((acending == direction) == ((key > opp_key) || ((key == opp_key) && (val > opp_val)))) {
-      key = opp_key;
-      val = opp_val;
-    }
-  }
-}
-
-//
-template <typename K>
-__device__ inline void warp_sort(K& key, bool acending = true)
-{
-  int lane_id = threadIdx.x % 32;
-  for (int group_size = 2; group_size <= 32; group_size <<= 1) {
-    bool direction = ((lane_id & group_size) == 0);
-    if ((group_size == 32) && (!acending)) { direction = !direction; }
-    warp_merge<K>(key, direction, group_size);
-  }
-}
-
-//
-template <typename K, typename V>
-__device__ inline void warp_sort(K& key, V& val, bool acending = true)
-{
-  int lane_id = threadIdx.x % 32;
-  for (int group_size = 2; group_size <= 32; group_size <<= 1) {
-    bool direction = ((lane_id & group_size) == 0);
-    if ((group_size == 32) && (!acending)) { direction = !direction; }
-    warp_merge<K, V>(key, val, direction, group_size);
-  }
-}
-
-//
-template <typename T>
-__device__ inline void swap_vals(T& val1, T& val2)
-{
-  T val0 = val1;
-  val1   = val2;
-  val2   = val0;
-}
-
-//
-template <typename K, typename V>
-__device__ inline bool swap_if_needed(K& key1, K& key2, V& val1, V& val2)
-{
-  if ((key1 > key2) || ((key1 == key2) && (val1 > val2))) {
-    swap_vals<K>(key1, key2);
-    swap_vals<V>(val1, val2);
-    return true;
-  }
-  return false;
-}
-
-//
-template <typename K>
-__device__ inline bool swap_if_needed(K& key1, K& key2)
-{
-  if (key1 > key2) {
-    swap_vals<K>(key1, key2);
-    return true;
-  }
-  return false;
-}
-
-//
-template <typename T>
-__device__ inline T max_value_of();
-template <>
-__device__ inline float max_value_of<float>()
-{
-  return FLT_MAX;
-}
-template <>
-__device__ inline uint32_t max_value_of<uint32_t>()
-{
-  return ~0u;
-}
-
-// depth == kMaxArrLen = Capacity / kWarpWidth; (kWarpWidth fixed to 32)
-template <uint32_t depth, typename K, typename V>
-class BlockTopk {
- public:
-  /**
-   * @param topk - k, must be not greater than depth * 32
-   * @param ptr_kth_key - initial value for k-th element; it's never updated here,
-   *   seems to be needed only for optimization. It's read multiple times though. Is it updated
-   *   elsewhere? Perhaps, only when other blocks in the grid finish their execution.
-   *   Also, this parameter is optional; when null, the value is simply not used.
-   *
-   */
-  __device__ BlockTopk(uint32_t topk, K* ptr_kth_key) : _topk(topk), _lane_id(threadIdx.x % 32)
-  {
-#pragma unroll
-    for (int i = 0; i < depth; i++) {
-      _key[i] = max_value_of<K>();
-      _val[i] = max_value_of<V>();
-    }
-    _nfill = 0;
-    _init_buf();
-    _ptr_kth_key = ptr_kth_key;
-    if (_ptr_kth_key) {
-      _kth_key = _ptr_kth_key[0];
-    } else {
-      _kth_key = max_value_of<K>();
-    }
-    // __syncthreads();
-  }
-
-  __device__ inline K key(int i) { return _key[i]; }
-
-  __device__ inline V val(int i) { return _val[i]; }
-
-  __device__ inline K kth_key() { return _kth_key; }
-
-  __device__ void add(K key, V val)
-  {
-    uint32_t mask = __ballot_sync(0xffffffff, (key < _kth_key));
-    if (mask == 0) { return; }
-    uint32_t nvalid = __popc(mask);
-    if (_buf_nvalid + nvalid > 32) {
-      _add(_buf_key, _buf_val);
-      _init_buf();
-      if (_ptr_kth_key) { _kth_key = min(_kth_key, _ptr_kth_key[0]); }
-    }
-    _push_buf(key, val, mask, nvalid);
-  }
-
-  __device__ void finalize()
-  {
-    if (_buf_nvalid > 0) { _add(_buf_key, _buf_val); }
-    _merge();
-  }
-
- protected:
-  K _key[depth];
-  V _val[depth];
-  K* _ptr_kth_key;
-  K _kth_key;
-  uint32_t _nfill;  // 0 <= _nfill <= depth
-  K _buf_key;
-  V _buf_val;
-  uint32_t _buf_nvalid;  // 0 <= _buf_nvalid <= 32
-
-  const uint32_t _topk;
-  const uint32_t _lane_id;
-
-  __device__ inline void _init_buf()
-  {
-    _buf_nvalid = 0;
-    _buf_key    = max_value_of<K>();
-    _buf_val    = max_value_of<V>();
-  }
-
-  __device__ inline void _adjust_nfill()
-  {
-#pragma unroll
-    for (int j = 1; j < depth; j++) {
-      if (_nfill == depth - j + 1) {
-        if (__shfl_sync(0xffffffff, _key[depth - j], 0) <= _kth_key) { return; }
-        _nfill = depth - j;
-      }
-    }
-  }
-
-  __device__ inline void _push_buf(K key, V val, uint32_t mask, uint32_t nvalid)
-  {
-    int i = 0;
-    if ((_buf_nvalid <= _lane_id) && (_lane_id < _buf_nvalid + nvalid)) {
-      int j = _lane_id - _buf_nvalid;
-      while (j > 0) {
-        i = __ffs(mask) - 1;
-        mask ^= (0x1u << i);
-        j -= 1;
-      }
-      i = __ffs(mask) - 1;
-    }
-    K temp_key = __shfl_sync(0xffffffff, key, i);
-    K temp_val = __shfl_sync(0xffffffff, val, i);
-    if ((_buf_nvalid <= _lane_id) && (_lane_id < _buf_nvalid + nvalid)) {
-      _buf_key = temp_key;
-      _buf_val = temp_val;
-    }
-    _buf_nvalid += nvalid;
-  }
-
-  __device__ inline void _add(K key, V val)
-  {
-    if (_nfill == 0) {
-      warp_sort<K, V>(key, val);
-      _key[0] = key;
-      _val[0] = val;
-    } else if (_nfill == 1) {
-      warp_sort<K, V>(key, val, false);
-      swap_if_needed<K, V>(_key[0], key, _val[0], val);
-      if (depth > 1) {
-        _key[1] = key;
-        _val[1] = val;
-        warp_merge<K, V>(_key[1], _val[1]);
-      }
-      warp_merge<K, V>(_key[0], _val[0]);
-    } else if ((depth >= 2) && (_nfill == 2)) {
-      warp_sort<K, V>(key, val, false);
-      swap_if_needed<K, V>(_key[1], key, _val[1], val);
-      if (depth > 2) {
-        _key[2] = key;
-        _val[2] = val;
-        warp_merge<K, V>(_key[2], _val[2]);
-      }
-      warp_merge<K, V>(_key[1], _val[1], false);
-      swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
-      warp_merge<K, V>(_key[1], _val[1]);
-      warp_merge<K, V>(_key[0], _val[0]);
-    } else if ((depth >= 3) && (_nfill == 3)) {
-      warp_sort<K, V>(key, val, false);
-      swap_if_needed<K, V>(_key[2], key, _val[2], val);
-      if (depth > 3) {
-        _key[3] = key;
-        _val[3] = val;
-        warp_merge<K, V>(_key[3], _val[3]);
-      }
-      warp_merge<K, V>(_key[2], _val[2], false);
-      swap_if_needed<K, V>(_key[1], _key[2], _val[1], _val[2]);
-      warp_merge<K, V>(_key[2], _val[2]);
-      warp_merge<K, V>(_key[1], _val[1], false);
-      swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
-      warp_merge<K, V>(_key[1], _val[1]);
-      warp_merge<K, V>(_key[0], _val[0]);
-    } else if ((depth >= 4) && (_nfill == 4)) {
-      warp_sort<K, V>(key, val, false);
-      swap_if_needed<K, V>(_key[3], key, _val[3], val);
-      warp_merge<K, V>(_key[3], _val[3], false);
-      swap_if_needed<K, V>(_key[2], _key[3], _val[2], _val[3]);
-      warp_merge<K, V>(_key[3], _val[3]);
-      warp_merge<K, V>(_key[2], _val[2], false);
-      swap_if_needed<K, V>(_key[1], _key[2], _val[1], _val[2]);
-      warp_merge<K, V>(_key[2], _val[2]);
-      warp_merge<K, V>(_key[1], _val[1], false);
-      swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
-      warp_merge<K, V>(_key[1], _val[1]);
-      warp_merge<K, V>(_key[0], _val[0]);
-    }
-    _nfill = min(_nfill + 1, depth);
-    if (_nfill == depth) {
-      _kth_key =
-        min(_kth_key, __shfl_sync(0xffffffff, _key[depth - 1], _topk - 1 - (depth - 1) * 32));
-    }
-  }
-
-  __device__ inline void _merge()
-  {
-    uint32_t warp_id   = threadIdx.x / 32;
-    uint32_t num_warps = blockDim.x / 32;
-    K* smem_key        = smemArray;
-    V* smem_val        = (V*)(smem_key + (blockDim.x / 2) * depth);
-    for (int j = num_warps / 2; j > 0; j /= 2) {
-      __syncthreads();
-      if ((j <= warp_id) && (warp_id < (j * 2))) {
-        uint32_t opp_tid  = threadIdx.x - (j * 32);
-        smem_key[opp_tid] = _key[0];
-        smem_val[opp_tid] = _val[0];
-        if (depth >= 2) {
-          smem_key[opp_tid + (j * 32)] = _key[1];
-          smem_val[opp_tid + (j * 32)] = _val[1];
-        }
-        if (depth >= 3) {
-          smem_key[opp_tid + (j * 32) * 2] = _key[2];
-          smem_val[opp_tid + (j * 32) * 2] = _val[2];
-        }
-        if (depth >= 4) {
-          smem_key[opp_tid + (j * 32) * 3] = _key[3];
-          smem_val[opp_tid + (j * 32) * 3] = _val[3];
-        }
-      }
-      __syncthreads();
-      if (warp_id < j) {
-        K key;
-        V val;
-        if (depth == 1) {
-          key = smem_key[threadIdx.x ^ 31];
-          val = smem_val[threadIdx.x ^ 31];
-          swap_if_needed<K, V>(_key[0], key, _val[0], val);
-
-          warp_merge<K, V>(_key[0], _val[0]);
-        } else if (depth == 2) {
-          key = smem_key[threadIdx.x ^ 31 + (j * 32)];
-          val = smem_val[threadIdx.x ^ 31 + (j * 32)];
-          swap_if_needed<K, V>(_key[0], key, _val[0], val);
-          key = smem_key[threadIdx.x ^ 31];
-          val = smem_val[threadIdx.x ^ 31];
-          swap_if_needed<K, V>(_key[1], key, _val[1], val);
-
-          swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
-          warp_merge<K, V>(_key[1], _val[1]);
-          warp_merge<K, V>(_key[0], _val[0]);
-        } else if (depth == 3) {
-          key = smem_key[threadIdx.x ^ 31 + (j * 32) * 2];
-          val = smem_val[threadIdx.x ^ 31 + (j * 32) * 2];
-          swap_if_needed<K, V>(_key[1], key, _val[1], val);
-          key = smem_key[threadIdx.x ^ 31 + (j * 32)];
-          val = smem_val[threadIdx.x ^ 31 + (j * 32)];
-          swap_if_needed<K, V>(_key[2], key, _val[2], val);
-          K _key_3_ = smem_key[threadIdx.x ^ 31];
-          V _val_3_ = smem_val[threadIdx.x ^ 31];
-
-          swap_if_needed<K, V>(_key[0], _key[2], _val[0], _val[2]);
-          swap_if_needed<K, V>(_key[1], _key_3_, _val[1], _val_3_);
-          swap_if_needed<K, V>(_key[2], _key_3_, _val[2], _val_3_);
-          warp_merge<K, V>(_key[2], _val[2]);
-          swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
-          warp_merge<K, V>(_key[1], _val[1]);
-          warp_merge<K, V>(_key[0], _val[0]);
-        } else if (depth == 4) {
-          key = smem_key[threadIdx.x ^ 31 + (j * 32) * 3];
-          val = smem_val[threadIdx.x ^ 31 + (j * 32) * 3];
-          swap_if_needed<K, V>(_key[0], key, _val[0], val);
-          key = smem_key[threadIdx.x ^ 31 + (j * 32) * 2];
-          val = smem_val[threadIdx.x ^ 31 + (j * 32) * 2];
-          swap_if_needed<K, V>(_key[1], key, _val[1], val);
-          key = smem_key[threadIdx.x ^ 31 + (j * 32)];
-          val = smem_val[threadIdx.x ^ 31 + (j * 32)];
-          swap_if_needed<K, V>(_key[2], key, _val[2], val);
-          key = smem_key[threadIdx.x ^ 31];
-          val = smem_val[threadIdx.x ^ 31];
-          swap_if_needed<K, V>(_key[3], key, _val[3], val);
-
-          swap_if_needed<K, V>(_key[0], _key[2], _val[0], _val[2]);
-          swap_if_needed<K, V>(_key[1], _key[3], _val[1], _val[3]);
-          swap_if_needed<K, V>(_key[2], _key[3], _val[2], _val[3]);
-          warp_merge<K, V>(_key[3], _val[3]);
-          warp_merge<K, V>(_key[2], _val[2]);
-          swap_if_needed<K, V>(_key[0], _key[1], _val[0], _val[1]);
-          warp_merge<K, V>(_key[1], _val[1]);
-          warp_merge<K, V>(_key[0], _val[0]);
-        }
-      }
-    }
-  }
-};
-
-//
-template <typename outDtype>
-__device__ inline outDtype get_out_score(float score, distance::DistanceType metric)
-{
-  if (metric == distance::DistanceType::InnerProduct) { score = score / 2.0 - 1.0; }
-  if (sizeof(outDtype) == 2) { score = min(score, FP16_MAX); }
-  return (outDtype)score;
 }
 
 //
@@ -4933,15 +4542,13 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   const float* _query,              // [sizeBatch, dimDataset,]
   const uint32_t* indexList,        // [sizeBatch * numProbes]
   float* _preCompScores,            // [...]
-  float* _topkScores,               // [sizeBatch]
   outDtype* _output,                // [sizeBatch, maxSamples,] or [sizeBatch, numProbes, topk]
   uint32_t* _topkIndex              // [sizeBatch, numProbes, topk]
 )
 {
   const uint32_t lenPq = dimDataset / dimPq;
-  float* smem          = smemArray;
 
-  smemLutDtype* preCompScores = (smemLutDtype*)smem;
+  smemLutDtype* preCompScores = (smemLutDtype*)smemArray;
   float* baseDiff             = NULL;
   if (preCompBaseDiff) { baseDiff = (float*)(preCompScores + (dimPq << bitPq)); }
   bool manageLocalTopk = false;
@@ -4964,13 +4571,11 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   const uint32_t* chunkIndexPtr = _chunkIndexPtr + (numProbes * iBatch);
   const float* query            = _query + (dimDataset * iBatch);
   outDtype* output;
-  uint32_t* topkIndex        = NULL;
-  float* approx_global_score = NULL;
+  uint32_t* topkIndex = NULL;
   if (manageLocalTopk) {
     // Store topk calculated distances to output (and its indices to topkIndex)
-    output              = _output + (topk * (iProbe + (numProbes * iBatch)));
-    topkIndex           = _topkIndex + (topk * (iProbe + (numProbes * iBatch)));
-    approx_global_score = _topkScores + iBatch;
+    output    = _output + (topk * (iProbe + (numProbes * iBatch)));
+    topkIndex = _topkIndex + (topk * (iProbe + (numProbes * iBatch)));
   } else {
     // Store all calculated distances to output
     output = _output + (maxSamples * iBatch);
@@ -5023,44 +4628,29 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   if (nSamples32 % 32 > 0) { nSamples32 = nSamples32 + (32 - (nSamples % 32)); }
   uint32_t iDatasetBase = clusterIndexPtr[label];
 
-  // topk::block_sort<topk::warp_sort_filtered, depth * WarpSize, true, float, uint32_t>
-  //   block_topk(topk, ___);
-  BlockTopk<depth, float, uint32_t> block_topk(topk, approx_global_score);
-  __syncthreads();
+  using block_sort_t =
+    topk::block_sort<topk::warp_sort_immediate, depth * WarpSize, true, outDtype, uint32_t>;
+  block_sort_t block_topk(topk, reinterpret_cast<uint8_t*>(smemArray));
+  const outDtype limit = block_sort_t::queue_t::kDummy;
 
   // Compute a distance for each sample
   for (uint32_t i = threadIdx.x; i < nSamples32; i += blockDim.x) {
-    float score = FLT_MAX;
+    float score = limit;
     if (i < nSamples) {
       score = ivfpq_compute_score<bitPq, vecLen, T, smemLutDtype>(
-        dimPq, i + iDatasetBase, pqDataset, preCompScores, manageLocalTopk, block_topk.kth_key());
+        dimPq, i + iDatasetBase, pqDataset, preCompScores);
     }
     if (!manageLocalTopk) {
-      if (i < nSamples) { output[i + iSampleBase] = get_out_score<outDtype>(score, metric); }
+      if (i < nSamples) { output[i + iSampleBase] = score; }
     } else {
-      uint32_t val = i;
-      block_topk.add(score, val);
+      block_topk.add(score, iDatasetBase + i);
     }
   }
   if (!manageLocalTopk) { return; }
-  block_topk.finalize();
-  // block_topk.done();
-
-  // Output topk score and index
-  uint32_t warp_id = threadIdx.x / 32;
-  if (warp_id == 0) {
-    for (int j = 0; j < depth; j++) {
-      if (threadIdx.x + (32 * j) < topk) {
-        output[threadIdx.x + (32 * j)]    = get_out_score<outDtype>(block_topk.key(j), metric);
-        topkIndex[threadIdx.x + (32 * j)] = block_topk.val(j) + iDatasetBase;
-      }
-    }
-  }
-
-  // Approximate update of global topk entries
-  if (threadIdx.x == (topk - 1) % 32) {
-    atomicMin(approx_global_score, block_topk.key((topk - 1) / 32));
-  }
+  // sync threads before the topk merging operation, because we reuse the shared memory
+  __syncthreads();
+  block_topk.done();
+  block_topk.store(output, topkIndex);
 }
 
 //
@@ -5085,7 +4675,6 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
   const float* _query,              // [sizeBatch, dimDataset,]
   const uint32_t* indexList,        // [sizeBatch * numProbes]
   float* _preCompScores,            // [..., dimPq << bitPq,]
-  float* _topkScores,               // [sizeBatch]
   outDtype* _output,                // [sizeBatch, maxSamples,] or [sizeBatch, numProbes, topk]
   uint32_t* _topkIndex              // [sizeBatch, numProbes, topk]
 )
@@ -5115,13 +4704,11 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
     const uint32_t* chunkIndexPtr = _chunkIndexPtr + (numProbes * iBatch);
     const float* query            = _query + (dimDataset * iBatch);
     outDtype* output;
-    uint32_t* topkIndex        = NULL;
-    float* approx_global_score = NULL;
+    uint32_t* topkIndex = NULL;
     if (manageLocalTopk) {
       // Store topk calculated distances to output (and its indices to topkIndex)
-      output              = _output + (topk * (iProbe + (numProbes * iBatch)));
-      topkIndex           = _topkIndex + (topk * (iProbe + (numProbes * iBatch)));
-      approx_global_score = _topkScores + iBatch;
+      output    = _output + (topk * (iProbe + (numProbes * iBatch)));
+      topkIndex = _topkIndex + (topk * (iProbe + (numProbes * iBatch)));
     } else {
       // Store all calculated distances to output
       output = _output + (maxSamples * iBatch);
@@ -5174,44 +4761,30 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
     if (nSamples32 % 32 > 0) { nSamples32 = nSamples32 + (32 - (nSamples % 32)); }
     uint32_t iDatasetBase = clusterIndexPtr[label];
 
-    BlockTopk<depth, float, uint32_t> block_topk(topk, approx_global_score);
-    __syncthreads();
+    using block_sort_t =
+      topk::block_sort<topk::warp_sort_immediate, depth * WarpSize, true, outDtype, uint32_t>;
+    block_sort_t block_topk(topk, reinterpret_cast<uint8_t*>(smemArray));
+    const outDtype limit = block_sort_t::queue_t::kDummy;
 
     // Compute a distance for each sample
     for (uint32_t i = threadIdx.x; i < nSamples32; i += blockDim.x) {
-      float score = FLT_MAX;
+      float score = limit;
       if (i < nSamples) {
-        score = ivfpq_compute_score<bitPq, vecLen, T>(
-          dimPq, i + iDatasetBase, pqDataset, preCompScores, manageLocalTopk, block_topk.kth_key());
+        score =
+          ivfpq_compute_score<bitPq, vecLen, T>(dimPq, i + iDatasetBase, pqDataset, preCompScores);
       }
       if (!manageLocalTopk) {
-        if (i < nSamples) { output[i + iSampleBase] = get_out_score<outDtype>(score, metric); }
+        if (i < nSamples) { output[i + iSampleBase] = score; }
       } else {
-        uint32_t val = i;
-        block_topk.add(score, val);
+        block_topk.add(score, iDatasetBase + i);
       }
     }
     __syncthreads();
     if (!manageLocalTopk) {
       continue;  // for (int ib ...)
     }
-    block_topk.finalize();
-
-    // Output topk score and index
-    uint32_t warp_id = threadIdx.x / 32;
-    if (warp_id == 0) {
-      for (int j = 0; j < depth; j++) {
-        if (threadIdx.x + (32 * j) < topk) {
-          output[threadIdx.x + (32 * j)]    = get_out_score<outDtype>(block_topk.key(j), metric);
-          topkIndex[threadIdx.x + (32 * j)] = block_topk.val(j) + iDatasetBase;
-        }
-      }
-    }
-
-    // Approximate update of global topk entries
-    if (threadIdx.x == (topk - 1) % 32) {
-      atomicMin(approx_global_score, block_topk.key((topk - 1) / 32));
-    }
+    block_topk.done();
+    block_topk.store(output, topkIndex);
     __syncthreads();
   }
 }
@@ -5248,7 +4821,6 @@ inline void ivfpq_search(const handle_t& handle,
                                // [maxBatchSize, numProbes, topk]
   uint32_t* simTopkIndex;      // [maxBatchSize, numProbes, topk]
   /* Preset with the dummy value and only accessed within the main kernel. */
-  float* topkScores;  // [maxBatchSize, topk]
   float* preCompScores = NULL;
   void* topkWorkspace;
 
@@ -5272,16 +4844,13 @@ inline void ivfpq_search(const handle_t& handle,
     (scoreDtype*)((uint8_t*)topkSids +
                   Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize * desc->topK));
   if (manage_local_topk(desc)) {
-    topkScores =
-      (float*)((uint8_t*)similarity + Pow2<128>::roundUp(sizeof(scoreDtype) * desc->maxBatchSize *
-                                                         desc->numProbes * desc->topK));
-    simTopkIndex = (uint32_t*)((uint8_t*)topkScores +
-                               Pow2<128>::roundUp(sizeof(float) * desc->maxBatchSize * desc->topK));
+    simTopkIndex = (uint32_t*)((uint8_t*)similarity +
+                               Pow2<128>::roundUp(sizeof(scoreDtype) * desc->maxBatchSize *
+                                                  desc->numProbes * desc->topK));
     preCompScores =
       (float*)((uint8_t*)simTopkIndex + Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize *
                                                            desc->numProbes * desc->topK));
   } else {
-    topkScores   = NULL;
     simTopkIndex = NULL;
     preCompScores =
       (float*)((uint8_t*)similarity +
@@ -5290,14 +4859,6 @@ inline void ivfpq_search(const handle_t& handle,
   topkWorkspace =
     (void*)((uint8_t*)preCompScores + Pow2<128>::roundUp(sizeof(float) * getMultiProcessorCount() *
                                                          desc->dimPq * (1 << desc->bitPq)));
-
-  //
-  if (manage_local_topk(desc)) {
-    thrust::fill_n(handle.get_thrust_policy(),
-                   thrust::device_pointer_cast(topkScores),
-                   numQueries * desc->topK,
-                   FLT_MAX);
-  }
 
   //
   dim3 mcThreads(1024, 1, 1);  // DO NOT CHANGE
@@ -5388,18 +4949,20 @@ inline void ivfpq_search(const handle_t& handle,
                            const float*,
                            const uint32_t*,
                            float*,
-                           float*,
                            scoreDtype*,
                            uint32_t*);
   kernel_t kernel_no_basediff;
   kernel_t kernel_fast;
   kernel_t kernel_no_smem_lut;
-  int depth = 1;
-  if (manage_local_topk(desc)) { depth = (desc->topK + 31) / 32; }
+  uint32_t depth = 1;
+  if (manage_local_topk(desc)) {
+    while (depth * WarpSize < desc->topK) {
+      depth *= 2;
+    }
+  }
   switch (depth) {
     case 1: SET_KERNEL3(1); break;
     case 2: SET_KERNEL3(2); break;
-    case 3: SET_KERNEL3(3); break;
     case 4: SET_KERNEL3(4); break;
     default: RAFT_FAIL("ivf_pq::search(k = %u): depth value is too big (%d)", desc->topK, depth);
   }
@@ -5429,8 +4992,9 @@ inline void ivfpq_search(const handle_t& handle,
   } else {
     numThreads = desc->preferredThreadBlockSize;
   }
-  size_t sizeSmemForLocalTopk = get_sizeSmemForLocalTopk(desc, numThreads);
-  sizeSmem                    = max(sizeSmem, sizeSmemForLocalTopk);
+  size_t sizeSmemForLocalTopk = topk::template calc_smem_size_for_block_wide<float, uint32_t>(
+    numThreads / WarpSize, desc->topK);
+  sizeSmem = max(sizeSmem, sizeSmemForLocalTopk);
 
   kernel_t kernel = kernel_no_basediff;
 
@@ -5445,11 +5009,12 @@ inline void ivfpq_search(const handle_t& handle,
       kernel_no_basediff_available = false;
 
       // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
-      kernel                      = kernel_no_smem_lut;
-      numThreads                  = 1024;
-      size_t sizeSmemForLocalTopk = get_sizeSmemForLocalTopk(desc, numThreads);
-      sizeSmem                    = max(sizeSmemBaseDiff, sizeSmemForLocalTopk);
-      numCTAs                     = getMultiProcessorCount();
+      kernel     = kernel_no_smem_lut;
+      numThreads = 1024;
+      size_t sizeSmemForLocalTopk =
+        topk::calc_smem_size_for_block_wide<float, uint32_t>(numThreads / WarpSize, desc->topK);
+      sizeSmem = max(sizeSmemBaseDiff, sizeSmemForLocalTopk);
+      numCTAs  = getMultiProcessorCount();
     }
   }
   if (kernel_no_basediff_available) {
@@ -5500,7 +5065,6 @@ inline void ivfpq_search(const handle_t& handle,
                                                                    query,
                                                                    indexListSorted,
                                                                    preCompScores,
-                                                                   topkScores,
                                                                    (scoreDtype*)similarity,
                                                                    simTopkIndex);
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)

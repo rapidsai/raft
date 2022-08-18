@@ -429,9 +429,9 @@ template <template <int, bool, typename, typename> class WarpSortWarpWide,
           typename T,
           typename IdxT>
 class block_sort {
+ public:
   using queue_t = WarpSortWarpWide<Capacity, Ascending, T, IdxT>;
 
- public:
   __device__ block_sort(int k, uint8_t* smem_buf) : queue_(k)
   {
     val_smem_             = reinterpret_cast<T*>(smem_buf);
