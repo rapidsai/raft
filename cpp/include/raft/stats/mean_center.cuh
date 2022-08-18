@@ -55,23 +55,32 @@ void meanCenter(Type* out,
 /**
  * @brief Center the input matrix wrt its mean
  * @tparam Type the data type
+ * @tparam IdxType index type
  * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @tparam TPB threads per block of the cuda kernel launched
  * @param handle the raft handle
+ * @param out the output mean-centered matrix
  * @param data input matrix
  * @param mu the mean vector
- * @param out the output mean-centered matrix
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename Type, typename IdxType, typename LayoutPolicy, int TPB = 256>
+template <typename Type, typename IdxType, typename LayoutPolicy, typename AccessorPolicy, int TPB = 256>
 void meanCenter(const raft::handle_t& handle,
-                const raft::device_matrix_view<const Type, IdxType, LayoutPolicy>& data,
-                const raft::device_vector_view<const Type, IdxType, LayoutPolicy>& mu,
-                const raft::device_matrix_view<Type, IdxType, LayoutPolicy>& out,
+                raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy> out,
+                raft::mdspan<const Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+                raft::mdspan<const Type, raft::vector_extent<IdxType>> mu,
                 bool bcastAlongRows)
 {
-  detail::meanCenter<Type, IdxType, TPB>(out.data(), data.data(), mu.data(), data.extent(1), data.extent(0),
-    std::is_same_v<LayoutPolicy, raft::row_major>, bcastAlongRows, handle.get_stream());
+  detail::meanCenter<Type, IdxType, TPB>(out.data_handle(),
+                                         data.data_handle(),
+                                         mu.data_handle(),
+                                         data.extent(1),
+                                         data.extent(0),
+                                         std::is_same_v<LayoutPolicy, raft::row_major>,
+                                         bcastAlongRows,
+                                         handle.get_stream());
 }
 
 /**
@@ -104,24 +113,32 @@ void meanAdd(Type* out,
 /**
  * @brief Add the input matrix wrt its mean
  * @tparam Type the data type
- * @tparam IdxType Integer type used for addressing
+ * @tparam IdxType index type
  * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @tparam TPB threads per block of the cuda kernel launched
  * @param handle the raft handle
+ * @param out the output mean-centered matrix
  * @param data input matrix
  * @param mu the mean vector
- * @param out the output mean-added matrix
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename Type, typename IdxType, typename LayoutPolicy = raft::row_major, int TPB = 256>
+template <typename Type, typename IdxType, typename LayoutPolicy = raft::row_major, typename AccessorPolicy, int TPB = 256>
 void meanAdd(const raft::handle_t& handle,
-  const raft::device_matrix_view<const Type, IdxType, LayoutPolicy>& data,
-  const raft::device_vector_view<const Type, IdxType, LayoutPolicy>& mu,
-  const raft::device_matrix_view<Type, IdxType, LayoutPolicy>& out,
-  bool bcastAlongRows)
+             raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy> out,
+             raft::mdspan<const Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+             raft::mdspan<const Type, raft::vector_extent<IdxType>> mu,
+             bool bcastAlongRows)
 {
-  detail::meanAdd<Type, IdxType, TPB>(out.data(), data.data(), mu.data(), data.extent(1), data.extent(0),
-    std::is_same_v<LayoutPolicy, raft::row_major>, bcastAlongRows, handle.get_stream());
+  detail::meanAdd<Type, IdxType, TPB>(out.data_handle(),
+                                      data.data_handle(),
+                                      mu.data_handle(),
+                                      data.extent(1),
+                                      data.extent(0),
+                                      std::is_same_v<LayoutPolicy, raft::row_major>,
+                                      bcastAlongRows,
+                                      handle.get_stream());
 }
 };  // end namespace stats
 };  // end namespace raft

@@ -18,7 +18,8 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/mdarray.hpp>
 #include <raft/stats/adjusted_rand_index.cuh>
 #include <raft/stats/contingency_matrix.cuh>
 #include <random>
@@ -40,11 +41,10 @@ struct adjustedRandIndexParam {
 template <typename T, typename MathT = int>
 class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexParam> {
  protected:
-  adjustedRandIndexTest() : firstClusterArray(0, stream), secondClusterArray(0, stream) {}
+  adjustedRandIndexTest() : stream(handle.get_stream()), firstClusterArray(0, stream), secondClusterArray(0, stream) {}
 
   void SetUp() override
   {
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     params    = ::testing::TestWithParam<adjustedRandIndexParam>::GetParam();
     nElements = params.nElements;
 
@@ -61,11 +61,10 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
       SetupZeroArray();
     }
     // allocating and initializing memory to the GPU
-    computed_adjusted_rand_index = adjusted_rand_index<T, MathT>(
-      firstClusterArray.data(), secondClusterArray.data(), nElements, stream);
+    computed_adjusted_rand_index = adjusted_rand_index<T, MathT, int, raft::row_major, raft::detail::accessor_mixin<std::experimental::default_accessor<T>, false>>(handle,
+      raft::make_device_vector_view(firstClusterArray.data(), nElements),
+      raft::make_device_vector_view(secondClusterArray.data(), nElements));
   }
-
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   void SetUpDifferentArrays()
   {
@@ -135,6 +134,8 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     truth_adjusted_rand_index = 1.0;
   }
 
+  raft::handle_t handle;
+  cudaStream_t stream                 = 0;
   adjustedRandIndexParam params;
   T lowerLabelRange, upperLabelRange;
   rmm::device_uvector<T> firstClusterArray;
@@ -142,7 +143,6 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
   int nElements                       = 0;
   double truth_adjusted_rand_index    = 0;
   double computed_adjusted_rand_index = 0;
-  cudaStream_t stream                 = 0;
 };
 
 const std::vector<adjustedRandIndexParam> inputs = {

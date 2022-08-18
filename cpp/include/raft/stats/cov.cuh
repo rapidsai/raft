@@ -66,11 +66,13 @@ void cov(const raft::handle_t& handle,
  *
  * @tparam Type the data type
  * @tparam IdxT the index type
- * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam LayoutPolicy Layout type of the input data.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @param handle the raft handle
+ * @param covar the output covariance matrix
  * @param data the input matrix (this will get mean-centered at the end!)
  * @param mu mean vector of the input matrix
- * @param covar the output covariance matrix
  * @param sample whether to evaluate sample covariance or not. In other words,
  * whether to normalize the output using N-1 or N, for true or false,
  * respectively
@@ -80,9 +82,9 @@ void cov(const raft::handle_t& handle,
  */
 template <typename Type, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
 void cov(const raft::handle_t& handle,
-         raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
-         raft::mdspan<const Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
          raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> covar,
+         raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+         raft::device_mdspan<const Type, raft::vector_extent<IdxType>, LayoutPolicy> mu,
          bool sample,
          bool stable)
 {

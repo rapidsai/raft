@@ -55,8 +55,7 @@ double adjusted_rand_index(const T* firstClusterArray,
  * @tparam T data-type for input label arrays
  * @tparam MathT integral data-type used for computing n-choose-r
  * @tparam IdxType Index type of matrix extent.
- * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
- *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ * @tparam LayoutPolicy Layout type of the input data.
  * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
  *                        device.
  * @param handle: the raft handle.

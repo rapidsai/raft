@@ -51,19 +51,27 @@ double entropy(const T* clusterArray,
  * <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
  *
  * @tparam T data type
+ * @tparam IdxT index type
+ * @tparam LayoutPolicy Layout type of the input data.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @param handle the raft handle
  * @param clusterArray: the array of classes of type T
  * @param lowerLabelRange: the lower bound of the range of labels
  * @param upperLabelRange: the upper bound of the range of labels
  * @return the entropy score
  */
-template <typename T>
+template <typename T, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
 double entropy(const raft::handle_t& handle,
-               const raft::device_vector_view<const T>& clusterArray,
+               raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> clusterArray,
                const T lowerLabelRange,
                const T upperLabelRange)
 {
-  return detail::entropy(clusterArray.data(), clusterArray.extent(0), lowerLabelRange, upperLabelRange, handle.get_stream());
+  return detail::entropy(clusterArray.data_handle(),
+                         clusterArray.extent(0),
+                         lowerLabelRange,
+                         upperLabelRange,
+                         handle.get_stream());
 }
 };  // end namespace stats
 };  // end namespace raft

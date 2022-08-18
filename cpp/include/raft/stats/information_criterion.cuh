@@ -70,6 +70,11 @@ void information_criterion_batched(ScalarT* d_ic,
  * @note: it is safe to do the computation in-place (i.e give same pointer
  *        as input and output)
  *
+ * @tparam ScalarT data type
+ * @tparam IdxType index type
+ * @tparam LayoutPolicy Layout type of the input data.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @param[in]  handle           the raft handle
  * @param[out] d_ic             Information criterion to be returned for each
  *                              series (device) length: batch_size
@@ -78,18 +83,24 @@ void information_criterion_batched(ScalarT* d_ic,
  * @param[in]  n_params         Number of parameters in the model
  * @param[in]  n_samples        Number of samples in each series
  */
-template <typename ScalarT, typename IdxT>
-void information_criterion_batched(const raft::handle_t& handle,
-                                   const raft::device_vector_view<ScalarT, IdxT>& d_ic,
-                                   const raft::device_vector_view<const ScalarT, IdxT>& d_loglikelihood,
-                                   IC_Type ic_type,
-                                   IdxT n_params,
-                                   IdxT n_samples)
+template <typename ScalarT, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
+void information_criterion_batched(
+  const raft::handle_t& handle,
+  raft::mdspan<ScalarT, raft::vector_extent<IdxType>> d_ic,
+  raft::mdspan<const ScalarT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> d_loglikelihood,
+  IC_Type ic_type,
+  IdxType n_params,
+  IdxType n_samples)
 {
-  batched::detail::information_criterion(
-    d_ic.data_handle(), d_loglikelihood.data_handle(), ic_type, n_params, d_ic.extent(0), n_samples, handle.get_stream());
+  batched::detail::information_criterion(d_ic.data_handle(),
+                                         d_loglikelihood.data_handle(),
+                                         ic_type,
+                                         n_params,
+                                         d_ic.extent(0),
+                                         n_samples,
+                                         handle.get_stream());
 }
- 
+
 }  // namespace stats
 }  // namespace raft
 #endif

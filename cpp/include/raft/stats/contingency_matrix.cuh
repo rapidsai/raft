@@ -156,8 +156,7 @@ void contingencyMatrix(const T* groundTruth,
  * @tparam T label type
  * @tparam OutT output matrix type
  * @tparam IdxType Index type of matrix extent.
- * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
- *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ * @tparam LayoutPolicy Layout type of the input data.
  * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
  *                        device.
  * @param handle: the raft handle.
@@ -178,7 +177,7 @@ void contingencyMatrix(
   const raft::handle_t& handle,
   raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> groundTruth,
   raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> predictedLabel,
-  raft::mdspan<OutT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> outMat,
+  raft::mdspan<OutT, raft::matrix_extent<IdxType>, LayoutPolicy> outMat,
   void* workspace      = nullptr,
   size_t workspaceSize = 0,
   T minLabel           = std::numeric_limits<T>::max(),

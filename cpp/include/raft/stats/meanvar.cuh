@@ -67,6 +67,8 @@ void meanvar(Type* mean,
  * @tparam Type the data type
  * @tparam IdxType Integer type used for addressing
  * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @param handle the raft handle
  * @param [out] mean the output mean vector of size D
  * @param [out] var the output variance vector of size D
@@ -74,17 +76,23 @@ void meanvar(Type* mean,
  * @param [in] sample whether to evaluate sample variance or not. In other words, whether to
  * normalize the variance using N-1 or N, for true or false respectively.
  */
-template <typename Type, typename IdxType = int, typename LayoutPolicy = raft::row_major>
+template <typename Type, typename IdxType = int, typename LayoutPolicy = raft::row_major, typename AccessorPolicy>
 void meanvar(const raft::handle_t& handle,
-             const raft::device_vector_view<Type, IdxType>& mean,
-             const raft::device_vector_view<Type, IdxType>& var,
-             const raft::device_matrix_view<const Type, IdxType, LayoutPolicy>& data,
+             raft::mdspan<Type, raft::vector_extent<IdxType>> mean,
+             raft::mdspan<Type, raft::vector_extent<IdxType>> var,
+             raft::mdspan<const Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
              bool sample)
 {
-  detail::meanvar(mean.data_handle(), var.data_handle(), data.data_handle(), data.extent(1), data.extent(0),
-    sample, std::is_same_v<LayoutPolicy, raft::row_major>, handle.get_stream());
+  detail::meanvar(mean.data_handle(),
+                  var.data_handle(),
+                  data.data_handle(),
+                  data.extent(1),
+                  data.extent(0),
+                  sample,
+                  std::is_same_v<LayoutPolicy, raft::row_major>,
+                  handle.get_stream());
 }
- 
+
 };  // namespace raft::stats
 
 #endif

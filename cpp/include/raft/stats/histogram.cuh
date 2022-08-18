@@ -62,14 +62,16 @@ void histogram(HistType type,
   detail::histogram<DataT, IdxT, BinnerOp>(type, bins, nbins, data, nrows, ncols, stream, binner);
 }
 
-
 /**
  * @brief Perform histogram on the input data. It chooses the right load size
  * based on the input data vector length. It also supports large-bin cases
  * using a specialized smem-based hashing technique.
  * @tparam DataT input data type
- * @tparam IdxT data type used to compute indices
+ * @tparam IdxType data type used to compute indices
  * @tparam BinnerOp takes the input data and computes its bin index
+ * @tparam LayoutPolicy Layout type of the input data.
+ * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
+ *                        device.
  * @param handle the raft handle
  * @param type histogram implementation type to choose
  * @param bins the output bins (length = ncols * nbins)
@@ -78,15 +80,25 @@ void histogram(HistType type,
  *
  * @note signature of BinnerOp is `int func(DataT, IdxT);`
  */
-template <typename DataT, typename IdxT = int, typename BinnerOp = IdentityBinner<DataT, IdxT>>
+template <typename DataT,
+          typename IdxType = int,
+          typename BinnerOp = IdentityBinner<DataT, IdxType>,
+          typename LayoutPolicy,
+          typename AccessorPolicy>
 void histogram(const raft::handle_t& handle,
                HistType type,
-               const raft::device_matrix_view<int>& bins,
-               const raft::device_matrix_view<const DataT>& data,
-               BinnerOp binner = IdentityBinner<DataT, IdxT>())
+               raft::mdspan<int, raft::matrix_extent<IdxType>, LayoutPolicy> bins,
+               raft::mdspan<const DataT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+               BinnerOp binner = IdentityBinner<DataT, IdxType>())
 {
-  detail::histogram<DataT, IdxT, BinnerOp>(type, bins.data_handle(), bins.extent(1), data.data_handle(), data.extent(0), 
-    data.extent(1), handle.get_stream(), binner);
+  detail::histogram<DataT, IdxType, BinnerOp>(type,
+                                           bins.data_handle(),
+                                           bins.extent(1),
+                                           data.data_handle(),
+                                           data.extent(0),
+                                           data.extent(1),
+                                           handle.get_stream(),
+                                           binner);
 }
 };  // end namespace stats
 };  // end namespace raft
