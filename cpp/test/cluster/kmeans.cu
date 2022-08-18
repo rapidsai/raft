@@ -64,11 +64,11 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     params.rng_state.seed      = 1;
     params.oversampling_factor = 0;
 
-    auto X      = raft::make_device_matrix<T>(n_samples, n_features, stream);
-    auto labels = raft::make_device_vector<int>(n_samples, stream);
+    auto X      = raft::make_device_matrix<T, int>(handle, n_samples, n_features);
+    auto labels = raft::make_device_vector<int, int>(handle, n_samples);
 
-    raft::random::make_blobs<T, int>(X.data(),
-                                     labels.data(),
+    raft::random::make_blobs<T, int>(X.data_handle(),
+                                     labels.data_handle(),
                                      n_samples,
                                      n_features,
                                      params.n_clusters,
@@ -88,23 +88,23 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     std::optional<raft::device_vector_view<const T>> d_sw = std::nullopt;
     auto d_centroids_view =
-      raft::make_device_matrix_view<T>(d_centroids.data(), params.n_clusters, n_features);
+      raft::make_device_matrix_view<T, int>(d_centroids.data(), params.n_clusters, n_features);
     if (testparams.weighted) {
       d_sample_weight.resize(n_samples, stream);
       d_sw = std::make_optional(
-        raft::make_device_vector_view<const T>(d_sample_weight.data(), n_samples));
+        raft::make_device_vector_view<const T, int>(d_sample_weight.data(), n_samples));
       thrust::fill(thrust::cuda::par.on(stream),
                    d_sample_weight.data(),
                    d_sample_weight.data() + n_samples,
                    1);
     }
 
-    raft::copy(d_labels_ref.data(), labels.data(), n_samples, stream);
+    raft::copy(d_labels_ref.data(), labels.data_handle(), n_samples, stream);
     handle.sync_stream(stream);
 
     T inertia   = 0;
     int n_iter  = 0;
-    auto X_view = (raft::device_matrix_view<const T>)X.view();
+    auto X_view = (raft::device_matrix_view<const T, int>)X.view();
 
     raft::cluster::kmeans_fit_predict<T, int>(
       handle,
@@ -112,9 +112,9 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
       X_view,
       d_sw,
       d_centroids_view,
-      raft::make_device_vector_view<int>(d_labels.data(), n_samples),
-      raft::make_host_scalar_view(&inertia),
-      raft::make_host_scalar_view(&n_iter));
+      raft::make_device_vector_view<int, int>(d_labels.data(), n_samples),
+      raft::make_host_scalar_view<T>(&inertia),
+      raft::make_host_scalar_view<int>(&n_iter));
 
     handle.sync_stream(stream);
 

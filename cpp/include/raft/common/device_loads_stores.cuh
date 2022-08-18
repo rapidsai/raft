@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,121 @@ namespace raft {
  * @param[out] addr shared memory address (should be aligned to vector size)
  * @param[in]  x    data to be stored at this address
  */
+DI void sts(uint8_t* addr, const uint8_t& x)
+{
+  uint32_t x_int;
+  x_int   = x;
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<uint8_t*>(addr));
+  asm volatile("st.shared.u8 [%0], {%1};" : : "l"(s1), "r"(x_int));
+}
+DI void sts(uint8_t* addr, const uint8_t (&x)[1])
+{
+  uint32_t x_int[1];
+  x_int[0] = x[0];
+  auto s1  = __cvta_generic_to_shared(reinterpret_cast<uint8_t*>(addr));
+  asm volatile("st.shared.u8 [%0], {%1};" : : "l"(s1), "r"(x_int[0]));
+}
+DI void sts(uint8_t* addr, const uint8_t (&x)[2])
+{
+  uint32_t x_int[2];
+  x_int[0] = x[0];
+  x_int[1] = x[1];
+  auto s2  = __cvta_generic_to_shared(reinterpret_cast<uint8_t*>(addr));
+  asm volatile("st.shared.v2.u8 [%0], {%1, %2};" : : "l"(s2), "r"(x_int[0]), "r"(x_int[1]));
+}
+DI void sts(uint8_t* addr, const uint8_t (&x)[4])
+{
+  uint32_t x_int[4];
+  x_int[0] = x[0];
+  x_int[1] = x[1];
+  x_int[2] = x[2];
+  x_int[3] = x[3];
+  auto s4  = __cvta_generic_to_shared(reinterpret_cast<uint8_t*>(addr));
+  asm volatile("st.shared.v4.u8 [%0], {%1, %2, %3, %4};"
+               :
+               : "l"(s4), "r"(x_int[0]), "r"(x_int[1]), "r"(x_int[2]), "r"(x_int[3]));
+}
+
+DI void sts(int8_t* addr, const int8_t& x)
+{
+  int32_t x_int = x;
+  auto s1       = __cvta_generic_to_shared(reinterpret_cast<int8_t*>(addr));
+  asm volatile("st.shared.s8 [%0], {%1};" : : "l"(s1), "r"(x_int));
+}
+DI void sts(int8_t* addr, const int8_t (&x)[1])
+{
+  int32_t x_int[1];
+  x_int[0] = x[0];
+  auto s1  = __cvta_generic_to_shared(reinterpret_cast<int8_t*>(addr));
+  asm volatile("st.shared.s8 [%0], {%1};" : : "l"(s1), "r"(x_int[0]));
+}
+DI void sts(int8_t* addr, const int8_t (&x)[2])
+{
+  int32_t x_int[2];
+  x_int[0] = x[0];
+  x_int[1] = x[1];
+  auto s2  = __cvta_generic_to_shared(reinterpret_cast<int8_t*>(addr));
+  asm volatile("st.shared.v2.s8 [%0], {%1, %2};" : : "l"(s2), "r"(x_int[0]), "r"(x_int[1]));
+}
+DI void sts(int8_t* addr, const int8_t (&x)[4])
+{
+  int32_t x_int[4];
+  x_int[0] = x[0];
+  x_int[1] = x[1];
+  x_int[2] = x[2];
+  x_int[3] = x[3];
+  auto s4  = __cvta_generic_to_shared(reinterpret_cast<int8_t*>(addr));
+  asm volatile("st.shared.v4.s8 [%0], {%1, %2, %3, %4};"
+               :
+               : "l"(s4), "r"(x_int[0]), "r"(x_int[1]), "r"(x_int[2]), "r"(x_int[3]));
+}
+
+DI void sts(uint32_t* addr, const uint32_t& x)
+{
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<uint32_t*>(addr));
+  asm volatile("st.shared.u32 [%0], {%1};" : : "l"(s1), "r"(x));
+}
+DI void sts(uint32_t* addr, const uint32_t (&x)[1])
+{
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<uint32_t*>(addr));
+  asm volatile("st.shared.u32 [%0], {%1};" : : "l"(s1), "r"(x[0]));
+}
+DI void sts(uint32_t* addr, const uint32_t (&x)[2])
+{
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<uint2*>(addr));
+  asm volatile("st.shared.v2.u32 [%0], {%1, %2};" : : "l"(s2), "r"(x[0]), "r"(x[1]));
+}
+DI void sts(uint32_t* addr, const uint32_t (&x)[4])
+{
+  auto s4 = __cvta_generic_to_shared(reinterpret_cast<uint4*>(addr));
+  asm volatile("st.shared.v4.u32 [%0], {%1, %2, %3, %4};"
+               :
+               : "l"(s4), "r"(x[0]), "r"(x[1]), "r"(x[2]), "r"(x[3]));
+}
+
+DI void sts(int32_t* addr, const int32_t& x)
+{
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<int32_t*>(addr));
+  asm volatile("st.shared.u32 [%0], {%1};" : : "l"(s1), "r"(x));
+}
+DI void sts(int32_t* addr, const int32_t (&x)[1])
+{
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<int32_t*>(addr));
+  asm volatile("st.shared.u32 [%0], {%1};" : : "l"(s1), "r"(x[0]));
+}
+DI void sts(int32_t* addr, const int32_t (&x)[2])
+{
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<int2*>(addr));
+  asm volatile("st.shared.v2.u32 [%0], {%1, %2};" : : "l"(s2), "r"(x[0]), "r"(x[1]));
+}
+DI void sts(int32_t* addr, const int32_t (&x)[4])
+{
+  auto s4 = __cvta_generic_to_shared(reinterpret_cast<int4*>(addr));
+  asm volatile("st.shared.v4.u32 [%0], {%1, %2, %3, %4};"
+               :
+               : "l"(s4), "r"(x[0]), "r"(x[1]), "r"(x[2]), "r"(x[3]));
+}
+
 DI void sts(float* addr, const float& x)
 {
   auto s1 = __cvta_generic_to_shared(reinterpret_cast<float*>(addr));
@@ -83,6 +198,152 @@ DI void sts(double* addr, const double (&x)[2])
  * @param[in]  addr shared memory address from where to load
  *                  (should be aligned to vector size)
  */
+
+DI void lds(uint8_t& x, const uint8_t* addr)
+{
+  uint32_t x_int;
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<const uint8_t*>(addr));
+  asm volatile("ld.shared.u8 {%0}, [%1];" : "=r"(x_int) : "l"(s1));
+  x = x_int;
+}
+DI void lds(uint8_t (&x)[1], const uint8_t* addr)
+{
+  uint32_t x_int[1];
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<const uint8_t*>(addr));
+  asm volatile("ld.shared.u8 {%0}, [%1];" : "=r"(x_int[0]) : "l"(s1));
+  x[0] = x_int[0];
+}
+DI void lds(uint8_t (&x)[2], const uint8_t* addr)
+{
+  uint32_t x_int[2];
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<const uint8_t*>(addr));
+  asm volatile("ld.shared.v2.u8 {%0, %1}, [%2];" : "=r"(x_int[0]), "=r"(x_int[1]) : "l"(s2));
+  x[0] = x_int[0];
+  x[1] = x_int[1];
+}
+DI void lds(uint8_t (&x)[4], const uint8_t* addr)
+{
+  uint32_t x_int[4];
+  auto s4 = __cvta_generic_to_shared(reinterpret_cast<const uint8_t*>(addr));
+  asm volatile("ld.shared.v4.u8 {%0, %1, %2, %3}, [%4];"
+               : "=r"(x_int[0]), "=r"(x_int[1]), "=r"(x_int[2]), "=r"(x_int[3])
+               : "l"(s4));
+  x[0] = x_int[0];
+  x[1] = x_int[1];
+  x[2] = x_int[2];
+  x[3] = x_int[3];
+}
+
+DI void lds(int8_t& x, const int8_t* addr)
+{
+  int32_t x_int;
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<const int8_t*>(addr));
+  asm volatile("ld.shared.s8 {%0}, [%1];" : "=r"(x_int) : "l"(s1));
+  x = x_int;
+}
+DI void lds(int8_t (&x)[1], const int8_t* addr)
+{
+  int32_t x_int[1];
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<const int8_t*>(addr));
+  asm volatile("ld.shared.s8 {%0}, [%1];" : "=r"(x_int[0]) : "l"(s1));
+  x[0] = x_int[0];
+}
+DI void lds(int8_t (&x)[2], const int8_t* addr)
+{
+  int32_t x_int[2];
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<const int8_t*>(addr));
+  asm volatile("ld.shared.v2.s8 {%0, %1}, [%2];" : "=r"(x_int[0]), "=r"(x_int[1]) : "l"(s2));
+  x[0] = x_int[0];
+  x[1] = x_int[1];
+}
+DI void lds(int8_t (&x)[4], const int8_t* addr)
+{
+  int32_t x_int[4];
+  auto s4 = __cvta_generic_to_shared(reinterpret_cast<const int8_t*>(addr));
+  asm volatile("ld.shared.v4.s8 {%0, %1, %2, %3}, [%4];"
+               : "=r"(x_int[0]), "=r"(x_int[1]), "=r"(x_int[2]), "=r"(x_int[3])
+               : "l"(s4));
+  x[0] = x_int[0];
+  x[1] = x_int[1];
+  x[2] = x_int[2];
+  x[3] = x_int[3];
+}
+
+DI void lds(uint32_t (&x)[4], const uint32_t* addr)
+{
+  auto s4 = __cvta_generic_to_shared(reinterpret_cast<const uint32_t*>(addr));
+  asm volatile("ld.shared.v4.u32 {%0, %1, %2, %3}, [%4];"
+               : "=r"(x[0]), "=r"(x[1]), "=r"(x[2]), "=r"(x[3])
+               : "l"(s4));
+}
+
+DI void lds(uint32_t (&x)[2], const uint32_t* addr)
+{
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<const uint32_t*>(addr));
+  asm volatile("ld.shared.v2.u32 {%0, %1}, [%2];" : "=r"(x[0]), "=r"(x[1]) : "l"(s2));
+}
+
+DI void lds(uint32_t (&x)[1], const uint32_t* addr)
+{
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<const uint32_t*>(addr));
+  asm volatile("ld.shared.u32 {%0}, [%1];" : "=r"(x[0]) : "l"(s1));
+}
+
+DI void lds(uint32_t& x, const uint32_t* addr)
+{
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<const uint32_t*>(addr));
+  asm volatile("ld.shared.u32 {%0}, [%1];" : "=r"(x) : "l"(s1));
+}
+
+DI void lds(int32_t (&x)[4], const int32_t* addr)
+{
+  auto s4 = __cvta_generic_to_shared(reinterpret_cast<const int32_t*>(addr));
+  asm volatile("ld.shared.v4.u32 {%0, %1, %2, %3}, [%4];"
+               : "=r"(x[0]), "=r"(x[1]), "=r"(x[2]), "=r"(x[3])
+               : "l"(s4));
+}
+
+DI void lds(int32_t (&x)[2], const int32_t* addr)
+{
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<const int32_t*>(addr));
+  asm volatile("ld.shared.v2.u32 {%0, %1}, [%2];" : "=r"(x[0]), "=r"(x[1]) : "l"(s2));
+}
+
+DI void lds(int32_t (&x)[1], const int32_t* addr)
+{
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<const int32_t*>(addr));
+  asm volatile("ld.shared.u32 {%0}, [%1];" : "=r"(x[0]) : "l"(s1));
+}
+
+DI void lds(int32_t& x, const int32_t* addr)
+{
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<const int32_t*>(addr));
+  asm volatile("ld.shared.u32 {%0}, [%1];" : "=r"(x) : "l"(s1));
+}
+
+DI void lds(float& x, const float* addr)
+{
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<const float*>(addr));
+  asm volatile("ld.shared.f32 {%0}, [%1];" : "=f"(x) : "l"(s1));
+}
+DI void lds(float (&x)[1], const float* addr)
+{
+  auto s1 = __cvta_generic_to_shared(reinterpret_cast<const float*>(addr));
+  asm volatile("ld.shared.f32 {%0}, [%1];" : "=f"(x[0]) : "l"(s1));
+}
+DI void lds(float (&x)[2], const float* addr)
+{
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<const float2*>(addr));
+  asm volatile("ld.shared.v2.f32 {%0, %1}, [%2];" : "=f"(x[0]), "=f"(x[1]) : "l"(s2));
+}
+DI void lds(float (&x)[4], const float* addr)
+{
+  auto s4 = __cvta_generic_to_shared(reinterpret_cast<const float4*>(addr));
+  asm volatile("ld.shared.v4.f32 {%0, %1, %2, %3}, [%4];"
+               : "=f"(x[0]), "=f"(x[1]), "=f"(x[2]), "=f"(x[3])
+               : "l"(s4));
+}
+
 DI void lds(float& x, float* addr)
 {
   auto s1 = __cvta_generic_to_shared(reinterpret_cast<float*>(addr));
@@ -159,6 +420,119 @@ DI void ldg(double (&x)[2], const double* addr)
 {
   asm volatile("ld.global.cg.v2.f64 {%0, %1}, [%2];" : "=d"(x[0]), "=d"(x[1]) : "l"(addr));
 }
+
+DI void ldg(uint32_t (&x)[4], const uint32_t* const& addr)
+{
+  asm volatile("ld.global.cg.v4.u32 {%0, %1, %2, %3}, [%4];"
+               : "=r"(x[0]), "=r"(x[1]), "=r"(x[2]), "=r"(x[3])
+               : "l"(addr));
+}
+
+DI void ldg(uint32_t (&x)[2], const uint32_t* const& addr)
+{
+  asm volatile("ld.global.cg.v2.u32 {%0, %1}, [%2];" : "=r"(x[0]), "=r"(x[1]) : "l"(addr));
+}
+
+DI void ldg(uint32_t (&x)[1], const uint32_t* const& addr)
+{
+  asm volatile("ld.global.cg.u32 %0, [%1];" : "=r"(x[0]) : "l"(addr));
+}
+
+DI void ldg(uint32_t& x, const uint32_t* const& addr)
+{
+  asm volatile("ld.global.cg.u32 %0, [%1];" : "=r"(x) : "l"(addr));
+}
+
+DI void ldg(int32_t (&x)[4], const int32_t* const& addr)
+{
+  asm volatile("ld.global.cg.v4.u32 {%0, %1, %2, %3}, [%4];"
+               : "=r"(x[0]), "=r"(x[1]), "=r"(x[2]), "=r"(x[3])
+               : "l"(addr));
+}
+
+DI void ldg(int32_t (&x)[2], const int32_t* const& addr)
+{
+  asm volatile("ld.global.cg.v2.u32 {%0, %1}, [%2];" : "=r"(x[0]), "=r"(x[1]) : "l"(addr));
+}
+
+DI void ldg(int32_t (&x)[1], const int32_t* const& addr)
+{
+  asm volatile("ld.global.cg.u32 %0, [%1];" : "=r"(x[0]) : "l"(addr));
+}
+
+DI void ldg(int32_t& x, const int32_t* const& addr)
+{
+  asm volatile("ld.global.cg.u32 %0, [%1];" : "=r"(x) : "l"(addr));
+}
+
+DI void ldg(uint8_t (&x)[4], const uint8_t* const& addr)
+{
+  uint32_t x_int[4];
+  asm volatile("ld.global.cg.v4.u8 {%0, %1, %2, %3}, [%4];"
+               : "=r"(x_int[0]), "=r"(x_int[1]), "=r"(x_int[2]), "=r"(x_int[3])
+               : "l"(addr));
+  x[0] = x_int[0];
+  x[1] = x_int[1];
+  x[2] = x_int[2];
+  x[3] = x_int[3];
+}
+
+DI void ldg(uint8_t (&x)[2], const uint8_t* const& addr)
+{
+  uint32_t x_int[2];
+  asm volatile("ld.global.cg.v2.u8 {%0, %1}, [%2];" : "=r"(x_int[0]), "=r"(x_int[1]) : "l"(addr));
+  x[0] = x_int[0];
+  x[1] = x_int[1];
+}
+
+DI void ldg(uint8_t (&x)[1], const uint8_t* const& addr)
+{
+  uint32_t x_int;
+  asm volatile("ld.global.cg.u8 %0, [%1];" : "=r"(x_int) : "l"(addr));
+  x[0] = x_int;
+}
+
+DI void ldg(uint8_t& x, const uint8_t* const& addr)
+{
+  uint32_t x_int;
+  asm volatile("ld.global.cg.u8 %0, [%1];" : "=r"(x_int) : "l"(addr));
+  x = x_int;
+}
+
+DI void ldg(int8_t (&x)[4], const int8_t* const& addr)
+{
+  int x_int[4];
+  asm volatile("ld.global.cg.v4.s8 {%0, %1, %2, %3}, [%4];"
+               : "=r"(x_int[0]), "=r"(x_int[1]), "=r"(x_int[2]), "=r"(x_int[3])
+               : "l"(addr));
+  x[0] = x_int[0];
+  x[1] = x_int[1];
+  x[2] = x_int[2];
+  x[3] = x_int[3];
+}
+
+DI void ldg(int8_t (&x)[2], const int8_t* const& addr)
+{
+  int x_int[2];
+  asm volatile("ld.global.cg.v2.s8 {%0, %1}, [%2];" : "=r"(x_int[0]), "=r"(x_int[1]) : "l"(addr));
+  x[0] = x_int[0];
+  x[1] = x_int[1];
+}
+
+DI void ldg(int8_t& x, const int8_t* const& addr)
+{
+  int x_int;
+  asm volatile("ld.global.cg.s8 %0, [%1];" : "=r"(x_int) : "l"(addr));
+  x = x_int;
+}
+
+DI void ldg(int8_t (&x)[1], const int8_t* const& addr)
+{
+  int x_int;
+  asm volatile("ld.global.cg.s8 %0, [%1];" : "=r"(x_int) : "l"(addr));
+  x[0] = x_int;
+}
+
 /** @} */
 
 }  // namespace raft

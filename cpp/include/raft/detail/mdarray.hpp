@@ -107,10 +107,13 @@ class device_uvector {
   /**
    * @brief Ctor that accepts a size, stream and an optional mr.
    */
-  explicit device_uvector(
-    std::size_t size,
-    rmm::cuda_stream_view stream,
-    rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource())
+  explicit device_uvector(std::size_t size, rmm::cuda_stream_view stream) : data_{size, stream} {}
+  /**
+   * @brief Ctor that accepts a size, stream and a memory resource.
+   */
+  explicit device_uvector(std::size_t size,
+                          rmm::cuda_stream_view stream,
+                          rmm::mr::device_memory_resource* mr)
     : data_{size, stream, mr}
   {
   }
@@ -162,14 +165,10 @@ class device_uvector_policy {
   }
 
   device_uvector_policy() = delete;
-  explicit device_uvector_policy(rmm::cuda_stream_view stream) noexcept(
-    std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
-    : stream_{stream}, mr_(nullptr)
-  {
-  }
-
-  device_uvector_policy(rmm::cuda_stream_view stream, rmm::mr::device_memory_resource* mr) noexcept(
-    std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
+  explicit device_uvector_policy(
+    rmm::cuda_stream_view stream,
+    rmm::mr::device_memory_resource* mr =
+      nullptr) noexcept(std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
     : stream_{stream}, mr_(mr)
   {
   }
@@ -250,9 +249,14 @@ using device_accessor = accessor_mixin<AccessorPolicy, false>;
 
 namespace stdex = std::experimental;
 
-using vector_extent = stdex::extents<dynamic_extent>;
-using matrix_extent = stdex::extents<dynamic_extent, dynamic_extent>;
-using scalar_extent = stdex::extents<1>;
+template <typename IndexType>
+using vector_extent = stdex::extents<IndexType, dynamic_extent>;
+
+template <typename IndexType>
+using matrix_extent = stdex::extents<IndexType, dynamic_extent, dynamic_extent>;
+
+template <typename IndexType = std::uint32_t>
+using scalar_extent = stdex::extents<IndexType, 1>;
 
 template <typename T>
 MDSPAN_INLINE_FUNCTION auto native_popc(T v) -> int32_t
@@ -301,8 +305,8 @@ MDSPAN_INLINE_FUNCTION constexpr auto arr_to_tup(T (&arr)[N])
 // uint division optimization inspired by the CIndexer in cupy.  Division operation is
 // slow on both CPU and GPU, especially 64 bit integer.  So here we first try to avoid 64
 // bit when the index is smaller, then try to avoid division when it's exp of 2.
-template <typename I, size_t... Extents>
-MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<Extents...> shape)
+template <typename I, typename IndexType, size_t... Extents>
+MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<IndexType, Extents...> shape)
 {
   constexpr auto kRank = static_cast<int32_t>(shape.rank());
   std::size_t index[shape.rank()]{0};  // NOLINT

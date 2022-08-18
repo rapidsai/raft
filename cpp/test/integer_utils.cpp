@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,14 @@
 #include <raft/integer_utils.h>
 
 namespace raft {
+
+static_assert(!is_narrowing_v<uint32_t, uint64_t>);
+static_assert(!is_narrowing_v<uint32_t, int64_t>);
+static_assert(!is_narrowing_v<uint32_t, uint32_t>);
+static_assert(is_narrowing_v<uint32_t, int32_t>);
+static_assert(is_narrowing_v<uint32_t, int>);
+static_assert(!is_narrowing_v<float, double>);
+static_assert(is_narrowing_v<double, float>);
 
 TEST(Raft, rounding_up)
 {
