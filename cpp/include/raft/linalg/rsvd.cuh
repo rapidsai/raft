@@ -94,21 +94,21 @@ void randomizedSVD(const raft::handle_t& handle,
  * @param gen_U:   left vector needs to be generated or not?
  * @param gen_V:   right vector needs to be generated or not?
  */
-template <typename math_t>
+template <typename math_t, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
 void randomizedSVD(const raft::handle_t& handle,
-                   const raft::device_matrix_view<math_t>& in,
+                   raft::mdspan<const math_t, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> in,
                    std::size_t k,
                    std::size_t p,
                    std::size_t niters,
-                   const raft::device_vector_view<math_t>& S,
-                   const raft::device_matrix_view<math_t>& U,
-                   const raft::device_matrix_view<math_t>& V,
+                   raft::mdspan<math_t, raft::vector_extent<IdxType>> S,
+                   raft::mdspan<math_t, raft::matrix_extent<IdxType>> U,
+                   raft::mdspan<math_t, raft::matrix_extent<IdxType>> V,
                    bool trans_V,
                    bool gen_U,
                    bool gen_V)
 {
   detail::randomizedSVD<math_t>(handle, in, in.extent(0), in.extent(1), k, p, niters, S.data(), U.data(),
-    V.data(), trans_V, gen_U, gen_V);
+    V.data(), trans_V, gen_U, gen_V, std::is_same_v<LayoutPolicy, raft::row_major>);
 }
 
 /**

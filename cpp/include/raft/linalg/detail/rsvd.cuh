@@ -75,9 +75,9 @@ void randomizedSVD(const raft::handle_t& handle,
   RAFT_CUSOLVER_TRY(cusolverDnxgesvdr_bufferSize<math_t>(cusolverH, dn_params, jobu, jobv, n_rows, n_cols, k, p, niters, 
     in, lda, S, U, ldu, V, ldv, &workspaceDevice, &workspaceHost, stream));
   
-  auto d_workspace = raft::make_device_vector<char>(workspaceDevice, stream);
+  auto d_workspace = raft::make_device_vector<char>(handle, workspaceDevice);
   auto h_workspace = raft::make_host_vector<char>(workspaceHost);
-  auto devInfo = raft::make_device_scalar<int>(0, stream);
+  auto devInfo = raft::make_device_scalar<int>(handle, 0);
 
   RAFT_CUSOLVER_TRY(cusolverDnxgesvdr(cusolverH,
                                       dn_params,
@@ -95,11 +95,11 @@ void randomizedSVD(const raft::handle_t& handle,
                                       ldu,
                                       V,
                                       ldv,
-                                      d_workspace.data(),
+                                      d_workspace.data_handle(),
                                       workspaceDevice,
-                                      h_workspace.data(),
+                                      h_workspace.data_handle(),
                                       workspaceHost,
-                                      devInfo.data(),
+                                      devInfo.data_handle(),
                                       stream));
 
   RAFT_CUDA_TRY(cudaGetLastError());
@@ -109,7 +109,7 @@ void randomizedSVD(const raft::handle_t& handle,
   if (trans_V) raft::linalg::transpose(V, n_cols, stream);
 
   int dev_info;
-  raft::update_host(&dev_info, devInfo.data(), 1, stream);
+  raft::update_host(&dev_info, devInfo.data_handle(), 1, stream);
   handle.sync_stream(stream);
   ASSERT(dev_info == 0, "rsvd.cuh: Invalid parameter encountered.");
 }
