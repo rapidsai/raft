@@ -67,13 +67,11 @@ void svdQR(const raft::handle_t& handle,
   char jobvt = 'A';
 
   if (!gen_left_vec) {
-    char new_u = 'N';
-    strcpy(&jobu, &new_u);
+    jobu = 'N';
   }
 
   if (!gen_right_vec) {
-    char new_vt = 'N';
-    strcpy(&jobvt, &new_vt);
+    jobvt = 'N';
   }
 
   RAFT_CUSOLVER_TRY(cusolverDngesvd(cusolverH,

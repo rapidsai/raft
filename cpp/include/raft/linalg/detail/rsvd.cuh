@@ -61,14 +61,12 @@ void randomizedSVD(const raft::handle_t& handle,
   char jobu  = 'S';
   char jobv = 'S';
   if (!gen_U) {
-    char new_u = 'N';
-    strcpy(&jobu, &new_u);
+    jobu = 'N';
   }
   if (!gen_V) {
-    char new_v = 'N';
-    strcpy(&jobv, &new_v);
+    jobv = 'N';
   }
-  auto lda = rowMajor ? n_rows : n_cols;
+  auto lda = n_rows;
   auto ldu = n_rows;
   auto ldv = n_cols;
 
