@@ -249,44 +249,6 @@ inline void _cuann_transpose_copy_3d(uint32_t num0,
 }
 
 //
-template <typename T>
-T** _cuann_multi_device_malloc(int numDevices,
-                               size_t numArrayElements,
-                               const char* arrayName,
-                               bool useCudaMalloc = false  // If true, cudaMalloc() used,
-                                                           // otherwise, cudaMallocManaged() used.
-)
-{
-  int orgDevId;
-  RAFT_CUDA_TRY(cudaGetDevice(&orgDevId));
-  T** arrays = (T**)malloc(sizeof(T*) * numDevices);
-  for (int devId = 0; devId < numDevices; devId++) {
-    RAFT_CUDA_TRY(cudaSetDevice(devId));
-    if (useCudaMalloc) {
-      RAFT_CUDA_TRY(cudaMalloc(&(arrays[devId]), sizeof(T) * numArrayElements));
-    } else {
-      RAFT_CUDA_TRY(cudaMallocManaged(&(arrays[devId]), sizeof(T) * numArrayElements));
-    }
-  }
-  RAFT_CUDA_TRY(cudaSetDevice(orgDevId));
-  return arrays;
-}
-
-// multi_device_free
-template <typename T>
-inline void _cuann_multi_device_free(T** arrays, int numDevices)
-{
-  for (int devId = 0; devId < numDevices; devId++) {
-    RAFT_CUDA_TRY(cudaFree(arrays[devId]));
-  }
-  free(arrays);
-}
-
-template void _cuann_multi_device_free<float>(float** arrays, int numDevices);
-template void _cuann_multi_device_free<uint32_t>(uint32_t** arrays, int numDevices);
-template void _cuann_multi_device_free<uint8_t>(uint8_t** arrays, int numDevices);
-
-//
 #define NUM_THREADS      1024  // DO NOT CHANGE
 #define STATE_BIT_LENGTH 8     // 0: state not used,  8: state used
 #define MAX_VEC_LENGTH   8     // 1, 2, 4 or 8
@@ -2446,9 +2408,6 @@ void cuannIvfPqBuildIndex(
   uint32_t numIterations, /* Number of iterations to train kmeans */
   bool randomRotation /* If true, rotate vectors with randamly created rotation matrix */)
 {
-  int cuannDevId  = handle.get_device();
-  int callerDevId = _cuann_set_device(cuannDevId);
-
   cudaDataType_t dtype;
   if constexpr (std::is_same_v<T, float>) {
     dtype = CUDA_R_32F;
@@ -2472,6 +2431,10 @@ void cuannIvfPqBuildIndex(
     RAFT_LOG_DEBUG("cuannIvfPqBuildIndex: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
   }
+
+  rmm::mr::managed_memory_resource managed_memory_upstream;
+  rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
+    &managed_memory_upstream, 1024 * 1024);
 
   desc->dtypeDataset = dtype;
   char dtypeString[64];
@@ -2508,24 +2471,20 @@ void cuannIvfPqBuildIndex(
                             &rotationMatrix,
                             &clusterRotCenters);
 
-  uint32_t* trainsetLabels;  // [numTrainset]
-  RAFT_CUDA_TRY(cudaMallocManaged(&trainsetLabels, sizeof(uint32_t) * numTrainset));
-
-  uint32_t* clusterSize;  // [numClusters]
-  RAFT_CUDA_TRY(cudaMallocManaged(&clusterSize, sizeof(uint32_t) * desc->numClusters));
+  rmm::device_uvector<uint32_t> trainset_labels(numTrainset, handle.get_stream(), &managed_memory);
+  rmm::device_uvector<uint32_t> cluster_sizes(
+    desc->numClusters, handle.get_stream(), &managed_memory);
 
   uint32_t numMesoClusters = pow((double)(desc->numClusters), (double)1.0 / 2.0) + 0.5;
   RAFT_LOG_DEBUG("numMesoClusters: %u", numMesoClusters);
 
-  float* mesoClusterCenters;  // [numMesoClusters, dimDataset]
-  RAFT_CUDA_TRY(
-    cudaMallocManaged(&mesoClusterCenters, sizeof(float) * numMesoClusters * desc->dimDataset));
+  rmm::device_uvector<float> mesocluster_centers(
+    numMesoClusters * desc->dimDataset, handle.get_stream(), &managed_memory);
 
-  uint32_t* mesoClusterLabels;  // [numTrainset,]
-  RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterLabels, sizeof(uint32_t) * numTrainset));
-
-  uint32_t* mesoClusterSize;  // [numMesoClusters,]
-  RAFT_CUDA_TRY(cudaMallocManaged(&mesoClusterSize, sizeof(uint32_t) * numMesoClusters));
+  rmm::device_uvector<uint32_t> mesocluster_labels(
+    numTrainset, handle.get_stream(), &managed_memory);
+  rmm::device_uvector<uint32_t> mesocluster_sizes(
+    numMesoClusters, handle.get_stream(), &managed_memory);
 
   //
   // Training kmeans for meso-clusters
@@ -2536,9 +2495,9 @@ void cuannIvfPqBuildIndex(
                          trainset,
                          numTrainset,
                          numMesoClusters,
-                         mesoClusterCenters,
-                         mesoClusterLabels,
-                         mesoClusterSize,
+                         mesocluster_centers.data(),
+                         mesocluster_labels.data(),
+                         mesocluster_sizes.data(),
                          desc->metric,
                          device_memory,
                          handle.get_stream());
@@ -2559,95 +2518,71 @@ void cuannIvfPqBuildIndex(
   uint32_t numFineClustersMax = 0;
   for (uint32_t i = 0; i < numMesoClusters; i++) {
     if (i < numMesoClusters - 1) {
-      numFineClusters[i] = (double)numClustersRemain * mesoClusterSize[i] / numTrainsetRemain + .5;
+      numFineClusters[i] =
+        (double)numClustersRemain * mesocluster_sizes.data()[i] / numTrainsetRemain + .5;
     } else {
       numFineClusters[i] = numClustersRemain;
     }
     csumFineClusters[i + 1] = csumFineClusters[i] + numFineClusters[i];
 
     numClustersRemain -= numFineClusters[i];
-    numTrainsetRemain -= mesoClusterSize[i];
-    mesoClusterSizeSum += mesoClusterSize[i];
-    mesoClusterSizeMax = max(mesoClusterSizeMax, mesoClusterSize[i]);
+    numTrainsetRemain -= mesocluster_sizes.data()[i];
+    mesoClusterSizeSum += mesocluster_sizes.data()[i];
+    mesoClusterSizeMax = max(mesoClusterSizeMax, mesocluster_sizes.data()[i]);
     numFineClustersMax = max(numFineClustersMax, numFineClusters[i]);
   }
   RAFT_EXPECTS(mesoClusterSizeSum == numTrainset, "mesocluster sizes do not add up");
   RAFT_EXPECTS(csumFineClusters[numMesoClusters] == desc->numClusters,
                "fine cluster sizes do not add up");
 
-  uint32_t** idsTrainset =
-    _cuann_multi_device_malloc<uint32_t>(1, mesoClusterSizeMax, "idsTrainset");
-
-  float** subTrainset =
-    _cuann_multi_device_malloc<float>(1, mesoClusterSizeMax * desc->dimDataset, "subTrainset");
-
-  // label (cluster ID) of each vector
-  uint32_t** labelsMP = _cuann_multi_device_malloc<uint32_t>(1, mesoClusterSizeMax, "labelsMP");
-
-  float** clusterCentersEach = _cuann_multi_device_malloc<float>(
-    1, numFineClustersMax * desc->dimDataset, "clusterCentersEach");
-
-  // number of vectors in each cluster
-  uint32_t** clusterSizeMP =
-    _cuann_multi_device_malloc<uint32_t>(1, numFineClustersMax, "clusterSizeMP");
+  rmm::device_uvector<uint32_t> ids_trainset(
+    mesoClusterSizeMax, handle.get_stream(), &managed_memory);
+  rmm::device_uvector<float> sub_trainset(
+    mesoClusterSizeMax * desc->dimDataset, handle.get_stream(), &managed_memory);
+  rmm::device_uvector<uint32_t> labels_mp(mesoClusterSizeMax, handle.get_stream(), &managed_memory);
+  rmm::device_uvector<float> cluster_centers_each(
+    numFineClustersMax * desc->dimDataset, handle.get_stream(), &managed_memory);
+  rmm::device_uvector<uint32_t> cluser_size_mp(
+    numFineClustersMax, handle.get_stream(), &managed_memory);
 
   //
   // Training kmeans for clusters in each meso-clusters
   //
-#pragma omp parallel for schedule(dynamic) num_threads(1)
   for (uint32_t i = 0; i < numMesoClusters; i++) {
-    int devId = omp_get_thread_num();
-    RAFT_CUDA_TRY(cudaSetDevice(devId));
-
     uint32_t k = 0;
     for (uint32_t j = 0; j < numTrainset; j++) {
-      if (mesoClusterLabels[j] != i) continue;
-      idsTrainset[devId][k++] = j;
+      if (mesocluster_labels.data()[j] != i) continue;
+      ids_trainset.data()[k++] = j;
     }
-    RAFT_EXPECTS(k == mesoClusterSize[i], "unexpected cluster size for cluster %u", i);
+    RAFT_EXPECTS(k == mesocluster_sizes.data()[i], "unexpected cluster size for cluster %u", i);
 
-    utils::copy_selected<float, T>(mesoClusterSize[i],
+    utils::copy_selected<float, T>(mesocluster_sizes.data()[i],
                                    desc->dimDataset,
                                    trainset,
-                                   idsTrainset[devId],
+                                   ids_trainset.data(),
                                    desc->dimDataset,
-                                   subTrainset[devId],
+                                   sub_trainset.data(),
                                    desc->dimDataset,
                                    handle.get_stream());
 
     kmeans::build_clusters(handle,
                            numIterations,
                            desc->dimDataset,
-                           subTrainset[devId],
-                           mesoClusterSize[i],
+                           sub_trainset.data(),
+                           mesocluster_sizes.data()[i],
                            numFineClusters[i],
-                           clusterCentersEach[devId],
-                           labelsMP[devId],
-                           clusterSizeMP[devId],
+                           cluster_centers_each.data(),
+                           labels_mp.data(),
+                           cluser_size_mp.data(),
                            desc->metric,
                            device_memory,
                            handle.get_stream());
     raft::copy(clusterCenters + (desc->dimDataset * csumFineClusters[i]),
-               clusterCentersEach[devId],
+               cluster_centers_each.data(),
                numFineClusters[i] * desc->dimDataset,
                handle.get_stream());
     handle.sync_stream();
   }
-  for (int devId = 0; devId < 1; devId++) {
-    RAFT_CUDA_TRY(cudaSetDevice(devId));
-    RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  }
-  RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
-
-  _cuann_multi_device_free<uint32_t>(idsTrainset, 1);
-  _cuann_multi_device_free<float>(subTrainset, 1);
-  _cuann_multi_device_free<uint32_t>(labelsMP, 1);
-  _cuann_multi_device_free<float>(clusterCentersEach, 1);
-  _cuann_multi_device_free<uint32_t>(clusterSizeMP, 1);
-
-  RAFT_CUDA_TRY(cudaFree(mesoClusterSize));
-  RAFT_CUDA_TRY(cudaFree(mesoClusterLabels));
-  RAFT_CUDA_TRY(cudaFree(mesoClusterCenters));
 
   free(numFineClusters);
   free(csumFineClusters);
@@ -2670,17 +2605,17 @@ void cuannIvfPqBuildIndex(
                     desc->dimDataset,
                     trainset,
                     numTrainset,
-                    trainsetLabels,
+                    trainset_labels.data(),
                     desc->metric,
                     handle.get_stream(),
                     device_memory);
     kmeans::calc_centers_and_sizes(clusterCenters,
-                                   clusterSize,
+                                   cluster_sizes.data(),
                                    desc->numClusters,
                                    desc->dimDataset,
                                    trainset,
                                    numTrainset,
-                                   trainsetLabels,
+                                   trainset_labels.data(),
                                    true,
                                    handle.get_stream());
     switch (desc->metric) {
@@ -2700,8 +2635,8 @@ void cuannIvfPqBuildIndex(
                                                                desc->dimDataset,
                                                                trainset,
                                                                numTrainset,
-                                                               trainsetLabels,
-                                                               clusterSize,
+                                                               trainset_labels.data(),
+                                                               cluster_sizes.data(),
                                                                (float)1.0 / 5,
                                                                device_memory,
                                                                handle.get_stream())) {
@@ -2713,8 +2648,8 @@ void cuannIvfPqBuildIndex(
     }
   }
 
-  uint32_t* datasetLabels;  // [numDataset]
-  RAFT_CUDA_TRY(cudaMallocManaged(&datasetLabels, sizeof(uint32_t) * desc->numDataset));
+  rmm::device_uvector<uint32_t> dataset_labels(
+    desc->numDataset, handle.get_stream(), &managed_memory);
 
   //
   // Predict labels of whole dataset
@@ -2725,17 +2660,17 @@ void cuannIvfPqBuildIndex(
                   desc->dimDataset,
                   dataset,
                   desc->numDataset,
-                  datasetLabels,
+                  dataset_labels.data(),
                   desc->metric,
                   handle.get_stream(),
                   device_memory);
   kmeans::calc_centers_and_sizes(clusterCenters,
-                                 clusterSize,
+                                 cluster_sizes.data(),
                                  desc->numClusters,
                                  desc->dimDataset,
                                  dataset,
                                  desc->numDataset,
-                                 datasetLabels,
+                                 dataset_labels.data(),
                                  true,
                                  handle.get_stream());
   switch (desc->metric) {
@@ -2752,7 +2687,8 @@ void cuannIvfPqBuildIndex(
 
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  _cuann_kmeans_show_centers(clusterCenters, desc->numClusters, desc->dimDataset, clusterSize);
+  _cuann_kmeans_show_centers(
+    clusterCenters, desc->numClusters, desc->dimDataset, cluster_sizes.data());
 #endif
 
   // Make rotation matrix
@@ -2788,8 +2724,8 @@ void cuannIvfPqBuildIndex(
   // cluster_offsets
   cluster_offsets[0] = 0;
   for (uint32_t l = 0; l < desc->numClusters; l++) {
-    cluster_offsets[l + 1] = cluster_offsets[l] + clusterSize[l];
-    if (maxClusterSize < clusterSize[l]) { maxClusterSize = clusterSize[l]; }
+    cluster_offsets[l + 1] = cluster_offsets[l] + cluster_sizes.data()[l];
+    if (maxClusterSize < cluster_sizes.data()[l]) { maxClusterSize = cluster_sizes.data()[l]; }
   }
   RAFT_EXPECTS(cluster_offsets[desc->numClusters] == desc->numDataset,
                "Cluster sizes do not add up");
@@ -2797,19 +2733,18 @@ void cuannIvfPqBuildIndex(
 
   // originalNumbers
   for (uint32_t i = 0; i < desc->numDataset; i++) {
-    uint32_t l                          = datasetLabels[i];
+    uint32_t l                          = dataset_labels.data()[i];
     originalNumbers[cluster_offsets[l]] = i;
     cluster_offsets[l] += 1;
   }
 
   // Recover cluster_offsets
   for (uint32_t l = 0; l < desc->numClusters; l++) {
-    cluster_offsets[l] -= clusterSize[l];
+    cluster_offsets[l] -= cluster_sizes.data()[l];
   }
 
-  // [numDevices][1 << bitPq,]
-  uint32_t** pqClusterSize =
-    _cuann_multi_device_malloc<uint32_t>(1, (1 << desc->bitPq), "pqClusterSize");
+  rmm::device_uvector<uint32_t> pq_cluster_sizes(
+    (1 << desc->bitPq), handle.get_stream(), &managed_memory);
 
   if (desc->typePqCenter == codebook_gen::PER_SUBSPACE) {
     //
@@ -2824,7 +2759,7 @@ void cuannIvfPqBuildIndex(
                     desc->dimDataset,
                     trainset,
                     numTrainset,
-                    trainsetLabels,
+                    trainset_labels.data(),
                     desc->metric,
                     handle.get_stream(),
                     device_memory);
@@ -2838,7 +2773,7 @@ void cuannIvfPqBuildIndex(
     // modTrainset[] = transpose( rotate(trainset[]) - clusterRotCenters[] )
 #pragma omp parallel for
     for (uint32_t i = 0; i < numTrainset; i++) {
-      uint32_t l = trainsetLabels[i];
+      uint32_t l = trainset_labels.data()[i];
       for (uint32_t j = 0; j < desc->dimRotDataset; j++) {
         float val = FLT_MAX;
         if (dtype == CUDA_R_32F) {
@@ -2875,24 +2810,16 @@ void cuannIvfPqBuildIndex(
       }
     }
 
-    // [numDevices][numTrainset, lenPq]
-    float** subTrainset =
-      _cuann_multi_device_malloc<float>(1, numTrainset * desc->lenPq, "subTrainset");
+    rmm::device_uvector<float> sub_trainset(
+      numTrainset * desc->lenPq, handle.get_stream(), &managed_memory);
+    rmm::device_uvector<uint32_t> sub_trainset_labels(
+      numTrainset, handle.get_stream(), &managed_memory);
+    rmm::device_uvector<float> pq_centers(
+      (1 << desc->bitPq) * desc->lenPq, handle.get_stream(), &managed_memory);
 
-    // [numDevices][numTrainset]
-    uint32_t** subTrainsetLabels =
-      _cuann_multi_device_malloc<uint32_t>(1, numTrainset, "subTrainsetLabels");
-
-    float** pqCentersEach =
-      _cuann_multi_device_malloc<float>(1, ((1 << desc->bitPq) * desc->lenPq), "pqCentersEach");
-
-#pragma omp parallel for schedule(dynamic) num_threads(1)
     for (uint32_t j = 0; j < desc->dimPq; j++) {
-      int devId = omp_get_thread_num();
-      RAFT_CUDA_TRY(cudaSetDevice(devId));
-
       float* curPqCenters = pqCenters + ((1 << desc->bitPq) * desc->lenPq) * j;
-      RAFT_CUDA_TRY(cudaMemcpy(subTrainset[devId],
+      RAFT_CUDA_TRY(cudaMemcpy(sub_trainset.data(),
                                modTrainset + ((uint64_t)numTrainset * desc->lenPq * j),
                                sizeof(float) * numTrainset * desc->lenPq,
                                cudaMemcpyHostToDevice));
@@ -2900,17 +2827,17 @@ void cuannIvfPqBuildIndex(
       kmeans::build_clusters(handle,
                              numIterations,
                              desc->lenPq,
-                             subTrainset[devId],
+                             sub_trainset.data(),
                              numTrainset,
                              (1 << desc->bitPq),
-                             pqCentersEach[devId],
-                             subTrainsetLabels[devId],
-                             pqClusterSize[devId],
+                             pq_centers.data(),
+                             sub_trainset_labels.data(),
+                             pq_cluster_sizes.data(),
                              raft::distance::DistanceType::L2Expanded,
                              device_memory,
                              handle.get_stream());
       raft::copy(
-        curPqCenters, pqCentersEach[devId], (1 << desc->bitPq) * desc->lenPq, handle.get_stream());
+        curPqCenters, pq_centers.data(), (1 << desc->bitPq) * desc->lenPq, handle.get_stream());
       handle.sync_stream();
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
       if (j == 0) {
@@ -2920,12 +2847,6 @@ void cuannIvfPqBuildIndex(
       }
 #endif
     }
-    fprintf(stderr, "\n");
-    RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
-
-    _cuann_multi_device_free<float>(subTrainset, 1);
-    _cuann_multi_device_free<uint32_t>(subTrainsetLabels, 1);
-    _cuann_multi_device_free<float>(pqCentersEach, 1);
     free(modTrainset);
   }
 
@@ -2946,12 +2867,11 @@ void cuannIvfPqBuildIndex(
                             rotationMatrix,
                             dataset,
                             originalNumbers,
-                            clusterSize,
+                            cluster_sizes.data(),
                             cluster_offsets,
                             pqCenters,
                             numIterations,
                             pqDataset);
-  RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
 
   //
   _cuann_get_inclusiveSumSortedClusterSize(
@@ -2991,15 +2911,6 @@ void cuannIvfPqBuildIndex(
   header->dtypeDataset    = desc->dtypeDataset;
   header->dimDatasetExt   = desc->dimDatasetExt;
   header->numDatasetAdded = 0;
-
-  //
-  RAFT_CUDA_TRY(cudaFree(clusterSize));
-  RAFT_CUDA_TRY(cudaFree(trainsetLabels));
-  RAFT_CUDA_TRY(cudaFree(datasetLabels));
-
-  _cuann_multi_device_free<uint32_t>(pqClusterSize, 1);
-
-  _cuann_set_device(callerDevId);
 }
 
 template <typename T>
@@ -3082,10 +2993,10 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   //
   uint32_t* newVectorLabels;  // [numNewVectors,]
   RAFT_CUDA_TRY(cudaMallocManaged(&newVectorLabels, sizeof(uint32_t) * numNewVectors));
-  RAFT_CUDA_TRY(cudaMemset(newVectorLabels, 0, sizeof(uint32_t) * numNewVectors));
+  utils::memzero(newVectorLabels, numNewVectors, handle.get_stream());
   uint32_t* clusterSize;  // [numClusters,]
   RAFT_CUDA_TRY(cudaMallocManaged(&clusterSize, sizeof(uint32_t) * oldDesc->numClusters));
-  RAFT_CUDA_TRY(cudaMemset(clusterSize, 0, sizeof(uint32_t) * oldDesc->numClusters));
+  utils::memzero(clusterSize, oldDesc->numClusters, handle.get_stream());
 
   kmeans::predict(handle,
                   clusterCenters,
