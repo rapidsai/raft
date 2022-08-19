@@ -26,11 +26,14 @@
 #include <raft/device_atomics.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/pow2_utils.cuh>
 #include <raft/stats/histogram.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <thrust/fill.h>
 
@@ -203,34 +206,6 @@ inline void _cuann_copy_fill(uint32_t nRows,
     <<<nBlocks, nThreads, 0, stream>>>(nRows, nCols, src, ldSrc, dst, ldDst, fillValue, divisor);
 }
 
-// a -= b
-__global__ void kern_a_me_b(uint32_t nRows,
-                            uint32_t nCols,
-                            float* a,  // [nRows, nCols]
-                            uint32_t ldA,
-                            float* b  // [nCols]
-)
-{
-  uint64_t gid  = threadIdx.x + (blockDim.x * blockIdx.x);
-  uint64_t iCol = gid % nCols;
-  uint64_t iRow = gid / nCols;
-  if (iRow >= nRows) return;
-  a[iCol + (ldA * iRow)] -= b[iCol];
-}
-
-// a -= b
-inline void _cuann_a_me_b(uint32_t nRows,
-                          uint32_t nCols,
-                          float* a,  // [nRows, nCols]
-                          uint32_t ldA,
-                          float* b  // [nCols]
-)
-{
-  uint32_t nThreads = 128;
-  uint32_t nBlocks  = ((nRows * nCols) + nThreads - 1) / nThreads;
-  kern_a_me_b<<<nBlocks, nThreads>>>(nRows, nCols, a, ldA, b);
-}
-
 //
 template <typename D, typename S>
 __global__ void kern_transpose_copy_3d(uint32_t num0,
@@ -264,24 +239,14 @@ inline void _cuann_transpose_copy_3d(uint32_t num0,
                                      const S* src,  // [...]
                                      uint32_t stride0,
                                      uint32_t stride1,
-                                     uint32_t stride2)
+                                     uint32_t stride2,
+                                     rmm::cuda_stream_view stream)
 {
   uint32_t nThreads = 128;
   uint32_t nBlocks  = ((num0 * num1 * num2) + nThreads - 1) / nThreads;
-  kern_transpose_copy_3d<D, S>
-    <<<nBlocks, nThreads>>>(num0, num1, num2, dst, ld0, ld1, src, stride0, stride1, stride2);
+  kern_transpose_copy_3d<D, S><<<nBlocks, nThreads, 0, stream>>>(
+    num0, num1, num2, dst, ld0, ld1, src, stride0, stride1, stride2);
 }
-
-template void _cuann_transpose_copy_3d<float, float>(uint32_t num0,
-                                                     uint32_t num1,
-                                                     uint32_t num2,
-                                                     float* dst,
-                                                     uint32_t ld0,
-                                                     uint32_t ld1,
-                                                     const float* src,
-                                                     uint32_t stride0,
-                                                     uint32_t stride1,
-                                                     uint32_t stride2);
 
 //
 template <typename T>
@@ -2249,49 +2214,41 @@ void _cuann_compute_PQ_code(const handle_t& handle,
                             uint8_t* pqDataset  // [numDataset, dimPq * bitPq / 8]
 )
 {
+  auto stream                                    = handle.get_stream();
   rmm::mr::device_memory_resource* device_memory = nullptr;
   auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
   if (pool_guard) {
     RAFT_LOG_DEBUG("_cuann_compute_PQ_code: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
   }
+  rmm::mr::managed_memory_resource managed_memory_upstream;
+  rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
+    &managed_memory_upstream,
+    Pow2<(1024ul * 1024ul)>::roundUp(maxClusterSize * (dimDataset + dimRotDataset) * 4));
+
   //
   // Compute PQ code
   //
-  memset(pqDataset, 0, sizeof(uint8_t) * numDataset * dimPq * bitPq / 8);
-  float** resVectors;          // [numDevices][maxClusterSize, dimDataset]
-  float** rotVectors;          // [numDevices][maxClusterSize, dimRotDataset]
-  float** subVectors;          // [numDevices][dimPq, maxClusterSize, lenPq]
-  uint32_t** subVectorLabels;  // [numDevices][dimPq, maxClusterSize]
-  uint8_t** myPqDataset;       // [numDevices][maxCluserSize, dimPq * bitPq / 8]
-  resVectors = _cuann_multi_device_malloc<float>(1, maxClusterSize * dimDataset, "resVectors");
-  rotVectors = _cuann_multi_device_malloc<float>(1, maxClusterSize * dimRotDataset, "rotVectors");
-  subVectors = _cuann_multi_device_malloc<float>(1, dimPq * maxClusterSize * lenPq, "subVectors");
-  subVectorLabels =
-    _cuann_multi_device_malloc<uint32_t>(1, dimPq * maxClusterSize, "subVectorLabels");
-  myPqDataset =
-    _cuann_multi_device_malloc<uint8_t>(1, maxClusterSize * dimPq * bitPq / 8, "myPqDataset");
+  utils::memzero(pqDataset, numDataset * dimPq * bitPq / 8, stream);
 
-  uint32_t** rotVectorLabels = nullptr;  // [numDevices][maxClusterSize, dimPq,]
-  uint32_t** pqClusterSize   = nullptr;  // [numDevices][1 << bitPq,]
-  uint32_t** wsKAC           = nullptr;  // [numDevices][1]
-  float** myPqCenters        = nullptr;  // [numDevices][1 << bitPq, lenPq]
+  rmm::device_uvector<float> res_vectors(maxClusterSize * dimDataset, stream, &managed_memory);
+  rmm::device_uvector<float> rot_vectors(maxClusterSize * dimRotDataset, stream, &managed_memory);
+  rmm::device_uvector<float> sub_vectors(maxClusterSize * dimPq * lenPq, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> sub_vector_labels(maxClusterSize * dimPq, stream, &managed_memory);
+  rmm::device_uvector<uint8_t> my_pq_dataset(
+    maxClusterSize * dimPq * bitPq / 8 /* NB: dimPq * bitPQ % 8 == 0 */, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> rot_vector_labels(0, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> pq_cluster_size(0, stream, &managed_memory);
+  rmm::device_uvector<float> my_pq_centers(0, stream, &managed_memory);
+
   if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
-    memset(pqCenters, 0, sizeof(float) * numClusters * (1 << bitPq) * lenPq);
-    rotVectorLabels =
-      _cuann_multi_device_malloc<uint32_t>(1, maxClusterSize * dimPq, "rotVectorLabels");
-    pqClusterSize = _cuann_multi_device_malloc<uint32_t>(1, (1 << bitPq), "pqClusterSize");
-    wsKAC         = _cuann_multi_device_malloc<uint32_t>(1, 1, "wsKAC");
-    myPqCenters   = _cuann_multi_device_malloc<float>(1, (1 << bitPq) * lenPq, "myPqCenters");
+    utils::memzero(pqCenters, numClusters * (1 << bitPq) * lenPq, stream);
+    rot_vector_labels.resize(maxClusterSize * dimPq, stream);
+    pq_cluster_size.resize((1 << bitPq), stream);
+    my_pq_centers.resize((1 << bitPq) * lenPq, stream);
   }
 
-#pragma omp parallel for schedule(dynamic) num_threads(1)
   for (uint32_t l = 0; l < numClusters; l++) {
-    int devId = omp_get_thread_num();
-    RAFT_CUDA_TRY(cudaSetDevice(devId));
-    if (devId == 0) {
-      fprintf(stderr, "(%s) Making PQ dataset: %u / %u    \r", __func__, l, numClusters);
-    }
     if (clusterSize[l] == 0) continue;
 
     //
@@ -2304,14 +2261,20 @@ void _cuann_compute_PQ_code(const handle_t& handle,
                                    dataset,
                                    originalNumbers + cluster_offsets[l],
                                    dimDataset,
-                                   resVectors[devId],
+                                   res_vectors.data(),
                                    dimDataset,
-                                   handle.get_stream());
-    _cuann_a_me_b(clusterSize[l],
-                  dimDataset,
-                  resVectors[devId],
-                  dimDataset,
-                  clusterCenters + (uint64_t)l * dimDataset);
+                                   stream);
+
+    // substract centers from the vectors in the cluster.
+    raft::matrix::linewiseOp(
+      res_vectors.data(),
+      res_vectors.data(),
+      dimDataset,
+      clusterSize[l],
+      true,
+      [] __device__(float a, float b) { return a - b; },
+      stream,
+      clusterCenters + (uint64_t)l * dimDataset);
 
     //
     // Rotate the residual vectors using a rotation matrix
@@ -2327,12 +2290,12 @@ void _cuann_compute_PQ_code(const handle_t& handle,
                  &alpha,
                  rotationMatrix,
                  dimDataset,
-                 resVectors[devId],
+                 res_vectors.data(),
                  dimDataset,
                  &beta,
-                 rotVectors[devId],
+                 rot_vectors.data(),
                  dimRotDataset,
-                 handle.get_stream());
+                 stream);
 
     //
     // Training PQ codebook if codebook_gen::PER_CLUSTER
@@ -2340,50 +2303,39 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     //
     if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
       uint32_t numTrainset = _get_num_trainset(clusterSize[l], dimPq, bitPq);
-      if (devId == 0) {
-        fprintf(stderr,
-                "(%s) Making PQ dataset: %u / %u, "
-                "Training PQ codebook (%u)           \r",
-                __func__,
-                l,
-                numClusters,
-                numTrainset);
-      }
       kmeans::build_clusters(handle,
                              numIterations,
                              lenPq,
-                             rotVectors[devId],
+                             rot_vectors.data(),
                              numTrainset,
                              (1 << bitPq),
-                             myPqCenters[devId],
-                             rotVectorLabels[devId],
-                             pqClusterSize[devId],
+                             my_pq_centers.data(),
+                             rot_vector_labels.data(),
+                             pq_cluster_size.data(),
                              raft::distance::DistanceType::L2Expanded,
                              device_memory,
-                             handle.get_stream());
-      raft::copy(pqCenters + ((1 << bitPq) * lenPq) * l,
-                 myPqCenters[devId],
-                 (1 << bitPq) * lenPq,
-                 handle.get_stream());
+                             stream);
+      raft::copy(
+        pqCenters + ((1 << bitPq) * lenPq) * l, my_pq_centers.data(), (1 << bitPq) * lenPq, stream);
     }
-    handle.sync_stream();
 
     //
     // Change the order of the vector data to facilitate processing in
     // each vector subspace.
-    //   input:  rotVectors[clusterSize, dimRotDataset]
-    //   output: subVectors[dimPq, clusterSize, lenPq]
+    //   input:  rot_vectors[clusterSize, dimRotDataset]
+    //   output: sub_vectors[dimPq, clusterSize, lenPq]
     //
     _cuann_transpose_copy_3d<float, float>(lenPq,
                                            clusterSize[l],
                                            dimPq,
-                                           subVectors[devId],
+                                           sub_vectors.data(),
                                            lenPq,
                                            clusterSize[l],
-                                           rotVectors[devId],
+                                           rot_vectors.data(),
                                            1,
                                            dimRotDataset,
-                                           lenPq);
+                                           lenPq,
+                                           stream);
 
     //
     // Find a label (cluster ID) for each vector subspace.
@@ -2394,17 +2346,17 @@ void _cuann_compute_PQ_code(const handle_t& handle,
         curPqCenters = pqCenters + ((1 << bitPq) * lenPq) * j;
       } else if (typePqCenter == codebook_gen::PER_CLUSTER) {
         curPqCenters = pqCenters + ((1 << bitPq) * lenPq) * l;
-        if (numIterations > 0) { curPqCenters = myPqCenters[devId]; }
+        if (numIterations > 0) { curPqCenters = my_pq_centers.data(); }
       }
       kmeans::predict(handle,
                       curPqCenters,
                       (1 << bitPq),
                       lenPq,
-                      subVectors[devId] + j * (clusterSize[l] * lenPq),
+                      sub_vectors.data() + j * (clusterSize[l] * lenPq),
                       clusterSize[l],
-                      subVectorLabels[devId] + j * clusterSize[l],
+                      sub_vector_labels.data() + j * clusterSize[l],
                       raft::distance::DistanceType::L2Expanded,
-                      handle.get_stream(),
+                      stream,
                       device_memory);
     }
     handle.sync_stream();
@@ -2413,27 +2365,13 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     // PQ encoding
     //
     ivfpq_encode(
-      clusterSize[l], clusterSize[l], dimPq, bitPq, subVectorLabels[devId], myPqDataset[devId]);
+      clusterSize[l], clusterSize[l], dimPq, bitPq, sub_vector_labels.data(), my_pq_dataset.data());
     RAFT_CUDA_TRY(cudaMemcpy(pqDataset + ((uint64_t)cluster_offsets[l] * dimPq * bitPq / 8),
-                             myPqDataset[devId],
+                             my_pq_dataset.data(),
                              sizeof(uint8_t) * clusterSize[l] * dimPq * bitPq / 8,
                              cudaMemcpyDeviceToHost));
   }
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  fprintf(stderr, "\n");
-
-  //
-  _cuann_multi_device_free<uint8_t>(myPqDataset, 1);
-  _cuann_multi_device_free<uint32_t>(subVectorLabels, 1);
-  _cuann_multi_device_free<float>(subVectors, 1);
-  _cuann_multi_device_free<float>(rotVectors, 1);
-  _cuann_multi_device_free<float>(resVectors, 1);
-  if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
-    _cuann_multi_device_free<uint32_t>(wsKAC, 1);
-    _cuann_multi_device_free<uint32_t>(rotVectorLabels, 1);
-    _cuann_multi_device_free<uint32_t>(pqClusterSize, 1);
-    _cuann_multi_device_free<float>(myPqCenters, 1);
-  }
 }
 
 inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t& desc,
@@ -2575,12 +2513,6 @@ void cuannIvfPqBuildIndex(
 
   uint32_t* clusterSize;  // [numClusters]
   RAFT_CUDA_TRY(cudaMallocManaged(&clusterSize, sizeof(uint32_t) * desc->numClusters));
-
-  float* clusterCentersTemp;  // [numClusters, dimDataset]
-  RAFT_CUDA_TRY(
-    cudaMallocManaged(&clusterCentersTemp, sizeof(float) * desc->numClusters * desc->dimDataset));
-
-  uint32_t** wsKAC = _cuann_multi_device_malloc<uint32_t>(1, 1, "wsKAC");
 
   uint32_t numMesoClusters = pow((double)(desc->numClusters), (double)1.0 / 2.0) + 0.5;
   RAFT_LOG_DEBUG("numMesoClusters: %u", numMesoClusters);
@@ -2875,10 +2807,6 @@ void cuannIvfPqBuildIndex(
     cluster_offsets[l] -= clusterSize[l];
   }
 
-  // [numDevices][1 << bitPq, lenPq]
-  float** pqCentersTemp =
-    _cuann_multi_device_malloc<float>(1, (1 << desc->bitPq) * desc->lenPq, "pqCentersTemp");
-
   // [numDevices][1 << bitPq,]
   uint32_t** pqClusterSize =
     _cuann_multi_device_malloc<uint32_t>(1, (1 << desc->bitPq), "pqClusterSize");
@@ -2988,7 +2916,7 @@ void cuannIvfPqBuildIndex(
       if (j == 0) {
         RAFT_CUDA_TRY(cudaDeviceSynchronize());
         _cuann_kmeans_show_centers(
-          curPqCenters, (1 << desc->bitPq), desc->lenPq, pqClusterSize[devId]);
+          curPqCenters, (1 << desc->bitPq), desc->lenPq, pq_cluster_size.data());
       }
 #endif
     }
@@ -3068,10 +2996,7 @@ void cuannIvfPqBuildIndex(
   RAFT_CUDA_TRY(cudaFree(clusterSize));
   RAFT_CUDA_TRY(cudaFree(trainsetLabels));
   RAFT_CUDA_TRY(cudaFree(datasetLabels));
-  RAFT_CUDA_TRY(cudaFree(clusterCentersTemp));
 
-  _cuann_multi_device_free<uint32_t>(wsKAC, 1);
-  _cuann_multi_device_free<float>(pqCentersTemp, 1);
   _cuann_multi_device_free<uint32_t>(pqClusterSize, 1);
 
   _cuann_set_device(callerDevId);
