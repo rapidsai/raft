@@ -116,7 +116,7 @@ jobs:
       cibw-environment: "PYTHON_PACKAGE_CUDA_SUFFIX='-cuda11'"
       cibw-before-build: "pip install rmm-cuda11 libraft-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: "-DFIND_RAFT_CPP=ON"
-      gpu-smoketest-before: "pip install cupy-cuda115"
+      gpu-smoketest-before: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64"
       gpu-smoketest: "import pylibraft; print(pylibraft); import cupy as cp; from pylibraft.distance import pairwise_distance; n_samples = 5000; n_features = 50; in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32); in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32); output = cp.empty((n_samples, n_samples), dtype=cp.float32); pairwise_distance(in1, in2, output, metric='euclidean'); assert cp.count_nonzero(output) > 0"
     secrets: inherit
   pylibraft-wheel-arm64-39:
@@ -129,6 +129,6 @@ jobs:
       cibw-environment: "PYTHON_PACKAGE_CUDA_SUFFIX='-cuda11'"
       cibw-before-build: "pip install rmm-cuda11 libraft-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: "-DFIND_RAFT_CPP=ON"
-      gpu-smoketest-before: "pip install cupy-cuda115"
+      gpu-smoketest-before: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64"
       gpu-smoketest: "import pylibraft; print(pylibraft); import cupy as cp; from pylibraft.distance import pairwise_distance; n_samples = 5000; n_features = 50; in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32); in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32); output = cp.empty((n_samples, n_samples), dtype=cp.float32); pairwise_distance(in1, in2, output, metric='euclidean'); assert cp.count_nonzero(output) > 0"
     secrets: inherit
