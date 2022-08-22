@@ -14,7 +14,9 @@
 
 # Set the list of Cython files to build
 set(cython_sources rmat_rectangular_generator.pyx)
-set(linked_libraries raft::raft raft::compiled)
+# TODO: should finally be replaced with 'compiled' library to be more generic,
+# when that is available
+set(linked_libraries raft::raft raft::distance)
 
 # Build all of the Cython targets
 rapids_cython_create_modules(
