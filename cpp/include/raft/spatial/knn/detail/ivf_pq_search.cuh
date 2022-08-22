@@ -82,11 +82,10 @@ inline void search(const handle_t& handle,
   size_t ivf_pq_search_workspace_size;
   ivf_pq::detail::cuannIvfPqSearch_bufferSize(
     handle, cuann_desc, batch_size, max_ws_size, &ivf_pq_search_workspace_size);
-  rmm::device_buffer ivf_pq_search_ws_buf(ivf_pq_search_workspace_size, handle.get_stream(), mr);
 
   // finally, search!
   ivf_pq::detail::cuannIvfPqSearch(
-    handle, cuann_desc, queries, n_queries, neighbors, distances, ivf_pq_search_ws_buf.data());
+    handle, cuann_desc, queries, n_queries, neighbors, distances, mr);
 }
 
 }  // namespace raft::spatial::knn::ivf_pq::detail

@@ -352,7 +352,7 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   if (i_batch >= size_batch) return;
 
   uint32_t nx;
-  if (len_x == NULL) {
+  if (len_x == nullptr) {
     nx = max_len_x;
   } else {
     nx = len_x[i_batch];
@@ -362,7 +362,7 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   uint32_t thread_id   = threadIdx.x + (blockDim_x * blockIdx.x);
 
   const uint32_t* x = _x + (max_len_x * i_batch);
-  uint8_t* state    = NULL;
+  uint8_t* state    = nullptr;
   if (stateBitLen == 8) {
     uint32_t numSample_perThread = (max_len_x + num_threads - 1) / num_threads;
     uint32_t numState_perThread  = (numSample_perThread + stateBitLen - 1) / stateBitLen;
@@ -588,7 +588,7 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   if (i_batch >= size_batch) return;
 
   uint32_t nx;
-  if (len_x == NULL) {
+  if (len_x == nullptr) {
     nx = max_len_x;
   } else {
     nx = len_x[i_batch];
@@ -598,7 +598,7 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   uint32_t thread_id   = threadIdx.x;
 
   const uint32_t* x = _x + (max_len_x * i_batch);
-  uint8_t* state    = NULL;
+  uint8_t* state    = nullptr;
   if (stateBitLen == 8) {
     uint32_t numSample_perThread = (max_len_x + num_threads - 1) / num_threads;
     uint32_t numState_perThread  = (numSample_perThread + stateBitLen - 1) / stateBitLen;
@@ -886,7 +886,7 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   if (i_batch >= size_batch) return;
 
   uint32_t nx;
-  if (len_x == NULL) {
+  if (len_x == nullptr) {
     nx = max_len_x;
   } else {
     nx = len_x[i_batch];
@@ -896,7 +896,7 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   uint32_t thread_id   = threadIdx.x + (blockDim_x * blockIdx.x);
 
   const uint16_t* x = _x + (max_len_x * i_batch);
-  uint8_t* state    = NULL;
+  uint8_t* state    = nullptr;
   if (stateBitLen == 8) {
     uint32_t numSample_perThread = (max_len_x + num_threads - 1) / num_threads;
     uint32_t numState_perThread  = (numSample_perThread + stateBitLen - 1) / stateBitLen;
@@ -1043,7 +1043,7 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   if (i_batch >= size_batch) return;
 
   uint32_t nx;
-  if (len_x == NULL) {
+  if (len_x == nullptr) {
     nx = max_len_x;
   } else {
     nx = len_x[i_batch];
@@ -1053,7 +1053,7 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   uint32_t thread_id   = threadIdx.x;
 
   const uint16_t* x = _x + (max_len_x * i_batch);
-  uint8_t* state    = NULL;
+  uint8_t* state    = nullptr;
   if (stateBitLen == 8) {
     uint32_t numSample_perThread = (max_len_x + num_threads - 1) / num_threads;
     uint32_t numState_perThread  = (numSample_perThread + stateBitLen - 1) / stateBitLen;
@@ -1226,16 +1226,16 @@ inline size_t _cuann_find_topk_bufferSize(const handle_t& handle,
   workspaceSize2 += Pow2<128>::roundUp(sizeof(uint32_t) * sizeBatch * topK);
   // cub_ws
   size_t cub_ws_size = 0;
-  cub::DeviceSegmentedRadixSort::SortPairs(NULL,
+  cub::DeviceSegmentedRadixSort::SortPairs(nullptr,
                                            cub_ws_size,
-                                           (float*)NULL,
-                                           (float*)NULL,
-                                           (uint32_t*)NULL,
-                                           (uint32_t*)NULL,
+                                           (float*)nullptr,
+                                           (float*)nullptr,
+                                           (uint32_t*)nullptr,
+                                           (uint32_t*)nullptr,
                                            sizeBatch * topK,
                                            sizeBatch,
-                                           (int*)NULL,
-                                           (int*)NULL);
+                                           (int*)nullptr,
+                                           (int*)nullptr);
   workspaceSize2 += Pow2<128>::roundUp(cub_ws_size);
   workspaceSize = max(workspaceSize, workspaceSize2);
 
@@ -1260,7 +1260,7 @@ inline void _cuann_find_topk(const handle_t& handle,
                              uint32_t* numSamples,  // [sizeBatch,]
                              const float* samples,  // [sizeBatch, maxSamples,]
                              uint32_t* labels,      // [sizeBatch, topK,]
-                             void* workspace,
+                             rmm::mr::device_memory_resource* mr,
                              bool sort = false)
 {
   constexpr int numThreads  = NUM_THREADS;
@@ -1298,8 +1298,12 @@ inline void _cuann_find_topk(const handle_t& handle,
     // determined by auto-tuning, etc.
     numBlocks_perBatch = 1;
   }
-  uint32_t* count = (uint32_t*)workspace;
-  uint8_t* state  = NULL;
+  rmm::device_buffer workspace(
+    _cuann_find_topk_bufferSize(handle, topK, sizeBatch, maxSamples, CUDA_R_32F),
+    handle.get_stream(),
+    mr);
+  uint32_t* count = reinterpret_cast<uint32_t*>(workspace.data());
+  uint8_t* state  = nullptr;
   if (stateBitLen == 8) {
     state = (uint8_t*)count + Pow2<128>::roundUp(sizeof(uint32_t) * sizeBatch * 5 * 1024);
   }
@@ -1341,7 +1345,7 @@ inline void _cuann_find_topk(const handle_t& handle,
 
   // offsets: [sizeBatch + 1]
   // keys_in, keys_out, values_out: [sizeBatch, topK]
-  int* offsets   = (int*)workspace;
+  int* offsets   = reinterpret_cast<int*>(workspace.data());
   float* keys_in = (float*)((uint8_t*)offsets + Pow2<128>::roundUp(sizeof(int) * (sizeBatch + 1)));
   float* keys_out =
     (float*)((uint8_t*)keys_in + Pow2<128>::roundUp(sizeof(float) * sizeBatch * topK));
@@ -1356,7 +1360,7 @@ inline void _cuann_find_topk(const handle_t& handle,
     sizeBatch, topK, maxSamples, labels, samples, offsets, keys_in);
 
   size_t cub_ws_size = 0;
-  cub::DeviceSegmentedRadixSort::SortPairs(NULL,
+  cub::DeviceSegmentedRadixSort::SortPairs(nullptr,
                                            cub_ws_size,
                                            keys_in,
                                            keys_out,
@@ -1392,7 +1396,7 @@ inline void _cuann_find_topk(const handle_t& handle,
                              uint32_t* numSamples,  // [sizeBatch,]
                              const half* samples,   // [sizeBatch, maxSamples,]
                              uint32_t* labels,      // [sizeBatch, topK,]
-                             void* workspace,
+                             rmm::mr::device_memory_resource* mr,
                              bool sort = false)
 {
   constexpr int numThreads  = NUM_THREADS;
@@ -1429,8 +1433,13 @@ inline void _cuann_find_topk(const handle_t& handle,
     // determined by auto-tuning, etc.
     numBlocks_perBatch = 1;
   }
-  uint32_t* count = (uint32_t*)workspace;
-  uint8_t* state  = NULL;
+
+  rmm::device_buffer workspace(
+    _cuann_find_topk_bufferSize(handle, topK, sizeBatch, maxSamples, CUDA_R_16F),
+    handle.get_stream(),
+    mr);
+  uint32_t* count = reinterpret_cast<uint32_t*>(workspace.data());
+  uint8_t* state  = nullptr;
   if (stateBitLen == 8) {
     state = (uint8_t*)count + Pow2<128>::roundUp(sizeof(uint32_t) * sizeBatch * 2 * 256);
   }
@@ -1484,7 +1493,7 @@ inline void ivfpq_search(const handle_t& handle,
                          const float* query,                    // [data_dim]
                          uint64_t* topKNeighbors,               // [topK]
                          float* topKDistances,                  // [topK]
-                         void* workspace);
+                         rmm::mr::device_memory_resource* mr);
 
 //
 __device__ inline uint32_t warp_scan(uint32_t x)
@@ -1608,7 +1617,7 @@ __global__ void ivfpq_make_outputs(uint32_t numProbes,
   if (iBatch >= sizeBatch) return;
 
   uint32_t iSample = topkSampleIds[i + (topk * iBatch)];
-  if (scoreTopkIndex == NULL) {
+  if (scoreTopkIndex == nullptr) {
     // 0 <= iSample < maxSamples
     topkScores[i + (topk * iBatch)] = scores[iSample + (maxSamples * iBatch)];
     uint32_t iChunk;
@@ -1654,12 +1663,12 @@ inline size_t ivfpq_search_bufferSize(const handle_t& handle, cuannIvfPqDescript
   // numSamples  [maxBatchSize,]
   size += Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize);
   // cubWorkspace
-  void* d_temp_storage      = NULL;
+  void* d_temp_storage      = nullptr;
   size_t temp_storage_bytes = 0;
-  uint32_t* d_keys_in       = NULL;
-  uint32_t* d_keys_out      = NULL;
-  uint32_t* d_values_in     = NULL;
-  uint32_t* d_values_out    = NULL;
+  uint32_t* d_keys_in       = nullptr;
+  uint32_t* d_keys_out      = nullptr;
+  uint32_t* d_values_in     = nullptr;
+  uint32_t* d_values_out    = nullptr;
   cub::DeviceRadixSort::SortPairs(d_temp_storage,
                                   temp_storage_bytes,
                                   d_keys_in,
@@ -1958,7 +1967,7 @@ inline void _cuann_get_sqsumClusters(cuannIvfPqDescriptor_t& desc,
                                      float** output                 // [numClusters,]
 )
 {
-  if (*output != NULL) { RAFT_CUDA_TRY(cudaFree(*output)); }
+  if (*output != nullptr) { RAFT_CUDA_TRY(cudaFree(*output)); }
   RAFT_CUDA_TRY(cudaMallocManaged(output, sizeof(float) * desc->numClusters));
   switch (utils::check_pointer_residency(cluster_centers, *output)) {
     case utils::pointer_residency::device_only:
@@ -2137,15 +2146,6 @@ inline void _cuann_show_pq_code(const uint8_t* pqDataset,  // [numDataset, pq_di
 }
 
 //
-int _cuann_set_device(int devId)
-{
-  int orgDevId;
-  RAFT_CUDA_TRY(cudaGetDevice(&orgDevId));
-  RAFT_CUDA_TRY(cudaSetDevice(devId));
-  return orgDevId;
-}
-
-//
 uint32_t _get_num_trainset(uint32_t cluster_size, uint32_t pq_dim, uint32_t bitPq)
 {
   return min(cluster_size * pq_dim, 256 * max(1 << bitPq, pq_dim));
@@ -2301,7 +2301,7 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     // Find a label (cluster ID) for each vector subspace.
     //
     for (uint32_t j = 0; j < pq_dim; j++) {
-      float* curPqCenters = NULL;
+      float* curPqCenters = nullptr;
       if (typePqCenter == codebook_gen::PER_SUBSPACE) {
         curPqCenters = pqCenters + ((1 << bitPq) * lenPq) * j;
       } else if (typePqCenter == codebook_gen::PER_CLUSTER) {
@@ -2449,7 +2449,7 @@ void cuannIvfPqBuildIndex(
     default: RAFT_FAIL("both data_vectors and trainsed must be accessible from the host.");
   }
 
-  if (desc->index_ptr != NULL) { RAFT_CUDA_TRY_NO_THROW(cudaFree(desc->index_ptr)); }
+  if (desc->index_ptr != nullptr) { RAFT_CUDA_TRY_NO_THROW(cudaFree(desc->index_ptr)); }
   size_t index_size;
   cuannIvfPqGetIndexSize(desc, &index_size);
   RAFT_CUDA_TRY(cudaMallocManaged(&(desc->index_ptr), index_size));
@@ -2477,7 +2477,8 @@ void cuannIvfPqBuildIndex(
   rmm::device_uvector<uint32_t> cluster_sizes(
     desc->numClusters, handle.get_stream(), &managed_memory);
 
-  uint32_t numMesoClusters = pow((double)(desc->numClusters), (double)1.0 / 2.0) + 0.5;
+  uint32_t numMesoClusters =
+    std::min<uint32_t>(desc->numClusters, std::sqrt(desc->numClusters) + 0.5);
   RAFT_LOG_DEBUG("numMesoClusters: %u", numMesoClusters);
 
   rmm::device_uvector<float> mesocluster_centers(
@@ -2916,8 +2917,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
     case utils::pointer_residency::host_and_device: break;
     default: RAFT_FAIL("newVectors must be accessible from the host.");
   }
-  int cuannDevId  = handle.get_device();
-  int callerDevId = _cuann_set_device(cuannDevId);
 
   cudaDataType_t dtype = oldDesc->dtypeDataset;
   if constexpr (std::is_same_v<T, float>) {
@@ -3093,7 +3092,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
                             oldPqCenters,
                             0,
                             new_pq_codes.data());
-  RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
 
   //
   // Create descriptor for new index
@@ -3212,7 +3210,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
       newHeader->numDatasetAdded);
   }
 
-  _cuann_set_device(callerDevId);
   return newDesc;
 }
 
@@ -3384,23 +3381,13 @@ void cuannIvfPqSearch(const handle_t& handle,
                       uint32_t numQueries,
                       uint64_t* neighbors, /* [numQueries, topK], device pointer */
                       float* distances,    /* [numQueries, topK], device pointer */
-                      void* workspace)
+                      rmm::mr::device_memory_resource* mr)
 {
   RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
-  int orgDevId = _cuann_set_device(handle.get_device());
+  auto stream = handle.get_stream();
 
-  cudaDataType_t dtype;
-  if constexpr (std::is_same_v<T, float>) {
-    dtype = CUDA_R_32F;
-  } else if constexpr (std::is_same_v<T, uint8_t>) {
-    dtype = CUDA_R_8U;
-  } else if constexpr (std::is_same_v<T, int8_t>) {
-    dtype = CUDA_R_8I;
-  } else {
-    static_assert(
-      std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
-      "unsupported type");
-  }
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+                "unsupported type");
 
   struct cuannIvfPqIndexHeader* header;
   float* cluster_centers;     // [numClusters, dimDatasetExt]
@@ -3421,30 +3408,11 @@ void cuannIvfPqSearch(const handle_t& handle,
                             &rotationMatrix,
                             &clusterRotCenters);
   //
-  void* devQueries;                // [maxQueries, dimDatasetExt]
-  float* curQueries;               // [maxQueries, dimDatasetExt]
-  float* rotQueries;               // [maxQueries, rot_dim]
-  uint32_t* clusterLabelsToProbe;  // [maxQueries, numProbes]
-  float* QCDistances;              // [maxQueries, numClusters]
-  void* topkWorkspace;
-  void* searchWorkspace;
-  devQueries = (void*)workspace;
-  curQueries = (float*)((uint8_t*)devQueries +
-                        Pow2<128>::roundUp(sizeof(float) * desc->maxQueries * desc->dimDatasetExt));
-  rotQueries = (float*)((uint8_t*)curQueries +
-                        Pow2<128>::roundUp(sizeof(float) * desc->maxQueries * desc->dimDatasetExt));
-  clusterLabelsToProbe =
-    (uint32_t*)((uint8_t*)rotQueries +
-                Pow2<128>::roundUp(sizeof(float) * desc->maxQueries * desc->rot_dim));
-  //
-  QCDistances   = (float*)((uint8_t*)clusterLabelsToProbe +
-                         Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxQueries * desc->numProbes));
-  topkWorkspace = (void*)((uint8_t*)QCDistances +
-                          Pow2<128>::roundUp(sizeof(float) * desc->maxQueries * desc->numClusters));
-  //
-  searchWorkspace =
-    (void*)((uint8_t*)clusterLabelsToProbe +
-            Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxQueries * desc->numProbes));
+  rmm::device_uvector<T> dev_queries(desc->maxQueries * desc->dimDatasetExt, stream, mr);
+  rmm::device_uvector<float> cur_queries(desc->maxQueries * desc->dimDatasetExt, stream, mr);
+  rmm::device_uvector<float> rot_queries(desc->maxQueries * desc->rot_dim, stream, mr);
+  rmm::device_uvector<uint32_t> clusters_to_probe(desc->maxQueries * desc->numProbes, stream, mr);
+  rmm::device_uvector<float> qc_distances(desc->maxQueries * desc->numClusters, stream, mr);
 
   void (*_ivfpq_search)(const handle_t&,
                         cuannIvfPqDescriptor_t&,
@@ -3458,7 +3426,7 @@ void cuannIvfPqSearch(const handle_t& handle,
                         const float*,
                         uint64_t*,
                         float*,
-                        void*);
+                        rmm::mr::device_memory_resource*);
   if (desc->internalDistanceDtype == CUDA_R_16F) {
     if (desc->smemLutDtype == CUDA_R_16F) {
       _ivfpq_search = ivfpq_search<half, half>;
@@ -3497,60 +3465,53 @@ void cuannIvfPqSearch(const handle_t& handle,
     } else if (desc->dtypeDataset == CUDA_R_8I) {
       divisor = 128.0;
     }
-    if (dtype == CUDA_R_32F) {
+    if constexpr (std::is_same_v<T, float>) {
       float* ptrQueries = (float*)queries + ((uint64_t)(desc->data_dim) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        raft::copy(reinterpret_cast<float*>(devQueries),
-                   ptrQueries,
-                   nQueries * desc->data_dim,
-                   handle.get_stream());
-        ptrQueries = (float*)devQueries;
+        raft::copy(dev_queries.data(), ptrQueries, nQueries * desc->data_dim, stream);
+        ptrQueries = dev_queries.data();
       }
       _cuann_copy_fill<float, float>(nQueries,
                                      desc->data_dim,
                                      ptrQueries,
                                      desc->data_dim,
-                                     curQueries,
+                                     cur_queries.data(),
                                      desc->dimDatasetExt,
                                      fillValue,
                                      divisor,
-                                     handle.get_stream());
-    } else if (dtype == CUDA_R_8U) {
+                                     stream);
+    }
+    if constexpr (std::is_same_v<T, uint8_t>) {
       uint8_t* ptrQueries = (uint8_t*)queries + ((uint64_t)(desc->data_dim) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        raft::copy(reinterpret_cast<uint8_t*>(devQueries),
-                   ptrQueries,
-                   nQueries * desc->data_dim,
-                   handle.get_stream());
-        ptrQueries = (uint8_t*)devQueries;
+        raft::copy(dev_queries.data(), ptrQueries, nQueries * desc->data_dim, stream);
+        ptrQueries = dev_queries.data();
       }
       _cuann_copy_fill<uint8_t, float>(nQueries,
                                        desc->data_dim,
                                        ptrQueries,
                                        desc->data_dim,
-                                       curQueries,
+                                       cur_queries.data(),
                                        desc->dimDatasetExt,
                                        fillValue,
                                        divisor,
-                                       handle.get_stream());
-    } else if (dtype == CUDA_R_8I) {
+                                       stream);
+    }
+    if constexpr (std::is_same_v<T, int8_t>) {
       int8_t* ptrQueries = (int8_t*)queries + ((uint64_t)(desc->data_dim) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        raft::copy(reinterpret_cast<int8_t*>(devQueries),
-                   ptrQueries,
-                   nQueries * desc->data_dim,
-                   handle.get_stream());
-        ptrQueries = (int8_t*)devQueries;
+        raft::copy(dev_queries.data(), ptrQueries, nQueries * desc->data_dim, stream);
+        ptrQueries = dev_queries.data();
       }
       _cuann_copy_fill<int8_t, float>(nQueries,
                                       desc->data_dim,
                                       ptrQueries,
                                       desc->data_dim,
-                                      curQueries,
+                                      cur_queries.data(),
                                       desc->dimDatasetExt,
                                       fillValue,
                                       divisor,
-                                      handle.get_stream());
+                                      stream);
     }
 
     float alpha;
@@ -3574,12 +3535,12 @@ void cuannIvfPqSearch(const handle_t& handle,
                  &alpha,
                  cluster_centers,
                  desc->dimDatasetExt,
-                 curQueries,
+                 cur_queries.data(),
                  desc->dimDatasetExt,
                  &beta,
-                 QCDistances,
+                 qc_distances.data(),
                  desc->numClusters,
-                 handle.get_stream());
+                 stream);
 
     // Rotate queries
     alpha = 1.0;
@@ -3593,22 +3554,22 @@ void cuannIvfPqSearch(const handle_t& handle,
                  &alpha,
                  rotationMatrix,
                  desc->data_dim,
-                 curQueries,
+                 cur_queries.data(),
                  desc->dimDatasetExt,
                  &beta,
-                 rotQueries,
+                 rot_queries.data(),
                  desc->rot_dim,
-                 handle.get_stream());
+                 stream);
 
     // Select neighbor clusters for each query.
     _cuann_find_topk(handle,
                      desc->numProbes,
                      nQueries,
                      desc->numClusters,
-                     NULL,
-                     QCDistances,
-                     clusterLabelsToProbe,
-                     topkWorkspace,
+                     nullptr,
+                     qc_distances.data(),
+                     clusters_to_probe.data(),
+                     mr,
                      false);
 
     for (uint32_t j = 0; j < nQueries; j += desc->maxBatchSize) {
@@ -3621,15 +3582,13 @@ void cuannIvfPqSearch(const handle_t& handle,
                     pqDataset,
                     data_indices,
                     cluster_offsets,
-                    clusterLabelsToProbe + ((uint64_t)(desc->numProbes) * j),
-                    rotQueries + ((uint64_t)(desc->rot_dim) * j),
+                    clusters_to_probe.data() + ((uint64_t)(desc->numProbes) * j),
+                    rot_queries.data() + ((uint64_t)(desc->rot_dim) * j),
                     neighbors + ((uint64_t)(desc->topK) * (i + j)),
                     distances + ((uint64_t)(desc->topK) * (i + j)),
-                    searchWorkspace);
+                    mr);
     }
   }
-
-  _cuann_set_device(orgDevId);
 }
 
 //
@@ -3711,14 +3670,14 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   const uint32_t lenPq = data_dim / pq_dim;
 
   smemLutDtype* preCompScores = (smemLutDtype*)smemArray;
-  float* baseDiff             = NULL;
+  float* baseDiff             = nullptr;
   if (preCompBaseDiff) { baseDiff = (float*)(preCompScores + (pq_dim << bitPq)); }
   bool manageLocalTopk = false;
-  if (_topkIndex != NULL) { manageLocalTopk = true; }
+  if (_topkIndex != nullptr) { manageLocalTopk = true; }
 
   uint32_t iBatch;
   uint32_t iProbe;
-  if (indexList == NULL) {
+  if (indexList == nullptr) {
     // iBatch = blockIdx.x / numProbes;
     // iProbe = blockIdx.x % numProbes;
     iBatch = blockIdx.x % sizeBatch;
@@ -3733,7 +3692,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   const uint32_t* chunkIndexPtr = _chunkIndexPtr + (numProbes * iBatch);
   const float* query            = _query + (data_dim * iBatch);
   outDtype* output;
-  uint32_t* topkIndex = NULL;
+  uint32_t* topkIndex = nullptr;
   if (manageLocalTopk) {
     // Store topk calculated distances to output (and its indices to topkIndex)
     output    = _output + (topk * (iProbe + (numProbes * iBatch)));
@@ -3844,15 +3803,15 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
   const uint32_t lenPq = data_dim / pq_dim;
 
   float* preCompScores = _preCompScores + ((pq_dim << bitPq) * blockIdx.x);
-  float* baseDiff      = NULL;
+  float* baseDiff      = nullptr;
   if (preCompBaseDiff) { baseDiff = (float*)smemArray; }
   bool manageLocalTopk = false;
-  if (_topkIndex != NULL) { manageLocalTopk = true; }
+  if (_topkIndex != nullptr) { manageLocalTopk = true; }
 
   for (int ib = blockIdx.x; ib < sizeBatch * numProbes; ib += gridDim.x) {
     uint32_t iBatch;
     uint32_t iProbe;
-    if (indexList == NULL) {
+    if (indexList == nullptr) {
       // iBatch = ib / numProbes;
       // iProbe = ib % numProbes;
       iBatch = ib % sizeBatch;
@@ -3866,7 +3825,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
     const uint32_t* chunkIndexPtr = _chunkIndexPtr + (numProbes * iBatch);
     const float* query            = _query + (data_dim * iBatch);
     outDtype* output;
-    uint32_t* topkIndex = NULL;
+    uint32_t* topkIndex = nullptr;
     if (manageLocalTopk) {
       // Store topk calculated distances to output (and its indices to topkIndex)
       output    = _output + (topk * (iProbe + (numProbes * iBatch)));
@@ -3965,98 +3924,68 @@ inline void ivfpq_search(const handle_t& handle,
                          const float* query,                    // [numQueries, rot_dim]
                          uint64_t* topkNeighbors,               // [numQueries, topK]
                          float* topkDistances,                  // [numQueries, topK]
-                         void* workspace)
+                         rmm::mr::device_memory_resource* mr)
 {
   RAFT_EXPECTS(numQueries <= desc->maxBatchSize,
                "number of queries (%u) must be smaller the max batch size (%u)",
                numQueries,
                desc->maxBatchSize);
+  auto stream = handle.get_stream();
 
-  uint32_t* clusterLabelsOut;  // [maxBatchSize, numProbes]
-  uint32_t* indexList;         // [maxBatchSize * numProbes]
-  uint32_t* indexListSorted;   // [maxBatchSize * numProbes]
-  uint32_t* numSamples;        // [maxBatchSize,]
-  void* cubWorkspace;          // ...
-  uint32_t* chunkIndexPtr;     // [maxBatchSize, numProbes]
-  uint32_t* topkSids;          // [maxBatchsize, topk]
-  scoreDtype* similarity;      // [maxBatchSize, maxSamples] or
-                               // [maxBatchSize, numProbes, topk]
-  uint32_t* simTopkIndex;      // [maxBatchSize, numProbes, topk]
-  /* Preset with the dummy value and only accessed within the main kernel. */
-  float* preCompScores = NULL;
-  void* topkWorkspace;
-
-  clusterLabelsOut = (uint32_t*)workspace;
-  indexList =
-    (uint32_t*)((uint8_t*)clusterLabelsOut +
-                Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize * desc->numProbes));
-  indexListSorted =
-    (uint32_t*)((uint8_t*)indexList +
-                Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize * desc->numProbes));
-  numSamples =
-    (uint32_t*)((uint8_t*)indexListSorted +
-                Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize * desc->numProbes));
-  cubWorkspace =
-    (void*)((uint8_t*)numSamples + Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize));
-  chunkIndexPtr = (uint32_t*)((uint8_t*)cubWorkspace + desc->sizeCubWorkspace);
-  topkSids =
-    (uint32_t*)((uint8_t*)chunkIndexPtr +
-                Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize * desc->numProbes));
-  similarity =
-    (scoreDtype*)((uint8_t*)topkSids +
-                  Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize * desc->topK));
+  rmm::device_uvector<uint32_t> cluster_labels_out(
+    desc->maxBatchSize * desc->numProbes, stream, mr);
+  rmm::device_uvector<uint32_t> index_list_sorted_buf(0, stream, mr);
+  uint32_t* index_list_sorted = nullptr;
+  rmm::device_uvector<uint32_t> num_samples(desc->maxBatchSize, stream, mr);
+  rmm::device_uvector<uint32_t> chunk_index(desc->maxBatchSize * desc->numProbes, stream, mr);
+  rmm::device_uvector<uint32_t> topk_sids(desc->maxBatchSize * desc->topK, stream, mr);
+  // [maxBatchSize, maxSamples] or  [maxBatchSize, numProbes, topk]
+  rmm::device_uvector<scoreDtype> scores_buf(0, stream, mr);
+  rmm::device_uvector<uint32_t> topk_index_buf(0, stream, mr);
+  uint32_t* topk_index = nullptr;
   if (manage_local_topk(desc)) {
-    simTopkIndex = (uint32_t*)((uint8_t*)similarity +
-                               Pow2<128>::roundUp(sizeof(scoreDtype) * desc->maxBatchSize *
-                                                  desc->numProbes * desc->topK));
-    preCompScores =
-      (float*)((uint8_t*)simTopkIndex + Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize *
-                                                           desc->numProbes * desc->topK));
+    scores_buf.resize(desc->maxBatchSize * desc->numProbes * desc->topK, stream);
+    topk_index_buf.resize(desc->maxBatchSize * desc->numProbes * desc->topK, stream);
+    topk_index = topk_index_buf.data();
   } else {
-    simTopkIndex = NULL;
-    preCompScores =
-      (float*)((uint8_t*)similarity +
-               Pow2<128>::roundUp(sizeof(scoreDtype) * desc->maxBatchSize * desc->maxSamples));
+    scores_buf.resize(desc->maxBatchSize * desc->maxSamples, stream);
   }
-  topkWorkspace =
-    (void*)((uint8_t*)preCompScores + Pow2<128>::roundUp(sizeof(float) * getMultiProcessorCount() *
-                                                         desc->pq_dim * (1 << desc->bitPq)));
 
-  //
   dim3 mcThreads(1024, 1, 1);  // DO NOT CHANGE
   dim3 mcBlocks(numQueries, 1, 1);
-  ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, handle.get_stream()>>>(
-    desc->numProbes, numQueries, cluster_offsets, clusterLabelsToProbe, chunkIndexPtr, numSamples);
-#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
-  handle.sync_stream();
-#endif
+  ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, stream>>>(desc->numProbes,
+                                                                 numQueries,
+                                                                 cluster_offsets,
+                                                                 clusterLabelsToProbe,
+                                                                 chunk_index.data(),
+                                                                 num_samples.data());
 
   if (numQueries * desc->numProbes > 256) {
     // Sorting index by cluster number (label).
     // The goal is to incrase the L2 cache hit rate to read the vectors
     // of a cluster by processing the cluster at the same time as much as
     // possible.
+    index_list_sorted_buf.resize(desc->maxBatchSize * desc->numProbes, stream);
+    rmm::device_uvector<uint32_t> index_list_buf(desc->maxBatchSize * desc->numProbes, stream, mr);
+    rmm::device_buffer cub_workspace(desc->sizeCubWorkspace, stream, mr);
+    auto index_list   = index_list_buf.data();
+    index_list_sorted = index_list_sorted_buf.data();
     thrust::sequence(handle.get_thrust_policy(),
-                     thrust::device_pointer_cast(indexList),
-                     thrust::device_pointer_cast(indexList + numQueries * desc->numProbes));
+                     thrust::device_pointer_cast(index_list),
+                     thrust::device_pointer_cast(index_list + numQueries * desc->numProbes));
 
     int begin_bit = 0;
     int end_bit   = sizeof(uint32_t) * 8;
-    cub::DeviceRadixSort::SortPairs(cubWorkspace,
+    cub::DeviceRadixSort::SortPairs(cub_workspace.data(),
                                     desc->sizeCubWorkspace,
                                     clusterLabelsToProbe,
-                                    clusterLabelsOut,
-                                    indexList,
-                                    indexListSorted,
+                                    cluster_labels_out.data(),
+                                    index_list,
+                                    index_list_sorted,
                                     numQueries * desc->numProbes,
                                     begin_bit,
                                     end_bit,
-                                    handle.get_stream());
-#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
-    handle.sync_stream();
-#endif
-  } else {
-    indexListSorted = NULL;
+                                    stream);
   }
 
   // Select a GPU kernel for distance calculation
@@ -4207,76 +4136,68 @@ inline void ivfpq_search(const handle_t& handle,
       }
     }
   }
+
+  rmm::device_uvector<float> precomp_scores(
+    numCTAs * desc->pq_dim * (1 << desc->bitPq), stream, mr);
   dim3 ctaThreads(numThreads, 1, 1);
   dim3 ctaBlocks(numCTAs, 1, 1);
-  kernel<<<ctaBlocks, ctaThreads, sizeSmem, handle.get_stream()>>>(desc->numDataset,
-                                                                   desc->rot_dim,
-                                                                   desc->numProbes,
-                                                                   desc->pq_dim,
-                                                                   numQueries,
-                                                                   desc->maxSamples,
-                                                                   desc->metric,
-                                                                   desc->typePqCenter,
-                                                                   desc->topK,
-                                                                   cluster_centers,
-                                                                   pqCenters,
-                                                                   pqDataset,
-                                                                   cluster_offsets,
-                                                                   clusterLabelsToProbe,
-                                                                   chunkIndexPtr,
-                                                                   query,
-                                                                   indexListSorted,
-                                                                   preCompScores,
-                                                                   (scoreDtype*)similarity,
-                                                                   simTopkIndex);
-#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
-  handle.sync_stream();
-#endif
+  kernel<<<ctaBlocks, ctaThreads, sizeSmem, stream>>>(desc->numDataset,
+                                                      desc->rot_dim,
+                                                      desc->numProbes,
+                                                      desc->pq_dim,
+                                                      numQueries,
+                                                      desc->maxSamples,
+                                                      desc->metric,
+                                                      desc->typePqCenter,
+                                                      desc->topK,
+                                                      cluster_centers,
+                                                      pqCenters,
+                                                      pqDataset,
+                                                      cluster_offsets,
+                                                      clusterLabelsToProbe,
+                                                      chunk_index.data(),
+                                                      query,
+                                                      index_list_sorted,
+                                                      precomp_scores.data(),
+                                                      scores_buf.data(),
+                                                      topk_index);
 
   // Select topk vectors for each query
-  if (simTopkIndex == NULL) {
+  if (topk_index == nullptr) {
     _cuann_find_topk(handle,
                      desc->topK,
                      numQueries,
                      desc->maxSamples,
-                     numSamples,
-                     (scoreDtype*)similarity,
-                     topkSids,
-                     topkWorkspace);
+                     num_samples.data(),
+                     scores_buf.data(),
+                     topk_sids.data(),
+                     mr);
   } else {
     _cuann_find_topk(handle,
                      desc->topK,
                      numQueries,
                      (desc->numProbes * desc->topK),
-                     NULL,
-                     (scoreDtype*)similarity,
-                     topkSids,
-                     topkWorkspace);
+                     nullptr,
+                     scores_buf.data(),
+                     topk_sids.data(),
+                     mr);
   }
-#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
-  handle.sync_stream();
-#endif
 
-  //
   dim3 moThreads(128, 1, 1);
   dim3 moBlocks((desc->topK + moThreads.x - 1) / moThreads.x, numQueries, 1);
-  ivfpq_make_outputs<scoreDtype>
-    <<<moBlocks, moThreads, 0, handle.get_stream()>>>(desc->numProbes,
-                                                      desc->topK,
-                                                      desc->maxSamples,
-                                                      numQueries,
-                                                      cluster_offsets,
-                                                      data_indices,
-                                                      clusterLabelsToProbe,
-                                                      chunkIndexPtr,
-                                                      (scoreDtype*)similarity,
-                                                      simTopkIndex,
-                                                      topkSids,
-                                                      topkNeighbors,
-                                                      topkDistances);
-#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
-  handle.sync_stream();
-#endif
+  ivfpq_make_outputs<scoreDtype><<<moBlocks, moThreads, 0, stream>>>(desc->numProbes,
+                                                                     desc->topK,
+                                                                     desc->maxSamples,
+                                                                     numQueries,
+                                                                     cluster_offsets,
+                                                                     data_indices,
+                                                                     clusterLabelsToProbe,
+                                                                     chunk_index.data(),
+                                                                     scores_buf.data(),
+                                                                     topk_index,
+                                                                     topk_sids.data(),
+                                                                     topkNeighbors,
+                                                                     topkDistances);
 }
 
 }  // namespace raft::spatial::knn::ivf_pq::detail
