@@ -115,10 +115,10 @@ namespace detail {
 struct cuannIvfPqDescriptor {
   uint32_t numClusters;
   uint32_t numDataset;
-  uint32_t dimDataset;
+  uint32_t data_dim;
   uint32_t dimDatasetExt;
-  uint32_t dimRotDataset;
-  uint32_t dimPq;
+  uint32_t rot_dim;
+  uint32_t pq_dim;
   uint32_t bitPq;
   distance::DistanceType metric;
   codebook_gen typePqCenter;
@@ -127,7 +127,7 @@ struct cuannIvfPqDescriptor {
   cudaDataType_t smemLutDtype;
   uint32_t indexVersion;
   uint32_t maxClusterSize;
-  uint32_t lenPq;  // dimRotDataset / dimPq
+  uint32_t lenPq;  // rot_dim / pq_dim
   uint32_t numProbes;
   uint32_t topK;
   uint32_t maxQueries;
@@ -149,10 +149,10 @@ cuannIvfPqDescriptor_t cuannIvfPqCreateDescriptor()
                                   auto desc                           = new cuannIvfPqDescriptor{};
                                   desc->numClusters                   = 0;
                                   desc->numDataset                    = 0;
-                                  desc->dimDataset                    = 0;
+                                  desc->data_dim                      = 0;
                                   desc->dimDatasetExt                 = 0;
-                                  desc->dimRotDataset                 = 0;
-                                  desc->dimPq                         = 0;
+                                  desc->rot_dim                       = 0;
+                                  desc->pq_dim                        = 0;
                                   desc->bitPq                         = 0;
                                   desc->numProbes                     = 0;
                                   desc->topK                          = 0;

@@ -135,11 +135,11 @@ struct cuannIvfPqIndexHeader {
   uint32_t version;
   uint32_t numClusters;
   uint32_t numDataset;
-  uint32_t dimDataset;
-  uint32_t dimPq;
+  uint32_t data_dim;
+  uint32_t pq_dim;
   uint32_t metric;
   uint32_t maxClusterSize;
-  uint32_t dimRotDataset;
+  uint32_t rot_dim;
   uint32_t bitPq;
   uint32_t typePqCenter;
   uint32_t dtypeDataset;
@@ -1475,13 +1475,13 @@ template <typename scoreDtype, typename smemLutDtype>
 inline void ivfpq_search(const handle_t& handle,
                          cuannIvfPqDescriptor_t& desc,
                          uint32_t numQueries,
-                         const float* clusterCenters,           // [numDataset, dimDataset]
-                         const float* pqCenters,                // [dimPq, 256, lenPq]
-                         const uint8_t* pqDataset,              // [numDataset, dimPq]
-                         const uint32_t* originalNumbers,       // [numDataset]
+                         const float* cluster_centers,          // [numDataset, data_dim]
+                         const float* pqCenters,                // [pq_dim, 256, lenPq]
+                         const uint8_t* pqDataset,              // [numDataset, pq_dim]
+                         const uint32_t* data_indices,          // [numDataset]
                          const uint32_t* cluster_offsets,       // [numClusters + 1]
                          const uint32_t* clusterLabelsToProbe,  // [numQueries, numProbes]
-                         const float* query,                    // [dimDataset]
+                         const float* query,                    // [data_dim]
                          uint64_t* topKNeighbors,               // [topK]
                          float* topKDistances,                  // [topK]
                          void* workspace);
@@ -1591,7 +1591,7 @@ __global__ void ivfpq_make_outputs(uint32_t numProbes,
                                    uint32_t maxSamples,
                                    uint32_t sizeBatch,
                                    const uint32_t* clusterIndexPtr,  // [numClusters + 1]
-                                   const uint32_t* originalNumbers,  // [numDataset]
+                                   const uint32_t* data_indices,     // [numDataset]
                                    const uint32_t* clusterLabels,    // [sizeBatch, numProbes]
                                    const uint32_t* chunkIndexPtr,    // [sizeBatch, numProbes]
                                    const scoreDtype* scores,         // [sizeBatch, maxSamples] or
@@ -1622,12 +1622,12 @@ __global__ void ivfpq_make_outputs(uint32_t numProbes,
                          iChunk,
                          label,
                          iDataset);
-    topkNeighbors[i + (topk * iBatch)] = originalNumbers[iDataset];
+    topkNeighbors[i + (topk * iBatch)] = data_indices[iDataset];
   } else {
     // 0 <= iSample < (numProbes * topk)
     topkScores[i + (topk * iBatch)]    = scores[iSample + ((numProbes * topk) * iBatch)];
     uint32_t iDataset                  = scoreTopkIndex[iSample + ((numProbes * topk) * iBatch)];
-    topkNeighbors[i + (topk * iBatch)] = originalNumbers[iDataset];
+    topkNeighbors[i + (topk * iBatch)] = data_indices[iDataset];
   }
 }
 
@@ -1689,9 +1689,9 @@ inline size_t ivfpq_search_bufferSize(const handle_t& handle, cuannIvfPqDescript
     size +=
       Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxBatchSize * desc->numProbes * desc->topK);
   }
-  // preCompScores  [multiProcessorCount, dimPq, 1 << bitPq,]
-  size +=
-    Pow2<128>::roundUp(sizeof(float) * getMultiProcessorCount() * desc->dimPq * (1 << desc->bitPq));
+  // preCompScores  [multiProcessorCount, pq_dim, 1 << bitPq,]
+  size += Pow2<128>::roundUp(sizeof(float) * getMultiProcessorCount() * desc->pq_dim *
+                             (1 << desc->bitPq));
   // topkWorkspace
   if (manage_local_topk(desc)) {
     size += _cuann_find_topk_bufferSize(handle,
@@ -1708,9 +1708,9 @@ inline size_t ivfpq_search_bufferSize(const handle_t& handle, cuannIvfPqDescript
 
 //
 __device__ __host__ inline void ivfpq_encode_core(
-  uint32_t ldDataset, uint32_t dimPq, uint32_t bitPq, const uint32_t* label, uint8_t* output)
+  uint32_t ldDataset, uint32_t pq_dim, uint32_t bitPq, const uint32_t* label, uint8_t* output)
 {
-  for (uint32_t j = 0; j < dimPq; j++) {
+  for (uint32_t j = 0; j < pq_dim; j++) {
     uint8_t code = label[(ldDataset * j)];
     if (bitPq == 8) {
       uint8_t* ptrOutput = output + j;
@@ -1790,24 +1790,24 @@ __device__ __host__ inline void ivfpq_encode_core(
 //
 __global__ void ivfpq_encode_kernel(uint32_t numDataset,
                                     uint32_t ldDataset,  // (*) ldDataset >= numDataset
-                                    uint32_t dimPq,
+                                    uint32_t pq_dim,
                                     uint32_t bitPq,         // 4 <= bitPq <= 8
-                                    const uint32_t* label,  // [dimPq, ldDataset]
-                                    uint8_t* output         // [numDataset, dimPq]
+                                    const uint32_t* label,  // [pq_dim, ldDataset]
+                                    uint8_t* output         // [numDataset, pq_dim]
 )
 {
   uint32_t i = threadIdx.x + (blockDim.x * blockIdx.x);
   if (i >= numDataset) return;
-  ivfpq_encode_core(ldDataset, dimPq, bitPq, label + i, output + (dimPq * bitPq / 8) * i);
+  ivfpq_encode_core(ldDataset, pq_dim, bitPq, label + i, output + (pq_dim * bitPq / 8) * i);
 }
 
 //
 inline void ivfpq_encode(uint32_t numDataset,
                          uint32_t ldDataset,  // (*) ldDataset >= numDataset
-                         uint32_t dimPq,
+                         uint32_t pq_dim,
                          uint32_t bitPq,         // 4 <= bitPq <= 8
-                         const uint32_t* label,  // [dimPq, ldDataset]
-                         uint8_t* output         // [numDataset, dimPq]
+                         const uint32_t* label,  // [pq_dim, ldDataset]
+                         uint8_t* output         // [numDataset, pq_dim]
 )
 {
 #if 1
@@ -1815,20 +1815,20 @@ inline void ivfpq_encode(uint32_t numDataset,
   dim3 iekThreads(128, 1, 1);
   dim3 iekBlocks((numDataset + iekThreads.x - 1) / iekThreads.x, 1, 1);
   ivfpq_encode_kernel<<<iekBlocks, iekThreads>>>(
-    numDataset, ldDataset, dimPq, bitPq, label, output);
+    numDataset, ldDataset, pq_dim, bitPq, label, output);
 #else
   // CPU
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
   for (uint32_t i = 0; i < numDataset; i++) {
-    ivfpq_encode_core(ldDataset, dimPq, bitPq, label + i, output + (dimPq * bitPq / 8) * i);
+    ivfpq_encode_core(ldDataset, pq_dim, bitPq, label + i, output + (pq_dim * bitPq / 8) * i);
   }
 #endif
 }
 
 inline void cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t& desc,
-                                   size_t* size /* bytes of dataset index */);
+                                   size_t* size /* bytes of data_vectors index */);
 
-inline size_t _cuann_getIndexSize_clusterCenters(cuannIvfPqDescriptor_t& desc)
+inline size_t _cuann_getIndexSize_cluster_centers(cuannIvfPqDescriptor_t& desc)
 {
   // [numClusters, dimDatasetExt]
   return Pow2<128>::roundUp(sizeof(float) * desc->numClusters * desc->dimDatasetExt);
@@ -1838,8 +1838,8 @@ inline size_t _cuann_getIndexSize_pqCenters(cuannIvfPqDescriptor_t& desc)
 {
   size_t size_base = sizeof(float) * (1 << desc->bitPq) * desc->lenPq;
   if (desc->typePqCenter == codebook_gen::PER_SUBSPACE) {
-    // [dimPq, 1 << bitPq, lenPq]
-    return Pow2<128>::roundUp(desc->dimPq * size_base);
+    // [pq_dim, 1 << bitPq, lenPq]
+    return Pow2<128>::roundUp(desc->pq_dim * size_base);
   } else {
     // [numClusters, 1 << bitPq, lenPq]
     return Pow2<128>::roundUp(desc->numClusters * size_base);
@@ -1848,8 +1848,8 @@ inline size_t _cuann_getIndexSize_pqCenters(cuannIvfPqDescriptor_t& desc)
 
 inline size_t _cuann_getIndexSize_pqDataset(cuannIvfPqDescriptor_t& desc)
 {
-  // [numDataset, dimPq * bitPq / 8]
-  return Pow2<128>::roundUp(sizeof(uint8_t) * desc->numDataset * desc->dimPq * desc->bitPq / 8);
+  // [numDataset, pq_dim * bitPq / 8]
+  return Pow2<128>::roundUp(sizeof(uint8_t) * desc->numDataset * desc->pq_dim * desc->bitPq / 8);
 }
 
 inline size_t _cuann_getIndexSize_originalNumbers(cuannIvfPqDescriptor_t& desc)
@@ -1866,35 +1866,35 @@ inline size_t _cuann_getIndexSize_indexPtr(cuannIvfPqDescriptor_t& desc)
 
 inline size_t _cuann_getIndexSize_rotationMatrix(cuannIvfPqDescriptor_t& desc)
 {
-  // [dimDataset, dimRotDataset]
-  return Pow2<128>::roundUp(sizeof(float) * desc->dimDataset * desc->dimRotDataset);
+  // [data_dim, rot_dim]
+  return Pow2<128>::roundUp(sizeof(float) * desc->data_dim * desc->rot_dim);
 }
 
 inline size_t _cuann_getIndexSize_clusterRotCenters(cuannIvfPqDescriptor_t& desc)
 {
-  // [numClusters, dimRotDataset]
-  return Pow2<128>::roundUp(sizeof(float) * desc->numClusters * desc->dimRotDataset);
+  // [numClusters, rot_dim]
+  return Pow2<128>::roundUp(sizeof(float) * desc->numClusters * desc->rot_dim);
 }
 
 inline void _cuann_get_index_pointers(cuannIvfPqDescriptor_t& desc,
                                       struct cuannIvfPqIndexHeader** header,
-                                      float** clusterCenters,  // [numClusters, dimDatasetExt]
-                                      float** pqCenters,       // [dimPq, 1 << bitPq, lenPq], or
-                                                               // [numClusters, 1 << bitPq, lenPq]
-                                      uint8_t** pqDataset,     // [numDataset, dimPq * bitPq / 8]
-                                      uint32_t** originalNumbers,  // [numDataset]
+                                      float** cluster_centers,  // [numClusters, dimDatasetExt]
+                                      float** pqCenters,        // [pq_dim, 1 << bitPq, lenPq], or
+                                                                // [numClusters, 1 << bitPq, lenPq]
+                                      uint8_t** pqDataset,      // [numDataset, pq_dim * bitPq / 8]
+                                      uint32_t** data_indices,  // [numDataset]
                                       uint32_t** cluster_offsets,  // [numClusters + 1]
-                                      float** rotationMatrix,      // [dimDataset, dimRotDataset]
-                                      float** clusterRotCenters    // [numClusters, dimRotDataset]
+                                      float** rotationMatrix,      // [data_dim, rot_dim]
+                                      float** clusterRotCenters    // [numClusters, rot_dim]
 )
 {
-  *header         = (struct cuannIvfPqIndexHeader*)(desc->index_ptr);
-  *clusterCenters = (float*)((uint8_t*)(*header) + sizeof(struct cuannIvfPqIndexHeader));
-  *pqCenters = (float*)((uint8_t*)(*clusterCenters) + _cuann_getIndexSize_clusterCenters(desc));
+  *header          = (struct cuannIvfPqIndexHeader*)(desc->index_ptr);
+  *cluster_centers = (float*)((uint8_t*)(*header) + sizeof(struct cuannIvfPqIndexHeader));
+  *pqCenters = (float*)((uint8_t*)(*cluster_centers) + _cuann_getIndexSize_cluster_centers(desc));
   *pqDataset = (uint8_t*)((uint8_t*)(*pqCenters) + _cuann_getIndexSize_pqCenters(desc));
-  *originalNumbers = (uint32_t*)((uint8_t*)(*pqDataset) + _cuann_getIndexSize_pqDataset(desc));
+  *data_indices = (uint32_t*)((uint8_t*)(*pqDataset) + _cuann_getIndexSize_pqDataset(desc));
   *cluster_offsets =
-    (uint32_t*)((uint8_t*)(*originalNumbers) + _cuann_getIndexSize_originalNumbers(desc));
+    (uint32_t*)((uint8_t*)(*data_indices) + _cuann_getIndexSize_originalNumbers(desc));
   *rotationMatrix = (float*)((uint8_t*)(*cluster_offsets) + _cuann_getIndexSize_indexPtr(desc));
   *clusterRotCenters =
     (float*)((uint8_t*)(*rotationMatrix) + _cuann_getIndexSize_rotationMatrix(desc));
@@ -1927,7 +1927,7 @@ inline void _cuann_get_random_norm_vector(int len, float* vector)
 inline void _cuann_get_inclusiveSumSortedClusterSize(
   cuannIvfPqDescriptor_t& desc,
   const uint32_t* cluster_offsets,  // [numClusters + 1]
-  float* clusterCenters,            // [numClusters, dimDatasetExt]
+  float* cluster_centers,           // [numClusters, dimDatasetExt]
   uint32_t** output                 // [numClusters]
 )
 {
@@ -1941,7 +1941,7 @@ inline void _cuann_get_inclusiveSumSortedClusterSize(
 
     desc->_numClustersSize0 += 1;
     // Work-around for clusters of size 0
-    _cuann_get_random_norm_vector(desc->dimDatasetExt, clusterCenters + (desc->dimDatasetExt * i));
+    _cuann_get_random_norm_vector(desc->dimDatasetExt, cluster_centers + (desc->dimDatasetExt * i));
   }
   RAFT_LOG_DEBUG("Number of clusters of size zero: %d", desc->_numClustersSize0);
   // sort
@@ -1954,20 +1954,20 @@ inline void _cuann_get_inclusiveSumSortedClusterSize(
 }
 
 inline void _cuann_get_sqsumClusters(cuannIvfPqDescriptor_t& desc,
-                                     const float* clusterCenters,  // [numClusters, dimDataset,]
-                                     float** output                // [numClusters,]
+                                     const float* cluster_centers,  // [numClusters, data_dim,]
+                                     float** output                 // [numClusters,]
 )
 {
   if (*output != NULL) { RAFT_CUDA_TRY(cudaFree(*output)); }
   RAFT_CUDA_TRY(cudaMallocManaged(output, sizeof(float) * desc->numClusters));
-  switch (utils::check_pointer_residency(clusterCenters, *output)) {
+  switch (utils::check_pointer_residency(cluster_centers, *output)) {
     case utils::pointer_residency::device_only:
     case utils::pointer_residency::host_and_device: break;
     default: RAFT_FAIL("_cuann_get_sqsumClusters: not all pointers are available on the device.");
   }
   rmm::cuda_stream_default.synchronize();
   utils::dots_along_rows(
-    desc->numClusters, desc->dimDataset, clusterCenters, *output, rmm::cuda_stream_default);
+    desc->numClusters, desc->data_dim, cluster_centers, *output, rmm::cuda_stream_default);
   rmm::cuda_stream_default.synchronize();
 }
 
@@ -2016,26 +2016,25 @@ inline void _cuann_make_rotation_matrix(uint32_t nRows,
   if (randomRotation) {
     RAFT_LOG_DEBUG("Creating a random rotation matrix.");
     double dot, norm;
-    double* matrix = (double*)malloc(sizeof(double) * nRows * nCols);
-    memset(matrix, 0, sizeof(double) * nRows * nCols);
+    std::vector<double> matrix(nRows * nCols, 0.0);
     for (uint32_t i = 0; i < nRows * nCols; i++) {
       matrix[i] = _cuann_rand<double>() - 0.5;
     }
     for (uint32_t j = 0; j < nCols; j++) {
       // normalize the j-th col vector
-      norm = sqrt(_cuann_dot<double>(nRows, matrix + j, nCols, matrix + j, nCols));
+      norm = sqrt(_cuann_dot<double>(nRows, &matrix[j], nCols, &matrix[j], nCols));
       for (uint32_t i = 0; i < nRows; i++) {
         matrix[j + (nCols * i)] /= norm;
       }
       // orthogonalize the j-th col vector with the previous col vectors
       for (uint32_t k = 0; k < j; k++) {
-        dot = _cuann_dot<double>(nRows, matrix + j, nCols, matrix + k, nCols);
+        dot = _cuann_dot<double>(nRows, &matrix[j], nCols, &matrix[k], nCols);
         for (uint32_t i = 0; i < nRows; i++) {
           matrix[j + (nCols * i)] -= dot * matrix[k + (nCols * i)];
         }
       }
       // normalize the j-th col vector again
-      norm = sqrt(_cuann_dot<double>(nRows, matrix + j, nCols, matrix + j, nCols));
+      norm = sqrt(_cuann_dot<double>(nRows, &matrix[j], nCols, &matrix[j], nCols));
       for (uint32_t i = 0; i < nRows; i++) {
         matrix[j + (nCols * i)] /= norm;
       }
@@ -2043,7 +2042,6 @@ inline void _cuann_make_rotation_matrix(uint32_t nRows,
     for (uint32_t i = 0; i < nRows * nCols; i++) {
       rotationMatrix[i] = (float)matrix[i];
     }
-    free(matrix);
   } else {
     if (nRows == nCols) {
       memset(rotationMatrix, 0, sizeof(float) * nRows * nCols);
@@ -2088,10 +2086,10 @@ inline void _cuann_kmeans_show_centers(const float* centers,  // [numCenters, di
 #endif
 }
 
-// show dataset (for debugging)
-inline void _cuann_show_dataset(const float* dataset,  // [numDataset, dimDataset]
+// show data_vectors (for debugging)
+inline void _cuann_show_dataset(const float* data_vectors,  // [numDataset, data_dim]
                                 uint32_t numDataset,
-                                uint32_t dimDataset,
+                                uint32_t data_dim,
                                 const uint32_t numShow = 5)
 {
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
@@ -2100,13 +2098,13 @@ inline void _cuann_show_dataset(const float* dataset,  // [numDataset, dimDatase
       if (i == numShow) fprintf(stderr, "...\n");
       continue;
     }
-    fprintf(stderr, "# dataset[%lu]:", i);
-    for (uint64_t j = 0; j < dimDataset; j++) {
-      if ((numShow <= j) && (j < dimDataset - numShow)) {
+    fprintf(stderr, "# data_vectors[%lu]:", i);
+    for (uint64_t j = 0; j < data_dim; j++) {
+      if ((numShow <= j) && (j < data_dim - numShow)) {
         if (j == numShow) fprintf(stderr, " ... ");
         continue;
       }
-      fprintf(stderr, " %.3f,", dataset[j + (dimDataset * i)]);
+      fprintf(stderr, " %.3f,", data_vectors[j + (data_dim * i)]);
     }
     fprintf(stderr, "\n");
   }
@@ -2114,9 +2112,9 @@ inline void _cuann_show_dataset(const float* dataset,  // [numDataset, dimDatase
 }
 
 // show pq code (for debuging)
-inline void _cuann_show_pq_code(const uint8_t* pqDataset,  // [numDataset, dimPq]
+inline void _cuann_show_pq_code(const uint8_t* pqDataset,  // [numDataset, pq_dim]
                                 uint32_t numDataset,
-                                uint32_t dimPq,
+                                uint32_t pq_dim,
                                 const uint32_t numShow = 5)
 {
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
@@ -2125,13 +2123,13 @@ inline void _cuann_show_pq_code(const uint8_t* pqDataset,  // [numDataset, dimPq
       if (i == numShow) fprintf(stderr, "...\n");
       continue;
     }
-    fprintf(stderr, "# dataset[%lu]:", i);
-    for (uint64_t j = 0; j < dimPq; j++) {
-      if ((numShow <= j) && (j < dimPq - numShow)) {
+    fprintf(stderr, "# data_vectors[%lu]:", i);
+    for (uint64_t j = 0; j < pq_dim; j++) {
+      if ((numShow <= j) && (j < pq_dim - numShow)) {
         if (j == numShow) fprintf(stderr, " ... ");
         continue;
       }
-      fprintf(stderr, " %u,", pqDataset[j + (dimPq * i)]);
+      fprintf(stderr, " %u,", pqDataset[j + (pq_dim * i)]);
     }
     fprintf(stderr, "\n");
   }
@@ -2148,32 +2146,32 @@ int _cuann_set_device(int devId)
 }
 
 //
-uint32_t _get_num_trainset(uint32_t clusterSize, uint32_t dimPq, uint32_t bitPq)
+uint32_t _get_num_trainset(uint32_t cluster_size, uint32_t pq_dim, uint32_t bitPq)
 {
-  return min(clusterSize * dimPq, 256 * max(1 << bitPq, dimPq));
+  return min(cluster_size * pq_dim, 256 * max(1 << bitPq, pq_dim));
 }
 
 //
 template <typename T>
 void _cuann_compute_PQ_code(const handle_t& handle,
                             uint32_t numDataset,
-                            uint32_t dimDataset,
-                            uint32_t dimRotDataset,
-                            uint32_t dimPq,
+                            uint32_t data_dim,
+                            uint32_t rot_dim,
+                            uint32_t pq_dim,
                             uint32_t lenPq,
                             uint32_t bitPq,
                             uint32_t numClusters,
                             codebook_gen typePqCenter,
                             uint32_t maxClusterSize,
-                            float* clusterCenters,            // [numClusters, dimDataset]
-                            const float* rotationMatrix,      // [dimRotDataset, dimDataset]
-                            const T* dataset,                 // [numDataset]
-                            const uint32_t* originalNumbers,  // [numDataset]
-                            const uint32_t* clusterSize,      // [numClusters]
+                            float* cluster_centers,           // [numClusters, data_dim]
+                            const float* rotationMatrix,      // [rot_dim, data_dim]
+                            const T* data_vectors,            // [numDataset]
+                            const uint32_t* data_indices,     // [numDataset]
+                            const uint32_t* cluster_sizes,    // [numClusters]
                             const uint32_t* cluster_offsets,  // [numClusters + 1]
                             float* pqCenters,                 // [...]
                             uint32_t numIterations,
-                            uint8_t* pqDataset  // [numDataset, dimPq * bitPq / 8]
+                            uint8_t* pqDataset  // [numDataset, pq_dim * bitPq / 8]
 )
 {
   auto stream                                    = handle.get_stream();
@@ -2186,57 +2184,57 @@ void _cuann_compute_PQ_code(const handle_t& handle,
   rmm::mr::managed_memory_resource managed_memory_upstream;
   rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
     &managed_memory_upstream,
-    Pow2<(1024ul * 1024ul)>::roundUp(maxClusterSize * (dimDataset + dimRotDataset) * 4));
+    Pow2<(1024ul * 1024ul)>::roundUp(maxClusterSize * (data_dim + rot_dim) * 4));
 
   //
   // Compute PQ code
   //
-  utils::memzero(pqDataset, numDataset * dimPq * bitPq / 8, stream);
+  utils::memzero(pqDataset, numDataset * pq_dim * bitPq / 8, stream);
 
-  rmm::device_uvector<float> res_vectors(maxClusterSize * dimDataset, stream, &managed_memory);
-  rmm::device_uvector<float> rot_vectors(maxClusterSize * dimRotDataset, stream, &managed_memory);
-  rmm::device_uvector<float> sub_vectors(maxClusterSize * dimPq * lenPq, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> sub_vector_labels(maxClusterSize * dimPq, stream, &managed_memory);
+  rmm::device_uvector<float> res_vectors(maxClusterSize * data_dim, stream, &managed_memory);
+  rmm::device_uvector<float> rot_vectors(maxClusterSize * rot_dim, stream, &managed_memory);
+  rmm::device_uvector<float> sub_vectors(maxClusterSize * pq_dim * lenPq, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> sub_vector_labels(maxClusterSize * pq_dim, stream, &managed_memory);
   rmm::device_uvector<uint8_t> my_pq_dataset(
-    maxClusterSize * dimPq * bitPq / 8 /* NB: dimPq * bitPQ % 8 == 0 */, stream, &managed_memory);
+    maxClusterSize * pq_dim * bitPq / 8 /* NB: pq_dim * bitPQ % 8 == 0 */, stream, &managed_memory);
   rmm::device_uvector<uint32_t> rot_vector_labels(0, stream, &managed_memory);
   rmm::device_uvector<uint32_t> pq_cluster_size(0, stream, &managed_memory);
   rmm::device_uvector<float> my_pq_centers(0, stream, &managed_memory);
 
   if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
     utils::memzero(pqCenters, numClusters * (1 << bitPq) * lenPq, stream);
-    rot_vector_labels.resize(maxClusterSize * dimPq, stream);
+    rot_vector_labels.resize(maxClusterSize * pq_dim, stream);
     pq_cluster_size.resize((1 << bitPq), stream);
     my_pq_centers.resize((1 << bitPq) * lenPq, stream);
   }
 
   for (uint32_t l = 0; l < numClusters; l++) {
-    if (clusterSize[l] == 0) continue;
+    if (cluster_sizes[l] == 0) continue;
 
     //
     // Compute the residual vector of the new vector with its cluster
     // centroids.
-    //   resVectors[..] = newVectors[..] - clusterCenters[..]
+    //   resVectors[..] = newVectors[..] - cluster_centers[..]
     //
-    utils::copy_selected<float, T>(clusterSize[l],
-                                   dimDataset,
-                                   dataset,
-                                   originalNumbers + cluster_offsets[l],
-                                   dimDataset,
+    utils::copy_selected<float, T>(cluster_sizes[l],
+                                   data_dim,
+                                   data_vectors,
+                                   data_indices + cluster_offsets[l],
+                                   data_dim,
                                    res_vectors.data(),
-                                   dimDataset,
+                                   data_dim,
                                    stream);
 
     // substract centers from the vectors in the cluster.
     raft::matrix::linewiseOp(
       res_vectors.data(),
       res_vectors.data(),
-      dimDataset,
-      clusterSize[l],
+      data_dim,
+      cluster_sizes[l],
       true,
       [] __device__(float a, float b) { return a - b; },
       stream,
-      clusterCenters + (uint64_t)l * dimDataset);
+      cluster_centers + (uint64_t)l * data_dim);
 
     //
     // Rotate the residual vectors using a rotation matrix
@@ -2246,17 +2244,17 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     linalg::gemm(handle,
                  true,
                  false,
-                 dimRotDataset,
-                 clusterSize[l],
-                 dimDataset,
+                 rot_dim,
+                 cluster_sizes[l],
+                 data_dim,
                  &alpha,
                  rotationMatrix,
-                 dimDataset,
+                 data_dim,
                  res_vectors.data(),
-                 dimDataset,
+                 data_dim,
                  &beta,
                  rot_vectors.data(),
-                 dimRotDataset,
+                 rot_dim,
                  stream);
 
     //
@@ -2264,7 +2262,7 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     // (*) PQ codebooks are trained for each cluster.
     //
     if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
-      uint32_t numTrainset = _get_num_trainset(clusterSize[l], dimPq, bitPq);
+      uint32_t numTrainset = _get_num_trainset(cluster_sizes[l], pq_dim, bitPq);
       kmeans::build_clusters(handle,
                              numIterations,
                              lenPq,
@@ -2284,25 +2282,25 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     //
     // Change the order of the vector data to facilitate processing in
     // each vector subspace.
-    //   input:  rot_vectors[clusterSize, dimRotDataset]
-    //   output: sub_vectors[dimPq, clusterSize, lenPq]
+    //   input:  rot_vectors[cluster_sizes, rot_dim]
+    //   output: sub_vectors[pq_dim, cluster_sizes, lenPq]
     //
     _cuann_transpose_copy_3d<float, float>(lenPq,
-                                           clusterSize[l],
-                                           dimPq,
+                                           cluster_sizes[l],
+                                           pq_dim,
                                            sub_vectors.data(),
                                            lenPq,
-                                           clusterSize[l],
+                                           cluster_sizes[l],
                                            rot_vectors.data(),
                                            1,
-                                           dimRotDataset,
+                                           rot_dim,
                                            lenPq,
                                            stream);
 
     //
     // Find a label (cluster ID) for each vector subspace.
     //
-    for (uint32_t j = 0; j < dimPq; j++) {
+    for (uint32_t j = 0; j < pq_dim; j++) {
       float* curPqCenters = NULL;
       if (typePqCenter == codebook_gen::PER_SUBSPACE) {
         curPqCenters = pqCenters + ((1 << bitPq) * lenPq) * j;
@@ -2314,9 +2312,9 @@ void _cuann_compute_PQ_code(const handle_t& handle,
                       curPqCenters,
                       (1 << bitPq),
                       lenPq,
-                      sub_vectors.data() + j * (clusterSize[l] * lenPq),
-                      clusterSize[l],
-                      sub_vector_labels.data() + j * clusterSize[l],
+                      sub_vectors.data() + j * (cluster_sizes[l] * lenPq),
+                      cluster_sizes[l],
+                      sub_vector_labels.data() + j * cluster_sizes[l],
                       raft::distance::DistanceType::L2Expanded,
                       stream,
                       device_memory);
@@ -2326,11 +2324,15 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     //
     // PQ encoding
     //
-    ivfpq_encode(
-      clusterSize[l], clusterSize[l], dimPq, bitPq, sub_vector_labels.data(), my_pq_dataset.data());
-    RAFT_CUDA_TRY(cudaMemcpy(pqDataset + ((uint64_t)cluster_offsets[l] * dimPq * bitPq / 8),
+    ivfpq_encode(cluster_sizes[l],
+                 cluster_sizes[l],
+                 pq_dim,
+                 bitPq,
+                 sub_vector_labels.data(),
+                 my_pq_dataset.data());
+    RAFT_CUDA_TRY(cudaMemcpy(pqDataset + ((uint64_t)cluster_offsets[l] * pq_dim * bitPq / 8),
                              my_pq_dataset.data(),
-                             sizeof(uint8_t) * clusterSize[l] * dimPq * bitPq / 8,
+                             sizeof(uint8_t) * cluster_sizes[l] * pq_dim * bitPq / 8,
                              cudaMemcpyDeviceToHost));
   }
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
@@ -2339,8 +2341,8 @@ void _cuann_compute_PQ_code(const handle_t& handle,
 inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t& desc,
                                          const uint32_t numClusters,
                                          const uint32_t numDataset,
-                                         const uint32_t dimDataset,
-                                         const uint32_t dimPq,
+                                         const uint32_t data_dim,
+                                         const uint32_t pq_dim,
                                          const uint32_t bitPq,
                                          const distance::DistanceType metric,
                                          const codebook_gen typePqCenter)
@@ -2348,8 +2350,8 @@ inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t& desc,
   RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
   RAFT_EXPECTS(numClusters > 0, "(%s) numClusters must be larger than zero.", __func__);
   RAFT_EXPECTS(numDataset > 0, "(%s) numDataset must be larger than zero.", __func__);
-  RAFT_EXPECTS(dimDataset > 0, "(%s) dimDataset must be larger than zero.", __func__);
-  RAFT_EXPECTS(dimPq > 0, "(%s) dimPq must be larger than zero.", __func__);
+  RAFT_EXPECTS(data_dim > 0, "(%s) data_dim must be larger than zero.", __func__);
+  RAFT_EXPECTS(pq_dim > 0, "(%s) pq_dim must be larger than zero.", __func__);
   RAFT_EXPECTS(numClusters <= numDataset,
                "(%s) numClusters must be smaller than numDataset (numClusters:%u, numDataset:%u).",
                __func__,
@@ -2359,27 +2361,27 @@ inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t& desc,
                "(%s) bitPq must be within closed range [4,8], but got %u.",
                __func__,
                bitPq);
-  RAFT_EXPECTS((bitPq * dimPq) % 8 == 0,
-               "(%s) `bitPq * dimPq` must be a multiple of 8, but got %u * %u = %u.",
+  RAFT_EXPECTS((bitPq * pq_dim) % 8 == 0,
+               "(%s) `bitPq * pq_dim` must be a multiple of 8, but got %u * %u = %u.",
                __func__,
                bitPq,
-               dimPq,
-               bitPq * dimPq);
+               pq_dim,
+               bitPq * pq_dim);
   desc->numClusters   = numClusters;
   desc->numDataset    = numDataset;
-  desc->dimDataset    = dimDataset;
-  desc->dimDatasetExt = dimDataset + 1;
+  desc->data_dim      = data_dim;
+  desc->dimDatasetExt = data_dim + 1;
   if (desc->dimDatasetExt % 8) { desc->dimDatasetExt += 8 - (desc->dimDatasetExt % 8); }
-  RAFT_EXPECTS(desc->dimDatasetExt >= dimDataset + 1, "unexpected dimDatasetExt");
+  RAFT_EXPECTS(desc->dimDatasetExt >= data_dim + 1, "unexpected dimDatasetExt");
   RAFT_EXPECTS(desc->dimDatasetExt % 8 == 0, "unexpected dimDatasetExt");
-  desc->dimPq        = dimPq;
+  desc->pq_dim       = pq_dim;
   desc->bitPq        = bitPq;
   desc->metric       = metric;
   desc->typePqCenter = typePqCenter;
 
-  desc->dimRotDataset = dimDataset;
-  if (dimDataset % dimPq) { desc->dimRotDataset = ((dimDataset / dimPq) + 1) * dimPq; }
-  desc->lenPq = desc->dimRotDataset / dimPq;
+  desc->rot_dim = data_dim;
+  if (data_dim % pq_dim) { desc->rot_dim = ((data_dim / pq_dim) + 1) * pq_dim; }
+  desc->lenPq = desc->rot_dim / pq_dim;
 }
 
 // cuannIvfPqGetIndexSize
@@ -2389,7 +2391,7 @@ inline void cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t& desc, size_t* size)
 
   *size = sizeof(struct cuannIvfPqIndexHeader);
   RAFT_EXPECTS(*size == 1024, "Critical error: unexpected header size.");
-  *size += _cuann_getIndexSize_clusterCenters(desc);
+  *size += _cuann_getIndexSize_cluster_centers(desc);
   *size += _cuann_getIndexSize_pqCenters(desc);
   *size += _cuann_getIndexSize_pqDataset(desc);
   *size += _cuann_getIndexSize_originalNumbers(desc);
@@ -2402,8 +2404,8 @@ template <typename T>
 void cuannIvfPqBuildIndex(
   const handle_t& handle,
   cuannIvfPqDescriptor_t& desc,
-  const T* dataset,       /* [numDataset, dimDataset] */
-  const T* trainset,      /* [numTrainset, dimDataset] */
+  const T* data_vectors,  /* [numDataset, data_dim] */
+  const T* trainset,      /* [numTrainset, data_dim] */
   uint32_t numTrainset,   /* Number of train-set entries */
   uint32_t numIterations, /* Number of iterations to train kmeans */
   bool randomRotation /* If true, rotate vectors with randamly created rotation matrix */)
@@ -2441,10 +2443,10 @@ void cuannIvfPqBuildIndex(
   _cuann_get_dtype_string(desc->dtypeDataset, dtypeString);
   RAFT_LOG_DEBUG("Dataset dtype = %s", dtypeString);
 
-  switch (utils::check_pointer_residency(dataset, trainset)) {
+  switch (utils::check_pointer_residency(data_vectors, trainset)) {
     case utils::pointer_residency::host_only:
     case utils::pointer_residency::host_and_device: break;
-    default: RAFT_FAIL("both dataset and trainsed must be accessible from the host.");
+    default: RAFT_FAIL("both data_vectors and trainsed must be accessible from the host.");
   }
 
   if (desc->index_ptr != NULL) { RAFT_CUDA_TRY_NO_THROW(cudaFree(desc->index_ptr)); }
@@ -2453,20 +2455,20 @@ void cuannIvfPqBuildIndex(
   RAFT_CUDA_TRY(cudaMallocManaged(&(desc->index_ptr), index_size));
 
   struct cuannIvfPqIndexHeader* header;
-  float* clusterCenters;      // [numClusters, dimDataset]
-  float* pqCenters;           // [dimPq, 1 << bitPq, lenPq], or
+  float* cluster_centers;     // [numClusters, data_dim]
+  float* pqCenters;           // [pq_dim, 1 << bitPq, lenPq], or
                               // [numClusters, 1 << bitPq, lenPq]
-  uint8_t* pqDataset;         // [numDataset, dimPq * bitPq / 8]
-  uint32_t* originalNumbers;  // [numDataset]
+  uint8_t* pqDataset;         // [numDataset, pq_dim * bitPq / 8]
+  uint32_t* data_indices;     // [numDataset]
   uint32_t* cluster_offsets;  // [numClusters + 1]
-  float* rotationMatrix;      // [dimDataset, dimRotDataset]
-  float* clusterRotCenters;   // [numClusters, dimRotDataset]
+  float* rotationMatrix;      // [data_dim, rot_dim]
+  float* clusterRotCenters;   // [numClusters, rot_dim]
   _cuann_get_index_pointers(desc,
                             &header,
-                            &clusterCenters,
+                            &cluster_centers,
                             &pqCenters,
                             &pqDataset,
-                            &originalNumbers,
+                            &data_indices,
                             &cluster_offsets,
                             &rotationMatrix,
                             &clusterRotCenters);
@@ -2479,7 +2481,7 @@ void cuannIvfPqBuildIndex(
   RAFT_LOG_DEBUG("numMesoClusters: %u", numMesoClusters);
 
   rmm::device_uvector<float> mesocluster_centers(
-    numMesoClusters * desc->dimDataset, handle.get_stream(), &managed_memory);
+    numMesoClusters * desc->data_dim, handle.get_stream(), &managed_memory);
 
   rmm::device_uvector<uint32_t> mesocluster_labels(
     numTrainset, handle.get_stream(), &managed_memory);
@@ -2491,7 +2493,7 @@ void cuannIvfPqBuildIndex(
   //
   kmeans::build_clusters(handle,
                          numIterations,
-                         desc->dimDataset,
+                         desc->data_dim,
                          trainset,
                          numTrainset,
                          numMesoClusters,
@@ -2505,11 +2507,9 @@ void cuannIvfPqBuildIndex(
 
   // Number of centers in each meso cluster
   // [numMesoClusters,]
-  uint32_t* numFineClusters = (uint32_t*)malloc(sizeof(uint32_t) * numMesoClusters);
-
-  // [numMesoClusters + 1,]
-  uint32_t* csumFineClusters = (uint32_t*)malloc(sizeof(uint32_t) * (numMesoClusters + 1));
-  csumFineClusters[0]        = 0;
+  std::vector<uint32_t> fine_clusters_nums(numMesoClusters);
+  std::vector<uint32_t> fine_clusters_csum(numMesoClusters + 1);
+  fine_clusters_csum[0] = 0;
 
   uint32_t numClustersRemain  = desc->numClusters;
   uint32_t numTrainsetRemain  = numTrainset;
@@ -2518,30 +2518,30 @@ void cuannIvfPqBuildIndex(
   uint32_t numFineClustersMax = 0;
   for (uint32_t i = 0; i < numMesoClusters; i++) {
     if (i < numMesoClusters - 1) {
-      numFineClusters[i] =
+      fine_clusters_nums[i] =
         (double)numClustersRemain * mesocluster_sizes.data()[i] / numTrainsetRemain + .5;
     } else {
-      numFineClusters[i] = numClustersRemain;
+      fine_clusters_nums[i] = numClustersRemain;
     }
-    csumFineClusters[i + 1] = csumFineClusters[i] + numFineClusters[i];
+    fine_clusters_csum[i + 1] = fine_clusters_csum[i] + fine_clusters_nums[i];
 
-    numClustersRemain -= numFineClusters[i];
+    numClustersRemain -= fine_clusters_nums[i];
     numTrainsetRemain -= mesocluster_sizes.data()[i];
     mesoClusterSizeSum += mesocluster_sizes.data()[i];
     mesoClusterSizeMax = max(mesoClusterSizeMax, mesocluster_sizes.data()[i]);
-    numFineClustersMax = max(numFineClustersMax, numFineClusters[i]);
+    numFineClustersMax = max(numFineClustersMax, fine_clusters_nums[i]);
   }
   RAFT_EXPECTS(mesoClusterSizeSum == numTrainset, "mesocluster sizes do not add up");
-  RAFT_EXPECTS(csumFineClusters[numMesoClusters] == desc->numClusters,
+  RAFT_EXPECTS(fine_clusters_csum[numMesoClusters] == desc->numClusters,
                "fine cluster sizes do not add up");
 
   rmm::device_uvector<uint32_t> ids_trainset(
     mesoClusterSizeMax, handle.get_stream(), &managed_memory);
   rmm::device_uvector<float> sub_trainset(
-    mesoClusterSizeMax * desc->dimDataset, handle.get_stream(), &managed_memory);
+    mesoClusterSizeMax * desc->data_dim, handle.get_stream(), &managed_memory);
   rmm::device_uvector<uint32_t> labels_mp(mesoClusterSizeMax, handle.get_stream(), &managed_memory);
   rmm::device_uvector<float> cluster_centers_each(
-    numFineClustersMax * desc->dimDataset, handle.get_stream(), &managed_memory);
+    numFineClustersMax * desc->data_dim, handle.get_stream(), &managed_memory);
   rmm::device_uvector<uint32_t> cluser_size_mp(
     numFineClustersMax, handle.get_stream(), &managed_memory);
 
@@ -2557,35 +2557,32 @@ void cuannIvfPqBuildIndex(
     RAFT_EXPECTS(k == mesocluster_sizes.data()[i], "unexpected cluster size for cluster %u", i);
 
     utils::copy_selected<float, T>(mesocluster_sizes.data()[i],
-                                   desc->dimDataset,
+                                   desc->data_dim,
                                    trainset,
                                    ids_trainset.data(),
-                                   desc->dimDataset,
+                                   desc->data_dim,
                                    sub_trainset.data(),
-                                   desc->dimDataset,
+                                   desc->data_dim,
                                    handle.get_stream());
 
     kmeans::build_clusters(handle,
                            numIterations,
-                           desc->dimDataset,
+                           desc->data_dim,
                            sub_trainset.data(),
                            mesocluster_sizes.data()[i],
-                           numFineClusters[i],
+                           fine_clusters_nums[i],
                            cluster_centers_each.data(),
                            labels_mp.data(),
                            cluser_size_mp.data(),
                            desc->metric,
                            device_memory,
                            handle.get_stream());
-    raft::copy(clusterCenters + (desc->dimDataset * csumFineClusters[i]),
+    raft::copy(cluster_centers + (desc->data_dim * fine_clusters_csum[i]),
                cluster_centers_each.data(),
-               numFineClusters[i] * desc->dimDataset,
+               fine_clusters_nums[i] * desc->data_dim,
                handle.get_stream());
     handle.sync_stream();
   }
-
-  free(numFineClusters);
-  free(csumFineClusters);
 
   //
   // Fine-tuning kmeans for whole clusters
@@ -2600,19 +2597,19 @@ void cuannIvfPqBuildIndex(
   int numIterations_X = max(numIterations / 10, 2) * X;
   for (int iter = 0; iter < numIterations_X; iter += X) {
     kmeans::predict(handle,
-                    clusterCenters,
+                    cluster_centers,
                     desc->numClusters,
-                    desc->dimDataset,
+                    desc->data_dim,
                     trainset,
                     numTrainset,
                     trainset_labels.data(),
                     desc->metric,
                     handle.get_stream(),
                     device_memory);
-    kmeans::calc_centers_and_sizes(clusterCenters,
+    kmeans::calc_centers_and_sizes(cluster_centers,
                                    cluster_sizes.data(),
                                    desc->numClusters,
-                                   desc->dimDataset,
+                                   desc->data_dim,
                                    trainset,
                                    numTrainset,
                                    trainset_labels.data(),
@@ -2625,14 +2622,14 @@ void cuannIvfPqBuildIndex(
       case raft::distance::DistanceType::CosineExpanded:
       case raft::distance::DistanceType::CorrelationExpanded:
         utils::normalize_rows(
-          desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
+          desc->numClusters, desc->data_dim, cluster_centers, handle.get_stream());
       default: break;
     }
     handle.sync_stream();
 
-    if ((iter + 1 < numIterations_X) && kmeans::adjust_centers(clusterCenters,
+    if ((iter + 1 < numIterations_X) && kmeans::adjust_centers(cluster_centers,
                                                                desc->numClusters,
-                                                               desc->dimDataset,
+                                                               desc->data_dim,
                                                                trainset,
                                                                numTrainset,
                                                                trainset_labels.data(),
@@ -2643,7 +2640,7 @@ void cuannIvfPqBuildIndex(
       iter -= (X - 1);
       if (desc->metric == distance::DistanceType::InnerProduct) {
         utils::normalize_rows(
-          desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
+          desc->numClusters, desc->data_dim, cluster_centers, handle.get_stream());
       }
     }
   }
@@ -2652,23 +2649,23 @@ void cuannIvfPqBuildIndex(
     desc->numDataset, handle.get_stream(), &managed_memory);
 
   //
-  // Predict labels of whole dataset
+  // Predict labels of whole data_vectors
   //
   kmeans::predict(handle,
-                  clusterCenters,
+                  cluster_centers,
                   desc->numClusters,
-                  desc->dimDataset,
-                  dataset,
+                  desc->data_dim,
+                  data_vectors,
                   desc->numDataset,
                   dataset_labels.data(),
                   desc->metric,
                   handle.get_stream(),
                   device_memory);
-  kmeans::calc_centers_and_sizes(clusterCenters,
+  kmeans::calc_centers_and_sizes(cluster_centers,
                                  cluster_sizes.data(),
                                  desc->numClusters,
-                                 desc->dimDataset,
-                                 dataset,
+                                 desc->data_dim,
+                                 data_vectors,
                                  desc->numDataset,
                                  dataset_labels.data(),
                                  true,
@@ -2680,7 +2677,7 @@ void cuannIvfPqBuildIndex(
     case raft::distance::DistanceType::CosineExpanded:
     case raft::distance::DistanceType::CorrelationExpanded:
       utils::normalize_rows(
-        desc->numClusters, desc->dimDataset, clusterCenters, handle.get_stream());
+        desc->numClusters, desc->data_dim, cluster_centers, handle.get_stream());
     default: break;
   }
   handle.sync_stream();
@@ -2688,37 +2685,37 @@ void cuannIvfPqBuildIndex(
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
   _cuann_kmeans_show_centers(
-    clusterCenters, desc->numClusters, desc->dimDataset, cluster_sizes.data());
+    cluster_centers, desc->numClusters, desc->data_dim, cluster_sizes.data());
 #endif
 
   // Make rotation matrix
-  RAFT_LOG_DEBUG("# dimDataset: %u\n", desc->dimDataset);
-  RAFT_LOG_DEBUG("# dimRotDataset: %u\n", desc->dimRotDataset);
+  RAFT_LOG_DEBUG("# data_dim: %u\n", desc->data_dim);
+  RAFT_LOG_DEBUG("# rot_dim: %u\n", desc->rot_dim);
   RAFT_LOG_DEBUG("# randomRotation: %s\n", randomRotation ? "enabled" : "disabled");
   _cuann_make_rotation_matrix(
-    desc->dimRotDataset, desc->dimDataset, desc->lenPq, randomRotation, rotationMatrix);
+    desc->rot_dim, desc->data_dim, desc->lenPq, randomRotation, rotationMatrix);
 
-  // Rotate clusterCenters
+  // Rotate cluster_centers
   float alpha = 1.0;
   float beta  = 0.0;
   linalg::gemm(handle,
                true,
                false,
-               desc->dimRotDataset,
+               desc->rot_dim,
                desc->numClusters,
-               desc->dimDataset,
+               desc->data_dim,
                &alpha,
                rotationMatrix,
-               desc->dimDataset,
-               clusterCenters,
-               desc->dimDataset,
+               desc->data_dim,
+               cluster_centers,
+               desc->data_dim,
                &beta,
                clusterRotCenters,
-               desc->dimRotDataset,
+               desc->rot_dim,
                handle.get_stream());
 
   //
-  // Make cluster_offsets, originalNumbers and pqDataset
+  // Make cluster_offsets, data_indices and pqDataset
   //
   uint32_t maxClusterSize = 0;
   // cluster_offsets
@@ -2731,10 +2728,10 @@ void cuannIvfPqBuildIndex(
                "Cluster sizes do not add up");
   desc->maxClusterSize = maxClusterSize;
 
-  // originalNumbers
+  // data_indices
   for (uint32_t i = 0; i < desc->numDataset; i++) {
-    uint32_t l                          = dataset_labels.data()[i];
-    originalNumbers[cluster_offsets[l]] = i;
+    uint32_t l                       = dataset_labels.data()[i];
+    data_indices[cluster_offsets[l]] = i;
     cluster_offsets[l] += 1;
   }
 
@@ -2754,9 +2751,9 @@ void cuannIvfPqBuildIndex(
 
     // Predict label of trainset again
     kmeans::predict(handle,
-                    clusterCenters,
+                    cluster_centers,
                     desc->numClusters,
-                    desc->dimDataset,
+                    desc->data_dim,
                     trainset,
                     numTrainset,
                     trainset_labels.data(),
@@ -2765,48 +2762,45 @@ void cuannIvfPqBuildIndex(
                     device_memory);
     handle.sync_stream();
 
-    // [dimPq, numTrainset, lenPq]
-    size_t sizeModTrainset = sizeof(float) * desc->dimPq * numTrainset * desc->lenPq;
-    float* modTrainset     = (float*)malloc(sizeModTrainset);
-    memset(modTrainset, 0, sizeModTrainset);
+    // [pq_dim, numTrainset, lenPq]
+    std::vector<float> mod_trainset(desc->pq_dim * numTrainset * desc->lenPq, 0.0f);
 
-    // modTrainset[] = transpose( rotate(trainset[]) - clusterRotCenters[] )
+    // mod_trainset[] = transpose( rotate(trainset[]) - clusterRotCenters[] )
 #pragma omp parallel for
     for (uint32_t i = 0; i < numTrainset; i++) {
       uint32_t l = trainset_labels.data()[i];
-      for (uint32_t j = 0; j < desc->dimRotDataset; j++) {
+      for (uint32_t j = 0; j < desc->rot_dim; j++) {
         float val = FLT_MAX;
         if (dtype == CUDA_R_32F) {
-          val =
-            _cuann_dot<float, float, float>(desc->dimDataset,
-                                            (float*)trainset + ((uint64_t)(desc->dimDataset) * i),
-                                            1,
-                                            rotationMatrix + ((uint64_t)(desc->dimDataset) * j),
-                                            1);
+          val = _cuann_dot<float, float, float>(desc->data_dim,
+                                                (float*)trainset + ((uint64_t)(desc->data_dim) * i),
+                                                1,
+                                                rotationMatrix + ((uint64_t)(desc->data_dim) * j),
+                                                1);
         } else if (dtype == CUDA_R_8U) {
           float divisor = 256.0;
-          val           = _cuann_dot<float, uint8_t, float>(
-            desc->dimDataset,
-            (uint8_t*)trainset + ((uint64_t)(desc->dimDataset) * i),
-            1,
-            rotationMatrix + ((uint64_t)(desc->dimDataset) * j),
-            1,
-            divisor);
+          val =
+            _cuann_dot<float, uint8_t, float>(desc->data_dim,
+                                              (uint8_t*)trainset + ((uint64_t)(desc->data_dim) * i),
+                                              1,
+                                              rotationMatrix + ((uint64_t)(desc->data_dim) * j),
+                                              1,
+                                              divisor);
         } else if (dtype == CUDA_R_8I) {
           float divisor = 128.0;
           val =
-            _cuann_dot<float, int8_t, float>(desc->dimDataset,
-                                             (int8_t*)trainset + ((uint64_t)(desc->dimDataset) * i),
+            _cuann_dot<float, int8_t, float>(desc->data_dim,
+                                             (int8_t*)trainset + ((uint64_t)(desc->data_dim) * i),
                                              1,
-                                             rotationMatrix + ((uint64_t)(desc->dimDataset) * j),
+                                             rotationMatrix + ((uint64_t)(desc->data_dim) * j),
                                              1,
                                              divisor);
         }
-        uint32_t j0 = j / (desc->lenPq);  // 0 <= j0 < dimPq
+        uint32_t j0 = j / (desc->lenPq);  // 0 <= j0 < pq_dim
         uint32_t j1 = j % (desc->lenPq);  // 0 <= j1 < lenPq
         uint64_t idx =
           j1 + ((uint64_t)(desc->lenPq) * i) + ((uint64_t)(desc->lenPq) * numTrainset * j0);
-        modTrainset[idx] = val - clusterRotCenters[j + (desc->dimRotDataset * l)];
+        mod_trainset[idx] = val - clusterRotCenters[j + (desc->rot_dim * l)];
       }
     }
 
@@ -2817,10 +2811,10 @@ void cuannIvfPqBuildIndex(
     rmm::device_uvector<float> pq_centers(
       (1 << desc->bitPq) * desc->lenPq, handle.get_stream(), &managed_memory);
 
-    for (uint32_t j = 0; j < desc->dimPq; j++) {
+    for (uint32_t j = 0; j < desc->pq_dim; j++) {
       float* curPqCenters = pqCenters + ((1 << desc->bitPq) * desc->lenPq) * j;
       RAFT_CUDA_TRY(cudaMemcpy(sub_trainset.data(),
-                               modTrainset + ((uint64_t)numTrainset * desc->lenPq * j),
+                               mod_trainset.data() + ((uint64_t)numTrainset * desc->lenPq * j),
                                sizeof(float) * numTrainset * desc->lenPq,
                                cudaMemcpyHostToDevice));
       // Train kmeans for each PQ
@@ -2847,26 +2841,25 @@ void cuannIvfPqBuildIndex(
       }
 #endif
     }
-    free(modTrainset);
   }
 
   //
-  // Compute PQ code for whole dataset
+  // Compute PQ code for whole data_vectors
   //
   _cuann_compute_PQ_code<T>(handle,
                             desc->numDataset,
-                            desc->dimDataset,
-                            desc->dimRotDataset,
-                            desc->dimPq,
+                            desc->data_dim,
+                            desc->rot_dim,
+                            desc->pq_dim,
                             desc->lenPq,
                             desc->bitPq,
                             desc->numClusters,
                             desc->typePqCenter,
                             maxClusterSize,
-                            clusterCenters,
+                            cluster_centers,
                             rotationMatrix,
-                            dataset,
-                            originalNumbers,
+                            data_vectors,
+                            data_indices,
                             cluster_sizes.data(),
                             cluster_offsets,
                             pqCenters,
@@ -2875,26 +2868,24 @@ void cuannIvfPqBuildIndex(
 
   //
   _cuann_get_inclusiveSumSortedClusterSize(
-    desc, cluster_offsets, clusterCenters, &(desc->inclusiveSumSortedClusterSize));
-  _cuann_get_sqsumClusters(desc, clusterCenters, &(desc->sqsumClusters));
+    desc, cluster_offsets, cluster_centers, &(desc->inclusiveSumSortedClusterSize));
+  _cuann_get_sqsumClusters(desc, cluster_centers, &(desc->sqsumClusters));
 
   {
-    // combine clusterCenters and sqsumClusters
+    // combine cluster_centers and sqsumClusters
     RAFT_CUDA_TRY(cudaDeviceSynchronize());
-    float* tmpClusterCenters;  // [numClusters, dimDataset]
-    RAFT_CUDA_TRY(
-      cudaMallocManaged(&tmpClusterCenters, sizeof(float) * desc->numClusters * desc->dimDataset));
-    for (uint32_t i = 0; i < desc->numClusters * desc->dimDataset; i++) {
-      tmpClusterCenters[i] = clusterCenters[i];
+    rmm::device_uvector<float> cluster_centers_tmp(
+      desc->numClusters * desc->data_dim, handle.get_stream(), &managed_memory);
+    for (uint32_t i = 0; i < desc->numClusters * desc->data_dim; i++) {
+      cluster_centers_tmp.data()[i] = cluster_centers[i];
     }
     for (uint32_t i = 0; i < desc->numClusters; i++) {
-      for (uint32_t j = 0; j < desc->dimDataset; j++) {
-        clusterCenters[j + (desc->dimDatasetExt * i)] =
-          tmpClusterCenters[j + (desc->dimDataset * i)];
+      for (uint32_t j = 0; j < desc->data_dim; j++) {
+        cluster_centers[j + (desc->dimDatasetExt * i)] =
+          cluster_centers_tmp.data()[j + (desc->data_dim * i)];
       }
-      clusterCenters[desc->dimDataset + (desc->dimDatasetExt * i)] = desc->sqsumClusters[i];
+      cluster_centers[desc->data_dim + (desc->dimDatasetExt * i)] = desc->sqsumClusters[i];
     }
-    RAFT_CUDA_TRY(cudaFree(tmpClusterCenters));
   }
 
   //
@@ -2902,10 +2893,10 @@ void cuannIvfPqBuildIndex(
   header->metric          = desc->metric;
   header->numClusters     = desc->numClusters;
   header->numDataset      = desc->numDataset;
-  header->dimDataset      = desc->dimDataset;
-  header->dimPq           = desc->dimPq;
+  header->data_dim        = desc->data_dim;
+  header->pq_dim          = desc->pq_dim;
   header->maxClusterSize  = maxClusterSize;
-  header->dimRotDataset   = desc->dimRotDataset;
+  header->rot_dim         = desc->rot_dim;
   header->bitPq           = desc->bitPq;
   header->typePqCenter    = (uint32_t)(desc->typePqCenter);
   header->dtypeDataset    = desc->dtypeDataset;
@@ -2917,7 +2908,7 @@ template <typename T>
 auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   const handle_t& handle,
   cuannIvfPqDescriptor_t& oldDesc,
-  const T* newVectors, /* [numNewVectors, dimDataset] */
+  const T* newVectors, /* [numNewVectors, data_dim] */
   uint32_t numNewVectors) -> cuannIvfPqDescriptor_t
 {
   switch (utils::check_pointer_residency(newVectors)) {
@@ -2950,19 +2941,23 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
       "unsupported type");
   }
 
+  rmm::mr::managed_memory_resource managed_memory_upstream;
+  rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
+    &managed_memory_upstream, 1024 * 1024);
+
   char dtypeString[64];
   _cuann_get_dtype_string(dtype, dtypeString);
   RAFT_LOG_DEBUG("dtype: %s", dtypeString);
-  RAFT_LOG_DEBUG("dimDataset: %u", oldDesc->dimDataset);
+  RAFT_LOG_DEBUG("data_dim: %u", oldDesc->data_dim);
   struct cuannIvfPqIndexHeader* oldHeader;
   float* oldClusterCenters;       // [numClusters, dimDatasetExt]
-  float* oldPqCenters;            // [dimPq, 1 << bitPq, lenPq], or
+  float* oldPqCenters;            // [pq_dim, 1 << bitPq, lenPq], or
                                   // [numClusters, 1 << bitPq, lenPq]
-  uint8_t* oldPqDataset;          // [numDataset, dimPq * bitPq / 8]
+  uint8_t* oldPqDataset;          // [numDataset, pq_dim * bitPq / 8]
   uint32_t* oldOriginalNumbers;   // [numDataset]
   uint32_t* old_cluster_offsets;  // [numClusters + 1]
-  float* oldRotationMatrix;       // [dimDataset, dimRotDataset]
-  float* oldClusterRotCenters;    // [numClusters, dimRotDataset]
+  float* oldRotationMatrix;       // [data_dim, rot_dim]
+  float* oldClusterRotCenters;    // [numClusters, rot_dim]
   _cuann_get_index_pointers(oldDesc,
                             &oldHeader,
                             &oldClusterCenters,
@@ -2974,43 +2969,44 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
                             &oldClusterRotCenters);
 
   //
-  // The clusterCenters stored in index contain data other than cluster
+  // The cluster_centers stored in index contain data other than cluster
   // centroids to speed up the search. Here, only the cluster centroids
   // are extracted.
   //
-  float* clusterCenters;  // [numClusters, dimDataset]
-  RAFT_CUDA_TRY(
-    cudaMallocManaged(&clusterCenters, sizeof(float) * oldDesc->numClusters * oldDesc->dimDataset));
+
+  rmm::device_uvector<float> cluster_centers(
+    oldDesc->numClusters * oldDesc->data_dim, handle.get_stream(), &managed_memory);
   for (uint32_t i = 0; i < oldDesc->numClusters; i++) {
-    memcpy(clusterCenters + (uint64_t)i * oldDesc->dimDataset,
+    memcpy(cluster_centers.data() + (uint64_t)i * oldDesc->data_dim,
            oldClusterCenters + (uint64_t)i * oldDesc->dimDatasetExt,
-           sizeof(float) * oldDesc->dimDataset);
+           sizeof(float) * oldDesc->data_dim);
   }
 
   //
   // Use the existing cluster centroids to find the label (cluster ID)
   // of the vector to be added.
   //
-  uint32_t* newVectorLabels;  // [numNewVectors,]
-  RAFT_CUDA_TRY(cudaMallocManaged(&newVectorLabels, sizeof(uint32_t) * numNewVectors));
-  utils::memzero(newVectorLabels, numNewVectors, handle.get_stream());
-  uint32_t* clusterSize;  // [numClusters,]
-  RAFT_CUDA_TRY(cudaMallocManaged(&clusterSize, sizeof(uint32_t) * oldDesc->numClusters));
-  utils::memzero(clusterSize, oldDesc->numClusters, handle.get_stream());
+
+  rmm::device_uvector<uint32_t> new_data_labels(
+    numNewVectors, handle.get_stream(), &managed_memory);
+  utils::memzero(new_data_labels.data(), numNewVectors, handle.get_stream());
+  rmm::device_uvector<uint32_t> cluster_sizes(
+    oldDesc->numClusters, handle.get_stream(), &managed_memory);
+  utils::memzero(cluster_sizes.data(), oldDesc->numClusters, handle.get_stream());
 
   kmeans::predict(handle,
-                  clusterCenters,
+                  cluster_centers.data(),
                   oldDesc->numClusters,
-                  oldDesc->dimDataset,
+                  oldDesc->data_dim,
                   newVectors,
                   numNewVectors,
-                  newVectorLabels,
+                  new_data_labels.data(),
                   oldDesc->metric,
                   handle.get_stream());
   raft::stats::histogram<uint32_t, size_t>(raft::stats::HistTypeAuto,
-                                           reinterpret_cast<int32_t*>(clusterSize),
+                                           reinterpret_cast<int32_t*>(cluster_sizes.data()),
                                            size_t(oldDesc->numClusters),
-                                           newVectorLabels,
+                                           new_data_labels.data(),
                                            numNewVectors,
                                            1,
                                            handle.get_stream());
@@ -3020,10 +3016,10 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   {
     const int _num_show = 10;
     fprintf(stderr, "# numNewVectors: %u\n", numNewVectors);
-    fprintf(stderr, "# newVectorLabels: ");
+    fprintf(stderr, "# new_data_labels: ");
     for (uint32_t i = 0; i < numNewVectors; i++) {
       if ((i < _num_show) || (numNewVectors - i <= _num_show)) {
-        fprintf(stderr, "%u, ", newVectorLabels[i]);
+        fprintf(stderr, "%u, ", new_data_labels.data()[i]);
       } else if (i == _num_show) {
         fprintf(stderr, "..., ");
       }
@@ -3033,12 +3029,12 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   {
     const int _num_show = 10;
     fprintf(stderr, "# oldDesc->numClusters: %u\n", oldDesc->numClusters);
-    fprintf(stderr, "# clusterSize: ");
+    fprintf(stderr, "# cluster_sizes: ");
     int _sum = 0;
     for (uint32_t i = 0; i < oldDesc->numClusters; i++) {
-      _sum += clusterSize[i];
+      _sum += cluster_sizes.data()[i];
       if ((i < _num_show) || (oldDesc->numClusters - i <= _num_show)) {
-        fprintf(stderr, "%u, ", clusterSize[i]);
+        fprintf(stderr, "%u, ", cluster_sizes.data()[i]);
       } else if (i == _num_show) {
         fprintf(stderr, "..., ");
       }
@@ -3049,57 +3045,54 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
 #endif
 
   //
-  // Make cluster_offsets, originalNumbers
+  // Make cluster_offsets, data_indices
   //
   uint32_t maxClusterSize = 0;
-  uint32_t* cluster_offsets;  // [numClusters + 1]
-  uint32_t* originalNumbers;  // [numNewVectors]
-  cluster_offsets = (uint32_t*)malloc(sizeof(uint32_t) * (oldDesc->numClusters + 1));
-  originalNumbers = (uint32_t*)malloc(sizeof(uint32_t) * numNewVectors);
+  std::vector<uint32_t> cluster_offsets(oldDesc->numClusters + 1, 0);
+  std::vector<uint32_t> data_indices(numNewVectors);
   // cluster_offsets
   cluster_offsets[0] = 0;
   for (uint32_t l = 0; l < oldDesc->numClusters; l++) {
-    cluster_offsets[l + 1] = cluster_offsets[l] + clusterSize[l];
-    maxClusterSize         = max(maxClusterSize, clusterSize[l]);
+    cluster_offsets[l + 1] = cluster_offsets[l] + cluster_sizes.data()[l];
+    maxClusterSize         = max(maxClusterSize, cluster_sizes.data()[l]);
   }
   RAFT_EXPECTS(cluster_offsets[oldDesc->numClusters] == numNewVectors,
                "cluster sizes do not add up.");
-  // originalNumbers
+  // data_indices
   for (uint32_t i = 0; i < numNewVectors; i++) {
-    uint32_t l                          = newVectorLabels[i];
-    originalNumbers[cluster_offsets[l]] = i;
+    uint32_t l                       = new_data_labels.data()[i];
+    data_indices[cluster_offsets[l]] = i;
     cluster_offsets[l] += 1;
   }
   // Recover cluster_offsets
   for (uint32_t l = 0; l < oldDesc->numClusters; l++) {
-    cluster_offsets[l] -= clusterSize[l];
+    cluster_offsets[l] -= cluster_sizes.data()[l];
   }
 
   //
   // Compute PQ code for new vectors
   //
-  uint8_t* pqDataset;  // [numNewVectors, dimPq * bitPq / 8]
-  RAFT_CUDA_TRY(cudaMallocManaged(
-    &pqDataset, sizeof(uint8_t) * numNewVectors * oldDesc->dimPq * oldDesc->bitPq / 8));
+  rmm::device_uvector<uint8_t> new_pq_codes(
+    numNewVectors * oldDesc->pq_dim * oldDesc->bitPq / 8, handle.get_stream(), &managed_memory);
   _cuann_compute_PQ_code<T>(handle,
                             numNewVectors,
-                            oldDesc->dimDataset,
-                            oldDesc->dimRotDataset,
-                            oldDesc->dimPq,
+                            oldDesc->data_dim,
+                            oldDesc->rot_dim,
+                            oldDesc->pq_dim,
                             oldDesc->lenPq,
                             oldDesc->bitPq,
                             oldDesc->numClusters,
                             oldDesc->typePqCenter,
                             maxClusterSize,
-                            clusterCenters,
+                            cluster_centers.data(),
                             oldRotationMatrix,
                             newVectors,
-                            originalNumbers,
-                            clusterSize,
-                            cluster_offsets,
+                            data_indices.data(),
+                            cluster_sizes.data(),
+                            cluster_offsets.data(),
                             oldPqCenters,
                             0,
-                            pqDataset);
+                            new_pq_codes.data());
   RAFT_CUDA_TRY(cudaSetDevice(cuannDevId));
 
   //
@@ -3123,13 +3116,13 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   memset(newDesc->index_ptr, 0, newIndexSize);
   struct cuannIvfPqIndexHeader* newHeader;
   float* newClusterCenters;       // [numClusters, dimDatasetExt]
-  float* newPqCenters;            // [dimPq, 1 << bitPq, lenPq], or
+  float* newPqCenters;            // [pq_dim, 1 << bitPq, lenPq], or
                                   // [numClusters, 1 << bitPq, lenPq]
-  uint8_t* newPqDataset;          // [numDataset, dimPq * bitPq / 8]  ***
+  uint8_t* newPqDataset;          // [numDataset, pq_dim * bitPq / 8]  ***
   uint32_t* newOriginalNumbers;   // [numDataset]  ***
   uint32_t* new_cluster_offsets;  // [numClusters + 1]  ***
-  float* newRotationMatrix;       // [dimDataset, dimRotDataset]
-  float* newClusterRotCenters;    // [numClusters, dimRotDataset]
+  float* newRotationMatrix;       // [data_dim, rot_dim]
+  float* newClusterRotCenters;    // [numClusters, rot_dim]
   _cuann_get_index_pointers(newDesc,
                             &newHeader,
                             &newClusterCenters,
@@ -3142,7 +3135,7 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
 
   //
   // Copy the unchanged parts
-  //    header, clusterCenters, pqCenters, rotationMatrix, clusterRotCenters
+  //    header, cluster_centers, pqCenters, rotationMatrix, clusterRotCenters
   //
   memcpy(newHeader, oldHeader, sizeof(struct cuannIvfPqIndexHeader));
   {
@@ -3150,7 +3143,7 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
     newHeader->numDataset = newDesc->numDataset;
     newHeader->numDatasetAdded += numNewVectors;
   }
-  memcpy(newClusterCenters, oldClusterCenters, _cuann_getIndexSize_clusterCenters(oldDesc));
+  memcpy(newClusterCenters, oldClusterCenters, _cuann_getIndexSize_cluster_centers(oldDesc));
   memcpy(newPqCenters, oldPqCenters, _cuann_getIndexSize_pqCenters(oldDesc));
   memcpy(newRotationMatrix, oldRotationMatrix, _cuann_getIndexSize_rotationMatrix(oldDesc));
   memcpy(
@@ -3164,8 +3157,8 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   for (uint32_t l = 0; l < newDesc->numClusters; l++) {
     uint32_t oldClusterSize    = old_cluster_offsets[l + 1] - old_cluster_offsets[l];
     new_cluster_offsets[l + 1] = new_cluster_offsets[l];
-    new_cluster_offsets[l + 1] += oldClusterSize + clusterSize[l];
-    maxClusterSize = max(maxClusterSize, oldClusterSize + clusterSize[l]);
+    new_cluster_offsets[l + 1] += oldClusterSize + cluster_sizes.data()[l];
+    maxClusterSize = max(maxClusterSize, oldClusterSize + cluster_sizes.data()[l]);
   }
   {
     newDesc->maxClusterSize   = maxClusterSize;
@@ -3177,7 +3170,7 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   // Make newOriginalNumbers
   //
   for (uint32_t i = 0; i < numNewVectors; i++) {
-    originalNumbers[i] += oldDesc->numDataset;
+    data_indices[i] += oldDesc->numDataset;
   }
   for (uint32_t l = 0; l < newDesc->numClusters; l++) {
     uint32_t oldClusterSize = old_cluster_offsets[l + 1] - old_cluster_offsets[l];
@@ -3185,22 +3178,22 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
            oldOriginalNumbers + old_cluster_offsets[l],
            sizeof(uint32_t) * oldClusterSize);
     memcpy(newOriginalNumbers + new_cluster_offsets[l] + oldClusterSize,
-           originalNumbers + cluster_offsets[l],
-           sizeof(uint32_t) * clusterSize[l]);
+           data_indices.data() + cluster_offsets[l],
+           sizeof(uint32_t) * cluster_sizes.data()[l]);
   }
 
   //
   // Make newPqDataset
   //
-  size_t unitPqDataset = newDesc->dimPq * newDesc->bitPq / 8;
+  size_t unitPqDataset = newDesc->pq_dim * newDesc->bitPq / 8;
   for (uint32_t l = 0; l < newDesc->numClusters; l++) {
     uint32_t oldClusterSize = old_cluster_offsets[l + 1] - old_cluster_offsets[l];
     memcpy(newPqDataset + unitPqDataset * new_cluster_offsets[l],
            oldPqDataset + unitPqDataset * old_cluster_offsets[l],
            sizeof(uint8_t) * unitPqDataset * oldClusterSize);
     memcpy(newPqDataset + unitPqDataset * (new_cluster_offsets[l] + oldClusterSize),
-           pqDataset + unitPqDataset * cluster_offsets[l],
-           sizeof(uint8_t) * unitPqDataset * clusterSize[l]);
+           new_pq_codes.data() + unitPqDataset * cluster_offsets[l],
+           sizeof(uint8_t) * unitPqDataset * cluster_sizes.data()[l]);
   }
 
   _cuann_get_inclusiveSumSortedClusterSize(
@@ -3218,14 +3211,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
       newHeader->numDataset,
       newHeader->numDatasetAdded);
   }
-
-  free(originalNumbers);
-  free(cluster_offsets);
-
-  RAFT_CUDA_TRY(cudaFree(pqDataset));
-  RAFT_CUDA_TRY(cudaFree(clusterSize));
-  RAFT_CUDA_TRY(cudaFree(newVectorLabels));
-  RAFT_CUDA_TRY(cudaFree(clusterCenters));
 
   _cuann_set_device(callerDevId);
   return newDesc;
@@ -3333,7 +3318,7 @@ inline void cuannIvfPqSearch_bufferSize(const handle_t& handle,
   size_t size_0 =
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->dimDatasetExt) +  // devQueries
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->dimDatasetExt) +  // curQueries
-    Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->dimRotDataset) +  // rotQueries
+    Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->rot_dim) +        // rotQueries
     Pow2<128>::roundUp(sizeof(uint32_t) * maxQueries * desc->numProbes) +   // clusterLabels..
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->numClusters) +    // QCDistances
     _cuann_find_topk_bufferSize(handle, desc->numProbes, maxQueries, desc->numClusters);
@@ -3349,7 +3334,7 @@ inline void cuannIvfPqSearch_bufferSize(const handle_t& handle,
   *workspaceSize =
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->dimDatasetExt) +  // devQueries
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->dimDatasetExt) +  // curQueries
-    Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->dimRotDataset) +  // rotQueries
+    Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->rot_dim) +        // rotQueries
     Pow2<128>::roundUp(sizeof(uint32_t) * maxQueries * desc->numProbes);    // clusterLabels..
 
   max_ws -= *workspaceSize;
@@ -3395,7 +3380,7 @@ inline void cuannIvfPqSearch_bufferSize(const handle_t& handle,
 template <typename T>
 void cuannIvfPqSearch(const handle_t& handle,
                       cuannIvfPqDescriptor_t& desc,
-                      const T* queries, /* [numQueries, dimDataset], host or device pointer */
+                      const T* queries, /* [numQueries, data_dim], host or device pointer */
                       uint32_t numQueries,
                       uint64_t* neighbors, /* [numQueries, topK], device pointer */
                       float* distances,    /* [numQueries, topK], device pointer */
@@ -3418,27 +3403,27 @@ void cuannIvfPqSearch(const handle_t& handle,
   }
 
   struct cuannIvfPqIndexHeader* header;
-  float* clusterCenters;      // [numClusters, dimDatasetExt]
-  float* pqCenters;           // [dimPq, 1 << bitPq, lenPq], or
+  float* cluster_centers;     // [numClusters, dimDatasetExt]
+  float* pqCenters;           // [pq_dim, 1 << bitPq, lenPq], or
                               // [numClusters, 1 << bitPq, lenPq]
-  uint8_t* pqDataset;         // [numDataset, dimPq * bitPq / 8]
-  uint32_t* originalNumbers;  // [numDataset]
+  uint8_t* pqDataset;         // [numDataset, pq_dim * bitPq / 8]
+  uint32_t* data_indices;     // [numDataset]
   uint32_t* cluster_offsets;  // [numClusters + 1]
-  float* rotationMatrix;      // [dimDataset, dimRotDataset]
-  float* clusterRotCenters;   // [numClusters, dimRotDataset]
+  float* rotationMatrix;      // [data_dim, rot_dim]
+  float* clusterRotCenters;   // [numClusters, rot_dim]
   _cuann_get_index_pointers(desc,
                             &header,
-                            &clusterCenters,
+                            &cluster_centers,
                             &pqCenters,
                             &pqDataset,
-                            &originalNumbers,
+                            &data_indices,
                             &cluster_offsets,
                             &rotationMatrix,
                             &clusterRotCenters);
   //
   void* devQueries;                // [maxQueries, dimDatasetExt]
   float* curQueries;               // [maxQueries, dimDatasetExt]
-  float* rotQueries;               // [maxQueries, dimRotDataset]
+  float* rotQueries;               // [maxQueries, rot_dim]
   uint32_t* clusterLabelsToProbe;  // [maxQueries, numProbes]
   float* QCDistances;              // [maxQueries, numClusters]
   void* topkWorkspace;
@@ -3450,7 +3435,7 @@ void cuannIvfPqSearch(const handle_t& handle,
                         Pow2<128>::roundUp(sizeof(float) * desc->maxQueries * desc->dimDatasetExt));
   clusterLabelsToProbe =
     (uint32_t*)((uint8_t*)rotQueries +
-                Pow2<128>::roundUp(sizeof(float) * desc->maxQueries * desc->dimRotDataset));
+                Pow2<128>::roundUp(sizeof(float) * desc->maxQueries * desc->rot_dim));
   //
   QCDistances   = (float*)((uint8_t*)clusterLabelsToProbe +
                          Pow2<128>::roundUp(sizeof(uint32_t) * desc->maxQueries * desc->numProbes));
@@ -3513,54 +3498,54 @@ void cuannIvfPqSearch(const handle_t& handle,
       divisor = 128.0;
     }
     if (dtype == CUDA_R_32F) {
-      float* ptrQueries = (float*)queries + ((uint64_t)(desc->dimDataset) * i);
+      float* ptrQueries = (float*)queries + ((uint64_t)(desc->data_dim) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
         raft::copy(reinterpret_cast<float*>(devQueries),
                    ptrQueries,
-                   nQueries * desc->dimDataset,
+                   nQueries * desc->data_dim,
                    handle.get_stream());
         ptrQueries = (float*)devQueries;
       }
       _cuann_copy_fill<float, float>(nQueries,
-                                     desc->dimDataset,
+                                     desc->data_dim,
                                      ptrQueries,
-                                     desc->dimDataset,
+                                     desc->data_dim,
                                      curQueries,
                                      desc->dimDatasetExt,
                                      fillValue,
                                      divisor,
                                      handle.get_stream());
     } else if (dtype == CUDA_R_8U) {
-      uint8_t* ptrQueries = (uint8_t*)queries + ((uint64_t)(desc->dimDataset) * i);
+      uint8_t* ptrQueries = (uint8_t*)queries + ((uint64_t)(desc->data_dim) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
         raft::copy(reinterpret_cast<uint8_t*>(devQueries),
                    ptrQueries,
-                   nQueries * desc->dimDataset,
+                   nQueries * desc->data_dim,
                    handle.get_stream());
         ptrQueries = (uint8_t*)devQueries;
       }
       _cuann_copy_fill<uint8_t, float>(nQueries,
-                                       desc->dimDataset,
+                                       desc->data_dim,
                                        ptrQueries,
-                                       desc->dimDataset,
+                                       desc->data_dim,
                                        curQueries,
                                        desc->dimDatasetExt,
                                        fillValue,
                                        divisor,
                                        handle.get_stream());
     } else if (dtype == CUDA_R_8I) {
-      int8_t* ptrQueries = (int8_t*)queries + ((uint64_t)(desc->dimDataset) * i);
+      int8_t* ptrQueries = (int8_t*)queries + ((uint64_t)(desc->data_dim) * i);
       if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
         raft::copy(reinterpret_cast<int8_t*>(devQueries),
                    ptrQueries,
-                   nQueries * desc->dimDataset,
+                   nQueries * desc->data_dim,
                    handle.get_stream());
         ptrQueries = (int8_t*)devQueries;
       }
       _cuann_copy_fill<int8_t, float>(nQueries,
-                                      desc->dimDataset,
+                                      desc->data_dim,
                                       ptrQueries,
-                                      desc->dimDataset,
+                                      desc->data_dim,
                                       curQueries,
                                       desc->dimDatasetExt,
                                       fillValue,
@@ -3570,14 +3555,14 @@ void cuannIvfPqSearch(const handle_t& handle,
 
     float alpha;
     float beta;
-    uint32_t gemmK = desc->dimDataset;
+    uint32_t gemmK = desc->data_dim;
     if (desc->metric == distance::DistanceType::InnerProduct) {
       alpha = -1.0;
       beta  = 0.0;
     } else {
       alpha = -2.0;
       beta  = 0.0;
-      gemmK = desc->dimDataset + 1;
+      gemmK = desc->data_dim + 1;
       RAFT_EXPECTS(gemmK <= desc->dimDatasetExt, "unexpected gemmK or dimDatasetExt");
     }
     linalg::gemm(handle,
@@ -3587,7 +3572,7 @@ void cuannIvfPqSearch(const handle_t& handle,
                  nQueries,
                  gemmK,
                  &alpha,
-                 clusterCenters,
+                 cluster_centers,
                  desc->dimDatasetExt,
                  curQueries,
                  desc->dimDatasetExt,
@@ -3602,17 +3587,17 @@ void cuannIvfPqSearch(const handle_t& handle,
     linalg::gemm(handle,
                  true,
                  false,
-                 desc->dimRotDataset,
+                 desc->rot_dim,
                  nQueries,
-                 desc->dimDataset,
+                 desc->data_dim,
                  &alpha,
                  rotationMatrix,
-                 desc->dimDataset,
+                 desc->data_dim,
                  curQueries,
                  desc->dimDatasetExt,
                  &beta,
                  rotQueries,
-                 desc->dimRotDataset,
+                 desc->rot_dim,
                  handle.get_stream());
 
     // Select neighbor clusters for each query.
@@ -3634,10 +3619,10 @@ void cuannIvfPqSearch(const handle_t& handle,
                     clusterRotCenters,
                     pqCenters,
                     pqDataset,
-                    originalNumbers,
+                    data_indices,
                     cluster_offsets,
                     clusterLabelsToProbe + ((uint64_t)(desc->numProbes) * j),
-                    rotQueries + ((uint64_t)(desc->dimRotDataset) * j),
+                    rotQueries + ((uint64_t)(desc->rot_dim) * j),
                     neighbors + ((uint64_t)(desc->topK) * (i + j)),
                     distances + ((uint64_t)(desc->topK) * (i + j)),
                     searchWorkspace);
@@ -3650,16 +3635,16 @@ void cuannIvfPqSearch(const handle_t& handle,
 //
 template <int bitPq, int vecLen, typename T, typename smemLutDtype = float>
 __device__ inline float ivfpq_compute_score(
-  uint32_t dimPq,
+  uint32_t pq_dim,
   uint32_t iDataset,
-  const uint8_t* pqDataset,          // [numDataset, dimPq * bitPq / 8]
-  const smemLutDtype* preCompScores  // [dimPq, 1 << bitPq]
+  const uint8_t* pqDataset,          // [numDataset, pq_dim * bitPq / 8]
+  const smemLutDtype* preCompScores  // [pq_dim, 1 << bitPq]
 )
 {
   float score             = 0.0;
   constexpr uint32_t bitT = sizeof(T) * 8;
-  const T* headPqDataset  = (T*)(pqDataset + (uint64_t)iDataset * (dimPq * bitPq / 8));
-  for (int j = 0; j < dimPq / vecLen; j += 1) {
+  const T* headPqDataset  = (T*)(pqDataset + (uint64_t)iDataset * (pq_dim * bitPq / 8));
+  for (int j = 0; j < pq_dim / vecLen; j += 1) {
     T pqCode = headPqDataset[0];
     headPqDataset += 1;
     uint32_t bitLeft = bitT;
@@ -3701,33 +3686,33 @@ template <int bitPq,
           typename smemLutDtype>
 __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   uint32_t numDataset,
-  uint32_t dimDataset,
+  uint32_t data_dim,
   uint32_t numProbes,
-  uint32_t dimPq,
+  uint32_t pq_dim,
   uint32_t sizeBatch,
   uint32_t maxSamples,
   distance::DistanceType metric,
   codebook_gen typePqCenter,
   uint32_t topk,
-  const float* clusterCenters,      // [numClusters, dimDataset,]
-  const float* pqCenters,           // [dimPq, 1 << bitPq, lenPq,], or
+  const float* cluster_centers,     // [numClusters, data_dim,]
+  const float* pqCenters,           // [pq_dim, 1 << bitPq, lenPq,], or
                                     // [numClusetrs, 1 << bitPq, lenPq,]
-  const uint8_t* pqDataset,         // [numDataset, dimPq * bitPq / 8]
+  const uint8_t* pqDataset,         // [numDataset, pq_dim * bitPq / 8]
   const uint32_t* clusterIndexPtr,  // [numClusters + 1,]
   const uint32_t* _clusterLabels,   // [sizeBatch, numProbes,]
   const uint32_t* _chunkIndexPtr,   // [sizeBatch, numProbes,]
-  const float* _query,              // [sizeBatch, dimDataset,]
+  const float* _query,              // [sizeBatch, data_dim,]
   const uint32_t* indexList,        // [sizeBatch * numProbes]
   float* _preCompScores,            // [...]
   outDtype* _output,                // [sizeBatch, maxSamples,] or [sizeBatch, numProbes, topk]
   uint32_t* _topkIndex              // [sizeBatch, numProbes, topk]
 )
 {
-  const uint32_t lenPq = dimDataset / dimPq;
+  const uint32_t lenPq = data_dim / pq_dim;
 
   smemLutDtype* preCompScores = (smemLutDtype*)smemArray;
   float* baseDiff             = NULL;
-  if (preCompBaseDiff) { baseDiff = (float*)(preCompScores + (dimPq << bitPq)); }
+  if (preCompBaseDiff) { baseDiff = (float*)(preCompScores + (pq_dim << bitPq)); }
   bool manageLocalTopk = false;
   if (_topkIndex != NULL) { manageLocalTopk = true; }
 
@@ -3746,7 +3731,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
 
   const uint32_t* clusterLabels = _clusterLabels + (numProbes * iBatch);
   const uint32_t* chunkIndexPtr = _chunkIndexPtr + (numProbes * iBatch);
-  const float* query            = _query + (dimDataset * iBatch);
+  const float* query            = _query + (data_dim * iBatch);
   outDtype* output;
   uint32_t* topkIndex = NULL;
   if (manageLocalTopk) {
@@ -3758,7 +3743,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
     output = _output + (maxSamples * iBatch);
   }
   uint32_t label               = clusterLabels[iProbe];
-  const float* myClusterCenter = clusterCenters + (dimDataset * label);
+  const float* myClusterCenter = cluster_centers + (data_dim * label);
   const float* myPqCenters;
   if (typePqCenter == codebook_gen::PER_SUBSPACE) {
     myPqCenters = pqCenters;
@@ -3769,14 +3754,14 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   if (preCompBaseDiff) {
     // Reduce computational complexity by pre-computing the difference
     // between the cluster centroid and the query.
-    for (uint32_t i = threadIdx.x; i < dimDataset; i += blockDim.x) {
+    for (uint32_t i = threadIdx.x; i < data_dim; i += blockDim.x) {
       baseDiff[i] = query[i] - myClusterCenter[i];
     }
     __syncthreads();
   }
 
   // Create a lookup table
-  for (uint32_t i = threadIdx.x; i < (dimPq << bitPq); i += blockDim.x) {
+  for (uint32_t i = threadIdx.x; i < (pq_dim << bitPq); i += blockDim.x) {
     uint32_t iPq   = i >> bitPq;
     uint32_t iCode = i & ((1 << bitPq) - 1);
     float score    = 0.0;
@@ -3815,7 +3800,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
     float score = limit;
     if (i < nSamples) {
       score = ivfpq_compute_score<bitPq, vecLen, T, smemLutDtype>(
-        dimPq, i + iDatasetBase, pqDataset, preCompScores);
+        pq_dim, i + iDatasetBase, pqDataset, preCompScores);
     }
     if (!manageLocalTopk) {
       if (i < nSamples) { output[i + iSampleBase] = score; }
@@ -3834,31 +3819,31 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
 template <int bitPq, int vecLen, typename T, int depth, bool preCompBaseDiff, typename outDtype>
 __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
   uint32_t numDataset,
-  uint32_t dimDataset,
+  uint32_t data_dim,
   uint32_t numProbes,
-  uint32_t dimPq,
+  uint32_t pq_dim,
   uint32_t sizeBatch,
   uint32_t maxSamples,
   distance::DistanceType metric,
   codebook_gen typePqCenter,
   uint32_t topk,
-  const float* clusterCenters,      // [numClusters, dimDataset,]
-  const float* pqCenters,           // [dimPq, 1 << bitPq, lenPq,], or
+  const float* cluster_centers,     // [numClusters, data_dim,]
+  const float* pqCenters,           // [pq_dim, 1 << bitPq, lenPq,], or
                                     // [numClusetrs, 1 << bitPq, lenPq,]
-  const uint8_t* pqDataset,         // [numDataset, dimPq * bitPq / 8]
+  const uint8_t* pqDataset,         // [numDataset, pq_dim * bitPq / 8]
   const uint32_t* clusterIndexPtr,  // [numClusters + 1,]
   const uint32_t* _clusterLabels,   // [sizeBatch, numProbes,]
   const uint32_t* _chunkIndexPtr,   // [sizeBatch, numProbes,]
-  const float* _query,              // [sizeBatch, dimDataset,]
+  const float* _query,              // [sizeBatch, data_dim,]
   const uint32_t* indexList,        // [sizeBatch * numProbes]
-  float* _preCompScores,            // [..., dimPq << bitPq,]
+  float* _preCompScores,            // [..., pq_dim << bitPq,]
   outDtype* _output,                // [sizeBatch, maxSamples,] or [sizeBatch, numProbes, topk]
   uint32_t* _topkIndex              // [sizeBatch, numProbes, topk]
 )
 {
-  const uint32_t lenPq = dimDataset / dimPq;
+  const uint32_t lenPq = data_dim / pq_dim;
 
-  float* preCompScores = _preCompScores + ((dimPq << bitPq) * blockIdx.x);
+  float* preCompScores = _preCompScores + ((pq_dim << bitPq) * blockIdx.x);
   float* baseDiff      = NULL;
   if (preCompBaseDiff) { baseDiff = (float*)smemArray; }
   bool manageLocalTopk = false;
@@ -3879,7 +3864,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
 
     const uint32_t* clusterLabels = _clusterLabels + (numProbes * iBatch);
     const uint32_t* chunkIndexPtr = _chunkIndexPtr + (numProbes * iBatch);
-    const float* query            = _query + (dimDataset * iBatch);
+    const float* query            = _query + (data_dim * iBatch);
     outDtype* output;
     uint32_t* topkIndex = NULL;
     if (manageLocalTopk) {
@@ -3891,7 +3876,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
       output = _output + (maxSamples * iBatch);
     }
     uint32_t label               = clusterLabels[iProbe];
-    const float* myClusterCenter = clusterCenters + (dimDataset * label);
+    const float* myClusterCenter = cluster_centers + (data_dim * label);
     const float* myPqCenters;
     if (typePqCenter == codebook_gen::PER_SUBSPACE) {
       myPqCenters = pqCenters;
@@ -3902,14 +3887,14 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
     if (preCompBaseDiff) {
       // Reduce computational complexity by pre-computing the difference
       // between the cluster centroid and the query.
-      for (uint32_t i = threadIdx.x; i < dimDataset; i += blockDim.x) {
+      for (uint32_t i = threadIdx.x; i < data_dim; i += blockDim.x) {
         baseDiff[i] = query[i] - myClusterCenter[i];
       }
       __syncthreads();
     }
 
     // Create a lookup table
-    for (uint32_t i = threadIdx.x; i < (dimPq << bitPq); i += blockDim.x) {
+    for (uint32_t i = threadIdx.x; i < (pq_dim << bitPq); i += blockDim.x) {
       uint32_t iPq   = i >> bitPq;
       uint32_t iCode = i & ((1 << bitPq) - 1);
       float score    = 0.0;
@@ -3948,7 +3933,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
       float score = limit;
       if (i < nSamples) {
         score =
-          ivfpq_compute_score<bitPq, vecLen, T>(dimPq, i + iDatasetBase, pqDataset, preCompScores);
+          ivfpq_compute_score<bitPq, vecLen, T>(pq_dim, i + iDatasetBase, pqDataset, preCompScores);
       }
       if (!manageLocalTopk) {
         if (i < nSamples) { output[i + iSampleBase] = score; }
@@ -3971,13 +3956,13 @@ template <typename scoreDtype, typename smemLutDtype>
 inline void ivfpq_search(const handle_t& handle,
                          cuannIvfPqDescriptor_t& desc,
                          uint32_t numQueries,
-                         const float* clusterCenters,           // [numDataset, dimRotDataset]
-                         const float* pqCenters,                // [dimPq, 1 << desc->bitPq, lenPq]
-                         const uint8_t* pqDataset,              // [numDataset, dimPq * bitPq / 8]
-                         const uint32_t* originalNumbers,       // [numDataset]
+                         const float* cluster_centers,          // [numDataset, rot_dim]
+                         const float* pqCenters,                // [pq_dim, 1 << desc->bitPq, lenPq]
+                         const uint8_t* pqDataset,              // [numDataset, pq_dim * bitPq / 8]
+                         const uint32_t* data_indices,          // [numDataset]
                          const uint32_t* cluster_offsets,       // [numClusters + 1]
                          const uint32_t* clusterLabelsToProbe,  // [numQueries, numProbes]
-                         const float* query,                    // [numQueries, dimRotDataset]
+                         const float* query,                    // [numQueries, rot_dim]
                          uint64_t* topkNeighbors,               // [numQueries, topK]
                          float* topkDistances,                  // [numQueries, topK]
                          void* workspace)
@@ -4035,7 +4020,7 @@ inline void ivfpq_search(const handle_t& handle,
   }
   topkWorkspace =
     (void*)((uint8_t*)preCompScores + Pow2<128>::roundUp(sizeof(float) * getMultiProcessorCount() *
-                                                         desc->dimPq * (1 << desc->bitPq)));
+                                                         desc->pq_dim * (1 << desc->bitPq)));
 
   //
   dim3 mcThreads(1024, 1, 1);  // DO NOT CHANGE
@@ -4083,18 +4068,18 @@ inline void ivfpq_search(const handle_t& handle,
     kernel_no_smem_lut = ivfpq_compute_similarity_no_smem_lut<B, V, T, D, true, scoreDtype>;    \
   } while (0)
 
-#define SET_KERNEL2(B, M, D)                                                 \
-  do {                                                                       \
-    RAFT_EXPECTS(desc->dimPq % M == 0, "dimPq must be a multiple of %u", M); \
-    if (desc->dimPq % (M * 8) == 0) {                                        \
-      SET_KERNEL1(B, (M * 8), uint64_t, D);                                  \
-    } else if (desc->dimPq % (M * 4) == 0) {                                 \
-      SET_KERNEL1(B, (M * 4), uint32_t, D);                                  \
-    } else if (desc->dimPq % (M * 2) == 0) {                                 \
-      SET_KERNEL1(B, (M * 2), uint16_t, D);                                  \
-    } else if (desc->dimPq % (M * 1) == 0) {                                 \
-      SET_KERNEL1(B, (M * 1), uint8_t, D);                                   \
-    }                                                                        \
+#define SET_KERNEL2(B, M, D)                                                   \
+  do {                                                                         \
+    RAFT_EXPECTS(desc->pq_dim % M == 0, "pq_dim must be a multiple of %u", M); \
+    if (desc->pq_dim % (M * 8) == 0) {                                         \
+      SET_KERNEL1(B, (M * 8), uint64_t, D);                                    \
+    } else if (desc->pq_dim % (M * 4) == 0) {                                  \
+      SET_KERNEL1(B, (M * 4), uint32_t, D);                                    \
+    } else if (desc->pq_dim % (M * 2) == 0) {                                  \
+      SET_KERNEL1(B, (M * 2), uint16_t, D);                                    \
+    } else if (desc->pq_dim % (M * 1) == 0) {                                  \
+      SET_KERNEL1(B, (M * 1), uint8_t, D);                                     \
+    }                                                                          \
   } while (0)
 
 #define SET_KERNEL3(D)                     \
@@ -4146,12 +4131,12 @@ inline void ivfpq_search(const handle_t& handle,
   RAFT_LOG_DEBUG("ivf_pq::search(k = %u, depth = %d, dim = %u/%u/%u)",
                  desc->topK,
                  depth,
-                 desc->dimDataset,
-                 desc->dimRotDataset,
-                 desc->dimPq);
+                 desc->data_dim,
+                 desc->rot_dim,
+                 desc->pq_dim);
   constexpr size_t thresholdSmem = 48 * 1024;
-  size_t sizeSmem                = sizeof(smemLutDtype) * desc->dimPq * (1 << desc->bitPq);
-  size_t sizeSmemBaseDiff        = sizeof(float) * desc->dimRotDataset;
+  size_t sizeSmem                = sizeof(smemLutDtype) * desc->pq_dim * (1 << desc->bitPq);
+  size_t sizeSmemBaseDiff        = sizeof(float) * desc->rot_dim;
 
   uint32_t numCTAs = numQueries * desc->numProbes;
   int numThreads   = 1024;
@@ -4225,15 +4210,15 @@ inline void ivfpq_search(const handle_t& handle,
   dim3 ctaThreads(numThreads, 1, 1);
   dim3 ctaBlocks(numCTAs, 1, 1);
   kernel<<<ctaBlocks, ctaThreads, sizeSmem, handle.get_stream()>>>(desc->numDataset,
-                                                                   desc->dimRotDataset,
+                                                                   desc->rot_dim,
                                                                    desc->numProbes,
-                                                                   desc->dimPq,
+                                                                   desc->pq_dim,
                                                                    numQueries,
                                                                    desc->maxSamples,
                                                                    desc->metric,
                                                                    desc->typePqCenter,
                                                                    desc->topK,
-                                                                   clusterCenters,
+                                                                   cluster_centers,
                                                                    pqCenters,
                                                                    pqDataset,
                                                                    cluster_offsets,
@@ -4281,7 +4266,7 @@ inline void ivfpq_search(const handle_t& handle,
                                                       desc->maxSamples,
                                                       numQueries,
                                                       cluster_offsets,
-                                                      originalNumbers,
+                                                      data_indices,
                                                       clusterLabelsToProbe,
                                                       chunkIndexPtr,
                                                       (scoreDtype*)similarity,
