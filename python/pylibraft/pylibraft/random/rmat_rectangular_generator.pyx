@@ -28,7 +28,7 @@ from .rng_state cimport RngState
 from libcpp cimport bool
 
 
-cdef extern from "raft_compiled/random/rmat_rectangular_generator.hpp" \
+cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
         namespace "raft::random::runtime":
 
     cdef void rmat_rectangular_gen(const handle_t &handle,

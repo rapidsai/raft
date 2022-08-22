@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -35,10 +35,9 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    -g                          - build for debug
    --compile-libs              - compile shared libraries for all components
    --compile-nn                - compile shared library for nn component
-   --compile-dist              - compile shared library for distance component
-   --compile-lib               - compile shared library for raft component (eventually, this
-                                 will be the only option to be supported once nn and dist are
-                                 merged into a single build)
+   --compile-dist              - compile shared library for distance and current random components
+                                 (eventually, this will be renamed to something more generic and
+                                  the only option to be supported)
    --minimal-deps              - disables dependencies like thrust so they can be overridden.
                                  can be useful for a pure header-only install
    --allgpuarch                - build for all supported GPU architectures
@@ -69,7 +68,6 @@ BUILD_STATIC_FAISS=OFF
 COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
-COMPILE_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=OFF
 
 ENABLE_thrust_DEPENDENCY=ON
@@ -191,15 +189,9 @@ if hasArg --compile-dist || hasArg --compile-libs || hasArg pylibraft || (( ${NU
     CMAKE_TARGET="${CMAKE_TARGET};raft_distance_lib"
 fi
 
-if hasArg --compile-lib || hasArg --compile-libs || hasArg pylibraft || (( ${NUMARGS} == 0 )); then
-    COMPILE_LIBRARY=ON
-    CMAKE_TARGET="${CMAKE_TARGET};raft_compiled_lib"
-fi
-
 if hasArg tests || (( ${NUMARGS} == 0 )); then
     BUILD_TESTS=ON
     COMPILE_DIST_LIBRARY=ON
-    COMPILE_LIBRARY=ON
     ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};test_raft"
@@ -283,7 +275,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg pylibraft || hasArg docs ||
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
-          -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
           ${CACHE_ARGS} \
