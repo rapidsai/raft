@@ -124,69 +124,6 @@ __device__ __host__ float __fp_8bit2float(const fp_8bit<expBitLen>& v)
 using namespace cub;
 
 //
-extern __shared__ float smemArray[];
-
-#define FP16_MAX 65504.0
-
-//
-inline char* _cuann_get_dtype_string(cudaDataType_t dtype, char* string)
-{
-  if (dtype == CUDA_R_32F)
-    sprintf(string, "float (CUDA_R_32F)");
-  else if (dtype == CUDA_R_16F)
-    sprintf(string, "half (CUDA_R_16F)");
-  else if (dtype == CUDA_R_8U)
-    sprintf(string, "uint8 (CUDA_R_8U)");
-  else if (dtype == CUDA_R_8I)
-    sprintf(string, "int8 (CUDA_R_8I)");
-  else
-    sprintf(string, "unknown");
-  return string;
-}
-
-// copy_fill
-template <typename S, typename D>
-__global__ void kern_copy_fill(uint32_t nRows,
-                               uint32_t nCols,
-                               const S* src,  // [nRows, ldSrc]
-                               uint32_t ldSrc,
-                               D* dst,  // [nRows, ldDst]
-                               uint32_t ldDst,
-                               D fillValue,
-                               D divisor)
-{
-  uint32_t gid  = threadIdx.x + (blockDim.x * blockIdx.x);
-  uint32_t iCol = gid % ldDst;
-  uint32_t iRow = gid / ldDst;
-  if (iRow >= nRows) return;
-  if (iCol < nCols) {
-    dst[iCol + (ldDst * iRow)] = src[iCol + (ldSrc * iRow)] / divisor;
-  } else {
-    dst[iCol + (ldDst * iRow)] = fillValue;
-  }
-}
-
-// copy_fill
-template <typename S, typename D>
-inline void _cuann_copy_fill(uint32_t nRows,
-                             uint32_t nCols,
-                             const S* src,  // [nRows, ldSrc]
-                             uint32_t ldSrc,
-                             D* dst,  // [nRows, ldDst]
-                             uint32_t ldDst,
-                             D fillValue,
-                             D divisor,
-                             cudaStream_t stream)
-{
-  RAFT_EXPECTS(ldSrc >= nCols, "src leading dimension must be larger than nCols");
-  RAFT_EXPECTS(ldDst >= nCols, "dist leading dimension must be larger than nCols");
-  uint32_t nThreads = 128;
-  uint32_t nBlocks  = ((nRows * ldDst) + nThreads - 1) / nThreads;
-  kern_copy_fill<S, D>
-    <<<nBlocks, nThreads, 0, stream>>>(nRows, nCols, src, ldSrc, dst, ldDst, fillValue, divisor);
-}
-
-//
 template <typename D, typename S>
 __global__ void kern_transpose_copy_3d(uint32_t num0,
                                        uint32_t num1,
@@ -1958,24 +1895,12 @@ inline void _cuann_get_sqsumClusters(cuannIvfPqDescriptor_t& desc,
   rmm::cuda_stream_default.synchronize();
 }
 
-//
-template <typename T>
-T _cuann_dot(int n, const T* x, int incX, const T* y, int incY)
+template <typename T, typename X = T, typename Y = T>
+T _cuann_dot(int n, const X* x, int incX, const Y* y, int incY)
 {
   T val = 0;
   for (int i = 0; i < n; i++) {
-    val += x[incX * i] * y[incY * i];
-  }
-  return val;
-}
-
-//
-template <typename T, typename X, typename Y>
-T _cuann_dot(int n, const X* x, int incX, const Y* y, int incY, T divisor = 1)
-{
-  T val = 0;
-  for (int i = 0; i < n; i++) {
-    val += (T)(x[incX * i]) * (T)(y[incY * i]) / divisor;
+    val += utils::mapping<T>{}(x[incX * i]) * utils::mapping<T>{}(y[incY * i]);
   }
   return val;
 }
@@ -2375,21 +2300,21 @@ void cuannIvfPqBuildIndex(
   bool randomRotation /* If true, rotate vectors with randamly created rotation matrix */)
 {
   auto stream = handle.get_stream();
-  cudaDataType_t dtype;
+
   if constexpr (std::is_same_v<T, float>) {
-    dtype = CUDA_R_32F;
+    desc->dtypeDataset = CUDA_R_32F;
   } else if constexpr (std::is_same_v<T, uint8_t>) {
-    dtype = CUDA_R_8U;
+    desc->dtypeDataset = CUDA_R_8U;
   } else if constexpr (std::is_same_v<T, int8_t>) {
-    dtype = CUDA_R_8I;
+    desc->dtypeDataset = CUDA_R_8I;
   } else {
     static_assert(
       std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
       "unsupported type");
   }
   if (desc->metric == distance::DistanceType::InnerProduct) {
-    RAFT_EXPECTS(dtype == CUDA_R_32F,
-                 "Unsupported dtype (inner-product metric support float only)");
+    RAFT_EXPECTS(desc->dtypeDataset == CUDA_R_32F,
+                 "Unsupported data type (inner-product metric support float only)");
   }
 
   auto trainset_ratio = std::max<size_t>(
@@ -2419,11 +2344,6 @@ void cuannIvfPqBuildIndex(
                                   n_rows_train,
                                   cudaMemcpyDefault,
                                   stream));
-
-  desc->dtypeDataset = dtype;
-  char dtypeString[64];
-  _cuann_get_dtype_string(desc->dtypeDataset, dtypeString);
-  RAFT_LOG_DEBUG("Dataset dtype = %s", dtypeString);
 
   if (desc->index_ptr != nullptr) { RAFT_CUDA_TRY_NO_THROW(cudaFree(desc->index_ptr)); }
   size_t index_size;
@@ -2732,36 +2652,14 @@ void cuannIvfPqBuildIndex(
 
     // mod_trainset[] = transpose( rotate(trainset[]) - clusterRotCenters[] )
 #pragma omp parallel for
-    for (uint32_t i = 0; i < n_rows_train; i++) {
+    for (size_t i = 0; i < n_rows_train; i++) {
       uint32_t l = trainset_labels.data()[i];
-      for (uint32_t j = 0; j < desc->rot_dim; j++) {
-        float val = FLT_MAX;
-        if (dtype == CUDA_R_32F) {
-          val = _cuann_dot<float, float, float>(
-            desc->data_dim,
-            (float*)trainset.data() + ((uint64_t)(desc->data_dim) * i),
-            1,
-            rotationMatrix + ((uint64_t)(desc->data_dim) * j),
-            1);
-        } else if (dtype == CUDA_R_8U) {
-          float divisor = 256.0;
-          val           = _cuann_dot<float, uint8_t, float>(
-            desc->data_dim,
-            (uint8_t*)trainset.data() + ((uint64_t)(desc->data_dim) * i),
-            1,
-            rotationMatrix + ((uint64_t)(desc->data_dim) * j),
-            1,
-            divisor);
-        } else if (dtype == CUDA_R_8I) {
-          float divisor = 128.0;
-          val           = _cuann_dot<float, int8_t, float>(
-            desc->data_dim,
-            (int8_t*)trainset.data() + ((uint64_t)(desc->data_dim) * i),
-            1,
-            rotationMatrix + ((uint64_t)(desc->data_dim) * j),
-            1,
-            divisor);
-        }
+      for (size_t j = 0; j < desc->rot_dim; j++) {
+        float val   = _cuann_dot<float>(desc->data_dim,
+                                      trainset.data() + static_cast<size_t>(desc->data_dim) * i,
+                                      1,
+                                      rotationMatrix + static_cast<size_t>(desc->data_dim) * j,
+                                      1);
         uint32_t j0 = j / (desc->lenPq);  // 0 <= j0 < pq_dim
         uint32_t j1 = j % (desc->lenPq);  // 0 <= j1 < lenPq
         uint64_t idx =
@@ -2861,22 +2759,21 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   const T* newVectors, /* [numNewVectors, data_dim] */
   uint32_t numNewVectors) -> cuannIvfPqDescriptor_t
 {
-  cudaDataType_t dtype = oldDesc->dtypeDataset;
   if constexpr (std::is_same_v<T, float>) {
     RAFT_EXPECTS(
-      dtype == CUDA_R_32F,
+      oldDesc->dtypeDataset == CUDA_R_32F,
       "The old index type (%d) doesn't much CUDA_R_32F required by the template instantiation",
-      dtype);
+      oldDesc->dtypeDataset);
   } else if constexpr (std::is_same_v<T, uint8_t>) {
     RAFT_EXPECTS(
-      dtype == CUDA_R_8U,
+      oldDesc->dtypeDataset == CUDA_R_8U,
       "The old index type (%d) doesn't much CUDA_R_8U required by the template instantiation",
-      dtype);
+      oldDesc->dtypeDataset);
   } else if constexpr (std::is_same_v<T, int8_t>) {
     RAFT_EXPECTS(
-      dtype == CUDA_R_8I,
+      oldDesc->dtypeDataset == CUDA_R_8I,
       "The old index type (%d) doesn't much CUDA_R_8I required by the template instantiation",
-      dtype);
+      oldDesc->dtypeDataset);
   } else {
     static_assert(
       std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
@@ -2896,9 +2793,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
     &managed_memory_upstream, 1024 * 1024);
 
-  char dtypeString[64];
-  _cuann_get_dtype_string(dtype, dtypeString);
-  RAFT_LOG_DEBUG("dtype: %s", dtypeString);
   RAFT_LOG_DEBUG("data_dim: %u", oldDesc->data_dim);
   float* oldClusterCenters;       // [numClusters, dimDatasetExt]
   float* oldPqCenters;            // [pq_dim, 1 << bitPq, lenPq], or
@@ -3304,7 +3198,7 @@ inline void cuannIvfPqSearch_bufferSize(const handle_t& handle,
 template <typename T>
 void cuannIvfPqSearch(const handle_t& handle,
                       cuannIvfPqDescriptor_t& desc,
-                      const T* queries, /* [numQueries, data_dim], host or device pointer */
+                      const T* queries, /* [numQueries, data_dim], device pointer */
                       uint32_t numQueries,
                       uint64_t* neighbors, /* [numQueries, topK], device pointer */
                       float* distances,    /* [numQueries, topK], device pointer */
@@ -3370,74 +3264,25 @@ void cuannIvfPqSearch(const handle_t& handle,
     }
   }
 
-  switch (utils::check_pointer_residency(neighbors, distances)) {
+  switch (utils::check_pointer_residency(queries, neighbors, distances)) {
     case utils::pointer_residency::device_only:
     case utils::pointer_residency::host_and_device: break;
-    default: RAFT_FAIL("output pointers must be accessible from the device.");
+    default: RAFT_FAIL("all pointers must be accessible from the device.");
   }
-
-  cudaPointerAttributes attr;
-  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, queries));
 
   for (uint32_t i = 0; i < numQueries; i += desc->maxQueries) {
     uint32_t nQueries = min(desc->maxQueries, numQueries - i);
 
     float fillValue = 0.0;
     if (desc->metric != raft::distance::DistanceType::InnerProduct) { fillValue = 1.0 / -2.0; }
-    float divisor = 1.0;
-    if (desc->dtypeDataset == CUDA_R_8U) {
-      divisor = 256.0;
-    } else if (desc->dtypeDataset == CUDA_R_8I) {
-      divisor = 128.0;
-    }
-    if constexpr (std::is_same_v<T, float>) {
-      float* ptrQueries = (float*)queries + ((uint64_t)(desc->data_dim) * i);
-      if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        raft::copy(dev_queries.data(), ptrQueries, nQueries * desc->data_dim, stream);
-        ptrQueries = dev_queries.data();
-      }
-      _cuann_copy_fill<float, float>(nQueries,
-                                     desc->data_dim,
-                                     ptrQueries,
-                                     desc->data_dim,
-                                     cur_queries.data(),
-                                     desc->dimDatasetExt,
-                                     fillValue,
-                                     divisor,
-                                     stream);
-    }
-    if constexpr (std::is_same_v<T, uint8_t>) {
-      uint8_t* ptrQueries = (uint8_t*)queries + ((uint64_t)(desc->data_dim) * i);
-      if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        raft::copy(dev_queries.data(), ptrQueries, nQueries * desc->data_dim, stream);
-        ptrQueries = dev_queries.data();
-      }
-      _cuann_copy_fill<uint8_t, float>(nQueries,
-                                       desc->data_dim,
-                                       ptrQueries,
-                                       desc->data_dim,
-                                       cur_queries.data(),
-                                       desc->dimDatasetExt,
-                                       fillValue,
-                                       divisor,
-                                       stream);
-    }
-    if constexpr (std::is_same_v<T, int8_t>) {
-      int8_t* ptrQueries = (int8_t*)queries + ((uint64_t)(desc->data_dim) * i);
-      if (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged) {
-        raft::copy(dev_queries.data(), ptrQueries, nQueries * desc->data_dim, stream);
-        ptrQueries = dev_queries.data();
-      }
-      _cuann_copy_fill<int8_t, float>(nQueries,
-                                      desc->data_dim,
-                                      ptrQueries,
-                                      desc->data_dim,
-                                      cur_queries.data(),
-                                      desc->dimDatasetExt,
-                                      fillValue,
-                                      divisor,
-                                      stream);
-    }
+    utils::copy_fill(nQueries,
+                     desc->data_dim,
+                     queries + static_cast<size_t>(desc->data_dim) * i,
+                     desc->data_dim,
+                     cur_queries.data(),
+                     desc->dimDatasetExt,
+                     fillValue,
+                     stream);
 
     float alpha;
     float beta;
@@ -3555,6 +3400,8 @@ __device__ inline float ivfpq_compute_score(
   }
   return score;
 }
+
+extern __shared__ float smemArray[];
 
 //
 // (*) Restrict the peak GPU occupancy up-to 50% by "__launch_bounds__(1024, 1)",
