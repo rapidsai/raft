@@ -19,7 +19,7 @@ import numpy as np
 
 from pylibraft.distance import pairwise_distance
 
-from .utils import TestDeviceBuffer
+from pylibraft.testing.utils import TestDeviceBuffer
 
 
 @pytest.mark.parametrize("n_rows", [100])

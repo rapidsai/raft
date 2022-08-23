@@ -58,16 +58,15 @@ if(NOT raft_FOUND)
   set(RAFT_COMPILE_DIST_LIBRARY ON)
   add_subdirectory(../../cpp raft-cpp)
 
-  message("Installing raft_distance_lib")
   # When building the C++ libraries from source we must copy
   # libraft_distance.so alongside the pairwise_distance and random Cython libraries
   # TODO: when we have a single 'compiled' raft library, we shouldn't need this
   install(TARGETS raft_distance_lib DESTINATION pylibraft/distance)
-#  install(TARGETS raft_distance_lib DESTINATION pylibraft/random)
+  install(TARGETS raft_distance_lib DESTINATION pylibraft/random)
 endif()
 
 include(rapids-cython)
 rapids_cython_init()
 
 add_subdirectory(pylibraft/distance)
-#add_subdirectory(pylibraft/random)
+add_subdirectory(pylibraft/random)

@@ -18,8 +18,7 @@ import numpy as np
 
 from pylibraft.random import rmat
 
-
-from .utils import TestDeviceBuffer
+from pylibraft.testing.utils import TestDeviceBuffer
 
 
 def generate_theta(r_scale, c_scale):
