@@ -81,14 +81,12 @@ inline auto build(
     params.codebook_kind);
 
   // Build index
-  ivf_pq::detail::cuannIvfPqBuildIndex(
-    handle,
-    index.desc(),
-    dataset,                                          // dataset
-    dataset,                                          // ?kmeans? trainset
-    uint32_t(params.add_data_on_build ? n_rows : 0),  // size of the trainset (I guess for kmeans)
-    params.kmeans_n_iters,
-    params.random_rotation);
+  ivf_pq::detail::cuannIvfPqBuildIndex(handle,
+                                       index.desc(),
+                                       dataset,
+                                       params.kmeans_trainset_fraction,
+                                       params.kmeans_n_iters,
+                                       params.random_rotation);
 
   return index;
 }

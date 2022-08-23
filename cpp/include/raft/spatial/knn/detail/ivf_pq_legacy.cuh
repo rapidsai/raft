@@ -2171,35 +2171,26 @@ void _cuann_compute_PQ_code(const handle_t& handle,
                             const uint32_t* cluster_offsets,  // [numClusters + 1]
                             float* pqCenters,                 // [...]
                             uint32_t numIterations,
-                            uint8_t* pqDataset  // [numDataset, pq_dim * bitPq / 8]
-)
+                            uint8_t* pqDataset,  // [numDataset, pq_dim * bitPq / 8]
+                            rmm::mr::device_memory_resource* managed_memory,
+                            rmm::mr::device_memory_resource* device_memory)
 {
-  auto stream                                    = handle.get_stream();
-  rmm::mr::device_memory_resource* device_memory = nullptr;
-  auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("_cuann_compute_PQ_code: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
-  }
-  rmm::mr::managed_memory_resource managed_memory_upstream;
-  rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
-    &managed_memory_upstream,
-    Pow2<(1024ul * 1024ul)>::roundUp(maxClusterSize * (data_dim + rot_dim) * 4));
+  auto stream = handle.get_stream();
 
   //
   // Compute PQ code
   //
   utils::memzero(pqDataset, numDataset * pq_dim * bitPq / 8, stream);
 
-  rmm::device_uvector<float> res_vectors(maxClusterSize * data_dim, stream, &managed_memory);
-  rmm::device_uvector<float> rot_vectors(maxClusterSize * rot_dim, stream, &managed_memory);
-  rmm::device_uvector<float> sub_vectors(maxClusterSize * pq_dim * lenPq, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> sub_vector_labels(maxClusterSize * pq_dim, stream, &managed_memory);
+  rmm::device_uvector<float> res_vectors(maxClusterSize * data_dim, stream, managed_memory);
+  rmm::device_uvector<float> rot_vectors(maxClusterSize * rot_dim, stream, managed_memory);
+  rmm::device_uvector<float> sub_vectors(maxClusterSize * pq_dim * lenPq, stream, managed_memory);
+  rmm::device_uvector<uint32_t> sub_vector_labels(maxClusterSize * pq_dim, stream, managed_memory);
   rmm::device_uvector<uint8_t> my_pq_dataset(
-    maxClusterSize * pq_dim * bitPq / 8 /* NB: pq_dim * bitPQ % 8 == 0 */, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> rot_vector_labels(0, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> pq_cluster_size(0, stream, &managed_memory);
-  rmm::device_uvector<float> my_pq_centers(0, stream, &managed_memory);
+    maxClusterSize * pq_dim * bitPq / 8 /* NB: pq_dim * bitPQ % 8 == 0 */, stream, managed_memory);
+  rmm::device_uvector<uint32_t> rot_vector_labels(0, stream, managed_memory);
+  rmm::device_uvector<uint32_t> pq_cluster_size(0, stream, managed_memory);
+  rmm::device_uvector<float> my_pq_centers(0, stream, managed_memory);
 
   if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
     utils::memzero(pqCenters, numClusters * (1 << bitPq) * lenPq, stream);
@@ -2262,12 +2253,12 @@ void _cuann_compute_PQ_code(const handle_t& handle,
     // (*) PQ codebooks are trained for each cluster.
     //
     if ((numIterations > 0) && (typePqCenter == codebook_gen::PER_CLUSTER)) {
-      uint32_t numTrainset = _get_num_trainset(cluster_sizes[l], pq_dim, bitPq);
+      uint32_t n_rows_train = _get_num_trainset(cluster_sizes[l], pq_dim, bitPq);
       kmeans::build_clusters(handle,
                              numIterations,
                              lenPq,
                              rot_vectors.data(),
-                             numTrainset,
+                             n_rows_train,
                              (1 << bitPq),
                              my_pq_centers.data(),
                              rot_vector_labels.data(),
@@ -2404,12 +2395,12 @@ template <typename T>
 void cuannIvfPqBuildIndex(
   const handle_t& handle,
   cuannIvfPqDescriptor_t& desc,
-  const T* data_vectors,  /* [numDataset, data_dim] */
-  const T* trainset,      /* [numTrainset, data_dim] */
-  uint32_t numTrainset,   /* Number of train-set entries */
+  const T* data_vectors, /* [numDataset, data_dim] */
+  double trainset_fraction,
   uint32_t numIterations, /* Number of iterations to train kmeans */
   bool randomRotation /* If true, rotate vectors with randamly created rotation matrix */)
 {
+  auto stream = handle.get_stream();
   cudaDataType_t dtype;
   if constexpr (std::is_same_v<T, float>) {
     dtype = CUDA_R_32F;
@@ -2427,6 +2418,11 @@ void cuannIvfPqBuildIndex(
                  "Unsupported dtype (inner-product metric support float only)");
   }
 
+  auto trainset_ratio = std::max<size_t>(
+    1,
+    desc->numDataset / std::max<size_t>(trainset_fraction * desc->numDataset, desc->numClusters));
+  auto n_rows_train = desc->numDataset / trainset_ratio;
+
   rmm::mr::device_memory_resource* device_memory = nullptr;
   auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
   if (pool_guard) {
@@ -2438,16 +2434,22 @@ void cuannIvfPqBuildIndex(
   rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
     &managed_memory_upstream, 1024 * 1024);
 
+  // TODO: move to device_memory, blocked by _cuann_dot
+  rmm::device_uvector<T> trainset(n_rows_train * desc->data_dim, stream, &managed_memory);
+  // TODO: a proper sampling
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
+                                  sizeof(T) * desc->data_dim,
+                                  data_vectors,
+                                  sizeof(T) * desc->data_dim * trainset_ratio,
+                                  sizeof(T) * desc->data_dim,
+                                  n_rows_train,
+                                  cudaMemcpyDefault,
+                                  stream));
+
   desc->dtypeDataset = dtype;
   char dtypeString[64];
   _cuann_get_dtype_string(desc->dtypeDataset, dtypeString);
   RAFT_LOG_DEBUG("Dataset dtype = %s", dtypeString);
-
-  switch (utils::check_pointer_residency(data_vectors, trainset)) {
-    case utils::pointer_residency::host_only:
-    case utils::pointer_residency::host_and_device: break;
-    default: RAFT_FAIL("both data_vectors and trainsed must be accessible from the host.");
-  }
 
   if (desc->index_ptr != nullptr) { RAFT_CUDA_TRY_NO_THROW(cudaFree(desc->index_ptr)); }
   size_t index_size;
@@ -2473,21 +2475,18 @@ void cuannIvfPqBuildIndex(
                             &rotationMatrix,
                             &clusterRotCenters);
 
-  rmm::device_uvector<uint32_t> trainset_labels(numTrainset, handle.get_stream(), &managed_memory);
-  rmm::device_uvector<uint32_t> cluster_sizes(
-    desc->numClusters, handle.get_stream(), &managed_memory);
+  rmm::device_uvector<uint32_t> trainset_labels(n_rows_train, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> cluster_sizes(desc->numClusters, stream, &managed_memory);
 
   uint32_t numMesoClusters =
     std::min<uint32_t>(desc->numClusters, std::sqrt(desc->numClusters) + 0.5);
   RAFT_LOG_DEBUG("numMesoClusters: %u", numMesoClusters);
 
   rmm::device_uvector<float> mesocluster_centers(
-    numMesoClusters * desc->data_dim, handle.get_stream(), &managed_memory);
+    numMesoClusters * desc->data_dim, stream, &managed_memory);
 
-  rmm::device_uvector<uint32_t> mesocluster_labels(
-    numTrainset, handle.get_stream(), &managed_memory);
-  rmm::device_uvector<uint32_t> mesocluster_sizes(
-    numMesoClusters, handle.get_stream(), &managed_memory);
+  rmm::device_uvector<uint32_t> mesocluster_labels(n_rows_train, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> mesocluster_sizes(numMesoClusters, stream, &managed_memory);
 
   //
   // Training kmeans for meso-clusters
@@ -2495,15 +2494,15 @@ void cuannIvfPqBuildIndex(
   kmeans::build_clusters(handle,
                          numIterations,
                          desc->data_dim,
-                         trainset,
-                         numTrainset,
+                         trainset.data(),
+                         n_rows_train,
                          numMesoClusters,
                          mesocluster_centers.data(),
                          mesocluster_labels.data(),
                          mesocluster_sizes.data(),
                          desc->metric,
                          device_memory,
-                         handle.get_stream());
+                         stream);
   handle.sync_stream();
 
   // Number of centers in each meso cluster
@@ -2513,45 +2512,43 @@ void cuannIvfPqBuildIndex(
   fine_clusters_csum[0] = 0;
 
   uint32_t numClustersRemain  = desc->numClusters;
-  uint32_t numTrainsetRemain  = numTrainset;
+  uint32_t n_rows_trainRemain = n_rows_train;
   uint32_t mesoClusterSizeSum = 0;  // check
   uint32_t mesoClusterSizeMax = 0;
   uint32_t numFineClustersMax = 0;
   for (uint32_t i = 0; i < numMesoClusters; i++) {
     if (i < numMesoClusters - 1) {
       fine_clusters_nums[i] =
-        (double)numClustersRemain * mesocluster_sizes.data()[i] / numTrainsetRemain + .5;
+        (double)numClustersRemain * mesocluster_sizes.data()[i] / n_rows_trainRemain + .5;
     } else {
       fine_clusters_nums[i] = numClustersRemain;
     }
     fine_clusters_csum[i + 1] = fine_clusters_csum[i] + fine_clusters_nums[i];
 
     numClustersRemain -= fine_clusters_nums[i];
-    numTrainsetRemain -= mesocluster_sizes.data()[i];
+    n_rows_trainRemain -= mesocluster_sizes.data()[i];
     mesoClusterSizeSum += mesocluster_sizes.data()[i];
     mesoClusterSizeMax = max(mesoClusterSizeMax, mesocluster_sizes.data()[i]);
     numFineClustersMax = max(numFineClustersMax, fine_clusters_nums[i]);
   }
-  RAFT_EXPECTS(mesoClusterSizeSum == numTrainset, "mesocluster sizes do not add up");
+  RAFT_EXPECTS(mesoClusterSizeSum == n_rows_train, "mesocluster sizes do not add up");
   RAFT_EXPECTS(fine_clusters_csum[numMesoClusters] == desc->numClusters,
                "fine cluster sizes do not add up");
 
-  rmm::device_uvector<uint32_t> ids_trainset(
-    mesoClusterSizeMax, handle.get_stream(), &managed_memory);
+  rmm::device_uvector<uint32_t> ids_trainset(mesoClusterSizeMax, stream, &managed_memory);
   rmm::device_uvector<float> sub_trainset(
-    mesoClusterSizeMax * desc->data_dim, handle.get_stream(), &managed_memory);
-  rmm::device_uvector<uint32_t> labels_mp(mesoClusterSizeMax, handle.get_stream(), &managed_memory);
+    mesoClusterSizeMax * desc->data_dim, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> labels_mp(mesoClusterSizeMax, stream, &managed_memory);
   rmm::device_uvector<float> cluster_centers_each(
-    numFineClustersMax * desc->data_dim, handle.get_stream(), &managed_memory);
-  rmm::device_uvector<uint32_t> cluser_size_mp(
-    numFineClustersMax, handle.get_stream(), &managed_memory);
+    numFineClustersMax * desc->data_dim, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> cluser_size_mp(numFineClustersMax, stream, &managed_memory);
 
   //
   // Training kmeans for clusters in each meso-clusters
   //
   for (uint32_t i = 0; i < numMesoClusters; i++) {
     uint32_t k = 0;
-    for (uint32_t j = 0; j < numTrainset; j++) {
+    for (uint32_t j = 0; j < n_rows_train; j++) {
       if (mesocluster_labels.data()[j] != i) continue;
       ids_trainset.data()[k++] = j;
     }
@@ -2559,12 +2556,12 @@ void cuannIvfPqBuildIndex(
 
     utils::copy_selected<float, T>(mesocluster_sizes.data()[i],
                                    desc->data_dim,
-                                   trainset,
+                                   trainset.data(),
                                    ids_trainset.data(),
                                    desc->data_dim,
                                    sub_trainset.data(),
                                    desc->data_dim,
-                                   handle.get_stream());
+                                   stream);
 
     kmeans::build_clusters(handle,
                            numIterations,
@@ -2577,11 +2574,11 @@ void cuannIvfPqBuildIndex(
                            cluser_size_mp.data(),
                            desc->metric,
                            device_memory,
-                           handle.get_stream());
+                           stream);
     raft::copy(cluster_centers + (desc->data_dim * fine_clusters_csum[i]),
                cluster_centers_each.data(),
                fine_clusters_nums[i] * desc->data_dim,
-               handle.get_stream());
+               stream);
     handle.sync_stream();
   }
 
@@ -2601,29 +2598,28 @@ void cuannIvfPqBuildIndex(
                     cluster_centers,
                     desc->numClusters,
                     desc->data_dim,
-                    trainset,
-                    numTrainset,
+                    trainset.data(),
+                    n_rows_train,
                     trainset_labels.data(),
                     desc->metric,
-                    handle.get_stream(),
+                    stream,
                     device_memory);
     kmeans::calc_centers_and_sizes(cluster_centers,
                                    cluster_sizes.data(),
                                    desc->numClusters,
                                    desc->data_dim,
-                                   trainset,
-                                   numTrainset,
+                                   trainset.data(),
+                                   n_rows_train,
                                    trainset_labels.data(),
                                    true,
-                                   handle.get_stream());
+                                   stream);
     switch (desc->metric) {
       // For some metrics, cluster calculation and adjustment tends to favor zero center vectors.
       // To avoid converging to zero, we normalize the center vectors on every iteration.
       case raft::distance::DistanceType::InnerProduct:
       case raft::distance::DistanceType::CosineExpanded:
       case raft::distance::DistanceType::CorrelationExpanded:
-        utils::normalize_rows(
-          desc->numClusters, desc->data_dim, cluster_centers, handle.get_stream());
+        utils::normalize_rows(desc->numClusters, desc->data_dim, cluster_centers, stream);
       default: break;
     }
     handle.sync_stream();
@@ -2631,23 +2627,21 @@ void cuannIvfPqBuildIndex(
     if ((iter + 1 < numIterations_X) && kmeans::adjust_centers(cluster_centers,
                                                                desc->numClusters,
                                                                desc->data_dim,
-                                                               trainset,
-                                                               numTrainset,
+                                                               trainset.data(),
+                                                               n_rows_train,
                                                                trainset_labels.data(),
                                                                cluster_sizes.data(),
                                                                (float)1.0 / 5,
                                                                device_memory,
-                                                               handle.get_stream())) {
+                                                               stream)) {
       iter -= (X - 1);
       if (desc->metric == distance::DistanceType::InnerProduct) {
-        utils::normalize_rows(
-          desc->numClusters, desc->data_dim, cluster_centers, handle.get_stream());
+        utils::normalize_rows(desc->numClusters, desc->data_dim, cluster_centers, stream);
       }
     }
   }
 
-  rmm::device_uvector<uint32_t> dataset_labels(
-    desc->numDataset, handle.get_stream(), &managed_memory);
+  rmm::device_uvector<uint32_t> dataset_labels(desc->numDataset, stream, &managed_memory);
 
   //
   // Predict labels of whole data_vectors
@@ -2660,7 +2654,7 @@ void cuannIvfPqBuildIndex(
                   desc->numDataset,
                   dataset_labels.data(),
                   desc->metric,
-                  handle.get_stream(),
+                  stream,
                   device_memory);
   kmeans::calc_centers_and_sizes(cluster_centers,
                                  cluster_sizes.data(),
@@ -2670,15 +2664,14 @@ void cuannIvfPqBuildIndex(
                                  desc->numDataset,
                                  dataset_labels.data(),
                                  true,
-                                 handle.get_stream());
+                                 stream);
   switch (desc->metric) {
     // For some metrics, cluster calculation and adjustment tends to favor zero center vectors.
     // To avoid converging to zero, we normalize the center vectors on every iteration.
     case raft::distance::DistanceType::InnerProduct:
     case raft::distance::DistanceType::CosineExpanded:
     case raft::distance::DistanceType::CorrelationExpanded:
-      utils::normalize_rows(
-        desc->numClusters, desc->data_dim, cluster_centers, handle.get_stream());
+      utils::normalize_rows(desc->numClusters, desc->data_dim, cluster_centers, stream);
     default: break;
   }
   handle.sync_stream();
@@ -2713,7 +2706,7 @@ void cuannIvfPqBuildIndex(
                &beta,
                clusterRotCenters,
                desc->rot_dim,
-               handle.get_stream());
+               stream);
 
   //
   // Make cluster_offsets, data_indices and pqDataset
@@ -2741,8 +2734,7 @@ void cuannIvfPqBuildIndex(
     cluster_offsets[l] -= cluster_sizes.data()[l];
   }
 
-  rmm::device_uvector<uint32_t> pq_cluster_sizes(
-    (1 << desc->bitPq), handle.get_stream(), &managed_memory);
+  rmm::device_uvector<uint32_t> pq_cluster_sizes((1 << desc->bitPq), stream, &managed_memory);
 
   if (desc->typePqCenter == codebook_gen::PER_SUBSPACE) {
     //
@@ -2755,84 +2747,82 @@ void cuannIvfPqBuildIndex(
                     cluster_centers,
                     desc->numClusters,
                     desc->data_dim,
-                    trainset,
-                    numTrainset,
+                    trainset.data(),
+                    n_rows_train,
                     trainset_labels.data(),
                     desc->metric,
-                    handle.get_stream(),
+                    stream,
                     device_memory);
     handle.sync_stream();
 
-    // [pq_dim, numTrainset, lenPq]
-    std::vector<float> mod_trainset(desc->pq_dim * numTrainset * desc->lenPq, 0.0f);
+    // [pq_dim, n_rows_train, lenPq]
+    std::vector<float> mod_trainset(desc->pq_dim * n_rows_train * desc->lenPq, 0.0f);
 
     // mod_trainset[] = transpose( rotate(trainset[]) - clusterRotCenters[] )
 #pragma omp parallel for
-    for (uint32_t i = 0; i < numTrainset; i++) {
+    for (uint32_t i = 0; i < n_rows_train; i++) {
       uint32_t l = trainset_labels.data()[i];
       for (uint32_t j = 0; j < desc->rot_dim; j++) {
         float val = FLT_MAX;
         if (dtype == CUDA_R_32F) {
-          val = _cuann_dot<float, float, float>(desc->data_dim,
-                                                (float*)trainset + ((uint64_t)(desc->data_dim) * i),
-                                                1,
-                                                rotationMatrix + ((uint64_t)(desc->data_dim) * j),
-                                                1);
+          val = _cuann_dot<float, float, float>(
+            desc->data_dim,
+            (float*)trainset.data() + ((uint64_t)(desc->data_dim) * i),
+            1,
+            rotationMatrix + ((uint64_t)(desc->data_dim) * j),
+            1);
         } else if (dtype == CUDA_R_8U) {
           float divisor = 256.0;
-          val =
-            _cuann_dot<float, uint8_t, float>(desc->data_dim,
-                                              (uint8_t*)trainset + ((uint64_t)(desc->data_dim) * i),
-                                              1,
-                                              rotationMatrix + ((uint64_t)(desc->data_dim) * j),
-                                              1,
-                                              divisor);
+          val           = _cuann_dot<float, uint8_t, float>(
+            desc->data_dim,
+            (uint8_t*)trainset.data() + ((uint64_t)(desc->data_dim) * i),
+            1,
+            rotationMatrix + ((uint64_t)(desc->data_dim) * j),
+            1,
+            divisor);
         } else if (dtype == CUDA_R_8I) {
           float divisor = 128.0;
-          val =
-            _cuann_dot<float, int8_t, float>(desc->data_dim,
-                                             (int8_t*)trainset + ((uint64_t)(desc->data_dim) * i),
-                                             1,
-                                             rotationMatrix + ((uint64_t)(desc->data_dim) * j),
-                                             1,
-                                             divisor);
+          val           = _cuann_dot<float, int8_t, float>(
+            desc->data_dim,
+            (int8_t*)trainset.data() + ((uint64_t)(desc->data_dim) * i),
+            1,
+            rotationMatrix + ((uint64_t)(desc->data_dim) * j),
+            1,
+            divisor);
         }
         uint32_t j0 = j / (desc->lenPq);  // 0 <= j0 < pq_dim
         uint32_t j1 = j % (desc->lenPq);  // 0 <= j1 < lenPq
         uint64_t idx =
-          j1 + ((uint64_t)(desc->lenPq) * i) + ((uint64_t)(desc->lenPq) * numTrainset * j0);
+          j1 + ((uint64_t)(desc->lenPq) * i) + ((uint64_t)(desc->lenPq) * n_rows_train * j0);
         mod_trainset[idx] = val - clusterRotCenters[j + (desc->rot_dim * l)];
       }
     }
 
-    rmm::device_uvector<float> sub_trainset(
-      numTrainset * desc->lenPq, handle.get_stream(), &managed_memory);
-    rmm::device_uvector<uint32_t> sub_trainset_labels(
-      numTrainset, handle.get_stream(), &managed_memory);
+    rmm::device_uvector<float> sub_trainset(n_rows_train * desc->lenPq, stream, &managed_memory);
+    rmm::device_uvector<uint32_t> sub_trainset_labels(n_rows_train, stream, &managed_memory);
     rmm::device_uvector<float> pq_centers(
-      (1 << desc->bitPq) * desc->lenPq, handle.get_stream(), &managed_memory);
+      (1 << desc->bitPq) * desc->lenPq, stream, &managed_memory);
 
     for (uint32_t j = 0; j < desc->pq_dim; j++) {
       float* curPqCenters = pqCenters + ((1 << desc->bitPq) * desc->lenPq) * j;
       RAFT_CUDA_TRY(cudaMemcpy(sub_trainset.data(),
-                               mod_trainset.data() + ((uint64_t)numTrainset * desc->lenPq * j),
-                               sizeof(float) * numTrainset * desc->lenPq,
+                               mod_trainset.data() + ((uint64_t)n_rows_train * desc->lenPq * j),
+                               sizeof(float) * n_rows_train * desc->lenPq,
                                cudaMemcpyHostToDevice));
       // Train kmeans for each PQ
       kmeans::build_clusters(handle,
                              numIterations,
                              desc->lenPq,
                              sub_trainset.data(),
-                             numTrainset,
+                             n_rows_train,
                              (1 << desc->bitPq),
                              pq_centers.data(),
                              sub_trainset_labels.data(),
                              pq_cluster_sizes.data(),
                              raft::distance::DistanceType::L2Expanded,
                              device_memory,
-                             handle.get_stream());
-      raft::copy(
-        curPqCenters, pq_centers.data(), (1 << desc->bitPq) * desc->lenPq, handle.get_stream());
+                             stream);
+      raft::copy(curPqCenters, pq_centers.data(), (1 << desc->bitPq) * desc->lenPq, stream);
       handle.sync_stream();
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
       if (j == 0) {
@@ -2865,7 +2855,9 @@ void cuannIvfPqBuildIndex(
                             cluster_offsets,
                             pqCenters,
                             numIterations,
-                            pqDataset);
+                            pqDataset,
+                            &managed_memory,
+                            device_memory);
 
   //
   _cuann_get_inclusiveSumSortedClusterSize(
@@ -2876,7 +2868,7 @@ void cuannIvfPqBuildIndex(
     // combine cluster_centers and sqsumClusters
     RAFT_CUDA_TRY(cudaDeviceSynchronize());
     rmm::device_uvector<float> cluster_centers_tmp(
-      desc->numClusters * desc->data_dim, handle.get_stream(), &managed_memory);
+      desc->numClusters * desc->data_dim, stream, &managed_memory);
     for (uint32_t i = 0; i < desc->numClusters * desc->data_dim; i++) {
       cluster_centers_tmp.data()[i] = cluster_centers[i];
     }
@@ -2912,12 +2904,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   const T* newVectors, /* [numNewVectors, data_dim] */
   uint32_t numNewVectors) -> cuannIvfPqDescriptor_t
 {
-  switch (utils::check_pointer_residency(newVectors)) {
-    case utils::pointer_residency::host_only:
-    case utils::pointer_residency::host_and_device: break;
-    default: RAFT_FAIL("newVectors must be accessible from the host.");
-  }
-
   cudaDataType_t dtype = oldDesc->dtypeDataset;
   if constexpr (std::is_same_v<T, float>) {
     RAFT_EXPECTS(
@@ -2938,6 +2924,15 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
     static_assert(
       std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
       "unsupported type");
+  }
+
+  rmm::mr::device_memory_resource* device_memory = nullptr;
+  auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
+  if (pool_guard) {
+    RAFT_LOG_DEBUG(
+      "cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex: using pool memory resource with initial "
+      "size %zu bytes",
+      pool_guard->pool_size());
   }
 
   rmm::mr::managed_memory_resource managed_memory_upstream;
@@ -3091,7 +3086,9 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
                             cluster_offsets.data(),
                             oldPqCenters,
                             0,
-                            new_pq_codes.data());
+                            new_pq_codes.data(),
+                            &managed_memory,
+                            device_memory);
 
   //
   // Create descriptor for new index
