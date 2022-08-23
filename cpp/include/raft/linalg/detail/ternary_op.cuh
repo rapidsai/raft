@@ -36,7 +36,7 @@ __global__ void ternaryOpKernel(
   c.load(in3, idx);
 #pragma unroll
   for (int i = 0; i < VecType::Ratio; ++i) {
-    a.data[i] = op(a.data[i], b.data[i], c.data[i]);
+    a.val.data[i] = op(a.val.data[i], b.val.data[i], c.val.data[i]);
   }
   a.store(out, idx);
 }

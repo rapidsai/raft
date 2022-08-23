@@ -37,7 +37,7 @@ __global__ void unaryOpKernel(OutType* out, const InType* in, IdxType len, Lambd
   a.load(in, idx);
 #pragma unroll
   for (int i = 0; i < InVecType::Ratio; ++i) {
-    b.data[i] = op(a.data[i]);
+    b.val.data[i] = op(a.val.data[i]);
   }
   b.store(out, idx);
 }

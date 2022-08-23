@@ -37,7 +37,7 @@ __global__ void binaryOpKernel(
   b.load(in2, idx);
 #pragma unroll
   for (int i = 0; i < InVecType::Ratio; ++i) {
-    c.data[i] = op(a.data[i], b.data[i]);
+    c.val.data[i] = op(a.val.data[i], b.val.data[i]);
   }
   c.store(out, idx);
 }

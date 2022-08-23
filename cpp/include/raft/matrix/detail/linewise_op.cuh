@@ -102,8 +102,8 @@ struct Linewise {
           int l = 0;
           ((args[l] = vecs[rowDiv], l++), ...);
         }
-        int l     = 0;
-        w.data[k] = op(v.data[k], (std::ignore = vecs, args[l++])...);
+        int l         = 0;
+        w.val.data[k] = op(v.val.data[k], (std::ignore = vecs, args[l++])...);
       }
       *out = *w.vectorized_data();
     }
@@ -141,7 +141,7 @@ struct Linewise {
       *v.vectorized_data() = __ldcv(in + i);
 #pragma unroll VecElems
       for (int k = 0; k < VecElems; k++)
-        v.data[k] = op(v.data[k], args.data[k]...);
+        v.val.data[k] = op(v.val.data[k], args.val.data[k]...);
       __stwt(out + i, *v.vectorized_data());
     }
   }

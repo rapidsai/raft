@@ -244,7 +244,7 @@ struct IOType<double, 2> {
  * mydata2.load(ptr2, idx);
  * #pragma unroll
  * for(int i=0;i<mydata1.Ratio;++i) {
- *     mydata1.data[i] += mydata2.data[i];
+ *     mydata1.val.data[i] += mydata2.val.data[i];
  * }
  * mydata1.store(ptr1, idx);
  * @endcode
@@ -269,10 +269,12 @@ struct TxN_t {
   /** defines the number of 'math_t' types stored by this struct */
   static const int Ratio = veclen_;
 
-  /** the vectorized data that is used for subsequent operations */
-  math_t data[Ratio];
+  struct {
+    /** the vectorized data that is used for subsequent operations */
+    math_t data[Ratio];
+  } val;
 
-  __device__ auto* vectorized_data() { return reinterpret_cast<io_t*>(data); }
+  __device__ auto* vectorized_data() { return reinterpret_cast<io_t*>(val.data); }
 
   ///@todo: add default constructor
 
@@ -284,7 +286,7 @@ struct TxN_t {
   {
 #pragma unroll
     for (int i = 0; i < Ratio; ++i) {
-      data[i] = _val;
+      val.data[i] = _val;
     }
   }
 
@@ -300,9 +302,9 @@ struct TxN_t {
    * @param idx the offset from the base pointer which will be loaded
    *  (or stored) by the current thread. This must be aligned to 'Ratio'!
    *
-   * @note: In case of loads, after a successful execution, the data will
+   * @note: In case of loads, after a successful execution, the val.data will
    *  be populated with the desired data loaded from the pointer location. In
-   * case of stores, the data in the data will be stored to that location.
+   * case of stores, the data in the val.data will be stored to that location.
    * @{
    */
   template <typename idx_t = int>
@@ -334,7 +336,9 @@ struct TxN_t<math_, 0> {
   typedef math_ math_t;
   static const int Ratio = 1;
 
-  math_t data[1];
+  struct {
+    math_t data[1];
+  } val;
 
   DI void fill(math_t _val) {}
   template <typename idx_t = int>

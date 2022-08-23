@@ -70,7 +70,7 @@ __global__ void matrixVectorOpKernel(Type* out,
   mat.load(matrix, idx);
 #pragma unroll
   for (int i = 0; i < VecType::Ratio; ++i)
-    mat.data[i] = op(mat.data[i], vec.data[i]);
+    mat.val.data[i] = op(mat.val.data[i], vec.val.data[i]);
   mat.store(out, idx);
 }
 

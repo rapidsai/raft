@@ -90,7 +90,7 @@ __global__ void adj_to_csr_kernel(const bool* adj,         // row-major adjacenc
       chunk_bool chunk;
       chunk.load(row, j);
       for (int k = 0; k < chunk_size; ++k) {
-        if (chunk.data[k]) { out_col_ind[row_base + atomicIncWarp(row_count)] = j + k; }
+        if (chunk.val.data[k]) { out_col_ind[row_base + atomicIncWarp(row_count)] = j + k; }
       }
     }
 
