@@ -2370,108 +2370,69 @@ void cuannIvfPqBuildIndex(
   rmm::device_uvector<uint32_t> trainset_labels(n_rows_train, stream, &managed_memory);
   rmm::device_uvector<uint32_t> cluster_sizes(desc->numClusters, stream, &managed_memory);
 
-  uint32_t numMesoClusters =
-    std::min<uint32_t>(desc->numClusters, std::sqrt(desc->numClusters) + 0.5);
-  RAFT_LOG_DEBUG("numMesoClusters: %u", numMesoClusters);
+  {
+    /*
+    TODO: this block can be replaced with kmeans::build_optimized_kmeans if not for two minor
+    problems:
+      1. the fine-tuning part after this blocks differs a little
+      2. trainset above is reused for PQ training
+     */
+    uint32_t n_mesoclusters =
+      std::min<uint32_t>(desc->numClusters, std::sqrt(desc->numClusters) + 0.5);
+    RAFT_LOG_DEBUG("n_mesoclusters: %u", n_mesoclusters);
 
-  rmm::device_uvector<float> mesocluster_centers(
-    numMesoClusters * desc->data_dim, stream, &managed_memory);
+    rmm::device_uvector<float> mesocluster_centers(
+      n_mesoclusters * desc->data_dim, stream, &managed_memory);
 
-  rmm::device_uvector<uint32_t> mesocluster_labels(n_rows_train, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> mesocluster_sizes(numMesoClusters, stream, &managed_memory);
+    rmm::device_uvector<uint32_t> mesocluster_labels(n_rows_train, stream, &managed_memory);
+    rmm::device_uvector<uint32_t> mesocluster_sizes(n_mesoclusters, stream, &managed_memory);
 
-  //
-  // Training kmeans for meso-clusters
-  //
-  kmeans::build_clusters(handle,
-                         numIterations,
-                         desc->data_dim,
-                         trainset.data(),
-                         n_rows_train,
-                         numMesoClusters,
-                         mesocluster_centers.data(),
-                         mesocluster_labels.data(),
-                         mesocluster_sizes.data(),
-                         desc->metric,
-                         device_memory,
-                         stream);
-  handle.sync_stream();
-
-  // Number of centers in each meso cluster
-  // [numMesoClusters,]
-  std::vector<uint32_t> fine_clusters_nums(numMesoClusters);
-  std::vector<uint32_t> fine_clusters_csum(numMesoClusters + 1);
-  fine_clusters_csum[0] = 0;
-
-  uint32_t numClustersRemain  = desc->numClusters;
-  uint32_t n_rows_trainRemain = n_rows_train;
-  uint32_t mesoClusterSizeSum = 0;  // check
-  uint32_t mesoClusterSizeMax = 0;
-  uint32_t numFineClustersMax = 0;
-  for (uint32_t i = 0; i < numMesoClusters; i++) {
-    if (i < numMesoClusters - 1) {
-      fine_clusters_nums[i] =
-        (double)numClustersRemain * mesocluster_sizes.data()[i] / n_rows_trainRemain + .5;
-    } else {
-      fine_clusters_nums[i] = numClustersRemain;
-    }
-    fine_clusters_csum[i + 1] = fine_clusters_csum[i] + fine_clusters_nums[i];
-
-    numClustersRemain -= fine_clusters_nums[i];
-    n_rows_trainRemain -= mesocluster_sizes.data()[i];
-    mesoClusterSizeSum += mesocluster_sizes.data()[i];
-    mesoClusterSizeMax = max(mesoClusterSizeMax, mesocluster_sizes.data()[i]);
-    numFineClustersMax = max(numFineClustersMax, fine_clusters_nums[i]);
-  }
-  RAFT_EXPECTS(mesoClusterSizeSum == n_rows_train, "mesocluster sizes do not add up");
-  RAFT_EXPECTS(fine_clusters_csum[numMesoClusters] == desc->numClusters,
-               "fine cluster sizes do not add up");
-
-  rmm::device_uvector<uint32_t> ids_trainset(mesoClusterSizeMax, stream, &managed_memory);
-  rmm::device_uvector<float> sub_trainset(
-    mesoClusterSizeMax * desc->data_dim, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> labels_mp(mesoClusterSizeMax, stream, &managed_memory);
-  rmm::device_uvector<float> cluster_centers_each(
-    numFineClustersMax * desc->data_dim, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> cluser_size_mp(numFineClustersMax, stream, &managed_memory);
-
-  //
-  // Training kmeans for clusters in each meso-clusters
-  //
-  for (uint32_t i = 0; i < numMesoClusters; i++) {
-    uint32_t k = 0;
-    for (uint32_t j = 0; j < n_rows_train; j++) {
-      if (mesocluster_labels.data()[j] != i) continue;
-      ids_trainset.data()[k++] = j;
-    }
-    RAFT_EXPECTS(k == mesocluster_sizes.data()[i], "unexpected cluster size for cluster %u", i);
-
-    utils::copy_selected<float, T>(mesocluster_sizes.data()[i],
-                                   desc->data_dim,
-                                   trainset.data(),
-                                   ids_trainset.data(),
-                                   desc->data_dim,
-                                   sub_trainset.data(),
-                                   desc->data_dim,
-                                   stream);
-
+    //
+    // Training kmeans for meso-clusters
+    //
     kmeans::build_clusters(handle,
                            numIterations,
                            desc->data_dim,
-                           sub_trainset.data(),
-                           mesocluster_sizes.data()[i],
-                           fine_clusters_nums[i],
-                           cluster_centers_each.data(),
-                           labels_mp.data(),
-                           cluser_size_mp.data(),
+                           trainset.data(),
+                           n_rows_train,
+                           n_mesoclusters,
+                           mesocluster_centers.data(),
+                           mesocluster_labels.data(),
+                           mesocluster_sizes.data(),
                            desc->metric,
                            device_memory,
                            stream);
-    raft::copy(cluster_centers + (desc->data_dim * fine_clusters_csum[i]),
-               cluster_centers_each.data(),
-               fine_clusters_nums[i] * desc->data_dim,
-               stream);
     handle.sync_stream();
+
+    // build fine clusters
+    auto [mesocluster_size_max, fine_clusters_nums_max, fine_clusters_nums, fine_clusters_csum] =
+      kmeans::arrange_fine_clusters(
+        desc->numClusters, n_mesoclusters, n_rows_train, mesocluster_sizes.data());
+
+    if (mesocluster_size_max * n_mesoclusters > 2 * n_rows_train) {
+      RAFT_LOG_WARN("build_optimized_kmeans: built unbalanced mesoclusters");
+      RAFT_LOG_TRACE_VEC(mesocluster_sizes.data(), n_mesoclusters);
+      RAFT_LOG_TRACE_VEC(fine_clusters_nums.data(), n_mesoclusters);
+    }
+
+    auto n_clusters_done = kmeans::build_fine_clusters(handle,
+                                                       numIterations,
+                                                       desc->data_dim,
+                                                       trainset.data(),
+                                                       mesocluster_labels.data(),
+                                                       n_rows_train,
+                                                       fine_clusters_nums.data(),
+                                                       fine_clusters_csum.data(),
+                                                       mesocluster_sizes.data(),
+                                                       n_mesoclusters,
+                                                       mesocluster_size_max,
+                                                       fine_clusters_nums_max,
+                                                       cluster_centers,
+                                                       desc->metric,
+                                                       &managed_memory,
+                                                       device_memory,
+                                                       stream);
+    RAFT_EXPECTS(n_clusters_done == desc->numClusters, "Didn't process all clusters.");
   }
 
   //
