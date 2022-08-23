@@ -128,26 +128,6 @@ extern __shared__ float smemArray[];
 
 #define FP16_MAX 65504.0
 
-// header of index
-struct cuannIvfPqIndexHeader {
-  // (*) DO NOT CHANGE ORDER
-  size_t indexSize;
-  uint32_t version;
-  uint32_t numClusters;
-  uint32_t numDataset;
-  uint32_t data_dim;
-  uint32_t pq_dim;
-  uint32_t metric;
-  uint32_t maxClusterSize;
-  uint32_t rot_dim;
-  uint32_t bitPq;
-  uint32_t typePqCenter;
-  uint32_t dtypeDataset;
-  uint32_t dimDatasetExt;
-  uint32_t numDatasetAdded;
-  uint32_t _dummy[256 - 15];
-};
-
 //
 inline char* _cuann_get_dtype_string(cudaDataType_t dtype, char* string)
 {
@@ -1886,7 +1866,6 @@ inline size_t _cuann_getIndexSize_clusterRotCenters(cuannIvfPqDescriptor_t& desc
 }
 
 inline void _cuann_get_index_pointers(cuannIvfPqDescriptor_t& desc,
-                                      struct cuannIvfPqIndexHeader** header,
                                       float** cluster_centers,  // [numClusters, dimDatasetExt]
                                       float** pqCenters,        // [pq_dim, 1 << bitPq, lenPq], or
                                                                 // [numClusters, 1 << bitPq, lenPq]
@@ -1897,8 +1876,7 @@ inline void _cuann_get_index_pointers(cuannIvfPqDescriptor_t& desc,
                                       float** clusterRotCenters    // [numClusters, rot_dim]
 )
 {
-  *header          = (struct cuannIvfPqIndexHeader*)(desc->index_ptr);
-  *cluster_centers = (float*)((uint8_t*)(*header) + sizeof(struct cuannIvfPqIndexHeader));
+  *cluster_centers = (float*)(desc->index_ptr);
   *pqCenters = (float*)((uint8_t*)(*cluster_centers) + _cuann_getIndexSize_cluster_centers(desc));
   *pqDataset = (uint8_t*)((uint8_t*)(*pqCenters) + _cuann_getIndexSize_pqCenters(desc));
   *data_indices = (uint32_t*)((uint8_t*)(*pqDataset) + _cuann_getIndexSize_pqDataset(desc));
@@ -2375,14 +2353,10 @@ inline void cuannIvfPqSetIndexParameters(cuannIvfPqDescriptor_t& desc,
   desc->lenPq = desc->rot_dim / pq_dim;
 }
 
-// cuannIvfPqGetIndexSize
 inline void cuannIvfPqGetIndexSize(cuannIvfPqDescriptor_t& desc, size_t* size)
 {
   RAFT_EXPECTS(desc != nullptr, "the descriptor is not initialized.");
-
-  *size = sizeof(struct cuannIvfPqIndexHeader);
-  RAFT_EXPECTS(*size == 1024, "Critical error: unexpected header size.");
-  *size += _cuann_getIndexSize_cluster_centers(desc);
+  *size = _cuann_getIndexSize_cluster_centers(desc);
   *size += _cuann_getIndexSize_pqCenters(desc);
   *size += _cuann_getIndexSize_pqDataset(desc);
   *size += _cuann_getIndexSize_originalNumbers(desc);
@@ -2456,7 +2430,6 @@ void cuannIvfPqBuildIndex(
   cuannIvfPqGetIndexSize(desc, &index_size);
   RAFT_CUDA_TRY(cudaMallocManaged(&(desc->index_ptr), index_size));
 
-  struct cuannIvfPqIndexHeader* header;
   float* cluster_centers;     // [numClusters, data_dim]
   float* pqCenters;           // [pq_dim, 1 << bitPq, lenPq], or
                               // [numClusters, 1 << bitPq, lenPq]
@@ -2466,7 +2439,6 @@ void cuannIvfPqBuildIndex(
   float* rotationMatrix;      // [data_dim, rot_dim]
   float* clusterRotCenters;   // [numClusters, rot_dim]
   _cuann_get_index_pointers(desc,
-                            &header,
                             &cluster_centers,
                             &pqCenters,
                             &pqDataset,
@@ -2880,21 +2852,6 @@ void cuannIvfPqBuildIndex(
       cluster_centers[desc->data_dim + (desc->dimDatasetExt * i)] = desc->sqsumClusters[i];
     }
   }
-
-  //
-  cuannIvfPqGetIndexSize(desc, &(header->indexSize));
-  header->metric          = desc->metric;
-  header->numClusters     = desc->numClusters;
-  header->numDataset      = desc->numDataset;
-  header->data_dim        = desc->data_dim;
-  header->pq_dim          = desc->pq_dim;
-  header->maxClusterSize  = maxClusterSize;
-  header->rot_dim         = desc->rot_dim;
-  header->bitPq           = desc->bitPq;
-  header->typePqCenter    = (uint32_t)(desc->typePqCenter);
-  header->dtypeDataset    = desc->dtypeDataset;
-  header->dimDatasetExt   = desc->dimDatasetExt;
-  header->numDatasetAdded = 0;
 }
 
 template <typename T>
@@ -2943,7 +2900,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   _cuann_get_dtype_string(dtype, dtypeString);
   RAFT_LOG_DEBUG("dtype: %s", dtypeString);
   RAFT_LOG_DEBUG("data_dim: %u", oldDesc->data_dim);
-  struct cuannIvfPqIndexHeader* oldHeader;
   float* oldClusterCenters;       // [numClusters, dimDatasetExt]
   float* oldPqCenters;            // [pq_dim, 1 << bitPq, lenPq], or
                                   // [numClusters, 1 << bitPq, lenPq]
@@ -2953,7 +2909,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   float* oldRotationMatrix;       // [data_dim, rot_dim]
   float* oldClusterRotCenters;    // [numClusters, rot_dim]
   _cuann_get_index_pointers(oldDesc,
-                            &oldHeader,
                             &oldClusterCenters,
                             &oldPqCenters,
                             &oldPqDataset,
@@ -3106,10 +3061,8 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   //
   size_t newIndexSize;
   cuannIvfPqGetIndexSize(newDesc, &newIndexSize);
-  RAFT_LOG_DEBUG("indexSize: %lu -> %lu", oldHeader->indexSize, newIndexSize);
   RAFT_CUDA_TRY(cudaMallocManaged(&(newDesc->index_ptr), newIndexSize));
   memset(newDesc->index_ptr, 0, newIndexSize);
-  struct cuannIvfPqIndexHeader* newHeader;
   float* newClusterCenters;       // [numClusters, dimDatasetExt]
   float* newPqCenters;            // [pq_dim, 1 << bitPq, lenPq], or
                                   // [numClusters, 1 << bitPq, lenPq]
@@ -3119,7 +3072,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   float* newRotationMatrix;       // [data_dim, rot_dim]
   float* newClusterRotCenters;    // [numClusters, rot_dim]
   _cuann_get_index_pointers(newDesc,
-                            &newHeader,
                             &newClusterCenters,
                             &newPqCenters,
                             &newPqDataset,
@@ -3132,12 +3084,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   // Copy the unchanged parts
   //    header, cluster_centers, pqCenters, rotationMatrix, clusterRotCenters
   //
-  memcpy(newHeader, oldHeader, sizeof(struct cuannIvfPqIndexHeader));
-  {
-    cuannIvfPqGetIndexSize(newDesc, &(newHeader->indexSize));
-    newHeader->numDataset = newDesc->numDataset;
-    newHeader->numDatasetAdded += numNewVectors;
-  }
   memcpy(newClusterCenters, oldClusterCenters, _cuann_getIndexSize_cluster_centers(oldDesc));
   memcpy(newPqCenters, oldPqCenters, _cuann_getIndexSize_pqCenters(oldDesc));
   memcpy(newRotationMatrix, oldRotationMatrix, _cuann_getIndexSize_rotationMatrix(oldDesc));
@@ -3155,10 +3101,7 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
     new_cluster_offsets[l + 1] += oldClusterSize + cluster_sizes.data()[l];
     maxClusterSize = max(maxClusterSize, oldClusterSize + cluster_sizes.data()[l]);
   }
-  {
-    newDesc->maxClusterSize   = maxClusterSize;
-    newHeader->maxClusterSize = maxClusterSize;
-  }
+  newDesc->maxClusterSize = maxClusterSize;
   RAFT_LOG_DEBUG("maxClusterSize: %u -> %u", oldDesc->maxClusterSize, newDesc->maxClusterSize);
 
   //
@@ -3193,19 +3136,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
 
   _cuann_get_inclusiveSumSortedClusterSize(
     newDesc, new_cluster_offsets, newClusterCenters, &(newDesc->inclusiveSumSortedClusterSize));
-
-  //
-  // Done
-  //
-  if (newHeader->numDatasetAdded * 2 > newHeader->numDataset) {
-    RAFT_LOG_INFO(
-      "The total number of vectors in the new index"
-      " is now more than twice the initial number of vectors."
-      " You may want to re-build the index from scratch."
-      " (numVectors: %u, numVectorsAdded: %u)",
-      newHeader->numDataset,
-      newHeader->numDatasetAdded);
-  }
 
   return newDesc;
 }
@@ -3386,7 +3316,6 @@ void cuannIvfPqSearch(const handle_t& handle,
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "unsupported type");
 
-  struct cuannIvfPqIndexHeader* header;
   float* cluster_centers;     // [numClusters, dimDatasetExt]
   float* pqCenters;           // [pq_dim, 1 << bitPq, lenPq], or
                               // [numClusters, 1 << bitPq, lenPq]
@@ -3396,7 +3325,6 @@ void cuannIvfPqSearch(const handle_t& handle,
   float* rotationMatrix;      // [data_dim, rot_dim]
   float* clusterRotCenters;   // [numClusters, rot_dim]
   _cuann_get_index_pointers(desc,
-                            &header,
                             &cluster_centers,
                             &pqCenters,
                             &pqDataset,
