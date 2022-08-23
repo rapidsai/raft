@@ -3016,20 +3016,21 @@ inline void cuannIvfPqSetSearchParameters(cuannIvfPqDescriptor_t& desc,
   if (numProbes < desc->numClusters) {
     numSamplesWorstCase =
       desc->numDataset -
-      desc->inclusiveSumSortedClusterSize[desc->numClusters - 1 - numProbes -
-                                          desc->_numClustersSize0];  // (*) urgent WA, need to be
-                                                                     // fixed.
+      desc->inclusiveSumSortedClusterSize[std::max<uint32_t>(desc->_numClustersSize0,
+                                                             desc->numClusters - 1 - numProbes) -
+                                          desc->_numClustersSize0];
   }
-  RAFT_EXPECTS(topK <= numSamplesWorstCase,
-               "numProbes is too small to get topK results reliably (numProbes: %u, topK: %u, "
-               "numSamplesWorstCase: %u).",
-               numProbes,
-               topK,
-               numSamplesWorstCase);
+  if (topK > numSamplesWorstCase) {
+    RAFT_LOG_WARN(
+      "numProbes is too small to get topK results reliably (numProbes: %u, topK: %u, "
+      "numSamplesWorstCase: %u).",
+      numProbes,
+      topK,
+      numSamplesWorstCase);
+  }
   desc->numProbes  = numProbes;
   desc->topK       = topK;
-  desc->maxSamples = desc->inclusiveSumSortedClusterSize[numProbes - 1];
-  if (desc->maxSamples % 128) { desc->maxSamples += 128 - (desc->maxSamples % 128); }
+  desc->maxSamples = Pow2<128>::roundUp(desc->inclusiveSumSortedClusterSize[numProbes - 1]);
   desc->internalDistanceDtype    = CUDA_R_32F;
   desc->smemLutDtype             = CUDA_R_32F;
   desc->preferredThreadBlockSize = 0;
