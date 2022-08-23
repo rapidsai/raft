@@ -226,6 +226,7 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
 
   void TearDown() override
   {
+    cudaGetLastError();
     handle_.sync_stream(stream_);
     database.resize(0, stream_);
     search_queries.resize(0, stream_);
