@@ -2167,8 +2167,8 @@ void _cuann_compute_PQ_code(const handle_t& handle,
                              rot_vector_labels.data(),
                              pq_cluster_size.data(),
                              raft::distance::DistanceType::L2Expanded,
-                             device_memory,
-                             stream);
+                             stream,
+                             device_memory);
       raft::copy(
         pqCenters + ((1 << bitPq) * lenPq) * l, my_pq_centers.data(), (1 << bitPq) * lenPq, stream);
     }
@@ -2400,8 +2400,8 @@ void cuannIvfPqBuildIndex(
                            mesocluster_labels.data(),
                            mesocluster_sizes.data(),
                            desc->metric,
-                           device_memory,
-                           stream);
+                           stream,
+                           device_memory);
     handle.sync_stream();
 
     // build fine clusters
@@ -2444,55 +2444,21 @@ void cuannIvfPqBuildIndex(
   // is a possibility that the clusters could be unbalanced here,
   // in which case the actual number of iterations would be increased.
   //
-  const int X         = 5;
-  int numIterations_X = max(numIterations / 10, 2) * X;
-  for (int iter = 0; iter < numIterations_X; iter += X) {
-    kmeans::predict(handle,
-                    cluster_centers,
-                    desc->numClusters,
-                    desc->data_dim,
-                    trainset.data(),
-                    n_rows_train,
-                    trainset_labels.data(),
-                    desc->metric,
-                    stream,
-                    device_memory);
-    kmeans::calc_centers_and_sizes(cluster_centers,
-                                   cluster_sizes.data(),
-                                   desc->numClusters,
-                                   desc->data_dim,
-                                   trainset.data(),
-                                   n_rows_train,
-                                   trainset_labels.data(),
-                                   true,
-                                   stream);
-    switch (desc->metric) {
-      // For some metrics, cluster calculation and adjustment tends to favor zero center vectors.
-      // To avoid converging to zero, we normalize the center vectors on every iteration.
-      case raft::distance::DistanceType::InnerProduct:
-      case raft::distance::DistanceType::CosineExpanded:
-      case raft::distance::DistanceType::CorrelationExpanded:
-        utils::normalize_rows(desc->numClusters, desc->data_dim, cluster_centers, stream);
-      default: break;
-    }
-    handle.sync_stream();
-
-    if ((iter + 1 < numIterations_X) && kmeans::adjust_centers(cluster_centers,
-                                                               desc->numClusters,
-                                                               desc->data_dim,
-                                                               trainset.data(),
-                                                               n_rows_train,
-                                                               trainset_labels.data(),
-                                                               cluster_sizes.data(),
-                                                               (float)1.0 / 5,
-                                                               device_memory,
-                                                               stream)) {
-      iter -= (X - 1);
-      if (desc->metric == distance::DistanceType::InnerProduct) {
-        utils::normalize_rows(desc->numClusters, desc->data_dim, cluster_centers, stream);
-      }
-    }
-  }
+  kmeans::balancing_em_iters(handle,
+                             std::max<uint32_t>(numIterations / 10, 2),
+                             desc->data_dim,
+                             trainset.data(),
+                             n_rows_train,
+                             desc->numClusters,
+                             cluster_centers,
+                             trainset_labels.data(),
+                             cluster_sizes.data(),
+                             desc->metric,
+                             5,
+                             0.2f,
+                             stream,
+                             device_memory);
+  handle.sync_stream();
 
   rmm::device_uvector<uint32_t> dataset_labels(desc->numDataset, stream, &managed_memory);
 
@@ -2651,8 +2617,8 @@ void cuannIvfPqBuildIndex(
                              sub_trainset_labels.data(),
                              pq_cluster_sizes.data(),
                              raft::distance::DistanceType::L2Expanded,
-                             device_memory,
-                             stream);
+                             stream,
+                             device_memory);
       raft::copy(curPqCenters, pq_centers.data(), (1 << desc->bitPq) * desc->lenPq, stream);
       handle.sync_stream();
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
