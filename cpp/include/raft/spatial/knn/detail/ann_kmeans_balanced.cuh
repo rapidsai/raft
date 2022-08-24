@@ -492,7 +492,9 @@ void balancing_em_iters(const handle_t& handle,
                            true,
                            stream);
     // Balancing step - move the centers around to equalize cluster sizes
-    if (iter + 1 < balancing_pullback * n_iters) {
+    if (iter + balancing_pullback < balancing_pullback * n_iters + 1) {
+      // The condition above ensures that `adjust_centers` never comes last in the process;
+      // if at least one center is adjusted, `predict` runs afterwards.
       if (kmeans::adjust_centers(cluster_centers,
                                  n_clusters,
                                  dim,
