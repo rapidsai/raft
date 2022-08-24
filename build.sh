@@ -182,7 +182,7 @@ if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     CMAKE_TARGET="${CMAKE_TARGET};raft_nn_lib"
 fi
 
-if hasArg --compile-dist || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
+if hasArg --compile-dist || hasArg --compile-libs || hasArg pylibraft || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_distance_lib"
 fi
@@ -250,7 +250,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
+if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg pylibraft || hasArg docs || hasArg tests || hasArg bench; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -292,7 +292,7 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
 
     cd ${REPODIR}/python/raft
-    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS}
+    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
@@ -302,7 +302,7 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
 
     cd ${REPODIR}/python/pylibraft
-    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS}
+    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
