@@ -623,7 +623,7 @@ inline auto arrange_fine_clusters(uint32_t n_clusters,
  *   2. Predict fine cluster
  *   3. Refince the fine cluster centers
  *
- *  As a result, the fine clusters are what is returned by `build_optimized_kmeans`;
+ *  As a result, the fine clusters are what is returned by `build_hierarchical`;
  *  this function returns the total number of fine clusters, which can be checked to be
  *  the same as the requested number of clusters.
  */
@@ -706,7 +706,7 @@ auto build_fine_clusters(const handle_t& handle,
 }
 
 /**
- * kmeans
+ * @brief Hierarchical balanced k-means
  *
  * @tparam T element type
  *
@@ -717,64 +717,46 @@ auto build_fine_clusters(const handle_t& handle,
  * @param n_rows number of rows in the input
  * @param[out] cluster_centers a device pointer to the found cluster centers [n_cluster, dim]
  * @param n_cluster
- * @param trainset_fraction a fraction of rows in the `dataset` to sample for kmeans training;
- *                            0 < trainset_fraction <= 1.
- * @param metric the distance metric
+ * @param metric the distance type
  * @param stream
  */
 template <typename T>
-void build_optimized_kmeans(const handle_t& handle,
-                            uint32_t n_iters,
-                            uint32_t dim,
-                            const T* dataset,
-                            size_t n_rows,
-                            float* cluster_centers,
-                            uint32_t n_clusters,
-                            double trainset_fraction,
-                            raft::distance::DistanceType metric,
-                            rmm::cuda_stream_view stream)
+void build_hierarchical(const handle_t& handle,
+                        uint32_t n_iters,
+                        uint32_t dim,
+                        const T* dataset,
+                        size_t n_rows,
+                        float* cluster_centers,
+                        uint32_t n_clusters,
+                        raft::distance::DistanceType metric,
+                        rmm::cuda_stream_view stream)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "kmeans::build_optimized_kmeans(%zu, %u)", n_rows, n_clusters);
-
-  auto trainset_ratio =
-    std::max<size_t>(1, n_rows / std::max<size_t>(trainset_fraction * n_rows, n_clusters));
-  auto n_rows_train = n_rows / trainset_ratio;
+    "kmeans::build_hierarchical(%zu, %u)", n_rows, n_clusters);
 
   uint32_t n_mesoclusters = std::min<uint32_t>(n_clusters, std::sqrt(n_clusters) + 0.5);
-  RAFT_LOG_DEBUG("(%s) # n_mesoclusters: %u", __func__, n_mesoclusters);
+  RAFT_LOG_DEBUG("kmeans::build_hierarchical: n_mesoclusters: %u", n_mesoclusters);
 
   rmm::mr::managed_memory_resource managed_memory;
   rmm::mr::device_memory_resource* device_memory = nullptr;
   auto pool_guard                                = raft::get_pool_memory_resource(
-    device_memory, kmeans::calc_minibatch_size(n_mesoclusters, n_rows_train) * dim * 4);
+    device_memory, kmeans::calc_minibatch_size(n_mesoclusters, n_rows) * dim * 4);
   if (pool_guard) {
     RAFT_LOG_DEBUG(
-      "kmeans::build_optimized_kmeans: using pool memory resource with initial size %zu bytes",
+      "kmeans::build_hierarchical: using pool memory resource with initial size %zu bytes",
       pool_guard->pool_size());
   }
 
-  rmm::device_uvector<T> trainset(n_rows_train * dim, stream, device_memory);
-  // TODO: a proper sampling
-  RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
-                                  sizeof(T) * dim,
-                                  dataset,
-                                  sizeof(T) * dim * trainset_ratio,
-                                  sizeof(T) * dim,
-                                  n_rows_train,
-                                  cudaMemcpyDefault,
-                                  stream));
-
   // build coarse clusters (mesoclusters)
-  rmm::device_uvector<uint32_t> mesocluster_labels_buf(n_rows_train, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> mesocluster_labels_buf(n_rows, stream, &managed_memory);
   rmm::device_uvector<uint32_t> mesocluster_sizes_buf(n_mesoclusters, stream, &managed_memory);
   {
     rmm::device_uvector<float> mesocluster_centers_buf(n_mesoclusters * dim, stream, device_memory);
     build_clusters(handle,
                    n_iters,
                    dim,
-                   trainset.data(),
-                   n_rows_train,
+                   dataset,
+                   n_rows,
                    n_mesoclusters,
                    mesocluster_centers_buf.data(),
                    mesocluster_labels_buf.data(),
@@ -791,10 +773,10 @@ void build_optimized_kmeans(const handle_t& handle,
 
   // build fine clusters
   auto [mesocluster_size_max, fine_clusters_nums_max, fine_clusters_nums, fine_clusters_csum] =
-    arrange_fine_clusters(n_clusters, n_mesoclusters, n_rows_train, mesocluster_sizes);
+    arrange_fine_clusters(n_clusters, n_mesoclusters, n_rows, mesocluster_sizes);
 
-  if (mesocluster_size_max * n_mesoclusters > 2 * n_rows_train) {
-    RAFT_LOG_WARN("build_optimized_kmeans: built unbalanced mesoclusters");
+  if (mesocluster_size_max * n_mesoclusters > 2 * n_rows) {
+    RAFT_LOG_WARN("build_hierarchical: built unbalanced mesoclusters");
     RAFT_LOG_TRACE_VEC(mesocluster_sizes, n_mesoclusters);
     RAFT_LOG_TRACE_VEC(fine_clusters_nums.data(), n_mesoclusters);
   }
@@ -802,9 +784,9 @@ void build_optimized_kmeans(const handle_t& handle,
   auto n_clusters_done = build_fine_clusters(handle,
                                              n_iters,
                                              dim,
-                                             trainset.data(),
+                                             dataset,
                                              mesocluster_labels,
-                                             n_rows_train,
+                                             n_rows,
                                              fine_clusters_nums.data(),
                                              fine_clusters_csum.data(),
                                              mesocluster_sizes,
@@ -819,30 +801,30 @@ void build_optimized_kmeans(const handle_t& handle,
   RAFT_EXPECTS(n_clusters_done == n_clusters, "Didn't process all clusters.");
 
   rmm::device_uvector<uint32_t> cluster_sizes(n_clusters, stream, device_memory);
-  rmm::device_uvector<uint32_t> labels(n_rows_train, stream, device_memory);
+  rmm::device_uvector<uint32_t> labels(n_rows, stream, device_memory);
 
-  // fit clusters using the trainset
-  for (int iter = 0; iter < 2; iter++) {
-    predict(handle,
-            cluster_centers,
-            n_clusters,
-            dim,
-            trainset.data(),
-            n_rows_train,
-            labels.data(),
-            metric,
-            stream,
-            device_memory);
-    calc_centers_and_sizes(cluster_centers,
-                           cluster_sizes.data(),
-                           n_clusters,
-                           dim,
-                           trainset.data(),
-                           n_rows_train,
-                           labels.data(),
-                           true,
-                           stream);
-  }
+  // Fine-tuning kmeans for all clusters
+  //
+  // (*) Since the likely cluster centroids have been calculated
+  // hierarchically already, the number of iteration for fine-tuning
+  // kmeans for whole clusters should be reduced. However, there
+  // is a possibility that the clusters could be unbalanced here,
+  // in which case the actual number of iterations would be increased.
+  //
+  balancing_em_iters(handle,
+                     std::max<uint32_t>(n_iters / 10, 2),
+                     dim,
+                     dataset,
+                     n_rows,
+                     n_clusters,
+                     cluster_centers,
+                     labels.data(),
+                     cluster_sizes.data(),
+                     metric,
+                     5,
+                     0.2f,
+                     stream,
+                     device_memory);
 }
 
 }  // namespace raft::spatial::knn::detail::kmeans

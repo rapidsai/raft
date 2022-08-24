@@ -261,17 +261,31 @@ inline auto build(const handle_t& handle,
   // kmeans cluster ids for the dataset
   auto&& centers = rmm::device_uvector<float>(size_t(n_lists) * size_t(dim), stream);
 
-  // Predict labels of the whole dataset
-  kmeans::build_optimized_kmeans(handle,
-                                 params.kmeans_n_iters,
-                                 dim,
-                                 dataset,
-                                 n_rows,
-                                 centers.data(),
-                                 n_lists,
-                                 params.kmeans_trainset_fraction,
-                                 params.metric,
-                                 stream);
+  // Train the kmeans clustering
+  {
+    auto trainset_ratio = std::max<size_t>(
+      1, n_rows / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, n_lists));
+    auto n_rows_train = n_rows / trainset_ratio;
+    rmm::device_uvector<T> trainset(n_rows_train * dim, stream);
+    // TODO: a proper sampling
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
+                                    sizeof(T) * dim,
+                                    dataset,
+                                    sizeof(T) * dim * trainset_ratio,
+                                    sizeof(T) * dim,
+                                    n_rows_train,
+                                    cudaMemcpyDefault,
+                                    stream));
+    kmeans::build_hierarchical(handle,
+                               params.kmeans_n_iters,
+                               dim,
+                               trainset.data(),
+                               n_rows_train,
+                               centers.data(),
+                               n_lists,
+                               params.metric,
+                               stream);
+  }
 
   auto&& data         = rmm::device_uvector<T>(0, stream);
   auto&& indices      = rmm::device_uvector<IdxT>(0, stream);
