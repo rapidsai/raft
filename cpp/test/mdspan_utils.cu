@@ -24,7 +24,7 @@ namespace stdex = std::experimental;
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::device_accessor<ElementType>>
+          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
 struct derived_device_mdspan
   : public device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> {
 };

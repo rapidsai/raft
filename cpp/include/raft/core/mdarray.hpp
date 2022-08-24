@@ -138,9 +138,9 @@ using enable_if_mdspan = std::enable_if_t<is_mdspan_v<Tn...>>;
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::device_accessor<ElementType>>
+          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
 using device_mdspan =
-  mdspan<ElementType, Extents, LayoutPolicy, detail::base_accessor<AccessorPolicy, true, false>>;
+  mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
 
 /**
  * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
@@ -148,16 +148,16 @@ using device_mdspan =
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::host_accessor<ElementType>>
+          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
 using host_mdspan =
-  mdspan<ElementType, Extents, LayoutPolicy, detail::base_accessor<AccessorPolicy, false, true>>;
+  mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
 
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::managed_accessor<ElementType>>
+          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
 using managed_mdspan =
-  mdspan<ElementType, Extents, LayoutPolicy, detail::base_accessor<AccessorPolicy, true, true>>;
+  mdspan<ElementType, Extents, LayoutPolicy, detail::managed_accessor<AccessorPolicy>>;
 
 namespace detail {
 template <typename T, bool B>
@@ -190,7 +190,7 @@ template <typename T, bool B>
 struct is_managed_mdspan : std::false_type {
 };
 template <typename T>
-struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_host_accessible && T::accessor_type::is_device_accessible> {
+struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_managed_accessible> {
 };
 
 /**
@@ -543,7 +543,7 @@ template <typename ElementType,
           typename LayoutPolicy    = layout_c_contiguous,
           typename ContainerPolicy = detail::host_vector_policy<ElementType>>
 using host_mdarray =
-  mdarray<ElementType, Extents, LayoutPolicy, detail::base_accessor<ContainerPolicy, false, true>>;
+  mdarray<ElementType, Extents, LayoutPolicy, detail::host_accessor<ContainerPolicy>>;
 
 /**
  * @brief mdarray with device container policy
@@ -557,7 +557,7 @@ template <typename ElementType,
           typename LayoutPolicy    = layout_c_contiguous,
           typename ContainerPolicy = detail::device_uvector_policy<ElementType>>
 using device_mdarray =
-  mdarray<ElementType, Extents, LayoutPolicy, detail::base_accessor<ContainerPolicy, true, false>>;
+  mdarray<ElementType, Extents, LayoutPolicy, detail::device_accessor<ContainerPolicy>>;
 
 /**
  * @brief Shorthand for 0-dim host mdarray (scalar).
