@@ -214,6 +214,11 @@ endif()
 
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
+# TODO:
+# Currently, this package also contains the 'random' namespace (for rmat logic)
+# We couldn't get this to work properly due to strange CI failures as noticed
+# in the PR#778. In the long term, we should rename this package to `raft_compiled`
+# in order to have a single pre-compiled raft package for those who need it.
 add_library(raft_distance INTERFACE)
 
 if(TARGET raft_distance AND (NOT TARGET raft::distance))
@@ -255,6 +260,10 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
     src/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
     src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
+    src/random/specializations/rmat_rectangular_generator_int_double.cu
+    src/random/specializations/rmat_rectangular_generator_int64_double.cu
+    src/random/specializations/rmat_rectangular_generator_int_float.cu
+    src/random/specializations/rmat_rectangular_generator_int64_float.cu
   )
   set_target_properties(
     raft_distance_lib
