@@ -2367,100 +2367,19 @@ void cuannIvfPqBuildIndex(
                             &rotationMatrix,
                             &clusterRotCenters);
 
-  rmm::device_uvector<uint32_t> trainset_labels(n_rows_train, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> cluster_sizes(desc->numClusters, stream, &managed_memory);
-
-  {
-    /*
-    TODO: this block can be replaced with kmeans::build_optimized_kmeans if not for two minor
-    problems:
-      1. the fine-tuning part after this blocks differs a little
-      2. trainset above is reused for PQ training
-     */
-    uint32_t n_mesoclusters =
-      std::min<uint32_t>(desc->numClusters, std::sqrt(desc->numClusters) + 0.5);
-    RAFT_LOG_DEBUG("n_mesoclusters: %u", n_mesoclusters);
-
-    rmm::device_uvector<float> mesocluster_centers(
-      n_mesoclusters * desc->data_dim, stream, &managed_memory);
-
-    rmm::device_uvector<uint32_t> mesocluster_labels(n_rows_train, stream, &managed_memory);
-    rmm::device_uvector<uint32_t> mesocluster_sizes(n_mesoclusters, stream, &managed_memory);
-
-    //
-    // Training kmeans for meso-clusters
-    //
-    kmeans::build_clusters(handle,
-                           numIterations,
-                           desc->data_dim,
-                           trainset.data(),
-                           n_rows_train,
-                           n_mesoclusters,
-                           mesocluster_centers.data(),
-                           mesocluster_labels.data(),
-                           mesocluster_sizes.data(),
-                           desc->metric,
-                           stream,
-                           device_memory);
-    handle.sync_stream();
-
-    // build fine clusters
-    auto [mesocluster_size_max, fine_clusters_nums_max, fine_clusters_nums, fine_clusters_csum] =
-      kmeans::arrange_fine_clusters(
-        desc->numClusters, n_mesoclusters, n_rows_train, mesocluster_sizes.data());
-
-    if (mesocluster_size_max * n_mesoclusters > 2 * n_rows_train) {
-      RAFT_LOG_WARN("build_optimized_kmeans: built unbalanced mesoclusters");
-      RAFT_LOG_TRACE_VEC(mesocluster_sizes.data(), n_mesoclusters);
-      RAFT_LOG_TRACE_VEC(fine_clusters_nums.data(), n_mesoclusters);
-    }
-
-    auto n_clusters_done = kmeans::build_fine_clusters(handle,
-                                                       numIterations,
-                                                       desc->data_dim,
-                                                       trainset.data(),
-                                                       mesocluster_labels.data(),
-                                                       n_rows_train,
-                                                       fine_clusters_nums.data(),
-                                                       fine_clusters_csum.data(),
-                                                       mesocluster_sizes.data(),
-                                                       n_mesoclusters,
-                                                       mesocluster_size_max,
-                                                       fine_clusters_nums_max,
-                                                       cluster_centers,
-                                                       desc->metric,
-                                                       &managed_memory,
-                                                       device_memory,
-                                                       stream);
-    RAFT_EXPECTS(n_clusters_done == desc->numClusters, "Didn't process all clusters.");
-  }
-
-  //
-  // Fine-tuning kmeans for whole clusters
-  //
-  // (*) Since the likely cluster centroids have been calculated
-  // hierarchically already, the number of iteration for fine-tuning
-  // kmeans for whole clusters should be reduced. However, there
-  // is a possibility that the clusters could be unbalanced here,
-  // in which case the actual number of iterations would be increased.
-  //
-  kmeans::balancing_em_iters(handle,
-                             std::max<uint32_t>(numIterations / 10, 2),
+  // Train balanced hierarchical kmeans clustering
+  kmeans::build_hierarchical(handle,
+                             numIterations,
                              desc->data_dim,
                              trainset.data(),
                              n_rows_train,
-                             desc->numClusters,
                              cluster_centers,
-                             trainset_labels.data(),
-                             cluster_sizes.data(),
+                             desc->numClusters,
                              desc->metric,
-                             5,
-                             0.2f,
-                             stream,
-                             device_memory);
-  handle.sync_stream();
+                             stream);
 
   rmm::device_uvector<uint32_t> dataset_labels(desc->numDataset, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> cluster_sizes(desc->numClusters, stream, &managed_memory);
 
   //
   // Predict labels of whole data_vectors
@@ -2484,15 +2403,6 @@ void cuannIvfPqBuildIndex(
                                  dataset_labels.data(),
                                  true,
                                  stream);
-  switch (desc->metric) {
-    // For some metrics, cluster calculation and adjustment tends to favor zero center vectors.
-    // To avoid converging to zero, we normalize the center vectors on every iteration.
-    case raft::distance::DistanceType::InnerProduct:
-    case raft::distance::DistanceType::CosineExpanded:
-    case raft::distance::DistanceType::CorrelationExpanded:
-      utils::normalize_rows(desc->numClusters, desc->data_dim, cluster_centers, stream);
-    default: break;
-  }
   handle.sync_stream();
 
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
@@ -2560,6 +2470,7 @@ void cuannIvfPqBuildIndex(
     // Training PQ codebook (codebook_gen::PER_SUBSPACE)
     // (*) PQ codebooks are trained for each subspace.
     //
+    rmm::device_uvector<uint32_t> trainset_labels(n_rows_train, stream, &managed_memory);
 
     // Predict label of trainset again
     kmeans::predict(handle,
