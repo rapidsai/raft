@@ -1485,8 +1485,8 @@ __global__ void ivfpq_make_chunk_index_ptr(
 //
 __device__ inline void ivfpq_get_id_dataset(uint32_t iSample,
                                             uint32_t numProbes,
-                                            const uint32_t* clusterIndexPtr,  // [numClusters + 1,]
-                                            const uint32_t* clusterLabels,    // [numProbes,]
+                                            const uint32_t* cluster_offsets,  // [numClusters + 1,]
+                                            const uint32_t* cluster_labels,   // [numProbes,]
                                             const uint32_t* chunkIndexPtr,    // [numProbes,]
                                             uint32_t& iChunk,
                                             uint32_t& label,
@@ -1504,10 +1504,10 @@ __device__ inline void ivfpq_get_id_dataset(uint32_t iSample,
     iChunk = (minChunk + maxChunk) / 2;
   }
 
-  label                   = clusterLabels[iChunk];
+  label                   = cluster_labels[iChunk];
   uint32_t iSampleInChunk = iSample;
   if (iChunk > 0) { iSampleInChunk -= chunkIndexPtr[iChunk - 1]; }
-  iDataset = iSampleInChunk + clusterIndexPtr[label];
+  iDataset = iSampleInChunk + cluster_offsets[label];
 }
 
 //
@@ -1516,9 +1516,9 @@ __global__ void ivfpq_make_outputs(uint32_t numProbes,
                                    uint32_t topk,
                                    uint32_t maxSamples,
                                    uint32_t sizeBatch,
-                                   const uint32_t* clusterIndexPtr,  // [numClusters + 1]
+                                   const uint32_t* cluster_offsets,  // [numClusters + 1]
                                    const uint32_t* data_indices,     // [numDataset]
-                                   const uint32_t* clusterLabels,    // [sizeBatch, numProbes]
+                                   const uint32_t* cluster_labels,   // [sizeBatch, numProbes]
                                    const uint32_t* chunkIndexPtr,    // [sizeBatch, numProbes]
                                    const scoreDtype* scores,         // [sizeBatch, maxSamples] or
                                                                      // [sizeBatch, numProbes, topk]
@@ -1542,8 +1542,8 @@ __global__ void ivfpq_make_outputs(uint32_t numProbes,
     uint32_t iDataset;
     ivfpq_get_id_dataset(iSample,
                          numProbes,
-                         clusterIndexPtr,
-                         clusterLabels + (numProbes * iBatch),
+                         cluster_offsets,
+                         cluster_labels + (numProbes * iBatch),
                          chunkIndexPtr + (numProbes * iBatch),
                          iChunk,
                          label,
@@ -2976,7 +2976,7 @@ inline void cuannIvfPqSearch_bufferSize(const handle_t& handle,
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->dimDatasetExt) +  // devQueries
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->dimDatasetExt) +  // curQueries
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->rot_dim) +        // rotQueries
-    Pow2<128>::roundUp(sizeof(uint32_t) * maxQueries * desc->numProbes) +   // clusterLabels..
+    Pow2<128>::roundUp(sizeof(uint32_t) * maxQueries * desc->numProbes) +   // cluster_labels..
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->numClusters) +    // QCDistances
     _cuann_find_topk_bufferSize(handle, desc->numProbes, maxQueries, desc->numClusters);
   if (size_0 > max_ws) {
@@ -2992,7 +2992,7 @@ inline void cuannIvfPqSearch_bufferSize(const handle_t& handle,
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->dimDatasetExt) +  // devQueries
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->dimDatasetExt) +  // curQueries
     Pow2<128>::roundUp(sizeof(float) * maxQueries * desc->rot_dim) +        // rotQueries
-    Pow2<128>::roundUp(sizeof(uint32_t) * maxQueries * desc->numProbes);    // clusterLabels..
+    Pow2<128>::roundUp(sizeof(uint32_t) * maxQueries * desc->numProbes);    // cluster_labels..
 
   max_ws -= *workspaceSize;
   desc->maxBatchSize = 1;
@@ -3268,7 +3268,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   const float* pqCenters,           // [pq_dim, 1 << bitPq, lenPq,], or
                                     // [numClusetrs, 1 << bitPq, lenPq,]
   const uint8_t* pqDataset,         // [numDataset, pq_dim * bitPq / 8]
-  const uint32_t* clusterIndexPtr,  // [numClusters + 1,]
+  const uint32_t* cluster_offsets,  // [numClusters + 1,]
   const uint32_t* _clusterLabels,   // [sizeBatch, numProbes,]
   const uint32_t* _chunkIndexPtr,   // [sizeBatch, numProbes,]
   const float* _query,              // [sizeBatch, data_dim,]
@@ -3299,9 +3299,9 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   }
   if (iBatch >= sizeBatch || iProbe >= numProbes) return;
 
-  const uint32_t* clusterLabels = _clusterLabels + (numProbes * iBatch);
-  const uint32_t* chunkIndexPtr = _chunkIndexPtr + (numProbes * iBatch);
-  const float* query            = _query + (data_dim * iBatch);
+  const uint32_t* cluster_labels = _clusterLabels + (numProbes * iBatch);
+  const uint32_t* chunkIndexPtr  = _chunkIndexPtr + (numProbes * iBatch);
+  const float* query             = _query + (data_dim * iBatch);
   outDtype* output;
   uint32_t* topkIndex = nullptr;
   if (manageLocalTopk) {
@@ -3312,7 +3312,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
     // Store all calculated distances to output
     output = _output + (maxSamples * iBatch);
   }
-  uint32_t label               = clusterLabels[iProbe];
+  uint32_t label               = cluster_labels[iProbe];
   const float* myClusterCenter = cluster_centers + (data_dim * label);
   const float* myPqCenters;
   if (typePqCenter == codebook_gen::PER_SUBSPACE) {
@@ -3355,10 +3355,9 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
 
   uint32_t iSampleBase = 0;
   if (iProbe > 0) { iSampleBase = chunkIndexPtr[iProbe - 1]; }
-  uint32_t nSamples   = chunkIndexPtr[iProbe] - iSampleBase;
-  uint32_t nSamples32 = nSamples;
-  if (nSamples32 % 32 > 0) { nSamples32 = nSamples32 + (32 - (nSamples % 32)); }
-  uint32_t iDatasetBase = clusterIndexPtr[label];
+  uint32_t nSamples                = chunkIndexPtr[iProbe] - iSampleBase;
+  uint32_t nSamples32              = Pow2<32>::roundUp(nSamples);
+  uint32_t selected_cluster_offset = cluster_offsets[label];
 
   using block_sort_t =
     topk::block_sort<topk::warp_sort_immediate, depth * WarpSize, true, outDtype, uint32_t>;
@@ -3370,12 +3369,12 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
     float score = limit;
     if (i < nSamples) {
       score = ivfpq_compute_score<bitPq, vecLen, T, smemLutDtype>(
-        pq_dim, i + iDatasetBase, pqDataset, preCompScores);
+        pq_dim, selected_cluster_offset + i, pqDataset, preCompScores);
     }
     if (!manageLocalTopk) {
       if (i < nSamples) { output[i + iSampleBase] = score; }
     } else {
-      block_topk.add(score, iDatasetBase + i);
+      block_topk.add(score, selected_cluster_offset + i);
     }
   }
   if (!manageLocalTopk) { return; }
@@ -3401,7 +3400,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
   const float* pqCenters,           // [pq_dim, 1 << bitPq, lenPq,], or
                                     // [numClusetrs, 1 << bitPq, lenPq,]
   const uint8_t* pqDataset,         // [numDataset, pq_dim * bitPq / 8]
-  const uint32_t* clusterIndexPtr,  // [numClusters + 1,]
+  const uint32_t* cluster_offsets,  // [numClusters + 1,]
   const uint32_t* _clusterLabels,   // [sizeBatch, numProbes,]
   const uint32_t* _chunkIndexPtr,   // [sizeBatch, numProbes,]
   const float* _query,              // [sizeBatch, data_dim,]
@@ -3432,9 +3431,9 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
       iProbe = indexList[ib] % numProbes;
     }
 
-    const uint32_t* clusterLabels = _clusterLabels + (numProbes * iBatch);
-    const uint32_t* chunkIndexPtr = _chunkIndexPtr + (numProbes * iBatch);
-    const float* query            = _query + (data_dim * iBatch);
+    const uint32_t* cluster_labels = _clusterLabels + (numProbes * iBatch);
+    const uint32_t* chunkIndexPtr  = _chunkIndexPtr + (numProbes * iBatch);
+    const float* query             = _query + (data_dim * iBatch);
     outDtype* output;
     uint32_t* topkIndex = nullptr;
     if (manageLocalTopk) {
@@ -3445,7 +3444,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
       // Store all calculated distances to output
       output = _output + (maxSamples * iBatch);
     }
-    uint32_t label               = clusterLabels[iProbe];
+    uint32_t label               = cluster_labels[iProbe];
     const float* myClusterCenter = cluster_centers + (data_dim * label);
     const float* myPqCenters;
     if (typePqCenter == codebook_gen::PER_SUBSPACE) {
@@ -3488,10 +3487,9 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
 
     uint32_t iSampleBase = 0;
     if (iProbe > 0) { iSampleBase = chunkIndexPtr[iProbe - 1]; }
-    uint32_t nSamples   = chunkIndexPtr[iProbe] - iSampleBase;
-    uint32_t nSamples32 = nSamples;
-    if (nSamples32 % 32 > 0) { nSamples32 = nSamples32 + (32 - (nSamples % 32)); }
-    uint32_t iDatasetBase = clusterIndexPtr[label];
+    uint32_t nSamples                = chunkIndexPtr[iProbe] - iSampleBase;
+    uint32_t nSamples32              = Pow2<32>::roundUp(nSamples);
+    uint32_t selected_cluster_offset = cluster_offsets[label];
 
     using block_sort_t =
       topk::block_sort<topk::warp_sort_immediate, depth * WarpSize, true, outDtype, uint32_t>;
@@ -3502,13 +3500,13 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
     for (uint32_t i = threadIdx.x; i < nSamples32; i += blockDim.x) {
       float score = limit;
       if (i < nSamples) {
-        score =
-          ivfpq_compute_score<bitPq, vecLen, T>(pq_dim, i + iDatasetBase, pqDataset, preCompScores);
+        score = ivfpq_compute_score<bitPq, vecLen, T>(
+          pq_dim, selected_cluster_offset + i, pqDataset, preCompScores);
       }
       if (!manageLocalTopk) {
         if (i < nSamples) { output[i + iSampleBase] = score; }
       } else {
-        block_topk.add(score, iDatasetBase + i);
+        block_topk.add(score, selected_cluster_offset + i);
       }
     }
     __syncthreads();
