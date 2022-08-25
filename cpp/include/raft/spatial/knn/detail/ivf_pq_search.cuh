@@ -67,11 +67,11 @@ inline void search(const handle_t& handle,
                    pool_guard->pool_size());
   }
 
-  auto& cuann_desc = const_cast<cuannIvfPqDescriptor_t&>(index.desc());
+  auto& index_mut = const_cast<ivf_pq::index<IdxT>&>(index);
 
   // set search parameters
-  ivf_pq::detail::cuannIvfPqSetSearchParameters(cuann_desc, n_probes, k);
-  ivf_pq::detail::cuannIvfPqSetSearchTuningParameters(cuann_desc,
+  ivf_pq::detail::cuannIvfPqSetSearchParameters(index_mut, n_probes, k);
+  ivf_pq::detail::cuannIvfPqSetSearchTuningParameters(index_mut,
                                                       params.internal_distance_dtype,
                                                       params.smem_lut_dtype,
                                                       params.preferred_thread_block_size);
@@ -81,11 +81,10 @@ inline void search(const handle_t& handle,
   // Allocate memory for index
   size_t ivf_pq_search_workspace_size;
   ivf_pq::detail::cuannIvfPqSearch_bufferSize(
-    handle, cuann_desc, batch_size, max_ws_size, &ivf_pq_search_workspace_size);
+    handle, index_mut, batch_size, max_ws_size, &ivf_pq_search_workspace_size);
 
   // finally, search!
-  ivf_pq::detail::cuannIvfPqSearch(
-    handle, cuann_desc, queries, n_queries, neighbors, distances, mr);
+  ivf_pq::detail::cuannIvfPqSearch(handle, index_mut, queries, n_queries, neighbors, distances, mr);
 }
 
 }  // namespace raft::spatial::knn::ivf_pq::detail

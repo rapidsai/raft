@@ -139,44 +139,66 @@ struct cuannIvfPqDescriptor {
   uint32_t _numClustersSize0;  // (*) urgent WA, need to be fixed
   uint32_t preferredThreadBlockSize;
   void* index_ptr;
-};
-using cuannIvfPqDescriptor_t =
-  std::unique_ptr<cuannIvfPqDescriptor, std::function<void(cuannIvfPqDescriptor*)>>;
 
-cuannIvfPqDescriptor_t cuannIvfPqCreateDescriptor()
-{
-  return cuannIvfPqDescriptor_t{[]() {
-                                  auto desc                           = new cuannIvfPqDescriptor{};
-                                  desc->numClusters                   = 0;
-                                  desc->numDataset                    = 0;
-                                  desc->data_dim                      = 0;
-                                  desc->dimDatasetExt                 = 0;
-                                  desc->rot_dim                       = 0;
-                                  desc->pq_dim                        = 0;
-                                  desc->bitPq                         = 0;
-                                  desc->numProbes                     = 0;
-                                  desc->topK                          = 0;
-                                  desc->maxQueries                    = 0;
-                                  desc->maxBatchSize                  = 0;
-                                  desc->maxSamples                    = 0;
-                                  desc->inclusiveSumSortedClusterSize = nullptr;
-                                  desc->sqsumClusters                 = nullptr;
-                                  desc->index_ptr                     = nullptr;
-                                  return desc;
-                                }(),
-                                [](cuannIvfPqDescriptor* desc) {
-                                  if (desc->inclusiveSumSortedClusterSize != nullptr) {
-                                    free(desc->inclusiveSumSortedClusterSize);
-                                  }
-                                  if (desc->sqsumClusters != nullptr) {
-                                    RAFT_CUDA_TRY_NO_THROW(cudaFree(desc->sqsumClusters));
-                                  }
-                                  if (desc->index_ptr != nullptr) {
-                                    RAFT_CUDA_TRY_NO_THROW(cudaFree(desc->index_ptr));
-                                  }
-                                  delete desc;
-                                }};
-}
+  // // [pq_dim, 1 << bitPq, lenPq], or
+  // // [numClusters, 1 << bitPq, lenPq]
+  // device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers;
+  // // [numDataset, pq_dim * bitPq / 8]
+  // device_mdarray<uint8_t, extent_2d<uint32_t>, row_major> pq_dataset;
+  // // [numDataset]
+  // device_mdarray<uint32_t, extent_2d<uint32_t>, row_major> source_indices;
+  // // [data_dim, rot_dim]
+  // device_mdarray<uint32_t, extent_2d<uint32_t>, row_major> rotation_matrix;
+  // // [numClusters + 1]
+  // device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> cluster_offsets;
+  // // [numClusters, dimDatasetExt]
+  // device_mdarray<float, extent_2d<uint32_t>, row_major> cluster_centers;
+  // // [numClusters, rot_dim]
+  // device_mdarray<float, extent_2d<uint32_t>, row_major> cluster_centers_rot;
+  // // [numClusters ]
+  // std::optional<device_mdarray<uint32_t, extent_1d<uint32_t>, row_major>>
+  //   inclusiveSumSortedClusterSize;
+  // // [numClusters ]
+  // std::optional<device_mdarray<uint32_t, extent_1d<uint32_t>, row_major>> sqsumClusters;
+
+  cuannIvfPqDescriptor()
+    : inclusiveSumSortedClusterSize(nullptr), sqsumClusters(nullptr), index_ptr(nullptr)
+  {
+  }
+
+  ~cuannIvfPqDescriptor()
+  {
+    if (inclusiveSumSortedClusterSize != nullptr) { free(inclusiveSumSortedClusterSize); }
+    if (sqsumClusters != nullptr) { RAFT_CUDA_TRY_NO_THROW(cudaFree(sqsumClusters)); }
+    if (index_ptr != nullptr) { RAFT_CUDA_TRY_NO_THROW(cudaFree(index_ptr)); }
+  }
+
+  inline void copy_from(const cuannIvfPqDescriptor& other)
+  {
+    numClusters              = other.numClusters;
+    numDataset               = other.numDataset;
+    data_dim                 = other.data_dim;
+    dimDatasetExt            = other.dimDatasetExt;
+    rot_dim                  = other.rot_dim;
+    pq_dim                   = other.pq_dim;
+    bitPq                    = other.bitPq;
+    metric                   = other.metric;
+    typePqCenter             = other.typePqCenter;
+    internalDistanceDtype    = other.internalDistanceDtype;
+    smemLutDtype             = other.smemLutDtype;
+    indexVersion             = other.indexVersion;
+    maxClusterSize           = other.maxClusterSize;
+    lenPq                    = other.lenPq;
+    numProbes                = other.numProbes;
+    topK                     = other.topK;
+    maxQueries               = other.maxQueries;
+    maxBatchSize             = other.maxBatchSize;
+    maxSamples               = other.maxSamples;
+    sizeCubWorkspace         = other.sizeCubWorkspace;
+    _numClustersSize0        = other._numClustersSize0;
+    preferredThreadBlockSize = other.preferredThreadBlockSize;
+  }
+};
 
 }  // namespace detail
 
@@ -204,8 +226,8 @@ struct index : knn::index {
   /** Number of clusters/inverted lists. */
   [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t { return n_lists_; }
 
-  inline auto desc() noexcept -> detail::cuannIvfPqDescriptor_t& { return cuann_desc_; }
-  [[nodiscard]] inline auto desc() const noexcept -> const detail::cuannIvfPqDescriptor_t&
+  inline auto desc() noexcept -> detail::cuannIvfPqDescriptor& { return cuann_desc_; }
+  [[nodiscard]] inline auto desc() const noexcept -> const detail::cuannIvfPqDescriptor&
   {
     return cuann_desc_;
   }
@@ -228,7 +250,7 @@ struct index : knn::index {
       metric_(metric),
       dim_(dim),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
-      cuann_desc_{detail::cuannIvfPqCreateDescriptor()}
+      cuann_desc_{}
   {
     check_consistency();
   }
@@ -238,7 +260,7 @@ struct index : knn::index {
   uint32_t n_lists_;
   uint32_t dim_;
   uint32_t pq_dim_;
-  detail::cuannIvfPqDescriptor_t cuann_desc_;
+  detail::cuannIvfPqDescriptor cuann_desc_;
 
   /** Throw an error if the index content is inconsistent. */
   void check_consistency() {}
