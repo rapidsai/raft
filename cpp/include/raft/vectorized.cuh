@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -269,12 +269,12 @@ struct TxN_t {
   /** defines the number of 'math_t' types stored by this struct */
   static const int Ratio = veclen_;
 
-  union {
+  struct {
     /** the vectorized data that is used for subsequent operations */
     math_t data[Ratio];
-    /** internal data used to ensure vectorized loads/stores */
-    io_t internal;
   } val;
+
+  __device__ auto* vectorized_data() { return reinterpret_cast<io_t*>(val.data); }
 
   ///@todo: add default constructor
 
@@ -310,22 +310,22 @@ struct TxN_t {
   template <typename idx_t = int>
   DI void load(const math_t* ptr, idx_t idx)
   {
-    const io_t* bptr = reinterpret_cast<const io_t*>(&ptr[idx]);
-    val.internal     = __ldg(bptr);
+    const io_t* bptr   = reinterpret_cast<const io_t*>(&ptr[idx]);
+    *vectorized_data() = __ldg(bptr);
   }
 
   template <typename idx_t = int>
   DI void load(math_t* ptr, idx_t idx)
   {
-    io_t* bptr   = reinterpret_cast<io_t*>(&ptr[idx]);
-    val.internal = *bptr;
+    io_t* bptr         = reinterpret_cast<io_t*>(&ptr[idx]);
+    *vectorized_data() = *bptr;
   }
 
   template <typename idx_t = int>
   DI void store(math_t* ptr, idx_t idx)
   {
     io_t* bptr = reinterpret_cast<io_t*>(&ptr[idx]);
-    *bptr      = val.internal;
+    *bptr      = *vectorized_data();
   }
   /** @} */
 };
@@ -336,7 +336,7 @@ struct TxN_t<math_, 0> {
   typedef math_ math_t;
   static const int Ratio = 1;
 
-  union {
+  struct {
     math_t data[1];
   } val;
 

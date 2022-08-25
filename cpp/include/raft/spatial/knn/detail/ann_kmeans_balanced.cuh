@@ -134,9 +134,16 @@ constexpr inline auto calc_minibatch_size(uint32_t n_clusters, size_t n_rows) ->
 /**
  * @brief Given the data and labels, calculate cluster centers and sizes in one sweep.
  *
- * Let S_i = {x_k | x_k \in dataset & labels[k] == i} be the vectors in the dataset with label i.
- *   On exit centers_i = normalize(\sum_{x \in S_i} x), where `normalize` depends on the distance
- * type.
+ * Let `S_i = {x_k | x_k \in dataset & labels[k] == i}` be the vectors in the dataset with label i.
+ *
+ * On exit,
+ *   `centers_i = (\sum_{x \in S_i} x + w_i * center_i) / (|S_i| + w_i)`,
+ *     where  `w_i = reset_counters ?  0 : cluster_size[i]`.
+ *
+ * In other words, the updated cluster centers are a weighted average of the existing cluster
+ * center, and the coordinates of the points labeled with i. _This allows calling this function
+ * multiple times with different datasets with the same effect as if calling this function once
+ * on the combined dataset_.
  *
  * NB: `centers` and `cluster_sizes` must be accessible on GPU due to
  * divide_along_rows/normalize_rows. The rest can be both, under assumption that all pointers are
