@@ -62,7 +62,7 @@ namespace raft::spatial::knn::ivf_pq {
 template <typename T, typename IdxT = uint32_t>
 inline auto build(
   const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
-  -> index<T, IdxT>
+  -> index<IdxT>
 {
   return raft::spatial::knn::ivf_pq::detail::build(handle, params, dataset, n_rows, dim);
 }
@@ -101,10 +101,10 @@ inline auto build(
  */
 template <typename T, typename IdxT>
 inline auto extend(const handle_t& handle,
-                   const index<T, IdxT>& orig_index,
+                   const index<IdxT>& orig_index,
                    const T* new_vectors,
                    const IdxT* new_indices,
-                   IdxT n_rows) -> index<T, IdxT>
+                   IdxT n_rows) -> index<IdxT>
 {
   return raft::spatial::knn::ivf_pq::detail::extend(
     handle, orig_index, new_vectors, new_indices, n_rows);
@@ -126,7 +126,7 @@ inline auto extend(const handle_t& handle,
  */
 template <typename T, typename IdxT>
 inline void extend(const handle_t& handle,
-                   index<T, IdxT>* index,
+                   index<IdxT>* index,
                    const T* new_vectors,
                    const IdxT* new_indices,
                    IdxT n_rows)
@@ -179,7 +179,7 @@ inline void extend(const handle_t& handle,
 template <typename T, typename IdxT>
 inline void search(const handle_t& handle,
                    const search_params& params,
-                   const index<T, IdxT>& index,
+                   const index<IdxT>& index,
                    const T* queries,
                    uint32_t n_queries,
                    uint32_t k,

@@ -2299,23 +2299,14 @@ void cuannIvfPqBuildIndex(
   uint32_t numIterations, /* Number of iterations to train kmeans */
   bool randomRotation /* If true, rotate vectors with randamly created rotation matrix */)
 {
-  auto stream = handle.get_stream();
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+                "Unsupported data type");
+  if constexpr (!std::is_same_v<T, float>) {
+    RAFT_EXPECTS(desc->metric != distance::DistanceType::InnerProduct,
+                 "Unsupported data type (inner-product metric supports floats only)");
+  }
 
-  if constexpr (std::is_same_v<T, float>) {
-    desc->dtypeDataset = CUDA_R_32F;
-  } else if constexpr (std::is_same_v<T, uint8_t>) {
-    desc->dtypeDataset = CUDA_R_8U;
-  } else if constexpr (std::is_same_v<T, int8_t>) {
-    desc->dtypeDataset = CUDA_R_8I;
-  } else {
-    static_assert(
-      std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
-      "unsupported type");
-  }
-  if (desc->metric == distance::DistanceType::InnerProduct) {
-    RAFT_EXPECTS(desc->dtypeDataset == CUDA_R_32F,
-                 "Unsupported data type (inner-product metric support float only)");
-  }
+  auto stream = handle.get_stream();
 
   auto trainset_ratio = std::max<size_t>(
     1,
@@ -2597,25 +2588,11 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   const T* newVectors, /* [numNewVectors, data_dim] */
   uint32_t numNewVectors) -> cuannIvfPqDescriptor_t
 {
-  if constexpr (std::is_same_v<T, float>) {
-    RAFT_EXPECTS(
-      oldDesc->dtypeDataset == CUDA_R_32F,
-      "The old index type (%d) doesn't much CUDA_R_32F required by the template instantiation",
-      oldDesc->dtypeDataset);
-  } else if constexpr (std::is_same_v<T, uint8_t>) {
-    RAFT_EXPECTS(
-      oldDesc->dtypeDataset == CUDA_R_8U,
-      "The old index type (%d) doesn't much CUDA_R_8U required by the template instantiation",
-      oldDesc->dtypeDataset);
-  } else if constexpr (std::is_same_v<T, int8_t>) {
-    RAFT_EXPECTS(
-      oldDesc->dtypeDataset == CUDA_R_8I,
-      "The old index type (%d) doesn't much CUDA_R_8I required by the template instantiation",
-      oldDesc->dtypeDataset);
-  } else {
-    static_assert(
-      std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
-      "unsupported type");
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+                "Unsupported data type");
+  if constexpr (!std::is_same_v<T, float>) {
+    RAFT_EXPECTS(oldDesc->metric != distance::DistanceType::InnerProduct,
+                 "Unsupported data type (inner-product metric supports floats only)");
   }
 
   rmm::mr::device_memory_resource* device_memory = nullptr;

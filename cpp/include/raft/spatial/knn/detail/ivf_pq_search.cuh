@@ -44,7 +44,7 @@ using namespace raft::spatial::knn::detail;  // NOLINT
 template <typename T, typename IdxT>
 inline void search(const handle_t& handle,
                    const search_params& params,
-                   const index<T, IdxT>& index,
+                   const index<IdxT>& index,
                    const T* queries,
                    uint32_t n_queries,
                    uint32_t k,

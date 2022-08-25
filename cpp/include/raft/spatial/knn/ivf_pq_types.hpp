@@ -19,6 +19,7 @@
 #include "common.hpp"
 
 #include <raft/core/error.hpp>
+#include <raft/core/mdarray.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/integer_utils.h>
 
@@ -122,7 +123,6 @@ struct cuannIvfPqDescriptor {
   uint32_t bitPq;
   distance::DistanceType metric;
   codebook_gen typePqCenter;
-  cudaDataType_t dtypeDataset;
   cudaDataType_t internalDistanceDtype;
   cudaDataType_t smemLutDtype;
   uint32_t indexVersion;
@@ -183,11 +183,10 @@ cuannIvfPqDescriptor_t cuannIvfPqCreateDescriptor()
 /**
  * @brief IVF-PQ index.
  *
- * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
  */
-template <typename T, typename IdxT>
+template <typename IdxT>
 struct index : knn::index {
   static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
                 "IdxT must be able to represent all values of uint32_t");

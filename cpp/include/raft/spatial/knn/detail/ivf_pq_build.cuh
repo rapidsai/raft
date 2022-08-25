@@ -36,10 +36,10 @@ using namespace raft::spatial::knn::detail;  // NOLINT
 /** See raft::spatial::knn::ivf_pq::extend docs */
 template <typename T, typename IdxT>
 inline auto extend(const handle_t& handle,
-                   const index<T, IdxT>& orig_index,
+                   const index<IdxT>& orig_index,
                    const T* new_vectors,
                    const IdxT* new_indices,
-                   IdxT n_rows) -> index<T, IdxT>
+                   IdxT n_rows) -> index<IdxT>
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::extend(%zu, %u)", size_t(n_rows), orig_index.dim());
@@ -48,7 +48,7 @@ inline auto extend(const handle_t& handle,
     RAFT_LOG_WARN("Index input is ignored at the moment (non-null new_indices given).");
   }
 
-  ivf_pq::index<T, IdxT> new_index(
+  ivf_pq::index<IdxT> new_index(
     handle, orig_index.metric(), orig_index.n_lists(), orig_index.dim(), orig_index.pq_dim());
   new_index.desc() = ivf_pq::detail::cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
     handle, const_cast<cuannIvfPqDescriptor_t&>(orig_index.desc()), new_vectors, n_rows);
@@ -60,7 +60,7 @@ inline auto extend(const handle_t& handle,
 template <typename T, typename IdxT>
 inline auto build(
   const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
-  -> index<T, IdxT>
+  -> index<IdxT>
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::build(%zu, %u)", size_t(n_rows), dim);
@@ -68,7 +68,7 @@ inline auto build(
                 "unsupported data type");
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
 
-  ivf_pq::index<T, IdxT> index(handle, params.metric, params.n_lists, dim, params.pq_dim);
+  ivf_pq::index<IdxT> index(handle, params.metric, params.n_lists, dim, params.pq_dim);
 
   ivf_pq::detail::cuannIvfPqSetIndexParameters(
     index.desc(),
