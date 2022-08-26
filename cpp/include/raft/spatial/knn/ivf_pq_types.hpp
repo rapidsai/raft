@@ -23,6 +23,8 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/integer_utils.h>
 
+#include <rmm/mr/device/managed_memory_resource.hpp>
+
 namespace raft::spatial::knn::ivf_pq {
 
 /** A type for specifying how PQ codebooks are created. */
@@ -115,7 +117,6 @@ namespace detail {
 /* IvfPq */
 struct cuannIvfPqDescriptor {
   uint32_t numDataset;
-  codebook_gen typePqCenter;
   cudaDataType_t internalDistanceDtype;
   cudaDataType_t smemLutDtype;
   uint32_t indexVersion;
@@ -125,50 +126,13 @@ struct cuannIvfPqDescriptor {
   uint32_t maxQueries;
   uint32_t maxBatchSize;
   uint32_t maxSamples;
-  uint32_t* inclusiveSumSortedClusterSize;  // [n_lists,]
-  float* sqsumClusters;                     // [n_lists,]
   size_t sizeCubWorkspace;
   uint32_t _numClustersSize0;  // (*) urgent WA, need to be fixed
   uint32_t preferredThreadBlockSize;
-  void* index_ptr;
-
-  // // [pq_dim, pq_width, pq_len], or
-  // // [n_lists, pq_width, pq_len]
-  // device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers;
-  // // [numDataset, pq_dim * bitPq / 8]
-  // device_mdarray<uint8_t, extent_2d<uint32_t>, row_major> pq_dataset;
-  // // [numDataset]
-  // device_mdarray<uint32_t, extent_2d<uint32_t>, row_major> source_indices;
-  // // [dim, rot_dim]
-  // device_mdarray<uint32_t, extent_2d<uint32_t>, row_major> rotation_matrix;
-  // // [n_lists + 1]
-  // device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> cluster_offsets;
-  // // [n_lists, dim_ext]
-  // device_mdarray<float, extent_2d<uint32_t>, row_major> cluster_centers;
-  // // [n_lists, rot_dim]
-  // device_mdarray<float, extent_2d<uint32_t>, row_major> cluster_centers_rot;
-  // // [n_lists ]
-  // std::optional<device_mdarray<uint32_t, extent_1d<uint32_t>, row_major>>
-  //   inclusiveSumSortedClusterSize;
-  // // [n_lists ]
-  // std::optional<device_mdarray<uint32_t, extent_1d<uint32_t>, row_major>> sqsumClusters;
-
-  cuannIvfPqDescriptor()
-    : inclusiveSumSortedClusterSize(nullptr), sqsumClusters(nullptr), index_ptr(nullptr)
-  {
-  }
-
-  ~cuannIvfPqDescriptor()
-  {
-    if (inclusiveSumSortedClusterSize != nullptr) { free(inclusiveSumSortedClusterSize); }
-    if (sqsumClusters != nullptr) { RAFT_CUDA_TRY_NO_THROW(cudaFree(sqsumClusters)); }
-    if (index_ptr != nullptr) { RAFT_CUDA_TRY_NO_THROW(cudaFree(index_ptr)); }
-  }
 
   inline void copy_from(const cuannIvfPqDescriptor& other)
   {
     numDataset               = other.numDataset;
-    typePqCenter             = other.typePqCenter;
     internalDistanceDtype    = other.internalDistanceDtype;
     smemLutDtype             = other.smemLutDtype;
     indexVersion             = other.indexVersion;
@@ -198,6 +162,11 @@ struct index : knn::index {
                 "IdxT must be able to represent all values of uint32_t");
 
  public:
+  /** Total length of the index. */
+  [[nodiscard]] constexpr inline auto size() const noexcept -> uint32_t
+  {
+    return indices_.extent(0);
+  }
   /** Dimensionality of the input data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t { return dim_; }
   /** Dimensionality of the cluster centers:
@@ -233,6 +202,11 @@ struct index : knn::index {
   {
     return metric_;
   }
+  /** How PQ codebooks are created. */
+  [[nodiscard]] constexpr inline auto codebook_kind() const noexcept -> codebook_gen
+  {
+    return codebook_kind_;
+  }
   /** Number of clusters/inverted lists. */
   [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t { return n_lists_; }
 
@@ -252,28 +226,190 @@ struct index : knn::index {
   /** Construct an empty index. It needs to be trained and then populated. */
   index(const handle_t& handle,
         raft::distance::DistanceType metric,
+        codebook_gen codebook_kind,
         uint32_t n_lists,
         uint32_t dim,
         uint32_t pq_bits = 8,
         uint32_t pq_dim  = 0)
     : knn::index(),
-      n_lists_(n_lists),
       metric_(metric),
+      codebook_kind_(codebook_kind),
+      n_lists_(n_lists),
       dim_(dim),
       pq_bits_(pq_bits),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
-      cuann_desc_{}
+      cuann_desc_{},
+      managed_memory_{},
+      pq_centers_{make_device_mdarray<float>(handle, &managed_memory_, make_pq_centers_extents())},
+      pq_dataset_{make_device_mdarray<uint8_t>(
+        handle, &managed_memory_, make_extents<uint32_t>(0, this->pq_dim() * this->pq_bits() / 8))},
+      indices_{make_device_mdarray<uint32_t>(handle, &managed_memory_, make_extents<uint32_t>(0))},
+      rotation_matrix_{make_device_mdarray<float>(
+        handle, &managed_memory_, make_extents<uint32_t>(this->dim(), this->rot_dim()))},
+      list_offsets_{make_device_mdarray<uint32_t>(
+        handle, &managed_memory_, make_extents<uint32_t>(this->n_lists() + 1))},
+      centers_{make_device_mdarray<float>(
+        handle, &managed_memory_, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
+      centers_rot_{make_device_mdarray<float>(
+        handle, &managed_memory_, make_extents<uint32_t>(this->n_lists(), this->rot_dim()))},
+      center_norms_{make_device_mdarray<float>(
+        handle, &managed_memory_, make_extents<uint32_t>(this->n_lists()))},
+      inclusiveSumSortedClusterSize_{
+        make_host_mdarray<uint32_t>(make_extents<uint32_t>(this->n_lists()))}
   {
     check_consistency();
   }
 
+  /** Construct an empty index. It needs to be trained and then populated. */
+  index(const handle_t& handle, const index_params& params, uint32_t dim)
+    : index(handle,
+            params.metric,
+            params.codebook_kind,
+            params.n_lists,
+            dim,
+            params.pq_bits,
+            params.pq_dim)
+  {
+  }
+
+  /**
+   * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
+   * of data.
+   */
+  void allocate(const handle_t& handle, IdxT index_size)
+  {
+    pq_dataset_ = make_device_mdarray<uint8_t>(
+      handle, &managed_memory_, make_extents<uint32_t>(index_size, pq_dataset_.extent(1)));
+    indices_ =
+      make_device_mdarray<uint32_t>(handle, &managed_memory_, make_extents<uint32_t>(index_size));
+    check_consistency();
+  }
+
+  /**
+   * PQ cluster centers
+   *
+   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_width, pq_len]
+   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_width, pq_len]
+   */
+  inline auto pq_centers() noexcept -> device_mdspan<float, extent_3d<uint32_t>, row_major>
+  {
+    return pq_centers_.view();
+  }
+  [[nodiscard]] inline auto pq_centers() const noexcept
+    -> device_mdspan<const float, extent_3d<uint32_t>, row_major>
+  {
+    return pq_centers_.view();
+  }
+
+  /** PQ-encoded data [size, pq_dim * pq_bits / 8]. */
+  inline auto pq_dataset() noexcept -> device_mdspan<uint8_t, extent_2d<uint32_t>, row_major>
+  {
+    return pq_dataset_.view();
+  }
+  [[nodiscard]] inline auto pq_dataset() const noexcept
+    -> device_mdspan<const uint8_t, extent_2d<uint32_t>, row_major>
+  {
+    return pq_dataset_.view();
+  }
+
+  /** Inverted list indices: ids of items in the source data [size] */
+  inline auto indices() noexcept -> device_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return indices_.view();
+  }
+  [[nodiscard]] inline auto indices() const noexcept
+    -> device_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return indices_.view();
+  }
+
+  /** The transform matrix (original space -> rotated padded space) [dim, rot_dim] */
+  inline auto rotation_matrix() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  {
+    return rotation_matrix_.view();
+  }
+  [[nodiscard]] inline auto rotation_matrix() const noexcept
+    -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
+  {
+    return rotation_matrix_.view();
+  }
+
+  /**
+   * Offsets into the lists [n_lists + 1].
+   * The last value contains the total length of the index.
+   */
+  inline auto list_offsets() noexcept -> device_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return list_offsets_.view();
+  }
+  [[nodiscard]] inline auto list_offsets() const noexcept
+    -> device_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return list_offsets_.view();
+  }
+
+  /** Cluster centers corresponding to the lists in the original space [n_lists, dim_ext] */
+  inline auto centers() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  {
+    return centers_.view();
+  }
+  [[nodiscard]] inline auto centers() const noexcept
+    -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
+  {
+    return centers_.view();
+  }
+
+  /** Cluster centers corresponding to the lists in the rotated space [n_lists, rot_dim] */
+  inline auto centers_rot() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  {
+    return centers_rot_.view();
+  }
+  [[nodiscard]] inline auto centers_rot() const noexcept
+    -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
+  {
+    return centers_rot_.view();
+  }
+
+  inline auto center_norms() noexcept -> device_mdspan<float, extent_1d<uint32_t>, row_major>
+  {
+    return center_norms_.view();
+  }
+  [[nodiscard]] inline auto center_norms() const noexcept
+    -> device_mdspan<const float, extent_1d<uint32_t>, row_major>
+  {
+    return center_norms_.view();
+  }
+
+  inline auto inclusiveSumSortedClusterSize() noexcept
+    -> host_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return inclusiveSumSortedClusterSize_.view();
+  }
+  [[nodiscard]] inline auto inclusiveSumSortedClusterSize() const noexcept
+    -> host_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return inclusiveSumSortedClusterSize_.view();
+  }
+
  private:
   raft::distance::DistanceType metric_;
+  codebook_gen codebook_kind_;
   uint32_t n_lists_;
   uint32_t dim_;
   uint32_t pq_bits_;
   uint32_t pq_dim_;
   detail::cuannIvfPqDescriptor cuann_desc_;
+
+  rmm::mr::managed_memory_resource managed_memory_;
+  device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers_;
+  device_mdarray<uint8_t, extent_2d<uint32_t>, row_major> pq_dataset_;
+  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> indices_;
+  device_mdarray<float, extent_2d<uint32_t>, row_major> rotation_matrix_;
+  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_offsets_;
+  device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
+  device_mdarray<float, extent_2d<uint32_t>, row_major> centers_rot_;
+  device_mdarray<float, extent_1d<uint32_t>, row_major> center_norms_;
+  host_mdarray<uint32_t, extent_1d<uint32_t>, row_major> inclusiveSumSortedClusterSize_;
 
   /** Throw an error if the index content is inconsistent. */
   void check_consistency()
@@ -286,6 +422,17 @@ struct index : knn::index {
                  pq_bits(),
                  pq_dim(),
                  pq_bits() * pq_dim());
+  }
+
+  auto make_pq_centers_extents() -> extent_3d<uint32_t>
+  {
+    switch (codebook_kind()) {
+      case codebook_gen::PER_SUBSPACE:
+        return make_extents<uint32_t>(pq_dim(), pq_width(), pq_len());
+      case codebook_gen::PER_CLUSTER:
+        return make_extents<uint32_t>(n_lists(), pq_width(), pq_len());
+      default: RAFT_FAIL("Unreachable code");
+    }
   }
 
   static inline auto calculate_pq_dim(uint32_t dim) -> uint32_t
