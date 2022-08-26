@@ -24,6 +24,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/handle.hpp>
+#include <raft/linalg/contractions.cuh>
 #include <stdint.h>
 
 namespace raft {
@@ -99,16 +100,60 @@ void fusedL2NN(OutT* min,
                bool initOutBuffer,
                cudaStream_t stream)
 {
+  // When k is smaller than 32, the Policy4x4 results in redundant calculations
+  // as it uses tiles that have k=32. Therefore, use a "skinny" policy instead
+  // that uses tiles with a smaller value of k.
+  bool is_skinny = k < 32;
+
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
-    detail::fusedL2NNImpl<DataT, OutT, IdxT, 16 / sizeof(DataT), ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    if (is_skinny) {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4Skinny<DataT, 16 / sizeof(DataT)>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    } else {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4<DataT, 16 / sizeof(DataT)>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    }
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
-    detail::fusedL2NNImpl<DataT, OutT, IdxT, 8 / sizeof(DataT), ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    if (is_skinny) {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4Skinny<DataT, 8 / sizeof(DataT)>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    } else {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4<DataT, 8 / sizeof(DataT)>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    }
   } else {
-    detail::fusedL2NNImpl<DataT, OutT, IdxT, 1, ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    if (is_skinny) {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4Skinny<DataT, 1>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    } else {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4<DataT, 1>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    }
   }
 }
 

@@ -261,7 +261,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
 template <typename DataT,
           typename OutT,
           typename IdxT,
-          int VecLen,
+          typename Policy,
           typename ReduceOpT,
           typename KVPReduceOpT>
 void fusedL2NNImpl(OutT* min,
@@ -279,7 +279,8 @@ void fusedL2NNImpl(OutT* min,
                    bool initOutBuffer,
                    cudaStream_t stream)
 {
-  typedef typename linalg::Policy4x4<DataT, VecLen>::Policy P;
+  // The kernel policy is determined by fusedL2NN.
+  typedef Policy P;
 
   dim3 blk(P::Nthreads);
   auto nblks            = raft::ceildiv<int>(m, P::Nthreads);
