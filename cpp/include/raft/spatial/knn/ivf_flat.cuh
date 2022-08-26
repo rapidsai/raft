@@ -64,8 +64,7 @@ inline auto build(
   const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
   -> index<T, IdxT>
 {
-  return raft::spatial::knn::ivf_flat::detail::build(
-    handle, params, dataset, n_rows, dim, handle.get_stream());
+  return raft::spatial::knn::ivf_flat::detail::build(handle, params, dataset, n_rows, dim);
 }
 
 /**
@@ -108,13 +107,59 @@ inline auto extend(const handle_t& handle,
                    IdxT n_rows) -> index<T, IdxT>
 {
   return raft::spatial::knn::ivf_flat::detail::extend(
-    handle, orig_index, new_vectors, new_indices, n_rows, handle.get_stream());
+    handle, orig_index, new_vectors, new_indices, n_rows);
+}
+
+/**
+ * @brief Extend the index with the new data.
+ * *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param handle
+ * @param[inout] index
+ * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices a device pointer to a vector of indices [n_rows].
+ *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
+ *    here to imply a continuous range `[0...n_rows)`.
+ * @param n_rows the number of samples
+ */
+template <typename T, typename IdxT>
+inline void extend(const handle_t& handle,
+                   index<T, IdxT>* index,
+                   const T* new_vectors,
+                   const IdxT* new_indices,
+                   IdxT n_rows)
+{
+  *index = extend(handle, *index, new_vectors, new_indices, n_rows);
 }
 
 /**
  * @brief Search ANN using the constructed index.
  *
  * See the [ivf_flat::build](#ivf_flat::build) documentation for a usage example.
+ *
+ * Note, this function requires a temporary buffer to store intermediate results between cuda kernel
+ * calls, which may lead to undesirable allocations and slowdown. To alleviate the problem, you can
+ * pass a pool memory resource or a large enough pre-allocated memory resource to reduce or
+ * eliminate entirely allocations happening within `search`:
+ * @code{.cpp}
+ *   ...
+ *   // Create a pooling memory resource with a pre-defined initial size.
+ *   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr(
+ *     rmm::mr::get_current_device_resource(), 1024 * 1024);
+ *   // use default search parameters
+ *   ivf_flat::search_params search_params;
+ *   // Use the same allocator across multiple searches to reduce the number of
+ *   // cuda memory allocations
+ *   ivf_flat::search(handle, search_params, index, queries1, N1, K, out_inds1, out_dists1, &mr);
+ *   ivf_flat::search(handle, search_params, index, queries2, N2, K, out_inds2, out_dists2, &mr);
+ *   ivf_flat::search(handle, search_params, index, queries3, N3, K, out_inds3, out_dists3, &mr);
+ *   ...
+ * @endcode
+ * The exact size of the temporary buffer depends on multiple factors and is an implementation
+ * detail. However, you can safely specify a small initial size for the memory pool, so that only a
+ * few allocations happen to grow it during the first invocations of the `search`.
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices
@@ -143,7 +188,7 @@ inline void search(const handle_t& handle,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
   return raft::spatial::knn::ivf_flat::detail::search(
-    handle, params, index, queries, n_queries, k, neighbors, distances, handle.get_stream(), mr);
+    handle, params, index, queries, n_queries, k, neighbors, distances, mr);
 }
 
 }  // namespace raft::spatial::knn::ivf_flat

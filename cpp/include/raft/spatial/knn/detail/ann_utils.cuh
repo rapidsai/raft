@@ -374,8 +374,8 @@ __global__ void map_along_rows_kernel(
 }
 
 /**
- * @brief Divide matrix values along rows by an integer value, skipping rows if the corresponding
- * divisor is zero.
+ * @brief Map a binary function over a matrix and a vector element-wise, broadcasting the vector
+ * values along rows: `m[i, j] = op(m[i,j], v[i])`
  *
  * NB: device-only function
  *
@@ -383,16 +383,16 @@ __global__ void map_along_rows_kernel(
  *
  * @param n_rows
  * @param n_cols
- * @param[inout] a device pointer to a row-major matrix [n_rows, n_cols]
- * @param[in] d device pointer to a vector [n_rows]
- * @param map the binary operation to apply on every element of matrix rows and of the vector
+ * @param[inout] m device pointer to a row-major matrix [n_rows, n_cols]
+ * @param[in] v device pointer to a vector [n_rows]
+ * @param op the binary operation to apply on every element of matrix rows and of the vector
  */
 template <typename Lambda>
 inline void map_along_rows(uint32_t n_rows,
                            uint32_t n_cols,
-                           float* a,
-                           const uint32_t* d,
-                           Lambda map,
+                           float* m,
+                           const uint32_t* v,
+                           Lambda op,
                            rmm::cuda_stream_view stream)
 {
   dim3 threads(128, 1, 1);
@@ -400,7 +400,7 @@ inline void map_along_rows(uint32_t n_rows,
     ceildiv<uint64_t>(static_cast<uint64_t>(n_rows) * static_cast<uint64_t>(n_cols), threads.x),
     1,
     1);
-  map_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, a, d, map);
+  map_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, m, v, op);
 }
 
 template <typename T>

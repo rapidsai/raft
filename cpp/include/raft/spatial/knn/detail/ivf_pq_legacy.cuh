@@ -35,7 +35,7 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
-#include <thrust/fill.h>
+#include <thrust/sequence.h>
 
 ///////////////////
 #include <cooperative_groups.h>

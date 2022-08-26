@@ -217,15 +217,15 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
         auto index_2 =
           ivf_flat::extend<DataT, int64_t>(handle_, index, database.data(), nullptr, half_of_data);
 
-        auto index_3 = ivf_flat::extend<DataT, int64_t>(handle_,
-                                                        index_2,
-                                                        database.data() + half_of_data * ps.dim,
-                                                        vector_indices.data() + half_of_data,
-                                                        int64_t(ps.num_db_vecs) - half_of_data);
+        ivf_flat::extend<DataT, int64_t>(handle_,
+                                         &index_2,
+                                         database.data() + half_of_data * ps.dim,
+                                         vector_indices.data() + half_of_data,
+                                         int64_t(ps.num_db_vecs) - half_of_data);
 
         ivf_flat::search(handle_,
                          search_params,
-                         index_3,
+                         index_2,
                          search_queries.data(),
                          ps.num_queries,
                          ps.k,
