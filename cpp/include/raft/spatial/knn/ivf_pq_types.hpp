@@ -114,14 +114,10 @@ namespace detail {
 
 /* IvfPq */
 struct cuannIvfPqDescriptor {
-  uint32_t numClusters;
   uint32_t numDataset;
-  uint32_t data_dim;
   uint32_t dimDatasetExt;
   uint32_t rot_dim;
-  uint32_t pq_dim;
   uint32_t bitPq;
-  distance::DistanceType metric;
   codebook_gen typePqCenter;
   cudaDataType_t internalDistanceDtype;
   cudaDataType_t smemLutDtype;
@@ -133,32 +129,32 @@ struct cuannIvfPqDescriptor {
   uint32_t maxQueries;
   uint32_t maxBatchSize;
   uint32_t maxSamples;
-  uint32_t* inclusiveSumSortedClusterSize;  // [numClusters,]
-  float* sqsumClusters;                     // [numClusters,]
+  uint32_t* inclusiveSumSortedClusterSize;  // [n_lists,]
+  float* sqsumClusters;                     // [n_lists,]
   size_t sizeCubWorkspace;
   uint32_t _numClustersSize0;  // (*) urgent WA, need to be fixed
   uint32_t preferredThreadBlockSize;
   void* index_ptr;
 
   // // [pq_dim, 1 << bitPq, lenPq], or
-  // // [numClusters, 1 << bitPq, lenPq]
+  // // [n_lists, 1 << bitPq, lenPq]
   // device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers;
   // // [numDataset, pq_dim * bitPq / 8]
   // device_mdarray<uint8_t, extent_2d<uint32_t>, row_major> pq_dataset;
   // // [numDataset]
   // device_mdarray<uint32_t, extent_2d<uint32_t>, row_major> source_indices;
-  // // [data_dim, rot_dim]
+  // // [dim, rot_dim]
   // device_mdarray<uint32_t, extent_2d<uint32_t>, row_major> rotation_matrix;
-  // // [numClusters + 1]
+  // // [n_lists + 1]
   // device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> cluster_offsets;
-  // // [numClusters, dimDatasetExt]
+  // // [n_lists, dimDatasetExt]
   // device_mdarray<float, extent_2d<uint32_t>, row_major> cluster_centers;
-  // // [numClusters, rot_dim]
+  // // [n_lists, rot_dim]
   // device_mdarray<float, extent_2d<uint32_t>, row_major> cluster_centers_rot;
-  // // [numClusters ]
+  // // [n_lists ]
   // std::optional<device_mdarray<uint32_t, extent_1d<uint32_t>, row_major>>
   //   inclusiveSumSortedClusterSize;
-  // // [numClusters ]
+  // // [n_lists ]
   // std::optional<device_mdarray<uint32_t, extent_1d<uint32_t>, row_major>> sqsumClusters;
 
   cuannIvfPqDescriptor()
@@ -175,14 +171,10 @@ struct cuannIvfPqDescriptor {
 
   inline void copy_from(const cuannIvfPqDescriptor& other)
   {
-    numClusters              = other.numClusters;
     numDataset               = other.numDataset;
-    data_dim                 = other.data_dim;
     dimDatasetExt            = other.dimDatasetExt;
     rot_dim                  = other.rot_dim;
-    pq_dim                   = other.pq_dim;
     bitPq                    = other.bitPq;
-    metric                   = other.metric;
     typePqCenter             = other.typePqCenter;
     internalDistanceDtype    = other.internalDistanceDtype;
     smemLutDtype             = other.smemLutDtype;
