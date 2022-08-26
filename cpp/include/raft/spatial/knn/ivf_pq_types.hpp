@@ -115,15 +115,11 @@ namespace detail {
 /* IvfPq */
 struct cuannIvfPqDescriptor {
   uint32_t numDataset;
-  uint32_t dimDatasetExt;
-  uint32_t rot_dim;
-  uint32_t bitPq;
   codebook_gen typePqCenter;
   cudaDataType_t internalDistanceDtype;
   cudaDataType_t smemLutDtype;
   uint32_t indexVersion;
   uint32_t maxClusterSize;
-  uint32_t lenPq;  // rot_dim / pq_dim
   uint32_t numProbes;
   uint32_t topK;
   uint32_t maxQueries;
@@ -136,8 +132,8 @@ struct cuannIvfPqDescriptor {
   uint32_t preferredThreadBlockSize;
   void* index_ptr;
 
-  // // [pq_dim, 1 << bitPq, lenPq], or
-  // // [n_lists, 1 << bitPq, lenPq]
+  // // [pq_dim, pq_width, pq_len], or
+  // // [n_lists, pq_width, pq_len]
   // device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers;
   // // [numDataset, pq_dim * bitPq / 8]
   // device_mdarray<uint8_t, extent_2d<uint32_t>, row_major> pq_dataset;
@@ -147,7 +143,7 @@ struct cuannIvfPqDescriptor {
   // device_mdarray<uint32_t, extent_2d<uint32_t>, row_major> rotation_matrix;
   // // [n_lists + 1]
   // device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> cluster_offsets;
-  // // [n_lists, dimDatasetExt]
+  // // [n_lists, dim_ext]
   // device_mdarray<float, extent_2d<uint32_t>, row_major> cluster_centers;
   // // [n_lists, rot_dim]
   // device_mdarray<float, extent_2d<uint32_t>, row_major> cluster_centers_rot;
@@ -172,15 +168,11 @@ struct cuannIvfPqDescriptor {
   inline void copy_from(const cuannIvfPqDescriptor& other)
   {
     numDataset               = other.numDataset;
-    dimDatasetExt            = other.dimDatasetExt;
-    rot_dim                  = other.rot_dim;
-    bitPq                    = other.bitPq;
     typePqCenter             = other.typePqCenter;
     internalDistanceDtype    = other.internalDistanceDtype;
     smemLutDtype             = other.smemLutDtype;
     indexVersion             = other.indexVersion;
     maxClusterSize           = other.maxClusterSize;
-    lenPq                    = other.lenPq;
     numProbes                = other.numProbes;
     topK                     = other.topK;
     maxQueries               = other.maxQueries;
@@ -206,10 +198,36 @@ struct index : knn::index {
                 "IdxT must be able to represent all values of uint32_t");
 
  public:
-  /** Dimensionality of the data. */
+  /** Dimensionality of the input data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t { return dim_; }
-  /** Bit length of the encoded PQ vector element (see index_parameters).  */
+  /** Dimensionality of the cluster centers:
+   * input data dim extended with vector norms and padded to 8 elems.
+   */
+  [[nodiscard]] constexpr inline auto dim_ext() const noexcept -> uint32_t
+  {
+    return Pow2<8>::roundUp(dim() + 1);
+  }
+  /** Dimensionality of the data after transforming it for PQ processing
+   *  (rotated and augmented to be muplitple of `pq_dim`).
+   */
+  [[nodiscard]] constexpr inline auto rot_dim() const noexcept -> uint32_t
+  {
+    return pq_len() * pq_dim();
+  }
+  /** The bit length of an encoded vector element after compression by PQ. */
+  [[nodiscard]] constexpr inline auto pq_bits() const noexcept -> uint32_t { return pq_bits_; }
+  /** The dimensionality an encoded vector after compression by PQ. */
   [[nodiscard]] constexpr inline auto pq_dim() const noexcept -> uint32_t { return pq_dim_; }
+  /** Dimensionality of the data after splitting vectors into subspaces.  */
+  [[nodiscard]] constexpr inline auto pq_len() const noexcept -> uint32_t
+  {
+    return raft::ceildiv(dim(), pq_dim());
+  }
+  /** The size of an encoded vector element after compression by PQ (`1 << pq_bits`). */
+  [[nodiscard]] constexpr inline auto pq_width() const noexcept -> uint32_t
+  {
+    return 1 << pq_bits();
+  }
   /** Distance metric used for clustering. */
   [[nodiscard]] constexpr inline auto metric() const noexcept -> raft::distance::DistanceType
   {
@@ -236,11 +254,13 @@ struct index : knn::index {
         raft::distance::DistanceType metric,
         uint32_t n_lists,
         uint32_t dim,
-        uint32_t pq_dim = 0)
+        uint32_t pq_bits = 8,
+        uint32_t pq_dim  = 0)
     : knn::index(),
       n_lists_(n_lists),
       metric_(metric),
       dim_(dim),
+      pq_bits_(pq_bits),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
       cuann_desc_{}
   {
@@ -251,11 +271,22 @@ struct index : knn::index {
   raft::distance::DistanceType metric_;
   uint32_t n_lists_;
   uint32_t dim_;
+  uint32_t pq_bits_;
   uint32_t pq_dim_;
   detail::cuannIvfPqDescriptor cuann_desc_;
 
   /** Throw an error if the index content is inconsistent. */
-  void check_consistency() {}
+  void check_consistency()
+  {
+    RAFT_EXPECTS(pq_bits() >= 4 && pq_bits() <= 8,
+                 "`pq_bits` must be within closed range [4,8], but got %u.",
+                 pq_bits());
+    RAFT_EXPECTS((pq_bits() * pq_dim()) % 8 == 0,
+                 "`pq_bits * pq_dim` must be a multiple of 8, but got %u * %u = %u.",
+                 pq_bits(),
+                 pq_dim(),
+                 pq_bits() * pq_dim());
+  }
 
   static inline auto calculate_pq_dim(uint32_t dim) -> uint32_t
   {

@@ -64,13 +64,10 @@ inline auto build(
                 "unsupported data type");
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
 
-  ivf_pq::index<IdxT> index(handle, params.metric, params.n_lists, dim, params.pq_dim);
+  ivf_pq::index<IdxT> index(
+    handle, params.metric, params.n_lists, dim, params.pq_bits, params.pq_dim);
 
-  ivf_pq::detail::cuannIvfPqSetIndexParameters(index,
-                                               (uint32_t)n_rows, /* Number of dataset entries */
-                                               index.dim(),      /* Dimension of each entry */
-                                               params.pq_bits,   /* Bit length of PQ */
-                                               params.codebook_kind);
+  ivf_pq::detail::cuannIvfPqSetIndexParameters(index, (uint32_t)n_rows, params.codebook_kind);
 
   // Build index
   ivf_pq::detail::cuannIvfPqBuildIndex(handle,
