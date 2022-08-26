@@ -76,12 +76,22 @@ inline void search(const handle_t& handle,
                                                       params.smem_lut_dtype,
                                                       params.preferred_thread_block_size);
   // Maximum number of query vectors to search at the same time.
-  uint32_t batch_size = std::min<uint32_t>(n_queries, 32768);
-  size_t max_ws_size  = (size_t)2 * 1024 * 1024 * 1024;  // 2 GiB
-  // Allocate memory for index
-  size_t ivf_pq_search_workspace_size;
-  ivf_pq::detail::cuannIvfPqSearch_bufferSize(
-    handle, index_mut, batch_size, max_ws_size, &ivf_pq_search_workspace_size);
+  uint32_t batch_size           = std::min<uint32_t>(n_queries, 32768);
+  index_mut.desc().maxQueries   = min(max(batch_size, 1), 4096);
+  index_mut.desc().maxBatchSize = index_mut.desc().maxQueries;
+  {
+    // TODO: copied from {legacy}; figure this out.
+    // Adjust maxBatchSize to improve GPU occupancy of topk kernel.
+    uint32_t numCta_total    = getMultiProcessorCount() * 2;
+    uint32_t numCta_perBatch = numCta_total / index_mut.desc().maxBatchSize;
+    float utilization = (float)numCta_perBatch * index_mut.desc().maxBatchSize / numCta_total;
+    if (numCta_perBatch > 1 || (numCta_perBatch == 1 && utilization < 0.6)) {
+      uint32_t numCta_perBatch_1 = numCta_perBatch + 1;
+      uint32_t maxBatchSize_1    = numCta_total / numCta_perBatch_1;
+      float utilization_1        = (float)numCta_perBatch_1 * maxBatchSize_1 / numCta_total;
+      if (utilization < utilization_1) { index_mut.desc().maxBatchSize = maxBatchSize_1; }
+    }
+  }
 
   // finally, search!
   ivf_pq::detail::cuannIvfPqSearch(handle, index_mut, queries, n_queries, neighbors, distances, mr);

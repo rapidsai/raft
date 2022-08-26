@@ -65,7 +65,7 @@ inline auto build(
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
 
   ivf_pq::index<IdxT> index(handle, params, dim);
-  index.desc().numDataset = n_rows;
+  index.allocate(handle, n_rows);
 
   // Build index
   ivf_pq::detail::cuannIvfPqBuildIndex(handle,

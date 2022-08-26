@@ -116,34 +116,24 @@ namespace detail {
 
 /* IvfPq */
 struct cuannIvfPqDescriptor {
-  uint32_t numDataset;
   cudaDataType_t internalDistanceDtype;
   cudaDataType_t smemLutDtype;
-  uint32_t indexVersion;
-  uint32_t maxClusterSize;
   uint32_t numProbes;
   uint32_t topK;
   uint32_t maxQueries;
   uint32_t maxBatchSize;
   uint32_t maxSamples;
-  size_t sizeCubWorkspace;
-  uint32_t _numClustersSize0;  // (*) urgent WA, need to be fixed
   uint32_t preferredThreadBlockSize;
 
   inline void copy_from(const cuannIvfPqDescriptor& other)
   {
-    numDataset               = other.numDataset;
     internalDistanceDtype    = other.internalDistanceDtype;
     smemLutDtype             = other.smemLutDtype;
-    indexVersion             = other.indexVersion;
-    maxClusterSize           = other.maxClusterSize;
     numProbes                = other.numProbes;
     topK                     = other.topK;
     maxQueries               = other.maxQueries;
     maxBatchSize             = other.maxBatchSize;
     maxSamples               = other.maxSamples;
-    sizeCubWorkspace         = other.sizeCubWorkspace;
-    _numClustersSize0        = other._numClustersSize0;
     preferredThreadBlockSize = other.preferredThreadBlockSize;
   }
 };
@@ -391,6 +381,12 @@ struct index : knn::index {
     return inclusiveSumSortedClusterSize_.view();
   }
 
+  inline auto numClustersSize0() noexcept -> uint32_t& { return numClustersSize0_; }
+  [[nodiscard]] inline auto numClustersSize0() const noexcept -> const uint32_t&
+  {
+    return numClustersSize0_;
+  }
+
  private:
   raft::distance::DistanceType metric_;
   codebook_gen codebook_kind_;
@@ -410,6 +406,7 @@ struct index : knn::index {
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_rot_;
   device_mdarray<float, extent_1d<uint32_t>, row_major> center_norms_;
   host_mdarray<uint32_t, extent_1d<uint32_t>, row_major> inclusiveSumSortedClusterSize_;
+  uint32_t numClustersSize0_;  // (*) urgent WA, need to be fixed
 
   /** Throw an error if the index content is inconsistent. */
   void check_consistency()
