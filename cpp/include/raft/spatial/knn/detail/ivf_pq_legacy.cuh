@@ -1398,6 +1398,10 @@ inline void _cuann_find_topk(const handle_t& handle,
 template <typename scoreDtype, typename smemLutDtype, typename IdxT>
 void ivfpq_search(const handle_t& handle,
                   index<IdxT>& index,
+                  uint32_t n_probes,
+                  uint32_t max_batch_size,
+                  uint32_t topK,
+                  uint32_t preferred_thread_block_size,
                   uint32_t numQueries,
                   const float* cluster_centers,          // [index_size, data_dim]
                   const float* pqCenters,                // [pq_dim, 256, pq_len]
@@ -1553,17 +1557,6 @@ __global__ void ivfpq_make_outputs(uint32_t numProbes,
     uint32_t iDataset                  = scoreTopkIndex[iSample + ((numProbes * topk) * iBatch)];
     topkNeighbors[i + (topk * iBatch)] = data_indices[iDataset];
   }
-}
-
-//
-template <typename IdxT>
-bool manage_local_topk(index<IdxT>& index)
-{
-  int depth = raft::ceildiv<int>(index.desc().topK, 32);
-  if (depth > 4) { return false; }
-  if (index.desc().numProbes < 16) { return false; }
-  if (index.desc().maxBatchSize * index.desc().numProbes < 256) { return false; }
-  return true;
 }
 
 //
@@ -2618,10 +2611,8 @@ void cuannIvfPqSetSearchParameters(index<IdxT>& index,
       topK,
       numSamplesWorstCase);
   }
-  index.desc().numProbes = numProbes;
-  index.desc().topK      = topK;
-  index.desc().maxSamples =
-    Pow2<128>::roundUp(index.inclusiveSumSortedClusterSize()(numProbes - 1));
+  index.desc().numProbes                = numProbes;
+  index.desc().topK                     = topK;
   index.desc().internalDistanceDtype    = CUDA_R_32F;
   index.desc().smemLutDtype             = CUDA_R_32F;
   index.desc().preferredThreadBlockSize = 0;
@@ -2679,6 +2670,10 @@ void cuannIvfPqSearch(const handle_t& handle,
 
   void (*_ivfpq_search)(const handle_t&,
                         ivf_pq::index<IdxT>&,
+                        uint32_t,
+                        uint32_t,
+                        uint32_t,
+                        uint32_t,
                         uint32_t,
                         const float*,
                         const float*,
@@ -2790,6 +2785,10 @@ void cuannIvfPqSearch(const handle_t& handle,
       uint32_t batchSize = min(index.desc().maxBatchSize, nQueries - j);
       _ivfpq_search(handle,
                     index,
+                    index.desc().numProbes,
+                    index.desc().maxBatchSize,
+                    index.desc().topK,
+                    index.desc().preferredThreadBlockSize,
                     batchSize,
                     clusterRotCenters,
                     pqCenters,
@@ -3127,6 +3126,10 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
 template <typename scoreDtype, typename smemLutDtype, typename IdxT>
 void ivfpq_search(const handle_t& handle,
                   index<IdxT>& index,
+                  uint32_t n_probes,
+                  uint32_t max_batch_size,
+                  uint32_t topK,
+                  uint32_t preferred_thread_block_size,
                   uint32_t numQueries,
                   const float* cluster_centers,          // [index_size, rot_dim]
                   const float* pqCenters,                // [pq_dim, pq_width, pq_len]
@@ -3139,57 +3142,59 @@ void ivfpq_search(const handle_t& handle,
                   float* topkDistances,                  // [numQueries, topK]
                   rmm::mr::device_memory_resource* mr)
 {
-  RAFT_EXPECTS(numQueries <= index.desc().maxBatchSize,
+  RAFT_EXPECTS(numQueries <= max_batch_size,
                "number of queries (%u) must be smaller the max batch size (%u)",
                numQueries,
-               index.desc().maxBatchSize);
+               max_batch_size);
   auto stream = handle.get_stream();
 
-  rmm::device_uvector<uint32_t> cluster_labels_out(
-    index.desc().maxBatchSize * index.desc().numProbes, stream, mr);
+  auto max_samples = Pow2<128>::roundUp(index.inclusiveSumSortedClusterSize()(n_probes - 1));
+
+  bool manage_local_topk =
+    raft::ceildiv<int>(topK, 32) <= 4    // depth is not too large
+    && n_probes >= 16                    // not too few clusters looked up
+    && max_batch_size * n_probes >= 256  // overall amount of work is not too small
+    ;
+
+  rmm::device_uvector<uint32_t> cluster_labels_out(max_batch_size * n_probes, stream, mr);
   rmm::device_uvector<uint32_t> index_list_sorted_buf(0, stream, mr);
   uint32_t* index_list_sorted = nullptr;
-  rmm::device_uvector<uint32_t> num_samples(index.desc().maxBatchSize, stream, mr);
-  rmm::device_uvector<uint32_t> chunk_index(
-    index.desc().maxBatchSize * index.desc().numProbes, stream, mr);
-  rmm::device_uvector<uint32_t> topk_sids(
-    index.desc().maxBatchSize * index.desc().topK, stream, mr);
+  rmm::device_uvector<uint32_t> num_samples(max_batch_size, stream, mr);
+  rmm::device_uvector<uint32_t> chunk_index(max_batch_size * n_probes, stream, mr);
+  rmm::device_uvector<uint32_t> topk_sids(max_batch_size * topK, stream, mr);
   // [maxBatchSize, maxSamples] or  [maxBatchSize, numProbes, topk]
   rmm::device_uvector<scoreDtype> scores_buf(0, stream, mr);
   rmm::device_uvector<uint32_t> topk_index_buf(0, stream, mr);
   uint32_t* topk_index = nullptr;
-  if (manage_local_topk(index)) {
-    scores_buf.resize(index.desc().maxBatchSize * index.desc().numProbes * index.desc().topK,
-                      stream);
-    topk_index_buf.resize(index.desc().maxBatchSize * index.desc().numProbes * index.desc().topK,
-                          stream);
+  if (manage_local_topk) {
+    scores_buf.resize(max_batch_size * n_probes * topK, stream);
+    topk_index_buf.resize(max_batch_size * n_probes * topK, stream);
     topk_index = topk_index_buf.data();
   } else {
-    scores_buf.resize(index.desc().maxBatchSize * index.desc().maxSamples, stream);
+    scores_buf.resize(max_batch_size * max_samples, stream);
   }
 
   dim3 mcThreads(1024, 1, 1);  // DO NOT CHANGE
   dim3 mcBlocks(numQueries, 1, 1);
-  ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, stream>>>(index.desc().numProbes,
+  ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, stream>>>(n_probes,
                                                                  numQueries,
                                                                  cluster_offsets,
                                                                  clusterLabelsToProbe,
                                                                  chunk_index.data(),
                                                                  num_samples.data());
 
-  if (numQueries * index.desc().numProbes > 256) {
+  if (numQueries * n_probes > 256) {
     // Sorting index by cluster number (label).
     // The goal is to incrase the L2 cache hit rate to read the vectors
     // of a cluster by processing the cluster at the same time as much as
     // possible.
-    index_list_sorted_buf.resize(index.desc().maxBatchSize * index.desc().numProbes, stream);
-    rmm::device_uvector<uint32_t> index_list_buf(
-      index.desc().maxBatchSize * index.desc().numProbes, stream, mr);
+    index_list_sorted_buf.resize(max_batch_size * n_probes, stream);
+    rmm::device_uvector<uint32_t> index_list_buf(max_batch_size * n_probes, stream, mr);
     auto index_list   = index_list_buf.data();
     index_list_sorted = index_list_sorted_buf.data();
     thrust::sequence(handle.get_thrust_policy(),
                      thrust::device_pointer_cast(index_list),
-                     thrust::device_pointer_cast(index_list + numQueries * index.desc().numProbes));
+                     thrust::device_pointer_cast(index_list + numQueries * n_probes));
 
     int begin_bit             = 0;
     int end_bit               = sizeof(uint32_t) * 8;
@@ -3200,7 +3205,7 @@ void ivfpq_search(const handle_t& handle,
                                     cluster_labels_out.data(),
                                     index_list,
                                     index_list_sorted,
-                                    numQueries * index.desc().numProbes,
+                                    numQueries * n_probes,
                                     begin_bit,
                                     end_bit,
                                     stream);
@@ -3211,7 +3216,7 @@ void ivfpq_search(const handle_t& handle,
                                     cluster_labels_out.data(),
                                     index_list,
                                     index_list_sorted,
-                                    numQueries * index.desc().numProbes,
+                                    numQueries * n_probes,
                                     begin_bit,
                                     end_bit,
                                     stream);
@@ -3275,8 +3280,8 @@ void ivfpq_search(const handle_t& handle,
   kernel_t kernel_fast;
   kernel_t kernel_no_smem_lut;
   uint32_t depth = 1;
-  if (manage_local_topk(index)) {
-    while (depth * WarpSize < index.desc().topK) {
+  if (manage_local_topk) {
+    while (depth * WarpSize < topK) {
       depth *= 2;
     }
   }
@@ -3284,11 +3289,10 @@ void ivfpq_search(const handle_t& handle,
     case 1: SET_KERNEL3(1); break;
     case 2: SET_KERNEL3(2); break;
     case 4: SET_KERNEL3(4); break;
-    default:
-      RAFT_FAIL("ivf_pq::search(k = %u): depth value is too big (%d)", index.desc().topK, depth);
+    default: RAFT_FAIL("ivf_pq::search(k = %u): depth value is too big (%d)", topK, depth);
   }
   RAFT_LOG_DEBUG("ivf_pq::search(k = %u, depth = %d, dim = %u/%u/%u)",
-                 index.desc().topK,
+                 topK,
                  depth,
                  index.dim(),
                  index.rot_dim(),
@@ -3297,11 +3301,11 @@ void ivfpq_search(const handle_t& handle,
   size_t sizeSmem                = sizeof(smemLutDtype) * index.pq_dim() * index.pq_width();
   size_t sizeSmemBaseDiff        = sizeof(float) * index.rot_dim();
 
-  uint32_t numCTAs = numQueries * index.desc().numProbes;
+  uint32_t numCTAs = numQueries * n_probes;
   int numThreads   = 1024;
-  // index.desc().preferredThreadBlockSize == 0 means using auto thread block size calculation
+  // preferred_thread_block_size == 0 means using auto thread block size calculation
   // mode
-  if (index.desc().preferredThreadBlockSize == 0) {
+  if (preferred_thread_block_size == 0) {
     constexpr int minThreads = 256;
     while (numThreads > minThreads) {
       if (numCTAs < uint32_t(getMultiProcessorCount() * (1024 / (numThreads / 2)))) { break; }
@@ -3312,10 +3316,10 @@ void ivfpq_search(const handle_t& handle,
       numThreads /= 2;
     }
   } else {
-    numThreads = index.desc().preferredThreadBlockSize;
+    numThreads = preferred_thread_block_size;
   }
-  size_t sizeSmemForLocalTopk = topk::template calc_smem_size_for_block_wide<float, uint32_t>(
-    numThreads / WarpSize, index.desc().topK);
+  size_t sizeSmemForLocalTopk =
+    topk::template calc_smem_size_for_block_wide<float, uint32_t>(numThreads / WarpSize, topK);
   sizeSmem = max(sizeSmem, sizeSmemForLocalTopk);
 
   kernel_t kernel = kernel_no_basediff;
@@ -3331,10 +3335,10 @@ void ivfpq_search(const handle_t& handle,
       kernel_no_basediff_available = false;
 
       // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
-      kernel                      = kernel_no_smem_lut;
-      numThreads                  = 1024;
-      size_t sizeSmemForLocalTopk = topk::calc_smem_size_for_block_wide<float, uint32_t>(
-        numThreads / WarpSize, index.desc().topK);
+      kernel     = kernel_no_smem_lut;
+      numThreads = 1024;
+      size_t sizeSmemForLocalTopk =
+        topk::calc_smem_size_for_block_wide<float, uint32_t>(numThreads / WarpSize, topK);
       sizeSmem = max(sizeSmemBaseDiff, sizeSmemForLocalTopk);
       numCTAs  = getMultiProcessorCount();
     }
@@ -3374,13 +3378,13 @@ void ivfpq_search(const handle_t& handle,
   dim3 ctaBlocks(numCTAs, 1, 1);
   kernel<<<ctaBlocks, ctaThreads, sizeSmem, stream>>>(index.size(),
                                                       index.rot_dim(),
-                                                      index.desc().numProbes,
+                                                      n_probes,
                                                       index.pq_dim(),
                                                       numQueries,
-                                                      index.desc().maxSamples,
+                                                      max_samples,
                                                       index.metric(),
                                                       index.codebook_kind(),
-                                                      index.desc().topK,
+                                                      topK,
                                                       cluster_centers,
                                                       pqCenters,
                                                       pqDataset,
@@ -3396,18 +3400,18 @@ void ivfpq_search(const handle_t& handle,
   // Select topk vectors for each query
   if (topk_index == nullptr) {
     _cuann_find_topk(handle,
-                     index.desc().topK,
+                     topK,
                      numQueries,
-                     index.desc().maxSamples,
+                     max_samples,
                      num_samples.data(),
                      scores_buf.data(),
                      topk_sids.data(),
                      mr);
   } else {
     _cuann_find_topk(handle,
-                     index.desc().topK,
+                     topK,
                      numQueries,
-                     (index.desc().numProbes * index.desc().topK),
+                     (n_probes * topK),
                      nullptr,
                      scores_buf.data(),
                      topk_sids.data(),
@@ -3415,10 +3419,10 @@ void ivfpq_search(const handle_t& handle,
   }
 
   dim3 moThreads(128, 1, 1);
-  dim3 moBlocks((index.desc().topK + moThreads.x - 1) / moThreads.x, numQueries, 1);
-  ivfpq_make_outputs<scoreDtype><<<moBlocks, moThreads, 0, stream>>>(index.desc().numProbes,
-                                                                     index.desc().topK,
-                                                                     index.desc().maxSamples,
+  dim3 moBlocks((topK + moThreads.x - 1) / moThreads.x, numQueries, 1);
+  ivfpq_make_outputs<scoreDtype><<<moBlocks, moThreads, 0, stream>>>(n_probes,
+                                                                     topK,
+                                                                     max_samples,
                                                                      numQueries,
                                                                      cluster_offsets,
                                                                      data_indices,
