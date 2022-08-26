@@ -2503,7 +2503,6 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
                                 orig_index.pq_bits(),
                                 orig_index.pq_dim());
   new_index.allocate(handle, orig_index.size() + numNewVectors);
-  new_index.desc().copy_from(orig_index.desc());
   RAFT_LOG_DEBUG("Index size: %u -> %u", orig_index.size(), new_index.size());
 
   auto newClusterCenters    = new_index.centers().data_handle();
@@ -2582,75 +2581,20 @@ auto cuannIvfPqCreateNewIndexByAddingVectorsToOldIndex(
   return new_index;
 }
 
-template <typename IdxT>
-void cuannIvfPqSetSearchParameters(index<IdxT>& index,
-                                   const uint32_t numProbes,
-                                   const uint32_t topK)
-{
-  RAFT_EXPECTS(numProbes > 0, "numProbes must be larger than zero");
-  RAFT_EXPECTS(topK > 0, "topK must be larger than zero");
-  RAFT_EXPECTS(numProbes <= index.n_lists(),
-               "numProbes (%u) must be not larger than n_clusters (%u)",
-               numProbes,
-               index.n_lists());
-  RAFT_EXPECTS(
-    topK <= index.size(), "topK (%u) must be not larger than n_rows (%u)", numProbes, index.size());
-
-  uint32_t numSamplesWorstCase = index.size();
-  if (numProbes < index.n_lists()) {
-    numSamplesWorstCase = index.size() - index.inclusiveSumSortedClusterSize()(
-                                           std::max<uint32_t>(index.numClustersSize0(),
-                                                              index.n_lists() - 1 - numProbes) -
-                                           index.numClustersSize0());
-  }
-  if (topK > numSamplesWorstCase) {
-    RAFT_LOG_WARN(
-      "numProbes is too small to get topK results reliably (numProbes: %u, topK: %u, "
-      "numSamplesWorstCase: %u).",
-      numProbes,
-      topK,
-      numSamplesWorstCase);
-  }
-  index.desc().numProbes                = numProbes;
-  index.desc().topK                     = topK;
-  index.desc().internalDistanceDtype    = CUDA_R_32F;
-  index.desc().smemLutDtype             = CUDA_R_32F;
-  index.desc().preferredThreadBlockSize = 0;
-}
-
-template <typename IdxT>
-void cuannIvfPqSetSearchTuningParameters(index<IdxT>& index,
-                                         cudaDataType_t internalDistanceDtype,
-                                         cudaDataType_t smemLutDtype,
-                                         const uint32_t preferredThreadBlockSize)
-{
-  RAFT_EXPECTS(internalDistanceDtype == CUDA_R_16F || internalDistanceDtype == CUDA_R_32F,
-               "internalDistanceDtype must be either CUDA_R_16F or CUDA_R_32F");
-  RAFT_EXPECTS(
-    smemLutDtype == CUDA_R_16F || smemLutDtype == CUDA_R_32F || smemLutDtype == CUDA_R_8U,
-    "smemLutDtype must be CUDA_R_16F, CUDA_R_32F or CUDA_R_8U");
-  RAFT_EXPECTS(preferredThreadBlockSize == 256 || preferredThreadBlockSize == 512 ||
-                 preferredThreadBlockSize == 1024 || preferredThreadBlockSize == 0,
-               "preferredThreadBlockSize must be 0, 256, 512 or 1024, but %u is given.",
-               preferredThreadBlockSize);
-  index.desc().internalDistanceDtype    = internalDistanceDtype;
-  index.desc().smemLutDtype             = smemLutDtype;
-  index.desc().preferredThreadBlockSize = preferredThreadBlockSize;
-}
-
 template <typename T, typename IdxT>
 void cuannIvfPqSearch(const handle_t& handle,
+                      const search_params& params,
                       index<IdxT>& index,
+                      uint32_t topK,
                       const T* queries, /* [numQueries, data_dim], device pointer */
                       uint32_t numQueries,
                       uint64_t* neighbors, /* [numQueries, topK], device pointer */
                       float* distances,    /* [numQueries, topK], device pointer */
-                      rmm::mr::device_memory_resource* mr)
+                      rmm::mr::device_memory_resource* mr,
+                      uint32_t max_queries,
+                      uint32_t max_batch_size)
 {
   auto stream = handle.get_stream();
-
-  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
-                "unsupported type");
 
   auto cluster_centers   = index.centers().data_handle();
   auto pqCenters         = index.pq_centers().data_handle();
@@ -2661,12 +2605,11 @@ void cuannIvfPqSearch(const handle_t& handle,
   auto clusterRotCenters = index.centers_rot().data_handle();
 
   //
-  rmm::device_uvector<T> dev_queries(index.desc().maxQueries * index.dim_ext(), stream, mr);
-  rmm::device_uvector<float> cur_queries(index.desc().maxQueries * index.dim_ext(), stream, mr);
-  rmm::device_uvector<float> rot_queries(index.desc().maxQueries * index.rot_dim(), stream, mr);
-  rmm::device_uvector<uint32_t> clusters_to_probe(
-    index.desc().maxQueries * index.desc().numProbes, stream, mr);
-  rmm::device_uvector<float> qc_distances(index.desc().maxQueries * index.n_lists(), stream, mr);
+  rmm::device_uvector<T> dev_queries(max_queries * index.dim_ext(), stream, mr);
+  rmm::device_uvector<float> cur_queries(max_queries * index.dim_ext(), stream, mr);
+  rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
+  rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * params.n_probes, stream, mr);
+  rmm::device_uvector<float> qc_distances(max_queries * index.n_lists(), stream, mr);
 
   void (*_ivfpq_search)(const handle_t&,
                         ivf_pq::index<IdxT>&,
@@ -2685,18 +2628,18 @@ void cuannIvfPqSearch(const handle_t& handle,
                         uint64_t*,
                         float*,
                         rmm::mr::device_memory_resource*);
-  if (index.desc().internalDistanceDtype == CUDA_R_16F) {
-    if (index.desc().smemLutDtype == CUDA_R_16F) {
+  if (params.internal_distance_dtype == CUDA_R_16F) {
+    if (params.smem_lut_dtype == CUDA_R_16F) {
       _ivfpq_search = ivfpq_search<half, half>;
-    } else if (index.desc().smemLutDtype == CUDA_R_8U) {
+    } else if (params.smem_lut_dtype == CUDA_R_8U) {
       _ivfpq_search = ivfpq_search<half, fp_8bit<5>>;
     } else {
       _ivfpq_search = ivfpq_search<half, float>;
     }
   } else {
-    if (index.desc().smemLutDtype == CUDA_R_16F) {
+    if (params.smem_lut_dtype == CUDA_R_16F) {
       _ivfpq_search = ivfpq_search<float, half>;
-    } else if (index.desc().smemLutDtype == CUDA_R_8U) {
+    } else if (params.smem_lut_dtype == CUDA_R_8U) {
       _ivfpq_search = ivfpq_search<float, fp_8bit<5>>;
     } else {
       _ivfpq_search = ivfpq_search<float, float>;
@@ -2709,8 +2652,8 @@ void cuannIvfPqSearch(const handle_t& handle,
     default: RAFT_FAIL("all pointers must be accessible from the device.");
   }
 
-  for (uint32_t i = 0; i < numQueries; i += index.desc().maxQueries) {
-    uint32_t nQueries = min(index.desc().maxQueries, numQueries - i);
+  for (uint32_t i = 0; i < numQueries; i += max_queries) {
+    uint32_t nQueries = min(max_queries, numQueries - i);
 
     float fillValue = 0.0;
     if (index.metric() != raft::distance::DistanceType::InnerProduct) { fillValue = 1.0 / -2.0; }
@@ -2772,7 +2715,7 @@ void cuannIvfPqSearch(const handle_t& handle,
 
     // Select neighbor clusters for each query.
     _cuann_find_topk(handle,
-                     index.desc().numProbes,
+                     params.n_probes,
                      nQueries,
                      index.n_lists(),
                      nullptr,
@@ -2781,24 +2724,24 @@ void cuannIvfPqSearch(const handle_t& handle,
                      mr,
                      false);
 
-    for (uint32_t j = 0; j < nQueries; j += index.desc().maxBatchSize) {
-      uint32_t batchSize = min(index.desc().maxBatchSize, nQueries - j);
+    for (uint32_t j = 0; j < nQueries; j += max_batch_size) {
+      uint32_t batchSize = min(max_batch_size, nQueries - j);
       _ivfpq_search(handle,
                     index,
-                    index.desc().numProbes,
-                    index.desc().maxBatchSize,
-                    index.desc().topK,
-                    index.desc().preferredThreadBlockSize,
+                    params.n_probes,
+                    max_batch_size,
+                    topK,
+                    params.preferred_thread_block_size,
                     batchSize,
                     clusterRotCenters,
                     pqCenters,
                     pqDataset,
                     data_indices,
                     cluster_offsets,
-                    clusters_to_probe.data() + ((uint64_t)(index.desc().numProbes) * j),
+                    clusters_to_probe.data() + ((uint64_t)(params.n_probes) * j),
                     rot_queries.data() + ((uint64_t)(index.rot_dim()) * j),
-                    neighbors + ((uint64_t)(index.desc().topK) * (i + j)),
-                    distances + ((uint64_t)(index.desc().topK) * (i + j)),
+                    neighbors + ((uint64_t)(topK) * (i + j)),
+                    distances + ((uint64_t)(topK) * (i + j)),
                     mr);
     }
   }

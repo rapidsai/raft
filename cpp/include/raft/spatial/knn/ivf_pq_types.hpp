@@ -112,34 +112,6 @@ struct search_params : knn::search_params {
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);
 
-namespace detail {
-
-/* IvfPq */
-struct cuannIvfPqDescriptor {
-  cudaDataType_t internalDistanceDtype;
-  cudaDataType_t smemLutDtype;
-  uint32_t numProbes;
-  uint32_t topK;
-  uint32_t maxQueries;
-  uint32_t maxBatchSize;
-  uint32_t maxSamples;
-  uint32_t preferredThreadBlockSize;
-
-  inline void copy_from(const cuannIvfPqDescriptor& other)
-  {
-    internalDistanceDtype    = other.internalDistanceDtype;
-    smemLutDtype             = other.smemLutDtype;
-    numProbes                = other.numProbes;
-    topK                     = other.topK;
-    maxQueries               = other.maxQueries;
-    maxBatchSize             = other.maxBatchSize;
-    maxSamples               = other.maxSamples;
-    preferredThreadBlockSize = other.preferredThreadBlockSize;
-  }
-};
-
-}  // namespace detail
-
 /**
  * @brief IVF-PQ index.
  *
@@ -200,12 +172,6 @@ struct index : knn::index {
   /** Number of clusters/inverted lists. */
   [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t { return n_lists_; }
 
-  inline auto desc() noexcept -> detail::cuannIvfPqDescriptor& { return cuann_desc_; }
-  [[nodiscard]] inline auto desc() const noexcept -> const detail::cuannIvfPqDescriptor&
-  {
-    return cuann_desc_;
-  }
-
   // Don't allow copying the index for performance reasons (try avoiding copying data)
   index(const index&) = delete;
   index(index&&)      = default;
@@ -228,7 +194,6 @@ struct index : knn::index {
       dim_(dim),
       pq_bits_(pq_bits),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
-      cuann_desc_{},
       managed_memory_{},
       pq_centers_{make_device_mdarray<float>(handle, &managed_memory_, make_pq_centers_extents())},
       pq_dataset_{make_device_mdarray<uint8_t>(
@@ -394,7 +359,6 @@ struct index : knn::index {
   uint32_t dim_;
   uint32_t pq_bits_;
   uint32_t pq_dim_;
-  detail::cuannIvfPqDescriptor cuann_desc_;
 
   rmm::mr::managed_memory_resource managed_memory_;
   device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers_;
