@@ -145,9 +145,9 @@ inline void ivfpq_encode(uint32_t n_rows,
 {
 #if 1
   // GPU
-  dim3 iekThreads(128, 1, 1);
-  dim3 iekBlocks((n_rows + iekThreads.x - 1) / iekThreads.x, 1, 1);
-  ivfpq_encode_kernel<<<iekBlocks, iekThreads>>>(n_rows, ldDataset, pq_dim, pq_bits, label, output);
+  dim3 threads(128, 1, 1);
+  dim3 blocks(raft::ceildiv(n_rows, threads.x), 1, 1);
+  ivfpq_encode_kernel<<<blocks, threads>>>(n_rows, ldDataset, pq_dim, pq_bits, label, output);
 #else
   // CPU
   RAFT_CUDA_TRY(cudaDeviceSynchronize());

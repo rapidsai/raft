@@ -285,8 +285,8 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   const uint32_t* x = _x + (max_len_x * i_batch);
   uint8_t* state    = nullptr;
   if (stateBitLen == 8) {
-    uint32_t numSample_perThread = (max_len_x + num_threads - 1) / num_threads;
-    uint32_t numState_perThread  = (numSample_perThread + stateBitLen - 1) / stateBitLen;
+    uint32_t numSample_perThread = raft::ceildiv(max_len_x, num_threads);
+    uint32_t numState_perThread  = raft::ceildiv<uint32_t>(numSample_perThread, stateBitLen);
     state                        = _state + (numState_perThread * num_threads * i_batch);
   }
   uint32_t* labels = _labels + (topk * i_batch);
@@ -520,8 +520,8 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   const uint32_t* x = _x + (max_len_x * i_batch);
   uint8_t* state    = nullptr;
   if (stateBitLen == 8) {
-    uint32_t numSample_perThread = (max_len_x + num_threads - 1) / num_threads;
-    uint32_t numState_perThread  = (numSample_perThread + stateBitLen - 1) / stateBitLen;
+    uint32_t numSample_perThread = raft::ceildiv(max_len_x, num_threads);
+    uint32_t numState_perThread  = raft::ceildiv<uint32_t>(numSample_perThread, stateBitLen);
     state                        = _state + (numState_perThread * num_threads * i_batch);
   }
   uint32_t* labels = _labels + (topk * i_batch);
@@ -742,8 +742,8 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   const uint16_t* x = _x + (max_len_x * i_batch);
   uint8_t* state    = nullptr;
   if (stateBitLen == 8) {
-    uint32_t numSample_perThread = (max_len_x + num_threads - 1) / num_threads;
-    uint32_t numState_perThread  = (numSample_perThread + stateBitLen - 1) / stateBitLen;
+    uint32_t numSample_perThread = raft::ceildiv(max_len_x, num_threads);
+    uint32_t numState_perThread  = raft::ceildiv<uint32_t>(numSample_perThread, stateBitLen);
     state                        = _state + (numState_perThread * num_threads * i_batch);
   }
   uint32_t* labels = _labels + (topk * i_batch);
@@ -899,8 +899,8 @@ __launch_bounds__(NUM_THREADS, 1024 / NUM_THREADS) __global__
   const uint16_t* x = _x + (max_len_x * i_batch);
   uint8_t* state    = nullptr;
   if (stateBitLen == 8) {
-    uint32_t numSample_perThread = (max_len_x + num_threads - 1) / num_threads;
-    uint32_t numState_perThread  = (numSample_perThread + stateBitLen - 1) / stateBitLen;
+    uint32_t numSample_perThread = raft::ceildiv(max_len_x, num_threads);
+    uint32_t numState_perThread  = raft::ceildiv<uint32_t>(numSample_perThread, stateBitLen);
     state                        = _state + (numState_perThread * num_threads * i_batch);
   }
   uint32_t* labels = _labels + (topk * i_batch);
@@ -1034,8 +1034,8 @@ inline size_t _cuann_find_topk_bufferSize(const handle_t& handle,
     uint32_t numBlocks_perBatch = (getMultiProcessorCount() * 2 + sizeBatch) / sizeBatch;
 
     uint32_t numThreads_perBatch = numThreads * numBlocks_perBatch;
-    uint32_t numSample_perThread = (maxSamples + numThreads_perBatch - 1) / numThreads_perBatch;
-    uint32_t numState_perThread  = (numSample_perThread + stateBitLen - 1) / stateBitLen;
+    uint32_t numSample_perThread = raft::ceildiv(maxSamples, numThreads_perBatch);
+    uint32_t numState_perThread  = raft::ceildiv<uint32_t>(numSample_perThread, stateBitLen);
     workspaceSize +=
       Pow2<128>::roundUp(sizeof(uint8_t) * numState_perThread * numThreads_perBatch * sizeBatch);
   }
@@ -1127,7 +1127,7 @@ inline void _cuann_find_topk(const handle_t& handle,
   size_t dynamicSMemSize = 0;
   RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
     &numBlocksPerSm_topk, cg_kernel, numThreads, dynamicSMemSize));
-  int numBlocks_perBatch = (maxSamples + (numThreads * vecLen) - 1) / (numThreads * vecLen);
+  int numBlocks_perBatch = raft::ceildiv<uint32_t>(maxSamples, numThreads * vecLen);
   int numBlocks =
     min(numBlocks_perBatch * sizeBatch, getMultiProcessorCount() * numBlocksPerSm_topk);
   numBlocks_perBatch = max(numBlocks / sizeBatch, 1);
@@ -1194,9 +1194,9 @@ inline void _cuann_find_topk(const handle_t& handle,
   void* cub_ws =
     (void*)((uint8_t*)values_out + Pow2<128>::roundUp(sizeof(uint32_t) * sizeBatch * topK));
 
-  dim3 stpThreads(128, 1, 1);
-  dim3 stpBlocks((max(sizeBatch + 1, sizeBatch * topK) + stpThreads.x - 1) / stpThreads.x, 1, 1);
-  _sort_topk_prep<<<stpBlocks, stpThreads, 0, handle.get_stream()>>>(
+  dim3 stp_threads(128, 1, 1);
+  dim3 stp_blocks(raft::ceildiv(max(sizeBatch + 1, sizeBatch * topK), stp_threads.x), 1, 1);
+  _sort_topk_prep<<<stp_blocks, stp_threads, 0, handle.get_stream()>>>(
     sizeBatch, topK, maxSamples, labels, samples, offsets, keys_in);
 
   size_t cub_ws_size = 0;
@@ -1261,7 +1261,7 @@ inline void _cuann_find_topk(const handle_t& handle,
   int numBlocksPerSm_topk;
   RAFT_CUDA_TRY(
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm_topk, cg_kernel, numThreads, 0));
-  int numBlocks_perBatch = (maxSamples + (numThreads * vecLen) - 1) / (numThreads * vecLen);
+  int numBlocks_perBatch = raft::ceildiv<uint32_t>(maxSamples, numThreads * vecLen);
   int numBlocks =
     min(numBlocks_perBatch * sizeBatch, getMultiProcessorCount() * numBlocksPerSm_topk);
   numBlocks_perBatch = max(numBlocks / sizeBatch, 1);
@@ -1827,14 +1827,14 @@ void ivfpq_search(const handle_t& handle,
     scores_buf.resize(max_batch_size * max_samples, stream);
   }
 
-  dim3 mcThreads(1024, 1, 1);  // DO NOT CHANGE
-  dim3 mcBlocks(n_queries, 1, 1);
-  ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, stream>>>(n_probes,
-                                                                 n_queries,
-                                                                 cluster_offsets,
-                                                                 clusterLabelsToProbe,
-                                                                 chunk_index.data(),
-                                                                 num_samples.data());
+  dim3 mc_threads(1024, 1, 1);  // DO NOT CHANGE
+  dim3 mc_blocks(n_queries, 1, 1);
+  ivfpq_make_chunk_index_ptr<<<mc_blocks, mc_threads, 0, stream>>>(n_probes,
+                                                                   n_queries,
+                                                                   cluster_offsets,
+                                                                   clusterLabelsToProbe,
+                                                                   chunk_index.data(),
+                                                                   num_samples.data());
 
   if (n_queries * n_probes > 256) {
     // Sorting index by cluster number (label).
@@ -2027,28 +2027,28 @@ void ivfpq_search(const handle_t& handle,
 
   rmm::device_uvector<float> precomp_scores(
     numCTAs * index.pq_dim() * index.pq_width(), stream, mr);
-  dim3 ctaThreads(numThreads, 1, 1);
-  dim3 ctaBlocks(numCTAs, 1, 1);
-  kernel<<<ctaBlocks, ctaThreads, sizeSmem, stream>>>(index.size(),
-                                                      index.rot_dim(),
-                                                      n_probes,
-                                                      index.pq_dim(),
-                                                      n_queries,
-                                                      max_samples,
-                                                      index.metric(),
-                                                      index.codebook_kind(),
-                                                      topK,
-                                                      cluster_centers,
-                                                      pqCenters,
-                                                      pqDataset,
-                                                      cluster_offsets,
-                                                      clusterLabelsToProbe,
-                                                      chunk_index.data(),
-                                                      query,
-                                                      index_list_sorted,
-                                                      precomp_scores.data(),
-                                                      scores_buf.data(),
-                                                      topk_index);
+  dim3 cta_threads(numThreads, 1, 1);
+  dim3 cta_blocks(numCTAs, 1, 1);
+  kernel<<<cta_blocks, cta_threads, sizeSmem, stream>>>(index.size(),
+                                                        index.rot_dim(),
+                                                        n_probes,
+                                                        index.pq_dim(),
+                                                        n_queries,
+                                                        max_samples,
+                                                        index.metric(),
+                                                        index.codebook_kind(),
+                                                        topK,
+                                                        cluster_centers,
+                                                        pqCenters,
+                                                        pqDataset,
+                                                        cluster_offsets,
+                                                        clusterLabelsToProbe,
+                                                        chunk_index.data(),
+                                                        query,
+                                                        index_list_sorted,
+                                                        precomp_scores.data(),
+                                                        scores_buf.data(),
+                                                        topk_index);
 
   // Select topk vectors for each query
   if (topk_index == nullptr) {
@@ -2065,21 +2065,21 @@ void ivfpq_search(const handle_t& handle,
       handle, topK, n_queries, (n_probes * topK), nullptr, scores_buf.data(), topk_sids.data(), mr);
   }
 
-  dim3 moThreads(128, 1, 1);
-  dim3 moBlocks((topK + moThreads.x - 1) / moThreads.x, n_queries, 1);
-  ivfpq_make_outputs<scoreDtype><<<moBlocks, moThreads, 0, stream>>>(n_probes,
-                                                                     topK,
-                                                                     max_samples,
-                                                                     n_queries,
-                                                                     cluster_offsets,
-                                                                     data_indices,
-                                                                     clusterLabelsToProbe,
-                                                                     chunk_index.data(),
-                                                                     scores_buf.data(),
-                                                                     topk_index,
-                                                                     topk_sids.data(),
-                                                                     topkNeighbors,
-                                                                     topkDistances);
+  dim3 mo_threads(128, 1, 1);
+  dim3 mo_blocks(raft::ceildiv<uint32_t>(topK, mo_threads.x), n_queries, 1);
+  ivfpq_make_outputs<scoreDtype><<<mo_blocks, mo_threads, 0, stream>>>(n_probes,
+                                                                       topK,
+                                                                       max_samples,
+                                                                       n_queries,
+                                                                       cluster_offsets,
+                                                                       data_indices,
+                                                                       clusterLabelsToProbe,
+                                                                       chunk_index.data(),
+                                                                       scores_buf.data(),
+                                                                       topk_index,
+                                                                       topk_sids.data(),
+                                                                       topkNeighbors,
+                                                                       topkDistances);
 }
 
 /** See raft::spatial::knn::ivf_pq::search docs */
