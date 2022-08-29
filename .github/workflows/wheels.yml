@@ -16,6 +16,7 @@ jobs:
       cibw-before-build: "pip install rmm-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: '-DRAFT_COMPILE_LIBRARIES=ON -DRAFT_EXCLUDE_FAISS_FROM_ALL=OFF -DRAFT_USE_FAISS_STATIC=OFF -DRAFT_COMPILE_NN_LIBRARY=ON -DRAFT_COMPILE_DIST_LIBRARY=ON -DBUILD_TESTS=ON -DCMAKE_MESSAGE_LOG_LEVEL=DEBUG'
       auditwheel-skip-repair: "true"
+      wheel-pattern-override: "py3-none-linux"
       cibw-test-command: "find . -name test_raft && false"
     secrets: inherit
   pyraft-wheel:
