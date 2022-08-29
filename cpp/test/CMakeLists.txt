@@ -177,9 +177,17 @@ target_link_libraries(test_raft
         $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
         $<TARGET_NAME_IF_EXISTS:conda_env>)
 
-install(
-        TARGETS test_raft
-        COMPONENT testing
-        DESTINATION bin/libraft/gtests
-        EXCLUDE_FROM_ALL
-)
+if(SKBUILD)
+        install(
+                TARGETS test_raft
+                COMPONENT testing
+                DESTINATION bin/libraft/gtests
+        )
+else()
+        install(
+                TARGETS test_raft
+                COMPONENT testing
+                DESTINATION bin/libraft/gtests
+                EXCLUDE_FROM_ALL
+        )
+endif()

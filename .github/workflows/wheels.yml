@@ -17,7 +17,6 @@ jobs:
       skbuild-configure-options: '-DRAFT_COMPILE_LIBRARIES=ON -DRAFT_EXCLUDE_FAISS_FROM_ALL=OFF -DRAFT_USE_FAISS_STATIC=OFF -DRAFT_COMPILE_NN_LIBRARY=ON -DRAFT_COMPILE_DIST_LIBRARY=ON -DBUILD_TESTS=ON -DCMAKE_MESSAGE_LOG_LEVEL=DEBUG'
       auditwheel-skip-repair: "true"
       cibw-test-command: "find . -name test_raft && false"
-      gpu-smoketest: ""
     secrets: inherit
   pyraft-wheel:
     needs: libraft-wheel
