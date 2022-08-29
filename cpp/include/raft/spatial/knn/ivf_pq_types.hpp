@@ -131,15 +131,17 @@ struct index : knn::index {
   }
   /** Dimensionality of the input data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t { return dim_; }
-  /** Dimensionality of the cluster centers:
+  /**
+   * Dimensionality of the cluster centers:
    * input data dim extended with vector norms and padded to 8 elems.
    */
   [[nodiscard]] constexpr inline auto dim_ext() const noexcept -> uint32_t
   {
     return Pow2<8>::roundUp(dim() + 1);
   }
-  /** Dimensionality of the data after transforming it for PQ processing
-   *  (rotated and augmented to be muplitple of `pq_dim`).
+  /**
+   * Dimensionality of the data after transforming it for PQ processing
+   * (rotated and augmented to be muplitple of `pq_dim`).
    */
   [[nodiscard]] constexpr inline auto rot_dim() const noexcept -> uint32_t
   {
@@ -147,7 +149,7 @@ struct index : knn::index {
   }
   /** The bit length of an encoded vector element after compression by PQ. */
   [[nodiscard]] constexpr inline auto pq_bits() const noexcept -> uint32_t { return pq_bits_; }
-  /** The dimensionality an encoded vector after compression by PQ. */
+  /** The dimensionality of an encoded vector after compression by PQ. */
   [[nodiscard]] constexpr inline auto pq_dim() const noexcept -> uint32_t { return pq_dim_; }
   /** Dimensionality of the data after splitting vectors into subspaces.  */
   [[nodiscard]] constexpr inline auto pq_len() const noexcept -> uint32_t
