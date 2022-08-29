@@ -38,12 +38,8 @@
 #include <cub/cub.cuh>
 #include <thrust/sequence.h>
 
-///////////////////
 #include <cooperative_groups.h>
 #include <cuda_fp16.h>
-#include <omp.h>
-
-//////////////////
 
 namespace raft::spatial::knn::ivf_pq::detail {
 
@@ -2223,7 +2219,6 @@ void cuannIvfPqBuildIndex(
     std::vector<float> mod_trainset(index.pq_dim() * n_rows_train * index.pq_len(), 0.0f);
 
     // mod_trainset[] = transpose( rotate(trainset[]) - clusterRotCenters[] )
-#pragma omp parallel for
     for (size_t i = 0; i < n_rows_train; i++) {
       uint32_t l = trainset_labels.data()[i];
       for (size_t j = 0; j < index.rot_dim(); j++) {
