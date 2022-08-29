@@ -434,7 +434,7 @@ if(SKBUILD)
                 DESTINATION bin/libraft/gtests
         )
         install(
-                TARGETS gtest_main
+                TARGETS gtest_main gtest
                 COMPONENT testing
                 DESTINATION lib
         )
