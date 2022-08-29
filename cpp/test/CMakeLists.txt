@@ -183,6 +183,11 @@ if(SKBUILD)
                 COMPONENT testing
                 DESTINATION bin/libraft/gtests
         )
+        install(
+                TARGETS gtest_main
+                COMPONENT testing
+                DESTINATION lib
+        )
 else()
         install(
                 TARGETS test_raft

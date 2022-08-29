@@ -16,8 +16,6 @@ jobs:
       cibw-before-build: "pip install rmm-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: '-DRAFT_COMPILE_LIBRARIES=ON -DRAFT_EXCLUDE_FAISS_FROM_ALL=OFF -DRAFT_USE_FAISS_STATIC=OFF -DRAFT_COMPILE_NN_LIBRARY=ON -DRAFT_COMPILE_DIST_LIBRARY=ON -DBUILD_TESTS=ON -DCMAKE_MESSAGE_LOG_LEVEL=DEBUG'
       auditwheel-skip-repair: "true"
-      gpu-smoketest-before-amd64: "apt-get install -y libgtest-dev"
-      gpu-smoketest-before-arm64: "apt-get install -y libgtest-dev"
       wheel-pattern-override: "py3-none-linux"
       cibw-test-command: "_venv_placeholder/bin/libraft/gtests/test_raft"
     secrets: inherit
