@@ -840,8 +840,6 @@ inline auto build(
   rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_width(), stream, &managed_memory);
 
   if (index.codebook_kind() == codebook_gen::PER_SUBSPACE) {
-    common::nvtx::range<common::nvtx::domain::raft> pq_subspace_case_scope(
-      "ivf_pq::build::per_subspace");
     //
     // Training PQ codebook (codebook_gen::PER_SUBSPACE)
     // (*) PQ codebooks are trained for each subspace.
@@ -864,20 +862,26 @@ inline auto build(
     // [pq_dim, n_rows_train, pq_len]
     std::vector<float> mod_trainset(index.pq_dim() * n_rows_train * index.pq_len(), 0.0f);
 
-    // mod_trainset[] = transpose( rotate(trainset[]) - clusterRotCenters[] )
-    for (size_t i = 0; i < n_rows_train; i++) {
-      uint32_t l = trainset_labels.data()[i];
-      for (size_t j = 0; j < index.rot_dim(); j++) {
-        float val   = _cuann_dot<float>(index.dim(),
-                                      trainset.data() + static_cast<size_t>(index.dim()) * i,
-                                      1,
-                                      rotation_matrix + static_cast<size_t>(index.dim()) * j,
-                                      1);
-        uint32_t j0 = j / (index.pq_len());  // 0 <= j0 < pq_dim
-        uint32_t j1 = j % (index.pq_len());  // 0 <= j1 < pq_len
-        uint64_t idx =
-          j1 + ((uint64_t)(index.pq_len()) * i) + ((uint64_t)(index.pq_len()) * n_rows_train * j0);
-        mod_trainset[idx] = val - clusterRotCenters[j + (index.rot_dim() * l)];
+    {
+      // TODO: executing this takes long; we should eliminate `mod_trainset` altogether
+      //       and write directly into sub_trainset in the pq_dim loop below (on GPU).
+      common::nvtx::range<common::nvtx::domain::raft> mod_trainset_scope(
+        "ivf_pq::build::per_subspace::prepare_mod_trainset(cpu)");
+      // mod_trainset[] = transpose( rotate(trainset[]) - clusterRotCenters[] )
+      for (size_t i = 0; i < n_rows_train; i++) {
+        uint32_t l = trainset_labels.data()[i];
+        for (size_t j = 0; j < index.rot_dim(); j++) {
+          float val    = _cuann_dot<float>(index.dim(),
+                                        trainset.data() + static_cast<size_t>(index.dim()) * i,
+                                        1,
+                                        rotation_matrix + static_cast<size_t>(index.dim()) * j,
+                                        1);
+          uint32_t j0  = j / (index.pq_len());  // 0 <= j0 < pq_dim
+          uint32_t j1  = j % (index.pq_len());  // 0 <= j1 < pq_len
+          uint64_t idx = j1 + ((uint64_t)(index.pq_len()) * i) +
+                         ((uint64_t)(index.pq_len()) * n_rows_train * j0);
+          mod_trainset[idx] = val - clusterRotCenters[j + (index.rot_dim() * l)];
+        }
       }
     }
 
