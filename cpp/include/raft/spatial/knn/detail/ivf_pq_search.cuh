@@ -26,11 +26,11 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/device_atomics.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/pow2_utils.cuh>
 #include <raft/vectorized.cuh>
-#include <raft/device_atomics.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
