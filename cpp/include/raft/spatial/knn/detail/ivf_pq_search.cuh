@@ -1778,26 +1778,26 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
 // search
 template <typename scoreDtype, typename smemLutDtype, typename IdxT>
 void ivfpq_search(const handle_t& handle,
-                  index<IdxT>& index,
+                  const index<IdxT>& index,
                   uint32_t n_probes,
                   uint32_t max_batch_size,
                   uint32_t topK,
                   uint32_t preferred_thread_block_size,
-                  uint32_t numQueries,
+                  uint32_t n_queries,
                   const float* cluster_centers,          // [index_size, rot_dim]
                   const float* pqCenters,                // [pq_dim, pq_width, pq_len]
                   const uint8_t* pqDataset,              // [index_size, pq_dim * pq_bits / 8]
                   const uint32_t* data_indices,          // [index_size]
                   const uint32_t* cluster_offsets,       // [n_clusters + 1]
-                  const uint32_t* clusterLabelsToProbe,  // [numQueries, numProbes]
-                  const float* query,                    // [numQueries, rot_dim]
-                  uint64_t* topkNeighbors,               // [numQueries, topK]
-                  float* topkDistances,                  // [numQueries, topK]
+                  const uint32_t* clusterLabelsToProbe,  // [n_queries, numProbes]
+                  const float* query,                    // [n_queries, rot_dim]
+                  uint64_t* topkNeighbors,               // [n_queries, topK]
+                  float* topkDistances,                  // [n_queries, topK]
                   rmm::mr::device_memory_resource* mr)
 {
-  RAFT_EXPECTS(numQueries <= max_batch_size,
+  RAFT_EXPECTS(n_queries <= max_batch_size,
                "number of queries (%u) must be smaller the max batch size (%u)",
-               numQueries,
+               n_queries,
                max_batch_size);
   auto stream = handle.get_stream();
 
@@ -1828,15 +1828,15 @@ void ivfpq_search(const handle_t& handle,
   }
 
   dim3 mcThreads(1024, 1, 1);  // DO NOT CHANGE
-  dim3 mcBlocks(numQueries, 1, 1);
+  dim3 mcBlocks(n_queries, 1, 1);
   ivfpq_make_chunk_index_ptr<<<mcBlocks, mcThreads, 0, stream>>>(n_probes,
-                                                                 numQueries,
+                                                                 n_queries,
                                                                  cluster_offsets,
                                                                  clusterLabelsToProbe,
                                                                  chunk_index.data(),
                                                                  num_samples.data());
 
-  if (numQueries * n_probes > 256) {
+  if (n_queries * n_probes > 256) {
     // Sorting index by cluster number (label).
     // The goal is to incrase the L2 cache hit rate to read the vectors
     // of a cluster by processing the cluster at the same time as much as
@@ -1847,7 +1847,7 @@ void ivfpq_search(const handle_t& handle,
     index_list_sorted = index_list_sorted_buf.data();
     thrust::sequence(handle.get_thrust_policy(),
                      thrust::device_pointer_cast(index_list),
-                     thrust::device_pointer_cast(index_list + numQueries * n_probes));
+                     thrust::device_pointer_cast(index_list + n_queries * n_probes));
 
     int begin_bit             = 0;
     int end_bit               = sizeof(uint32_t) * 8;
@@ -1858,7 +1858,7 @@ void ivfpq_search(const handle_t& handle,
                                     cluster_labels_out.data(),
                                     index_list,
                                     index_list_sorted,
-                                    numQueries * n_probes,
+                                    n_queries * n_probes,
                                     begin_bit,
                                     end_bit,
                                     stream);
@@ -1869,7 +1869,7 @@ void ivfpq_search(const handle_t& handle,
                                     cluster_labels_out.data(),
                                     index_list,
                                     index_list_sorted,
-                                    numQueries * n_probes,
+                                    n_queries * n_probes,
                                     begin_bit,
                                     end_bit,
                                     stream);
@@ -1954,7 +1954,7 @@ void ivfpq_search(const handle_t& handle,
   size_t sizeSmem                = sizeof(smemLutDtype) * index.pq_dim() * index.pq_width();
   size_t sizeSmemBaseDiff        = sizeof(float) * index.rot_dim();
 
-  uint32_t numCTAs = numQueries * n_probes;
+  uint32_t numCTAs = n_queries * n_probes;
   int numThreads   = 1024;
   // preferred_thread_block_size == 0 means using auto thread block size calculation
   // mode
@@ -2033,7 +2033,7 @@ void ivfpq_search(const handle_t& handle,
                                                       index.rot_dim(),
                                                       n_probes,
                                                       index.pq_dim(),
-                                                      numQueries,
+                                                      n_queries,
                                                       max_samples,
                                                       index.metric(),
                                                       index.codebook_kind(),
@@ -2054,29 +2054,23 @@ void ivfpq_search(const handle_t& handle,
   if (topk_index == nullptr) {
     _cuann_find_topk(handle,
                      topK,
-                     numQueries,
+                     n_queries,
                      max_samples,
                      num_samples.data(),
                      scores_buf.data(),
                      topk_sids.data(),
                      mr);
   } else {
-    _cuann_find_topk(handle,
-                     topK,
-                     numQueries,
-                     (n_probes * topK),
-                     nullptr,
-                     scores_buf.data(),
-                     topk_sids.data(),
-                     mr);
+    _cuann_find_topk(
+      handle, topK, n_queries, (n_probes * topK), nullptr, scores_buf.data(), topk_sids.data(), mr);
   }
 
   dim3 moThreads(128, 1, 1);
-  dim3 moBlocks((topK + moThreads.x - 1) / moThreads.x, numQueries, 1);
+  dim3 moBlocks((topK + moThreads.x - 1) / moThreads.x, n_queries, 1);
   ivfpq_make_outputs<scoreDtype><<<moBlocks, moThreads, 0, stream>>>(n_probes,
                                                                      topK,
                                                                      max_samples,
-                                                                     numQueries,
+                                                                     n_queries,
                                                                      cluster_offsets,
                                                                      data_indices,
                                                                      clusterLabelsToProbe,
@@ -2088,19 +2082,87 @@ void ivfpq_search(const handle_t& handle,
                                                                      topkDistances);
 }
 
+/** See raft::spatial::knn::ivf_pq::search docs */
 template <typename T, typename IdxT>
-void cuannIvfPqSearch(const handle_t& handle,
-                      const search_params& params,
-                      index<IdxT>& index,
-                      uint32_t topK,
-                      const T* queries, /* [numQueries, data_dim], device pointer */
-                      uint32_t numQueries,
-                      uint64_t* neighbors, /* [numQueries, topK], device pointer */
-                      float* distances,    /* [numQueries, topK], device pointer */
-                      rmm::mr::device_memory_resource* mr,
-                      uint32_t max_queries,
-                      uint32_t max_batch_size)
+inline void search(const handle_t& handle,
+                   const search_params& params,
+                   const index<IdxT>& index,
+                   const T* queries,
+                   uint32_t n_queries,
+                   uint32_t k,
+                   IdxT* neighbors,
+                   float* distances,
+                   rmm::mr::device_memory_resource* mr = nullptr)
 {
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
+                "Unsupported element type.");
+  static_assert(std::is_same_v<IdxT, uint64_t>,
+                "Only uint64_t index output is supported at this time.");
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "ivf_pq::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim());
+
+  RAFT_EXPECTS(
+    params.internal_distance_dtype == CUDA_R_16F || params.internal_distance_dtype == CUDA_R_32F,
+    "internal_distance_dtype must be either CUDA_R_16F or CUDA_R_32F");
+  RAFT_EXPECTS(params.smem_lut_dtype == CUDA_R_16F || params.smem_lut_dtype == CUDA_R_32F ||
+                 params.smem_lut_dtype == CUDA_R_8U,
+               "smem_lut_dtype must be CUDA_R_16F, CUDA_R_32F or CUDA_R_8U");
+  RAFT_EXPECTS(
+    params.preferred_thread_block_size == 256 || params.preferred_thread_block_size == 512 ||
+      params.preferred_thread_block_size == 1024 || params.preferred_thread_block_size == 0,
+    "preferred_thread_block_size must be 0, 256, 512 or 1024, but %u is given.",
+    params.preferred_thread_block_size);
+  RAFT_EXPECTS(k > 0, "parameter `k` in top-k must be positive.");
+  RAFT_EXPECTS(
+    k <= index.size(),
+    "parameter `k` (%u) in top-k must not be larger that the total size of the index (%u)",
+    k,
+    index.size());
+  RAFT_EXPECTS(params.n_probes > 0,
+               "n_probes (number of clusters to probe in the search) must be positive.");
+  auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
+  {
+    uint32_t n_samples_worst_case = index.size();
+    if (n_probes < index.n_lists()) {
+      n_samples_worst_case = index.size() - index.inclusiveSumSortedClusterSize()(
+                                              std::max<uint32_t>(index.numClustersSize0(),
+                                                                 index.n_lists() - 1 - n_probes) -
+                                              index.numClustersSize0());
+    }
+    if (k > n_samples_worst_case) {
+      RAFT_LOG_WARN(
+        "n_probes is too small to get top-k results reliably (n_probes: %u, k: %u, "
+        "n_samples_worst_case: %u).",
+        n_probes,
+        k,
+        n_samples_worst_case);
+    }
+  }
+
+  auto pool_guard = raft::get_pool_memory_resource(mr, n_queries * n_probes * k * 16);
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("ivf_pq::search: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
+  }
+
+  // Maximum number of query vectors to search at the same time.
+  uint32_t batch_size = std::min<uint32_t>(n_queries, 32768);
+  auto max_queries    = min(max(batch_size, 1), 4096);
+  auto max_batch_size = max_queries;
+  {
+    // TODO: copied from {legacy}; figure this out.
+    // Adjust max_batch_size to improve GPU occupancy of topk kernel.
+    uint32_t numCta_total    = getMultiProcessorCount() * 2;
+    uint32_t numCta_perBatch = numCta_total / max_batch_size;
+    float utilization        = (float)numCta_perBatch * max_batch_size / numCta_total;
+    if (numCta_perBatch > 1 || (numCta_perBatch == 1 && utilization < 0.6)) {
+      uint32_t numCta_perBatch_1 = numCta_perBatch + 1;
+      uint32_t maxBatchSize_1    = numCta_total / numCta_perBatch_1;
+      float utilization_1        = (float)numCta_perBatch_1 * maxBatchSize_1 / numCta_total;
+      if (utilization < utilization_1) { max_batch_size = maxBatchSize_1; }
+    }
+  }
+
   auto stream = handle.get_stream();
 
   auto cluster_centers   = index.centers().data_handle();
@@ -2119,7 +2181,7 @@ void cuannIvfPqSearch(const handle_t& handle,
   rmm::device_uvector<float> qc_distances(max_queries * index.n_lists(), stream, mr);
 
   void (*_ivfpq_search)(const handle_t&,
-                        ivf_pq::index<IdxT>&,
+                        const ivf_pq::index<IdxT>&,
                         uint32_t,
                         uint32_t,
                         uint32_t,
@@ -2159,8 +2221,8 @@ void cuannIvfPqSearch(const handle_t& handle,
     default: RAFT_FAIL("all pointers must be accessible from the device.");
   }
 
-  for (uint32_t i = 0; i < numQueries; i += max_queries) {
-    uint32_t nQueries = min(max_queries, numQueries - i);
+  for (uint32_t i = 0; i < n_queries; i += max_queries) {
+    uint32_t nQueries = min(max_queries, n_queries - i);
 
     float fillValue = 0.0;
     if (index.metric() != raft::distance::DistanceType::InnerProduct) { fillValue = 1.0 / -2.0; }
@@ -2237,7 +2299,7 @@ void cuannIvfPqSearch(const handle_t& handle,
                     index,
                     params.n_probes,
                     max_batch_size,
-                    topK,
+                    k,
                     params.preferred_thread_block_size,
                     batchSize,
                     clusterRotCenters,
@@ -2247,108 +2309,11 @@ void cuannIvfPqSearch(const handle_t& handle,
                     cluster_offsets,
                     clusters_to_probe.data() + ((uint64_t)(params.n_probes) * j),
                     rot_queries.data() + ((uint64_t)(index.rot_dim()) * j),
-                    neighbors + ((uint64_t)(topK) * (i + j)),
-                    distances + ((uint64_t)(topK) * (i + j)),
+                    neighbors + ((uint64_t)(k) * (i + j)),
+                    distances + ((uint64_t)(k) * (i + j)),
                     mr);
     }
   }
-}
-
-/** See raft::spatial::knn::ivf_pq::search docs */
-template <typename T, typename IdxT>
-inline void search(const handle_t& handle,
-                   const search_params& params,
-                   const index<IdxT>& index,
-                   const T* queries,
-                   uint32_t n_queries,
-                   uint32_t k,
-                   IdxT* neighbors,
-                   float* distances,
-                   rmm::mr::device_memory_resource* mr = nullptr)
-{
-  static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
-                "Unsupported element type.");
-  static_assert(std::is_same_v<IdxT, uint64_t>,
-                "Only uint64_t index output is supported at this time.");
-  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "ivf_pq::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim());
-
-  RAFT_EXPECTS(
-    params.internal_distance_dtype == CUDA_R_16F || params.internal_distance_dtype == CUDA_R_32F,
-    "internal_distance_dtype must be either CUDA_R_16F or CUDA_R_32F");
-  RAFT_EXPECTS(params.smem_lut_dtype == CUDA_R_16F || params.smem_lut_dtype == CUDA_R_32F ||
-                 params.smem_lut_dtype == CUDA_R_8U,
-               "smem_lut_dtype must be CUDA_R_16F, CUDA_R_32F or CUDA_R_8U");
-  RAFT_EXPECTS(
-    params.preferred_thread_block_size == 256 || params.preferred_thread_block_size == 512 ||
-      params.preferred_thread_block_size == 1024 || params.preferred_thread_block_size == 0,
-    "preferred_thread_block_size must be 0, 256, 512 or 1024, but %u is given.",
-    params.preferred_thread_block_size);
-  RAFT_EXPECTS(k > 0, "parameter `k` in top-k must be positive.");
-  RAFT_EXPECTS(
-    k <= index.size(),
-    "parameter `k` (%u) in top-k must not be larger that the total size of the index (%u)",
-    k,
-    index.size());
-  RAFT_EXPECTS(params.n_probes > 0,
-               "n_probes (number of clusters to probe in the search) must be positive.");
-  auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
-  {
-    uint32_t n_samples_worst_case = index.size();
-    if (n_probes < index.n_lists()) {
-      n_samples_worst_case = index.size() - index.inclusiveSumSortedClusterSize()(
-                                              std::max<uint32_t>(index.numClustersSize0(),
-                                                                 index.n_lists() - 1 - n_probes) -
-                                              index.numClustersSize0());
-    }
-    if (k > n_samples_worst_case) {
-      RAFT_LOG_WARN(
-        "n_probes is too small to get top-k results reliably (n_probes: %u, k: %u, "
-        "n_samples_worst_case: %u).",
-        n_probes,
-        k,
-        n_samples_worst_case);
-    }
-  }
-
-  auto pool_guard = raft::get_pool_memory_resource(mr, n_queries * n_probes * k * 16);
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("ivf_pq::search: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
-  }
-
-  auto& index_mut = const_cast<ivf_pq::index<IdxT>&>(index);
-
-  // Maximum number of query vectors to search at the same time.
-  uint32_t batch_size = std::min<uint32_t>(n_queries, 32768);
-  auto max_queries    = min(max(batch_size, 1), 4096);
-  auto max_batch_size = max_queries;
-  {
-    // TODO: copied from {legacy}; figure this out.
-    // Adjust max_batch_size to improve GPU occupancy of topk kernel.
-    uint32_t numCta_total    = getMultiProcessorCount() * 2;
-    uint32_t numCta_perBatch = numCta_total / max_batch_size;
-    float utilization        = (float)numCta_perBatch * max_batch_size / numCta_total;
-    if (numCta_perBatch > 1 || (numCta_perBatch == 1 && utilization < 0.6)) {
-      uint32_t numCta_perBatch_1 = numCta_perBatch + 1;
-      uint32_t maxBatchSize_1    = numCta_total / numCta_perBatch_1;
-      float utilization_1        = (float)numCta_perBatch_1 * maxBatchSize_1 / numCta_total;
-      if (utilization < utilization_1) { max_batch_size = maxBatchSize_1; }
-    }
-  }
-
-  // finally, search!
-  ivf_pq::detail::cuannIvfPqSearch(handle,
-                                   params,
-                                   index_mut,
-                                   k,
-                                   queries,
-                                   n_queries,
-                                   neighbors,
-                                   distances,
-                                   mr,
-                                   max_queries,
-                                   max_batch_size);
 }
 
 }  // namespace raft::spatial::knn::ivf_pq::detail
