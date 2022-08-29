@@ -194,21 +194,28 @@ struct index : knn::index {
       dim_(dim),
       pq_bits_(pq_bits),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
-      managed_memory_{},
-      pq_centers_{make_device_mdarray<float>(handle, &managed_memory_, make_pq_centers_extents())},
+      managed_memory_upstream_{std::make_unique<rmm::mr::managed_memory_resource>()},
+      managed_memory_{
+        std::make_unique<rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource>>(
+          managed_memory_upstream_.get())},
+      pq_centers_{
+        make_device_mdarray<float>(handle, managed_memory_.get(), make_pq_centers_extents())},
       pq_dataset_{make_device_mdarray<uint8_t>(
-        handle, &managed_memory_, make_extents<uint32_t>(0, this->pq_dim() * this->pq_bits() / 8))},
-      indices_{make_device_mdarray<uint32_t>(handle, &managed_memory_, make_extents<uint32_t>(0))},
+        handle,
+        managed_memory_.get(),
+        make_extents<uint32_t>(0, this->pq_dim() * this->pq_bits() / 8))},
+      indices_{
+        make_device_mdarray<uint32_t>(handle, managed_memory_.get(), make_extents<uint32_t>(0))},
       rotation_matrix_{make_device_mdarray<float>(
-        handle, &managed_memory_, make_extents<uint32_t>(this->dim(), this->rot_dim()))},
+        handle, managed_memory_.get(), make_extents<uint32_t>(this->dim(), this->rot_dim()))},
       list_offsets_{make_device_mdarray<uint32_t>(
-        handle, &managed_memory_, make_extents<uint32_t>(this->n_lists() + 1))},
+        handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists() + 1))},
       centers_{make_device_mdarray<float>(
-        handle, &managed_memory_, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
+        handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
       centers_rot_{make_device_mdarray<float>(
-        handle, &managed_memory_, make_extents<uint32_t>(this->n_lists(), this->rot_dim()))},
+        handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists(), this->rot_dim()))},
       center_norms_{make_device_mdarray<float>(
-        handle, &managed_memory_, make_extents<uint32_t>(this->n_lists()))},
+        handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists()))},
       inclusiveSumSortedClusterSize_{
         make_host_mdarray<uint32_t>(make_extents<uint32_t>(this->n_lists()))}
   {
@@ -234,9 +241,9 @@ struct index : knn::index {
   void allocate(const handle_t& handle, IdxT index_size)
   {
     pq_dataset_ = make_device_mdarray<uint8_t>(
-      handle, &managed_memory_, make_extents<uint32_t>(index_size, pq_dataset_.extent(1)));
-    indices_ =
-      make_device_mdarray<uint32_t>(handle, &managed_memory_, make_extents<uint32_t>(index_size));
+      handle, managed_memory_.get(), make_extents<uint32_t>(index_size, pq_dataset_.extent(1)));
+    indices_ = make_device_mdarray<uint32_t>(
+      handle, managed_memory_.get(), make_extents<uint32_t>(index_size));
     check_consistency();
   }
 
@@ -360,7 +367,9 @@ struct index : knn::index {
   uint32_t pq_bits_;
   uint32_t pq_dim_;
 
-  rmm::mr::managed_memory_resource managed_memory_;
+  std::unique_ptr<rmm::mr::managed_memory_resource> managed_memory_upstream_;
+  std::unique_ptr<rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource>> managed_memory_;
+
   device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers_;
   device_mdarray<uint8_t, extent_2d<uint32_t>, row_major> pq_dataset_;
   device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> indices_;
