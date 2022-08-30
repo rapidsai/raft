@@ -269,7 +269,7 @@ struct TxN_t {
   /** defines the number of 'math_t' types stored by this struct */
   static const int Ratio = veclen_;
 
-  struct {
+  struct alignas(io_t) {
     /** the vectorized data that is used for subsequent operations */
     math_t data[Ratio];
   } val;
