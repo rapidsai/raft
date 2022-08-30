@@ -444,6 +444,8 @@ auto adjust_centers(float* centers,
  * @param balancing_pullback
  *   if the cluster centers are rebalanced on this number of iterations,
  *   one extra iteration is performed (this could happen several times) (default should be `2`).
+ *   In other words, the first and then every `ballancing_pullback`-th rebalancing operation adds
+ *   one more iteration to the main cycle.
  * @param balancing_threshold
  *   the rebalancing takes place if any cluster is smaller than `avg_size * balancing_threshold`
  *   on a given iteration (default should be `~ 0.25`).
@@ -467,7 +469,25 @@ void balancing_em_iters(const handle_t& handle,
                         rmm::cuda_stream_view stream,
                         rmm::mr::device_memory_resource* device_memory)
 {
-  for (uint32_t iter = 0; iter < balancing_pullback * n_iters; iter += balancing_pullback) {
+  uint32_t balancing_counter = balancing_pullback;
+  for (uint32_t iter = 0; iter < n_iters; iter++) {
+    // Balancing step - move the centers around to equalize cluster sizes
+    // (but not on the first iteration)
+    if (iter > 0 && kmeans::adjust_centers(cluster_centers,
+                                           n_clusters,
+                                           dim,
+                                           dataset,
+                                           n_rows,
+                                           cluster_labels,
+                                           cluster_sizes,
+                                           balancing_threshold,
+                                           stream,
+                                           device_memory)) {
+      if (balancing_counter++ >= balancing_pullback) {
+        balancing_counter -= balancing_pullback;
+        n_iters++;
+      }
+    }
     switch (metric) {
       // For some metrics, cluster calculation and adjustment tends to favor zero center vectors.
       // To avoid converging to zero, we normalize the center vectors on every iteration.
@@ -498,23 +518,6 @@ void balancing_em_iters(const handle_t& handle,
                            cluster_labels,
                            true,
                            stream);
-    // Balancing step - move the centers around to equalize cluster sizes
-    if (iter + balancing_pullback < balancing_pullback * n_iters + 1) {
-      // The condition above ensures that `adjust_centers` never comes last in the process;
-      // if at least one center is adjusted, `predict` runs afterwards.
-      if (kmeans::adjust_centers(cluster_centers,
-                                 n_clusters,
-                                 dim,
-                                 dataset,
-                                 n_rows,
-                                 cluster_labels,
-                                 cluster_sizes,
-                                 balancing_threshold,
-                                 stream,
-                                 device_memory)) {
-        iter -= 1;
-      }
-    }
   }
 }
 
