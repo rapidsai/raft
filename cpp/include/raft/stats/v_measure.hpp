@@ -18,40 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __V_MEASURE_H
-#define __V_MEASURE_H
+/**
+ * DISCLAIMER: this file is deprecated: use v_measure.cuh instead
+ */
 
 #pragma once
-#include <raft/stats/detail/v_measure.cuh>
 
-namespace raft {
-namespace stats {
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-/**
- * @brief Function to calculate the v-measure between two clusters
- *
- * @param truthClusterArray: the array of truth classes of type T
- * @param predClusterArray: the array of predicted classes of type T
- * @param size: the size of the data points of type int
- * @param lowerLabelRange: the lower bound of the range of labels
- * @param upperLabelRange: the upper bound of the range of labels
- * @param stream: the cudaStream object
- * @param beta: v_measure parameter
- */
-template <typename T>
-double v_measure(const T* truthClusterArray,
-                 const T* predClusterArray,
-                 int size,
-                 T lowerLabelRange,
-                 T upperLabelRange,
-                 cudaStream_t stream,
-                 double beta = 1.0)
-{
-  return detail::v_measure(
-    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream, beta);
-}
-
-};  // end namespace stats
-};  // end namespace raft
-
-#endif
+#include "v_measure.cuh"

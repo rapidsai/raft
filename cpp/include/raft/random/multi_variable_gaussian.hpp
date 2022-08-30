@@ -18,51 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __MVG_H
-#define __MVG_H
+/**
+ * DISCLAIMER: this file is deprecated: use multi_variable_gaussian.cuh instead
+ */
 
 #pragma once
 
-#include "detail/multi_variable_gaussian.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft::random {
-
-template <typename T>
-class multi_variable_gaussian : public detail::multi_variable_gaussian_impl<T> {
- public:
-  // using Decomposer = typename detail::multi_variable_gaussian_impl<T>::Decomposer;
-  // using detail::multi_variable_gaussian_impl<T>::Decomposer::chol_decomp;
-  // using detail::multi_variable_gaussian_impl<T>::Decomposer::jacobi;
-  // using detail::multi_variable_gaussian_impl<T>::Decomposer::qr;
-
-  multi_variable_gaussian() = delete;
-  multi_variable_gaussian(const raft::handle_t& handle,
-                          const int dim,
-                          typename detail::multi_variable_gaussian_impl<T>::Decomposer method)
-    : detail::multi_variable_gaussian_impl<T>{handle, dim, method}
-  {
-  }
-
-  std::size_t get_workspace_size()
-  {
-    return detail::multi_variable_gaussian_impl<T>::get_workspace_size();
-  }
-
-  void set_workspace(T* workarea)
-  {
-    detail::multi_variable_gaussian_impl<T>::set_workspace(workarea);
-  }
-
-  void give_gaussian(const int nPoints, T* P, T* X, const T* x = 0)
-  {
-    detail::multi_variable_gaussian_impl<T>::give_gaussian(nPoints, P, X, x);
-  }
-
-  void deinit() { detail::multi_variable_gaussian_impl<T>::deinit(); }
-
-  ~multi_variable_gaussian() { deinit(); }
-};  // end of multi_variable_gaussian
-
-};  // end of namespace raft::random
-
-#endif
+#include "multi_variable_gaussian.cuh"

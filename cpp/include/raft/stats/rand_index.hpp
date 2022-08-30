@@ -18,31 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __RAND_INDEX_H
-#define __RAND_INDEX_H
+/**
+ * DISCLAIMER: this file is deprecated: use rand_index.cuh instead
+ */
 
 #pragma once
 
-#include <raft/stats/detail/rand_index.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace stats {
-
-/**
- * @brief Function to calculate RandIndex
- * <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a>
- * @param firstClusterArray: the array of classes of type T
- * @param secondClusterArray: the array of classes of type T
- * @param size: the size of the data points of type uint64_t
- * @param stream: the cudaStream object
- */
-template <typename T>
-double rand_index(T* firstClusterArray, T* secondClusterArray, uint64_t size, cudaStream_t stream)
-{
-  return detail::compute_rand_index(firstClusterArray, secondClusterArray, size, stream);
-}
-
-};  // end namespace stats
-};  // end namespace raft
-
-#endif
+#include "rand_index.cuh"
