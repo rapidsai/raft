@@ -656,7 +656,7 @@ auto build_fine_clusters(const handle_t& handle,
                          rmm::mr::device_memory_resource* device_memory,
                          rmm::cuda_stream_view stream) -> uint32_t
 {
-  rmm::device_uvector<uint32_t> mc_trainset_ids_buf(mesocluster_size_max, stream, managed_memory);
+  rmm::device_uvector<size_t> mc_trainset_ids_buf(mesocluster_size_max, stream, managed_memory);
   rmm::device_uvector<float> mc_trainset_buf(mesocluster_size_max * dim, stream, device_memory);
   auto mc_trainset_ids = mc_trainset_ids_buf.data();
   auto mc_trainset     = mc_trainset_buf.data();
