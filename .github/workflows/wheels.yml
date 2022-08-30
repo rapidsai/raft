@@ -30,7 +30,7 @@ jobs:
       python-version: "3.8 3.9"
       cibw-before-build: "pip install rmm-cuda11 libraft-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: "-DFIND_RAFT_CPP=ON"
-      cibw-test-requires: "pytest dask"
+      cibw-test-requires: "pytest dask[distributed]"
       cibw-test-command: "python -m py.test -v ./python/raft/raft/test"
       gpu-smoketest: "import raft; print(raft); raft.raft_include_test()"
     secrets: inherit
@@ -45,7 +45,7 @@ jobs:
       skbuild-configure-options: "-DFIND_RAFT_CPP=ON"
       gpu-smoketest-before-amd64: "pip install cupy-cuda115 && pip install rmm-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       gpu-smoketest-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install rmm-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
-      cibw-test-requires: "pytest"
+      cibw-test-requires: "pytest scipy"
       cibw-test-command: "python -m py.test -v ./python/pylibraft/pylibraft/test"
       gpu-smoketest: "import pylibraft; print(pylibraft); import cupy as cp; from pylibraft.distance import pairwise_distance; n_samples = 5000; n_features = 50; in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32); in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32); output = cp.empty((n_samples, n_samples), dtype=cp.float32); pairwise_distance(in1, in2, output, metric='euclidean'); assert cp.count_nonzero(output) > 0"
     secrets: inherit
