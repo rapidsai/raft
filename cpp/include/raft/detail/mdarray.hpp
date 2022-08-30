@@ -237,9 +237,9 @@ struct accessor_mixin : public AccessorPolicy {
   using is_host_type    = std::conditional_t<is_host, std::true_type, std::false_type>;
   using is_device_type  = std::conditional_t<is_device, std::true_type, std::false_type>;
   using is_managed_type = std::conditional_t<is_device && is_host, std::true_type, std::false_type>;
-  static constexpr auto is_host_accessible    = is_host;
-  static constexpr auto is_device_accessible  = is_device;
-  static constexpr auto is_managed_accessible = is_device && is_host;
+  static constexpr bool is_host_accessible    = is_host;
+  static constexpr bool is_device_accessible  = is_device;
+  static constexpr bool is_managed_accessible = is_device && is_host;
   // make sure the explicit ctor can fall through
   using AccessorPolicy::AccessorPolicy;
   using offset_policy = accessor_mixin;

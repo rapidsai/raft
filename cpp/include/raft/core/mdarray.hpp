@@ -679,6 +679,50 @@ template <typename ElementType,
 using device_matrix_view = device_mdspan<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
 
 /**
+ * @brief Create a raft::mdspan
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @tparam is_host_accessible whether the data is accessible on host
+ * @tparam is_device_accessible whether the data is accessible on device
+ * @param ptr Pointer to the data
+ * @param exts dimensionality of the array (series of integers)
+ * @return raft::mdspan
+ */
+template <typename ElementType,
+          typename IndexType        = std::uint32_t,
+          typename LayoutPolicy     = layout_c_contiguous,
+          bool is_host_accessible   = false,
+          bool is_device_accessible = true,
+          size_t... Extents>
+auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
+{
+  using accessor_type = detail::accessor_mixin<std::experimental::default_accessor<ElementType>,
+                                               is_host_accessible,
+                                               is_device_accessible>;
+
+  return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
+}
+
+/**
+ * @brief Create a raft::managed_mdspan
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param ptr Pointer to the data
+ * @param exts dimensionality of the array (series of integers)
+ * @return raft::managed_mdspan
+ */
+template <typename ElementType,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_c_contiguous,
+          size_t... Extents>
+auto make_managed_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
+{
+  return make_mdspan<ElementType, IndexType, LayoutPolicy, true, true>(ptr, exts);
+}
+
+/**
  * @brief Create a 0-dim (scalar) mdspan instance for host value.
  *
  * @tparam ElementType the data type of the matrix elements
