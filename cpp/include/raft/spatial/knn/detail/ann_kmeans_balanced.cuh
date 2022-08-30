@@ -439,7 +439,7 @@ auto adjust_centers(float* centers,
  * @param n_cluster the requested number of clusters
  * @param[inout] cluster_centers a pointer to a managed row-major array [n_clusters, dim]
  * @param[out] cluster_labels a pointer to a managed row-major array [n_rows]
- * @param[out] cluster_labels a pointer to a managed row-major array [n_clusters]
+ * @param[out] cluster_sizes a pointer to a managed row-major array [n_clusters]
  * @param metric the distance type (there is a tweak in place for the similarity-based metrics)
  * @param balancing_pullback
  *   if the cluster centers are rebalanced on this number of iterations,
