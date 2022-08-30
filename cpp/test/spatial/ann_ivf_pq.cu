@@ -20,7 +20,6 @@
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/random/rng.cuh>
-#include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/ivf_pq.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -29,6 +28,8 @@
 #include <rmm/mr/device/managed_memory_resource.hpp>
 
 #include <gtest/gtest.h>
+
+#include <thrust/sequence.h>
 
 #include <cstddef>
 #include <iostream>
@@ -162,7 +163,9 @@ class IvfPqTest : public ::testing::TestWithParam<IvfPqInputs> {
         auto vecs_1 = database.data();
         auto vecs_2 = database.data() + size_t(size_1) * size_t(ps.dim);
         rmm::device_uvector<uint64_t> db_indices(ps.num_db_vecs, stream_);
-        sparse::iota_fill(db_indices.data(), uint64_t(ps.num_db_vecs), uint64_t(1), stream_);
+        thrust::sequence(handle_.get_thrust_policy(),
+                         thrust::device_pointer_cast(db_indices.data()),
+                         thrust::device_pointer_cast(db_indices.data() + ps.num_db_vecs));
         handle_.sync_stream(stream_);
 
         raft::spatial::knn::ivf_pq::index_params index_params;
