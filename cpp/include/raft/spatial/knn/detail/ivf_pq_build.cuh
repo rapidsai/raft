@@ -40,11 +40,12 @@ namespace raft::spatial::knn::ivf_pq::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
 
-__device__ __host__ inline void ivfpq_encode_core(
-  uint32_t ldDataset, uint32_t pq_dim, uint32_t pq_bits, const uint32_t* label, uint8_t* output)
+namespace {
+HDI void ivfpq_encode_core(
+  uint32_t n_rows, uint32_t pq_dim, uint32_t pq_bits, const uint32_t* label, uint8_t* output)
 {
-  for (uint32_t j = 0; j < pq_dim; j++) {
-    uint8_t code = label[(ldDataset * j)];
+  for (uint32_t j = 0; j < pq_dim; j++, label += n_rows) {
+    uint8_t code = *label;
     if (pq_bits == 8) {
       uint8_t* ptrOutput = output + j;
       ptrOutput[0]       = code;
@@ -120,40 +121,38 @@ __device__ __host__ inline void ivfpq_encode_core(
   }
 }
 
-//
 __global__ void ivfpq_encode_kernel(uint32_t n_rows,
-                                    uint32_t ldDataset,  // (*) ldDataset >= n_rows
                                     uint32_t pq_dim,
                                     uint32_t pq_bits,       // 4 <= pq_bits <= 8
                                     const uint32_t* label,  // [pq_dim, ldDataset]
                                     uint8_t* output         // [n_rows, pq_dim]
 )
 {
-  uint32_t i = threadIdx.x + (blockDim.x * blockIdx.x);
+  uint32_t i = threadIdx.x + blockDim.x * blockIdx.x;
   if (i >= n_rows) return;
-  ivfpq_encode_core(ldDataset, pq_dim, pq_bits, label + i, output + (pq_dim * pq_bits / 8) * i);
+  ivfpq_encode_core(n_rows, pq_dim, pq_bits, label + i, output + (pq_dim * pq_bits / 8) * i);
 }
+}  // namespace
 
-//
 inline void ivfpq_encode(uint32_t n_rows,
-                         uint32_t ldDataset,  // (*) ldDataset >= n_rows
                          uint32_t pq_dim,
                          uint32_t pq_bits,       // 4 <= pq_bits <= 8
                          const uint32_t* label,  // [pq_dim, ldDataset]
-                         uint8_t* output         // [n_rows, pq_dim]
-)
+                         uint8_t* output,        // [n_rows, pq_dim]
+                         rmm::cuda_stream_view stream)
 {
 #if 1
   // GPU
   dim3 threads(128, 1, 1);
-  dim3 blocks(raft::ceildiv(n_rows, threads.x), 1, 1);
-  ivfpq_encode_kernel<<<blocks, threads>>>(n_rows, ldDataset, pq_dim, pq_bits, label, output);
+  dim3 blocks(raft::ceildiv<uint32_t>(n_rows, threads.x), 1, 1);
+  ivfpq_encode_kernel<<<blocks, threads, 0, stream>>>(n_rows, pq_dim, pq_bits, label, output);
 #else
   // CPU
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
+  stream.synchronize();
   for (uint32_t i = 0; i < n_rows; i++) {
-    ivfpq_encode_core(ldDataset, pq_dim, pq_bits, label + i, output + (pq_dim * pq_bits / 8) * i);
+    ivfpq_encode_core(n_rows, pq_dim, pq_bits, label + i, output + (pq_dim * pq_bits / 8) * i);
   }
+  stream.synchronize();
 #endif
 }
 
@@ -179,9 +178,9 @@ void _cuann_get_inclusiveSumSortedClusterSize(index<IdxT>& index)
 
     index.numClustersSize0() += 1;
   }
-  RAFT_LOG_DEBUG("Number of clusters of size zero: %d", index.numClustersSize0());
+  RAFT_LOG_DEBUG("Number of clusters of size zero: %u", index.numClustersSize0());
   // sort
-  qsort(output.data_handle(), index.n_lists(), sizeof(uint32_t), descending<uint32_t>);
+  qsort(output.data_handle(), index.n_lists(), sizeof(IdxT), descending<IdxT>);
   // scan
   for (uint32_t i = 1; i < index.n_lists(); i++) {
     output(i) += output(i - 1);
@@ -275,9 +274,11 @@ inline void make_rotation_matrix(uint32_t nRows,
 }
 
 //
-uint32_t _get_num_trainset(uint32_t cluster_size, uint32_t pq_dim, uint32_t pq_bits)
+auto calc_pq_trainset_size(uint32_t cluster_size, uint32_t pq_dim, uint32_t pq_bits) -> uint32_t
 {
-  return min(cluster_size * pq_dim, 256 * max(1 << pq_bits, pq_dim));
+  return static_cast<uint32_t>(
+    std::min<size_t>(size_t{cluster_size} * size_t{pq_dim},
+                     size_t{256} * std::max<size_t>(size_t{1} << pq_bits, size_t{pq_dim})));
 }
 
 /**
@@ -305,9 +306,9 @@ uint32_t _get_num_trainset(uint32_t cluster_size, uint32_t pq_dim, uint32_t pq_b
  * @param managed_memory
  * @param device_memory
  */
-template <typename T>
+template <typename T, typename IdxT>
 void compute_PQ_codes(const handle_t& handle,
-                      uint32_t n_rows,
+                      IdxT n_rows,
                       uint32_t data_dim,
                       uint32_t rot_dim,
                       uint32_t pq_dim,
@@ -316,13 +317,13 @@ void compute_PQ_codes(const handle_t& handle,
                       uint32_t n_clusters,
                       codebook_gen codebook_kind,
                       uint32_t max_cluster_size,
-                      float* cluster_centers,           // [n_clusters, data_dim]
-                      const float* rotation_matrix,     // [rot_dim, data_dim]
-                      const T* dataset,                 // [n_rows]
-                      const uint32_t* data_indices,     // [n_rows]
-                      const uint32_t* cluster_sizes,    // [n_clusters]
-                      const uint32_t* cluster_offsets,  // [n_clusters + 1]
-                      float* pqCenters,                 // [...]
+                      float* cluster_centers,         // [n_clusters, data_dim]
+                      const float* rotation_matrix,   // [rot_dim, data_dim]
+                      const T* dataset,               // [n_rows]
+                      const IdxT* data_indices,       // [n_rows]
+                      const uint32_t* cluster_sizes,  // [n_clusters]
+                      const IdxT* cluster_offsets,    // [n_clusters + 1]
+                      float* pqCenters,               // [...]
                       uint32_t n_iters,
                       uint8_t* pqDataset,  // [n_rows, pq_dim * pq_bits / 8]
                       rmm::mr::device_memory_resource* managed_memory,
@@ -422,7 +423,7 @@ void compute_PQ_codes(const handle_t& handle,
     // (*) PQ codebooks are trained for each cluster.
     //
     if ((n_iters > 0) && (codebook_kind == codebook_gen::PER_CLUSTER)) {
-      uint32_t n_rows_train = _get_num_trainset(cluster_size, pq_dim, pq_bits);
+      uint32_t n_rows_train = calc_pq_trainset_size(cluster_size, pq_dim, pq_bits);
       kmeans::build_clusters(handle,
                              n_iters,
                              pq_len,
@@ -480,19 +481,18 @@ void compute_PQ_codes(const handle_t& handle,
                       stream,
                       device_memory);
     }
-    handle.sync_stream();
 
     //
     // PQ encoding
     //
     ivfpq_encode(
-      cluster_size, cluster_size, pq_dim, pq_bits, sub_vector_labels.data(), my_pq_dataset.data());
-    RAFT_CUDA_TRY(cudaMemcpy(pqDataset + ((uint64_t)cluster_offsets[l] * pq_dim * pq_bits / 8),
-                             my_pq_dataset.data(),
-                             sizeof(uint8_t) * cluster_size * pq_dim * pq_bits / 8,
-                             cudaMemcpyDeviceToHost));
+      cluster_size, pq_dim, pq_bits, sub_vector_labels.data(), my_pq_dataset.data(), stream);
+    copy(pqDataset + cluster_offsets[l] * uint64_t{pq_dim * pq_bits / 8},
+         my_pq_dataset.data(),
+         cluster_size * pq_dim * pq_bits / 8,
+         stream);
+    handle.sync_stream();
   }
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
 }
 
 /** See raft::spatial::knn::ivf_pq::extend docs */
@@ -561,21 +561,21 @@ inline auto extend(const handle_t& handle,
                   new_data_labels.data(),
                   orig_index.metric(),
                   stream);
-  raft::stats::histogram<uint32_t, size_t>(raft::stats::HistTypeAuto,
-                                           reinterpret_cast<int32_t*>(cluster_sizes.data()),
-                                           size_t(orig_index.n_lists()),
-                                           new_data_labels.data(),
-                                           n_rows,
-                                           1,
-                                           stream);
+  raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
+                                         reinterpret_cast<int32_t*>(cluster_sizes.data()),
+                                         IdxT(orig_index.n_lists()),
+                                         new_data_labels.data(),
+                                         n_rows,
+                                         1,
+                                         stream);
   handle.sync_stream();
 
   //
   // Make cluster_offsets, data_indices
   //
   uint32_t max_cluster_size = 0;
-  std::vector<uint32_t> cluster_offsets(orig_index.n_lists() + 1, 0);
-  rmm::device_uvector<uint32_t> data_indices(n_rows, stream, &managed_memory);
+  std::vector<IdxT> cluster_offsets(orig_index.n_lists() + 1, 0);
+  rmm::device_uvector<IdxT> data_indices(n_rows, stream, &managed_memory);
   // cluster_offsets
   cluster_offsets[0] = 0;
   for (uint32_t l = 0; l < orig_index.n_lists(); l++) {
@@ -584,7 +584,7 @@ inline auto extend(const handle_t& handle,
   }
   RAFT_EXPECTS(cluster_offsets[orig_index.n_lists()] == n_rows, "cluster sizes do not add up.");
   // data_indices
-  for (uint32_t i = 0; i < n_rows; i++) {
+  for (IdxT i = 0; i < n_rows; i++) {
     uint32_t l                              = new_data_labels.data()[i];
     data_indices.data()[cluster_offsets[l]] = i;
     cluster_offsets[l] += 1;
@@ -666,7 +666,8 @@ inline auto extend(const handle_t& handle,
   max_cluster_size         = 0;
   ext_cluster_offsets[0]   = 0;
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
-    uint32_t old_cluster_size = old_cluster_offsets[l + 1] - old_cluster_offsets[l];
+    auto old_cluster_size =
+      static_cast<uint32_t>(old_cluster_offsets[l + 1] - old_cluster_offsets[l]);
     ext_cluster_offsets[l + 1] =
       ext_cluster_offsets[l] + old_cluster_size + cluster_sizes.data()[l];
     max_cluster_size = max(max_cluster_size, old_cluster_size + cluster_sizes.data()[l]);
@@ -676,7 +677,8 @@ inline auto extend(const handle_t& handle,
   // Make ext_indices
   //
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
-    uint32_t old_cluster_size = old_cluster_offsets[l + 1] - old_cluster_offsets[l];
+    auto old_cluster_size =
+      static_cast<uint32_t>(old_cluster_offsets[l + 1] - old_cluster_offsets[l]);
     copy(ext_indices + ext_cluster_offsets[l],
          orig_index.indices().data_handle() + old_cluster_offsets[l],
          old_cluster_size,
@@ -688,12 +690,11 @@ inline auto extend(const handle_t& handle,
            cluster_sizes.data()[l],
            stream);
     } else {
-      // TODO: remove the reinterpret_cast hack when the index actually supports IdxT
       utils::copy_selected(cluster_sizes.data()[l],
                            1,
-                           reinterpret_cast<const uint32_t*>(new_indices),
+                           new_indices,
                            data_indices.data() + cluster_offsets[l],
-                           sizeof(IdxT) / sizeof(uint32_t),
+                           1,
                            ext_indices + ext_cluster_offsets[l] + old_cluster_size,
                            1,
                            stream);
@@ -705,7 +706,8 @@ inline auto extend(const handle_t& handle,
   //
   size_t unitPqDataset = ext_index.pq_dim() * ext_index.pq_bits() / 8;
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
-    uint32_t old_cluster_size = old_cluster_offsets[l + 1] - old_cluster_offsets[l];
+    auto old_cluster_size =
+      static_cast<uint32_t>(old_cluster_offsets[l + 1] - old_cluster_offsets[l]);
     copy(newPqDataset + unitPqDataset * ext_cluster_offsets[l],
          orig_index.pq_dataset().data_handle() + unitPqDataset * old_cluster_offsets[l],
          unitPqDataset * old_cluster_size,
@@ -744,10 +746,9 @@ inline auto build(
 
   auto stream = handle.get_stream();
 
-  auto trainset_ratio =
-    std::max<size_t>(1,
-                     index.size() / std::max<size_t>(params.kmeans_trainset_fraction * index.size(),
-                                                     index.n_lists()));
+  auto trainset_ratio = std::max<IdxT>(
+    1,
+    index.size() / std::max<IdxT>(params.kmeans_trainset_fraction * index.size(), index.n_lists()));
   auto n_rows_train = index.size() / trainset_ratio;
 
   rmm::mr::device_memory_resource* device_memory = nullptr;
@@ -859,7 +860,7 @@ inline auto build(
   RAFT_EXPECTS(cluster_offsets[index.n_lists()] == index.size(), "Cluster sizes do not add up");
 
   // data_indices
-  for (uint32_t i = 0; i < index.size(); i++) {
+  for (IdxT i = 0; i < index.size(); i++) {
     uint32_t l                       = dataset_labels.data()[i];
     data_indices[cluster_offsets[l]] = i;
     cluster_offsets[l] += 1;
@@ -901,7 +902,7 @@ inline auto build(
       common::nvtx::range<common::nvtx::domain::raft> mod_trainset_scope(
         "ivf_pq::build::per_subspace::prepare_mod_trainset(cpu)");
       // mod_trainset[] = transpose( rotate(trainset[]) - clusterRotCenters[] )
-      for (size_t i = 0; i < n_rows_train; i++) {
+      for (IdxT i = 0; i < n_rows_train; i++) {
         uint32_t l = trainset_labels.data()[i];
         for (size_t j = 0; j < index.rot_dim(); j++) {
           float val    = _cuann_dot<float>(index.dim(),

@@ -125,10 +125,7 @@ struct index : knn::index {
 
  public:
   /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> uint32_t
-  {
-    return indices_.extent(0);
-  }
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return indices_.extent(0); }
   /** Dimensionality of the input data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t { return dim_; }
   /**
@@ -202,15 +199,14 @@ struct index : knn::index {
           managed_memory_upstream_.get())},
       pq_centers_{
         make_device_mdarray<float>(handle, managed_memory_.get(), make_pq_centers_extents())},
-      pq_dataset_{make_device_mdarray<uint8_t>(
-        handle,
-        managed_memory_.get(),
-        make_extents<uint32_t>(0, this->pq_dim() * this->pq_bits() / 8))},
-      indices_{
-        make_device_mdarray<uint32_t>(handle, managed_memory_.get(), make_extents<uint32_t>(0))},
+      pq_dataset_{
+        make_device_mdarray<uint8_t>(handle,
+                                     managed_memory_.get(),
+                                     make_extents<IdxT>(0, this->pq_dim() * this->pq_bits() / 8))},
+      indices_{make_device_mdarray<IdxT>(handle, managed_memory_.get(), make_extents<IdxT>(0))},
       rotation_matrix_{make_device_mdarray<float>(
         handle, managed_memory_.get(), make_extents<uint32_t>(this->dim(), this->rot_dim()))},
-      list_offsets_{make_device_mdarray<uint32_t>(
+      list_offsets_{make_device_mdarray<IdxT>(
         handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists() + 1))},
       centers_{make_device_mdarray<float>(
         handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
@@ -219,7 +215,7 @@ struct index : knn::index {
       center_norms_{make_device_mdarray<float>(
         handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists()))},
       inclusiveSumSortedClusterSize_{
-        make_host_mdarray<uint32_t>(make_extents<uint32_t>(this->n_lists()))}
+        make_host_mdarray<IdxT>(make_extents<uint32_t>(this->n_lists()))}
   {
     check_consistency();
   }
@@ -243,9 +239,9 @@ struct index : knn::index {
   void allocate(const handle_t& handle, IdxT index_size)
   {
     pq_dataset_ = make_device_mdarray<uint8_t>(
-      handle, managed_memory_.get(), make_extents<uint32_t>(index_size, pq_dataset_.extent(1)));
-    indices_ = make_device_mdarray<uint32_t>(
-      handle, managed_memory_.get(), make_extents<uint32_t>(index_size));
+      handle, managed_memory_.get(), make_extents<IdxT>(index_size, pq_dataset_.extent(1)));
+    indices_ =
+      make_device_mdarray<IdxT>(handle, managed_memory_.get(), make_extents<IdxT>(index_size));
     check_consistency();
   }
 
@@ -266,23 +262,23 @@ struct index : knn::index {
   }
 
   /** PQ-encoded data [size, pq_dim * pq_bits / 8]. */
-  inline auto pq_dataset() noexcept -> device_mdspan<uint8_t, extent_2d<uint32_t>, row_major>
+  inline auto pq_dataset() noexcept -> device_mdspan<uint8_t, extent_2d<IdxT>, row_major>
   {
     return pq_dataset_.view();
   }
   [[nodiscard]] inline auto pq_dataset() const noexcept
-    -> device_mdspan<const uint8_t, extent_2d<uint32_t>, row_major>
+    -> device_mdspan<const uint8_t, extent_2d<IdxT>, row_major>
   {
     return pq_dataset_.view();
   }
 
   /** Inverted list indices: ids of items in the source data [size] */
-  inline auto indices() noexcept -> device_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+  inline auto indices() noexcept -> device_mdspan<IdxT, extent_1d<IdxT>, row_major>
   {
     return indices_.view();
   }
   [[nodiscard]] inline auto indices() const noexcept
-    -> device_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
+    -> device_mdspan<const IdxT, extent_1d<IdxT>, row_major>
   {
     return indices_.view();
   }
@@ -302,12 +298,12 @@ struct index : knn::index {
    * Offsets into the lists [n_lists + 1].
    * The last value contains the total length of the index.
    */
-  inline auto list_offsets() noexcept -> device_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+  inline auto list_offsets() noexcept -> device_mdspan<IdxT, extent_1d<uint32_t>, row_major>
   {
     return list_offsets_.view();
   }
   [[nodiscard]] inline auto list_offsets() const noexcept
-    -> device_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
+    -> device_mdspan<const IdxT, extent_1d<uint32_t>, row_major>
   {
     return list_offsets_.view();
   }
@@ -345,12 +341,12 @@ struct index : knn::index {
   }
 
   inline auto inclusiveSumSortedClusterSize() noexcept
-    -> host_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+    -> host_mdspan<IdxT, extent_1d<uint32_t>, row_major>
   {
     return inclusiveSumSortedClusterSize_.view();
   }
   [[nodiscard]] inline auto inclusiveSumSortedClusterSize() const noexcept
-    -> host_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
+    -> host_mdspan<const IdxT, extent_1d<uint32_t>, row_major>
   {
     return inclusiveSumSortedClusterSize_.view();
   }
@@ -373,14 +369,14 @@ struct index : knn::index {
   std::unique_ptr<rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource>> managed_memory_;
 
   device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers_;
-  device_mdarray<uint8_t, extent_2d<uint32_t>, row_major> pq_dataset_;
-  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> indices_;
+  device_mdarray<uint8_t, extent_2d<IdxT>, row_major> pq_dataset_;
+  device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> rotation_matrix_;
-  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_offsets_;
+  device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_rot_;
   device_mdarray<float, extent_1d<uint32_t>, row_major> center_norms_;
-  host_mdarray<uint32_t, extent_1d<uint32_t>, row_major> inclusiveSumSortedClusterSize_;
+  host_mdarray<IdxT, extent_1d<uint32_t>, row_major> inclusiveSumSortedClusterSize_;
   uint32_t numClustersSize0_;  // (*) urgent WA, need to be fixed
 
   /** Throw an error if the index content is inconsistent. */
