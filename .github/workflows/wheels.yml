@@ -30,7 +30,7 @@ jobs:
       python-version: "3.8 3.9"
       cibw-before-build: "pip install rmm-cuda11 libraft-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: "-DFIND_RAFT_CPP=ON"
-      cibw-test-requires: "pytest dask[distributed] dask-cuda"
+      cibw-test-requires: "pytest dask[distributed,dataframe] dask-cuda"
       cibw-test-command: "python -m py.test -v ./python/raft/raft/test"
       gpu-smoketest: "import raft; print(raft); raft.raft_include_test()"
     secrets: inherit
