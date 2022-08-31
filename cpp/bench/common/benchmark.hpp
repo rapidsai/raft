@@ -224,7 +224,8 @@ class Fixture : public ::benchmark::Fixture {
     fixture_->allocate_temp_buffers(state);
   }
 
-  void TearDown(const State& state) override {
+  void TearDown(const State& state) override
+  {
     fixture_->deallocate_temp_buffers(state);
     fixture_->deallocate_data(state);
     fixture_.reset();
