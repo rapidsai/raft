@@ -91,11 +91,11 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/libraft
 
 gpuci_logger "Python pytest for pyraft"
 cd "$WORKSPACE/python/raft/raft/test"
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pyraft.xml" -v -s
+pytest --cache-clear --junitxml="$WORKSPACE/junit-pyraft.xml" -v -s
 
 gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft/pylibraft/test"
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
+pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
 
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"

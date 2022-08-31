@@ -40,7 +40,9 @@ setup(name='pylibraft',
                   "pylibraft.distance",
                   "pylibraft.distance.includes",
                   "pylibraft.common",
-                  "pylibraft.common.includes"
+                  "pylibraft.common.includes",
+                  "pylibraft.random",
+                  "pylibraft.random.includes"
               ]
           )
       },
