@@ -81,13 +81,13 @@ struct FusedL2NNReduceOp {
 template <typename DataT, typename IndexT>
 struct SamplingOp {
   DataT* rnd;
-  int* flag;
+  uint8_t* flag;
   DataT cluster_cost;
   double oversampling_factor;
   IndexT n_clusters;
 
   CUB_RUNTIME_FUNCTION __forceinline__
-  SamplingOp(DataT c, double l, IndexT k, DataT* rand, int* ptr)
+  SamplingOp(DataT c, double l, IndexT k, DataT* rand, uint8_t* ptr)
     : cluster_cost(c), oversampling_factor(l), n_clusters(k), rnd(rand), flag(ptr)
   {
   }
@@ -239,7 +239,7 @@ template <typename DataT, typename IndexT>
 void sampleCentroids(const raft::handle_t& handle,
                      const raft::device_matrix_view<const DataT, IndexT>& X,
                      const raft::device_vector_view<DataT, IndexT>& minClusterDistance,
-                     const raft::device_vector_view<IndexT, IndexT>& isSampleCentroid,
+                     const raft::device_vector_view<uint8_t, IndexT>& isSampleCentroid,
                      SamplingOp<DataT, IndexT>& select_op,
                      rmm::device_uvector<DataT>& inRankCp,
                      rmm::device_uvector<char>& workspace)
@@ -277,7 +277,7 @@ void sampleCentroids(const raft::handle_t& handle,
   raft::copy(&nPtsSampledInRank, nSelected.data_handle(), 1, stream);
   handle.sync_stream(stream);
 
-  IndexT* rawPtr_isSampleCentroid = isSampleCentroid.data_handle();
+  uint8_t* rawPtr_isSampleCentroid = isSampleCentroid.data_handle();
   thrust::for_each_n(handle.get_thrust_policy(),
                      sampledMinClusterDistance.data_handle(),
                      nPtsSampledInRank,
@@ -345,13 +345,13 @@ void shuffleAndGather(const raft::handle_t& handle,
 
   if (workspace) {
     // shuffle indices on device
-    raft::random::permute<DataT>(indices.data_handle(),
-                                 nullptr,
-                                 nullptr,
-                                 (IndexT)in.extent(1),
-                                 (IndexT)in.extent(0),
-                                 true,
-                                 stream);
+    raft::random::permute<DataT, IndexT, IndexT>(indices.data_handle(),
+                                                 nullptr,
+                                                 nullptr,
+                                                 (IndexT)in.extent(1),
+                                                 (IndexT)in.extent(0),
+                                                 true,
+                                                 stream);
   } else {
     // shuffle indices on host and copy to device...
     std::vector<IndexT> ht_indices(n_samples);

@@ -25,6 +25,7 @@
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/handle.hpp>
 #include <stdint.h>
+#include <type_traits>
 
 namespace raft {
 namespace distance {
@@ -99,6 +100,10 @@ void fusedL2NN(OutT* min,
                bool initOutBuffer,
                cudaStream_t stream)
 {
+  // Assigning -1 to unsigned integers results in a compiler error.
+  // Enforce a signed IdxT here with a clear error message.
+  static_assert(std::is_signed_v<IdxT>, "fusedL2NN only supports signed index types.");
+
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
     detail::fusedL2NNImpl<DataT, OutT, IdxT, 16 / sizeof(DataT), ReduceOpT>(

@@ -21,6 +21,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/interruptible.hpp>
+#include <raft/random/make_blobs.cuh>
 
 #include <benchmark/benchmark.h>
 
@@ -121,6 +122,10 @@ class fixture {
   // every benchmark should be overriding this
   virtual void run_benchmark(::benchmark::State& state) = 0;
   virtual void generate_metrics(::benchmark::State& state) {}
+  virtual void allocate_data(const ::benchmark::State& state) {}
+  virtual void deallocate_data(const ::benchmark::State& state) {}
+  virtual void allocate_temp_buffers(const ::benchmark::State& state) {}
+  virtual void deallocate_temp_buffers(const ::benchmark::State& state) {}
 
  protected:
   /** The helper that writes zeroes to some buffer in GPU memory to flush the L2 cache.  */
@@ -144,6 +149,58 @@ class fixture {
   }
 };
 
+/** Indicates the dataset size. */
+struct DatasetParams {
+  size_t rows;
+  size_t cols;
+  bool row_major;
+};
+
+/** Holds params needed to generate blobs dataset */
+struct BlobsParams {
+  int n_clusters;
+  double cluster_std;
+  bool shuffle;
+  double center_box_min, center_box_max;
+  uint64_t seed;
+};
+
+/** Fixture for cluster benchmarks using make_blobs */
+template <typename T, typename IndexT = int>
+class BlobsFixture : public fixture {
+ public:
+  BlobsFixture(const DatasetParams dp, const BlobsParams bp) : data_params(dp), blobs_params(bp) {}
+
+  virtual void run_benchmark(::benchmark::State& state) = 0;
+
+  void allocate_data(const ::benchmark::State& state) override
+  {
+    auto labels_ref = raft::make_device_vector<IndexT, IndexT>(this->handle, data_params.rows);
+    X = raft::make_device_matrix<T, IndexT>(this->handle, data_params.rows, data_params.cols);
+
+    raft::random::make_blobs<T, IndexT>(X.data_handle(),
+                                        labels_ref.data_handle(),
+                                        (IndexT)data_params.rows,
+                                        (IndexT)data_params.cols,
+                                        (IndexT)blobs_params.n_clusters,
+                                        stream,
+                                        data_params.row_major,
+                                        nullptr,
+                                        nullptr,
+                                        (T)blobs_params.cluster_std,
+                                        blobs_params.shuffle,
+                                        (T)blobs_params.center_box_min,
+                                        (T)blobs_params.center_box_max,
+                                        blobs_params.seed);
+    this->handle.sync_stream(stream);
+  }
+
+ protected:
+  DatasetParams data_params;
+  BlobsParams blobs_params;
+  raft::device_matrix<T, IndexT> X;
+};
+
 namespace internal {
 
 template <typename Class, typename... Params>
@@ -162,8 +219,16 @@ class Fixture : public ::benchmark::Fixture {
   {
     fixture_ =
       std::apply([](const Params&... ps) { return std::make_unique<Class>(ps...); }, params_);
+    fixture_->allocate_data(state);
+    fixture_->allocate_temp_buffers(state);
   }
-  void TearDown(const State& state) override { fixture_.reset(); }
+
+  void TearDown(const State& state) override {
+    fixture_->deallocate_temp_buffers(state);
+    fixture_->deallocate_data(state);
+    fixture_.reset();
+  }
+
   void SetUp(State& st) override { SetUp(const_cast<const State&>(st)); }
   void TearDown(State& st) override { TearDown(const_cast<const State&>(st)); }
 

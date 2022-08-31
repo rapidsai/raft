@@ -561,12 +561,12 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
     X.data_handle() + cIdx * n_features, 1, n_features);
 
   // flag the sample that is chosen as initial centroid
-  std::vector<IndexT> h_isSampleCentroid(n_samples);
+  std::vector<uint8_t> h_isSampleCentroid(n_samples);
   std::fill(h_isSampleCentroid.begin(), h_isSampleCentroid.end(), 0);
   h_isSampleCentroid[cIdx] = 1;
 
   // device buffer to flag the sample that is chosen as initial centroid
-  auto isSampleCentroid = raft::make_device_vector<IndexT, IndexT>(handle, n_samples);
+  auto isSampleCentroid = raft::make_device_vector<uint8_t, IndexT>(handle, n_samples);
 
   raft::copy(
     isSampleCentroid.data_handle(), h_isSampleCentroid.data(), isSampleCentroid.size(), stream);
