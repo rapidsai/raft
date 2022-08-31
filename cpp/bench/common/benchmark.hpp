@@ -19,6 +19,7 @@
 #include <memory>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/macro_utils.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/interruptible.hpp>
 #include <raft/random/make_blobs.cuh>
@@ -313,6 +314,10 @@ struct registrar {
 
 };  // namespace internal
 
+#define RAFT_BENCH_REGISTER_INTERNAL(TestClass, ...)                                    \
+  static raft::bench::internal::registrar<TestClass> BENCHMARK_PRIVATE_NAME(registrar)( \
+    RAFT_STRINGIFY(TestClass), __VA_ARGS__)
+
 /**
  * This is the entry point macro for all benchmarks. This needs to be called
  * for the set of benchmarks to be registered so that the main harness inside
@@ -327,8 +332,7 @@ struct registrar {
  *                    empty string
  * @param params...   zero or more lists of params upon which to benchmark.
  */
-#define RAFT_BENCH_REGISTER(TestClass, ...)                                             \
-  static raft::bench::internal::registrar<TestClass> BENCHMARK_PRIVATE_NAME(registrar)( \
-    #TestClass, __VA_ARGS__)
+#define RAFT_BENCH_REGISTER(TestClass, ...) \
+  RAFT_BENCH_REGISTER_INTERNAL(RAFT_DEPAREN(TestClass), __VA_ARGS__)
 
 }  // namespace raft::bench

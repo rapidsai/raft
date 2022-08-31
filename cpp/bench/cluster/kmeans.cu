@@ -106,11 +106,9 @@ std::vector<KMeansBenchParams> getKMeansInputs()
 }
 
 // todo(lsugy): uint32_t index support? (blocker: fusedL2NN)
-#define COMMA ,
-RAFT_BENCH_REGISTER(KMeans<float COMMA int>, "", getKMeansInputs());
-RAFT_BENCH_REGISTER(KMeans<double COMMA int>, "", getKMeansInputs());
-RAFT_BENCH_REGISTER(KMeans<float COMMA int64_t>, "", getKMeansInputs());
-RAFT_BENCH_REGISTER(KMeans<double COMMA int64_t>, "", getKMeansInputs());
-#undef COMMA
+RAFT_BENCH_REGISTER((KMeans<float, int>), "", getKMeansInputs());
+RAFT_BENCH_REGISTER((KMeans<double, int>), "", getKMeansInputs());
+RAFT_BENCH_REGISTER((KMeans<float, int64_t>), "", getKMeansInputs());
+RAFT_BENCH_REGISTER((KMeans<double, int64_t>), "", getKMeansInputs());
 
 }  // namespace raft::bench::cluster

@@ -90,10 +90,10 @@ std::vector<KMeansBalancedBenchParams> getKMeansBalancedInputs()
   p.trainset_fraction                       = 1.0;
   p.metric                                  = raft::distance::DistanceType::L2Expanded;
   std::vector<std::pair<int, int>> row_cols = {
-    {10000000, 128},
-    {10000000, 256},
-    {100000000, 128},
-    {100000000, 256},
+    {10000000, 128}, {10000000, 256},
+    // The following dataset sizes are too large for most GPUs.
+    // {100000000, 128},
+    // {100000000, 256},
   };
   for (auto& rc : row_cols) {
     p.data.rows = rc.first;
@@ -107,10 +107,8 @@ std::vector<KMeansBalancedBenchParams> getKMeansBalancedInputs()
 }
 
 // Note: the datasets sizes are too large for 32-bit index types.
-#define COMMA ,
-RAFT_BENCH_REGISTER(KMeansBalanced<float COMMA int64_t>, "", getKMeansBalancedInputs());
-RAFT_BENCH_REGISTER(KMeansBalanced<int8_t COMMA int64_t>, "", getKMeansBalancedInputs());
-RAFT_BENCH_REGISTER(KMeansBalanced<uint8_t COMMA int64_t>, "", getKMeansBalancedInputs());
-#undef COMMA
+RAFT_BENCH_REGISTER((KMeansBalanced<float, int64_t>), "", getKMeansBalancedInputs());
+RAFT_BENCH_REGISTER((KMeansBalanced<int8_t, int64_t>), "", getKMeansBalancedInputs());
+RAFT_BENCH_REGISTER((KMeansBalanced<uint8_t, int64_t>), "", getKMeansBalancedInputs());
 
 }  // namespace raft::bench::cluster
