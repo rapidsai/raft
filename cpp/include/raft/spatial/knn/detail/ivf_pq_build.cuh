@@ -512,10 +512,6 @@ inline auto extend(const handle_t& handle,
 
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported data type");
-  if constexpr (!std::is_same_v<T, float>) {
-    RAFT_EXPECTS(orig_index.metric() != distance::DistanceType::InnerProduct,
-                 "Unsupported data type (inner-product metric supports floats only)");
-  }
 
   rmm::mr::device_memory_resource* device_memory = nullptr;
   auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
@@ -734,10 +730,6 @@ inline auto build(
     "ivf_pq::build(%zu, %u)", size_t(n_rows), dim);
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported data type");
-  if constexpr (!std::is_same_v<T, float>) {
-    RAFT_EXPECTS(params.metric != distance::DistanceType::InnerProduct,
-                 "Unsupported data type (inner-product metric supports floats only)");
-  }
 
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
 
