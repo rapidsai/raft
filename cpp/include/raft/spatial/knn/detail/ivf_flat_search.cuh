@@ -696,8 +696,8 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
   copy_vectorized(query_shared, query, std::min(dim, query_smem_elems));
   __syncthreads();
 
-  topk::block_sort<topk::warp_sort_filtered, Capacity, Ascending, float, IdxT> queue(
-    k, interleaved_scan_kernel_smem + query_smem_elems * sizeof(T));
+  using block_sort_t = topk::block_sort<topk::warp_sort_filtered, Capacity, Ascending, float, IdxT>;
+  block_sort_t queue(k, interleaved_scan_kernel_smem + query_smem_elems * sizeof(T));
 
   {
     using align_warp  = Pow2<WarpSize>;
@@ -766,8 +766,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
         }
 
         // Enqueue one element per thread
-        constexpr float kDummy = Ascending ? upper_bound<float>() : lower_bound<float>();
-        const float val        = valid ? static_cast<float>(dist) : kDummy;
+        const float val  = valid ? static_cast<float>(dist) : block_sort_t::queue_t::kDummy;
         const size_t idx = valid ? static_cast<size_t>(list_indices[list_offset + vec_id]) : 0;
         queue.add(val, idx);
       }
@@ -826,7 +825,7 @@ void launch_kernel(Lambda lambda,
     std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(index.dim()));
   int smem_size              = query_smem_elems * sizeof(T);
   constexpr int kSubwarpSize = std::min<int>(Capacity, WarpSize);
-  smem_size += raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<AccT, size_t>(
+  smem_size += raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<AccT, IdxT>(
     kThreadsPerBlock / kSubwarpSize, k);
 
   // power-of-two less than cuda limit (for better addr alignment)
