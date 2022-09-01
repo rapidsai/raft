@@ -9,11 +9,11 @@ jobs:
   libraft-wheel:
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions
     with:
-      package-name: libraft_cuda11
+      package-name: libraft_cu11
       package-dir: cpp
       python-version: "3.8"
       cibw-before-all: "apt-get install -y libblas-dev liblapack-dev"
-      cibw-before-build: "pip install rmm-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
+      cibw-before-build: "pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: '-DRAFT_COMPILE_LIBRARIES=ON -DRAFT_EXCLUDE_FAISS_FROM_ALL=OFF -DRAFT_USE_FAISS_STATIC=OFF -DRAFT_COMPILE_NN_LIBRARY=ON -DRAFT_COMPILE_DIST_LIBRARY=ON -DBUILD_TESTS=ON'
       auditwheel-skip-repair: "true"
       gpu-smoketest-before-amd64: "apt-get install -y libblas-dev liblapack-dev"
@@ -25,10 +25,10 @@ jobs:
     needs: libraft-wheel
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions
     with:
-      package-name: raft_cuda11
+      package-name: raft_cu11
       package-dir: python/raft
       python-version: "3.8 3.9"
-      cibw-before-build: "pip install rmm-cuda11 libraft-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
+      cibw-before-build: "pip install rmm-cu11 libraft-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: "-DFIND_RAFT_CPP=ON"
       cibw-test-requires: "pytest dask[distributed,dataframe] dask-cuda"
       cibw-test-command: "python -m py.test -v ./python/raft/raft/test"
@@ -38,13 +38,13 @@ jobs:
     needs: libraft-wheel
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions
     with:
-      package-name: pylibraft_cuda11
+      package-name: pylibraft_cu11
       package-dir: python/pylibraft
       python-version: "3.8 3.9"
-      cibw-before-build: "pip install rmm-cuda11 libraft-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
+      cibw-before-build: "pip install rmm-cu11 libraft-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: "-DFIND_RAFT_CPP=ON"
-      gpu-smoketest-before-amd64: "pip install cupy-cuda115 && pip install rmm-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
-      gpu-smoketest-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install rmm-cuda11 --index-url https://pypi.k8s.rapids.ai/simple"
+      gpu-smoketest-before-amd64: "pip install cupy-cuda115 && pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
+      gpu-smoketest-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       cibw-test-requires: "pytest scipy"
       cibw-test-command: "python -m py.test -v ./python/pylibraft/pylibraft/test"
       gpu-smoketest: "import pylibraft; print(pylibraft); import cupy as cp; from pylibraft.distance import pairwise_distance; n_samples = 5000; n_features = 50; in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32); in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32); output = cp.empty((n_samples, n_samples), dtype=cp.float32); pairwise_distance(in1, in2, output, metric='euclidean'); assert cp.count_nonzero(output) > 0"
