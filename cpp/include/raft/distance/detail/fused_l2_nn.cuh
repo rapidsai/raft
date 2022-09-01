@@ -92,14 +92,14 @@ DI void updateReducedVal(
   const auto lid      = threadIdx.x % raft::WarpSize;
   const auto accrowid = threadIdx.x / P::AccThCols;
 
-  // for now have first lane from each warp update a unique output row. This
-  // will resolve hang issues with pre-Volta architectures
+  // Update each output row in order within a warp. This will resolve hang
+  // issues with pre-Volta architectures
 #pragma unroll
   for (int j = 0; j < (raft::WarpSize / P::AccThCols); j++) {
-    if (lid == 0) {
+    if (lid == j * P::AccThCols) {
 #pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        auto rid = gridStrideY + accrowid + j + i * P::AccThRows;
+        auto rid = gridStrideY + accrowid + i * P::AccThRows;
         if (rid < m) {
           auto value = val[i];
           while (atomicCAS(mutex + rid, 0, 1) == 1)
@@ -109,14 +109,6 @@ DI void updateReducedVal(
           __threadfence();
           atomicCAS(mutex + rid, 1, 0);
         }
-      }
-    }
-    if (j < (raft::WarpSize / P::AccThCols) - 1) {
-#pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        auto tmpkey   = raft::shfl(val[i].key, (j + 1) * P::AccThCols);
-        auto tmpvalue = raft::shfl(val[i].value, (j + 1) * P::AccThCols);
-        val[i]        = {tmpkey, tmpvalue};
       }
     }
   }
