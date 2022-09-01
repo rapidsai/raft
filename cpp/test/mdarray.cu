@@ -382,6 +382,18 @@ void test_factory_methods()
     auto view = make_host_scalar_view(h_scalar.data_handle());
     ASSERT_EQ(view(0), 17.0);
   }
+
+  // managed
+  {
+    raft::handle_t handle{};
+    auto mda = make_device_vector<int>(handle, 10);
+
+    auto mdv = make_managed_mdspan(mda.data_handle(), raft::vector_extent<int>{10});
+
+    static_assert(decltype(mdv)::accessor_type::is_managed_accessible, "Not managed mdspan");
+
+    ASSERT_EQ(mdv.size(), 10);
+  }
 }
 }  // anonymous namespace
 
