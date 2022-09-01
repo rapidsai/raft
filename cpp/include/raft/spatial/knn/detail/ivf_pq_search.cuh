@@ -1415,7 +1415,8 @@ __device__ void ivfpq_get_id_dataset(uint32_t iSample,
 }
 
 template <typename scoreDtype, typename IdxT>
-__global__ void ivfpq_make_outputs(uint32_t numProbes,
+__global__ void ivfpq_make_outputs(distance::DistanceType metric,
+                                   uint32_t numProbes,
                                    uint32_t topk,
                                    uint32_t maxSamples,
                                    uint32_t sizeBatch,
@@ -1437,9 +1438,10 @@ __global__ void ivfpq_make_outputs(uint32_t numProbes,
   if (iBatch >= sizeBatch) return;
 
   uint32_t iSample = topkSampleIds[i + (topk * iBatch)];
+  float score;
   if (scoreTopkIndex == nullptr) {
     // 0 <= iSample < maxSamples
-    topkScores[i + (topk * iBatch)] = scores[iSample + (maxSamples * iBatch)];
+    score = scores[iSample + (maxSamples * iBatch)];
     uint32_t iChunk;
     uint32_t label;
     IdxT iDataset;
@@ -1454,10 +1456,17 @@ __global__ void ivfpq_make_outputs(uint32_t numProbes,
     topkNeighbors[i + (topk * iBatch)] = data_indices[iDataset];
   } else {
     // 0 <= iSample < (numProbes * topk)
-    topkScores[i + (topk * iBatch)]    = scores[iSample + ((numProbes * topk) * iBatch)];
+    score                              = scores[iSample + ((numProbes * topk) * iBatch)];
     IdxT iDataset                      = scoreTopkIndex[iSample + ((numProbes * topk) * iBatch)];
     topkNeighbors[i + (topk * iBatch)] = data_indices[iDataset];
   }
+  switch (metric) {
+    case distance::DistanceType::InnerProduct: {
+      score = -score;
+    } break;
+    default: break;
+  }
+  topkScores[i + (topk * iBatch)] = score;
 }
 
 template <int pq_bits, int vecLen, typename T, typename IdxT, typename smemLutDtype = float>
@@ -1541,7 +1550,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
 
   smemLutDtype* preCompScores = (smemLutDtype*)smemArray;
   float* baseDiff             = nullptr;
-  if (preCompBaseDiff) { baseDiff = (float*)(preCompScores + (pq_dim << pq_bits)); }
+  if constexpr (preCompBaseDiff) { baseDiff = (float*)(preCompScores + (pq_dim << pq_bits)); }
   bool manageLocalTopk = false;
   if (_topkIndex != nullptr) { manageLocalTopk = true; }
 
@@ -1580,7 +1589,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
     myPqCenters = pqCenters + (pq_len << pq_bits) * label;
   }
 
-  if (preCompBaseDiff) {
+  if constexpr (preCompBaseDiff) {
     // Reduce computational complexity by pre-computing the difference
     // between the cluster centroid and the query.
     for (uint32_t i = threadIdx.x; i < data_dim; i += blockDim.x) {
@@ -1592,22 +1601,28 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   // Create a lookup table
   for (uint32_t i = threadIdx.x; i < (pq_dim << pq_bits); i += blockDim.x) {
     uint32_t iPq   = i >> pq_bits;
-    uint32_t iCode = i & ((1 << pq_bits) - 1);
+    uint32_t iCode = codebook_kind == codebook_gen::PER_CLUSTER ? i & ((1 << pq_bits) - 1) : i;
     float score    = 0.0;
-    for (uint32_t j = 0; j < pq_len; j++) {
-      uint32_t k = j + (pq_len * iPq);
-      float diff;
-      if (preCompBaseDiff) {
-        diff = baseDiff[k];
-      } else {
-        diff = query[k] - myClusterCenter[k];
-      }
-      if (codebook_kind == codebook_gen::PER_SUBSPACE) {
-        diff -= myPqCenters[j + (pq_len * i)];
-      } else {
-        diff -= myPqCenters[j + (pq_len * iCode)];
-      }
-      score += diff * diff;
+    switch (metric) {
+      case distance::DistanceType::L2Expanded: {
+        for (uint32_t j = 0; j < pq_len; j++) {
+          uint32_t k = j + (pq_len * iPq);
+          float diff;
+          if constexpr (preCompBaseDiff) {
+            diff = baseDiff[k];
+          } else {
+            diff = query[k] - myClusterCenter[k];
+          }
+          diff -= myPqCenters[j + (pq_len * iCode)];
+          score += diff * diff;
+        }
+      } break;
+      case distance::DistanceType::InnerProduct: {
+        for (uint32_t j = 0; j < pq_len; j++) {
+          uint32_t k = j + (pq_len * iPq);
+          score -= query[k] * (myClusterCenter[k] + myPqCenters[j + (pq_len * iCode)]);
+        }
+      } break;
     }
     preCompScores[i] = (smemLutDtype)score;
   }
@@ -1679,7 +1694,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
 
   float* preCompScores = _preCompScores + ((pq_dim << pq_bits) * blockIdx.x);
   float* baseDiff      = nullptr;
-  if (preCompBaseDiff) { baseDiff = (float*)smemArray; }
+  if constexpr (preCompBaseDiff) { baseDiff = (float*)smemArray; }
   bool manageLocalTopk = false;
   if (_topkIndex != nullptr) { manageLocalTopk = true; }
 
@@ -1718,7 +1733,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
       myPqCenters = pqCenters + (pq_len << pq_bits) * label;
     }
 
-    if (preCompBaseDiff) {
+    if constexpr (preCompBaseDiff) {
       // Reduce computational complexity by pre-computing the difference
       // between the cluster centroid and the query.
       for (uint32_t i = threadIdx.x; i < data_dim; i += blockDim.x) {
@@ -1730,22 +1745,28 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
     // Create a lookup table
     for (uint32_t i = threadIdx.x; i < (pq_dim << pq_bits); i += blockDim.x) {
       uint32_t iPq   = i >> pq_bits;
-      uint32_t iCode = i & ((1 << pq_bits) - 1);
+      uint32_t iCode = codebook_kind == codebook_gen::PER_CLUSTER ? i & ((1 << pq_bits) - 1) : i;
       float score    = 0.0;
-      for (uint32_t j = 0; j < pq_len; j++) {
-        uint32_t k = j + (pq_len * iPq);
-        float diff;
-        if (preCompBaseDiff) {
-          diff = baseDiff[k];
-        } else {
-          diff = query[k] - myClusterCenter[k];
-        }
-        if (codebook_kind == codebook_gen::PER_SUBSPACE) {
-          diff -= myPqCenters[j + (pq_len * i)];
-        } else {
-          diff -= myPqCenters[j + (pq_len * iCode)];
-        }
-        score += diff * diff;
+      switch (metric) {
+        case distance::DistanceType::L2Expanded: {
+          for (uint32_t j = 0; j < pq_len; j++) {
+            uint32_t k = j + (pq_len * iPq);
+            float diff;
+            if constexpr (preCompBaseDiff) {
+              diff = baseDiff[k];
+            } else {
+              diff = query[k] - myClusterCenter[k];
+            }
+            diff -= myPqCenters[j + (pq_len * iCode)];
+            score += diff * diff;
+          }
+        } break;
+        case distance::DistanceType::InnerProduct: {
+          for (uint32_t j = 0; j < pq_len; j++) {
+            uint32_t k = j + (pq_len * iPq);
+            score -= query[k] * (myClusterCenter[k] + myPqCenters[j + (pq_len * iCode)]);
+          }
+        } break;
       }
       preCompScores[i] = score;
     }
@@ -2077,7 +2098,8 @@ void ivfpq_search(const handle_t& handle,
 
   dim3 mo_threads(128, 1, 1);
   dim3 mo_blocks(raft::ceildiv<uint32_t>(topK, mo_threads.x), n_queries, 1);
-  ivfpq_make_outputs<scoreDtype><<<mo_blocks, mo_threads, 0, stream>>>(n_probes,
+  ivfpq_make_outputs<scoreDtype><<<mo_blocks, mo_threads, 0, stream>>>(index.metric(),
+                                                                       n_probes,
                                                                        topK,
                                                                        max_samples,
                                                                        n_queries,
@@ -2232,28 +2254,56 @@ inline void search(const handle_t& handle,
   for (uint32_t i = 0; i < n_queries; i += max_queries) {
     uint32_t nQueries = min(max_queries, n_queries - i);
 
-    float fillValue = 0.0;
-    if (index.metric() != raft::distance::DistanceType::InnerProduct) { fillValue = 1.0 / -2.0; }
+    /* NOTE[qc_distances]
+
+      We compute query-center distances to choose the clusters to probe.
+      We accomplish that with just one GEMM operation thanks to some preprocessing:
+
+        L2 distance:
+          cluster_centers[i, dim()] contains the squared norm of the center vector i;
+          we extend the dimension K of the GEMM to compute it together with all the dot products:
+
+          `cq_distances[i, j] = 0.5 |luster_centers[j]|^2 - (queries[i], cluster_centers[j])`
+
+          This is a monotonous mapping of the proper L2 distance.
+
+        IP distance:
+          `cq_distances[i, j] = - (queries[i], cluster_centers[j])`
+
+          This is a negative inner-product distance. We minimize it to find the similar clusters.
+
+          NB: cq_distances is NOT used further in ivfpq_search.
+     */
+    float norm_factor;
+    switch (index.metric()) {
+      case raft::distance::DistanceType::L2Expanded: norm_factor = 1.0 / -2.0; break;
+      case raft::distance::DistanceType::InnerProduct: norm_factor = 0.0; break;
+      default: RAFT_FAIL("Unsupported distance type %d.", int(index.metric()));
+    }
     utils::copy_fill(nQueries,
                      index.dim(),
                      queries + static_cast<size_t>(index.dim()) * i,
                      index.dim(),
                      cur_queries.data(),
                      index.dim_ext(),
-                     fillValue,
+                     norm_factor,
                      stream);
 
     float alpha;
     float beta;
     uint32_t gemmK = index.dim();
-    if (index.metric() == distance::DistanceType::InnerProduct) {
-      alpha = -1.0;
-      beta  = 0.0;
-    } else {
-      alpha = -2.0;
-      beta  = 0.0;
-      gemmK = index.dim() + 1;
-      RAFT_EXPECTS(gemmK <= index.dim_ext(), "unexpected gemmK or dim_ext");
+    switch (index.metric()) {
+      case raft::distance::DistanceType::L2Expanded: {
+        alpha = -2.0;
+        beta  = 0.0;
+        gemmK = index.dim() + 1;
+        RAFT_EXPECTS(gemmK <= index.dim_ext(), "unexpected gemmK or dim_ext");
+      } break;
+      case raft::distance::DistanceType::InnerProduct: {
+        alpha = -1.0;
+        beta  = 0.0;
+      } break;
+      default: RAFT_FAIL("Unsupported distance type %d.", int(index.metric()));
     }
     linalg::gemm(handle,
                  true,
@@ -2303,6 +2353,10 @@ inline void search(const handle_t& handle,
 
     for (uint32_t j = 0; j < nQueries; j += max_batch_size) {
       uint32_t batchSize = min(max_batch_size, nQueries - j);
+      /* The distance calculation is done in the rotated/transformed space;
+         as long as `index.rotation_matrix()` is orthogonal, the distances and thus results are
+         preserved.
+       */
       _ivfpq_search(handle,
                     index,
                     params.n_probes,
