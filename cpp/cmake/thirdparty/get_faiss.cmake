@@ -25,9 +25,10 @@ function(find_and_configure_faiss)
           LIBRARY_NAMES faiss
       )
 
-      set(BUILD_SHARED_LIBS OFF)
-      if (NOT PKG_BUILD_STATIC_LIBS)
-          set(BUILD_SHARED_LIBS ON)
+      set(BUILD_SHARED_LIBS ON)
+      if (PKG_BUILD_STATIC_LIBS)
+        set(BUILD_SHARED_LIBS OFF)
+        set(CPM_DOWNLOAD_faiss ON)
       endif()
 
       rapids_cpm_find(faiss ${PKG_VERSION}
