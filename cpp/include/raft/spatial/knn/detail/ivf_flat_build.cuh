@@ -235,17 +235,31 @@ inline auto build(
   utils::memzero(index.list_sizes().data_handle(), index.list_sizes().size(), stream);
   utils::memzero(index.list_offsets().data_handle(), index.list_offsets().size(), stream);
 
-  // Predict labels of the whole dataset
-  kmeans::build_optimized_kmeans(handle,
-                                 params.kmeans_n_iters,
-                                 dim,
-                                 dataset,
-                                 n_rows,
-                                 index.centers().data_handle(),
-                                 params.n_lists,
-                                 params.kmeans_trainset_fraction,
-                                 params.metric,
-                                 stream);
+  // Train the kmeans clustering
+  {
+    auto trainset_ratio = std::max<size_t>(
+      1, n_rows / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
+    auto n_rows_train = n_rows / trainset_ratio;
+    rmm::device_uvector<T> trainset(n_rows_train * index.dim(), stream);
+    // TODO: a proper sampling
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
+                                    sizeof(T) * index.dim(),
+                                    dataset,
+                                    sizeof(T) * index.dim() * trainset_ratio,
+                                    sizeof(T) * index.dim(),
+                                    n_rows_train,
+                                    cudaMemcpyDefault,
+                                    stream));
+    kmeans::build_hierarchical(handle,
+                               params.kmeans_n_iters,
+                               index.dim(),
+                               trainset.data(),
+                               n_rows_train,
+                               index.centers().data_handle(),
+                               index.n_lists(),
+                               index.metric(),
+                               stream);
+  }
 
   // add the data if necessary
   if (params.add_data_on_build) {
