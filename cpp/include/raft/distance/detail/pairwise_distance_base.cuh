@@ -87,6 +87,12 @@ struct PairwiseDistances : public BaseClass {
   FinalLambda fin_op;
   rowEpilogueLambda rowEpilog_op;
 
+
+  const IdxT grid_stride_m;
+  const IdxT grid_stride_n;
+  const IdxT grid_offset_m;
+  const IdxT grid_offset_n;
+
   AccT acc[P::AccRowsPerTh][P::AccColsPerTh];
 
  public:
@@ -116,53 +122,63 @@ struct PairwiseDistances : public BaseClass {
       core_op(_core_op),
       epilog_op(_epilog_op),
       fin_op(_fin_op),
-      rowEpilog_op(_rowEpilog_op)
+      rowEpilog_op(_rowEpilog_op),
+      grid_stride_m(P::Nblk * gridDim.y),
+      grid_stride_n(P::Mblk * gridDim.x),
+      grid_offset_m(P::Mblk * blockIdx.y),
+      grid_offset_n(P::Nblk * blockIdx.x)
   {
   }
 
   DI void run()
   {
-    for (auto gridStrideY = blockIdx.y * P::Mblk; gridStrideY < this->m;
-         gridStrideY += P::Mblk * gridDim.y) {
-      for (auto gridStrideX = blockIdx.x * P::Nblk; gridStrideX < this->n;
-           gridStrideX += P::Nblk * gridDim.x) {
-        prolog(gridStrideX, gridStrideY);
-        loop();
-        epilog(gridStrideX, gridStrideY);
+    for (auto tile_idx_m = grid_offset_m; tile_idx_m < this->m; tile_idx_m += grid_stride_m) {
+      this->ldgXY(tile_idx_m, grid_offset_n, 0);
+      for (auto tile_idx_n = grid_offset_n; tile_idx_n < this->n; tile_idx_n += grid_stride_n) {
+        reset_accumulator();
+        this->stsXY();
+        __syncthreads();
+        this->switch_write_buffer();
+
+        for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
+            this->ldgXY(tile_idx_m, tile_idx_n, kidx);
+            // Process all data in shared memory (previous k-block) and
+            // accumulate in registers.
+            accumulate();
+            this->stsXY();
+            __syncthreads();
+            this->switch_write_buffer();
+            this->switch_read_buffer();
+        }
+        accumulate();  // last iteration
+        // This is needed for making sure next grid stride of
+        // non-norm based metrics uses previously accumulated buffer so
+        // it doesn't make shmem dirty until previous iteration
+        // is complete.
+        this->switch_read_buffer();
+
+        epilog(tile_idx_n, tile_idx_m);
       }
-      rowEpilog_op(gridStrideY);
+      rowEpilog_op(tile_idx_m);
     }
   }
 
  private:
-  DI void updateIndicesY()
-  {
-    const auto stride = P::Nblk * gridDim.x;
-    this->increment_grid_idx_n(stride);
-  }
-
-  DI void updateIndicesXY()
-  {
-    const auto stride = P::Mblk * gridDim.y;
-    this->increment_grid_idx_m(stride);
-    this->reset_grid_idx_n();
-  }
-
-  DI void ldgNextGridStride(IdxT gridStrideX, IdxT gridStrideY)
+  DI void ldgNextGridStride(IdxT tile_idx_n, IdxT tile_idx_m)
   {
     // Fetch next grid stride ldg if within range
-    if ((gridStrideX + gridDim.x * P::Nblk) < this->n) {
-      updateIndicesY();
-      this->ldgXY(0);
-    } else if ((gridStrideY + gridDim.y * P::Mblk) < this->m) {
-      updateIndicesXY();
-      this->ldgXY(0);
+    const auto next_tile_tile_idx_n = tile_idx_n + grid_stride_n;
+    const auto next_tile_tile_idx_m = tile_idx_m + grid_stride_m;
+    if ((next_tile_tile_idx_n) < this->n) {
+      this->ldgXY(tile_idx_m, next_tile_tile_idx_n, 0);
+    } else if ((next_tile_tile_idx_m) < this->m) {
+      this->ldgXY(next_tile_tile_idx_m, grid_offset_n, 0);
     }
   }
 
-  DI void prolog(IdxT gridStrideX, IdxT gridStrideY)
+  DI void prolog(IdxT tile_idx_n, IdxT tile_idx_m)
   {
-    if (gridStrideX == blockIdx.x * P::Nblk) { this->ldgXY(0); }
+    if (tile_idx_n == blockIdx.x * P::Nblk) { this->ldgXY(0); }
 
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
@@ -177,22 +193,15 @@ struct PairwiseDistances : public BaseClass {
     this->switch_write_buffer();
   }
 
-  DI void loop()
-  {
-    for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgXY(kidx);
-      accumulate();  // on the previous k-block
-      this->stsXY();
-      __syncthreads();
-      this->switch_write_buffer();
-      this->switch_read_buffer();
+  DI void reset_accumulator() {
+    // Reset accumulator registers to zero.
+#pragma unroll
+    for (int i = 0; i < P::AccRowsPerTh; ++i) {
+#pragma unroll
+      for (int j = 0; j < P::AccColsPerTh; ++j) {
+        acc[i][j] = BaseClass::Zero;
+      }
     }
-    accumulate();  // last iteration
-    // This is needed for making sure next grid stride of
-    // non-norm based metrics uses previously accumulated buffer so
-    // it doesn't make shmem dirty until previous iteration
-    // is complete.
-    this->switch_read_buffer();
   }
 
   DI void accumulate()
@@ -213,22 +222,22 @@ struct PairwiseDistances : public BaseClass {
     }
   }
 
-  DI void epilog(IdxT gridStrideX, IdxT gridStrideY)
+  DI void epilog(IdxT tile_idx_n, IdxT tile_idx_m)
   {
     if (useNorms) {
       DataT* sxNorm = (DataT*)(&smem[P::SmemSize]);
       DataT* syNorm = (&sxNorm[P::Mblk]);
 
       // Load x & y norms required by this threadblock in shmem buffer
-      if (gridStrideX == blockIdx.x * P::Nblk) {
+      if (tile_idx_n == blockIdx.x * P::Nblk) {
         for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
-          auto idx  = gridStrideY + i;
+          auto idx  = tile_idx_m + i;
           sxNorm[i] = idx < this->m ? xn[idx] : 0;
         }
       }
 
       for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
-        auto idx  = gridStrideX + i;
+        auto idx  = tile_idx_n + i;
         syNorm[i] = idx < this->n ? yn[idx] : 0;
       }
 
@@ -245,17 +254,17 @@ struct PairwiseDistances : public BaseClass {
       }
 
       // Overlap ldg with epilog computation
-      ldgNextGridStride(gridStrideX, gridStrideY);
-      epilog_op(acc, regxn, regyn, gridStrideX, gridStrideY);
+      ldgNextGridStride(tile_idx_n, tile_idx_m);
+      epilog_op(acc, regxn, regyn, tile_idx_n, tile_idx_m);
     } else {
       // Overlap ldg with epilog computation
-      ldgNextGridStride(gridStrideX, gridStrideY);
-      epilog_op(acc, nullptr, nullptr, gridStrideX, gridStrideY);
+      ldgNextGridStride(tile_idx_n, tile_idx_m);
+      epilog_op(acc, nullptr, nullptr, tile_idx_n, tile_idx_m);
     }
 
     if (writeOut) {
-      IdxT starty = gridStrideY + this->accrowid;
-      IdxT startx = gridStrideX + this->acccolid;
+      IdxT starty = tile_idx_m + this->accrowid;
+      IdxT startx = tile_idx_n + this->acccolid;
 
 #pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
