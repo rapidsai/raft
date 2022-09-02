@@ -64,7 +64,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
  private:
   DI void prolog()
   {
-    this->ldgXY(0);
+    this->ldgXY(IdxT(blockIdx.x) * P::Mblk, IdxT(blockIdx.y) * P::Nblk, 0);
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -74,18 +74,18 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     }
     this->stsXY();
     __syncthreads();
-    this->pageWr ^= 1;
+    this->switch_write_buffer();
   }
 
   DI void loop()
   {
     for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgXY(kidx);
+      this->ldgXY(IdxT(blockIdx.x) * P::Mblk, IdxT(blockIdx.y) * P::Nblk, kidx);
       accumulate();  // on the previous k-block
       this->stsXY();
       __syncthreads();
-      this->pageWr ^= 1;
-      this->pageRd ^= 1;
+      this->switch_write_buffer();
+      this->switch_read_buffer();
     }
     accumulate();  // last iteration
   }
