@@ -1507,8 +1507,6 @@ __device__ float ivfpq_compute_score(uint32_t pq_dim,
   return score;
 }
 
-extern __shared__ float smemArray[];
-
 //
 // (*) Restrict the peak GPU occupancy up-to 50% by "__launch_bounds__(1024, 1)",
 // as there were cases where performance dropped by a factor of two or more on V100
@@ -1524,7 +1522,7 @@ template <int pq_bits,
           typename smemLutDtype>
 __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   uint32_t n_rows,
-  uint32_t data_dim,
+  uint32_t dim,
   uint32_t numProbes,
   uint32_t pq_dim,
   uint32_t sizeBatch,
@@ -1532,23 +1530,25 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   distance::DistanceType metric,
   codebook_gen codebook_kind,
   uint32_t topk,
-  const float* cluster_centers,    // [n_clusters, data_dim,]
+  const float* cluster_centers,    // [n_clusters, dim,]
   const float* pqCenters,          // [pq_dim, pq_width, pq_len,], or
                                    // [numClusetrs, pq_width, pq_len,]
   const uint8_t* pqDataset,        // [n_rows, pq_dim * pq_bits / 8]
   const IdxT* cluster_offsets,     // [n_clusters + 1,]
   const uint32_t* _clusterLabels,  // [sizeBatch, numProbes,]
   const uint32_t* _chunkIndexPtr,  // [sizeBatch, numProbes,]
-  const float* _query,             // [sizeBatch, data_dim,]
+  const float* _query,             // [sizeBatch, dim,]
   const uint32_t* indexList,       // [sizeBatch * numProbes]
   float* _preCompScores,           // [...]
   outDtype* _output,               // [sizeBatch, maxSamples,] or [sizeBatch, numProbes, topk]
   uint32_t* _topkIndex             // [sizeBatch, numProbes, topk]
 )
 {
-  const uint32_t pq_len = data_dim / pq_dim;
+  extern __shared__ __align__(256) uint8_t smem_buf[];
 
-  smemLutDtype* preCompScores = (smemLutDtype*)smemArray;
+  const uint32_t pq_len = dim / pq_dim;
+
+  smemLutDtype* preCompScores = reinterpret_cast<smemLutDtype*>(smem_buf);
   float* baseDiff             = nullptr;
   if constexpr (preCompBaseDiff) { baseDiff = (float*)(preCompScores + (pq_dim << pq_bits)); }
   bool manageLocalTopk = false;
@@ -1569,7 +1569,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
 
   const uint32_t* cluster_labels = _clusterLabels + (numProbes * iBatch);
   const uint32_t* chunkIndexPtr  = _chunkIndexPtr + (numProbes * iBatch);
-  const float* query             = _query + (data_dim * iBatch);
+  const float* query             = _query + (dim * iBatch);
   outDtype* output;
   uint32_t* topkIndex = nullptr;
   if (manageLocalTopk) {
@@ -1581,7 +1581,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
     output = _output + (maxSamples * iBatch);
   }
   uint32_t label               = cluster_labels[iProbe];
-  const float* myClusterCenter = cluster_centers + (data_dim * label);
+  const float* myClusterCenter = cluster_centers + (dim * label);
   const float* myPqCenters;
   if (codebook_kind == codebook_gen::PER_SUBSPACE) {
     myPqCenters = pqCenters;
@@ -1592,7 +1592,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
   if constexpr (preCompBaseDiff) {
     // Reduce computational complexity by pre-computing the difference
     // between the cluster centroid and the query.
-    for (uint32_t i = threadIdx.x; i < data_dim; i += blockDim.x) {
+    for (uint32_t i = threadIdx.x; i < dim; i += blockDim.x) {
       baseDiff[i] = query[i] - myClusterCenter[i];
     }
     __syncthreads();
@@ -1635,7 +1635,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(
 
   using block_sort_t =
     topk::block_sort<topk::warp_sort_immediate, depth * WarpSize, true, outDtype, uint32_t>;
-  block_sort_t block_topk(topk, reinterpret_cast<uint8_t*>(smemArray));
+  block_sort_t block_topk(topk, reinterpret_cast<uint8_t*>(smem_buf));
   const outDtype limit = block_sort_t::queue_t::kDummy;
 
   // Compute a distance for each sample
@@ -1668,7 +1668,7 @@ template <int pq_bits,
           typename outDtype>
 __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
   uint32_t n_rows,
-  uint32_t data_dim,
+  uint32_t dim,
   uint32_t numProbes,
   uint32_t pq_dim,
   uint32_t sizeBatch,
@@ -1676,25 +1676,27 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
   distance::DistanceType metric,
   codebook_gen codebook_kind,
   uint32_t topk,
-  const float* cluster_centers,    // [n_clusters, data_dim,]
+  const float* cluster_centers,    // [n_clusters, dim,]
   const float* pqCenters,          // [pq_dim, pq_width, pq_len,], or
                                    // [numClusetrs, pq_width, pq_len,]
   const uint8_t* pqDataset,        // [n_rows, pq_dim * pq_bits / 8]
   const IdxT* cluster_offsets,     // [n_clusters + 1,]
   const uint32_t* _clusterLabels,  // [sizeBatch, numProbes,]
   const uint32_t* _chunkIndexPtr,  // [sizeBatch, numProbes,]
-  const float* _query,             // [sizeBatch, data_dim,]
+  const float* _query,             // [sizeBatch, dim,]
   const uint32_t* indexList,       // [sizeBatch * numProbes]
   float* _preCompScores,           // [..., pq_dim << pq_bits,]
   outDtype* _output,               // [sizeBatch, maxSamples,] or [sizeBatch, numProbes, topk]
   uint32_t* _topkIndex             // [sizeBatch, numProbes, topk]
 )
 {
-  const uint32_t pq_len = data_dim / pq_dim;
+  extern __shared__ __align__(256) uint8_t smem_buf[];
+
+  const uint32_t pq_len = dim / pq_dim;
 
   float* preCompScores = _preCompScores + ((pq_dim << pq_bits) * blockIdx.x);
   float* baseDiff      = nullptr;
-  if constexpr (preCompBaseDiff) { baseDiff = (float*)smemArray; }
+  if constexpr (preCompBaseDiff) { baseDiff = reinterpret_cast<float*>(smem_buf); }
   bool manageLocalTopk = false;
   if (_topkIndex != nullptr) { manageLocalTopk = true; }
 
@@ -1713,7 +1715,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
 
     const uint32_t* cluster_labels = _clusterLabels + (numProbes * iBatch);
     const uint32_t* chunkIndexPtr  = _chunkIndexPtr + (numProbes * iBatch);
-    const float* query             = _query + (data_dim * iBatch);
+    const float* query             = _query + (dim * iBatch);
     outDtype* output;
     uint32_t* topkIndex = nullptr;
     if (manageLocalTopk) {
@@ -1725,7 +1727,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
       output = _output + (maxSamples * iBatch);
     }
     uint32_t label               = cluster_labels[iProbe];
-    const float* myClusterCenter = cluster_centers + (data_dim * label);
+    const float* myClusterCenter = cluster_centers + (dim * label);
     const float* myPqCenters;
     if (codebook_kind == codebook_gen::PER_SUBSPACE) {
       myPqCenters = pqCenters;
@@ -1736,7 +1738,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
     if constexpr (preCompBaseDiff) {
       // Reduce computational complexity by pre-computing the difference
       // between the cluster centroid and the query.
-      for (uint32_t i = threadIdx.x; i < data_dim; i += blockDim.x) {
+      for (uint32_t i = threadIdx.x; i < dim; i += blockDim.x) {
         baseDiff[i] = query[i] - myClusterCenter[i];
       }
       __syncthreads();
@@ -1779,7 +1781,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity_no_smem_lut(
 
     using block_sort_t =
       topk::block_sort<topk::warp_sort_immediate, depth * WarpSize, true, outDtype, uint32_t>;
-    block_sort_t block_topk(topk, reinterpret_cast<uint8_t*>(smemArray));
+    block_sort_t block_topk(topk, reinterpret_cast<uint8_t*>(smem_buf));
     const outDtype limit = block_sort_t::queue_t::kDummy;
 
     // Compute a distance for each sample
