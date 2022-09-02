@@ -1821,7 +1821,7 @@ void ivfpq_search(const handle_t& handle,
                   const IdxT* cluster_offsets,           // [n_clusters + 1]
                   const uint32_t* clusterLabelsToProbe,  // [n_queries, numProbes]
                   const float* query,                    // [n_queries, rot_dim]
-                  uint64_t* topkNeighbors,               // [n_queries, topK]
+                  IdxT* topkNeighbors,                   // [n_queries, topK]
                   float* topkDistances,                  // [n_queries, topK]
                   rmm::mr::device_memory_resource* mr)
 {
@@ -2224,7 +2224,7 @@ inline void search(const handle_t& handle,
                         const IdxT*,
                         const uint32_t*,
                         const float*,
-                        uint64_t*,
+                        IdxT*,
                         float*,
                         rmm::mr::device_memory_resource*);
   if (params.internal_distance_dtype == CUDA_R_16F) {
