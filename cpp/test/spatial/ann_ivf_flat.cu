@@ -20,7 +20,6 @@
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/random/rng.cuh>
-#include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/ivf_flat.cuh>
 #include <raft/spatial/knn/knn.cuh>
@@ -29,6 +28,8 @@
 #include <rmm/device_buffer.hpp>
 
 #include <gtest/gtest.h>
+
+#include <thrust/sequence.h>
 
 #include <cstddef>
 #include <iostream>
@@ -209,7 +210,9 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
           ivf_flat::build(handle_, index_params, database.data(), int64_t(ps.num_db_vecs), ps.dim);
 
         rmm::device_uvector<int64_t> vector_indices(ps.num_db_vecs, stream_);
-        sparse::iota_fill(vector_indices.data(), int64_t(ps.num_db_vecs), int64_t(1), stream_);
+        thrust::sequence(handle_.get_thrust_policy(),
+                         thrust::device_pointer_cast(vector_indices.data()),
+                         thrust::device_pointer_cast(vector_indices.data() + ps.num_db_vecs));
         handle_.sync_stream(stream_);
 
         int64_t half_of_data = ps.num_db_vecs / 2;
