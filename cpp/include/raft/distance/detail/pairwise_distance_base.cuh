@@ -138,27 +138,14 @@ struct PairwiseDistances : public BaseClass {
   DI void updateIndicesY()
   {
     const auto stride = P::Nblk * gridDim.x;
-    if (isRowMajor) {
-      this->y += stride * this->ldb;
-    } else {
-      this->y += stride;
-    }
-    this->yrowid += stride;
+    this->increment_grid_idx_n(stride);
   }
 
   DI void updateIndicesXY()
   {
     const auto stride = P::Mblk * gridDim.y;
-    if (isRowMajor) {
-      this->x += stride * this->lda;
-      this->yrowid = IdxT(blockIdx.x) * P::Nblk + this->srowid;
-      this->y      = yBase + this->yrowid * this->ldb;
-    } else {
-      this->x += stride;
-      this->yrowid = IdxT(blockIdx.x) * P::Nblk;
-      this->y      = yBase + this->yrowid + this->srowid * this->ldb;
-    }
-    this->xrowid += stride;
+    this->increment_grid_idx_m(stride);
+    this->reset_grid_idx_n();
   }
 
   DI void ldgNextGridStride(IdxT gridStrideX, IdxT gridStrideY)
@@ -187,7 +174,7 @@ struct PairwiseDistances : public BaseClass {
 
     this->stsXY();
     __syncthreads();
-    this->pageWr ^= 1;
+    this->switch_write_buffer();
   }
 
   DI void loop()
@@ -197,15 +184,15 @@ struct PairwiseDistances : public BaseClass {
       accumulate();  // on the previous k-block
       this->stsXY();
       __syncthreads();
-      this->pageWr ^= 1;
-      this->pageRd ^= 1;
+      this->switch_write_buffer();
+      this->switch_read_buffer();
     }
     accumulate();  // last iteration
     // This is needed for making sure next grid stride of
     // non-norm based metrics uses previously accumulated buffer so
     // it doesn't make shmem dirty until previous iteration
     // is complete.
-    this->pageRd ^= 1;
+    this->switch_read_buffer();
   }
 
   DI void accumulate()
