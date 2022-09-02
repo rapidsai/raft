@@ -134,7 +134,7 @@ struct index : knn::index {
    */
   [[nodiscard]] constexpr inline auto dim_ext() const noexcept -> uint32_t
   {
-    return Pow2<8>::roundUp(dim() + 1);
+    return (dim() + 8u) & ~7u;  // Pow2<8>::roundUp(dim() + 1)
   }
   /**
    * Dimensionality of the data after transforming it for PQ processing
