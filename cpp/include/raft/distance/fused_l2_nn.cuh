@@ -37,6 +37,9 @@ template <typename LabelT, typename DataT>
 using MinAndDistanceReduceOp = detail::MinAndDistanceReduceOpImpl<LabelT, DataT>;
 
 template <typename LabelT, typename DataT>
+using MinAndDistanceOffsetReduceOp = detail::MinAndDistanceOffsetReduceOpImpl<LabelT, DataT>;
+
+template <typename LabelT, typename DataT>
 using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
 
 /**
@@ -115,6 +118,50 @@ void fusedL2NN(OutT* min,
     detail::fusedL2NNImpl<DataT, OutT, IdxT, 1, ReduceOpT>(
       min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
   }
+}
+
+/**
+ * @brief Wrapper around fusedL2NN for key-value outputs.
+ *
+ * @todo Document this!
+ *
+ * @tparam DataT
+ * @tparam OutT
+ * @tparam IdxT
+ * @param min
+ * @param x
+ * @param y
+ * @param xn
+ * @param yn
+ * @param m
+ * @param n
+ * @param k
+ * @param workspace
+ * @param sqrt
+ * @param initOutBuffer
+ * @param stream
+ * @param batch_offset
+ */
+template <typename DataT, typename OutT, typename IdxT>
+void fusedL2NNKVP(OutT* min,
+                  const DataT* x,
+                  const DataT* y,
+                  const DataT* xn,
+                  const DataT* yn,
+                  IdxT m,
+                  IdxT n,
+                  IdxT k,
+                  void* workspace,
+                  bool sqrt,
+                  bool initOutBuffer,
+                  cudaStream_t stream,
+                  IdxT batch_offset = 0)
+{
+  MinAndDistanceOffsetReduceOp<IdxT, DataT> redOp(batch_offset);
+  KVPMinReduce<IdxT, DataT> pairRedOp;
+
+  fusedL2NN<DataT, OutT, IdxT>(
+    min, x, y, xn, yn, m, n, k, workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
 }
 
 }  // namespace distance

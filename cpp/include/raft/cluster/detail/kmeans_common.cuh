@@ -50,34 +50,6 @@ namespace raft {
 namespace cluster {
 namespace detail {
 
-template <typename IndexT, typename DataT>
-struct FusedL2NNReduceOp {
-  IndexT offset;
-
-  FusedL2NNReduceOp(IndexT _offset) : offset(_offset){};
-
-  typedef typename cub::KeyValuePair<IndexT, DataT> KVP;
-  DI void operator()(IndexT rit, KVP* out, const KVP& other)
-  {
-    if (other.value < out->value) {
-      out->key   = offset + other.key;
-      out->value = other.value;
-    }
-  }
-
-  DI void operator()(IndexT rit, DataT* out, const KVP& other)
-  {
-    if (other.value < *out) { *out = other.value; }
-  }
-
-  DI void init(DataT* out, DataT maxVal) { *out = maxVal; }
-  DI void init(KVP* out, DataT maxVal)
-  {
-    out->key   = -1;
-    out->value = maxVal;
-  }
-};
-
 template <typename DataT, typename IndexT>
 struct SamplingOp {
   DataT* rnd;
@@ -458,10 +430,7 @@ void minClusterAndDistanceCompute(
           raft::make_device_vector_view<DataT, IndexT>(centroidsNorm.data_handle() + cIdx, nc);
         workspace.resize((sizeof(int)) * ns, stream);
 
-        FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
-        raft::distance::KVPMinReduce<IndexT, DataT> pairRedOp;
-
-        raft::distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>, IndexT>(
+        raft::distance::fusedL2NNKVP<DataT, cub::KeyValuePair<IndexT, DataT>, IndexT>(
           minClusterAndDistanceView.data_handle(),
           datasetView.data_handle(),
           centroidsView.data_handle(),
@@ -471,11 +440,10 @@ void minClusterAndDistanceCompute(
           nc,
           n_features,
           (void*)workspace.data(),
-          redOp,
-          pairRedOp,
           (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false,
-          stream);
+          stream,
+          cIdx);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
         // distance for current batch
@@ -593,9 +561,7 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
           raft::make_device_vector_view<DataT, IndexT>(centroidsNorm.data_handle() + cIdx, nc);
         workspace.resize((sizeof(IndexT)) * ns, stream);
 
-        FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
-        raft::distance::KVPMinReduce<IndexT, DataT> pairRedOp;
-        raft::distance::fusedL2NN<DataT, DataT, IndexT>(
+        raft::distance::fusedL2NNKVP<DataT, DataT, IndexT>(
           minClusterDistanceView.data_handle(),
           datasetView.data_handle(),
           centroidsView.data_handle(),
@@ -605,11 +571,10 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
           nc,
           n_features,
           (void*)workspace.data(),
-          redOp,
-          pairRedOp,
           (metric != raft::distance::DistanceType::L2Expanded),
           false,
-          stream);
+          stream,
+          cIdx);
       } else {
         // pairwiseDistanceView [ns x nc] - view representing the pairwise
         // distance for current batch

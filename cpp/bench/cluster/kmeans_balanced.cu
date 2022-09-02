@@ -87,14 +87,13 @@ std::vector<KMeansBalancedBenchParams> getKMeansBalancedInputs()
   std::vector<KMeansBalancedBenchParams> out;
   KMeansBalancedBenchParams p;
   p.data.row_major                          = true;
-  p.max_iter                                = 300;
+  p.max_iter                                = 20;
   p.trainset_fraction                       = 1.0;
   p.metric                                  = raft::distance::DistanceType::L2Expanded;
   std::vector<std::pair<int, int>> row_cols = {
-    {10000000, 128}, {10000000, 256},
+    {100000, 128}, {1000000, 128}, {10000000, 128},
     // The following dataset sizes are too large for most GPUs.
     // {100000000, 128},
-    // {100000000, 256},
   };
   for (auto& rc : row_cols) {
     p.data.rows = rc.first;

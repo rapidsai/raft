@@ -260,6 +260,10 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
     src/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
     src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
+    src/distance/specializations/fused_l2_nn_kvp_double_int.cu
+    src/distance/specializations/fused_l2_nn_kvp_double_int64.cu
+    src/distance/specializations/fused_l2_nn_kvp_float_int.cu
+    src/distance/specializations/fused_l2_nn_kvp_float_int64.cu
     src/random/specializations/rmat_rectangular_generator_int_double.cu
     src/random/specializations/rmat_rectangular_generator_int64_double.cu
     src/random/specializations/rmat_rectangular_generator_int_float.cu
