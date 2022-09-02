@@ -20,8 +20,8 @@ from skbuild import setup
 import versioneer
 
 
-setup(name='raft',
-      description="RAPIDS Analytics Frameworks Toolset",
+setup(name='dask-raft',
+      description="Reusable Accelerated Functions & Tools Dask Infrastructure",
       version=versioneer.get_version(),
       classifiers=[
         "Intended Audience :: Developers",

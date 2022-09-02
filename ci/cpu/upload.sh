@@ -38,12 +38,12 @@ if [[ "$BUILD_LIBRAFT" == "1" && "$UPLOAD_LIBRAFT" == "1" ]]; then
 fi
 
 if [[ "$BUILD_RAFT" == "1" && "$UPLOAD_RAFT" == "1" ]]; then
-  PYRAFT_FILE=$(conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/pyraft --python=$PYTHON --output)
+  DASKRAFT_FILE=$(conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/dask-raft --python=$PYTHON --output)
   PYLIBRAFT_FILE=$(conda build --no-build-id --croot ${CONDA_BLD_DIR} -c ${CONDA_LOCAL_CHANNEL} conda/recipes/pylibraft --python=$PYTHON --output)
-  test -e ${PYRAFT_FILE}
-  echo "Upload pyraft"
-  echo ${PYRAFT_FILE}
-  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${PYRAFT_FILE} --no-progress
+  test -e ${DASKRAFT_FILE}
+  echo "Upload dask-raft"
+  echo ${DASKRAFT_FILE}
+  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${DASKRAFT_FILE} --no-progress
 
   test -e ${PYLIBRAFT_FILE}
   echo "Upload pylibraft"

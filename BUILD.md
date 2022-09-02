@@ -34,8 +34,8 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 - [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
 - [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0
 - [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::spatial::knn` API and needed to build tests.
-- [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `Pyraft`
-- [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `Pyraft`
+- [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `dask-raft`
+- [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `dask-raft`
 - [Googletest](https://github.com/google/googletest) - Needed to build tests
 - [Googlebench](https://github.com/google/benchmark) - Needed to build benchmarks
 - [Doxygen](https://github.com/doxygen/doxygen) - Needed to build docs
@@ -129,8 +129,8 @@ RAFT's cmake has the following configurable flags available:.
 | RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. Needed for `raft::spatial::knn` |
 | RAFT_ENABLE_thrust_DEPENDENCY | ON, OFF | ON | Enables the Thrust dependency. This can be disabled when using many simple utilities or to override with a different Thrust version. |
 | RAFT_ENABLE_mdspan_DEPENDENCY | ON, OFF | ON | Enables the std::mdspan dependency. This can be disabled when using many simple utilities. |
-| RAFT_ENABLE_nccl_DEPENDENCY | ON, OFF | OFF | Enables NCCL dependency used by `raft::comms` and needed to build `pyraft` |
-| RAFT_ENABLE_ucx_DEPENDENCY | ON, OFF | OFF | Enables UCX dependency used by `raft::comms` and needed to build `pyraft` |
+| RAFT_ENABLE_nccl_DEPENDENCY | ON, OFF | OFF | Enables NCCL dependency used by `raft::comms` and needed to build `dask-raft` |
+| RAFT_ENABLE_ucx_DEPENDENCY | ON, OFF | OFF | Enables UCX dependency used by `raft::comms` and needed to build `dask-raft` |
 | RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` | 
 | RAFT_STATIC_LINK_LIBRARIES | ON, OFF | ON | Build static link libraries instead of shared libraries |
 | DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
@@ -153,12 +153,12 @@ mamba activate raft_env_name
 The Python APIs can be built using the `build.sh` script:
 
 ```bash
-./build.sh pyraft pylibraft
+./build.sh dask-raft pylibraft
 ```
 
 `setup.py` can also be used to build the Python APIs manually:
 ```bash
-cd python/raft
+cd python/dask-raft
 python setup.py build_ext --inplace
 python setup.py install
 
@@ -169,7 +169,7 @@ python setup.py install
 
 To run the Python tests:
 ```bash
-cd python/raft
+cd python/dask-raft
 py.test -s -v raft
 
 cd python pylibraft
@@ -187,7 +187,7 @@ When the needed [build dependencies](#required_depenencies) are already satisfie
 set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 ExternalProject_Add(raft
   GIT_REPOSITORY    git@github.com:rapidsai/raft.git
-  GIT_TAG           branch-22.04
+  GIT_TAG           branch-22.10
   PREFIX            ${RAFT_GIT_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
