@@ -22,7 +22,7 @@
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/unary_op.cuh>

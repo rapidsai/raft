@@ -18,41 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __TRUSTWORTHINESS_SCORE_H
-#define __TRUSTWORTHINESS_SCORE_H
+/**
+ * DISCLAIMER: this file is deprecated: use trustworthiness_score.cuh instead
+ */
 
 #pragma once
-#include <raft/stats/detail/trustworthiness_score.cuh>
 
-namespace raft {
-namespace stats {
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-/**
- * @brief Compute the trustworthiness score
- * @param[in] h: raft handle
- * @param[in] X: Data in original dimension
- * @param[in] X_embedded: Data in target dimension (embedding)
- * @param[in] n: Number of samples
- * @param[in] m: Number of features in high/original dimension
- * @param[in] d: Number of features in low/embedded dimension
- * @param[in] n_neighbors Number of neighbors considered by trustworthiness score
- * @param[in] batchSize Batch size
- * @return[out] Trustworthiness score
- */
-template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(const raft::handle_t& h,
-                             const math_t* X,
-                             math_t* X_embedded,
-                             int n,
-                             int m,
-                             int d,
-                             int n_neighbors,
-                             int batchSize = 512)
-{
-  return detail::trustworthiness_score<math_t, distance_type>(
-    h, X, X_embedded, n, m, d, n_neighbors, batchSize);
-}
-}  // namespace stats
-}  // namespace raft
-
-#endif
+#include "trustworthiness_score.cuh"
