@@ -18,45 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __REDUCE_COLS_BY_KEY
-#define __REDUCE_COLS_BY_KEY
+/**
+ * DISCLAIMER: this file is deprecated: use reduce_cols_by_key.cuh instead
+ */
 
 #pragma once
 
-#include <raft/linalg/detail/reduce_cols_by_key.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace linalg {
-
-/**
- * @brief Computes the sum-reduction of matrix columns for each given key
- * @tparam T the input data type (as well as the output reduced matrix)
- * @tparam KeyType data type of the keys
- * @tparam IdxType indexing arithmetic type
- * @param data the input data (dim = nrows x ncols). This is assumed to be in
- * row-major layout
- * @param keys keys array (len = ncols). It is assumed that each key in this
- * array is between [0, nkeys). In case this is not true, the caller is expected
- * to have called make_monotonic primitive to prepare such a contiguous and
- * monotonically increasing keys array.
- * @param out the output reduced matrix along columns (dim = nrows x nkeys).
- * This will be assumed to be in row-major layout
- * @param nrows number of rows in the input data
- * @param ncols number of colums in the input data
- * @param nkeys number of unique keys in the keys array
- * @param stream cuda stream to launch the kernel onto
- */
-template <typename T, typename KeyIteratorT, typename IdxType = int>
-void reduce_cols_by_key(const T* data,
-                        const KeyIteratorT keys,
-                        T* out,
-                        IdxType nrows,
-                        IdxType ncols,
-                        IdxType nkeys,
-                        cudaStream_t stream)
-{
-  detail::reduce_cols_by_key(data, keys, out, nrows, ncols, nkeys, stream);
-}
-};  // end namespace linalg
-};  // end namespace raft
-#endif
+#include "reduce_cols_by_key.cuh"

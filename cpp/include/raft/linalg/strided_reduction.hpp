@@ -18,64 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __STRIDED_REDUCTION_H
-#define __STRIDED_REDUCTION_H
+/**
+ * DISCLAIMER: this file is deprecated: use strided_reduction.cuh instead
+ */
 
 #pragma once
 
-#include "detail/strided_reduction.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace linalg {
-
-/**
- * @brief Compute reduction of the input matrix along the strided dimension
- *
- * @tparam InType the data type of the input
- * @tparam OutType the data type of the output (as well as the data type for
- *  which reduction is performed)
- * @tparam IdxType data type of the indices of the array
- * @tparam MainLambda Unary lambda applied while acculumation (eg: L1 or L2 norm)
- * It must be a 'callable' supporting the following input and output:
- * <pre>OutType (*MainLambda)(InType, IdxType);</pre>
- * @tparam ReduceLambda Binary lambda applied for reduction (eg: addition(+) for L2 norm)
- * It must be a 'callable' supporting the following input and output:
- * <pre>OutType (*ReduceLambda)(OutType);</pre>
- * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
- * It must be a 'callable' supporting the following input and output:
- * <pre>OutType (*FinalLambda)(OutType);</pre>
- * @param dots the output reduction vector
- * @param data the input matrix
- * @param D leading dimension of data
- * @param N second dimension data
- * @param init initial value to use for the reduction
- * @param main_op elementwise operation to apply before reduction
- * @param reduce_op binary reduction operation
- * @param final_op elementwise operation to apply before storing results
- * @param inplace reduction result added inplace or overwrites old values?
- * @param stream cuda stream where to launch work
- */
-template <typename InType,
-          typename OutType      = InType,
-          typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
-void stridedReduction(OutType* dots,
-                      const InType* data,
-                      IdxType D,
-                      IdxType N,
-                      OutType init,
-                      cudaStream_t stream,
-                      bool inplace           = false,
-                      MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                      ReduceLambda reduce_op = raft::Sum<OutType>(),
-                      FinalLambda final_op   = raft::Nop<OutType>())
-{
-  detail::stridedReduction(dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
-}
-
-};  // end namespace linalg
-};  // end namespace raft
-
-#endif
+#include "strided_reduction.cuh"

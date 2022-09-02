@@ -18,81 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __STDDEV_H
-#define __STDDEV_H
+/**
+ * DISCLAIMER: this file is deprecated: use stddev.cuh instead
+ */
 
 #pragma once
 
-#include "detail/stddev.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-#include <raft/handle.hpp>
-
-namespace raft {
-namespace stats {
-
-/**
- * @brief Compute stddev of the input matrix
- *
- * Stddev operation is assumed to be performed on a given column.
- *
- * @tparam Type the data type
- * @tparam IdxType Integer type used to for addressing
- * @param std the output stddev vector
- * @param data the input matrix
- * @param mu the mean vector
- * @param D number of columns of data
- * @param N number of rows of data
- * @param sample whether to evaluate sample stddev or not. In other words,
- * whether
- *  to normalize the output using N-1 or N, for true or false, respectively
- * @param rowMajor whether the input data is row or col major
- * @param stream cuda stream where to launch work
- */
-template <typename Type, typename IdxType = int>
-void stddev(Type* std,
-            const Type* data,
-            const Type* mu,
-            IdxType D,
-            IdxType N,
-            bool sample,
-            bool rowMajor,
-            cudaStream_t stream)
-{
-  detail::stddev(std, data, mu, D, N, sample, rowMajor, stream);
-}
-
-/**
- * @brief Compute variance of the input matrix
- *
- * Variance operation is assumed to be performed on a given column.
- *
- * @tparam Type the data type
- * @tparam IdxType Integer type used to for addressing
- * @param var the output stddev vector
- * @param data the input matrix
- * @param mu the mean vector
- * @param D number of columns of data
- * @param N number of rows of data
- * @param sample whether to evaluate sample stddev or not. In other words,
- * whether
- *  to normalize the output using N-1 or N, for true or false, respectively
- * @param rowMajor whether the input data is row or col major
- * @param stream cuda stream where to launch work
- */
-template <typename Type, typename IdxType = int>
-void vars(Type* var,
-          const Type* data,
-          const Type* mu,
-          IdxType D,
-          IdxType N,
-          bool sample,
-          bool rowMajor,
-          cudaStream_t stream)
-{
-  detail::vars(var, data, mu, D, N, sample, rowMajor, stream);
-}
-
-};  // namespace stats
-};  // namespace raft
-
-#endif
+#include "stddev.cuh"

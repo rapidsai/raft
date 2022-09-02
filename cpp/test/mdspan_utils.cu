@@ -62,9 +62,9 @@ void test_template_asserts()
 
   // Checking if types are host_mdspan
   static_assert(!is_host_mdspan_v<device_matrix_view<float>>,
-                "device_matrix_view type not a host_mdspan");
+                "device_matrix_view type is a host_mdspan");
   static_assert(is_host_mdspan_v<host_matrix_view<float>>,
-                "host_matrix_view type is a host_mdspan");
+                "host_matrix_view type is not a host_mdspan");
 
   // checking variadics
   static_assert(!is_mdspan_v<three_d_mdspan, std::vector<int>>, "variadics mdspans");
@@ -171,12 +171,6 @@ void test_reshape()
     three_d_mdarray mda{layout, policy};
 
     auto flat_view = reshape(mda, raft::extents<int, dynamic_extent>{27});
-    // this confirms aliasing works as intended
-    static_assert(std::is_same_v<decltype(flat_view),
-                                 host_vector_view<typename decltype(flat_view)::element_type,
-                                                  typename decltype(flat_view)::index_type,
-                                                  typename decltype(flat_view)::layout_type>>,
-                  "types not the same");
 
     ASSERT_EQ(flat_view.extents().rank(), 1);
     ASSERT_EQ(flat_view.size(), mda.size());
@@ -195,12 +189,6 @@ void test_reshape()
     four_d_mdarray mda{layout, policy};
 
     auto matrix = reshape(mda, raft::extents<int, dynamic_extent, dynamic_extent>{4, 4});
-    // this confirms aliasing works as intended
-    static_assert(std::is_same_v<decltype(matrix),
-                                 device_matrix_view<typename decltype(matrix)::element_type,
-                                                    typename decltype(matrix)::index_type,
-                                                    typename decltype(matrix)::layout_type>>,
-                  "types not the same");
 
     ASSERT_EQ(matrix.extents().rank(), 2);
     ASSERT_EQ(matrix.extent(0), 4);
