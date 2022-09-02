@@ -45,11 +45,6 @@ struct Contractions_NT {
   /** global memory pointer to Y matrix */
   const DataT* y_base;
 
-  /** Support variables to provide backward compatibility **/
-  IdxT grid_idx_m = 0;
-  IdxT grid_idx_n = 0;
-  bool first_constructor_called;
-
   /** current thread's smem row id */
   int srowid;
   /** current thread's smem column id */
@@ -104,8 +99,7 @@ struct Contractions_NT {
       sx((DataT*)_smem),
       sy(&(sx[P::SmemPageX])),
       pageWr(0),
-      pageRd(0),
-      first_constructor_called(true)
+      pageRd(0)
   {
   }
 
@@ -142,8 +136,7 @@ struct Contractions_NT {
       sx((DataT*)_smem),
       sy(&(sx[P::SmemPageX])),
       pageWr(0),
-      pageRd(0),
-      first_constructor_called(false)
+      pageRd(0)
   {
   }
 
@@ -152,12 +145,6 @@ struct Contractions_NT {
    * @brief Load current block of X/Y from global memory to registers
    * @param[in] kidx current start index of k to be loaded
    */
-  DI void ldgXY(IdxT kidx)
-  {
-    ldgX(kidx);
-    ldgY(kidx);
-  }
-
   DI void ldgXY(IdxT tile_idx_m, IdxT tile_idx_n, IdxT kidx)
   {
     ldgX(tile_idx_m, kidx);
@@ -184,30 +171,11 @@ struct Contractions_NT {
     ldsY(kidx, sy + pageRd * P::SmemPage);
   }
 
-  DI void increment_grid_idx_m(IdxT by) { grid_idx_m += by; }
-
-  DI void increment_grid_idx_n(IdxT by) { grid_idx_n += by; }
-
-  DI void reset_grid_idx_n() { grid_idx_n = 0; }
-
   DI void switch_read_buffer() { this->pageRd ^= 1; }
 
   DI void switch_write_buffer() { this->pageWr ^= 1; }
 
  private:
-  DI void ldgX(IdxT kidx)
-  {
-    // Backward compatible way to determine the tile index. This depends on
-    // whether the first or the second constructor was called. The first
-    // constructor is called in epsilon_neighborhood.cuh and the second
-    // constructor is called in pairwise_distance_base.cuh.
-    if (first_constructor_called) {
-      ldgX(IdxT(blockIdx.x) * P::Mblk, kidx);
-    } else {
-      ldgX(grid_idx_m + IdxT(blockIdx.y) * P::Mblk, kidx);
-    }
-  }
-
   DI void ldgX(IdxT tile_idx_m, IdxT kidx)
   {
     IdxT xrowid = isRowMajor ? tile_idx_m + srowid : tile_idx_m;
@@ -241,15 +209,6 @@ struct Contractions_NT {
           }
         }
       }
-    }
-  }
-
-  DI void ldgY(IdxT kidx)
-  {
-    if (first_constructor_called) {
-      ldgY(IdxT(blockIdx.y) * P::Nblk, kidx);
-    } else {
-      ldgY(grid_idx_n + IdxT(blockIdx.x) * P::Nblk, kidx);
     }
   }
 
