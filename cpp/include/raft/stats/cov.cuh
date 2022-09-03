@@ -84,7 +84,7 @@ template <typename Type, typename IdxType, typename LayoutPolicy, typename Acces
 void cov(const raft::handle_t& handle,
          raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> covar,
          raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
-         raft::device_mdspan<const Type, raft::vector_extent<IdxType>, LayoutPolicy> mu,
+         raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
          bool sample,
          bool stable)
 {

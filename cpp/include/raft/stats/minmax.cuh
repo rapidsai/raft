@@ -102,9 +102,9 @@ template <typename T,
           typename AccessorPolicy,
           int TPB = 512>
 void minmax(const raft::handle_t& handle,
-            raft::mdspan<const T, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
-            std::optional<raft::mdspan<const unsigned, raft::vector_extent<IdxType>>> rowids,
-            std::optional<raft::mdspan<const unsigned, raft::vector_extent<IdxType>>> colids,
+            raft::mdspan<T, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+            std::optional<raft::mdspan<unsigned, raft::vector_extent<IdxType>>> rowids,
+            std::optional<raft::mdspan<unsigned, raft::vector_extent<IdxType>>> colids,
             raft::mdspan<T, raft::vector_extent<IdxType>> globalmin,
             raft::mdspan<T, raft::vector_extent<IdxType>> globalmax,
             std::optional<raft::mdspan<T, raft::vector_extent<IdxType>>> sampledcols)

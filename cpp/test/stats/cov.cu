@@ -75,15 +75,15 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
       cov(handle,
         raft::make_device_matrix_view<T, std::uint32_t, layout>(cov_act.data(), cols, cols),
         raft::make_device_matrix_view<T, std::uint32_t, layout>(data.data(), rows, cols),
-        raft::make_device_vector_view<const T, std::uint32_t, layout>(mean_act.data(), cols),
+        raft::make_device_vector_view<T, std::uint32_t, layout>(mean_act.data(), cols),
         params.sample,
         params.stable);
     } else {
        using layout = raft::col_major;
-       cov<T>(handle,
+       cov(handle,
         raft::make_device_matrix_view<T, std::uint32_t, layout>(cov_act.data(), cols, cols),
         raft::make_device_matrix_view<T, std::uint32_t, layout>(data.data(), rows, cols),
-        raft::make_device_vector_view<const T, std::uint32_t, layout>(mean_act.data(), cols),
+        raft::make_device_vector_view<T, std::uint32_t, layout>(mean_act.data(), cols),
         params.sample,
         params.stable);
     }

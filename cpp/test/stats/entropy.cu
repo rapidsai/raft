@@ -38,6 +38,9 @@ template <typename T>
 class entropyTest : public ::testing::TestWithParam<entropyParam> {
  protected:
   // the constructor
+  entropyTest() : stream(handle.get_stream())
+  {}
+
   void SetUp() override
   {
     // getting the parameters
@@ -74,17 +77,18 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
     }
 
     // allocating and initializing memory to the GPU
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     rmm::device_uvector<T> clusterArray(nElements, stream);
     raft::update_device(clusterArray.data(), &arr1[0], (int)nElements, stream);
 
     raft::interruptible::synchronize(stream);
     // calling the entropy CUDA implementation
     computedEntropy = raft::stats::entropy(
-      clusterArray.data(), nElements, lowerLabelRange, upperLabelRange, stream);
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
+      handle,
+      raft::make_device_vector_view(clusterArray.data(), nElements),
+      lowerLabelRange, upperLabelRange);
   }
 
+  raft::handle_t handle;
   // declaring the data values
   entropyParam params;
   T lowerLabelRange, upperLabelRange;

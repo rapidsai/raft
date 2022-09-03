@@ -68,9 +68,9 @@ void meanCenter(Type* out,
  */
 template <typename Type, typename IdxType, typename LayoutPolicy, typename AccessorPolicy, int TPB = 256>
 void meanCenter(const raft::handle_t& handle,
-                raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy> out,
-                raft::mdspan<const Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
-                raft::mdspan<const Type, raft::vector_extent<IdxType>> mu,
+                raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> out,
+                raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+                raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
                 bool bcastAlongRows)
 {
   detail::meanCenter<Type, IdxType, TPB>(out.data_handle(),
@@ -126,9 +126,9 @@ void meanAdd(Type* out,
  */
 template <typename Type, typename IdxType, typename LayoutPolicy = raft::row_major, typename AccessorPolicy, int TPB = 256>
 void meanAdd(const raft::handle_t& handle,
-             raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy> out,
-             raft::mdspan<const Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
-             raft::mdspan<const Type, raft::vector_extent<IdxType>> mu,
+             raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> out,
+             raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+             raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
              bool bcastAlongRows)
 {
   detail::meanAdd<Type, IdxType, TPB>(out.data_handle(),

@@ -47,6 +47,7 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     nElements       = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
     upperLabelRange = params.upperLabelRange;
+    stream = handle.get_stream();
 
     // generating random value test input
     std::vector<int> arr1(nElements, 0);
@@ -63,9 +64,6 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     }
 
     // allocating and initializing memory to the GPU
-
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
     raft::update_device(truthClusterArray.data(), &arr1[0], (int)nElements, stream);
@@ -97,10 +95,10 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
                                                          lowerLabelRange,
                                                          upperLabelRange,
                                                          stream);
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
   // declaring the data values
+  raft::handle_t handle;
   homogeneityParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements              = 0;

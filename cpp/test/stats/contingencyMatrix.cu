@@ -40,7 +40,8 @@ template <typename T>
 class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixParam> {
  protected:
   ContingencyMatrixTest()
-    : pWorkspace(0, stream),
+    : stream(handle.get_stream()),
+      pWorkspace(0, stream),
       dY(0, stream),
       dYHat(0, stream),
       dComputedOutput(0, stream),
@@ -80,7 +81,6 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
       std::replace(y_hat.begin(), y_hat.end(), y2, y2_R);
     }
 
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     dY.resize(numElements, stream);
     dYHat.resize(numElements, stream);
 
@@ -118,20 +118,18 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     raft::interruptible::synchronize(stream);
   }
 
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
   void RunTest()
   {
     int numElements = params.nElements;
-    raft::stats::contingencyMatrix(dY.data(),
-                                   dYHat.data(),
-                                   numElements,
-                                   dComputedOutput.data(),
-                                   stream,
-                                   (void*)pWorkspace.data(),
-                                   workspaceSz,
-                                   minLabel,
-                                   maxLabel);
+    raft::stats::contingencyMatrix(
+      handle,
+      raft::make_device_vector_view(dY.data(), numElements),
+      raft::make_device_vector_view(dYHat.data(), numElements),
+      raft::make_device_matrix_view(dComputedOutput.data(), numUniqueClasses, numUniqueClasses),
+      (void*)pWorkspace.data(),
+      workspaceSz,
+      minLabel,
+      maxLabel);
 
     raft::interruptible::synchronize(stream);
     ASSERT_TRUE(raft::devArrMatch(dComputedOutput.data(),
@@ -140,6 +138,7 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
                                   raft::Compare<T>()));
   }
 
+  raft::handle_t handle;
   ContingencyMatrixParam params;
   int numUniqueClasses = -1;
   T minLabel, maxLabel;

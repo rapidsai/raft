@@ -95,8 +95,8 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     // calling the completeness CUDA implementation
     computedCompleteness = raft::stats::completeness_score(
       handle,
-      raft::make_device_vector_view<const T>(truthClusterArray.data(), nElements),
-      raft::make_device_vector_view<const T>(predClusterArray.data(), nElements),
+      raft::make_device_vector_view(truthClusterArray.data(), nElements),
+      raft::make_device_vector_view(predClusterArray.data(), nElements),
       lowerLabelRange,
       upperLabelRange);
   }

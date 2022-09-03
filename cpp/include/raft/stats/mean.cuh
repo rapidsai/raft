@@ -68,8 +68,8 @@ void mean(
  */
 template <typename Type, typename IdxType = int, typename LayoutPolicy = raft::row_major, typename AccessorPolicy>
 void mean(const raft::handle_t& handle,
-          raft::mdspan<Type, raft::vector_extent<IdxType>> mu,
-          raft::mdspan<const Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+          raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
+          raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
           bool sample)
 {
   detail::mean(mu.data_handle(),

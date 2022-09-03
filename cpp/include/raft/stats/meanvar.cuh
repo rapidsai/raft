@@ -78,9 +78,9 @@ void meanvar(Type* mean,
  */
 template <typename Type, typename IdxType = int, typename LayoutPolicy = raft::row_major, typename AccessorPolicy>
 void meanvar(const raft::handle_t& handle,
-             raft::mdspan<Type, raft::vector_extent<IdxType>> mean,
-             raft::mdspan<Type, raft::vector_extent<IdxType>> var,
-             raft::mdspan<const Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+             raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mean,
+             raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> var,
+             raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
              bool sample)
 {
   detail::meanvar(mean.data_handle(),

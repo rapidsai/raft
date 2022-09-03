@@ -78,13 +78,13 @@ DataT dispersion(const DataT* centroids,
  */
 template <typename DataT,
           typename IdxType        = int,
-          typename LayoutPolicy   = raft::layout_c_contiguous,
+          typename LayoutPolicy,
           typename AccessorPolicy,
           int TPB                 = 256>
 DataT dispersion(const raft::handle_t& handle,
-                 raft::mdspan<const DataT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> centroids,
-                 raft::mdspan<const IdxType, raft::vector_extent<IdxType>> clusterSizes,
-                 std::optional<raft::mdspan<DataT, raft::vector_extent<IdxType>>> globalCentroid,
+                 raft::mdspan<DataT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> centroids,
+                 raft::mdspan<IdxType, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> clusterSizes,
+                 std::optional<raft::mdspan<DataT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>> globalCentroid,
                  const IdxType nPoints)
 {
   DataT* globalCentroid_ptr = nullptr;

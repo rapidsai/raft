@@ -54,8 +54,8 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
  */
 template <typename math_t, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
 float accuracy(const raft::handle_t& handle,
-               raft::mdspan<const math_t, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> predictions,
-               raft::mdspan<const math_t, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> ref_predictions)
+               raft::mdspan<math_t, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> predictions,
+               raft::mdspan<math_t, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> ref_predictions)
 {
   return detail::accuracy_score(predictions.data_handle(),
                                 ref_predictions.data_handle(),

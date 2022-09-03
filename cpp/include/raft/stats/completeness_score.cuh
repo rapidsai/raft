@@ -64,9 +64,9 @@ double completeness_score(const T* truthClusterArray,
 template <typename T, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
 double completeness_score(
   const raft::handle_t& handle,
-  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>
+  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>
     truthClusterArray,
-  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>
+  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>
     predClusterArray,
   T lowerLabelRange,
   T upperLabelRange)

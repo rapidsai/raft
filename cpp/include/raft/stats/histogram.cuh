@@ -87,8 +87,8 @@ template <typename DataT,
           typename AccessorPolicy>
 void histogram(const raft::handle_t& handle,
                HistType type,
-               raft::mdspan<int, raft::matrix_extent<IdxType>, LayoutPolicy> bins,
-               raft::mdspan<const DataT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+               raft::mdspan<int, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> bins,
+               raft::mdspan<DataT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
                BinnerOp binner = IdentityBinner<DataT, IdxType>())
 {
   detail::histogram<DataT, IdxType, BinnerOp>(type,

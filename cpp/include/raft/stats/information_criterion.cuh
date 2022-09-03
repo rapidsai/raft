@@ -86,8 +86,8 @@ void information_criterion_batched(ScalarT* d_ic,
 template <typename ScalarT, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
 void information_criterion_batched(
   const raft::handle_t& handle,
-  raft::mdspan<ScalarT, raft::vector_extent<IdxType>> d_ic,
-  raft::mdspan<const ScalarT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> d_loglikelihood,
+  raft::mdspan<ScalarT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> d_ic,
+  raft::mdspan<ScalarT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> d_loglikelihood,
   IC_Type ic_type,
   IdxType n_params,
   IdxType n_samples)

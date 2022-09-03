@@ -112,14 +112,6 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
     nanKernel<<<raft::ceildiv(len, TPB), TPB, 0, stream>>>(
       data.data(), mask.data(), len, std::numeric_limits<T>::quiet_NaN());
     RAFT_CUDA_TRY(cudaPeekAtLastError());
-    auto data_view = raft::make_device_matrix_view<const T, int, raft::layout_f_contiguous>(
-      data.data(), params.rows, params.cols);
-    std::optional<raft::device_vector_view<const unsigned, int>> rowids = std::nullopt;
-    std::optional<raft::device_vector_view<const unsigned, int>> colids = std::nullopt;
-    std::optional<raft::device_vector_view<T, int>> sampledcols         = std::nullopt;
-    auto globalmin = raft::make_device_vector_view<T, int>(minmax_act.data(), params.cols);
-    auto globalmax =
-      raft::make_device_vector_view<T, int>(minmax_act.data() + params.cols, params.cols);
     naiveMinMax(data.data(),
                 params.rows,
                 params.cols,
@@ -127,7 +119,13 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
                 minmax_ref.data() + params.cols,
                 stream);
     raft::stats::minmax<T, int>(
-      handle, data_view, rowids, colids, globalmin, globalmax, sampledcols);
+      handle,
+      raft::make_device_matrix_view<T, int, raft::layout_f_contiguous>(data.data(), params.rows, params.cols),
+      std::nullopt,
+      std::nullopt,
+      raft::make_device_vector_view<T, int, raft::layout_f_contiguous>(minmax_act.data(), params.cols),
+      raft::make_device_vector_view<T, int, raft::layout_f_contiguous>(minmax_act.data() + params.cols, params.cols),
+      std::nullopt);
   }
 
  protected:

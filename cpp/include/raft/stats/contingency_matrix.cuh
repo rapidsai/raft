@@ -53,7 +53,7 @@ void getInputClassCardinality(
 template <typename T, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
 void getInputClassCardinality(
   const raft::handle_t& handle,
-  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> groundTruth,
+  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> groundTruth,
   const raft::host_scalar_view<T>& minLabel,
   const raft::host_scalar_view<T>& maxLabel)
 {
@@ -101,7 +101,7 @@ template <typename T,
           typename AccessorPolicy>
 size_t getContingencyMatrixWorkspaceSize(
   const raft::handle_t& handle,
-  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> groundTruth,
+  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> groundTruth,
   T minLabel = std::numeric_limits<T>::max(),
   T maxLabel = std::numeric_limits<T>::max())
 {
@@ -175,9 +175,9 @@ template <typename T,
           typename AccessorPolicy>
 void contingencyMatrix(
   const raft::handle_t& handle,
-  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> groundTruth,
-  raft::mdspan<const T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> predictedLabel,
-  raft::mdspan<OutT, raft::matrix_extent<IdxType>, LayoutPolicy> outMat,
+  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> groundTruth,
+  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> predictedLabel,
+  raft::mdspan<OutT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> outMat,
   void* workspace      = nullptr,
   size_t workspaceSize = 0,
   T minLabel           = std::numeric_limits<T>::max(),
