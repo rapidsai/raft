@@ -430,7 +430,7 @@ void minClusterAndDistanceCompute(
           raft::make_device_vector_view<DataT, IndexT>(centroidsNorm.data_handle() + cIdx, nc);
         workspace.resize((sizeof(int)) * ns, stream);
 
-        raft::distance::fusedL2NNKVP<DataT, cub::KeyValuePair<IndexT, DataT>, IndexT>(
+        raft::distance::fusedL2NNMinReduce<DataT, cub::KeyValuePair<IndexT, DataT>, IndexT>(
           minClusterAndDistanceView.data_handle(),
           datasetView.data_handle(),
           centroidsView.data_handle(),
@@ -561,7 +561,7 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
           raft::make_device_vector_view<DataT, IndexT>(centroidsNorm.data_handle() + cIdx, nc);
         workspace.resize((sizeof(IndexT)) * ns, stream);
 
-        raft::distance::fusedL2NNKVP<DataT, DataT, IndexT>(
+        raft::distance::fusedL2NNMinReduce<DataT, DataT, IndexT>(
           minClusterDistanceView.data_handle(),
           datasetView.data_handle(),
           centroidsView.data_handle(),

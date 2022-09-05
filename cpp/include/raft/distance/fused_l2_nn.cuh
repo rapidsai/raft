@@ -121,41 +121,51 @@ void fusedL2NN(OutT* min,
 }
 
 /**
- * @brief Wrapper around fusedL2NN for key-value outputs.
+ * @brief Wrapper around fusedL2NN with minimum reduction operators.
  *
- * @todo Document this!
+ * fusedL2NN cannot be compiled in the distance library due to the lambda
+ * operators, so this wrapper covers the most common case (minimum).
+ * This should be preferred to the more generic API when possible, in order to
+ * reduce compilation times for users of the shared library.
  *
- * @tparam DataT
- * @tparam OutT
- * @tparam IdxT
- * @param min
- * @param x
- * @param y
- * @param xn
- * @param yn
- * @param m
- * @param n
- * @param k
- * @param workspace
- * @param sqrt
- * @param initOutBuffer
- * @param stream
- * @param batch_offset
+ * @tparam DataT     data type
+ * @tparam OutT      output type to either store 1-NN indices and their minimum
+ *                   distances or store only the min distances. Accordingly, one
+ *                   has to pass an appropriate `ReduceOpT`
+ * @tparam IdxT      indexing arithmetic type
+ * @param[out] min           will contain the reduced output (Length = `m`)
+ *                           (on device)
+ * @param[in]  x             first matrix. Row major. Dim = `m x k`.
+ *                           (on device).
+ * @param[in]  y             second matrix. Row major. Dim = `n x k`.
+ *                           (on device).
+ * @param[in]  xn            L2 squared norm of `x`. Length = `m`. (on device).
+ * @param[in]  yn            L2 squared norm of `y`. Length = `n`. (on device)
+ * @param[in]  m             gemm m
+ * @param[in]  n             gemm n
+ * @param[in]  k             gemm k
+ * @param[in]  workspace     temp workspace. Size = sizeof(int)*m. (on device)
+ * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
+ * @param[in]  initOutBuffer whether to initialize the output buffer before the
+ *                           main kernel launch
+ * @param[in]  stream        cuda stream
+ * @param[in]  batch_offset  if the centroids are batched, index of the first centroid in the
+ *                           current batch. This is added to keys if the output is a pair
  */
 template <typename DataT, typename OutT, typename IdxT>
-void fusedL2NNKVP(OutT* min,
-                  const DataT* x,
-                  const DataT* y,
-                  const DataT* xn,
-                  const DataT* yn,
-                  IdxT m,
-                  IdxT n,
-                  IdxT k,
-                  void* workspace,
-                  bool sqrt,
-                  bool initOutBuffer,
-                  cudaStream_t stream,
-                  IdxT batch_offset = 0)
+void fusedL2NNMinReduce(OutT* min,
+                        const DataT* x,
+                        const DataT* y,
+                        const DataT* xn,
+                        const DataT* yn,
+                        IdxT m,
+                        IdxT n,
+                        IdxT k,
+                        void* workspace,
+                        bool sqrt,
+                        bool initOutBuffer,
+                        cudaStream_t stream,
+                        IdxT batch_offset = 0)
 {
   MinAndDistanceOffsetReduceOp<IdxT, DataT> redOp(batch_offset);
   KVPMinReduce<IdxT, DataT> pairRedOp;

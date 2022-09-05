@@ -106,9 +106,11 @@ std::vector<KMeansBenchParams> getKMeansInputs()
 }
 
 // todo(lsugy): uint32_t index support? (blocker: fusedL2NN)
+// note(lsugy): commenting out int64_t because the templates are not compiled in the distance
+// library, resulting in long compilation times.
 RAFT_BENCH_REGISTER((KMeans<float, int>), "", getKMeansInputs());
 RAFT_BENCH_REGISTER((KMeans<double, int>), "", getKMeansInputs());
-RAFT_BENCH_REGISTER((KMeans<float, int64_t>), "", getKMeansInputs());
-RAFT_BENCH_REGISTER((KMeans<double, int64_t>), "", getKMeansInputs());
+// RAFT_BENCH_REGISTER((KMeans<float, int64_t>), "", getKMeansInputs());
+// RAFT_BENCH_REGISTER((KMeans<double, int64_t>), "", getKMeansInputs());
 
 }  // namespace raft::bench::cluster

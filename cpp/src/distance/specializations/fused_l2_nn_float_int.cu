@@ -19,7 +19,7 @@
 namespace raft {
 namespace distance {
 
-template void fusedL2NNKVP<float, cub::KeyValuePair<int, float>, int>(
+template void fusedL2NNMinReduce<float, cub::KeyValuePair<int, float>, int>(
   cub::KeyValuePair<int, float>* min,
   const float* x,
   const float* y,
@@ -33,6 +33,19 @@ template void fusedL2NNKVP<float, cub::KeyValuePair<int, float>, int>(
   bool initOutBuffer,
   cudaStream_t stream,
   int batch_offset);
+template void fusedL2NNMinReduce<float, float, int>(float* min,
+                                                    const float* x,
+                                                    const float* y,
+                                                    const float* xn,
+                                                    const float* yn,
+                                                    int m,
+                                                    int n,
+                                                    int k,
+                                                    void* workspace,
+                                                    bool sqrt,
+                                                    bool initOutBuffer,
+                                                    cudaStream_t stream,
+                                                    int batch_offset);
 
 }  // namespace distance
 }  // namespace raft
