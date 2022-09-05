@@ -23,6 +23,13 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 
+// TODO: Once fusedL2NN is specialized in the raft_distance shared library, add
+// the following:
+//
+// #if defined RAFT_NN_COMPILED
+// #include <raft/spatial/knn/specializations.hpp>
+// #endif
+
 namespace raft {
 namespace distance {
 

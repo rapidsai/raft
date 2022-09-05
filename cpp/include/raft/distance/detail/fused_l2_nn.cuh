@@ -202,6 +202,8 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
+          // Actually, the srcLane (lid +j) should be (lid +j) % P:AccThCols,
+          // but the shfl op applies the modulo internally.
           auto tmpkey   = raft::shfl(val[i].key, lid + j, P::AccThCols);
           auto tmpvalue = raft::shfl(val[i].value, lid + j, P::AccThCols);
           KVPair tmp    = {tmpkey, tmpvalue};

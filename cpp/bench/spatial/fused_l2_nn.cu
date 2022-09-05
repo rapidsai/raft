@@ -22,8 +22,12 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 
-// Note: do not include raft/spatial/knn/specializations.hpp based on
-// RAFT_NN_COMPILED, as fusedL2NN is not specialized and not defined there.
+// TODO: Once fusedL2NN is specialized in the raft_distance shared library, add
+// back
+//
+// #if defined RAFT_NN_COMPILED
+// #include <raft/spatial/knn/specializations.hpp>
+// #endif
 
 namespace raft::bench::spatial {
 
