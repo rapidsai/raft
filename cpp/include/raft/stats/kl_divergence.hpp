@@ -18,34 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __KL_DIVERGENCE_H
-#define __KL_DIVERGENCE_H
+/**
+ * DISCLAIMER: this file is deprecated: use kl_divergence.cuh instead
+ */
 
 #pragma once
 
-#include <raft/stats/detail/kl_divergence.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace stats {
-
-/**
- * @brief Function to calculate KL Divergence
- * <a href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence">more info on KL
- * Divergence</a>
- *
- * @tparam DataT: Data type of the input array
- * @param modelPDF: the model array of probability density functions of type DataT
- * @param candidatePDF: the candidate array of probability density functions of type DataT
- * @param size: the size of the data points of type int
- * @param stream: the cudaStream object
- */
-template <typename DataT>
-DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, cudaStream_t stream)
-{
-  return detail::kl_divergence(modelPDF, candidatePDF, size, stream);
-}
-
-};  // end namespace stats
-};  // end namespace raft
-
-#endif
+#include "kl_divergence.cuh"

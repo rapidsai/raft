@@ -18,48 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __DISPERSION_H
-#define __DISPERSION_H
+/**
+ * DISCLAIMER: this file is deprecated: use dispersion.cuh instead
+ */
 
 #pragma once
 
-#include <raft/stats/detail/dispersion.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace stats {
-
-/**
- * @brief Compute cluster dispersion metric. This is very useful for
- * automatically finding the 'k' (in kmeans) that improves this metric.
- * @tparam DataT data type
- * @tparam IdxT index type
- * @tparam TPB threads block for kernels launched
- * @param centroids the cluster centroids. This is assumed to be row-major
- *   and of dimension (nClusters x dim)
- * @param clusterSizes number of points in the dataset which belong to each
- *   cluster. This is of length nClusters
- * @param globalCentroid compute the global weighted centroid of all cluster
- *   centroids. This is of length dim. Pass a nullptr if this is not needed
- * @param nClusters number of clusters
- * @param nPoints number of points in the dataset
- * @param dim dataset dimensionality
- * @param stream cuda stream
- * @return the cluster dispersion value
- */
-template <typename DataT, typename IdxT = int, int TPB = 256>
-DataT dispersion(const DataT* centroids,
-                 const IdxT* clusterSizes,
-                 DataT* globalCentroid,
-                 IdxT nClusters,
-                 IdxT nPoints,
-                 IdxT dim,
-                 cudaStream_t stream)
-{
-  return detail::dispersion(
-    centroids, clusterSizes, globalCentroid, nClusters, nPoints, dim, stream);
-}
-
-}  // end namespace stats
-}  // end namespace raft
-
-#endif
+#include "dispersion.cuh"

@@ -205,8 +205,8 @@ The pre-compiled libraries contain template specializations for commonly used ty
 
 The following example tells the compiler to ignore the pre-compiled templates for the `libraft-distance` API so any symbols already compiled into pre-compiled shared library will be used instead:
 ```c++
-#include <raft/distance/distance.hpp>
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/distance.cuh>
+#include <raft/distance/specializations.cuh>
 ```
 
 ### <a id="build_cxx_source"></a>Building RAFT C++ from source in cmake
