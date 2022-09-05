@@ -18,51 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __KNN_GRAPH_H
-#define __KNN_GRAPH_H
+/**
+ * DISCLAIMER: this file is deprecated: use knn_graph.cuh instead
+ */
 
 #pragma once
 
-#include <raft/distance/distance_type.hpp>
-#include <raft/sparse/coo.hpp>
-#include <raft/sparse/selection/detail/knn_graph.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-#include <cstdint>
-
-namespace raft {
-namespace sparse {
-namespace selection {
-
-/**
- * Constructs a (symmetrized) knn graph edge list from
- * dense input vectors.
- *
- * Note: The resulting KNN graph is not guaranteed to be connected.
- *
- * @tparam value_idx
- * @tparam value_t
- * @param[in] handle raft handle
- * @param[in] X dense matrix of input data samples and observations
- * @param[in] m number of data samples (rows) in X
- * @param[in] n number of observations (columns) in X
- * @param[in] metric distance metric to use when constructing neighborhoods
- * @param[out] out output edge list
- * @param c
- */
-template <typename value_idx = int, typename value_t = float>
-void knn_graph(const handle_t& handle,
-               const value_t* X,
-               std::size_t m,
-               std::size_t n,
-               raft::distance::DistanceType metric,
-               raft::sparse::COO<value_t, value_idx>& out,
-               int c = 15)
-{
-  detail::knn_graph(handle, X, m, n, metric, out, c);
-}
-
-};  // namespace selection
-};  // namespace sparse
-};  // end namespace raft
-
-#endif
+#include "knn_graph.cuh"

@@ -18,56 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __INFORMATION_CRIT_H
-#define __INFORMATION_CRIT_H
-
 /**
- * @file information_criterion.hpp
- * @brief These information criteria are used to evaluate the quality of models
- *        by balancing the quality of the fit and the number of parameters.
- *
- * See:
- *  - AIC: https://en.wikipedia.org/wiki/Akaike_information_criterion
- *  - AICc: https://en.wikipedia.org/wiki/Akaike_information_criterion#AICc
- *  - BIC: https://en.wikipedia.org/wiki/Bayesian_information_criterion
+ * DISCLAIMER: this file is deprecated: use information_criterion.cuh instead
  */
+
 #pragma once
 
-#include <raft/stats/common.hpp>
-#include <raft/stats/detail/batched/information_criterion.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace stats {
-
-/**
- * Compute the given type of information criterion
- *
- * @note: it is safe to do the computation in-place (i.e give same pointer
- *        as input and output)
- *
- * @param[out] d_ic             Information criterion to be returned for each
- *                              series (device)
- * @param[in]  d_loglikelihood  Log-likelihood for each series (device)
- * @param[in]  ic_type          Type of criterion to compute. See IC_Type
- * @param[in]  n_params         Number of parameters in the model
- * @param[in]  batch_size       Number of series in the batch
- * @param[in]  n_samples        Number of samples in each series
- * @param[in]  stream           CUDA stream
- */
-template <typename ScalarT, typename IdxT>
-void information_criterion_batched(ScalarT* d_ic,
-                                   const ScalarT* d_loglikelihood,
-                                   IC_Type ic_type,
-                                   IdxT n_params,
-                                   IdxT batch_size,
-                                   IdxT n_samples,
-                                   cudaStream_t stream)
-{
-  batched::detail::information_criterion(
-    d_ic, d_loglikelihood, ic_type, n_params, batch_size, n_samples, stream);
-}
-
-}  // namespace stats
-}  // namespace raft
-
-#endif
+#include "information_criterion.cuh"

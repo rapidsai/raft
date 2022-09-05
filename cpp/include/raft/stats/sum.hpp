@@ -18,39 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __SUM_H
-#define __SUM_H
+/**
+ * DISCLAIMER: this file is deprecated: use sum.cuh instead
+ */
 
 #pragma once
 
-#include "detail/sum.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-#include <raft/cudart_utils.h>
-
-namespace raft {
-namespace stats {
-
-/**
- * @brief Compute sum of the input matrix
- *
- * Sum operation is assumed to be performed on a given column.
- *
- * @tparam Type the data type
- * @tparam IdxType Integer type used to for addressing
- * @param output the output mean vector
- * @param input the input matrix
- * @param D number of columns of data
- * @param N number of rows of data
- * @param rowMajor whether the input data is row or col major
- * @param stream cuda stream where to launch work
- */
-template <typename Type, typename IdxType = int>
-void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, cudaStream_t stream)
-{
-  detail::sum(output, input, D, N, rowMajor, stream);
-}
-
-};  // end namespace stats
-};  // end namespace raft
-
-#endif
+#include "sum.cuh"
