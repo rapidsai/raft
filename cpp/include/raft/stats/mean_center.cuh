@@ -66,7 +66,11 @@ void meanCenter(Type* out,
  * @param mu the mean vector
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename Type, typename IdxType, typename LayoutPolicy, typename AccessorPolicy, int TPB = 256>
+template <typename Type,
+          typename IdxType,
+          typename LayoutPolicy,
+          typename AccessorPolicy,
+          int TPB = 256>
 void meanCenter(const raft::handle_t& handle,
                 raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> out,
                 raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
@@ -124,7 +128,11 @@ void meanAdd(Type* out,
  * @param mu the mean vector
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename Type, typename IdxType, typename LayoutPolicy = raft::row_major, typename AccessorPolicy, int TPB = 256>
+template <typename Type,
+          typename IdxType,
+          typename LayoutPolicy = raft::row_major,
+          typename AccessorPolicy,
+          int TPB = 256>
 void meanAdd(const raft::handle_t& handle,
              raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> out,
              raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,

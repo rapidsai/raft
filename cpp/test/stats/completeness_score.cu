@@ -40,9 +40,7 @@ template <typename T>
 class completenessTest : public ::testing::TestWithParam<completenessParam> {
  protected:
   // the constructor
-  completenessTest() : stream(handle.get_stream())
-  {
-  }
+  completenessTest() : stream(handle.get_stream()) {}
 
   void SetUp() override
   {

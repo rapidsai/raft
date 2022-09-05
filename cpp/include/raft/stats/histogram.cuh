@@ -81,7 +81,7 @@ void histogram(HistType type,
  * @note signature of BinnerOp is `int func(DataT, IdxT);`
  */
 template <typename DataT,
-          typename IdxType = int,
+          typename IdxType  = int,
           typename BinnerOp = IdentityBinner<DataT, IdxType>,
           typename LayoutPolicy,
           typename AccessorPolicy>
@@ -92,13 +92,13 @@ void histogram(const raft::handle_t& handle,
                BinnerOp binner = IdentityBinner<DataT, IdxType>())
 {
   detail::histogram<DataT, IdxType, BinnerOp>(type,
-                                           bins.data_handle(),
-                                           bins.extent(1),
-                                           data.data_handle(),
-                                           data.extent(0),
-                                           data.extent(1),
-                                           handle.get_stream(),
-                                           binner);
+                                              bins.data_handle(),
+                                              bins.extent(1),
+                                              data.data_handle(),
+                                              data.extent(0),
+                                              data.extent(1),
+                                              handle.get_stream(),
+                                              binner);
 }
 };  // end namespace stats
 };  // end namespace raft

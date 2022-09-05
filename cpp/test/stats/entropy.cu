@@ -38,8 +38,7 @@ template <typename T>
 class entropyTest : public ::testing::TestWithParam<entropyParam> {
  protected:
   // the constructor
-  entropyTest() : stream(handle.get_stream())
-  {}
+  entropyTest() : stream(handle.get_stream()) {}
 
   void SetUp() override
   {
@@ -82,10 +81,11 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
 
     raft::interruptible::synchronize(stream);
     // calling the entropy CUDA implementation
-    computedEntropy = raft::stats::entropy(
-      handle,
-      raft::make_device_vector_view(clusterArray.data(), nElements),
-      lowerLabelRange, upperLabelRange);
+    computedEntropy =
+      raft::stats::entropy(handle,
+                           raft::make_device_vector_view(clusterArray.data(), nElements),
+                           lowerLabelRange,
+                           upperLabelRange);
   }
 
   raft::handle_t handle;

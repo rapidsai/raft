@@ -47,7 +47,7 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     nElements       = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
     upperLabelRange = params.upperLabelRange;
-    stream = handle.get_stream();
+    stream          = handle.get_stream();
 
     // generating random value test input
     std::vector<int> arr1(nElements, 0);
@@ -89,12 +89,12 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     if (nElements == 0) truthHomogeneity = 1.0;
 
     // calling the homogeneity CUDA implementation
-    computedHomogeneity = raft::stats::homogeneity_score(truthClusterArray.data(),
-                                                         predClusterArray.data(),
-                                                         nElements,
-                                                         lowerLabelRange,
-                                                         upperLabelRange,
-                                                         stream);
+    computedHomogeneity = raft::stats::homogeneity_score(
+      handle,
+      raft::make_device_vector_view(truthClusterArray.data(), nElements),
+      raft::make_device_vector_view(predClusterArray.data(), nElements),
+      lowerLabelRange,
+      upperLabelRange);
   }
 
   // declaring the data values

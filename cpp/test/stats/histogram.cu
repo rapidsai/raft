@@ -84,11 +84,10 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     RAFT_CUDA_TRY(
       cudaMemsetAsync(ref_bins.data(), 0, sizeof(int) * params.nbins * params.ncols, stream));
     naiveHist(ref_bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
-    histogram<int>(
-      handle,
-      params.type,
-      raft::make_device_matrix_view(bins.data(), params.nbins, params.ncols),
-      raft::make_device_matrix_view(in.data(), params.nrows, params.ncols));
+    histogram<int>(handle,
+                   params.type,
+                   raft::make_device_matrix_view(bins.data(), params.nbins, params.ncols),
+                   raft::make_device_matrix_view(in.data(), params.nrows, params.ncols));
     handle.sync_stream();
   }
 

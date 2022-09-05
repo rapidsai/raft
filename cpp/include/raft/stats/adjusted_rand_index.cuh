@@ -69,10 +69,8 @@ template <typename T,
           typename AccessorPolicy>
 double adjusted_rand_index(
   const raft::handle_t& handle,
-  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>
-    firstClusterArray,
-  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>
-    secondClusterArray)
+  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> firstClusterArray,
+  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> secondClusterArray)
 {
   return detail::compute_adjusted_rand_index<T, MathT>(firstClusterArray.data_handle(),
                                                        secondClusterArray.data_handle(),

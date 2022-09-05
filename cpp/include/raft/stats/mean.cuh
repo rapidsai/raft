@@ -66,7 +66,10 @@ void mean(
  * @param sample: whether to evaluate sample mean or not. In other words, whether
  *   to normalize the output using N-1 or N, for true or false, respectively
  */
-template <typename Type, typename IdxType = int, typename LayoutPolicy = raft::row_major, typename AccessorPolicy>
+template <typename Type,
+          typename IdxType      = int,
+          typename LayoutPolicy = raft::row_major,
+          typename AccessorPolicy>
 void mean(const raft::handle_t& handle,
           raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
           raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,

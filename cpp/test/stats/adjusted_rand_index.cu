@@ -41,7 +41,10 @@ struct adjustedRandIndexParam {
 template <typename T, typename MathT = int>
 class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexParam> {
  protected:
-  adjustedRandIndexTest() : stream(handle.get_stream()), firstClusterArray(0, stream), secondClusterArray(0, stream) {}
+  adjustedRandIndexTest()
+    : stream(handle.get_stream()), firstClusterArray(0, stream), secondClusterArray(0, stream)
+  {
+  }
 
   void SetUp() override
   {
@@ -61,7 +64,8 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
       SetupZeroArray();
     }
     // allocating and initializing memory to the GPU
-    computed_adjusted_rand_index = adjusted_rand_index<T, MathT, int, raft::row_major, raft::detail::accessor_mixin<std::experimental::default_accessor<T>, false>>(handle,
+    computed_adjusted_rand_index = adjusted_rand_index<T, MathT>(
+      handle,
       raft::make_device_vector_view(firstClusterArray.data(), nElements),
       raft::make_device_vector_view(secondClusterArray.data(), nElements));
   }
@@ -135,7 +139,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
   }
 
   raft::handle_t handle;
-  cudaStream_t stream                 = 0;
+  cudaStream_t stream = 0;
   adjustedRandIndexParam params;
   T lowerLabelRange, upperLabelRange;
   rmm::device_uvector<T> firstClusterArray;

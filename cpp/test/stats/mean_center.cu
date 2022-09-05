@@ -58,18 +58,26 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
   void SetUp() override
   {
     raft::random::RngState r(params.seed);
-    auto len = rows * cols;
+    auto len         = rows * cols;
+    auto meanVecSize = params.bcastAlongRows ? cols : rows;
     normal(handle, r, data.data(), len, params.mean, (T)1.0);
     raft::stats::mean(
       meanVec.data(), data.data(), cols, rows, params.sample, params.rowMajor, stream);
-    meanCenter(out.data(),
-               data.data(),
-               meanVec.data(),
-               cols,
-               rows,
-               params.rowMajor,
-               params.bcastAlongRows,
-               stream);
+    if (params.rowMajor) {
+      using layout = raft::row_major;
+      meanCenter(handle,
+                 raft::make_device_matrix_view<T, int, layout>(out.data(), rows, cols),
+                 raft::make_device_matrix_view<T, int, layout>(data.data(), rows, cols),
+                 raft::make_device_vector_view<T, int, layout>(meanVec.data(), meanVecSize),
+                 params.bcastAlongRows);
+    } else {
+      using layout = raft::col_major;
+      meanCenter(handle,
+                 raft::make_device_matrix_view<T, int, layout>(out.data(), rows, cols),
+                 raft::make_device_matrix_view<T, int, layout>(data.data(), rows, cols),
+                 raft::make_device_vector_view<T, int, layout>(meanVec.data(), meanVecSize),
+                 params.bcastAlongRows);
+    }
     raft::linalg::naiveMatVec(out_ref.data(),
                               data.data(),
                               meanVec.data(),

@@ -62,10 +62,11 @@ double entropy(const T* clusterArray,
  * @return the entropy score
  */
 template <typename T, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
-double entropy(const raft::handle_t& handle,
-               raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> clusterArray,
-               const T lowerLabelRange,
-               const T upperLabelRange)
+double entropy(
+  const raft::handle_t& handle,
+  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> clusterArray,
+  const T lowerLabelRange,
+  const T upperLabelRange)
 {
   return detail::entropy(clusterArray.data_handle(),
                          clusterArray.extent(0),

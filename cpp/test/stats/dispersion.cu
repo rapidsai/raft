@@ -16,12 +16,12 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
+#include <optional>
 #include <raft/cuda_utils.cuh>
 #include <raft/interruptible.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/dispersion.cuh>
 #include <rmm/device_uvector.hpp>
-#include <optional>
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>

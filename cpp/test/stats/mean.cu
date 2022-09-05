@@ -65,7 +65,19 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
   void meanSGtest(T* data, cudaStream_t stream)
   {
     int rows = params.rows, cols = params.cols;
-    mean(mean_act.data(), data, cols, rows, params.sample, params.rowMajor, stream);
+    if (params.rowMajor) {
+      using layout = raft::row_major;
+      mean(handle,
+           raft::make_device_vector_view<T, int, layout>(mean_act.data(), rows * cols),
+           raft::make_device_matrix_view<T, int, layout>(data, rows, cols),
+           params.sample);
+    } else {
+      using layout = raft::col_major;
+      mean(handle,
+           raft::make_device_vector_view<T, int, layout>(mean_act.data(), rows * cols),
+           raft::make_device_matrix_view<T, int, layout>(data, rows, cols),
+           params.sample);
+    }
   }
 
  protected:

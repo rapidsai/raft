@@ -57,9 +57,10 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
  * @param candidatePDF: the candidate array of probability density functions of type DataT
  */
 template <typename DataT, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
-DataT kl_divergence(const raft::handle_t& handle,
-                    raft::mdspan<DataT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> modelPDF,
-                    raft::mdspan<DataT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> candidatePDF)
+DataT kl_divergence(
+  const raft::handle_t& handle,
+  raft::mdspan<DataT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> modelPDF,
+  raft::mdspan<DataT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> candidatePDF)
 {
   return detail::kl_divergence(
     modelPDF.data_handle(), candidatePDF.data_handle(), modelPDF.extent(0), handle.get_stream());

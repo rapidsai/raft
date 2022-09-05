@@ -77,21 +77,20 @@ DataT dispersion(const DataT* centroids,
  * @return the cluster dispersion value
  */
 template <typename DataT,
-          typename IdxType        = int,
+          typename IdxType = int,
           typename LayoutPolicy,
           typename AccessorPolicy,
-          int TPB                 = 256>
-DataT dispersion(const raft::handle_t& handle,
-                 raft::mdspan<DataT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> centroids,
-                 raft::mdspan<IdxType, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> clusterSizes,
-                 std::optional<raft::mdspan<DataT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>> globalCentroid,
-                 const IdxType nPoints)
+          int TPB = 256>
+DataT dispersion(
+  const raft::handle_t& handle,
+  raft::mdspan<DataT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> centroids,
+  raft::mdspan<IdxType, raft::vector_extent<IdxType>> clusterSizes,
+  std::optional<raft::mdspan<DataT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>>
+    globalCentroid,
+  const IdxType nPoints)
 {
   DataT* globalCentroid_ptr = nullptr;
-  if (globalCentroid.has_value())
-  {
-    globalCentroid_ptr = globalCentroid.value().data_handle();
-  }
+  if (globalCentroid.has_value()) { globalCentroid_ptr = globalCentroid.value().data_handle(); }
   return detail::dispersion<DataT, IdxType, TPB>(centroids.data_handle(),
                                                  clusterSizes.data_handle(),
                                                  globalCentroid_ptr,

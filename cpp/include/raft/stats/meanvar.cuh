@@ -76,7 +76,10 @@ void meanvar(Type* mean,
  * @param [in] sample whether to evaluate sample variance or not. In other words, whether to
  * normalize the variance using N-1 or N, for true or false respectively.
  */
-template <typename Type, typename IdxType = int, typename LayoutPolicy = raft::row_major, typename AccessorPolicy>
+template <typename Type,
+          typename IdxType      = int,
+          typename LayoutPolicy = raft::row_major,
+          typename AccessorPolicy>
 void meanvar(const raft::handle_t& handle,
              raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mean,
              raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> var,
