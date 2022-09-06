@@ -44,8 +44,9 @@ using namespace raft::spatial::knn::detail;  // NOLINT
  *   X dimension must cover the dataset (n_rows), YZ are not used;
  *   there are no dependencies between threads, hence no constraints on the block size.
  *
- * @tparam T the element type.
- * @tparam IdxT type of the indices in the source source_vecs
+ * @tparam T      element type.
+ * @tparam IdxT   type of the indices in the source source_vecs
+ * @tparam LabelT label type
  *
  * @param[in] labels device pointer to the cluster ids for each row [n_rows]
  * @param[in] list_offsets device pointer to the cluster offsets in the output (index) [n_lists]
@@ -60,8 +61,8 @@ using namespace raft::spatial::knn::detail;  // NOLINT
  * @param veclen size of vectorized loads/stores; must satisfy `dim % veclen == 0`.
  *
  */
-template <typename T, typename IdxT>
-__global__ void build_index_kernel(const uint32_t* labels,
+template <typename T, typename IdxT, typename LabelT>
+__global__ void build_index_kernel(const LabelT* labels,
                                    const IdxT* list_offsets,
                                    const T* source_vecs,
                                    const IdxT* source_ixs,
@@ -103,7 +104,7 @@ __global__ void build_index_kernel(const uint32_t* labels,
 }
 
 /** See raft::spatial::knn::ivf_flat::extend docs */
-template <typename T, typename IdxT>
+template <typename T, typename IdxT, typename LabelT = int>
 inline auto extend(const handle_t& handle,
                    const index<T, IdxT>& orig_index,
                    const T* new_vectors,
@@ -119,7 +120,7 @@ inline auto extend(const handle_t& handle,
   RAFT_EXPECTS(new_indices != nullptr || orig_index.size() == 0,
                "You must pass data indices when the index is non-empty.");
 
-  rmm::device_uvector<uint32_t> new_labels(n_rows, stream);
+  rmm::device_uvector<LabelT> new_labels(n_rows, stream);
   kmeans::predict(handle,
                   orig_index.centers().data_handle(),
                   n_lists,

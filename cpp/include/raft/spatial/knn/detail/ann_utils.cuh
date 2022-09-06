@@ -151,17 +151,18 @@ inline void memzero(T* ptr, size_t n_elems, rmm::cuda_stream_view stream)
   }
 }
 
+template <typename LabelT>
 __global__ void argmin_along_rows_kernel(uint32_t n_rows,
                                          uint32_t n_cols,
                                          const float* a,
-                                         uint32_t* out)
+                                         LabelT* out)
 {
-  __shared__ uint32_t shm_ids[1024];  // NOLINT
-  __shared__ float shm_vals[1024];    // NOLINT
+  __shared__ LabelT shm_ids[1024];  // NOLINT
+  __shared__ float shm_vals[1024];  // NOLINT
   uint32_t i = blockIdx.x;
   if (i >= n_rows) return;
-  uint32_t min_idx = n_cols;
-  float min_val    = raft::upper_bound<float>();
+  LabelT min_idx = n_cols;
+  float min_val  = raft::upper_bound<float>();
   for (uint32_t j = threadIdx.x; j < n_cols; j += blockDim.x) {
     if (min_val > a[j + n_cols * i]) {
       min_val = a[j + n_cols * i];
@@ -192,14 +193,17 @@ __global__ void argmin_along_rows_kernel(uint32_t n_rows,
  * NB: device-only function
  * TODO: specialize select_k for the case of `k == 1` and use that one instead.
  *
+ * @tparam LabelT label type
+ *
  * @param n_rows
  * @param n_cols
  * @param[in] a device pointer to the row-major matrix [n_rows, n_cols]
  * @param[out] out device pointer to the vector of selected indices [n_rows]
  * @param stream
  */
+template <typename LabelT>
 inline void argmin_along_rows(
-  uint32_t n_rows, uint32_t n_cols, const float* a, uint32_t* out, rmm::cuda_stream_view stream)
+  uint32_t n_rows, uint32_t n_cols, const float* a, LabelT* out, rmm::cuda_stream_view stream)
 {
   uint32_t block_dim = 1024;
   while (block_dim > n_cols) {
@@ -253,19 +257,19 @@ inline void dots_along_rows(
    */
 }
 
-template <typename T>
+template <typename T, typename LabelT>
 __global__ void accumulate_into_selected_kernel(uint32_t n_rows,
                                                 uint32_t n_cols,
                                                 float* output,
                                                 uint32_t* selection_counters,
                                                 const T* input,
-                                                const uint32_t* row_ids)
+                                                const LabelT* row_ids)
 {
   uint64_t gid = threadIdx.x + (blockDim.x * blockIdx.x);
   uint64_t j   = gid % n_cols;
   uint64_t i   = gid / n_cols;
   if (i >= n_rows) return;
-  uint64_t l = row_ids[i];
+  uint64_t l = (uint64_t)row_ids[i];
   if (j == 0) { atomicAdd(&(selection_counters[l]), 1); }
   atomicAdd(&(output[j + n_cols * l]), mapping<float>{}(input[gid]));
 }
@@ -275,7 +279,8 @@ __global__ void accumulate_into_selected_kernel(uint32_t n_rows,
  * (cast and possibly scale the data input type). Count the number of times every output
  * row was selected along the way.
  *
- * @tparam T
+ * @tparam T      element type
+ * @tparam LabelT label type
  *
  * @param n_cols number of columns in all matrices
  * @param[out] output output matrix [..., n_cols]
@@ -284,13 +289,13 @@ __global__ void accumulate_into_selected_kernel(uint32_t n_rows,
  * @param[in] input row-major input matrix [n_rows, n_cols]
  * @param[in] row_ids row indices in the output matrix [n_rows]
  */
-template <typename T>
+template <typename T, typename LabelT>
 void accumulate_into_selected(size_t n_rows,
                               uint32_t n_cols,
                               float* output,
                               uint32_t* selection_counters,
                               const T* input,
-                              const uint32_t* row_ids,
+                              const LabelT* row_ids,
                               rmm::cuda_stream_view stream)
 {
   switch (check_pointer_residency(output, input, selection_counters, row_ids)) {
@@ -305,7 +310,7 @@ void accumulate_into_selected(size_t n_rows,
     case pointer_residency::host_only: {
       stream.synchronize();
       for (size_t i = 0; i < n_rows; i++) {
-        uint32_t l = row_ids[i];
+        uint32_t l = (uint32_t)row_ids[i];
         selection_counters[l]++;
         for (uint32_t j = 0; j < n_cols; j++) {
           output[j + n_cols * l] += mapping<float>{}(input[j + n_cols * i]);
