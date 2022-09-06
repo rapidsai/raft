@@ -675,25 +675,30 @@ inline auto extend(const handle_t& handle,
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
     auto old_cluster_size =
       static_cast<uint32_t>(old_cluster_offsets[l + 1] - old_cluster_offsets[l]);
-    copy(ext_indices + ext_cluster_offsets[l],
-         orig_index.indices().data_handle() + old_cluster_offsets[l],
-         old_cluster_size,
-         stream);
-    if (new_indices == nullptr) {
-      // implies the orig index is empty
-      copy(ext_indices + ext_cluster_offsets[l] + old_cluster_size,
-           data_indices.data() + cluster_offsets[l],
-           cluster_sizes.data()[l],
+    auto new_cluster_size = cluster_sizes.data()[l];
+    if (old_cluster_size > 0) {
+      copy(ext_indices + ext_cluster_offsets[l],
+           orig_index.indices().data_handle() + old_cluster_offsets[l],
+           old_cluster_size,
            stream);
-    } else {
-      utils::copy_selected(cluster_sizes.data()[l],
-                           1,
-                           new_indices,
-                           data_indices.data() + cluster_offsets[l],
-                           1,
-                           ext_indices + ext_cluster_offsets[l] + old_cluster_size,
-                           1,
-                           stream);
+    }
+    if (new_cluster_size > 0) {
+      if (new_indices == nullptr) {
+        // implies the orig index is empty
+        copy(ext_indices + ext_cluster_offsets[l] + old_cluster_size,
+             data_indices.data() + cluster_offsets[l],
+             new_cluster_size,
+             stream);
+      } else {
+        utils::copy_selected(new_cluster_size,
+                             1,
+                             new_indices,
+                             data_indices.data() + cluster_offsets[l],
+                             1,
+                             ext_indices + ext_cluster_offsets[l] + old_cluster_size,
+                             1,
+                             stream);
+      }
     }
   }
 
