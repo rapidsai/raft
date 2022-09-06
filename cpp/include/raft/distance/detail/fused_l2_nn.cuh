@@ -92,14 +92,14 @@ DI void updateReducedVal(
   const auto lid      = threadIdx.x % raft::WarpSize;
   const auto accrowid = threadIdx.x / P::AccThCols;
 
-  // for now have first lane from each warp update a unique output row. This
-  // will resolve hang issues with pre-Volta architectures
+  // Update each output row in order within a warp. This will resolve hang
+  // issues with pre-Volta architectures
 #pragma unroll
   for (int j = 0; j < (raft::WarpSize / P::AccThCols); j++) {
-    if (lid == 0) {
+    if (lid == j * P::AccThCols) {
 #pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        auto rid = gridStrideY + accrowid + j + i * P::AccThRows;
+        auto rid = gridStrideY + accrowid + i * P::AccThRows;
         if (rid < m) {
           auto value = val[i];
           while (atomicCAS(mutex + rid, 0, 1) == 1)
@@ -109,14 +109,6 @@ DI void updateReducedVal(
           __threadfence();
           atomicCAS(mutex + rid, 1, 0);
         }
-      }
-    }
-    if (j < (raft::WarpSize / P::AccThCols) - 1) {
-#pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        auto tmpkey   = raft::shfl(val[i].key, (j + 1) * P::AccThCols);
-        auto tmpvalue = raft::shfl(val[i].value, (j + 1) * P::AccThCols);
-        val[i]        = {tmpkey, tmpvalue};
       }
     }
   }
@@ -210,8 +202,10 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = P::AccThCols / 2; j > 0; j >>= 1) {
-          auto tmpkey   = raft::shfl(val[i].key, lid + j);
-          auto tmpvalue = raft::shfl(val[i].value, lid + j);
+          // Actually, the srcLane (lid +j) should be (lid +j) % P:AccThCols,
+          // but the shfl op applies the modulo internally.
+          auto tmpkey   = raft::shfl(val[i].key, lid + j, P::AccThCols);
+          auto tmpvalue = raft::shfl(val[i].value, lid + j, P::AccThCols);
           KVPair tmp    = {tmpkey, tmpvalue};
           val[i]        = pairRed_op(accrowid + i * P::AccThRows + gridStrideY, tmp, val[i]);
         }
@@ -261,7 +255,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
 template <typename DataT,
           typename OutT,
           typename IdxT,
-          int VecLen,
+          typename Policy,
           typename ReduceOpT,
           typename KVPReduceOpT>
 void fusedL2NNImpl(OutT* min,
@@ -279,7 +273,8 @@ void fusedL2NNImpl(OutT* min,
                    bool initOutBuffer,
                    cudaStream_t stream)
 {
-  typedef typename linalg::Policy4x4<DataT, VecLen>::Policy P;
+  // The kernel policy is determined by fusedL2NN.
+  typedef Policy P;
 
   dim3 blk(P::Nthreads);
   auto nblks            = raft::ceildiv<int>(m, P::Nthreads);
