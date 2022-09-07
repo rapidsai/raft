@@ -104,7 +104,7 @@ inline constexpr bool is_array_interface_v = is_array_interface<Tn...>::value;
  * are some inconsistencies in between them.  We have made some modificiations to fit our
  * needs, which are listed below.
  *
- * - Layout policy is different, the mdarray in raft uses `stdex::extent` directly just
+ * - Layout policy is different, the mdarray in raft uses `std::experimental::extent` directly just
  *   like `mdspan`, while the `mdarray` in the reference implementation uses varidic
  *   template.
  *

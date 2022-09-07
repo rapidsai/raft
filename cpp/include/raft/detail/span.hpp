@@ -17,11 +17,9 @@
 
 #include <limits>  // numeric_limits
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
-#include <thrust/host_vector.h>  // __host__ __device__
 #include <type_traits>
 
 namespace raft {
-constexpr std::size_t dynamic_extent = std::experimental::dynamic_extent;
 
 template <class ElementType, bool is_device, std::size_t Extent>
 class span;
@@ -30,31 +28,35 @@ namespace detail {
 /*!
  * The extent E of the span returned by subspan is determined as follows:
  *
- *   - If Count is not dynamic_extent, Count;
- *   - Otherwise, if Extent is not dynamic_extent, Extent - Offset;
- *   - Otherwise, dynamic_extent.
+ *   - If Count is not std::experimental::dynamic_extent, Count;
+ *   - Otherwise, if Extent is not std::experimental::dynamic_extent, Extent - Offset;
+ *   - Otherwise, std::experimental::dynamic_extent.
  */
 template <std::size_t Extent, std::size_t Offset, std::size_t Count>
 struct extent_value_t
-  : public std::integral_constant<
-      std::size_t,
-      Count != dynamic_extent ? Count : (Extent != dynamic_extent ? Extent - Offset : Extent)> {
+  : public std::integral_constant<std::size_t,
+                                  Count != std::experimental::dynamic_extent
+                                    ? Count
+                                    : (Extent != std::experimental::dynamic_extent ? Extent - Offset
+                                                                                   : Extent)> {
 };
 
 /*!
- * If N is dynamic_extent, the extent of the returned span E is also
- * dynamic_extent; otherwise it is std::size_t(sizeof(T)) * N.
+ * If N is std::experimental::dynamic_extent, the extent of the returned span E is also
+ * std::experimental::dynamic_extent; otherwise it is std::size_t(sizeof(T)) * N.
  */
 template <typename T, std::size_t Extent>
 struct extent_as_bytes_value_t
-  : public std::integral_constant<std::size_t,
-                                  Extent == dynamic_extent ? Extent : sizeof(T) * Extent> {
+  : public std::integral_constant<
+      std::size_t,
+      Extent == std::experimental::dynamic_extent ? Extent : sizeof(T) * Extent> {
 };
 
 template <std::size_t From, std::size_t To>
 struct is_allowed_extent_conversion_t
   : public std::integral_constant<bool,
-                                  From == To || From == dynamic_extent || To == dynamic_extent> {
+                                  From == To || From == std::experimental::dynamic_extent ||
+                                    To == std::experimental::dynamic_extent> {
 };
 
 template <class From, class To>
@@ -101,7 +103,7 @@ struct span_storage {
 };
 
 template <typename T>
-struct span_storage<T, dynamic_extent> {
+struct span_storage<T, std::experimental::dynamic_extent> {
  private:
   T* ptr_{nullptr};
   std::size_t size_{0};

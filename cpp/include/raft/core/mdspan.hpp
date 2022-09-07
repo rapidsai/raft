@@ -25,23 +25,23 @@
 #include <raft/core/detail/accessor_mixin.hpp>
 #include <raft/core/detail/mdspan_util.hpp>
 #include <raft/core/error.hpp>
-#include <raft/detail/span.hpp>  // dynamic_extent
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
 namespace raft {
+
+constexpr std::size_t dynamic_extent = std::experimental::dynamic_extent;
+
 /**
  * @brief Dimensions extents for raft::mdspan
  */
 template <typename IndexType, size_t... ExtentsPack>
 using extents = std::experimental::extents<IndexType, ExtentsPack...>;
 
-namespace stdex = std::experimental;
-
 /**
  * @defgroup C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.
  * @{
  */
-using stdex::layout_right;
+using std::experimental::layout_right;
 using layout_c_contiguous = layout_right;
 using row_major           = layout_right;
 /** @} */
@@ -50,24 +50,24 @@ using row_major           = layout_right;
  * @defgroup F-Contiguous layout for mdarray and mdspan. Implies column-major and contiguous memory.
  * @{
  */
-using stdex::layout_left;
+using std::experimental::layout_left;
 using layout_f_contiguous = layout_left;
 using col_major           = layout_left;
 /** @} */
 
 template <typename IndexType>
-using vector_extent = stdex::extents<IndexType, dynamic_extent>;
+using vector_extent = std::experimental::extents<IndexType, dynamic_extent>;
 
 template <typename IndexType>
-using matrix_extent = stdex::extents<IndexType, dynamic_extent, dynamic_extent>;
+using matrix_extent = std::experimental::extents<IndexType, dynamic_extent, dynamic_extent>;
 
 template <typename IndexType = std::uint32_t>
-using scalar_extent = stdex::extents<IndexType, 1>;
+using scalar_extent = std::experimental::extents<IndexType, 1>;
 
 /**
  * @brief Strided layout for non-contiguous memory.
  */
-using stdex::layout_stride;
+using std::experimental::layout_stride;
 
 template <typename IndexType>
 using extent_1d = vector_extent<IndexType>;
@@ -76,26 +76,27 @@ template <typename IndexType>
 using extent_2d = matrix_extent<IndexType>;
 
 template <typename IndexType>
-using extent_3d = stdex::extents<IndexType, dynamic_extent, dynamic_extent, dynamic_extent>;
+using extent_3d =
+  std::experimental::extents<IndexType, dynamic_extent, dynamic_extent, dynamic_extent>;
 
 template <typename IndexType>
-using extent_4d =
-  stdex::extents<IndexType, dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
+using extent_4d = std::experimental::
+  extents<IndexType, dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
 
 template <typename IndexType>
-using extent_5d = stdex::extents<IndexType,
-                                 dynamic_extent,
-                                 dynamic_extent,
-                                 dynamic_extent,
-                                 dynamic_extent,
-                                 dynamic_extent>;
+using extent_5d = std::experimental::extents<IndexType,
+                                             dynamic_extent,
+                                             dynamic_extent,
+                                             dynamic_extent,
+                                             dynamic_extent,
+                                             dynamic_extent>;
 /** @} */
 
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = stdex::default_accessor<ElementType>>
-using mdspan = stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
+          typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
+using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
 /**
  * Ensure all types listed in the parameter pack `Extents` are integral types.
@@ -142,7 +143,8 @@ using enable_if_mdspan = std::enable_if_t<is_mdspan_v<Tn...>>;
 // slow on both CPU and GPU, especially 64 bit integer.  So here we first try to avoid 64
 // bit when the index is smaller, then try to avoid division when it's exp of 2.
 template <typename I, typename IndexType, size_t... Extents>
-MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<IndexType, Extents...> shape)
+MDSPAN_INLINE_FUNCTION auto unravel_index_impl(
+  I idx, std::experimental::extents<IndexType, Extents...> shape)
 {
   constexpr auto kRank = static_cast<int32_t>(shape.rank());
   std::size_t index[shape.rank()]{0};  // NOLINT
@@ -218,10 +220,10 @@ auto flatten(mdspan_type mds)
 
   vector_extent<typename mdspan_type::size_type> ext{mds.size()};
 
-  return stdex::mdspan<typename mdspan_type::element_type,
-                       decltype(ext),
-                       typename mdspan_type::layout_type,
-                       typename mdspan_type::accessor_type>(mds.data_handle(), ext);
+  return std::experimental::mdspan<typename mdspan_type::element_type,
+                                   decltype(ext),
+                                   typename mdspan_type::layout_type,
+                                   typename mdspan_type::accessor_type>(mds.data_handle(), ext);
 }
 
 /**
@@ -248,10 +250,11 @@ auto reshape(mdspan_type mds, extents<IndexType, Extents...> new_shape)
   }
   RAFT_EXPECTS(new_size == mds.size(), "Cannot reshape array with size mismatch");
 
-  return stdex::mdspan<typename mdspan_type::element_type,
-                       decltype(new_shape),
-                       typename mdspan_type::layout_type,
-                       typename mdspan_type::accessor_type>(mds.data_handle(), new_shape);
+  return std::experimental::mdspan<typename mdspan_type::element_type,
+                                   decltype(new_shape),
+                                   typename mdspan_type::layout_type,
+                                   typename mdspan_type::accessor_type>(mds.data_handle(),
+                                                                        new_shape);
 }
 
 /**

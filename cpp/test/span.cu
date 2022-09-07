@@ -18,7 +18,7 @@
 #include <numeric>  // iota
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/span.hpp>
+#include <raft/device_span.hpp>
 
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>
