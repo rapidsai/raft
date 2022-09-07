@@ -16,7 +16,7 @@
 #pragma once
 
 #include <limits>  // numeric_limits
-#include <raft/core/mdspan.hpp>
+#include <raft/thirdparty/mdspan/include/experimental/mdspan>
 #include <thrust/host_vector.h>  // __host__ __device__
 #include <type_traits>
 
