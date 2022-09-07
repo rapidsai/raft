@@ -241,7 +241,7 @@ if (( ${CLEAN} == 1 )); then
       fi
     done
 
-    cd ${REPODIR}/python/raft
+    cd ${REPODIR}/python/dask-raft
     python setup.py clean --all
     cd ${REPODIR}
 
