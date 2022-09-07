@@ -25,71 +25,11 @@
 #include <raft/core/detail/accessor_mixin.hpp>
 #include <raft/core/detail/mdspan_util.hpp>
 #include <raft/core/error.hpp>
+#include <raft/core/mdspan_types.hpp>
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
 namespace raft {
 
-constexpr std::size_t dynamic_extent = std::experimental::dynamic_extent;
-
-/**
- * @brief Dimensions extents for raft::mdspan
- */
-template <typename IndexType, size_t... ExtentsPack>
-using extents = std::experimental::extents<IndexType, ExtentsPack...>;
-
-/**
- * @defgroup C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.
- * @{
- */
-using std::experimental::layout_right;
-using layout_c_contiguous = layout_right;
-using row_major           = layout_right;
-/** @} */
-
-/**
- * @defgroup F-Contiguous layout for mdarray and mdspan. Implies column-major and contiguous memory.
- * @{
- */
-using std::experimental::layout_left;
-using layout_f_contiguous = layout_left;
-using col_major           = layout_left;
-/** @} */
-
-template <typename IndexType>
-using vector_extent = std::experimental::extents<IndexType, dynamic_extent>;
-
-template <typename IndexType>
-using matrix_extent = std::experimental::extents<IndexType, dynamic_extent, dynamic_extent>;
-
-template <typename IndexType = std::uint32_t>
-using scalar_extent = std::experimental::extents<IndexType, 1>;
-
-/**
- * @brief Strided layout for non-contiguous memory.
- */
-using std::experimental::layout_stride;
-
-template <typename IndexType>
-using extent_1d = vector_extent<IndexType>;
-
-template <typename IndexType>
-using extent_2d = matrix_extent<IndexType>;
-
-template <typename IndexType>
-using extent_3d =
-  std::experimental::extents<IndexType, dynamic_extent, dynamic_extent, dynamic_extent>;
-
-template <typename IndexType>
-using extent_4d = std::experimental::
-  extents<IndexType, dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
-
-template <typename IndexType>
-using extent_5d = std::experimental::extents<IndexType,
-                                             dynamic_extent,
-                                             dynamic_extent,
-                                             dynamic_extent,
-                                             dynamic_extent,
-                                             dynamic_extent>;
 /** @} */
 
 template <typename ElementType,

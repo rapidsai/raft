@@ -18,10 +18,11 @@
 #include <cassert>
 #include <cinttypes>  // size_t
 #include <cstddef>    // std::byte
+#include <raft/core/mdspan_types.hpp>
 #include <raft/detail/span.hpp>
 #include <thrust/distance.h>
 #include <thrust/functional.h>
-#include <thrust/host_vector.h>  // __host__ __device__
+#include <thrust/host_vector.h>  // _MDSPAN_HOST_DEVICE
 #include <thrust/iterator/reverse_iterator.h>
 #include <type_traits>
 
@@ -35,7 +36,7 @@ namespace raft {
  *   auto view = device_span<float>{uvec.data(), uvec.size()};
  * @endcode
  */
-template <typename T, bool is_device, std::size_t Extent = std::experimental::dynamic_extent>
+template <typename T, bool is_device, std::size_t Extent = dynamic_extent>
 class span {
  public:
   using element_type    = T;
@@ -62,7 +63,7 @@ class span {
    */
   constexpr span(pointer ptr, size_type count) noexcept : storage_{ptr, count}
   {
-    assert(!(Extent != std::experimental::dynamic_extent && count != Extent));
+    assert(!(Extent != dynamic_extent && count != Extent));
     assert(ptr || count == 0);
   }
   /**
@@ -108,22 +109,22 @@ class span {
 
   constexpr auto cend() const noexcept -> const_iterator { return data() + size(); }
 
-  __host__ __device__ constexpr auto rbegin() const noexcept -> reverse_iterator
+  _MDSPAN_HOST_DEVICE constexpr auto rbegin() const noexcept -> reverse_iterator
   {
     return reverse_iterator{end()};
   }
 
-  __host__ __device__ constexpr auto rend() const noexcept -> reverse_iterator
+  _MDSPAN_HOST_DEVICE constexpr auto rend() const noexcept -> reverse_iterator
   {
     return reverse_iterator{begin()};
   }
 
-  __host__ __device__ constexpr auto crbegin() const noexcept -> const_reverse_iterator
+  _MDSPAN_HOST_DEVICE constexpr auto crbegin() const noexcept -> const_reverse_iterator
   {
     return const_reverse_iterator{cend()};
   }
 
-  __host__ __device__ constexpr auto crend() const noexcept -> const_reverse_iterator
+  _MDSPAN_HOST_DEVICE constexpr auto crend() const noexcept -> const_reverse_iterator
   {
     return const_reverse_iterator{cbegin()};
   }
@@ -159,8 +160,7 @@ class span {
     return {data(), Count};
   }
 
-  constexpr auto first(std::size_t _count) const
-    -> span<element_type, is_device, std::experimental::dynamic_extent>
+  constexpr auto first(std::size_t _count) const -> span<element_type, is_device, dynamic_extent>
   {
     assert(_count <= size());
     return {data(), _count};
@@ -173,34 +173,29 @@ class span {
     return {data() + size() - Count, Count};
   }
 
-  constexpr auto last(std::size_t _count) const
-    -> span<element_type, is_device, std::experimental::dynamic_extent>
+  constexpr auto last(std::size_t _count) const -> span<element_type, is_device, dynamic_extent>
   {
     assert(_count <= size());
     return subspan(size() - _count, _count);
   }
 
   /*!
-   * If Count is std::std::experimental::dynamic_extent, r.size() == this->size() - Offset;
+   * If Count is std::dynamic_extent, r.size() == this->size() - Offset;
    * Otherwise r.size() == Count.
    */
-  template <std::size_t Offset, std::size_t Count = std::experimental::dynamic_extent>
+  template <std::size_t Offset, std::size_t Count = dynamic_extent>
   constexpr auto subspan() const
     -> span<element_type, is_device, detail::extent_value_t<Extent, Offset, Count>::value>
   {
-    assert((Count == std::experimental::dynamic_extent) ? (Offset <= size())
-                                                        : (Offset + Count <= size()));
-    return {data() + Offset, Count == std::experimental::dynamic_extent ? size() - Offset : Count};
+    assert((Count == dynamic_extent) ? (Offset <= size()) : (Offset + Count <= size()));
+    return {data() + Offset, Count == dynamic_extent ? size() - Offset : Count};
   }
 
-  constexpr auto subspan(size_type _offset,
-                         size_type _count = std::experimental::dynamic_extent) const
-    -> span<element_type, is_device, std::experimental::dynamic_extent>
+  constexpr auto subspan(size_type _offset, size_type _count = dynamic_extent) const
+    -> span<element_type, is_device, dynamic_extent>
   {
-    assert((_count == std::experimental::dynamic_extent) ? (_offset <= size())
-                                                         : (_offset + _count <= size()));
-    return {data() + _offset,
-            _count == std::experimental::dynamic_extent ? size() - _offset : _count};
+    assert((_count == dynamic_extent) ? (_offset <= size()) : (_offset + _count <= size()));
+    return {data() + _offset, _count == dynamic_extent ? size() - _offset : _count};
   }
 
  private:

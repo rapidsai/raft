@@ -28,18 +28,18 @@ template <typename AccessorPolicy>
 using managed_accessor = detail::accessor_mixin<AccessorPolicy, true, true>;
 
 /**
- * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
+ * @brief std::experimental::mdspan with device tag to avoid accessing incorrect memory location.
  */
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = stdex::default_accessor<ElementType>>
+          typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using device_mdspan = mdspan<ElementType, Extents, LayoutPolicy, device_accessor<AccessorPolicy>>;
 
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = stdex::default_accessor<ElementType>>
+          typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using managed_mdspan = mdspan<ElementType, Extents, LayoutPolicy, managed_accessor<AccessorPolicy>>;
 
 namespace detail {

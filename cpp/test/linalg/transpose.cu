@@ -234,7 +234,7 @@ void test_transpose_submatrix()
   }
 
   auto vv     = v.view();
-  auto submat = raft::stdex::submdspan(
+  auto submat = std::experimental::submdspan(
     vv, std::make_tuple(row_beg, row_end), std::make_tuple(col_beg, col_end));
   static_assert(std::is_same_v<typename decltype(submat)::layout_type, layout_stride>);
 
