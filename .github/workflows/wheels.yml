@@ -19,7 +19,7 @@ jobs:
       gpu-smoketest-before-amd64: "apt-get install -y libblas-dev liblapack-dev"
       gpu-smoketest-before-arm64: "apt-get install -y libblas-dev liblapack-dev"
       wheel-pattern-override: "py3-none-linux"
-      cibw-test-command: "_venv_placeholder/bin/libraft/gtests/test_raft || true"
+      cibw-test-command: "_venv_placeholder/bin/libraft/gtests/test_raft"
     secrets: inherit
   pyraft-wheel:
     needs: libraft-wheel
