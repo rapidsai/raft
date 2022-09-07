@@ -512,7 +512,14 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
   }
 }
 
-// search
+/**
+ * The "main part" of the search, which assumes that outer-level `search` has already:
+ *
+ *   1. computed the closest clusters to probe (`clusters_to_probe`);
+ *   2. transformed input queries into the rotated space (rot_dim);
+ *   3. split the query batch into smaller chunks, so that the device workspace
+ *      is guaranteed to fit into GPU memory.
+ */
 template <typename ScoreT, typename LutT, typename IdxT>
 void ivfpq_search(const handle_t& handle,
                   const index<IdxT>& index,
