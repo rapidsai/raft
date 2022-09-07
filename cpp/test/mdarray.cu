@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include <raft/core/host_mdarray.hpp>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <rmm/cuda_stream.hpp>

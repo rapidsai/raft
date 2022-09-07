@@ -20,8 +20,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.cuh>
 
-#include <raft/core/device_mdspan.hpp>
 #include <gtest/gtest.h>
+#include <raft/core/device_mdspan.hpp>
 
 #include <rmm/device_uvector.hpp>
 
