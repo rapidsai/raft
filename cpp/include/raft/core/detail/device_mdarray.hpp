@@ -21,11 +21,12 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/detail/accessor_mixin.hpp>
-#include <raft/core/mdspan.hpp>
+#include <raft/core/cudart_utils.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 
-#include <raft/cudart_utils.h>
-#include <raft/detail/span.hpp>  // dynamic_extent
+#include <raft/core/detail/accessor_mixin.hpp>
+#include <raft/core/detail/span.hpp>  // dynamic_extent
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
@@ -172,47 +173,6 @@ class device_uvector_policy {
     rmm::mr::device_memory_resource* mr =
       nullptr) noexcept(std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
     : stream_{stream}, mr_(mr)
-  {
-  }
-
-  [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
-  {
-    return c[n];
-  }
-  [[nodiscard]] constexpr auto access(container_type const& c, size_t n) const noexcept
-    -> const_reference
-  {
-    return c[n];
-  }
-
-  [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
-  [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
-};
-
-/**
- * @brief A container policy for host mdarray.
- */
-template <typename ElementType, typename Allocator = std::allocator<ElementType>>
-class host_vector_policy {
- public:
-  using element_type          = ElementType;
-  using container_type        = std::vector<element_type, Allocator>;
-  using allocator_type        = typename container_type::allocator_type;
-  using pointer               = typename container_type::pointer;
-  using const_pointer         = typename container_type::const_pointer;
-  using reference             = element_type&;
-  using const_reference       = element_type const&;
-  using accessor_policy       = std::experimental::default_accessor<element_type>;
-  using const_accessor_policy = std::experimental::default_accessor<element_type const>;
-
- public:
-  auto create(size_t n) -> container_type { return container_type(n); }
-
-  constexpr host_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>) =
-    default;
-  explicit constexpr host_vector_policy(rmm::cuda_stream_view) noexcept(
-    std::is_nothrow_default_constructible_v<ElementType>)
-    : host_vector_policy()
   {
   }
 

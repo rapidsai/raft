@@ -19,7 +19,11 @@
 #include <cinttypes>  // size_t
 #include <cstddef>    // std::byte
 #include <raft/core/mdspan_types.hpp>
-#include <raft/detail/span.hpp>
+
+#include <raft/core/detail/span.hpp>
+
+// TODO (cjnolet): Remove thrust dependencies here so host_span can be used without CUDA Toolkit
+// being installed. Reference: https://github.com/rapidsai/raft/issues/812.
 #include <thrust/distance.h>
 #include <thrust/functional.h>
 #include <thrust/host_vector.h>  // _MDSPAN_HOST_DEVICE

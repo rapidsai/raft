@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include <raft/core/detail/accessor_mixin.hpp>
 #include <raft/core/mdspan.hpp>
+
+#include <raft/core/detail/accessor_mixin.hpp>
 
 namespace raft {
 

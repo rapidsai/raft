@@ -22,10 +22,12 @@
  */
 #pragma once
 
-#include <raft/core/detail/accessor_mixin.hpp>
-#include <raft/core/detail/mdspan_util.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/mdspan_types.hpp>
+
+#include <raft/core/detail/accessor_mixin.hpp>
+#include <raft/core/detail/mdspan_util.cuh>
+
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
 namespace raft {

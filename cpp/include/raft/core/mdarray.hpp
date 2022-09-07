@@ -24,14 +24,11 @@
 
 #include <stddef.h>
 
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
-#include <raft/core/host_mdspan.hpp>
+#include <raft/core/detail/accessor_mixin.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
-#include <raft/detail/mdarray.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft {
 /**
@@ -158,9 +155,12 @@ class mdarray
                                  typename container_policy_type::const_accessor_policy,
                                  typename container_policy_type::accessor_policy>>
   using view_type_impl =
-    std::conditional_t<container_policy_type::is_host_accessible,
-                       host_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>,
-                       device_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>>;
+    mdspan<E,
+           extents_type,
+           layout_type,
+           detail::accessor_mixin<ViewAccessorPolicy,
+                                  container_policy_type::is_host_accessible,
+                                  container_policy_type::is_device_accessible>>;
 
  public:
   /**

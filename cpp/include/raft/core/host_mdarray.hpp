@@ -17,6 +17,8 @@
 #pragma once
 
 #include <raft/core/host_mdspan.hpp>
+
+#include <raft/core/detail/host_mdarray.hpp>
 #include <raft/core/mdarray.hpp>
 
 namespace raft {
