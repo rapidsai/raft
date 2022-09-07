@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/mdarray.hpp>
 
 namespace raft {
@@ -32,7 +33,7 @@ template <typename ElementType,
           typename LayoutPolicy    = layout_c_contiguous,
           typename ContainerPolicy = detail::device_uvector_policy<ElementType>>
 using device_mdarray =
-  mdarray<ElementType, Extents, LayoutPolicy, detail::device_accessor<ContainerPolicy>>;
+  mdarray<ElementType, Extents, LayoutPolicy, device_accessor<ContainerPolicy>>;
 
 /**
  * @brief Shorthand for 0-dim host mdarray (scalar).

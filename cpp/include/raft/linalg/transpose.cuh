@@ -19,7 +19,7 @@
 #pragma once
 
 #include "detail/transpose.cuh"
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdarray.hpp>
 
 namespace raft {
 namespace linalg {

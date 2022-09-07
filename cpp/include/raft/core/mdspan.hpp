@@ -23,6 +23,8 @@
 #pragma once
 
 #include <raft/core/detail/accessor_mixin.hpp>
+#include <raft/core/detail/mdspan_util.hpp>
+#include <raft/core/error.hpp>
 #include <raft/detail/span.hpp>  // dynamic_extent
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
@@ -154,11 +156,11 @@ MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<IndexType, 
       idx        = t;
     } else {  // exp of 2
       index[dim] = idx & (s - 1);
-      idx >>= popc(s - 1);
+      idx >>= detail::popc(s - 1);
     }
   }
   index[0] = idx;
-  return arr_to_tup(index);
+  return detail::arr_to_tup(index);
 }
 
 /**

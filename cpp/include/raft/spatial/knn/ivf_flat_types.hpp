@@ -18,8 +18,8 @@
 
 #include "common.hpp"
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
-#include <raft/core/mdarray.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/integer_utils.h>
 

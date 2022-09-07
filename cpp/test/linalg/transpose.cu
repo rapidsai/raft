@@ -20,6 +20,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.cuh>
 
+#include <raft/core/device_mdspan.hpp>
 #include <gtest/gtest.h>
 
 #include <rmm/device_uvector.hpp>
@@ -233,7 +234,7 @@ void test_transpose_submatrix()
   }
 
   auto vv     = v.view();
-  auto submat = raft::detail::stdex::submdspan(
+  auto submat = raft::stdex::submdspan(
     vv, std::make_tuple(row_beg, row_end), std::make_tuple(col_beg, col_end));
   static_assert(std::is_same_v<typename decltype(submat)::layout_type, layout_stride>);
 

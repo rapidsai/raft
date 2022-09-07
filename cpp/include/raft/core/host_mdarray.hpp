@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/host_mdspan.hpp>
 #include <raft/core/mdarray.hpp>
 
 namespace raft {
@@ -30,8 +31,7 @@ template <typename ElementType,
           typename Extents,
           typename LayoutPolicy    = layout_c_contiguous,
           typename ContainerPolicy = detail::host_vector_policy<ElementType>>
-using host_mdarray =
-  mdarray<ElementType, Extents, LayoutPolicy, detail::host_accessor<ContainerPolicy>>;
+using host_mdarray = mdarray<ElementType, Extents, LayoutPolicy, host_accessor<ContainerPolicy>>;
 
 /**
  * @brief Shorthand for 0-dim host mdarray (scalar).

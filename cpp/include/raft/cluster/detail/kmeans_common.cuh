@@ -29,9 +29,9 @@
 
 #include <raft/cluster/kmeans_params.hpp>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
-#include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>

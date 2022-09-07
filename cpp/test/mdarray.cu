@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include <raft/core/mdarray.hpp>
-#include <raft/core/mdspan.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
 #include <rmm/cuda_stream.hpp>
@@ -467,19 +467,19 @@ void test_mdarray_unravel()
 
   // examples from numpy unravel_index
   {
-    auto coord = unravel_index(22, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
+    auto coord = unravel_index(22, matrix_extent<int>{7, 6}, stdex::layout_right{});
     static_assert(std::tuple_size<decltype(coord)>::value == 2);
     ASSERT_EQ(std::get<0>(coord), 3);
     ASSERT_EQ(std::get<1>(coord), 4);
   }
   {
-    auto coord = unravel_index(41, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
+    auto coord = unravel_index(41, matrix_extent<int>{7, 6}, stdex::layout_right{});
     static_assert(std::tuple_size<decltype(coord)>::value == 2);
     ASSERT_EQ(std::get<0>(coord), 6);
     ASSERT_EQ(std::get<1>(coord), 5);
   }
   {
-    auto coord = unravel_index(37, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
+    auto coord = unravel_index(37, matrix_extent<int>{7, 6}, stdex::layout_right{});
     static_assert(std::tuple_size<decltype(coord)>::value == 2);
     ASSERT_EQ(std::get<0>(coord), 6);
     ASSERT_EQ(std::get<1>(coord), 1);

@@ -15,7 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
 
 namespace raft {
 
@@ -24,7 +25,7 @@ namespace stdex = std::experimental;
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
+          typename AccessorPolicy = stdex::default_accessor<ElementType>>
 struct derived_device_mdspan
   : public device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> {
 };
@@ -37,7 +38,7 @@ void test_template_asserts()
   using d_mdspan        = derived_device_mdspan<int, three_d_extents>;
 
   static_assert(
-    std::is_same_v<device_matrix_view<int, int>, device_mdspan<int, detail::matrix_extent<int>>>,
+    std::is_same_v<device_matrix_view<int, int>, device_mdspan<int, matrix_extent<int>>>,
     "not same");
   static_assert(std::is_same_v<device_matrix_view<int, int>,
                                device_mdspan<int, extents<int, dynamic_extent, dynamic_extent>>>,
