@@ -18,65 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __UNARY_OP_H
-#define __UNARY_OP_H
+/**
+ * DISCLAIMER: this file is deprecated: use unary_op.cuh instead
+ */
 
 #pragma once
 
-#include "detail/unary_op.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace linalg {
-
-/**
- * @brief perform element-wise unary operation in the input array
- * @tparam InType input data-type
- * @tparam Lambda the device-lambda performing the actual operation
- * @tparam OutType output data-type
- * @tparam IdxType Integer type used to for addressing
- * @tparam TPB threads-per-block in the final kernel launched
- * @param out the output array
- * @param in the input array
- * @param len number of elements in the input array
- * @param op the device-lambda
- * @param stream cuda stream where to launch work
- * @note Lambda must be a functor with the following signature:
- *       `OutType func(const InType& val);`
- */
-template <typename InType,
-          typename Lambda,
-          typename IdxType = int,
-          typename OutType = InType,
-          int TPB          = 256>
-void unaryOp(OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_t stream)
-{
-  detail::unaryOpCaller(out, in, len, op, stream);
-}
-
-/**
- * @brief Perform an element-wise unary operation into the output array
- *
- * Compared to `unaryOp()`, this method does not do any reads from any inputs
- *
- * @tparam OutType output data-type
- * @tparam Lambda  the device-lambda performing the actual operation
- * @tparam IdxType Integer type used to for addressing
- * @tparam TPB     threads-per-block in the final kernel launched
- *
- * @param[out] out    the output array [on device] [len = len]
- * @param[in]  len    number of elements in the input array
- * @param[in]  op     the device-lambda which must be of the form:
- *                    `void func(OutType* outLocationOffset, IdxType idx);`
- *                    where outLocationOffset will be out + idx.
- * @param[in]  stream cuda stream where to launch work
- */
-template <typename OutType, typename Lambda, typename IdxType = int, int TPB = 256>
-void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
-{
-  detail::writeOnlyUnaryOpCaller(out, len, op, stream);
-}
-
-};  // end namespace linalg
-};  // end namespace raft
-
-#endif
+#include "unary_op.cuh"

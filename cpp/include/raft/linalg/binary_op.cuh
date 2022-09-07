@@ -60,9 +60,9 @@ void binaryOp(
 
 /**
  * @brief perform element-wise binary operation on the input arrays
- * @tparam InType Input Type raft::mdspan
+ * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
- * @tparam OutType Output Type raft::mdspan
+ * @tparam OutType Output Type raft::device_mdspan
  * @tparam TPB threads-per-block in the final kernel launched
  * @param handle raft::handle_t
  * @param out Output
@@ -76,7 +76,7 @@ template <typename InType,
           typename Lambda,
           typename OutType = InType,
           int TPB          = 256,
-          typename         = raft::enable_if_mdspan<InType, OutType>>
+          typename         = raft::enable_if_device_mdspan<InType, OutType>>
 void binary_op(
   const raft::handle_t& handle, OutType out, const InType in1, const InType in2, Lambda op)
 {

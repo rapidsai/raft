@@ -82,15 +82,16 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
       eig_vectors_ref.data(), eig_vectors_ref_h, params.n_eigen_vals * params.n, stream);
     raft::update_device(eig_vals_ref.data(), eig_vals_ref_h, params.n_eigen_vals, stream);
 
-    auto cov_matrix_view = raft::make_matrix_view<T, std::uint32_t, raft::col_major>(
+    auto cov_matrix_view = raft::make_device_matrix_view<T, std::uint32_t, raft::col_major>(
       cov_matrix.data(), params.n, params.n);
-    auto eig_vectors_view = raft::make_matrix_view<T, std::uint32_t, raft::col_major>(
+    auto eig_vectors_view = raft::make_device_matrix_view<T, std::uint32_t, raft::col_major>(
       eig_vectors.data(), params.n_eigen_vals, params.n);
-    auto eig_vals_view = raft::make_vector_view(eig_vals.data(), params.n_eigen_vals);
+    auto eig_vals_view =
+      raft::make_device_vector_view<T, std::uint32_t>(eig_vals.data(), params.n_eigen_vals);
 
     raft::linalg::eig_dc_select(handle,
                                 cov_matrix_view,
-                                params.n_eigen_vals,
+                                static_cast<std::size_t>(params.n_eigen_vals),
                                 eig_vectors_view,
                                 eig_vals_view,
                                 EigVecMemUsage::OVERWRITE_INPUT);

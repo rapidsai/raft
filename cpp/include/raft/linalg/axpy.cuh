@@ -59,20 +59,17 @@ void axpy(const raft::handle_t& handle,
  * @brief the wrapper of cublas axpy function
  *  It computes the following equation: y = alpha * x + y
  *
- * @tparam MdspanType  Type raft::mdspan
- * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
+ * @tparam MdspanType  Type raft::device_mdspan
  * @param [in] handle raft::handle_t
- * @param [in] alpha raft::scalar_view in either host or device memory
+ * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [in] incx stride between consecutive elements of x
  * @param [inout] y Output vector
  * @param [in] incy stride between consecutive elements of y
  */
-template <typename MdspanType,
-          bool DevicePointerMode = false,
-          typename               = raft::enable_if_mdspan<MdspanType>>
+template <typename MdspanType, typename = raft::enable_if_device_mdspan<MdspanType>>
 void axpy(const raft::handle_t& handle,
-          raft::scalar_view<typename MdspanType::element_type> alpha,
+          raft::device_scalar_view<typename MdspanType::element_type> alpha,
           const MdspanType x,
           const int incx,
           MdspanType y,
@@ -80,8 +77,46 @@ void axpy(const raft::handle_t& handle,
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input")
 
-  axpy<typename MdspanType::element_type, DevicePointerMode>(
-    handle, y.size(), alpha, x.data_handle(), incx, y.data_handle(), incy, handle.get_stream());
+  axpy<typename MdspanType::element_type, true>(handle,
+                                                y.size(),
+                                                alpha.data_handle(),
+                                                x.data_handle(),
+                                                incx,
+                                                y.data_handle(),
+                                                incy,
+                                                handle.get_stream());
+}
+
+/**
+ * @brief the wrapper of cublas axpy function
+ *  It computes the following equation: y = alpha * x + y
+ *
+ * @tparam MdspanType  Type raft::device_mdspan
+ * @param [in] handle raft::handle_t
+ * @param [in] alpha raft::device_scalar_view
+ * @param [in] x Input vector
+ * @param [in] incx stride between consecutive elements of x
+ * @param [inout] y Output vector
+ * @param [in] incy stride between consecutive elements of y
+ */
+template <typename MdspanType, typename = raft::enable_if_device_mdspan<MdspanType>>
+void axpy(const raft::handle_t& handle,
+          raft::host_scalar_view<typename MdspanType::element_type> alpha,
+          const MdspanType x,
+          const int incx,
+          MdspanType y,
+          const int incy)
+{
+  RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input")
+
+  axpy<typename MdspanType::element_type, false>(handle,
+                                                 y.size(),
+                                                 alpha.data_handle(),
+                                                 x.data_handle(),
+                                                 incx,
+                                                 y.data_handle(),
+                                                 incy,
+                                                 handle.get_stream());
 }
 
 /** @} */  // end of group axpy

@@ -17,7 +17,8 @@
 #include <common/benchmark.hpp>
 
 #include <raft/random/rng.cuh>
-#include <raft/spatial/knn/knn.cuh>
+
+#include <raft/spatial/knn/ivf_flat.cuh>
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
 #endif
@@ -124,6 +125,34 @@ struct host_uvector {
   rmm::mr::host_memory_resource* res_;
   size_t n_;
   T* arr_;
+};
+
+template <typename ValT, typename IdxT>
+struct ivf_flat_knn {
+  using dist_t = float;
+
+  std::optional<const raft::spatial::knn::ivf_flat::index<ValT, IdxT>> index;
+  raft::spatial::knn::ivf_flat::index_params index_params;
+  raft::spatial::knn::ivf_flat::search_params search_params;
+  params ps;
+
+  ivf_flat_knn(const raft::handle_t& handle, const params& ps, const ValT* data) : ps(ps)
+  {
+    index_params.n_lists = 4096;
+    index_params.metric  = raft::distance::DistanceType::L2Expanded;
+    index.emplace(raft::spatial::knn::ivf_flat::build(
+      handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
+  }
+
+  void search(const raft::handle_t& handle,
+              const ValT* search_items,
+              dist_t* out_dists,
+              IdxT* out_idxs)
+  {
+    search_params.n_probes = 20;
+    raft::spatial::knn::ivf_flat::search(
+      handle, search_params, *index, search_items, ps.n_queries, ps.k, out_idxs, out_dists);
+  }
 };
 
 template <typename ValT, typename IdxT>
@@ -326,7 +355,13 @@ const std::vector<Scope> kAllScopes{Scope::BUILD_SEARCH, Scope::SEARCH, Scope::B
   }
 
 KNN_REGISTER(float, int64_t, brute_force_knn, kInputs, kAllStrategies, kScopeFull);
+KNN_REGISTER(float, int64_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
+KNN_REGISTER(int8_t, int64_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
+KNN_REGISTER(uint8_t, int64_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
 
 KNN_REGISTER(float, uint32_t, brute_force_knn, kInputs, kNoCopyOnly, kScopeFull);
+KNN_REGISTER(float, uint32_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
+KNN_REGISTER(int8_t, uint32_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
+KNN_REGISTER(uint8_t, uint32_t, ivf_flat_knn, kInputs, kNoCopyOnly, kAllScopes);
 
 }  // namespace raft::bench::spatial

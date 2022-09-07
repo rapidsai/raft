@@ -227,7 +227,7 @@ void choleskyRank1Update(const raft::handle_t& handle,
  *        triangular matrix L, and the new column of A in column major format, size [n*n]
  * @param n number of elements in the new row.
  * @param ld stride of columns in L
- * @param workspace optional raft::device_vector<char> shall be std::nullopt ar an array
+ * @param workspace optional raft::device_vector_view<char> shall be std::nullopt ar an array
  *    of size [n_bytes].
  * @param n_bytes size of workspace is returned here if workspace==std::nullopt.
  * @param uplo indicates whether L is stored as an upper or lower triangular
@@ -237,10 +237,10 @@ void choleskyRank1Update(const raft::handle_t& handle,
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
 void cholesky_rank1_update(const raft::handle_t& handle,
-                           raft::matrix_view<ElementType, IndexType, raft::col_major> L,
+                           raft::device_matrix_view<ElementType, IndexType, raft::col_major> L,
                            int n,
                            int ld,
-                           std::optional<raft::vector_view<char>> workspace,
+                           std::optional<raft::device_vector_view<char>> workspace,
                            int* n_bytes,
                            cublasFillMode_t uplo,
                            ElementType eps = -1)

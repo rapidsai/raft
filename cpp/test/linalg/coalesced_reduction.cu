@@ -45,8 +45,8 @@ template <typename T>
 void coalescedReductionLaunch(
   const raft::handle_t& handle, T* dots, const T* data, int cols, int rows, bool inplace = false)
 {
-  auto dots_view = raft::make_matrix_view(dots, rows, cols);
-  auto data_view = raft::make_matrix_view(data, rows, cols);
+  auto dots_view = raft::make_device_matrix_view(dots, rows, cols);
+  auto data_view = raft::make_device_matrix_view(data, rows, cols);
   coalesced_reduction(
     handle, dots_view, data_view, (T)0, inplace, [] __device__(T in, int i) { return in * in; });
 }

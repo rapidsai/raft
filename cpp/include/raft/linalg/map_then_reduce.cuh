@@ -20,6 +20,8 @@
 
 #include "detail/map_then_reduce.cuh"
 
+#include <raft/core/mdarray.hpp>
+
 namespace raft {
 namespace linalg {
 
@@ -85,6 +87,59 @@ void mapThenReduce(OutType* out,
   detail::mapThenReduceImpl<InType, OutType, MapOp, ReduceLambda, TPB, Args...>(
     out, len, neutral, map, op, stream, in, args...);
 }
+
+/**
+ * @defgroup map_reduce Map-Reduce ops
+ * @{
+ */
+
+/**
+ * @brief CUDA version of map and then generic reduction operation
+ * @tparam Type data-type upon which the math operation will be performed
+ * @tparam MapOp the device-lambda performing the actual map operation
+ * @tparam ReduceLambda the device-lambda performing the actual reduction
+ * @tparam TPB threads-per-block in the final kernel launched
+ * @tparam Args additional parameters
+ * @param out the output reduced value (assumed to be a device pointer)
+ * @param len number of elements in the input array
+ * @param neutral The neutral element of the reduction operation. For example:
+ *    0 for sum, 1 for multiply, +Inf for Min, -Inf for Max
+ * @param map the device-lambda
+ * @param op the reduction device lambda
+ * @param stream cuda-stream where to launch this kernel
+ * @param in the input array
+ * @param args additional input arrays
+ */
+template <typename InType,
+          typename MapOp,
+          typename ReduceLambda,
+          int TPB          = 256,
+          typename OutType = InType,
+          typename... Args,
+          typename = enable_if_device_mdspan<InType, OutType>>
+void map_reduce(const raft::handle_t& handle,
+                OutType out,
+                typename OutType::element_type neutral,
+                MapOp map,
+                ReduceLambda op,
+                const InType in,
+                Args... args)
+{
+  using in_element_t  = typename InType::element_type;
+  using out_element_t = typename OutType::element_type;
+
+  mapThenReduce<in_element_t, MapOp, ReduceLambda, TPB, out_element_t, Args...>(out.data_handle(),
+                                                                                out.size(),
+                                                                                neutral,
+                                                                                map,
+                                                                                op,
+                                                                                handle.get_stream(),
+                                                                                in.data_handle(),
+                                                                                args...);
+}
+
+/** @} */  // end of map_reduce
+
 };  // end namespace linalg
 };  // end namespace raft
 

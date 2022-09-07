@@ -98,14 +98,16 @@ void addDevScalar(
 
 /**
  * @brief Elementwise add operation on the input buffers
- * @tparam OutType   Output Type raft::mdspan
- * @tparam InType    Input Type raft::mdspan
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @tparam InType    Input Type raft::device_mdspan
  * @param handle raft::handle_t
  * @param out    Output
  * @param in1    First Input
  * @param in2    Second Input
  */
-template <typename OutType, typename InType, typename = raft::enable_if_mdspan<OutType, InType>>
+template <typename OutType,
+          typename InType,
+          typename = raft::enable_if_device_mdspan<OutType, InType>>
 void add(const raft::handle_t& handle, OutType out, const InType in1, const InType in2)
 {
   using in_element_t  = typename InType::element_type;
@@ -133,19 +135,21 @@ void add(const raft::handle_t& handle, OutType out, const InType in1, const InTy
 }
 
 /**
- * @brief Elementwise addition of scalar to input
- * @tparam OutType   Output Type raft::mdspan
- * @tparam InType    Input Type raft::mdspan
+ * @brief Elementwise addition of device scalar to input
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @tparam InType    Input Type raft::device_mdspan
  * @param handle raft::handle_t
  * @param out    Output
  * @param in    Input
- * @param scalar    raft::scalar_view in either host or device memory
+ * @param scalar    raft::device_scalar_view
  */
-template <typename OutType, typename InType, typename = raft::enable_if_mdspan<OutType, InType>>
+template <typename OutType,
+          typename InType,
+          typename = raft::enable_if_device_mdspan<OutType, InType>>
 void add_scalar(const raft::handle_t& handle,
                 OutType out,
                 const InType in,
-                const raft::scalar_view<typename InType::element_type> scalar)
+                const raft::device_scalar_view<typename InType::element_type> scalar)
 {
   using in_element_t  = typename InType::element_type;
   using out_element_t = typename OutType::element_type;
@@ -154,36 +158,57 @@ void add_scalar(const raft::handle_t& handle,
   RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
-  if (raft::is_device_ptr(scalar.data_handle())) {
-    if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-      addDevScalar<in_element_t, out_element_t, std::uint32_t>(
-        out.data_handle(),
-        in.data_handle(),
-        scalar.data_handle(),
-        static_cast<std::uint32_t>(out.size()),
-        handle.get_stream());
-    } else {
-      addDevScalar<in_element_t, out_element_t, std::uint64_t>(
-        out.data_handle(),
-        in.data_handle(),
-        scalar.data_handle(),
-        static_cast<std::uint64_t>(out.size()),
-        handle.get_stream());
-    }
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    addDevScalar<in_element_t, out_element_t, std::uint32_t>(out.data_handle(),
+                                                             in.data_handle(),
+                                                             scalar.data_handle(),
+                                                             static_cast<std::uint32_t>(out.size()),
+                                                             handle.get_stream());
   } else {
-    if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-      addScalar<in_element_t, out_element_t, std::uint32_t>(out.data_handle(),
-                                                            in.data_handle(),
-                                                            *scalar.data_handle(),
-                                                            static_cast<std::uint32_t>(out.size()),
-                                                            handle.get_stream());
-    } else {
-      addScalar<in_element_t, out_element_t, std::uint64_t>(out.data_handle(),
-                                                            in.data_handle(),
-                                                            *scalar.data_handle(),
-                                                            static_cast<std::uint64_t>(out.size()),
-                                                            handle.get_stream());
-    }
+    addDevScalar<in_element_t, out_element_t, std::uint64_t>(out.data_handle(),
+                                                             in.data_handle(),
+                                                             scalar.data_handle(),
+                                                             static_cast<std::uint64_t>(out.size()),
+                                                             handle.get_stream());
+  }
+}
+
+/**
+ * @brief Elementwise addition of host scalar to input
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @tparam InType    Input Type raft::device_mdspan
+ * @param handle raft::handle_t
+ * @param out    Output
+ * @param in    Input
+ * @param scalar    raft::host_scalar_view
+ */
+template <typename OutType,
+          typename InType,
+          typename = raft::enable_if_device_mdspan<OutType, InType>>
+void add_scalar(const raft::handle_t& handle,
+                OutType out,
+                const InType in,
+                const raft::host_scalar_view<typename InType::element_type> scalar)
+{
+  using in_element_t  = typename InType::element_type;
+  using out_element_t = typename OutType::element_type;
+
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
+
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    addScalar<in_element_t, out_element_t, std::uint32_t>(out.data_handle(),
+                                                          in.data_handle(),
+                                                          *scalar.data_handle(),
+                                                          static_cast<std::uint32_t>(out.size()),
+                                                          handle.get_stream());
+  } else {
+    addScalar<in_element_t, out_element_t, std::uint64_t>(out.data_handle(),
+                                                          in.data_handle(),
+                                                          *scalar.data_handle(),
+                                                          static_cast<std::uint64_t>(out.size()),
+                                                          handle.get_stream());
   }
 }
 

@@ -52,19 +52,21 @@ void divideScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_
  */
 
 /**
- * @brief Elementwise addition of scalar to input
- * @tparam OutType   Output Type raft::mdspan
- * @tparam InType    Input Type raft::mdspan
+ * @brief Elementwise division of input by host scalar
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @tparam InType    Input Type raft::device_mdspan
  * @param handle raft::handle_t
  * @param out    Output
  * @param in    Input
- * @param scalar    raft::scalar_view in host memory
+ * @param scalar    raft::host_scalar_view
  */
-template <typename OutType, typename InType, typename = raft::enable_if_mdspan<OutType, InType>>
+template <typename OutType,
+          typename InType,
+          typename = raft::enable_if_device_mdspan<OutType, InType>>
 void divide_scalar(const raft::handle_t& handle,
                    OutType out,
                    const InType in,
-                   const raft::scalar_view<typename InType::element_type> scalar)
+                   const raft::host_scalar_view<typename InType::element_type> scalar)
 {
   using in_element_t  = typename InType::element_type;
   using out_element_t = typename OutType::element_type;
@@ -73,9 +75,6 @@ void divide_scalar(const raft::handle_t& handle,
   RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
-  // if (raft::is_device_ptr(scalar.data())) {
-  //   RAFT_FAIL("Scalar in device memory is not supported");
-  // } else {
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
     divideScalar<in_element_t, out_element_t, std::uint32_t>(out.data_handle(),
                                                              in.data_handle(),
@@ -89,7 +88,6 @@ void divide_scalar(const raft::handle_t& handle,
                                                              static_cast<std::uint64_t>(out.size()),
                                                              handle.get_stream());
   }
-  // }
 }
 
 /** @} */  // end of group add

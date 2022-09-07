@@ -121,17 +121,17 @@ void eigJacobi(const raft::handle_t& handle,
  * @tparam ElementType the data-type of input and output
  * @tparam IntegerType Integer used for addressing
  * @param handle raft::handle_t
- * @param in input raft::matrix_view (symmetric matrix that has real eig values and
+ * @param in input raft::device_matrix_view (symmetric matrix that has real eig values and
  * vectors)
- * @param eig_vectors: eigenvectors output of type raft::matrix_view
- * @param eig_vals: eigen values output of type raft::vector_view
+ * @param eig_vectors: eigenvectors output of type raft::device_matrix_view
+ * @param eig_vals: eigen values output of type raft::device_vector_view
  * @param memUsage: the memory selection for eig vector output
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
 void eig_dc(const raft::handle_t& handle,
-            const raft::matrix_view<ElementType, IndexType, raft::col_major> in,
-            raft::matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
-            raft::vector_view<ElementType, IndexType> eig_vals)
+            const raft::device_matrix_view<ElementType, IndexType, raft::col_major> in,
+            raft::device_matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
+            raft::device_vector_view<ElementType, IndexType> eig_vals)
 {
   RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(eig_vectors.is_exhaustive(), "Eigen Vectors must be contiguous");
@@ -154,18 +154,18 @@ void eig_dc(const raft::handle_t& handle,
  * @tparam ElementType the data-type of input and output
  * @tparam IntegerType Integer used for addressing
  * @param handle raft::handle_t
- * @param in input raft::matrix_view (symmetric matrix that has real eig values and
+ * @param in input raft::device_matrix_view (symmetric matrix that has real eig values and
  * vectors)
  * @param n_eig_vals: number of eigenvectors to be generated
- * @param eig_vectors: eigenvectors output of type raft::matrix_view
- * @param eig_vals: eigen values output of type raft::vector_view
+ * @param eig_vectors: eigenvectors output of type raft::device_matrix_view
+ * @param eig_vals: eigen values output of type raft::device_vector_view
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
 void eig_dc_select(const raft::handle_t& handle,
-                   const raft::matrix_view<ElementType, IndexType, raft::col_major> in,
+                   const raft::device_matrix_view<ElementType, IndexType, raft::col_major> in,
                    std::size_t n_eig_vals,
-                   raft::matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
-                   raft::vector_view<ElementType, IndexType> eig_vals,
+                   raft::device_matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
+                   raft::device_vector_view<ElementType, IndexType> eig_vals,
                    EigVecMemUsage memUsage)
 {
   RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
@@ -192,10 +192,10 @@ void eig_dc_select(const raft::handle_t& handle,
  * @tparam ElementType the data-type of input and output
  * @tparam IntegerType Integer used for addressing
  * @param handle raft::handle_t
- * @param in input raft::matrix_view (symmetric matrix that has real eig values and
+ * @param in input raft::device_matrix_view (symmetric matrix that has real eig values and
  * vectors)
- * @param eig_vectors: eigenvectors output of type raft::matrix_view
- * @param eig_vals: eigen values output of type raft::vector_view
+ * @param eig_vectors: eigenvectors output of type raft::device_matrix_view
+ * @param eig_vals: eigen values output of type raft::device_vector_view
  * @param tol: error tolerance for the jacobi method. Algorithm stops when the
  * error is below tol
  * @param sweeps: number of sweeps in the Jacobi algorithm. The more the better
@@ -203,9 +203,9 @@ void eig_dc_select(const raft::handle_t& handle,
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
 void eig_jacobi(const raft::handle_t& handle,
-                const raft::matrix_view<ElementType, IndexType, raft::col_major> in,
-                raft::matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
-                raft::vector_view<ElementType, IndexType> eig_vals,
+                const raft::device_matrix_view<ElementType, IndexType, raft::col_major> in,
+                raft::device_matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
+                raft::device_vector_view<ElementType, IndexType> eig_vals,
                 ElementType tol = 1.e-7,
                 int sweeps      = 15)
 {

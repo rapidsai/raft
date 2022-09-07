@@ -96,8 +96,8 @@ void coalescedReduction(OutType* dots,
  * It must be a 'callable' supporting the following input and output:
  * <pre>OutType (*FinalLambda)(OutType);</pre>
  * @param handle raft::handle_t
- * @param dots Output
- * @param data Input
+ * @param dots Output of type raft::device_matrix_view
+ * @param data Input of type raft::device_matrix_view
  * @param init initial value to use for the reduction
  * @param main_op elementwise operation to apply before reduction
  * @param reduce_op binary reduction operation
@@ -111,14 +111,15 @@ template <typename InElementType,
           typename MainLambda     = raft::Nop<InElementType>,
           typename ReduceLambda   = raft::Sum<OutElementType>,
           typename FinalLambda    = raft::Nop<OutElementType>>
-void coalesced_reduction(const raft::handle_t& handle,
-                         raft::matrix_view<OutElementType, IndexType, LayoutPolicy> dots,
-                         const raft::matrix_view<InElementType, IndexType, LayoutPolicy> data,
-                         OutElementType init,
-                         bool inplace           = false,
-                         MainLambda main_op     = raft::Nop<InElementType>(),
-                         ReduceLambda reduce_op = raft::Sum<OutElementType>(),
-                         FinalLambda final_op   = raft::Nop<OutElementType>())
+void coalesced_reduction(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<OutElementType, IndexType, LayoutPolicy> dots,
+  const raft::device_matrix_view<InElementType, IndexType, LayoutPolicy> data,
+  OutElementType init,
+  bool inplace           = false,
+  MainLambda main_op     = raft::Nop<InElementType>(),
+  ReduceLambda reduce_op = raft::Sum<OutElementType>(),
+  FinalLambda final_op   = raft::Nop<OutElementType>())
 {
   RAFT_EXPECTS(dots.is_exhaustive(), "Output must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "Input must be contiguous");

@@ -18,13 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __KNN_SPECIALIZATIONS_H
-#define __KNN_SPECIALIZATIONS_H
+/**
+ * DISCLAIMER: this file is deprecated: use specializations.cuh instead
+ */
 
 #pragma once
 
-#include <raft/spatial/knn/specializations/ball_cover.cuh>
-#include <raft/spatial/knn/specializations/fused_l2_knn.cuh>
-#include <raft/spatial/knn/specializations/knn.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-#endif
+#include "specializations.cuh"

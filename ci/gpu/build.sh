@@ -31,7 +31,7 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 unset GIT_DESCRIBE_TAG
 
 # ucx-py version
-export UCX_PY_VERSION='0.27.*'
+export UCX_PY_VERSION='0.28.*'
 
 ################################################################################
 # SETUP - Check environment
@@ -91,11 +91,11 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/libraft
 
 gpuci_logger "Python pytest for pyraft"
 cd "$WORKSPACE/python/raft/raft/test"
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pyraft.xml" -v -s
+pytest --cache-clear --junitxml="$WORKSPACE/junit-pyraft.xml" -v -s
 
 gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft/pylibraft/test"
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
+pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
 
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"

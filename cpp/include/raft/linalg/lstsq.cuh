@@ -115,6 +115,143 @@ void lstsqQR(const raft::handle_t& handle,
   detail::lstsqQR(handle, A, n_rows, n_cols, b, w, stream);
 }
 
+/**
+ * @defgroup lstsq Least Squares Methods
+ * @{
+ */
+
+/**
+ * @brief Solves the linear ordinary least squares problem `Aw = b`
+ * Via SVD decomposition of `A = U S Vt` using default cuSOLVER routine.
+ *
+ * @param[in] handle raft::handle_t
+ * @param[inout] A input raft::device_matrix_view
+ *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ * @param[inout] b input target raft::device_vector_view
+ *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ * @param[out] w output coefficient raft::device_vector_view
+ */
+template <typename ElementType, typename IndexType = std::uint32_t>
+void lstsq_svd_qr(const raft::handle_t& handle,
+                  raft::device_matrix_view<ElementType, IndexType, raft::col_major> A,
+                  raft::device_vector_view<ElementType, IndexType> b,
+                  raft::device_vector_view<ElementType, IndexType> w)
+{
+  RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
+  RAFT_EXPECTS(w.is_exhaustive(), "Eigen Values must be contiguous");
+  RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
+  RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
+
+  lstsqSvdQR(handle,
+             A.data_handle(),
+             A.extent(0),
+             A.extent(1),
+             b.data_handle(),
+             w.data_handle(),
+             handle.get_stream());
+}
+
+/**
+ * @brief Solves the linear ordinary least squares problem `Aw = b`
+ *  Via SVD decomposition of `A = U S V^T` using Jacobi iterations (cuSOLVER).
+ *
+ * @param[in] handle raft::handle_t
+ * @param[inout] A input raft::device_matrix_view
+ *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ * @param[inout] b input target raft::device_vector_view
+ *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ * @param[out] w output coefficient raft::device_vector_view
+ */
+template <typename ElementType, typename IndexType = std::uint32_t>
+void lstsq_svd_jacobi(const raft::handle_t& handle,
+                      raft::device_matrix_view<ElementType, IndexType, raft::col_major> A,
+                      raft::device_vector_view<ElementType, IndexType> b,
+                      raft::device_vector_view<ElementType, IndexType> w)
+{
+  RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
+  RAFT_EXPECTS(w.is_exhaustive(), "Eigen Values must be contiguous");
+  RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
+  RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
+
+  lstsqSvdJacobi(handle,
+                 A.data_handle(),
+                 A.extent(0),
+                 A.extent(1),
+                 b.data_handle(),
+                 w.data_handle(),
+                 handle.get_stream());
+}
+
+/**
+ * @brief Solves the linear ordinary least squares problem `Aw = b`
+ *  via eigenvalue decomposition of `A^T * A` (covariance matrix for dataset A).
+ *  (`w = (A^T A)^-1  A^T b`)
+ *
+ * @param[in] handle raft::handle_t
+ * @param[inout] A input raft::device_matrix_view
+ *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ * @param[inout] b input target raft::device_vector_view
+ *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ * @param[out] w output coefficient raft::device_vector_view
+ */
+template <typename ElementType, typename IndexType = std::uint32_t>
+void lstsq_eig(const raft::handle_t& handle,
+               raft::device_matrix_view<ElementType, IndexType, raft::col_major> A,
+               raft::device_vector_view<ElementType, IndexType> b,
+               raft::device_vector_view<ElementType, IndexType> w)
+{
+  RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
+  RAFT_EXPECTS(w.is_exhaustive(), "Eigen Values must be contiguous");
+  RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
+  RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
+
+  lstsqEig(handle,
+           A.data_handle(),
+           A.extent(0),
+           A.extent(1),
+           b.data_handle(),
+           w.data_handle(),
+           handle.get_stream());
+}
+
+/**
+ * @brief Solves the linear ordinary least squares problem `Aw = b`
+ *  via QR decomposition of `A = QR`.
+ *  (triangular system of equations `Rw = Q^T b`)
+ *
+ * @param[in] handle raft::handle_t
+ * @param[inout] A input raft::device_matrix_view
+ *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ * @param[inout] b input target raft::device_vector_view
+ *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ * @param[out] w output coefficient raft::device_vector_view
+ */
+template <typename ElementType, typename IndexType = std::uint32_t>
+void lstsq_qr(const raft::handle_t& handle,
+              raft::device_matrix_view<ElementType, IndexType, raft::col_major> A,
+              raft::device_vector_view<ElementType, IndexType> b,
+              raft::device_vector_view<ElementType, IndexType> w)
+{
+  RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
+  RAFT_EXPECTS(w.is_exhaustive(), "Eigen Values must be contiguous");
+  RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
+  RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
+
+  lstsqQR(handle,
+          A.data_handle(),
+          A.extent(0),
+          A.extent(1),
+          b.data_handle(),
+          w.data_handle(),
+          handle.get_stream());
+}
+
+/** @} */  // end of lstsq
+
 };  // namespace linalg
 };  // namespace raft
 
