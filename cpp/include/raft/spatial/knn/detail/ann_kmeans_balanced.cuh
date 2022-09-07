@@ -56,6 +56,7 @@ constexpr static inline const float kAdjustCentersWeight = 7.0f;
  * @param n_clusters number of clusters/centers
  * @param dim dimensionality of the data
  * @param[in] dataset a pointer to the data [n_rows, dim]
+ * @param[in] dataset_norm pointer to the precomputed norm (for L2 metrics only) [n_rows]
  * @param n_rows number samples in the `dataset`
  * @param[out] labels output predictions [n_rows]
  * @param metric
@@ -68,6 +69,7 @@ inline void predict_float_core(const handle_t& handle,
                                uint32_t n_clusters,
                                uint32_t dim,
                                const float* dataset,
+                               const float* dataset_norm,
                                size_t n_rows,
                                LabelT* labels,
                                raft::distance::DistanceType metric,
@@ -76,7 +78,6 @@ inline void predict_float_core(const handle_t& handle,
 {
   using DataT  = float;
   using IndexT = uint32_t;
-  // todo(lsugy): figure out what to do about the fact that fusedL2NN doesn't support uint32_t
 
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded) {
@@ -94,19 +95,16 @@ inline void predict_float_core(const handle_t& handle,
                  minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
                  initial_value);
 
-    // todo(lsugy): pass X norm instead of recomputing!!
     auto centroidsNorm = raft::make_device_vector<DataT, IndexT>(handle, n_clusters);
-    auto L2NormX       = raft::make_device_vector<DataT, IndexT>(handle, n_rows);
-    raft::linalg::rowNorm(
-      L2NormX.data_handle(), dataset, (size_t)dim, n_rows, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(
       centroidsNorm.data_handle(), centers, dim, n_clusters, raft::linalg::L2Norm, true, stream);
 
+    // todo(lsugy): should fusedL2NN take IndexT!=LabelT?
     raft::distance::fusedL2NN<DataT, cub::KeyValuePair<LabelT, DataT>, LabelT>(
       minClusterAndDistance.data_handle(),
       dataset,
       centers,
-      L2NormX.data_handle(),
+      dataset_norm,
       centroidsNorm.data_handle(),
       n_rows,
       n_clusters,
@@ -260,19 +258,20 @@ void calc_centers_and_sizes(float* centers,
  * @param n_clusters number of clusters/centers
  * @param dim dimensionality of the data
  * @param[in] dataset a pointer to the data [n_rows, dim]
+ * @param[in] dataset_norm pointer to the precomputed norm (for L2 metrics only) [n_rows]
  * @param n_rows number samples in the `dataset`
  * @param[out] labels output predictions [n_rows]
  * @param metric
  * @param stream
  * @param mr (optional) memory resource to use for temporary allocations
  */
-
 template <typename T, typename LabelT>
 void predict(const handle_t& handle,
              const float* centers,
              uint32_t n_clusters,
              uint32_t dim,
              const T* dataset,
+             const float* dataset_norm,
              size_t n_rows,
              LabelT* labels,
              raft::distance::DistanceType metric,
@@ -299,11 +298,15 @@ void predict(const handle_t& handle,
                       stream);
     }
 
+    // todo(lsugy): should the norm be computed here for non-float datasets?
+    //              or maybe if nullptr is passed and norm required?
+
     predict_float_core(handle,
                        centers,
                        n_clusters,
                        dim,
                        cur_dataset_ptr,
+                       dataset_norm + offset,
                        minibatch_size,
                        labels + offset,
                        metric,
@@ -484,6 +487,7 @@ auto adjust_centers(float* centers,
  * @param n_iters the requested number of iteration
  * @param dim the dimensionality of the dataset
  * @param[in] dataset a pointer to a managed row-major array [n_rows, dim]
+ * @param[in] dataset_norm pointer to the precomputed norm (for L2 metrics only) [n_rows]
  * @param n_rows the number of rows in the dataset
  * @param n_cluster the requested number of clusters
  * @param[inout] cluster_centers a pointer to a managed row-major array [n_clusters, dim]
@@ -507,6 +511,7 @@ void balancing_em_iters(const handle_t& handle,
                         uint32_t n_iters,
                         uint32_t dim,
                         const T* dataset,
+                        const float* dataset_norm,
                         size_t n_rows,
                         uint32_t n_clusters,
                         float* cluster_centers,
@@ -552,6 +557,7 @@ void balancing_em_iters(const handle_t& handle,
             n_clusters,
             dim,
             dataset,
+            dataset_norm,
             n_rows,
             cluster_labels,
             metric,
@@ -576,6 +582,7 @@ void build_clusters(const handle_t& handle,
                     uint32_t n_iters,
                     uint32_t dim,
                     const T* dataset,
+                    const float* dataset_norm,
                     size_t n_rows,
                     uint32_t n_clusters,
                     float* cluster_centers,
@@ -600,6 +607,7 @@ void build_clusters(const handle_t& handle,
                      n_iters,
                      dim,
                      dataset,
+                     dataset_norm,
                      n_rows,
                      n_clusters,
                      cluster_centers,
@@ -691,6 +699,7 @@ auto build_fine_clusters(const handle_t& handle,
                          uint32_t n_iters,
                          uint32_t dim,
                          const T* dataset_mptr,
+                         const float* dataset_norm_mptr,
                          const LabelT* labels_mptr,
                          size_t n_rows,
                          const uint32_t* fine_clusters_nums,
@@ -707,8 +716,10 @@ auto build_fine_clusters(const handle_t& handle,
 {
   rmm::device_uvector<size_t> mc_trainset_ids_buf(mesocluster_size_max, stream, managed_memory);
   rmm::device_uvector<float> mc_trainset_buf(mesocluster_size_max * dim, stream, device_memory);
-  auto mc_trainset_ids = mc_trainset_ids_buf.data();
-  auto mc_trainset     = mc_trainset_buf.data();
+  rmm::device_uvector<float> mc_trainset_norm_buf(mesocluster_size_max, stream, device_memory);
+  auto mc_trainset_ids  = mc_trainset_ids_buf.data();
+  auto mc_trainset      = mc_trainset_buf.data();
+  auto mc_trainset_norm = mc_trainset_norm_buf.data();
 
   // label (cluster ID) of each vector
   rmm::device_uvector<LabelT> mc_trainset_labels(mesocluster_size_max, stream, device_memory);
@@ -741,11 +752,15 @@ auto build_fine_clusters(const handle_t& handle,
 
     utils::copy_selected(
       mesocluster_sizes[i], dim, dataset_mptr, mc_trainset_ids, dim, mc_trainset, dim, stream);
+    // todo(lsugy): more efficient kernel!
+    utils::copy_selected(
+      mesocluster_sizes[i], 1, dataset_norm_mptr, mc_trainset_ids, 1, mc_trainset_norm, 1, stream);
 
     build_clusters(handle,
                    n_iters,
                    dim,
                    mc_trainset,
+                   mc_trainset_norm,
                    mesocluster_sizes[i],
                    fine_clusters_nums[i],
                    mc_trainset_ccenters.data(),
@@ -808,6 +823,18 @@ void build_hierarchical(const handle_t& handle,
       pool_guard->pool_size());
   }
 
+  // Precompute the L2 norm of the dataset if relevant.
+  const float* dataset_norm = nullptr;
+  // todo(lsugy): which kind of memory?
+  rmm::device_uvector<float> dataset_norm_buf(0, stream, device_memory);
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
+    dataset_norm_buf.resize(n_rows, stream);
+    raft::linalg::rowNorm(
+      dataset_norm_buf.data(), dataset, (size_t)dim, n_rows, raft::linalg::L2Norm, true, stream);
+    dataset_norm = (const float*)dataset_norm_buf.data();
+  }
+
   // build coarse clusters (mesoclusters)
   rmm::device_uvector<LabelT> mesocluster_labels_buf(n_rows, stream, &managed_memory);
   rmm::device_uvector<uint32_t> mesocluster_sizes_buf(n_mesoclusters, stream, &managed_memory);
@@ -817,6 +844,7 @@ void build_hierarchical(const handle_t& handle,
                    n_iters,
                    dim,
                    dataset,
+                   dataset_norm,
                    n_rows,
                    n_mesoclusters,
                    mesocluster_centers_buf.data(),
@@ -846,6 +874,7 @@ void build_hierarchical(const handle_t& handle,
                                              n_iters,
                                              dim,
                                              dataset,
+                                             dataset_norm,
                                              mesocluster_labels,
                                              n_rows,
                                              fine_clusters_nums.data(),
@@ -876,6 +905,7 @@ void build_hierarchical(const handle_t& handle,
                      std::max<uint32_t>(n_iters / 10, 2),
                      dim,
                      dataset,
+                     dataset_norm,
                      n_rows,
                      n_clusters,
                      cluster_centers,

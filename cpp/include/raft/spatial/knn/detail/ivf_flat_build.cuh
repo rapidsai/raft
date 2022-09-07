@@ -120,12 +120,30 @@ inline auto extend(const handle_t& handle,
   RAFT_EXPECTS(new_indices != nullptr || orig_index.size() == 0,
                "You must pass data indices when the index is non-empty.");
 
+  // Precompute the L2 norm of the dataset if relevant.
+  const float* new_vectors_norm = nullptr;
+  // todo(lsugy): which kind of memory?
+  rmm::device_uvector<float> new_vectors_norm_buf(0, stream);
+  if (orig_index.metric() == raft::distance::DistanceType::L2Expanded ||
+      orig_index.metric() == raft::distance::DistanceType::L2SqrtExpanded) {
+    new_vectors_norm_buf.resize(n_rows, stream);
+    raft::linalg::rowNorm(new_vectors_norm_buf.data(),
+                          new_vectors,
+                          (IdxT)dim,
+                          n_rows,
+                          raft::linalg::L2Norm,
+                          true,
+                          stream);
+    new_vectors_norm = (const float*)new_vectors_norm_buf.data();
+  }
+
   rmm::device_uvector<LabelT> new_labels(n_rows, stream);
   kmeans::predict(handle,
                   orig_index.centers().data_handle(),
                   n_lists,
                   dim,
                   new_vectors,
+                  new_vectors_norm,
                   n_rows,
                   new_labels.data(),
                   orig_index.metric(),
