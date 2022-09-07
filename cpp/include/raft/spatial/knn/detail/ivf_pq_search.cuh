@@ -850,9 +850,9 @@ inline void search(const handle_t& handle,
   RAFT_EXPECTS(
     params.internal_distance_dtype == CUDA_R_16F || params.internal_distance_dtype == CUDA_R_32F,
     "internal_distance_dtype must be either CUDA_R_16F or CUDA_R_32F");
-  RAFT_EXPECTS(params.smem_lut_dtype == CUDA_R_16F || params.smem_lut_dtype == CUDA_R_32F ||
-                 params.smem_lut_dtype == CUDA_R_8U,
-               "smem_lut_dtype must be CUDA_R_16F, CUDA_R_32F or CUDA_R_8U");
+  RAFT_EXPECTS(params.lut_dtype == CUDA_R_16F || params.lut_dtype == CUDA_R_32F ||
+                 params.lut_dtype == CUDA_R_8U,
+               "lut_dtype must be CUDA_R_16F, CUDA_R_32F or CUDA_R_8U");
   RAFT_EXPECTS(
     params.preferred_thread_block_size == 256 || params.preferred_thread_block_size == 512 ||
       params.preferred_thread_block_size == 1024 || params.preferred_thread_block_size == 0,
@@ -935,17 +935,17 @@ inline void search(const handle_t& handle,
                         float*,
                         rmm::mr::device_memory_resource*);
   if (params.internal_distance_dtype == CUDA_R_16F) {
-    if (params.smem_lut_dtype == CUDA_R_16F) {
+    if (params.lut_dtype == CUDA_R_16F) {
       _ivfpq_search = ivfpq_search<half, half>;
-    } else if (params.smem_lut_dtype == CUDA_R_8U) {
+    } else if (params.lut_dtype == CUDA_R_8U) {
       _ivfpq_search = ivfpq_search<half, fp_8bit<5>>;
     } else {
       _ivfpq_search = ivfpq_search<half, float>;
     }
   } else {
-    if (params.smem_lut_dtype == CUDA_R_16F) {
+    if (params.lut_dtype == CUDA_R_16F) {
       _ivfpq_search = ivfpq_search<float, half>;
-    } else if (params.smem_lut_dtype == CUDA_R_8U) {
+    } else if (params.lut_dtype == CUDA_R_8U) {
       _ivfpq_search = ivfpq_search<float, fp_8bit<5>>;
     } else {
       _ivfpq_search = ivfpq_search<float, float>;

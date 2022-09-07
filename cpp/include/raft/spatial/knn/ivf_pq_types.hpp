@@ -90,7 +90,7 @@ struct search_params : knn::search_params {
    * fast shared memory kernels can be used even for datasets with large dimansionality. Note that
    * the recall is slightly degraded when low-precision type is selected.
    */
-  cudaDataType_t smem_lut_dtype = CUDA_R_32F;
+  cudaDataType_t lut_dtype = CUDA_R_32F;
   /**
    * Storage data type for distance/similarity computed at search time.
    *
