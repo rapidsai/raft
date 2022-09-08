@@ -1,17 +1,10 @@
-~~~~~~~~~~~~~~~~~~~~
-PyRAFT API Reference
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+Dask-RAFT API Reference
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. role:: py(code)
    :language: python
    :class: highlight
-
-
-RAFT Handle
------------
-
-.. autoclass:: raft.common.handle.Handle
-    :members:
 
 Dask-based Multi-Node Multi-GPU Communicator
 --------------------------------------------
