@@ -90,7 +90,7 @@ gpuci_logger "GoogleTest for libraft"
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/libraft/gtests/test_raft
 
 gpuci_logger "Python pytest for dask-raft"
-cd "$WORKSPACE/python/raft/dask-raft/test"
+cd "$WORKSPACE/python/dask-raft/raft/test"
 pytest --cache-clear --junitxml="$WORKSPACE/junit-dask-raft.xml" -v -s
 
 gpuci_logger "Python pytest for pylibraft"
