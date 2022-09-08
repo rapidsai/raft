@@ -138,15 +138,13 @@ struct ivf_flat_knn {
 
   ivf_flat_knn(const raft::handle_t& handle, const params& ps, const ValT* data) : ps(ps)
   {
-    index_params.n_lists = 4096;
-    index_params.metric  = raft::distance::DistanceType::L2Expanded;
-    index_params.kmeans_trainset_fraction = 0.3
-    index_params.add_data_on_build = false
-    index.emplace(raft::spatial::knn::ivf_flat::build(
-      handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
+    index_params.n_lists                  = 4096;
+    index_params.metric                   = raft::distance::DistanceType::L2Expanded;
+    index_params.kmeans_trainset_fraction = 0.3 index_params.add_data_on_build =
+      false index.emplace(raft::spatial::knn::ivf_flat::build(
+        handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
     index.emplace(raft::spatial::knn::ivf_flat::build<ValT, IdxT>(
       handle, index.value(), data, std::nullptr, IdxT(ps.n_samples)));
-
   }
 
   void search(const raft::handle_t& handle,
