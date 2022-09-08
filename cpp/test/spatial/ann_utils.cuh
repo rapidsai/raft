@@ -17,7 +17,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
-#include <raft/spatial/knn/knn.cuh>
+#include <raft/spatial/knn/detail/topk.cuh>
 
 #include <rmm/device_uvector.hpp>
 
@@ -163,32 +163,31 @@ void naiveBfKnn(EvalT* dist_topk,
     naiveDistanceKernel<EvalT, DataT, IdxT><<<grid_dim, block_dim, 0, stream>>>(
       dist.data(), x + offset * dim, y, batch_size, input_len, dim, type);
 
-    select_k<IdxT, EvalT>(dist.data(),
-                          nullptr,
-                          batch_size,
-                          input_len,
-                          dist_topk + offset * k,
-                          indices_topk + offset * k,
-                          type != raft::distance::DistanceType::InnerProduct,
-                          static_cast<int>(k),
-                          stream,
-                          SelectKAlgo::WARP_SORT);
+    detail::select_topk<EvalT, IdxT>(dist.data(),
+                                     nullptr,
+                                     batch_size,
+                                     input_len,
+                                     static_cast<int>(k),
+                                     dist_topk + offset * k,
+                                     indices_topk + offset * k,
+                                     type != raft::distance::DistanceType::InnerProduct,
+                                     stream);
   }
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }
 
-template <typename IdxT, typename DistT, typename compareDist>
+template <typename IdxT, typename DistT, typename CompareDist>
 struct idx_dist_pair {
   IdxT idx;
   DistT dist;
-  compareDist eq_compare;
-  bool operator==(const idx_dist_pair<IdxT, DistT, compareDist>& a) const
+  CompareDist eq_compare;
+  bool operator==(const idx_dist_pair<IdxT, DistT, CompareDist>& a) const
   {
     if (idx == a.idx) return true;
     if (eq_compare(dist, a.dist)) return true;
     return false;
   }
-  idx_dist_pair(IdxT x, DistT y, compareDist op) : idx(x), dist(y), eq_compare(op) {}
+  idx_dist_pair(IdxT x, DistT y, CompareDist op) : idx(x), dist(y), eq_compare(op) {}
 };
 
 template <typename T, typename DistT>

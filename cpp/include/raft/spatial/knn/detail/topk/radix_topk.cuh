@@ -19,6 +19,7 @@
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/device_atomics.cuh>
+#include <raft/pow2_utils.cuh>
 #include <raft/vectorized.cuh>
 
 #include <cub/block/block_load.cuh>
