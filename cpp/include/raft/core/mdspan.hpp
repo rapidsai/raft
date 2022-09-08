@@ -18,7 +18,8 @@
 #include <raft/core/error.hpp>
 #include <raft/core/mdspan_types.hpp>
 
-#include <raft/core/detail/accessor_mixin.hpp>
+#include <raft/core/detail/host_device_accessor.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
 
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
@@ -59,9 +60,6 @@ struct is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>(
 template <typename T>
 using is_mdspan_t = is_mdspan<std::remove_const_t<T>>;
 
-// template <typename T>
-// inline constexpr bool is_mdspan_v = is_mdspan_t<T>::value;
-
 /**
  * @\brief Boolean to determine if variadic template types Tn are either
  *          raft::host_mdspan/raft::device_mdspan or their derived types
@@ -76,7 +74,7 @@ using enable_if_mdspan = std::enable_if_t<is_mdspan_v<Tn...>>;
 // slow on both CPU and GPU, especially 64 bit integer.  So here we first try to avoid 64
 // bit when the index is smaller, then try to avoid division when it's exp of 2.
 template <typename I, typename IndexType, size_t... Extents>
-MDSPAN_INLINE_FUNCTION auto unravel_index_impl(
+RAFT_INLINE_FUNCTION auto unravel_index_impl(
   I idx, std::experimental::extents<IndexType, Extents...> shape)
 {
   constexpr auto kRank = static_cast<int32_t>(shape.rank());
@@ -117,9 +115,10 @@ template <typename ElementType,
           size_t... Extents>
 auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
-  using accessor_type = detail::accessor_mixin<std::experimental::default_accessor<ElementType>,
-                                               is_host_accessible,
-                                               is_device_accessible>;
+  using accessor_type =
+    detail::host_device_accessor<std::experimental::default_accessor<ElementType>,
+                                 is_host_accessible,
+                                 is_device_accessible>;
 
   return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
 }
@@ -207,9 +206,9 @@ auto reshape(mdspan_type mds, extents<IndexType, Extents...> new_shape)
  * \return A std::tuple that represents the coordinate.
  */
 template <typename Idx, typename IndexType, typename LayoutPolicy, size_t... Exts>
-MDSPAN_INLINE_FUNCTION auto unravel_index(Idx idx,
-                                          extents<IndexType, Exts...> shape,
-                                          LayoutPolicy const& layout)
+RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
+                                        extents<IndexType, Exts...> shape,
+                                        LayoutPolicy const& layout)
 {
   static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(layout)>>,
                                layout_c_contiguous>,

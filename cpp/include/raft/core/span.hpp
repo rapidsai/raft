@@ -20,13 +20,14 @@
 #include <cstddef>    // std::byte
 #include <raft/core/mdspan_types.hpp>
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/span.hpp>
 
 // TODO (cjnolet): Remove thrust dependencies here so host_span can be used without CUDA Toolkit
 // being installed. Reference: https://github.com/rapidsai/raft/issues/812.
 #include <thrust/distance.h>
 #include <thrust/functional.h>
-#include <thrust/host_vector.h>  // _MDSPAN_HOST_DEVICE
+#include <thrust/host_vector.h>  // _RAFT_HOST_DEVICE
 #include <thrust/iterator/reverse_iterator.h>
 #include <type_traits>
 
@@ -113,22 +114,22 @@ class span {
 
   constexpr auto cend() const noexcept -> const_iterator { return data() + size(); }
 
-  _MDSPAN_HOST_DEVICE constexpr auto rbegin() const noexcept -> reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto rbegin() const noexcept -> reverse_iterator
   {
     return reverse_iterator{end()};
   }
 
-  _MDSPAN_HOST_DEVICE constexpr auto rend() const noexcept -> reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto rend() const noexcept -> reverse_iterator
   {
     return reverse_iterator{begin()};
   }
 
-  _MDSPAN_HOST_DEVICE constexpr auto crbegin() const noexcept -> const_reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto crbegin() const noexcept -> const_reverse_iterator
   {
     return const_reverse_iterator{cend()};
   }
 
-  _MDSPAN_HOST_DEVICE constexpr auto crend() const noexcept -> const_reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto crend() const noexcept -> const_reverse_iterator
   {
     return const_reverse_iterator{cbegin()};
   }

@@ -17,6 +17,7 @@
 
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
+#include <raft/core/detail/macros.hpp>
 #include <tuple>
 #include <utility>
 

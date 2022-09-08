@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,22 @@
  * limitations under the License.
  */
 
-/**
- * This file is deprecated and will be removed in release 22.06.
- */
-#include "raft/core/device_mdarray.hpp"
-#include "raft/core/device_mdspan.hpp"
-#include "raft/core/device_span.hpp"
-#include "raft/handle.hpp"
+#pragma once
 
-#include <string>
+#ifndef _RAFT_HAS_CUDA
+#if defined(__CUDACC__)
+#define _RAFT_HAS_CUDA __CUDACC__
+#endif
+#endif
 
-namespace raft {
+#ifndef _RAFT_HOST_DEVICE
+#if defined(_RAFT_HAS_CUDA)
+#define _RAFT_HOST_DEVICE __host__ __device__
+#else
+#define _RAFT_HOST_DEVICE
+#endif
+#endif
 
-/* Function for testing RAFT include
- *
- * @return message indicating RAFT has been included succesfully*/
-inline std::string test_raft()
-{
-  std::string status = "RAFT Setup succesfully";
-  return status;
-}
-
-}  // namespace raft
+#ifndef RAFT_INLINE_FUNCTION
+#define RAFT_INLINE_FUNCTION inline _RAFT_HOST_DEVICE
+#endif

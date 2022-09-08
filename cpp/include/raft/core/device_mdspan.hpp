@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <raft/core/detail/accessor_mixin.hpp>
+#include <raft/core/detail/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 
 namespace raft {
 
 template <typename AccessorPolicy>
-using device_accessor = detail::accessor_mixin<AccessorPolicy, false, true>;
+using device_accessor = detail::host_device_accessor<AccessorPolicy, false, true>;
 
 template <typename AccessorPolicy>
-using managed_accessor = detail::accessor_mixin<AccessorPolicy, true, true>;
+using managed_accessor = detail::host_device_accessor<AccessorPolicy, true, true>;
 
 /**
  * @brief std::experimental::mdspan with device tag to avoid accessing incorrect memory location.
@@ -44,17 +44,18 @@ using managed_mdspan = mdspan<ElementType, Extents, LayoutPolicy, managed_access
 
 namespace detail {
 template <typename T, bool B>
-struct is_device_mdspan : std::false_type {
+struct is_device_accessible_mdspan : std::false_type {
 };
 template <typename T>
-struct is_device_mdspan<T, true> : std::bool_constant<T::accessor_type::is_device_accessible> {
+struct is_device_accessible_mdspan<T, true>
+  : std::bool_constant<T::accessor_type::is_device_accessible> {
 };
 
 /**
  * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
  */
 template <typename T>
-using is_device_mdspan_t = is_device_mdspan<T, is_mdspan_v<T>>;
+using is_device_accessible_mdspan_t = is_device_accessible_mdspan<T, is_mdspan_v<T>>;
 
 template <typename T, bool B>
 struct is_managed_mdspan : std::false_type {
@@ -76,10 +77,11 @@ using is_managed_mdspan_t = is_managed_mdspan<T, is_mdspan_v<T>>;
  * derived type
  */
 template <typename... Tn>
-inline constexpr bool is_device_mdspan_v = std::conjunction_v<detail::is_device_mdspan_t<Tn>...>;
+inline constexpr bool is_device_accessible_mdspan_v =
+  std::conjunction_v<detail::is_device_accessible_mdspan_t<Tn>...>;
 
 template <typename... Tn>
-using enable_if_device_mdspan = std::enable_if_t<is_device_mdspan_v<Tn...>>;
+using enable_if_device_mdspan = std::enable_if_t<is_device_accessible_mdspan_v<Tn...>>;
 
 /**
  * @\brief Boolean to determine if variadic template types Tn are either raft::managed_mdspan or a
@@ -187,8 +189,7 @@ template <typename ElementType,
           typename LayoutPolicy = layout_c_contiguous>
 auto make_device_vector_view(ElementType* ptr, IndexType n)
 {
-  vector_extent<IndexType> extents{n};
-  return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
+  return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, n};
 }
 
 }  // end namespace raft

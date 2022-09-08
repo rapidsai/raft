@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/core/detail/device_mdarray.hpp>
-#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/mdarray.hpp>
 
 namespace raft {

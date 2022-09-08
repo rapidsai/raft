@@ -22,7 +22,7 @@ namespace raft::detail {
  * @brief A mixin to distinguish host and device memory.
  */
 template <typename AccessorPolicy, bool is_host, bool is_device>
-struct accessor_mixin : public AccessorPolicy {
+struct host_device_accessor : public AccessorPolicy {
   using accessor_type   = AccessorPolicy;
   using is_host_type    = std::conditional_t<is_host, std::true_type, std::false_type>;
   using is_device_type  = std::conditional_t<is_device, std::true_type, std::false_type>;
@@ -32,8 +32,8 @@ struct accessor_mixin : public AccessorPolicy {
   static constexpr bool is_managed_accessible = is_device && is_host;
   // make sure the explicit ctor can fall through
   using AccessorPolicy::AccessorPolicy;
-  using offset_policy = accessor_mixin;
-  accessor_mixin(AccessorPolicy const& that) : AccessorPolicy{that} {}  // NOLINT
+  using offset_policy = host_device_accessor;
+  host_device_accessor(AccessorPolicy const& that) : AccessorPolicy{that} {}  // NOLINT
 };
 
 }  // namespace raft::detail

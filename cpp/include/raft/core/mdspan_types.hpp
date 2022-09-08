@@ -20,13 +20,8 @@
 
 namespace raft {
 
-constexpr std::size_t dynamic_extent = std::experimental::dynamic_extent;
-
-/**
- * @brief Dimensions extents for raft::mdspan
- */
-template <typename IndexType, size_t... ExtentsPack>
-using extents = std::experimental::extents<IndexType, ExtentsPack...>;
+using std::experimental::dynamic_extent;
+using std::experimental::extents;
 
 /**
  * @defgroup C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.

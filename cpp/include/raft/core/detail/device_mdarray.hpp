@@ -25,7 +25,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 
-#include <raft/core/detail/accessor_mixin.hpp>
+#include <raft/core/detail/host_device_accessor.hpp>
 #include <raft/core/detail/span.hpp>  // dynamic_extent
 
 #include <rmm/cuda_stream_view.hpp>

@@ -16,8 +16,8 @@
 #pragma once
 
 #include <limits>  // numeric_limits
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/mdspan_types.hpp>
-#include <raft/thirdparty/mdspan/include/experimental/mdspan>
 #include <type_traits>
 
 namespace raft {
@@ -74,10 +74,10 @@ struct is_span_t : public is_span_oracle_t<typename std::remove_cv<T>::type> {
 };
 
 template <class InputIt1, class InputIt2, class Compare>
-_MDSPAN_HOST_DEVICE constexpr auto lexicographical_compare(InputIt1 first1,
-                                                           InputIt1 last1,
-                                                           InputIt2 first2,
-                                                           InputIt2 last2) -> bool
+_RAFT_HOST_DEVICE constexpr auto lexicographical_compare(InputIt1 first1,
+                                                         InputIt1 last1,
+                                                         InputIt2 first2,
+                                                         InputIt2 last2) -> bool
 {
   Compare comp;
   for (; first1 != last1 && first2 != last2; ++first1, ++first2) {

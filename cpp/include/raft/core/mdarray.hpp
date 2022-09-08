@@ -24,10 +24,10 @@
 
 #include <stddef.h>
 
-#include <raft/core/detail/accessor_mixin.hpp>
+#include <raft/core/detail/host_device_accessor.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
-
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft {
@@ -158,9 +158,9 @@ class mdarray
     mdspan<E,
            extents_type,
            layout_type,
-           detail::accessor_mixin<ViewAccessorPolicy,
-                                  container_policy_type::is_host_accessible,
-                                  container_policy_type::is_device_accessible>>;
+           detail::host_device_accessor<ViewAccessorPolicy,
+                                        container_policy_type::is_host_accessible,
+                                        container_policy_type::is_device_accessible>>;
 
  public:
   /**
@@ -266,61 +266,61 @@ class mdarray
   }
 
   // basic_mdarray observers of the domain multidimensional index space (also in basic_mdspan)
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto rank() noexcept -> rank_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto rank() noexcept -> rank_type
   {
     return extents_type::rank();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto rank_dynamic() noexcept -> rank_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto rank_dynamic() noexcept -> rank_type
   {
     return extents_type::rank_dynamic();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto static_extent(size_t r) noexcept
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto static_extent(size_t r) noexcept
     -> index_type
   {
     return extents_type::static_extent(r);
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto extents() const noexcept -> extents_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto extents() const noexcept -> extents_type
   {
     return map_.extents();
   }
   /**
    * @brief the extent of rank r
    */
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto extent(size_t r) const noexcept -> index_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto extent(size_t r) const noexcept -> index_type
   {
     return map_.extents().extent(r);
   }
   // mapping
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto mapping() const noexcept -> mapping_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto mapping() const noexcept -> mapping_type
   {
     return map_;
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_unique() const noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto is_unique() const noexcept -> bool
   {
     return map_.is_unique();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_exhaustive() const noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto is_exhaustive() const noexcept -> bool
   {
     return map_.is_exhaustive();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_strided() const noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto is_strided() const noexcept -> bool
   {
     return map_.is_strided();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto stride(size_t r) const -> index_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto stride(size_t r) const -> index_type
   {
     return map_.stride(r);
   }
 
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_unique() noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto is_always_unique() noexcept -> bool
   {
     return mapping_type::is_always_unique();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_exhaustive() noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto is_always_exhaustive() noexcept -> bool
   {
     return mapping_type::is_always_exhaustive();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_strided() noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto is_always_strided() noexcept -> bool
   {
     return mapping_type::is_always_strided();
   }
