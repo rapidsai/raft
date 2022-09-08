@@ -269,6 +269,25 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
   return score;
 }
 
+template <typename T>
+struct dummy_block_sort_t {
+  using queue_t = topk::warp_sort_immediate<WarpSize, true, T, uint32_t>;
+  __device__ dummy_block_sort_t(int k, uint8_t* smem_buf){};
+};
+
+template <int Capacity, typename T>
+struct pq_block_sort : topk::block_sort<topk::warp_sort_immediate, Capacity, true, T, uint32_t> {
+  using type = topk::block_sort<topk::warp_sort_immediate, Capacity, true, T, uint32_t>;
+};
+
+template <typename T>
+struct pq_block_sort<0, T> : dummy_block_sort_t<T> {
+  using type = dummy_block_sort_t<T>;
+};
+
+template <int Capacity, typename T>
+using block_sort_t = typename pq_block_sort<Capacity, T>::type;
+
 /**
  * The main kernel that computes the top-k scores across multiple queries and probes.
  * If the index output pointer is provided, it also selects top K candidates for each query and
@@ -307,7 +326,7 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  * @param batch_size the number of queries.
  * @param max_samples
  *   The maximum number of samples could be retrieved for the given query when all scores are to be
- *   returned rather than only the top k (`manage_local_topk = false`).
+ *   returned rather than only the top k (`kManageLocalTopK = false`).
  * @param metric the distance type.
  * @param codebook_kind Defines the way PQ codebooks have been trained.
  * @param topk the `k` in the select top-k.
@@ -338,7 +357,7 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  *   [batch_size, max_samples] or [batch_size, n_probes, topk].
  * @param _out_indices
  *   The device pointer to the output indices [batch_size, n_probes, topk].
- *   Ignored  when `manage_local_topk = false`.
+ *   Ignored  when `kManageLocalTopK = false`.
  */
 template <int PqBits,
           int VecLen,
@@ -378,6 +397,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
         block_sort only needs shared memory for `.done()` operation, which can come very last.
   */
   extern __shared__ __align__(256) uint8_t smem_buf[];  // NOLINT
+  constexpr bool kManageLocalTopK = Capacity > 0;
 
   const uint32_t pq_len = dim / pq_dim;
 
@@ -395,8 +415,6 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
       base_diff = reinterpret_cast<float*>(smem_buf);
     }
   }
-  bool manage_local_topk = false;
-  if (_out_indices != nullptr) { manage_local_topk = true; }
 
   for (int ib = blockIdx.x; ib < batch_size * n_probes; ib += gridDim.x) {
     uint32_t batch_ix;
@@ -415,7 +433,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
     const float* query             = queries + (dim * batch_ix);
     OutT* out_scores;
     uint32_t* out_indices = nullptr;
-    if (manage_local_topk) {
+    if constexpr (kManageLocalTopK) {
       // Store topk calculated distances to out_scores (and its indices to out_indices)
       out_scores  = _out_scores + (topk * (probe_ix + (n_probes * batch_ix)));
       out_indices = _out_indices + (topk * (probe_ix + (n_probes * batch_ix)));
@@ -476,10 +494,8 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
     uint32_t n_samples32 = Pow2<32>::roundUp(n_samples);
     IdxT cluster_offset  = cluster_offsets[label];
 
-    using block_sort_t =
-      topk::block_sort<topk::warp_sort_immediate, Capacity, true, OutT, uint32_t>;
-    block_sort_t block_topk(topk, reinterpret_cast<uint8_t*>(smem_buf));
-    constexpr OutT kLimit = block_sort_t::queue_t::kDummy;
+    block_sort_t<Capacity, OutT> block_topk(topk, reinterpret_cast<uint8_t*>(smem_buf));
+    constexpr OutT kLimit = block_sort_t<Capacity, OutT>::queue_t::kDummy;
 
     // Compute a distance for each sample
     for (uint32_t i = threadIdx.x; i < n_samples32; i += blockDim.x) {
@@ -488,14 +504,14 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
         score = ivfpq_compute_score<PqBits, VecLen, PqT, IdxT, LutT>(
           pq_dim, cluster_offset + i, pq_dataset, lut_scores);
       }
-      if (manage_local_topk) {
+      if constexpr (kManageLocalTopK) {
         block_topk.add(score, cluster_offset + i);
       } else {
         if (i < n_samples) { out_scores[i + sample_offset] = score; }
       }
     }
     __syncthreads();
-    if (manage_local_topk) {
+    if constexpr (kManageLocalTopK) {
       // sync threads before and after the topk merging operation, because we reuse smem_buf
       block_topk.done();
       block_topk.store(out_scores, out_indices);
@@ -677,13 +693,15 @@ void ivfpq_search(const handle_t& handle,
   kernel_t kernel_no_basediff;
   kernel_t kernel_fast;
   kernel_t kernel_no_smem_lut;
-  uint32_t depth = 1;
+  uint32_t depth = 0;
   if (manage_local_topk) {
+    depth = 1;
     while (depth * WarpSize < topK) {
       depth *= 2;
     }
   }
   switch (depth) {
+    case 0: SET_KERNEL3(0); break;
     case 1: SET_KERNEL3(1); break;
     case 2: SET_KERNEL3(2); break;
     case 4: SET_KERNEL3(4); break;
@@ -717,7 +735,9 @@ void ivfpq_search(const handle_t& handle,
     n_threads = preferred_thread_block_size;
   }
   size_t smem_size_local_topk =
-    topk::template calc_smem_size_for_block_wide<float, uint32_t>(n_threads / WarpSize, topK);
+    manage_local_topk
+      ? topk::template calc_smem_size_for_block_wide<ScoreT, uint32_t>(n_threads / WarpSize, topK)
+      : 0;
   smem_size = max(smem_size, smem_size_local_topk);
 
   kernel_t kernel = kernel_no_basediff;
@@ -734,13 +754,15 @@ void ivfpq_search(const handle_t& handle,
       kernel_no_basediff_available = false;
 
       // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
-      kernel       = kernel_no_smem_lut;
-      use_smem_lut = false;
-      n_threads    = 1024;
-      size_t smem_size_local_topk =
-        topk::calc_smem_size_for_block_wide<float, uint32_t>(n_threads / WarpSize, topK);
-      smem_size = max(smem_size_base_diff, smem_size_local_topk);
-      n_ctas    = getMultiProcessorCount();
+      kernel               = kernel_no_smem_lut;
+      use_smem_lut         = false;
+      n_threads            = 1024;
+      smem_size_local_topk = manage_local_topk
+                               ? topk::template calc_smem_size_for_block_wide<ScoreT, uint32_t>(
+                                   n_threads / WarpSize, topK)
+                               : 0;
+      smem_size            = max(smem_size_base_diff, smem_size_local_topk);
+      n_ctas               = getMultiProcessorCount();
     }
   }
   if (kernel_no_basediff_available) {
