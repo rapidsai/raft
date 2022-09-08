@@ -128,9 +128,6 @@ RAFT's cmake has the following configurable flags available:.
 | RAFT_COMPILE_DIST_LIBRARY | ON, OFF | OFF | Compiles the `libraft-distance` shared library |
 | RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. Needed for `raft::spatial::knn` |
 | RAFT_ENABLE_thrust_DEPENDENCY | ON, OFF | ON | Enables the Thrust dependency. This can be disabled when using many simple utilities or to override with a different Thrust version. |
-| RAFT_ENABLE_mdspan_DEPENDENCY | ON, OFF | ON | Enables the std::mdspan dependency. This can be disabled when using many simple utilities. |
-| RAFT_ENABLE_nccl_DEPENDENCY | ON, OFF | OFF | Enables NCCL dependency used by `raft::comms` and needed to build `dask-raft` |
-| RAFT_ENABLE_ucx_DEPENDENCY | ON, OFF | OFF | Enables UCX dependency used by `raft::comms` and needed to build `dask-raft` |
 | RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` | 
 | RAFT_STATIC_LINK_LIBRARIES | ON, OFF | ON | Build static link libraries instead of shared libraries |
 | DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
@@ -219,7 +216,7 @@ The following `cmake` snippet enables a flexible configuration of RAFT:
 
 ```cmake
 
-set(RAFT_VERSION "22.04")
+set(RAFT_VERSION "22.10")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
@@ -227,7 +224,7 @@ function(find_and_configure_raft)
   set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC
           COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
           USE_NN_LIBRARY USE_DISTANCE_LIBRARY 
-          ENABLE_thrust_DEPENDENCY ENABLE_mdspan_DEPENDENCY)
+          ENABLE_thrust_DEPENDENCY)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                             "${multiValueArgs}" ${ARGN} )
 
@@ -272,7 +269,6 @@ function(find_and_configure_raft)
           "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
           "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
           "RAFT_ENABLE_thrust_DEPENDENCY ${PKG_ENABLE_thrust_DEPENDENCY}"
-          "RAFT_ENABLE_mdspan_DEPENDENCY ${PKG_ENABLE_mdspan_DEPENDENCY}"
   )
 
 endfunction()
@@ -295,7 +291,6 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         ENABLE_NN_DEPENDENCIES   NO  # This builds FAISS if not installed
         USE_FAISS_STATIC         NO
         ENABLE_thrust_DEPENDENCY YES
-        ENABLE_mdspan_DEPENDENCY YES
 )
 ```
 
