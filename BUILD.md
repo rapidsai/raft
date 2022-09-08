@@ -34,8 +34,8 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 - [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
 - [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0
 - [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::spatial::knn` API and needed to build tests.
-- [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `dask-raft`
-- [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `dask-raft`
+- [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `raft-dask`
+- [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `raft-dask`
 - [Googletest](https://github.com/google/googletest) - Needed to build tests
 - [Googlebench](https://github.com/google/benchmark) - Needed to build benchmarks
 - [Doxygen](https://github.com/doxygen/doxygen) - Needed to build docs
@@ -150,12 +150,12 @@ mamba activate raft_env_name
 The Python APIs can be built using the `build.sh` script:
 
 ```bash
-./build.sh dask-raft pylibraft
+./build.sh raft-dask pylibraft
 ```
 
 `setup.py` can also be used to build the Python APIs manually:
 ```bash
-cd python/dask-raft
+cd python/raft-dask
 python setup.py build_ext --inplace
 python setup.py install
 
@@ -166,7 +166,7 @@ python setup.py install
 
 To run the Python tests:
 ```bash
-cd python/dask-raft
+cd python/raft-dask
 py.test -s -v raft
 
 cd python pylibraft

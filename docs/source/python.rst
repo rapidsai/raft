@@ -6,5 +6,5 @@ RAFT Python APIs
    :caption: Contents:
 
    pylibraft_api.rst
-   dask_raft_api.rst
+   raft_dask_api.rst
 

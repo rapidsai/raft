@@ -1,5 +1,5 @@
 ~~~~~~~~~~~~~~~~~~~~~~~
-Dask-RAFT API Reference
+RAFT Dask API Reference
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 .. role:: py(code)
@@ -9,5 +9,5 @@ Dask-RAFT API Reference
 Dask-based Multi-Node Multi-GPU Communicator
 --------------------------------------------
 
-.. autoclass:: raft.dask.common.Comms
+.. autoclass:: raft_dask.common.Comms
     :members:
