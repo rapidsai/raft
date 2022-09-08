@@ -45,11 +45,11 @@ if(NOT raft_FOUND)
   include(rapids-cuda)
   rapids_cuda_init_architectures(raft-dask)
   enable_language(CUDA)
-  # Since pyraft only enables CUDA optionally we need to manually include the file that
+  # Since raft-dask only enables CUDA optionally we need to manually include the file that
   # rapids_cuda_init_architectures relies on `project` including.
   include("${CMAKE_PROJECT_raft_dask_INCLUDE}")
 
-  # pyraft doesn't actually use raft libraries, it just needs the headers, so
+  # raft-dask doesn't actually use raft libraries, it just needs the headers, so
   # we can turn off all library compilation and we don't need to install
   # anything here.
   set(BUILD_TESTS OFF)
