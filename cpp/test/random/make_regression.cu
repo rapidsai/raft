@@ -78,7 +78,9 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
                     params.seed,
                     params.gtype);
 
-    // FIXME (mfh 2022/09/07) This test passes even if I don't call make_regression.
+    // FIXME (mfh 2022/09/07) This test passes even if it doesn't call
+    // make_regression.  Please see
+    // https://github.com/rapidsai/raft/issues/814.
 
     // Calculate the values from the data and coefficients (column-major)
     T alpha = (T)1.0, beta = (T)0.0;
@@ -171,6 +173,8 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
  protected:
   void SetUp() override
   {
+    auto stream = handle.get_stream();
+
     // Noise must be zero to compare the actual and expected values
     T noise = (T)0.0, tail_strength = (T)0.5;
 
@@ -190,7 +194,6 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
                     out_mat,
                     values_mat,
                     params.n_informative,
-                    stream,
                     coef_mat,
                     params.bias,
                     params.effective_rank,
@@ -200,7 +203,9 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
                     params.seed,
                     params.gtype);
 
-    // FIXME (mfh 2022/09/07) This test passes even if I don't call make_regression.
+    // FIXME (mfh 2022/09/07) This test passes even if it doesn't call
+    // make_regression.  Please see
+    // https://github.com/rapidsai/raft/issues/814.
 
     // Calculate the values from the data and coefficients (column-major)
     T alpha{};
@@ -241,9 +246,8 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
  private:
   MakeRegressionInputs<T> params{::testing::TestWithParam<MakeRegressionInputs<T>>::GetParam()};
   raft::handle_t handle;
-  cudaStream_t stream{handle.get_stream()};
-  rmm::device_uvector<T> values_ret{params.n_samples * params.n_targets, stream};
-  rmm::device_uvector<T> values_prod{params.n_samples * params.n_targets, stream};
+  rmm::device_uvector<T> values_ret{params.n_samples * params.n_targets, handle.get_stream()};
+  rmm::device_uvector<T> values_prod{params.n_samples * params.n_targets, handle.get_stream()};
   int zero_count = -1;
 };
 
@@ -259,7 +263,7 @@ TEST_P(MakeRegressionMdspanTestF, Result)
                           params.n_samples,
                           params.n_targets,
                           raft::CompareApprox<float>(params.tolerance),
-                          stream));
+                          handle.get_stream()));
 }
 INSTANTIATE_TEST_CASE_P(MakeRegressionMdspanTests,
                         MakeRegressionMdspanTestF,
@@ -277,7 +281,7 @@ TEST_P(MakeRegressionMdspanTestD, Result)
                           params.n_samples,
                           params.n_targets,
                           raft::CompareApprox<double>(params.tolerance),
-                          stream));
+                          handle.get_stream()));
 }
 INSTANTIATE_TEST_CASE_P(MakeRegressionMdspanTests,
                         MakeRegressionMdspanTestD,

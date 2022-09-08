@@ -116,7 +116,6 @@ void make_regression(const raft::handle_t& handle,
  *                              the values for the regression problem
  * @param[in]   n_informative   Number of informative features (non-zero
  *                              coefficients)
- * @param[in]   stream          CUDA stream
  * @param[out]  coef            If present, a row-major (features, targets) matrix
  *                              to store the coefficients used to generate the values
  *                              for the regression problem
@@ -139,7 +138,6 @@ void make_regression(
   raft::device_matrix_view<DataT, raft::matrix_extent<IdxT>, raft::row_major> out,
   raft::device_matrix_view<DataT, raft::matrix_extent<IdxT>, raft::row_major> values,
   IdxT n_informative,
-  cudaStream_t stream,
   std::optional<raft::device_matrix_view<DataT, raft::matrix_extent<IdxT>, raft::row_major>> coef,
   DataT bias          = DataT{},
   IdxT effective_rank = static_cast<IdxT>(-1),
@@ -168,7 +166,7 @@ void make_regression(
                                  n_samples,
                                  n_features,
                                  n_informative,
-                                 stream,
+                                 handle.get_stream(),
                                  coef_ptr,
                                  n_targets,
                                  bias,
