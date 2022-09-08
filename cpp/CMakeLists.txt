@@ -53,7 +53,7 @@ option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_BENCH "Build raft C++ benchmark tests" OFF)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF)
-option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
+option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
@@ -85,7 +85,7 @@ message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${RAFT_NVTX}")
-message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
+message(VERBOSE "RAFT: Statically link the CUDA toolkit runtime and libraries: ${CUDA_STATIC_RUNTIME}")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
@@ -105,6 +105,21 @@ endif()
 
 ##############################################################################
 # - compiler options ---------------------------------------------------------
+
+set(_ctk_static_suffix "")
+if(CUDA_STATIC_RUNTIME)
+  # If we're statically linking CTK cuBLAS,
+  # we also want to statically link BLAS
+  set(BLA_STATIC ON)
+  set(_ctk_static_suffix "_static")
+  # Control legacy FindCUDA.cmake behavior too
+  # Remove this after we push it into rapids-cmake:
+  # https://github.com/rapidsai/rapids-cmake/pull/259
+  set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
+endif()
+
+# CUDA runtime
+rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
 
 if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
@@ -168,12 +183,11 @@ target_include_directories(raft INTERFACE
 # Only CUDA libs and rmm should
 # be used in global target.
 target_link_libraries(raft INTERFACE
-        CUDA::cublas
-        CUDA::curand
-        CUDA::cusolver
-        CUDA::cudart
-        CUDA::cusparse
         rmm::rmm
+        CUDA::cublas${_ctk_static_suffix}
+        CUDA::curand${_ctk_static_suffix}
+        CUDA::cusolver${_ctk_static_suffix}
+        CUDA::cusparse${_ctk_static_suffix}
         $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
 )
 
