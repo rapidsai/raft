@@ -64,12 +64,12 @@ gpuci_logger "Build and install Python targets"
 CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 gpuci_mamba_retry install boa
 
-# Install pylibraft first since it's a dependency of dask-raft
+# Install pylibraft first since it's a dependency of raft-dask
 gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pylibraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
 gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pylibraft
 
-gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/dask-raft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
-gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" dask-raft
+gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/raft-dask -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
+gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" raft-dask
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
@@ -93,9 +93,9 @@ nvidia-smi
 gpuci_logger "GoogleTest for libraft"
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/libraft/gtests/test_raft
 
-gpuci_logger "Python pytest for dask-raft"
-cd "$WORKSPACE/python/dask-raft/raft/test"
-pytest --cache-clear --junitxml="$WORKSPACE/junit-dask-raft.xml" -v -s
+gpuci_logger "Python pytest for raft-dask"
+cd "$WORKSPACE/python/raft-dask/raft_dask/test"
+pytest --cache-clear --junitxml="$WORKSPACE/junit-raft-dask.xml" -v -s
 
 gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft/pylibraft/test"
