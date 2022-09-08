@@ -63,9 +63,13 @@ conda list --show-channel-urls
 gpuci_logger "Build and install Python targets"
 CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 gpuci_mamba_retry install boa
-gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/dask-raft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
+
+# Install pylibraft first since it's a dependency of dask-raft
 gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pylibraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
-gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" dask-raft pylibraft
+gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pylibraft
+
+gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/dask-raft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
+gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" dask-raft
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
