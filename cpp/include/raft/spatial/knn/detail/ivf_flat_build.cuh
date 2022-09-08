@@ -127,27 +127,28 @@ inline auto extend(const handle_t& handle,
   if (orig_index.metric() == raft::distance::DistanceType::L2Expanded ||
       orig_index.metric() == raft::distance::DistanceType::L2SqrtExpanded) {
     new_vectors_norm_buf.resize(n_rows, stream);
-    raft::linalg::rowNorm(new_vectors_norm_buf.data(),
-                          new_vectors,
-                          (IdxT)dim,
-                          n_rows,
-                          raft::linalg::L2Norm,
-                          true,
-                          stream);
+
+    raft::linalg::rowNorm<float, IdxT>(new_vectors_norm_buf.data(),
+                                       new_vectors,
+                                       (IdxT)dim,
+                                       n_rows,
+                                       raft::linalg::L2Norm,
+                                       true,
+                                       stream);
     new_vectors_norm = (const float*)new_vectors_norm_buf.data();
   }
 
   rmm::device_uvector<LabelT> new_labels(n_rows, stream);
-  kmeans::predict(handle,
-                  orig_index.centers().data_handle(),
-                  n_lists,
-                  dim,
-                  new_vectors,
-                  new_vectors_norm,
-                  n_rows,
-                  new_labels.data(),
-                  orig_index.metric(),
-                  stream);
+  kmeans::predict<T, IdxT, LabelT>(handle,
+                                   orig_index.centers().data_handle(),
+                                   n_lists,
+                                   dim,
+                                   new_vectors,
+                                   new_vectors_norm,
+                                   n_rows,
+                                   new_labels.data(),
+                                   orig_index.metric(),
+                                   stream);
 
   index<T, IdxT> ext_index(handle, orig_index.metric(), n_lists, dim);
 
@@ -269,15 +270,15 @@ inline auto build(
                                     n_rows_train,
                                     cudaMemcpyDefault,
                                     stream));
-    kmeans::build_hierarchical(handle,
-                               params.kmeans_n_iters,
-                               index.dim(),
-                               trainset.data(),
-                               n_rows_train,
-                               index.centers().data_handle(),
-                               index.n_lists(),
-                               index.metric(),
-                               stream);
+    kmeans::build_hierarchical<T, IdxT>(handle,
+                                        params.kmeans_n_iters,
+                                        index.dim(),
+                                        trainset.data(),
+                                        n_rows_train,
+                                        index.centers().data_handle(),
+                                        index.n_lists(),
+                                        index.metric(),
+                                        stream);
   }
 
   // add the data if necessary

@@ -67,7 +67,8 @@ void coalescedReduction(OutType* dots,
                         ReduceLambda reduce_op = raft::Sum<OutType>(),
                         FinalLambda final_op   = raft::Nop<OutType>())
 {
-  detail::coalescedReduction(dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
+  detail::coalescedReduction<InType, OutType, IdxType>(
+    dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
 }
 
 };  // end namespace linalg

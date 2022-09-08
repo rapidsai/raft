@@ -71,7 +71,7 @@ void reduce(OutType* dots,
             ReduceLambda reduce_op = raft::Sum<OutType>(),
             FinalLambda final_op   = raft::Nop<OutType>())
 {
-  detail::reduce(
+  detail::reduce<InType, OutType, IdxType>(
     dots, data, D, N, init, rowMajor, alongRows, stream, inplace, main_op, reduce_op, final_op);
 }
 
