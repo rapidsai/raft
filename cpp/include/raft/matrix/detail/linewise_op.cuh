@@ -84,7 +84,7 @@ struct Linewise {
     Vec v, w;
     bool update = true;
     for (; in < in_end; in += AlignWarp::Value, out += AlignWarp::Value, rowMod += warpPad) {
-      v.val.internal = __ldcv(in);
+      *v.vectorized_data() = __ldcv(in);
       while (rowMod >= rowLen) {
         rowMod -= rowLen;
         rowDiv++;
@@ -106,7 +106,7 @@ struct Linewise {
         int l         = 0;
         w.val.data[k] = op(v.val.data[k], (std::ignore = vecs, args[l++])...);
       }
-      *out = w.val.internal;
+      *out = *w.vectorized_data();
     }
   }
 
@@ -139,11 +139,11 @@ struct Linewise {
     Vec v;
     const IdxType d = BlockSize * gridDim.x;
     for (IdxType i = threadIdx.x + blockIdx.x * BlockSize; i < len; i += d) {
-      v.val.internal = __ldcv(in + i);
+      *v.vectorized_data() = __ldcv(in + i);
 #pragma unroll VecElems
       for (int k = 0; k < VecElems; k++)
         v.val.data[k] = op(v.val.data[k], args.val.data[k]...);
-      __stwt(out + i, v.val.internal);
+      __stwt(out + i, *v.vectorized_data());
     }
   }
 
@@ -173,7 +173,7 @@ struct Linewise {
     __syncthreads();
     {
       Vec out;
-      out.val.internal = reinterpret_cast<typename Vec::io_t*>(shm)[threadIdx.x];
+      *out.vectorized_data() = reinterpret_cast<typename Vec::io_t*>(shm)[threadIdx.x];
       return out;
     }
   }

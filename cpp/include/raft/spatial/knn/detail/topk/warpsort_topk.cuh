@@ -135,6 +135,7 @@ constexpr auto calc_capacity(int k) -> int
 template <int Capacity, bool Ascending, typename T, typename IdxT>
 class warp_sort {
   static_assert(isPo2(Capacity));
+  static_assert(std::is_default_constructible_v<IdxT>);
 
  public:
   /**
@@ -158,6 +159,7 @@ class warp_sort {
 #pragma unroll
     for (int i = 0; i < kMaxArrLen; i++) {
       val_arr_[i] = kDummy;
+      idx_arr_[i] = IdxT{};
     }
   }
 
@@ -280,6 +282,7 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
 #pragma unroll
     for (int i = 0; i < kMaxBufLen; i++) {
       val_buf_[i] = kDummy;
+      idx_buf_[i] = IdxT{};
     }
   }
 
@@ -371,6 +374,7 @@ class warp_sort_immediate : public warp_sort<Capacity, Ascending, T, IdxT> {
 #pragma unroll
     for (int i = 0; i < kMaxArrLen; i++) {
       val_buf_[i] = kDummy;
+      idx_buf_[i] = IdxT{};
     }
   }
 
@@ -429,9 +433,9 @@ template <template <int, bool, typename, typename> class WarpSortWarpWide,
           typename T,
           typename IdxT>
 class block_sort {
+ public:
   using queue_t = WarpSortWarpWide<Capacity, Ascending, T, IdxT>;
 
- public:
   __device__ block_sort(int k, uint8_t* smem_buf) : queue_(k)
   {
     val_smem_             = reinterpret_cast<T*>(smem_buf);

@@ -18,7 +18,7 @@
 #include <raft/spatial/knn/knn.cuh>
 
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <raft/random/rng.cuh>

@@ -18,43 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __AXPY_H
-#define __AXPY_H
+/**
+ * DISCLAIMER: this file is deprecated: use axpy.cuh instead
+ */
 
 #pragma once
 
-#include "detail/axpy.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft::linalg {
-
-/**
- * @brief the wrapper of cublas axpy function
- *  It computes the following equation: y = alpha * x + y
- *
- * @tparam T the element type
- * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
- * @param [in] handle raft handle
- * @param [in] n number of elements in x and y
- * @param [in] alpha host or device scalar
- * @param [in] x vector of length n
- * @param [in] incx stride between consecutive elements of x
- * @param [inout] y vector of length n
- * @param [in] incy stride between consecutive elements of y
- * @param [in] stream
- */
-template <typename T, bool DevicePointerMode = false>
-void axpy(const raft::handle_t& handle,
-          const int n,
-          const T* alpha,
-          const T* x,
-          const int incx,
-          T* y,
-          const int incy,
-          cudaStream_t stream)
-{
-  detail::axpy<T, DevicePointerMode>(handle, n, alpha, x, incx, y, incy, stream);
-}
-
-}  // namespace raft::linalg
-
-#endif
+#include "axpy.cuh"

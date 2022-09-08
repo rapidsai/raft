@@ -35,7 +35,9 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    -g                          - build for debug
    --compile-libs              - compile shared libraries for all components
    --compile-nn                - compile shared library for nn component
-   --compile-dist              - compile shared library for distance component
+   --compile-dist              - compile shared library for distance and current random components
+                                 (eventually, this will be renamed to something more generic and
+                                  the only option to be supported)
    --minimal-deps              - disables dependencies like thrust so they can be overridden.
                                  can be useful for a pure header-only install
    --allgpuarch                - build for all supported GPU architectures

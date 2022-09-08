@@ -168,6 +168,28 @@ struct Policy4x4<double, _veclen> {
 /** @} */
 
 /**
+ * A smaller k-block (8 instead of 32) with fewer threads per block (8x8 instead
+ * of 16x16), which is faster for raft::distance::fusedL2NN on skinny matrices,
+ * i.e., matrices with a small k dimension.
+ *
+ */
+template <typename DataT, int _veclen>
+struct Policy4x4Skinny {
+};
+
+template <int _veclen>
+struct Policy4x4Skinny<float, _veclen> {
+  typedef KernelPolicy<float, _veclen, 8, 4, 4, 8, 8> Policy;
+  typedef ColKernelPolicy<float, _veclen, 8, 4, 4, 8, 8> ColPolicy;
+};
+
+template <int _veclen>
+struct Policy4x4Skinny<double, _veclen> {
+  typedef KernelPolicy<double, _veclen, 8, 4, 4, 8, 8> Policy;
+  typedef ColKernelPolicy<double, _veclen, 8, 4, 4, 8, 8> ColPolicy;
+};
+
+/**
  * @defgroup Policy2x8 16 elements per thread Policy with k-block = 16
  * @{
  */
