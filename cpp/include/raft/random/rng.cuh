@@ -19,7 +19,11 @@
 #include "detail/rng_impl.cuh"
 #include "detail/rng_impl_deprecated.cuh"  // necessary for now (to be removed)
 #include "rng_state.hpp"
+#include <cassert>
+#include <optional>
 #include <raft/core/handle.hpp>
+#include <raft/mdarray.hpp>
+#include <type_traits>
 
 namespace raft::random {
 
@@ -377,6 +381,82 @@ void sampleWithoutReplacement(const raft::handle_t& handle,
 {
   detail::sampleWithoutReplacement(
     rng_state, out, outIdx, in, wts, sampledLen, len, handle.get_stream());
+}
+
+/**
+ * @brief Sample the input array without replacement, optionally based on the
+ * input weight vector for each element in the array
+ *
+ * Implementation here is based on the `one-pass sampling` algo described here:
+ * https://www.ethz.ch/content/dam/ethz/special-interest/baug/ivt/ivt-dam/vpl/reports/1101-1200/ab1141.pdf
+ *
+ * @note In the sampled array the elements which are picked will always appear
+ * in the increasing order of their weights as computed using the exponential
+ * distribution. So, if you're particular about the order (for eg. array
+ * permutations), then this might not be the right choice!
+ *
+ * @tparam DataT data type (do not specify this explicitly,
+ *         as the compiler will deduce it from @c out )
+ * @tparam IdxT index type (do not specify this explicitly,
+ *         as the compiler will deduce it from the arguments)
+ * @tparam WeightsT weights type (defaults to @c double ,
+ *         so that passing in std::nullopt works)
+ *
+ * @param handle
+ * @param rng_state random number generator state
+ * @param out Array (of length 'sampledLen')
+ *        of samples from the input array
+ * @param outIdx If provided, array (of length 'sampledLen')
+ *        of the indices sampled from the input array
+ * @param in Input array to be sampled (of length 'len')
+ * @param wts Weights array (of length 'len').
+ *        If not provided, uniform sampling will be used.
+ */
+template <typename DataT, typename IdxT, typename WeightsT = double>
+void sampleWithoutReplacement(const raft::handle_t& handle,
+                              RngState& rng_state,
+                              raft::device_vector_view<DataT, IdxT> out,
+                              std::optional<raft::device_vector_view<IdxT, IdxT>> outIdx,
+                              raft::device_vector_view<const DataT, IdxT> in,
+                              std::optional<raft::device_vector_view<const WeightsT, IdxT>> wts)
+{
+  static_assert(std::is_integral<IdxT>::value, "IdxT must be an integral type.");
+  const IdxT sampledLen = out.extent(0);
+  const IdxT len        = in.extent(0);
+  ASSERT(sampledLen <= len,
+         "sampleWithoutReplacement: "
+         "sampledLen (out.extent(0)) must be <= len (in.extent(0))");
+  ASSERT(len == 0 || in.data_handle() != nullptr,
+         "sampleWithoutReplacement: "
+         "If in.data_handle() is not null, then in.extent(0) must be nonzero");
+  ASSERT(sampledLen == 0 || out.data_handle() != nullptr,
+         "sampleWithoutReplacement: "
+         "If out.data_handle() is not null, then out.extent(0) must be nonzero");
+
+  const bool outIdx_has_value = outIdx.has_value();
+  if (outIdx_has_value) {
+    ASSERT((*outIdx).extent(0) == sampledLen,
+           "sampleWithoutReplacement: "
+           "If outIdx is provided, its extent(0) must equal out.extent(0)");
+  }
+  IdxT* outIdx_ptr = outIdx_has_value ? (*outIdx).data_handle() : nullptr;
+
+  const bool wts_has_value = wts.has_value();
+  if (wts_has_value) {
+    ASSERT((*wts).extent(0) == len,
+           "sampleWithoutReplacement: "
+           "If wts is provided, its extent(0) must equal in.extent(0)");
+  }
+  const WeightsT* wts_ptr = wts_has_value ? (*wts).data_handle() : nullptr;
+
+  detail::sampleWithoutReplacement(rng_state,
+                                   out.data_handle(),
+                                   outIdx_ptr,
+                                   in.data_handle(),
+                                   wts_ptr,
+                                   sampledLen,
+                                   len,
+                                   handle.get_stream());
 }
 
 /**
