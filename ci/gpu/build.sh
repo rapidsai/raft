@@ -93,13 +93,13 @@ nvidia-smi
 gpuci_logger "GoogleTest for libraft"
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/libraft/gtests/test_raft
 
-gpuci_logger "Python pytest for raft-dask"
-cd "$WORKSPACE/python/raft-dask/raft_dask/test"
-pytest --cache-clear --junitxml="$WORKSPACE/junit-raft-dask.xml" -v -s
-
 gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft/pylibraft/test"
 pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
+
+gpuci_logger "Python pytest for raft-dask"
+cd "$WORKSPACE/python/raft-dask/raft_dask/test"
+pytest --cache-clear --junitxml="$WORKSPACE/junit-raft-dask.xml" -v -s
 
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"

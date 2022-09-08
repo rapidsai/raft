@@ -25,7 +25,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
                       around the C++ code.
    pylibraft        - build the pylibraft Python package
-   raft-dask        - build the raft-dask Python package
+   raft-dask        - build the raft-dask Python package. this also requires pylibraft.
    docs             - build the documentation
    tests            - build the tests
    bench            - build the benchmarks
