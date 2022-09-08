@@ -18,7 +18,9 @@
 
 #pragma once
 
-#include <raft/linalg/detail/reduce_cols_by_key.cuh>
+#include "detail/reduce_cols_by_key.cuh"
+
+#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace linalg {
@@ -52,6 +54,54 @@ void reduce_cols_by_key(const T* data,
 {
   detail::reduce_cols_by_key(data, keys, out, nrows, ncols, nkeys, stream);
 }
+
+/**
+ * @defgroup reduce_cols_by_key Reduce Across Columns by Key
+ * @{
+ */
+
+/**
+ * @brief Computes the sum-reduction of matrix columns for each given key
+ * @tparam ElementType the input data type (as well as the output reduced matrix)
+ * @tparam KeyType data type of the keys
+ * @tparam IndexType indexing arithmetic type
+ * @param data the input data (dim = nrows x ncols). This is assumed to be in
+ * row-major layout of type raft::device_matrix_view
+ * @param keys keys raft::device_vector_view (len = ncols). It is assumed that each key in this
+ * array is between [0, nkeys). In case this is not true, the caller is expected
+ * to have called make_monotonic primitive to prepare such a contiguous and
+ * monotonically increasing keys array.
+ * @param out the output reduced raft::device_matrix_view along columns (dim = nrows x nkeys).
+ * This will be assumed to be in row-major layout
+ * @param nkeys number of unique keys in the keys array
+ */
+template <typename ElementType, typename KeyType = ElementType, typename IndexType = std::uint32_t>
+void reduce_cols_by_key(
+  const raft::handle_t& handle,
+  const raft::device_matrix_view<ElementType, IndexType, raft::row_major> data,
+  const raft::device_vector_view<KeyType, IndexType> keys,
+  raft::device_matrix_view<ElementType, IndexType, raft::row_major> out,
+  IndexType nkeys)
+{
+  RAFT_EXPECTS(data.is_exhaustive(), "Input is not contiguous");
+  RAFT_EXPECTS(out.is_exhaustive(), "Output is not contiguous");
+  RAFT_EXPECTS(keys.is_exhaustive(), "Keys is not contiguous");
+
+  RAFT_EXPECTS(out.extent(0) == data.extent(0) && out.extent(1) == nkeys,
+               "Output is not of size nrows * nkeys");
+  RAFT_EXPECTS(keys.extent(0) == data.extent(1), "Keys is not of size ncols");
+
+  reduce_cols_by_key(data.data_handle(),
+                     keys.data_handle(),
+                     out.data_handle(),
+                     data.extent(0),
+                     data.extent(1),
+                     nkeys,
+                     handle.get_stream());
+}
+
+/** @} */  // end of group reduce_cols_by_key
+
 };  // end namespace linalg
 };  // end namespace raft
 

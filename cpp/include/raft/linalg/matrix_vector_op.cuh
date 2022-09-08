@@ -136,9 +136,9 @@ template <typename InElementType,
           typename IndexType      = std::uint32_t,
           int TPB                 = 256>
 void matrix_vector_op(const raft::handle_t& handle,
-                      raft::matrix_view<OutElementType, IndexType, LayoutPolicy> out,
-                      const raft::matrix_view<InElementType, IndexType, LayoutPolicy> matrix,
-                      const raft::vector_view<InElementType, IndexType> vec,
+                      raft::device_matrix_view<OutElementType, IndexType, LayoutPolicy> out,
+                      const raft::device_matrix_view<InElementType, IndexType, LayoutPolicy> matrix,
+                      const raft::device_vector_view<InElementType, IndexType> vec,
                       Apply apply,
                       Lambda op)
 {
@@ -198,10 +198,10 @@ template <typename InElementType,
           typename IndexType      = std::uint32_t,
           int TPB                 = 256>
 void matrix_vector_op(const raft::handle_t& handle,
-                      raft::matrix_view<OutElementType, IndexType, LayoutPolicy> out,
-                      const raft::matrix_view<InElementType, IndexType, LayoutPolicy> matrix,
-                      const raft::vector_view<InElementType, IndexType> vec1,
-                      const raft::vector_view<InElementType, IndexType> vec2,
+                      raft::device_matrix_view<OutElementType, IndexType, LayoutPolicy> out,
+                      const raft::device_matrix_view<InElementType, IndexType, LayoutPolicy> matrix,
+                      const raft::device_vector_view<InElementType, IndexType> vec1,
+                      const raft::device_vector_view<InElementType, IndexType> vec2,
                       Apply apply,
                       Lambda op)
 {

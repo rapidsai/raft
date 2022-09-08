@@ -60,6 +60,7 @@ void axpy(const raft::handle_t& handle,
  *  It computes the following equation: y = alpha * x + y
  *
  * @tparam MdspanType  Type raft::device_mdspan
+ * @tparam ScalarIdxType Index Type of scalar
  * @param [in] handle raft::handle_t
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
@@ -69,7 +70,7 @@ void axpy(const raft::handle_t& handle,
  */
 template <typename MdspanType, typename = raft::enable_if_device_mdspan<MdspanType>>
 void axpy(const raft::handle_t& handle,
-          raft::device_scalar_view<typename MdspanType::element_type> alpha,
+          raft::device_scalar_view<typename MdspanType::element_type, ScalarIdxType> alpha,
           const MdspanType x,
           const int incx,
           MdspanType y,
@@ -92,6 +93,7 @@ void axpy(const raft::handle_t& handle,
  *  It computes the following equation: y = alpha * x + y
  *
  * @tparam MdspanType  Type raft::device_mdspan
+ * @tparam ScalarIdxType Index Type of scalar
  * @param [in] handle raft::handle_t
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
@@ -101,7 +103,7 @@ void axpy(const raft::handle_t& handle,
  */
 template <typename MdspanType, typename = raft::enable_if_device_mdspan<MdspanType>>
 void axpy(const raft::handle_t& handle,
-          raft::host_scalar_view<typename MdspanType::element_type> alpha,
+          raft::host_scalar_view<typename MdspanType::element_type, ScalarIdxType> alpha,
           const MdspanType x,
           const int incx,
           MdspanType y,

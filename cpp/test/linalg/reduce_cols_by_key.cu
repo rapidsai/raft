@@ -84,7 +84,10 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
     uniform(handle, r, in.data(), nrows * ncols, T(-1.0), T(1.0));
     uniformInt(handle, r, keys.data(), ncols, 0u, params.nkeys);
     naiveReduceColsByKey(in.data(), keys.data(), out_ref.data(), nrows, ncols, nkeys, stream);
-    reduce_cols_by_key(in.data(), keys.data(), out.data(), nrows, ncols, nkeys, stream);
+    auto input_view  = raft::make_device_matrix_view(in.data(), nrows, ncols);
+    auto output_view = raft::make_device_matrix_view(out.data(), nrows, nkeys);
+    auto keys_view   = raft::make_device_vector_view(keys.data(), ncols);
+    reduce_cols_by_key(handle, input_view, keys_view, output_view, nkeys);
     raft::interruptible::synchronize(stream);
   }
 

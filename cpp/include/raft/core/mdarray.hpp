@@ -620,14 +620,6 @@ template <typename ElementType,
 using device_matrix = device_mdarray<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
 
 /**
- * @brief Shorthand for 0-dim mdspan (scalar).
- * @tparam ElementType the data type of the scalar element
- * @tparam IndexType the index type of the extents
- */
-template <typename ElementType, typename IndexType = std::uint32_t>
-using scalar_view = mdspan<ElementType, scalar_extent<IndexType>>;
-
-/**
  * @brief Shorthand for 0-dim host mdspan (scalar).
  * @tparam ElementType the data type of the scalar element
  * @tparam IndexType the index type of the extents
@@ -642,17 +634,6 @@ using host_scalar_view = host_mdspan<ElementType, scalar_extent<IndexType>>;
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
 using device_scalar_view = device_mdspan<ElementType, scalar_extent<IndexType>>;
-
-/**
- * @brief Shorthand for 1-dim mdspan.
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-using vector_view = mdspan<ElementType, vector_extent<IndexType>, LayoutPolicy>;
 
 /**
  * @brief Shorthand for 1-dim host mdspan.
@@ -675,17 +656,6 @@ template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
 using device_vector_view = device_mdspan<ElementType, vector_extent<IndexType>, LayoutPolicy>;
-
-/**
- * @brief Shorthand for c-contiguous matrix view.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-using matrix_view = mdspan<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
 
 /**
  * @brief Shorthand for c-contiguous host matrix view.
@@ -782,26 +752,6 @@ auto make_device_scalar_view(ElementType* ptr)
 }
 
 /**
- * @brief Create a 2-dim c-contiguous mdspan instance. It's expected
- *        that the given layout policy match the layout of the underlying
- *        pointer.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] ptr on host to wrap
- * @param[in] n_rows number of rows in pointer
- * @param[in] n_cols number of columns in pointer
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
-{
-  matrix_extent<IndexType> extents{n_rows, n_cols};
-  return matrix_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
-}
-
-/**
  * @brief Create a 2-dim c-contiguous mdspan instance for host pointer. It's
  *        expected that the given layout policy match the layout of the underlying
  *        pointer.
@@ -838,24 +788,6 @@ auto make_device_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_col
 {
   matrix_extent<IndexType> extents{n_rows, n_cols};
   return device_matrix_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
-}
-
-/**
- * @brief Create a 1-dim mdspan instance.
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] ptr on host to wrap
- * @param[in] n number of elements in pointer
- * @return raft::host_vector_view
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_vector_view(ElementType* ptr, size_t n)
-{
-  vector_extent<IndexType> extents{n};
-  return vector_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
 }
 
 /**

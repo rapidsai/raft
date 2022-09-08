@@ -27,8 +27,8 @@ namespace linalg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
- * @tparam math_t data-type upon which the math operation will be performed
- * @tparam IdxType Integer type used to for addressing
+ * @tparam in_t Input data-type
+ * @tparam out_t Output data-type
  * @param out the output buffer
  * @param in the input buffer
  * @param scalar the scalar used in the operations
@@ -36,17 +36,18 @@ namespace linalg {
  * @param stream cuda stream where to launch work
  * @{
  */
-template <typename math_t, typename IdxType = int>
-void powerScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+template <typename in_t, typename out_t = in_t, typename IdxType = int>
+void powerScalar(out_t* out, const in_t* in, in_t scalar, IdxType len, cudaStream_t stream)
 {
   raft::linalg::unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return raft::myPow(in, scalar); }, stream);
+    out, in, len, [scalar] __device__(in_t in) { return raft::myPow(in, scalar); }, stream);
 }
 /** @} */
 
 /**
  * @defgroup BinaryOps Element-wise binary operations on the input buffers
- * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam in_t Input data-type
+ * @tparam out_t Output data-type
  * @tparam IdxType Integer type used to for addressing
  * @param out the output buffer
  * @param in1 the first input buffer
@@ -55,13 +56,99 @@ void powerScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cuda
  * @param stream cuda stream where to launch work
  * @{
  */
-template <typename math_t, typename IdxType = int>
-void power(math_t* out, const math_t* in1, const math_t* in2, IdxType len, cudaStream_t stream)
+template <typename in_t, typename out_t = in_t, typename IdxType = int>
+void power(out_t* out, const in_t* in1, const in_t* in2, IdxType len, cudaStream_t stream)
 {
   raft::linalg::binaryOp(
-    out, in1, in2, len, [] __device__(math_t a, math_t b) { return raft::myPow(a, b); }, stream);
+    out, in1, in2, len, [] __device__(in_t a, in_t b) { return raft::myPow(a, b); }, stream);
 }
 /** @} */
+
+/**
+ * @defgroup power Power Arithmetic
+ * @{
+ */
+
+/**
+ * @brief Elementwise power operation on the input buffers
+ * @tparam InType    Input Type raft::device_mdspan
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @param handle raft::handle_t
+ * @param out    Output
+ * @param in1    First Input
+ * @param in2    Second Input
+ */
+template <typename InType,
+          typename OutType = InType,
+          typename         = raft::enable_if_device_mdspan<OutType, InType>>
+void power(const raft::handle_t& handle, OutType out, const InType in1, const InType in2)
+{
+  using in_element_t  = typename InType::element_type;
+  using out_element_t = typename OutType::element_type;
+
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in1.is_exhaustive(), "Input 1 must be contiguous");
+  RAFT_EXPECTS(in2.is_exhaustive(), "Input 2 must be contiguous");
+  RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
+               "Size mismatch between Output and Inputs");
+
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    power<in_element_t, out_element_t, std::uint32_t>(out.data_handle(),
+                                                      in1.data_handle(),
+                                                      in2.data_handle(),
+                                                      static_cast<std::uint32_t>(out.size()),
+                                                      handle.get_stream());
+  } else {
+    power<in_element_t, out_element_t, std::uint64_t>(out.data_handle(),
+                                                      in1.data_handle(),
+                                                      in2.data_handle(),
+                                                      static_cast<std::uint64_t>(out.size()),
+                                                      handle.get_stream());
+  }
+}
+
+/**
+ * @brief Elementwise power of host scalar to input
+ * @tparam InType    Input Type raft::device_mdspan
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @tparam ScalarIdxType Index Type of scalar
+ * @param handle raft::handle_t
+ * @param out    Output
+ * @param in    Input
+ * @param scalar    raft::host_scalar_view
+ */
+template <typename InType,
+          typename OutType       = InType,
+          typename ScalarIdxType = std::uint32_t,
+          typename               = raft::enable_if_device_mdspan<OutType, InType>>
+void power_scalar(const raft::handle_t& handle,
+                  OutType out,
+                  const InType in,
+                  const raft::host_scalar_view<typename InType::element_type, ScalarIdxType> scalar)
+{
+  using in_element_t  = typename InType::element_type;
+  using out_element_t = typename OutType::element_type;
+
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
+
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    powerScalar<in_element_t, out_element_t, std::uint32_t>(out.data_handle(),
+                                                            in.data_handle(),
+                                                            *scalar.data_handle(),
+                                                            static_cast<std::uint32_t>(out.size()),
+                                                            handle.get_stream());
+  } else {
+    powerScalar<in_element_t, out_element_t, std::uint64_t>(out.data_handle(),
+                                                            in.data_handle(),
+                                                            *scalar.data_handle(),
+                                                            static_cast<std::uint64_t>(out.size()),
+                                                            handle.get_stream());
+  }
+}
+
+/** @} */  // end of group add
 
 };  // end namespace linalg
 };  // end namespace raft

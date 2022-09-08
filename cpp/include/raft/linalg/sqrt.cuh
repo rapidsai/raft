@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/core/mdarray.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
 
@@ -34,13 +35,53 @@ namespace linalg {
  * @param stream cuda stream where to launch work
  * @{
  */
-template <typename math_t, typename IdxType = int>
-void sqrt(math_t* out, const math_t* in, IdxType len, cudaStream_t stream)
+template <typename in_t, typename out_t = in_t, typename IdxType = int>
+void sqrt(out_t* out, const in_t* in, IdxType len, cudaStream_t stream)
 {
   raft::linalg::unaryOp(
-    out, in, len, [] __device__(math_t in) { return raft::mySqrt(in); }, stream);
+    out, in, len, [] __device__(in_t in) { return raft::mySqrt(in); }, stream);
 }
 /** @} */
+
+/**
+ * @defgroup power Sqrt Arithmetic
+ * @{
+ */
+
+/**
+ * @brief Elementwise sqrt operation on the input buffer
+ * @tparam InType    Input Type raft::device_mdspan
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @param handle raft::handle_t
+ * @param out    Output
+ * @param in     Input
+ */
+template <typename InType,
+          typename OutType = InType,
+          typename         = raft::enable_if_device_mdspan<OutType, InType>>
+void sqrt(const raft::handle_t& handle, OutType out, const InType in)
+{
+  using in_element_t  = typename InType::element_type;
+  using out_element_t = typename OutType::element_type;
+
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input 1 must be contiguous");
+  RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Inputs");
+
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    sqrt<in_element_t, out_element_t, std::uint32_t>(out.data_handle(),
+                                                     in.data_handle(),
+                                                     static_cast<std::uint32_t>(out.size()),
+                                                     handle.get_stream());
+  } else {
+    sqrt<in_element_t, out_element_t, std::uint64_t>(out.data_handle(),
+                                                     in.data_handle(),
+                                                     static_cast<std::uint64_t>(out.size()),
+                                                     handle.get_stream());
+  }
+}
+
+/** @} */  // end of group add
 
 };  // end namespace linalg
 };  // end namespace raft

@@ -125,7 +125,6 @@ void eigJacobi(const raft::handle_t& handle,
  * vectors)
  * @param eig_vectors: eigenvectors output of type raft::device_matrix_view
  * @param eig_vals: eigen values output of type raft::device_vector_view
- * @param memUsage: the memory selection for eig vector output
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
 void eig_dc(const raft::handle_t& handle,

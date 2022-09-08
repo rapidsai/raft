@@ -98,16 +98,16 @@ void addDevScalar(
 
 /**
  * @brief Elementwise add operation on the input buffers
- * @tparam OutType   Output Type raft::device_mdspan
  * @tparam InType    Input Type raft::device_mdspan
+ * @tparam OutType   Output Type raft::device_mdspan
  * @param handle raft::handle_t
  * @param out    Output
  * @param in1    First Input
  * @param in2    Second Input
  */
-template <typename OutType,
-          typename InType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+template <typename InType,
+          typename OutType = InType,
+          typename         = raft::enable_if_device_mdspan<OutType, InType>>
 void add(const raft::handle_t& handle, OutType out, const InType in1, const InType in2)
 {
   using in_element_t  = typename InType::element_type;
@@ -136,20 +136,22 @@ void add(const raft::handle_t& handle, OutType out, const InType in1, const InTy
 
 /**
  * @brief Elementwise addition of device scalar to input
- * @tparam OutType   Output Type raft::device_mdspan
  * @tparam InType    Input Type raft::device_mdspan
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @tparam ScalarIdxType Index Type of scalar
  * @param handle raft::handle_t
  * @param out    Output
  * @param in    Input
  * @param scalar    raft::device_scalar_view
  */
-template <typename OutType,
-          typename InType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+template <typename InType,
+          typename OutType       = InType,
+          typename ScalarIdxType = std::uint32_t,
+          typename               = raft::enable_if_device_mdspan<OutType, InType>>
 void add_scalar(const raft::handle_t& handle,
                 OutType out,
                 const InType in,
-                const raft::device_scalar_view<typename InType::element_type> scalar)
+                const raft::device_scalar_view<typename InType::element_type, ScalarIdxType> scalar)
 {
   using in_element_t  = typename InType::element_type;
   using out_element_t = typename OutType::element_type;
@@ -175,20 +177,22 @@ void add_scalar(const raft::handle_t& handle,
 
 /**
  * @brief Elementwise addition of host scalar to input
- * @tparam OutType   Output Type raft::device_mdspan
  * @tparam InType    Input Type raft::device_mdspan
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @tparam ScalarIdxType Index Type of scalar
  * @param handle raft::handle_t
  * @param out    Output
  * @param in    Input
  * @param scalar    raft::host_scalar_view
  */
-template <typename OutType,
-          typename InType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+template <typename InType,
+          typename OutType       = InType,
+          typename ScalarIdxType = std::uint32_t,
+          typename               = raft::enable_if_device_mdspan<OutType, InType>>
 void add_scalar(const raft::handle_t& handle,
                 OutType out,
                 const InType in,
-                const raft::host_scalar_view<typename InType::element_type> scalar)
+                const raft::host_scalar_view<typename InType::element_type, ScalarIdxType> scalar)
 {
   using in_element_t  = typename InType::element_type;
   using out_element_t = typename OutType::element_type;

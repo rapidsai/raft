@@ -151,8 +151,9 @@ class MapGenericReduceTest : public ::testing::Test {
   {
     auto op               = [] __device__(InType in) { return in; };
     const OutType neutral = std::numeric_limits<InType>::max();
-    auto output_view      = raft::make_device_vector_view(output.data(), input.size());
-    auto input_view       = raft::make_device_vector_view(input.data(), input.size());
+    auto output_view      = raft::make_device_scalar_view(output.data());
+    auto input_view =
+      raft::make_device_vector_view(input.data(), static_cast<std::uint32_t>(input.size()));
     map_reduce(handle, output_view, neutral, op, cub::Min(), input_view);
     EXPECT_TRUE(raft::devArrMatch(
       OutType(1), output.data(), 1, raft::Compare<OutType>(), handle.get_stream()));
@@ -161,8 +162,9 @@ class MapGenericReduceTest : public ::testing::Test {
   {
     auto op               = [] __device__(InType in) { return in; };
     const OutType neutral = std::numeric_limits<InType>::min();
-    auto output_view      = raft::make_device_vector_view(output.data(), input.size());
-    auto input_view       = raft::make_device_vector_view(input.data(), input.size());
+    auto output_view      = raft::make_device_scalar_view(output.data());
+    auto input_view =
+      raft::make_device_vector_view(input.data(), static_cast<std::uint32_t>(input.size()));
     map_reduce(handle, output_view, neutral, op, cub::Max(), input_view);
     EXPECT_TRUE(raft::devArrMatch(
       OutType(5), output.data(), 1, raft::Compare<OutType>(), handle.get_stream()));

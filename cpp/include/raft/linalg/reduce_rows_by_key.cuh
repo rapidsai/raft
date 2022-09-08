@@ -18,7 +18,9 @@
 
 #pragma once
 
-#include <raft/linalg/detail/reduce_rows_by_key.cuh>
+#include "detail/reduce_rows_by_key.cuh"
+
+#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace linalg {
@@ -107,6 +109,78 @@ void reduce_rows_by_key(const DataIteratorT d_A,
                      d_sums,
                      stream);
 }
+
+/**
+ * @defgroup reduce_rows_by_key Reduce Across Rows by Key
+ * @{
+ */
+
+/**
+ * @brief Computes the weighted reduction of matrix rows for each given key
+ *
+ * @tparam ElementType data-type of input and output
+ * @tparam KeyType data-type of keys
+ * @tparam WeightType data-type of weights
+ * @tparam IndexType index type
+ * @param[in]  handle      raft::handle_t
+ * @param[in]  d_A         Input raft::device_mdspan (ncols * nrows)
+ * @param[in]  d_keys      Keys for each row raft::device_vector_view (1 x nrows)
+ * @param[in]  d_weights   Weights for each observation in d_A raft::device_vector_view optional (1
+ * x nrows)
+ * @param[out] d_keys_char Scratch memory for conversion of keys to char, raft::device_vector_view
+ * @param[in]  nkeys       Number of unique keys in d_keys
+ * @param[out] d_sums      Row sums by key raft::device_matrix_view (ncols x d_keys)
+ */
+template <typename ElementType,
+          typename KeyType    = ElementType,
+          typename WeightType = ElementType,
+          typename IndexType  = std::uint32_t>
+void reduce_rows_by_key(
+  const raft::handle_t& handle,
+  const raft::device_matrix_view<ElementType, IndexType, raft::row_major> d_A,
+  const raft::device_vector_view<KeyType, IndexType> d_keys,
+  std::optional<const raft::device_vector_view<WeightType, IndexType>> d_weights,
+  raft::device_vector_view<char, IndexType> d_keys_char,
+  IndexType nkeys,
+  raft::device_matrix_view<ElementType, IndexType, raft::row_major> d_sums)
+{
+  RAFT_EXPECTS(d_A.is_exhaustive(), "Input is not contiguous");
+  RAFT_EXPECTS(d_sums.is_exhaustive(), "Output is not contiguous");
+  RAFT_EXPECTS(d_keys.is_exhaustive(), "Keys is not contiguous");
+  RAFT_EXPECTS(d_keys_char.is_exhaustive(), "Keys is not contiguous");
+
+  RAFT_EXPECTS(d_A.extent(0) == d_A.extent(0) && d_sums.extent(1) == nkeys,
+               "Output is not of size ncols * nkeys");
+  RAFT_EXPECTS(d_keys.extent(0) == d_A.extent(1), "Keys is not of size nrows");
+
+  if (d_weights) {
+    RAFT_EXPECTS(d_weights.value().is_exhaustive(), "Weights is not contiguous");
+    RAFT_EXPECTS(d_weights.value().extent(0) == d_A.extent(1), "Weights is not of size nrows");
+
+    reduce_rows_by_key(d_A.data_handle(),
+                       d_A.extent(0),
+                       d_keys.data_handle(),
+                       d_weights.value().data_handle(),
+                       d_keys_char.data_handle(),
+                       d_A.extent(1),
+                       d_A.extent(0),
+                       nkeys,
+                       d_sums.data_handle(),
+                       handle.get_stream());
+  } else {
+    reduce_rows_by_key(d_A.data_handle(),
+                       d_A.extent(0),
+                       d_keys.data_handle(),
+                       d_keys_char.data_handle(),
+                       d_A.extent(1),
+                       d_A.extent(0),
+                       nkeys,
+                       d_sums.data_handle(),
+                       handle.get_stream());
+  }
+}
+
+/** @} */  // end of group reduce_rows_by_key
 
 };  // end namespace linalg
 };  // end namespace raft

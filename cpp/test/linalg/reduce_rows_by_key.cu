@@ -126,21 +126,19 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
                          nkeys,
                          out_ref.data(),
                          stream);
+    auto input_view =
+      raft::make_device_matrix_view(in.data(), params.cols, static_cast<uint32_t>(params.nobs));
+    auto output_view = raft::make_device_matrix_view(in.data(), params.cols, params.nkeys);
+    auto keys_view = raft::make_device_vector_view(keys.data(), static_cast<uint32_t>(params.nobs));
+    auto scratch_buf_view =
+      raft::make_device_vector_view(scratch_buf.data(), static_cast<uint32_t>(params.nobs));
+    std::optional<const raft::device_vector_view<T>> weights_view;
     if (params.weighted) {
-      reduce_rows_by_key(in.data(),
-                         cols,
-                         keys.data(),
-                         params.weighted ? weight.data() : nullptr,
-                         scratch_buf.data(),
-                         nobs,
-                         cols,
-                         nkeys,
-                         out.data(),
-                         stream);
-    } else {
-      reduce_rows_by_key(
-        in.data(), cols, keys.data(), scratch_buf.data(), nobs, cols, nkeys, out.data(), stream);
+      weights_view.emplace(weight.data(), static_cast<uint32_t>(params.nobs));
     }
+
+    reduce_rows_by_key(
+      handle, input_view, keys_view, weights_view, scratch_buf_view, params.nkeys, output_view);
     handle.sync_stream(stream);
   }
 

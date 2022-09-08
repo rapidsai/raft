@@ -41,13 +41,14 @@ namespace linalg {
 
 template <typename InType,
           typename MapOp,
-          int TPB = 256,
+          typename IdxType = std::uint32_t,
+          int TPB          = 256,
           typename... Args,
           typename OutType = InType>
 void mapThenSumReduce(
-  OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
+  OutType* out, IdxType len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
 {
-  detail::mapThenReduceImpl<InType, OutType, MapOp, detail::sum_tag, TPB, Args...>(
+  detail::mapThenReduceImpl<InType, OutType, IdxType, MapOp, detail::sum_tag, TPB, Args...>(
     out, len, (OutType)0, map, detail::sum_tag(), stream, in, args...);
 }
 
@@ -72,6 +73,7 @@ void mapThenSumReduce(
 template <typename InType,
           typename MapOp,
           typename ReduceLambda,
+          typename IdxType = std::uint32_t,
           int TPB          = 256,
           typename OutType = InType,
           typename... Args>
@@ -84,7 +86,7 @@ void mapThenReduce(OutType* out,
                    const InType* in,
                    Args... args)
 {
-  detail::mapThenReduceImpl<InType, OutType, MapOp, ReduceLambda, TPB, Args...>(
+  detail::mapThenReduceImpl<InType, OutType, IdxType, MapOp, ReduceLambda, TPB, Args...>(
     out, len, neutral, map, op, stream, in, args...);
 }
 
@@ -95,47 +97,50 @@ void mapThenReduce(OutType* out,
 
 /**
  * @brief CUDA version of map and then generic reduction operation
- * @tparam Type data-type upon which the math operation will be performed
+ * @tparam InElementType the data-type of the input
+ * @tparam OutElementType the data-type of the output
  * @tparam MapOp the device-lambda performing the actual map operation
  * @tparam ReduceLambda the device-lambda performing the actual reduction
+ * @tparam IndexType the index type
  * @tparam TPB threads-per-block in the final kernel launched
  * @tparam Args additional parameters
- * @param out the output reduced value (assumed to be a device pointer)
- * @param len number of elements in the input array
+ * @param handle raft::handle_t
+ * @param out the output reduced value assumed to be a raft::device_scalar_view
  * @param neutral The neutral element of the reduction operation. For example:
  *    0 for sum, 1 for multiply, +Inf for Min, -Inf for Max
  * @param map the device-lambda
  * @param op the reduction device lambda
- * @param stream cuda-stream where to launch this kernel
- * @param in the input array
+ * @param in the input of type raft::device_vector_view
  * @param args additional input arrays
  */
-template <typename InType,
+template <typename InElementType,
           typename MapOp,
           typename ReduceLambda,
-          int TPB          = 256,
-          typename OutType = InType,
-          typename... Args,
-          typename = enable_if_device_mdspan<InType, OutType>>
+          typename IndexType      = std::uint32_t,
+          typename OutElementType = InElementType,
+          int TPB                 = 256,
+          typename... Args>
 void map_reduce(const raft::handle_t& handle,
-                OutType out,
-                typename OutType::element_type neutral,
+                raft::device_scalar_view<OutElementType> out,
+                OutElementType neutral,
                 MapOp map,
                 ReduceLambda op,
-                const InType in,
+                const raft::device_vector_view<InElementType, IndexType> in,
                 Args... args)
 {
-  using in_element_t  = typename InType::element_type;
-  using out_element_t = typename OutType::element_type;
+  RAFT_EXPECTS(out.is_exhaustive(), "Output is not exhaustive");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input is not exhaustive");
+  RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Input and Output");
 
-  mapThenReduce<in_element_t, MapOp, ReduceLambda, TPB, out_element_t, Args...>(out.data_handle(),
-                                                                                out.size(),
-                                                                                neutral,
-                                                                                map,
-                                                                                op,
-                                                                                handle.get_stream(),
-                                                                                in.data_handle(),
-                                                                                args...);
+  mapThenReduce<InElementType, MapOp, ReduceLambda, IndexType, TPB, OutElementType, Args...>(
+    out.data_handle(),
+    in.extent(0),
+    neutral,
+    map,
+    op,
+    handle.get_stream(),
+    in.data_handle(),
+    args...);
 }
 
 /** @} */  // end of map_reduce

@@ -18,7 +18,10 @@
 
 #pragma once
 
+#include "apply.hpp"
 #include "detail/norm.cuh"
+
+#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace linalg {
@@ -86,6 +89,61 @@ void colNorm(Type* dots,
              Lambda fin_op = raft::Nop<Type, IdxType>())
 {
   detail::colNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
+}
+
+/**
+ * @brief Compute norm of the input matrix and perform fin_op
+ * @tparam InElementType Input data type
+ * @tparam LayoutPolicy the layout of input (raft::row_major or raft::col_major)
+ * @tparam OutElementType Output data type
+ * @tparam IdxType Integer type used to for addressing
+ * @tparam Lambda device final lambda
+ * @param handle raft::handle_t
+ * @param out the output raft::device_vector_view
+ * @param in the input raft::device_matrix_view
+ * @param type the type of norm to be applied
+ * @param fin_op the final lambda op
+ */
+template <typename ElementType,
+          typename LayoutPolicy,
+          typename IndexType = std::uint32_t,
+          typename Lambda    = raft::Nop<ElementType, IndexType>>
+void norm(const raft::handle_t& handle,
+          raft::device_vector_view<ElementType, IndexType> out,
+          const raft::device_matrix_view<ElementType, IndexType, LayoutPolicy> in,
+          NormType type,
+          Apply apply,
+          Lambda fin_op = raft::Nop<ElementType, IndexType>())
+{
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+
+  auto constexpr row_major = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
+  auto along_rows          = apply == Apply::ALONG_ROWS;
+
+  if (along_rows) {
+    RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(0),
+                 "Size mismatch between Output and Input");
+    rowNorm(out.data_handle(),
+            in.data_handle(),
+            in.extent(1),
+            in.extent(0),
+            type,
+            row_major,
+            handle.get_stream(),
+            fin_op);
+  } else {
+    RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(1),
+                 "Size mismatch between Output and Input");
+    colNorm(out.data_handle(),
+            in.data_handle(),
+            in.extent(1),
+            in.extent(0),
+            type,
+            row_major,
+            handle.get_stream(),
+            fin_op);
+  }
 }
 
 };  // end namespace linalg

@@ -75,7 +75,7 @@ void coalescedReduction(OutType* dots,
 
 /**
  * @defgroup coalesced_reduction Coalesced Memory Access Reductions
- * For reducing along rows for row-major and along columns for column-major
+ * For reducing along rows for col-major and along columns for row-major
  * @{
  */
 
