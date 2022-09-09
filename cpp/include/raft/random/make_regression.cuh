@@ -133,19 +133,18 @@ void make_regression(const raft::handle_t& handle,
  * @param[in]   type            Random generator type
  */
 template <typename DataT, typename IdxT>
-void make_regression(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<DataT, IdxT, raft::row_major> out,
-  raft::device_matrix_view<DataT, IdxT, raft::row_major> values,
-  IdxT n_informative,
-  std::optional<raft::device_matrix_view<DataT, IdxT, raft::row_major>> coef,
-  DataT bias          = DataT{},
-  IdxT effective_rank = static_cast<IdxT>(-1),
-  DataT tail_strength = DataT{0.5},
-  DataT noise         = DataT{},
-  bool shuffle        = true,
-  uint64_t seed       = 0ULL,
-  GeneratorType type  = GenPhilox)
+void make_regression(const raft::handle_t& handle,
+                     raft::device_matrix_view<DataT, IdxT, raft::row_major> out,
+                     raft::device_matrix_view<DataT, IdxT, raft::row_major> values,
+                     IdxT n_informative,
+                     std::optional<raft::device_matrix_view<DataT, IdxT, raft::row_major>> coef,
+                     DataT bias          = DataT{},
+                     IdxT effective_rank = static_cast<IdxT>(-1),
+                     DataT tail_strength = DataT{0.5},
+                     DataT noise         = DataT{},
+                     bool shuffle        = true,
+                     uint64_t seed       = 0ULL,
+                     GeneratorType type  = GenPhilox)
 {
   const auto n_samples = out.extent(0);
   assert(values.extent(0) == n_samples);
