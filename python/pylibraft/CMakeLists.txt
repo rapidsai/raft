@@ -68,5 +68,6 @@ endif()
 include(rapids-cython)
 rapids_cython_init()
 
+add_subdirectory(pylibraft/common)
 add_subdirectory(pylibraft/distance)
 add_subdirectory(pylibraft/random)

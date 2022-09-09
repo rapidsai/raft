@@ -20,8 +20,8 @@ from skbuild import setup
 import versioneer
 
 
-setup(name='raft',
-      description="RAPIDS Analytics Frameworks Toolset",
+setup(name='raft-dask',
+      description="Reusable Accelerated Functions & Tools Dask Infrastructure",
       version=versioneer.get_version(),
       classifiers=[
         "Intended Audience :: Developers",
@@ -38,14 +38,12 @@ setup(name='raft',
           key: ["*.hpp", "*.pxd"]
           for key in find_packages(
               include=[
-                  "raft.dask.common",
-                  "raft.dask.common.includes",
-                  "raft.common",
-                  "raft.common.includes"
+                  "raft_dask.common",
+                  "raft_dask.common.includes",
               ]
           )
       },
-      packages=find_packages(include=['raft', 'raft.*']),
+      packages=find_packages(include=['raft_dask', 'raft_dask.*']),
       license="Apache",
       cmdclass=versioneer.get_cmdclass(),
       zip_safe=False

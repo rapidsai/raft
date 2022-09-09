@@ -12,7 +12,7 @@
 # the License.
 # =============================================================================
 
-include(${raft-python_SOURCE_DIR}/cmake/thirdparty/get_nccl.cmake)
+include(${raft-dask-python_SOURCE_DIR}/cmake/thirdparty/get_nccl.cmake)
 find_package(ucx REQUIRED)
 
 set(cython_sources comms_utils.pyx nccl.pyx)
