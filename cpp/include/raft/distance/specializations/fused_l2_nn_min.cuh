@@ -33,8 +33,7 @@ extern template void fusedL2NNMinReduce<float, cub::KeyValuePair<int, float>, in
   void* workspace,
   bool sqrt,
   bool initOutBuffer,
-  cudaStream_t stream,
-  int batch_offset);
+  cudaStream_t stream);
 extern template void fusedL2NNMinReduce<float, cub::KeyValuePair<int64_t, float>, int64_t>(
   cub::KeyValuePair<int64_t, float>* min,
   const float* x,
@@ -47,8 +46,7 @@ extern template void fusedL2NNMinReduce<float, cub::KeyValuePair<int64_t, float>
   void* workspace,
   bool sqrt,
   bool initOutBuffer,
-  cudaStream_t stream,
-  int64_t batch_offset);
+  cudaStream_t stream);
 extern template void fusedL2NNMinReduce<double, cub::KeyValuePair<int, double>, int>(
   cub::KeyValuePair<int, double>* min,
   const double* x,
@@ -61,8 +59,7 @@ extern template void fusedL2NNMinReduce<double, cub::KeyValuePair<int, double>, 
   void* workspace,
   bool sqrt,
   bool initOutBuffer,
-  cudaStream_t stream,
-  int batch_offset);
+  cudaStream_t stream);
 extern template void fusedL2NNMinReduce<double, cub::KeyValuePair<int64_t, double>, int64_t>(
   cub::KeyValuePair<int64_t, double>* min,
   const double* x,
@@ -75,8 +72,7 @@ extern template void fusedL2NNMinReduce<double, cub::KeyValuePair<int64_t, doubl
   void* workspace,
   bool sqrt,
   bool initOutBuffer,
-  cudaStream_t stream,
-  int64_t batch_offset);
+  cudaStream_t stream);
 extern template void fusedL2NNMinReduce<float, float, int>(float* min,
                                                            const float* x,
                                                            const float* y,
@@ -88,8 +84,7 @@ extern template void fusedL2NNMinReduce<float, float, int>(float* min,
                                                            void* workspace,
                                                            bool sqrt,
                                                            bool initOutBuffer,
-                                                           cudaStream_t stream,
-                                                           int batch_offset);
+                                                           cudaStream_t stream);
 extern template void fusedL2NNMinReduce<float, float, int64_t>(float* min,
                                                                const float* x,
                                                                const float* y,
@@ -101,8 +96,7 @@ extern template void fusedL2NNMinReduce<float, float, int64_t>(float* min,
                                                                void* workspace,
                                                                bool sqrt,
                                                                bool initOutBuffer,
-                                                               cudaStream_t stream,
-                                                               int64_t batch_offset);
+                                                               cudaStream_t stream);
 extern template void fusedL2NNMinReduce<double, double, int>(double* min,
                                                              const double* x,
                                                              const double* y,
@@ -114,8 +108,7 @@ extern template void fusedL2NNMinReduce<double, double, int>(double* min,
                                                              void* workspace,
                                                              bool sqrt,
                                                              bool initOutBuffer,
-                                                             cudaStream_t stream,
-                                                             int batch_offset);
+                                                             cudaStream_t stream);
 extern template void fusedL2NNMinReduce<double, double, int64_t>(double* min,
                                                                  const double* x,
                                                                  const double* y,
@@ -127,8 +120,7 @@ extern template void fusedL2NNMinReduce<double, double, int64_t>(double* min,
                                                                  void* workspace,
                                                                  bool sqrt,
                                                                  bool initOutBuffer,
-                                                                 cudaStream_t stream,
-                                                                 int64_t batch_offset);
+                                                                 cudaStream_t stream);
 
 }  // namespace distance
 }  // namespace raft

@@ -31,8 +31,7 @@ template void fusedL2NNMinReduce<double, cub::KeyValuePair<int64_t, double>, int
   void* workspace,
   bool sqrt,
   bool initOutBuffer,
-  cudaStream_t stream,
-  int64_t batch_offset);
+  cudaStream_t stream);
 template void fusedL2NNMinReduce<double, double, int64_t>(double* min,
                                                           const double* x,
                                                           const double* y,
@@ -44,8 +43,7 @@ template void fusedL2NNMinReduce<double, double, int64_t>(double* min,
                                                           void* workspace,
                                                           bool sqrt,
                                                           bool initOutBuffer,
-                                                          cudaStream_t stream,
-                                                          int64_t batch_offset);
+                                                          cudaStream_t stream);
 
 }  // namespace distance
 }  // namespace raft

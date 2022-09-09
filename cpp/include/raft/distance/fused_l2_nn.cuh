@@ -38,9 +38,6 @@ template <typename LabelT, typename DataT>
 using MinAndDistanceReduceOp = detail::MinAndDistanceReduceOpImpl<LabelT, DataT>;
 
 template <typename LabelT, typename DataT>
-using MinAndDistanceOffsetReduceOp = detail::MinAndDistanceOffsetReduceOpImpl<LabelT, DataT>;
-
-template <typename LabelT, typename DataT>
 using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
 
 /**
@@ -194,8 +191,6 @@ void fusedL2NN(OutT* min,
  * @param[in]  initOutBuffer whether to initialize the output buffer before the
  *                           main kernel launch
  * @param[in]  stream        cuda stream
- * @param[in]  batch_offset  if the centroids are batched, index of the first centroid in the
- *                           current batch. This is added to keys if the output is a pair
  */
 template <typename DataT, typename OutT, typename IdxT>
 void fusedL2NNMinReduce(OutT* min,
@@ -209,10 +204,9 @@ void fusedL2NNMinReduce(OutT* min,
                         void* workspace,
                         bool sqrt,
                         bool initOutBuffer,
-                        cudaStream_t stream,
-                        IdxT batch_offset = 0)
+                        cudaStream_t stream)
 {
-  MinAndDistanceOffsetReduceOp<IdxT, DataT> redOp(batch_offset);
+  MinAndDistanceReduceOp<IdxT, DataT> redOp;
   KVPMinReduce<IdxT, DataT> pairRedOp;
 
   fusedL2NN<DataT, OutT, IdxT>(

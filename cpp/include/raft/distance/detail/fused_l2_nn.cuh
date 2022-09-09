@@ -51,29 +51,7 @@ struct MinAndDistanceReduceOpImpl {
     }
   }
 
-  DI void init(KVP* out, DataT maxVal)
-  {
-    out->key   = -1;
-    out->value = maxVal;
-  }
-};
-
-template <typename LabelT, typename DataT>
-struct MinAndDistanceOffsetReduceOpImpl {
-  LabelT offset;
-
-  MinAndDistanceOffsetReduceOpImpl(LabelT _offset) : offset(_offset){};
-
-  typedef typename cub::KeyValuePair<LabelT, DataT> KVP;
-  DI void operator()(LabelT rit, KVP* out, const KVP& other)
-  {
-    if (other.value < out->value) {
-      out->key   = offset + other.key;
-      out->value = other.value;
-    }
-  }
-
-  DI void operator()(LabelT rit, DataT* out, const KVP& other)
+  DI void operator()(LabelT rid, DataT* out, const KVP& other)
   {
     if (other.value < *out) { *out = other.value; }
   }

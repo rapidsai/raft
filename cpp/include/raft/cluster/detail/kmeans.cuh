@@ -798,6 +798,17 @@ void kmeans_fit(handle_t const& handle,
   RAFT_EXPECTS(centroids.extent(1) == n_features,
                "invalid parameter (centroids.extent(1) != n_features)");
 
+  // Display a warning if batch_centroids is set and a fusedL2NN-compatible metric is used
+  if (params.batch_centroids != 0 && params.batch_centroids != params.n_clusters &&
+      (params.metric == raft::distance::DistanceType::L2Expanded ||
+       params.metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+    RAFT_LOG_WARN(
+      "batch_centroids=%d was passed, but batch_centroids=%d will be used (reason: "
+      "batch_centroids has no impact on the memory footprint when FusedL2NN can be used)",
+      params.batch_centroids,
+      params.n_clusters);
+  }
+
   logger::get(RAFT_NAME).set_level(params.verbosity);
 
   // Allocate memory
