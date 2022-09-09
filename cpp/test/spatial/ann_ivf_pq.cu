@@ -114,87 +114,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   }
 
  protected:
-  void run()
-  {
-    size_t queries_size = ps.num_queries * ps.k;
-    std::vector<IdxT> indices_ivf_pq(queries_size);
-    std::vector<IdxT> indices_naive(queries_size);
-    std::vector<EvalT> distances_ivf_pq(queries_size);
-    std::vector<EvalT> distances_naive(queries_size);
-
-    {
-      rmm::device_uvector<EvalT> distances_naive_dev(queries_size, stream_);
-      rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      naiveBfKnn<EvalT, DataT, IdxT>(distances_naive_dev.data(),
-                                     indices_naive_dev.data(),
-                                     search_queries.data(),
-                                     database.data(),
-                                     ps.num_queries,
-                                     ps.num_db_vecs,
-                                     ps.dim,
-                                     ps.k,
-                                     ps.index_params.metric,
-                                     stream_);
-      update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
-      update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
-      handle_.sync_stream(stream_);
-    }
-
-    {
-      // unless something is really wrong with clustering, this could serve as a lower bound on
-      // recall
-      double min_recall = static_cast<double>(ps.search_params.n_probes) /
-                          static_cast<double>(ps.index_params.n_lists);
-
-      rmm::device_uvector<EvalT> distances_ivf_pq_dev(queries_size, stream_);
-      rmm::device_uvector<IdxT> indices_ivf_pq_dev(queries_size, stream_);
-
-      {
-        auto size_1 = IdxT(ps.num_db_vecs) / 2;
-        auto size_2 = IdxT(ps.num_db_vecs) - size_1;
-        auto vecs_1 = database.data();
-        auto vecs_2 = database.data() + size_t(size_1) * size_t(ps.dim);
-        rmm::device_uvector<IdxT> db_indices(ps.num_db_vecs, stream_);
-        thrust::sequence(handle_.get_thrust_policy(),
-                         thrust::device_pointer_cast(db_indices.data()),
-                         thrust::device_pointer_cast(db_indices.data() + ps.num_db_vecs));
-        handle_.sync_stream(stream_);
-
-        auto index = ivf_pq::build<DataT, IdxT>(handle_, ps.index_params, vecs_1, size_1, ps.dim);
-        handle_.sync_stream(stream_);
-
-        auto index_2 =
-          ivf_pq::extend<DataT, IdxT>(handle_, index, vecs_2, db_indices.data() + size_1, size_2);
-        handle_.sync_stream(stream_);
-
-        // finally, search!
-        ivf_pq::search<DataT, IdxT>(handle_,
-                                    ps.search_params,
-                                    index_2,
-                                    search_queries.data(),
-                                    ps.num_queries,
-                                    ps.k,
-                                    indices_ivf_pq_dev.data(),
-                                    distances_ivf_pq_dev.data());
-        handle_.sync_stream(stream_);
-
-        update_host(distances_ivf_pq.data(), distances_ivf_pq_dev.data(), queries_size, stream_);
-        update_host(indices_ivf_pq.data(), indices_ivf_pq_dev.data(), queries_size, stream_);
-        handle_.sync_stream(stream_);
-      }
-      handle_.sync_stream(stream_);
-      ASSERT_TRUE(eval_neighbours(indices_naive,
-                                  indices_ivf_pq,
-                                  distances_naive,
-                                  distances_ivf_pq,
-                                  ps.num_queries,
-                                  ps.k,
-                                  0.001,
-                                  min_recall));
-    }
-  }
-
-  void SetUp() override  // NOLINT
+  void gen_data()
   {
     database.resize(ps.num_db_vecs * ps.dim, stream_);
     search_queries.resize(ps.num_queries * ps.dim, stream_);
@@ -208,6 +128,106 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       r.uniformInt(search_queries.data(), ps.num_queries * ps.dim, DataT(1), DataT(20), stream_);
     }
     handle_.sync_stream(stream_);
+  }
+
+  void calc_ref()
+  {
+    size_t queries_size = ps.num_queries * ps.k;
+    rmm::device_uvector<EvalT> distances_naive_dev(queries_size, stream_);
+    rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
+    naiveBfKnn<EvalT, DataT, IdxT>(distances_naive_dev.data(),
+                                   indices_naive_dev.data(),
+                                   search_queries.data(),
+                                   database.data(),
+                                   ps.num_queries,
+                                   ps.num_db_vecs,
+                                   ps.dim,
+                                   ps.k,
+                                   ps.index_params.metric,
+                                   stream_);
+    distances_ref.resize(queries_size);
+    update_host(distances_ref.data(), distances_naive_dev.data(), queries_size, stream_);
+    indices_ref.resize(queries_size);
+    update_host(indices_ref.data(), indices_naive_dev.data(), queries_size, stream_);
+    handle_.sync_stream(stream_);
+  }
+
+  auto build_only()
+  {
+    auto ipams              = ps.index_params;
+    ipams.add_data_on_build = true;
+
+    return ivf_pq::build<DataT, IdxT>(handle_, ipams, database.data(), ps.num_db_vecs, ps.dim);
+  }
+
+  auto build_2_extends()
+  {
+    rmm::device_uvector<IdxT> db_indices(ps.num_db_vecs, stream_);
+    thrust::sequence(handle_.get_thrust_policy(),
+                     thrust::device_pointer_cast(db_indices.data()),
+                     thrust::device_pointer_cast(db_indices.data() + ps.num_db_vecs));
+    handle_.sync_stream(stream_);
+    auto size_1 = IdxT(ps.num_db_vecs) / 2;
+    auto size_2 = IdxT(ps.num_db_vecs) - size_1;
+    auto vecs_1 = database.data();
+    auto vecs_2 = database.data() + size_t(size_1) * size_t(ps.dim);
+    auto inds_1 = db_indices.data();
+    auto inds_2 = db_indices.data() + size_t(size_1);
+
+    auto ipams              = ps.index_params;
+    ipams.add_data_on_build = false;
+
+    auto index =
+      ivf_pq::build<DataT, IdxT>(handle_, ipams, database.data(), ps.num_db_vecs, ps.dim);
+
+    ivf_pq::extend<DataT, IdxT>(handle_, &index, vecs_2, inds_2, size_2);
+    return ivf_pq::extend<DataT, IdxT>(handle_, index, vecs_1, inds_1, size_1);
+  }
+
+  template <typename BuildIndex>
+  auto run(BuildIndex build_index)
+  {
+    auto index = build_index();
+
+    size_t queries_size = ps.num_queries * ps.k;
+    std::vector<IdxT> indices_ivf_pq(queries_size);
+    std::vector<EvalT> distances_ivf_pq(queries_size);
+
+    rmm::device_uvector<EvalT> distances_ivf_pq_dev(queries_size, stream_);
+    rmm::device_uvector<IdxT> indices_ivf_pq_dev(queries_size, stream_);
+
+    ivf_pq::search<DataT, IdxT>(handle_,
+                                ps.search_params,
+                                index,
+                                search_queries.data(),
+                                ps.num_queries,
+                                ps.k,
+                                indices_ivf_pq_dev.data(),
+                                distances_ivf_pq_dev.data());
+
+    update_host(distances_ivf_pq.data(), distances_ivf_pq_dev.data(), queries_size, stream_);
+    update_host(indices_ivf_pq.data(), indices_ivf_pq_dev.data(), queries_size, stream_);
+    handle_.sync_stream(stream_);
+
+    // unless something is really wrong with clustering, this could serve as a lower bound on
+    // recall
+    double min_recall =
+      static_cast<double>(ps.search_params.n_probes) / static_cast<double>(ps.index_params.n_lists);
+
+    ASSERT_TRUE(eval_neighbours(indices_ref,
+                                indices_ivf_pq,
+                                distances_ref,
+                                distances_ivf_pq,
+                                ps.num_queries,
+                                ps.k,
+                                0.001,
+                                min_recall));
+  }
+
+  void SetUp() override  // NOLINT
+  {
+    gen_data();
+    calc_ref();
   }
 
   void TearDown() override  // NOLINT
@@ -224,14 +244,9 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   ivf_pq_inputs ps;                           // NOLINT
   rmm::device_uvector<DataT> database;        // NOLINT
   rmm::device_uvector<DataT> search_queries;  // NOLINT
+  std::vector<IdxT> indices_ref;              // NOLINT
+  std::vector<EvalT> distances_ref;           // NOLINT
 };
-
-/* Type instantiations to test */
-using f32_f32_u64 = ivf_pq_test<float, float, uint64_t>;
-using f32_f32_i64 = ivf_pq_test<float, float, int64_t>;
-using f32_f32_u32 = ivf_pq_test<float, float, uint32_t>;
-using f32_u08_u64 = ivf_pq_test<float, uint8_t, uint64_t>;
-using f32_i08_u64 = ivf_pq_test<float, int8_t, uint64_t>;
 
 /* Test cases */
 using test_cases_t = std::vector<ivf_pq_inputs>;
@@ -265,6 +280,15 @@ auto with_dims(const std::vector<uint32_t>& dims) -> test_cases_t
 }
 
 auto small_dims() -> test_cases_t { return with_dims({1, 2, 3, 4, 5, 8, 15, 16, 17}); }
+
+auto small_dims_per_cluster() -> test_cases_t
+{
+  return map<ivf_pq_inputs>(small_dims(), [](const ivf_pq_inputs& x) {
+    ivf_pq_inputs y(x);
+    y.index_params.codebook_kind = ivf_pq::codebook_gen::PER_CLUSTER;
+    return y;
+  });
+}
 
 auto big_dims() -> test_cases_t
 {
@@ -363,14 +387,43 @@ auto var_k() -> test_cases_t
 }
 
 /* Test instantiations */
-#define INSTANTIATE_IVF_PQ(type, vals)                                           \
-  TEST_P(type, run) { this->run(); }                                /* NOLINT */ \
+
+#define TEST_BUILD_SEARCH(type)                         \
+  TEST_P(type, build_search) /* NOLINT */               \
+  {                                                     \
+    this->run([this]() { return this->build_only(); }); \
+  }
+
+#define TEST_BUILD_EXTEND_SEARCH(type)                       \
+  TEST_P(type, build_extend_search) /* NOLINT */             \
+  {                                                          \
+    this->run([this]() { return this->build_2_extends(); }); \
+  }
+
+#define INSTANTIATE(type, vals) \
   INSTANTIATE_TEST_SUITE_P(IvfPq, type, ::testing::ValuesIn(vals)); /* NOLINT */
 
-INSTANTIATE_IVF_PQ(f32_f32_u64, defaults() + small_dims() + big_dims());
-INSTANTIATE_IVF_PQ(f32_f32_i64, enum_variety_l2() + enum_variety_ip());
-INSTANTIATE_IVF_PQ(f32_f32_u32, defaults() + var_n_probes() + var_k());
-INSTANTIATE_IVF_PQ(f32_u08_u64, small_dims() + enum_variety());
-INSTANTIATE_IVF_PQ(f32_i08_u64, defaults() + big_dims() + var_k());
+using f32_f32_u64 = ivf_pq_test<float, float, uint64_t>;
+using f32_f32_i64 = ivf_pq_test<float, float, int64_t>;
+using f32_f32_u32 = ivf_pq_test<float, float, uint32_t>;
+using f32_u08_u64 = ivf_pq_test<float, uint8_t, uint64_t>;
+using f32_i08_u64 = ivf_pq_test<float, int8_t, uint64_t>;
+
+TEST_BUILD_EXTEND_SEARCH(f32_f32_u64)
+INSTANTIATE(f32_f32_u64, defaults() + small_dims() + big_dims());
+
+TEST_BUILD_SEARCH(f32_f32_i64)
+TEST_BUILD_EXTEND_SEARCH(f32_f32_i64)
+INSTANTIATE(f32_f32_i64, enum_variety_l2() + enum_variety_ip());
+
+TEST_BUILD_SEARCH(f32_f32_u32)
+INSTANTIATE(f32_f32_u32, defaults() + var_n_probes() + var_k());
+
+TEST_BUILD_SEARCH(f32_u08_u64)
+TEST_BUILD_EXTEND_SEARCH(f32_u08_u64)
+INSTANTIATE(f32_u08_u64, small_dims_per_cluster() + enum_variety());
+
+TEST_BUILD_SEARCH(f32_i08_u64)
+INSTANTIATE(f32_i08_u64, defaults() + big_dims() + var_k());
 
 }  // namespace raft::spatial::knn
