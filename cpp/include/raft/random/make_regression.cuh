@@ -135,10 +135,10 @@ void make_regression(const raft::handle_t& handle,
 template <typename DataT, typename IdxT>
 void make_regression(
   const raft::handle_t& handle,
-  raft::device_matrix_view<DataT, raft::matrix_extent<IdxT>, raft::row_major> out,
-  raft::device_matrix_view<DataT, raft::matrix_extent<IdxT>, raft::row_major> values,
+  raft::device_matrix_view<DataT, IdxT, raft::row_major> out,
+  raft::device_matrix_view<DataT, IdxT, raft::row_major> values,
   IdxT n_informative,
-  std::optional<raft::device_matrix_view<DataT, raft::matrix_extent<IdxT>, raft::row_major>> coef,
+  std::optional<raft::device_matrix_view<DataT, IdxT, raft::row_major>> coef,
   DataT bias          = DataT{},
   IdxT effective_rank = static_cast<IdxT>(-1),
   DataT tail_strength = DataT{0.5},
