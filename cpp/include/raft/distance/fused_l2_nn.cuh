@@ -62,8 +62,8 @@ void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal, R
  *
  * @tparam DataT     data type
  * @tparam OutT      output type to either store 1-NN indices and their minimum
- *                   distances or store only the min distances. Accordingly, one
- *                   has to pass an appropriate `ReduceOpT`
+ *                   distances (e.g. cub::KeyValuePair<int, float>) or store
+ *                   only the min distances.
  * @tparam IdxT      indexing arithmetic type
  * @tparam ReduceOpT A struct to perform the final needed reduction operation
  *                   and also to initialize the output array elements with the
