@@ -263,7 +263,7 @@ if(BUILD_TESTS)
             test/sparse/symmetrize.cu
     )
 
-    ConfigureDistanceTest(SPARSE_DIST_TEST
+    ConfigureNearestNeighborsTest(SPARSE_DIST_TEST
             test/sparse/dist_coo_spmv.cu
             test/sparse/distance.cu
     )
@@ -286,7 +286,7 @@ if(BUILD_TESTS)
             test/spatial/selection.cu
     )
 
-    ConfigureTest(STATS_TEST
+    ConfigureNearestNeighborsTest(STATS_TEST
             test/stats/adjusted_rand_index.cu
             test/stats/completeness_score.cu
             test/stats/contingencyMatrix.cu

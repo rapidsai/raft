@@ -17,7 +17,6 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <optional>
-#include <test_utils.h>
 #include <vector>
 
 #include <raft/cluster/kmeans.cuh>

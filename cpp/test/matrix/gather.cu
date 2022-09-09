@@ -20,7 +20,7 @@
 #include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
-#include <test_utils.h>
+#include "../test_utils.h"
 
 namespace raft {
 

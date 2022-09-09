@@ -20,6 +20,11 @@
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
+
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
+
 #include <raft/sparse/hierarchy/single_linkage.cuh>
 
 #include <rmm/device_uvector.hpp>
