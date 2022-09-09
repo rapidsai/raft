@@ -19,6 +19,7 @@
 #include <raft/random/rng.cuh>
 
 #include <raft/spatial/knn/ivf_flat.cuh>
+#include <raft/spatial/knn/knn.cuh>
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
 #endif
@@ -145,7 +146,7 @@ struct ivf_flat_knn {
     index.emplace(raft::spatial::knn::ivf_flat::build(
       handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
     index.emplace(raft::spatial::knn::ivf_flat::extend<ValT, IdxT>(
-      handle, index.value(), data, std::nullptr, IdxT(ps.n_samples)));
+      handle, index.value(), data, nullptr, IdxT(ps.n_samples)));
   }
 
   void search(const raft::handle_t& handle,
