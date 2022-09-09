@@ -151,18 +151,16 @@ inline void memzero(T* ptr, size_t n_elems, rmm::cuda_stream_view stream)
   }
 }
 
-__global__ void argmin_along_rows_kernel(uint32_t n_rows,
-                                         uint32_t n_cols,
-                                         const float* a,
-                                         uint32_t* out)
+template <typename IdxT, typename OutT>
+__global__ void argmin_along_rows_kernel(IdxT n_rows, IdxT n_cols, const float* a, OutT* out)
 {
-  __shared__ uint32_t shm_ids[1024];  // NOLINT
-  __shared__ float shm_vals[1024];    // NOLINT
-  uint32_t i = blockIdx.x;
+  __shared__ OutT shm_ids[1024];    // NOLINT
+  __shared__ float shm_vals[1024];  // NOLINT
+  IdxT i = blockIdx.x;
   if (i >= n_rows) return;
-  uint32_t min_idx = n_cols;
-  float min_val    = raft::upper_bound<float>();
-  for (uint32_t j = threadIdx.x; j < n_cols; j += blockDim.x) {
+  OutT min_idx  = n_cols;
+  float min_val = raft::upper_bound<float>();
+  for (OutT j = threadIdx.x; j < n_cols; j += blockDim.x) {
     if (min_val > a[j + n_cols * i]) {
       min_val = a[j + n_cols * i];
       min_idx = j;
@@ -171,7 +169,7 @@ __global__ void argmin_along_rows_kernel(uint32_t n_rows,
   shm_vals[threadIdx.x] = min_val;
   shm_ids[threadIdx.x]  = min_idx;
   __syncthreads();
-  for (uint32_t offset = blockDim.x / 2; offset > 0; offset >>= 1) {
+  for (IdxT offset = blockDim.x / 2; offset > 0; offset >>= 1) {
     if (threadIdx.x < offset) {
       if (shm_vals[threadIdx.x] < shm_vals[threadIdx.x + offset]) {
       } else if (shm_vals[threadIdx.x] > shm_vals[threadIdx.x + offset]) {
@@ -192,30 +190,35 @@ __global__ void argmin_along_rows_kernel(uint32_t n_rows,
  * NB: device-only function
  * TODO: specialize select_k for the case of `k == 1` and use that one instead.
  *
+ * @tparam IdxT index type
+ * @tparam OutT output type
+ *
  * @param n_rows
  * @param n_cols
  * @param[in] a device pointer to the row-major matrix [n_rows, n_cols]
  * @param[out] out device pointer to the vector of selected indices [n_rows]
  * @param stream
  */
+template <typename IdxT, typename OutT>
 inline void argmin_along_rows(
-  uint32_t n_rows, uint32_t n_cols, const float* a, uint32_t* out, rmm::cuda_stream_view stream)
+  IdxT n_rows, IdxT n_cols, const float* a, OutT* out, rmm::cuda_stream_view stream)
 {
-  uint32_t block_dim = 1024;
+  IdxT block_dim = 1024;
   while (block_dim > n_cols) {
     block_dim /= 2;
   }
-  block_dim = max(block_dim, 128);
-  argmin_along_rows_kernel<<<n_rows, block_dim, 0, stream>>>(n_rows, n_cols, a, out);
+  block_dim = max(block_dim, (IdxT)128);
+  argmin_along_rows_kernel<IdxT, OutT><<<n_rows, block_dim, 0, stream>>>(n_rows, n_cols, a, out);
 }
 
-__global__ void dots_along_rows_kernel(uint32_t n_rows, uint32_t n_cols, const float* a, float* out)
+template <typename IdxT>
+__global__ void dots_along_rows_kernel(IdxT n_rows, IdxT n_cols, const float* a, float* out)
 {
-  uint64_t i = threadIdx.y + (blockDim.y * blockIdx.x);
+  IdxT i = threadIdx.y + (blockDim.y * blockIdx.x);
   if (i >= n_rows) return;
 
   float sqsum = 0.0;
-  for (uint64_t j = threadIdx.x; j < n_cols; j += blockDim.x) {
+  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
     float val = a[j + (n_cols * i)];
     sqsum += val * val;
   }
@@ -232,18 +235,21 @@ __global__ void dots_along_rows_kernel(uint32_t n_rows, uint32_t n_cols, const f
  *
  * NB: device-only function
  *
+ * @tparam IdxT index type
+ *
  * @param n_rows
  * @param n_cols
  * @param[in] a device pointer to the row-major matrix [n_rows, n_cols]
  * @param[out] out device pointer to the vector of dot-products [n_rows]
  * @param stream
  */
+template <typename IdxT>
 inline void dots_along_rows(
-  uint32_t n_rows, uint32_t n_cols, const float* a, float* out, rmm::cuda_stream_view stream)
+  IdxT n_rows, IdxT n_cols, const float* a, float* out, rmm::cuda_stream_view stream)
 {
   dim3 threads(32, 4, 1);
-  dim3 blocks(ceildiv(n_rows, threads.y), 1, 1);
-  dots_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, a, out);
+  dim3 blocks(ceildiv<IdxT>(n_rows, threads.y), 1, 1);
+  dots_along_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a, out);
   /**
    * TODO: this can be replaced with the rowNorm helper as shown below.
    * However, the rowNorm helper seems to incur a significant performance penalty
@@ -317,13 +323,14 @@ void accumulate_into_selected(size_t n_rows,
   }
 }
 
-__global__ void normalize_rows_kernel(uint32_t n_rows, uint32_t n_cols, float* a)
+template <typename IdxT>
+__global__ void normalize_rows_kernel(IdxT n_rows, IdxT n_cols, float* a)
 {
   uint64_t i = threadIdx.y + (blockDim.y * blockIdx.x);
   if (i >= n_rows) return;
 
   float sqsum = 0.0;
-  for (uint32_t j = threadIdx.x; j < n_cols; j += blockDim.x) {
+  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
     float val = a[j + (n_cols * i)];
     sqsum += val * val;
   }
@@ -334,7 +341,7 @@ __global__ void normalize_rows_kernel(uint32_t n_rows, uint32_t n_cols, float* a
   sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
   if (sqsum <= 1e-8) return;
   sqsum = rsqrtf(sqsum);  // reciprocal of the square root
-  for (uint32_t j = threadIdx.x; j < n_cols; j += blockDim.x) {
+  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
     a[j + n_cols * i] *= sqsum;
   }
 }
@@ -344,16 +351,19 @@ __global__ void normalize_rows_kernel(uint32_t n_rows, uint32_t n_cols, float* a
  *
  * NB: device-only function
  *
+ * @tparam IdxT index type
+ *
  * @param[in] n_rows
  * @param[in] n_cols
  * @param[inout] a device pointer to a row-major matrix [n_rows, n_cols]
  * @param stream
  */
-inline void normalize_rows(uint32_t n_rows, uint32_t n_cols, float* a, rmm::cuda_stream_view stream)
+template <typename IdxT>
+inline void normalize_rows(IdxT n_rows, IdxT n_cols, float* a, rmm::cuda_stream_view stream)
 {
   dim3 threads(32, 4, 1);  // DO NOT CHANGE
   dim3 blocks(ceildiv(n_rows, threads.y), 1, 1);
-  normalize_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
+  normalize_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
 }
 
 template <typename Lambda>
