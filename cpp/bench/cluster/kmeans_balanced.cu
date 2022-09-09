@@ -27,7 +27,6 @@ namespace raft::bench::cluster {
 struct KMeansBalancedBenchParams {
   DatasetParams data;
   uint32_t max_iter;
-  double trainset_fraction;
   uint32_t n_lists;
   raft::distance::DistanceType metric;
 };
@@ -39,7 +38,7 @@ struct KMeansBalanced : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     this->loop_on_state(state, [this]() {
-      raft::spatial::knn::detail::kmeans::build_optimized_kmeans<T>(
+      raft::spatial::knn::detail::kmeans::build_hierarchical<T>(
         this->handle,
         this->params.max_iter,
         (uint32_t)this->params.data.cols,
@@ -47,7 +46,6 @@ struct KMeansBalanced : public fixture {
         this->params.data.rows,
         this->centroids.data_handle(),
         this->params.n_lists,
-        this->params.trainset_fraction,
         this->params.metric,
         this->handle.get_stream());
     });
@@ -88,7 +86,6 @@ std::vector<KMeansBalancedBenchParams> getKMeansBalancedInputs()
   KMeansBalancedBenchParams p;
   p.data.row_major                          = true;
   p.max_iter                                = 20;
-  p.trainset_fraction                       = 1.0;
   p.metric                                  = raft::distance::DistanceType::L2Expanded;
   std::vector<std::pair<int, int>> row_cols = {
     {100000, 128}, {1000000, 128}, {10000000, 128},
