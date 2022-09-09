@@ -194,7 +194,7 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
-    CMAKE_TARGET="${CMAKE_TARGET};test_raft"
+    CMAKE_TARGET="${CMAKE_TARGET};"
 fi
 
 if hasArg bench || (( ${NUMARGS} == 0 )); then
