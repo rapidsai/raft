@@ -30,4 +30,5 @@
 #include <raft/distance/specializations/detail/l2_sqrt_unexpanded.cuh>
 #include <raft/distance/specializations/detail/l2_unexpanded.cuh>
 #include <raft/distance/specializations/detail/lp_unexpanded.cuh>
+#include <raft/distance/specializations/detail/russel_rao.cuh>
 #include <raft/distance/specializations/fused_l2_nn_min.cuh>
