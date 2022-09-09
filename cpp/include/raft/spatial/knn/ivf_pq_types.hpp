@@ -193,27 +193,20 @@ struct index : knn::index {
       dim_(dim),
       pq_bits_(pq_bits),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
-      managed_memory_upstream_{std::make_unique<rmm::mr::managed_memory_resource>()},
-      managed_memory_{
-        std::make_unique<rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource>>(
-          managed_memory_upstream_.get())},
-      pq_centers_{
-        make_device_mdarray<float>(handle, managed_memory_.get(), make_pq_centers_extents())},
-      pq_dataset_{
-        make_device_mdarray<uint8_t>(handle,
-                                     managed_memory_.get(),
-                                     make_extents<IdxT>(0, this->pq_dim() * this->pq_bits() / 8))},
-      indices_{make_device_mdarray<IdxT>(handle, managed_memory_.get(), make_extents<IdxT>(0))},
+      pq_centers_{make_device_mdarray<float>(handle, managed_memory_, make_pq_centers_extents())},
+      pq_dataset_{make_device_mdarray<uint8_t>(
+        handle, managed_memory_, make_extents<IdxT>(0, this->pq_dim() * this->pq_bits() / 8))},
+      indices_{make_device_mdarray<IdxT>(handle, managed_memory_, make_extents<IdxT>(0))},
       rotation_matrix_{make_device_mdarray<float>(
-        handle, managed_memory_.get(), make_extents<uint32_t>(this->dim(), this->rot_dim()))},
+        handle, managed_memory_, make_extents<uint32_t>(this->dim(), this->rot_dim()))},
       list_offsets_{make_device_mdarray<IdxT>(
-        handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists() + 1))},
+        handle, managed_memory_, make_extents<uint32_t>(this->n_lists() + 1))},
       centers_{make_device_mdarray<float>(
-        handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
+        handle, managed_memory_, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
       centers_rot_{make_device_mdarray<float>(
-        handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists(), this->rot_dim()))},
+        handle, managed_memory_, make_extents<uint32_t>(this->n_lists(), this->rot_dim()))},
       center_norms_{make_device_mdarray<float>(
-        handle, managed_memory_.get(), make_extents<uint32_t>(this->n_lists()))},
+        handle, managed_memory_, make_extents<uint32_t>(this->n_lists()))},
       inclusiveSumSortedClusterSize_{
         make_host_mdarray<IdxT>(make_extents<uint32_t>(this->n_lists()))}
   {
@@ -239,9 +232,8 @@ struct index : knn::index {
   void allocate(const handle_t& handle, IdxT index_size)
   {
     pq_dataset_ = make_device_mdarray<uint8_t>(
-      handle, managed_memory_.get(), make_extents<IdxT>(index_size, pq_dataset_.extent(1)));
-    indices_ =
-      make_device_mdarray<IdxT>(handle, managed_memory_.get(), make_extents<IdxT>(index_size));
+      handle, managed_memory_, make_extents<IdxT>(index_size, pq_dataset_.extent(1)));
+    indices_ = make_device_mdarray<IdxT>(handle, managed_memory_, make_extents<IdxT>(index_size));
     check_consistency();
   }
 
@@ -365,8 +357,40 @@ struct index : knn::index {
   uint32_t pq_bits_;
   uint32_t pq_dim_;
 
-  std::unique_ptr<rmm::mr::managed_memory_resource> managed_memory_upstream_;
-  std::unique_ptr<rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource>> managed_memory_;
+  /**
+   * This structure keeps the managed memory resource and a pool on top of it
+   * and ensures they're never moved
+   *   (because other rmm resources in this class use raw pointers).
+   */
+  struct managed_memory_t {
+    rmm::mr::managed_memory_resource* upstream;
+    rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource>* pool;
+
+    managed_memory_t()  // NOLINT
+      : upstream{new rmm::mr::managed_memory_resource()},
+        pool{new rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource>(upstream)}
+    {
+    }
+    managed_memory_t(managed_memory_t&& other) : pool{other.pool}, upstream{other.upstream}
+    {
+      other.pool     = nullptr;
+      other.upstream = nullptr;
+    }
+    ~managed_memory_t()
+    {
+      if (pool != nullptr) { delete pool; }
+      if (upstream != nullptr) { delete upstream; }
+    }
+    auto operator=(managed_memory_t&& other) -> managed_memory_t&
+    {
+      std::swap(upstream, other.upstream);
+      std::swap(pool, other.pool);
+      return *this;
+    }
+    managed_memory_t(const managed_memory_t&) = delete;
+    auto operator=(const managed_memory_t&) -> index& = delete;
+    operator rmm::mr::device_memory_resource*() const { return pool; }  // NOLINT
+  } managed_memory_;
 
   device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers_;
   device_mdarray<uint8_t, extent_2d<IdxT>, row_major> pq_dataset_;
