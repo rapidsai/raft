@@ -140,10 +140,11 @@ struct ivf_flat_knn {
   {
     index_params.n_lists                  = 4096;
     index_params.metric                   = raft::distance::DistanceType::L2Expanded;
-    index_params.kmeans_trainset_fraction = 0.3 index_params.add_data_on_build =
-      false index.emplace(raft::spatial::knn::ivf_flat::build(
-        handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
-    index.emplace(raft::spatial::knn::ivf_flat::build<ValT, IdxT>(
+    index_params.kmeans_trainset_fraction = 0.3;
+    index_params.add_data_on_build        = false;
+    index.emplace(raft::spatial::knn::ivf_flat::build(
+      handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
+    index.emplace(raft::spatial::knn::ivf_flat::extend<ValT, IdxT>(
       handle, index.value(), data, std::nullptr, IdxT(ps.n_samples)));
   }
 
