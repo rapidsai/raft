@@ -52,68 +52,68 @@ HDI void ivfpq_encode_core(
     } else if (pq_bits == 7) {
       uint8_t* out = output + 7 * (j / 8);
       if (j % 8 == 0) {
-        out[0] |= code;
+        out[0] = code;
       } else if (j % 8 == 1) {
         out[0] |= code << 7;
-        out[1] |= code >> 1;
+        out[1] = code >> 1;
       } else if (j % 8 == 2) {
         out[1] |= code << 6;
-        out[2] |= code >> 2;
+        out[2] = code >> 2;
       } else if (j % 8 == 3) {
         out[2] |= code << 5;
-        out[3] |= code >> 3;
+        out[3] = code >> 3;
       } else if (j % 8 == 4) {
         out[3] |= code << 4;
-        out[4] |= code >> 4;
+        out[4] = code >> 4;
       } else if (j % 8 == 5) {
         out[4] |= code << 3;
-        out[5] |= code >> 5;
+        out[5] = code >> 5;
       } else if (j % 8 == 6) {
         out[5] |= code << 2;
-        out[6] |= code >> 6;
+        out[6] = code >> 6;
       } else if (j % 8 == 7) {
         out[6] |= code << 1;
       }
     } else if (pq_bits == 6) {
       uint8_t* out = output + 3 * (j / 4);
       if (j % 4 == 0) {
-        out[0] |= code;
+        out[0] = code;
       } else if (j % 4 == 1) {
         out[0] |= code << 6;
-        out[1] |= code >> 2;
+        out[1] = code >> 2;
       } else if (j % 4 == 2) {
         out[1] |= code << 4;
-        out[2] |= code >> 4;
+        out[2] = code >> 4;
       } else if (j % 4 == 3) {
         out[2] |= code << 2;
       }
     } else if (pq_bits == 5) {
       uint8_t* out = output + 5 * (j / 8);
       if (j % 8 == 0) {
-        out[0] |= code;
+        out[0] = code;
       } else if (j % 8 == 1) {
         out[0] |= code << 5;
-        out[1] |= code >> 3;
+        out[1] = code >> 3;
       } else if (j % 8 == 2) {
         out[1] |= code << 2;
       } else if (j % 8 == 3) {
         out[1] |= code << 7;
-        out[2] |= code >> 1;
+        out[2] = code >> 1;
       } else if (j % 8 == 4) {
         out[2] |= code << 4;
-        out[3] |= code >> 4;
+        out[3] = code >> 4;
       } else if (j % 8 == 5) {
         out[3] |= code << 1;
       } else if (j % 8 == 6) {
         out[3] |= code << 6;
-        out[4] |= code >> 2;
+        out[4] = code >> 2;
       } else if (j % 8 == 7) {
         out[4] |= code << 3;
       }
     } else if (pq_bits == 4) {
       uint8_t* out = output + (j / 2);
       if (j % 2 == 0) {
-        out[0] |= code;
+        out[0] = code;
       } else {
         out[0] |= code << 4;
       }
