@@ -14,7 +14,7 @@
 
 # Set the list of Cython files to build
 set(cython_sources pairwise_distance.pyx)
-set(linked_libraries raft::raft raft::distance)
+set(linked_libraries raft::distance)
 
 # Build all of the Cython targets
 rapids_cython_create_modules(
@@ -23,6 +23,6 @@ rapids_cython_create_modules(
     LINKED_LIBRARIES "${linked_libraries}"
     MODULE_PREFIX distance_)
 
-foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-    set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
+foreach(cython_module IN LISTS _RAPIDS_CYTHON_CREATED_TARGETS)
+    set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../")
 endforeach()

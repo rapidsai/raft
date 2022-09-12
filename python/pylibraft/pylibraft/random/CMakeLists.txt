@@ -16,7 +16,7 @@
 set(cython_sources rmat_rectangular_generator.pyx)
 # TODO: should finally be replaced with 'compiled' library to be more generic,
 # when that is available
-set(linked_libraries raft::raft raft::distance)
+set(linked_libraries raft::distance)
 
 # Build all of the Cython targets
 rapids_cython_create_modules(
@@ -25,6 +25,6 @@ rapids_cython_create_modules(
     LINKED_LIBRARIES "${linked_libraries}"
     MODULE_PREFIX random_)
 
-foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-    set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
+foreach(cython_module IN LISTS _RAPIDS_CYTHON_CREATED_TARGETS)
+    set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../")
 endforeach()
