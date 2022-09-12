@@ -31,6 +31,8 @@ function(ConfigureTest)
 
     add_executable(${TEST_NAME} ${ConfigureTest_PATH})
 
+    message("TEST PATH: ${ConfigureTest_PATH}")
+
     target_link_libraries(${TEST_NAME}
             PRIVATE
             raft::raft
