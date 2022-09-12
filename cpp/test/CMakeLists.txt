@@ -18,12 +18,24 @@
 ###################################################################################################
 # - compiler function -----------------------------------------------------------------------------
 
-function(ConfigureTest CMAKE_TEST_NAME)
-    add_executable(${CMAKE_TEST_NAME} ${ARGN})
+function(ConfigureTest)
 
-    target_link_libraries(${CMAKE_TEST_NAME}
+    set(options OPTIONAL DIST NN)
+    set(oneValueArgs NAME )
+    set(multiValueArgs PATH TARGETS CONFIGURATIONS)
+
+    cmake_parse_arguments(ConfigureTest "${options}" "${oneValueArgs}"
+            "${multiValueArgs}" ${ARGN} )
+
+    set(TEST_NAME ${ConfigureTest_NAME})
+
+    add_executable(${TEST_NAME} ${ConfigureTest_PATH})
+
+    target_link_libraries(${TEST_NAME}
             PRIVATE
             raft::raft
+            $<$<BOOL:${ConfigureTest_NN}>:raft::nn>
+            $<$<BOOL:${ConfigureTest_DIST}>:raft::distance>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
@@ -31,10 +43,9 @@ function(ConfigureTest CMAKE_TEST_NAME)
             $<TARGET_NAME_IF_EXISTS:conda_env>
             )
 
+    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 
-    add_test(NAME ${CMAKE_TEST_NAME} COMMAND ${CMAKE_TEST_NAME})
-
-    set_target_properties(${CMAKE_TEST_NAME}
+    set_target_properties(${TEST_NAME}
             PROPERTIES BUILD_RPATH                         "\$ORIGIN"
             # set target compile options
             CXX_STANDARD                        17
@@ -46,101 +57,19 @@ function(ConfigureTest CMAKE_TEST_NAME)
             INSTALL_RPATH "\$ORIGIN/../../../lib"
             )
 
-    target_compile_options(${CMAKE_TEST_NAME}
+    target_compile_options(${TEST_NAME}
             PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
             "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
             )
 
     install(
-            TARGETS ${CMAKE_TEST_NAME}
+            TARGETS ${TEST_NAME}
             COMPONENT testing
             DESTINATION bin/gtests/libraft
             EXCLUDE_FROM_ALL)
 endfunction()
 
 
-function(ConfigureDistanceTest CMAKE_TEST_NAME)
-    add_executable(${CMAKE_TEST_NAME} ${ARGN})
-
-    target_link_libraries(${CMAKE_TEST_NAME}
-            PRIVATE
-            raft::raft
-            raft::distance
-            GTest::gtest
-            GTest::gtest_main
-            Threads::Threads
-            $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-            $<TARGET_NAME_IF_EXISTS:conda_env>
-            )
-
-
-    add_test(NAME ${CMAKE_TEST_NAME} COMMAND ${CMAKE_TEST_NAME})
-
-    set_target_properties(${CMAKE_TEST_NAME}
-            PROPERTIES BUILD_RPATH                         "\$ORIGIN"
-            # set target compile options
-            CXX_STANDARD                        17
-            CXX_STANDARD_REQUIRED               ON
-            CUDA_STANDARD                       17
-            CUDA_STANDARD_REQUIRED              ON
-            POSITION_INDEPENDENT_CODE           ON
-            INTERFACE_POSITION_INDEPENDENT_CODE ON
-            INSTALL_RPATH "\$ORIGIN/../../../lib"
-            )
-
-    target_compile_options(${CMAKE_TEST_NAME}
-            PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-            "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-            )
-
-    install(
-            TARGETS ${CMAKE_TEST_NAME}
-            COMPONENT testing
-            DESTINATION bin/gtests/libraft
-            EXCLUDE_FROM_ALL)
-endfunction()
-
-function(ConfigureNearestNeighborsTest CMAKE_TEST_NAME)
-    add_executable(${CMAKE_TEST_NAME} ${ARGN})
-
-    target_link_libraries(${CMAKE_TEST_NAME}
-            PRIVATE
-            raft::raft
-            raft::distance
-            raft::nn
-            GTest::gtest
-            GTest::gtest_main
-            Threads::Threads
-            $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-            $<TARGET_NAME_IF_EXISTS:conda_env>
-            )
-
-
-    add_test(NAME ${CMAKE_TEST_NAME} COMMAND ${CMAKE_TEST_NAME})
-
-    set_target_properties(${CMAKE_TEST_NAME}
-            PROPERTIES BUILD_RPATH                         "\$ORIGIN"
-            # set target compile options
-            CXX_STANDARD                        17
-            CXX_STANDARD_REQUIRED               ON
-            CUDA_STANDARD                       17
-            CUDA_STANDARD_REQUIRED              ON
-            POSITION_INDEPENDENT_CODE           ON
-            INTERFACE_POSITION_INDEPENDENT_CODE ON
-            INSTALL_RPATH "\$ORIGIN/../../../lib"
-            )
-
-    target_compile_options(${CMAKE_TEST_NAME}
-            PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-            "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-            )
-
-    install(
-            TARGETS ${CMAKE_TEST_NAME}
-            COMPONENT testing
-            DESTINATION bin/gtests/libraft
-            EXCLUDE_FROM_ALL)
-endfunction()
 
 
 ###################################################################################################
@@ -151,12 +80,14 @@ endfunction()
 # - distance tests -------------------------------------------------------------------------
 
 if(BUILD_TESTS)
-    ConfigureTest(CLUSTER_TEST
+    ConfigureTest(NAME CLUSTER_TEST
+            PATH
             test/cluster/kmeans.cu
             test/cluster_solvers.cu
     )
 
-    ConfigureTest(CORE_TEST
+    ConfigureTest(NAME CORE_TEST
+            PATH
             test/common/logger.cpp
             test/handle.cpp
             test/interruptible.cu
@@ -168,7 +99,8 @@ if(BUILD_TESTS)
             test/test.cpp
     )
 
-    ConfigureDistanceTest(DISTANCE_TEST
+    ConfigureTest(NAME DISTANCE_TEST
+            PATH
             test/distance/dist_adj.cu
             test/distance/dist_canberra.cu
             test/distance/dist_chebyshev.cu
@@ -184,14 +116,17 @@ if(BUILD_TESTS)
             test/distance/dist_minkowski.cu
             test/distance/dist_russell_rao.cu
             test/distance/fused_l2_nn.cu
+            OPTIONAL DIST
     )
 
-    ConfigureTest(LABEL_TEST
+    ConfigureTest(NAME LABEL_TEST
+            PATH
             test/label/label.cu
             test/label/merge_labels.cu
     )
 
-    ConfigureTest(LINALG_TEST
+    ConfigureTest(NAME LINALG_TEST
+            PATH
             test/linalg/add.cu
             test/linalg/binary_op.cu
             test/linalg/cholesky_r1.cu
@@ -220,7 +155,8 @@ if(BUILD_TESTS)
             test/linalg/unary_op.cu
     )
 
-    ConfigureTest(MATRIX_TEST
+    ConfigureTest(NAME MATRIX_TEST
+            PATH
             test/matrix/gather.cu
             test/matrix/math.cu
             test/matrix/matrix.cu
@@ -229,7 +165,8 @@ if(BUILD_TESTS)
             test/spectral_matrix.cu
     )
 
-    ConfigureTest(RANDOM_TEST
+    ConfigureTest(NAME RANDOM_TEST
+            PATH
             test/random/make_blobs.cu
             test/random/make_regression.cu
             test/random/multi_variable_gaussian.cu
@@ -240,14 +177,16 @@ if(BUILD_TESTS)
             test/random/sample_without_replacement.cu
     )
 
-    ConfigureTest(SOLVERS_TEST
+    ConfigureTest(NAME SOLVERS_TEST
+            PATH
             test/cluster_solvers_deprecated.cu
             test/eigen_solvers.cu
             test/lap/lap.cu
             test/mst.cu
     )
 
-    ConfigureTest(SPARSE_TEST
+    ConfigureTest(NAME SPARSE_TEST
+            PATH
             test/sparse/add.cu
             test/sparse/convert_coo.cu
             test/sparse/convert_csr.cu
@@ -263,19 +202,24 @@ if(BUILD_TESTS)
             test/sparse/symmetrize.cu
     )
 
-    ConfigureNearestNeighborsTest(SPARSE_DIST_TEST
+    ConfigureTest(NAME SPARSE_DIST_TEST
+            PATH
             test/sparse/dist_coo_spmv.cu
             test/sparse/distance.cu
+            OPTIONAL DIST NN
     )
 
-    ConfigureNearestNeighborsTest(SPARSE_NN_TEST
+    ConfigureTest(NAME SPARSE_NN_TEST
+            PATH
             test/sparse/connect_components.cu
             test/sparse/knn.cu
             test/sparse/knn_graph.cu
             test/sparse/linkage.cu
+            OPTIONAL DIST NN
     )
 
-    ConfigureNearestNeighborsTest(SPATIAL_TEST
+    ConfigureTest(NAME SPATIAL_TEST
+            PATH
             test/spatial/ann_ivf_flat.cu
             test/spatial/knn.cu
             test/spatial/fused_l2_knn.cu
@@ -284,9 +228,11 @@ if(BUILD_TESTS)
             test/spatial/epsilon_neighborhood.cu
             test/spatial/faiss_mr.cu
             test/spatial/selection.cu
+            OPTIONAL DIST NN
     )
 
-    ConfigureNearestNeighborsTest(STATS_TEST
+    ConfigureTest(NAME STATS_TEST
+            PATH
             test/stats/adjusted_rand_index.cu
             test/stats/completeness_score.cu
             test/stats/contingencyMatrix.cu
@@ -309,9 +255,11 @@ if(BUILD_TESTS)
             test/stats/trustworthiness.cu
             test/stats/weighted_mean.cu
             test/stats/v_measure.cu
+            OPTIONAL DIST NN
     )
 
-    ConfigureTest(UTILS_TEST
+    ConfigureTest(NAME UTILS_TEST
+            PATH
             test/common/seive.cu
             test/cudart_utils.cpp
             test/device_atomics.cu
