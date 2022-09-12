@@ -46,13 +46,8 @@ function(ConfigureTest)
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 
     set_target_properties(${TEST_NAME}
+            PROPERTIES
             # set target compile options
-            CXX_STANDARD                        17
-            CXX_STANDARD_REQUIRED               ON
-            CUDA_STANDARD                       17
-            CUDA_STANDARD_REQUIRED              ON
-            POSITION_INDEPENDENT_CODE           ON
-            INTERFACE_POSITION_INDEPENDENT_CODE ON
             INSTALL_RPATH "\$ORIGIN/../../../lib"
             )
 
@@ -61,7 +56,7 @@ function(ConfigureTest)
             "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
             )
 
-    target_include_directories(test_raft
+    target_include_directories(${TEST_NAME}
             PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
             )
 
@@ -71,8 +66,6 @@ function(ConfigureTest)
             DESTINATION bin/gtests/libraft
             EXCLUDE_FROM_ALL)
 endfunction()
-
-
 
 
 ###################################################################################################
