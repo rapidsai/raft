@@ -19,6 +19,10 @@
 #include <memory>
 #include <raft/handle.hpp>
 
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#include <raft/spectral/specializations.cuh>
+#endif
+
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/modularity_maximization.cuh>
 

@@ -78,6 +78,10 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
                     params.seed,
                     params.gtype);
 
+    // FIXME (mfh 2022/09/07) This test passes even if it doesn't call
+    // make_regression.  Please see
+    // https://github.com/rapidsai/raft/issues/814.
+
     // Calculate the values from the data and coefficients (column-major)
     T alpha = (T)1.0, beta = (T)0.0;
     RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
@@ -160,5 +164,127 @@ TEST_P(MakeRegressionTestD, Result)
                           stream));
 }
 INSTANTIATE_TEST_CASE_P(MakeRegressionTests, MakeRegressionTestD, ::testing::ValuesIn(inputsd_t));
+
+template <typename T>
+class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionInputs<T>> {
+ public:
+  MakeRegressionMdspanTest() = default;
+
+ protected:
+  void SetUp() override
+  {
+    auto stream = handle.get_stream();
+
+    // Noise must be zero to compare the actual and expected values
+    T noise = (T)0.0, tail_strength = (T)0.5;
+
+    rmm::device_uvector<T> data(params.n_samples * params.n_features, stream);
+    rmm::device_uvector<T> values_cm(params.n_samples * params.n_targets, stream);
+    rmm::device_uvector<T> coef(params.n_features * params.n_targets, stream);
+
+    using index_type = typename rmm::device_uvector<T>::index_type;
+    using matrix_view =
+      raft::device_matrix_view<T, raft::matrix_extent<index_type>, raft::row_major>;
+    matrix_view out_mat(data.data(), params.n_samples, params.n_features);
+    matrix_view values_mat(values_ret.data(), params.n_samples, params.n_targets);
+    matrix_view coef_mat(coef.data(), params.n_features, params.n_targets);
+
+    // Create the regression problem
+    make_regression(handle,
+                    out_mat,
+                    values_mat,
+                    params.n_informative,
+                    coef_mat,
+                    params.bias,
+                    params.effective_rank,
+                    tail_strength,
+                    noise,
+                    params.shuffle,
+                    params.seed,
+                    params.gtype);
+
+    // FIXME (mfh 2022/09/07) This test passes even if it doesn't call
+    // make_regression.  Please see
+    // https://github.com/rapidsai/raft/issues/814.
+
+    // Calculate the values from the data and coefficients (column-major)
+    T alpha{};
+    T beta{};
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
+                                                     CUBLAS_OP_T,
+                                                     CUBLAS_OP_T,
+                                                     params.n_samples,
+                                                     params.n_targets,
+                                                     params.n_features,
+                                                     &alpha,
+                                                     data.data(),
+                                                     params.n_features,
+                                                     coef.data(),
+                                                     params.n_targets,
+                                                     &beta,
+                                                     values_cm.data(),
+                                                     params.n_samples,
+                                                     stream));
+
+    // Transpose the values to row-major
+    raft::linalg::transpose(
+      handle, values_cm.data(), values_prod.data(), params.n_samples, params.n_targets, stream);
+
+    // Add the bias
+    raft::linalg::addScalar(values_prod.data(),
+                            values_prod.data(),
+                            params.bias,
+                            params.n_samples * params.n_targets,
+                            stream);
+
+    // Count the number of zeroes in the coefficients
+    thrust::device_ptr<T> __coef = thrust::device_pointer_cast(coef.data());
+    constexpr T ZERO{};
+    zero_count = thrust::count(__coef, __coef + params.n_features * params.n_targets, ZERO);
+  }
+
+ private:
+  MakeRegressionInputs<T> params{::testing::TestWithParam<MakeRegressionInputs<T>>::GetParam()};
+  raft::handle_t handle;
+  rmm::device_uvector<T> values_ret{params.n_samples * params.n_targets, handle.get_stream()};
+  rmm::device_uvector<T> values_prod{params.n_samples * params.n_targets, handle.get_stream()};
+  int zero_count = -1;
+};
+
+using MakeRegressionMdspanTestF = MakeRegressionTest<float>;
+
+TEST_P(MakeRegressionMdspanTestF, Result)
+{
+  ASSERT_TRUE(match(params.n_targets * (params.n_features - params.n_informative),
+                    zero_count,
+                    raft::Compare<int>()));
+  ASSERT_TRUE(devArrMatch(values_ret.data(),
+                          values_prod.data(),
+                          params.n_samples,
+                          params.n_targets,
+                          raft::CompareApprox<float>(params.tolerance),
+                          handle.get_stream()));
+}
+INSTANTIATE_TEST_CASE_P(MakeRegressionMdspanTests,
+                        MakeRegressionMdspanTestF,
+                        ::testing::ValuesIn(inputsf_t));
+
+using MakeRegressionMdspanTestD = MakeRegressionTest<double>;
+
+TEST_P(MakeRegressionMdspanTestD, Result)
+{
+  ASSERT_TRUE(match(params.n_targets * (params.n_features - params.n_informative),
+                    zero_count,
+                    raft::Compare<int>()));
+  ASSERT_TRUE(devArrMatch(values_ret.data(),
+                          values_prod.data(),
+                          params.n_samples,
+                          params.n_targets,
+                          raft::CompareApprox<double>(params.tolerance),
+                          handle.get_stream()));
+}
+INSTANTIATE_TEST_CASE_P(MakeRegressionMdspanTests,
+                        MakeRegressionMdspanTestD,
+                        ::testing::ValuesIn(inputsd_t));
 
 }  // end namespace raft::random

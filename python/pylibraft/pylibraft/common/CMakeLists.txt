@@ -12,9 +12,17 @@
 # the License.
 # =============================================================================
 
+# Set the list of Cython files to build
 set(cython_sources cuda.pyx handle.pyx interruptible.pyx)
 set(linked_libraries raft::raft)
+
+# Build all of the Cython targets
 rapids_cython_create_modules(
-    SOURCE_FILES "${cython_sources}"
-    LINKED_LIBRARIES "${linked_libraries}"
-    CXX)
+        CXX
+        SOURCE_FILES "${cython_sources}"
+        LINKED_LIBRARIES "${linked_libraries}"
+        MODULE_PREFIX common_)
+
+foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
+    set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../library")
+endforeach()

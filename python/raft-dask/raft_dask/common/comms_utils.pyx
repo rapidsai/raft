@@ -31,7 +31,7 @@ cdef extern from "nccl.h":
     cdef struct ncclComm
     ctypedef ncclComm *ncclComm_t
 
-cdef extern from "raft/handle.hpp" namespace "raft":
+cdef extern from "raft/core/handle.hpp" namespace "raft":
     cdef cppclass handle_t:
         handle_t() except +
 

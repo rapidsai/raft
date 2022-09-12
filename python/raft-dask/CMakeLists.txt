@@ -14,13 +14,13 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-set(pyraft_version 22.10.00)
+set(raft_dask_version 22.10.00)
 
 include(../../fetch_rapids.cmake)
 
 project(
-  raft-python
-  VERSION ${pyraft_version}
+  raft-dask-python
+  VERSION ${raft_dask_version}
   LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
             # language to be enabled here. The test project that is built in scikit-build to verify
             # various linking options for the python library is hardcoded to build with C, so until
@@ -33,7 +33,7 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-    find_package(raft ${pyraft_version} REQUIRED)
+    find_package(raft ${raft_dask_version} REQUIRED)
 else()
   set(raft_FOUND OFF)
 endif()
@@ -43,13 +43,13 @@ if(NOT raft_FOUND)
   # pull in the required languages for the C++ project even if this project
   # does not require those languges.
   include(rapids-cuda)
-  rapids_cuda_init_architectures(pyraft)
+  rapids_cuda_init_architectures(raft-dask)
   enable_language(CUDA)
-  # Since pyraft only enables CUDA optionally we need to manually include the file that
+  # Since raft-dask only enables CUDA optionally we need to manually include the file that
   # rapids_cuda_init_architectures relies on `project` including.
-  include("${CMAKE_PROJECT_pyraft_INCLUDE}")
+  include("${CMAKE_PROJECT_raft_dask_INCLUDE}")
 
-  # pyraft doesn't actually use raft libraries, it just needs the headers, so
+  # raft-dask doesn't actually use raft libraries, it just needs the headers, so
   # we can turn off all library compilation and we don't need to install
   # anything here.
   set(BUILD_TESTS OFF)
@@ -63,6 +63,5 @@ endif()
 include(rapids-cython)
 rapids_cython_init()
 
-add_subdirectory(raft/common)
-add_subdirectory(raft/dask/common)
-add_subdirectory(raft/include_test)
+add_subdirectory(raft_dask/common)
+add_subdirectory(raft_dask/include_test)

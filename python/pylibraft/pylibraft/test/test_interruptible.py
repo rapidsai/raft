@@ -4,7 +4,7 @@ import os
 import pytest
 import signal
 import time
-from raft.common.interruptible import cuda_interruptible, cuda_yield
+from pylibraft.common.interruptible import cuda_interruptible, cuda_yield
 
 
 def send_ctrl_c():
