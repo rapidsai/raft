@@ -34,8 +34,8 @@ function(ConfigureTest)
     target_link_libraries(${TEST_NAME}
             PRIVATE
             raft::raft
-            $<$<BOOL:${ConfigureTest_NN}>:raft::nn>
             $<$<BOOL:${ConfigureTest_DIST}>:raft::distance>
+            $<$<BOOL:${ConfigureTest_NN}>:raft::nn>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
@@ -46,7 +46,6 @@ function(ConfigureTest)
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 
     set_target_properties(${TEST_NAME}
-            PROPERTIES BUILD_RPATH                         "\$ORIGIN"
             # set target compile options
             CXX_STANDARD                        17
             CXX_STANDARD_REQUIRED               ON
@@ -60,6 +59,10 @@ function(ConfigureTest)
     target_compile_options(${TEST_NAME}
             PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
             "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+            )
+
+    target_include_directories(test_raft
+            PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
             )
 
     install(
