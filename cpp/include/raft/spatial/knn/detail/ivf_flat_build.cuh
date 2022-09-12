@@ -122,19 +122,13 @@ inline auto extend(const handle_t& handle,
 
   // Precompute the L2 norm of the dataset if relevant.
   const float* new_vectors_norm = nullptr;
-  // todo(lsugy): which kind of memory?
   rmm::device_uvector<float> new_vectors_norm_buf(0, stream);
   if (orig_index.metric() == raft::distance::DistanceType::L2Expanded ||
       orig_index.metric() == raft::distance::DistanceType::L2SqrtExpanded) {
     new_vectors_norm_buf.resize(n_rows, stream);
 
-    raft::linalg::rowNorm<float, IdxT>(new_vectors_norm_buf.data(),
-                                       new_vectors,
-                                       (IdxT)dim,
-                                       n_rows,
-                                       raft::linalg::L2Norm,
-                                       true,
-                                       stream);
+    kmeans::compute_norm<T, IdxT>(
+      new_vectors_norm_buf.data(), new_vectors, (IdxT)dim, (IdxT)n_rows, stream);
     new_vectors_norm = (const float*)new_vectors_norm_buf.data();
   }
 

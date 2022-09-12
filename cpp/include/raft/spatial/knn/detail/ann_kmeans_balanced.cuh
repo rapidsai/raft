@@ -296,9 +296,6 @@ void predict(const handle_t& handle,
                       stream);
     }
 
-    // todo(lsugy): should the norm be computed here for non-float datasets?
-    //              or maybe if nullptr is passed and norm required?
-
     predict_float_core<IdxT, LabelT>(handle,
                                      centers,
                                      n_clusters,
@@ -752,23 +749,32 @@ auto build_fine_clusters(const handle_t& handle,
 
     utils::copy_selected(
       mesocluster_sizes[i], dim, dataset_mptr, mc_trainset_ids, dim, mc_trainset, dim, stream);
-    // todo(lsugy): more efficient kernel!
-    utils::copy_selected(
-      mesocluster_sizes[i], 1, dataset_norm_mptr, mc_trainset_ids, 1, mc_trainset_norm, 1, stream);
+    if (metric == raft::distance::DistanceType::L2Expanded ||
+        metric == raft::distance::DistanceType::L2SqrtExpanded) {
+      // todo(lsugy): more efficient kernel!
+      utils::copy_selected(mesocluster_sizes[i],
+                           1,
+                           dataset_norm_mptr,
+                           mc_trainset_ids,
+                           1,
+                           mc_trainset_norm,
+                           1,
+                           stream);
+    }
 
-    build_clusters<T, IdxT, LabelT>(handle,
-                                    n_iters,
-                                    dim,
-                                    mc_trainset,
-                                    mc_trainset_norm,
-                                    mesocluster_sizes[i],
-                                    fine_clusters_nums[i],
-                                    mc_trainset_ccenters.data(),
-                                    mc_trainset_labels.data(),
-                                    mc_trainset_csizes_tmp.data(),
-                                    metric,
-                                    stream,
-                                    device_memory);
+    build_clusters<float, IdxT, LabelT>(handle,
+                                        n_iters,
+                                        dim,
+                                        mc_trainset,
+                                        mc_trainset_norm,
+                                        mesocluster_sizes[i],
+                                        fine_clusters_nums[i],
+                                        mc_trainset_ccenters.data(),
+                                        mc_trainset_labels.data(),
+                                        mc_trainset_csizes_tmp.data(),
+                                        metric,
+                                        stream,
+                                        device_memory);
 
     raft::copy(cluster_centers + (dim * fine_clusters_csum[i]),
                mc_trainset_ccenters.data(),
@@ -778,6 +784,35 @@ auto build_fine_clusters(const handle_t& handle,
     n_clusters_done += fine_clusters_nums[i];
   }
   return n_clusters_done;
+}
+
+template <typename T, typename IdxT>
+void compute_norm(float* dataset_norm,
+                  const T* dataset,
+                  IdxT dim,
+                  IdxT n_rows,
+                  rmm::cuda_stream_view stream,
+                  rmm::mr::device_memory_resource* mr = nullptr)
+{
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans::compute_norm");
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+  rmm::device_uvector<float> dataset_float(0, stream, mr);
+
+  const float* dataset_ptr = nullptr;
+
+  if (std::is_same_v<float, T>) {
+    dataset_ptr = reinterpret_cast<const float*>(dataset);
+  } else {
+    // todo(lsugy): should we batch this?
+    dataset_float.resize(n_rows * dim, stream);
+
+    linalg::unaryOp(dataset_float.data(), dataset, n_rows * dim, utils::mapping<float>{}, stream);
+
+    dataset_ptr = (const float*)dataset_float.data();
+  }
+
+  raft::linalg::rowNorm<float, IdxT>(
+    dataset_norm, dataset_ptr, dim, n_rows, raft::linalg::L2Norm, true, stream);
 }
 
 /**
@@ -826,14 +861,12 @@ void build_hierarchical(const handle_t& handle,
 
   // Precompute the L2 norm of the dataset if relevant.
   const float* dataset_norm = nullptr;
-  // todo(lsugy): which kind of memory?
-  // todo(lsugy): this only works for T=float!!
   rmm::device_uvector<float> dataset_norm_buf(0, stream, device_memory);
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded) {
     dataset_norm_buf.resize(n_rows, stream);
-    raft::linalg::rowNorm<float, IdxT>(
-      dataset_norm_buf.data(), dataset, (size_t)dim, n_rows, raft::linalg::L2Norm, true, stream);
+    compute_norm<T, IdxT>(
+      dataset_norm_buf.data(), dataset, (IdxT)dim, (IdxT)n_rows, stream, device_memory);
     dataset_norm = (const float*)dataset_norm_buf.data();
   }
 

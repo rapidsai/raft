@@ -515,6 +515,20 @@ __global__ void copy_selected_kernel(uint64_t n_rows,
   dst[ld_dst * i_dst + j] = mapping<T>{}(src[ld_src * i_src + j]);
 }
 
+template <typename Type>
+static inline int residency(const Type* ptr)
+{
+  cudaPointerAttributes attr;
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
+  switch (attr.type) {
+    case cudaMemoryTypeUnregistered:
+    case cudaMemoryTypeHost: return 0;
+    case cudaMemoryTypeDevice: return 1;
+    case cudaMemoryTypeManaged: return 2;
+    default: return 3;
+  }
+}
+
 /**
  * @brief Copy selected rows of a matrix while mapping the data from the source to the target
  * type.
