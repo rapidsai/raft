@@ -28,11 +28,6 @@ rapids_cuda_init_architectures(RAFT)
 
 project(RAFT VERSION ${RAFT_VERSION} LANGUAGES CXX CUDA)
 
-# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
-# have different values for the `Threads::Threads` target. Setting this flag ensures
-# `Threads::Threads` is the same value in first run and subsequent runs.
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-
 # Write the version header
 rapids_cmake_write_version_file(include/raft/version_config.hpp)
 
@@ -65,6 +60,13 @@ option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library in
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
+
+if(BUILD_TESTS OR BUILD_BENCH)
+  # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
+  # have different values for the `Threads::Threads` target. Setting this flag ensures
+  # `Threads::Threads` is the same value in first run and subsequent runs.
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+endif()
 
 if(BUILD_TESTS AND NOT RAFT_ENABLE_thrust_DEPENDENCY)
   message(VERBOSE "RAFT: BUILD_TESTS is enabled, overriding RAFT_ENABLE_thrust_DEPENDENCY")
@@ -108,14 +110,10 @@ endif()
 
 set(_ctk_static_suffix "")
 if(CUDA_STATIC_RUNTIME)
-  # If we're statically linking CTK cuBLAS,
-  # we also want to statically link BLAS
-  set(BLA_STATIC ON)
+  # If we're statically linking CTK cuBLAS, we'd ideally statically link BLAS too.
+  # But libblas.a in the libblas-dev package wasn't compiled with `-fPIC`, so linking it fails :/
+  # set(BLA_STATIC ON)
   set(_ctk_static_suffix "_static")
-  # Control legacy FindCUDA.cmake behavior too
-  # Remove this after we push it into rapids-cmake:
-  # https://github.com/rapidsai/rapids-cmake/pull/259
-  set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
 endif()
 
 # CUDA runtime
@@ -183,12 +181,12 @@ target_include_directories(raft INTERFACE
 # Only CUDA libs and rmm should
 # be used in global target.
 target_link_libraries(raft INTERFACE
-        rmm::rmm
-        CUDA::cublas${_ctk_static_suffix}
-        CUDA::curand${_ctk_static_suffix}
-        CUDA::cusolver${_ctk_static_suffix}
-        CUDA::cusparse${_ctk_static_suffix}
-        $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
+            rmm::rmm
+            CUDA::cublas${_ctk_static_suffix}
+            CUDA::curand${_ctk_static_suffix}
+            CUDA::cusolver${_ctk_static_suffix}
+            CUDA::cusparse${_ctk_static_suffix}
+            $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
 )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)

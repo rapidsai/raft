@@ -52,6 +52,13 @@ setup(name='pylibraft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
               ]
           )
       },
+      setup_requires=[
+        f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+      ],
+      install_requires=[
+        "numpy",
+        f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+      ],
       cmake_process_manifest_hook=exclude_libcxx_symlink,
       packages=find_packages(include=['pylibraft', 'pylibraft.*']),
       license="Apache",

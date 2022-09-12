@@ -14,9 +14,21 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-set(raft_dask_version 22.10.00)
+if(POLICY CMP0094)
+  # Make FindPython{,2,3} modules use LOCATION for lookup strategy.
+  # https://cmake.org/cmake/help/latest/policy/CMP0094.html#policy:CMP0094
+  cmake_policy(SET CMP0094 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0094 NEW)
+endif()
 
 include(../../fetch_rapids.cmake)
+
+include(rapids-cuda)
+# TODO: This will not be necessary once we upgrade to CMake 3.22, which will pull in the required
+# languages for the C++ project even if this project does not require those languges.
+rapids_cuda_init_architectures(raft-dask)
+
+set(raft_dask_version 22.10.00)
 
 project(
   raft-dask-python
@@ -26,38 +38,38 @@ project(
             # various linking options for the python library is hardcoded to build with C, so until
             # that is fixed we need to keep C.
             C
-            CXX)
+            CXX
+            # TODO: This will not be necessary once we upgrade to CMake 3.22, which will pull in the required
+            # languages for the C++ project even if this project does not require those languges.
+            CUDA)
 
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
        OFF)
+
+option(RAFT_BUILD_WHEELS "Whether we're building a wheel for pypi" OFF)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
     find_package(raft ${raft_dask_version} REQUIRED)
 else()
-  set(raft_FOUND OFF)
-endif()
-
-if(NOT raft_FOUND)
-  # TODO: This will not be necessary once we upgrade to CMake 3.22, which will
-  # pull in the required languages for the C++ project even if this project
-  # does not require those languges.
-  include(rapids-cuda)
-  rapids_cuda_init_architectures(raft-dask)
-  enable_language(CUDA)
-  # Since raft-dask only enables CUDA optionally we need to manually include the file that
-  # rapids_cuda_init_architectures relies on `project` including.
-  include("${CMAKE_PROJECT_raft_dask_INCLUDE}")
-
   # raft-dask doesn't actually use raft libraries, it just needs the headers, so
   # we can turn off all library compilation and we don't need to install
   # anything here.
   set(BUILD_TESTS OFF)
   set(BUILD_BENCH OFF)
   set(RAFT_COMPILE_LIBRARIES OFF)
-  set(RAFT_COMPILE_DIST_LIBRARY OFF)
   set(RAFT_COMPILE_NN_LIBRARY OFF)
-  add_subdirectory(../../cpp raft-cpp)
+  set(RAFT_COMPILE_DIST_LIBRARY OFF)
+
+  # Statically link dependencies if building wheels
+  set(CUDA_STATIC_RUNTIME ${RAFT_BUILD_WHEELS})
+  set(_exclude_from_all "")
+  if(RAFT_BUILD_WHEELS)
+    # Don't install the raft C++ targets into wheels
+    set(_exclude_from_all EXCLUDE_FROM_ALL)
+  endif()
+
+  add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
 endif()
 
 include(rapids-cython)

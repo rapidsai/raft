@@ -25,7 +25,7 @@ def exclude_libcxx_symlink(cmake_manifest):
     return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
 
 
-setup(name='raft-dask',
+setup(name=f"raft-dask{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
       description="Reusable Accelerated Functions & Tools Dask Infrastructure",
       version=versioneer.get_version(),
       classifiers=[
@@ -48,6 +48,12 @@ setup(name='raft-dask',
               ]
           )
       },
+      install_requires=[
+        "numpy",
+        "numba>=0.49",
+        f"pylibraft{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+      ],
+      cmake_process_manifest_hook=exclude_libcxx_symlink,
       packages=find_packages(include=['raft_dask', 'raft_dask.*']),
       cmake_process_manifest_hook=exclude_libcxx_symlink,
       license="Apache",
