@@ -20,6 +20,8 @@
 
 #include "detail/unary_op.cuh"
 
+#include <raft/core/mdarray.hpp>
+
 namespace raft {
 namespace linalg {
 
@@ -70,6 +72,79 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
 {
   detail::writeOnlyUnaryOpCaller(out, len, op, stream);
 }
+
+/**
+ * @defgroup unary_op Element-Wise Unary Operations
+ * @{
+ */
+
+/**
+ * @brief perform element-wise binary operation on the input arrays
+ * @tparam InType Input Type raft::device_mdspan
+ * @tparam Lambda the device-lambda performing the actual operation
+ * @tparam OutType Output Type raft::device_mdspan
+ * @tparam TPB threads-per-block in the final kernel launched
+ * @param[in] handle raft::handle_t
+ * @param[in] in Input
+ * @param[out] out Output
+ * @param[in] op the device-lambda
+ * @note Lambda must be a functor with the following signature:
+ *       `InType func(const InType& val);`
+ */
+template <typename InType,
+          typename Lambda,
+          typename OutType,
+          int TPB  = 256,
+          typename = raft::enable_if_device_mdspan<InType, OutType>>
+void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
+{
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
+
+  using in_value_t  = typename InType::value_type;
+  using out_value_t = typename OutType::value_type;
+
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    unaryOp<in_value_t, Lambda, std::uint32_t, out_value_t, TPB>(
+      out.data_handle(), in.data_handle(), out.size(), op, handle.get_stream());
+  } else {
+    unaryOp<in_value_t, Lambda, std::uint64_t, out_value_t, TPB>(
+      out.data_handle(), in.data_handle(), out.size(), op, handle.get_stream());
+  }
+}
+
+/**
+ * @brief perform element-wise binary operation on the input arrays
+ * @tparam InType Input Type raft::device_mdspan
+ * @tparam Lambda the device-lambda performing the actual operation
+ * @tparam TPB threads-per-block in the final kernel launched
+ * @param[in] handle raft::handle_t
+ * @param[inout] in Input/Output
+ * @param[in] op the device-lambda
+ * @note Lambda must be a functor with the following signature:
+ *       `InType func(const InType& val);`
+ */
+template <typename InType,
+          typename Lambda,
+          int TPB  = 256,
+          typename = raft::enable_if_device_mdspan<InType>>
+void write_only_unary_op(const raft::handle_t& handle, InType in, Lambda op)
+{
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+
+  using in_value_t = typename InType::value_type;
+
+  if (in.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    writeOnlyUnaryOp<in_value_t, Lambda, std::uint32_t, TPB>(
+      in.data_handle(), in.size(), op, handle.get_stream());
+  } else {
+    writeOnlyUnaryOp<in_value_t, Lambda, std::uint64_t, TPB>(
+      in.data_handle(), in.size(), op, handle.get_stream());
+  }
+}
+
+/** @} */  // end of group unary_op
 
 };  // end namespace linalg
 };  // end namespace raft

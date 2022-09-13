@@ -69,7 +69,7 @@ void ternaryOp(out_t* out,
  * @param[out] out Output
  * @param[in] op the device-lambda
  * @note Lambda must be a functor with the following signature:
- *       `OutType func(const InType& val1, const InType& val2);`
+ *       `OutType func(const InType& val1, const InType& val2, const InType& val3);`
  */
 template <typename InType,
           typename Lambda,

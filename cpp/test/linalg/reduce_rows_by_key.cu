@@ -139,7 +139,7 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
     }
 
     reduce_rows_by_key(
-      handle, input_view, keys_view, output_view, params.nkeys, weights_view, scratch_buf_view);
+      handle, input_view, keys_view, output_view, params.nkeys, scratch_buf_view, weights_view);
     handle.sync_stream(stream);
   }
 

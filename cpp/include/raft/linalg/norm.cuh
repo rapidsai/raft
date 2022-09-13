@@ -101,6 +101,8 @@ void colNorm(Type* dots,
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_vector_view
  * @param[in] type the type of norm to be applied
+ * @param[in] apply Whether to apply the norm along rows (raft::linalg::Apply::ALONG_ROWS)
+                    or along columns (raft::linalg::Apply::ALONG_COLUMNS)
  * @param[in] fin_op the final lambda op
  */
 template <typename ElementType,

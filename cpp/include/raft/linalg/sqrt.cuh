@@ -44,7 +44,7 @@ void sqrt(out_t* out, const in_t* in, IdxType len, cudaStream_t stream)
 /** @} */
 
 /**
- * @defgroup power Sqrt Arithmetic
+ * @defgroup sqrt Sqrt Arithmetic
  * @{
  */
 

@@ -158,6 +158,7 @@ void eig_dc(const raft::handle_t& handle,
  * @param[in] n_eig_vals: number of eigenvectors to be generated
  * @param[out] eig_vectors: eigenvectors output of type raft::device_matrix_view
  * @param[out] eig_vals: eigen values output of type raft::device_vector_view
+ * @param[in] memUsage: the memory selection for eig vector output
  */
 template <typename ValueType, typename IndexType>
 void eig_dc_selective(const raft::handle_t& handle,

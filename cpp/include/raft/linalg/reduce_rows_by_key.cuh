@@ -138,8 +138,8 @@ void reduce_rows_by_key(
   raft::device_vector_view<const KeyType, IndexType> d_keys,
   raft::device_matrix_view<ElementType, IndexType, raft::row_major> d_sums,
   IndexType nkeys,
-  std::optional<raft::device_vector_view<const WeightType, IndexType>> d_weights,
-  raft::device_vector_view<char, IndexType> d_keys_char)
+  raft::device_vector_view<char, IndexType> d_keys_char,
+  std::optional<raft::device_vector_view<const WeightType, IndexType>> d_weights = std::nullopt)
 {
   RAFT_EXPECTS(d_A.is_exhaustive(), "Input is not contiguous");
   RAFT_EXPECTS(d_sums.is_exhaustive(), "Output is not contiguous");
