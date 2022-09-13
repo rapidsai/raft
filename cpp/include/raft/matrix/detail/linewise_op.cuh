@@ -552,8 +552,7 @@ void matrixLinewiseVecColsSpan(
                    aligned_accessor<Type, alignment::value>>,
     "inconsistent accessor");
 
-  typedef raft::Pow2<padded_layout<Type, storage_order_type::row_major_t>::element_alignment>
-    AlignPadding;
+  typedef raft::Pow2<padded_layout<Type, storage_order_type::row_major_t>::padding> AlignPadding;
 
   const uint paddedRowLen  = AlignPadding::roundUp(rowLen);
   const IdxType alignedLen = paddedRowLen * nRows;
@@ -677,8 +676,7 @@ void matrixLinewiseVecRowsSpan(
                    aligned_accessor<Type, alignment::value>>,
     "inconsistent accessor");
 
-  typedef raft::Pow2<padded_layout<Type, storage_order_type::row_major_t>::element_alignment>
-    AlignPadding;
+  typedef raft::Pow2<padded_layout<Type, storage_order_type::row_major_t>::padding> AlignPadding;
 
   const uint paddedRowLen  = AlignPadding::roundUp(rowLen);
   const IdxType alignedLen = paddedRowLen * nRows;
