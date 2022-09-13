@@ -157,9 +157,10 @@ __global__ void argmin_along_rows_kernel(uint32_t n_rows,
                                          const float* a,
                                          LabelT* out)
 {
-  __shared__ LabelT shm_ids[1024];  // NOLINT
-  __shared__ float shm_vals[1024];  // NOLINT
-  uint32_t i = blockIdx.x;
+  __shared__ uint8_t shm_ids_uint8[1024 * sizeof(LabelT)];  // NOLINT
+  __shared__ float shm_vals[1024];                          // NOLINT
+  LabelT* shm_ids = reinterpret_cast<LabelT*>(shm_ids_uint8);
+  uint32_t i      = blockIdx.x;
   if (i >= n_rows) return;
   LabelT min_idx = n_cols;
   float min_val  = raft::upper_bound<float>();
@@ -269,7 +270,7 @@ __global__ void accumulate_into_selected_kernel(uint32_t n_rows,
   uint64_t j   = gid % n_cols;
   uint64_t i   = gid / n_cols;
   if (i >= n_rows) return;
-  uint64_t l = (uint64_t)row_ids[i];
+  uint64_t l = static_cast<uint64_t>(row_ids[i]);
   if (j == 0) { atomicAdd(&(selection_counters[l]), 1); }
   atomicAdd(&(output[j + n_cols * l]), mapping<float>{}(input[gid]));
 }
@@ -310,7 +311,7 @@ void accumulate_into_selected(size_t n_rows,
     case pointer_residency::host_only: {
       stream.synchronize();
       for (size_t i = 0; i < n_rows; i++) {
-        uint32_t l = (uint32_t)row_ids[i];
+        uint32_t l = static_cast<uint32_t>(row_ids[i]);
         selection_counters[l]++;
         for (uint32_t j = 0; j < n_cols; j++) {
           output[j + n_cols * l] += mapping<float>{}(input[j + n_cols * i]);

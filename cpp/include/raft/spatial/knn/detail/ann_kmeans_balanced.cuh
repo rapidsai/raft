@@ -76,77 +76,81 @@ inline void predict_float_core(const handle_t& handle,
                                rmm::cuda_stream_view stream,
                                rmm::mr::device_memory_resource* mr)
 {
-  if (metric == raft::distance::DistanceType::L2Expanded ||
-      metric == raft::distance::DistanceType::L2SqrtExpanded) {
-    // todo(lsugy): pass
-    auto workspace = raft::make_device_vector<char, IdxT>(handle, (sizeof(int)) * n_rows);
+  switch (metric) {
+    case raft::distance::DistanceType::L2Expanded:
+    case raft::distance::DistanceType::L2SqrtExpanded: {
+      // todo(lsugy): pass
+      auto workspace = raft::make_device_vector<char, IdxT>(handle, (sizeof(int)) * n_rows);
 
-    raft::distance::MinAndDistanceReduceOp<LabelT, float> redOp;
-    raft::distance::KVPMinReduce<LabelT, float> pairRedOp;
+      raft::distance::MinAndDistanceReduceOp<LabelT, float> redOp;
+      raft::distance::KVPMinReduce<LabelT, float> pairRedOp;
 
-    auto minClusterAndDistance =
-      raft::make_device_vector<cub::KeyValuePair<LabelT, float>, IdxT>(handle, n_rows);
-    cub::KeyValuePair<LabelT, float> initial_value(0, std::numeric_limits<float>::max());
-    thrust::fill(handle.get_thrust_policy(),
-                 minClusterAndDistance.data_handle(),
-                 minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
-                 initial_value);
+      auto minClusterAndDistance =
+        raft::make_device_vector<cub::KeyValuePair<LabelT, float>, IdxT>(handle, n_rows);
+      cub::KeyValuePair<LabelT, float> initial_value(0, std::numeric_limits<float>::max());
+      thrust::fill(handle.get_thrust_policy(),
+                   minClusterAndDistance.data_handle(),
+                   minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
+                   initial_value);
 
-    auto centroidsNorm = raft::make_device_vector<float, IdxT>(handle, n_clusters);
-    raft::linalg::rowNorm<float, IdxT>(
-      centroidsNorm.data_handle(), centers, dim, n_clusters, raft::linalg::L2Norm, true, stream);
+      auto centroidsNorm = raft::make_device_vector<float, IdxT>(handle, n_clusters);
+      raft::linalg::rowNorm<float, IdxT>(
+        centroidsNorm.data_handle(), centers, dim, n_clusters, raft::linalg::L2Norm, true, stream);
 
-    // todo(lsugy): should fusedL2NN take IdxT!=LabelT?
-    raft::distance::fusedL2NN<float, cub::KeyValuePair<LabelT, float>, LabelT>(
-      minClusterAndDistance.data_handle(),
-      dataset,
-      centers,
-      dataset_norm,
-      centroidsNorm.data_handle(),
-      n_rows,
-      n_clusters,
-      dim,
-      (void*)workspace.data_handle(),
-      redOp,
-      pairRedOp,
-      (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
-      false,
-      stream);
+      // todo(lsugy): should fusedL2NN take IdxT!=LabelT?
+      raft::distance::fusedL2NN<float, cub::KeyValuePair<LabelT, float>, LabelT>(
+        minClusterAndDistance.data_handle(),
+        dataset,
+        centers,
+        dataset_norm,
+        centroidsNorm.data_handle(),
+        n_rows,
+        n_clusters,
+        dim,
+        (void*)workspace.data_handle(),
+        redOp,
+        pairRedOp,
+        (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
+        false,
+        stream);
 
-    // todo(lsugy): this is temporary!
-    // Copy keys to output labels
-    thrust::transform(handle.get_thrust_policy(),
-                      minClusterAndDistance.data_handle(),
-                      minClusterAndDistance.data_handle() + n_rows,
-                      labels,
-                      [=] __device__(cub::KeyValuePair<LabelT, float> kvp) { return kvp.key; });
+      // todo(lsugy): this is temporary!
+      // Copy keys to output labels
+      thrust::transform(handle.get_thrust_policy(),
+                        minClusterAndDistance.data_handle(),
+                        minClusterAndDistance.data_handle() + n_rows,
+                        labels,
+                        [=] __device__(cub::KeyValuePair<LabelT, float> kvp) { return kvp.key; });
+      break;
+    }
+    case raft::distance::DistanceType::InnerProduct: {
+      // TODO: pass buffer
+      rmm::device_uvector<float> distances(n_rows * n_clusters, stream, mr);
 
-    // todo(lsugy): return distances!
-  } else if (metric == raft::distance::DistanceType::InnerProduct) {
-    // TODO: pass buffer
-    rmm::device_uvector<float> distances(n_rows * n_clusters, stream, mr);
+      float alpha = -1.0;
+      float beta  = 0.0;
 
-    float alpha = -1.0;
-    float beta  = 0.0;
-
-    linalg::gemm(handle,
-                 true,
-                 false,
-                 n_clusters,
-                 n_rows,
-                 dim,
-                 &alpha,
-                 centers,
-                 dim,
-                 dataset,
-                 dim,
-                 &beta,
-                 distances.data(),
-                 n_clusters,
-                 stream);
-    utils::argmin_along_rows(n_rows, n_clusters, distances.data(), labels, stream);
-  } else {
-    RAFT_FAIL("The chosen distance metric is not supported (%d)", int(metric));
+      linalg::gemm(handle,
+                   true,
+                   false,
+                   n_clusters,
+                   n_rows,
+                   dim,
+                   &alpha,
+                   centers,
+                   dim,
+                   dataset,
+                   dim,
+                   &beta,
+                   distances.data(),
+                   n_clusters,
+                   stream);
+      utils::argmin_along_rows(n_rows, n_clusters, distances.data(), labels, stream);
+      break;
+    }
+    default: {
+      RAFT_FAIL("The chosen distance metric is not supported (%d)", int(metric));
+    }
   }
 }
 
