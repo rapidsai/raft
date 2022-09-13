@@ -17,15 +17,13 @@
 
 #pragma once
 
-#include "utils.cuh"
+#include <raft/sparse/solver/detail/mst_utils.cuh>
 
 #include <limits>
 
 #include <raft/device_atomics.cuh>
 
-namespace raft {
-namespace mst {
-namespace detail {
+namespace raft::sparse::solver::detail {
 
 template <typename vertex_t, typename edge_t, typename alteration_t>
 __global__ void kernel_min_edge_per_vertex(const edge_t* offsets,
@@ -332,6 +330,4 @@ __global__ void kernel_count_new_mst_edges(const vertex_t* mst_src,
   if (threadIdx.x == 0 && block_count > 0) { atomicAdd(mst_edge_count, block_count); }
 }
 
-}  // namespace detail
-}  // namespace mst
-}  // namespace raft
+}  // namespace raft::sparse::solver::detail

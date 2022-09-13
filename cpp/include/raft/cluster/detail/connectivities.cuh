@@ -23,10 +23,10 @@
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
+#include <raft/cluster/single_linkage_types.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/hierarchy/common.h>
 #include <raft/sparse/selection/knn_graph.cuh>
 
 #include <thrust/iterator/zip_iterator.h>
@@ -35,9 +35,7 @@
 
 #include <limits>
 
-namespace raft {
-namespace hierarchy {
-namespace detail {
+namespace raft::cluster::detail {
 
 template <raft::hierarchy::LinkageDistance dist_type, typename value_idx, typename value_t>
 struct distance_graph_impl {
@@ -140,6 +138,4 @@ void get_distance_graph(const raft::handle_t& handle,
   dist_graph.run(handle, X, m, n, metric, indptr, indices, data, c);
 }
 
-};  // namespace detail
-};  // namespace hierarchy
-};  // namespace raft
+};  // namespace raft::cluster::detail

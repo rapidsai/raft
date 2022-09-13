@@ -19,14 +19,12 @@
 #include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
 
+#include <raft/cluster/detail/agglomerative.cuh>
+#include <raft/cluster/detail/connectivities.cuh>
+#include <raft/cluster/detail/mst.cuh>
 #include <raft/sparse/hierarchy/common.h>
-#include <raft/sparse/hierarchy/detail/agglomerative.cuh>
-#include <raft/sparse/hierarchy/detail/connectivities.cuh>
-#include <raft/sparse/hierarchy/detail/mst.cuh>
 
-namespace raft {
-namespace hierarchy {
-namespace detail {
+namespace raft::cluster::detail {
 
 static const size_t EMPTY = 0;
 
@@ -123,6 +121,4 @@ void single_linkage(const raft::handle_t& handle,
   out->n_leaves               = m;
   out->n_connected_components = 1;
 }
-};  // namespace detail
-};  // namespace hierarchy
-};  // namespace raft
+};  // namespace raft::cluster::detail

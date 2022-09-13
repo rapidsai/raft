@@ -18,8 +18,8 @@
 
 #include <curand.h>
 
-#include "mst_kernels.cuh"
-#include "utils.cuh"
+#include <raft/sparse/solver/detail/mst_kernels.cuh>
+#include <raft/sparse/solver/detail/mst_utils.cuh>
 
 #include <raft/cudart_utils.h>
 
@@ -43,8 +43,7 @@
 
 #include <iostream>
 
-namespace raft {
-namespace mst {
+namespace raft::sparse::solver::detail {
 
 // curand generator uniform
 inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
@@ -409,6 +408,4 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::append_src_dst_pair(
                   src_dst_zip_end,
                   new_edges_functor<vertex_t, weight_t>());
 }
-
-}  // namespace mst
-}  // namespace raft
+}  // namespace raft::sparse::solver::detail
