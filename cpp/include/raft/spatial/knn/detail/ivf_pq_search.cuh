@@ -495,14 +495,14 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
     IdxT cluster_offset  = cluster_offsets[label];
 
     block_sort_t<Capacity, OutT> block_topk(topk, smem_buf);
-    constexpr OutT kLimit = block_sort_t<Capacity, OutT>::queue_t::kDummy;
 
     // Compute a distance for each sample
     for (uint32_t i = threadIdx.x; i < n_samples32; i += blockDim.x) {
-      float score = kLimit;
+      OutT score = block_sort_t<Capacity, OutT>::queue_t::kDummy;
       if (i < n_samples) {
-        score = ivfpq_compute_score<PqBits, VecLen, PqT, IdxT, LutT>(
+        const float fscore = ivfpq_compute_score<PqBits, VecLen, PqT, IdxT, LutT>(
           pq_dim, cluster_offset + i, pq_dataset, lut_scores);
+        if (fscore < float(score)) { score = OutT{fscore}; }
       }
       if constexpr (kManageLocalTopK) {
         block_topk.add(score, cluster_offset + i);
@@ -521,7 +521,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
       if (probe_ix + 1 == n_probes) {
         for (uint32_t i = threadIdx.x + sample_offset + n_samples; i < max_samples;
              i += blockDim.x) {
-          out_scores[i] = kLimit;
+          out_scores[i] = block_sort_t<Capacity, OutT>::queue_t::kDummy;
         }
       }
     }
