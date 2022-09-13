@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <iostream>
+
 #include "../test_utils.h"
 #include "./ann_base_kernel.cuh"
 
@@ -39,10 +41,10 @@ namespace raft {
 namespace spatial {
 namespace knn {
 struct AnnIvfFlatInputs {
-  int num_queries;
-  int num_db_vecs;
-  int dim;
-  int k;
+  int64_t num_queries;
+  int64_t num_db_vecs;
+  int64_t dim;
+  int64_t k;
   int nprobe;
   int nlist;
   raft::distance::DistanceType metric;
@@ -170,7 +172,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                                &index,
                                dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivfParams),
                                ps.metric,
-                               0,
+                               (int64_t)0,
                                database.data(),
                                ps.num_db_vecs,
                                ps.dim);
