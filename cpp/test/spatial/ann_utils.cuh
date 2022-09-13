@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
