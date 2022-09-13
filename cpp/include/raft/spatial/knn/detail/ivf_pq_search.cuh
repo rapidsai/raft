@@ -45,8 +45,13 @@ namespace raft::spatial::knn::ivf_pq::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
 
-template <unsigned ExpBits>
+/** Unsigned 8-bit floating-point type. */
+template <uint32_t ExpBits>
 struct fp_8bit {
+  static_assert(ExpBits < 8, "Exponent must have less than 8 bits.");
+  constexpr static uint32_t ExpMask = (1u << (ExpBits - 1u)) - 1u;  // NOLINT
+  constexpr static uint32_t ValBits = 8u - ExpBits;                 // NOLINT
+
  public:
   uint8_t bitstring;
 
@@ -62,20 +67,17 @@ struct fp_8bit {
  private:
   static HDI auto float2fp_8bit(float v) -> fp_8bit<ExpBits>
   {
-    if (v < 1. / (1u << ((1u << (ExpBits - 1)) - 1))) {
-      return fp_8bit<ExpBits>{static_cast<uint8_t>(0)};
-    }
+    // sic! all small and negative numbers are truncated to zero.
+    if (v < 1. / (1u << ExpMask)) { return fp_8bit<ExpBits>{static_cast<uint8_t>(0)}; }
     return fp_8bit<ExpBits>{static_cast<uint8_t>(
-      (*reinterpret_cast<uint32_t*>(&v) + (((1u << (ExpBits - 1)) - 1) << 23) - 0x3f800000u) >>
-      (15 + ExpBits))};
+      (*reinterpret_cast<uint32_t*>(&v) + (ExpMask << 23u) - 0x3f800000u) >> (15u + ExpBits))};
   }
 
   static HDI auto fp_8bit2float(const fp_8bit<ExpBits>& v) -> float
   {
     float r;
-    *reinterpret_cast<uint32_t*>(&r) =
-      ((v.bitstring << (15 + ExpBits)) + (0x3f800000u | (0x00400000u >> (8 - ExpBits))) -
-       (((1u << (ExpBits - 1)) - 1) << 23));
+    *reinterpret_cast<uint32_t*>(&r) = ((v.bitstring << (15u + ExpBits)) +
+                                        (0x3f800000u | (0x00400000u >> ValBits)) - (ExpMask << 23));
     return r;
   }
 };
@@ -481,10 +483,15 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
         case distance::DistanceType::InnerProduct: {
           for (uint32_t j = 0; j < pq_len; j++) {
             uint32_t k = j + (pq_len * i_pq);
-            score -= query[k] * (cluster_center[k] + pq_center[j + pq_len * i_code]);
+            score      = query[k] * (cluster_center[k] + pq_center[j + pq_len * i_code]);
           }
         } break;
       }
+      // NB: Score should be non-negative when LutT == fp_8bit<..>.
+      //     For fp_8bit<..>, a negative fp32 score is truncated to zero,
+      //     which may cause a significant recall degradation for similarity metrics
+      //     when the data size is small and dimensionality is large
+      //                                  (higher chance of negative similarity).
       lut_scores[i] = LutT(score);
     }
 
@@ -500,8 +507,14 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
     for (uint32_t i = threadIdx.x; i < n_samples32; i += blockDim.x) {
       OutT score = block_sort_t<Capacity, OutT>::queue_t::kDummy;
       if (i < n_samples) {
-        const float fscore = ivfpq_compute_score<PqBits, VecLen, PqT, IdxT, LutT>(
+        float fscore = ivfpq_compute_score<PqBits, VecLen, PqT, IdxT, LutT>(
           pq_dim, cluster_offset + i, pq_dataset, lut_scores);
+        switch (metric) {
+          // For similarity metrics,
+          // we negate the scores as we hardcoded select-topk to always take the minimum
+          case distance::DistanceType::InnerProduct: fscore = -fscore; break;
+          default: break;
+        }
         if (fscore < float(score)) { score = OutT{fscore}; }
       }
       if constexpr (kManageLocalTopK) {
@@ -888,6 +901,20 @@ inline void search(const handle_t& handle,
     static_cast<uint64_t>(index.size()));
   RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
+
+  switch (index.metric()) {
+    case raft::distance::DistanceType::InnerProduct:
+      if (params.lut_dtype == CUDA_R_8U) {
+        RAFT_LOG_WARN(
+          "The selected internal score representation type is unsigned (lut_dtype == CUDA_R_8U), "
+          "but the selected similarity metric may have negative values. "
+          "This may lead to a significant degradation of the search results quality. "
+          "Consider changing 'lut_dtype' value.");
+      }
+      break;
+    default: break;
+  }
+
   auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
   {
     IdxT n_samples_worst_case = index.size();
