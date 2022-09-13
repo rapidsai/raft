@@ -203,7 +203,7 @@ struct Linewise {
     __syncthreads();
     {
       Vec out;
-      out.val.internal = reinterpret_cast<typename Vec::io_t*>(shm)[threadIdx.x];
+      *out.vectorized_data() = reinterpret_cast<typename Vec::io_t*>(shm)[threadIdx.x];
       return out;
     }
   }
