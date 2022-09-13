@@ -494,7 +494,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
     uint32_t n_samples32 = Pow2<32>::roundUp(n_samples);
     IdxT cluster_offset  = cluster_offsets[label];
 
-    block_sort_t<Capacity, OutT> block_topk(topk, reinterpret_cast<uint8_t*>(smem_buf));
+    block_sort_t<Capacity, OutT> block_topk(topk, smem_buf);
     constexpr OutT kLimit = block_sort_t<Capacity, OutT>::queue_t::kDummy;
 
     // Compute a distance for each sample
