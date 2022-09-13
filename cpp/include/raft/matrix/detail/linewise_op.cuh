@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/pow2_utils.cuh>
-#include <raft/vectorized.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/pow2_utils.cuh>
+#include <raft/util/vectorized.cuh>
 
 #include <algorithm>
 

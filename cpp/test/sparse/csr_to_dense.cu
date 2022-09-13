@@ -15,8 +15,8 @@
  */
 
 #include <cusparse_v2.h>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
 #include <raft/sparse/convert/dense.cuh>

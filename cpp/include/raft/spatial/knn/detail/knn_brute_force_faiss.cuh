@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -30,8 +30,8 @@
 
 #include <cstdint>
 #include <iostream>
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_type.hpp>
-#include <raft/handle.hpp>
 #include <raft/spatial/knn/faiss_mr.hpp>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>

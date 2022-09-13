@@ -21,7 +21,7 @@
 
 #include <limits>
 
-#include <raft/device_atomics.cuh>
+#include <raft/util/device_atomics.cuh>
 
 namespace raft::sparse::solver::detail {
 

@@ -17,7 +17,7 @@
 
 #include <optional>
 #include <raft/cluster/detail/kmeans.cuh>
-#include <raft/cluster/kmeans_params.hpp>
+#include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/mdarray.hpp>
 
 namespace raft {

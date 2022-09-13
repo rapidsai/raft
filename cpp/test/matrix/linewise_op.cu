@@ -19,10 +19,10 @@
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
 #include <raft/common/nvtx.hpp>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

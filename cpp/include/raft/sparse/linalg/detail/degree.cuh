@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/device_atomics.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/device_atomics.cuh>
 
 #include <cuda_runtime.h>
 #include <stdio.h>

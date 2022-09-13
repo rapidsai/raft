@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace cache {

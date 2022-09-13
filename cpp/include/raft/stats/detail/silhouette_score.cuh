@@ -21,7 +21,6 @@
 #include <iostream>
 #include <math.h>
 #include <numeric>
-#include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/add.cuh>
@@ -30,6 +29,7 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/linalg/reduce_cols_by_key.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_scalar.hpp>
 
 namespace raft {

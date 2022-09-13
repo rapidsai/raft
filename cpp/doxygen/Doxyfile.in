@@ -880,7 +880,32 @@ RECURSIVE              = YES
 # run.
 
 EXCLUDE                = @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/linalg/symmetrize.hpp \
-                         \
+
+                         # Deprecated directories
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/cache/ \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/common/ \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/lap/ \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/spectral/ \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/selection/ \
+
+                         # Deprecated files
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/csr.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/linalg/lanczos.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/linalg/lanczos.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/cuda_utils.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/cudart_utils.h \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/device_atomics.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/device_utils.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/error.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/handle.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/integer_utils.h \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/interruptible.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/mdarray.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/pow2_utils.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/span.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/vectorized.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/raft.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/cudart_utils.hpp
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded

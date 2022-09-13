@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -51,7 +51,7 @@ class MST_solver {
              bool initialize_colors_,
              int iterations_);
 
-  raft::Graph_COO<vertex_t, edge_t, weight_t> solve();
+  Graph_COO<vertex_t, edge_t, weight_t> solve();
 
   ~MST_solver() {}
 

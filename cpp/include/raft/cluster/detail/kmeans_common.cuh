@@ -27,12 +27,11 @@
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 
-#include <raft/cluster/kmeans_params.hpp>
+#include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
@@ -42,6 +41,7 @@
 #include <raft/matrix/gather.cuh>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

@@ -29,3 +29,10 @@
                 " Please use the raft/solver version instead.")
 
 #include <raft/solver/linear_assignment.cuh>
+
+using raft::solver::VertexData;
+using raft::solver::Vertices;
+
+namespace raft::lap {
+using raft::solver::LinearAssignmentProblem;
+}

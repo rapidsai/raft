@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
 #include <raft/spectral/specializations.cuh>

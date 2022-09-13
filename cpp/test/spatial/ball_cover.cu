@@ -16,11 +16,11 @@
 
 #include "../test_utils.h"
 #include "spatial_data.h"
-#include <raft/cudart_utils.h>
 #include <raft/distance/distance_type.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/spatial/knn/ball_cover.cuh>
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
+#include <raft/util/cudart_utils.hpp>
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
 #endif

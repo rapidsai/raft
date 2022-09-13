@@ -18,8 +18,8 @@
 
 #include <raft/stats/information_criterion.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <gtest/gtest.h>

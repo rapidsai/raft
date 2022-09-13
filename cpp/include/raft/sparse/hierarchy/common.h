@@ -27,6 +27,7 @@
 #include <raft/cluster/single_linkage_types.hpp>
 
 namespace raft::hierarchy {
+using raft::cluster::linkage_output;
 using raft::cluster::linkage_output__int64_float;
 using raft::cluster::linkage_output_int_float;
 using raft::cluster::LinkageDistance;

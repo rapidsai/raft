@@ -28,17 +28,16 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 
-#include "detail/d_structs.h"
-#include "detail/lap_functions.cuh"
+#include <raft/solver/detail/lap_functions.cuh>
+#include <raft/solver/linear_assignment_types.hpp>
 
-namespace raft {
-namespace lap {
+namespace raft::solver {
 
 template <typename vertex_t, typename weight_t>
 class LinearAssignmentProblem {
@@ -289,7 +288,6 @@ class LinearAssignmentProblem {
   }
 };
 
-}  // namespace lap
-}  // namespace raft
+}  // namespace raft::solver
 
 #endif

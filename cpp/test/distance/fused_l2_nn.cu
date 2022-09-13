@@ -16,12 +16,12 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 // TODO: Once fusedL2NN is specialized in the raft_distance shared library, add
 // the following:

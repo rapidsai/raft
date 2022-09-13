@@ -13,16 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef __SINGLE_LINKAGE_H
-#define __SINGLE_LINKAGE_H
-
 #pragma once
 
 #include <raft/cluster/detail/single_linkage.cuh>
 #include <raft/cluster/single_linkage_types.hpp>
 
-namespace raft {
-namespace hierarchy {
+namespace raft::cluster {
 
 /**
  * Single-linkage clustering, capable of constructing a KNN graph to
@@ -59,7 +55,4 @@ void single_linkage(const raft::handle_t& handle,
   detail::single_linkage<value_idx, value_t, dist_type>(
     handle, X, m, n, metric, out, c, n_clusters);
 }
-};  // namespace hierarchy
-};  // namespace raft
-
-#endif
+};  // namespace raft::cluster

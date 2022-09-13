@@ -32,5 +32,5 @@ using raft::sparse::solver::Graph_COO;
 }
 
 namespace raft::mst {
-using raft::sparse::solver::MST_Solver;
+using raft::sparse::solver::MST_solver;
 }

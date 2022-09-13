@@ -18,13 +18,14 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <vector>
 
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/mst/mst.cuh>
-#include <raft/sparse/selection/knn_graph.cuh>
+#include <raft/sparse/selection/connect_components.cuh>
+#include <raft/sparse/spatial/knn_graph.cuh>
 
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/transpose.cuh>
@@ -74,13 +75,13 @@ class ConnectComponentsTest
      */
     raft::sparse::COO<value_t, value_idx> knn_graph_coo(stream);
 
-    raft::sparse::selection::knn_graph(handle,
-                                       data.data(),
-                                       params.n_row,
-                                       params.n_col,
-                                       raft::distance::DistanceType::L2SqrtExpanded,
-                                       knn_graph_coo,
-                                       params.c);
+    raft::sparse::spatial::knn_graph(handle,
+                                     data.data(),
+                                     params.n_row,
+                                     params.n_col,
+                                     raft::distance::DistanceType::L2SqrtExpanded,
+                                     knn_graph_coo,
+                                     params.c);
 
     raft::sparse::convert::sorted_coo_to_csr(
       knn_graph_coo.rows(), knn_graph_coo.nnz, indptr.data(), params.n_row + 1, stream);
