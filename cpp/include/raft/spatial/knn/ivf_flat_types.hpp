@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "common.hpp"
+#include "ann_types.hpp"
 
 #include <raft/core/error.hpp>
 #include <raft/core/mdarray.hpp>
