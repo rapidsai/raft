@@ -71,15 +71,15 @@ void qrGetQR(const raft::handle_t& handle,
 }
 
 /**
- * @brief compute QR decomp and return only Q matrix
- * @param handle raft::handle_t
- * @param M Input raft::device_matrix_view
- * @param Q Output raft::device_matrix_view
+ * @brief Compute the QR decomposition of matrix M and return only the Q matrix.
+ * @param[in] handle raft::handle_t
+ * @param[in] M Input raft::device_matrix_view
+ * @param[out] Q Output raft::device_matrix_view
  */
-template <typename ElementType, typename IndexType = std::uint32_t>
-void qrGetQ(const raft::handle_t& handle,
-            const raft::device_matrix_view<ElementType, IndexType, raft::col_major> M,
-            raft::device_matrix_view<ElementType, IndexType, raft::col_major> Q)
+template <typename ElementType, typename IndexType>
+void qr_get_q(const raft::handle_t& handle,
+              raft::device_matrix_view<const ElementType, IndexType, raft::col_major> M,
+              raft::device_matrix_view<ElementType, IndexType, raft::col_major> Q)
 {
   RAFT_EXPECTS(Q.is_exhaustive(), "Output must be contiguous");
   RAFT_EXPECTS(M.is_exhaustive(), "Input must be contiguous");
@@ -89,17 +89,17 @@ void qrGetQ(const raft::handle_t& handle,
 }
 
 /**
- * @brief compute QR decomp and return Q and R matrices
- * @param handle raft::handle_t
- * @param M Input raft::device_matrix_view
- * @param Q Output raft::device_matrix_view
- * @param R Output raft::device_matrix_view
+ * @brief Compute the QR decomposition of matrix M and return both the Q and R matrices.
+ * @param[in] handle raft::handle_t
+ * @param[in] M Input raft::device_matrix_view
+ * @param[in] Q Output raft::device_matrix_view
+ * @param[out] R Output raft::device_matrix_view
  */
-template <typename ElementType, typename IndexType = std::uint32_t>
-void qrGetQ(const raft::handle_t& handle,
-            const raft::device_matrix_view<ElementType, IndexType, raft::col_major> M,
-            raft::device_matrix_view<ElementType, IndexType, raft::col_major> Q,
-            raft::device_matrix_view<ElementType, IndexType, raft::col_major> R)
+template <typename ElementType, typename IndexType>
+void qr_get_qr(const raft::handle_t& handle,
+               raft::device_matrix_view<const ElementType, IndexType, raft::col_major> M,
+               raft::device_matrix_view<ElementType, IndexType, raft::col_major> Q,
+               raft::device_matrix_view<ElementType, IndexType, raft::col_major> R)
 {
   RAFT_EXPECTS(Q.is_exhaustive(), "Output must be contiguous");
   RAFT_EXPECTS(M.is_exhaustive(), "Input must be contiguous");

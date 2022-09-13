@@ -118,19 +118,19 @@ void eigJacobi(const raft::handle_t& handle,
 /**
  * @brief eig decomp with divide and conquer method for the column-major
  * symmetric matrices
- * @tparam ElementType the data-type of input and output
+ * @tparam ValueType the data-type of input and output
  * @tparam IntegerType Integer used for addressing
  * @param handle raft::handle_t
- * @param in input raft::device_matrix_view (symmetric matrix that has real eig values and
+ * @param[in] in input raft::device_matrix_view (symmetric matrix that has real eig values and
  * vectors)
- * @param eig_vectors: eigenvectors output of type raft::device_matrix_view
- * @param eig_vals: eigen values output of type raft::device_vector_view
+ * @param[out] eig_vectors: eigenvectors output of type raft::device_matrix_view
+ * @param[out] eig_vals: eigen values output of type raft::device_vector_view
  */
-template <typename ElementType, typename IndexType = std::uint32_t>
+template <typename ValueType, typename IndexType>
 void eig_dc(const raft::handle_t& handle,
-            const raft::device_matrix_view<ElementType, IndexType, raft::col_major> in,
-            raft::device_matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
-            raft::device_vector_view<ElementType, IndexType> eig_vals)
+            raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
+            raft::device_matrix_view<ValueType, IndexType, raft::col_major> eig_vectors,
+            raft::device_vector_view<ValueType, IndexType> eig_vals)
 {
   RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(eig_vectors.is_exhaustive(), "Eigen Vectors must be contiguous");
@@ -150,22 +150,22 @@ void eig_dc(const raft::handle_t& handle,
 /**
  * @brief eig decomp to select top-n eigen values with divide and conquer method
  *        for the column-major symmetric matrices
- * @tparam ElementType the data-type of input and output
+ * @tparam ValueType the data-type of input and output
  * @tparam IntegerType Integer used for addressing
- * @param handle raft::handle_t
- * @param in input raft::device_matrix_view (symmetric matrix that has real eig values and
+ * @param[in] handle raft::handle_t
+ * @param[in] in input raft::device_matrix_view (symmetric matrix that has real eig values and
  * vectors)
- * @param n_eig_vals: number of eigenvectors to be generated
- * @param eig_vectors: eigenvectors output of type raft::device_matrix_view
- * @param eig_vals: eigen values output of type raft::device_vector_view
+ * @param[in] n_eig_vals: number of eigenvectors to be generated
+ * @param[out] eig_vectors: eigenvectors output of type raft::device_matrix_view
+ * @param[out] eig_vals: eigen values output of type raft::device_vector_view
  */
-template <typename ElementType, typename IndexType = std::uint32_t>
-void eig_dc_select(const raft::handle_t& handle,
-                   const raft::device_matrix_view<ElementType, IndexType, raft::col_major> in,
-                   std::size_t n_eig_vals,
-                   raft::device_matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
-                   raft::device_vector_view<ElementType, IndexType> eig_vals,
-                   EigVecMemUsage memUsage)
+template <typename ValueType, typename IndexType>
+void eig_dc_selective(const raft::handle_t& handle,
+                      raft::device_matrix_view<ValueType, IndexType, raft::col_major> in,
+                      std::size_t n_eig_vals,
+                      raft::device_matrix_view<ValueType, IndexType, raft::col_major> eig_vectors,
+                      raft::device_vector_view<ValueType, IndexType> eig_vals,
+                      EigVecMemUsage memUsage)
 {
   RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(eig_vectors.is_exhaustive(), "Eigen Vectors must be contiguous");
@@ -188,25 +188,25 @@ void eig_dc_select(const raft::handle_t& handle,
 /**
  * @brief overloaded function for eig decomp with Jacobi method for the
  * column-major symmetric matrices (in parameter)
- * @tparam ElementType the data-type of input and output
+ * @tparam ValueType the data-type of input and output
  * @tparam IntegerType Integer used for addressing
  * @param handle raft::handle_t
- * @param in input raft::device_matrix_view (symmetric matrix that has real eig values and
+ * @param[in] in input raft::device_matrix_view (symmetric matrix that has real eig values and
  * vectors)
- * @param eig_vectors: eigenvectors output of type raft::device_matrix_view
- * @param eig_vals: eigen values output of type raft::device_vector_view
- * @param tol: error tolerance for the jacobi method. Algorithm stops when the
+ * @param[out] eig_vectors: eigenvectors output of type raft::device_matrix_view
+ * @param[out] eig_vals: eigen values output of type raft::device_vector_view
+ * @param[in] tol: error tolerance for the jacobi method. Algorithm stops when the
  * error is below tol
- * @param sweeps: number of sweeps in the Jacobi algorithm. The more the better
+ * @param[in] sweeps: number of sweeps in the Jacobi algorithm. The more the better
  * accuracy.
  */
-template <typename ElementType, typename IndexType = std::uint32_t>
+template <typename ValueType, typename IndexType>
 void eig_jacobi(const raft::handle_t& handle,
-                const raft::device_matrix_view<ElementType, IndexType, raft::col_major> in,
-                raft::device_matrix_view<ElementType, IndexType, raft::col_major> eig_vectors,
-                raft::device_vector_view<ElementType, IndexType> eig_vals,
-                ElementType tol = 1.e-7,
-                int sweeps      = 15)
+                raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
+                raft::device_matrix_view<ValueType, IndexType, raft::col_major> eig_vectors,
+                raft::device_vector_view<ValueType, IndexType> eig_vals,
+                ValueType tol = 1.e-7,
+                int sweeps    = 15)
 {
   RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(eig_vectors.is_exhaustive(), "Eigen Vectors must be contiguous");

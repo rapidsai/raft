@@ -48,25 +48,22 @@ void meanSquaredError(
 
 /**
  * @brief CUDA version mean squared error function mean((A-B)**2)
- * @tparam InElementType Input data-type
+ * @tparam InValueType Input data-type
  * @tparam IndexType Input/Output index type
- * @tparam OutElementType Output data-type
+ * @tparam OutValueType Output data-type
  * @tparam TPB threads-per-block
- * @param handle raft::handle_t
- * @param out the output mean squared error value of type raft::device_scalar_view
- * @param A input raft::device_vector_view
- * @param B input raft::device_vector_view
- * @param weight weight to apply to every term in the mean squared error calculation
+ * @param[in] handle raft::handle_t
+ * @param[in] A input raft::device_vector_view
+ * @param[in] B input raft::device_vector_view
+ * @param[out] out the output mean squared error value of type raft::device_scalar_view
+ * @param[in] weight weight to apply to every term in the mean squared error calculation
  */
-template <typename InElementType,
-          typename IndexType      = std::uint32_t,
-          typename OutElementType = InElementType,
-          int TPB                 = 256>
+template <typename InValueType, typename IndexType, typename OutValueType, int TPB = 256>
 void mean_squared_error(const raft::handle_t& handle,
-                        raft::device_vector_view<OutElementType, IndexType> out,
-                        const raft::device_vector_view<InElementType, IndexType> A,
-                        const raft::device_vector_view<InElementType, IndexType> B,
-                        OutElementType weight)
+                        raft::device_vector_view<const InValueType, IndexType> A,
+                        raft::device_vector_view<const InValueType, IndexType> B,
+                        raft::device_vector_view<OutValueType, IndexType> out,
+                        OutValueType weight)
 {
   meanSquaredError(
     out.data_handle(), A.data_handle(), B.data_handle(), A.extent(0), weight, stream);

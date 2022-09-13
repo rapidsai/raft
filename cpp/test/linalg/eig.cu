@@ -93,7 +93,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
     raft::update_device(eig_vectors_ref.data(), eig_vectors_ref_h, len, stream);
     raft::update_device(eig_vals_ref.data(), eig_vals_ref_h, params.n_col, stream);
 
-    auto cov_matrix_view = raft::make_device_matrix_view<T, std::uint32_t, raft::col_major>(
+    auto cov_matrix_view = raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
       cov_matrix.data(), params.n_row, params.n_col);
     auto eig_vectors_view = raft::make_device_matrix_view<T, std::uint32_t, raft::col_major>(
       eig_vectors.data(), params.n_row, params.n_col);
@@ -116,8 +116,9 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
 
     uniform(handle, r, cov_matrix_large.data(), len, T(-1.0), T(1.0));
 
-    auto cov_matrix_large_view = raft::make_device_matrix_view<T, std::uint32_t, raft::col_major>(
-      cov_matrix_large.data(), params.n, params.n);
+    auto cov_matrix_large_view =
+      raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
+        cov_matrix_large.data(), params.n, params.n);
     auto eig_vectors_large_view = raft::make_device_matrix_view<T, std::uint32_t, raft::col_major>(
       eig_vectors_large.data(), params.n, params.n);
     auto eig_vals_large_view =

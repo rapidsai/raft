@@ -21,6 +21,8 @@
 
 #include "detail/subtract.cuh"
 
+#include <raft/core/mdarray.hpp>
+
 namespace raft {
 namespace linalg {
 
@@ -83,6 +85,137 @@ void subtractDevScalar(math_t* outDev,
 {
   detail::subtractDevScalar(outDev, inDev, singleScalarDev, len, stream);
 }
+
+/**
+ * @defgroup sub Subtraction Arithmetic
+ * @{
+ */
+
+/**
+ * @brief Elementwise subtraction operation on the input buffers
+ * @tparam InType    Input Type raft::device_mdspan
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @param handle raft::handle_t
+ * @param out    Output
+ * @param in1    First Input
+ * @param in2    Second Input
+ */
+template <typename InType,
+          typename OutType,
+          typename = raft::enable_if_device_mdspan<OutType, InType>>
+void subtract(const raft::handle_t& handle, InType in1, InType in2, OutType out)
+{
+  using in_value_t  = typename InType::value_type;
+  using out_value_t = typename OutType::value_type;
+
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in1.is_exhaustive(), "Input 1 must be contiguous");
+  RAFT_EXPECTS(in2.is_exhaustive(), "Input 2 must be contiguous");
+  RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
+               "Size mismatch between Output and Inputs");
+
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    subtract<in_value_t, out_value_t, std::uint32_t>(out.data_handle(),
+                                                     in1.data_handle(),
+                                                     in2.data_handle(),
+                                                     static_cast<std::uint32_t>(out.size()),
+                                                     handle.get_stream());
+  } else {
+    subtract<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
+                                                     in1.data_handle(),
+                                                     in2.data_handle(),
+                                                     static_cast<std::uint64_t>(out.size()),
+                                                     handle.get_stream());
+  }
+}
+
+/**
+ * @brief Elementwise subtraction of device scalar to input
+ * @tparam InType    Input Type raft::device_mdspan
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @tparam ScalarIdxType Index Type of scalar
+ * @param[in] handle raft::handle_t
+ * @param[in] in    Input
+ * @param[out] out    Output
+ * @param[in] scalar    raft::device_scalar_view
+ */
+template <typename InType,
+          typename OutType,
+          typename ScalarIdxType,
+          typename = raft::enable_if_device_mdspan<OutType, InType>>
+void subtract_scalar(
+  const raft::handle_t& handle,
+  InType in,
+  OutType out,
+  raft::device_scalar_view<const typename InType::element_type, ScalarIdxType> scalar)
+{
+  using in_value_t  = typename InType::value_type;
+  using out_value_t = typename OutType::value_type;
+
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
+
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    subtractDevScalar<in_value_t, out_value_t, std::uint32_t>(
+      out.data_handle(),
+      in.data_handle(),
+      scalar.data_handle(),
+      static_cast<std::uint32_t>(out.size()),
+      handle.get_stream());
+  } else {
+    subtractDevScalar<in_value_t, out_value_t, std::uint64_t>(
+      out.data_handle(),
+      in.data_handle(),
+      scalar.data_handle(),
+      static_cast<std::uint64_t>(out.size()),
+      handle.get_stream());
+  }
+}
+
+/**
+ * @brief Elementwise subtraction of host scalar to input
+ * @tparam InType    Input Type raft::device_mdspan
+ * @tparam OutType   Output Type raft::device_mdspan
+ * @tparam ScalarIdxType Index Type of scalar
+ * @param[in] handle raft::handle_t
+ * @param[in] in    Input
+ * @param[out] out    Output
+ * @param[in] scalar    raft::host_scalar_view
+ */
+template <typename InType,
+          typename OutType,
+          typename ScalarIdxType,
+          typename = raft::enable_if_device_mdspan<OutType, InType>>
+void subtract_scalar(
+  const raft::handle_t& handle,
+  InType in,
+  OutType out,
+  raft::host_scalar_view<const typename InType::element_type, ScalarIdxType> scalar)
+{
+  using in_value_t  = typename InType::value_type;
+  using out_value_t = typename OutType::value_type;
+
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
+
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    subtractScalar<in_value_t, out_value_t, std::uint32_t>(out.data_handle(),
+                                                           in.data_handle(),
+                                                           *scalar.data_handle(),
+                                                           static_cast<std::uint32_t>(out.size()),
+                                                           handle.get_stream());
+  } else {
+    subtractScalar<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
+                                                           in.data_handle(),
+                                                           *scalar.data_handle(),
+                                                           static_cast<std::uint64_t>(out.size()),
+                                                           handle.get_stream());
+  }
+}
+
+/** @} */  // end of group subtract
 
 };  // end namespace linalg
 };  // end namespace raft

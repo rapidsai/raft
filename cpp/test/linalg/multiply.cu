@@ -47,7 +47,7 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
     auto out_view    = raft::make_device_vector_view(out.data(), len);
     auto in_view     = raft::make_device_vector_view(in.data(), len);
     auto scalar_view = raft::make_host_scalar_view(&params.scalar);
-    multiply_scalar(handle, out_view, in_view, scalar_view);
+    multiply_scalar(handle, in_view, out_view, scalar_view);
     handle.sync_stream(stream);
   }
 

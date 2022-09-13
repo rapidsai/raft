@@ -64,32 +64,32 @@ void map_k(
  * @tparam TPB threads-per-block in the final kernel launched
  * @tparam OutType data-type of result of type raft::device_mdspan
  * @tparam Args additional parameters
- * @param handle raft::handle_t
- * @param out the output of the map operation of type raft::device_mdspan
- * @param map the device-lambda
- * @param in the input of type raft::device_mdspan
- * @param args additional input arrays
+ * @param[in] handle raft::handle_t
+ * @param[in] in the input of type raft::device_mdspan
+ * @param[out] out the output of the map operation of type raft::device_mdspan
+ * @param[in] map the device-lambda
+ * @param[in] args additional input arrays
  */
 template <typename InType,
           typename MapOp,
-          int TPB          = 256,
-          typename OutType = InType,
+          typename OutType,
+          int TPB = 256,
           typename... Args,
           typename = enable_if_device_mdspan<InType, OutType>>
-void map(const raft::handle_t& handle, OutType out, MapOp map, const InType in, Args... args)
+void map(const raft::handle_t& handle, InType in, OutType out, MapOp map, Args... args)
 {
-  using in_element_t  = typename InType::element_type;
-  using out_element_t = typename OutType::element_type;
+  using in_value_t  = typename InType::value_type;
+  using out_value_t = typename OutType::value_type;
 
   RAFT_EXPECTS(out.is_exhaustive(), "Output is not exhaustive");
   RAFT_EXPECTS(in.is_exhaustive(), "Input is not exhaustive");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Input and Output");
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    map_k<in_element_t, MapOp, std::uint32_t, TPB, out_element_t, Args...>(
+    map_k<in_value_t, MapOp, std::uint32_t, TPB, out_value_t, Args...>(
       out.data_handle(), out.size(), map, handle.get_stream(), in.data_handle(), args...);
   } else {
-    map_k<in_element_t, MapOp, std::uint64_t, TPB, out_element_t, Args...>(
+    map_k<in_value_t, MapOp, std::uint64_t, TPB, out_value_t, Args...>(
       out.data_handle(), out.size(), map, handle.get_stream(), in.data_handle(), args...);
   }
 }

@@ -115,30 +115,30 @@ void matrixVectorOp(Type* out,
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
- * @tparam InElementType the data-type of the input matrices and vectors
+ * @tparam InValueType the data-type of the input matrices and vectors
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
  * @tparam OutElementType the data-type of the output raft::matrix_view
  * @tparam IndexType Integer used for addressing
  * @tparam TPB threads per block of the cuda kernel launched
- * @param handle raft::handle_t
- * @param out output raft::matrix_view
- * @param matrix input raft::matrix_view
- * @param vec vector raft::vector_view
- * @param apply whether the broadcast of vector needs to happen along
+ * @param[in] handle raft::handle_t
+ * @param[in] matrix input raft::matrix_view
+ * @param[in] vec vector raft::vector_view
+ * @param[out] out output raft::matrix_view
+ * @param[in] apply whether the broadcast of vector needs to happen along
  * the rows of the matrix or columns using enum class raft::linalg::Apply
- * @param op the mathematical operation
+ * @param[in] op the mathematical operation
  */
-template <typename InElementType,
+template <typename InValueType,
           typename LayoutPolicy,
           typename Lambda,
-          typename OutElementType = InElementType,
-          typename IndexType      = std::uint32_t,
-          int TPB                 = 256>
+          typename OutValueType,
+          typename IndexType,
+          int TPB = 256>
 void matrix_vector_op(const raft::handle_t& handle,
-                      raft::device_matrix_view<OutElementType, IndexType, LayoutPolicy> out,
-                      const raft::device_matrix_view<InElementType, IndexType, LayoutPolicy> matrix,
-                      const raft::device_vector_view<InElementType, IndexType> vec,
+                      raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> matrix,
+                      raft::device_vector_view<const InValueType, IndexType> vec,
+                      raft::device_matrix_view<OutValueType, IndexType, LayoutPolicy> out,
                       Apply apply,
                       Lambda op)
 {
@@ -176,32 +176,32 @@ void matrix_vector_op(const raft::handle_t& handle,
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
- * @tparam InElementType the data-type of the input matrices and vectors
+ * @tparam InValueType the data-type of the input matrices and vectors
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
  * @tparam OutElementType the data-type of the output raft::matrix_view
  * @tparam IndexType Integer used for addressing
  * @tparam TPB threads per block of the cuda kernel launched
  * @param handle raft::handle_t
- * @param out output raft::matrix_view
  * @param matrix input raft::matrix_view
  * @param vec1 the first vector raft::vector_view
  * @param vec2 the second vector raft::vector_view
+ * @param out output raft::matrix_view
  * @param apply whether the broadcast of vector needs to happen along
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param op the mathematical operation
  */
-template <typename InElementType,
+template <typename InValueType,
           typename LayoutPolicy,
           typename Lambda,
-          typename OutElementType = InElementType,
-          typename IndexType      = std::uint32_t,
-          int TPB                 = 256>
+          typename OutValueType,
+          typename IndexType,
+          int TPB = 256>
 void matrix_vector_op(const raft::handle_t& handle,
-                      raft::device_matrix_view<OutElementType, IndexType, LayoutPolicy> out,
-                      const raft::device_matrix_view<InElementType, IndexType, LayoutPolicy> matrix,
-                      const raft::device_vector_view<InElementType, IndexType> vec1,
-                      const raft::device_vector_view<InElementType, IndexType> vec2,
+                      raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> matrix,
+                      raft::device_vector_view<const InValueType, IndexType> vec1,
+                      raft::device_vector_view<const InValueType, IndexType> vec2,
+                      raft::device_matrix_view<OutValueType, IndexType, LayoutPolicy> out,
                       Apply apply,
                       Lambda op)
 {

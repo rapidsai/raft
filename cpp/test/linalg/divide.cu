@@ -61,8 +61,8 @@ class DivideTest : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T
     naiveDivide(out_ref.data(), in.data(), params.scalar, len, stream);
     auto out_view    = raft::make_device_vector_view(out.data(), len);
     auto in_view     = raft::make_device_vector_view(in.data(), len);
-    auto scalar_view = raft::make_host_scalar_view(&params.scalar);
-    divide_scalar(handle, out_view, in_view, scalar_view);
+    auto scalar_view = raft::make_host_scalar_view<const T>(&params.scalar);
+    divide_scalar(handle, in_view, out_view, scalar_view);
     handle.sync_stream(stream);
   }
 

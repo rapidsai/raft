@@ -66,30 +66,31 @@ void matrixVectorOpLaunch(const raft::handle_t& handle,
   if (useTwoVectors) {
     if (rowMajor) {
       matrix_vector_op(handle,
-                       out_row_major,
                        in_row_major,
                        vec1_view,
                        vec2_view,
+                       out_row_major,
                        apply,
                        [] __device__(T a, T b, T c) { return a + b + c; });
     } else {
       matrix_vector_op(handle,
-                       out_col_major,
                        in_col_major,
                        vec1_view,
                        vec2_view,
+                       out_col_major,
+
                        apply,
                        [] __device__(T a, T b, T c) { return a + b + c; });
     }
   } else {
     if (rowMajor) {
       matrix_vector_op(
-        handle, out_row_major, in_row_major, vec1_view, apply, [] __device__(T a, T b) {
+        handle, in_row_major, vec1_view, out_row_major, apply, [] __device__(T a, T b) {
           return a + b;
         });
     } else {
       matrix_vector_op(
-        handle, out_col_major, in_col_major, vec1_view, apply, [] __device__(T a, T b) {
+        handle, in_col_major, vec1_view, out_col_major, apply, [] __device__(T a, T b) {
           return a + b;
         });
     }

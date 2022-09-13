@@ -35,10 +35,10 @@ template <typename T>
 void stridedReductionLaunch(T* dots, const T* data, int cols, int rows, cudaStream_t stream)
 {
   raft::handle_t handle{stream};
-  auto dots_view = raft::make_device_matrix_view(dots, rows, cols);
+  auto dots_view = raft::make_device_vector_view(dots, cols);
   auto data_view = raft::make_device_matrix_view(data, rows, cols);
   strided_reduction(
-    handle, dots_view, data_view, (T)0, false, [] __device__(T in, int i) { return in * in; });
+    handle, data_view, dots_view, (T)0, false, [] __device__(T in, int i) { return in * in; });
 }
 
 template <typename T>

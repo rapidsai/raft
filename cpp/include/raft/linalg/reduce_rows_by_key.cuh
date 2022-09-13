@@ -55,7 +55,7 @@ void convert_array(IteratorT1 dst, IteratorT2 src, int n, cudaStream_t st)
  * @param[in]  stream      CUDA stream
  */
 template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
-void reduce_rows_by_key(const DataIteratorT d_A,
+void reduce_rows_by_key(const DataIteratorT* d_A,
                         int lda,
                         const KeysIteratorT d_keys,
                         const WeightT* d_weights,
@@ -63,7 +63,7 @@ void reduce_rows_by_key(const DataIteratorT d_A,
                         int nrows,
                         int ncols,
                         int nkeys,
-                        DataIteratorT d_sums,
+                        DataIteratorT* d_sums,
                         cudaStream_t stream)
 {
   detail::reduce_rows_by_key(
@@ -87,17 +87,17 @@ void reduce_rows_by_key(const DataIteratorT d_A,
  * @param[in]  stream      CUDA stream
  */
 template <typename DataIteratorT, typename KeysIteratorT>
-void reduce_rows_by_key(const DataIteratorT d_A,
+void reduce_rows_by_key(const DataIteratorT* d_A,
                         int lda,
-                        const KeysIteratorT d_keys,
+                        KeysIteratorT d_keys,
                         char* d_keys_char,
                         int nrows,
                         int ncols,
                         int nkeys,
-                        DataIteratorT d_sums,
+                        DataIteratorT* d_sums,
                         cudaStream_t stream)
 {
-  typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
+  typedef typename std::iterator_traits<DataIteratorT*>::value_type DataType;
   reduce_rows_by_key(d_A,
                      lda,
                      d_keys,
@@ -125,24 +125,21 @@ void reduce_rows_by_key(const DataIteratorT d_A,
  * @param[in]  handle      raft::handle_t
  * @param[in]  d_A         Input raft::device_mdspan (ncols * nrows)
  * @param[in]  d_keys      Keys for each row raft::device_vector_view (1 x nrows)
+ * @param[out] d_sums      Row sums by key raft::device_matrix_view (ncols x d_keys)
+ * @param[in]  nkeys       Number of unique keys in d_keys
  * @param[in]  d_weights   Weights for each observation in d_A raft::device_vector_view optional (1
  * x nrows)
  * @param[out] d_keys_char Scratch memory for conversion of keys to char, raft::device_vector_view
- * @param[in]  nkeys       Number of unique keys in d_keys
- * @param[out] d_sums      Row sums by key raft::device_matrix_view (ncols x d_keys)
  */
-template <typename ElementType,
-          typename KeyType    = ElementType,
-          typename WeightType = ElementType,
-          typename IndexType  = std::uint32_t>
+template <typename ElementType, typename KeyType, typename WeightType, typename IndexType>
 void reduce_rows_by_key(
   const raft::handle_t& handle,
-  const raft::device_matrix_view<ElementType, IndexType, raft::row_major> d_A,
-  const raft::device_vector_view<KeyType, IndexType> d_keys,
-  std::optional<const raft::device_vector_view<WeightType, IndexType>> d_weights,
-  raft::device_vector_view<char, IndexType> d_keys_char,
+  raft::device_matrix_view<const ElementType, IndexType, raft::row_major> d_A,
+  raft::device_vector_view<const KeyType, IndexType> d_keys,
+  raft::device_matrix_view<ElementType, IndexType, raft::row_major> d_sums,
   IndexType nkeys,
-  raft::device_matrix_view<ElementType, IndexType, raft::row_major> d_sums)
+  std::optional<raft::device_vector_view<const WeightType, IndexType>> d_weights,
+  raft::device_vector_view<char, IndexType> d_keys_char)
 {
   RAFT_EXPECTS(d_A.is_exhaustive(), "Input is not contiguous");
   RAFT_EXPECTS(d_sums.is_exhaustive(), "Output is not contiguous");

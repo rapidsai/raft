@@ -19,7 +19,9 @@
 
 #pragma once
 
-#include <raft/linalg/detail/ternary_op.cuh>
+#include "detail/ternary_op.cuh"
+
+#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace linalg {
@@ -37,8 +39,8 @@ namespace linalg {
  * @param op the device-lambda
  * @param stream cuda stream where to launch work
  */
-template <typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
-void ternaryOp(math_t* out,
+template <typename math_t, typename Lambda, typename out_t, typename IdxType = int, int TPB = 256>
+void ternaryOp(out_t* out,
                const math_t* in1,
                const math_t* in2,
                const math_t* in3,
@@ -48,6 +50,65 @@ void ternaryOp(math_t* out,
 {
   detail::ternaryOp(out, in1, in2, in3, len, op, stream);
 }
+
+/**
+ * @defgroup ternary_op Element-Wise Ternary Operation
+ * @{
+ */
+
+/**
+ * @brief perform element-wise ternary operation on the input arrays
+ * @tparam InType Input Type raft::device_mdspan
+ * @tparam Lambda the device-lambda performing the actual operation
+ * @tparam OutType Output Type raft::device_mdspan
+ * @tparam TPB threads-per-block in the final kernel launched
+ * @param[in] handle raft::handle_t
+ * @param[in] in1 First input
+ * @param[in] in2 Second input
+ * @param[in] in3 Third input
+ * @param[out] out Output
+ * @param[in] op the device-lambda
+ * @note Lambda must be a functor with the following signature:
+ *       `OutType func(const InType& val1, const InType& val2);`
+ */
+template <typename InType,
+          typename Lambda,
+          typename OutType,
+          int TPB  = 256,
+          typename = raft::enable_if_device_mdspan<InType, OutType>>
+void ternary_op(
+  const raft::handle_t& handle, InType in1, InType in2, InType in3, OutType out, Lambda op)
+{
+  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
+  RAFT_EXPECTS(in1.is_exhaustive(), "Input 1 must be contiguous");
+  RAFT_EXPECTS(in2.is_exhaustive(), "Input 2 must be contiguous");
+  RAFT_EXPECTS(in3.is_exhaustive(), "Input 3 must be contiguous");
+  RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size() && in2.size() == in3.size(),
+               "Size mismatch between Output and Inputs");
+
+  using in_value_t  = typename InType::value_type;
+  using out_value_t = typename OutType::value_type;
+
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    ternaryOp<in_value_t, Lambda, out_value_t, std::uint32_t, TPB>(out.data_handle(),
+                                                                   in1.data_handle(),
+                                                                   in2.data_handle(),
+                                                                   in3.data_handle(),
+                                                                   out.size(),
+                                                                   op,
+                                                                   handle.get_stream());
+  } else {
+    ternaryOp<in_value_t, Lambda, out_value_t, std::uint64_t, TPB>(out.data_handle(),
+                                                                   in1.data_handle(),
+                                                                   in2.data_handle(),
+                                                                   in3.data_handle(),
+                                                                   out.size(),
+                                                                   op,
+                                                                   handle.get_stream());
+  }
+}
+
+/** @} */  // end of group ternary_op
 
 };  // end namespace linalg
 };  // end namespace raft

@@ -88,23 +88,23 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     int rows = params.rows, cols = params.cols, len = rows * cols;
     uniform(handle, r, data.data(), len, T(-1.0), T(1.0));
     naiveRowNorm(dots_exp.data(), data.data(), cols, rows, params.type, params.do_sqrt, stream);
-    auto output_view = raft::make_device_vector_view<T, int>(dots_act.data(), params.rows);
-    auto input_row_major =
-      raft::make_device_matrix_view<T, int, raft::row_major>(data.data(), params.cols, params.cols);
-    auto input_col_major =
-      raft::make_device_matrix_view<T, int, raft::col_major>(data.data(), params.cols, params.cols);
+    auto output_view     = raft::make_device_vector_view<T, int>(dots_act.data(), params.rows);
+    auto input_row_major = raft::make_device_matrix_view<const T, int, raft::row_major>(
+      data.data(), params.rows, params.cols);
+    auto input_col_major = raft::make_device_matrix_view<const T, int, raft::col_major>(
+      data.data(), params.rows, params.cols);
     if (params.do_sqrt) {
-      auto fin_op = [] __device__(T in) { return raft::mySqrt(in); };
+      auto fin_op = [] __device__(const T in) { return raft::mySqrt(in); };
       if (params.rowMajor) {
-        norm(handle, output_view, input_row_major, params.type, Apply::ALONG_ROWS, fin_op);
+        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_ROWS, fin_op);
       } else {
-        norm(handle, output_view, input_col_major, params.type, Apply::ALONG_ROWS, fin_op);
+        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS, fin_op);
       }
     } else {
       if (params.rowMajor) {
-        norm(handle, output_view, input_row_major, params.type, Apply::ALONG_ROWS);
+        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_ROWS);
       } else {
-        norm(handle, output_view, input_col_major, params.type, Apply::ALONG_ROWS);
+        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS);
       }
     }
     handle.sync_stream(stream);
@@ -164,23 +164,23 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
     uniform(handle, r, data.data(), len, T(-1.0), T(1.0));
 
     naiveColNorm(dots_exp.data(), data.data(), cols, rows, params.type, params.do_sqrt, stream);
-    auto output_view = raft::make_device_vector_view<T, int>(dots_act.data(), params.cols);
-    auto input_row_major =
-      raft::make_device_matrix_view<T, int, raft::row_major>(data.data(), params.rows, params.cols);
-    auto input_col_major =
-      raft::make_device_matrix_view<T, int, raft::col_major>(data.data(), params.rows, params.cols);
+    auto output_view     = raft::make_device_vector_view<T, int>(dots_act.data(), params.cols);
+    auto input_row_major = raft::make_device_matrix_view<const T, int, raft::row_major>(
+      data.data(), params.rows, params.cols);
+    auto input_col_major = raft::make_device_matrix_view<const T, int, raft::col_major>(
+      data.data(), params.rows, params.cols);
     if (params.do_sqrt) {
-      auto fin_op = [] __device__(T in) { return raft::mySqrt(in); };
+      auto fin_op = [] __device__(const T in) { return raft::mySqrt(in); };
       if (params.rowMajor) {
-        norm(handle, output_view, input_row_major, params.type, Apply::ALONG_COLUMNS, fin_op);
+        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_COLUMNS, fin_op);
       } else {
-        norm(handle, output_view, input_col_major, params.type, Apply::ALONG_COLUMNS, fin_op);
+        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_COLUMNS, fin_op);
       }
     } else {
       if (params.rowMajor) {
-        norm(handle, output_view, input_row_major, params.type, Apply::ALONG_COLUMNS);
+        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_COLUMNS);
       } else {
-        norm(handle, output_view, input_col_major, params.type, Apply::ALONG_COLUMNS);
+        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_COLUMNS);
       }
     }
     handle.sync_stream(stream);

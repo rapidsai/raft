@@ -89,12 +89,12 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
     auto eig_vals_view =
       raft::make_device_vector_view<T, std::uint32_t>(eig_vals.data(), params.n_eigen_vals);
 
-    raft::linalg::eig_dc_select(handle,
-                                cov_matrix_view,
-                                static_cast<std::size_t>(params.n_eigen_vals),
-                                eig_vectors_view,
-                                eig_vals_view,
-                                EigVecMemUsage::OVERWRITE_INPUT);
+    raft::linalg::eig_dc_selective(handle,
+                                   cov_matrix_view,
+                                   static_cast<std::size_t>(params.n_eigen_vals),
+                                   eig_vectors_view,
+                                   eig_vals_view,
+                                   EigVecMemUsage::OVERWRITE_INPUT);
     handle.sync_stream();
   }
 

@@ -19,6 +19,9 @@
 #pragma once
 
 #include "detail/cholesky_r1_update.cuh"
+#include "fill_mode.hpp"
+
+#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace linalg {
@@ -151,19 +154,19 @@ void choleskyRank1Update(const raft::handle_t& handle,
  * - A'[:,n-1] = A[n-1,:] = A_new
  *
  * On entry, the new column A_new, is stored as the n-th column of L if uplo ==
- * CUBLAS_FILL_MODE_UPPER, else A_new is stored as the n-th row of L.
+ * raft::linalg::FillMode::UPPER, else A_new is stored as the n-th row of L.
  *
  * On exit L contains the Cholesky decomposition of A'. In practice the elements
  * of A_new are overwritten with new row/column of the L matrix.
  *
  * The uplo paramater is used to select the matrix layout.
- * If (uplo != CUBLAS_FILL_MODE_UPPER) then the input arg L stores the
+ * If (uplo != raft::linalg::FillMode::UPPER) then the input arg L stores the
  * lower triangular matrix L, so that A = L * L.T. Otherwise the input arg L
  * stores an upper triangular matrix U: A = U.T * U.
  *
  * On exit L will be updated to store the Cholesky decomposition of A'.
  *
- * If the matrix is not positive definit, or very ill conditioned then the new
+ * If the matrix is not positive definite, or is very ill conditioned, then the new
  * diagonal element of L would be NaN. In such a case an exception is thrown.
  * The eps argument can be used to override this behavior: if eps >= 0 then
  * the diagonal element is replaced by eps in case the diagonal is NaN or
@@ -177,9 +180,9 @@ void choleskyRank1Update(const raft::handle_t& handle,
  * // Initialize arrays
  * int ld_L = n_rows;
  * rmm::device_uvector<math_t> L(ld_L * n_rows, stream);
- * raft::linalg::choleskyRank1Update(handle, L, n_rows, ld_L, nullptr,
- *                                       &n_bytes, CUBLAS_FILL_MODE_LOWER,
- *                                       stream);
+ * raft::linalg::cholesky_rank_1_update(handle, L, n_rows, ld_L, nullptr,
+ *                                      &n_bytes, raft::linalg::FillMode::LOWER,
+ *                                      stream);
  * rmm::device_uvector<char> workspace(n_bytes, stream);
  *
  * for (n=1; n<=n_rows; rank++) {
@@ -189,8 +192,8 @@ void choleskyRank1Update(const raft::handle_t& handle,
  *   RAFT_CUBLAS_TRY(cublasCopy(handle.get_cublas_handle(), n - 1, A_new, 1,
  *                           L + n - 1, ld_L, stream));
  *   // Update Cholesky factorization
- *   raft::linalg::choleskyRank1Update(
- *       handle, L, rank, ld_L, workspace, &n_bytes, CUBLAS_FILL_MODE_LOWER,
+ *   raft::linalg::cholesky_rank1_update(
+ *       handle, L, rank, ld_L, workspace, &n_bytes, raft::linalg::FillMode::LOWER,
  *       stream);
  * }
  * Now L stores the Cholesky decomposition of A: A = L * L.T
@@ -201,8 +204,8 @@ void choleskyRank1Update(const raft::handle_t& handle,
  * // Initialize arrays
  * int ld_U = n_rows;
  * rmm::device_uvector<math_t> U(ld_U * n_rows, stream);
- * raft::linalg::choleskyRank1Update(handle, L, n_rows, ld_U, nullptr,
- *                                       &n_bytes, CUBLAS_FILL_MODE_UPPER,
+ * raft::linalg::cholesky_rank1_update(handle, L, n_rows, ld_U, nullptr,
+ *                                       &n_bytes, raft::linalg::FillMode::UPPER,
  *                                       stream);
  * rmm::device_uvector<char> workspace(stream, n_bytes, stream);
  *
@@ -213,8 +216,8 @@ void choleskyRank1Update(const raft::handle_t& handle,
  *   raft::copy(U + ld_U * (n-1), A_new, n-1, stream);
  *   //
  *   // Update Cholesky factorization
- *   raft::linalg::choleskyRank1Update(
- *       handle, U, n, ld_U, workspace, &n_bytes, CUBLAS_FILL_MODE_UPPER,
+ *   raft::linalg::cholesky_rank1_update(
+ *       handle, U, n, ld_U, workspace, &n_bytes, raft::linalg::FillMode::UPPER,
  *       stream);
  * }
  * // Now U stores the Cholesky decomposition of A: A = U.T * U
@@ -222,17 +225,17 @@ void choleskyRank1Update(const raft::handle_t& handle,
  *
  * @tparam ElementType The data-type of raft::mdspan
  * @tparam IndexType Integer used for addressing
- * @param handle RAFT handle (used to retrive cuBLAS handles).
- * @param L raft::device_matrix_view<ElementType, raft::col_major> to store the
+ * @param[in] handle RAFT handle
+ * @param[inout] L raft::device_matrix_view<ElementType, raft::col_major> to store the
  *        triangular matrix L, and the new column of A in column major format, size [n*n]
- * @param n number of elements in the new row.
- * @param ld stride of columns in L
- * @param workspace optional raft::device_vector_view<char> shall be std::nullopt ar an array
+ * @param[in] n number of elements in the new row.
+ * @param[in] ld stride of columns in L
+ * @param[in] workspace optional raft::device_vector_view<char> shall be std::nullopt ar an array
  *    of size [n_bytes].
- * @param n_bytes size of workspace is returned here if workspace==std::nullopt.
- * @param uplo indicates whether L is stored as an upper or lower triangular
- *    matrix (CUBLAS_FILL_MODE_UPPER or CUBLAS_FILL_MODE_LOWER)
- * @param eps numerical parameter that can act as a regularizer for ill
+ * @param[in] n_bytes size of workspace is returned here if workspace==std::nullopt.
+ * @param[in] uplo indicates whether L is stored as an upper or lower triangular
+ *    matrix (raft::linalg::FillMode::UPPER or raft::linalg::FillMode::LOWER)
+ * @param[in] eps numerical parameter that can act as a regularizer for ill
  *    conditioned systems. Negative values mean no regularizaton.
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
@@ -242,9 +245,11 @@ void cholesky_rank1_update(const raft::handle_t& handle,
                            int ld,
                            std::optional<raft::device_vector_view<char>> workspace,
                            int* n_bytes,
-                           cublasFillMode_t uplo,
+                           raft::linalg::FillMode uplo,
                            ElementType eps = -1)
 {
+  cublasFillMode_t uplo_cublas =
+    uplo == raft::linalg::FillMode::UPPER ? CUBLAS_FILL_MODE_UPPER : CUBLAS_FILL_MODE_LOWER;
   if (workspace) {
     choleskyRank1Update(handle,
                         L.data_handle(),
@@ -252,12 +257,12 @@ void cholesky_rank1_update(const raft::handle_t& handle,
                         ld,
                         workspace.value().data_handle(),
                         n_bytes,
-                        uplo,
+                        uplo_cublas,
                         handle.get_stream(),
                         eps);
   } else {
     choleskyRank1Update(
-      handle, L.data_handle(), n, ld, nullptr, n_bytes, uplo, handle.get_stream(), eps);
+      handle, L.data_handle(), n, ld, nullptr, n_bytes, uplo_cublas, handle.get_stream(), eps);
   }
 }
 

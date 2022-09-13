@@ -126,19 +126,20 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
                          nkeys,
                          out_ref.data(),
                          stream);
-    auto input_view =
-      raft::make_device_matrix_view(in.data(), params.cols, static_cast<uint32_t>(params.nobs));
-    auto output_view = raft::make_device_matrix_view(in.data(), params.cols, params.nkeys);
-    auto keys_view = raft::make_device_vector_view(keys.data(), static_cast<uint32_t>(params.nobs));
+    auto input_view = raft::make_device_matrix_view<const T>(
+      in.data(), params.cols, static_cast<uint32_t>(params.nobs));
+    auto output_view = raft::make_device_matrix_view(out.data(), params.cols, params.nkeys);
+    auto keys_view   = raft::make_device_vector_view<const uint32_t>(
+      keys.data(), static_cast<uint32_t>(params.nobs));
     auto scratch_buf_view =
       raft::make_device_vector_view(scratch_buf.data(), static_cast<uint32_t>(params.nobs));
-    std::optional<const raft::device_vector_view<T>> weights_view;
+    std::optional<raft::device_vector_view<const T>> weights_view;
     if (params.weighted) {
       weights_view.emplace(weight.data(), static_cast<uint32_t>(params.nobs));
     }
 
     reduce_rows_by_key(
-      handle, input_view, keys_view, weights_view, scratch_buf_view, params.nkeys, output_view);
+      handle, input_view, keys_view, output_view, params.nkeys, weights_view, scratch_buf_view);
     handle.sync_stream(stream);
   }
 

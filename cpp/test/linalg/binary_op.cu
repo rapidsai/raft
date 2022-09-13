@@ -37,7 +37,7 @@ void binaryOpLaunch(
   auto in2_view = raft::make_device_vector_view(in2, len);
 
   binary_op(
-    handle, out_view, in1_view, in2_view, [] __device__(InType a, InType b) { return a + b; });
+    handle, in1_view, in2_view, out_view, [] __device__(InType a, InType b) { return a + b; });
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>

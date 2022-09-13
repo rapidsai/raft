@@ -81,10 +81,14 @@ void coalescedReduction(OutType* dots,
 
 /**
  * @brief Compute reduction of the input matrix along the leading dimension
+ *        This API is to be used when the desired reduction is along the dimension
+ *        of the memory layout. For example, a row-major matrix will be reduced
+ *        along the columns whereas a column-major matrix will be reduced along
+ *        the rows.
  *
- * @tparam InElementType the input data-type of underlying raft::matrix_view
+ * @tparam InValueType the input data-type of underlying raft::matrix_view
  * @tparam LayoutPolicy The layout of Input/Output (row or col major)
- * @tparam OutElementType the output data-type of underlying raft::matrix_view and reduction
+ * @tparam OutValueType the output data-type of underlying raft::matrix_view and reduction
  * @tparam IndexType Integer type used to for addressing
  * @tparam MainLambda Unary lambda applied while acculumation (eg: L1 or L2 norm)
  * It must be a 'callable' supporting the following input and output:
@@ -96,36 +100,37 @@ void coalescedReduction(OutType* dots,
  * It must be a 'callable' supporting the following input and output:
  * <pre>OutType (*FinalLambda)(OutType);</pre>
  * @param handle raft::handle_t
- * @param dots Output of type raft::device_matrix_view
- * @param data Input of type raft::device_matrix_view
- * @param init initial value to use for the reduction
- * @param main_op elementwise operation to apply before reduction
- * @param reduce_op binary reduction operation
- * @param final_op elementwise operation to apply before storing results
- * @param inplace reduction result added inplace or overwrites old values?
+ * @param[in] data Input of type raft::device_matrix_view
+ * @param[in] init initial value to use for the reduction
+ * @param[out] dots Output of type raft::device_matrix_view
+ * @param[in] main_op fused elementwise operation to apply before reduction
+ * @param[in] reduce_op fused binary reduction operation
+ * @param[in] final_op fused elementwise operation to apply before storing results
+ * @param[in] inplace reduction result added inplace or overwrites old values?
  */
-template <typename InElementType,
+template <typename InValueType,
           typename LayoutPolicy,
-          typename OutElementType = InElementType,
-          typename IndexType      = std::uint32_t,
-          typename MainLambda     = raft::Nop<InElementType>,
-          typename ReduceLambda   = raft::Sum<OutElementType>,
-          typename FinalLambda    = raft::Nop<OutElementType>>
-void coalesced_reduction(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<OutElementType, IndexType, LayoutPolicy> dots,
-  const raft::device_matrix_view<InElementType, IndexType, LayoutPolicy> data,
-  OutElementType init,
-  bool inplace           = false,
-  MainLambda main_op     = raft::Nop<InElementType>(),
-  ReduceLambda reduce_op = raft::Sum<OutElementType>(),
-  FinalLambda final_op   = raft::Nop<OutElementType>())
+          typename OutValueType,
+          typename IndexType,
+          typename MainLambda   = raft::Nop<InValueType>,
+          typename ReduceLambda = raft::Sum<OutValueType>,
+          typename FinalLambda  = raft::Nop<OutValueType>>
+void coalesced_reduction(const raft::handle_t& handle,
+                         raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> data,
+                         raft::device_vector_view<OutValueType, IndexType> dots,
+                         OutValueType init,
+                         bool inplace           = false,
+                         MainLambda main_op     = raft::Nop<InValueType>(),
+                         ReduceLambda reduce_op = raft::Sum<OutValueType>(),
+                         FinalLambda final_op   = raft::Nop<OutValueType>())
 {
   RAFT_EXPECTS(dots.is_exhaustive(), "Output must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "Input must be contiguous");
-  RAFT_EXPECTS(dots.size() == data.size(), "Size mismatch between Output and Input");
 
   if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
+    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(0),
+                 "Output should be equal to number of rows in Input");
+
     coalescedReduction(dots.data_handle(),
                        data.data_handle(),
                        data.extent(1),
@@ -137,6 +142,9 @@ void coalesced_reduction(
                        reduce_op,
                        final_op);
   } else if constexpr (std::is_same_v<LayoutPolicy, raft::col_major>) {
+    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),
+                 "Output should be equal to number of columns in Input");
+
     coalescedReduction(dots.data_handle(),
                        data.data_handle(),
                        data.extent(0),

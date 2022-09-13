@@ -85,6 +85,10 @@ void reduce(OutType* dots,
 
 /**
  * @brief Compute reduction of the input matrix along the requested dimension
+ *        This API computes a reduction of a matrix whose underlying storage
+ *        is either row-major or column-major, while allowing the choose the
+ *        dimension for reduction. Depending upon the dimension chosen for
+ *        reduction, the memory accesses may be coalesced or strided.
  *
  * @tparam InElementType the input data-type of underlying raft::matrix_view
  * @tparam LayoutPolicy The layout of Input/Output (row or col major)
@@ -99,15 +103,15 @@ void reduce(OutType* dots,
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
  * It must be a 'callable' supporting the following input and output:
  * <pre>OutType (*FinalLambda)(OutType);</pre>
- * @param handle raft::handle_t
- * @param dots Output of type raft::device_matrix_view
- * @param data Input of type raft::device_matrix_view
- * @param init initial value to use for the reduction
- * @param apply whether to reduce along rows or along columns (using raft::linalg::Apply)
- * @param main_op elementwise operation to apply before reduction
- * @param reduce_op binary reduction operation
- * @param final_op elementwise operation to apply before storing results
- * @param inplace reduction result added inplace or overwrites old values?
+ * @param[in] handle raft::handle_t
+ * @param[in] data Input of type raft::device_matrix_view
+ * @param[out] dots Output of type raft::device_matrix_view
+ * @param[in] init initial value to use for the reduction
+ * @param[in] apply whether to reduce along rows or along columns (using raft::linalg::Apply)
+ * @param[in] main_op fused elementwise operation to apply before reduction
+ * @param[in] reduce_op fused binary reduction operation
+ * @param[in] final_op fused elementwise operation to apply before storing results
+ * @param[in] inplace reduction result added inplace or overwrites old values?
  */
 template <typename InElementType,
           typename LayoutPolicy,
@@ -117,8 +121,8 @@ template <typename InElementType,
           typename ReduceLambda   = raft::Sum<OutElementType>,
           typename FinalLambda    = raft::Nop<OutElementType>>
 void reduce(const raft::handle_t& handle,
-            raft::device_matrix_view<OutElementType, IndexType, LayoutPolicy> dots,
             const raft::device_matrix_view<InElementType, IndexType, LayoutPolicy> data,
+            raft::device_vector_view<OutElementType, IndexType> dots,
             OutElementType init,
             Apply apply,
             bool inplace           = false,
@@ -129,7 +133,8 @@ void reduce(const raft::handle_t& handle,
   RAFT_EXPECTS(dots.is_exhaustive(), "Output must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "Input must be contiguous");
 
-  bool along_rows = apply == Apply::ALONG_ROWS;
+  auto constexpr row_major = std::is_same_v<typename decltype(data)::layout_type, raft::row_major>;
+  bool along_rows          = apply == Apply::ALONG_ROWS;
 
   if (along_rows) {
     RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),
@@ -139,33 +144,18 @@ void reduce(const raft::handle_t& handle,
                  "Output should be equal to number of rows in Input");
   }
 
-  if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
-    reduce(dots.data_handle(),
-           data.data_handle(),
-           data.extent(1),
-           data.extent(0),
-           init,
-           true,
-           along_rows,
-           handle.get_stream(),
-           inplace,
-           main_op,
-           reduce_op,
-           final_op);
-  } else if constexpr (std::is_same_v<LayoutPolicy, raft::col_major>) {
-    reduce(dots.data_handle(),
-           data.data_handle(),
-           data.extent(1),
-           data.extent(0),
-           init,
-           false,
-           along_rows,
-           handle.get_stream(),
-           inplace,
-           main_op,
-           reduce_op,
-           final_op);
-  }
+  reduce(dots.data_handle(),
+         data.data_handle(),
+         data.extent(1),
+         data.extent(0),
+         init,
+         row_major,
+         along_rows,
+         handle.get_stream(),
+         inplace,
+         main_op,
+         reduce_op,
+         final_op);
 }
 
 /** @} */  // end of group reduction

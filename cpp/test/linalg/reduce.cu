@@ -55,11 +55,10 @@ void reduceLaunch(OutType* dots,
   Apply apply     = alongRows ? Apply::ALONG_ROWS : Apply::ALONG_COLUMNS;
   int output_size = alongRows ? cols : rows;
 
-  auto output_view_row_major = raft::make_device_matrix_view(dots, rows, output_size);
+  auto output_view_row_major = raft::make_device_vector_view(dots, output_size);
   auto input_view_row_major  = raft::make_device_matrix_view(data, rows, cols);
 
-  auto output_view_col_major =
-    raft::make_device_matrix_view<OutType, uint32_t, raft::col_major>(dots, rows, output_size);
+  auto output_view_col_major = raft::make_device_vector_view<OutType, uint32_t>(dots, output_size);
   auto input_view_col_major =
     raft::make_device_matrix_view<const InType, uint32_t, raft::col_major>(data, rows, cols);
 
@@ -67,17 +66,19 @@ void reduceLaunch(OutType* dots,
 
   if (rowMajor) {
     reduce(handle,
-           output_view_row_major,
            input_view_row_major,
+           output_view_row_major,
            (OutType)0,
+
            apply,
            inplace,
            [] __device__(InType in, int i) { return static_cast<OutType>(in * in); });
   } else {
     reduce(handle,
-           output_view_col_major,
            input_view_col_major,
+           output_view_col_major,
            (OutType)0,
+
            apply,
            inplace,
            [] __device__(InType in, int i) { return static_cast<OutType>(in * in); });

@@ -82,6 +82,10 @@ void stridedReduction(OutType* dots,
 
 /**
  * @brief Compute reduction of the input matrix along the strided dimension
+ *        This API is to be used when the desired reduction is NOT along the dimension
+ *        of the memory layout. For example, a row-major matrix will be reduced
+ *        along the rows whereas a column-major matrix will be reduced along
+ *        the columns.
  *
  * @tparam InElementType the input data-type of underlying raft::matrix_view
  * @tparam LayoutPolicy The layout of Input/Output (row or col major)
@@ -96,14 +100,14 @@ void stridedReduction(OutType* dots,
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
  * It must be a 'callable' supporting the following input and output:
  * <pre>OutType (*FinalLambda)(OutType);</pre>
- * @param handle raft::handle_t
- * @param dots Output of type raft::device_matrix_view
- * @param data Input of type raft::device_matrix_view
- * @param init initial value to use for the reduction
- * @param main_op elementwise operation to apply before reduction
- * @param reduce_op binary reduction operation
- * @param final_op elementwise operation to apply before storing results
- * @param inplace reduction result added inplace or overwrites old values?
+ * @param[in] handle raft::handle_t
+ * @param[in] data Input of type raft::device_matrix_view
+ * @param[out] dots Output of type raft::device_matrix_view
+ * @param[in] init initial value to use for the reduction
+ * @param[in] main_op fused elementwise operation to apply before reduction
+ * @param[in] reduce_op fused binary reduction operation
+ * @param[in] final_op fused elementwise operation to apply before storing results
+ * @param[in] inplace reduction result added inplace or overwrites old values?
  */
 template <typename InElementType,
           typename LayoutPolicy,
@@ -113,8 +117,8 @@ template <typename InElementType,
           typename ReduceLambda   = raft::Sum<OutElementType>,
           typename FinalLambda    = raft::Nop<OutElementType>>
 void strided_reduction(const raft::handle_t& handle,
-                       raft::device_matrix_view<OutElementType, IndexType, LayoutPolicy> dots,
                        const raft::device_matrix_view<InElementType, IndexType, LayoutPolicy> data,
+                       raft::device_vector_view<OutElementType, IndexType> dots,
                        OutElementType init,
                        bool inplace           = false,
                        MainLambda main_op     = raft::Nop<InElementType>(),
@@ -123,9 +127,11 @@ void strided_reduction(const raft::handle_t& handle,
 {
   RAFT_EXPECTS(dots.is_exhaustive(), "Output must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "Input must be contiguous");
-  RAFT_EXPECTS(dots.size() == data.size(), "Size mismatch between Output and Input");
 
   if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
+    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),
+                 "Output should be equal to number of columns in Input");
+
     stridedReduction(dots.data_handle(),
                      data.data_handle(),
                      data.extent(1),
@@ -137,6 +143,9 @@ void strided_reduction(const raft::handle_t& handle,
                      reduce_op,
                      final_op);
   } else if constexpr (std::is_same_v<LayoutPolicy, raft::col_major>) {
+    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(0),
+                 "Output should be equal to number of rows in Input");
+
     stridedReduction(dots.data_handle(),
                      data.data_handle(),
                      data.extent(0),

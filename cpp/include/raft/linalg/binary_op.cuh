@@ -64,21 +64,20 @@ void binaryOp(
  * @tparam Lambda the device-lambda performing the actual operation
  * @tparam OutType Output Type raft::device_mdspan
  * @tparam TPB threads-per-block in the final kernel launched
- * @param handle raft::handle_t
- * @param out Output
- * @param in1 First input
- * @param in2 Second input
- * @param op the device-lambda
+ * @param[in] handle raft::handle_t
+ * @param[in] in1 First input
+ * @param[in] in2 Second input
+ * @param[out] out Output
+ * @param[in] op the device-lambda
  * @note Lambda must be a functor with the following signature:
  *       `OutType func(const InType& val1, const InType& val2);`
  */
 template <typename InType,
           typename Lambda,
-          typename OutType = InType,
-          int TPB          = 256,
-          typename         = raft::enable_if_device_mdspan<InType, OutType>>
-void binary_op(
-  const raft::handle_t& handle, OutType out, const InType in1, const InType in2, Lambda op)
+          typename OutType,
+          int TPB  = 256,
+          typename = raft::enable_if_device_mdspan<InType, OutType>>
+void binary_op(const raft::handle_t& handle, InType in1, InType in2, OutType out, Lambda op)
 {
   RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
   RAFT_EXPECTS(in1.is_exhaustive(), "Input 1 must be contiguous");
@@ -86,14 +85,14 @@ void binary_op(
   RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
                "Size mismatch between Output and Inputs");
 
-  using in_element_t  = typename InType::element_type;
-  using out_element_t = typename OutType::element_type;
+  using in_value_t  = typename InType::value_type;
+  using out_value_t = typename OutType::value_type;
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    binaryOp<in_element_t, Lambda, out_element_t, std::uint32_t, TPB>(
+    binaryOp<in_value_t, Lambda, out_value_t, std::uint32_t, TPB>(
       out.data_handle(), in1.data_handle(), in2.data_handle(), out.size(), op, handle.get_stream());
   } else {
-    binaryOp<in_element_t, Lambda, out_element_t, std::uint64_t, TPB>(
+    binaryOp<in_value_t, Lambda, out_value_t, std::uint64_t, TPB>(
       out.data_handle(), in1.data_handle(), in2.data_handle(), out.size(), op, handle.get_stream());
   }
 }

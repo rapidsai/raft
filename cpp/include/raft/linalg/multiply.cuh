@@ -54,42 +54,40 @@ void multiplyScalar(out_t* out, const in_t* in, in_t scalar, IdxType len, cudaSt
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
- * @param handle raft::handle_t
- * @param out the output buffer
- * @param in the input buffer
- * @param scalar the scalar used in the operations
+ * @param[in] handle raft::handle_t
+ * @param[in] in the input buffer
+ * @param[out] out the output buffer
+ * @param[in] scalar the scalar used in the operations
  * @{
  */
 template <typename InType,
-          typename OutType       = InType,
-          typename ScalarIdxType = std::uint32_t,
-          typename               = raft::enable_if_device_mdspan<InType, OutType>>
+          typename OutType,
+          typename ScalarIdxType,
+          typename = raft::enable_if_device_mdspan<InType, OutType>>
 void multiply_scalar(const raft::handle_t& handle,
+                     InType in,
                      OutType out,
-                     const InType in,
-                     raft::host_scalar_view<typename InType::element_type, ScalarIdxType> scalar)
+                     raft::host_scalar_view<typename InType::value_type, ScalarIdxType> scalar)
 {
-  using in_element_t  = typename InType::element_type;
-  using out_element_t = typename OutType::element_type;
+  using in_value_t  = typename InType::value_type;
+  using out_value_t = typename OutType::value_type;
 
   RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
   RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    multiplyScalar<in_element_t, out_element_t, std::uint32_t>(
-      out.data_handle(),
-      in.data_handle(),
-      *scalar.data_handle(),
-      static_cast<std::uint32_t>(out.size()),
-      handle.get_stream());
+    multiplyScalar<in_value_t, out_value_t, std::uint32_t>(out.data_handle(),
+                                                           in.data_handle(),
+                                                           *scalar.data_handle(),
+                                                           static_cast<std::uint32_t>(out.size()),
+                                                           handle.get_stream());
   } else {
-    multiplyScalar<in_element_t, out_element_t, std::uint64_t>(
-      out.data_handle(),
-      in.data_handle(),
-      *scalar.data_handle(),
-      static_cast<std::uint64_t>(out.size()),
-      handle.get_stream());
+    multiplyScalar<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
+                                                           in.data_handle(),
+                                                           *scalar.data_handle(),
+                                                           static_cast<std::uint64_t>(out.size()),
+                                                           handle.get_stream());
   }
 }
 

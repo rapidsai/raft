@@ -102,9 +102,9 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
     auto in2_view    = raft::make_device_vector_view(in2.data(), len);
     auto scalar      = static_cast<T>(2);
     auto scalar_view = raft::make_host_scalar_view(&scalar);
-    power(handle, out_view, in1_view, in2_view);
+    power(handle, in1_view, in2_view, out_view);
     power_scalar(handle, out_view, out_view, scalar_view);
-    power(handle, in1_view, in1_view, in2_view);
+    power(handle, in1_view, in2_view, in1_view);
     power_scalar(handle, in1_view, in1_view, scalar_view);
 
     handle.sync_stream();

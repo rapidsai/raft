@@ -93,24 +93,23 @@ void colNorm(Type* dots,
 
 /**
  * @brief Compute norm of the input matrix and perform fin_op
- * @tparam InElementType Input data type
+ * @tparam ElementType Input/Output data type
  * @tparam LayoutPolicy the layout of input (raft::row_major or raft::col_major)
- * @tparam OutElementType Output data type
  * @tparam IdxType Integer type used to for addressing
  * @tparam Lambda device final lambda
- * @param handle raft::handle_t
- * @param out the output raft::device_vector_view
- * @param in the input raft::device_matrix_view
- * @param type the type of norm to be applied
- * @param fin_op the final lambda op
+ * @param[in] handle raft::handle_t
+ * @param[in] in the input raft::device_matrix_view
+ * @param[out] out the output raft::device_vector_view
+ * @param[in] type the type of norm to be applied
+ * @param[in] fin_op the final lambda op
  */
 template <typename ElementType,
           typename LayoutPolicy,
-          typename IndexType = std::uint32_t,
-          typename Lambda    = raft::Nop<ElementType, IndexType>>
+          typename IndexType,
+          typename Lambda = raft::Nop<ElementType, IndexType>>
 void norm(const raft::handle_t& handle,
+          raft::device_matrix_view<const ElementType, IndexType, LayoutPolicy> in,
           raft::device_vector_view<ElementType, IndexType> out,
-          const raft::device_matrix_view<ElementType, IndexType, LayoutPolicy> in,
           NormType type,
           Apply apply,
           Lambda fin_op = raft::Nop<ElementType, IndexType>())
@@ -123,7 +122,7 @@ void norm(const raft::handle_t& handle,
 
   if (along_rows) {
     RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(0),
-                 "Size mismatch between Output and Input");
+                 "Output should be equal to number of rows in Input");
     rowNorm(out.data_handle(),
             in.data_handle(),
             in.extent(1),
@@ -134,7 +133,7 @@ void norm(const raft::handle_t& handle,
             fin_op);
   } else {
     RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(1),
-                 "Size mismatch between Output and Input");
+                 "Output should be equal to number of columns in Input");
     colNorm(out.data_handle(),
             in.data_handle(),
             in.extent(1),

@@ -51,7 +51,7 @@ class CholeskyR1Test : public ::testing::Test {
     auto L_view = raft::make_device_matrix_view<math_t, std::uint32_t, raft::col_major>(
       L.data(), n_rows, n_rows);
     raft::linalg::cholesky_rank1_update(
-      handle, L_view, n_rows, n_rows, std::nullopt, &n_bytes, CUBLAS_FILL_MODE_LOWER);
+      handle, L_view, n_rows, n_rows, std::nullopt, &n_bytes, raft::linalg::FillMode::LOWER);
     Lwork = std::max(Lwork * sizeof(math_t), (size_t)n_bytes);
     workspace.resize(Lwork, handle.get_stream());
   }
@@ -85,8 +85,12 @@ class CholeskyR1Test : public ::testing::Test {
           L.data(), n_rows, n_rows);
         auto workspace_view = raft::make_device_vector_view(workspace.data(), Lwork);
 
+        raft::linalg::FillMode uplo_raft = uplo == CUBLAS_FILL_MODE_UPPER
+                                             ? raft::linalg::FillMode::UPPER
+                                             : raft::linalg::FillMode::LOWER;
+
         raft::linalg::cholesky_rank1_update(
-          handle, L_view, rank, n_rows, workspace_view, &Lwork, uplo);
+          handle, L_view, rank, n_rows, workspace_view, &Lwork, uplo_raft);
 
         ASSERT_TRUE(raft::devArrMatch(L_exp.data(),
                                       L.data(),

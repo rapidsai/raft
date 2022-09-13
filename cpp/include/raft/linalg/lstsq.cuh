@@ -122,20 +122,21 @@ void lstsqQR(const raft::handle_t& handle,
 
 /**
  * @brief Solves the linear ordinary least squares problem `Aw = b`
- * Via SVD decomposition of `A = U S Vt` using default cuSOLVER routine.
+ * Via SVD decomposition of `A = U S Vt`.
  *
+ * @tparam ValueType the data-type of input/output
  * @param[in] handle raft::handle_t
  * @param[inout] A input raft::device_matrix_view
- *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ *            Warning: the content of this matrix is modified.
  * @param[inout] b input target raft::device_vector_view
- *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ *            Warning: the content of this vector is modified.
  * @param[out] w output coefficient raft::device_vector_view
  */
-template <typename ElementType, typename IndexType = std::uint32_t>
+template <typename ValueType, typename IndexType>
 void lstsq_svd_qr(const raft::handle_t& handle,
-                  raft::device_matrix_view<ElementType, IndexType, raft::col_major> A,
-                  raft::device_vector_view<ElementType, IndexType> b,
-                  raft::device_vector_view<ElementType, IndexType> w)
+                  raft::device_matrix_view<ValueType, IndexType, raft::col_major> A,
+                  raft::device_vector_view<ValueType, IndexType> b,
+                  raft::device_vector_view<ValueType, IndexType> w)
 {
   RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
@@ -154,20 +155,21 @@ void lstsq_svd_qr(const raft::handle_t& handle,
 
 /**
  * @brief Solves the linear ordinary least squares problem `Aw = b`
- *  Via SVD decomposition of `A = U S V^T` using Jacobi iterations (cuSOLVER).
+ *  Via SVD decomposition of `A = U S V^T` using Jacobi iterations.
  *
+ * @tparam ValueType the data-type of input/output
  * @param[in] handle raft::handle_t
  * @param[inout] A input raft::device_matrix_view
- *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ *            Warning: the content of this matrix is modified.
  * @param[inout] b input target raft::device_vector_view
- *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ *            Warning: the content of this vector is modified.
  * @param[out] w output coefficient raft::device_vector_view
  */
-template <typename ElementType, typename IndexType = std::uint32_t>
+template <typename ValueType, typename IndexType>
 void lstsq_svd_jacobi(const raft::handle_t& handle,
-                      raft::device_matrix_view<ElementType, IndexType, raft::col_major> A,
-                      raft::device_vector_view<ElementType, IndexType> b,
-                      raft::device_vector_view<ElementType, IndexType> w)
+                      raft::device_matrix_view<ValueType, IndexType, raft::col_major> A,
+                      raft::device_vector_view<ValueType, IndexType> b,
+                      raft::device_vector_view<ValueType, IndexType> w)
 {
   RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
@@ -189,6 +191,7 @@ void lstsq_svd_jacobi(const raft::handle_t& handle,
  *  via eigenvalue decomposition of `A^T * A` (covariance matrix for dataset A).
  *  (`w = (A^T A)^-1  A^T b`)
  *
+ * @tparam ValueType the data-type of input/output
  * @param[in] handle raft::handle_t
  * @param[inout] A input raft::device_matrix_view
  *            Warning: the content of this matrix is modified by the cuSOLVER routines.
@@ -196,11 +199,11 @@ void lstsq_svd_jacobi(const raft::handle_t& handle,
  *            Warning: the content of this vector is modified by the cuSOLVER routines.
  * @param[out] w output coefficient raft::device_vector_view
  */
-template <typename ElementType, typename IndexType = std::uint32_t>
+template <typename ValueType, typename IndexType>
 void lstsq_eig(const raft::handle_t& handle,
-               raft::device_matrix_view<ElementType, IndexType, raft::col_major> A,
-               raft::device_vector_view<ElementType, IndexType> b,
-               raft::device_vector_view<ElementType, IndexType> w)
+               raft::device_matrix_view<ValueType, IndexType, raft::col_major> A,
+               raft::device_vector_view<ValueType, IndexType> b,
+               raft::device_vector_view<ValueType, IndexType> w)
 {
   RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
@@ -222,18 +225,19 @@ void lstsq_eig(const raft::handle_t& handle,
  *  via QR decomposition of `A = QR`.
  *  (triangular system of equations `Rw = Q^T b`)
  *
+ * @tparam ValueType the data-type of input/output
  * @param[in] handle raft::handle_t
  * @param[inout] A input raft::device_matrix_view
- *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ *            Warning: the content of this matrix is modified.
  * @param[inout] b input target raft::device_vector_view
- *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ *            Warning: the content of this vector is modified.
  * @param[out] w output coefficient raft::device_vector_view
  */
-template <typename ElementType, typename IndexType = std::uint32_t>
+template <typename ValueType, typename IndexType>
 void lstsq_qr(const raft::handle_t& handle,
-              raft::device_matrix_view<ElementType, IndexType, raft::col_major> A,
-              raft::device_vector_view<ElementType, IndexType> b,
-              raft::device_vector_view<ElementType, IndexType> w)
+              raft::device_matrix_view<ValueType, IndexType, raft::col_major> A,
+              raft::device_vector_view<ValueType, IndexType> b,
+              raft::device_vector_view<ValueType, IndexType> w)
 {
   RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");

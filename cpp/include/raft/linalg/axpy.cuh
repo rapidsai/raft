@@ -51,12 +51,12 @@ void axpy(const raft::handle_t& handle,
 }
 
 /**
- * @defgroup axpy cuBLAS axpy
+ * @defgroup axpy axpy
  * @{
  */
 
 /**
- * @brief the wrapper of cublas axpy function
+ * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
  *
  * @tparam MdspanType  Type raft::device_mdspan
@@ -89,7 +89,7 @@ void axpy(const raft::handle_t& handle,
 }
 
 /**
- * @brief the wrapper of cublas axpy function
+ * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
  *
  * @tparam MdspanType  Type raft::device_mdspan
@@ -103,22 +103,22 @@ void axpy(const raft::handle_t& handle,
  */
 template <typename MdspanType, typename = raft::enable_if_device_mdspan<MdspanType>>
 void axpy(const raft::handle_t& handle,
-          raft::host_scalar_view<typename MdspanType::element_type, ScalarIdxType> alpha,
-          const MdspanType x,
+          raft::host_scalar_view<const typename MdspanType::value_type, ScalarIdxType> alpha,
+          MdspanType x,
           const int incx,
           MdspanType y,
           const int incy)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input")
 
-  axpy<typename MdspanType::element_type, false>(handle,
-                                                 y.size(),
-                                                 alpha.data_handle(),
-                                                 x.data_handle(),
-                                                 incx,
-                                                 y.data_handle(),
-                                                 incy,
-                                                 handle.get_stream());
+  axpy<typename MdspanType::value_type, false>(handle,
+                                               y.size(),
+                                               alpha.data_handle(),
+                                               x.data_handle(),
+                                               incx,
+                                               y.data_handle(),
+                                               incy,
+                                               handle.get_stream());
 }
 
 /** @} */  // end of group axpy
