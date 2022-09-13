@@ -28,4 +28,4 @@
                 " is deprecated and will be removed in a future release." \
                 " Please use the raft/solver version instead.")
 
-#include "solver/linear_assignment.cuh"
+#include <raft/solver/linear_assignment.cuh>
