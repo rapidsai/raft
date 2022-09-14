@@ -18,7 +18,7 @@
 
 #include <cstdint>
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

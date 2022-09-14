@@ -18,7 +18,7 @@
 
 #include <limits.h>
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/detail/utils.h>
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/detail/ip_distance.cuh>

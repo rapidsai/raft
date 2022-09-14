@@ -16,8 +16,8 @@
 
 #pragma once
 
-#pragma message(__FILE__                                               \
-                " is deprecated and will be removed in release 22.06." \
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
                 " Please use the ball_cover_types.hpp version instead.")
 
 #include <raft/spatial/knn/ball_cover_types.hpp>

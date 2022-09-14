@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 

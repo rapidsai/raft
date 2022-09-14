@@ -18,7 +18,7 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>

@@ -24,7 +24,7 @@
 #include <rmm/device_uvector.hpp>
 
 #include <raft/cluster/single_linkage_types.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/spatial/knn_graph.cuh>

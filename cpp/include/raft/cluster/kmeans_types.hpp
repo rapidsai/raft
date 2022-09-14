@@ -15,7 +15,7 @@
  */
 #pragma once
 #include <raft/core/logger.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/random/rng_state.hpp>
 
 namespace raft {

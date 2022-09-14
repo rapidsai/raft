@@ -20,4 +20,8 @@
 
 #pragma once
 
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use distance_types.hpp instead.")
+
 #include <raft/distance/distance_types.hpp>

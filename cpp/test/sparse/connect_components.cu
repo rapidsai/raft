@@ -27,7 +27,7 @@
 #include <raft/sparse/selection/connect_components.cuh>
 #include <raft/sparse/spatial/knn_graph.cuh>
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>

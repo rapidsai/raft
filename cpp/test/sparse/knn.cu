@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 
 #include "../test_utils.h"
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/spatial/knn.cuh>
 
 #include <raft/util/cudart_utils.hpp>

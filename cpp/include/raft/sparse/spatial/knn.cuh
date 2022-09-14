@@ -16,7 +16,7 @@
 #pragma once
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/spatial/detail/knn.cuh>
 
 namespace raft::sparse::spatial {

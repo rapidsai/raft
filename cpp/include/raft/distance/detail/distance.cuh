@@ -29,7 +29,7 @@
 #include <raft/distance/detail/l1.cuh>
 #include <raft/distance/detail/minkowski.cuh>
 #include <raft/distance/detail/russell_rao.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 

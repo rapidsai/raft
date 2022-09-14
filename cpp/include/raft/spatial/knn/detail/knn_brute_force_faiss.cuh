@@ -31,7 +31,7 @@
 #include <cstdint>
 #include <iostream>
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/faiss_mr.hpp>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>
