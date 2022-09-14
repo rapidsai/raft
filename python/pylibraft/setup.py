@@ -35,6 +35,7 @@ setup(name='pylibraft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
         "Programming Language :: Python :: 3.9"
       ],
       author="NVIDIA Corporation",
+      include_package_data=True,
       package_data={
           # Note: A dict comprehension with an explicit copy is necessary
           # (rather than something simpler like a dict.fromkeys) because
