@@ -21,20 +21,20 @@ from dask.distributed import Client
 from dask.distributed import wait
 
 try:
-    from raft.dask import Comms
-    from raft.dask.common import local_handle
-    from raft.dask.common import perform_test_comms_send_recv
-    from raft.dask.common import perform_test_comms_device_send_or_recv
-    from raft.dask.common import perform_test_comms_device_sendrecv
-    from raft.dask.common import perform_test_comms_device_multicast_sendrecv
-    from raft.dask.common import perform_test_comms_allreduce
-    from raft.dask.common import perform_test_comms_bcast
-    from raft.dask.common import perform_test_comms_reduce
-    from raft.dask.common import perform_test_comms_allgather
-    from raft.dask.common import perform_test_comms_gather
-    from raft.dask.common import perform_test_comms_gatherv
-    from raft.dask.common import perform_test_comms_reducescatter
-    from raft.dask.common import perform_test_comm_split
+    from raft_dask import Comms
+    from raft_dask.common import local_handle
+    from raft_dask.common import perform_test_comms_send_recv
+    from raft_dask.common import perform_test_comms_device_send_or_recv
+    from raft_dask.common import perform_test_comms_device_sendrecv
+    from raft_dask.common import perform_test_comms_device_multicast_sendrecv
+    from raft_dask.common import perform_test_comms_allreduce
+    from raft_dask.common import perform_test_comms_bcast
+    from raft_dask.common import perform_test_comms_reduce
+    from raft_dask.common import perform_test_comms_allgather
+    from raft_dask.common import perform_test_comms_gather
+    from raft_dask.common import perform_test_comms_gatherv
+    from raft_dask.common import perform_test_comms_reducescatter
+    from raft_dask.common import perform_test_comm_split
 
     pytestmark = pytest.mark.mg
 except ImportError:

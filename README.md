@@ -24,7 +24,7 @@ RAFT provides a header-only C++ library and pre-compiled shared libraries that c
 
 RAFT also provides 2 Python libraries:
 - `pylibraft` - low-level Python wrappers around RAFT algorithms and primitives.
-- `pyraft` - reusable infrastructure for building analytics, including tools for building both single-GPU and multi-node multi-GPU algorithms.
+- `raft-dask` - reusable infrastructure for building analytics, including tools for building both single-GPU and multi-node multi-GPU algorithms.
 
 ## Getting started
 
@@ -108,11 +108,11 @@ The easiest way to install RAFT is through conda and several packages are provid
 - `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
 - `libraft-distance` (optional) contains shared libraries for distance primitives.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives
-- `pyraft` (optional) contains reusable Python infrastructure and tools to accelerate Python algorithm development.
+- `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
 
 Use the following command to install RAFT with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
-mamba install -c rapidsai libraft-headers libraft-nn libraft-distance pyraft pylibraft
+mamba install -c rapidsai libraft-headers libraft-nn libraft-distance raft-dask pylibraft
 ```
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
@@ -181,7 +181,7 @@ mamba env create --name raft_dev_env -f conda/environments/raft_dev_cuda11.5.yml
 mamba activate raft_dev_env
 ```
 ```
-./build.sh pyraft pylibraft libraft tests bench --compile-libs
+./build.sh raft-dask pylibraft libraft tests bench --compile-libs
 ```
 
 The [build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) section of the build instructions.

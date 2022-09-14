@@ -20,7 +20,7 @@ from .comms_utils import inject_comms_on_handle
 from .comms_utils import inject_comms_on_handle_coll_only
 
 from .utils import parse_host_port
-from ...common.handle import Handle
+from pylibraft.common.handle import Handle
 
 from dask.distributed import get_worker, default_client
 

@@ -10,7 +10,7 @@
 {% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
 
 package:
-  name: pyraft
+  name: raft-dask
   version: {{ version }}
 
 source:
@@ -35,7 +35,7 @@ requirements:
     - cython>=0.29,<0.30
     - scikit-build>=0.13.1
     - rmm {{ minor_version }}
-    - libraft-headers {{ version }}
+    - pylibraft {{ version }}
     - cudatoolkit {{ cuda_version }}.*
     - cuda-python >=11.5,<11.7.1
     - nccl>=2.9.9
@@ -45,7 +45,7 @@ requirements:
   run:
     - python x.x
     - dask-cuda {{ minor_version }}
-    - libraft-headers {{ version }}
+    - pylibraft {{ version }}
     - nccl>=2.9.9
     - rmm {{ minor_version }}
     - ucx >={{ ucx_version }}
@@ -61,10 +61,10 @@ tests:                                 # [linux64]
   requirements:                        # [linux64]
     - cudatoolkit {{ cuda_version }}.* # [linux64]
   imports:                             # [linux64]
-    - raft                             # [linux64]
+    - raft_dask                        # [linux64]
 
 about:
   home: http://rapids.ai/
   license: Apache-2.0
   # license_file: LICENSE
-  summary: pyraft library
+  summary: raft-dask library

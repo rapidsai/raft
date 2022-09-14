@@ -23,6 +23,13 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 
+// TODO: Once fusedL2NN is specialized in the raft_distance shared library, add
+// the following:
+//
+// #if defined RAFT_NN_COMPILED
+// #include <raft/spatial/knn/specializations.hpp>
+// #endif
+
 namespace raft {
 namespace distance {
 
@@ -102,6 +109,23 @@ struct Inputs {
   DataT tolerance;
   int m, n, k;
   unsigned long long int seed;
+
+  friend std::ostream& operator<<(std::ostream& os, const Inputs& p)
+  {
+    return os << "m: " << p.m
+              << ", "
+                 "n: "
+              << p.n
+              << ", "
+                 "k: "
+              << p.k
+              << ", "
+                 "seed: "
+              << p.seed
+              << ", "
+                 "tol: "
+              << p.tolerance;
+  }
 };
 
 template <typename DataT, bool Sqrt>
@@ -231,19 +255,62 @@ template <typename K, typename V, typename L>
 }
 
 const std::vector<Inputs<float>> inputsf = {
-  {0.001f, 32, 32, 32, 1234ULL},   {0.001f, 32, 64, 32, 1234ULL},   {0.001f, 64, 32, 32, 1234ULL},
-  {0.001f, 64, 64, 32, 1234ULL},   {0.001f, 128, 32, 32, 1234ULL},  {0.001f, 128, 64, 32, 1234ULL},
-  {0.001f, 128, 128, 64, 1234ULL}, {0.001f, 64, 128, 128, 1234ULL},
+  {0.001f, 32, 32, 32, 1234ULL},
+  {0.001f, 32, 64, 32, 1234ULL},
+  {0.001f, 64, 32, 32, 1234ULL},
+  {0.001f, 64, 64, 32, 1234ULL},
+  {0.001f, 128, 32, 32, 1234ULL},
+  {0.001f, 128, 64, 32, 1234ULL},
+  {0.001f, 128, 128, 64, 1234ULL},
+  {0.001f, 64, 128, 128, 1234ULL},
 
-  {0.001f, 32, 32, 34, 1234ULL},   {0.001f, 32, 64, 34, 1234ULL},   {0.001f, 64, 32, 34, 1234ULL},
-  {0.001f, 64, 64, 34, 1234ULL},   {0.001f, 128, 32, 34, 1234ULL},  {0.001f, 128, 64, 34, 1234ULL},
-  {0.001f, 128, 128, 66, 1234ULL}, {0.001f, 64, 128, 130, 1234ULL},
+  {0.001f, 32, 32, 34, 1234ULL},
+  {0.001f, 32, 64, 34, 1234ULL},
+  {0.001f, 64, 32, 34, 1234ULL},
+  {0.001f, 64, 64, 34, 1234ULL},
+  {0.001f, 128, 32, 34, 1234ULL},
+  {0.001f, 128, 64, 34, 1234ULL},
+  {0.001f, 128, 128, 66, 1234ULL},
+  {0.001f, 64, 128, 130, 1234ULL},
 
-  {0.001f, 32, 32, 33, 1234ULL},   {0.001f, 32, 64, 33, 1234ULL},   {0.001f, 64, 32, 33, 1234ULL},
-  {0.001f, 64, 64, 33, 1234ULL},   {0.001f, 128, 32, 33, 1234ULL},  {0.001f, 128, 64, 33, 1234ULL},
-  {0.001f, 128, 128, 65, 1234ULL}, {0.001f, 64, 128, 129, 1234ULL},
-
+  {0.001f, 32, 32, 33, 1234ULL},
+  {0.001f, 32, 64, 33, 1234ULL},
+  {0.001f, 64, 32, 33, 1234ULL},
+  {0.001f, 64, 64, 33, 1234ULL},
+  {0.001f, 128, 32, 33, 1234ULL},
+  {0.001f, 128, 64, 33, 1234ULL},
+  {0.001f, 128, 128, 65, 1234ULL},
+  {0.001f, 64, 128, 129, 1234ULL},
   {0.006f, 1805, 134, 2, 1234ULL},
+
+  // Repeat with smaller values of k
+  {0.006f, 32, 32, 1, 1234ULL},
+  {0.001f, 32, 64, 2, 1234ULL},
+  {0.001f, 64, 32, 3, 1234ULL},
+  {0.001f, 64, 64, 4, 1234ULL},
+  {0.001f, 128, 32, 5, 1234ULL},
+  {0.001f, 128, 64, 6, 1234ULL},
+  {0.001f, 128, 128, 7, 1234ULL},
+  {0.001f, 64, 128, 8, 1234ULL},
+
+  {0.001f, 32, 32, 9, 1234ULL},
+  {0.001f, 32, 64, 10, 1234ULL},
+  {0.001f, 64, 32, 11, 1234ULL},
+  {0.001f, 64, 64, 12, 1234ULL},
+  {0.001f, 128, 32, 13, 1234ULL},
+  {0.001f, 128, 64, 14, 1234ULL},
+  {0.001f, 128, 128, 15, 1234ULL},
+  {0.001f, 64, 128, 16, 1234ULL},
+
+  {0.001f, 32, 32, 17, 1234ULL},
+  {0.001f, 32, 64, 18, 1234ULL},
+  {0.001f, 64, 32, 19, 1234ULL},
+  {0.001f, 64, 64, 20, 1234ULL},
+  {0.001f, 128, 32, 21, 1234ULL},
+  {0.001f, 128, 64, 22, 1234ULL},
+  {0.001f, 128, 128, 23, 1234ULL},
+  {0.00001, 64, 128, 24, 1234ULL},
+  {0.001f, 1805, 134, 25, 1234ULL},
 };
 typedef FusedL2NNTest<float, false> FusedL2NNTestF_Sq;
 TEST_P(FusedL2NNTestF_Sq, Result)

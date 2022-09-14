@@ -29,6 +29,10 @@
 #include <rmm/device_uvector.hpp>
 #include <thrust/fill.h>
 
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#include <raft/cluster/specializations.cuh>
+#endif
+
 namespace raft {
 
 template <typename T>

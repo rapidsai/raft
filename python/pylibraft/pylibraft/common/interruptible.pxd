@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,23 +19,16 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-
 from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
-from rmm._lib.cuda_stream_pool cimport cuda_stream_pool
-from libcpp.memory cimport shared_ptr
-from libcpp.memory cimport unique_ptr
 
-cdef extern from "raft/handle.hpp" namespace "raft" nogil:
-    cdef cppclass handle_t:
-        handle_t() except +
-        handle_t(cuda_stream_view stream_view) except +
-        handle_t(cuda_stream_view stream_view,
-                 shared_ptr[cuda_stream_pool] stream_pool) except +
-        cuda_stream_view get_stream() except +
-        void sync_stream() except +
+cdef extern from "raft/core/interruptible.hpp" namespace "raft" nogil:
+    cdef cppclass interruptible:
+        void cancel()
 
-cdef class Handle:
-    cdef unique_ptr[handle_t] c_obj
-    cdef shared_ptr[cuda_stream_pool] stream_pool
-    cdef int n_streams
+cdef extern from "raft/core/interruptible.hpp" \
+        namespace "raft::interruptible" nogil:
+    cdef void inter_synchronize \
+        "raft::interruptible::synchronize"(cuda_stream_view stream) except+
+    cdef void inter_yield "raft::interruptible::yield"() except+
+    cdef shared_ptr[interruptible] get_token() except+
