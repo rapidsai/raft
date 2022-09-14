@@ -13,7 +13,10 @@
 # =============================================================================
 
 include(${raft-dask-python_SOURCE_DIR}/cmake/thirdparty/get_nccl.cmake)
-find_package(ucx REQUIRED)
+
+if(NOT TARGET ucx::ucp)
+  find_package(ucx REQUIRED)
+endif()
 
 set(cython_sources comms_utils.pyx nccl.pyx)
 set(linked_libraries raft::raft NCCL::NCCL ucx::ucp)
@@ -21,3 +24,7 @@ rapids_cython_create_modules(
     SOURCE_FILES "${cython_sources}"
     LINKED_LIBRARIES "${linked_libraries}"
     CXX)
+
+foreach(cython_module IN LISTS _RAPIDS_CYTHON_CREATED_TARGETS)
+    set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../")
+endforeach()
