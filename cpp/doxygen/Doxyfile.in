@@ -880,15 +880,10 @@ RECURSIVE              = YES
 # run.
 
 EXCLUDE                = @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/linalg/symmetrize.hpp \
-
-                         # Deprecated directories
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/cache/ \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/common/ \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/lap/ \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/spectral/ \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/selection/ \
-
-                         # Deprecated files
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/cache \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/common \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/lap \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/selection \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/csr.hpp \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/linalg/lanczos.cuh \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/linalg/lanczos.hpp \

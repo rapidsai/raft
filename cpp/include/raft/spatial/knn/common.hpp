@@ -20,4 +20,4 @@
 
 #pragma once
 
-#include <raft/spatial/knn/common.hpp>
+#include <raft/spatial/knn/ann_types.hpp>

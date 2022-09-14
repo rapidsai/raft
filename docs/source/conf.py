@@ -214,9 +214,9 @@ def setup(app):
 
 # The following is used by sphinx.ext.linkcode to provide links to github
 linkcode_resolve = make_linkcode_resolve(
-    "raft",
+    "pylibraft",
     "https://github.com/rapidsai/raft"
-    "raft/blob/{revision}/python/"
+    "raft/blob/{revision}/python/pylibraft"
     "{package}/{path}#L{lineno}",
 )
 

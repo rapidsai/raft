@@ -19,7 +19,7 @@
 #pragma once
 
 /**
- * @file Utility code involving integer arithmetic
+ * Utility code involving integer arithmetic
  *
  */
 
@@ -64,7 +64,7 @@ inline S round_down_safe(S number_to_round, S modulus)
  *
  * @param dividend the number to divide
  * @param divisor the number by which to divide
- * @return The least integer multiple of {@link divisor} which is greater than or equal to
+ * @return The least integer multiple of divisor which is greater than or equal to
  * the non-integral division dividend/divisor.
  *
  * @note sensitive to overflow, i.e. if dividend > std::numeric_limits<S>::max() - divisor,
@@ -105,7 +105,7 @@ constexpr inline I div_rounding_up_safe(std::integral_constant<bool, true>,
  *
  * @param dividend the number to divide
  * @param divisor the number of by which to divide
- * @return The least integer multiple of {@link divisor} which is greater than or equal to
+ * @return The least integer multiple of divisor which is greater than or equal to
  * the non-integral division dividend/divisor.
  *
  * @note will not overflow, and may _or may not_ be slower than the intuitive
@@ -144,21 +144,21 @@ constexpr inline std::enable_if_t<std::is_integral<I>::value, bool> is_a_power_o
  *          argument types are: (uint64_t)
  * @endcode
  *
- * Not all cases could be if-ed out using `std::is_signed<T>::value` and satisfy the compiler.
+ * Not all cases could be if-ed out using std::is_signed<T>::value and satisfy the compiler.
  *
- * @param value Numeric value can be either integer or float type.
+ * @param val Numeric value can be either integer or float type.
  * @return Absolute value if value type is signed.
  */
 template <typename T>
-std::enable_if_t<std::is_signed<T>::value, T> constexpr inline absolute_value(T value)
+std::enable_if_t<std::is_signed<T>::value, T> constexpr inline absolute_value(T val)
 {
-  return std::abs(value);
+  return std::abs(val);
 }
 // Unsigned type just returns itself.
 template <typename T>
-std::enable_if_t<!std::is_signed<T>::value, T> constexpr inline absolute_value(T value)
+std::enable_if_t<!std::is_signed<T>::value, T> constexpr inline absolute_value(T val)
 {
-  return value;
+  return val;
 }
 
 /**
