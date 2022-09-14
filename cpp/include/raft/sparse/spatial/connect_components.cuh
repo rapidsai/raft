@@ -18,6 +18,7 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/sparse/coo.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/spatial/detail/connect_components.cuh>
 
 namespace raft::sparse::spatial {

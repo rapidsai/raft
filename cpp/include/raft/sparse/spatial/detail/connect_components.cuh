@@ -17,6 +17,7 @@
 
 #include <cub/cub.cuh>
 
+#include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/norm.cuh>
