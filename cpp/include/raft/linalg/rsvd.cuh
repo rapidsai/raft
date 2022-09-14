@@ -18,7 +18,9 @@
 
 #pragma once
 
-#include <raft/linalg/detail/rsvd.cuh>
+#include "detail/rsvd.cuh"
+
+#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace linalg {
@@ -135,6 +137,131 @@ void rsvdPerc(const raft::handle_t& handle,
                    tol,
                    max_sweeps,
                    stream);
+}
+
+/**
+ * @defgroup rsvd Randomized Singular Value Decomposition
+ * @{
+ */
+
+/**
+ * @brief randomized singular value decomposition (RSVD) on the column major
+ * input matrix (Jacobi-based), by specifying no. of PCs and
+ * upsamples directly
+ * @param[in] handle raft::handle_t
+ * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
+ * @param[out] S_vec singular values raft::device_vector_view of shape (K)
+ * @param[in] p no. of upsamples
+ * @param[in] use_bbt whether use eigen decomposition in computation or not
+ * @param[in] use_jacobi whether to jacobi solver for decomposition
+ * @param[in] tol tolerance for Jacobi-based solvers
+ * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
+ * @param[out] U optional left singular values of raft::device_matrix_view with layout
+ * raft::col_major
+ * @param[out] V optional right singular values of raft::device_matrix_view with layout
+ * raft::col_major
+ */
+template <typename ValueType, typename IndexType>
+void rsvd_fixed_rank(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_vector_view<ValueType, IndexType> S_vec,
+  IndexType p,
+  bool use_bbt,
+  bool use_jacobi,
+  ValueType tol,
+  int max_sweeps,
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U = std::nullopt,
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V = std::nullopt)
+{
+  if (U) {
+    RAFT_EXPECTS(M.extent(0) == U.value().extent(0), "Number of rows in M should be equal to U");
+    RAFT_EXPECTS(S_vec.extent(0) == U.value().extent(1),
+                 "Number of columns in U should be equal to length of S");
+  }
+  if (V) {
+    RAFT_EXPECTS(M.extent(1) == V.value().extent(1), "Number of columns in M should be equal to V");
+    RAFT_EXPECTS(S_vec.extent(0) == V.value().extent(0),
+                 "Number of rows in V should be equal to length of S");
+  }
+
+  rsvdFixedRank(handle,
+                M.data_handle(),
+                M.extent(0),
+                M.extent(1),
+                S_vec.data_handle(),
+                U.value().data_handle(),
+                V.value().data_handle(),
+                S_vec.extent(0),
+                p,
+                use_bbt,
+                U.has_value(),
+                V.has_value(),
+                use_jacobi,
+                tol,
+                max_sweeps,
+                handle.get_stream());
+}
+
+/**
+ * @brief randomized singular value decomposition (RSVD) on the column major
+ * input matrix (Jacobi-based), by specifying the PC and upsampling
+ * ratio
+ * @param[in] handle raft::handle_t
+ * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
+ * @param[out] S_vec singular values raft::device_vector_view of shape (K)
+ * @param[in] PC_perc percentage of singular values to be computed
+ * @param[in] UpS_perc upsampling percentage
+ * @param[in] use_bbt whether use eigen decomposition in computation or not
+ * @param[in] use_jacobi whether to jacobi solver for decomposition
+ * @param[in] tol tolerance for Jacobi-based solvers
+ * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
+ * @param[out] U optional left singular values of raft::device_matrix_view with layout
+ * raft::col_major
+ * @param[out] V optional right singular values of raft::device_matrix_view with layout
+ * raft::col_major
+ */
+template <typename ValueType, typename IndexType>
+void rsvd_perc(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_vector_view<ValueType, IndexType> S_vec,
+  ValueType PC_perc,
+  ValueType UpS_perc,
+  bool use_bbt,
+  bool use_jacobi,
+  ValueType tol,
+  int max_sweeps,
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U = std::nullopt,
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V = std::nullopt)
+{
+  if (U) {
+    RAFT_EXPECTS(M.extent(0) == U.value().extent(0), "Number of rows in M should be equal to U");
+    RAFT_EXPECTS(S_vec.extent(0) == U.value().extent(1),
+                 "Number of columns in U should be equal to length of S");
+  }
+  if (V) {
+    RAFT_EXPECTS(M.extent(1) == V.value().extent(1), "Number of columns in M should be equal to V");
+    RAFT_EXPECTS(S_vec.extent(0) == V.value().extent(0),
+                 "Number of rows in V should be equal to length of S");
+  }
+
+  rsvdPerc(handle,
+           M.data_handle(),
+           M.extent(0),
+           M.extent(1),
+           S_vec.data_handle(),
+           U.value().data_handle(),
+           V.value().data_handle(),
+           PC_perc,
+           UpS_perc,
+           use_bbt,
+           U.has_value(),
+           V.has_value(),
+           use_jacobi,
+           tol,
+           max_sweeps,
+           handle.get_stream());
 }
 
 };  // end namespace linalg

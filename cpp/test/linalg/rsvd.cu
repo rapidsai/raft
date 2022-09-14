@@ -124,41 +124,37 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     RAFT_CUDA_TRY(cudaMemsetAsync(S.data(), 0, S.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(V.data(), 0, V.size() * sizeof(T), stream));
 
+    auto A_view = raft::make_device_matrix_view<T, int, raft::col_major>(A.data(), m, n);
+    std::optional<raft::device_matrix_view<T, int, raft::col_major>> U_view =
+      raft::make_device_matrix_view<T, int, raft::col_major>(U.data(), m, params.k);
+    std::optional<raft::device_matrix_view<T, int, raft::col_major>> V_view =
+      raft::make_device_matrix_view<T, int, raft::col_major>(V.data(), params.k, n);
+    auto S_vec_view = raft::make_device_vector_view(S.data(), params.k);
+
     // RSVD tests
     if (params.k == 0) {  // Test with PC and upsampling ratio
-      rsvdPerc(handle,
-               A.data(),
-               m,
-               n,
-               S.data(),
-               U.data(),
-               V.data(),
-               params.PC_perc,
-               params.UpS_perc,
-               params.use_bbt,
-               true,
-               true,
-               false,
-               eig_svd_tol,
-               max_sweeps,
-               stream);
+      rsvd_perc(handle,
+                A_view,
+                S_vec_view,
+                params.PC_perc,
+                params.UpS_perc,
+                params.use_bbt,
+                false,
+                eig_svd_tol,
+                max_sweeps,
+                U_view,
+                V_view);
     } else {  // Test with directly given fixed rank
-      rsvdFixedRank(handle,
-                    A.data(),
-                    m,
-                    n,
-                    S.data(),
-                    U.data(),
-                    V.data(),
-                    params.k,
-                    params.p,
-                    params.use_bbt,
-                    true,
-                    true,
-                    true,
-                    eig_svd_tol,
-                    max_sweeps,
-                    stream);
+      rsvd_fixed_rank(handle,
+                      A_view,
+                      S_vec_view,
+                      params.p,
+                      params.use_bbt,
+                      true,
+                      eig_svd_tol,
+                      max_sweeps,
+                      U_view,
+                      V_view);
     }
     raft::update_device(A.data(), A_backup_cpu.data(), m * n, stream);
   }
