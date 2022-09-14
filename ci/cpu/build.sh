@@ -97,7 +97,8 @@ else
 
   # Install pre-built conda packages from previous CI step
   gpuci_logger "Install libraft conda packages from CPU job"
-  gpuci_mamba_retry install -y -c ${CONDA_BLD_DIR}/libraft/work libraft-headers libraft-distance libraft-nn libraft-tests
+  CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/raft/cpu/.conda-bld/ # notice there is no `linux-64` here
+  gpuci_mamba_retry install -y -c ${CONDA_ARTIFACT_PATH} libraft-headers libraft-distance libraft-nn libraft-tests
 fi
 
 if [ "$BUILD_RAFT" == '1' ]; then
