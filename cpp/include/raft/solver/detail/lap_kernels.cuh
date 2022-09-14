@@ -24,19 +24,16 @@
  */
 #pragma once
 
-#include "d_structs.h"
+#include "../linear_assignment_types.hpp"
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 
 #include <cstddef>
-namespace raft {
-namespace lap {
-namespace detail {
-
+namespace raft::solver::detail {
 const int DORMANT{0};
 const int ACTIVE{1};
 const int VISITED{2};
@@ -555,6 +552,4 @@ __global__ void kernel_calcObjValPrimal(weight_t* d_obj_val_primal,
   }
 }
 
-}  // namespace detail
-}  // namespace lap
-}  // namespace raft
+}  // namespace raft::solver::detail

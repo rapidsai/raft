@@ -17,10 +17,10 @@
 #include "../test_utils.h"
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace random {

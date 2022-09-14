@@ -17,9 +17,9 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
 #include <raft/interruptible.hpp>
 #include <raft/stats/entropy.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 

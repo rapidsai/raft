@@ -16,25 +16,23 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
-#include <raft/sparse/mst/mst.cuh>
 #include <raft/sparse/op/sort.cuh>
-#include <raft/sparse/selection/connect_components.cuh>
+#include <raft/sparse/solver/mst.cuh>
+#include <raft/sparse/spatial/connect_components.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
 
-namespace raft {
-namespace hierarchy {
-namespace detail {
+namespace raft::cluster::detail {
 
 template <typename value_idx, typename value_t>
-void merge_msts(raft::Graph_COO<value_idx, value_idx, value_t>& coo1,
-                raft::Graph_COO<value_idx, value_idx, value_t>& coo2,
+void merge_msts(sparse::solver::Graph_COO<value_idx, value_idx, value_t>& coo1,
+                sparse::solver::Graph_COO<value_idx, value_idx, value_t>& coo2,
                 cudaStream_t stream)
 {
   /** Add edges to existing mst **/
@@ -71,7 +69,7 @@ template <typename value_idx, typename value_t, typename red_op>
 void connect_knn_graph(
   const raft::handle_t& handle,
   const value_t* X,
-  raft::Graph_COO<value_idx, value_idx, value_t>& msf,
+  sparse::solver::Graph_COO<value_idx, value_idx, value_t>& msf,
   size_t m,
   size_t n,
   value_idx* color,
@@ -82,7 +80,7 @@ void connect_knn_graph(
 
   raft::sparse::COO<value_t, value_idx> connected_edges(stream);
 
-  raft::linkage::connect_components<value_idx, value_t>(
+  raft::sparse::spatial::connect_components<value_idx, value_t>(
     handle, connected_edges, X, color, m, n, reduction_op);
 
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
@@ -91,16 +89,17 @@ void connect_knn_graph(
 
   // On the second call, we hand the MST the original colors
   // and the new set of edges and let it restart the optimization process
-  auto new_mst = raft::mst::mst<value_idx, value_idx, value_t, double>(handle,
-                                                                       indptr2.data(),
-                                                                       connected_edges.cols(),
-                                                                       connected_edges.vals(),
-                                                                       m,
-                                                                       connected_edges.nnz,
-                                                                       color,
-                                                                       stream,
-                                                                       false,
-                                                                       false);
+  auto new_mst =
+    raft::sparse::solver::mst<value_idx, value_idx, value_t, double>(handle,
+                                                                     indptr2.data(),
+                                                                     connected_edges.cols(),
+                                                                     connected_edges.vals(),
+                                                                     m,
+                                                                     connected_edges.nnz,
+                                                                     color,
+                                                                     stream,
+                                                                     false,
+                                                                     false);
 
   merge_msts<value_idx, value_t>(msf, new_mst, stream);
 }
@@ -150,18 +149,18 @@ void build_sorted_mst(
   auto stream = handle.get_stream();
 
   // We want to have MST initialize colors on first call.
-  auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t, double>(
+  auto mst_coo = raft::sparse::solver::mst<value_idx, value_idx, value_t, double>(
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color, stream, false, true);
 
   int iters        = 1;
-  int n_components = linkage::get_n_components(color, m, stream);
+  int n_components = raft::sparse::spatial::get_n_components(color, m, stream);
 
   while (n_components > 1 && iters < max_iter) {
     connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n, color, reduction_op);
 
     iters++;
 
-    n_components = linkage::get_n_components(color, m, stream);
+    n_components = raft::sparse::spatial::get_n_components(color, m, stream);
   }
 
   /**
@@ -192,6 +191,4 @@ void build_sorted_mst(
   raft::copy_async(mst_weight, mst_coo.weights.data(), mst_coo.n_edges, stream);
 }
 
-};  // namespace detail
-};  // namespace hierarchy
-};  // namespace raft
+};  // namespace raft::cluster::detail

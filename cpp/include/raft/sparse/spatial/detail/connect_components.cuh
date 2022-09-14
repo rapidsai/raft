@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <cub/cub.cuh>
 
+#include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/norm.cuh>
@@ -24,7 +26,7 @@
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/op/reduce.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -42,10 +44,7 @@
 
 #include <limits>
 
-namespace raft {
-namespace linkage {
-namespace detail {
-
+namespace raft::sparse::spatial::detail {
 /**
  * \brief A key identifier paired with a corresponding value
  *
@@ -438,6 +437,4 @@ void connect_components(
     handle, min_edges.rows(), min_edges.cols(), min_edges.vals(), n_rows, n_rows, size, out);
 }
 
-};  // end namespace detail
-};  // end namespace linkage
-};  // end namespace raft
+};  // end namespace raft::sparse::spatial::detail

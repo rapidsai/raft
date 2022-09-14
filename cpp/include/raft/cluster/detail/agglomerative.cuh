@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -35,11 +35,7 @@
 
 #include <cstddef>
 
-namespace raft {
-
-namespace hierarchy {
-namespace detail {
-
+namespace raft::cluster::detail {
 template <typename value_idx, typename value_t>
 class UnionFind {
  public:
@@ -329,6 +325,4 @@ void extract_flattened_clusters(const raft::handle_t& handle,
   }
 }
 
-};  // namespace detail
-};  // namespace hierarchy
-};  // namespace raft
+};  // namespace raft::cluster::detail

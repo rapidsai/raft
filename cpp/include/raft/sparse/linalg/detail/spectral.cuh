@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/partition.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/convert/csr.cuh>

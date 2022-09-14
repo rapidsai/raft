@@ -22,8 +22,8 @@
  */
 #pragma once
 #include <raft/core/mdspan.hpp>
-#include <raft/cudart_utils.h>
 #include <raft/detail/span.hpp>  // dynamic_extent
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>

@@ -42,13 +42,13 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/device_atomics.cuh>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/detail/warn_dbg.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/device_atomics.cuh>
 
 namespace raft {
 namespace cluster {

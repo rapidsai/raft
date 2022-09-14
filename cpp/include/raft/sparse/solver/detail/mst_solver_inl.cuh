@@ -18,10 +18,10 @@
 
 #include <curand.h>
 
-#include "mst_kernels.cuh"
-#include "utils.cuh"
+#include <raft/sparse/solver/detail/mst_kernels.cuh>
+#include <raft/sparse/solver/detail/mst_utils.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -43,8 +43,7 @@
 
 #include <iostream>
 
-namespace raft {
-namespace mst {
+namespace raft::sparse::solver {
 
 // curand generator uniform
 inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
@@ -115,8 +114,7 @@ MST_solver<vertex_t, edge_t, weight_t, alteration_t>::MST_solver(const raft::han
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
-raft::Graph_COO<vertex_t, edge_t, weight_t>
-MST_solver<vertex_t, edge_t, weight_t, alteration_t>::solve()
+Graph_COO<vertex_t, edge_t, weight_t> MST_solver<vertex_t, edge_t, weight_t, alteration_t>::solve()
 {
   RAFT_EXPECTS(v > 0, "0 vertices");
   RAFT_EXPECTS(e > 0, "0 edges");
@@ -409,6 +407,4 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::append_src_dst_pair(
                   src_dst_zip_end,
                   new_edges_functor<vertex_t, weight_t>());
 }
-
-}  // namespace mst
-}  // namespace raft
+}  // namespace raft::sparse::solver

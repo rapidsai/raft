@@ -26,6 +26,6 @@
 
 #pragma message(__FILE__                                                  \
                 " is deprecated and will be removed in a future release." \
-                " Please use the cuh version instead.")
+                " Please use the sparse/solvers version instead.")
 
-#include "lanczos.cuh"
+#include <raft/linalg/lanczos.cuh>

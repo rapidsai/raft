@@ -16,18 +16,18 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/cluster/single_linkage_types.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/hierarchy/common.h>
-#include <raft/sparse/selection/knn_graph.cuh>
+#include <raft/sparse/spatial/knn_graph.cuh>
 
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
@@ -35,11 +35,9 @@
 
 #include <limits>
 
-namespace raft {
-namespace hierarchy {
-namespace detail {
+namespace raft::cluster::detail {
 
-template <raft::hierarchy::LinkageDistance dist_type, typename value_idx, typename value_t>
+template <raft::cluster::LinkageDistance dist_type, typename value_idx, typename value_t>
 struct distance_graph_impl {
   void run(const raft::handle_t& handle,
            const value_t* X,
@@ -58,7 +56,7 @@ struct distance_graph_impl {
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH, value_idx, value_t> {
+struct distance_graph_impl<raft::cluster::LinkageDistance::KNN_GRAPH, value_idx, value_t> {
   void run(const raft::handle_t& handle,
            const value_t* X,
            size_t m,
@@ -75,7 +73,7 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH, value_id
     // Need to symmetrize knn into undirected graph
     raft::sparse::COO<value_t, value_idx> knn_graph_coo(stream);
 
-    raft::sparse::selection::knn_graph(handle, X, m, n, metric, knn_graph_coo, c);
+    raft::sparse::spatial::knn_graph(handle, X, m, n, metric, knn_graph_coo, c);
 
     indices.resize(knn_graph_coo.nnz, stream);
     data.resize(knn_graph_coo.nnz, stream);
@@ -121,7 +119,7 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::KNN_GRAPH, value_id
  * @param[out] c constant 'c' used for nearest neighbors-based distances
  *             which will guarantee k <= log(n) + c
  */
-template <typename value_idx, typename value_t, raft::hierarchy::LinkageDistance dist_type>
+template <typename value_idx, typename value_t, raft::cluster::LinkageDistance dist_type>
 void get_distance_graph(const raft::handle_t& handle,
                         const value_t* X,
                         size_t m,
@@ -140,6 +138,4 @@ void get_distance_graph(const raft::handle_t& handle,
   dist_graph.run(handle, X, m, n, metric, indptr, indices, data, c);
 }
 
-};  // namespace detail
-};  // namespace hierarchy
-};  // namespace raft
+};  // namespace raft::cluster::detail
