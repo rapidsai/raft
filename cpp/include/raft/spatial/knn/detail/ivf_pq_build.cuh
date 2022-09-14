@@ -41,98 +41,106 @@ namespace raft::spatial::knn::ivf_pq::detail {
 using namespace raft::spatial::knn::detail;  // NOLINT
 
 namespace {
-HDI void ivfpq_encode_core(
-  uint32_t n_rows, uint32_t pq_dim, uint32_t pq_bits, const uint32_t* label, uint8_t* output)
-{
-  for (uint32_t j = 0; j < pq_dim; j++, label += n_rows) {
-    uint8_t code = *label;
-    if (pq_bits == 8) {
-      uint8_t* out = output + j;
-      out[0]       = code;
-    } else if (pq_bits == 7) {
-      uint8_t* out = output + 7 * (j / 8);
-      if (j % 8 == 0) {
-        out[0] = code;
-      } else if (j % 8 == 1) {
-        out[0] |= code << 7;
-        out[1] = code >> 1;
-      } else if (j % 8 == 2) {
-        out[1] |= code << 6;
-        out[2] = code >> 2;
-      } else if (j % 8 == 3) {
-        out[2] |= code << 5;
-        out[3] = code >> 3;
-      } else if (j % 8 == 4) {
-        out[3] |= code << 4;
-        out[4] = code >> 4;
-      } else if (j % 8 == 5) {
-        out[4] |= code << 3;
-        out[5] = code >> 5;
-      } else if (j % 8 == 6) {
-        out[5] |= code << 2;
-        out[6] = code >> 6;
-      } else if (j % 8 == 7) {
-        out[6] |= code << 1;
-      }
-    } else if (pq_bits == 6) {
-      uint8_t* out = output + 3 * (j / 4);
-      if (j % 4 == 0) {
-        out[0] = code;
-      } else if (j % 4 == 1) {
-        out[0] |= code << 6;
-        out[1] = code >> 2;
-      } else if (j % 4 == 2) {
-        out[1] |= code << 4;
-        out[2] = code >> 4;
-      } else if (j % 4 == 3) {
-        out[2] |= code << 2;
-      }
-    } else if (pq_bits == 5) {
-      uint8_t* out = output + 5 * (j / 8);
-      if (j % 8 == 0) {
-        out[0] = code;
-      } else if (j % 8 == 1) {
-        out[0] |= code << 5;
-        out[1] = code >> 3;
-      } else if (j % 8 == 2) {
-        out[1] |= code << 2;
-      } else if (j % 8 == 3) {
-        out[1] |= code << 7;
-        out[2] = code >> 1;
-      } else if (j % 8 == 4) {
-        out[2] |= code << 4;
-        out[3] = code >> 4;
-      } else if (j % 8 == 5) {
-        out[3] |= code << 1;
-      } else if (j % 8 == 6) {
-        out[3] |= code << 6;
-        out[4] = code >> 2;
-      } else if (j % 8 == 7) {
-        out[4] |= code << 3;
-      }
-    } else if (pq_bits == 4) {
-      uint8_t* out = output + (j / 2);
-      if (j % 2 == 0) {
-        out[0] = code;
-      } else {
-        out[0] |= code << 4;
-      }
+
+/**
+ * This type mimics the `uint8_t&` for the indexing operator of `bitfield_view_t`.
+ *
+ * @tparam Bits number of bits comprising the value.
+ */
+template <uint32_t Bits>
+struct bitfield_ref_t {
+  static_assert(Bits <= 8 && Bits > 0, "Bit code must fit one byte");
+  constexpr static uint8_t kMask = static_cast<uint8_t>((1u << Bits) - 1u);
+  uint8_t* ptr;
+  uint32_t offset;
+
+  constexpr operator uint8_t()  // NOLINT
+  {
+    auto pair = static_cast<uint16_t>(ptr[0]);
+    if (offset + Bits > 8) { pair |= static_cast<uint16_t>(ptr[1]) << 8; }
+    return static_cast<uint8_t>((pair >> offset) & kMask);
+  }
+
+  constexpr auto operator=(uint8_t code) -> bitfield_ref_t&
+  {
+    if (offset + Bits > 8) {
+      auto pair = static_cast<uint16_t>(ptr[0]);
+      pair |= static_cast<uint16_t>(ptr[1]) << 8;
+      pair &= ~(static_cast<uint16_t>(kMask) << offset);
+      pair |= static_cast<uint16_t>(code) << offset;
+      ptr[0] = static_cast<uint8_t>(Pow2<256>::mod(pair));
+      ptr[1] = static_cast<uint8_t>(Pow2<256>::div(pair));
+    } else {
+      ptr[0] = (ptr[0] & ~(kMask << offset)) | (code << offset);
     }
+    return *this;
+  }
+};
+
+/**
+ * View a byte array as an array of unsigned integers of custom small bit size.
+ *
+ * @tparam Bits number of bits comprising a single element of the array.
+ */
+template <uint32_t Bits>
+struct bitfield_view_t {
+  static_assert(Bits <= 8 && Bits > 0, "Bit code must fit one byte");
+  uint8_t* raw;
+
+  constexpr auto operator[](uint32_t i) -> bitfield_ref_t<Bits>
+  {
+    uint32_t bit_offset = i * Bits;
+    return bitfield_ref_t<Bits>{raw + Pow2<8>::div(bit_offset), Pow2<8>::mod(bit_offset)};
+  }
+};
+
+/*
+  NB: label type is uint32_t although it can only contain values up to `1 << pq_bits`.
+      We keep it this way to not force one more overload for kmeans::predict.
+ */
+template <uint32_t PqBits>
+HDI void ivfpq_encode_core(uint32_t n_rows, uint32_t pq_dim, const uint32_t* label, uint8_t* output)
+{
+  bitfield_view_t<PqBits> out{output};
+  for (uint32_t j = 0; j < pq_dim; j++, label += n_rows) {
+    out[j] = static_cast<uint8_t>(*label);
   }
 }
 
+template <uint32_t PqBits>
 __global__ void ivfpq_encode_kernel(uint32_t n_rows,
                                     uint32_t pq_dim,
-                                    uint32_t pq_bits,       // 4 <= pq_bits <= 8
                                     const uint32_t* label,  // [pq_dim, ldDataset]
                                     uint8_t* output         // [n_rows, pq_dim]
 )
 {
   uint32_t i = threadIdx.x + blockDim.x * blockIdx.x;
   if (i >= n_rows) return;
-  ivfpq_encode_core(n_rows, pq_dim, pq_bits, label + i, output + (pq_dim * pq_bits / 8) * i);
+  ivfpq_encode_core<PqBits>(n_rows, pq_dim, label + i, output + (pq_dim * PqBits / 8) * i);
 }
 }  // namespace
+
+template <uint32_t PqBits>
+inline void ivfpq_encode_run(uint32_t n_rows,
+                             uint32_t pq_dim,
+                             const uint32_t* label,  // [pq_dim, ldDataset]
+                             uint8_t* output,        // [n_rows, pq_dim]
+                             rmm::cuda_stream_view stream)
+{
+#if 1
+  // GPU
+  dim3 threads(128, 1, 1);
+  dim3 blocks(raft::ceildiv<uint32_t>(n_rows, threads.x), 1, 1);
+  ivfpq_encode_kernel<PqBits><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+#else
+  // CPU
+  stream.synchronize();
+  for (uint32_t i = 0; i < n_rows; i++) {
+    ivfpq_encode_core<PqBits>(n_rows, pq_dim, label + i, output + (pq_dim * PqBits / 8) * i);
+  }
+  stream.synchronize();
+#endif
+}
 
 inline void ivfpq_encode(uint32_t n_rows,
                          uint32_t pq_dim,
@@ -141,19 +149,14 @@ inline void ivfpq_encode(uint32_t n_rows,
                          uint8_t* output,        // [n_rows, pq_dim]
                          rmm::cuda_stream_view stream)
 {
-#if 1
-  // GPU
-  dim3 threads(128, 1, 1);
-  dim3 blocks(raft::ceildiv<uint32_t>(n_rows, threads.x), 1, 1);
-  ivfpq_encode_kernel<<<blocks, threads, 0, stream>>>(n_rows, pq_dim, pq_bits, label, output);
-#else
-  // CPU
-  stream.synchronize();
-  for (uint32_t i = 0; i < n_rows; i++) {
-    ivfpq_encode_core(n_rows, pq_dim, pq_bits, label + i, output + (pq_dim * pq_bits / 8) * i);
+  switch (pq_bits) {
+    case 4: return ivfpq_encode_run<4>(n_rows, pq_dim, label, output, stream);
+    case 5: return ivfpq_encode_run<5>(n_rows, pq_dim, label, output, stream);
+    case 6: return ivfpq_encode_run<6>(n_rows, pq_dim, label, output, stream);
+    case 7: return ivfpq_encode_run<7>(n_rows, pq_dim, label, output, stream);
+    case 8: return ivfpq_encode_run<8>(n_rows, pq_dim, label, output, stream);
+    default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
   }
-  stream.synchronize();
-#endif
 }
 
 template <typename T>
