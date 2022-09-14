@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

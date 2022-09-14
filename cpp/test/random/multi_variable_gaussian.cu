@@ -18,8 +18,8 @@
 #include <cmath>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
 #include <raft/random/multi_variable_gaussian.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 

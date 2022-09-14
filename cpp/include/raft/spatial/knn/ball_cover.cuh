@@ -20,10 +20,10 @@
 
 #include <cstdint>
 
-#include "ball_cover_common.h"
+#include "ball_cover_types.hpp"
 #include "detail/ball_cover.cuh"
 #include "detail/ball_cover/common.cuh"
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <thrust/transform.h>
 
 namespace raft {

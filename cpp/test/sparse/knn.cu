@@ -18,10 +18,10 @@
 #include <gtest/gtest.h>
 
 #include "../test_utils.h"
-#include <raft/distance/distance_type.hpp>
-#include <raft/sparse/selection/knn.cuh>
+#include <raft/distance/distance_types.hpp>
+#include <raft/sparse/spatial/knn.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace sparse {
@@ -79,25 +79,25 @@ class SparseKNNTest : public ::testing::TestWithParam<SparseKNNInputs<value_idx,
 
     make_data();
 
-    raft::sparse::selection::brute_force_knn<value_idx, value_t>(indptr.data(),
-                                                                 indices.data(),
-                                                                 data.data(),
-                                                                 nnz,
-                                                                 n_rows,
-                                                                 params.n_cols,
-                                                                 indptr.data(),
-                                                                 indices.data(),
-                                                                 data.data(),
-                                                                 nnz,
-                                                                 n_rows,
-                                                                 params.n_cols,
-                                                                 out_indices.data(),
-                                                                 out_dists.data(),
-                                                                 k,
-                                                                 handle,
-                                                                 params.batch_size_index,
-                                                                 params.batch_size_query,
-                                                                 params.metric);
+    raft::sparse::spatial::brute_force_knn<value_idx, value_t>(indptr.data(),
+                                                               indices.data(),
+                                                               data.data(),
+                                                               nnz,
+                                                               n_rows,
+                                                               params.n_cols,
+                                                               indptr.data(),
+                                                               indices.data(),
+                                                               data.data(),
+                                                               nnz,
+                                                               n_rows,
+                                                               params.n_cols,
+                                                               out_indices.data(),
+                                                               out_dists.data(),
+                                                               k,
+                                                               handle,
+                                                               params.batch_size_index,
+                                                               params.batch_size_query,
+                                                               params.metric);
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }

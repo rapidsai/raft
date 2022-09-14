@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>
 
 #include <raft/spatial/knn/knn.cuh>
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
@@ -35,10 +35,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace raft {
-namespace sparse {
-namespace selection {
-namespace detail {
+namespace raft::sparse::spatial::detail {
 
 /**
  * Fills indices array of pairwise distance array
@@ -150,7 +147,4 @@ void knn_graph(const handle_t& handle,
     handle, rows.data(), indices.data(), data.data(), m, k, nnz, out);
 }
 
-};  // namespace detail
-};  // namespace selection
-};  // namespace sparse
-};  // end namespace raft
+};  // namespace raft::sparse::spatial::detail

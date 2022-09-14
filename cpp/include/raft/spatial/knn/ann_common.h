@@ -23,7 +23,7 @@
 #include "detail/processing.hpp"
 #include "ivf_flat_types.hpp"
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 
 #include <faiss/gpu/GpuIndex.h>
 #include <raft/spatial/knn/faiss_mr.hpp>

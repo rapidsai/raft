@@ -28,7 +28,7 @@
 
 #include <iostream>
 #include <omp.h>
-#include <raft/lap/lap.cuh>
+#include <raft/solver/linear_assignment.cuh>
 #include <random>
 
 #define PROBLEMSIZE  1000  // Number of rows/columns
@@ -85,7 +85,7 @@ void hungarian_test(int problemsize,
       float start = omp_get_wtime();
 
       // Create an instance of LinearAssignmentProblem using problem size, number of subproblems
-      raft::lap::LinearAssignmentProblem<vertex_t, weight_t> lpx(
+      raft::solver::LinearAssignmentProblem<vertex_t, weight_t> lpx(
         handle, problemsize, batchsize, epsilon);
 
       // Solve LAP(s) for given cost matrix

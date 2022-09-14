@@ -17,9 +17,9 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <memory>
-#include <raft/cudart_utils.h>
 #include <raft/random/make_blobs.cuh>
 #include <raft/spatial/knn/epsilon_neighborhood.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

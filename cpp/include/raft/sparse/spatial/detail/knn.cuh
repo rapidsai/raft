@@ -18,11 +18,11 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/csr.hpp>
@@ -33,10 +33,7 @@
 
 #include <algorithm>
 
-namespace raft {
-namespace sparse {
-namespace selection {
-namespace detail {
+namespace raft::sparse::spatial::detail {
 
 template <typename value_idx, typename value_t>
 struct csr_batcher_t {
@@ -428,7 +425,4 @@ class sparse_knn_t {
   const raft::handle_t& handle;
 };
 
-};  // namespace detail
-};  // namespace selection
-};  // namespace sparse
-};  // namespace raft
+};  // namespace raft::sparse::spatial::detail

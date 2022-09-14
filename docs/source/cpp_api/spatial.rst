@@ -13,10 +13,14 @@ Distance
 Nearest Neighbors
 #################
 
-.. doxygennamespace:: raft::spatial::knn
+.. doxygenfunction:: raft::spatial::knn::brute_force_knn
     :project: RAFT
-    :members:
 
+.. doxygenfunction:: raft::spatial::knn::select_k
+    :project: RAFT
+
+.. doxygenfunction:: raft::spatial::knn::knn_merge_parts
+    :project: RAFT
 
 
 IVF-Flat

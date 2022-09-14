@@ -15,7 +15,7 @@
  */
 
 #include <raft/spatial/knn/ball_cover.cuh>
-#include <raft/spatial/knn/ball_cover_common.h>
+#include <raft/spatial/knn/ball_cover_types.hpp>
 
 // Ignore upstream specializations to avoid unnecessary recompiling
 #include <raft/distance/specializations.cuh>
