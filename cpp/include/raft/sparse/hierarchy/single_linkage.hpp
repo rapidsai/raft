@@ -20,4 +20,8 @@
 
 #pragma once
 
-#include <raft/sparse/hierarchy/single_linkage.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the raft/cluster version instead.")
+
+#include <raft/sparse/hiararchy/single_linkage.cuh>

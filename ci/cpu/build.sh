@@ -99,12 +99,12 @@ fi
 if [ "$BUILD_RAFT" == '1' ]; then
   gpuci_logger "Building Python conda packages for raft"
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/raft-dask --python=$PYTHON
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pylibraft --python=$PYTHON
   else
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pyraft -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=$PYTHON
-    mkdir -p ${CONDA_BLD_DIR}/pyraft/work
-    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/pyraft/work
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/raft-dask -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=$PYTHON
+    mkdir -p ${CONDA_BLD_DIR}/raft-dask/work
+    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/raft-dask/work
 
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pylibraft -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=$PYTHON
     mkdir -p ${CONDA_BLD_DIR}/pylibraft/work

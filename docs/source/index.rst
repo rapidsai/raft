@@ -8,7 +8,7 @@ RAFT contains fundamental widely-used algorithms and primitives for data science
    :caption: Contents:
 
    cpp_api.rst
-   pyraft_api.rst
+   raft_dask_api.rst
    pylibraft_api.rst
 
 

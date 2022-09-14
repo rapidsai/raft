@@ -21,7 +21,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 

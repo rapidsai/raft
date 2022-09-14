@@ -16,8 +16,8 @@
 #include <gtest/gtest.h>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>

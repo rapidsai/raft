@@ -23,11 +23,11 @@
 #include "rng_device.cuh"
 
 #include <curand_kernel.h>
-#include <raft/common/cub_wrappers.cuh>
-#include <raft/common/scatter.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/random/rng_state.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/detail/cub_wrappers.cuh>
+#include <raft/util/scatter.cuh>
 #include <random>
 #include <rmm/device_uvector.hpp>
 

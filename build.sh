@@ -18,14 +18,14 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
                       around the C++ code.
-   pyraft           - build the pyraft Python package
    pylibraft        - build the pylibraft Python package
+   raft-dask        - build the raft-dask Python package. this also requires pylibraft.
    docs             - build the documentation
    tests            - build the tests
    bench            - build the benchmarks
@@ -50,7 +50,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
                                  to speedup the build process.
    -h                          - print this text
 
- default action (no args) is to build both libraft and pyraft targets
+ default action (no args) is to build both libraft and raft-dask targets
 "
 LIBRAFT_BUILD_DIR=${LIBRAFT_BUILD_DIR:=${REPODIR}/cpp/build}
 SPHINX_BUILD_DIR=${REPODIR}/docs
@@ -241,7 +241,7 @@ if (( ${CLEAN} == 1 )); then
       fi
     done
 
-    cd ${REPODIR}/python/raft
+    cd ${REPODIR}/python/raft-dask
     python setup.py clean --all
     cd ${REPODIR}
 
@@ -290,10 +290,10 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg pylibraft || hasArg docs ||
   fi
 fi
 
-# Build and (optionally) install the pyraft Python package
-if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
+# Build and (optionally) install the raft-dask Python package
+if (( ${NUMARGS} == 0 )) || hasArg raft-dask || hasArg docs; then
 
-    cd ${REPODIR}/python/raft
+    cd ${REPODIR}/python/raft-dask
     python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}

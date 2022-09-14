@@ -18,9 +18,9 @@
 
 #include "functional.cuh"
 
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <thrust/functional.h>
 
