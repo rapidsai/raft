@@ -17,6 +17,7 @@
 #include "../test_utils.h"
 
 #include <raft/core/logger.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/knn.cuh>
 #if defined RAFT_NN_COMPILED
@@ -86,22 +87,13 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     raft::print_device_vector("Labels array: ", search_labels_.data(), rows_, std::cout);
 #endif
 
-    std::vector<float*> input_vec;
-    std::vector<int> sizes_vec;
-    input_vec.push_back(input_.data());
-    sizes_vec.push_back(rows_);
+    auto index = raft::make_device_matrix_view(input_.data(), rows_, cols_);
+    auto search = raft::make_device_matrix_view(search_data_.data(), rows_, cols_);
 
-    brute_force_knn(handle,
-                    input_vec,
-                    sizes_vec,
-                    cols_,
-                    search_data_.data(),
-                    rows_,
-                    indices_.data(),
-                    distances_.data(),
-                    k_,
-                    true,
-                    true);
+    auto indices = raft::make_device_matrix_view(indices_.data(), rows_, k_);
+    auto distances = raft::make_device_matrix_view(distances_.data(), rows_, k_);
+
+    brute_force_knn(handle, index, search, indices, distances, k_);
 
     build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       actual_labels_.data(), rows_, k_, search_labels_.data(), indices_.data());

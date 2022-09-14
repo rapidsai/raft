@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
 #include "detail/knn_brute_force_faiss.cuh"
 #include "detail/selection_faiss.cuh"
 
@@ -224,4 +225,69 @@ void brute_force_knn(raft::handle_t const& handle,
                                metric,
                                metric_arg);
 }
+
+/**
+ * @brief Flat C++ API function to perform a brute force knn on
+ * a series of input arrays and combine the results into a single
+ * output array for indexes and distances. Inputs can be either
+ * row- or column-major but the output matrices will always be in
+ * row-major format.
+ *
+ * @param[in] handle the cuml handle to use
+ * @param[in] index vector of device matrices (each size m_i*d) to be used as the knn index
+ * @param[in] search matrix (size n*d) to be used for searching the index
+ * @param[out] indices matrix (size n*k) to store output knn indices
+ * @param[out] distances matrix (size n*k) to store the output knn distance
+ * @param[in] k the number of nearest neighbors to return
+ * @param[in] metric distance metric to use. Euclidean (L2) is used by default
+ * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
+ * 					 is ignored if the metric_type is not Minkowski.
+ */
+template <typename idx_t = std::int64_t,
+          typename value_t = float,
+          typename value_int = int,
+          typename index_layout,
+          typename search_layout>
+void brute_force_knn(raft::handle_t const& handle,
+                     std::vector<raft::device_matrix_view<const value_t, idx_t, index_layout>> index,
+                     raft::device_matrix_view<const value_t, idx_t, search_layout> search,
+                     raft::device_matrix_view<idx_t, idx_t, row_major> indices,
+                     raft::device_matrix_view<value_t, idx_t, row_major> distances,
+                     value_int k,
+                     distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
+                     std::optional<float> metric_arg = std::make_optional<float>(2.0f),
+                     std::optional<raft::device_vector_view<idx_t>> translations = std::nullopt) {
+
+    RAFT_EXPECTS(index.extent(1) == search.extent(1), "Number of dimensions for both index and search matrices must be equal");
+    RAFT_EXPECTS(indices.extent(0) == distances.extent(0) == search.extent(0),
+                 "Number of rows in output indices and distances matrices must equal number of rows in search matrix.");
+    RAFT_EXPECTS(indices.extent(1) == distances.extent(1) == k,
+                 "Number of columns in output indices and distances matrices must be equal to k");
+
+    constexpr auto rowMajorIndex = std::is_same_v<index_layout, layout_c_contiguous>;
+    constexpr auto rowMajorQuery = std::is_same_v<search_layout, layout_c_contiguous>;
+
+    std::vector<value_t*> inputs;
+    std::vector<size_t> sizes;
+    for(int i = 0; i < index.size(); ++i) {
+        inputs.push_back(const_cast<value_t*>(index[i].data_handle()));
+        sizes.push_back(index[i].extents(0));
+    }
+
+    detail::brute_force_knn_impl(handle,
+                                 input,
+                                 sizes,
+                                 index.extents(1),
+                                 search.data_handle(),
+                                 search.extents(1),
+                                 indices.data_handle(),
+                                 distances.data_handle(),
+                                 k,
+                                 rowMajorIndex,
+                                 rowMajorQuery,
+                                 translations.value_or(nullptr),
+                                 metric,
+                                 metric_arg.value_or(2.0));
+}
+
 }  // namespace raft::spatial::knn
