@@ -21,10 +21,10 @@
 
 #include <cub/cub.cuh>
 #include <limits>
-#include <raft/cuda_utils.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
-#include <raft/handle.hpp>
 #include <raft/linalg/contractions.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <stdint.h>
 
 namespace raft {

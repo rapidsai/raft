@@ -23,7 +23,7 @@
 #include "detail/topk/radix_topk.cuh"
 #include "detail/topk/warpsort_topk.cuh"
 
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 
 namespace raft::spatial::knn {
 

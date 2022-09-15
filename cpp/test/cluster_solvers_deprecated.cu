@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <raft/spectral/cluster_solvers_deprecated.cuh>
 #include <raft/spectral/modularity_maximization.cuh>

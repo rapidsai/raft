@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/vectorized.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/vectorized.cuh>
 
 namespace raft {
 namespace stats {

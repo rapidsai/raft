@@ -20,12 +20,12 @@
 #include <thrust/device_vector.h>
 
 #include "../test_utils.h"
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/random/make_regression.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft::random {
 

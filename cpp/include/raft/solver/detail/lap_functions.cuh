@@ -24,11 +24,11 @@
  */
 #pragma once
 
-#include "d_structs.h"
+#include <raft/solver/linear_assignment_types.hpp>
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-#include <raft/lap/detail/lap_kernels.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/solver/detail/lap_kernels.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -39,9 +39,7 @@
 
 #include <cstddef>
 
-namespace raft {
-namespace lap {
-namespace detail {
+namespace raft::solver::detail {
 
 const int BLOCKDIMX{64};
 const int BLOCKDIMY{1};
@@ -110,8 +108,7 @@ inline void initialReduction(raft::handle_t const& handle,
   dim3 threads_per_block;
   int total_blocks = 0;
 
-  raft::lap::detail::calculateRectangularDims(
-    blocks_per_grid, threads_per_block, total_blocks, N, SP);
+  detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
 
   kernel_rowReduction<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
     d_costs, d_vertices_dev.row_duals, SP, N, std::numeric_limits<weight_t>::max());
@@ -149,8 +146,7 @@ inline void computeInitialAssignments(raft::handle_t const& handle,
   thrust::fill_n(thrust::device, row_lock_v.data(), size, 0);
   thrust::fill_n(thrust::device, col_lock_v.data(), size, 0);
 
-  raft::lap::detail::calculateRectangularDims(
-    blocks_per_grid, threads_per_block, total_blocks, N, SP);
+  detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
 
   kernel_computeInitialAssignments<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
     d_costs,
@@ -191,8 +187,7 @@ inline int computeRowCovers(raft::handle_t const& handle,
   thrust::fill_n(thrust::device, d_col_data.parents, size, vertex_t{-1});
   thrust::fill_n(thrust::device, d_col_data.children, size, vertex_t{-1});
 
-  raft::lap::detail::calculateRectangularDims(
-    blocks_per_grid, threads_per_block, total_blocks, N, SP);
+  detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
   kernel_computeRowCovers<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
     d_vertices.row_assignments, d_vertices.row_covers, d_row_data.is_visited, SP, N);
 
@@ -219,8 +214,7 @@ inline void coverZeroAndExpand(raft::handle_t const& handle,
   dim3 blocks_per_grid;
   dim3 threads_per_block;
 
-  raft::lap::detail::calculateRectangularDims(
-    blocks_per_grid, threads_per_block, total_blocks, N, SP);
+  detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
 
   kernel_coverAndExpand<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
     d_flag,
@@ -266,8 +260,7 @@ inline vertex_t zeroCoverIteration(raft::handle_t const& handle,
 
     thrust::fill_n(thrust::device, csr_ptrs_v.data(), (SP + 1), vertex_t{-1});
 
-    raft::lap::detail::calculateRectangularDims(
-      blocks_per_grid, threads_per_block, total_blocks, N, SP);
+    detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
 
     // construct predicate matrix for edges.
     kernel_rowPredicateConstructionCSR<<<blocks_per_grid,
@@ -348,7 +341,7 @@ inline void reversePass(raft::handle_t const& handle,
 
   std::size_t size = SP * N;
 
-  raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, size);
+  detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, size);
 
   rmm::device_uvector<bool> predicates_v(size, handle.get_stream());
   rmm::device_uvector<vertex_t> addresses_v(size, handle.get_stream());
@@ -375,8 +368,7 @@ inline void reversePass(raft::handle_t const& handle,
     int total_blocks_1 = 0;
     dim3 blocks_per_grid_1;
     dim3 threads_per_block_1;
-    raft::lap::detail::calculateLinearDims(
-      blocks_per_grid_1, threads_per_block_1, total_blocks_1, csr_size);
+    detail::calculateLinearDims(blocks_per_grid_1, threads_per_block_1, total_blocks_1, csr_size);
 
     rmm::device_uvector<vertex_t> elements_v(csr_size, handle.get_stream());
 
@@ -403,7 +395,7 @@ inline void augmentationPass(raft::handle_t const& handle,
   int total_blocks = 0;
   dim3 blocks_per_grid;
   dim3 threads_per_block;
-  raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP * N);
+  detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP * N);
 
   rmm::device_uvector<bool> predicates_v(SP * N, handle.get_stream());
   rmm::device_uvector<vertex_t> addresses_v(SP * N, handle.get_stream());
@@ -432,7 +424,7 @@ inline void augmentationPass(raft::handle_t const& handle,
     int total_blocks_1 = 0;
     dim3 blocks_per_grid_1;
     dim3 threads_per_block_1;
-    raft::lap::detail::calculateLinearDims(
+    detail::calculateLinearDims(
       blocks_per_grid_1, threads_per_block_1, total_blocks_1, row_ids_csr_size);
 
     rmm::device_uvector<vertex_t> elements_v(row_ids_csr_size, handle.get_stream());
@@ -470,7 +462,7 @@ inline void dualUpdate(raft::handle_t const& handle,
 
   rmm::device_uvector<weight_t> sp_min_v(SP, handle.get_stream());
 
-  raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP);
+  detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP);
   kernel_dualUpdate_1<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
     sp_min_v.data(),
     d_vertices_dev.col_slacks,
@@ -481,8 +473,7 @@ inline void dualUpdate(raft::handle_t const& handle,
 
   CHECK_CUDA(handle.get_stream());
 
-  raft::lap::detail::calculateRectangularDims(
-    blocks_per_grid, threads_per_block, total_blocks, N, SP);
+  detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
   kernel_dualUpdate_2<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
     sp_min_v.data(),
     d_vertices_dev.row_duals,
@@ -512,7 +503,7 @@ inline void calcObjValDual(raft::handle_t const& handle,
   dim3 threads_per_block;
   int total_blocks = 0;
 
-  raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP);
+  detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP);
 
   kernel_calcObjValDual<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
     d_obj_val, d_vertices_dev.row_duals, d_vertices_dev.col_duals, SP, N);
@@ -533,7 +524,7 @@ inline void calcObjValPrimal(raft::handle_t const& handle,
   dim3 threads_per_block;
   int total_blocks = 0;
 
-  raft::lap::detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP);
+  detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP);
 
   kernel_calcObjValPrimal<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
     d_obj_val, d_costs, d_row_assignments, SP, N);
@@ -541,6 +532,4 @@ inline void calcObjValPrimal(raft::handle_t const& handle,
   CHECK_CUDA(handle.get_stream());
 }
 
-}  // namespace detail
-}  // namespace lap
-}  // namespace raft
+}  // namespace raft::solver::detail

@@ -21,8 +21,8 @@
 #include <iostream>
 #include <memory>
 #include <numeric>
-#include <raft/cudart_utils.h>
-#include <raft/device_atomics.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/device_atomics.cuh>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

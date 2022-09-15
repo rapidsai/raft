@@ -20,9 +20,7 @@
 #include <iostream>
 #include <rmm/device_uvector.hpp>
 
-namespace raft {
-namespace mst {
-namespace detail {
+namespace raft::sparse::solver::detail {
 
 template <typename idx_t>
 __device__ idx_t get_1D_idx()
@@ -30,6 +28,4 @@ __device__ idx_t get_1D_idx()
   return blockIdx.x * blockDim.x + threadIdx.x;
 }
 
-}  // namespace detail
-}  // namespace mst
-}  // namespace raft
+}  // namespace raft::sparse::solver::detail

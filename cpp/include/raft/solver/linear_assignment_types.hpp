@@ -24,6 +24,7 @@
  */
 #pragma once
 
+namespace raft::solver {
 template <typename vertex_t, typename weight_t>
 struct Vertices {
   vertex_t* row_assignments;
@@ -41,3 +42,4 @@ struct VertexData {
   vertex_t* children;
   int* is_visited;
 };
+}  // namespace raft::solver
