@@ -28,14 +28,14 @@ project(
             C
             CXX)
 
-option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
-       OFF)
+option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files" ON)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
     find_package(raft ${pylibraft_version} REQUIRED COMPONENTS distance)
     if(NOT TARGET raft::raft_distance_lib)
         message(FATAL_ERROR "Building against a preexisting libraft library requires the distance components of that library to have been built!")
+
     endif()
 else()
   set(raft_FOUND OFF)
