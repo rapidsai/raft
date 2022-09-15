@@ -29,7 +29,7 @@ project(
             CXX)
 
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
-       OFF)
+       ON)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
