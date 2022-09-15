@@ -22,20 +22,14 @@ jobs:
   #     cibw-test-command: "_venv_placeholder/bin/libraft/gtests/test_raft"
   #   secrets: inherit
   pylibraft-wheel:
-    uses: trxcllnt/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions-ptaylor
     with:
       package-name: pylibraft
       package-dir: python/pylibraft
       python-version: "3.8 3.9"
       cibw-before-all: "apt-get install -y libblas-dev liblapack-dev"
-      cibw-environment: |
-        "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
-      skbuild-configure-options: |
-        "--log-level=DEBUG"
-        "-DCPM_DOWNLOAD_ALL=ON"
-        "-DRAFT_BUILD_WHEELS=ON"
-        "-DDETECT_CONDA_ENV=OFF"
-        "-DCMAKE_CUDA_ARCHITECTURES=ALL"
+      cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
+      skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL"
       gpu-smoketest-before-amd64: "pip install cupy-cuda115 && pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       gpu-smoketest-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       cibw-test-requires: "pytest scipy"
@@ -44,20 +38,14 @@ jobs:
     secrets: inherit
   raft-dask-wheel:
     needs: pylibraft-wheel
-    uses: trxcllnt/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions-ptaylor
     with:
       package-name: raft_dask
       package-dir: python/raft-dask
       python-version: "3.8 3.9"
       cibw-before-all: "apt-get install -y libblas-dev liblapack-dev"
-      cibw-environment: |
-        "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
-      skbuild-configure-options: |
-        "--log-level=DEBUG"
-        "-DCPM_DOWNLOAD_ALL=ON"
-        "-DRAFT_BUILD_WHEELS=ON"
-        "-DDETECT_CONDA_ENV=OFF"
-        "-DCMAKE_CUDA_ARCHITECTURES=ALL"
+      cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
+      skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL"
       cibw-test-requires: "pytest dask[distributed,dataframe] dask-cuda"
       cibw-test-command: "python -m py.test -v ./python/raft/raft/test"
       gpu-smoketest: "import raft; print(raft); raft.raft_include_test()"
