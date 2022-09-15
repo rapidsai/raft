@@ -47,6 +47,6 @@ jobs:
       cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
       skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL"
       cibw-test-requires: "pytest dask[distributed,dataframe] dask-cuda"
-      cibw-test-command: "python -m py.test -v ./python/raft/raft/test"
+      cibw-test-command: "python -m py.test -v ./python/raft-dask/raft_dask/test"
       gpu-smoketest: "import raft; print(raft); raft.raft_include_test()"
     secrets: inherit
