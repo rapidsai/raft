@@ -375,7 +375,7 @@ void search(const handle_t& handle,
             int_t k)
 {
   RAFT_EXPECTS(
-    queries.extent(0) == neigbors.extent(0) && queries.extent(0) == distances.extent(0),
+    queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
     "Number of rows in output neighbors and distances matrices must equal the number of queries.");
 
   RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1) &&
