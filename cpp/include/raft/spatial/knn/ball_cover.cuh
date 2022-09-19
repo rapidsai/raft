@@ -30,16 +30,28 @@ namespace raft {
 namespace spatial {
 namespace knn {
 
-template <typename value_idx = std::int64_t, typename value_t, typename value_int = std::uint32_t>
+/**
+ * Builds and populates a previously unbuilt BallCoverIndex
+ * @tparam idx_t knn index type
+ * @tparam value_t knn value type
+ * @tparam int_t integral type for knn params
+ * @tparam matrix_idx_t matrix indexing type
+ * @param handle library resource management handle
+ * @param index an empty (and not previous built) instance of BallCoverIndex
+ */
+template <typename idx_t = std::int64_t,
+          typename value_t,
+          typename int_t        = std::uint32_t,
+          typename matrix_idx_t = std::uint32_t>
 void rbc_build_index(const raft::handle_t& handle,
-                     BallCoverIndex<value_idx, value_t, value_int>& index)
+                     BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index)
 {
   ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   if (index.metric == raft::distance::DistanceType::Haversine) {
-    detail::rbc_build_index(handle, index, detail::HaversineFunc<value_t, value_int>());
+    detail::rbc_build_index(handle, index, detail::HaversineFunc<value_t, int_t>());
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
              index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    detail::rbc_build_index(handle, index, detail::EuclideanFunc<value_t, value_int>());
+    detail::rbc_build_index(handle, index, detail::EuclideanFunc<value_t, int_t>());
   } else {
     RAFT_FAIL("Metric not support");
   }
@@ -55,9 +67,9 @@ void rbc_build_index(const raft::handle_t& handle,
  * the index and query are the same array. This function will
  * build the index and assumes rbc_build_index() has not already
  * been called.
- * @tparam value_idx knn index type
+ * @tparam idx_t knn index type
  * @tparam value_t knn distance type
- * @tparam value_int type for integers, such as number of rows/cols
+ * @tparam int_t type for integers, such as number of rows/cols
  * @param handle raft handle for resource management
  * @param index ball cover index which has not yet been built
  * @param k number of nearest neighbors to find
@@ -75,11 +87,11 @@ void rbc_build_index(const raft::handle_t& handle,
  *               many datasets can still have great recall even by only
  *               looking in the closest landmark.
  */
-template <typename value_idx = std::int64_t, typename value_t, typename value_int = std::uint32_t>
+template <typename idx_t = std::int64_t, typename value_t, typename int_t = std::uint32_t>
 void rbc_all_knn_query(const raft::handle_t& handle,
-                       BallCoverIndex<value_idx, value_t, value_int>& index,
-                       value_int k,
-                       value_idx* inds,
+                       BallCoverIndex<idx_t, value_t, int_t>& index,
+                       int_t k,
+                       idx_t* inds,
                        value_t* dists,
                        bool perform_post_filtering = true,
                        float weight                = 1.0)
@@ -91,7 +103,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                               k,
                               inds,
                               dists,
-                              detail::HaversineFunc<value_t, value_int>(),
+                              detail::HaversineFunc<value_t, int_t>(),
                               perform_post_filtering,
                               weight);
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
@@ -101,7 +113,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                               k,
                               inds,
                               dists,
-                              detail::EuclideanFunc<value_t, value_int>(),
+                              detail::EuclideanFunc<value_t, int_t>(),
                               perform_post_filtering,
                               weight);
   } else {
@@ -119,18 +131,19 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  * the index and query are the same array. This function will
  * build the index and assumes rbc_build_index() has not already
  * been called.
- * @tparam value_idx knn index type
+ * @tparam idx_t knn index type
  * @tparam value_t knn distance type
- * @tparam value_int type for integers, such as number of rows/cols
- * @param handle raft handle for resource management
- * @param index ball cover index which has not yet been built
- * @param k number of nearest neighbors to find
- * @param perform_post_filtering if this is false, only the closest k landmarks
- *                               are considered (which will return approximate
- *                               results).
+ * @tparam int_t type for integers, such as number of rows/cols
+ * @tparam matrix_idx_t matrix indexing type
+ * @param[in] handle raft handle for resource management
+ * @param[in] index ball cover index which has not yet been built
  * @param[out] inds output knn indices
  * @param[out] dists output knn distances
- * @param weight a weight for overlap between the closest landmark and
+ * @param[in] k number of nearest neighbors to find
+ * @param[in] perform_post_filtering if this is false, only the closest k landmarks
+ *                               are considered (which will return approximate
+ *                               results).
+ * @param[in] weight a weight for overlap between the closest landmark and
  *               the radius of other landmarks when pruning distances.
  *               Setting this value below 1 can effectively turn off
  *               computing distances against many other balls, enabling
@@ -139,17 +152,22 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  *               many datasets can still have great recall even by only
  *               looking in the closest landmark.
  */
-template <typename value_idx = std::int64_t, typename value_t, typename value_int = std::uint32_t>
+template <typename idx_t = std::int64_t,
+          typename value_t,
+          typename int_t        = std::uint32_t,
+          typename matrix_idx_t = std::uint32_t>
 void rbc_all_knn_query(const raft::handle_t& handle,
-                       BallCoverIndex<value_idx, value_t, value_int>& index,
-                       value_int k,
-                       raft::device_matrix_view<value_t, value_idx, row_major> inds,
-                       raft::device_matrix_view<value_t, value_idx, row_major> dists,
+                       BallCoverIndex<idx_t, value_t, int_t>& index,
+                       raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
+                       raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
+                       int_t k                     = 5,
                        bool perform_post_filtering = true,
                        float weight                = 1.0)
 {
   RAFT_EXPECTS(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
-  RAFT_EXPECTS(inds.extent(1) == dists.extent(1) && dists.extent(1) == static_cast<value_idx>(k),
+  RAFT_EXPECTS(k <= index.m,
+               "k must be less than or equal to the number of data points in the index");
+  RAFT_EXPECTS(inds.extent(1) == dists.extent(1) && dists.extent(1) == static_cast<idx_t>(k),
                "Number of columns in output indices and distances matrices must be equal to k");
 
   RAFT_EXPECTS(inds.extent(0) == dists.extent(0) && dists.extent(0) == index.get_X().extent(0),
@@ -167,9 +185,9 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  * function does not build the index and assumes rbc_build_index() has
  * already been called. Use this function when the index and
  * query arrays are different, otherwise use rbc_all_knn_query().
- * @tparam value_idx index type
+ * @tparam idx_t index type
  * @tparam value_t distances type
- * @tparam value_int integer type for size info
+ * @tparam int_t integer type for size info
  * @param handle raft handle for resource management
  * @param index ball cover index which has not yet been built
  * @param k number of nearest neighbors to find
@@ -179,7 +197,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  *                               results).
  * @param[out] inds output knn indices
  * @param[out] dists output knn distances
- * @param weight a weight for overlap between the closest landmark and
+ * @param[in] weight a weight for overlap between the closest landmark and
  *               the radius of other landmarks when pruning distances.
  *               Setting this value below 1 can effectively turn off
  *               computing distances against many other balls, enabling
@@ -189,13 +207,13 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  *               looking in the closest landmark.
  * @param[in] n_query_pts number of query points
  */
-template <typename value_idx = std::int64_t, typename value_t, typename value_int = std::uint32_t>
+template <typename idx_t = std::int64_t, typename value_t, typename int_t = std::uint32_t>
 void rbc_knn_query(const raft::handle_t& handle,
-                   BallCoverIndex<value_idx, value_t, value_int>& index,
-                   value_int k,
+                   BallCoverIndex<idx_t, value_t, int_t>& index,
+                   int_t k,
                    const value_t* query,
-                   value_int n_query_pts,
-                   value_idx* inds,
+                   int_t n_query_pts,
+                   idx_t* inds,
                    value_t* dists,
                    bool perform_post_filtering = true,
                    float weight                = 1.0)
@@ -209,7 +227,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                           n_query_pts,
                           inds,
                           dists,
-                          detail::HaversineFunc<value_t, value_int>(),
+                          detail::HaversineFunc<value_t, int_t>(),
                           perform_post_filtering,
                           weight);
   } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
@@ -221,7 +239,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                           n_query_pts,
                           inds,
                           dists,
-                          detail::EuclideanFunc<value_t, value_int>(),
+                          detail::EuclideanFunc<value_t, int_t>(),
                           perform_post_filtering,
                           weight);
   } else {
@@ -236,19 +254,20 @@ void rbc_knn_query(const raft::handle_t& handle,
  * function does not build the index and assumes rbc_build_index() has
  * already been called. Use this function when the index and
  * query arrays are different, otherwise use rbc_all_knn_query().
- * @tparam value_idx index type
+ * @tparam idx_t index type
  * @tparam value_t distances type
- * @tparam value_int integer type for size info
- * @param handle raft handle for resource management
- * @param index ball cover index which has not yet been built
- * @param k number of nearest neighbors to find
- * @param query the
- * @param perform_post_filtering if this is false, only the closest k landmarks
- *                               are considered (which will return approximate
- *                               results).
+ * @tparam int_t integer type for size info
+ * @tparam matrix_idx_t
+ * @param[in] handle raft handle for resource management
+ * @param[in] index ball cover index which has not yet been built
+ * @param[in] query device matrix containing query data points
  * @param[out] inds output knn indices
  * @param[out] dists output knn distances
- * @param weight a weight for overlap between the closest landmark and
+ * @param[in] k number of nearest neighbors to find
+ * @param[in] perform_post_filtering if this is false, only the closest k landmarks
+ *                               are considered (which will return approximate
+ *                               results).
+ * @param[in] weight a weight for overlap between the closest landmark and
  *               the radius of other landmarks when pruning distances.
  *               Setting this value below 1 can effectively turn off
  *               computing distances against many other balls, enabling
@@ -256,19 +275,23 @@ void rbc_knn_query(const raft::handle_t& handle,
  *               based on how many relevant balls are ignored. Note that
  *               many datasets can still have great recall even by only
  *               looking in the closest landmark.
- * @param[in] n_query_pts number of query points
  */
-template <typename value_idx = std::int64_t, typename value_t, typename value_int = std::uint32_t>
+template <typename idx_t = std::int64_t,
+          typename value_t,
+          typename int_t        = std::uint32_t,
+          typename matrix_idx_t = std::uint32_t>
 void rbc_knn_query(const raft::handle_t& handle,
-                   BallCoverIndex<value_idx, value_t, value_int>& index,
-                   value_int k,
-                   raft::device_matrix_view<const value_t, value_idx, row_major> query,
-                   raft::device_matrix_view<value_idx, value_idx, row_major> inds,
-                   raft::device_matric_view<value_t, value_idx, row_major> dists,
+                   BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
+                   raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
+                   raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
+                   raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
+                   int_t k                     = 5,
                    bool perform_post_filtering = true,
                    float weight                = 1.0)
 {
-  RAFT_EXPECTS(inds.extent(1) == dists.extent(1) && dists.extent(1) == static_cast<value_idx>(k),
+  RAFT_EXPECTS(k <= index.m,
+               "k must be less than or equal to the number of data points in the index");
+  RAFT_EXPECTS(inds.extent(1) == dists.extent(1) && dists.extent(1) == static_cast<idx_t>(k),
                "Number of columns in output indices and distances matrices must be equal to k");
 
   RAFT_EXPECTS(inds.extent(0) == dists.extent(0) && dists.extent(0) == query.extent(0),

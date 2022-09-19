@@ -139,21 +139,22 @@ struct ToRadians {
   __device__ __host__ float operator()(float a) { return a * (CUDART_PI_F / 180.0); }
 };
 
+template <typename value_int = std::uint32_t>
 struct BallCoverInputs {
-  uint32_t k;
-  uint32_t n_rows;
-  uint32_t n_cols;
+  value_int k;
+  value_int n_rows;
+  value_int n_cols;
   float weight;
-  uint32_t n_query;
+  value_int n_query;
   raft::distance::DistanceType metric;
 };
 
-template <typename value_idx, typename value_t>
-class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
+template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<value_int>> {
  protected:
   void basicTest()
   {
-    params = ::testing::TestWithParam<BallCoverInputs>::GetParam();
+    params = ::testing::TestWithParam<BallCoverInputs<value_int>>::GetParam();
     raft::handle_t handle;
 
     uint32_t k         = params.k;
@@ -201,20 +202,21 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     rmm::device_uvector<value_idx> d_pred_I(params.n_query * k, handle.get_stream());
     rmm::device_uvector<value_t> d_pred_D(params.n_query * k, handle.get_stream());
 
-    auto X_view = raft::make_device_matrix_view<value_t, value_idx>(
-      handle, X.data(), params.n_rows, params.n_cols);
-    auto X2_view = raft::make_device_matrix_view<value_idx, value_idx>(
-      handle, X2.data(), params.n_query, params.n_cols);
+    auto X_view =
+      raft::make_device_matrix_view<value_t, value_int>(X.data(), params.n_rows, params.n_cols);
+    auto X2_view = raft::make_device_matrix_view<const value_t, value_int>(
+      (const value_t*)X2.data(), params.n_query, params.n_cols);
 
     auto d_pred_I_view =
-      raft::make_device_matrix_view<value_idx, value_idx>(handle, params.n_query, k);
+      raft::make_device_matrix_view<value_idx, value_int>(d_pred_I.data(), params.n_query, k);
     auto d_pred_D_view =
-      raft::make_device_matrix_view<value_t, value_idx>(handle, params.n_query, k);
+      raft::make_device_matrix_view<value_t, value_int>(d_pred_D.data(), params.n_query, k);
 
-    BallCoverIndex<value_idx, value_t> index(handle, X, metric);
+    BallCoverIndex<value_idx, value_t, value_int, value_int> index(handle, X_view, metric);
 
     raft::spatial::knn::rbc_build_index(handle, index);
-    raft::spatial::knn::rbc_knn_query(handle, index, k, X2, d_pred_I, d_pred_D, true, weight);
+    raft::spatial::knn::rbc_knn_query(
+      handle, index, X2_view, d_pred_I_view, d_pred_D_view, k, true, weight);
 
     handle.sync_stream();
     // What we really want are for the distances to match exactly. The
@@ -245,15 +247,15 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
 
  protected:
   uint32_t d = 2;
-  BallCoverInputs params;
+  BallCoverInputs<value_int> params;
 };
 
-template <typename value_idx, typename value_t>
-class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
+template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<value_int>> {
  protected:
   void basicTest()
   {
-    params = ::testing::TestWithParam<BallCoverInputs>::GetParam();
+    params = ::testing::TestWithParam<BallCoverInputs<value_int>>::GetParam();
     raft::handle_t handle;
 
     uint32_t k         = params.k;
@@ -269,6 +271,9 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
 
     rmm::device_uvector<value_idx> d_ref_I(params.n_rows * k, handle.get_stream());
     rmm::device_uvector<value_t> d_ref_D(params.n_rows * k, handle.get_stream());
+
+    auto X_view = raft::make_device_matrix_view<const value_t, value_int>(
+      (const value_t*)X.data(), params.n_rows, params.n_cols);
 
     if (metric == raft::distance::DistanceType::Haversine) {
       thrust::transform(
@@ -292,11 +297,15 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
     rmm::device_uvector<value_idx> d_pred_I(params.n_rows * k, handle.get_stream());
     rmm::device_uvector<value_t> d_pred_D(params.n_rows * k, handle.get_stream());
 
-    BallCoverIndex<value_idx, value_t> index(
-      handle, X.data(), params.n_rows, params.n_cols, metric);
+    auto d_pred_I_view =
+      raft::make_device_matrix_view<value_idx, value_int>(d_pred_I.data(), params.n_query, k);
+    auto d_pred_D_view =
+      raft::make_device_matrix_view<value_t, value_int>(d_pred_D.data(), params.n_query, k);
+
+    BallCoverIndex<value_idx, value_t> index(handle, X_view, metric);
 
     raft::spatial::knn::rbc_all_knn_query(
-      handle, index, k, d_pred_I.data(), d_pred_D.data(), true, weight);
+      handle, index, d_pred_I_view, d_pred_D_view, k, true, weight);
 
     handle.sync_stream();
     // What we really want are for the distances to match exactly. The
@@ -330,13 +339,13 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs> {
   void TearDown() override {}
 
  protected:
-  BallCoverInputs params;
+  BallCoverInputs<value_int> params;
 };
 
 typedef BallCoverAllKNNTest<int64_t, float> BallCoverAllKNNTestF;
 typedef BallCoverKNNQueryTest<int64_t, float> BallCoverKNNQueryTestF;
 
-const std::vector<BallCoverInputs> ballcover_inputs = {
+const std::vector<BallCoverInputs<std::uint32_t>> ballcover_inputs = {
   {11, 5000, 2, 1.0, 10000, raft::distance::DistanceType::Haversine},
   {25, 10000, 2, 1.0, 5000, raft::distance::DistanceType::Haversine},
   {2, 10000, 2, 1.0, 5000, raft::distance::DistanceType::L2SqrtUnexpanded},

@@ -17,6 +17,7 @@
 #include "../test_utils.h"
 #include "./ann_base_kernel.cuh"
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/random/rng.cuh>
@@ -109,7 +110,7 @@ auto eval_knn(const std::vector<T>& expected_idx,
   return testing::AssertionSuccess();
 }
 
-template <typename T, typename DataT>
+template <typename T, typename DataT, typename IdxT = std::int64_t>
 class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
  public:
   AnnIVFFlatTest()
@@ -124,14 +125,14 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
   void testIVFFlat()
   {
     size_t queries_size = ps.num_queries * ps.k;
-    std::vector<int64_t> indices_ivfflat(queries_size);
-    std::vector<int64_t> indices_naive(queries_size);
+    std::vector<IdxT> indices_ivfflat(queries_size);
+    std::vector<IdxT> indices_naive(queries_size);
     std::vector<T> distances_ivfflat(queries_size);
     std::vector<T> distances_naive(queries_size);
 
     {
       rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
-      rmm::device_uvector<int64_t> indices_naive_dev(queries_size, stream_);
+      rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
       using acc_t = typename detail::utils::config<DataT>::value_t;
       naiveBfKnn<DataT, acc_t>(distances_naive_dev.data(),
                                indices_naive_dev.data(),
@@ -155,7 +156,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
       double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
 
       rmm::device_uvector<T> distances_ivfflat_dev(queries_size, stream_);
-      rmm::device_uvector<int64_t> indices_ivfflat_dev(queries_size, stream_);
+      rmm::device_uvector<IdxT> indices_ivfflat_dev(queries_size, stream_);
 
       {
         // legacy interface
@@ -206,10 +207,13 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
 
         index_params.add_data_on_build        = false;
         index_params.kmeans_trainset_fraction = 0.5;
-        auto index =
-          ivf_flat::build(handle_, index_params, database.data(), int64_t(ps.num_db_vecs), ps.dim);
 
-        rmm::device_uvector<int64_t> vector_indices(ps.num_db_vecs, stream_);
+        auto database_view = raft::make_device_matrix_view<const DataT>(
+          (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
+
+        auto index = ivf_flat::build_index<DataT, IdxT>(handle_, database_view, index_params);
+
+        rmm::device_uvector<IdxT> vector_indices(ps.num_db_vecs, stream_);
         thrust::sequence(handle_.get_thrust_policy(),
                          thrust::device_pointer_cast(vector_indices.data()),
                          thrust::device_pointer_cast(vector_indices.data() + ps.num_db_vecs));
@@ -217,14 +221,16 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
 
         int64_t half_of_data = ps.num_db_vecs / 2;
 
-        auto index_2 =
-          ivf_flat::extend<DataT, int64_t>(handle_, index, database.data(), nullptr, half_of_data);
+        auto half_of_data_view = raft::make_device_matrix_view<const DataT>(
+          (const DataT*)database.data(), static_cast<int>(half_of_data), ps.dim);
 
-        ivf_flat::extend<DataT, int64_t>(handle_,
-                                         &index_2,
-                                         database.data() + half_of_data * ps.dim,
-                                         vector_indices.data() + half_of_data,
-                                         int64_t(ps.num_db_vecs) - half_of_data);
+        auto index_2 = ivf_flat::extend<DataT, IdxT>(handle_, index, half_of_data_view);
+
+        ivf_flat::extend<DataT, IdxT>(handle_,
+                                      &index_2,
+                                      database.data() + half_of_data * ps.dim,
+                                      vector_indices.data() + half_of_data,
+                                      int64_t(ps.num_db_vecs) - half_of_data);
 
         ivf_flat::search(handle_,
                          search_params,
