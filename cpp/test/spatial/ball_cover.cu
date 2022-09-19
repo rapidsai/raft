@@ -16,6 +16,7 @@
 
 #include "../test_utils.h"
 #include "spatial_data.h"
+#include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/spatial/knn/ball_cover.cuh>
@@ -200,12 +201,20 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs> {
     rmm::device_uvector<value_idx> d_pred_I(params.n_query * k, handle.get_stream());
     rmm::device_uvector<value_t> d_pred_D(params.n_query * k, handle.get_stream());
 
-    BallCoverIndex<value_idx, value_t> index(
-      handle, X.data(), params.n_rows, params.n_cols, metric);
+    auto X_view = raft::make_device_matrix_view<value_t, value_idx>(
+      handle, X.data(), params.n_rows, params.n_cols);
+    auto X2_view = raft::make_device_matrix_view<value_idx, value_idx>(
+      handle, X2.data(), params.n_query, params.n_cols);
+
+    auto d_pred_I_view =
+      raft::make_device_matrix_view<value_idx, value_idx>(handle, params.n_query, k);
+    auto d_pred_D_view =
+      raft::make_device_matrix_view<value_t, value_idx>(handle, params.n_query, k);
+
+    BallCoverIndex<value_idx, value_t> index(handle, X, metric);
 
     raft::spatial::knn::rbc_build_index(handle, index);
-    raft::spatial::knn::rbc_knn_query(
-      handle, index, k, X2.data(), params.n_query, d_pred_I.data(), d_pred_D.data(), true, weight);
+    raft::spatial::knn::rbc_knn_query(handle, index, k, X2, d_pred_I, d_pred_D, true, weight);
 
     handle.sync_stream();
     // What we really want are for the distances to match exactly. The

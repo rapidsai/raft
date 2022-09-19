@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cstdint>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -64,13 +65,40 @@ class BallCoverIndex {
   {
   }
 
-  value_idx* get_R_indptr() { return R_indptr.data(); }
-  value_idx* get_R_1nn_cols() { return R_1nn_cols.data(); }
-  value_t* get_R_1nn_dists() { return R_1nn_dists.data(); }
-  value_t* get_R_radius() { return R_radius.data(); }
-  value_t* get_R() { return R.data(); }
-  value_t* get_R_closest_landmark_dists() { return R_closest_landmark_dists.data(); }
-  const value_t* get_X() { return X; }
+  explicit BallCoverIndex(const raft::handle_t& handle_,
+                          raft::device_matrix_view<const value_t, value_int, row_major> X_,
+                          raft::distance::DistanceType metric_)
+    : handle(handle_),
+      X(X_.data_handle()),
+      m(X_.extent(0)),
+      n(X_.extent(1)),
+      metric(metric_),
+      /**
+       * the sqrt() here makes the sqrt(m)^2 a linear-time lower bound
+       *
+       * Total memory footprint of index: (2 * sqrt(m)) + (n * sqrt(m)) + (2 * m)
+       */
+      n_landmarks(sqrt(m_)),
+      R_indptr(std::move(raft::make_device_vector(handle, sqrt(m_) + 1))),
+      R_1nn_cols(std::move(raft::make_device_vector(handle, m_))),
+      R_1nn_dists(std::move(raft::make_device_vector(handle, m_))),
+      R_closest_landmark_dists(std::move(raft::make_device_vector(handle, m_))),
+      R(std::move(raft::make_device_matrix(handle, sqrt(m_), n_))),
+      R_radius(std::move(raft::make_device_vector(handle, sqrt(m_)))),
+      index_trained(false)
+  {
+  }
+
+  raft::device_vector_view<value_idx> get_R_indptr() { return R_indptr.view(); }
+  raft::device_vector_view<value_idx> get_R_1nn_cols() { return R_1nn_cols.view(); }
+  raft::device_vector_view<value_t> get_R_1nn_dists() { return R_1nn_dists.view(); }
+  raft::device_vector_view<value_t> get_R_radius() { return R_radius.view(); }
+  raft::device_matrix_view<value_t, value_int, row_major> get_R() { return R.view(); }
+  raft::device_vector_view<value_t> get_R_closest_landmark_dists()
+  {
+    return R_closest_landmark_dists.view();
+  }
+  const raft::device_matrix_view<value_t, value_int, row_major> get_X() { return X; }
 
   bool is_index_trained() const { return index_trained; };
 
@@ -83,20 +111,20 @@ class BallCoverIndex {
   const value_int n;
   const value_int n_landmarks;
 
-  const value_t* X;
+  raft::device_matrix_view<const value_t, value_int, row_major> X;
 
   raft::distance::DistanceType metric;
 
  private:
   // CSR storing the neighborhoods for each data point
-  rmm::device_uvector<value_idx> R_indptr;
-  rmm::device_uvector<value_idx> R_1nn_cols;
-  rmm::device_uvector<value_t> R_1nn_dists;
-  rmm::device_uvector<value_t> R_closest_landmark_dists;
+  raft::device_vector<value_idx> R_indptr;
+  raft::device_vector<value_idx> R_1nn_cols;
+  raft::device_vector<value_t> R_1nn_dists;
+  raft::device_vector<value_t> R_closest_landmark_dists;
 
-  rmm::device_uvector<value_t> R_radius;
+  raft::device_vector<value_t> R_radius;
 
-  rmm::device_uvector<value_t> R;
+  raft::device_matrix<value_t, value_int, row_major> R;
 
  protected:
   bool index_trained;

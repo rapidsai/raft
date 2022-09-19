@@ -115,6 +115,55 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  * Performs a faster exact knn in metric spaces using the triangle
  * inequality with a number of landmark points to reduce the
  * number of distance computations from O(n^2) to O(sqrt(n)). This
+ * performs an all neighbors knn, which can reuse memory when
+ * the index and query are the same array. This function will
+ * build the index and assumes rbc_build_index() has not already
+ * been called.
+ * @tparam value_idx knn index type
+ * @tparam value_t knn distance type
+ * @tparam value_int type for integers, such as number of rows/cols
+ * @param handle raft handle for resource management
+ * @param index ball cover index which has not yet been built
+ * @param k number of nearest neighbors to find
+ * @param perform_post_filtering if this is false, only the closest k landmarks
+ *                               are considered (which will return approximate
+ *                               results).
+ * @param[out] inds output knn indices
+ * @param[out] dists output knn distances
+ * @param weight a weight for overlap between the closest landmark and
+ *               the radius of other landmarks when pruning distances.
+ *               Setting this value below 1 can effectively turn off
+ *               computing distances against many other balls, enabling
+ *               approximate nearest neighbors. Recall can be adjusted
+ *               based on how many relevant balls are ignored. Note that
+ *               many datasets can still have great recall even by only
+ *               looking in the closest landmark.
+ */
+template <typename value_idx = std::int64_t, typename value_t, typename value_int = std::uint32_t>
+void rbc_all_knn_query(const raft::handle_t& handle,
+                       BallCoverIndex<value_idx, value_t, value_int>& index,
+                       value_int k,
+                       raft::device_matrix_view<value_t, value_idx, row_major> inds,
+                       raft::device_matrix_view<value_t, value_idx, row_major> dists,
+                       bool perform_post_filtering = true,
+                       float weight                = 1.0)
+{
+  RAFT_EXPECTS(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
+  RAFT_EXPECTS(inds.extent(1) == dists.extent(1) && dists.extent(1) == static_cast<value_idx>(k),
+               "Number of columns in output indices and distances matrices must be equal to k");
+
+  RAFT_EXPECTS(inds.extent(0) == dists.extent(0) && dists.extent(0) == index.get_X().extent(0),
+               "Number of rows in output indices and distances matrices must equal number of rows "
+               "in index matrix.");
+
+  rbc_all_knn_query(
+    handle, index, k, inds.data_handle(), dists.data_handle(), perform_post_filtering, weight);
+}
+
+/**
+ * Performs a faster exact knn in metric spaces using the triangle
+ * inequality with a number of landmark points to reduce the
+ * number of distance computations from O(n^2) to O(sqrt(n)). This
  * function does not build the index and assumes rbc_build_index() has
  * already been called. Use this function when the index and
  * query arrays are different, otherwise use rbc_all_knn_query().
@@ -178,6 +227,66 @@ void rbc_knn_query(const raft::handle_t& handle,
   } else {
     RAFT_FAIL("Metric not supported");
   }
+}
+
+/**
+ * Performs a faster exact knn in metric spaces using the triangle
+ * inequality with a number of landmark points to reduce the
+ * number of distance computations from O(n^2) to O(sqrt(n)). This
+ * function does not build the index and assumes rbc_build_index() has
+ * already been called. Use this function when the index and
+ * query arrays are different, otherwise use rbc_all_knn_query().
+ * @tparam value_idx index type
+ * @tparam value_t distances type
+ * @tparam value_int integer type for size info
+ * @param handle raft handle for resource management
+ * @param index ball cover index which has not yet been built
+ * @param k number of nearest neighbors to find
+ * @param query the
+ * @param perform_post_filtering if this is false, only the closest k landmarks
+ *                               are considered (which will return approximate
+ *                               results).
+ * @param[out] inds output knn indices
+ * @param[out] dists output knn distances
+ * @param weight a weight for overlap between the closest landmark and
+ *               the radius of other landmarks when pruning distances.
+ *               Setting this value below 1 can effectively turn off
+ *               computing distances against many other balls, enabling
+ *               approximate nearest neighbors. Recall can be adjusted
+ *               based on how many relevant balls are ignored. Note that
+ *               many datasets can still have great recall even by only
+ *               looking in the closest landmark.
+ * @param[in] n_query_pts number of query points
+ */
+template <typename value_idx = std::int64_t, typename value_t, typename value_int = std::uint32_t>
+void rbc_knn_query(const raft::handle_t& handle,
+                   BallCoverIndex<value_idx, value_t, value_int>& index,
+                   value_int k,
+                   raft::device_matrix_view<const value_t, value_idx, row_major> query,
+                   raft::device_matrix_view<value_idx, value_idx, row_major> inds,
+                   raft::device_matric_view<value_t, value_idx, row_major> dists,
+                   bool perform_post_filtering = true,
+                   float weight                = 1.0)
+{
+  RAFT_EXPECTS(inds.extent(1) == dists.extent(1) && dists.extent(1) == static_cast<value_idx>(k),
+               "Number of columns in output indices and distances matrices must be equal to k");
+
+  RAFT_EXPECTS(inds.extent(0) == dists.extent(0) && dists.extent(0) == query.extent(0),
+               "Number of rows in output indices and distances matrices must equal number of rows "
+               "in search matrix.");
+
+  RAFT_EXPECTS(query.extent(1) == index.get_R().extent(1),
+               "Number of columns in query and index matrices must match.");
+
+  rbc_knn_query(handle,
+                index,
+                k,
+                query.data_handle(),
+                query.extent(0),
+                inds.data_handle(),
+                dists.data_handle(),
+                perform_post_filtering,
+                weight);
 }
 
 // TODO: implement functions for:
