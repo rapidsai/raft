@@ -729,17 +729,30 @@ inline auto build(
   rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
     &managed_memory_upstream, 1024 * 1024);
 
-  // TODO: move to device_memory, blocked by _cuann_dot
-  rmm::device_uvector<T> trainset(n_rows_train * index.dim(), stream, &managed_memory);
+  // Besides just sampling, we transform the input dataset into floats to make it easier
+  // to use gemm operations from cublas.
+  rmm::device_uvector<float> trainset(n_rows_train * index.dim(), stream, device_memory);
   // TODO: a proper sampling
-  RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
-                                  sizeof(T) * index.dim(),
-                                  dataset,
-                                  sizeof(T) * index.dim() * trainset_ratio,
-                                  sizeof(T) * index.dim(),
-                                  n_rows_train,
-                                  cudaMemcpyDefault,
-                                  stream));
+  if constexpr (std::is_same_v<T, float>) {
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
+                                    sizeof(T) * index.dim(),
+                                    dataset,
+                                    sizeof(T) * index.dim() * trainset_ratio,
+                                    sizeof(T) * index.dim(),
+                                    n_rows_train,
+                                    cudaMemcpyDefault,
+                                    stream));
+  } else {
+    auto dim = index.dim();
+    linalg::writeOnlyUnaryOp(
+      trainset.data(),
+      index.dim() * n_rows_train,
+      [dataset, trainset_ratio, dim] __device__(float* out, size_t i) {
+        auto col = i % dim;
+        *out     = utils::mapping<float>{}(dataset[(i - col) * trainset_ratio + col]);
+      },
+      stream);
+  }
 
   // NB: here cluster_centers is used as if it is [n_clusters, data_dim] not [n_clusters, dim_ext]!
   auto cluster_centers = index.centers().data_handle();
@@ -859,32 +872,6 @@ inline auto build(
                       device_memory);
       handle.sync_stream();
 
-      // [pq_dim, n_rows_train, pq_len]
-      std::vector<float> mod_trainset(index.pq_dim() * n_rows_train * index.pq_len(), 0.0f);
-
-      {
-        // TODO: executing this takes long; we should eliminate `mod_trainset` altogether
-        //       and write directly into sub_trainset in the pq_dim loop below (on GPU).
-        common::nvtx::range<common::nvtx::domain::raft> mod_trainset_scope(
-          "ivf_pq::build::per_subspace::prepare_mod_trainset(cpu)");
-        // mod_trainset[] = transpose( rotate(trainset[]) - centers_rot[] )
-        for (IdxT i = 0; i < n_rows_train; i++) {
-          uint32_t l = trainset_labels.data()[i];
-          for (size_t j = 0; j < index.rot_dim(); j++) {
-            float val   = _cuann_dot<float>(index.dim(),
-                                          trainset.data() + static_cast<size_t>(index.dim()) * i,
-                                          1,
-                                          rotation_matrix + static_cast<size_t>(index.dim()) * j,
-                                          1);
-            uint32_t j0 = j / (index.pq_len());  // 0 <= j0 < pq_dim
-            uint32_t j1 = j % (index.pq_len());  // 0 <= j1 < pq_len
-            uint64_t idx =
-              j1 + uint64_t{index.pq_len()} * i + uint64_t{index.pq_len()} * n_rows_train * j0;
-            mod_trainset[idx] = val - centers_rot[j + (index.rot_dim() * l)];
-          }
-        }
-      }
-
       rmm::device_uvector<float> sub_trainset(
         n_rows_train * index.pq_len(), stream, &managed_memory);
       rmm::device_uvector<uint32_t> sub_trainset_labels(n_rows_train, stream, &managed_memory);
@@ -894,11 +881,36 @@ inline auto build(
       for (uint32_t j = 0; j < index.pq_dim(); j++) {
         common::nvtx::range<common::nvtx::domain::raft> pq_per_subspace_scope(
           "ivf_pq::build::per_subspace[%u]", j);
-        RAFT_CUDA_TRY(
-          cudaMemcpy(sub_trainset.data(),
-                     mod_trainset.data() + ((uint64_t)n_rows_train * index.pq_len() * j),
-                     sizeof(float) * n_rows_train * index.pq_len(),
-                     cudaMemcpyHostToDevice));
+
+        // Get the rotated cluster centers to substract them from the input vectors afterwards.
+        utils::copy_selected(n_rows_train,
+                             index.pq_len(),
+                             centers_rot + index.pq_len() * j,
+                             trainset_labels.data(),
+                             index.rot_dim(),
+                             sub_trainset.data(),
+                             index.pq_len(),
+                             stream);
+
+        // sub_trainset is the slice of: rotate(trainset) - centers_rot
+        float alpha = 1.0;
+        float beta  = -1.0;
+        linalg::gemm(handle,
+                     true,
+                     false,
+                     index.pq_len(),
+                     n_rows_train,
+                     index.dim(),
+                     &alpha,
+                     rotation_matrix + index.dim() * index.pq_len() * j,
+                     index.dim(),
+                     trainset.data(),
+                     index.dim(),
+                     &beta,
+                     sub_trainset.data(),
+                     index.pq_len(),
+                     stream);
+
         // Train kmeans for each PQ
         kmeans::build_clusters(handle,
                                params.kmeans_n_iters,
