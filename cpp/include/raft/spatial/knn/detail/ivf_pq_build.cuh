@@ -24,12 +24,12 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/pow2_utils.cuh>
 #include <raft/stats/histogram.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>

@@ -21,7 +21,7 @@
 #include <raft/core/error.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/distance/distance_type.hpp>
-#include <raft/integer_utils.h>
+#include <raft/util/integer_utils.hpp>
 
 #include <rmm/mr/device/managed_memory_resource.hpp>
 
