@@ -369,9 +369,11 @@ void brute_force_knn(raft::handle_t const& handle,
  * @param[out] indices matrix (size n*k) to store output knn indices
  * @param[out] distances matrix (size n*k) to store the output knn distance
  * @param[in] k the number of nearest neighbors to return
- * @param[in] metric distance metric to use. Euclidean (L2) is used by default
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
+ * @param[in] metric distance metric to use. Euclidean (L2) is used by default
+ * @param[in] translations starting offsets for partitions. should be the same size
+ *            as input vector.
  */
 template <typename idx_t      = std::int64_t,
           typename value_t    = float,
@@ -392,11 +394,13 @@ void brute_force_knn(
 {
   RAFT_EXPECTS(index[0].extent(1) == search.extent(1),
                "Number of dimensions for both index and search matrices must be equal");
-  RAFT_EXPECTS(indices.extent(0) == distances.extent(0) == search.extent(0),
+
+  RAFT_EXPECTS(indices.extent(0) == distances.extent(0) && distances.extent(0) == search.extent(0),
                "Number of rows in output indices and distances matrices must equal number of rows "
                "in search matrix.");
-  RAFT_EXPECTS(indices.extent(1) == distances.extent(1) == k,
-               "Number of columns in output indices and distances matrices must be equal to k");
+  RAFT_EXPECTS(
+    indices.extent(1) == distances.extent(1) && distances.extent(1) == static_cast<matrix_idx>(k),
+    "Number of columns in output indices and distances matrices must be equal to k");
 
   bool rowMajorIndex = std::is_same_v<index_layout, layout_c_contiguous>;
   bool rowMajorQuery = std::is_same_v<search_layout, layout_c_contiguous>;
@@ -413,10 +417,10 @@ void brute_force_knn(
   detail::brute_force_knn_impl(handle,
                                inputs,
                                sizes,
-                               (value_int)index[0].extent(1),
+                               static_cast<value_int>(index[0].extent(1)),
                                // TODO: This is unfortunate. Need to fix.
                                const_cast<value_t*>(search.data_handle()),
-                               (value_int)search.extent(1),
+                               static_cast<value_int>(search.extent(0)),
                                indices.data_handle(),
                                distances.data_handle(),
                                k,
@@ -424,7 +428,7 @@ void brute_force_knn(
                                rowMajorQuery,
                                trans,
                                metric,
-                               metric_arg.value_or(2.0));
+                               metric_arg.value_or(2.0f));
 }
 
 }  // namespace raft::spatial::knn

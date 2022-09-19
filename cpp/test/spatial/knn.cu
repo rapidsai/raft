@@ -81,11 +81,11 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
  protected:
   void testBruteForce()
   {
-#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
+//#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
     raft::print_device_vector("Input array: ", input_.data(), rows_ * cols_, std::cout);
     std::cout << "K: " << k_ << std::endl;
     raft::print_device_vector("Labels array: ", search_labels_.data(), rows_, std::cout);
-#endif
+//#endif
 
     std::vector<device_matrix_view<const T, IdxT, row_major>> index = {
       make_device_matrix_view((const T*)(input_.data()), rows_, cols_)};
@@ -95,6 +95,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     auto indices = raft::make_device_matrix_view<IdxT, IdxT, row_major>(indices_.data(), rows_, k_);
     auto distances =
       raft::make_device_matrix_view<T, IdxT, row_major>(distances_.data(), rows_, k_);
+
+    printf("indices: %ld, distances: %ld, search: %ld\n", (size_t)indices.extent(0), (size_t)(distances.extent(0)), (size_t)search.extent(0));
 
     brute_force_knn(handle, index, search, indices, distances, k_);
 

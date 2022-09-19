@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cstdint>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
