@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 #ifdef NVTX_ENABLED
 #include <gtest/gtest.h>
-#include <raft/common/detail/nvtx.hpp>
+#include <raft/core/detail/nvtx.hpp>
 /**
  * tests for the functionality of generating next color based on string
  * entered in the NVTX Range marker wrappers
