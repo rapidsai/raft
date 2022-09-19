@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuResources.h>
@@ -25,8 +25,8 @@
 #include <faiss/gpu/utils/Select.cuh>
 #include <faiss/utils/Heap.h>
 
-#include <raft/distance/distance_type.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/faiss_mr.hpp>
 
 namespace raft {

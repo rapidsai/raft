@@ -17,10 +17,10 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <limits>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
 #include <raft/stats/minmax.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <stdio.h>
 #include <stdlib.h>
 

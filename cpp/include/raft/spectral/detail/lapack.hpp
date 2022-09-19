@@ -17,7 +17,7 @@
 #pragma once
 #include <cusolverDn.h>
 
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 

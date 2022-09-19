@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/comms/std_comms.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <iostream>
 #include <nccl.h>

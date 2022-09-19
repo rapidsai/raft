@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
 #include <raft/distance/distance_type.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/spatial/knn/detail/topk.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
 

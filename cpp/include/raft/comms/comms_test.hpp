@@ -19,7 +19,7 @@
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/test.hpp>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace raft {
 namespace comms {

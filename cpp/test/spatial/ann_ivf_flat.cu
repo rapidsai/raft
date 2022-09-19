@@ -18,7 +18,7 @@
 #include "ann_utils.cuh"
 
 #include <raft/core/logger.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/ivf_flat.cuh>

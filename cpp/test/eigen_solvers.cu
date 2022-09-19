@@ -15,7 +15,7 @@
  */
 
 #include <raft/common/nvtx.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/partition.cuh>
 

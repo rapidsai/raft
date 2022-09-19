@@ -18,7 +18,6 @@
 
 #include <common/nvtx.hpp>
 #include <raft/common/nvtx.hpp>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/linalg/eig.cuh>
@@ -30,6 +29,7 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>

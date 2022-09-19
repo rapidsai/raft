@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cache/cache_util.cuh>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cache_util.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <rmm/exec_policy.hpp>
 
@@ -28,9 +28,9 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace matrix {

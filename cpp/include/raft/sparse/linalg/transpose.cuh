@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/sparse/linalg/detail/transpose.h>
 
 namespace raft {

@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cusparse.h>
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 #include <raft/sparse/detail/cusparse_macros.h>
 
 namespace raft {

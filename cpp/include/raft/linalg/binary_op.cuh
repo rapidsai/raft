@@ -20,7 +20,7 @@
 
 #include "detail/binary_op.cuh"
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace linalg {

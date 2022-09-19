@@ -18,10 +18,10 @@
 
 #include "../test_utils.h"
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/linalg/norm.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <iostream>
 #include <limits>
