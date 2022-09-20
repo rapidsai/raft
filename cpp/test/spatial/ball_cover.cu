@@ -298,9 +298,9 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
     rmm::device_uvector<value_t> d_pred_D(params.n_rows * k, handle.get_stream());
 
     auto d_pred_I_view =
-      raft::make_device_matrix_view<value_idx, value_int>(d_pred_I.data(), params.n_query, k);
+      raft::make_device_matrix_view<value_idx, value_int>(d_pred_I.data(), params.n_rows, k);
     auto d_pred_D_view =
-      raft::make_device_matrix_view<value_t, value_int>(d_pred_D.data(), params.n_query, k);
+      raft::make_device_matrix_view<value_t, value_int>(d_pred_D.data(), params.n_rows, k);
 
     BallCoverIndex<value_idx, value_t> index(handle, X_view, metric);
 

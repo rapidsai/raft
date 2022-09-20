@@ -96,11 +96,6 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     auto distances =
       raft::make_device_matrix_view<T, IdxT, row_major>(distances_.data(), rows_, k_);
 
-    printf("indices: %ld, distances: %ld, search: %ld\n",
-           (size_t)indices.extent(0),
-           (size_t)(distances.extent(0)),
-           (size_t)search.extent(0));
-
     brute_force_knn(handle, index, search, indices, distances, k_);
 
     build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
