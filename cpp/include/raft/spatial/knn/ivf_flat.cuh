@@ -137,12 +137,13 @@ auto build_index(const handle_t& handle,
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param handle
- * @param orig_index original index
+ * @param[in] handle
+ * @param[in] orig_index original index
  * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
  * @param[in] new_indices a device pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
+ * @param[in] n_rows number of rows in `new_vectors`
  *
  * @return the constructed extended ivf-flat index
  */
