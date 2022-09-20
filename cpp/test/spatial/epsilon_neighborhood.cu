@@ -72,8 +72,6 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
                                 false);
   }
 
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
   EpsInputs<T, IdxT> param;
   cudaStream_t stream = 0;
   rmm::device_uvector<T> data;
