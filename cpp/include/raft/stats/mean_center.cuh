@@ -54,11 +54,9 @@ void meanCenter(Type* out,
 
 /**
  * @brief Center the input matrix wrt its mean
- * @tparam Type the data type
+ * @tparam DataT the data type
  * @tparam IdxType index type
  * @tparam LayoutPolicy Layout type of the input matrix.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @tparam TPB threads per block of the cuda kernel launched
  * @param handle the raft handle
  * @param out the output mean-centered matrix
@@ -66,18 +64,21 @@ void meanCenter(Type* out,
  * @param mu the mean vector
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename Type,
+template <typename DataT,
           typename IdxType,
           typename LayoutPolicy,
-          typename AccessorPolicy,
           int TPB = 256>
 void meanCenter(const raft::handle_t& handle,
-                raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> out,
-                raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
-                raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
+                raft::device_matrix_view<DataT, IdxType, LayoutPolicy> out,
+                raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
+                raft::device_vector_view<const DataT, IdxType> mu,
                 bool bcastAlongRows)
 {
-  detail::meanCenter<Type, IdxType, TPB>(out.data_handle(),
+  RAFT_EXPECTS(out.size() == data.size(), "Size mismatch");
+  RAFT_EXPECTS(data.extent(0) == mu.size(), "Size mismatch betwen data and mu");
+  RAFT_EXPECTS(out.is_exhaustive(), "out must be contiguous");
+  RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
+  detail::meanCenter<DataT, IdxType, TPB>(out.data_handle(),
                                          data.data_handle(),
                                          mu.data_handle(),
                                          data.extent(1),
@@ -119,8 +120,6 @@ void meanAdd(Type* out,
  * @tparam Type the data type
  * @tparam IdxType index type
  * @tparam LayoutPolicy Layout type of the input matrix.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @tparam TPB threads per block of the cuda kernel launched
  * @param handle the raft handle
  * @param out the output mean-centered matrix
@@ -128,18 +127,21 @@ void meanAdd(Type* out,
  * @param mu the mean vector
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename Type,
+template <typename DataT,
           typename IdxType,
-          typename LayoutPolicy = raft::row_major,
-          typename AccessorPolicy,
+          typename LayoutPolicy,
           int TPB = 256>
 void meanAdd(const raft::handle_t& handle,
-             raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> out,
-             raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
-             raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
+             raft::device_matrix_view<DataT, IdxType, LayoutPolicy> out,
+             raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
+             raft::device_vector_view<const DataT, IdxType> mu,
              bool bcastAlongRows)
 {
-  detail::meanAdd<Type, IdxType, TPB>(out.data_handle(),
+  RAFT_EXPECTS(out.size() == data.size(), "Size mismatch");
+  RAFT_EXPECTS(data.extent(0) == mu.size(), "Size mismatch betwen data and mu");
+  RAFT_EXPECTS(out.is_exhaustive(), "out must be contiguous");
+  RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
+  detail::meanAdd<DataT, IdxType, TPB>(out.data_handle(),
                                       data.data_handle(),
                                       mu.data_handle(),
                                       data.extent(1),

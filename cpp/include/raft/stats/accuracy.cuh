@@ -42,25 +42,26 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
 
 /**
  * @brief Compute accuracy of predictions. Useful for classification.
- * @tparam math_t: data type for predictions (e.g., int for classification)
+ * @tparam DataT: data type for predictions (e.g., int for classification)
  * @tparam IdxType Index type of matrix extent.
- * @tparam LayoutPolicy Layout type of the input data.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @param[in] handle: the raft handle.
  * @param[in] predictions: array of predictions (GPU pointer).
  * @param[in] ref_predictions: array of reference (ground-truth) predictions (GPU pointer).
  * @return: Accuracy score in [0, 1]; higher is better.
  */
-template <typename math_t, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
+template <typename DataT, typename IdxType>
 float accuracy(
   const raft::handle_t& handle,
-  raft::mdspan<math_t, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> predictions,
-  raft::mdspan<math_t, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> ref_predictions)
+  raft::device_vector_view<const DataT, IdxType> predictions,
+  raft::device_vector_view<const DataT, IdxType> ref_predictions)
 {
+  RAFT_EXPECTS(predictions.size() == ref_predictions.size(), "Size mismatch");
+  RAFT_EXPECTS(predictions.is_exhaustive(), "predictions must be contiguous");
+  RAFT_EXPECTS(ref_predictions.is_exhaustive(), "ref_predictions must be contiguous");
+  
   return detail::accuracy_score(predictions.data_handle(),
                                 ref_predictions.data_handle(),
-                                predictions.extent(0),
+                                predictions.size(),
                                 handle.get_stream());
 }
 }  // namespace stats

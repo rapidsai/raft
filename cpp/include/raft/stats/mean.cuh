@@ -55,26 +55,26 @@ void mean(
  *
  * Mean operation is assumed to be performed on a given column.
  *
- * @tparam Type the data type
+ * @tparam DataT the data type
  * @tparam IdxType index type
  * @tparam LayoutPolicy Layout type of the input matrix.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @param handle the raft handle
  * @param mu: the output mean vector
  * @param data: the input matrix
  * @param sample: whether to evaluate sample mean or not. In other words, whether
  *   to normalize the output using N-1 or N, for true or false, respectively
  */
-template <typename Type,
-          typename IdxType      = int,
-          typename LayoutPolicy = raft::row_major,
-          typename AccessorPolicy>
+template <typename DataT,
+          typename IdxType = int,
+          typename LayoutPolicy>
 void mean(const raft::handle_t& handle,
-          raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
-          raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+          raft::device_vector_view<DataT, IdxType> mu,
+          raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
           bool sample)
 {
+  RAFT_EXPECTS(data.extent(0) == mu.size(), "Size mismatch betwen data and mu");
+  RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
+  RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   detail::mean(mu.data_handle(),
                data.data_handle(),
                data.extent(1),

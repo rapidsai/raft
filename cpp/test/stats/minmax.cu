@@ -119,7 +119,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
                 minmax_ref.data() + params.cols,
                 stream);
     raft::stats::minmax<T, int>(handle,
-                                raft::make_device_matrix_view<T, int, raft::layout_f_contiguous>(
+                                raft::make_device_matrix_view<const T, int, raft::layout_f_contiguous>(
                                   data.data(), params.rows, params.cols),
                                 std::nullopt,
                                 std::nullopt,

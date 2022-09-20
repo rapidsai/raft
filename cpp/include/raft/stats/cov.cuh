@@ -67,8 +67,6 @@ void cov(const raft::handle_t& handle,
  * @tparam Type the data type
  * @tparam IdxT the index type
  * @tparam LayoutPolicy Layout type of the input data.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @param handle the raft handle
  * @param covar the output covariance matrix
  * @param data the input matrix (this will get mean-centered at the end!)
@@ -80,14 +78,19 @@ void cov(const raft::handle_t& handle,
  * @note if stable=true, then the input data will be mean centered after this
  * function returns!
  */
-template <typename Type, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
+template <typename DataT, typename IdxType, typename LayoutPolicy>
 void cov(const raft::handle_t& handle,
-         raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> covar,
-         raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
-         raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mu,
+         raft::device_matrix_view<DataT, IdxType, LayoutPolicy> covar,
+         raft::device_matrix_view<DataT, IdxType, LayoutPolicy> data,
+         raft::device_vector_view<const DataT, IdxType> mu,
          bool sample,
          bool stable)
 {
+  RAFT_EXPECTS(data.size() == covar.size(), "Size mismatch");
+  RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
+  RAFT_EXPECTS(covar.is_exhaustive(), "covar must be contiguous");
+  RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
+
   detail::cov(handle,
               covar.data_handle(),
               data.data_handle(),

@@ -50,28 +50,28 @@ double completeness_score(const T* truthClusterArray,
 /**
  * @brief Function to calculate the completeness score between two clusters
  *
- * @tparam T the data type
+ * @tparam DataT the data type
  * @tparam IdxType Index type of matrix extent.
- * @tparam LayoutPolicy Layout type of the input data.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @param handle: the raft handle.
- * @param truthClusterArray: the array of truth classes of type T
- * @param predClusterArray: the array of predicted classes of type T
+ * @param truthClusterArray: the array of truth classes of type DataT
+ * @param predClusterArray: the array of predicted classes of type DataT
  * @param lowerLabelRange: the lower bound of the range of labels
  * @param upperLabelRange: the upper bound of the range of labels
  */
-template <typename T, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
+template <typename DataT, typename IdxType>
 double completeness_score(
   const raft::handle_t& handle,
-  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> truthClusterArray,
-  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> predClusterArray,
-  T lowerLabelRange,
-  T upperLabelRange)
+  raft::device_vector_view<const DataT, IdxType> truthClusterArray,
+  raft::device_vector_view<const DataT, IdxType> predClusterArray,
+  DataT lowerLabelRange,
+  DataT upperLabelRange)
 {
+  RAFT_EXPECTS(truthClusterArray.size() == predClusterArray.size(), "Size mismatch");
+  RAFT_EXPECTS(truthClusterArray.is_exhaustive(), "truthClusterArray must be contiguous");
+  RAFT_EXPECTS(predClusterArray.is_exhaustive(), "predClusterArray must be contiguous");
   return detail::homogeneity_score(predClusterArray.data_handle(),
                                    truthClusterArray.data_handle(),
-                                   truthClusterArray.extent(0),
+                                   truthClusterArray.size(),
                                    lowerLabelRange,
                                    upperLabelRange,
                                    handle.get_stream());

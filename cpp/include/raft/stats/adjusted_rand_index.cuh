@@ -52,29 +52,28 @@ double adjusted_rand_index(const T* firstClusterArray,
 /**
  * @brief Function to calculate Adjusted RandIndex as described
  *        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
- * @tparam T data-type for input label arrays
+ * @tparam DataT data-type for input label arrays
  * @tparam MathT integral data-type used for computing n-choose-r
  * @tparam IdxType Index type of matrix extent.
- * @tparam LayoutPolicy Layout type of the input data.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @param handle: the raft handle.
  * @param firstClusterArray: the array of classes
  * @param secondClusterArray: the array of classes
  */
-template <typename T,
+template <typename DataT,
           typename MathT = int,
-          typename IdxType,
-          typename LayoutPolicy,
-          typename AccessorPolicy>
+          typename IdxType>
 double adjusted_rand_index(
   const raft::handle_t& handle,
-  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> firstClusterArray,
-  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> secondClusterArray)
+  raft::device_vector_view<const DataT, IdxType> firstClusterArray,
+  raft::device_vector_view<const DataT, IdxType> secondClusterArray)
 {
-  return detail::compute_adjusted_rand_index<T, MathT>(firstClusterArray.data_handle(),
+  RAFT_EXPECTS(firstClusterArray.size() == secondClusterArray.size(), "Size mismatch");
+  RAFT_EXPECTS(firstClusterArray.is_exhaustive(), "firstClusterArray must be contiguous");
+  RAFT_EXPECTS(secondClusterArray.is_exhaustive(), "secondClusterArray must be contiguous");
+
+  return detail::compute_adjusted_rand_index<DataT, MathT>(firstClusterArray.data_handle(),
                                                        secondClusterArray.data_handle(),
-                                                       firstClusterArray.extent(0),
+                                                       firstClusterArray.size(),
                                                        handle.get_stream());
 }
 

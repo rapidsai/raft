@@ -74,12 +74,8 @@ void minmax(const T* data,
  * @brief Computes min/max across every column of the input matrix, as well as
  * optionally allow to subsample based on the given row/col ID mapping vectors
  *
- * @tparam T Data type of input matrix element.
- * @tparam IndexType Index type of matrix extent.
- * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
- *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
+ * @tparam DataT Data type of input matrix element.
+ * @tparam IdxType Index type of matrix extent.
  * @tparam TPB number of threads per block
  * @param handle the raft handle
  * @param data input data col-major of size [nrows, ncols], unless rowids or
@@ -96,20 +92,18 @@ void minmax(const T* data,
  * 2. ncols is small enough to fit the whole of min/max values across all cols
  *    in shared memory
  */
-template <typename T,
+template <typename DataT,
           typename IdxType,
           typename LayoutPolicy,
-          typename AccessorPolicy,
           int TPB = 512>
 void minmax(const raft::handle_t& handle,
-            raft::mdspan<T, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
-            std::optional<raft::mdspan<unsigned, raft::vector_extent<IdxType>>> rowids,
-            std::optional<raft::mdspan<unsigned, raft::vector_extent<IdxType>>> colids,
-            raft::mdspan<T, raft::vector_extent<IdxType>> globalmin,
-            raft::mdspan<T, raft::vector_extent<IdxType>> globalmax,
-            std::optional<raft::mdspan<T, raft::vector_extent<IdxType>>> sampledcols)
+            raft::device_matrix_view<const DataT, IdxType, raft::col_major> data,
+            std::optional<raft::device_vector_view<const unsigned, IdxType>> rowids,
+            std::optional<raft::device_vector_view<const unsigned, IdxType>> colids,
+            raft::device_vector_view<DataT, IdxType> globalmin,
+            raft::device_vector_view<DataT, IdxType> globalmax,
+            std::optional<raft::device_vector_view<DataT, IdxType>> sampledcols)
 {
-  static_assert(std::is_same_v<LayoutPolicy, raft::col_major>, "Data should be col-major");
   const unsigned* rowids_ptr = nullptr;
   const unsigned* colids_ptr = nullptr;
   T* sampledcols_ptr         = nullptr;

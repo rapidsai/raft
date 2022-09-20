@@ -63,8 +63,6 @@ DataT dispersion(const DataT* centroids,
  * @tparam DataT data type
  * @tparam IdxType index type
  * @tparam LayoutPolicy Layout type of the input data.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @tparam TPB threads block for kernels launched
  * @param handle the raft handle
  * @param centroids the cluster centroids. This is assumed to be row-major
@@ -79,18 +77,23 @@ DataT dispersion(const DataT* centroids,
 template <typename DataT,
           typename IdxType = int,
           typename LayoutPolicy,
-          typename AccessorPolicy,
           int TPB = 256>
 DataT dispersion(
   const raft::handle_t& handle,
-  raft::mdspan<DataT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> centroids,
-  raft::mdspan<IdxType, raft::vector_extent<IdxType>> clusterSizes,
-  std::optional<raft::mdspan<DataT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy>>
-    globalCentroid,
+  raft::device_matrix_view<const DataT, IdxType, raft::row_major> centroids,
+  raft::device_vector_view<const IdxType, IdxType> clusterSizes,
+  std::optional<raft::device_vector_view<DataT, IdxType>> globalCentroid,
   const IdxType nPoints)
 {
+  RAFT_EXPECTS(clusterSizes.size() == centroids.extent(0), "Size mismatch");
+  RAFT_EXPECTS(clusterSizes.is_exhaustive(), "clusterSizes must be contiguous");
+
   DataT* globalCentroid_ptr = nullptr;
-  if (globalCentroid.has_value()) { globalCentroid_ptr = globalCentroid.value().data_handle(); }
+  if (globalCentroid.has_value()) 
+  { 
+    RAFT_EXPECTS(globalCentroid.value().is_exhaustive(), "globalCentroid must be contiguous");
+    globalCentroid_ptr = globalCentroid.value().data_handle();
+  }
   return detail::dispersion<DataT, IdxType, TPB>(centroids.data_handle(),
                                                  clusterSizes.data_handle(),
                                                  globalCentroid_ptr,

@@ -53,28 +53,28 @@ double homogeneity_score(const T* truthClusterArray,
  * <a href="https://en.wikipedia.org/wiki/Homogeneity_(statistics)">more info on mutual
  * information</a>
  *
- * @tparam T data type
+ * @tparam DataT data type
  * @tparam IdxType index type
- * @tparam LayoutPolicy Layout type of the input data.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @param handle the raft handle
- * @param truthClusterArray: the array of truth classes of type T
- * @param predClusterArray: the array of predicted classes of type T
+ * @param truthClusterArray: the array of truth classes of type DataT
+ * @param predClusterArray: the array of predicted classes of type DataT
  * @param lowerLabelRange: the lower bound of the range of labels
  * @param upperLabelRange: the upper bound of the range of labels
  */
-template <typename T, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
+template <typename DataT, typename IdxType>
 double homogeneity_score(
   const raft::handle_t& handle,
-  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> truthClusterArray,
-  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> predClusterArray,
-  T lowerLabelRange,
-  T upperLabelRange)
+  raft::device_vector_view<const DataT, IdxType> truthClusterArray,
+  raft::device_vector_view<const DataT, IdxType> predClusterArray,
+  DataT lowerLabelRange,
+  DataT upperLabelRange)
 {
+  RAFT_EXPECTS(truthClusterArray.size() == predClusterArray.size(), "Size mismatch");
+  RAFT_EXPECTS(truthClusterArray.is_exhaustive(), "truthClusterArray must be contiguous");
+  RAFT_EXPECTS(predClusterArray.is_exhaustive(), "predClusterArray must be contiguous");
   return detail::homogeneity_score(truthClusterArray.data_handle(),
                                    predClusterArray.data_handle(),
-                                   truthClusterArray.extent(0),
+                                   truthClusterArray.size(),
                                    lowerLabelRange,
                                    upperLabelRange,
                                    handle.get_stream());

@@ -91,8 +91,8 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     // calling the homogeneity CUDA implementation
     computedHomogeneity = raft::stats::homogeneity_score(
       handle,
-      raft::make_device_vector_view(truthClusterArray.data(), nElements),
-      raft::make_device_vector_view(predClusterArray.data(), nElements),
+      raft::make_device_vector_view<const T>(truthClusterArray.data(), nElements),
+      raft::make_device_vector_view<const T>(predClusterArray.data(), nElements),
       lowerLabelRange,
       upperLabelRange);
   }

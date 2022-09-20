@@ -66,8 +66,8 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     // allocating and initializing memory to the GPU
     computed_adjusted_rand_index = adjusted_rand_index<T, MathT>(
       handle,
-      raft::make_device_vector_view(firstClusterArray.data(), nElements),
-      raft::make_device_vector_view(secondClusterArray.data(), nElements));
+      raft::make_device_vector_view<const T>(firstClusterArray.data(), nElements),
+      raft::make_device_vector_view<const T>(secondClusterArray.data(), nElements));
   }
 
   void SetUpDifferentArrays()

@@ -64,11 +64,9 @@ void meanvar(Type* mean,
  * It's almost twice faster than running `mean` and `vars` sequentially, because all three
  * kernels are memory-bound.
  *
- * @tparam Type the data type
+ * @tparam DataT the data type
  * @tparam IdxType Integer type used for addressing
  * @tparam LayoutPolicy Layout type of the input matrix.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @param handle the raft handle
  * @param [out] mean the output mean vector of size D
  * @param [out] var the output variance vector of size D
@@ -76,16 +74,20 @@ void meanvar(Type* mean,
  * @param [in] sample whether to evaluate sample variance or not. In other words, whether to
  * normalize the variance using N-1 or N, for true or false respectively.
  */
-template <typename Type,
-          typename IdxType      = int,
-          typename LayoutPolicy = raft::row_major,
-          typename AccessorPolicy>
+template <typename DataT,
+          typename IdxType = int,
+          typename LayoutPolicy>
 void meanvar(const raft::handle_t& handle,
-             raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> mean,
-             raft::mdspan<Type, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> var,
-             raft::mdspan<Type, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+             raft::device_vector_view<DataT, IdxType> mean,
+             raft::device_vector_view<DataT, IdxType> var,
+             raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
              bool sample)
 {
+  RAFT_EXPECTS(data.extent(0) == var.size(), "Size mismatch betwen data and var");
+  RAFT_EXPECTS(mean.size() == var.size(), "Size mismatch betwen mean and var");
+  RAFT_EXPECTS(mean.is_exhaustive(), "mean must be contiguous");
+  RAFT_EXPECTS(var.is_exhaustive(), "var must be contiguous");
+  RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   detail::meanvar(mean.data_handle(),
                   var.data_handle(),
                   data.data_handle(),

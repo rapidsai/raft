@@ -50,26 +50,24 @@ double entropy(const T* clusterArray,
  * @brief Function to calculate entropy
  * <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
  *
- * @tparam T data type
+ * @tparam DataT data type
  * @tparam IdxT index type
- * @tparam LayoutPolicy Layout type of the input data.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @param handle the raft handle
- * @param clusterArray: the array of classes of type T
+ * @param clusterArray: the array of classes of type DataT
  * @param lowerLabelRange: the lower bound of the range of labels
  * @param upperLabelRange: the upper bound of the range of labels
  * @return the entropy score
  */
-template <typename T, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
+template <typename DataT, typename IdxType>
 double entropy(
   const raft::handle_t& handle,
-  raft::mdspan<T, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> clusterArray,
-  const T lowerLabelRange,
-  const T upperLabelRange)
+  raft::device_vector_view<const DataT, IdxType> clusterArray,
+  const DataT lowerLabelRange,
+  const DataT upperLabelRange)
 {
+  RAFT_EXPECTS(clusterArray.is_exhaustive(), "clusterArray must be contiguous");
   return detail::entropy(clusterArray.data_handle(),
-                         clusterArray.extent(0),
+                         clusterArray.size(),
                          lowerLabelRange,
                          upperLabelRange,
                          handle.get_stream());

@@ -75,8 +75,8 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
     // calling the kl_divergence CUDA implementation
     computedklDivergence =
       raft::stats::kl_divergence(handle,
-                                 raft::make_device_vector_view(d_modelPDF.data(), nElements),
-                                 raft::make_device_vector_view(d_candidatePDF.data(), nElements));
+                                 raft::make_device_vector_view<const DataT>(d_modelPDF.data(), nElements),
+                                 raft::make_device_vector_view<const DataT>(d_candidatePDF.data(), nElements));
   }
 
   // declaring the data values

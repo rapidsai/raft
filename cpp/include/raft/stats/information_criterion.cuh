@@ -70,11 +70,8 @@ void information_criterion_batched(ScalarT* d_ic,
  * @note: it is safe to do the computation in-place (i.e give same pointer
  *        as input and output)
  *
- * @tparam ScalarT data type
+ * @tparam DataT data type
  * @tparam IdxType index type
- * @tparam LayoutPolicy Layout type of the input data.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @param[in]  handle           the raft handle
  * @param[out] d_ic             Information criterion to be returned for each
  *                              series (device) length: batch_size
@@ -83,15 +80,18 @@ void information_criterion_batched(ScalarT* d_ic,
  * @param[in]  n_params         Number of parameters in the model
  * @param[in]  n_samples        Number of samples in each series
  */
-template <typename ScalarT, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
+template <typename DataT, typename IdxType>
 void information_criterion_batched(
   const raft::handle_t& handle,
-  raft::mdspan<ScalarT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> d_ic,
-  raft::mdspan<ScalarT, raft::vector_extent<IdxType>, LayoutPolicy, AccessorPolicy> d_loglikelihood,
+  raft::device_vector_view<DataT, IdxType> d_ic,
+  raft::device_vector_view<const DataT, IdxType> d_loglikelihood,
   IC_Type ic_type,
   IdxType n_params,
   IdxType n_samples)
 {
+  RAFT_EXPECTS(d_ic.size() == d_loglikelihood.size(), "Size mismatch");
+  RAFT_EXPECTS(d_ic.is_exhaustive(), "d_ic must be contiguous");
+  RAFT_EXPECTS(d_loglikelihood.is_exhaustive(), "d_loglikelihood must be contiguous");
   batched::detail::information_criterion(d_ic.data_handle(),
                                          d_loglikelihood.data_handle(),
                                          ic_type,

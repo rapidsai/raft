@@ -92,7 +92,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
     information_criterion_batched(
       handle,
       raft::make_device_vector_view(res_d.data(), params.batch_size),
-      raft::make_device_vector_view(loglike_d.data(), params.batch_size),
+      raft::make_device_vector_view<const T>(loglike_d.data(), params.batch_size),
       params.ic_type,
       params.n_params,
       params.n_samples);

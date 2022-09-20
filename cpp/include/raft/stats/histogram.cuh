@@ -70,8 +70,6 @@ void histogram(HistType type,
  * @tparam IdxType data type used to compute indices
  * @tparam BinnerOp takes the input data and computes its bin index
  * @tparam LayoutPolicy Layout type of the input data.
- * @tparam AccessorPolicy Accessor for the input and output, must be valid accessor on
- *                        device.
  * @param handle the raft handle
  * @param type histogram implementation type to choose
  * @param bins the output bins (length = ncols * nbins)
@@ -83,14 +81,16 @@ void histogram(HistType type,
 template <typename DataT,
           typename IdxType  = int,
           typename BinnerOp = IdentityBinner<DataT, IdxType>,
-          typename LayoutPolicy,
-          typename AccessorPolicy>
+          typename LayoutPolicy>
 void histogram(const raft::handle_t& handle,
                HistType type,
-               raft::mdspan<int, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> bins,
-               raft::mdspan<DataT, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> data,
+               raft::device_matrix_view<int, IdxType, LayoutPolicy> bins,
+               raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
                BinnerOp binner = IdentityBinner<DataT, IdxType>())
 {
+  RAFT_EXPECTS(bins.extent(0) == data.extent(0), "Size mismatch");
+  RAFT_EXPECTS(bins.is_exhaustive(), "bins must be contiguous");
+  RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   detail::histogram<DataT, IdxType, BinnerOp>(type,
                                               bins.data_handle(),
                                               bins.extent(1),

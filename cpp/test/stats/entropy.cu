@@ -83,7 +83,7 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
     // calling the entropy CUDA implementation
     computedEntropy =
       raft::stats::entropy(handle,
-                           raft::make_device_vector_view(clusterArray.data(), nElements),
+                           raft::make_device_vector_view<const T>(clusterArray.data(), nElements),
                            lowerLabelRange,
                            upperLabelRange);
   }
