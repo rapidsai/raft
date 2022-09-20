@@ -45,10 +45,10 @@ namespace raft::spatial::knn::ivf_pq::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
 
-/** Unsigned 8-bit floating-point type. */
-template <uint32_t ExpBits>
+/** 8-bit floating-point type. */
+template <uint32_t ExpBits, bool Signed>
 struct fp_8bit {
-  static_assert(ExpBits < 8, "Exponent must have less than 8 bits.");
+  static_assert(ExpBits + uint8_t{Signed} <= 8, "The type does not fit in 8 bits.");
   constexpr static uint32_t ExpMask = (1u << (ExpBits - 1u)) - 1u;  // NOLINT
   constexpr static uint32_t ValBits = 8u - ExpBits;                 // NOLINT
 
@@ -57,7 +57,7 @@ struct fp_8bit {
 
   HDI explicit fp_8bit(uint8_t bs) : bitstring(bs) {}
   HDI explicit fp_8bit(float fp) : fp_8bit(float2fp_8bit(fp).bitstring) {}
-  HDI auto operator=(float fp) -> fp_8bit<ExpBits>&
+  HDI auto operator=(float fp) -> fp_8bit<ExpBits, Signed>&
   {
     bitstring = float2fp_8bit(fp).bitstring;
     return *this;
@@ -65,19 +65,38 @@ struct fp_8bit {
   HDI explicit operator float() const { return fp_8bit2float(*this); }
 
  private:
-  static HDI auto float2fp_8bit(float v) -> fp_8bit<ExpBits>
+  static constexpr float kMin = 1.0f / float(1u << ExpMask);
+  static constexpr float kMax = float(1u << (ExpMask + 1)) * (2.0f - 1.0f / float(1u << ValBits));
+
+  static HDI auto float2fp_8bit(float v) -> fp_8bit<ExpBits, Signed>
   {
-    // sic! all small and negative numbers are truncated to zero.
-    if (v < 1. / (1u << ExpMask)) { return fp_8bit<ExpBits>{static_cast<uint8_t>(0)}; }
-    return fp_8bit<ExpBits>{static_cast<uint8_t>(
-      (*reinterpret_cast<uint32_t*>(&v) + (ExpMask << 23u) - 0x3f800000u) >> (15u + ExpBits))};
+    if constexpr (Signed) {
+      auto u = fp_8bit<ExpBits, false>(std::abs(v)).bitstring;
+      u      = (u & 0xfeu) | uint8_t{v < 0};  // set the sign bit
+      return fp_8bit<ExpBits, true>(u);
+    } else {
+      // sic! all small and negative numbers are truncated to zero.
+      if (v < kMin) { return fp_8bit<ExpBits, false>{static_cast<uint8_t>(0)}; }
+      // protect from overflow
+      if (v >= kMax) { return fp_8bit<ExpBits, false>{static_cast<uint8_t>(0xffu)}; }
+      // the rest of possible float values should be within the normalized range
+      return fp_8bit<ExpBits, false>{static_cast<uint8_t>(
+        (*reinterpret_cast<uint32_t*>(&v) + (ExpMask << 23u) - 0x3f800000u) >> (15u + ExpBits))};
+    }
   }
 
-  static HDI auto fp_8bit2float(const fp_8bit<ExpBits>& v) -> float
+  static HDI auto fp_8bit2float(const fp_8bit<ExpBits, Signed>& v) -> float
   {
+    uint32_t u = v.bitstring;
+    if constexpr (Signed) {
+      u &= ~1;  // zero the sign bit
+    }
     float r;
-    *reinterpret_cast<uint32_t*>(&r) = ((v.bitstring << (15u + ExpBits)) +
-                                        (0x3f800000u | (0x00400000u >> ValBits)) - (ExpMask << 23));
+    *reinterpret_cast<uint32_t*>(&r) =
+      ((u << (15u + ExpBits)) + (0x3f800000u | (0x00400000u >> ValBits)) - (ExpMask << 23));
+    if constexpr (Signed) {  // recover the sign bit
+      if (v.bitstring & 1) { r = -r; }
+    }
     return r;
   }
 };
@@ -487,11 +506,6 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
           }
         } break;
       }
-      // NB: Score should be non-negative when LutT == fp_8bit<..>.
-      //     For fp_8bit<..>, a negative fp32 score is truncated to zero,
-      //     which may cause a significant recall degradation for similarity metrics
-      //     when the data size is small and dimensionality is large
-      //                                  (higher chance of negative similarity).
       lut_scores[i] = LutT(score);
     }
 
@@ -502,6 +516,10 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
     IdxT cluster_offset  = cluster_offsets[label];
 
     block_sort_t<Capacity, OutT> block_topk(topk, smem_buf);
+
+    // Ensure lut_scores is written by all threads before using it in ivfpq_compute_score
+    __threadfence_block();
+    __syncthreads();
 
     // Compute a distance for each sample
     for (uint32_t i = threadIdx.x; i < n_samples32; i += blockDim.x) {
@@ -727,8 +745,22 @@ void ivfpq_search(const handle_t& handle,
                  index.rot_dim(),
                  index.pq_dim());
   const size_t smem_threshold = 48 * 1024;
-  size_t smem_size            = sizeof(LutT) * index.pq_dim() * index.pq_width();
+  size_t smem_size_lut        = sizeof(LutT) * index.pq_dim() * index.pq_width();
   size_t smem_size_base_diff  = sizeof(float) * index.rot_dim();
+  auto smem_size_topk         = [topK, manage_local_topk](int n_threads) -> size_t {
+    return manage_local_topk ? topk::template calc_smem_size_for_block_wide<ScoreT, uint32_t>(
+                                 n_threads / WarpSize, topK)
+                                     : 0;
+  };
+  auto smem_no_basediff = [&smem_size_topk, smem_size_lut](int n_threads) -> size_t {
+    return std::max(smem_size_lut, smem_size_topk(n_threads));
+  };
+  auto smem_fast = [&smem_size_topk, smem_size_lut, smem_size_base_diff](int n_threads) -> size_t {
+    return std::max(smem_size_lut + smem_size_base_diff, smem_size_topk(n_threads));
+  };
+  auto smem_no_smem_lut = [&smem_size_topk, smem_size_base_diff](int n_threads) -> size_t {
+    return std::max(smem_size_base_diff, smem_size_topk(n_threads));
+  };
 
   uint32_t n_ctas = n_queries * n_probes;
   int n_threads   = 1024;
@@ -738,8 +770,8 @@ void ivfpq_search(const handle_t& handle,
     const int thread_min = 256;
     while (n_threads > thread_min) {
       if (n_ctas < uint32_t(getMultiProcessorCount() * (1024 / (n_threads / 2)))) { break; }
-      if (handle.get_device_properties().sharedMemPerMultiprocessor * 2 / 3 <
-          smem_size * (1024 / (n_threads / 2))) {
+      if (handle.get_device_properties().sharedMemPerMultiprocessor * 2 <
+          smem_fast(n_threads) * 3) {
         break;
       }
       n_threads /= 2;
@@ -747,63 +779,62 @@ void ivfpq_search(const handle_t& handle,
   } else {
     n_threads = preferred_thread_block_size;
   }
-  size_t smem_size_local_topk =
-    manage_local_topk
-      ? topk::template calc_smem_size_for_block_wide<ScoreT, uint32_t>(n_threads / WarpSize, topK)
-      : 0;
-  smem_size = max(smem_size, smem_size_local_topk);
 
-  kernel_t kernel = kernel_no_basediff;
+  bool available_fast        = true;
+  bool available_no_basediff = true;
 
-  bool kernel_no_basediff_available = true;
-  bool use_smem_lut                 = true;
-  if (smem_size > smem_threshold) {
+  if (smem_fast(n_threads) > smem_threshold) {
     cudaError_t cuda_status = cudaFuncSetAttribute(
-      kernel_no_basediff, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+      kernel_no_basediff, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_fast(n_threads));
     if (cuda_status != cudaSuccess) {
       RAFT_EXPECTS(
         cuda_status == cudaGetLastError(),
         "Tried to reset the expected cuda error code, but it didn't match the expectation");
-      kernel_no_basediff_available = false;
-
-      // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
-      kernel               = kernel_no_smem_lut;
-      use_smem_lut         = false;
-      n_threads            = 1024;
-      smem_size_local_topk = manage_local_topk
-                               ? topk::template calc_smem_size_for_block_wide<ScoreT, uint32_t>(
-                                   n_threads / WarpSize, topK)
-                               : 0;
-      smem_size            = max(smem_size_base_diff, smem_size_local_topk);
-      n_ctas               = getMultiProcessorCount();
+      available_fast = false;
     }
   }
-  if (kernel_no_basediff_available) {
-    bool kernel_fast_available = true;
-    if (smem_size + smem_size_base_diff > smem_threshold) {
-      cudaError_t cuda_status = cudaFuncSetAttribute(
-        kernel_fast, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size + smem_size_base_diff);
+  if (!available_fast) {
+    if (smem_no_basediff(n_threads) > smem_threshold) {
+      cudaError_t cuda_status = cudaFuncSetAttribute(kernel_no_basediff,
+                                                     cudaFuncAttributeMaxDynamicSharedMemorySize,
+                                                     smem_no_basediff(n_threads));
       if (cuda_status != cudaSuccess) {
         RAFT_EXPECTS(
           cuda_status == cudaGetLastError(),
           "Tried to reset the expected cuda error code, but it didn't match the expectation");
-        kernel_fast_available = false;
+        available_no_basediff = false;
       }
     }
-    if (kernel_fast_available) {
-      int kernel_no_basediff_n_blocks = 0;
-      RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &kernel_no_basediff_n_blocks, kernel_no_basediff, n_threads, smem_size));
+  }
+  kernel_t kernel;
+  size_t smem_size;
+  bool use_smem_lut = true;
+  if (!available_fast && !available_no_basediff) {
+    // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
+    kernel       = kernel_no_smem_lut;
+    use_smem_lut = false;
+    n_threads    = 1024;
+    n_ctas       = getMultiProcessorCount();
+    smem_size    = smem_no_smem_lut(n_threads);
+  } else if (!available_fast) {
+    kernel    = kernel_no_basediff;
+    smem_size = smem_no_basediff(n_threads);
+  } else {
+    int kernel_no_basediff_n_blocks = 0;
+    RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+      &kernel_no_basediff_n_blocks, kernel_no_basediff, n_threads, smem_no_basediff(n_threads)));
 
-      int kernel_fast_n_blocks = 0;
-      RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &kernel_fast_n_blocks, kernel_fast, n_threads, smem_size + smem_size_base_diff));
+    int kernel_fast_n_blocks = 0;
+    RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+      &kernel_fast_n_blocks, kernel_fast, n_threads, smem_fast(n_threads)));
 
-      // Use "kernel_fast" only if GPU occupancy does not drop
-      if (kernel_no_basediff_n_blocks == kernel_fast_n_blocks) {
-        kernel = kernel_fast;
-        smem_size += smem_size_base_diff;
-      }
+    // Use "kernel_fast" only if GPU occupancy does not drop
+    if (kernel_no_basediff_n_blocks == kernel_fast_n_blocks) {
+      kernel    = kernel_fast;
+      smem_size = smem_fast(n_threads);
+    } else {
+      kernel    = kernel_no_basediff;
+      smem_size = smem_no_basediff(n_threads);
     }
   }
 
@@ -902,16 +933,9 @@ inline void search(const handle_t& handle,
   RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
 
+  bool signed_metric = false;
   switch (index.metric()) {
-    case raft::distance::DistanceType::InnerProduct:
-      if (params.lut_dtype == CUDA_R_8U) {
-        RAFT_LOG_WARN(
-          "The selected internal score representation type is unsigned (lut_dtype == CUDA_R_8U), "
-          "but the selected similarity metric may have negative values. "
-          "This may lead to a significant degradation of the search results quality. "
-          "Consider changing 'lut_dtype' value.");
-      }
-      break;
+    case raft::distance::DistanceType::InnerProduct: signed_metric = true; break;
     default: break;
   }
 
@@ -987,7 +1011,11 @@ inline void search(const handle_t& handle,
     if (params.lut_dtype == CUDA_R_16F) {
       _ivfpq_search = ivfpq_search<half, half>;
     } else if (params.lut_dtype == CUDA_R_8U) {
-      _ivfpq_search = ivfpq_search<half, fp_8bit<5>>;
+      if (signed_metric) {
+        _ivfpq_search = ivfpq_search<half, fp_8bit<5, true>>;
+      } else {
+        _ivfpq_search = ivfpq_search<half, fp_8bit<5, false>>;
+      }
     } else {
       _ivfpq_search = ivfpq_search<half, float>;
     }
@@ -995,7 +1023,11 @@ inline void search(const handle_t& handle,
     if (params.lut_dtype == CUDA_R_16F) {
       _ivfpq_search = ivfpq_search<float, half>;
     } else if (params.lut_dtype == CUDA_R_8U) {
-      _ivfpq_search = ivfpq_search<float, fp_8bit<5>>;
+      if (signed_metric) {
+        _ivfpq_search = ivfpq_search<float, fp_8bit<5, true>>;
+      } else {
+        _ivfpq_search = ivfpq_search<float, fp_8bit<5, false>>;
+      }
     } else {
       _ivfpq_search = ivfpq_search<float, float>;
     }
