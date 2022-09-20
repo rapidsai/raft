@@ -80,14 +80,13 @@ inline void knn_merge_parts(value_t* in_keys,
  *
  * @tparam idx_t
  * @tparam value_t
+ * @param handle
  * @param in_keys
  * @param in_values
  * @param out_keys
  * @param out_values
  * @param n_samples
- * @param n_parts
  * @param k
- * @param stream
  * @param translations
  */
 template <typename idx_t = int64_t, typename value_t = float>
@@ -239,6 +238,7 @@ inline void select_k(const value_t* in_keys,
  * @tparam value_t
  *   the type of the keys (what is being compared).
  *
+ * @param[in] handle the cuml handle to use
  * @param[in] in_keys
  *   contiguous device array of inputs of size (input_len * n_inputs);
  *   these are compared and selected.
@@ -248,22 +248,16 @@ inline void select_k(const value_t* in_keys,
  *   You can pass `NULL` as an argument here; this would imply `in_values` is a homogeneous array
  *   of indices from `0` to `input_len - 1` for every input and reduce the usage of memory
  *   bandwidth.
- * @param[in] n_inputs
- *   number of input rows, i.e. the batch size.
- * @param[in] input_len
- *   length of a single input array (row); also sometimes referred as n_cols.
- *   Invariant: input_len >= k.
  * @param[out] out_keys
  *   contiguous device array of outputs of size (k * n_inputs);
  *   the k smallest/largest values from each row of the `in_keys`.
  * @param[out] out_values
  *   contiguous device array of outputs of size (k * n_inputs);
  *   the payload selected together with `out_keys`.
- * @param[in] select_min
- *   whether to select k smallest (true) or largest (false) keys.
  * @param[in] k
  *   the number of outputs to select in each input row.
- * @param[in] stream
+ * @param[in] select_min
+ *   whether to select k smallest (true) or largest (false) keys.
  * @param[in] algo
  *   the implementation of the algorithm
  */
