@@ -253,6 +253,105 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
   size_t max_scale;
 };
 
+class RmatGenMdspanTest : public ::testing::TestWithParam<RmatInputs> {
+ public:
+  RmatGenMdspanTest()
+    : handle{},
+      stream{handle.get_stream()},
+      params{::testing::TestWithParam<RmatInputs>::GetParam()},
+      out{params.n_edges * 2, stream},
+      out_src{params.n_edges, stream},
+      out_dst{params.n_edges, stream},
+      theta{0, stream},
+      h_theta{},
+      state{params.seed, GeneratorType::GenPC},
+      max_scale{std::max(params.r_scale, params.c_scale)}
+  {
+    theta.resize(4 * max_scale, stream);
+    uniform<float>(state, theta.data(), theta.size(), 0.0f, 1.0f, stream);
+    normalize<float, float>(theta.data(),
+                            theta.data(),
+                            max_scale,
+                            params.r_scale,
+                            params.c_scale,
+                            params.r_scale != params.c_scale,
+                            params.theta_array,
+                            stream);
+    h_theta.resize(theta.size());
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::update_host(h_theta.data(), theta.data(), theta.size(), stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  }
+
+ protected:
+  void SetUp() override
+  {
+    using index_type = size_t;
+    raft::device_vector_view<size_t, index_type> out_view(out.data(), out.size());
+    raft::device_vector_view<size_t, index_type> out_src_view(out_src.data(), out_src.size());
+    raft::device_vector_view<size_t, index_type> out_dst_view(out_dst.data(), out_dst.size());
+
+    if (params.theta_array) {
+      raft::device_vector_view<const float, index_type> theta_view(theta.data(), theta.size());
+      rmat_rectangular_gen(handle,
+                           state,
+                           out_view,
+                           out_src_view,
+                           out_dst_view,
+                           theta_view,
+                           params.r_scale,
+                           params.c_scale,
+                           params.n_edges);
+    } else {
+      rmat_rectangular_gen(handle,
+                           state,
+                           out_view,
+                           out_src_view,
+                           out_dst_view,
+                           h_theta[0],
+                           h_theta[1],
+                           h_theta[2],
+                           params.r_scale,
+                           params.c_scale,
+                           params.n_edges);
+    }
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  }
+
+  void validate()
+  {
+    rmm::device_uvector<int> hist{theta.size(), stream};
+    RAFT_CUDA_TRY(cudaMemsetAsync(hist.data(), 0, hist.size() * sizeof(int), stream));
+    compute_hist<<<raft::ceildiv<size_t>(out.size() / 2, 256), 256, 0, stream>>>(
+      hist.data(), out.data(), out.size(), max_scale, params.r_scale, params.c_scale);
+    RAFT_CUDA_TRY(cudaGetLastError());
+    rmm::device_uvector<float> computed_theta{theta.size(), stream};
+    normalize<float, int>(computed_theta.data(),
+                          hist.data(),
+                          max_scale,
+                          params.r_scale,
+                          params.c_scale,
+                          false,
+                          true,
+                          stream);
+    RAFT_CUDA_TRY(cudaGetLastError());
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    ASSERT_TRUE(devArrMatchHost(
+      h_theta.data(), computed_theta.data(), theta.size(), CompareApprox<float>(params.eps)));
+  }
+
+ protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
+  RmatInputs params;
+  rmm::device_uvector<size_t> out, out_src, out_dst;
+  rmm::device_uvector<float> theta;
+  std::vector<float> h_theta;
+  RngState state;
+  size_t max_scale;
+};
+
 static const float TOLERANCE = 0.01f;
 
 const std::vector<RmatInputs> inputs = {
@@ -286,6 +385,9 @@ const std::vector<RmatInputs> inputs = {
 
 TEST_P(RmatGenTest, Result) { validate(); }
 INSTANTIATE_TEST_SUITE_P(RmatGenTests, RmatGenTest, ::testing::ValuesIn(inputs));
+
+TEST_P(RmatGenMdspanTest, Result) { validate(); }
+INSTANTIATE_TEST_SUITE_P(RmatGenMdspanTests, RmatGenMdspanTest, ::testing::ValuesIn(inputs));
 
 }  // namespace random
 }  // namespace raft
