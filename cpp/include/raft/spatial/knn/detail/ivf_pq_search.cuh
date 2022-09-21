@@ -251,7 +251,33 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
   topkScores[i + (topk * batch_ix)] = score;
 }
 
-template <int PqBits, int VecLen, typename PqT, typename IdxT, typename LutT = float>
+/** An unsinged integer type that is used for bit operations on multiple PQ codes at once. */
+template <int TotalBits>
+struct code_carrier_t {
+  static_assert(TotalBits != TotalBits, "There's no carrier type for this bitsize.");
+};
+
+template <>
+struct code_carrier_t<64> {
+  using value = uint64_t;
+};
+
+template <>
+struct code_carrier_t<32> {
+  using value = uint32_t;
+};
+
+template <>
+struct code_carrier_t<16> {
+  using value = uint16_t;
+};
+
+template <>
+struct code_carrier_t<8> {
+  using value = uint8_t;
+};
+
+template <int PqBits, int VecLen, typename IdxT, typename LutT = float>
 __device__ auto ivfpq_compute_score(uint32_t pq_dim,
                                     IdxT data_ix,
                                     const uint8_t* pq_dataset,  // [n_rows, pq_dim * PqBits / 8]
@@ -259,11 +285,12 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
                                     ) -> float
 {
   float score                   = 0.0;
-  constexpr uint32_t kBitsTotal = 8 * sizeof(PqT);
-  const PqT* pq_head =
-    reinterpret_cast<const PqT*>(pq_dataset + uint64_t(data_ix) * (pq_dim * PqBits / 8));
+  using pq_t                    = typename code_carrier_t<gcd(PqBits * VecLen, 64)>::value;
+  constexpr uint32_t kBitsTotal = 8 * sizeof(pq_t);
+  const pq_t* pq_head =
+    reinterpret_cast<const pq_t*>(pq_dataset + uint64_t(data_ix) * (pq_dim * PqBits / 8));
   for (int j = 0; j < pq_dim / VecLen; j += 1) {
-    PqT pq_code = pq_head[0];
+    pq_t pq_code = pq_head[0];
     pq_head += 1;
     auto bits_left = kBitsTotal;
 #pragma unroll VecLen
@@ -319,9 +346,10 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  *   (NB: pq_width = 1 << PqBits).
  * @tparam VecLen
  *   The size of the PQ vector used solely in `ivfpq_compute_score`;
- *   It'd defined such that `PqBits * VecLen = 8 * sizeof(PqT)`.
- * @tparam PqT
- *   The carrier integral type used solely in `ivfpq_compute_score` to represent PQ codes.
+ *   It'd defined such that
+ *     1. `PqBits * VecLen % 8 * sizeof(PqT) == 0`.
+ *     2. `pq_dim % VecLen == 0`
+ *   `PqT` is a carrier integer type selected to maximize throughput.
  * @tparam IdxT
  *   The type of data indices
  * @tparam Capacity
@@ -382,7 +410,6 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  */
 template <int PqBits,
           int VecLen,
-          typename PqT,
           typename IdxT,
           int Capacity,
           bool PrecompBaseDiff,
@@ -525,7 +552,7 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
     for (uint32_t i = threadIdx.x; i < n_samples32; i += blockDim.x) {
       OutT score = block_sort_t<Capacity, OutT>::queue_t::kDummy;
       if (i < n_samples) {
-        float fscore = ivfpq_compute_score<PqBits, VecLen, PqT, IdxT, LutT>(
+        float fscore = ivfpq_compute_score<PqBits, VecLen, IdxT, LutT>(
           pq_dim, cluster_offset + i, pq_dataset, lut_scores);
         switch (metric) {
           // For similarity metrics,
@@ -665,27 +692,26 @@ void ivfpq_search(const handle_t& handle,
   }
 
   // Select a GPU kernel for distance calculation
-#define SET_KERNEL1(B, V, T, D)                                                                    \
-  do {                                                                                             \
-    static_assert((B * V) % (sizeof(T) * 8) == 0);                                                 \
-    kernel_no_basediff =                                                                           \
-      ivfpq_compute_similarity<B, V, T, IdxT, D * WarpSize, false, ScoreT, LutT, true>;            \
-    kernel_fast = ivfpq_compute_similarity<B, V, T, IdxT, D * WarpSize, true, ScoreT, LutT, true>; \
-    kernel_no_smem_lut =                                                                           \
-      ivfpq_compute_similarity<B, V, T, IdxT, D * WarpSize, true, ScoreT, LutT, false>;            \
+#define SET_KERNEL1(B, V, D)                                                                    \
+  do {                                                                                          \
+    kernel_no_basediff =                                                                        \
+      ivfpq_compute_similarity<B, V, IdxT, D * WarpSize, false, ScoreT, LutT, true>;            \
+    kernel_fast = ivfpq_compute_similarity<B, V, IdxT, D * WarpSize, true, ScoreT, LutT, true>; \
+    kernel_no_smem_lut =                                                                        \
+      ivfpq_compute_similarity<B, V, IdxT, D * WarpSize, true, ScoreT, LutT, false>;            \
   } while (0)
 
 #define SET_KERNEL2(B, M, D)                                                     \
   do {                                                                           \
     RAFT_EXPECTS(index.pq_dim() % M == 0, "pq_dim must be a multiple of %u", M); \
     if (index.pq_dim() % (M * 8) == 0) {                                         \
-      SET_KERNEL1(B, (M * 8), uint64_t, D);                                      \
+      SET_KERNEL1(B, (M * 8), D);                                                \
     } else if (index.pq_dim() % (M * 4) == 0) {                                  \
-      SET_KERNEL1(B, (M * 4), uint32_t, D);                                      \
+      SET_KERNEL1(B, (M * 4), D);                                                \
     } else if (index.pq_dim() % (M * 2) == 0) {                                  \
-      SET_KERNEL1(B, (M * 2), uint16_t, D);                                      \
+      SET_KERNEL1(B, (M * 2), D);                                                \
     } else if (index.pq_dim() % (M * 1) == 0) {                                  \
-      SET_KERNEL1(B, (M * 1), uint8_t, D);                                       \
+      SET_KERNEL1(B, (M * 1), D);                                                \
     }                                                                            \
   } while (0)
 
@@ -809,16 +835,16 @@ void ivfpq_search(const handle_t& handle,
       }
     }
     if (kernel_fast_available) {
-    int kernel_no_basediff_n_blocks = 0;
-    RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+      int kernel_no_basediff_n_blocks = 0;
+      RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &kernel_no_basediff_n_blocks, kernel_no_basediff, n_threads, smem_size));
 
-    int kernel_fast_n_blocks = 0;
-    RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+      int kernel_fast_n_blocks = 0;
+      RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &kernel_fast_n_blocks, kernel_fast, n_threads, smem_size + smem_size_base_diff));
 
-    // Use "kernel_fast" only if GPU occupancy does not drop
-    if (kernel_no_basediff_n_blocks == kernel_fast_n_blocks) {
+      // Use "kernel_fast" only if GPU occupancy does not drop
+      if (kernel_no_basediff_n_blocks == kernel_fast_n_blocks) {
         kernel = kernel_fast;
         smem_size += smem_size_base_diff;
       }
