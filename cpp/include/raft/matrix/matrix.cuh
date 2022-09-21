@@ -14,11 +14,21 @@
  * limitations under the License.
  */
 
+/**
+ * This file is deprecated and will be removed in a future release.
+ * Please use versions in individual header files instead.
+ */
+
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use versions in individual header files instead.")
+
 #ifndef __MATRIX_H
 #define __MATRIX_H
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
 #include "detail/linewise_op.cuh"
 #include "detail/matrix.cuh"
 
@@ -57,6 +67,9 @@ void copyRows(const m_t* in,
   detail::copyRows(in, n_rows, n_cols, out, indices, n_rows_indices, stream, rowMajor);
 }
 
+
+
+
 /**
  * @brief copy matrix operation for column major matrices.
  * @param in: input matrix
@@ -69,6 +82,23 @@ template <typename m_t, typename idx_t = int>
 void copy(const m_t* in, m_t* out, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   raft::copy_async(out, in, n_rows * n_cols, stream);
+}
+
+/**
+ * @brief copy matrix operation for column major matrices.
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix
+ * @param[out] out: output matrix
+ */
+template <typename m_t, typename idx_t = int, typename matrix_idx_t>
+void copy(const raft::handle_t &handle,
+          raft::device_matrix_view<const m_t, matrix_idx_t, col_major> in,
+          raft::device_matrix_view<m_t, matrix_idx_t, col_major> out)
+{
+    RAFT_EXPECTS(in.extent(0) == out.extent(0) &&
+                 in.extent(1) == out.extent(1), "Input and output matrix shapes must match.");
+
+    raft::copy_async(out.data_handle(), in.data_handle(), in.extent(0) * out.extent(1), handle.get_stream());
 }
 
 /**
