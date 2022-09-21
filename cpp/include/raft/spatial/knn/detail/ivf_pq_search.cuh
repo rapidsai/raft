@@ -745,22 +745,8 @@ void ivfpq_search(const handle_t& handle,
                  index.rot_dim(),
                  index.pq_dim());
   const size_t smem_threshold = 48 * 1024;
-  size_t smem_size_lut        = sizeof(LutT) * index.pq_dim() * index.pq_width();
+  size_t smem_size            = sizeof(LutT) * index.pq_dim() * index.pq_width();
   size_t smem_size_base_diff  = sizeof(float) * index.rot_dim();
-  auto smem_size_topk         = [topK, manage_local_topk](int n_threads) -> size_t {
-    return manage_local_topk ? topk::template calc_smem_size_for_block_wide<ScoreT, uint32_t>(
-                                 n_threads / WarpSize, topK)
-                                     : 0;
-  };
-  auto smem_no_basediff = [&smem_size_topk, smem_size_lut](int n_threads) -> size_t {
-    return std::max(smem_size_lut, smem_size_topk(n_threads));
-  };
-  auto smem_fast = [&smem_size_topk, smem_size_lut, smem_size_base_diff](int n_threads) -> size_t {
-    return std::max(smem_size_lut + smem_size_base_diff, smem_size_topk(n_threads));
-  };
-  auto smem_no_smem_lut = [&smem_size_topk, smem_size_base_diff](int n_threads) -> size_t {
-    return std::max(smem_size_base_diff, smem_size_topk(n_threads));
-  };
 
   uint32_t n_ctas = n_queries * n_probes;
   int n_threads   = 1024;
@@ -770,8 +756,8 @@ void ivfpq_search(const handle_t& handle,
     const int thread_min = 256;
     while (n_threads > thread_min) {
       if (n_ctas < uint32_t(getMultiProcessorCount() * (1024 / (n_threads / 2)))) { break; }
-      if (handle.get_device_properties().sharedMemPerMultiprocessor * 2 <
-          smem_fast(n_threads) * 3) {
+      if (handle.get_device_properties().sharedMemPerMultiprocessor * 2 / 3 <
+          smem_size * (1024 / (n_threads / 2))) {
         break;
       }
       n_threads /= 2;
@@ -779,62 +765,63 @@ void ivfpq_search(const handle_t& handle,
   } else {
     n_threads = preferred_thread_block_size;
   }
+  size_t smem_size_local_topk =
+    manage_local_topk
+      ? topk::template calc_smem_size_for_block_wide<ScoreT, uint32_t>(n_threads / WarpSize, topK)
+      : 0;
+  smem_size = max(smem_size, smem_size_local_topk);
 
-  bool available_fast        = true;
-  bool available_no_basediff = true;
+  kernel_t kernel = kernel_no_basediff;
 
-  if (smem_fast(n_threads) > smem_threshold) {
+  bool kernel_no_basediff_available = true;
+  bool use_smem_lut                 = true;
+  if (smem_size > smem_threshold) {
     cudaError_t cuda_status = cudaFuncSetAttribute(
-      kernel_no_basediff, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_fast(n_threads));
+      kernel_no_basediff, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
     if (cuda_status != cudaSuccess) {
       RAFT_EXPECTS(
         cuda_status == cudaGetLastError(),
         "Tried to reset the expected cuda error code, but it didn't match the expectation");
-      available_fast = false;
+      kernel_no_basediff_available = false;
+
+      // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
+      kernel               = kernel_no_smem_lut;
+      use_smem_lut         = false;
+      n_threads            = 1024;
+      smem_size_local_topk = manage_local_topk
+                               ? topk::template calc_smem_size_for_block_wide<ScoreT, uint32_t>(
+                                   n_threads / WarpSize, topK)
+                               : 0;
+      smem_size            = max(smem_size_base_diff, smem_size_local_topk);
+      n_ctas               = getMultiProcessorCount();
     }
   }
-  if (!available_fast) {
-    if (smem_no_basediff(n_threads) > smem_threshold) {
-      cudaError_t cuda_status = cudaFuncSetAttribute(kernel_no_basediff,
-                                                     cudaFuncAttributeMaxDynamicSharedMemorySize,
-                                                     smem_no_basediff(n_threads));
+  if (kernel_no_basediff_available) {
+    bool kernel_fast_available = true;
+    if (smem_size + smem_size_base_diff > smem_threshold) {
+      cudaError_t cuda_status = cudaFuncSetAttribute(
+        kernel_fast, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size + smem_size_base_diff);
       if (cuda_status != cudaSuccess) {
         RAFT_EXPECTS(
           cuda_status == cudaGetLastError(),
           "Tried to reset the expected cuda error code, but it didn't match the expectation");
-        available_no_basediff = false;
+        kernel_fast_available = false;
       }
     }
-  }
-  kernel_t kernel;
-  size_t smem_size;
-  bool use_smem_lut = true;
-  if (!available_fast && !available_no_basediff) {
-    // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
-    kernel       = kernel_no_smem_lut;
-    use_smem_lut = false;
-    n_threads    = 1024;
-    n_ctas       = getMultiProcessorCount();
-    smem_size    = smem_no_smem_lut(n_threads);
-  } else if (!available_fast) {
-    kernel    = kernel_no_basediff;
-    smem_size = smem_no_basediff(n_threads);
-  } else {
+    if (kernel_fast_available) {
     int kernel_no_basediff_n_blocks = 0;
     RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-      &kernel_no_basediff_n_blocks, kernel_no_basediff, n_threads, smem_no_basediff(n_threads)));
+        &kernel_no_basediff_n_blocks, kernel_no_basediff, n_threads, smem_size));
 
     int kernel_fast_n_blocks = 0;
     RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-      &kernel_fast_n_blocks, kernel_fast, n_threads, smem_fast(n_threads)));
+        &kernel_fast_n_blocks, kernel_fast, n_threads, smem_size + smem_size_base_diff));
 
     // Use "kernel_fast" only if GPU occupancy does not drop
     if (kernel_no_basediff_n_blocks == kernel_fast_n_blocks) {
-      kernel    = kernel_fast;
-      smem_size = smem_fast(n_threads);
-    } else {
-      kernel    = kernel_no_basediff;
-      smem_size = smem_no_basediff(n_threads);
+        kernel = kernel_fast;
+        smem_size += smem_size_base_diff;
+      }
     }
   }
 
