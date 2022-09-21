@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/matrix/detail/columnWiseSort.cuh>
 
@@ -59,13 +60,7 @@ void sort_cols_per_row(const InType* in,
  * modelled as key-value sort with key being input matrix and value being index of values
  * @param in: input matrix
  * @param out: output value(index) matrix
- * @param n_rows: number rows of input matrix
- * @param n_columns: number columns of input matrix
- * @param bAllocWorkspace: check returned value, if true allocate workspace passed in workspaceSize
- * @param workspacePtr: pointer to workspace memory
- * @param workspaceSize: Size of workspace to be allocated
- * @param stream: cuda stream to execute prim on
- * @param sortedKeys: Optional, output matrix for sorted keys (input)
+ * @param sorted_keys: Optional, output matrix for sorted keys (input)
  */
 template <typename InType, typename OutType, typename matrix_idx_t>
 void sort_cols_per_row(const raft::handle_t &handle,
@@ -81,8 +76,27 @@ void sort_cols_per_row(const raft::handle_t &handle,
                      in.extent(0) == sorted_keys.value().extent(0), "Input and `sorted_keys` matrices must have the same shape.");
     }
 
+    size_t workspace_size = 0;
+    bool alloc_workspace = false;
+
     detail::sortColumnsPerRow<InType, OutType>(
-            in, out, n_rows, n_columns, bAllocWorkspace, workspacePtr, workspaceSize, stream, sortedKeys);
+            in.data_handle(), out.data_handle(),
+            in.extent(0), in.extent(1),
+            alloc_workspace,
+            nullptr, &workspace_size, handle.get_stream(),
+            sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr);
+
+    if(alloc_workspace) {
+
+        auto workspace = raft::make_device_vector<char>(handle, workspace_size);
+
+        detail::sortColumnsPerRow<InType, OutType>(
+                in.data_handle(), out.data_handle(),
+                in.extent(0), in.extent(1),
+                alloc_workspace,
+                workspace.data_handle(), &workspace_size, handle.get_stream(),
+                sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr);
+    }
 }
 
 

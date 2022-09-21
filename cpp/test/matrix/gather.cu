@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
@@ -46,7 +47,8 @@ void naiveGather(
 }
 
 template <typename MatrixIteratorT, typename MapIteratorT>
-void gatherLaunch(MatrixIteratorT in,
+void gatherLaunch(const raft::handle_t &handle,
+                  MatrixIteratorT in,
                   int D,
                   int N,
                   MapIteratorT map,
@@ -55,7 +57,12 @@ void gatherLaunch(MatrixIteratorT in,
                   cudaStream_t stream)
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
-  matrix::gather(in, D, N, map, map_length, out, stream);
+
+  auto in_view = raft::make_device_matrix_view<MatrixIteratorT>(in, N, D);
+  auto map_view = raft::make_device_vector_view<MapIteratorT>(map, map_length);
+  auto out_view = raft::make_device_matrix_view<MatrixIteratorT>(out, N, D);
+
+  matrix::gather(handle, in_view, out_view, map_view);
 }
 
 struct GatherInputs {
@@ -110,7 +117,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     raft::update_device(d_out_exp.data(), h_out.data(), map_length * ncols, stream);
 
     // launch device version of the kernel
-    gatherLaunch(d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
+    gatherLaunch(handle, d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
 
     handle.sync_stream(stream);
   }
