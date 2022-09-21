@@ -70,7 +70,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
     }
     sampleWithoutReplacement(
       handle, r, out.data(), outIdx.data(), in.data(), wts.data(), params.sampledLen, params.len);
-    update_host(&(h_outIdx[0]), outIdx.data(), params.sampledLen, stream);
+    update_host(h_outIdx.data(), outIdx.data(), params.sampledLen, stream);
     handle.sync_stream(stream);
   }
 
@@ -93,7 +93,9 @@ class SWoRMdspanTest : public ::testing::TestWithParam<SWoRInputs<T>> {
       in(params.len, stream),
       wts(params.len, stream),
       out(params.sampledLen, stream),
-      outIdx(params.sampledLen, stream)
+      out2(params.sampledLen, stream),
+      outIdx(params.sampledLen, stream),
+      outIdx2(params.sampledLen, stream)
   {
   }
 
@@ -115,7 +117,7 @@ class SWoRMdspanTest : public ::testing::TestWithParam<SWoRInputs<T>> {
 
       using output_idxs_view = raft::device_vector_view<index_type, index_type>;
       std::optional<output_idxs_view> outIdx_view{std::in_place, outIdx.data(), outIdx.size()};
-      ASSERT_TRUE(outIdx_view.has_value() && outIdx_view.value().extent(0) == params.sampledLen);
+      ASSERT_TRUE(outIdx_view.value().extent(0) == params.sampledLen);
 
       using input_view = raft::device_vector_view<const T, index_type>;
       input_view in_view{in.data(), in.size()};
@@ -123,9 +125,19 @@ class SWoRMdspanTest : public ::testing::TestWithParam<SWoRInputs<T>> {
 
       using weights_view = raft::device_vector_view<const T, index_type>;
       std::optional<weights_view> wts_view{std::in_place, wts.data(), wts.size()};
-      ASSERT_TRUE(wts_view.has_value() && wts_view.value().extent(0) == params.len);
+      ASSERT_TRUE(wts_view.value().extent(0) == params.len);
 
-      sampleWithoutReplacement(handle, r, out_view, outIdx_view, in_view, wts_view);
+      sample_without_replacement(handle, r, in_view, wts_view, out_view, outIdx_view);
+
+      output_view out2_view{out2.data(), out2.size()};
+      ASSERT_TRUE(out2_view.extent(0) == params.sampledLen);
+      std::optional<output_idxs_view> outIdx2_view{std::in_place, outIdx2.data(), outIdx2.size()};
+      ASSERT_TRUE(outIdx2_view.value().extent(0) == params.sampledLen);
+
+      // For now, just test that these calls compile.
+      sample_without_replacement(handle, r, in_view, wts_view, out2_view, std::nullopt);
+      sample_without_replacement(handle, r, in_view, std::nullopt, out2_view, outIdx2_view);
+      sample_without_replacement(handle, r, in_view, std::nullopt, out2_view, std::nullopt);
     }
     update_host(h_outIdx.data(), outIdx.data(), params.sampledLen, stream);
     handle.sync_stream(stream);
@@ -136,8 +148,8 @@ class SWoRMdspanTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   cudaStream_t stream;
 
   SWoRInputs<T> params;
-  rmm::device_uvector<T> in, out, wts;
-  rmm::device_uvector<int> outIdx;
+  rmm::device_uvector<T> in, out, wts, out2;
+  rmm::device_uvector<int> outIdx, outIdx2;
   std::vector<int> h_outIdx;
 };
 
