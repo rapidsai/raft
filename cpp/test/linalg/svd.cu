@@ -78,17 +78,22 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     raft::update_device(right_eig_vectors_ref.data(), right_eig_vectors_ref_h, right_evl, stream);
     raft::update_device(sing_vals_ref.data(), sing_vals_ref_h, params.n_col, stream);
 
-    svdQR(handle,
-          data.data(),
-          params.n_row,
-          params.n_col,
-          sing_vals_qr.data(),
-          left_eig_vectors_qr.data(),
-          right_eig_vectors_trans_qr.data(),
-          true,
-          true,
-          true,
-          stream);
+    auto data_view = raft::make_device_matrix_view<T, int, raft::col_major>(
+      data.data(), params.n_row, params.n_col);
+    auto sing_vals_qr_view =
+      raft::make_device_vector_view<T, int>(sing_vals_qr.data(), params.n_col);
+    std::optional<raft::device_matrix_view<T, int, raft::col_major>> left_eig_vectors_qr_view =
+      raft::make_device_matrix_view<T, int, raft::col_major>(
+        left_eig_vectors_qr.data(), params.n_row, params.n_col);
+    std::optional<raft::device_matrix_view<T, int, raft::col_major>>
+      right_eig_vectors_trans_qr_view = raft::make_device_matrix_view<T, int, raft::col_major>(
+        right_eig_vectors_trans_qr.data(), params.n_col, params.n_col);
+
+    svd_qr_transpose_right_vec(handle,
+                               data_view,
+                               sing_vals_qr_view,
+                               left_eig_vectors_qr_view,
+                               right_eig_vectors_trans_qr_view);
     handle.sync_stream(stream);
   }
 
