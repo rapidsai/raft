@@ -127,8 +127,8 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
       raft::make_device_vector_view<const T>(dYHat.data(), numElements),
       raft::make_device_matrix_view(dComputedOutput.data(), numUniqueClasses, numUniqueClasses),
       std::make_optional(raft::make_device_vector_view(pWorkspace.data(), workspaceSz)),
-      minLabel,
-      maxLabel);
+      std::make_optional(minLabel),
+      std::make_optional(maxLabel));
 
     raft::interruptible::synchronize(stream);
     ASSERT_TRUE(raft::devArrMatch(dComputedOutput.data(),

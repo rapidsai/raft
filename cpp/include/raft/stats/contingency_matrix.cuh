@@ -169,8 +169,8 @@ void contingencyMatrix(const raft::handle_t& handle,
                        raft::device_vector_view<const DataT, IdxType> predictedLabel,
                        raft::device_matrix_view<OutType, IdxType, LayoutPolicy> outMat,
                        std::optional<WorkspaceType> workspace,
-                       DataT minLabel = std::numeric_limits<DataT>::max(),
-                       DataT maxLabel = std::numeric_limits<DataT>::max())
+                       std::optional<DataT> minLabel = std::nullopt,
+                       std::optional<DataT> maxLabel = std::nullopt)
 {
   RAFT_EXPECTS(groundTruth.size() == predictedLabel.size(), "Size mismatch");
   RAFT_EXPECTS(groundTruth.is_exhaustive(), "groundTruth must be contiguous");
@@ -184,6 +184,10 @@ void contingencyMatrix(const raft::handle_t& handle,
     workspace_p    = workspace.value().data_handle();
     workspace_size = workspace.value().size() * sizeof(workspaceElemType);
   }
+  DataT minLabelValue = std::numeric_limits<DataT>::max();
+  DataT maxLabelValue = std::numeric_limits<DataT>::max();
+  if (minLabel.has_value()) { minLabelValue = minLabel.value(); }
+  if (maxLabel.has_value()) { maxLabelValue = maxLabel.value(); }
   detail::contingencyMatrix<DataT, OutType>(groundTruth.data_handle(),
                                             predictedLabel.data_handle(),
                                             groundTruth.size(),
@@ -191,8 +195,8 @@ void contingencyMatrix(const raft::handle_t& handle,
                                             handle.get_stream(),
                                             workspace_p,
                                             workspace_size,
-                                            minLabel,
-                                            maxLabel);
+                                            minLabelValue,
+                                            maxLabelValue);
 }
 
 };  // namespace stats
