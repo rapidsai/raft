@@ -69,10 +69,10 @@ namespace raft::random {
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(const raft::handle_t& handle,
                           raft::random::RngState& r,
+                          raft::device_vector_view<const ProbT, IdxT> theta,
                           raft::device_vector_view<IdxT, IdxT> out,
                           raft::device_vector_view<IdxT, IdxT> out_src,
                           raft::device_vector_view<IdxT, IdxT> out_dst,
-                          raft::device_vector_view<const ProbT, IdxT> theta,
                           IdxT r_scale,
                           IdxT c_scale,
                           IdxT n_edges)
@@ -89,8 +89,8 @@ void rmat_rectangular_gen(const raft::handle_t& handle,
 }
 
 /**
- * @brief Generate RMAT for a rectangular adjacency matrix (useful when
- *        graphs to be generated are bipartite)
+ * @brief Legacy overload of `rmat_rectangular_gen`
+ *   taking raw arrays instead of mdspan.
  *
  * @tparam IdxT  type of each node index
  * @tparam ProbT data type used for probability distributions (either fp32 or fp64)
@@ -117,18 +117,6 @@ void rmat_rectangular_gen(const raft::handle_t& handle,
  *                     a larger graph. For that case, just create this object with the
  *                     initial seed once and after every call continue to pass the same
  *                     object for the successive calls.
- *
- * We call the `r_scale != c_scale` case the "rectangular adjacency matrix" case (IOW generating
- * bipartite graphs). In this case, at `depth >= r_scale`, the distribution is assumed to be:
- * `[theta[4 * depth] + theta[4 * depth + 2], theta[4 * depth + 1] + theta[4 * depth + 3]; 0, 0]`.
- * Then for `depth >= c_scale`, the distribution is assumed to be:
- * `[theta[4 * depth] + theta[4 * depth + 1], 0; theta[4 * depth + 2] + theta[4 * depth + 3], 0]`.
- *
- * @note This can generate duplicate edges and self-loops. It is the responsibility of the
- *       caller to clean them up accordingly.
-
- * @note This also only generates directed graphs. If undirected graphs are needed, then a
- *       separate post-processing step is expected to be done by the caller.
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(IdxT* out,
@@ -143,27 +131,6 @@ void rmat_rectangular_gen(IdxT* out,
 {
   detail::rmat_rectangular_gen_caller(
     out, out_src, out_dst, theta, r_scale, c_scale, n_edges, stream, r);
-}
-
-/**
- * This is the same as the previous method but assumes the same a, b, c, d probability
- * distributions across all the scales
- */
-template <typename IdxT, typename ProbT>
-void rmat_rectangular_gen(IdxT* out,
-                          IdxT* out_src,
-                          IdxT* out_dst,
-                          ProbT a,
-                          ProbT b,
-                          ProbT c,
-                          IdxT r_scale,
-                          IdxT c_scale,
-                          IdxT n_edges,
-                          cudaStream_t stream,
-                          raft::random::RngState& r)
-{
-  detail::rmat_rectangular_gen_caller(
-    out, out_src, out_dst, a, b, c, r_scale, c_scale, n_edges, stream, r);
 }
 
 /**
@@ -195,6 +162,30 @@ void rmat_rectangular_gen(const raft::handle_t& handle,
                                       handle.get_stream(),
                                       r);
 }
+
+/**
+ * @brief Legacy overload of `rmat_rectangular_gen`
+ *   taking raw arrays instead of mdspan.
+ *   This overload assumes the same a, b, c, d probability distributions
+ *   across all the scales.
+ */
+template <typename IdxT, typename ProbT>
+void rmat_rectangular_gen(IdxT* out,
+                          IdxT* out_src,
+                          IdxT* out_dst,
+                          ProbT a,
+                          ProbT b,
+                          ProbT c,
+                          IdxT r_scale,
+                          IdxT c_scale,
+                          IdxT n_edges,
+                          cudaStream_t stream,
+                          raft::random::RngState& r)
+{
+  detail::rmat_rectangular_gen_caller(
+    out, out_src, out_dst, a, b, c, r_scale, c_scale, n_edges, stream, r);
+}
+
 /** @} */
 
 }  // end namespace raft::random

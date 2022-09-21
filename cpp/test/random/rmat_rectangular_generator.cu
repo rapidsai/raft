@@ -295,10 +295,10 @@ class RmatGenMdspanTest : public ::testing::TestWithParam<RmatInputs> {
       raft::device_vector_view<const float, index_type> theta_view(theta.data(), theta.size());
       rmat_rectangular_gen(handle,
                            state,
+                           theta_view,
                            out_view,
                            out_src_view,
                            out_dst_view,
-                           theta_view,
                            params.r_scale,
                            params.c_scale,
                            params.n_edges);
