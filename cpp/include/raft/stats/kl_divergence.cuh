@@ -62,7 +62,7 @@ DataT kl_divergence(const raft::handle_t& handle,
   RAFT_EXPECTS(modelPDF.is_exhaustive(), "modelPDF must be contiguous");
   RAFT_EXPECTS(candidatePDF.is_exhaustive(), "candidatePDF must be contiguous");
   return detail::kl_divergence(
-    modelPDF.data_handle(), candidatePDF.data_handle(), modelPDF.size(), handle.get_stream());
+    modelPDF.data_handle(), candidatePDF.data_handle(), modelPDF.extent(0), handle.get_stream());
 }
 
 };  // end namespace stats

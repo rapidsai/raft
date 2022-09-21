@@ -70,7 +70,7 @@ double completeness_score(const raft::handle_t& handle,
   RAFT_EXPECTS(predClusterArray.is_exhaustive(), "predClusterArray must be contiguous");
   return detail::homogeneity_score(predClusterArray.data_handle(),
                                    truthClusterArray.data_handle(),
-                                   truthClusterArray.size(),
+                                   truthClusterArray.extent(0),
                                    lowerLabelRange,
                                    upperLabelRange,
                                    handle.get_stream());

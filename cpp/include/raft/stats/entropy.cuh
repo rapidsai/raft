@@ -66,7 +66,7 @@ double entropy(const raft::handle_t& handle,
 {
   RAFT_EXPECTS(clusterArray.is_exhaustive(), "clusterArray must be contiguous");
   return detail::entropy(clusterArray.data_handle(),
-                         clusterArray.size(),
+                         clusterArray.extent(0),
                          lowerLabelRange,
                          upperLabelRange,
                          handle.get_stream());

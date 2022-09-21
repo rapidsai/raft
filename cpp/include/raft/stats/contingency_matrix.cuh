@@ -162,27 +162,26 @@ template <typename DataT,
           typename OutType,
           typename IdxType,
           typename LayoutPolicy,
-          typename WorkspaceType,
-          typename = raft::enable_if_mdspan<WorkspaceType>>
-void contingencyMatrix(const raft::handle_t& handle,
-                       raft::device_vector_view<const DataT, IdxType> groundTruth,
-                       raft::device_vector_view<const DataT, IdxType> predictedLabel,
-                       raft::device_matrix_view<OutType, IdxType, LayoutPolicy> outMat,
-                       std::optional<WorkspaceType> workspace,
-                       std::optional<DataT> minLabel = std::nullopt,
-                       std::optional<DataT> maxLabel = std::nullopt)
+          typename WorkspaceDataType>
+void contingencyMatrix(
+  const raft::handle_t& handle,
+  raft::device_vector_view<const DataT, IdxType> groundTruth,
+  raft::device_vector_view<const DataT, IdxType> predictedLabel,
+  raft::device_matrix_view<OutType, IdxType, LayoutPolicy> outMat,
+  std::optional<raft::device_vector_view<WorkspaceDataType, IdxType>> workspace,
+  std::optional<DataT> minLabel = std::nullopt,
+  std::optional<DataT> maxLabel = std::nullopt)
 {
   RAFT_EXPECTS(groundTruth.size() == predictedLabel.size(), "Size mismatch");
   RAFT_EXPECTS(groundTruth.is_exhaustive(), "groundTruth must be contiguous");
   RAFT_EXPECTS(predictedLabel.is_exhaustive(), "predictedLabel must be contiguous");
   RAFT_EXPECTS(outMat.is_exhaustive(), "outMat must be contiguous");
 
-  using workspaceElemType        = typename WorkspaceType::element_type;
-  workspaceElemType* workspace_p = nullptr;
+  WorkspaceDataType* workspace_p = nullptr;
   IdxType workspace_size         = 0;
   if (workspace.has_value()) {
     workspace_p    = workspace.value().data_handle();
-    workspace_size = workspace.value().size() * sizeof(workspaceElemType);
+    workspace_size = workspace.value().size() * sizeof(WorkspaceDataType);
   }
   DataT minLabelValue = std::numeric_limits<DataT>::max();
   DataT maxLabelValue = std::numeric_limits<DataT>::max();
@@ -190,7 +189,7 @@ void contingencyMatrix(const raft::handle_t& handle,
   if (maxLabel.has_value()) { maxLabelValue = maxLabel.value(); }
   detail::contingencyMatrix<DataT, OutType>(groundTruth.data_handle(),
                                             predictedLabel.data_handle(),
-                                            groundTruth.size(),
+                                            groundTruth.extent(0),
                                             outMat.data_handle(),
                                             handle.get_stream(),
                                             workspace_p,

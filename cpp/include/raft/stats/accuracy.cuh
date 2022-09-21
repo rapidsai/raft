@@ -60,7 +60,7 @@ float accuracy(const raft::handle_t& handle,
 
   return detail::accuracy_score(predictions.data_handle(),
                                 ref_predictions.data_handle(),
-                                predictions.size(),
+                                predictions.extent(0),
                                 handle.get_stream());
 }
 }  // namespace stats

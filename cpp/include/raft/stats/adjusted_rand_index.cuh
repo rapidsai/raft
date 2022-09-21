@@ -70,7 +70,7 @@ double adjusted_rand_index(const raft::handle_t& handle,
 
   return detail::compute_adjusted_rand_index<DataT, MathT>(firstClusterArray.data_handle(),
                                                            secondClusterArray.data_handle(),
-                                                           firstClusterArray.size(),
+                                                           firstClusterArray.extent(0),
                                                            handle.get_stream());
 }
 
