@@ -465,7 +465,7 @@ HistType selectBestHistAlgo(IdxT nbins)
  * @param nbins number of bins
  * @param data input data (length = ncols * nrows)
  * @param nrows data array length in each column (or batch)
- * @param ncols number of columsn (or batch size)
+ * @param ncols number of columns (or batch size)
  * @param stream cuda stream
  * @param binner the operation that computes the bin index of the input data
  *

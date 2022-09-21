@@ -62,12 +62,11 @@ double homogeneity_score(const T* truthClusterArray,
  * @param upperLabelRange: the upper bound of the range of labels
  */
 template <typename DataT, typename IdxType>
-double homogeneity_score(
-  const raft::handle_t& handle,
-  raft::device_vector_view<const DataT, IdxType> truthClusterArray,
-  raft::device_vector_view<const DataT, IdxType> predClusterArray,
-  DataT lowerLabelRange,
-  DataT upperLabelRange)
+double homogeneity_score(const raft::handle_t& handle,
+                         raft::device_vector_view<const DataT, IdxType> truthClusterArray,
+                         raft::device_vector_view<const DataT, IdxType> predClusterArray,
+                         DataT lowerLabelRange,
+                         DataT upperLabelRange)
 {
   RAFT_EXPECTS(truthClusterArray.size() == predClusterArray.size(), "Size mismatch");
   RAFT_EXPECTS(truthClusterArray.is_exhaustive(), "truthClusterArray must be contiguous");

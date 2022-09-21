@@ -81,13 +81,12 @@ void information_criterion_batched(ScalarT* d_ic,
  * @param[in]  n_samples        Number of samples in each series
  */
 template <typename DataT, typename IdxType>
-void information_criterion_batched(
-  const raft::handle_t& handle,
-  raft::device_vector_view<DataT, IdxType> d_ic,
-  raft::device_vector_view<const DataT, IdxType> d_loglikelihood,
-  IC_Type ic_type,
-  IdxType n_params,
-  IdxType n_samples)
+void information_criterion_batched(const raft::handle_t& handle,
+                                   raft::device_vector_view<DataT, IdxType> d_ic,
+                                   raft::device_vector_view<const DataT, IdxType> d_loglikelihood,
+                                   IC_Type ic_type,
+                                   IdxType n_params,
+                                   IdxType n_samples)
 {
   RAFT_EXPECTS(d_ic.size() == d_loglikelihood.size(), "Size mismatch");
   RAFT_EXPECTS(d_ic.is_exhaustive(), "d_ic must be contiguous");

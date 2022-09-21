@@ -74,23 +74,18 @@ DataT dispersion(const DataT* centroids,
  * @param nPoints number of points in the dataset
  * @return the cluster dispersion value
  */
-template <typename DataT,
-          typename IdxType = int,
-          typename LayoutPolicy,
-          int TPB = 256>
-DataT dispersion(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<const DataT, IdxType, raft::row_major> centroids,
-  raft::device_vector_view<const IdxType, IdxType> clusterSizes,
-  std::optional<raft::device_vector_view<DataT, IdxType>> globalCentroid,
-  const IdxType nPoints)
+template <typename DataT, typename IdxType, int TPB = 256>
+DataT dispersion(const raft::handle_t& handle,
+                 raft::device_matrix_view<const DataT, IdxType, raft::row_major> centroids,
+                 raft::device_vector_view<const IdxType, IdxType> clusterSizes,
+                 std::optional<raft::device_vector_view<DataT, IdxType>> globalCentroid,
+                 const IdxType nPoints)
 {
-  RAFT_EXPECTS(clusterSizes.size() == centroids.extent(0), "Size mismatch");
+  RAFT_EXPECTS(clusterSizes.extent(0) == centroids.extent(0), "Size mismatch");
   RAFT_EXPECTS(clusterSizes.is_exhaustive(), "clusterSizes must be contiguous");
 
   DataT* globalCentroid_ptr = nullptr;
-  if (globalCentroid.has_value()) 
-  { 
+  if (globalCentroid.has_value()) {
     RAFT_EXPECTS(globalCentroid.value().is_exhaustive(), "globalCentroid must be contiguous");
     globalCentroid_ptr = globalCentroid.value().data_handle();
   }

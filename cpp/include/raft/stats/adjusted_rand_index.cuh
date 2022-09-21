@@ -59,22 +59,19 @@ double adjusted_rand_index(const T* firstClusterArray,
  * @param firstClusterArray: the array of classes
  * @param secondClusterArray: the array of classes
  */
-template <typename DataT,
-          typename MathT = int,
-          typename IdxType>
-double adjusted_rand_index(
-  const raft::handle_t& handle,
-  raft::device_vector_view<const DataT, IdxType> firstClusterArray,
-  raft::device_vector_view<const DataT, IdxType> secondClusterArray)
+template <typename DataT, typename MathT = int, typename IdxType>
+double adjusted_rand_index(const raft::handle_t& handle,
+                           raft::device_vector_view<const DataT, IdxType> firstClusterArray,
+                           raft::device_vector_view<const DataT, IdxType> secondClusterArray)
 {
   RAFT_EXPECTS(firstClusterArray.size() == secondClusterArray.size(), "Size mismatch");
   RAFT_EXPECTS(firstClusterArray.is_exhaustive(), "firstClusterArray must be contiguous");
   RAFT_EXPECTS(secondClusterArray.is_exhaustive(), "secondClusterArray must be contiguous");
 
   return detail::compute_adjusted_rand_index<DataT, MathT>(firstClusterArray.data_handle(),
-                                                       secondClusterArray.data_handle(),
-                                                       firstClusterArray.size(),
-                                                       handle.get_stream());
+                                                           secondClusterArray.data_handle(),
+                                                           firstClusterArray.size(),
+                                                           handle.get_stream());
 }
 
 };  // end namespace stats

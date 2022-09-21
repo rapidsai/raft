@@ -74,16 +74,17 @@ void meanvar(Type* mean,
  * @param [in] sample whether to evaluate sample variance or not. In other words, whether to
  * normalize the variance using N-1 or N, for true or false respectively.
  */
-template <typename DataT,
-          typename IdxType = int,
-          typename LayoutPolicy>
+template <typename DataT, typename IdxType = int, typename LayoutPolicy>
 void meanvar(const raft::handle_t& handle,
              raft::device_vector_view<DataT, IdxType> mean,
              raft::device_vector_view<DataT, IdxType> var,
              raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
              bool sample)
 {
-  RAFT_EXPECTS(data.extent(0) == var.size(), "Size mismatch betwen data and var");
+  static_assert(
+    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    "Data layout not supported");
+  RAFT_EXPECTS(data.extent(0) == var.extent(0), "Size mismatch betwen data and var");
   RAFT_EXPECTS(mean.size() == var.size(), "Size mismatch betwen mean and var");
   RAFT_EXPECTS(mean.is_exhaustive(), "mean must be contiguous");
   RAFT_EXPECTS(var.is_exhaustive(), "var must be contiguous");

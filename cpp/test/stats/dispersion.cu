@@ -64,11 +64,11 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     for (const auto& val : h_counts) {
       npoints += val;
     }
-    actualVal = dispersion<T, int>(
+    actualVal = dispersion(
       handle,
-      raft::make_device_matrix_view(data.data(), params.clusters, params.dim),
-      raft::make_device_vector_view(counts.data(), params.clusters),
-      std::make_optional(raft::make_device_vector_view(act_mean.data(), params.dim)),
+      raft::make_device_matrix_view<const T, int>(data.data(), params.clusters, params.dim),
+      raft::make_device_vector_view<const int, int>(counts.data(), params.clusters),
+      std::make_optional(raft::make_device_vector_view<T, int>(act_mean.data(), params.dim)),
       npoints);
     expectedVal = T(0);
     std::vector<T> h_data(len, T(0));

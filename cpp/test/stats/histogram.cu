@@ -86,8 +86,10 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     naiveHist(ref_bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
     histogram<int>(handle,
                    params.type,
-                   raft::make_device_matrix_view(bins.data(), params.nbins, params.ncols),
-                   raft::make_device_matrix_view<const int>(in.data(), params.nrows, params.ncols));
+                   raft::make_device_matrix_view<int, int, raft::col_major>(
+                     bins.data(), params.nbins, params.ncols),
+                   raft::make_device_matrix_view<const int, int, raft::col_major>(
+                     in.data(), params.nrows, params.ncols));
     handle.sync_stream();
   }
 

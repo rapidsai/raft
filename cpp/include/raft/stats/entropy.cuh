@@ -59,11 +59,10 @@ double entropy(const T* clusterArray,
  * @return the entropy score
  */
 template <typename DataT, typename IdxType>
-double entropy(
-  const raft::handle_t& handle,
-  raft::device_vector_view<const DataT, IdxType> clusterArray,
-  const DataT lowerLabelRange,
-  const DataT upperLabelRange)
+double entropy(const raft::handle_t& handle,
+               raft::device_vector_view<const DataT, IdxType> clusterArray,
+               const DataT lowerLabelRange,
+               const DataT upperLabelRange)
 {
   RAFT_EXPECTS(clusterArray.is_exhaustive(), "clusterArray must be contiguous");
   return detail::entropy(clusterArray.data_handle(),

@@ -123,11 +123,10 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     int numElements = params.nElements;
     raft::stats::contingencyMatrix(
       handle,
-      raft::make_device_vector_view(dY.data(), numElements),
-      raft::make_device_vector_view(dYHat.data(), numElements),
+      raft::make_device_vector_view<const T>(dY.data(), numElements),
+      raft::make_device_vector_view<const T>(dYHat.data(), numElements),
       raft::make_device_matrix_view(dComputedOutput.data(), numUniqueClasses, numUniqueClasses),
-      (void*)pWorkspace.data(),
-      workspaceSz,
+      std::make_optional(raft::make_device_vector_view(pWorkspace.data(), workspaceSz)),
       minLabel,
       maxLabel);
 

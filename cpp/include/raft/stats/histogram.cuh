@@ -72,28 +72,29 @@ void histogram(HistType type,
  * @tparam LayoutPolicy Layout type of the input data.
  * @param handle the raft handle
  * @param type histogram implementation type to choose
- * @param bins the output bins (length = ncols * nbins)
- * @param data input data (length = ncols * nrows)
+ * @param bins the output bins col-major (length = nbins * ncols)
+ * @param data input data col-major (length = nrows * ncols)
  * @param binner the operation that computes the bin index of the input data
  *
  * @note signature of BinnerOp is `int func(DataT, IdxT);`
  */
 template <typename DataT,
           typename IdxType  = int,
-          typename BinnerOp = IdentityBinner<DataT, IdxType>,
-          typename LayoutPolicy>
+          typename BinnerOp = IdentityBinner<DataT, IdxType>>
 void histogram(const raft::handle_t& handle,
                HistType type,
-               raft::device_matrix_view<int, IdxType, LayoutPolicy> bins,
-               raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
+               raft::device_matrix_view<int, IdxType, raft::col_major> bins,
+               raft::device_matrix_view<const DataT, IdxType, raft::col_major> data,
                BinnerOp binner = IdentityBinner<DataT, IdxType>())
 {
-  RAFT_EXPECTS(bins.extent(0) == data.extent(0), "Size mismatch");
+  RAFT_EXPECTS(std::is_integral_v<IdxType> && data.extent(0) <= std::numeric_limits<int>::max(),
+               "Index type not supported");
+  RAFT_EXPECTS(bins.extent(1) == data.extent(1), "Size mismatch");
   RAFT_EXPECTS(bins.is_exhaustive(), "bins must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   detail::histogram<DataT, IdxType, BinnerOp>(type,
                                               bins.data_handle(),
-                                              bins.extent(1),
+                                              bins.extent(0),
                                               data.data_handle(),
                                               data.extent(0),
                                               data.extent(1),

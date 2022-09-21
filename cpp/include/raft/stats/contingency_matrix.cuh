@@ -51,11 +51,10 @@ void getInputClassCardinality(
  * @param maxLabel: [out] calculated max value in input array
  */
 template <typename DataT, typename IdxType>
-void getInputClassCardinality(
-  const raft::handle_t& handle,
-  raft::device_vector_view<const DataT, IdxType> groundTruth,
-  raft::host_scalar_view<DataT> minLabel,
-  raft::host_scalar_view<DataT> maxLabel)
+void getInputClassCardinality(const raft::handle_t& handle,
+                              raft::device_vector_view<const DataT, IdxType> groundTruth,
+                              raft::host_scalar_view<DataT> minLabel,
+                              raft::host_scalar_view<DataT> maxLabel)
 {
   detail::getInputClassCardinality(groundTruth.data_handle(),
                                    groundTruth.extent(0),
@@ -93,13 +92,11 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
  * @param minLabel: Optional, min value in input array
  * @param maxLabel: Optional, max value in input array
  */
-template <typename DataT,
-          typename IdxType>
-size_t getContingencyMatrixWorkspaceSize(
-  const raft::handle_t& handle,
-  raft::device_vector_view<const DataT, IdxType> groundTruth,
-  DataT minLabel = std::numeric_limits<DataT>::max(),
-  DataT maxLabel = std::numeric_limits<DataT>::max())
+template <typename DataT, typename IdxType>
+size_t getContingencyMatrixWorkspaceSize(const raft::handle_t& handle,
+                                         raft::device_vector_view<const DataT, IdxType> groundTruth,
+                                         DataT minLabel = std::numeric_limits<DataT>::max(),
+                                         DataT maxLabel = std::numeric_limits<DataT>::max())
 {
   return detail::getContingencyMatrixWorkspaceSize(
     groundTruth.extent(0), groundTruth.data_handle(), handle.get_stream(), minLabel, maxLabel);
@@ -164,37 +161,38 @@ void contingencyMatrix(const T* groundTruth,
 template <typename DataT,
           typename OutType,
           typename IdxType,
-          typename LayoutPolicy>
-void contingencyMatrix(
-  const raft::handle_t& handle,
-  raft::device_vector_view<const DataT, IdxType> groundTruth,
-  raft::device_vector_view<const DataT, IdxType> predictedLabel,
-  raft::device_matrix_view<OutType, IdxType, LayoutPolicy> outMat,
-  std::optional<raft::device_vector_view<DataT, IdxType>> workspace,
-  DataT minLabel           = std::numeric_limits<DataT>::max(),
-  DataT maxLabel           = std::numeric_limits<DataT>::max())
+          typename LayoutPolicy,
+          typename WorkspaceType,
+          typename = raft::enable_if_mdspan<WorkspaceType>>
+void contingencyMatrix(const raft::handle_t& handle,
+                       raft::device_vector_view<const DataT, IdxType> groundTruth,
+                       raft::device_vector_view<const DataT, IdxType> predictedLabel,
+                       raft::device_matrix_view<OutType, IdxType, LayoutPolicy> outMat,
+                       std::optional<WorkspaceType> workspace,
+                       DataT minLabel = std::numeric_limits<DataT>::max(),
+                       DataT maxLabel = std::numeric_limits<DataT>::max())
 {
   RAFT_EXPECTS(groundTruth.size() == predictedLabel.size(), "Size mismatch");
   RAFT_EXPECTS(groundTruth.is_exhaustive(), "groundTruth must be contiguous");
   RAFT_EXPECTS(predictedLabel.is_exhaustive(), "predictedLabel must be contiguous");
   RAFT_EXPECTS(outMat.is_exhaustive(), "outMat must be contiguous");
 
-  DataT* workspace_p = nullptr;
-  IdxType workspace_size = 0;
-  if (workspace.has_value())
-  {
-    workspace_p = workspace.value().data_handle();
-    workspace_size = workspace.value().size();
+  using workspaceElemType        = typename WorkspaceType::element_type;
+  workspaceElemType* workspace_p = nullptr;
+  IdxType workspace_size         = 0;
+  if (workspace.has_value()) {
+    workspace_p    = workspace.value().data_handle();
+    workspace_size = workspace.value().size() * sizeof(workspaceElemType);
   }
   detail::contingencyMatrix<DataT, OutType>(groundTruth.data_handle(),
-                                        predictedLabel.data_handle(),
-                                        groundTruth.size(),
-                                        outMat.data_handle(),
-                                        handle.get_stream(),
-                                        workspace_p,
-                                        workspace_size,
-                                        minLabel,
-                                        maxLabel);
+                                            predictedLabel.data_handle(),
+                                            groundTruth.size(),
+                                            outMat.data_handle(),
+                                            handle.get_stream(),
+                                            workspace_p,
+                                            workspace_size,
+                                            minLabel,
+                                            maxLabel);
 }
 
 };  // namespace stats

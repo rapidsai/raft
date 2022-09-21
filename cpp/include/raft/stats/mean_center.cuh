@@ -64,28 +64,29 @@ void meanCenter(Type* out,
  * @param mu the mean vector
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename DataT,
-          typename IdxType,
-          typename LayoutPolicy,
-          int TPB = 256>
+template <typename DataT, typename IdxType, typename LayoutPolicy, int TPB = 256>
 void meanCenter(const raft::handle_t& handle,
                 raft::device_matrix_view<DataT, IdxType, LayoutPolicy> out,
                 raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
                 raft::device_vector_view<const DataT, IdxType> mu,
-                bool bcastAlongRows)
+                bool bcastAlongRows,
+                std::integral_constant<int, TPB>)
 {
+  static_assert(
+    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    "Data layout not supported");
   RAFT_EXPECTS(out.size() == data.size(), "Size mismatch");
-  RAFT_EXPECTS(data.extent(0) == mu.size(), "Size mismatch betwen data and mu");
+  RAFT_EXPECTS(data.extent(0) == mu.extent(0), "Size mismatch betwen data and mu");
   RAFT_EXPECTS(out.is_exhaustive(), "out must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   detail::meanCenter<DataT, IdxType, TPB>(out.data_handle(),
-                                         data.data_handle(),
-                                         mu.data_handle(),
-                                         data.extent(1),
-                                         data.extent(0),
-                                         std::is_same_v<LayoutPolicy, raft::row_major>,
-                                         bcastAlongRows,
-                                         handle.get_stream());
+                                          data.data_handle(),
+                                          mu.data_handle(),
+                                          data.extent(1),
+                                          data.extent(0),
+                                          std::is_same_v<LayoutPolicy, raft::row_major>,
+                                          bcastAlongRows,
+                                          handle.get_stream());
 }
 
 /**
@@ -127,28 +128,29 @@ void meanAdd(Type* out,
  * @param mu the mean vector
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
-template <typename DataT,
-          typename IdxType,
-          typename LayoutPolicy,
-          int TPB = 256>
+template <typename DataT, typename IdxType, typename LayoutPolicy, int TPB = 256>
 void meanAdd(const raft::handle_t& handle,
              raft::device_matrix_view<DataT, IdxType, LayoutPolicy> out,
              raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
              raft::device_vector_view<const DataT, IdxType> mu,
-             bool bcastAlongRows)
+             bool bcastAlongRows,
+             std::integral_constant<int, TPB>)
 {
+  static_assert(
+    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    "Data layout not supported");
   RAFT_EXPECTS(out.size() == data.size(), "Size mismatch");
   RAFT_EXPECTS(data.extent(0) == mu.size(), "Size mismatch betwen data and mu");
   RAFT_EXPECTS(out.is_exhaustive(), "out must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   detail::meanAdd<DataT, IdxType, TPB>(out.data_handle(),
-                                      data.data_handle(),
-                                      mu.data_handle(),
-                                      data.extent(1),
-                                      data.extent(0),
-                                      std::is_same_v<LayoutPolicy, raft::row_major>,
-                                      bcastAlongRows,
-                                      handle.get_stream());
+                                       data.data_handle(),
+                                       mu.data_handle(),
+                                       data.extent(1),
+                                       data.extent(0),
+                                       std::is_same_v<LayoutPolicy, raft::row_major>,
+                                       bcastAlongRows,
+                                       handle.get_stream());
 }
 };  // end namespace stats
 };  // end namespace raft

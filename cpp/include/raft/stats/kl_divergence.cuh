@@ -54,10 +54,9 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
  * @param candidatePDF: the candidate array of probability density functions of type DataT
  */
 template <typename DataT, typename IdxType>
-DataT kl_divergence(
-  const raft::handle_t& handle,
-  raft::device_vector_view<const DataT, IdxType> modelPDF,
-  raft::device_vector_view<const DataT, IdxType> candidatePDF)
+DataT kl_divergence(const raft::handle_t& handle,
+                    raft::device_vector_view<const DataT, IdxType> modelPDF,
+                    raft::device_vector_view<const DataT, IdxType> candidatePDF)
 {
   RAFT_EXPECTS(modelPDF.size() == candidatePDF.size(), "Size mismatch");
   RAFT_EXPECTS(modelPDF.is_exhaustive(), "modelPDF must be contiguous");

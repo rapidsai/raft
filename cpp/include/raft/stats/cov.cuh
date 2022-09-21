@@ -86,6 +86,9 @@ void cov(const raft::handle_t& handle,
          bool sample,
          bool stable)
 {
+  static_assert(
+    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    "Data layout not supported");
   RAFT_EXPECTS(data.size() == covar.size(), "Size mismatch");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   RAFT_EXPECTS(covar.is_exhaustive(), "covar must be contiguous");

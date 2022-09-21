@@ -70,18 +70,20 @@ class MeanVarTest : public ::testing::TestWithParam<MeanVarInputs<T>> {
 
     if (params.rowMajor) {
       using layout = raft::row_major;
-      meanvar(handle,
-              raft::make_device_vector_view<T, int, layout>(mean_act.data(), params.cols),
-              raft::make_device_vector_view<T, int, layout>(vars_act.data(), params.cols),
-              raft::make_device_matrix_view<const T, int, layout>(data.data(), params.rows, params.cols),
-              params.sample);
+      meanvar(
+        handle,
+        raft::make_device_vector_view<T, int>(mean_act.data(), params.cols),
+        raft::make_device_vector_view<T, int>(vars_act.data(), params.cols),
+        raft::make_device_matrix_view<const T, int, layout>(data.data(), params.rows, params.cols),
+        params.sample);
     } else {
       using layout = raft::col_major;
-      meanvar(handle,
-              raft::make_device_vector_view<T, int, layout>(mean_act.data(), params.cols),
-              raft::make_device_vector_view<T, int, layout>(vars_act.data(), params.cols),
-              raft::make_device_matrix_view<const T, int, layout>(data.data(), params.rows, params.cols),
-              params.sample);
+      meanvar(
+        handle,
+        raft::make_device_vector_view<T, int>(mean_act.data(), params.cols),
+        raft::make_device_vector_view<T, int>(vars_act.data(), params.cols),
+        raft::make_device_matrix_view<const T, int, layout>(data.data(), params.rows, params.cols),
+        params.sample);
     }
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }

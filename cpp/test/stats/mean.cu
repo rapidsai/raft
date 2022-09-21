@@ -68,14 +68,14 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
     if (params.rowMajor) {
       using layout = raft::row_major;
       mean(handle,
-           raft::make_device_vector_view<T, int, layout>(mean_act.data(), rows * cols),
-           raft::make_device_matrix_view<T, int, layout>(data, rows, cols),
+           raft::make_device_vector_view<T, int>(mean_act.data(), rows * cols),
+           raft::make_device_matrix_view<const T, int, layout>(data, rows, cols),
            params.sample);
     } else {
       using layout = raft::col_major;
       mean(handle,
-           raft::make_device_vector_view<T, int, layout>(mean_act.data(), rows * cols),
-           raft::make_device_matrix_view<T, int, layout>(data, rows, cols),
+           raft::make_device_vector_view<T, int>(mean_act.data(), rows * cols),
+           raft::make_device_matrix_view<const T, int, layout>(data, rows, cols),
            params.sample);
     }
   }

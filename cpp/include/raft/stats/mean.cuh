@@ -64,15 +64,16 @@ void mean(
  * @param sample: whether to evaluate sample mean or not. In other words, whether
  *   to normalize the output using N-1 or N, for true or false, respectively
  */
-template <typename DataT,
-          typename IdxType = int,
-          typename LayoutPolicy>
+template <typename DataT, typename IdxType = int, typename LayoutPolicy>
 void mean(const raft::handle_t& handle,
           raft::device_vector_view<DataT, IdxType> mu,
           raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
           bool sample)
 {
-  RAFT_EXPECTS(data.extent(0) == mu.size(), "Size mismatch betwen data and mu");
+  static_assert(
+    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    "Data layout not supported");
+  RAFT_EXPECTS(data.extent(0) == mu.extent(0), "Size mismatch betwen data and mu");
   RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   detail::mean(mu.data_handle(),
