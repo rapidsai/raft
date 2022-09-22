@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -30,11 +30,12 @@ namespace raft::matrix {
  * @param[out] out: output matrix. The result is stored in the out matrix
  */
 template <typename math_t>
-void seq_root(const raft::handle_t &handle,
+void seq_root(const raft::handle_t& handle,
               raft::device_matrix_view<math_t> in,
-              raft::device_matrix_view<math_t> out) {
-    RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have same size.");
-    detail::seqRoot(in.data_handle(), out.data_handle(), in.size(), handle.get_stream());
+              raft::device_matrix_view<math_t> out)
+{
+  RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have same size.");
+  detail::seqRoot(in.data_handle(), out.data_handle(), in.size(), handle.get_stream());
 }
 
 /**
@@ -44,10 +45,9 @@ void seq_root(const raft::handle_t &handle,
  * @param[inout] inout: input matrix with in-place results
  */
 template <typename math_t, typename IdxType = int>
-void seq_root(const raft::handle_t &handle,
-              raft::device_matrix_view<math_t> inout)
+void seq_root(const raft::handle_t& handle, raft::device_matrix_view<math_t> inout)
 {
-    detail::seqRoot(inout.data_handle(), inout.size(), handle.get_stream());
+  detail::seqRoot(inout.data_handle(), inout.size(), handle.get_stream());
 }
 
 /**
@@ -60,14 +60,15 @@ void seq_root(const raft::handle_t &handle,
  * @param[in] set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t>
-void weighted_seq_root(const raft::handle_t &handle,
-             raft::device_matrix_view<math_t> in,
-             raft::device_matrix_view<math_t> out,
-             math_t scalar,
-             bool set_neg_zero = false)
+void weighted_seq_root(const raft::handle_t& handle,
+                       raft::device_matrix_view<math_t> in,
+                       raft::device_matrix_view<math_t> out,
+                       math_t scalar,
+                       bool set_neg_zero = false)
 {
-    RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have same size.");
-    detail::seqRoot(in.data_handle(), out.data_handle(), scalar, in.size(), handle.get_stream(), set_neg_zero);
+  RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have same size.");
+  detail::seqRoot(
+    in.data_handle(), out.data_handle(), scalar, in.size(), handle.get_stream(), set_neg_zero);
 }
 
 /**
@@ -79,14 +80,12 @@ void weighted_seq_root(const raft::handle_t &handle,
  * @param set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t>
-void weighted_seq_root(
-        const raft::handle_t &handle,
-        raft::device_matrix_view<math_t> inout,
-        math_t scalar, bool set_neg_zero = false)
+void weighted_seq_root(const raft::handle_t& handle,
+                       raft::device_matrix_view<math_t> inout,
+                       math_t scalar,
+                       bool set_neg_zero = false)
 {
-    detail::seqRoot(inout.data_handle(), scalar, inout.size(), handle.get_stream(), set_neg_zero);
+  detail::seqRoot(inout.data_handle(), scalar, inout.size(), handle.get_stream(), set_neg_zero);
 }
 
-
-
-}
+}  // namespace raft::matrix

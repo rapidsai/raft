@@ -17,12 +17,12 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
-    /**
+/**
  * Run a function over matrix lines (rows or columns) with a variable number
  * row-vectors or column-vectors.
  * The term `line` here signifies that the lines can be either columns or rows,
@@ -47,15 +47,16 @@ namespace raft::matrix {
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
 template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
-void linewise_op(const raft::handle_t &handle,
+void linewise_op(const raft::handle_t& handle,
                  raft::device_matrix_view<const m_t> in,
                  raft::device_matrix_view<m_t> out,
                  const idx_t lineLen,
                  const idx_t nLines,
                  const bool alongLines,
                  Lambda op,
-                 raft::device_vector_view<Vecs>... vecs) {
-    detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
-            out, in, lineLen, nLines, alongLines, op, stream, vecs...);
+                 raft::device_vector_view<Vecs>... vecs)
+{
+  detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
+    out, in, lineLen, nLines, alongLines, op, stream, vecs...);
 }
-}
+}  // namespace raft::matrix

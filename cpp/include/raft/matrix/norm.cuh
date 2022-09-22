@@ -17,11 +17,10 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
-
 
 /**
  * @brief Get the L2/F-norm of a matrix
@@ -31,9 +30,8 @@ namespace raft::matrix {
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t>
-m_t l2_norm(const raft::handle_t& handle,
-            raft::device_mdspan<m_t, idx_t> in)
+m_t l2_norm(const raft::handle_t& handle, raft::device_mdspan<m_t, idx_t> in)
 {
-    return detail::getL2Norm(handle, in.data_handle(), in.size(), handle.get_stream());
+  return detail::getL2Norm(handle, in.data_handle(), in.size(), handle.get_stream());
 }
-}
+}  // namespace raft::matrix

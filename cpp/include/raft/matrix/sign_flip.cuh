@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -29,8 +29,9 @@ namespace raft::matrix {
  * @param inout: input matrix. Result also stored in this parameter
  */
 template <typename math_t, typename idx_t>
-void sign_flip(const raft::handle_t &handle,
-               raft::device_matrix_view<math_t, idx_t, col_major> inout) {
-    detail::signFlip(inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
+void sign_flip(const raft::handle_t& handle,
+               raft::device_matrix_view<math_t, idx_t, col_major> inout)
+{
+  detail::signFlip(inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
 }
-}
+}  // namespace raft::matrix

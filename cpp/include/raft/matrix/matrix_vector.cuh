@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <raft/core/device_mdspan.hpp>
 #include "detail/matrix.cuh"
+#include <raft/core/device_mdspan.hpp>
 
 namespace raft::matrix {
 
-    /**
+/**
  * @brief multiply each row or column of matrix with vector, skipping zeros in vector
  * @param data input matrix, results are in-place
  * @param vec input vector
@@ -33,15 +33,15 @@ namespace raft::matrix {
  */
 template <typename Type, typename IdxType = int, int TPB = 256>
 void binary_mult_skip_zero(Type* data,
-                                    const Type* vec,
-                                    IdxType n_row,
-                                    IdxType n_col,
-                                    bool rowMajor,
-                                    bool bcastAlongRows,
-                                    cudaStream_t stream)
+                           const Type* vec,
+                           IdxType n_row,
+                           IdxType n_col,
+                           bool rowMajor,
+                           bool bcastAlongRows,
+                           cudaStream_t stream)
 {
-    detail::matrixVectorBinaryMultSkipZero<Type, IdxType, TPB>(
-            data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
+  detail::matrixVectorBinaryMultSkipZero<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
 }
 
 /**
@@ -54,20 +54,20 @@ void binary_mult_skip_zero(Type* data,
  * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
  * @param stream cuda stream
  */
-    template <typename Type, typename IdxType = int, int TPB = 256>
-    void binary_div(Type* data,
-                               const Type* vec,
-                               IdxType n_row,
-                               IdxType n_col,
-                               bool rowMajor,
-                               bool bcastAlongRows,
-                               cudaStream_t stream)
-    {
-        detail::matrixVectorBinaryDiv<Type, IdxType, TPB>(
-                data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
-    }
+template <typename Type, typename IdxType = int, int TPB = 256>
+void binary_div(Type* data,
+                const Type* vec,
+                IdxType n_row,
+                IdxType n_col,
+                bool rowMajor,
+                bool bcastAlongRows,
+                cudaStream_t stream)
+{
+  detail::matrixVectorBinaryDiv<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
+}
 
-    /**
+/**
  * @brief divide each row or column of matrix with vector, skipping zeros in vector
  * @param data input matrix, results are in-place
  * @param vec input vector
@@ -79,21 +79,21 @@ void binary_mult_skip_zero(Type* data,
  * @param return_zero result is zero if true and vector value is below threshold, original value if
  * false
  */
-    template <typename Type, typename IdxType = int, int TPB = 256>
-    void binary_div_skip_zero(Type* data,
-                                       const Type* vec,
-                                       IdxType n_row,
-                                       IdxType n_col,
-                                       bool rowMajor,
-                                       bool bcastAlongRows,
-                                       cudaStream_t stream,
-                                       bool return_zero = false)
-    {
-        detail::matrixVectorBinaryDivSkipZero<Type, IdxType, TPB>(
-                data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream, return_zero);
-    }
+template <typename Type, typename IdxType = int, int TPB = 256>
+void binary_div_skip_zero(Type* data,
+                          const Type* vec,
+                          IdxType n_row,
+                          IdxType n_col,
+                          bool rowMajor,
+                          bool bcastAlongRows,
+                          cudaStream_t stream,
+                          bool return_zero = false)
+{
+  detail::matrixVectorBinaryDivSkipZero<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream, return_zero);
+}
 
-    /**
+/**
  * @brief add each row or column of matrix with vector
  * @param data input matrix, results are in-place
  * @param vec input vector
@@ -103,20 +103,20 @@ void binary_mult_skip_zero(Type* data,
  * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
  * @param stream cuda stream
  */
-    template <typename Type, typename IdxType = int, int TPB = 256>
-    void binary_add(Type* data,
-                               const Type* vec,
-                               IdxType n_row,
-                               IdxType n_col,
-                               bool rowMajor,
-                               bool bcastAlongRows,
-                               cudaStream_t stream)
-    {
-        detail::matrixVectorBinaryAdd<Type, IdxType, TPB>(
-                data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
-    }
+template <typename Type, typename IdxType = int, int TPB = 256>
+void binary_add(Type* data,
+                const Type* vec,
+                IdxType n_row,
+                IdxType n_col,
+                bool rowMajor,
+                bool bcastAlongRows,
+                cudaStream_t stream)
+{
+  detail::matrixVectorBinaryAdd<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
+}
 
-    /**
+/**
  * @brief subtract each row or column of matrix with vector
  * @param data input matrix, results are in-place
  * @param vec input vector
@@ -126,17 +126,17 @@ void binary_mult_skip_zero(Type* data,
  * @param bcastAlongRows whether to broadcast vector along rows of matrix or columns
  * @param stream cuda stream
  */
-    template <typename Type, typename IdxType = int, int TPB = 256>
-    void binary_sub(Type* data,
-                               const Type* vec,
-                               IdxType n_row,
-                               IdxType n_col,
-                               bool rowMajor,
-                               bool bcastAlongRows,
-                               cudaStream_t stream)
-    {
-        detail::matrixVectorBinarySub<Type, IdxType, TPB>(
-                data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
-    }
-
+template <typename Type, typename IdxType = int, int TPB = 256>
+void binary_sub(Type* data,
+                const Type* vec,
+                IdxType n_row,
+                IdxType n_col,
+                bool rowMajor,
+                bool bcastAlongRows,
+                cudaStream_t stream)
+{
+  detail::matrixVectorBinarySub<Type, IdxType, TPB>(
+    data, vec, n_row, n_col, rowMajor, bcastAlongRows, stream);
 }
+
+}  // namespace raft::matrix

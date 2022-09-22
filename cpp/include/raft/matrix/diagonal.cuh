@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -28,15 +28,15 @@ namespace raft::matrix {
  * @param matrix: matrix of size n_rows x n_cols
  */
 template <typename m_t, typename idx_t = int>
-void initialize_diagonal(
-        const raft::handle_t &handle,
-        raft::device_vector_view<m_t> vec,
-        raft::device_matrix_view<m_t, idx_t, col_major> matrix) {
-    detail::initializeDiagonalMatrix(vec.data_handle(),
-                                     matrix.data_handle(),
-                                     matrix.extent(0),
-                                     matrix.extent(1),
-                                     handle.get_stream());
+void initialize_diagonal(const raft::handle_t& handle,
+                         raft::device_vector_view<m_t> vec,
+                         raft::device_matrix_view<m_t, idx_t, col_major> matrix)
+{
+  detail::initializeDiagonalMatrix(vec.data_handle(),
+                                   matrix.data_handle(),
+                                   matrix.extent(0),
+                                   matrix.extent(1),
+                                   handle.get_stream());
 }
 
 /**
@@ -44,10 +44,10 @@ void initialize_diagonal(
  * @param in: square input matrix with size len x len
  */
 template <typename m_t, typename idx_t = int>
-void invert_diagonal(const raft::handle_t &handle,
+void invert_diagonal(const raft::handle_t& handle,
                      raft::device_matrix_view<m_t, idx_t, col_major> in)
 {
-    RAFT_EXPECTS(in.extent(0) == in.extent(1), "Matrix must be square.");
-    detail::getDiagonalInverseMatrix(in.data_handle(), in.extent(0), handle.get_stream());
+  RAFT_EXPECTS(in.extent(0) == in.extent(1), "Matrix must be square.");
+  detail::getDiagonalInverseMatrix(in.data_handle(), in.extent(0), handle.get_stream());
 }
-}
+}  // namespace raft::matrix

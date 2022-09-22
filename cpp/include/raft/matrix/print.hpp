@@ -26,7 +26,8 @@ namespace raft::matrix {
  * @param in: input matrix with column-major layout
  */
 template <typename m_t, typename idx_t>
-void print(raft::host_matrix_view<const m_t, idx_t, col_major> in) {
-    detail::printHost(in.data_handle(), in.extent(0), in.extent(1));
+void print(raft::host_matrix_view<const m_t, idx_t, col_major> in)
+{
+  detail::printHost(in.data_handle(), in.extent(0), in.extent(1));
 }
-}
+}  // namespace raft::matrix

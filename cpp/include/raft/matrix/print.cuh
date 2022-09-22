@@ -16,13 +16,12 @@
 
 #pragma once
 
-#include <raft/core/host_mdspan.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
-
 
 /**
  * @brief Prints the data stored in GPU memory
@@ -32,12 +31,13 @@ namespace raft::matrix {
  * @param v_separator: vertical separator character
  */
 template <typename m_t, typename idx_t>
-void print(const raft::handle_t &handle,
+void print(const raft::handle_t& handle,
            raft::device_matrix_view<const m_t, idx_t, col_major> in,
-           char h_separator    = ' ',
-           char v_separator    = '\n')
+           char h_separator = ' ',
+           char v_separator = '\n')
 {
-    detail::print(in.data_handle(), in.extent(0), in.extent(1), h_separator, v_separator, handle.get_stream());
+  detail::print(
+    in.data_handle(), in.extent(0), in.extent(1), h_separator, v_separator, handle.get_stream());
 }
 
 /**
@@ -45,7 +45,8 @@ void print(const raft::handle_t &handle,
  * @param in: input matrix with column-major layout
  */
 template <typename m_t, typename idx_t>
-void print(raft::host_matrix_view<const m_t, idx_t, col_major> in) {
-    detail::printHost(in.data_handle(), in.extent(0), in.extent(1));
+void print(raft::host_matrix_view<const m_t, idx_t, col_major> in)
+{
+  detail::printHost(in.data_handle(), in.extent(0), in.extent(1));
 }
-}
+}  // namespace raft::matrix

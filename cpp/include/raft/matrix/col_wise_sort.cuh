@@ -53,8 +53,6 @@ void sort_cols_per_row(const InType* in,
     in, out, n_rows, n_columns, bAllocWorkspace, workspacePtr, workspaceSize, stream, sortedKeys);
 }
 
-
-
 /**
  * @brief sort columns within each row of row-major input matrix and return sorted indexes
  * modelled as key-value sort with key being input matrix and value being index of values
@@ -63,42 +61,51 @@ void sort_cols_per_row(const InType* in,
  * @param sorted_keys: Optional, output matrix for sorted keys (input)
  */
 template <typename InType, typename OutType, typename matrix_idx_t>
-void sort_cols_per_row(const raft::handle_t &handle,
-                       raft::device_matrix_view<const InType, matrix_idx_t, raft::row_major> in,
-                       raft::device_matrix_view<const OutType, matrix_idx_t, raft::row_major> out,
-                       std::optional<raft::device_matrix_view<InType, matrix_idx_t, raft::row_major>> sorted_keys = std::nullptr) {
+void sort_cols_per_row(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<const InType, matrix_idx_t, raft::row_major> in,
+  raft::device_matrix_view<const OutType, matrix_idx_t, raft::row_major> out,
+  std::optional<raft::device_matrix_view<InType, matrix_idx_t, raft::row_major>> sorted_keys =
+    std::nullptr)
+{
+  RAFT_EXPECTS(in.extent(1) == out.extent(1) && in.extent(0) == out.extent(0),
+               "Input and output matrices must have the same shape.");
 
-    RAFT_EXPECTS(in.extent(1) == out.extent(1) &&
-                 in.extent(0) == out.extent(0), "Input and output matrices must have the same shape.");
+  if (sorted_keys.has_value()) {
+    RAFT_EXPECTS(in.extent(1) == sorted_keys.value().extent(1) &&
+                   in.extent(0) == sorted_keys.value().extent(0),
+                 "Input and `sorted_keys` matrices must have the same shape.");
+  }
 
-    if(sorted_keys.has_value()) {
-        RAFT_EXPECTS(in.extent(1) == sorted_keys.value().extent(1) &&
-                     in.extent(0) == sorted_keys.value().extent(0), "Input and `sorted_keys` matrices must have the same shape.");
-    }
+  size_t workspace_size = 0;
+  bool alloc_workspace  = false;
 
-    size_t workspace_size = 0;
-    bool alloc_workspace = false;
+  detail::sortColumnsPerRow<InType, OutType>(
+    in.data_handle(),
+    out.data_handle(),
+    in.extent(0),
+    in.extent(1),
+    alloc_workspace,
+    nullptr,
+    &workspace_size,
+    handle.get_stream(),
+    sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr);
+
+  if (alloc_workspace) {
+    auto workspace = raft::make_device_vector<char>(handle, workspace_size);
 
     detail::sortColumnsPerRow<InType, OutType>(
-            in.data_handle(), out.data_handle(),
-            in.extent(0), in.extent(1),
-            alloc_workspace,
-            nullptr, &workspace_size, handle.get_stream(),
-            sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr);
-
-    if(alloc_workspace) {
-
-        auto workspace = raft::make_device_vector<char>(handle, workspace_size);
-
-        detail::sortColumnsPerRow<InType, OutType>(
-                in.data_handle(), out.data_handle(),
-                in.extent(0), in.extent(1),
-                alloc_workspace,
-                workspace.data_handle(), &workspace_size, handle.get_stream(),
-                sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr);
-    }
+      in.data_handle(),
+      out.data_handle(),
+      in.extent(0),
+      in.extent(1),
+      alloc_workspace,
+      workspace.data_handle(),
+      &workspace_size,
+      handle.get_stream(),
+      sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr);
+  }
 }
-
 
 };  // end namespace matrix
 };  // end namespace raft

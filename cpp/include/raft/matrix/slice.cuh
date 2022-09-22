@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -34,11 +34,22 @@ namespace raft::matrix {
  * 3, 0, 1, 4, 3);
  */
 template <typename m_t, typename idx_t>
-void slice(const raft::handle_t &handle,
+void slice(const raft::handle_t& handle,
            raft::device_matrix_view<m_t, idx_t, col_major> in,
            raft::device_matrix_view<m_t, idx_t, col_major> out,
-           idx_t x1, idx_t y1, idx_t x2, idx_t y2) {
-    detail::sliceMatrix(in.data_handle(), in.extent(0), in.extent(1),
-                        out.data_handle(), x1, y1, x2, y2, handle.get_stream());
+           idx_t x1,
+           idx_t y1,
+           idx_t x2,
+           idx_t y2)
+{
+  detail::sliceMatrix(in.data_handle(),
+                      in.extent(0),
+                      in.extent(1),
+                      out.data_handle(),
+                      x1,
+                      y1,
+                      x2,
+                      y2,
+                      handle.get_stream());
 }
-}
+}  // namespace raft::matrix

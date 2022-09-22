@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -35,8 +35,9 @@ namespace raft::matrix {
 template <typename math_t, typename idx_t>
 void ratio(const raft::handle_t& handle,
            raft::device_matrix_view<math_t> src,
-           raft::device_matrix_view<math_t> dest) {
-    RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be the same size.");
-    detail::ratio(handle, src.data_handle(), dest.data_handle(), in.size(), handle.get_stream());
+           raft::device_matrix_view<math_t> dest)
+{
+  RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be the same size.");
+  detail::ratio(handle, src.data_handle(), dest.data_handle(), in.size(), handle.get_stream());
 }
-}
+}  // namespace raft::matrix

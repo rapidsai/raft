@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 /**
@@ -30,10 +30,12 @@ namespace raft::matrix {
  * @param scalar svalar value
  */
 template <typename math_t>
-void fill(const raft::handle_t &handle,
+void fill(const raft::handle_t& handle,
           raft::device_matrix_view<const math_t> in,
-          raft::device_matrix_view<math_t> out, math_t scalar) {
-    RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be the same size.");
-    detail::setValue(out.data_handle(), in.data_handle(), scalar, in.size(), handle.get_stream());
+          raft::device_matrix_view<math_t> out,
+          math_t scalar)
+{
+  RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be the same size.");
+  detail::setValue(out.data_handle(), in.data_handle(), scalar, in.size(), handle.get_stream());
 }
-}
+}  // namespace raft::matrix

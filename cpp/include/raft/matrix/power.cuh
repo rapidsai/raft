@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -30,13 +30,13 @@ namespace raft::matrix {
  * @param[in] scalar: every element is multiplied with scalar.
  */
 template <typename math_t>
-void weighted_power(
-           const raft::handle_t &handle,
-           raft::device_matrix_view<math_t> in,
-           raft::device_matrix_view<math_t> out,
-           math_t scalar) {
-    RAFT_EXPECTS(in.size() == out.size(), "Size of input and output matrices must be equal");
-    detail::power(in.data_handle(), out.data_handle(), scalar, in.size(), handle.get_stream());
+void weighted_power(const raft::handle_t& handle,
+                    raft::device_matrix_view<math_t> in,
+                    raft::device_matrix_view<math_t> out,
+                    math_t scalar)
+{
+  RAFT_EXPECTS(in.size() == out.size(), "Size of input and output matrices must be equal");
+  detail::power(in.data_handle(), out.data_handle(), scalar, in.size(), handle.get_stream());
 }
 
 /**
@@ -45,10 +45,11 @@ void weighted_power(
  * @param[in] scalar: every element is multiplied with scalar.
  */
 template <typename math_t>
-void weighted_power(const raft::handle_t &handle,
+void weighted_power(const raft::handle_t& handle,
                     raft::device_matrix_view<math_t> inout,
-                    math_t scalar) {
-    detail::power(inout.data_handle(), scalar, inout.size(),  handle.get_stream());
+                    math_t scalar)
+{
+  detail::power(inout.data_handle(), scalar, inout.size(), handle.get_stream());
 }
 
 /**
@@ -56,9 +57,9 @@ void weighted_power(const raft::handle_t &handle,
  * @param[inout] inout: input matrix and also the result is stored
  */
 template <typename math_t>
-void power(const raft::handle_t &handle,
-           raft::device_matrix_view<math_t> inout) {
-    detail::power(inout.data_handle(), inout.size(), handle.get_stream());
+void power(const raft::handle_t& handle, raft::device_matrix_view<math_t> inout)
+{
+  detail::power(inout.data_handle(), inout.size(), handle.get_stream());
 }
 
 /**
@@ -69,13 +70,12 @@ void power(const raft::handle_t &handle,
  * @{
  */
 template <typename math_t>
-void power(const raft::handle_t &handle,
+void power(const raft::handle_t& handle,
            raft::device_matrix_view<math_t> in,
-           raft::device_matrix_view<math_t> out) {
-    RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be same size.");
-    detail::power(in, out, len, stream);
+           raft::device_matrix_view<math_t> out)
+{
+  RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be same size.");
+  detail::power(in, out, len, stream);
 }
 
-
-
-}
+}  // namespace raft::matrix

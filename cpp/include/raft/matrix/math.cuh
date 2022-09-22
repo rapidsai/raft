@@ -23,7 +23,6 @@
                 " is deprecated and will be removed in a future release." \
                 " Please use versions in individual header files instead.")
 
-
 #ifndef __MATH_H
 #define __MATH_H
 

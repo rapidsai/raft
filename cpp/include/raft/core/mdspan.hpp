@@ -222,108 +222,112 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
   }
 }
 
-template<class ElementType, class Extents, class Layout, class Accessor>
-constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, Layout, Accessor> /* m */ )
+template <class ElementType, class Extents, class Layout, class Accessor>
+constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, Layout, Accessor> /* m */)
 {
-    return false;
+  return false;
 }
 
-template<class ElementType, class Extents, class Accessor>
-constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, layout_left, Accessor> /* m */ )
+template <class ElementType, class Extents, class Accessor>
+constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, layout_left, Accessor> /* m */)
 {
-    return true;
+  return true;
 }
 
-template<class ElementType, class Extents, class Accessor>
-constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, layout_right, Accessor> /* m */ )
+template <class ElementType, class Extents, class Accessor>
+constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, layout_right, Accessor> /* m */)
 {
-    return true;
+  return true;
 }
 
-template<class ElementType, class Extents, class Accessor>
+template <class ElementType, class Extents, class Accessor>
 constexpr bool is_row_or_column_major(mdspan<ElementType, Extents, layout_stride, Accessor> m)
 {
-    return m.is_exhaustive();
+  return m.is_exhaustive();
 }
 
-
-template<class ElementType, class Extents, class Layout, class Accessor>
-constexpr bool is_row_major(mdspan<ElementType, Extents, Layout, Accessor> /* m */ )
+template <class ElementType, class Extents, class Layout, class Accessor>
+constexpr bool is_row_major(mdspan<ElementType, Extents, Layout, Accessor> /* m */)
 {
-    return false;
+  return false;
 }
 
-template<class ElementType, class Extents, class Accessor>
-constexpr bool is_row_major(mdspan<ElementType, Extents, layout_left, Accessor> /* m */ )
+template <class ElementType, class Extents, class Accessor>
+constexpr bool is_row_major(mdspan<ElementType, Extents, layout_left, Accessor> /* m */)
 {
-    return false;
+  return false;
 }
 
-template<class ElementType, class Extents, class Accessor>
-constexpr bool is_row_major(mdspan<ElementType, Extents, layout_right, Accessor> /* m */ )
+template <class ElementType, class Extents, class Accessor>
+constexpr bool is_row_major(mdspan<ElementType, Extents, layout_right, Accessor> /* m */)
 {
-    return true;
+  return true;
 }
 
-template<class ElementType, class Extents, class Accessor>
+template <class ElementType, class Extents, class Accessor>
 constexpr bool is_row_major(mdspan<ElementType, Extents, layout_stride, Accessor> m)
 {
-    return m.is_exhaustive();
+  return m.is_exhaustive();
 }
 
-template<class ElementType, class Extents, class Layout, class Accessor>
-constexpr bool is_col_major(mdspan<ElementType, Extents, Layout, Accessor> /* m */ )
+template <class ElementType, class Extents, class Layout, class Accessor>
+constexpr bool is_col_major(mdspan<ElementType, Extents, Layout, Accessor> /* m */)
 {
-    return false;
+  return false;
 }
 
-template<class ElementType, class Extents, class Accessor>
-constexpr bool is_col_major(mdspan<ElementType, Extents, layout_left, Accessor> /* m */ )
+template <class ElementType, class Extents, class Accessor>
+constexpr bool is_col_major(mdspan<ElementType, Extents, layout_left, Accessor> /* m */)
 {
-    return true;
+  return true;
 }
 
-template<class ElementType, class Extents, class Accessor>
-constexpr bool is_col_major(mdspan<ElementType, Extents, layout_right, Accessor> /* m */ )
+template <class ElementType, class Extents, class Accessor>
+constexpr bool is_col_major(mdspan<ElementType, Extents, layout_right, Accessor> /* m */)
 {
-    return false;
+  return false;
 }
 
-template<class ElementType, class Extents, class Accessor>
+template <class ElementType, class Extents, class Accessor>
 constexpr bool is_col_major(mdspan<ElementType, Extents, layout_stride, Accessor> m)
 {
-    return m.is_exhaustive();
+  return m.is_exhaustive();
 }
 
-
-template<class ElementType, class IndexType>
-constexpr bool is_matrix_view(mdspan<ElementType, matrix_extent<IndexType>> /* m */) {
-    return true;
+template <class ElementType, class IndexType>
+constexpr bool is_matrix_view(mdspan<ElementType, matrix_extent<IndexType>> /* m */)
+{
+  return true;
 }
 
-template<class ElementType, class Extents>
-constexpr bool is_matrix_view(mdspan<ElementType, class Extents> m) {
-    return false;
+template <class ElementType, class Extents>
+constexpr bool is_matrix_view(mdspan<ElementType, class Extents> m)
+{
+  return false;
 }
 
-template<class ElementType, class IndexType>
-constexpr bool is_vector_view(mdspan<ElementType, vector_extent<IndexType>> /* m */) {
-    return true;
+template <class ElementType, class IndexType>
+constexpr bool is_vector_view(mdspan<ElementType, vector_extent<IndexType>> /* m */)
+{
+  return true;
 }
 
-template<class ElementType, class Extents>
-constexpr bool is_vector_view(mdspan<ElementType, class Extents> m) {
-    return false;
+template <class ElementType, class Extents>
+constexpr bool is_vector_view(mdspan<ElementType, class Extents> m)
+{
+  return false;
 }
 
-template<class ElementType, class IndexType>
-constexpr bool is_scalar_view(mdspan<ElementType, scalar_extent<IndexType>> /* m */) {
-    return true;
+template <class ElementType, class IndexType>
+constexpr bool is_scalar_view(mdspan<ElementType, scalar_extent<IndexType>> /* m */)
+{
+  return true;
 }
 
-template<class ElementType, class Extents>
-constexpr bool is_scalar_view(mdspan<ElementType, class Extents> m) {
-    return false;
+template <class ElementType, class Extents>
+constexpr bool is_scalar_view(mdspan<ElementType, class Extents> m)
+{
+  return false;
 }
 
 }  // namespace raft

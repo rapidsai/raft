@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -34,19 +34,28 @@ namespace raft::matrix {
  * @param[in] indices of the rows to be copied
  */
 template <typename m_t, typename idx_array_t = int, typename idx_t = size_t>
-void copy_rows(const raft::handle_t &handle,
+void copy_rows(const raft::handle_t& handle,
                raft::device_matrix_view<const m_t> in,
                raft::device_matrix_view<m_t> out,
                raft::device_vector_view<idx_array_t> indices)
 {
-    RAFT_EXPECTS(in.extent(1) == out.extent(1), "Input and output matrices must have same number of columns");
-    RAFT_EXPECTS(indices.extent(0) == out.extent(0), "Number of rows in output matrix must equal number of indices");
-    bool in_rowmajor = raft::is_row_major(in);
-    bool out_rowmajor = raft::is_row_major(out);
+  RAFT_EXPECTS(in.extent(1) == out.extent(1),
+               "Input and output matrices must have same number of columns");
+  RAFT_EXPECTS(indices.extent(0) == out.extent(0),
+               "Number of rows in output matrix must equal number of indices");
+  bool in_rowmajor  = raft::is_row_major(in);
+  bool out_rowmajor = raft::is_row_major(out);
 
-    RAFT_EXPECTS(in_rowmajor == out_rowmajor, "Input and output matrices must have same layout (row- or column-major)")
+  RAFT_EXPECTS(in_rowmajor == out_rowmajor,
+               "Input and output matrices must have same layout (row- or column-major)")
 
-    detail::copyRows(in.data_handle(), in.extent(0), in.extent(1), out.data_handle(), indices.data_handle(), indices.extent(0), handle.get_stream());
+  detail::copyRows(in.data_handle(),
+                   in.extent(0),
+                   in.extent(1),
+                   out.data_handle(),
+                   indices.data_handle(),
+                   indices.extent(0),
+                   handle.get_stream());
 }
 
 /**
@@ -56,14 +65,15 @@ void copy_rows(const raft::handle_t &handle,
  * @param[out] out: output matrix
  */
 template <typename m_t, typename idx_t = int, typename matrix_idx_t>
-void copy(const raft::handle_t &handle,
+void copy(const raft::handle_t& handle,
           raft::device_matrix_view<const m_t, matrix_idx_t, col_major> in,
           raft::device_matrix_view<m_t, matrix_idx_t, col_major> out)
 {
-    RAFT_EXPECTS(in.extent(0) == out.extent(0) &&
-                 in.extent(1) == out.extent(1), "Input and output matrix shapes must match.");
+  RAFT_EXPECTS(in.extent(0) == out.extent(0) && in.extent(1) == out.extent(1),
+               "Input and output matrix shapes must match.");
 
-    raft::copy_async(out.data_handle(), in.data_handle(), in.extent(0) * out.extent(1), handle.get_stream());
+  raft::copy_async(
+    out.data_handle(), in.data_handle(), in.extent(0) * out.extent(1), handle.get_stream());
 }
 
 /**
@@ -78,10 +88,9 @@ void copy(const raft::handle_t &handle,
  */
 template <typename m_t, typename idx_t = int>
 void trunc_zero_origin(
-        m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
+  m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
 {
-    detail::truncZeroOrigin(in, in_n_rows, out, out_n_rows, out_n_cols, stream);
+  detail::truncZeroOrigin(in, in_n_rows, out, out_n_rows, out_n_cols, stream);
 }
 
-
-}
+}  // namespace raft::matrix

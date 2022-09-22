@@ -37,12 +37,12 @@ namespace raft::matrix::detail {
 template <typename m_t, typename idx_t = int>
 void printHost(const m_t* in, idx_t n_rows, idx_t n_cols)
 {
-    for (idx_t i = 0; i < n_rows; i++) {
-        for (idx_t j = 0; j < n_cols; j++) {
-            printf("%1.4f ", in[j * n_rows + i]);
-        }
-        printf("\n");
+  for (idx_t i = 0; i < n_rows; i++) {
+    for (idx_t j = 0; j < n_cols; j++) {
+      printf("%1.4f ", in[j * n_rows + i]);
     }
+    printf("\n");
+  }
 }
 
 }  // end namespace raft::matrix::detail
