@@ -18,7 +18,8 @@
 
 #include "detail/rmat_rectangular_generator.cuh"
 
-#include <raft/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 
 namespace raft::random {
 
