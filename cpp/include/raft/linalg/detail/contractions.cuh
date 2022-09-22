@@ -151,6 +151,12 @@ struct Contractions_NT {
     ldgY(tile_idx_n, kidx);
   }
 
+  DI void ldgXY(IdxT tile_idx_m, IdxT tile_idx_n, IdxT kidx, IdxT tile_end_n)
+  {
+    ldgX(tile_idx_m, kidx);
+    ldgY(tile_idx_n, kidx, tile_end_n);
+  }
+
   /**
    * @brief Store current block of X/Y from registers to smem
    * @param[in] kidx current start index of k to be loaded
@@ -237,6 +243,42 @@ struct Contractions_NT {
 #pragma unroll
       for (int i = 0; i < P::LdgPerThY; ++i) {
         if ((koffset + yrowid) < ldb && (srowid + kidx + i * P::LdgRowsY) < numRows) {
+          ldg(ldgDataY[i], y + (kidx + i * P::LdgRowsY) * ldb + koffset);
+        } else {
+#pragma unroll
+          for (int j = 0; j < P::Veclen; ++j) {
+            ldgDataY[i][j] = Zero;
+          }
+        }
+      }
+    }
+  }
+
+  DI void ldgY(IdxT tile_idx_n, IdxT kidx, IdxT tile_end_n)
+  {
+    IdxT yrowid = isRowMajor ? tile_idx_n + srowid : tile_idx_n;
+    auto y      = isRowMajor ? y_base + yrowid * ldb : y_base + yrowid + srowid * ldb;
+
+    if (isRowMajor) {
+      auto numRows = tile_end_n;
+      auto koffset = kidx + scolid;
+#pragma unroll
+      for (int i = 0; i < P::LdgPerThY; ++i) {
+        if (koffset < ldb && (yrowid + i * P::LdgRowsY) < numRows) {
+          ldg(ldgDataY[i], y + i * P::LdgRowsY * ldb + koffset);
+        } else {
+#pragma unroll
+          for (int j = 0; j < P::Veclen; ++j) {
+            ldgDataY[i][j] = Zero;
+          }
+        }
+      }
+    } else {
+      auto numRows = k;
+      auto koffset = scolid;
+#pragma unroll
+      for (int i = 0; i < P::LdgPerThY; ++i) {
+        if ((koffset + yrowid) < tile_end_n && (srowid + kidx + i * P::LdgRowsY) < numRows) {
           ldg(ldgDataY[i], y + (kidx + i * P::LdgRowsY) * ldb + koffset);
         } else {
 #pragma unroll
