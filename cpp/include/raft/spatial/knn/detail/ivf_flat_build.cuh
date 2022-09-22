@@ -111,7 +111,7 @@ inline auto extend(const handle_t& handle,
                    const IdxT* new_indices,
                    IdxT n_rows) -> index<T, IdxT>
 {
-  using LabelT = int;
+  using LabelT = uint32_t;
 
   auto stream  = handle.get_stream();
   auto n_lists = orig_index.n_lists();

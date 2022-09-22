@@ -852,7 +852,7 @@ void build_hierarchical(const handle_t& handle,
                         raft::distance::DistanceType metric,
                         rmm::cuda_stream_view stream)
 {
-  using LabelT = int;
+  using LabelT = uint32_t;
 
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "kmeans::build_hierarchical(%zu, %u)", n_rows, n_clusters);
