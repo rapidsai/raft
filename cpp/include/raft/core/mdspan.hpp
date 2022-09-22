@@ -326,9 +326,4 @@ constexpr bool is_scalar_view(mdspan<ElementType, class Extents> m) {
     return false;
 }
 
-
-
-
-
-
 }  // namespace raft
