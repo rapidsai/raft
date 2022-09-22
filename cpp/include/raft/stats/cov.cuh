@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/detail/cov.cuh>
 namespace raft {
 namespace stats {
@@ -64,13 +64,13 @@ void cov(const raft::handle_t& handle,
  *
  * Mean operation is assumed to be performed on a given column.
  *
- * @tparam Type the data type
+ * @tparam DataT the data type
  * @tparam IdxT the index type
  * @tparam LayoutPolicy Layout type of the input data.
  * @param handle the raft handle
- * @param covar the output covariance matrix
  * @param data the input matrix (this will get mean-centered at the end!)
  * @param mu mean vector of the input matrix
+ * @param covar the output covariance matrix
  * @param sample whether to evaluate sample covariance or not. In other words,
  * whether to normalize the output using N-1 or N, for true or false,
  * respectively
@@ -80,9 +80,9 @@ void cov(const raft::handle_t& handle,
  */
 template <typename DataT, typename IdxType, typename LayoutPolicy>
 void cov(const raft::handle_t& handle,
-         raft::device_matrix_view<DataT, IdxType, LayoutPolicy> covar,
          raft::device_matrix_view<DataT, IdxType, LayoutPolicy> data,
          raft::device_vector_view<const DataT, IdxType> mu,
+         raft::device_matrix_view<DataT, IdxType, LayoutPolicy> covar,
          bool sample,
          bool stable)
 {

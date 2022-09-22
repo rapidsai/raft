@@ -19,8 +19,8 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/core/mdarray.hpp>
 #include <raft/stats/detail/mean.cuh>
 
 namespace raft {
@@ -59,15 +59,15 @@ void mean(
  * @tparam IdxType index type
  * @tparam LayoutPolicy Layout type of the input matrix.
  * @param handle the raft handle
- * @param mu: the output mean vector
  * @param data: the input matrix
+ * @param mu: the output mean vector
  * @param sample: whether to evaluate sample mean or not. In other words, whether
  *   to normalize the output using N-1 or N, for true or false, respectively
  */
 template <typename DataT, typename IdxType = int, typename LayoutPolicy>
 void mean(const raft::handle_t& handle,
-          raft::device_vector_view<DataT, IdxType> mu,
           raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
+          raft::device_vector_view<DataT, IdxType> mu,
           bool sample)
 {
   static_assert(

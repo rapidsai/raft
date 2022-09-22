@@ -29,7 +29,8 @@
 
 #pragma once
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/stats/common.hpp>
 #include <raft/stats/detail/batched/information_criterion.cuh>
 
@@ -73,17 +74,17 @@ void information_criterion_batched(ScalarT* d_ic,
  * @tparam DataT data type
  * @tparam IdxType index type
  * @param[in]  handle           the raft handle
+ * @param[in]  d_loglikelihood  Log-likelihood for each series (device) length: batch_size
  * @param[out] d_ic             Information criterion to be returned for each
  *                              series (device) length: batch_size
- * @param[in]  d_loglikelihood  Log-likelihood for each series (device) length: batch_size
  * @param[in]  ic_type          Type of criterion to compute. See IC_Type
  * @param[in]  n_params         Number of parameters in the model
  * @param[in]  n_samples        Number of samples in each series
  */
 template <typename DataT, typename IdxType>
 void information_criterion_batched(const raft::handle_t& handle,
-                                   raft::device_vector_view<DataT, IdxType> d_ic,
                                    raft::device_vector_view<const DataT, IdxType> d_loglikelihood,
+                                   raft::device_vector_view<DataT, IdxType> d_ic,
                                    IC_Type ic_type,
                                    IdxType n_params,
                                    IdxType n_samples)

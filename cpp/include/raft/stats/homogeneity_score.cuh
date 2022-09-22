@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/detail/homogeneity_score.cuh>
 
 namespace raft {

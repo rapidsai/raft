@@ -19,7 +19,9 @@
 
 #pragma once
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/stats/detail/contingencyMatrix.cuh>
 
 namespace raft {
@@ -44,9 +46,10 @@ void getInputClassCardinality(
 /**
  * @brief use this to allocate output matrix size
  * size of matrix = (maxLabel - minLabel + 1)^2 * sizeof(int)
+ * @tparam DataT label type
+ * @tparam IdxType Index type of matrix extent.
  * @param handle: the raft handle.
  * @param groundTruth: device 1-d array for ground truth (num of rows)
- * @param nSamples: number of elements in input array
  * @param minLabel: [out] calculated min value in input array
  * @param maxLabel: [out] calculated max value in input array
  */
@@ -56,6 +59,8 @@ void getInputClassCardinality(const raft::handle_t& handle,
                               raft::host_scalar_view<DataT> minLabel,
                               raft::host_scalar_view<DataT> maxLabel)
 {
+  RAFT_EXPECTS(minLabel.data_handle() != nullptr, "Invalid minLabel pointer");
+  RAFT_EXPECTS(maxLabel.data_handle() != nullptr, "Invalid maxLabel pointer");
   detail::getInputClassCardinality(groundTruth.data_handle(),
                                    groundTruth.extent(0),
                                    handle.get_stream(),
@@ -86,7 +91,8 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
 
 /**
  * @brief Calculate workspace size for running contingency matrix calculations
- * @tparam T label type
+ * @tparam DataT label type
+ * @tparam IdxType Index type of matrix extent.
  * @param handle: the raft handle.
  * @param groundTruth: device 1-d array for ground truth (num of rows)
  * @param minLabel: Optional, min value in input array
@@ -95,11 +101,18 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
 template <typename DataT, typename IdxType>
 size_t getContingencyMatrixWorkspaceSize(const raft::handle_t& handle,
                                          raft::device_vector_view<const DataT, IdxType> groundTruth,
-                                         DataT minLabel = std::numeric_limits<DataT>::max(),
-                                         DataT maxLabel = std::numeric_limits<DataT>::max())
+                                         std::optional<DataT> minLabel = std::nullopt,
+                                         std::optional<DataT> maxLabel = std::nullopt)
 {
-  return detail::getContingencyMatrixWorkspaceSize(
-    groundTruth.extent(0), groundTruth.data_handle(), handle.get_stream(), minLabel, maxLabel);
+  DataT minLabelValue = std::numeric_limits<DataT>::max();
+  DataT maxLabelValue = std::numeric_limits<DataT>::max();
+  if (minLabel.has_value()) { minLabelValue = minLabel.value(); }
+  if (maxLabel.has_value()) { maxLabelValue = maxLabel.value(); }
+  return detail::getContingencyMatrixWorkspaceSize(groundTruth.extent(0),
+                                                   groundTruth.data_handle(),
+                                                   handle.get_stream(),
+                                                   minLabelValue,
+                                                   maxLabelValue);
 }
 
 /**

@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/detail/adjusted_rand_index.cuh>
 
 namespace raft {

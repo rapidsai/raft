@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/detail/mean_center.cuh>
 
 namespace raft {
@@ -59,16 +59,16 @@ void meanCenter(Type* out,
  * @tparam LayoutPolicy Layout type of the input matrix.
  * @tparam TPB threads per block of the cuda kernel launched
  * @param handle the raft handle
- * @param out the output mean-centered matrix
  * @param data input matrix
  * @param mu the mean vector
+ * @param out the output mean-centered matrix
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
 template <typename DataT, typename IdxType, typename LayoutPolicy, int TPB = 256>
 void meanCenter(const raft::handle_t& handle,
-                raft::device_matrix_view<DataT, IdxType, LayoutPolicy> out,
                 raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
                 raft::device_vector_view<const DataT, IdxType> mu,
+                raft::device_matrix_view<DataT, IdxType, LayoutPolicy> out,
                 bool bcastAlongRows,
                 std::integral_constant<int, TPB>)
 {
@@ -123,16 +123,16 @@ void meanAdd(Type* out,
  * @tparam LayoutPolicy Layout type of the input matrix.
  * @tparam TPB threads per block of the cuda kernel launched
  * @param handle the raft handle
- * @param out the output mean-centered matrix
  * @param data input matrix
  * @param mu the mean vector
+ * @param out the output mean-centered matrix
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  */
 template <typename DataT, typename IdxType, typename LayoutPolicy, int TPB = 256>
 void meanAdd(const raft::handle_t& handle,
-             raft::device_matrix_view<DataT, IdxType, LayoutPolicy> out,
              raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
              raft::device_vector_view<const DataT, IdxType> mu,
+             raft::device_matrix_view<DataT, IdxType, LayoutPolicy> out,
              bool bcastAlongRows,
              std::integral_constant<int, TPB>)
 {

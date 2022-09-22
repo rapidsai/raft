@@ -17,7 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <limits>
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/minmax.cuh>
 #include <raft/util/cuda_utils.cuh>

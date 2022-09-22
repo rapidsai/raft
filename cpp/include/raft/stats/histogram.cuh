@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/common.hpp>
 #include <raft/stats/detail/histogram.cuh>
 
@@ -69,11 +69,10 @@ void histogram(HistType type,
  * @tparam DataT input data type
  * @tparam IdxType data type used to compute indices
  * @tparam BinnerOp takes the input data and computes its bin index
- * @tparam LayoutPolicy Layout type of the input data.
  * @param handle the raft handle
  * @param type histogram implementation type to choose
- * @param bins the output bins col-major (length = nbins * ncols)
  * @param data input data col-major (length = nrows * ncols)
+ * @param bins the output bins col-major (length = nbins * ncols)
  * @param binner the operation that computes the bin index of the input data
  *
  * @note signature of BinnerOp is `int func(DataT, IdxT);`
@@ -83,8 +82,8 @@ template <typename DataT,
           typename BinnerOp = IdentityBinner<DataT, IdxType>>
 void histogram(const raft::handle_t& handle,
                HistType type,
-               raft::device_matrix_view<int, IdxType, raft::col_major> bins,
                raft::device_matrix_view<const DataT, IdxType, raft::col_major> data,
+               raft::device_matrix_view<int, IdxType, raft::col_major> bins,
                BinnerOp binner = IdentityBinner<DataT, IdxType>())
 {
   RAFT_EXPECTS(std::is_integral_v<IdxType> && data.extent(0) <= std::numeric_limits<int>::max(),

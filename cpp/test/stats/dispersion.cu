@@ -69,7 +69,8 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
       raft::make_device_matrix_view<const T, int>(data.data(), params.clusters, params.dim),
       raft::make_device_vector_view<const int, int>(counts.data(), params.clusters),
       std::make_optional(raft::make_device_vector_view<T, int>(act_mean.data(), params.dim)),
-      npoints);
+      npoints,
+      std::integral_constant<int, 256>{});
     expectedVal = T(0);
     std::vector<T> h_data(len, T(0));
     raft::update_host(&(h_data[0]), data.data(), len, stream);

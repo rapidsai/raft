@@ -20,7 +20,7 @@
 #pragma once
 
 #include <optional>
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/detail/dispersion.cuh>
 
 namespace raft {
@@ -62,7 +62,6 @@ DataT dispersion(const DataT* centroids,
  * automatically finding the 'k' (in kmeans) that improves this metric.
  * @tparam DataT data type
  * @tparam IdxType index type
- * @tparam LayoutPolicy Layout type of the input data.
  * @tparam TPB threads block for kernels launched
  * @param handle the raft handle
  * @param centroids the cluster centroids. This is assumed to be row-major
@@ -79,7 +78,8 @@ DataT dispersion(const raft::handle_t& handle,
                  raft::device_matrix_view<const DataT, IdxType, raft::row_major> centroids,
                  raft::device_vector_view<const IdxType, IdxType> clusterSizes,
                  std::optional<raft::device_vector_view<DataT, IdxType>> globalCentroid,
-                 const IdxType nPoints)
+                 const IdxType nPoints,
+                 std::integral_constant<int, TPB>)
 {
   RAFT_EXPECTS(clusterSizes.extent(0) == centroids.extent(0), "Size mismatch");
   RAFT_EXPECTS(clusterSizes.is_exhaustive(), "clusterSizes must be contiguous");

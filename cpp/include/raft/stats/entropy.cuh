@@ -18,7 +18,7 @@
 #define __ENTROPY_H
 
 #pragma once
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/detail/entropy.cuh>
 
 namespace raft {
@@ -51,7 +51,7 @@ double entropy(const T* clusterArray,
  * <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
  *
  * @tparam DataT data type
- * @tparam IdxT index type
+ * @tparam IdxType index type
  * @param handle the raft handle
  * @param clusterArray: the array of classes of type DataT
  * @param lowerLabelRange: the lower bound of the range of labels
