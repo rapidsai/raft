@@ -21,8 +21,8 @@
 #include "rng_state.hpp"
 #include <cassert>
 #include <optional>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/mdarray.hpp>
 #include <type_traits>
 
 namespace raft::random {
