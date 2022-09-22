@@ -20,9 +20,10 @@
 #include "ann_kmeans_balanced.cuh"
 #include "ann_utils.cuh"
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <raft/core/logger.hpp>
-#include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
