@@ -13,14 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include "../test_utils.h"
 #include "ann_utils.cuh"
 
 #include <raft/core/logger.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ivf_pq.cuh>
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#else
+#pragma message("NN specializations are not enabled; expect very long building times.")
+#endif
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
@@ -54,7 +60,7 @@ struct ivf_pq_inputs {
   }
 };
 
-auto operator<<(std::ostream& os, const ivf_pq::codebook_gen& p) -> std::ostream&
+inline auto operator<<(std::ostream& os, const ivf_pq::codebook_gen& p) -> std::ostream&
 {
   switch (p) {
     case ivf_pq::codebook_gen::PER_CLUSTER: os << "codebook_gen::PER_CLUSTER"; break;
@@ -64,7 +70,7 @@ auto operator<<(std::ostream& os, const ivf_pq::codebook_gen& p) -> std::ostream
   return os;
 }
 
-auto operator<<(std::ostream& os, const ivf_pq_inputs& p) -> std::ostream&
+inline auto operator<<(std::ostream& os, const ivf_pq_inputs& p) -> std::ostream&
 {
   ivf_pq_inputs dflt;
   bool need_comma = false;
@@ -260,7 +266,7 @@ auto operator+(const std::vector<T>& a, const std::vector<T>& b) -> std::vector<
   return res;
 }
 
-auto defaults() -> test_cases_t { return {ivf_pq_inputs{}}; }
+inline auto defaults() -> test_cases_t { return {ivf_pq_inputs{}}; }
 
 template <typename B, typename A, typename F>
 auto map(const std::vector<A>& xs, F f) -> std::vector<B>
@@ -270,7 +276,7 @@ auto map(const std::vector<A>& xs, F f) -> std::vector<B>
   return ys;
 }
 
-auto with_dims(const std::vector<uint32_t>& dims) -> test_cases_t
+inline auto with_dims(const std::vector<uint32_t>& dims) -> test_cases_t
 {
   return map<ivf_pq_inputs>(dims, [](uint32_t d) {
     ivf_pq_inputs x;
@@ -279,9 +285,9 @@ auto with_dims(const std::vector<uint32_t>& dims) -> test_cases_t
   });
 }
 
-auto small_dims() -> test_cases_t { return with_dims({1, 2, 3, 4, 5, 8, 15, 16, 17}); }
+inline auto small_dims() -> test_cases_t { return with_dims({1, 2, 3, 4, 5, 8, 15, 16, 17}); }
 
-auto small_dims_per_cluster() -> test_cases_t
+inline auto small_dims_per_cluster() -> test_cases_t
 {
   return map<ivf_pq_inputs>(small_dims(), [](const ivf_pq_inputs& x) {
     ivf_pq_inputs y(x);
@@ -290,7 +296,7 @@ auto small_dims_per_cluster() -> test_cases_t
   });
 }
 
-auto big_dims() -> test_cases_t
+inline auto big_dims() -> test_cases_t
 {
   return map<ivf_pq_inputs>(with_dims({511, 512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053}),
                             [](const ivf_pq_inputs& x) {
@@ -302,7 +308,7 @@ auto big_dims() -> test_cases_t
                             });
 }
 
-auto enum_variety() -> test_cases_t
+inline auto enum_variety() -> test_cases_t
 {
   test_cases_t xs;
 #define ADD_CASE(f)                               \
@@ -342,7 +348,7 @@ auto enum_variety() -> test_cases_t
   return xs;
 }
 
-auto enum_variety_l2() -> test_cases_t
+inline auto enum_variety_l2() -> test_cases_t
 {
   return map<ivf_pq_inputs>(enum_variety(), [](const ivf_pq_inputs& x) {
     ivf_pq_inputs y(x);
@@ -351,7 +357,7 @@ auto enum_variety_l2() -> test_cases_t
   });
 }
 
-auto enum_variety_ip() -> test_cases_t
+inline auto enum_variety_ip() -> test_cases_t
 {
   return map<ivf_pq_inputs>(enum_variety(), [](const ivf_pq_inputs& x) {
     ivf_pq_inputs y(x);
@@ -360,7 +366,7 @@ auto enum_variety_ip() -> test_cases_t
   });
 }
 
-auto var_n_probes() -> test_cases_t
+inline auto var_n_probes() -> test_cases_t
 {
   ivf_pq_inputs dflt;
   std::vector<uint32_t> xs;
@@ -374,7 +380,7 @@ auto var_n_probes() -> test_cases_t
   });
 }
 
-auto var_k() -> test_cases_t
+inline auto var_k() -> test_cases_t
 {
   return map<ivf_pq_inputs, uint32_t>(
     {1, 2, 3, 5, 8, 15, 16, 32, 63, 65, 127, 128, 256, 257, 1023, 2048, 2049}, [](uint32_t k) {
@@ -402,28 +408,5 @@ auto var_k() -> test_cases_t
 
 #define INSTANTIATE(type, vals) \
   INSTANTIATE_TEST_SUITE_P(IvfPq, type, ::testing::ValuesIn(vals)); /* NOLINT */
-
-using f32_f32_u64 = ivf_pq_test<float, float, uint64_t>;
-using f32_f32_i64 = ivf_pq_test<float, float, int64_t>;
-using f32_f32_u32 = ivf_pq_test<float, float, uint32_t>;
-using f32_u08_u64 = ivf_pq_test<float, uint8_t, uint64_t>;
-using f32_i08_u64 = ivf_pq_test<float, int8_t, uint64_t>;
-
-TEST_BUILD_EXTEND_SEARCH(f32_f32_u64)
-INSTANTIATE(f32_f32_u64, defaults() + small_dims() + big_dims());
-
-TEST_BUILD_SEARCH(f32_f32_i64)
-TEST_BUILD_EXTEND_SEARCH(f32_f32_i64)
-INSTANTIATE(f32_f32_i64, enum_variety_l2() + enum_variety_ip());
-
-TEST_BUILD_SEARCH(f32_f32_u32)
-INSTANTIATE(f32_f32_u32, defaults() + var_n_probes() + var_k());
-
-TEST_BUILD_SEARCH(f32_u08_u64)
-TEST_BUILD_EXTEND_SEARCH(f32_u08_u64)
-INSTANTIATE(f32_u08_u64, small_dims_per_cluster() + enum_variety());
-
-TEST_BUILD_SEARCH(f32_i08_u64)
-INSTANTIATE(f32_i08_u64, defaults() + big_dims() + var_k());
 
 }  // namespace raft::spatial::knn
