@@ -13,16 +13,16 @@ jobs:
       package-dir: python/pylibraft
       python-version: "3.8 3.9"
 
-      manylinux-container-amd64: "rapidsai/manylinux_2_31"
+      manylinux-container-amd64: "rapidsai/manylinux2014"
       manylinux-container-arm64: "rapidsai/manylinux_2_31"
 
-      cibw-before-all-amd64: "apt-get install -y libblas-dev liblapack-dev"
+      cibw-before-all-amd64: "yum install -y blas-devel lapack-devel"
       cibw-before-all-arm64: "apt-get install -y libblas-dev liblapack-dev"
       cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
 
       skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL -DFIND_RAFT_CPP=OFF"
 
-      auditwheel-repair-command-amd64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_24_x86_64 {wheel}"
+      auditwheel-repair-command-amd64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_17_x86_64 {wheel}"
       auditwheel-repair-command-arm64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_24_aarch64 {wheel}"
 
       test-container-amd64: "rapidsai/manylinux_2_27"
@@ -41,16 +41,16 @@ jobs:
       package-dir: python/raft-dask
       python-version: "3.8 3.9"
 
-      manylinux-container-amd64: "rapidsai/manylinux_2_31"
+      manylinux-container-amd64: "rapidsai/manylinux2014"
       manylinux-container-arm64: "rapidsai/manylinux_2_31"
 
-      cibw-before-all-amd64: "apt-get install -y libblas-dev liblapack-dev"
+      cibw-before-all-amd64: "yum install -y blas-devel lapack-devel"
       cibw-before-all-arm64: "apt-get install -y libblas-dev liblapack-dev"
       cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
 
       skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL"
 
-      auditwheel-repair-command-amd64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_24_x86_64 {wheel}"
+      auditwheel-repair-command-amd64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_17_x86_64 {wheel}"
       auditwheel-repair-command-arm64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_24_aarch64 {wheel}"
 
       test-container-amd64: "rapidsai/manylinux_2_27"
