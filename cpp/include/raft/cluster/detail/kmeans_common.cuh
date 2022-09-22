@@ -29,6 +29,7 @@
 
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>

@@ -21,7 +21,7 @@
 
 #include "detail/make_blobs.cuh"
 #include <optional>
-#include <raft/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 
 namespace raft::random {
 

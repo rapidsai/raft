@@ -21,9 +21,12 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/mdspan.hpp>
-#include <raft/detail/span.hpp>  // dynamic_extent
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
+
+#include <raft/core/detail/host_device_accessor.hpp>
+#include <raft/core/detail/span.hpp>  // dynamic_extent
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
@@ -186,162 +189,5 @@ class device_uvector_policy {
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 };
-
-/**
- * @brief A container policy for host mdarray.
- */
-template <typename ElementType, typename Allocator = std::allocator<ElementType>>
-class host_vector_policy {
- public:
-  using element_type          = ElementType;
-  using container_type        = std::vector<element_type, Allocator>;
-  using allocator_type        = typename container_type::allocator_type;
-  using pointer               = typename container_type::pointer;
-  using const_pointer         = typename container_type::const_pointer;
-  using reference             = element_type&;
-  using const_reference       = element_type const&;
-  using accessor_policy       = std::experimental::default_accessor<element_type>;
-  using const_accessor_policy = std::experimental::default_accessor<element_type const>;
-
- public:
-  auto create(size_t n) -> container_type { return container_type(n); }
-
-  constexpr host_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>) =
-    default;
-  explicit constexpr host_vector_policy(rmm::cuda_stream_view) noexcept(
-    std::is_nothrow_default_constructible_v<ElementType>)
-    : host_vector_policy()
-  {
-  }
-
-  [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
-  {
-    return c[n];
-  }
-  [[nodiscard]] constexpr auto access(container_type const& c, size_t n) const noexcept
-    -> const_reference
-  {
-    return c[n];
-  }
-
-  [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
-  [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
-};
-
-/**
- * @brief A mixin to distinguish host and device memory.
- */
-template <typename AccessorPolicy, bool is_host, bool is_device>
-struct accessor_mixin : public AccessorPolicy {
-  using accessor_type   = AccessorPolicy;
-  using is_host_type    = std::conditional_t<is_host, std::true_type, std::false_type>;
-  using is_device_type  = std::conditional_t<is_device, std::true_type, std::false_type>;
-  using is_managed_type = std::conditional_t<is_device && is_host, std::true_type, std::false_type>;
-  static constexpr bool is_host_accessible    = is_host;
-  static constexpr bool is_device_accessible  = is_device;
-  static constexpr bool is_managed_accessible = is_device && is_host;
-  // make sure the explicit ctor can fall through
-  using AccessorPolicy::AccessorPolicy;
-  using offset_policy = accessor_mixin;
-  accessor_mixin(AccessorPolicy const& that) : AccessorPolicy{that} {}  // NOLINT
-};
-
-template <typename AccessorPolicy>
-using host_accessor = accessor_mixin<AccessorPolicy, true, false>;
-
-template <typename AccessorPolicy>
-using device_accessor = accessor_mixin<AccessorPolicy, false, true>;
-
-template <typename AccessorPolicy>
-using managed_accessor = accessor_mixin<AccessorPolicy, true, true>;
-
-namespace stdex = std::experimental;
-
-template <typename IndexType>
-using vector_extent = stdex::extents<IndexType, dynamic_extent>;
-
-template <typename IndexType>
-using matrix_extent = stdex::extents<IndexType, dynamic_extent, dynamic_extent>;
-
-template <typename IndexType = std::uint32_t>
-using scalar_extent = stdex::extents<IndexType, 1>;
-
-template <typename T>
-MDSPAN_INLINE_FUNCTION auto native_popc(T v) -> int32_t
-{
-  int c = 0;
-  for (; v != 0; v &= v - 1) {
-    c++;
-  }
-  return c;
-}
-
-MDSPAN_INLINE_FUNCTION auto popc(uint32_t v) -> int32_t
-{
-#if defined(__CUDA_ARCH__)
-  return __popc(v);
-#elif defined(__GNUC__) || defined(__clang__)
-  return __builtin_popcount(v);
-#else
-  return native_popc(v);
-#endif  // compiler
-}
-
-MDSPAN_INLINE_FUNCTION auto popc(uint64_t v) -> int32_t
-{
-#if defined(__CUDA_ARCH__)
-  return __popcll(v);
-#elif defined(__GNUC__) || defined(__clang__)
-  return __builtin_popcountll(v);
-#else
-  return native_popc(v);
-#endif  // compiler
-}
-
-template <class T, std::size_t N, std::size_t... Idx>
-MDSPAN_INLINE_FUNCTION constexpr auto arr_to_tup(T (&arr)[N], std::index_sequence<Idx...>)
-{
-  return std::make_tuple(arr[Idx]...);
-}
-
-template <class T, std::size_t N>
-MDSPAN_INLINE_FUNCTION constexpr auto arr_to_tup(T (&arr)[N])
-{
-  return arr_to_tup(arr, std::make_index_sequence<N>{});
-}
-
-// uint division optimization inspired by the CIndexer in cupy.  Division operation is
-// slow on both CPU and GPU, especially 64 bit integer.  So here we first try to avoid 64
-// bit when the index is smaller, then try to avoid division when it's exp of 2.
-template <typename I, typename IndexType, size_t... Extents>
-MDSPAN_INLINE_FUNCTION auto unravel_index_impl(I idx, stdex::extents<IndexType, Extents...> shape)
-{
-  constexpr auto kRank = static_cast<int32_t>(shape.rank());
-  std::size_t index[shape.rank()]{0};  // NOLINT
-  static_assert(std::is_signed<decltype(kRank)>::value,
-                "Don't change the type without changing the for loop.");
-  for (int32_t dim = kRank; --dim > 0;) {
-    auto s = static_cast<std::remove_const_t<std::remove_reference_t<I>>>(shape.extent(dim));
-    if (s & (s - 1)) {
-      auto t     = idx / s;
-      index[dim] = idx - t * s;
-      idx        = t;
-    } else {  // exp of 2
-      index[dim] = idx & (s - 1);
-      idx >>= popc(s - 1);
-    }
-  }
-  index[0] = idx;
-  return arr_to_tup(index);
-}
-
-/**
- * Ensure all types listed in the parameter pack `Extents` are integral types.
- * Usage:
- *   put it as the last nameless template parameter of a function:
- *     `typename = ensure_integral_extents<Extents...>`
- */
-template <typename... Extents>
-using ensure_integral_extents = std::enable_if_t<std::conjunction_v<std::is_integral<Extents>...>>;
 
 }  // namespace raft::detail

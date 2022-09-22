@@ -23,7 +23,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 
 /**
  * @defgroup pairwise_distance pairwise distance prims
