@@ -13,7 +13,7 @@ jobs:
       package-dir: python/pylibraft
       python-version: "3.8 3.9"
 
-      manylinux-container-amd64: "rapidsai/manylinux_2_27"
+      manylinux-container-amd64: "rapidsai/manylinux_2_31"
       manylinux-container-arm64: "rapidsai/manylinux_2_31"
 
       cibw-before-all-amd64: "apt-get install -y libblas-dev liblapack-dev"
@@ -41,7 +41,7 @@ jobs:
       package-dir: python/raft-dask
       python-version: "3.8 3.9"
 
-      manylinux-container-amd64: "rapidsai/manylinux_2_27"
+      manylinux-container-amd64: "rapidsai/manylinux_2_31"
       manylinux-container-arm64: "rapidsai/manylinux_2_31"
 
       cibw-before-all-amd64: "apt-get install -y libblas-dev liblapack-dev"
