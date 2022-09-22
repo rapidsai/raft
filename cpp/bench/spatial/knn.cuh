@@ -386,9 +386,4 @@ inline const std::vector<Scope> kAllScopes{Scope::BUILD_SEARCH, Scope::SEARCH, S
     RAFT_BENCH_REGISTER(KNN, #ValT "/" #IdxT "/" #ImplT, inputs, strats, scope); \
   }
 
-KNN_REGISTER(float, int64_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
-KNN_REGISTER(float, uint32_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
-KNN_REGISTER(int8_t, int64_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
-KNN_REGISTER(uint8_t, uint32_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
-
 }  // namespace raft::bench::spatial
