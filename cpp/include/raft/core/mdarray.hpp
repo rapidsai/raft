@@ -24,212 +24,13 @@
 
 #include <stddef.h>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/detail/host_device_accessor.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/mdspan.hpp>
-#include <raft/detail/mdarray.hpp>
-
+#include <raft/core/mdspan_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft {
-/**
- * @brief Dimensions extents for raft::host_mdspan or raft::device_mdspan
- */
-template <typename IndexType, size_t... ExtentsPack>
-using extents = std::experimental::extents<IndexType, ExtentsPack...>;
-
-/**
- * @defgroup C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.
- * @{
- */
-using detail::stdex::layout_right;
-using layout_c_contiguous = layout_right;
-using row_major           = layout_right;
-/** @} */
-
-/**
- * @defgroup F-Contiguous layout for mdarray and mdspan. Implies column-major and contiguous memory.
- * @{
- */
-using detail::stdex::layout_left;
-using layout_f_contiguous = layout_left;
-using col_major           = layout_left;
-/** @} */
-
-/**
- * @brief Strided layout for non-contiguous memory.
- */
-using detail::stdex::layout_stride;
-
-/**
- * @defgroup Common mdarray/mdspan extent types. The rank is known at compile time, each dimension
- * is known at run time (dynamic_extent in each dimension).
- * @{
- */
-using detail::matrix_extent;
-using detail::scalar_extent;
-using detail::vector_extent;
-
-template <typename IndexType>
-using extent_1d = vector_extent<IndexType>;
-
-template <typename IndexType>
-using extent_2d = matrix_extent<IndexType>;
-
-template <typename IndexType>
-using extent_3d = detail::stdex::extents<IndexType, dynamic_extent, dynamic_extent, dynamic_extent>;
-
-template <typename IndexType>
-using extent_4d =
-  detail::stdex::extents<IndexType, dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
-
-template <typename IndexType>
-using extent_5d = detail::stdex::extents<IndexType,
-                                         dynamic_extent,
-                                         dynamic_extent,
-                                         dynamic_extent,
-                                         dynamic_extent,
-                                         dynamic_extent>;
-/** @} */
-
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using mdspan = detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
-
-namespace detail {
-/**
- * @\brief Template checks and helpers to determine if type T is an std::mdspan
- *         or a derived type
- */
-
-template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void __takes_an_mdspan_ptr(mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
-
-template <typename T, typename = void>
-struct is_mdspan : std::false_type {
-};
-template <typename T>
-struct is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
-  : std::true_type {
-};
-
-template <typename T>
-using is_mdspan_t = is_mdspan<std::remove_const_t<T>>;
-
-template <typename T>
-inline constexpr bool is_mdspan_v = is_mdspan_t<T>::value;
-}  // namespace detail
-
-/**
- * @\brief Boolean to determine if variadic template types Tn are either
- *          raft::host_mdspan/raft::device_mdspan or their derived types
- */
-template <typename... Tn>
-inline constexpr bool is_mdspan_v = std::conjunction_v<detail::is_mdspan_t<Tn>...>;
-
-template <typename... Tn>
-using enable_if_mdspan = std::enable_if_t<is_mdspan_v<Tn...>>;
-
-/**
- * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
- */
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using device_mdspan =
-  mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
-
-/**
- * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
- */
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using host_mdspan =
-  mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
-
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using managed_mdspan =
-  mdspan<ElementType, Extents, LayoutPolicy, detail::managed_accessor<AccessorPolicy>>;
-
-namespace detail {
-template <typename T, bool B>
-struct is_device_mdspan : std::false_type {
-};
-template <typename T>
-struct is_device_mdspan<T, true> : std::bool_constant<T::accessor_type::is_device_accessible> {
-};
-
-/**
- * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
- */
-template <typename T>
-using is_device_mdspan_t = is_device_mdspan<T, is_mdspan_v<T>>;
-
-template <typename T, bool B>
-struct is_host_mdspan : std::false_type {
-};
-template <typename T>
-struct is_host_mdspan<T, true> : std::bool_constant<T::accessor_type::is_host_accessible> {
-};
-
-/**
- * @\brief Boolean to determine if template type T is either raft::host_mdspan or a derived type
- */
-template <typename T>
-using is_host_mdspan_t = is_host_mdspan<T, is_mdspan_v<T>>;
-
-template <typename T, bool B>
-struct is_managed_mdspan : std::false_type {
-};
-template <typename T>
-struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_managed_accessible> {
-};
-
-/**
- * @\brief Boolean to determine if template type T is either raft::managed_mdspan or a derived type
- */
-template <typename T>
-using is_managed_mdspan_t = is_managed_mdspan<T, is_mdspan_v<T>>;
-}  // namespace detail
-
-/**
- * @\brief Boolean to determine if variadic template types Tn are either raft::device_mdspan or a
- * derived type
- */
-template <typename... Tn>
-inline constexpr bool is_device_mdspan_v = std::conjunction_v<detail::is_device_mdspan_t<Tn>...>;
-
-template <typename... Tn>
-using enable_if_device_mdspan = std::enable_if_t<is_device_mdspan_v<Tn...>>;
-
-/**
- * @\brief Boolean to determine if variadic template types Tn are either raft::host_mdspan or a
- * derived type
- */
-template <typename... Tn>
-inline constexpr bool is_host_mdspan_v = std::conjunction_v<detail::is_host_mdspan_t<Tn>...>;
-
-template <typename... Tn>
-using enable_if_host_mdspan = std::enable_if_t<is_host_mdspan_v<Tn...>>;
-
-/**
- * @\brief Boolean to determine if variadic template types Tn are either raft::managed_mdspan or a
- * derived type
- */
-template <typename... Tn>
-inline constexpr bool is_managed_mdspan_v = std::conjunction_v<detail::is_managed_mdspan_t<Tn>...>;
-
-template <typename... Tn>
-using enable_if_managed_mdspan = std::enable_if_t<is_managed_mdspan_v<Tn...>>;
-
 /**
  * @brief Interface to implement an owning multi-dimensional array
  *
@@ -301,7 +102,7 @@ inline constexpr bool is_array_interface_v = is_array_interface<Tn...>::value;
  * are some inconsistencies in between them.  We have made some modificiations to fit our
  * needs, which are listed below.
  *
- * - Layout policy is different, the mdarray in raft uses `stdex::extent` directly just
+ * - Layout policy is different, the mdarray in raft uses `std::experimental::extent` directly just
  *   like `mdspan`, while the `mdarray` in the reference implementation uses varidic
  *   template.
  *
@@ -354,9 +155,12 @@ class mdarray
                                  typename container_policy_type::const_accessor_policy,
                                  typename container_policy_type::accessor_policy>>
   using view_type_impl =
-    std::conditional_t<container_policy_type::is_host_accessible,
-                       host_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>,
-                       device_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>>;
+    mdspan<E,
+           extents_type,
+           layout_type,
+           detail::host_device_accessor<ViewAccessorPolicy,
+                                        container_policy_type::is_host_accessible,
+                                        container_policy_type::is_device_accessible>>;
 
  public:
   /**
@@ -462,61 +266,61 @@ class mdarray
   }
 
   // basic_mdarray observers of the domain multidimensional index space (also in basic_mdspan)
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto rank() noexcept -> rank_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto rank() noexcept -> rank_type
   {
     return extents_type::rank();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto rank_dynamic() noexcept -> rank_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto rank_dynamic() noexcept -> rank_type
   {
     return extents_type::rank_dynamic();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto static_extent(size_t r) noexcept
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto static_extent(size_t r) noexcept
     -> index_type
   {
     return extents_type::static_extent(r);
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto extents() const noexcept -> extents_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto extents() const noexcept -> extents_type
   {
     return map_.extents();
   }
   /**
    * @brief the extent of rank r
    */
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto extent(size_t r) const noexcept -> index_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto extent(size_t r) const noexcept -> index_type
   {
     return map_.extents().extent(r);
   }
   // mapping
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto mapping() const noexcept -> mapping_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto mapping() const noexcept -> mapping_type
   {
     return map_;
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_unique() const noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto is_unique() const noexcept -> bool
   {
     return map_.is_unique();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_exhaustive() const noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto is_exhaustive() const noexcept -> bool
   {
     return map_.is_exhaustive();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_strided() const noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto is_strided() const noexcept -> bool
   {
     return map_.is_strided();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto stride(size_t r) const -> index_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto stride(size_t r) const -> index_type
   {
     return map_.stride(r);
   }
 
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_unique() noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto is_always_unique() noexcept -> bool
   {
     return mapping_type::is_always_unique();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_exhaustive() noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto is_always_exhaustive() noexcept -> bool
   {
     return mapping_type::is_always_exhaustive();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_strided() noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto is_always_strided() noexcept -> bool
   {
     return mapping_type::is_always_strided();
   }
@@ -532,521 +336,6 @@ class mdarray
 };
 
 /**
- * @brief mdarray with host container policy
- * @tparam ElementType the data type of the elements
- * @tparam Extents defines the shape
- * @tparam LayoutPolicy policy for indexing strides and layout ordering
- * @tparam ContainerPolicy storage and accessor policy
- */
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::host_vector_policy<ElementType>>
-using host_mdarray =
-  mdarray<ElementType, Extents, LayoutPolicy, detail::host_accessor<ContainerPolicy>>;
-
-/**
- * @brief mdarray with device container policy
- * @tparam ElementType the data type of the elements
- * @tparam Extents defines the shape
- * @tparam LayoutPolicy policy for indexing strides and layout ordering
- * @tparam ContainerPolicy storage and accessor policy
- */
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::device_uvector_policy<ElementType>>
-using device_mdarray =
-  mdarray<ElementType, Extents, LayoutPolicy, detail::device_accessor<ContainerPolicy>>;
-
-/**
- * @brief Shorthand for 0-dim host mdarray (scalar).
- * @tparam ElementType the data type of the scalar element
- * @tparam IndexType the index type of the extents
- */
-template <typename ElementType, typename IndexType = std::uint32_t>
-using host_scalar = host_mdarray<ElementType, scalar_extent<IndexType>>;
-
-/**
- * @brief Shorthand for 0-dim host mdarray (scalar).
- * @tparam ElementType the data type of the scalar element
- * @tparam IndexType the index type of the extents
- */
-template <typename ElementType, typename IndexType = std::uint32_t>
-using device_scalar = device_mdarray<ElementType, scalar_extent<IndexType>>;
-
-/**
- * @brief Shorthand for 1-dim host mdarray.
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-using host_vector = host_mdarray<ElementType, vector_extent<IndexType>, LayoutPolicy>;
-
-/**
- * @brief Shorthand for 1-dim device mdarray.
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-using device_vector = device_mdarray<ElementType, vector_extent<IndexType>, LayoutPolicy>;
-
-/**
- * @brief Shorthand for c-contiguous host matrix.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-using host_matrix = host_mdarray<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
-
-/**
- * @brief Shorthand for c-contiguous device matrix.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-using device_matrix = device_mdarray<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
-
-/**
- * @brief Shorthand for 0-dim host mdspan (scalar).
- * @tparam ElementType the data type of the scalar element
- * @tparam IndexType the index type of the extents
- */
-template <typename ElementType, typename IndexType = std::uint32_t>
-using host_scalar_view = host_mdspan<ElementType, scalar_extent<IndexType>>;
-
-/**
- * @brief Shorthand for 0-dim host mdspan (scalar).
- * @tparam ElementType the data type of the scalar element
- * @tparam IndexType the index type of the extents
- */
-template <typename ElementType, typename IndexType = std::uint32_t>
-using device_scalar_view = device_mdspan<ElementType, scalar_extent<IndexType>>;
-
-/**
- * @brief Shorthand for 1-dim host mdspan.
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-using host_vector_view = host_mdspan<ElementType, vector_extent<IndexType>, LayoutPolicy>;
-
-/**
- * @brief Shorthand for 1-dim device mdspan.
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-using device_vector_view = device_mdspan<ElementType, vector_extent<IndexType>, LayoutPolicy>;
-
-/**
- * @brief Shorthand for c-contiguous host matrix view.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-using host_matrix_view = host_mdspan<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
-
-/**
- * @brief Shorthand for c-contiguous device matrix view.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-using device_matrix_view = device_mdspan<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
-
-/**
- * @brief Create a raft::mdspan
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @tparam is_host_accessible whether the data is accessible on host
- * @tparam is_device_accessible whether the data is accessible on device
- * @param ptr Pointer to the data
- * @param exts dimensionality of the array (series of integers)
- * @return raft::mdspan
- */
-template <typename ElementType,
-          typename IndexType        = std::uint32_t,
-          typename LayoutPolicy     = layout_c_contiguous,
-          bool is_host_accessible   = false,
-          bool is_device_accessible = true,
-          size_t... Extents>
-auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
-{
-  using accessor_type = detail::accessor_mixin<std::experimental::default_accessor<ElementType>,
-                                               is_host_accessible,
-                                               is_device_accessible>;
-
-  return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
-}
-
-/**
- * @brief Create a raft::managed_mdspan
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param ptr Pointer to the data
- * @param exts dimensionality of the array (series of integers)
- * @return raft::managed_mdspan
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous,
-          size_t... Extents>
-auto make_managed_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
-{
-  return make_mdspan<ElementType, IndexType, LayoutPolicy, true, true>(ptr, exts);
-}
-
-/**
- * @brief Create a 0-dim (scalar) mdspan instance for host value.
- *
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @param[in] ptr on device to wrap
- */
-template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_host_scalar_view(ElementType* ptr)
-{
-  scalar_extent<IndexType> extents;
-  return host_scalar_view<ElementType, IndexType>{ptr, extents};
-}
-
-/**
- * @brief Create a 0-dim (scalar) mdspan instance for device value.
- *
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @param[in] ptr on device to wrap
- */
-template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_device_scalar_view(ElementType* ptr)
-{
-  scalar_extent<IndexType> extents;
-  return device_scalar_view<ElementType, IndexType>{ptr, extents};
-}
-
-/**
- * @brief Create a 2-dim c-contiguous mdspan instance for host pointer. It's
- *        expected that the given layout policy match the layout of the underlying
- *        pointer.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] ptr on host to wrap
- * @param[in] n_rows number of rows in pointer
- * @param[in] n_cols number of columns in pointer
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_host_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
-{
-  matrix_extent<IndexType> extents{n_rows, n_cols};
-  return host_matrix_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
-}
-/**
- * @brief Create a 2-dim c-contiguous mdspan instance for device pointer. It's
- *        expected that the given layout policy match the layout of the underlying
- *        pointer.
- * @tparam ElementType the data type of the matrix elements
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @tparam IndexType the index type of the extents
- * @param[in] ptr on device to wrap
- * @param[in] n_rows number of rows in pointer
- * @param[in] n_cols number of columns in pointer
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_device_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
-{
-  matrix_extent<IndexType> extents{n_rows, n_cols};
-  return device_matrix_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
-}
-
-/**
- * @brief Create a 1-dim mdspan instance for host pointer.
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- * @param[in] ptr on host to wrap
- * @param[in] n number of elements in pointer
- * @return raft::host_vector_view
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_host_vector_view(ElementType* ptr, IndexType n)
-{
-  vector_extent<IndexType> extents{n};
-  return host_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
-}
-
-/**
- * @brief Create a 1-dim mdspan instance for device pointer.
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] ptr on device to wrap
- * @param[in] n number of elements in pointer
- * @return raft::device_vector_view
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_device_vector_view(ElementType* ptr, IndexType n)
-{
-  vector_extent<IndexType> extents{n};
-  return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
-}
-
-/**
- * @brief Create a host mdarray.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param exts dimensionality of the array (series of integers)
- * @return raft::host_mdarray
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous,
-          size_t... Extents>
-auto make_host_mdarray(extents<IndexType, Extents...> exts)
-{
-  using mdarray_t = host_mdarray<ElementType, decltype(exts), LayoutPolicy>;
-
-  typename mdarray_t::mapping_type layout{exts};
-  typename mdarray_t::container_policy_type policy;
-
-  return mdarray_t{layout, policy};
-}
-
-/**
- * @brief Create a device mdarray.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param handle raft::handle_t
- * @param exts dimensionality of the array (series of integers)
- * @return raft::device_mdarray
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous,
-          size_t... Extents>
-auto make_device_mdarray(const raft::handle_t& handle, extents<IndexType, Extents...> exts)
-{
-  using mdarray_t = device_mdarray<ElementType, decltype(exts), LayoutPolicy>;
-
-  typename mdarray_t::mapping_type layout{exts};
-  typename mdarray_t::container_policy_type policy{handle.get_stream()};
-
-  return mdarray_t{layout, policy};
-}
-
-/**
- * @brief Create a device mdarray.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param handle raft::handle_t
- * @param mr rmm memory resource used for allocating the memory for the array
- * @param exts dimensionality of the array (series of integers)
- * @return raft::device_mdarray
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous,
-          size_t... Extents>
-auto make_device_mdarray(const raft::handle_t& handle,
-                         rmm::mr::device_memory_resource* mr,
-                         extents<IndexType, Extents...> exts)
-{
-  using mdarray_t = device_mdarray<ElementType, decltype(exts), LayoutPolicy>;
-
-  typename mdarray_t::mapping_type layout{exts};
-  typename mdarray_t::container_policy_type policy{handle.get_stream(), mr};
-
-  return mdarray_t{layout, policy};
-}
-
-/**
- * @brief Create raft::extents to specify dimensionality
- *
- * @tparam IndexType The type of each dimension of the extents
- * @tparam Extents Dimensions (a series of integers)
- * @param exts The desired dimensions
- * @return raft::extents
- */
-template <typename IndexType,
-          typename... Extents,
-          typename = detail::ensure_integral_extents<Extents...>>
-auto make_extents(Extents... exts)
-{
-  return extents<IndexType, ((void)exts, dynamic_extent)...>{exts...};
-}
-
-/**
- * @brief Create a 2-dim c-contiguous host mdarray.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] n_rows number or rows in matrix
- * @param[in] n_cols number of columns in matrix
- * @return raft::host_matrix
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_host_matrix(IndexType n_rows, IndexType n_cols)
-{
-  return make_host_mdarray<ElementType, IndexType, LayoutPolicy>(
-    make_extents<IndexType>(n_rows, n_cols));
-}
-
-/**
- * @brief Create a 2-dim c-contiguous device mdarray.
- *
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] handle raft handle for managing expensive resources
- * @param[in] n_rows number or rows in matrix
- * @param[in] n_cols number of columns in matrix
- * @return raft::device_matrix
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_device_matrix(raft::handle_t const& handle, IndexType n_rows, IndexType n_cols)
-{
-  return make_device_mdarray<ElementType, IndexType, LayoutPolicy>(
-    handle.get_stream(), make_extents<IndexType>(n_rows, n_cols));
-}
-
-/**
- * @brief Create a host scalar from v.
- *
- * @tparam ElementType the data type of the scalar element
- * @tparam IndexType the index type of the extents
- * @param[in] v scalar type to wrap
- * @return raft::host_scalar
- */
-template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_host_scalar(ElementType const& v)
-{
-  // FIXME(jiamingy): We can optimize this by using std::array as container policy, which
-  // requires some more compile time dispatching. This is enabled in the ref impl but
-  // hasn't been ported here yet.
-  scalar_extent<IndexType> extents;
-  using policy_t = typename host_scalar<ElementType>::container_policy_type;
-  policy_t policy;
-  auto scalar = host_scalar<ElementType>{extents, policy};
-  scalar(0)   = v;
-  return scalar;
-}
-
-/**
- * @brief Create a device scalar from v.
- *
- * @tparam ElementType the data type of the scalar element
- * @tparam IndexType the index type of the extents
- * @param[in] handle raft handle for managing expensive cuda resources
- * @param[in] v scalar to wrap on device
- * @return raft::device_scalar
- */
-template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_device_scalar(raft::handle_t const& handle, ElementType const& v)
-{
-  scalar_extent<IndexType> extents;
-  using policy_t = typename device_scalar<ElementType>::container_policy_type;
-  policy_t policy{handle.get_stream()};
-  auto scalar = device_scalar<ElementType>{extents, policy};
-  scalar(0)   = v;
-  return scalar;
-}
-
-/**
- * @brief Create a 1-dim host mdarray.
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] n number of elements in vector
- * @return raft::host_vector
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_host_vector(IndexType n)
-{
-  return make_host_mdarray<ElementType, IndexType, LayoutPolicy>(make_extents<IndexType>(n));
-}
-
-/**
- * @brief Create a 1-dim device mdarray.
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] handle raft handle for managing expensive cuda resources
- * @param[in] n number of elements in vector
- * @return raft::device_vector
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_device_vector(raft::handle_t const& handle, IndexType n)
-{
-  return make_device_mdarray<ElementType, IndexType, LayoutPolicy>(handle.get_stream(),
-                                                                   make_extents<IndexType>(n));
-}
-
-/**
- * @brief Flatten raft::host_mdspan or raft::device_mdspan into a 1-dim array view
- *
- * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
- * @param mds raft::host_mdspan or raft::device_mdspan object
- * @return raft::host_mdspan or raft::device_mdspan with vector_extent
- *         depending on AccessoryPolicy
- */
-template <typename mdspan_type, typename = enable_if_mdspan<mdspan_type>>
-auto flatten(mdspan_type mds)
-{
-  RAFT_EXPECTS(mds.is_exhaustive(), "Input must be contiguous.");
-
-  vector_extent<typename mdspan_type::size_type> ext{mds.size()};
-
-  return detail::stdex::mdspan<typename mdspan_type::element_type,
-                               decltype(ext),
-                               typename mdspan_type::layout_type,
-                               typename mdspan_type::accessor_type>(mds.data_handle(), ext);
-}
-
-/**
  * @brief Flatten object implementing raft::array_interface into a 1-dim array view
  *
  * @tparam array_interface_type Expected type implementing raft::array_interface
@@ -1059,36 +348,6 @@ template <typename array_interface_type,
 auto flatten(const array_interface_type& mda)
 {
   return flatten(mda.view());
-}
-
-/**
- * @brief Reshape raft::host_mdspan or raft::device_mdspan
- *
- * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
- * @tparam IndexType the index type of the extents
- * @tparam Extents raft::extents for dimensions
- * @param mds raft::host_mdspan or raft::device_mdspan object
- * @param new_shape Desired new shape of the input
- * @return raft::host_mdspan or raft::device_mdspan, depending on AccessorPolicy
- */
-template <typename mdspan_type,
-          typename IndexType = std::uint32_t,
-          size_t... Extents,
-          typename = enable_if_mdspan<mdspan_type>>
-auto reshape(mdspan_type mds, extents<IndexType, Extents...> new_shape)
-{
-  RAFT_EXPECTS(mds.is_exhaustive(), "Input must be contiguous.");
-
-  size_t new_size = 1;
-  for (size_t i = 0; i < new_shape.rank(); ++i) {
-    new_size *= new_shape.extent(i);
-  }
-  RAFT_EXPECTS(new_size == mds.size(), "Cannot reshape array with size mismatch");
-
-  return detail::stdex::mdspan<typename mdspan_type::element_type,
-                               decltype(new_shape),
-                               typename mdspan_type::layout_type,
-                               typename mdspan_type::accessor_type>(mds.data_handle(), new_shape);
 }
 
 /**
@@ -1111,36 +370,4 @@ auto reshape(const array_interface_type& mda, extents<IndexType, Extents...> new
   return reshape(mda.view(), new_shape);
 }
 
-/**
- * \brief Turns linear index into coordinate.  Similar to numpy unravel_index.
- *
- * \code
- *   auto m = make_host_matrix<float>(7, 6);
- *   auto m_v = m.view();
- *   auto coord = unravel_index(2, m.extents(), typename decltype(m)::layout_type{});
- *   std::apply(m_v, coord) = 2;
- * \endcode
- *
- * \param idx    The linear index.
- * \param shape  The shape of the array to use.
- * \param layout Must be `layout_c_contiguous` (row-major) in current implementation.
- *
- * \return A std::tuple that represents the coordinate.
- */
-template <typename Idx, typename IndexType, typename LayoutPolicy, size_t... Exts>
-MDSPAN_INLINE_FUNCTION auto unravel_index(Idx idx,
-                                          extents<IndexType, Exts...> shape,
-                                          LayoutPolicy const& layout)
-{
-  static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(layout)>>,
-                               layout_c_contiguous>,
-                "Only C layout is supported.");
-  static_assert(std::is_integral_v<Idx>, "Index must be integral.");
-  auto constexpr kIs64 = sizeof(std::remove_cv_t<std::remove_reference_t<Idx>>) == sizeof(uint64_t);
-  if (kIs64 && static_cast<uint64_t>(idx) > std::numeric_limits<uint32_t>::max()) {
-    return detail::unravel_index_impl<uint64_t>(static_cast<uint64_t>(idx), shape);
-  } else {
-    return detail::unravel_index_impl<uint32_t>(static_cast<uint32_t>(idx), shape);
-  }
-}
 }  // namespace raft

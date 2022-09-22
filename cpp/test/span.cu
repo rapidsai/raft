@@ -16,7 +16,7 @@
 #include "test_span.hpp"
 #include <gtest/gtest.h>
 #include <numeric>  // iota
-#include <raft/span.hpp>
+#include <raft/core/device_span.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,16 @@
  * limitations under the License.
  */
 
-/**
- * This file is deprecated and will be removed in a future release.
- */
-#include "raft/core/device_mdarray.hpp"
-#include "raft/core/device_mdspan.hpp"
-#include "raft/core/device_span.hpp"
-#include "raft/core/handle.hpp"
+#pragma once
 
-#include <string>
+#include <raft/core/span.hpp>
 
 namespace raft {
 
-/* Function for testing RAFT include
- *
- * @return message indicating RAFT has been included succesfully*/
-inline std::string test_raft()
-{
-  std::string status = "RAFT Setup succesfully";
-  return status;
-}
+/**
+ * @brief A span class for device pointer.
+ */
+template <typename T, size_t extent = std::experimental::dynamic_extent>
+using device_span = span<T, true, extent>;
 
-}  // namespace raft
+}  // end namespace raft

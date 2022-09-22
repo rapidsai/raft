@@ -17,7 +17,7 @@
 #include "../test_utils.h"
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
-#include <raft/mdarray.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>

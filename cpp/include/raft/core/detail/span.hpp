@@ -16,12 +16,11 @@
 #pragma once
 
 #include <limits>  // numeric_limits
-#include <raft/core/mdspan.hpp>
-#include <thrust/host_vector.h>  // __host__ __device__
+#include <raft/core/detail/macros.hpp>
+#include <raft/core/mdspan_types.hpp>
 #include <type_traits>
 
 namespace raft {
-constexpr std::size_t dynamic_extent = std::experimental::dynamic_extent;
 
 template <class ElementType, bool is_device, std::size_t Extent>
 class span;
@@ -75,10 +74,10 @@ struct is_span_t : public is_span_oracle_t<typename std::remove_cv<T>::type> {
 };
 
 template <class InputIt1, class InputIt2, class Compare>
-__host__ __device__ constexpr auto lexicographical_compare(InputIt1 first1,
-                                                           InputIt1 last1,
-                                                           InputIt2 first2,
-                                                           InputIt2 last2) -> bool
+_RAFT_HOST_DEVICE constexpr auto lexicographical_compare(InputIt1 first1,
+                                                         InputIt1 last1,
+                                                         InputIt2 first2,
+                                                         InputIt2 last2) -> bool
 {
   Compare comp;
   for (; first1 != last1 && first2 != last2; ++first1, ++first2) {
