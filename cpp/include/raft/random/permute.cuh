@@ -22,7 +22,8 @@
 #include "detail/permute.cuh"
 
 #include <optional>
-#include <raft/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 #include <type_traits>
 
 namespace raft::random {
