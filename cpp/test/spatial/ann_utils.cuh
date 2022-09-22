@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/spatial/knn/detail/topk.cuh>
 #include <raft/util/cuda_utils.cuh>

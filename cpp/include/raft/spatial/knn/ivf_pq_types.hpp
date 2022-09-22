@@ -20,10 +20,12 @@
 
 #include <raft/core/error.hpp>
 #include <raft/core/mdarray.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
 #include <rmm/mr/device/managed_memory_resource.hpp>
+
+#include <type_traits>
 
 namespace raft::spatial::knn::ivf_pq {
 
@@ -151,7 +153,7 @@ struct index : knn::index {
   /** Dimensionality of the data after splitting vectors into subspaces.  */
   [[nodiscard]] constexpr inline auto pq_len() const noexcept -> uint32_t
   {
-    return raft::ceildiv(dim(), pq_dim());
+    return raft::div_rounding_up_unsafe(dim(), pq_dim());
   }
   /** The size of an encoded vector element after compression by PQ (`1 << pq_bits`). */
   [[nodiscard]] constexpr inline auto pq_width() const noexcept -> uint32_t
@@ -431,8 +433,8 @@ struct index : knn::index {
   {
     // If the dimensionality is large enough, we can reduce it to improve performance
     if (dim >= 128) { dim /= 2; }
-    // Round it up to 32 to improve performance.
-    uint32_t r = raft::alignDown<uint32_t>(dim, 32);
+    // Round it down to 32 to improve performance.
+    uint32_t r = raft::round_down_safe<uint32_t>(dim, 32);
     if (r > 0) return r;
     // If the dimensionality is really low, round it to the closest power-of-two
     r = 1;
