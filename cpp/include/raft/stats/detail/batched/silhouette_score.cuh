@@ -17,8 +17,8 @@
 #pragma once
 
 #include "../silhouette_score.cuh"
-#include <raft/cuda_utils.cuh>
-#include <raft/device_atomics.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/device_atomics.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 #include <thrust/device_vector.h>

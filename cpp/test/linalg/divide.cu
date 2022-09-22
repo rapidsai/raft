@@ -17,9 +17,9 @@
 #include "../test_utils.h"
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/divide.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {

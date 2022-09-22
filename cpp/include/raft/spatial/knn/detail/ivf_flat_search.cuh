@@ -21,16 +21,16 @@
 #include "topk/radix_topk.cuh"
 #include "topk/warpsort_topk.cuh"
 
-#include <raft/common/device_loads_stores.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
-#include <raft/distance/distance_type.hpp>
-#include <raft/pow2_utils.cuh>
-#include <raft/vectorized.cuh>
+#include <raft/distance/distance_types.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/device_loads_stores.cuh>
+#include <raft/util/pow2_utils.cuh>
+#include <raft/util/vectorized.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
@@ -1257,7 +1257,7 @@ inline void search(const handle_t& handle,
     case raft::distance::DistanceType::CosineExpanded:
     case raft::distance::DistanceType::CorrelationExpanded:
       // Similarity metrics have the opposite meaning, i.e. nearest neigbours are those with larger
-      // similarity (See the same logic at cpp/include/raft/sparse/selection/detail/knn.cuh:362
+      // similarity (See the same logic at cpp/include/raft/sparse/spatial/detail/knn.cuh:362
       // {perform_k_selection})
       select_min = false;
       break;

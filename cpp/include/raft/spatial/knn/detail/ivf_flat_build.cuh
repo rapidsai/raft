@@ -24,7 +24,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/pow2_utils.cuh>
+#include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 

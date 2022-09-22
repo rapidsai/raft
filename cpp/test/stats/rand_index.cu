@@ -16,7 +16,7 @@
 
 #include "../test_utils.h"
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
 

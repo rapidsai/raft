@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/detail/reduce.cuh>
 

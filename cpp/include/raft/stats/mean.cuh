@@ -19,8 +19,8 @@
 
 #pragma once
 
+#include <raft/core/handle.hpp>
 #include <raft/core/mdarray.hpp>
-#include <raft/handle.hpp>
 #include <raft/stats/detail/mean.cuh>
 
 namespace raft {

@@ -63,9 +63,13 @@ conda list --show-channel-urls
 gpuci_logger "Build and install Python targets"
 CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 gpuci_mamba_retry install boa
-gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pyraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
+
+# Install pylibraft first since it's a dependency of raft-dask
 gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pylibraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
-gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pyraft pylibraft
+gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pylibraft
+
+gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/raft-dask -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
+gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" raft-dask
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
@@ -86,16 +90,16 @@ set +x
 gpuci_logger "Check GPU usage"
 nvidia-smi
 
-gpuci_logger "GoogleTest for raft"
+gpuci_logger "GoogleTest for libraft"
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/libraft/gtests/test_raft
-
-gpuci_logger "Python pytest for pyraft"
-cd "$WORKSPACE/python/raft/raft/test"
-pytest --cache-clear --junitxml="$WORKSPACE/junit-pyraft.xml" -v -s
 
 gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft/pylibraft/test"
 pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
+
+gpuci_logger "Python pytest for raft-dask"
+cd "$WORKSPACE/python/raft-dask/raft_dask/test"
+pytest --cache-clear --junitxml="$WORKSPACE/junit-raft-dask.xml" -v -s
 
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"

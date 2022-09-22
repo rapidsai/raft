@@ -23,11 +23,15 @@
 #include <raft/cluster/kmeans.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/stats/adjusted_rand_index.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <thrust/fill.h>
+
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#include <raft/cluster/specializations.cuh>
+#endif
 
 namespace raft {
 

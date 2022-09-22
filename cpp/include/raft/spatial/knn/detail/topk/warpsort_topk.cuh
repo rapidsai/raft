@@ -19,8 +19,8 @@
 #include "bitonic_sort.cuh"
 
 #include <raft/core/logger.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/pow2_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/pow2_utils.cuh>
 
 #include <algorithm>
 #include <functional>

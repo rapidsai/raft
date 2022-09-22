@@ -17,10 +17,10 @@
 #pragma once
 
 #include <raft/common/seive.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/stats/common.hpp>
-#include <raft/vectorized.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/vectorized.cuh>
 #include <stdint.h>
 
 // This file is a shameless amalgamation of independent works done by
