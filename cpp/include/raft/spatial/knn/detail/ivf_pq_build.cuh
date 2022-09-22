@@ -277,7 +277,8 @@ inline void make_rotation_matrix(uint32_t nRows,
 }
 
 //
-auto calc_pq_trainset_size(uint32_t cluster_size, uint32_t pq_dim, uint32_t pq_bits) -> uint32_t
+inline auto calc_pq_trainset_size(uint32_t cluster_size, uint32_t pq_dim, uint32_t pq_bits)
+  -> uint32_t
 {
   return static_cast<uint32_t>(
     std::min<size_t>(size_t{cluster_size} * size_t{pq_dim},
