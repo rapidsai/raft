@@ -21,15 +21,16 @@
 #include "topk.cuh"
 #include "topk/warpsort_topk.cuh"
 
-#include <raft/common/device_loads_stores.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
-#include <raft/distance/distance.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/core/nvtx.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/linalg/gemm.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
+#include <raft/util/device_loads_stores.cuh>
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
@@ -42,6 +43,16 @@
 #include <cuda_fp16.h>
 
 namespace raft::spatial::knn::ivf_pq::detail {
+
+/**
+ * Maximum value of k for the fused calculate & select in ivfpq.
+ *
+ * If runtime value of k is larger than this, the main search operation
+ * is split into two kernels (per batch, first calculate distance, then select top-k).
+ */
+static constexpr int kMaxCapacity = 128;
+static_assert((kMaxCapacity >= 32) && !(kMaxCapacity & (kMaxCapacity - 1)),
+              "kMaxCapacity must be a power of two, not smaller than the WarpSize.");
 
 using namespace raft::spatial::knn::detail;  // NOLINT
 
@@ -354,14 +365,14 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  *   The type of data indices
  * @tparam Capacity
  *   Power-of-two; the maximum possible `k` in top-k.
- * @tparam PrecompBaseDiff
- *   Defines whether we should precompute part of the distance and keep it in shared memory
- *   before the main part (score calculation) to increase memory usage efficiency in the latter.
- *   For L2, this is the distance between the query and the cluster center.
  * @tparam OutT
  *   The output type - distances.
  * @tparam LutT
  *   The lookup table element type (lut_scores).
+ * @tparam PrecompBaseDiff
+ *   Defines whether we should precompute part of the distance and keep it in shared memory
+ *   before the main part (score calculation) to increase memory usage efficiency in the latter.
+ *   For L2, this is the distance between the query and the cluster center.
  * @tparam EnableSMemLut
  *   Defines whether to use the shared memory for the lookup table (`lut_scores`).
  *   Setting this to `false` allows to reduce the shared memory usage (and maximum data dim)
@@ -412,30 +423,31 @@ template <int PqBits,
           int VecLen,
           typename IdxT,
           int Capacity,
-          bool PrecompBaseDiff,
           typename OutT,
           typename LutT,
+          bool PrecompBaseDiff,
           bool EnableSMemLut>
-__launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_rows,
-                                                                    uint32_t dim,
-                                                                    uint32_t n_probes,
-                                                                    uint32_t pq_dim,
-                                                                    uint32_t batch_size,
-                                                                    uint32_t max_samples,
-                                                                    distance::DistanceType metric,
-                                                                    codebook_gen codebook_kind,
-                                                                    uint32_t topk,
-                                                                    const float* cluster_centers,
-                                                                    const float* pq_centers,
-                                                                    const uint8_t* pq_dataset,
-                                                                    const IdxT* cluster_offsets,
-                                                                    const uint32_t* _cluster_labels,
-                                                                    const uint32_t* _chunk_indices,
-                                                                    const float* queries,
-                                                                    const uint32_t* index_list,
-                                                                    LutT* lut_scores,
-                                                                    OutT* _out_scores,
-                                                                    uint32_t* _out_indices)
+__launch_bounds__(1024, 1) __global__
+  void ivfpq_compute_similarity_kernel(uint32_t n_rows,
+                                       uint32_t dim,
+                                       uint32_t n_probes,
+                                       uint32_t pq_dim,
+                                       uint32_t batch_size,
+                                       uint32_t max_samples,
+                                       distance::DistanceType metric,
+                                       codebook_gen codebook_kind,
+                                       uint32_t topk,
+                                       const float* cluster_centers,
+                                       const float* pq_centers,
+                                       const uint8_t* pq_dataset,
+                                       const IdxT* cluster_offsets,
+                                       const uint32_t* _cluster_labels,
+                                       const uint32_t* _chunk_indices,
+                                       const float* queries,
+                                       const uint32_t* index_list,
+                                       LutT* lut_scores,
+                                       OutT* _out_scores,
+                                       uint32_t* _out_indices)
 {
   /* Shared memory:
 
@@ -587,6 +599,106 @@ __launch_bounds__(1024, 1) __global__ void ivfpq_compute_similarity(uint32_t n_r
 }
 
 /**
+ * This structure selects configurable template parameters (instance) based on
+ * the search/index parameters at runtime.
+ *
+ * This is done by means of recusively iterating through a small set of possible
+ * values for every parameter.
+ */
+template <typename IdxT, typename OutT, typename LutT>
+struct ivfpq_compute_similarity {
+  using kernel_t = void (*)(uint32_t,
+                            uint32_t,
+                            uint32_t,
+                            uint32_t,
+                            uint32_t,
+                            uint32_t,
+                            distance::DistanceType,
+                            codebook_gen,
+                            uint32_t,
+                            const float*,
+                            const float*,
+                            const uint8_t*,
+                            const IdxT*,
+                            const uint32_t*,
+                            const uint32_t*,
+                            const float*,
+                            const uint32_t*,
+                            LutT*,
+                            OutT*,
+                            uint32_t*);
+
+  template <bool PrecompBaseDiff, bool EnableSMemLut>
+  struct configured {
+   public:
+    /**
+     * Select a proper kernel instance based on the runtime parameters.
+     *
+     * @param pq_bits
+     * @param pq_dim
+     * @param k_max
+     */
+    static auto kernel(uint32_t pq_bits, uint32_t pq_dim, uint32_t k_max) -> kernel_t
+    {
+      return kernel_base(pq_bits, pq_dim, k_max);
+    }
+
+   private:
+    template <int PqBits, int VecLen, int Capacity>
+    static auto kernel_try_capacity(uint32_t k_max) -> kernel_t
+    {
+      if constexpr (Capacity > 0) {
+        if (k_max == 0 || k_max > Capacity) {
+          return kernel_try_capacity<PqBits, VecLen, 0>(k_max);
+        }
+      }
+      if constexpr (Capacity > 32) {
+        if (k_max * 2 <= Capacity) {
+          return kernel_try_capacity<PqBits, VecLen, (Capacity / 2)>(k_max);
+        }
+      }
+      return ivfpq_compute_similarity_kernel<PqBits,
+                                             VecLen,
+                                             IdxT,
+                                             Capacity,
+                                             OutT,
+                                             LutT,
+                                             PrecompBaseDiff,
+                                             EnableSMemLut>;
+    }
+
+    template <int PqBits, int VecLen>
+    static auto kernel_fixed_bits_try_veclen(uint32_t pq_dim, uint32_t k_max) -> kernel_t
+    {
+      if (pq_dim % VecLen == 0) { return kernel_try_capacity<PqBits, VecLen, kMaxCapacity>(k_max); }
+      if constexpr (VecLen > 1 && (PqBits * VecLen) % 16 == 0) {
+        return kernel_fixed_bits_try_veclen<PqBits, (VecLen / 2)>(pq_dim, k_max);
+      } else {
+        RAFT_FAIL("pq_dim must be a multiple of %d", VecLen);
+      }
+    }
+
+    template <int PqBits>
+    static auto kernel_fixed_bits(uint32_t pq_dim, uint32_t k_max) -> kernel_t
+    {
+      return kernel_fixed_bits_try_veclen<PqBits, 64 / gcd(PqBits, 64)>(pq_dim, k_max);
+    }
+
+    static auto kernel_base(uint32_t pq_bits, uint32_t pq_dim, uint32_t k_max) -> kernel_t
+    {
+      switch (pq_bits) {
+        case 4: return kernel_fixed_bits<4>(pq_dim, k_max);
+        case 5: return kernel_fixed_bits<5>(pq_dim, k_max);
+        case 6: return kernel_fixed_bits<6>(pq_dim, k_max);
+        case 7: return kernel_fixed_bits<7>(pq_dim, k_max);
+        case 8: return kernel_fixed_bits<8>(pq_dim, k_max);
+        default: RAFT_FAIL("Unsupported pq_bits = %u", pq_bits);
+      }
+    }
+  };
+};
+
+/**
  * The "main part" of the search, which assumes that outer-level `search` has already:
  *
  *   1. computed the closest clusters to probe (`clusters_to_probe`);
@@ -622,7 +734,7 @@ void ivfpq_search(const handle_t& handle,
   auto max_samples = Pow2<128>::roundUp(index.inclusiveSumSortedClusterSize()(n_probes - 1));
 
   bool manage_local_topk =
-    raft::ceildiv<int>(topK, 32) <= 4    // depth is not too large
+    topK <= kMaxCapacity                 // depth is not too large
     && n_probes >= 16                    // not too few clusters looked up
     && max_batch_size * n_probes >= 256  // overall amount of work is not too small
     ;
@@ -691,85 +803,19 @@ void ivfpq_search(const handle_t& handle,
                                     stream);
   }
 
-  // Select a GPU kernel for distance calculation
-#define SET_KERNEL1(B, V, D)                                                                    \
-  do {                                                                                          \
-    kernel_no_basediff =                                                                        \
-      ivfpq_compute_similarity<B, V, IdxT, D * WarpSize, false, ScoreT, LutT, true>;            \
-    kernel_fast = ivfpq_compute_similarity<B, V, IdxT, D * WarpSize, true, ScoreT, LutT, true>; \
-    kernel_no_smem_lut =                                                                        \
-      ivfpq_compute_similarity<B, V, IdxT, D * WarpSize, true, ScoreT, LutT, false>;            \
-  } while (0)
+  using run_t            = ivfpq_compute_similarity<IdxT, ScoreT, LutT>;
+  using kernel_t         = typename run_t::kernel_t;
+  using conf_fast        = typename run_t::configured<true, true>;
+  using conf_no_basediff = typename run_t::configured<false, true>;
+  using conf_no_smem_lut = typename run_t::configured<true, false>;
 
-#define SET_KERNEL2(B, M, D)                                                     \
-  do {                                                                           \
-    RAFT_EXPECTS(index.pq_dim() % M == 0, "pq_dim must be a multiple of %u", M); \
-    if (index.pq_dim() % (M * 8) == 0) {                                         \
-      SET_KERNEL1(B, (M * 8), D);                                                \
-    } else if (index.pq_dim() % (M * 4) == 0) {                                  \
-      SET_KERNEL1(B, (M * 4), D);                                                \
-    } else if (index.pq_dim() % (M * 2) == 0) {                                  \
-      SET_KERNEL1(B, (M * 2), D);                                                \
-    } else if (index.pq_dim() % (M * 1) == 0) {                                  \
-      SET_KERNEL1(B, (M * 1), D);                                                \
-    }                                                                            \
-  } while (0)
+  kernel_t kernel_fast =
+    conf_fast::kernel(index.pq_bits(), index.pq_dim(), manage_local_topk ? topK : 0u);
+  kernel_t kernel_no_basediff =
+    conf_no_basediff::kernel(index.pq_bits(), index.pq_dim(), manage_local_topk ? topK : 0u);
+  kernel_t kernel_no_smem_lut =
+    conf_no_smem_lut::kernel(index.pq_bits(), index.pq_dim(), manage_local_topk ? topK : 0u);
 
-#define SET_KERNEL3(D)                     \
-  do {                                     \
-    switch (index.pq_bits()) {             \
-      case 4: SET_KERNEL2(4, 2, D); break; \
-      case 5: SET_KERNEL2(5, 8, D); break; \
-      case 6: SET_KERNEL2(6, 4, D); break; \
-      case 7: SET_KERNEL2(7, 8, D); break; \
-      case 8: SET_KERNEL2(8, 1, D); break; \
-    }                                      \
-  } while (0)
-
-  using kernel_t = void (*)(uint32_t,
-                            uint32_t,
-                            uint32_t,
-                            uint32_t,
-                            uint32_t,
-                            uint32_t,
-                            distance::DistanceType,
-                            codebook_gen,
-                            uint32_t,
-                            const float*,
-                            const float*,
-                            const uint8_t*,
-                            const IdxT*,
-                            const uint32_t*,
-                            const uint32_t*,
-                            const float*,
-                            const uint32_t*,
-                            LutT*,
-                            ScoreT*,
-                            uint32_t*);
-
-  kernel_t kernel_no_basediff;
-  kernel_t kernel_fast;
-  kernel_t kernel_no_smem_lut;
-  uint32_t depth = 0;
-  if (manage_local_topk) {
-    depth = 1;
-    while (depth * WarpSize < topK) {
-      depth *= 2;
-    }
-  }
-  switch (depth) {
-    case 0: SET_KERNEL3(0); break;
-    case 1: SET_KERNEL3(1); break;
-    case 2: SET_KERNEL3(2); break;
-    case 4: SET_KERNEL3(4); break;
-    default: RAFT_FAIL("ivf_pq::search(k = %u): depth value is too big (%d)", topK, depth);
-  }
-  RAFT_LOG_DEBUG("ivf_pq::search(k = %u, depth = %d, dim = %u/%u/%u)",
-                 topK,
-                 depth,
-                 index.dim(),
-                 index.rot_dim(),
-                 index.pq_dim());
   const size_t smem_threshold = 48 * 1024;
   size_t smem_size            = sizeof(LutT) * index.pq_dim() * index.pq_width();
   size_t smem_size_base_diff  = sizeof(float) * index.rot_dim();

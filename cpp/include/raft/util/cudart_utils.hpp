@@ -422,7 +422,7 @@ bool is_aligned(Type* ptr, size_t alignment)
  * @ return gcd of a and b
  */
 template <typename IntType>
-IntType gcd(IntType a, IntType b)
+constexpr IntType gcd(IntType a, IntType b)
 {
   while (b != 0) {
     IntType tmp = b;
