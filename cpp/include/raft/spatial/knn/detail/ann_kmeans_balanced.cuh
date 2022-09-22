@@ -82,12 +82,12 @@ inline void predict_float_core(const handle_t& handle,
       // todo(lsugy): pass
       auto workspace = raft::make_device_vector<char, IdxT>(handle, (sizeof(int)) * n_rows);
 
-      raft::distance::MinAndDistanceReduceOp<LabelT, float> redOp;
-      raft::distance::KVPMinReduce<LabelT, float> pairRedOp;
+      raft::distance::MinAndDistanceReduceOp<IdxT, float> redOp;
+      raft::distance::KVPMinReduce<IdxT, float> pairRedOp;
 
       auto minClusterAndDistance =
-        raft::make_device_vector<cub::KeyValuePair<LabelT, float>, IdxT>(handle, n_rows);
-      cub::KeyValuePair<LabelT, float> initial_value(0, std::numeric_limits<float>::max());
+        raft::make_device_vector<cub::KeyValuePair<IdxT, float>, IdxT>(handle, n_rows);
+      cub::KeyValuePair<IdxT, float> initial_value(0, std::numeric_limits<float>::max());
       thrust::fill(handle.get_thrust_policy(),
                    minClusterAndDistance.data_handle(),
                    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
@@ -97,8 +97,7 @@ inline void predict_float_core(const handle_t& handle,
       raft::linalg::rowNorm<float, IdxT>(
         centroidsNorm.data_handle(), centers, dim, n_clusters, raft::linalg::L2Norm, true, stream);
 
-      // todo(lsugy): should fusedL2NN take IdxT!=LabelT?
-      raft::distance::fusedL2NN<float, cub::KeyValuePair<LabelT, float>, LabelT>(
+      raft::distance::fusedL2NN<float, cub::KeyValuePair<IdxT, float>, IdxT>(
         minClusterAndDistance.data_handle(),
         dataset,
         centers,
@@ -114,13 +113,15 @@ inline void predict_float_core(const handle_t& handle,
         false,
         stream);
 
-      // todo(lsugy): this is temporary!
+      // todo(lsugy): use KVP + iterator in caller.
       // Copy keys to output labels
       thrust::transform(handle.get_thrust_policy(),
                         minClusterAndDistance.data_handle(),
                         minClusterAndDistance.data_handle() + n_rows,
                         labels,
-                        [=] __device__(cub::KeyValuePair<LabelT, float> kvp) { return kvp.key; });
+                        [=] __device__(cub::KeyValuePair<IdxT, float> kvp) {
+                          return static_cast<LabelT>(kvp.key);
+                        });
       break;
     }
     case raft::distance::DistanceType::InnerProduct: {
@@ -283,19 +284,23 @@ void predict(const handle_t& handle,
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "kmeans::predict(%zu, %u)", n_rows, n_clusters);
   if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
-  const uint32_t max_minibatch_size = calc_minibatch_size(n_clusters, n_rows);
+  IdxT max_minibatch_size = calc_minibatch_size(n_clusters, n_rows);
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
+    max_minibatch_size = n_rows;
+  }
   rmm::device_uvector<float> cur_dataset(
     std::is_same_v<T, float> ? 0 : max_minibatch_size * dim, stream, mr);
   auto cur_dataset_ptr = cur_dataset.data();
   for (size_t offset = 0; offset < n_rows; offset += max_minibatch_size) {
-    auto minibatch_size = std::min<uint32_t>(max_minibatch_size, n_rows - offset);
+    IdxT minibatch_size = std::min<IdxT>(max_minibatch_size, n_rows - offset);
 
     if constexpr (std::is_same_v<T, float>) {
       cur_dataset_ptr = const_cast<float*>(dataset + offset * dim);
     } else {
       linalg::unaryOp(cur_dataset_ptr,
                       dataset + offset * dim,
-                      minibatch_size * dim,
+                      (IdxT)(minibatch_size * dim),
                       utils::mapping<float>{},
                       stream);
     }
@@ -836,7 +841,7 @@ void compute_norm(float* dataset_norm,
  * @param metric the distance type
  * @param stream
  */
-template <typename T, typename IdxT, typename LabelT = int>
+template <typename T, typename IdxT>
 void build_hierarchical(const handle_t& handle,
                         uint32_t n_iters,
                         uint32_t dim,
@@ -847,6 +852,8 @@ void build_hierarchical(const handle_t& handle,
                         raft::distance::DistanceType metric,
                         rmm::cuda_stream_view stream)
 {
+  using LabelT = int;
+
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "kmeans::build_hierarchical(%zu, %u)", n_rows, n_clusters);
 
@@ -855,8 +862,13 @@ void build_hierarchical(const handle_t& handle,
 
   rmm::mr::managed_memory_resource managed_memory;
   rmm::mr::device_memory_resource* device_memory = nullptr;
-  auto pool_guard                                = raft::get_pool_memory_resource(
-    device_memory, kmeans::calc_minibatch_size(n_mesoclusters, n_rows) * dim * 4);
+  // todo(lsugy): change calc_minibatch_size
+  IdxT max_minibatch_size = calc_minibatch_size(n_clusters, n_rows);
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
+    max_minibatch_size = n_rows;
+  }
+  auto pool_guard = raft::get_pool_memory_resource(device_memory, max_minibatch_size * dim * 4);
   if (pool_guard) {
     RAFT_LOG_DEBUG(
       "kmeans::build_hierarchical: using pool memory resource with initial size %zu bytes",

@@ -266,7 +266,7 @@ __global__ void accumulate_into_selected_kernel(uint32_t n_rows,
                                                 const T* input,
                                                 const LabelT* row_ids)
 {
-  uint64_t gid = threadIdx.x + (blockDim.x * blockIdx.x);
+  uint64_t gid = threadIdx.x + (blockDim.x * static_cast<uint64_t>(blockIdx.x));
   uint64_t j   = gid % n_cols;
   uint64_t i   = gid / n_cols;
   if (i >= n_rows) return;

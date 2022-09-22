@@ -104,13 +104,15 @@ __global__ void build_index_kernel(const LabelT* labels,
 }
 
 /** See raft::spatial::knn::ivf_flat::extend docs */
-template <typename T, typename IdxT, typename LabelT = int>
+template <typename T, typename IdxT>
 inline auto extend(const handle_t& handle,
                    const index<T, IdxT>& orig_index,
                    const T* new_vectors,
                    const IdxT* new_indices,
                    IdxT n_rows) -> index<T, IdxT>
 {
+  using LabelT = int;
+
   auto stream  = handle.get_stream();
   auto n_lists = orig_index.n_lists();
   auto dim     = orig_index.dim();
@@ -220,6 +222,7 @@ inline auto extend(const handle_t& handle,
 
   // Precompute the centers vector norms for L2Expanded distance
   if (ext_index.center_norms().has_value()) {
+    // todo(lsugy): use other prim and get rid of this one
     utils::dots_along_rows(n_lists,
                            dim,
                            ext_index.centers().data_handle(),
