@@ -49,6 +49,7 @@ constexpr static inline const float kAdjustCentersWeight = 7.0f;
  * NB: no minibatch splitting is done here, it may require large amount of temporary memory (n_rows
  * * n_cluster * sizeof(float)).
  *
+ * @tparam IdxT   index type
  * @tparam LabelT label type
  *
  * @param handle
@@ -70,7 +71,7 @@ inline void predict_float_core(const handle_t& handle,
                                uint32_t dim,
                                const float* dataset,
                                const float* dataset_norm,
-                               size_t n_rows,
+                               IdxT n_rows,
                                LabelT* labels,
                                raft::distance::DistanceType metric,
                                rmm::cuda_stream_view stream,
@@ -165,16 +166,32 @@ inline void predict_float_core(const handle_t& handle,
  * @param n_rows dataset size
  * @return a suggested minibatch size
  */
-constexpr inline auto calc_minibatch_size(uint32_t n_clusters, size_t n_rows) -> uint32_t
+template <typename IdxT>
+constexpr inline auto calc_minibatch_size(uint32_t n_clusters,
+                                          IdxT n_rows,
+                                          uint32_t dim,
+                                          raft::distance::DistanceType metric,
+                                          bool is_float) -> IdxT
 {
-  n_clusters              = std::max<uint32_t>(1, n_clusters);
-  uint32_t minibatch_size = (1 << 20);
-  if (minibatch_size > (1 << 28) / n_clusters) {
-    minibatch_size = (1 << 28) / n_clusters;
-    minibatch_size += 32;
-    minibatch_size -= minibatch_size % 64;
+  n_clusters = std::max<uint32_t>(1, n_clusters);
+
+  // Estimate memory needs per row (i.e element of the batch).
+  IdxT mem_per_row = 0;
+  /* fusedL2NN only needs one integer per row for a mutex.
+   * Other metrics require storing a distance matrix. */
+  if (metric != raft::distance::DistanceType::L2Expanded &&
+      metric != raft::distance::DistanceType::L2SqrtExpanded) {
+    mem_per_row += sizeof(float) * n_clusters;
+  } else {
+    mem_per_row += sizeof(int);
   }
-  minibatch_size = uint32_t(std::min<size_t>(minibatch_size, n_rows));
+  // If we need to convert to float, space required for the converted batch.
+  if (!is_float) { mem_per_row += sizeof(float) * dim; }
+
+  // Heuristic: calculate the minibatch size in order to use at most 1GB of memory.
+  IdxT minibatch_size = (1 << 30) / mem_per_row;
+  minibatch_size      = 64 * ceildiv(minibatch_size, (IdxT)64);
+  minibatch_size      = std::min<IdxT>(minibatch_size, n_rows);
   return minibatch_size;
 }
 
@@ -202,6 +219,7 @@ constexpr inline auto calc_minibatch_size(uint32_t n_clusters, size_t n_rows) ->
  *   2. All pointers are on the host, but `centers` and `cluster_sizes` are accessible from GPU.
  *
  * @tparam T      element type
+ * @tparam IdxT   index type
  * @tparam LabelT label type
  *
  * @param[inout] centers pointer to the output [n_clusters, dim]
@@ -216,13 +234,13 @@ constexpr inline auto calc_minibatch_size(uint32_t n_clusters, size_t n_rows) ->
  *    the weighted average principle.
  * @param stream
  */
-template <typename T, typename LabelT>
+template <typename T, typename IdxT, typename LabelT>
 void calc_centers_and_sizes(float* centers,
                             uint32_t* cluster_sizes,
                             uint32_t n_clusters,
                             uint32_t dim,
                             const T* dataset,
-                            size_t n_rows,
+                            IdxT n_rows,
                             const LabelT* labels,
                             bool reset_counters,
                             rmm::cuda_stream_view stream)
@@ -304,7 +322,7 @@ void predict(const handle_t& handle,
              uint32_t n_clusters,
              uint32_t dim,
              const T* dataset,
-             size_t n_rows,
+             IdxT n_rows,
              LabelT* labels,
              raft::distance::DistanceType metric,
              rmm::cuda_stream_view stream,
@@ -314,11 +332,8 @@ void predict(const handle_t& handle,
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "kmeans::predict(%zu, %u)", n_rows, n_clusters);
   if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
-  IdxT max_minibatch_size = calc_minibatch_size(n_clusters, n_rows);
-  if (metric == raft::distance::DistanceType::L2Expanded ||
-      metric == raft::distance::DistanceType::L2SqrtExpanded) {
-    max_minibatch_size = n_rows;
-  }
+  IdxT max_minibatch_size =
+    calc_minibatch_size(n_clusters, n_rows, dim, metric, std::is_same_v<T, float>);
   rmm::device_uvector<float> cur_dataset(
     std::is_same_v<T, float> ? 0 : max_minibatch_size * dim, stream, mr);
   bool need_compute_norm =
@@ -327,8 +342,8 @@ void predict(const handle_t& handle,
   rmm::device_uvector<float> cur_dataset_norm(
     need_compute_norm ? max_minibatch_size : 0, stream, mr);
   const float* dataset_norm_ptr = nullptr;
-  auto cur_dataset_ptr = cur_dataset.data();
-  for (size_t offset = 0; offset < n_rows; offset += max_minibatch_size) {
+  auto cur_dataset_ptr          = cur_dataset.data();
+  for (IdxT offset = 0; offset < n_rows; offset += max_minibatch_size) {
     IdxT minibatch_size = std::min<IdxT>(max_minibatch_size, n_rows - offset);
 
     if constexpr (std::is_same_v<T, float>) {
@@ -344,7 +359,7 @@ void predict(const handle_t& handle,
     // Compute the norm now if it hasn't been pre-computed.
     if (need_compute_norm) {
       compute_norm<float, IdxT>(
-        cur_dataset_norm.data(), cur_dataset_ptr, (IdxT)dim, (IdxT)n_rows, stream, mr);
+        cur_dataset_norm.data(), cur_dataset_ptr, (IdxT)dim, (IdxT)minibatch_size, stream, mr);
       dataset_norm_ptr = cur_dataset_norm.data();
     } else if (dataset_norm != nullptr) {
       dataset_norm_ptr = dataset_norm + offset;
@@ -364,13 +379,13 @@ void predict(const handle_t& handle,
   }
 }
 
-template <typename T, uint32_t BlockDimY, typename LabelT>
+template <typename T, uint32_t BlockDimY, typename IdxT, typename LabelT>
 __global__ void __launch_bounds__((WarpSize * BlockDimY))
   adjust_centers_kernel(float* centers,  // [n_clusters, dim]
                         uint32_t n_clusters,
                         uint32_t dim,
                         const T* dataset,  // [n_rows, dim]
-                        size_t n_rows,
+                        IdxT n_rows,
                         const LabelT* labels,           // [n_rows]
                         const uint32_t* cluster_sizes,  // [n_clusters]
                         float threshold,
@@ -385,11 +400,11 @@ __global__ void __launch_bounds__((WarpSize * BlockDimY))
   if (csize > static_cast<uint32_t>(average * threshold)) return;
 
   // choose a "random" i that belongs to a rather large cluster
-  size_t i;
+  IdxT i;
   uint32_t j = laneId();
   if (j == 0) {
     do {
-      auto old = static_cast<size_t>(atomicAdd(count, 1));
+      auto old = static_cast<IdxT>(atomicAdd(count, 1));
       i        = (seed * (old + 1)) % n_rows;
     } while (cluster_sizes[labels[i]] < average);
   }
@@ -397,7 +412,7 @@ __global__ void __launch_bounds__((WarpSize * BlockDimY))
 
   // Adjust the center of the selected smaller cluster to gravitate towards
   // a sample from the selected larger cluster.
-  const size_t li = labels[i];
+  const IdxT li = static_cast<IdxT>(labels[i]);
   // Weight of the current center for the weighted average.
   // We dump it for anomalously small clusters, but keep constant overwise.
   const float wc = csize > kAdjustCentersWeight ? kAdjustCentersWeight : float(csize);
@@ -406,7 +421,7 @@ __global__ void __launch_bounds__((WarpSize * BlockDimY))
   for (; j < dim; j += WarpSize) {
     float val = 0;
     val += wc * centers[j + dim * li];
-    val += wd * utils::mapping<float>{}(dataset[j + size_t(dim) * i]);
+    val += wd * utils::mapping<float>{}(dataset[j + static_cast<IdxT>(dim) * i]);
     val /= wc + wd;
     centers[j + dim * l] = val;
   }
@@ -439,12 +454,12 @@ __global__ void __launch_bounds__((WarpSize * BlockDimY))
  *
  * @return whether any of the centers has been updated (and thus, `labels` need to be recalculated).
  */
-template <typename T, typename LabelT>
+template <typename T, typename IdxT, typename LabelT>
 auto adjust_centers(float* centers,
                     uint32_t n_clusters,
                     uint32_t dim,
                     const T* dataset,
-                    size_t n_rows,
+                    IdxT n_rows,
                     const LabelT* labels,
                     const uint32_t* cluster_sizes,
                     float threshold,
@@ -458,11 +473,11 @@ auto adjust_centers(float* centers,
                                       601,  659,  733,  809,  863,  941,  1013, 1069, 1151, 1223,
                                       1291, 1373, 1451, 1511, 1583, 1657, 1733, 1811, 1889, 1987,
                                       2053, 2129, 2213, 2287, 2357, 2423, 2531, 2617, 2687, 2741};
-  static size_t i        = 0;
-  static size_t i_primes = 0;
+  static IdxT i        = 0;
+  static IdxT i_primes = 0;
 
   bool adjusted    = false;
-  uint32_t average = static_cast<uint32_t>(n_rows / size_t(n_clusters));
+  uint32_t average = static_cast<uint32_t>(n_rows / static_cast<IdxT>(n_clusters));
   uint32_t ofst;
   do {
     i_primes = (i_primes + 1) % kPrimes.size();
@@ -501,7 +516,7 @@ auto adjust_centers(float* centers,
         } while (cluster_sizes[labels[i]] < average);
         // Adjust the center of the selected smaller cluster to gravitate towards
         // a sample from the selected larger cluster.
-        const size_t li = labels[i];
+        const IdxT li = static_cast<IdxT>(labels[i]);
         // Weight of the current center for the weighted average.
         // We dump it for anomalously small clusters, but keep constant overwise.
         const float wc = std::min<float>(csize, kAdjustCentersWeight);
@@ -510,7 +525,7 @@ auto adjust_centers(float* centers,
         for (uint32_t j = 0; j < dim; j++) {
           float val = 0;
           val += wc * centers[j + dim * li];
-          val += wd * utils::mapping<float>{}(dataset[j + size_t(dim) * i]);
+          val += wd * utils::mapping<float>{}(dataset[j + static_cast<IdxT>(dim) * i]);
           val /= wc + wd;
           centers[j + dim * l] = val;
         }
@@ -563,7 +578,7 @@ void balancing_em_iters(const handle_t& handle,
                         uint32_t dim,
                         const T* dataset,
                         const float* dataset_norm,
-                        size_t n_rows,
+                        IdxT n_rows,
                         uint32_t n_clusters,
                         float* cluster_centers,
                         LabelT* cluster_labels,
@@ -633,7 +648,7 @@ void build_clusters(const handle_t& handle,
                     uint32_t n_iters,
                     uint32_t dim,
                     const T* dataset,
-                    size_t n_rows,
+                    IdxT n_rows,
                     uint32_t n_clusters,
                     float* cluster_centers,
                     LabelT* cluster_labels,
@@ -644,10 +659,10 @@ void build_clusters(const handle_t& handle,
                     const float* dataset_norm = nullptr)
 {
   // "randomly initialize labels"
-  auto f = [n_clusters] __device__(LabelT * out, size_t i) {
-    *out = LabelT(i % size_t(n_clusters));
+  auto f = [n_clusters] __device__(LabelT * out, IdxT i) {
+    *out = LabelT(i % static_cast<IdxT>(n_clusters));
   };
-  linalg::writeOnlyUnaryOp<LabelT, decltype(f), size_t>(cluster_labels, n_rows, f, stream);
+  linalg::writeOnlyUnaryOp<LabelT, decltype(f), IdxT>(cluster_labels, n_rows, f, stream);
 
   // update centers to match the initialized labels.
   calc_centers_and_sizes(
@@ -672,9 +687,10 @@ void build_clusters(const handle_t& handle,
 }
 
 /** Calculate how many fine clusters should belong to each mesocluster. */
+template <typename IdxT>
 inline auto arrange_fine_clusters(uint32_t n_clusters,
                                   uint32_t n_mesoclusters,
-                                  size_t n_rows,
+                                  IdxT n_rows,
                                   const uint32_t* mesocluster_sizes)
 {
   std::vector<uint32_t> fine_clusters_nums(n_mesoclusters);
@@ -686,8 +702,8 @@ inline auto arrange_fine_clusters(uint32_t n_clusters,
   for (uint32_t i = 0; i < n_mesoclusters; i++) {
     n_nonempty_ms_rem += mesocluster_sizes[i] > 0 ? 1 : 0;
   }
-  size_t n_rows_rem               = n_rows;
-  size_t mesocluster_size_sum     = 0;
+  IdxT n_rows_rem                 = n_rows;
+  IdxT mesocluster_size_sum       = 0;
   uint32_t mesocluster_size_max   = 0;
   uint32_t fine_clusters_nums_max = 0;
   for (uint32_t i = 0; i < n_mesoclusters; i++) {
@@ -752,7 +768,7 @@ auto build_fine_clusters(const handle_t& handle,
                          const T* dataset_mptr,
                          const float* dataset_norm_mptr,
                          const LabelT* labels_mptr,
-                         size_t n_rows,
+                         IdxT n_rows,
                          const uint32_t* fine_clusters_nums,
                          const uint32_t* fine_clusters_csum,
                          const uint32_t* mesocluster_sizes,
@@ -765,7 +781,7 @@ auto build_fine_clusters(const handle_t& handle,
                          rmm::mr::device_memory_resource* device_memory,
                          rmm::cuda_stream_view stream) -> uint32_t
 {
-  rmm::device_uvector<size_t> mc_trainset_ids_buf(mesocluster_size_max, stream, managed_memory);
+  rmm::device_uvector<IdxT> mc_trainset_ids_buf(mesocluster_size_max, stream, managed_memory);
   rmm::device_uvector<float> mc_trainset_buf(mesocluster_size_max * dim, stream, device_memory);
   rmm::device_uvector<float> mc_trainset_norm_buf(mesocluster_size_max, stream, device_memory);
   auto mc_trainset_ids  = mc_trainset_ids_buf.data();
@@ -785,7 +801,7 @@ auto build_fine_clusters(const handle_t& handle,
   uint32_t n_clusters_done = 0;
   for (uint32_t i = 0; i < n_mesoclusters; i++) {
     uint32_t k = 0;
-    for (size_t j = 0; j < n_rows; j++) {
+    for (IdxT j = 0; j < n_rows; j++) {
       if (labels_mptr[j] == (LabelT)i) { mc_trainset_ids[k++] = j; }
     }
     if (k != mesocluster_sizes[i])
@@ -801,18 +817,24 @@ auto build_fine_clusters(const handle_t& handle,
                    "Number of fine clusters must be non-zero for a non-empty mesocluster");
     }
 
-    utils::copy_selected(
-      mesocluster_sizes[i], dim, dataset_mptr, mc_trainset_ids, dim, mc_trainset, dim, stream);
+    utils::copy_selected((IdxT)mesocluster_sizes[i],
+                         (IdxT)dim,
+                         dataset_mptr,
+                         mc_trainset_ids,
+                         (IdxT)dim,
+                         mc_trainset,
+                         (IdxT)dim,
+                         stream);
     if (metric == raft::distance::DistanceType::L2Expanded ||
         metric == raft::distance::DistanceType::L2SqrtExpanded) {
       // todo(lsugy): more efficient kernel (for dim=1)
-      utils::copy_selected(mesocluster_sizes[i],
-                           1,
+      utils::copy_selected((IdxT)mesocluster_sizes[i],
+                           (IdxT)1,
                            dataset_norm_mptr,
                            mc_trainset_ids,
-                           1,
+                           (IdxT)1,
                            mc_trainset_norm,
-                           1,
+                           (IdxT)1,
                            stream);
     }
 
@@ -862,7 +884,7 @@ void build_hierarchical(const handle_t& handle,
                         uint32_t n_iters,
                         uint32_t dim,
                         const T* dataset,
-                        size_t n_rows,
+                        IdxT n_rows,
                         float* cluster_centers,
                         uint32_t n_clusters,
                         raft::distance::DistanceType metric,
@@ -878,12 +900,8 @@ void build_hierarchical(const handle_t& handle,
 
   rmm::mr::managed_memory_resource managed_memory;
   rmm::mr::device_memory_resource* device_memory = nullptr;
-  // todo(lsugy): change calc_minibatch_size
-  IdxT max_minibatch_size = calc_minibatch_size(n_clusters, n_rows);
-  if (metric == raft::distance::DistanceType::L2Expanded ||
-      metric == raft::distance::DistanceType::L2SqrtExpanded) {
-    max_minibatch_size = n_rows;
-  }
+  IdxT max_minibatch_size =
+    calc_minibatch_size(n_clusters, n_rows, dim, metric, std::is_same_v<T, float>);
   auto pool_guard = raft::get_pool_memory_resource(device_memory, max_minibatch_size * dim * 4);
   if (pool_guard) {
     RAFT_LOG_DEBUG(
@@ -897,8 +915,15 @@ void build_hierarchical(const handle_t& handle,
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded) {
     dataset_norm_buf.resize(n_rows, stream);
-    compute_norm<T, IdxT>(
-      dataset_norm_buf.data(), dataset, (IdxT)dim, (IdxT)n_rows, stream, device_memory);
+    for (IdxT offset = 0; offset < n_rows; offset += max_minibatch_size) {
+      IdxT minibatch_size = std::min<IdxT>(max_minibatch_size, n_rows - offset);
+      compute_norm<T, IdxT>(dataset_norm_buf.data() + offset,
+                            dataset + dim * offset,
+                            (IdxT)dim,
+                            (IdxT)minibatch_size,
+                            stream,
+                            device_memory);
+    }
     dataset_norm = (const float*)dataset_norm_buf.data();
   }
 
