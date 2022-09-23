@@ -188,20 +188,18 @@ struct index : knn::index {
       dim_(dim),
       pq_bits_(pq_bits),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
-      pq_centers_{make_device_mdarray<float>(handle, managed_memory_, make_pq_centers_extents())},
+      pq_centers_{make_device_mdarray<float>(handle, make_pq_centers_extents())},
       pq_dataset_{make_device_mdarray<uint8_t>(
-        handle, managed_memory_, make_extents<IdxT>(0, this->pq_dim() * this->pq_bits() / 8))},
-      indices_{make_device_mdarray<IdxT>(handle, managed_memory_, make_extents<IdxT>(0))},
-      rotation_matrix_{make_device_mdarray<float>(
-        handle, managed_memory_, make_extents<uint32_t>(this->rot_dim(), this->dim()))},
+        handle, make_extents<IdxT>(0, this->pq_dim() * this->pq_bits() / 8))},
+      indices_{make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0))},
+      rotation_matrix_{
+        make_device_mdarray<float>(handle, make_extents<uint32_t>(this->rot_dim(), this->dim()))},
       list_offsets_{make_device_mdarray<IdxT>(
         handle, managed_memory_, make_extents<uint32_t>(this->n_lists() + 1))},
       centers_{make_device_mdarray<float>(
-        handle, managed_memory_, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
+        handle, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
       centers_rot_{make_device_mdarray<float>(
-        handle, managed_memory_, make_extents<uint32_t>(this->n_lists(), this->rot_dim()))},
-      center_norms_{make_device_mdarray<float>(
-        handle, managed_memory_, make_extents<uint32_t>(this->n_lists()))},
+        handle, make_extents<uint32_t>(this->n_lists(), this->rot_dim()))},
       inclusiveSumSortedClusterSize_{
         make_host_mdarray<IdxT>(make_extents<uint32_t>(this->n_lists()))}
   {
@@ -317,16 +315,6 @@ struct index : knn::index {
     return centers_rot_.view();
   }
 
-  inline auto center_norms() noexcept -> device_mdspan<float, extent_1d<uint32_t>, row_major>
-  {
-    return center_norms_.view();
-  }
-  [[nodiscard]] inline auto center_norms() const noexcept
-    -> device_mdspan<const float, extent_1d<uint32_t>, row_major>
-  {
-    return center_norms_.view();
-  }
-
   inline auto inclusiveSumSortedClusterSize() noexcept
     -> host_mdspan<IdxT, extent_1d<uint32_t>, row_major>
   {
@@ -394,7 +382,6 @@ struct index : knn::index {
   device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_rot_;
-  device_mdarray<float, extent_1d<uint32_t>, row_major> center_norms_;
   host_mdarray<IdxT, extent_1d<uint32_t>, row_major> inclusiveSumSortedClusterSize_;
   uint32_t numClustersSize0_;  // (*) urgent WA, need to be fixed
 

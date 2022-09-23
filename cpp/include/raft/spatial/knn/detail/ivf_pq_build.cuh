@@ -261,7 +261,6 @@ inline auto calc_pq_trainset_size(uint32_t cluster_size, uint32_t pq_dim, uint32
  * @param cluster_offsets  // [n_clusters + 1]
  * @param pq_centers                 // [...]
  * @param pq_dataset  // [n_rows, pq_dim * pq_bits / 8]
- * @param managed_memory
  * @param device_memory
  */
 template <typename T, typename IdxT>
@@ -283,7 +282,6 @@ void compute_pq_codes(const handle_t& handle,
                       const IdxT* cluster_offsets,
                       float* pq_centers,
                       uint8_t* pq_dataset,
-                      rmm::mr::device_memory_resource* managed_memory,
                       rmm::mr::device_memory_resource* device_memory)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
@@ -302,19 +300,17 @@ void compute_pq_codes(const handle_t& handle,
   //
   utils::memzero(pq_dataset, n_rows * pq_dim * pq_bits / 8, stream);
 
-  rmm::device_uvector<float> res_vectors(max_cluster_size * data_dim, stream, managed_memory);
-  rmm::device_uvector<float> rot_vectors(max_cluster_size * rot_dim, stream, managed_memory);
-  rmm::device_uvector<float> sub_vectors(
-    max_cluster_size * pq_dim * pq_len, stream, managed_memory);
-  rmm::device_uvector<uint32_t> sub_vector_labels(
-    max_cluster_size * pq_dim, stream, managed_memory);
+  rmm::device_uvector<float> res_vectors(max_cluster_size * data_dim, stream, device_memory);
+  rmm::device_uvector<float> rot_vectors(max_cluster_size * rot_dim, stream, device_memory);
+  rmm::device_uvector<float> sub_vectors(max_cluster_size * pq_dim * pq_len, stream, device_memory);
+  rmm::device_uvector<uint32_t> sub_vector_labels(max_cluster_size * pq_dim, stream, device_memory);
   rmm::device_uvector<uint8_t> my_pq_dataset(
     max_cluster_size * pq_dim * pq_bits / 8 /* NB: pq_dim * bitPQ % 8 == 0 */,
     stream,
-    managed_memory);
-  rmm::device_uvector<uint32_t> rot_vector_labels(0, stream, managed_memory);
-  rmm::device_uvector<uint32_t> pq_cluster_size(0, stream, managed_memory);
-  rmm::device_uvector<float> my_pq_centers(0, stream, managed_memory);
+    device_memory);
+  rmm::device_uvector<uint32_t> rot_vector_labels(0, stream, device_memory);
+  rmm::device_uvector<uint32_t> pq_cluster_size(0, stream, device_memory);
+  rmm::device_uvector<float> my_pq_centers(0, stream, device_memory);
 
   for (uint32_t l = 0; l < n_clusters; l++) {
     auto cluster_size = cluster_sizes[l];
@@ -460,12 +456,15 @@ inline auto extend(const handle_t& handle,
   //
 
   rmm::device_uvector<float> cluster_centers(
-    orig_index.n_lists() * orig_index.dim(), stream, &managed_memory);
-  for (uint32_t i = 0; i < orig_index.n_lists(); i++) {
-    memcpy(cluster_centers.data() + (uint64_t)i * orig_index.dim(),
-           orig_index.centers().data_handle() + (uint64_t)i * orig_index.dim_ext(),
-           sizeof(float) * orig_index.dim());
-  }
+    orig_index.n_lists() * orig_index.dim(), stream, device_memory);
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(cluster_centers.data(),
+                                  sizeof(float) * orig_index.dim(),
+                                  orig_index.centers().data_handle(),
+                                  sizeof(float) * orig_index.dim_ext(),
+                                  sizeof(float) * orig_index.dim(),
+                                  orig_index.n_lists(),
+                                  cudaMemcpyDefault,
+                                  stream));
 
   //
   // Use the existing cluster centroids to find the label (cluster ID)
@@ -558,7 +557,7 @@ inline auto extend(const handle_t& handle,
   // Compute PQ code for new vectors
   //
   rmm::device_uvector<uint8_t> new_pq_codes(
-    n_rows * orig_index.pq_dim() * orig_index.pq_bits() / 8, stream, &managed_memory);
+    n_rows * orig_index.pq_dim() * orig_index.pq_bits() / 8, stream, device_memory);
   compute_pq_codes<T>(handle,
                       n_rows,
                       orig_index.dim(),
@@ -577,7 +576,6 @@ inline auto extend(const handle_t& handle,
                       cluster_offsets.data(),
                       ext_index.pq_centers().data_handle(),
                       new_pq_codes.data(),
-                      &managed_memory,
                       device_memory);
 
   auto ext_indices         = ext_index.indices().data_handle();
@@ -711,7 +709,9 @@ inline auto build(
   }
 
   // NB: here cluster_centers is used as if it is [n_clusters, data_dim] not [n_clusters, dim_ext]!
-  auto cluster_centers = index.centers().data_handle();
+  rmm::device_uvector<float> cluster_centers_buf(
+    index.n_lists() * index.dim(), stream, device_memory);
+  auto cluster_centers = cluster_centers_buf.data();
   auto pq_centers      = index.pq_centers().data_handle();
   auto rotation_matrix = index.rotation_matrix().data_handle();
   auto centers_rot     = index.centers_rot().data_handle();
@@ -811,7 +811,7 @@ inline auto build(
   // Training PQ codebooks
   switch (index.codebook_kind()) {
     case codebook_gen::PER_SUBSPACE: {
-      rmm::device_uvector<uint32_t> trainset_labels(n_rows_train, stream, &managed_memory);
+      rmm::device_uvector<uint32_t> trainset_labels(n_rows_train, stream, device_memory);
 
       // Predict label of trainset again
       kmeans::predict(handle,
@@ -826,11 +826,10 @@ inline auto build(
                       device_memory);
       handle.sync_stream();
 
-      rmm::device_uvector<float> sub_trainset(
-        n_rows_train * index.pq_len(), stream, &managed_memory);
-      rmm::device_uvector<uint32_t> sub_trainset_labels(n_rows_train, stream, &managed_memory);
+      rmm::device_uvector<float> sub_trainset(n_rows_train * index.pq_len(), stream, device_memory);
+      rmm::device_uvector<uint32_t> sub_trainset_labels(n_rows_train, stream, device_memory);
 
-      rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_width(), stream, &managed_memory);
+      rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_width(), stream, device_memory);
 
       for (uint32_t j = 0; j < index.pq_dim(); j++) {
         common::nvtx::range<common::nvtx::domain::raft> pq_per_subspace_scope(
@@ -883,13 +882,12 @@ inline auto build(
     } break;
     case codebook_gen::PER_CLUSTER: {
       rmm::device_uvector<uint32_t> rot_vector_labels(
-        max_cluster_size * index.pq_dim(), stream, &managed_memory);
-      rmm::device_uvector<uint32_t> pq_cluster_size(index.pq_width(), stream, &managed_memory);
+        max_cluster_size * index.pq_dim(), stream, device_memory);
+      rmm::device_uvector<uint32_t> pq_cluster_size(index.pq_width(), stream, device_memory);
 
-      rmm::device_uvector<float> res_vectors(
-        max_cluster_size * index.dim(), stream, &managed_memory);
+      rmm::device_uvector<float> res_vectors(max_cluster_size * index.dim(), stream, device_memory);
       rmm::device_uvector<float> rot_vectors(
-        max_cluster_size * index.rot_dim(), stream, &managed_memory);
+        max_cluster_size * index.rot_dim(), stream, device_memory);
 
       for (uint32_t l = 0; l < index.n_lists(); l++) {
         auto cluster_size = cluster_sizes.data()[l];
@@ -965,26 +963,27 @@ inline auto build(
     default: RAFT_FAIL("Unreachable code");
   }
 
-  auto center_norms = index.center_norms().data_handle();
-  utils::dots_along_rows(
-    index.n_lists(), index.dim(), cluster_centers, index.center_norms().data_handle(), stream);
-  stream.synchronize();
+  // combine cluster_centers and their norms
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle(),
+                                  sizeof(float) * index.dim_ext(),
+                                  cluster_centers,
+                                  sizeof(float) * index.dim(),
+                                  sizeof(float) * index.dim(),
+                                  index.n_lists(),
+                                  cudaMemcpyDefault,
+                                  stream));
 
-  {
-    // combine cluster_centers and their norms
-    auto cluster_centers_tmp =
-      make_host_mdarray<float>(make_extents<uint32_t>(index.n_lists(), index.dim()));
-    for (uint32_t i = 0; i < index.n_lists() * index.dim(); i++) {
-      cluster_centers_tmp.data_handle()[i] = cluster_centers[i];
-    }
-    for (uint32_t i = 0; i < index.n_lists(); i++) {
-      for (uint32_t j = 0; j < index.dim(); j++) {
-        cluster_centers[j + (index.dim_ext() * i)] = cluster_centers_tmp(i, j);
-      }
-      cluster_centers[index.dim() + (index.dim_ext() * i)] =
-        cluster_sizes.data()[i] == 0 ? 1.0f : center_norms[i];
-    }
-  }
+  rmm::device_uvector<float> center_norms(index.n_lists(), stream, device_memory);
+  utils::dots_along_rows(
+    index.n_lists(), index.dim(), cluster_centers, center_norms.data(), stream);
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle() + index.dim(),
+                                  sizeof(float) * index.dim_ext(),
+                                  center_norms.data(),
+                                  sizeof(float),
+                                  sizeof(float),
+                                  index.n_lists(),
+                                  cudaMemcpyDefault,
+                                  stream));
 
   // add the data if necessary
   if (params.add_data_on_build) {
