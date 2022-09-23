@@ -262,67 +262,59 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
   topkScores[i + (topk * batch_ix)] = score;
 }
 
-/** An unsinged integer type that is used for bit operations on multiple PQ codes at once. */
-template <int TotalBits>
-struct code_carrier_t {
-  static_assert(TotalBits != TotalBits, "There's no carrier type for this bitsize.");
-};
-
-template <>
-struct code_carrier_t<64> {
-  using value = uint64_t;
-};
-
-template <>
-struct code_carrier_t<32> {
-  using value = uint32_t;
-};
-
-template <>
-struct code_carrier_t<16> {
-  using value = uint16_t;
-};
-
-template <>
-struct code_carrier_t<8> {
-  using value = uint8_t;
-};
-
-template <int PqBits, int VecLen, typename IdxT, typename LutT = float>
-__device__ auto ivfpq_compute_score(uint32_t pq_dim,
+/**
+ * @brief Compute the score for the encoded `pq_dataset` using a codebook `lut_scores`
+ *
+ * @tparam OpT an unsigned integer type that is used for bit operations on multiple PQ codes
+ *   at once; it's selected to maximize throughput while matching criteria:
+ *     1. `pq_bits * vec_len % 8 * sizeof(OpT) == 0`.
+ *     2. `pq_dim % vec_len == 0`
+ *
+ * @tparam IdxT indexing type
+ * @tparam LutT type of the elements in the lookup table.
+ *
+ * @param pq_bits The bit length of an encoded vector element after compression by PQ
+ * @param vec_len == 8 * sizeof(OpT) / gcd(8 * sizeof(OpT), pq_bits)
+ * @param pq_dim
+ * @param data_ix
+ * @param[in] pq_dataset a device pointer to the dataset [n_rows, pq_dim * pq_bits / 8]
+ * @param[in] lut_scores a device or shared memory pointer to the lookup table [pq_dim, pq_width]
+ *
+ * @return the score for the entry `data_ix` in the `pq_dataset`.
+ */
+template <typename OpT, typename IdxT, typename LutT>
+__device__ auto ivfpq_compute_score(uint32_t pq_bits,
+                                    uint32_t vec_len,
+                                    uint32_t pq_dim,
                                     IdxT data_ix,
-                                    const uint8_t* pq_dataset,  // [n_rows, pq_dim * PqBits / 8]
-                                    const LutT* lut_scores      // [pq_dim, pq_width]
-                                    ) -> float
+                                    const uint8_t* pq_dataset,
+                                    const LutT* lut_scores) -> float
 {
   float score                   = 0.0;
-  using pq_t                    = typename code_carrier_t<gcd(PqBits * VecLen, 64)>::value;
-  constexpr uint32_t kBitsTotal = 8 * sizeof(pq_t);
-  const pq_t* pq_head =
-    reinterpret_cast<const pq_t*>(pq_dataset + uint64_t(data_ix) * (pq_dim * PqBits / 8));
-  for (int j = 0; j < pq_dim / VecLen; j += 1) {
-    pq_t pq_code = pq_head[0];
+  constexpr uint32_t kBitsTotal = 8 * sizeof(OpT);
+  const OpT* pq_head =
+    reinterpret_cast<const OpT*>(pq_dataset + uint64_t(data_ix) * (pq_dim * pq_bits / 8));
+  for (int j = 0; j < pq_dim; j += vec_len) {
+    OpT pq_code = pq_head[0];
     pq_head += 1;
     auto bits_left = kBitsTotal;
-#pragma unroll VecLen
-    for (int k = 0; k < VecLen; k += 1) {
+    for (int k = 0; k < vec_len; k += 1) {
       uint8_t code = pq_code;
-      if (bits_left > PqBits) {
-        // This condition is always true here (to make the compiler happy)
-        if constexpr (kBitsTotal > PqBits) { pq_code >>= PqBits; }
-        bits_left -= PqBits;
+      if (bits_left > pq_bits) {
+        pq_code >>= pq_bits;
+        bits_left -= pq_bits;
       } else {
-        if (k < VecLen - 1) {
+        if (k < vec_len - 1) {
           pq_code = pq_head[0];
           pq_head += 1;
         }
         code |= (pq_code << bits_left);
-        pq_code >>= (PqBits - bits_left);
-        bits_left += (kBitsTotal - PqBits);
+        pq_code >>= (pq_bits - bits_left);
+        bits_left += (kBitsTotal - pq_bits);
       }
-      code &= (1 << PqBits) - 1;
+      code &= (1 << pq_bits) - 1;
       score += float(lut_scores[code]);
-      lut_scores += (1 << PqBits);
+      lut_scores += (1 << pq_bits);
     }
   }
   return score;
@@ -352,23 +344,16 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  * If the index output pointer is provided, it also selects top K candidates for each query and
  * probe.
  *
- * @tparam PqBits
- *   The bit length of an encoded vector element after compression by PQ
- *   (NB: pq_width = 1 << PqBits).
- * @tparam VecLen
- *   The size of the PQ vector used solely in `ivfpq_compute_score`;
- *   It'd defined such that
- *     1. `PqBits * VecLen % 8 * sizeof(PqT) == 0`.
- *     2. `pq_dim % VecLen == 0`
- *   `PqT` is a carrier integer type selected to maximize throughput.
+ * @tparam OpT is a carrier integer type selected to maximize throughput;
+ *   Used solely in `ivfpq_compute_score`;
  * @tparam IdxT
  *   The type of data indices
- * @tparam Capacity
- *   Power-of-two; the maximum possible `k` in top-k.
  * @tparam OutT
  *   The output type - distances.
  * @tparam LutT
  *   The lookup table element type (lut_scores).
+ * @tparam Capacity
+ *   Power-of-two; the maximum possible `k` in top-k.
  * @tparam PrecompBaseDiff
  *   Defines whether we should precompute part of the distance and keep it in shared memory
  *   before the main part (score calculation) to increase memory usage efficiency in the latter.
@@ -381,6 +366,8 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  * @param n_rows the number of records in the dataset
  * @param dim the dimensionality of the data (NB: after rotation transform, i.e. `index.rot_dim()`).
  * @param n_probes the number of clusters to search for each query
+ * @param pq_bits the bit length of an encoded vector element after compression by PQ
+ *   (NB: pq_width = 1 << pq_bits).
  * @param pq_dim
  *   The dimensionality of an encoded vector after compression by PQ.
  * @param batch_size the number of queries.
@@ -397,7 +384,7 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  *   The device pointer to the cluster centers in the PQ space
  *   [pq_dim, pq_width, pq_len] or [n_clusters, pq_width, pq_len,].
  * @param pq_dataset
- *   The device pointer to the PQ index (data) [n_rows, pq_dim * PqBits / 8].
+ *   The device pointer to the PQ index (data) [n_rows, pq_dim * pq_bits / 8].
  * @param cluster_offsets
  *   The device pointer to the cluster offsets [n_clusters + 1].
  * @param _cluster_labels
@@ -410,7 +397,7 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  *   An optional device pointer to the enforced order of search [batch_size, n_probes].
  *   One can pass reordered indices here to try to improve data reading locality.
  * @param lut_scores
- *   The device pointer for storing the lookup table globally [gridDim.x, pq_dim << PqBits].
+ *   The device pointer for storing the lookup table globally [gridDim.x, pq_dim << pq_bits].
  *   Ignored when `EnableSMemLut == true`.
  * @param _out_scores
  *   The device pointer to the output scores
@@ -419,18 +406,18 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  *   The device pointer to the output indices [batch_size, n_probes, topk].
  *   Ignored  when `kManageLocalTopK = false`.
  */
-template <int PqBits,
-          int VecLen,
+template <typename OpT,
           typename IdxT,
-          int Capacity,
           typename OutT,
           typename LutT,
+          int Capacity,
           bool PrecompBaseDiff,
           bool EnableSMemLut>
 __launch_bounds__(1024, 1) __global__
   void ivfpq_compute_similarity_kernel(uint32_t n_rows,
                                        uint32_t dim,
                                        uint32_t n_probes,
+                                       uint32_t pq_bits,
                                        uint32_t pq_dim,
                                        uint32_t batch_size,
                                        uint32_t max_samples,
@@ -451,26 +438,28 @@ __launch_bounds__(1024, 1) __global__
 {
   /* Shared memory:
 
-    * lut_scores: lookup table (LUT) of size = `pq_dim << PqBits`  (when EnableSMemLut)
+    * lut_scores: lookup table (LUT) of size = `pq_dim << pq_bits`  (when EnableSMemLut)
     * base_diff: size = dim  (which is equal to `pq_dim * pq_len`)
     * topk::block_sort: some amount of shared memory, but overlaps with the rest:
         block_sort only needs shared memory for `.done()` operation, which can come very last.
   */
   extern __shared__ __align__(256) uint8_t smem_buf[];  // NOLINT
   constexpr bool kManageLocalTopK = Capacity > 0;
+  constexpr uint32_t kOpBits      = 8 * sizeof(OpT);
 
-  const uint32_t pq_len = dim / pq_dim;
+  const uint32_t pq_len  = dim / pq_dim;
+  const uint32_t vec_len = kOpBits / gcd<uint32_t>(kOpBits, pq_bits);
 
   if constexpr (EnableSMemLut) {
     lut_scores = reinterpret_cast<LutT*>(smem_buf);
   } else {
-    lut_scores += (pq_dim << PqBits) * blockIdx.x;
+    lut_scores += (pq_dim << pq_bits) * blockIdx.x;
   }
 
   float* base_diff = nullptr;
   if constexpr (PrecompBaseDiff) {
     if constexpr (EnableSMemLut) {
-      base_diff = reinterpret_cast<float*>(lut_scores + (pq_dim << PqBits));
+      base_diff = reinterpret_cast<float*>(lut_scores + (pq_dim << pq_bits));
     } else {
       base_diff = reinterpret_cast<float*>(smem_buf);
     }
@@ -507,7 +496,7 @@ __launch_bounds__(1024, 1) __global__
     if (codebook_kind == codebook_gen::PER_SUBSPACE) {
       pq_center = pq_centers;
     } else {
-      pq_center = pq_centers + (pq_len << PqBits) * label;
+      pq_center = pq_centers + (pq_len << pq_bits) * label;
     }
 
     if constexpr (PrecompBaseDiff) {
@@ -520,9 +509,9 @@ __launch_bounds__(1024, 1) __global__
     }
 
     // Create a lookup table
-    for (uint32_t i = threadIdx.x; i < (pq_dim << PqBits); i += blockDim.x) {
-      uint32_t i_pq   = i >> PqBits;
-      uint32_t i_code = codebook_kind == codebook_gen::PER_CLUSTER ? i & ((1 << PqBits) - 1) : i;
+    for (uint32_t i = threadIdx.x; i < (pq_dim << pq_bits); i += blockDim.x) {
+      uint32_t i_pq   = i >> pq_bits;
+      uint32_t i_code = codebook_kind == codebook_gen::PER_CLUSTER ? i & ((1 << pq_bits) - 1) : i;
       float score     = 0.0;
       switch (metric) {
         case distance::DistanceType::L2Expanded: {
@@ -564,8 +553,8 @@ __launch_bounds__(1024, 1) __global__
     for (uint32_t i = threadIdx.x; i < n_samples32; i += blockDim.x) {
       OutT score = block_sort_t<Capacity, OutT>::queue_t::kDummy;
       if (i < n_samples) {
-        float fscore = ivfpq_compute_score<PqBits, VecLen, IdxT, LutT>(
-          pq_dim, cluster_offset + i, pq_dataset, lut_scores);
+        float fscore = ivfpq_compute_score<OpT, IdxT, LutT>(
+          pq_bits, vec_len, pq_dim, cluster_offset + i, pq_dataset, lut_scores);
         switch (metric) {
           // For similarity metrics,
           // we negate the scores as we hardcoded select-topk to always take the minimum
@@ -613,6 +602,7 @@ struct ivfpq_compute_similarity {
                             uint32_t,
                             uint32_t,
                             uint32_t,
+                            uint32_t,
                             distance::DistanceType,
                             codebook_gen,
                             uint32_t,
@@ -644,55 +634,35 @@ struct ivfpq_compute_similarity {
     }
 
    private:
-    template <int PqBits, int VecLen, int Capacity>
+    template <typename OpT, int Capacity>
     static auto kernel_try_capacity(uint32_t k_max) -> kernel_t
     {
       if constexpr (Capacity > 0) {
-        if (k_max == 0 || k_max > Capacity) {
-          return kernel_try_capacity<PqBits, VecLen, 0>(k_max);
-        }
+        if (k_max == 0 || k_max > Capacity) { return kernel_try_capacity<OpT, 0>(k_max); }
       }
       if constexpr (Capacity > 32) {
-        if (k_max * 2 <= Capacity) {
-          return kernel_try_capacity<PqBits, VecLen, (Capacity / 2)>(k_max);
-        }
+        if (k_max * 2 <= Capacity) { return kernel_try_capacity<OpT, (Capacity / 2)>(k_max); }
       }
-      return ivfpq_compute_similarity_kernel<PqBits,
-                                             VecLen,
+      return ivfpq_compute_similarity_kernel<OpT,
                                              IdxT,
-                                             Capacity,
                                              OutT,
                                              LutT,
+                                             Capacity,
                                              PrecompBaseDiff,
                                              EnableSMemLut>;
     }
 
-    template <int PqBits, int VecLen>
-    static auto kernel_fixed_bits_try_veclen(uint32_t pq_dim, uint32_t k_max) -> kernel_t
-    {
-      if (pq_dim % VecLen == 0) { return kernel_try_capacity<PqBits, VecLen, kMaxCapacity>(k_max); }
-      if constexpr (VecLen > 1 && (PqBits * VecLen) % 16 == 0) {
-        return kernel_fixed_bits_try_veclen<PqBits, (VecLen / 2)>(pq_dim, k_max);
-      } else {
-        RAFT_FAIL("pq_dim must be a multiple of %d", VecLen);
-      }
-    }
-
-    template <int PqBits>
-    static auto kernel_fixed_bits(uint32_t pq_dim, uint32_t k_max) -> kernel_t
-    {
-      return kernel_fixed_bits_try_veclen<PqBits, 64 / gcd(PqBits, 64)>(pq_dim, k_max);
-    }
-
     static auto kernel_base(uint32_t pq_bits, uint32_t pq_dim, uint32_t k_max) -> kernel_t
     {
-      switch (pq_bits) {
-        case 4: return kernel_fixed_bits<4>(pq_dim, k_max);
-        case 5: return kernel_fixed_bits<5>(pq_dim, k_max);
-        case 6: return kernel_fixed_bits<6>(pq_dim, k_max);
-        case 7: return kernel_fixed_bits<7>(pq_dim, k_max);
-        case 8: return kernel_fixed_bits<8>(pq_dim, k_max);
-        default: RAFT_FAIL("Unsupported pq_bits = %u", pq_bits);
+      switch (gcd<uint32_t>(pq_bits * pq_dim, 64)) {
+        case 64: return kernel_try_capacity<uint64_t, kMaxCapacity>(k_max);
+        case 32: return kernel_try_capacity<uint32_t, kMaxCapacity>(k_max);
+        case 16: return kernel_try_capacity<uint16_t, kMaxCapacity>(k_max);
+        case 8: return kernel_try_capacity<uint8_t, kMaxCapacity>(k_max);
+        default:
+          RAFT_FAIL("`pq_bits * pq_dim` must be a multiple of 8 (pq_bits = %u, pq_dim = %u).",
+                    pq_bits,
+                    pq_dim);
       }
     }
   };
@@ -904,6 +874,7 @@ void ivfpq_search(const handle_t& handle,
   kernel<<<cta_blocks, cta_threads, smem_size, stream>>>(index.size(),
                                                          index.rot_dim(),
                                                          n_probes,
+                                                         index.pq_bits(),
                                                          index.pq_dim(),
                                                          n_queries,
                                                          max_samples,
