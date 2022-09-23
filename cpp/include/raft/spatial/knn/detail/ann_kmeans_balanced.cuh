@@ -79,8 +79,8 @@ inline void predict_float_core(const handle_t& handle,
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
     case raft::distance::DistanceType::L2SqrtExpanded: {
-      // todo(lsugy): pass
-      auto workspace = raft::make_device_vector<char, IdxT>(handle, (sizeof(int)) * n_rows);
+      auto workspace = raft::make_device_mdarray<char, IdxT>(
+        handle, mr, make_extents<IdxT>((sizeof(int)) * n_rows));
 
       raft::distance::MinAndDistanceReduceOp<IdxT, float> redOp;
       raft::distance::KVPMinReduce<IdxT, float> pairRedOp;
@@ -249,6 +249,36 @@ void calc_centers_and_sizes(float* centers,
     stream);
 }
 
+/** Computes the L2 norm of the dataset, converting to float if necessary */
+template <typename T, typename IdxT>
+void compute_norm(float* dataset_norm,
+                  const T* dataset,
+                  IdxT dim,
+                  IdxT n_rows,
+                  rmm::cuda_stream_view stream,
+                  rmm::mr::device_memory_resource* mr = nullptr)
+{
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans::compute_norm");
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+  rmm::device_uvector<float> dataset_float(0, stream, mr);
+
+  const float* dataset_ptr = nullptr;
+
+  if (std::is_same_v<float, T>) {
+    dataset_ptr = reinterpret_cast<const float*>(dataset);
+  } else {
+    // todo(lsugy): should we batch this?
+    dataset_float.resize(n_rows * dim, stream);
+
+    linalg::unaryOp(dataset_float.data(), dataset, n_rows * dim, utils::mapping<float>{}, stream);
+
+    dataset_ptr = (const float*)dataset_float.data();
+  }
+
+  raft::linalg::rowNorm<float, IdxT>(
+    dataset_norm, dataset_ptr, dim, n_rows, raft::linalg::L2Norm, true, stream);
+}
+
 /**
  * @brief Predict labels for the dataset.
  *
@@ -274,12 +304,12 @@ void predict(const handle_t& handle,
              uint32_t n_clusters,
              uint32_t dim,
              const T* dataset,
-             const float* dataset_norm,
              size_t n_rows,
              LabelT* labels,
              raft::distance::DistanceType metric,
              rmm::cuda_stream_view stream,
-             rmm::mr::device_memory_resource* mr = nullptr)
+             rmm::mr::device_memory_resource* mr = nullptr,
+             const float* dataset_norm           = nullptr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "kmeans::predict(%zu, %u)", n_rows, n_clusters);
@@ -291,6 +321,12 @@ void predict(const handle_t& handle,
   }
   rmm::device_uvector<float> cur_dataset(
     std::is_same_v<T, float> ? 0 : max_minibatch_size * dim, stream, mr);
+  bool need_compute_norm =
+    dataset_norm == nullptr && (metric == raft::distance::DistanceType::L2Expanded ||
+                                metric == raft::distance::DistanceType::L2SqrtExpanded);
+  rmm::device_uvector<float> cur_dataset_norm(
+    need_compute_norm ? max_minibatch_size : 0, stream, mr);
+  const float* dataset_norm_ptr = nullptr;
   auto cur_dataset_ptr = cur_dataset.data();
   for (size_t offset = 0; offset < n_rows; offset += max_minibatch_size) {
     IdxT minibatch_size = std::min<IdxT>(max_minibatch_size, n_rows - offset);
@@ -305,12 +341,21 @@ void predict(const handle_t& handle,
                       stream);
     }
 
+    // Compute the norm now if it hasn't been pre-computed.
+    if (need_compute_norm) {
+      compute_norm<float, IdxT>(
+        cur_dataset_norm.data(), cur_dataset_ptr, (IdxT)dim, (IdxT)n_rows, stream, mr);
+      dataset_norm_ptr = cur_dataset_norm.data();
+    } else if (dataset_norm != nullptr) {
+      dataset_norm_ptr = dataset_norm + offset;
+    }
+
     predict_float_core<IdxT, LabelT>(handle,
                                      centers,
                                      n_clusters,
                                      dim,
                                      cur_dataset_ptr,
-                                     dataset_norm + offset,
+                                     dataset_norm_ptr,
                                      minibatch_size,
                                      labels + offset,
                                      metric,
@@ -563,12 +608,12 @@ void balancing_em_iters(const handle_t& handle,
                              n_clusters,
                              dim,
                              dataset,
-                             dataset_norm,
                              n_rows,
                              cluster_labels,
                              metric,
                              stream,
-                             device_memory);
+                             device_memory,
+                             dataset_norm);
     // M: Maximization step - calculate optimal cluster centers
     calc_centers_and_sizes(cluster_centers,
                            cluster_sizes,
@@ -588,7 +633,6 @@ void build_clusters(const handle_t& handle,
                     uint32_t n_iters,
                     uint32_t dim,
                     const T* dataset,
-                    const float* dataset_norm,
                     size_t n_rows,
                     uint32_t n_clusters,
                     float* cluster_centers,
@@ -596,7 +640,8 @@ void build_clusters(const handle_t& handle,
                     uint32_t* cluster_sizes,
                     raft::distance::DistanceType metric,
                     rmm::cuda_stream_view stream,
-                    rmm::mr::device_memory_resource* device_memory)
+                    rmm::mr::device_memory_resource* device_memory,
+                    const float* dataset_norm = nullptr)
 {
   // "randomly initialize labels"
   auto f = [n_clusters] __device__(LabelT * out, size_t i) {
@@ -760,7 +805,7 @@ auto build_fine_clusters(const handle_t& handle,
       mesocluster_sizes[i], dim, dataset_mptr, mc_trainset_ids, dim, mc_trainset, dim, stream);
     if (metric == raft::distance::DistanceType::L2Expanded ||
         metric == raft::distance::DistanceType::L2SqrtExpanded) {
-      // todo(lsugy): more efficient kernel!
+      // todo(lsugy): more efficient kernel (for dim=1)
       utils::copy_selected(mesocluster_sizes[i],
                            1,
                            dataset_norm_mptr,
@@ -775,7 +820,6 @@ auto build_fine_clusters(const handle_t& handle,
                                         n_iters,
                                         dim,
                                         mc_trainset,
-                                        mc_trainset_norm,
                                         mesocluster_sizes[i],
                                         fine_clusters_nums[i],
                                         mc_trainset_ccenters.data(),
@@ -783,7 +827,8 @@ auto build_fine_clusters(const handle_t& handle,
                                         mc_trainset_csizes_tmp.data(),
                                         metric,
                                         stream,
-                                        device_memory);
+                                        device_memory,
+                                        mc_trainset_norm);
 
     raft::copy(cluster_centers + (dim * fine_clusters_csum[i]),
                mc_trainset_ccenters.data(),
@@ -793,35 +838,6 @@ auto build_fine_clusters(const handle_t& handle,
     n_clusters_done += fine_clusters_nums[i];
   }
   return n_clusters_done;
-}
-
-template <typename T, typename IdxT>
-void compute_norm(float* dataset_norm,
-                  const T* dataset,
-                  IdxT dim,
-                  IdxT n_rows,
-                  rmm::cuda_stream_view stream,
-                  rmm::mr::device_memory_resource* mr = nullptr)
-{
-  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans::compute_norm");
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
-  rmm::device_uvector<float> dataset_float(0, stream, mr);
-
-  const float* dataset_ptr = nullptr;
-
-  if (std::is_same_v<float, T>) {
-    dataset_ptr = reinterpret_cast<const float*>(dataset);
-  } else {
-    // todo(lsugy): should we batch this?
-    dataset_float.resize(n_rows * dim, stream);
-
-    linalg::unaryOp(dataset_float.data(), dataset, n_rows * dim, utils::mapping<float>{}, stream);
-
-    dataset_ptr = (const float*)dataset_float.data();
-  }
-
-  raft::linalg::rowNorm<float, IdxT>(
-    dataset_norm, dataset_ptr, dim, n_rows, raft::linalg::L2Norm, true, stream);
 }
 
 /**
@@ -895,7 +911,6 @@ void build_hierarchical(const handle_t& handle,
                                     n_iters,
                                     dim,
                                     dataset,
-                                    dataset_norm,
                                     n_rows,
                                     n_mesoclusters,
                                     mesocluster_centers_buf.data(),
@@ -903,7 +918,8 @@ void build_hierarchical(const handle_t& handle,
                                     mesocluster_sizes_buf.data(),
                                     metric,
                                     stream,
-                                    device_memory);
+                                    device_memory,
+                                    dataset_norm);
   }
 
   auto mesocluster_sizes  = mesocluster_sizes_buf.data();
