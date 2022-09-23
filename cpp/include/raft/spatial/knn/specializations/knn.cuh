@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/spatial/knn/knn.cuh>
-#include <raft/spatial/knn/specializations/detail/ivf_pq_search.cuh>
 
 namespace raft {
 namespace spatial {
