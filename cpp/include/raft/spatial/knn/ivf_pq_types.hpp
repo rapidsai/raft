@@ -69,14 +69,6 @@ struct index_params : knn::index_params {
    * For good performance, multiple 32 is desirable.
    */
   uint32_t pq_dim = 0;
-  /**
-   * If true, dataset and query vectors are rotated by a random rotation matrix created at indexing
-   * time.
-   *
-   * NB: Currently, the rotation matrix is generated on CPU and may measurably increase the indexing
-   * time.
-   */
-  bool random_rotation = true;
   /** How PQ codebooks are created. */
   codebook_gen codebook_kind = codebook_gen::PER_SUBSPACE;
 };
@@ -201,7 +193,7 @@ struct index : knn::index {
         handle, managed_memory_, make_extents<IdxT>(0, this->pq_dim() * this->pq_bits() / 8))},
       indices_{make_device_mdarray<IdxT>(handle, managed_memory_, make_extents<IdxT>(0))},
       rotation_matrix_{make_device_mdarray<float>(
-        handle, managed_memory_, make_extents<uint32_t>(this->dim(), this->rot_dim()))},
+        handle, managed_memory_, make_extents<uint32_t>(this->rot_dim(), this->dim()))},
       list_offsets_{make_device_mdarray<IdxT>(
         handle, managed_memory_, make_extents<uint32_t>(this->n_lists() + 1))},
       centers_{make_device_mdarray<float>(
@@ -278,7 +270,7 @@ struct index : knn::index {
     return indices_.view();
   }
 
-  /** The transform matrix (original space -> rotated padded space) [dim, rot_dim] */
+  /** The transform matrix (original space -> rotated padded space) [rot_dim, dim] */
   inline auto rotation_matrix() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
   {
     return rotation_matrix_.view();

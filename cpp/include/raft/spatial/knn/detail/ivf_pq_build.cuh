@@ -26,13 +26,16 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/detail/qr.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
+#include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
@@ -192,88 +195,39 @@ void _cuann_get_inclusiveSumSortedClusterSize(index<IdxT>& index)
   RAFT_EXPECTS(output(index.n_lists() - 1) == index.size(), "cluster sizes do not add up");
 }
 
-template <typename T, typename X = T, typename Y = T>
-T _cuann_dot(int n, const X* x, int incX, const Y* y, int incY)
-{
-  T val = 0;
-  for (int i = 0; i < n; i++) {
-    val += utils::mapping<T>{}(x[incX * i]) * utils::mapping<T>{}(y[incY * i]);
-  }
-  return val;
-}
-
-//
-template <typename T>
-T _cuann_rand()
-{
-  return (T)rand() / RAND_MAX;
-}
-
-// make rotation matrix
-inline void make_rotation_matrix(uint32_t nRows,
-                                 uint32_t nCols,
-                                 uint32_t pq_len,
-                                 bool random_rotation,
-                                 float* rotation_matrix  // [nRows, nCols]
-)
+/**
+ * @brief Fill-in a random orthogonal transformation matrix.
+ *
+ * @param handle
+ * @param n_rows
+ * @param n_cols
+ * @param[out] rotation_matrix device pointer to a row-major matrix of size [n_rows, n_cols].
+ * @param rng random number generator state
+ */
+inline void make_rotation_matrix(const handle_t& handle,
+                                 uint32_t n_rows,
+                                 uint32_t n_cols,
+                                 float* rotation_matrix,
+                                 raft::random::Rng rng = raft::random::Rng(7ULL))
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "ivf_pq::make_rotation_matrix(%u * %u, random = %d, pq_len = %u)",
-    nRows,
-    nCols,
-    random_rotation,
-    pq_len);
-  RAFT_EXPECTS(nRows >= nCols,
-               "number of rows (%u) must be no smaller than number or cols (%u)",
-               nRows,
-               nCols);
-  RAFT_EXPECTS(
-    nRows % pq_len == 0, "number of rows (%u) must be a multiple of pq_len (%u)", nRows, pq_len);
-
-  if (random_rotation) {
-    RAFT_LOG_DEBUG("Creating a random rotation matrix.");
-    double dot, norm;
-    std::vector<double> matrix(nRows * nCols, 0.0);
-    for (uint32_t i = 0; i < nRows * nCols; i++) {
-      matrix[i] = _cuann_rand<double>() - 0.5;
-    }
-    for (uint32_t j = 0; j < nCols; j++) {
-      // normalize the j-th col vector
-      norm = sqrt(_cuann_dot<double>(nRows, &matrix[j], nCols, &matrix[j], nCols));
-      for (uint32_t i = 0; i < nRows; i++) {
-        matrix[j + (nCols * i)] /= norm;
-      }
-      // orthogonalize the j-th col vector with the previous col vectors
-      for (uint32_t k = 0; k < j; k++) {
-        dot = _cuann_dot<double>(nRows, &matrix[j], nCols, &matrix[k], nCols);
-        for (uint32_t i = 0; i < nRows; i++) {
-          matrix[j + (nCols * i)] -= dot * matrix[k + (nCols * i)];
-        }
-      }
-      // normalize the j-th col vector again
-      norm = sqrt(_cuann_dot<double>(nRows, &matrix[j], nCols, &matrix[j], nCols));
-      for (uint32_t i = 0; i < nRows; i++) {
-        matrix[j + (nCols * i)] /= norm;
-      }
-    }
-    for (uint32_t i = 0; i < nRows * nCols; i++) {
-      rotation_matrix[i] = (float)matrix[i];
-    }
-  } else {
-    if (nRows == nCols) {
-      memset(rotation_matrix, 0, sizeof(float) * nRows * nCols);
-      for (uint32_t i = 0; i < nCols; i++) {
-        rotation_matrix[i + (nCols * i)] = 1.0;
-      }
-    } else {
-      memset(rotation_matrix, 0, sizeof(float) * nRows * nCols);
-      uint32_t i = 0;
-      for (uint32_t j = 0; j < nCols; j++) {
-        rotation_matrix[j + (nCols * i)] = 1.0;
-        i += pq_len;
-        if (i >= nRows) { i = (i % nRows) + 1; }
-      }
-    }
+    "ivf_pq::make_rotation_matrix(%u * %u)", n_rows, n_cols);
+  bool inplace = n_rows == n_cols;
+  auto stream  = handle.get_stream();
+  uint32_t n   = std::max(n_rows, n_cols);
+  rmm::device_uvector<float> buf(inplace ? 0 : n * n, stream);
+  float* mat = inplace ? rotation_matrix : buf.data();
+  rng.normal(mat, n * n, 0.0f, 1.0f, stream);
+  linalg::detail::qrGetQ_inplace(handle, mat, n, n, stream);
+  if (!inplace) {
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(rotation_matrix,
+                                    sizeof(float) * n_cols,
+                                    mat,
+                                    sizeof(float) * n,
+                                    sizeof(float) * n_cols,
+                                    n_rows,
+                                    cudaMemcpyDefault,
+                                    stream));
   }
 }
 
@@ -807,9 +761,7 @@ inline auto build(
   // Make rotation matrix
   RAFT_LOG_DEBUG("# data_dim: %u\n", index.dim());
   RAFT_LOG_DEBUG("# rot_dim: %u\n", index.rot_dim());
-  RAFT_LOG_DEBUG("# params.random_rotation: %s\n", params.random_rotation ? "enabled" : "disabled");
-  make_rotation_matrix(
-    index.rot_dim(), index.dim(), index.pq_len(), params.random_rotation, rotation_matrix);
+  make_rotation_matrix(handle, index.rot_dim(), index.dim(), rotation_matrix);
 
   // Rotate cluster_centers
   float alpha = 1.0;

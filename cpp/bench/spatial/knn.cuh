@@ -169,9 +169,8 @@ struct ivf_pq_knn {
 
   ivf_pq_knn(const raft::handle_t& handle, const params& ps, const ValT* data) : ps(ps)
   {
-    index_params.n_lists         = 4096;
-    index_params.metric          = raft::distance::DistanceType::L2Expanded;
-    index_params.random_rotation = false;
+    index_params.n_lists = 4096;
+    index_params.metric  = raft::distance::DistanceType::L2Expanded;
     index.emplace(raft::spatial::knn::ivf_pq::build(
       handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
   }

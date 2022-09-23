@@ -97,7 +97,6 @@ inline auto operator<<(std::ostream& os, const ivf_pq_inputs& p) -> std::ostream
   PRINT_DIFF(.index_params.kmeans_trainset_fraction);
   PRINT_DIFF(.index_params.pq_bits);
   PRINT_DIFF(.index_params.pq_dim);
-  PRINT_DIFF(.index_params.random_rotation);
   PRINT_DIFF(.index_params.codebook_kind);
   PRINT_DIFF(.search_params.n_probes);
   PRINT_DIFF_V(.search_params.lut_dtype, print_dtype{p.search_params.lut_dtype});
@@ -298,14 +297,7 @@ inline auto small_dims_per_cluster() -> test_cases_t
 
 inline auto big_dims() -> test_cases_t
 {
-  return map<ivf_pq_inputs>(with_dims({511, 512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053}),
-                            [](const ivf_pq_inputs& x) {
-                              ivf_pq_inputs y(x);
-                              // disable random rotation for now here, to reduce the exec time
-                              // (TODO: move the matrix generation to GPU)
-                              y.index_params.random_rotation = false;
-                              return y;
-                            });
+  return with_dims({511, 512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053});
 }
 
 inline auto enum_variety() -> test_cases_t
@@ -331,8 +323,6 @@ inline auto enum_variety() -> test_cases_t
   ADD_CASE({ x.index_params.pq_bits = 6; });
   ADD_CASE({ x.index_params.pq_bits = 7; });
   ADD_CASE({ x.index_params.pq_bits = 8; });
-  ADD_CASE({ x.index_params.random_rotation = false; });
-  ADD_CASE({ x.index_params.random_rotation = true; });
 
   ADD_CASE({ x.search_params.lut_dtype = CUDA_R_32F; });
   ADD_CASE({ x.search_params.lut_dtype = CUDA_R_16F; });
