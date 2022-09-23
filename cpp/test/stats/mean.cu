@@ -49,7 +49,7 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
       rows(params.rows),
       cols(params.cols),
       data(rows * cols, stream),
-      mean_act(rows * cols, stream)
+      mean_act(cols, stream)
   {
   }
 
@@ -69,13 +69,13 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
       using layout = raft::row_major;
       mean(handle,
            raft::make_device_matrix_view<const T, int, layout>(data, rows, cols),
-           raft::make_device_vector_view<T, int>(mean_act.data(), rows * cols),
+           raft::make_device_vector_view<T, int>(mean_act.data(), cols),
            params.sample);
     } else {
       using layout = raft::col_major;
       mean(handle,
            raft::make_device_matrix_view<const T, int, layout>(data, rows, cols),
-           raft::make_device_vector_view<T, int>(mean_act.data(), rows * cols),
+           raft::make_device_vector_view<T, int>(mean_act.data(), cols),
            params.sample);
     }
   }

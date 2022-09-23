@@ -69,8 +69,9 @@ void cov(const raft::handle_t& handle,
  * @tparam LayoutPolicy Layout type of the input data.
  * @param handle the raft handle
  * @param data the input matrix (this will get mean-centered at the end!)
- * @param mu mean vector of the input matrix
- * @param covar the output covariance matrix
+ * (length = nrows * ncols)
+ * @param mu mean vector of the input matrix (length = ncols)
+ * @param covar the output covariance matrix (length = ncols * ncols)
  * @param sample whether to evaluate sample covariance or not. In other words,
  * whether to normalize the output using N-1 or N, for true or false,
  * respectively
@@ -89,7 +90,8 @@ void cov(const raft::handle_t& handle,
   static_assert(
     std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
     "Data layout not supported");
-  RAFT_EXPECTS(data.size() == covar.size(), "Size mismatch");
+  RAFT_EXPECTS(data.extent(1) == covar.extent(0) && data.extent(1) == covar.extent(1),
+               "Size mismatch");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   RAFT_EXPECTS(covar.is_exhaustive(), "covar must be contiguous");
   RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
