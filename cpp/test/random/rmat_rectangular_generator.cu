@@ -287,33 +287,24 @@ class RmatGenMdspanTest : public ::testing::TestWithParam<RmatInputs> {
   void SetUp() override
   {
     using index_type = size_t;
-    raft::device_vector_view<size_t, index_type> out_view(out.data(), out.size());
-    raft::device_vector_view<size_t, index_type> out_src_view(out_src.data(), out_src.size());
-    raft::device_vector_view<size_t, index_type> out_dst_view(out_dst.data(), out_dst.size());
+
+    using out_view_type = typename rmat_rectangular_gen_output<index_type>::out_view_type;
+    out_view_type out_view(out.data(), out.size());
+
+    using out_src_view_type = typename rmat_rectangular_gen_output<index_type>::out_src_view_type;
+    out_src_view_type out_src_view(out_src.data(), out_src.size());
+
+    using out_dst_view_type = typename rmat_rectangular_gen_output<index_type>::out_dst_view_type;
+    out_dst_view_type out_dst_view(out_dst.data(), out_dst.size());
+
+    rmat_rectangular_gen_output<index_type> output(out_view, out_src_view, out_dst_view);
 
     if (params.theta_array) {
       raft::device_vector_view<const float, index_type> theta_view(theta.data(), theta.size());
-      rmat_rectangular_gen(handle,
-                           state,
-                           theta_view,
-                           out_view,
-                           out_src_view,
-                           out_dst_view,
-                           params.r_scale,
-                           params.c_scale,
-                           params.n_edges);
+      rmat_rectangular_gen(handle, state, theta_view, output, params.r_scale, params.c_scale);
     } else {
-      rmat_rectangular_gen(handle,
-                           state,
-                           out_view,
-                           out_src_view,
-                           out_dst_view,
-                           h_theta[0],
-                           h_theta[1],
-                           h_theta[2],
-                           params.r_scale,
-                           params.c_scale,
-                           params.n_edges);
+      rmat_rectangular_gen(
+        handle, state, output, h_theta[0], h_theta[1], h_theta[2], params.r_scale, params.c_scale);
     }
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
