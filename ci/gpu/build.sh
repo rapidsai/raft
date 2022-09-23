@@ -91,7 +91,14 @@ gpuci_logger "Check GPU usage"
 nvidia-smi
 
 gpuci_logger "GoogleTest for libraft"
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/libraft/gtests/test_raft
+GTEST_ARGS="xml:${WORKSPACE}/test-results/libraft/"
+for gt in "$CONDA_PREFIX/bin/gtests/libraft/"*; do
+    test_name=$(basename $gt)
+    echo "Running gtest $test_name"
+    ${gt} ${GTEST_ARGS}
+    echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
+done
+
 
 gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft/pylibraft/test"
