@@ -304,8 +304,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
 
     BallCoverIndex<value_idx, value_t> index(handle, X_view, metric);
 
-    raft::spatial::knn::rbc_all_knn_query(
-      handle, index, d_pred_I_view, d_pred_D_view, k, true);
+    raft::spatial::knn::rbc_all_knn_query(handle, index, d_pred_I_view, d_pred_D_view, k, true);
 
     handle.sync_stream();
     // What we really want are for the distances to match exactly. The
