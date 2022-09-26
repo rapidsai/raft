@@ -232,9 +232,9 @@ struct index : knn::index {
    */
   void allocate(const handle_t& handle, IdxT index_size)
   {
-    pq_dataset_ = make_device_mdarray<uint8_t>(
-      handle, managed_memory_, make_extents<IdxT>(index_size, pq_dataset_.extent(1)));
-    indices_ = make_device_mdarray<IdxT>(handle, managed_memory_, make_extents<IdxT>(index_size));
+    pq_dataset_ =
+      make_device_mdarray<uint8_t>(handle, make_extents<IdxT>(index_size, pq_dataset_.extent(1)));
+    indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
     check_consistency();
   }
 

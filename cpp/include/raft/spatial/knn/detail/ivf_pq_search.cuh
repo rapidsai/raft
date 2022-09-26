@@ -679,16 +679,12 @@ struct ivfpq_compute_similarity {
 template <typename ScoreT, typename LutT, typename IdxT>
 void ivfpq_search(const handle_t& handle,
                   const index<IdxT>& index,
+                  uint32_t max_samples,
                   uint32_t n_probes,
                   uint32_t max_batch_size,
                   uint32_t topK,
                   uint32_t preferred_thread_block_size,
                   uint32_t n_queries,
-                  const float* cluster_centers,       // [index_size, rot_dim]
-                  const float* pq_centers,            // [pq_dim, pq_width, pq_len]
-                  const uint8_t* pq_dataset,          // [index_size, pq_dim * pq_bits / 8]
-                  const IdxT* data_indices,           // [index_size]
-                  const IdxT* cluster_offsets,        // [n_clusters + 1]
                   const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                   const float* query,                 // [n_queries, rot_dim]
                   IdxT* topkNeighbors,                // [n_queries, topK]
@@ -701,7 +697,11 @@ void ivfpq_search(const handle_t& handle,
                max_batch_size);
   auto stream = handle.get_stream();
 
-  auto max_samples = Pow2<128>::roundUp(index.list_offsets()(n_probes));
+  auto pq_centers      = index.pq_centers().data_handle();
+  auto pq_dataset      = index.pq_dataset().data_handle();
+  auto data_indices    = index.indices().data_handle();
+  auto cluster_centers = index.centers_rot().data_handle();
+  auto cluster_offsets = index.list_offsets().data_handle();
 
   bool manage_local_topk =
     topK <= kMaxCapacity                 // depth is not too large
@@ -969,21 +969,31 @@ inline void search(const handle_t& handle,
     default: break;
   }
 
+  auto stream = handle.get_stream();
+
   auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
+
+  IdxT max_samples = 0;
   {
-    IdxT n_samples_worst_case = index.size();
+    IdxT offset_worst_case = 0;
+    auto cluster_offsets   = index.list_offsets().data_handle();
+    copy(&max_samples, cluster_offsets + n_probes, 1, stream);
     if (n_probes < index.n_nonempty_lists()) {
-      n_samples_worst_case =
-        index.size() - index.list_offsets()(index.n_nonempty_lists() - n_probes);
+      copy(&offset_worst_case, cluster_offsets + index.n_nonempty_lists() - n_probes, 1, stream);
     }
-    if (IdxT{k} > n_samples_worst_case) {
+    handle.sync_stream();
+    max_samples      = Pow2<128>::roundUp(max_samples);
+    IdxT min_samples = index.size() - offset_worst_case;
+    if (IdxT{k} > min_samples) {
       RAFT_LOG_WARN(
-        "n_probes is too small to get top-k results reliably (n_probes: %u, k: %u, "
-        "n_samples_worst_case: %zu).",
+        "n_probes is too small to get top-k results reliably (n_probes: %u, k: %u, n_samples "
+        "(worst_case): %zu).",
         n_probes,
         k,
-        static_cast<uint64_t>(n_samples_worst_case));
+        static_cast<uint64_t>(min_samples));
     }
+    RAFT_EXPECTS(max_samples <= IdxT(std::numeric_limits<uint32_t>::max()),
+                 "The maximum sample size is too big.");
   }
 
   auto pool_guard = raft::get_pool_memory_resource(mr, n_queries * n_probes * k * 16);
@@ -1010,8 +1020,6 @@ inline void search(const handle_t& handle,
     }
   }
 
-  auto stream = handle.get_stream();
-
   rmm::device_uvector<T> dev_queries(max_queries * index.dim_ext(), stream, mr);
   rmm::device_uvector<float> cur_queries(max_queries * index.dim_ext(), stream, mr);
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
@@ -1025,11 +1033,7 @@ inline void search(const handle_t& handle,
                         uint32_t,
                         uint32_t,
                         uint32_t,
-                        const float*,
-                        const float*,
-                        const uint8_t*,
-                        const IdxT*,
-                        const IdxT*,
+                        uint32_t,
                         const uint32_t*,
                         const float*,
                         IdxT*,
@@ -1179,16 +1183,12 @@ inline void search(const handle_t& handle,
        */
       _ivfpq_search(handle,
                     index,
+                    max_samples,
                     params.n_probes,
                     max_batch_size,
                     k,
                     params.preferred_thread_block_size,
                     batch_size,
-                    index.centers_rot().data_handle(),
-                    index.pq_centers().data_handle(),
-                    index.pq_dataset().data_handle(),
-                    index.indices().data_handle(),
-                    index.list_offsets().data_handle(),
                     clusters_to_probe.data() + ((uint64_t)(params.n_probes) * j),
                     rot_queries.data() + ((uint64_t)(index.rot_dim()) * j),
                     neighbors + ((uint64_t)(k) * (i + j)),
