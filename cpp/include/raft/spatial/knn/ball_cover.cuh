@@ -289,8 +289,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                    raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
                    raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
                    int_t k                     = 5,
-                   bool perform_post_filtering = true,
-                   float weight                = 1.0)
+                   bool perform_post_filtering = true)
 {
   RAFT_EXPECTS(k <= index.m,
                "k must be less than or equal to the number of data points in the index");
@@ -312,7 +311,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                 inds.data_handle(),
                 dists.data_handle(),
                 perform_post_filtering,
-                weight);
+                1.0);
 }
 
 // TODO: implement functions for:

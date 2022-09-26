@@ -19,7 +19,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/spatial/knn/knn.cuh>
+#include <raft/spatial/knn/brute_force.cuh>
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
 #endif
