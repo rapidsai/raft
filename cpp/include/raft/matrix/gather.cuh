@@ -102,7 +102,7 @@ void gather(const raft::handle_t& handle,
 template <typename MatrixIteratorT, typename MapIteratorT, typename MapTransformOp, typename IdxT>
 void gather(const raft::handle_t& handle,
             raft::device_matrix_view<const MatrixIteratorT, IdxT, row_major> in,
-            raft::device_matrix_view<MatrixIteratorT, IdxT, row_major> out
+            raft::device_matrix_view<MatrixIteratorT, IdxT, row_major> out,
               raft::device_vector_view<MapIteratorT, IdxT> map,
             MapTransformOp transform_op)
 {
@@ -144,6 +144,8 @@ void gather(const raft::handle_t& handle,
  */
 template <typename MatrixIteratorT, typename MapIteratorT, typename MapTransformOp>
 void gather(const MatrixIteratorT in,
+            int D,
+            int N,
             MapIteratorT map,
             int map_length,
             MatrixIteratorT out,
