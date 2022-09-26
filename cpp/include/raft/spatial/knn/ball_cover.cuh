@@ -164,13 +164,12 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                        raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
                        raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
                        int_t k                     = 5,
-                       bool perform_post_filtering = true,
-                       float weight                = 1.0)
+                       bool perform_post_filtering = true)
 {
   RAFT_EXPECTS(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   RAFT_EXPECTS(k <= index.m,
                "k must be less than or equal to the number of data points in the index");
-  RAFT_EXPECTS(inds.extent(1) == dists.extent(1) && dists.extent(1) == static_cast<idx_t>(k),
+  RAFT_EXPECTS(inds.extent(1) == dists.extent(1) && dists.extent(1) == static_cast<matrix_idx_t>(k),
                "Number of columns in output indices and distances matrices must be equal to k");
 
   RAFT_EXPECTS(inds.extent(0) == dists.extent(0) && dists.extent(0) == index.get_X().extent(0),
@@ -178,7 +177,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                "in index matrix.");
 
   rbc_all_knn_query(
-    handle, index, k, inds.data_handle(), dists.data_handle(), perform_post_filtering, weight);
+    handle, index, k, inds.data_handle(), dists.data_handle(), perform_post_filtering, 1.0);
 }
 
 /**

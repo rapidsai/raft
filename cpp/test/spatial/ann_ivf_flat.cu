@@ -221,8 +221,8 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
 
         int64_t half_of_data = ps.num_db_vecs / 2;
 
-        auto half_of_data_view = raft::make_device_matrix_view<const DataT>(
-          (const DataT*)database.data(), static_cast<int>(half_of_data), ps.dim);
+        auto half_of_data_view = raft::make_device_matrix_view<const DataT, int>(
+          (const DataT*)database.data(), half_of_data, ps.dim);
 
         auto index_2 = ivf_flat::extend<DataT, IdxT>(handle_, index, half_of_data_view);
 

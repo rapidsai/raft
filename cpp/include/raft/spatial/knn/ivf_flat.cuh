@@ -52,11 +52,11 @@ namespace raft::spatial::knn::ivf_flat {
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param handle
- * @param params configure the index building
+ * @param[in] handle
+ * @param[in] params configure the index building
  * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
- * @param n_rows the number of samples
- * @param dim the dimensionality of the data
+ * @param[in] n_rows the number of samples
+ * @param[in] dim the dimensionality of the data
  *
  * @return the constructed ivf-flat index
  */
@@ -94,8 +94,8 @@ inline auto build(
  * @tparam int_t precision / type of integral arguments
  * @tparam matrix_idx_t matrix indexing type
  *
- * @param handle
- * @param params configure the index building
+ * @param[in] handle
+ * @param[in] params configure the index building
  * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
  *
  * @return the constructed ivf-flat index
@@ -182,8 +182,8 @@ inline auto extend(const handle_t& handle,
  * @tparam int_t precision / type of integral arguments
  * @tparam matrix_idx_t matrix indexing type
  *
- * @param handle
- * @param orig_index original index
+ * @param[in] handle
+ * @param[in] orig_index original index
  * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
  * @param[in] new_indices a device pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
@@ -221,7 +221,7 @@ auto extend(const handle_t& handle,
  * @param[in] new_indices a device pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
- * @param n_rows the number of samples
+ * @param[in] n_rows the number of samples
  */
 template <typename T, typename IdxT>
 inline void extend(const handle_t& handle,
@@ -241,7 +241,7 @@ inline void extend(const handle_t& handle,
  * @tparam int_t precision / type of integral arguments
  * @tparam matrix_idx_t matrix indexing type
  *
- * @param handle
+ * @param[in] handle
  * @param[inout] index
  * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
  * @param[in] new_indices a device pointer to a vector of indices [n_rows].
@@ -295,17 +295,17 @@ void extend(
  * @tparam T data element type
  * @tparam IdxT type of the indices
  *
- * @param handle
- * @param params configure the search
- * @param index ivf-flat constructed index
+ * @param[in] handle
+ * @param[in] params configure the search
+ * @param[in] index ivf-flat constructed index
  * @param[in] queries a device pointer to a row-major matrix [n_queries, index->dim()]
- * @param n_queries the batch size
- * @param k the number of neighbors to find for each query.
+ * @param[in] n_queries the batch size
+ * @param[in] k the number of neighbors to find for each query.
  * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
- * @param mr an optional memory resource to use across the searches (you can provide a large enough
- *           memory pool here to avoid memory allocations within search).
+ * @param[in] mr an optional memory resource to use across the searches (you can provide a large
+ * enough memory pool here to avoid memory allocations within search).
  */
 template <typename T, typename IdxT>
 inline void search(const handle_t& handle,
@@ -354,14 +354,14 @@ inline void search(const handle_t& handle,
  * @tparam int_t precision / type of integral arguments
  * @tparam matrix_idx_t matrix indexing type
  *
- * @param handle
- * @param index ivf-flat constructed index
+ * @param[in] handle
+ * @param[in] index ivf-flat constructed index
  * @param[in] queries a device pointer to a row-major matrix [n_queries, index->dim()]
  * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
- * @param params configure the search
- * @param k the number of neighbors to find for each query.
+ * @param[in] params configure the search
+ * @param[in] k the number of neighbors to find for each query.
  */
 template <typename value_t,
           typename idx_t,

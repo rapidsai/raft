@@ -48,7 +48,7 @@ class BallCoverIndex {
                           value_int n_,
                           raft::distance::DistanceType metric_)
     : handle(handle_),
-      X(std::move(raft::make_device_matrix_view<const value_t, matrix_idx>(X_, m_, n_))),
+      X(raft::make_device_matrix_view<const value_t, matrix_idx>(X_, m_, n_)),
       m(m_),
       n(n_),
       metric(metric_),
