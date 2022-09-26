@@ -20,7 +20,6 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
-#include <raft/core/host_mdarray.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
@@ -31,9 +30,9 @@
 namespace raft::spatial::knn::ivf_pq {
 
 /** A type for specifying how PQ codebooks are created. */
-enum class codebook_gen {
-  PER_SUBSPACE = 0,
-  PER_CLUSTER  = 1,
+enum class codebook_gen {  // NOLINT
+  PER_SUBSPACE = 0,        // NOLINT
+  PER_CLUSTER  = 1,        // NOLINT
 };
 
 struct index_params : knn::index_params {
@@ -165,6 +164,11 @@ struct index : knn::index {
   }
   /** Number of clusters/inverted lists. */
   [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t { return n_lists_; }
+  /** Number of non-empty clusters/inverted lists. */
+  [[nodiscard]] constexpr inline auto n_nonempty_lists() const noexcept -> uint32_t
+  {
+    return n_nonempty_lists_;
+  }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
   index(const index&) = delete;
@@ -179,8 +183,9 @@ struct index : knn::index {
         codebook_gen codebook_kind,
         uint32_t n_lists,
         uint32_t dim,
-        uint32_t pq_bits = 8,
-        uint32_t pq_dim  = 0)
+        uint32_t pq_bits          = 8,
+        uint32_t pq_dim           = 0,
+        uint32_t n_nonempty_lists = 0)
     : knn::index(),
       metric_(metric),
       codebook_kind_(codebook_kind),
@@ -188,6 +193,7 @@ struct index : knn::index {
       dim_(dim),
       pq_bits_(pq_bits),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
+      n_nonempty_lists_(n_nonempty_lists),
       pq_centers_{make_device_mdarray<float>(handle, make_pq_centers_extents())},
       pq_dataset_{make_device_mdarray<uint8_t>(
         handle, make_extents<IdxT>(0, this->pq_dim() * this->pq_bits() / 8))},
@@ -199,22 +205,24 @@ struct index : knn::index {
       centers_{make_device_mdarray<float>(
         handle, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
       centers_rot_{make_device_mdarray<float>(
-        handle, make_extents<uint32_t>(this->n_lists(), this->rot_dim()))},
-      inclusiveSumSortedClusterSize_{
-        make_host_mdarray<IdxT>(make_extents<uint32_t>(this->n_lists()))}
+        handle, make_extents<uint32_t>(this->n_lists(), this->rot_dim()))}
   {
     check_consistency();
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle, const index_params& params, uint32_t dim)
+  index(const handle_t& handle,
+        const index_params& params,
+        uint32_t dim,
+        uint32_t n_nonempty_lists = 0)
     : index(handle,
             params.metric,
             params.codebook_kind,
             params.n_lists,
             dim,
             params.pq_bits,
-            params.pq_dim)
+            params.pq_dim,
+            n_nonempty_lists)
   {
   }
 
@@ -315,23 +323,6 @@ struct index : knn::index {
     return centers_rot_.view();
   }
 
-  inline auto inclusiveSumSortedClusterSize() noexcept
-    -> host_mdspan<IdxT, extent_1d<uint32_t>, row_major>
-  {
-    return inclusiveSumSortedClusterSize_.view();
-  }
-  [[nodiscard]] inline auto inclusiveSumSortedClusterSize() const noexcept
-    -> host_mdspan<const IdxT, extent_1d<uint32_t>, row_major>
-  {
-    return inclusiveSumSortedClusterSize_.view();
-  }
-
-  inline auto numClustersSize0() noexcept -> uint32_t& { return numClustersSize0_; }
-  [[nodiscard]] inline auto numClustersSize0() const noexcept -> const uint32_t&
-  {
-    return numClustersSize0_;
-  }
-
  private:
   raft::distance::DistanceType metric_;
   codebook_gen codebook_kind_;
@@ -339,6 +330,7 @@ struct index : knn::index {
   uint32_t dim_;
   uint32_t pq_bits_;
   uint32_t pq_dim_;
+  uint32_t n_nonempty_lists_;
 
   /**
    * This structure keeps the managed memory resource and a pool on top of it
@@ -382,8 +374,6 @@ struct index : knn::index {
   device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_rot_;
-  host_mdarray<IdxT, extent_1d<uint32_t>, row_major> inclusiveSumSortedClusterSize_;
-  uint32_t numClustersSize0_;  // (*) urgent WA, need to be fixed
 
   /** Throw an error if the index content is inconsistent. */
   void check_consistency()

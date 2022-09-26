@@ -701,7 +701,7 @@ void ivfpq_search(const handle_t& handle,
                max_batch_size);
   auto stream = handle.get_stream();
 
-  auto max_samples = Pow2<128>::roundUp(index.inclusiveSumSortedClusterSize()(n_probes - 1));
+  auto max_samples = Pow2<128>::roundUp(index.list_offsets()(n_probes));
 
   bool manage_local_topk =
     topK <= kMaxCapacity                 // depth is not too large
@@ -972,11 +972,9 @@ inline void search(const handle_t& handle,
   auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
   {
     IdxT n_samples_worst_case = index.size();
-    if (n_probes < index.n_lists()) {
+    if (n_probes < index.n_nonempty_lists()) {
       n_samples_worst_case =
-        index.size() - index.inclusiveSumSortedClusterSize()(
-                         std::max<IdxT>(index.numClustersSize0(), index.n_lists() - 1 - n_probes) -
-                         index.numClustersSize0());
+        index.size() - index.list_offsets()(index.n_nonempty_lists() - n_probes);
     }
     if (IdxT{k} > n_samples_worst_case) {
       RAFT_LOG_WARN(

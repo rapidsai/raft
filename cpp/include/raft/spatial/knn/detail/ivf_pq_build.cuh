@@ -22,7 +22,6 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/core/host_mdarray.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -39,6 +38,11 @@
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
+
+#include <thrust/binary_search.h>
+#include <thrust/functional.h>
+#include <thrust/scan.h>
+#include <thrust/sequence.h>
 
 namespace raft::spatial::knn::ivf_pq::detail {
 
@@ -163,38 +167,6 @@ inline void ivfpq_encode(uint32_t n_rows,
   }
 }
 
-template <typename T>
-auto descending(const void* a, const void* b) -> int
-{
-  auto val_a = *reinterpret_cast<const T*>(a);
-  auto val_b = *reinterpret_cast<const T*>(b);
-  if (val_a > val_b) return -1;
-  if (val_a < val_b) return 1;
-  return 0;
-}
-
-template <typename IdxT>
-void _cuann_get_inclusiveSumSortedClusterSize(index<IdxT>& index)
-{
-  auto cluster_offsets     = index.list_offsets().data_handle();
-  auto output              = index.inclusiveSumSortedClusterSize();
-  index.numClustersSize0() = 0;
-  for (uint32_t i = 0; i < index.n_lists(); i++) {
-    output(i) = cluster_offsets[i + 1] - cluster_offsets[i];
-    if (output(i) > 0) continue;
-
-    index.numClustersSize0() += 1;
-  }
-  RAFT_LOG_DEBUG("Number of clusters of size zero: %u", index.numClustersSize0());
-  // sort
-  qsort(output.data_handle(), index.n_lists(), sizeof(IdxT), descending<IdxT>);
-  // scan
-  for (uint32_t i = 1; i < index.n_lists(); i++) {
-    output(i) += output(i - 1);
-  }
-  RAFT_EXPECTS(output(index.n_lists() - 1) == index.size(), "cluster sizes do not add up");
-}
-
 /**
  * @brief Fill-in a random orthogonal transformation matrix.
  *
@@ -280,7 +252,7 @@ void compute_pq_codes(const handle_t& handle,
                       const IdxT* data_indices,
                       const uint32_t* cluster_sizes,
                       const IdxT* cluster_offsets,
-                      float* pq_centers,
+                      const float* pq_centers,
                       uint8_t* pq_dataset,
                       rmm::mr::device_memory_resource* device_memory)
 {
@@ -385,7 +357,7 @@ void compute_pq_codes(const handle_t& handle,
     // Find a label (cluster ID) for each vector subspace.
     //
     for (uint32_t j = 0; j < pq_dim; j++) {
-      float* sub_pq_centers = nullptr;
+      const float* sub_pq_centers = nullptr;
       switch (codebook_kind) {
         case codebook_gen::PER_SUBSPACE:
           sub_pq_centers = pq_centers + ((1 << pq_bits) * pq_len) * j;
@@ -416,7 +388,6 @@ void compute_pq_codes(const handle_t& handle,
          my_pq_dataset.data(),
          cluster_size * pq_dim * pq_bits / 8,
          stream);
-    handle.sync_stream();
   }
 }
 
@@ -469,6 +440,7 @@ auto calculate_offsets_and_indices(IdxT n_rows,
                            return s + l;
                          });
   update_host(&cumsum, cluster_offsets + n_lists, 1, stream);
+  update_host(&max_cluster_size, max_cluster_size_dev, 1, stream);
   stream.synchronize();
   RAFT_EXPECTS(cumsum == n_rows, "cluster sizes do not add up.");
   rmm::device_uvector<IdxT> data_offsets_buf(n_lists, stream);
@@ -515,15 +487,15 @@ inline auto extend(const handle_t& handle,
   // centroids to speed up the search. Here, only the cluster centroids
   // are extracted.
   //
+  const auto n_clusters = orig_index.n_lists();
 
-  rmm::device_uvector<float> cluster_centers(
-    orig_index.n_lists() * orig_index.dim(), stream, device_memory);
+  rmm::device_uvector<float> cluster_centers(n_clusters * orig_index.dim(), stream, device_memory);
   RAFT_CUDA_TRY(cudaMemcpy2DAsync(cluster_centers.data(),
                                   sizeof(float) * orig_index.dim(),
                                   orig_index.centers().data_handle(),
                                   sizeof(float) * orig_index.dim_ext(),
                                   sizeof(float) * orig_index.dim(),
-                                  orig_index.n_lists(),
+                                  n_clusters,
                                   cudaMemcpyDefault,
                                   stream));
 
@@ -534,12 +506,13 @@ inline auto extend(const handle_t& handle,
 
   rmm::device_uvector<uint32_t> new_data_labels(n_rows, stream, device_memory);
   utils::memzero(new_data_labels.data(), n_rows, stream);
-  rmm::device_uvector<uint32_t> cluster_sizes(orig_index.n_lists(), stream, &managed_memory);
-  utils::memzero(cluster_sizes.data(), orig_index.n_lists(), stream);
+  rmm::device_uvector<uint32_t> new_cluster_sizes_buf(n_clusters, stream, &managed_memory);
+  auto new_cluster_sizes = new_cluster_sizes_buf.data();
+  utils::memzero(new_cluster_sizes, n_clusters, stream);
 
   kmeans::predict(handle,
                   cluster_centers.data(),
-                  orig_index.n_lists(),
+                  n_clusters,
                   orig_index.dim(),
                   new_vectors,
                   n_rows,
@@ -547,61 +520,25 @@ inline auto extend(const handle_t& handle,
                   orig_index.metric(),
                   stream);
   raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
-                                         reinterpret_cast<int32_t*>(cluster_sizes.data()),
-                                         IdxT(orig_index.n_lists()),
+                                         reinterpret_cast<int32_t*>(new_cluster_sizes),
+                                         IdxT(n_clusters),
                                          new_data_labels.data(),
                                          n_rows,
                                          1,
                                          stream);
-  handle.sync_stream();
 
   //
-  // Make cluster_offsets, data_indices
+  // Make new_cluster_offsets, new_data_indices
   //
-  rmm::device_uvector<IdxT> data_indices(n_rows, stream, &managed_memory);
-  rmm::device_uvector<IdxT> cluster_offsets(orig_index.n_lists() + 1, stream, &managed_memory);
-  uint32_t max_cluster_size = calculate_offsets_and_indices(n_rows,
-                                                            orig_index.n_lists(),
-                                                            new_data_labels.data(),
-                                                            cluster_sizes.data(),
-                                                            cluster_offsets.data(),
-                                                            data_indices.data(),
-                                                            stream);
-
-  //
-  // Create descriptor for new index
-  //
-  ivf_pq::index<IdxT> ext_index(handle,
-                                orig_index.metric(),
-                                orig_index.codebook_kind(),
-                                orig_index.n_lists(),
-                                orig_index.dim(),
-                                orig_index.pq_bits(),
-                                orig_index.pq_dim());
-  ext_index.allocate(handle, orig_index.size() + n_rows);
-  RAFT_LOG_DEBUG("Index size: %u -> %u", orig_index.size(), ext_index.size());
-
-  //
-  // Copy the unchanged parts
-  //
-  copy(ext_index.centers().data_handle(),
-       orig_index.centers().data_handle(),
-       orig_index.centers().size(),
-       stream);
-  copy(ext_index.centers_rot().data_handle(),
-       orig_index.centers_rot().data_handle(),
-       orig_index.centers_rot().size(),
-       stream);
-  copy(ext_index.pq_centers().data_handle(),
-       orig_index.pq_centers().data_handle(),
-       orig_index.pq_centers().size(),
-       stream);
-  copy(ext_index.rotation_matrix().data_handle(),
-       orig_index.rotation_matrix().data_handle(),
-       orig_index.rotation_matrix().size(),
-       stream);
-
-  handle.sync_stream();
+  rmm::device_uvector<IdxT> new_data_indices(n_rows, stream, &managed_memory);
+  rmm::device_uvector<IdxT> new_cluster_offsets(n_clusters + 1, stream, &managed_memory);
+  uint32_t new_max_cluster_size = calculate_offsets_and_indices(n_rows,
+                                                                n_clusters,
+                                                                new_data_labels.data(),
+                                                                new_cluster_sizes,
+                                                                new_cluster_offsets.data(),
+                                                                new_data_indices.data(),
+                                                                stream);
 
   //
   // Compute PQ code for new vectors
@@ -615,45 +552,158 @@ inline auto extend(const handle_t& handle,
                       orig_index.pq_dim(),
                       orig_index.pq_len(),
                       orig_index.pq_bits(),
-                      orig_index.n_lists(),
+                      n_clusters,
                       orig_index.codebook_kind(),
-                      max_cluster_size,
+                      new_max_cluster_size,
                       cluster_centers.data(),
-                      ext_index.rotation_matrix().data_handle(),
+                      orig_index.rotation_matrix().data_handle(),
                       new_vectors,
-                      data_indices.data(),
-                      cluster_sizes.data(),
-                      cluster_offsets.data(),
-                      ext_index.pq_centers().data_handle(),
+                      new_data_indices.data(),
+                      new_cluster_sizes,
+                      new_cluster_offsets.data(),
+                      orig_index.pq_centers().data_handle(),
                       new_pq_codes.data(),
                       device_memory);
 
-  auto ext_indices         = ext_index.indices().data_handle();
-  auto ext_cluster_offsets = ext_index.list_offsets().data_handle();
-  //
-  // Make ext_cluster_offsets
-  //
+  // Get the combined cluster sizes and sort the clusters in decreasing order
+  // (this makes it easy to estimate the max number of samples during search).
+  rmm::device_uvector<uint32_t> old_cluster_sizes_buf(n_clusters, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> ext_cluster_sizes_buf(n_clusters, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> cluster_ordering(n_clusters, stream, &managed_memory);
+  auto old_cluster_sizes   = old_cluster_sizes_buf.data();
+  auto ext_cluster_sizes   = ext_cluster_sizes_buf.data();
   auto old_cluster_offsets = orig_index.list_offsets().data_handle();
-  max_cluster_size         = 0;
-  ext_cluster_offsets[0]   = 0;
-  for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
-    auto old_cluster_size =
-      static_cast<uint32_t>(old_cluster_offsets[l + 1] - old_cluster_offsets[l]);
-    ext_cluster_offsets[l + 1] =
-      ext_cluster_offsets[l] + old_cluster_size + cluster_sizes.data()[l];
-    max_cluster_size = max(max_cluster_size, old_cluster_size + cluster_sizes.data()[l]);
+
+  uint32_t n_nonempty_lists = 0;
+  {
+    rmm::device_uvector<uint32_t> ext_cluster_sizes_buf_in(n_clusters, stream, device_memory);
+    rmm::device_uvector<uint32_t> cluster_ordering_in(n_clusters, stream, device_memory);
+    auto ext_cluster_sizes_in = ext_cluster_sizes_buf_in.data();
+    linalg::writeOnlyUnaryOp(
+      old_cluster_sizes,
+      n_clusters,
+      [ext_cluster_sizes_in, new_cluster_sizes, old_cluster_offsets] __device__(uint32_t * out,
+                                                                                size_t i) {
+        auto old_size           = old_cluster_offsets[i + 1] - old_cluster_offsets[i];
+        ext_cluster_sizes_in[i] = old_size + new_cluster_sizes[i];
+        *out                    = old_size;
+      },
+      stream);
+
+    thrust::sequence(handle.get_thrust_policy(),
+                     cluster_ordering_in.data(),
+                     cluster_ordering_in.data() + n_clusters);
+
+    int begin_bit             = 0;
+    int end_bit               = sizeof(uint32_t) * 8;
+    size_t cub_workspace_size = 0;
+    cub::DeviceRadixSort::SortPairsDescending(nullptr,
+                                              cub_workspace_size,
+                                              ext_cluster_sizes_in,
+                                              ext_cluster_sizes,
+                                              cluster_ordering_in.data(),
+                                              cluster_ordering.data(),
+                                              n_clusters,
+                                              begin_bit,
+                                              end_bit,
+                                              stream);
+    rmm::device_buffer cub_workspace(cub_workspace_size, stream, device_memory);
+    cub::DeviceRadixSort::SortPairsDescending(cub_workspace.data(),
+                                              cub_workspace_size,
+                                              ext_cluster_sizes_in,
+                                              ext_cluster_sizes,
+                                              cluster_ordering_in.data(),
+                                              cluster_ordering.data(),
+                                              n_clusters,
+                                              begin_bit,
+                                              end_bit,
+                                              stream);
+
+    n_nonempty_lists = thrust::lower_bound(handle.get_thrust_policy(),
+                                           ext_cluster_sizes,
+                                           ext_cluster_sizes + n_clusters,
+                                           0,
+                                           thrust::greater<uint32_t>()) -
+                       ext_cluster_sizes;
   }
 
-  //
+  // Assemble the extended index
+  ivf_pq::index<IdxT> ext_index(handle,
+                                orig_index.metric(),
+                                orig_index.codebook_kind(),
+                                n_clusters,
+                                orig_index.dim(),
+                                orig_index.pq_bits(),
+                                orig_index.pq_dim(),
+                                n_nonempty_lists);
+  ext_index.allocate(handle, orig_index.size() + n_rows);
+
+  // Copy the unchanged parts
+  copy(ext_index.rotation_matrix().data_handle(),
+       orig_index.rotation_matrix().data_handle(),
+       orig_index.rotation_matrix().size(),
+       stream);
+
+  // calculate extended cluster offsets
+  auto ext_indices         = ext_index.indices().data_handle();
+  auto ext_cluster_offsets = ext_index.list_offsets().data_handle();
+  {
+    IdxT zero = 0;
+    update_device(ext_cluster_offsets, &zero, 1, stream);
+    thrust::inclusive_scan(handle.get_thrust_policy(),
+                           ext_cluster_sizes,
+                           ext_cluster_sizes + n_clusters,
+                           ext_cluster_offsets + 1,
+                           [] __device__(IdxT s, uint32_t l) { return s + l; });
+  }
+
+  // copy cluster-ordering-dependent data
+  utils::copy_selected(n_clusters,
+                       ext_index.dim_ext(),
+                       orig_index.centers().data_handle(),
+                       cluster_ordering.data(),
+                       orig_index.dim_ext(),
+                       ext_index.centers().data_handle(),
+                       ext_index.dim_ext(),
+                       stream);
+  utils::copy_selected(n_clusters,
+                       ext_index.rot_dim(),
+                       orig_index.centers_rot().data_handle(),
+                       cluster_ordering.data(),
+                       orig_index.rot_dim(),
+                       ext_index.centers_rot().data_handle(),
+                       ext_index.rot_dim(),
+                       stream);
+  switch (orig_index.codebook_kind()) {
+    case codebook_gen::PER_SUBSPACE: {
+      copy(ext_index.pq_centers().data_handle(),
+           orig_index.pq_centers().data_handle(),
+           orig_index.pq_centers().size(),
+           stream);
+    } break;
+    case codebook_gen::PER_CLUSTER: {
+      auto d = orig_index.pq_width() * orig_index.pq_len();
+      utils::copy_selected(n_clusters,
+                           d,
+                           orig_index.pq_centers().data_handle(),
+                           cluster_ordering.data(),
+                           d,
+                           ext_index.pq_centers().data_handle(),
+                           d,
+                           stream);
+    } break;
+    default: RAFT_FAIL("Unreachable code");
+  }
+
   // Make ext_indices
-  //
+  handle.sync_stream();  // make sure cluster sizes are up-to-date
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
-    auto old_cluster_size =
-      static_cast<uint32_t>(old_cluster_offsets[l + 1] - old_cluster_offsets[l]);
-    auto new_cluster_size = cluster_sizes.data()[l];
+    auto k                = cluster_ordering.data()[l];
+    auto old_cluster_size = old_cluster_sizes[k];
+    auto new_cluster_size = new_cluster_sizes[k];
     if (old_cluster_size > 0) {
       copy(ext_indices + ext_cluster_offsets[l],
-           orig_index.indices().data_handle() + old_cluster_offsets[l],
+           orig_index.indices().data_handle() + old_cluster_offsets[k],
            old_cluster_size,
            stream);
     }
@@ -661,14 +711,14 @@ inline auto extend(const handle_t& handle,
       if (new_indices == nullptr) {
         // implies the orig index is empty
         copy(ext_indices + ext_cluster_offsets[l] + old_cluster_size,
-             data_indices.data() + cluster_offsets.data()[l],
+             new_data_indices.data() + new_cluster_offsets.data()[k],
              new_cluster_size,
              stream);
       } else {
         utils::copy_selected(new_cluster_size,
                              1,
                              new_indices,
-                             data_indices.data() + cluster_offsets.data()[l],
+                             new_data_indices.data() + new_cluster_offsets.data()[k],
                              1,
                              ext_indices + ext_cluster_offsets[l] + old_cluster_size,
                              1,
@@ -681,20 +731,17 @@ inline auto extend(const handle_t& handle,
   auto ext_pq_dataset    = ext_index.pq_dataset().data_handle();
   size_t pq_dataset_unit = ext_index.pq_dim() * ext_index.pq_bits() / 8;
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
-    auto old_cluster_size =
-      static_cast<uint32_t>(old_cluster_offsets[l + 1] - old_cluster_offsets[l]);
+    auto k                = cluster_ordering.data()[l];
+    auto old_cluster_size = old_cluster_sizes[k];
     copy(ext_pq_dataset + pq_dataset_unit * ext_cluster_offsets[l],
-         orig_index.pq_dataset().data_handle() + pq_dataset_unit * old_cluster_offsets[l],
+         orig_index.pq_dataset().data_handle() + pq_dataset_unit * old_cluster_offsets[k],
          pq_dataset_unit * old_cluster_size,
          stream);
     copy(ext_pq_dataset + pq_dataset_unit * (ext_cluster_offsets[l] + old_cluster_size),
-         new_pq_codes.data() + pq_dataset_unit * cluster_offsets.data()[l],
-         pq_dataset_unit * cluster_sizes.data()[l],
+         new_pq_codes.data() + pq_dataset_unit * new_cluster_offsets.data()[k],
+         pq_dataset_unit * new_cluster_sizes[k],
          stream);
   }
-  handle.sync_stream();
-
-  _cuann_get_inclusiveSumSortedClusterSize(ext_index);
 
   return ext_index;
 }
@@ -806,11 +853,8 @@ inline auto build(
                                  dataset_labels.data(),
                                  true,
                                  stream);
-  handle.sync_stream();
 
   // Make rotation matrix
-  RAFT_LOG_DEBUG("# data_dim: %u\n", index.dim());
-  RAFT_LOG_DEBUG("# rot_dim: %u\n", index.rot_dim());
   make_rotation_matrix(handle, index.rot_dim(), index.dim(), rotation_matrix);
 
   // Rotate cluster_centers
@@ -861,7 +905,6 @@ inline auto build(
                       index.metric(),
                       stream,
                       device_memory);
-      handle.sync_stream();
 
       rmm::device_uvector<float> sub_trainset(n_rows_train * index.pq_len(), stream, device_memory);
       rmm::device_uvector<uint32_t> sub_trainset_labels(n_rows_train, stream, device_memory);
@@ -914,7 +957,6 @@ inline auto build(
                                raft::distance::DistanceType::L2Expanded,
                                stream,
                                device_memory);
-        handle.sync_stream();
       }
     } break;
     case codebook_gen::PER_CLUSTER: {
@@ -926,6 +968,7 @@ inline auto build(
       rmm::device_uvector<float> rot_vectors(
         max_cluster_size * index.rot_dim(), stream, device_memory);
 
+      handle.sync_stream();  // make sure cluster offsets are up-to-date
       for (uint32_t l = 0; l < index.n_lists(); l++) {
         auto cluster_size = cluster_sizes.data()[l];
         if (cluster_size == 0) continue;
@@ -992,8 +1035,6 @@ inline auto build(
                                raft::distance::DistanceType::L2Expanded,
                                stream,
                                device_memory);
-
-        handle.sync_stream();
       }
 
     } break;
