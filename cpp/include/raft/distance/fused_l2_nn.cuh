@@ -59,8 +59,8 @@ void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal, R
  *
  * @tparam DataT     data type
  * @tparam OutT      output type to either store 1-NN indices and their minimum
- *                   distances (e.g. cub::KeyValuePair<int, float>) or store
- *                   only the min distances.
+ *                   distances or store only the min distances. Accordingly, one
+ *                   has to pass an appropriate `ReduceOpT`
  * @tparam IdxT      indexing arithmetic type
  * @tparam ReduceOpT A struct to perform the final needed reduction operation
  *                   and also to initialize the output array elements with the
@@ -172,8 +172,7 @@ void fusedL2NN(OutT* min,
  *
  * @tparam DataT     data type
  * @tparam OutT      output type to either store 1-NN indices and their minimum
- *                   distances or store only the min distances. Accordingly, one
- *                   has to pass an appropriate `ReduceOpT`
+ *                   distances or store only the min distances.
  * @tparam IdxT      indexing arithmetic type
  * @param[out] min           will contain the reduced output (Length = `m`)
  *                           (on device)

@@ -804,7 +804,7 @@ void kmeans_fit(handle_t const& handle,
   if (params.batch_centroids != 0 && params.batch_centroids != params.n_clusters &&
       (params.metric == raft::distance::DistanceType::L2Expanded ||
        params.metric == raft::distance::DistanceType::L2SqrtExpanded)) {
-    RAFT_LOG_WARN(
+    RAFT_LOG_INFO(
       "batch_centroids=%d was passed, but batch_centroids=%d will be used (reason: "
       "batch_centroids has no impact on the memory footprint when FusedL2NN can be used)",
       params.batch_centroids,
