@@ -18,6 +18,7 @@
 
 #include <memory>
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/macro_utils.hpp>
 #include <raft/cudart_utils.h>
