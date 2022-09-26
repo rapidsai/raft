@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace raft {
 namespace random {
 

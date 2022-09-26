@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 
 namespace raft::distance::runtime {
 void pairwise_distance(raft::handle_t const& handle,

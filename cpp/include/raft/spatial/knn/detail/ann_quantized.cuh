@@ -22,11 +22,11 @@
 
 #include "common_faiss.h"
 #include "processing.cuh"
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/distance/distance.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/faiss_mr.hpp>
 

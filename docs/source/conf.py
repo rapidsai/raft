@@ -24,7 +24,7 @@ import sys
 # is relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
 sys.path.insert(0, os.path.abspath("sphinxext"))
-sys.path.insert(0, os.path.abspath("../../python/raft"))
+sys.path.insert(0, os.path.abspath("../../python/raft-dask"))
 sys.path.insert(0, os.path.abspath("../../python/pylibraft"))
 
 from github_link import make_linkcode_resolve  # noqa
@@ -214,9 +214,9 @@ def setup(app):
 
 # The following is used by sphinx.ext.linkcode to provide links to github
 linkcode_resolve = make_linkcode_resolve(
-    "raft",
+    "pylibraft",
     "https://github.com/rapidsai/raft"
-    "raft/blob/{revision}/python/"
+    "raft/blob/{revision}/python/pylibraft"
     "{package}/{path}#L{lineno}",
 )
 

@@ -13,3 +13,5 @@
 # limitations under the License.
 #
 
+from .cuda import Stream
+from .handle import Handle
