@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/detail/batched/silhouette_score.cuh>
 #include <raft/stats/detail/silhouette_score.cuh>
 
@@ -71,6 +72,83 @@ value_t silhouette_score_batched(
 {
   return batched::detail::silhouette_score(
     handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
+}
+
+/**
+ * @brief main function that returns the average silhouette score for a given set of data and its
+ * clusterings
+ * @tparam value_t: type of the data samples
+ * @tparam label_t: type of the labels
+ * @tparam idx_t index type
+ * @param[in] handle: raft handle for managing expensive resources
+ * @param[in] X_in: input matrix Data in row-major format (nRows x nCols)
+ * @param[in] labels: the pointer to the array containing labels for every data sample (length:
+ * nRows)
+ * @param[out] silhouette_score_per_sample: optional array populated with the silhouette score
+ * for every sample (length: nRows)
+ * @param n_unique_labels: number of unique labels in the labels array
+ * @param metric: the numerical value that maps to the type of distance metric to be used in the
+ * calculations
+ */
+template <typename value_t, typename label_t, typename idx_t>
+value_t silhouette_score(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<value_t, idx_t, raft::row_major> X_in,
+  raft::device_vector_view<label_t, idx_t> labels,
+  std::optional<raft::device_vector_view<value_t, idx_t>> silhouette_score_per_sample,
+  idx_t n_unique_labels,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
+{
+  RAFT_EXPECTS(labels.extent(0) == X_in.extent(0), "Size mismatch betwen labels and data");
+
+  value_t* silhouette_score_per_sample_ptr = nullptr;
+  if (silhouette_score_per_sample.has_value()) {
+    silhouette_score_per_sample_ptr = silhouette_score_per_sample.value().data_handle();
+    RAFT_EXPECTS(silhouette_score_per_sample.value().extent(0) == X_in.extent(0),
+                 "Size mismatch betwen silhouette_score_per_sample and data");
+  }
+  return detail::silhouette_score(handle,
+                                  X_in.data_handle(),
+                                  X_in.extent(0),
+                                  X_in.extent(1),
+                                  labels.data_handle(),
+                                  n_unique_labels,
+                                  silhouette_score_per_sample_ptr,
+                                  handle.get_stream(),
+                                  metric);
+}
+
+template <typename value_t, typename label_t, typename idx_t>
+value_t silhouette_score_batched(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<value_t, idx_t, raft::row_major> X,
+  raft::device_vector_view<label_t, idx_t> y,
+  std::optional<raft::device_vector_view<value_t, idx_t>> scores,
+  idx_t n_unique_labels,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
+{
+  static_assert(std::is_integral_v<idx_t>,
+                "silhouette_score_batched: The index type "
+                "of each mdspan argument must be an integral type.");
+  static_assert(std::is_integral_v<label_t>,
+                "silhouette_score_batched: The label type must be an integral type.");
+  RAFT_EXPECTS(y.extent(0) == X.extent(0), "Size mismatch betwen y and X");
+
+  value_t* scores_ptr = nullptr;
+  idx_t nscores       = 0;
+  if (scores.has_value()) {
+    scores_ptr = scores.value().data_handle();
+    nscores    = scores.value().extent(0);
+  }
+  return batched::detail::silhouette_score(handle,
+                                           X.data_handle(),
+                                           X.extent(0),
+                                           X.extent(1),
+                                           y.data_handle(),
+                                           n_unique_labels,
+                                           scores_ptr,
+                                           nscores,
+                                           metric);
 }
 
 };  // namespace stats

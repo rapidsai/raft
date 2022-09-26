@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <raft/core/handle.hpp>
 #include <raft/stats/rand_index.cuh>
 #include <random>
 
@@ -77,7 +78,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     truthRandIndex      = (double)(((double)(a_truth + b_truth)) / (double)nChooseTwo);
 
     // allocating and initializing memory to the GPU
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    stream = handle.get_stream();
 
     rmm::device_uvector<T> firstClusterArray(size, stream);
     rmm::device_uvector<T> secondClusterArray(size, stream);
@@ -91,13 +92,13 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
 
     // calling the rand_index CUDA implementation
     computedRandIndex =
-      raft::stats::rand_index(firstClusterArray.data(), secondClusterArray.data(), size, stream);
+      raft::stats::rand_index(handle,
+                              raft::make_device_vector_view<T>(firstClusterArray.data(), size),
+                              raft::make_device_vector_view<T>(secondClusterArray.data(), size));
   }
 
-  // the destructor
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
   // declaring the data values
+  raft::handle_t handle;
   randIndexParam params;
   int lowerLabelRange = 0, upperLabelRange = 2;
   uint64_t size            = 0;
