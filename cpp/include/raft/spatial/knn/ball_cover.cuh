@@ -163,7 +163,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                        BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                        raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
                        raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
-                       int_t k                     = 5,
+                       int_t k,
                        bool perform_post_filtering = true)
 {
   RAFT_EXPECTS(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");

@@ -93,9 +93,9 @@ inline void knn_merge_parts(
  * @param[out] indices matrix (size n*k) to store output knn indices
  * @param[out] distances matrix (size n*k) to store the output knn distance
  * @param[in] k the number of nearest neighbors to return
+ * @param[in] metric distance metric to use. Euclidean (L2) is used by default
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
- * @param[in] metric distance metric to use. Euclidean (L2) is used by default
  * @param[in] translations starting offsets for partitions. should be the same size
  *            as input vector.
  */
