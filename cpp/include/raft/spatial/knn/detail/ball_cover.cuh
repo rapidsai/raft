@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include "../ball_cover_common.h"
 #include "ball_cover/common.cuh"
@@ -29,7 +29,7 @@
 #include <cstdint>
 #include <limits.h>
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>

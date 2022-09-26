@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>

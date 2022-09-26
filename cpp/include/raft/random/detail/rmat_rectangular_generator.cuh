@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace random {

@@ -15,7 +15,7 @@
  */
 
 #include <raft/distance/distance.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/distance/specializations.cuh>
 #include <raft/handle.hpp>
 

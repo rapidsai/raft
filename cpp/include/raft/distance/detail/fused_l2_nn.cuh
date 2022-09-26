@@ -18,9 +18,9 @@
 
 #include <cub/cub.cuh>
 #include <limits>
-#include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/linalg/contractions.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <stdint.h>
 
 namespace raft {

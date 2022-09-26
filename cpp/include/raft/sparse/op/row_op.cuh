@@ -17,7 +17,7 @@
 #define __SPARSE_ROW_OP_H
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/sparse/op/detail/row_op.cuh>
 
 namespace raft {

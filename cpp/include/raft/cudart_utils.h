@@ -16,8 +16,8 @@
 
 /**
  * This file is deprecated and will be removed in release 22.06.
- * Please use core/cudart_utils.hpp instead.
+ * Please use util/cudart_utils.hpp instead.
  */
 
 #pragma once
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>

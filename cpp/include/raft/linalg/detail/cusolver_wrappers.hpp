@@ -19,7 +19,7 @@
 #include <cusolverDn.h>
 #include <cusolverSp.h>
 #include <raft/core/cusolver_macros.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 #include <type_traits>
 
 namespace raft {

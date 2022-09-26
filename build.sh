@@ -184,7 +184,7 @@ if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     CMAKE_TARGET="${CMAKE_TARGET};raft_nn_lib"
 fi
 
-if hasArg --compile-dist || hasArg --compile-libs || hasArg pylibraft || (( ${NUMARGS} == 0 )); then
+if hasArg --compile-dist || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_distance_lib"
 fi
@@ -194,7 +194,7 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
-    CMAKE_TARGET="${CMAKE_TARGET};test_raft"
+    CMAKE_TARGET="${CMAKE_TARGET};CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NN_TEST;SPATIAL_TEST;STATS_TEST;UTILS_TEST"
 fi
 
 if hasArg bench || (( ${NUMARGS} == 0 )); then
@@ -252,7 +252,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg pylibraft || hasArg docs || hasArg tests || hasArg bench; then
+if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."

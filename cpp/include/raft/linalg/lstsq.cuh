@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/detail/lstsq.cuh>
 namespace raft {
 namespace linalg {
