@@ -244,7 +244,6 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
     auto cusolverH = handle.get_cusolver_dn_handle();
     auto stream    = handle.get_stream();
 
-    // preparing to store stuff
     P.resize(dim * dim);
     x.resize(dim);
     X.resize(dim * nPoints);
@@ -254,12 +253,10 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
     Rand_cov.resize(dim * dim, stream);
     Rand_mean.resize(dim, stream);
 
-    // generating random mean and cov.
     srand(params.seed);
     for (int j = 0; j < dim; j++)
       x.data()[j] = rand() % 100 + 5.0f;
 
-    // for random Cov. matrix
     std::default_random_engine generator(params.seed);
     std::uniform_real_distribution<T> distribution(0.0, 1.0);
 
@@ -274,26 +271,23 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
       }
     }
 
-    // porting inputs to gpu
     raft::update_device(P_d.data(), P.data(), dim * dim, stream);
     raft::update_device(x_d.data(), x.data(), dim, stream);
-
-    // Set up the multivariable Gaussian computation
-    {
-      // Test that setup with a default memory resource compiles.
-      auto token = detail::setup_multi_variable_gaussian<T>(handle, dim, method);
-      ASSERT_EQ(dim, token.dim()); // just so token is used
-    }
-    rmm::mr::device_memory_resource* mem_resource = rmm::mr::get_current_device_resource();
-    ASSERT_TRUE(mem_resource != nullptr);
-    auto token = detail::setup_multi_variable_gaussian<T>(handle, mem_resource, dim, method);
 
     std::optional<raft::device_vector_view<const T, int>> x_view(std::in_place, x_d.data(), dim);
     raft::device_matrix_view<T, int, raft::col_major> P_view(P_d.data(), dim, dim);
     raft::device_matrix_view<T, int, raft::col_major> X_view(X_d.data(), dim, nPoints);
 
-    // X_view is the output.
-    detail::compute_multi_variable_gaussian(token, x_view, P_view, X_view);
+    {
+      // Test that setup with a default memory resource compiles.
+      auto token = raft::random::setup_multi_variable_gaussian<T>(handle, dim, method);
+      (void)token;
+    }
+
+    rmm::mr::device_memory_resource* mem_resource_ptr = rmm::mr::get_current_device_resource();
+    ASSERT_TRUE(mem_resource_ptr != nullptr);
+    raft::random::compute_multi_variable_gaussian(
+      handle, *mem_resource_ptr, x_view, P_view, X_view, method);
 
     // saving the mean of the randoms in Rand_mean
     //@todo can be swapped with a API that calculates mean
@@ -446,10 +440,6 @@ TEST_P(MVGTestD, CovIsCorrectD)
     << " in CovIsCorrect";
 }
 
-// call the tests
-INSTANTIATE_TEST_CASE_P(MVGTests, MVGTestF, ::testing::ValuesIn(inputsf));
-INSTANTIATE_TEST_CASE_P(MVGTests, MVGTestD, ::testing::ValuesIn(inputsd));
-
 using MVGMdspanTestF = MVGMdspanTest<float>;
 using MVGMdspanTestD = MVGMdspanTest<double>;
 TEST_P(MVGMdspanTestF, MeanIsCorrectF)
@@ -484,6 +474,10 @@ TEST_P(MVGMdspanTestD, CovIsCorrectD)
                                 handle.get_stream()))
     << " in CovIsCorrect";
 }
+
+// call the tests
+INSTANTIATE_TEST_CASE_P(MVGTests, MVGTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(MVGTests, MVGTestD, ::testing::ValuesIn(inputsd));
 
 // call the tests
 INSTANTIATE_TEST_CASE_P(MVGMdspanTests, MVGMdspanTestF, ::testing::ValuesIn(inputsf));

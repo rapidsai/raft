@@ -59,6 +59,81 @@ class multi_variable_gaussian : public detail::multi_variable_gaussian_impl<T> {
   ~multi_variable_gaussian() { deinit(); }
 };  // end of multi_variable_gaussian
 
+/**
+ * @brief Matrix decomposition method for `compute_multi_variable_gaussian` to use.
+ *
+ * `compute_multi_variable_gaussian` can use any of the following methods.
+ *
+ * - `CHOLESKY`: Cholesky decomposition
+ * - `JACOBI`:
+
+ */
+using detail::multi_variable_gaussian_decomposition_method;
+using detail::multi_variable_gaussian_setup_token;
+
+template <typename ValueType>
+multi_variable_gaussian_setup_token<ValueType> setup_multi_variable_gaussian(
+  const raft::handle_t& handle,
+  const int dim,
+  const multi_variable_gaussian_decomposition_method method)
+{
+  rmm::mr::device_memory_resource* mem_resource_ptr = rmm::mr::get_current_device_resource();
+  RAFT_EXPECTS(mem_resource_ptr != nullptr,
+               "setup_multi_variable_gaussian: "
+               "rmm::mr::get_current_device_resource() returned null; "
+               "please report this bug to the RAPIDS RAFT developers.");
+  return detail::setup_multi_variable_gaussian_impl<ValueType>(
+    handle, *mem_resource_ptr, dim, method);
+}
+
+template <typename ValueType>
+multi_variable_gaussian_setup_token<ValueType> setup_multi_variable_gaussian(
+  const raft::handle_t& handle,
+  rmm::mr::device_memory_resource& mem_resource,
+  const int dim,
+  multi_variable_gaussian_decomposition_method method)
+{
+  return detail::setup_multi_variable_gaussian_impl<ValueType>(handle, mem_resource, dim, method);
+}
+
+template <typename ValueType>
+void compute_multi_variable_gaussian(
+  multi_variable_gaussian_setup_token<ValueType>& token,
+  std::optional<raft::device_vector_view<const ValueType, int>> x,
+  raft::device_matrix_view<ValueType, int, raft::col_major> P,
+  raft::device_matrix_view<ValueType, int, raft::col_major> X)
+{
+  detail::compute_multi_variable_gaussian_impl(token, x, P, X);
+}
+
+template <typename ValueType>
+void compute_multi_variable_gaussian(
+  const raft::handle_t& handle,
+  rmm::mr::device_memory_resource& mem_resource,
+  std::optional<raft::device_vector_view<const ValueType, int>> x,
+  raft::device_matrix_view<ValueType, int, raft::col_major> P,
+  raft::device_matrix_view<ValueType, int, raft::col_major> X,
+  const multi_variable_gaussian_decomposition_method method)
+{
+  detail::compute_multi_variable_gaussian_impl(handle, mem_resource, x, P, X, method);
+}
+
+template <typename ValueType>
+void compute_multi_variable_gaussian(
+  const raft::handle_t& handle,
+  std::optional<raft::device_vector_view<const ValueType, int>> x,
+  raft::device_matrix_view<ValueType, int, raft::col_major> P,
+  raft::device_matrix_view<ValueType, int, raft::col_major> X,
+  const multi_variable_gaussian_decomposition_method method)
+{
+  rmm::mr::device_memory_resource* mem_resource_ptr = rmm::mr::get_current_device_resource();
+  RAFT_EXPECTS(mem_resource_ptr != nullptr,
+               "compute_multi_variable_gaussian: "
+               "rmm::mr::get_current_device_resource() returned null; "
+               "please report this bug to the RAPIDS RAFT developers.");
+  detail::compute_multi_variable_gaussian_impl(handle, *mem_resource_ptr, x, P, X, method);
+}
+
 };  // end of namespace raft::random
 
 #endif
