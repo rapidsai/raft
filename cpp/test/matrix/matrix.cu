@@ -137,13 +137,13 @@ class MatrixCopyRowsTest : public ::testing::Test {
 
   void testCopyRows()
   {
-    device_matrix_view<const math_t, idx_t, col_major> input_view =
+    auto input_view =
       raft::make_device_matrix_view<const math_t, idx_array_t, col_major>(
         input.data(), n_rows, n_cols);
-    device_matrix_view<math_t, idx_t, col_major> output_view =
+    auto output_view =
       raft::make_device_matrix_view<math_t, idx_array_t, col_major>(output.data(), n_rows, n_cols);
 
-    device_vector_view<idx_array_t> indices_view =
+    auto indices_view =
       raft::make_device_vector_view<idx_array_t, idx_array_t>(indices.data(), n_selected);
 
     raft::matrix::copy_rows(handle, input_view, output_view, indices_view);
@@ -151,10 +151,10 @@ class MatrixCopyRowsTest : public ::testing::Test {
     EXPECT_TRUE(raft::devArrMatchHost(
       output_exp_colmajor, output.data(), n_selected * n_cols, raft::Compare<math_t>(), stream));
 
-    device_matrix_view<const math_t, idx_array_t, row_major> input_row_view =
+    auto input_row_view =
       raft::make_device_matrix_view<const math_t, idx_array_t, row_major>(
         input.data(), n_rows, n_cols);
-    device_matrix_view<math_t, idx_array_t, row_major> output_row_view =
+    auto output_row_view =
       raft::make_device_matrix_view<math_t, idx_array_t, row_major>(output.data(), n_rows, n_cols);
 
     raft::matrix::copy_rows(handle, input_row_view, output_row_view, indices_view);

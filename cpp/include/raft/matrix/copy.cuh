@@ -42,16 +42,14 @@ void copy_rows(const raft::handle_t& handle,
                "Input and output matrices must have same number of columns");
   RAFT_EXPECTS(indices.extent(0) == out.extent(0),
                "Number of rows in output matrix must equal number of indices");
-  bool in_rowmajor  = raft::is_row_major(in);
-  bool out_rowmajor = raft::is_row_major(out);
-
   detail::copyRows(in.data_handle(),
                    in.extent(0),
                    in.extent(1),
                    out.data_handle(),
                    indices.data_handle(),
                    indices.extent(0),
-                   handle.get_stream());
+                   handle.get_stream(),
+                   raft::is_row_major(in));
 }
 
 /**

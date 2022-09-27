@@ -16,12 +16,11 @@
 
 #pragma once
 
-#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/matrix/detail/gather.cuh>
 
-namespace raft {
-namespace matrix {
+namespace raft::matrix {
 
 /**
  * @brief  gather copies rows from a source matrix into a destination matrix according to a map.
@@ -75,13 +74,20 @@ void gather(const raft::handle_t& handle,
   RAFT_EXPECTS(out.extent(1) == in.extent(1),
                "Number of columns in input and output matrices must be equal.");
 
-  gather(in.data_handle(),
+  const matrix_t *in_ptr = in.data_handle();
+  map_t *map_ptr = map.data_handle();
+  matrix_t *out_ptr = out.data_handle();
+
+  cudaStream_t stream = handle.get_stream();
+
+  detail::gather(
+          in_ptr,
          static_cast<int>(in.extent(1)),
          static_cast<int>(in.extent(0)),
-         map.data_handle(),
+         map_ptr,
          static_cast<int>(map.extent(0)),
-         out.data_handle(),
-         handle.get_stream());
+         out_ptr,
+         stream);
 }
 
 /**
@@ -358,5 +364,4 @@ void gather_if(const raft::handle_t& handle,
                     handle.get_stream());
 }
 
-}  // namespace matrix
-}  // namespace raft
+}  // namespace raft::matrix

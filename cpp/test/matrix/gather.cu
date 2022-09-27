@@ -46,23 +46,6 @@ void naiveGather(
   naiveGatherImpl(in, D, N, map, map_length, out);
 }
 
-template <typename value_t, typename map_t, typename idx_t>
-void gatherLaunch(const raft::handle_t& handle,
-                  const value_t* in,
-                  idx_t D,
-                  idx_t N,
-                  map_t* map,
-                  idx_t map_length,
-                  value_t* out,
-                  cudaStream_t stream)
-{
-  auto in_view  = raft::make_device_matrix_view<const value_t, idx_t, row_major>(in, N, D);
-  auto out_view = raft::make_device_matrix_view<value_t, idx_t>(out, N, D);
-  auto map_view = raft::make_device_vector_view<map_t, idx_t, row_major>(map, map_length);
-
-  raft::matrix::gather(handle, in_view, out_view, map_view);
-}
-
 struct GatherInputs {
   uint32_t nrows;
   uint32_t ncols;
