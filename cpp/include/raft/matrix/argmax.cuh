@@ -17,23 +17,22 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/detail/matrix.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/detail/math.cuh>
 
 namespace raft::matrix {
 
 /**
  * @brief Argmax: find the row idx with maximum value for each column
- * @param handle: raft handle
- * @param in: input matrix of size (n_rows, n_cols)
- * @param out: output vector of size n_cols
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix of size (n_rows, n_cols)
+ * @param[out] out: output vector of size n_cols
  */
 template <typename math_t, typename idx_t, typename matrix_idx_t>
 void argmax(const raft::handle_t& handle,
             raft::device_matrix_view<const math_t, matrix_idx_t, col_major> in,
             raft::device_vector_view<idx_t> out)
 {
-  RAFT_EXPECTS(out.extent(1) == in.extent(1),
+  RAFT_EXPECTS(static_cast<matrix_idx_t>(out.extent(1)) == in.extent(1),
                "Size of output vector must equal number of columns in input matrix.");
   detail::argmax(
     in.data_handle(), in.extent(0), in.extent(1), out.data_handle(), handle.get_stream());

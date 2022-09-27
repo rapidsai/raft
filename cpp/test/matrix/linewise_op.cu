@@ -18,7 +18,8 @@
 #include "../test_utils.h"
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
@@ -54,22 +55,21 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   {
   }
 
-  template<bool alongLines>
+  template<typename layout>
   void runLinewiseSum(
     T* out, const T* in, const I lineLen, const I nLines, const T* vec)
   {
     auto f = [] __device__(T a, T b) -> T { return a + b; };
 
-    constexpr auto layout = alongLines ? row_major : col_major;
 
-    auto in_view = raft::make_device_matrix_view<T, I, layout>(in, nLines, lineLen)
+    auto in_view = raft::make_device_matrix_view<T, I, layout>(in, nLines, lineLen);
     auto out_view = raft::make_device_matrix_view<T, I, layout>(out, nLines, lineLen);
 
-    auto vec_view = raft::make_device_vector_view<T, I>(vec, lineLen);
+    auto vec_view = raft::make_device_vector_view<T>(vec, lineLen);
     matrix::line_wise_op(handle, in_view, out_view, alongLines, f, vec);
   }
 
-    template<bool alongLines>
+    template<typename layout>
   void runLinewiseSum(T* out,
                       const T* in,
                       const I lineLen,
@@ -164,9 +164,9 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           {
             common::nvtx::range vecs_scope("one vec");
             if(alongRows) {
-                runLinewiseSum<true>(out, in, lineLen, nLines, vec1);
+                runLinewiseSum<raft::row_major>(out, in, lineLen, nLines, vec1);
             } else {
-                runLinewiseSum<false>(out, in, lineLen, nLines, vec1);
+                runLinewiseSum<raft::col_major>(out, in, lineLen, nLines, vec1);
             }
           }
           if (params.checkCorrectness) {
@@ -180,10 +180,10 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           {
             common::nvtx::range vecs_scope("two vecs");
             if(alongRows) {
-                runLinewiseSum<true>(out, in, lineLen, nLines, vec1, vec2);
+                runLinewiseSum<raft::row_major>(out, in, lineLen, nLines, vec1, vec2);
 
             } else {
-                runLinewiseSum<false>(out, in, lineLen, nLines, vec1, vec2);
+                runLinewiseSum<raft::col_major>(out, in, lineLen, nLines, vec1, vec2);
 
             }
           }

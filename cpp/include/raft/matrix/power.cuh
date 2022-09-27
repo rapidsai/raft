@@ -17,8 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/detail/matrix.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/detail/math.cuh>
 
 namespace raft::matrix {
 
@@ -59,7 +58,7 @@ void weighted_power(const raft::handle_t& handle,
 template <typename math_t>
 void power(const raft::handle_t& handle, raft::device_matrix_view<math_t> inout)
 {
-  detail::power(inout.data_handle(), inout.size(), handle.get_stream());
+  detail::power<math_t>(inout.data_handle(), inout.size(), handle.get_stream());
 }
 
 /**
@@ -75,7 +74,7 @@ void power(const raft::handle_t& handle,
            raft::device_matrix_view<math_t> out)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be same size.");
-  detail::power(in, out, len, stream);
+  detail::power<math_t>(in.data_handle(), out.data_handle(), in.size(), handle.get_stream());
 }
 
 }  // namespace raft::matrix

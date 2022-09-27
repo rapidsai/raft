@@ -64,7 +64,7 @@ template <typename InType, typename OutType, typename matrix_idx_t>
 void sort_cols_per_row(
   const raft::handle_t& handle,
   raft::device_matrix_view<const InType, matrix_idx_t, raft::row_major> in,
-  raft::device_matrix_view<const OutType, matrix_idx_t, raft::row_major> out,
+  raft::device_matrix_view<OutType, matrix_idx_t, raft::row_major> out,
   std::optional<raft::device_matrix_view<InType, matrix_idx_t, raft::row_major>> sorted_keys = std::nullopt)
 {
   RAFT_EXPECTS(in.extent(1) == out.extent(1) && in.extent(0) == out.extent(0),
@@ -79,16 +79,19 @@ void sort_cols_per_row(
   size_t workspace_size = 0;
   bool alloc_workspace  = false;
 
+
+  InType *keys = sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr;
+
   detail::sortColumnsPerRow<InType, OutType>(
     in.data_handle(),
     out.data_handle(),
     in.extent(0),
     in.extent(1),
     alloc_workspace,
-    nullptr,
-    &workspace_size,
+    (void*)nullptr,
+    workspace_size,
     handle.get_stream(),
-    sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr);
+    keys);
 
   if (alloc_workspace) {
     auto workspace = raft::make_device_vector<char>(handle, workspace_size);
@@ -99,10 +102,10 @@ void sort_cols_per_row(
       in.extent(0),
       in.extent(1),
       alloc_workspace,
-      workspace.data_handle(),
-      &workspace_size,
+      (void*)workspace.data_handle(),
+      workspace_size,
       handle.get_stream(),
-      sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr);
+      keys);
   }
 }
 

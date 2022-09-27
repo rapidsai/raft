@@ -141,7 +141,7 @@ void setSmallValuesZero(math_t* inout, IdxType len, cudaStream_t stream, math_t 
 }
 
 template <typename math_t, typename IdxType = int>
-void reciprocal(math_t* in,
+void reciprocal(const math_t* in,
                 math_t* out,
                 math_t scalar,
                 int len,
@@ -363,8 +363,8 @@ void matrixVectorBinarySub(Type* data,
 }
 
 // Computes the argmax(d_in) column-wise in a DxN matrix
-template <typename T, int TPB>
-__global__ void argmaxKernel(const T* d_in, int D, int N, T* argmax)
+template <typename T, typename IdxT, int TPB>
+__global__ void argmaxKernel(const T* d_in, int D, int N, IdxT* argmax)
 {
   typedef cub::BlockReduce<cub::KeyValuePair<int, T>, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
@@ -384,19 +384,19 @@ __global__ void argmaxKernel(const T* d_in, int D, int N, T* argmax)
   if (threadIdx.x == 0) { argmax[blockIdx.x] = maxKV.key; }
 }
 
-template <typename math_t>
-void argmax(const math_t* in, int n_rows, int n_cols, math_t* out, cudaStream_t stream)
+template <typename math_t, typename idx_t>
+void argmax(const math_t* in, int n_rows, int n_cols, idx_t* out, cudaStream_t stream)
 {
   int D = n_rows;
   int N = n_cols;
   if (D <= 32) {
-    argmaxKernel<math_t, 32><<<N, 32, 0, stream>>>(in, D, N, out);
+    argmaxKernel<math_t, idx_t, 32><<<N, 32, 0, stream>>>(in, D, N, out);
   } else if (D <= 64) {
-    argmaxKernel<math_t, 64><<<N, 64, 0, stream>>>(in, D, N, out);
+    argmaxKernel<math_t, idx_t,  64><<<N, 64, 0, stream>>>(in, D, N, out);
   } else if (D <= 128) {
-    argmaxKernel<math_t, 128><<<N, 128, 0, stream>>>(in, D, N, out);
+    argmaxKernel<math_t, idx_t,  128><<<N, 128, 0, stream>>>(in, D, N, out);
   } else {
-    argmaxKernel<math_t, 256><<<N, 256, 0, stream>>>(in, D, N, out);
+    argmaxKernel<math_t, idx_t,  256><<<N, 256, 0, stream>>>(in, D, N, out);
   }
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

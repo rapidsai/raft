@@ -58,9 +58,9 @@ void gatherLaunch(const raft::handle_t& handle,
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
 
-  auto in_view  = raft::make_device_matrix_view<MatrixIteratorT>(in, N, D);
-  auto map_view = raft::make_device_vector_view<MapIteratorT>(map, map_length);
-  auto out_view = raft::make_device_matrix_view<MatrixIteratorT>(out, N, D);
+  auto in_view  = raft::make_device_matrix_view<MatrixIteratorT, int>(in, N, D);
+  auto map_view = raft::make_device_vector_view<MapIteratorT, int>(map, map_length);
+  auto out_view = raft::make_device_matrix_view<MatrixIteratorT, int>(out, N, D);
 
   matrix::gather(handle, in_view, out_view, map_view);
 }

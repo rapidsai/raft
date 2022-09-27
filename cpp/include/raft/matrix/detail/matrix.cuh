@@ -67,7 +67,7 @@ void copyRows(const m_t* in,
 
 template <typename m_t, typename idx_t = int>
 void truncZeroOrigin(
-  m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
+  const m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
 {
   auto m         = out_n_rows;
   auto k         = in_n_rows;

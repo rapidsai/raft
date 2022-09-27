@@ -310,8 +310,8 @@ void ratio(
  * @param out: output vector of size n_cols
  * @param stream: cuda stream
  */
-template <typename math_t>
-void argmax(const math_t* in, int n_rows, int n_cols, math_t* out, cudaStream_t stream)
+template <typename math_t, typename idx_t>
+void argmax(const math_t* in, int n_rows, int n_cols, idx_t* out, cudaStream_t stream)
 {
   detail::argmax(in, n_rows, n_cols, out, stream);
 }

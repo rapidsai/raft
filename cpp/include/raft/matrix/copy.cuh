@@ -18,7 +18,6 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/matrix/detail/matrix.cuh>
-#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -47,7 +46,7 @@ void copy_rows(const raft::handle_t& handle,
   bool out_rowmajor = raft::is_row_major(out);
 
   RAFT_EXPECTS(in_rowmajor == out_rowmajor,
-               "Input and output matrices must have same layout (row- or column-major)")
+               "Input and output matrices must have same layout (row- or column-major)");
 
   detail::copyRows(in.data_handle(),
                    in.extent(0),
@@ -88,9 +87,15 @@ void copy(const raft::handle_t& handle,
  */
 template <typename m_t, typename idx_t>
 void trunc_zero_origin(
-  m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
-{
-  detail::truncZeroOrigin(in, in_n_rows, out, out_n_rows, out_n_cols, stream);
+  const raft::handle_t &handle,
+  raft::device_matrix_view<const m_t, idx_t, col_major> in,
+  raft::device_matrix_view<m_t, idx_t, col_major> out) {
+
+  RAFT_EXPECTS(out.extent(0) <= in.extent(0) &&
+               out.extent(1) <= in.extent(1),
+               "Output matrix must have less or equal number of rows and columns");
+
+  detail::truncZeroOrigin<m_t, idx_t>(in.data_handle(), in.extent(0), out.data_handle(), out.extent(0), out.extent(1), handle.get_stream());
 }
 
 }  // namespace raft::matrix
