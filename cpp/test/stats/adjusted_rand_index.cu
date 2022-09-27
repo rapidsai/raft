@@ -20,7 +20,6 @@
 #include <iostream>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/stats/adjusted_rand_index.cuh>
-#include <raft/stats/contingency_matrix.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <random>
 

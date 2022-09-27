@@ -50,25 +50,25 @@ double entropy(const T* clusterArray,
  * @brief Function to calculate entropy
  * <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
  *
- * @tparam DataT data type
- * @tparam IdxType index type
+ * @tparam value_t data type
+ * @tparam idx_t index type
  * @param handle the raft handle
- * @param clusterArray: the array of classes of type DataT
- * @param lowerLabelRange: the lower bound of the range of labels
- * @param upperLabelRange: the upper bound of the range of labels
+ * @param cluster_array: the array of classes of type value_t
+ * @param lower_label_range: the lower bound of the range of labels
+ * @param upper_label_range: the upper bound of the range of labels
  * @return the entropy score
  */
-template <typename DataT, typename IdxType>
+template <typename value_t, typename idx_t>
 double entropy(const raft::handle_t& handle,
-               raft::device_vector_view<const DataT, IdxType> clusterArray,
-               const DataT lowerLabelRange,
-               const DataT upperLabelRange)
+               raft::device_vector_view<const value_t, idx_t> cluster_array,
+               const value_t lower_label_range,
+               const value_t upper_label_range)
 {
-  RAFT_EXPECTS(clusterArray.is_exhaustive(), "clusterArray must be contiguous");
-  return detail::entropy(clusterArray.data_handle(),
-                         clusterArray.extent(0),
-                         lowerLabelRange,
-                         upperLabelRange,
+  RAFT_EXPECTS(cluster_array.is_exhaustive(), "cluster_array must be contiguous");
+  return detail::entropy(cluster_array.data_handle(),
+                         cluster_array.extent(0),
+                         lower_label_range,
+                         upper_label_range,
                          handle.get_stream());
 }
 };  // end namespace stats

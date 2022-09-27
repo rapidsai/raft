@@ -121,7 +121,7 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
   void RunTest()
   {
     int numElements = params.nElements;
-    raft::stats::contingencyMatrix(
+    raft::stats::contingency_matrix(
       handle,
       raft::make_device_vector_view<const T>(dY.data(), numElements),
       raft::make_device_vector_view<const T>(dYHat.data(), numElements),

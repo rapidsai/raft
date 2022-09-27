@@ -60,42 +60,40 @@ DataT dispersion(const DataT* centroids,
 /**
  * @brief Compute cluster dispersion metric. This is very useful for
  * automatically finding the 'k' (in kmeans) that improves this metric.
- * @tparam DataT data type
- * @tparam IdxType index type
- * @tparam TPB threads block for kernels launched
+ * @tparam value_t data type
+ * @tparam idx_t index type
  * @param handle the raft handle
  * @param centroids the cluster centroids. This is assumed to be row-major
- *   and of dimension (nClusters x dim)
- * @param clusterSizes number of points in the dataset which belong to each
- *   cluster. This is of length nClusters
- * @param globalCentroid compute the global weighted centroid of all cluster
+ *   and of dimension (n_clusters x dim)
+ * @param cluster_sizes number of points in the dataset which belong to each
+ *   cluster. This is of length n_clusters
+ * @param global_centroid compute the global weighted centroid of all cluster
  *   centroids. This is of length dim. Use std::nullopt to not return it.
- * @param nPoints number of points in the dataset
+ * @param n_points number of points in the dataset
  * @return the cluster dispersion value
  */
-template <typename DataT, typename IdxType, int TPB = 256>
-DataT dispersion(const raft::handle_t& handle,
-                 raft::device_matrix_view<const DataT, IdxType, raft::row_major> centroids,
-                 raft::device_vector_view<const IdxType, IdxType> clusterSizes,
-                 std::optional<raft::device_vector_view<DataT, IdxType>> globalCentroid,
-                 const IdxType nPoints,
-                 std::integral_constant<int, TPB>)
+template <typename value_t, typename idx_t>
+value_t dispersion(const raft::handle_t& handle,
+                   raft::device_matrix_view<const value_t, idx_t, raft::row_major> centroids,
+                   raft::device_vector_view<const idx_t, idx_t> cluster_sizes,
+                   std::optional<raft::device_vector_view<value_t, idx_t>> global_centroid,
+                   const idx_t n_points)
 {
-  RAFT_EXPECTS(clusterSizes.extent(0) == centroids.extent(0), "Size mismatch");
-  RAFT_EXPECTS(clusterSizes.is_exhaustive(), "clusterSizes must be contiguous");
+  RAFT_EXPECTS(cluster_sizes.extent(0) == centroids.extent(0), "Size mismatch");
+  RAFT_EXPECTS(cluster_sizes.is_exhaustive(), "cluster_sizes must be contiguous");
 
-  DataT* globalCentroid_ptr = nullptr;
-  if (globalCentroid.has_value()) {
-    RAFT_EXPECTS(globalCentroid.value().is_exhaustive(), "globalCentroid must be contiguous");
-    globalCentroid_ptr = globalCentroid.value().data_handle();
+  value_t* global_centroid_ptr = nullptr;
+  if (global_centroid.has_value()) {
+    RAFT_EXPECTS(global_centroid.value().is_exhaustive(), "global_centroid must be contiguous");
+    global_centroid_ptr = global_centroid.value().data_handle();
   }
-  return detail::dispersion<DataT, IdxType, TPB>(centroids.data_handle(),
-                                                 clusterSizes.data_handle(),
-                                                 globalCentroid_ptr,
-                                                 centroids.extent(0),
-                                                 nPoints,
-                                                 centroids.extent(1),
-                                                 handle.get_stream());
+  return detail::dispersion<value_t, idx_t>(centroids.data_handle(),
+                                            cluster_sizes.data_handle(),
+                                            global_centroid_ptr,
+                                            centroids.extent(0),
+                                            n_points,
+                                            centroids.extent(1),
+                                            handle.get_stream());
 }
 
 }  // end namespace stats

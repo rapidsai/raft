@@ -52,26 +52,26 @@ double adjusted_rand_index(const T* firstClusterArray,
 /**
  * @brief Function to calculate Adjusted RandIndex as described
  *        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
- * @tparam DataT data-type for input label arrays
+ * @tparam value_t data-type for input label arrays
  * @tparam MathT integral data-type used for computing n-choose-r
- * @tparam IdxType Index type of matrix extent.
+ * @tparam idx_t Index type of matrix extent.
  * @param handle: the raft handle.
- * @param firstClusterArray: the array of classes
- * @param secondClusterArray: the array of classes
+ * @param first_cluster_array: the array of classes
+ * @param second_cluster_array: the array of classes
  */
-template <typename DataT, typename MathT = int, typename IdxType>
+template <typename value_t, typename MathT = int, typename idx_t>
 double adjusted_rand_index(const raft::handle_t& handle,
-                           raft::device_vector_view<const DataT, IdxType> firstClusterArray,
-                           raft::device_vector_view<const DataT, IdxType> secondClusterArray)
+                           raft::device_vector_view<const value_t, idx_t> first_cluster_array,
+                           raft::device_vector_view<const value_t, idx_t> second_cluster_array)
 {
-  RAFT_EXPECTS(firstClusterArray.size() == secondClusterArray.size(), "Size mismatch");
-  RAFT_EXPECTS(firstClusterArray.is_exhaustive(), "firstClusterArray must be contiguous");
-  RAFT_EXPECTS(secondClusterArray.is_exhaustive(), "secondClusterArray must be contiguous");
+  RAFT_EXPECTS(first_cluster_array.size() == second_cluster_array.size(), "Size mismatch");
+  RAFT_EXPECTS(first_cluster_array.is_exhaustive(), "first_cluster_array must be contiguous");
+  RAFT_EXPECTS(second_cluster_array.is_exhaustive(), "second_cluster_array must be contiguous");
 
-  return detail::compute_adjusted_rand_index<DataT, MathT>(firstClusterArray.data_handle(),
-                                                           secondClusterArray.data_handle(),
-                                                           firstClusterArray.extent(0),
-                                                           handle.get_stream());
+  return detail::compute_adjusted_rand_index<value_t, MathT>(first_cluster_array.data_handle(),
+                                                             second_cluster_array.data_handle(),
+                                                             first_cluster_array.extent(0),
+                                                             handle.get_stream());
 }
 
 };  // end namespace stats

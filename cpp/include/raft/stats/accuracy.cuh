@@ -42,17 +42,17 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
 
 /**
  * @brief Compute accuracy of predictions. Useful for classification.
- * @tparam DataT: data type for predictions (e.g., int for classification)
- * @tparam IdxType Index type of matrix extent.
+ * @tparam value_t: data type for predictions (e.g., int for classification)
+ * @tparam idx_t Index type of matrix extent.
  * @param[in] handle: the raft handle.
  * @param[in] predictions: array of predictions (GPU pointer).
  * @param[in] ref_predictions: array of reference (ground-truth) predictions (GPU pointer).
  * @return: Accuracy score in [0, 1]; higher is better.
  */
-template <typename DataT, typename IdxType>
+template <typename value_t, typename idx_t>
 float accuracy(const raft::handle_t& handle,
-               raft::device_vector_view<const DataT, IdxType> predictions,
-               raft::device_vector_view<const DataT, IdxType> ref_predictions)
+               raft::device_vector_view<const value_t, idx_t> predictions,
+               raft::device_vector_view<const value_t, idx_t> ref_predictions)
 {
   RAFT_EXPECTS(predictions.size() == ref_predictions.size(), "Size mismatch");
   RAFT_EXPECTS(predictions.is_exhaustive(), "predictions must be contiguous");

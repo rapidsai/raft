@@ -66,39 +66,39 @@ void histogram(HistType type,
  * @brief Perform histogram on the input data. It chooses the right load size
  * based on the input data vector length. It also supports large-bin cases
  * using a specialized smem-based hashing technique.
- * @tparam DataT input data type
- * @tparam IdxType data type used to compute indices
- * @tparam BinnerOp takes the input data and computes its bin index
+ * @tparam value_t input data type
+ * @tparam idx_t data type used to compute indices
+ * @tparam binner_op takes the input data and computes its bin index
  * @param handle the raft handle
  * @param type histogram implementation type to choose
  * @param data input data col-major (length = nrows * ncols)
  * @param bins the output bins col-major (length = nbins * ncols)
  * @param binner the operation that computes the bin index of the input data
  *
- * @note signature of BinnerOp is `int func(DataT, IdxT);`
+ * @note signature of binner_op is `int func(value_t, IdxT);`
  */
-template <typename DataT,
-          typename IdxType  = int,
-          typename BinnerOp = IdentityBinner<DataT, IdxType>>
+template <typename value_t,
+          typename idx_t     = int,
+          typename binner_op = IdentityBinner<value_t, idx_t>>
 void histogram(const raft::handle_t& handle,
                HistType type,
-               raft::device_matrix_view<const DataT, IdxType, raft::col_major> data,
-               raft::device_matrix_view<int, IdxType, raft::col_major> bins,
-               BinnerOp binner = IdentityBinner<DataT, IdxType>())
+               raft::device_matrix_view<const value_t, idx_t, raft::col_major> data,
+               raft::device_matrix_view<int, idx_t, raft::col_major> bins,
+               binner_op binner = IdentityBinner<value_t, idx_t>())
 {
-  RAFT_EXPECTS(std::is_integral_v<IdxType> && data.extent(0) <= std::numeric_limits<int>::max(),
+  RAFT_EXPECTS(std::is_integral_v<idx_t> && data.extent(0) <= std::numeric_limits<int>::max(),
                "Index type not supported");
   RAFT_EXPECTS(bins.extent(1) == data.extent(1), "Size mismatch");
   RAFT_EXPECTS(bins.is_exhaustive(), "bins must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
-  detail::histogram<DataT, IdxType, BinnerOp>(type,
-                                              bins.data_handle(),
-                                              bins.extent(0),
-                                              data.data_handle(),
-                                              data.extent(0),
-                                              data.extent(1),
-                                              handle.get_stream(),
-                                              binner);
+  detail::histogram<value_t, idx_t, binner_op>(type,
+                                               bins.data_handle(),
+                                               bins.extent(0),
+                                               data.data_handle(),
+                                               data.extent(0),
+                                               data.extent(1),
+                                               handle.get_stream(),
+                                               binner);
 }
 };  // end namespace stats
 };  // end namespace raft

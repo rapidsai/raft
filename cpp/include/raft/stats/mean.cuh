@@ -55,23 +55,23 @@ void mean(
  *
  * Mean operation is assumed to be performed on a given column.
  *
- * @tparam DataT the data type
- * @tparam IdxType index type
- * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam value_t the data type
+ * @tparam idx_t index type
+ * @tparam layout_t Layout type of the input matrix.
  * @param handle the raft handle
  * @param data: the input matrix
  * @param mu: the output mean vector
  * @param sample: whether to evaluate sample mean or not. In other words, whether
  *   to normalize the output using N-1 or N, for true or false, respectively
  */
-template <typename DataT, typename IdxType = int, typename LayoutPolicy>
+template <typename value_t, typename idx_t = int, typename layout_t>
 void mean(const raft::handle_t& handle,
-          raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
-          raft::device_vector_view<DataT, IdxType> mu,
+          raft::device_matrix_view<const value_t, idx_t, layout_t> data,
+          raft::device_vector_view<value_t, idx_t> mu,
           bool sample)
 {
   static_assert(
-    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
     "Data layout not supported");
   RAFT_EXPECTS(data.extent(1) == mu.extent(0), "Size mismatch betwen data and mu");
   RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
@@ -81,7 +81,7 @@ void mean(const raft::handle_t& handle,
                data.extent(1),
                data.extent(0),
                sample,
-               std::is_same_v<LayoutPolicy, raft::row_major>,
+               std::is_same_v<layout_t, raft::row_major>,
                handle.get_stream());
 }
 

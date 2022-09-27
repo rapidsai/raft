@@ -64,9 +64,9 @@ void cov(const raft::handle_t& handle,
  *
  * Mean operation is assumed to be performed on a given column.
  *
- * @tparam DataT the data type
- * @tparam IdxT the index type
- * @tparam LayoutPolicy Layout type of the input data.
+ * @tparam value_t the data type
+ * @tparam idx_t the index type
+ * @tparam layout_t Layout type of the input data.
  * @param handle the raft handle
  * @param data the input matrix (this will get mean-centered at the end!)
  * (length = nrows * ncols)
@@ -79,16 +79,16 @@ void cov(const raft::handle_t& handle,
  * @note if stable=true, then the input data will be mean centered after this
  * function returns!
  */
-template <typename DataT, typename IdxType, typename LayoutPolicy>
+template <typename value_t, typename idx_t, typename layout_t>
 void cov(const raft::handle_t& handle,
-         raft::device_matrix_view<DataT, IdxType, LayoutPolicy> data,
-         raft::device_vector_view<const DataT, IdxType> mu,
-         raft::device_matrix_view<DataT, IdxType, LayoutPolicy> covar,
+         raft::device_matrix_view<value_t, idx_t, layout_t> data,
+         raft::device_vector_view<const value_t, idx_t> mu,
+         raft::device_matrix_view<value_t, idx_t, layout_t> covar,
          bool sample,
          bool stable)
 {
   static_assert(
-    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
     "Data layout not supported");
   RAFT_EXPECTS(data.extent(1) == covar.extent(0) && data.extent(1) == covar.extent(1),
                "Size mismatch");
@@ -102,7 +102,7 @@ void cov(const raft::handle_t& handle,
               mu.data_handle(),
               data.extent(1),
               data.extent(0),
-              std::is_same_v<LayoutPolicy, raft::row_major>,
+              std::is_same_v<layout_t, raft::row_major>,
               sample,
               stable,
               handle.get_stream());

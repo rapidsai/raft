@@ -65,20 +65,18 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
       meanVec.data(), data.data(), cols, rows, params.sample, params.rowMajor, stream);
     if (params.rowMajor) {
       using layout = raft::row_major;
-      meanCenter(handle,
+      mean_center(handle,
                  raft::make_device_matrix_view<const T, int, layout>(data.data(), rows, cols),
                  raft::make_device_vector_view<const T, int>(meanVec.data(), meanVecSize),
                  raft::make_device_matrix_view<T, int, layout>(out.data(), rows, cols),
-                 params.bcastAlongRows,
-                 std::integral_constant<int, 256>{});
+                 params.bcastAlongRows);
     } else {
       using layout = raft::col_major;
-      meanCenter(handle,
+      mean_center(handle,
                  raft::make_device_matrix_view<const T, int, layout>(data.data(), rows, cols),
                  raft::make_device_vector_view<const T, int>(meanVec.data(), meanVecSize),
                  raft::make_device_matrix_view<T, int, layout>(out.data(), rows, cols),
-                 params.bcastAlongRows,
-                 std::integral_constant<int, 256>{});
+                 params.bcastAlongRows);
     }
     raft::linalg::naiveMatVec(out_ref.data(),
                               data.data(),

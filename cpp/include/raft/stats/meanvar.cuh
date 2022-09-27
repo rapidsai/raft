@@ -64,25 +64,25 @@ void meanvar(Type* mean,
  * It's almost twice faster than running `mean` and `vars` sequentially, because all three
  * kernels are memory-bound.
  *
- * @tparam DataT the data type
- * @tparam IdxType Integer type used for addressing
- * @tparam LayoutPolicy Layout type of the input matrix.
+ * @tparam value_t the data type
+ * @tparam idx_t Integer type used for addressing
+ * @tparam layout_t Layout type of the input matrix.
  * @param handle the raft handle
  * @param [in] data the input matrix of size [N, D]
  * @param [out] mean the output mean vector of size D
  * @param [out] var the output variance vector of size D
- * @param [in] sample whether to evaluate sample variance or not. In other words, whether to
+ * @param sample whether to evaluate sample variance or not. In other words, whether to
  * normalize the variance using N-1 or N, for true or false respectively.
  */
-template <typename DataT, typename IdxType = int, typename LayoutPolicy>
+template <typename value_t, typename idx_t = int, typename layout_t>
 void meanvar(const raft::handle_t& handle,
-             raft::device_matrix_view<const DataT, IdxType, LayoutPolicy> data,
-             raft::device_vector_view<DataT, IdxType> mean,
-             raft::device_vector_view<DataT, IdxType> var,
+             raft::device_matrix_view<const value_t, idx_t, layout_t> data,
+             raft::device_vector_view<value_t, idx_t> mean,
+             raft::device_vector_view<value_t, idx_t> var,
              bool sample)
 {
   static_assert(
-    std::is_same_v<LayoutPolicy, raft::row_major> || std::is_same_v<LayoutPolicy, raft::col_major>,
+    std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
     "Data layout not supported");
   RAFT_EXPECTS(data.extent(1) == var.extent(0), "Size mismatch betwen data and var");
   RAFT_EXPECTS(mean.size() == var.size(), "Size mismatch betwen mean and var");
@@ -95,7 +95,7 @@ void meanvar(const raft::handle_t& handle,
                   data.extent(1),
                   data.extent(0),
                   sample,
-                  std::is_same_v<LayoutPolicy, raft::row_major>,
+                  std::is_same_v<layout_t, raft::row_major>,
                   handle.get_stream());
 }
 

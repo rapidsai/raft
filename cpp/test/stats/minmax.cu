@@ -126,8 +126,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
       std::nullopt,
       raft::make_device_vector_view<T, int>(minmax_act.data(), params.cols),
       raft::make_device_vector_view<T, int>(minmax_act.data() + params.cols, params.cols),
-      std::nullopt,
-      std::integral_constant<int, 512>{});
+      std::nullopt);
   }
 
  protected:

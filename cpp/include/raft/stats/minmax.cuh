@@ -74,9 +74,8 @@ void minmax(const T* data,
  * @brief Computes min/max across every column of the input matrix, as well as
  * optionally allow to subsample based on the given row/col ID mapping vectors
  *
- * @tparam DataT Data type of input matrix element.
- * @tparam IdxType Index type of matrix extent.
- * @tparam TPB number of threads per block
+ * @tparam value_t Data type of input matrix element.
+ * @tparam idx_t Index type of matrix extent.
  * @param handle the raft handle
  * @param data input data col-major of size [nrows, ncols], unless rowids or
  * colids length is smaller
@@ -87,25 +86,23 @@ void minmax(const T* data,
  * @param globalmin final col-wise global minimum (size = ncols)
  * @param globalmax final col-wise global maximum (size = ncols)
  * @param sampledcols output sampled data. Pass nullptr if you don't need this
- * @param TPB threads_pre_block
  * @note This method makes the following assumptions:
  * 1. input and output matrices are assumed to be col-major
  * 2. ncols is small enough to fit the whole of min/max values across all cols
  *    in shared memory
  */
-template <typename DataT, typename IdxType, int TPB = 512>
+template <typename value_t, typename idx_t>
 void minmax(const raft::handle_t& handle,
-            raft::device_matrix_view<const DataT, IdxType, raft::col_major> data,
-            std::optional<raft::device_vector_view<const unsigned, IdxType>> rowids,
-            std::optional<raft::device_vector_view<const unsigned, IdxType>> colids,
-            raft::device_vector_view<DataT, IdxType> globalmin,
-            raft::device_vector_view<DataT, IdxType> globalmax,
-            std::optional<raft::device_vector_view<DataT, IdxType>> sampledcols,
-            std::integral_constant<int, TPB>)
+            raft::device_matrix_view<const value_t, idx_t, raft::col_major> data,
+            std::optional<raft::device_vector_view<const unsigned, idx_t>> rowids,
+            std::optional<raft::device_vector_view<const unsigned, idx_t>> colids,
+            raft::device_vector_view<value_t, idx_t> globalmin,
+            raft::device_vector_view<value_t, idx_t> globalmax,
+            std::optional<raft::device_vector_view<value_t, idx_t>> sampledcols)
 {
   const unsigned* rowids_ptr = nullptr;
   const unsigned* colids_ptr = nullptr;
-  DataT* sampledcols_ptr     = nullptr;
+  value_t* sampledcols_ptr   = nullptr;
   auto nrows                 = data.extent(0);
   auto ncols                 = data.extent(1);
   auto row_stride            = data.stride(1);
@@ -118,16 +115,16 @@ void minmax(const raft::handle_t& handle,
     ncols      = colids.value().extent(0);
   }
   if (sampledcols.has_value()) { sampledcols_ptr = sampledcols.value().data_handle(); }
-  detail::minmax<DataT, TPB>(data.data_handle(),
-                             rowids_ptr,
-                             colids_ptr,
-                             nrows,
-                             ncols,
-                             row_stride,
-                             globalmin.data_handle(),
-                             globalmax.data_handle(),
-                             sampledcols_ptr,
-                             handle.get_stream());
+  detail::minmax<value_t>(data.data_handle(),
+                          rowids_ptr,
+                          colids_ptr,
+                          nrows,
+                          ncols,
+                          row_stride,
+                          globalmin.data_handle(),
+                          globalmax.data_handle(),
+                          sampledcols_ptr,
+                          handle.get_stream());
 }
 
 };  // namespace stats

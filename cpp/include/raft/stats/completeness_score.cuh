@@ -31,48 +31,48 @@ namespace stats {
  * @param truthClusterArray: the array of truth classes of type T
  * @param predClusterArray: the array of predicted classes of type T
  * @param size: the size of the data points of type int
- * @param lowerLabelRange: the lower bound of the range of labels
- * @param upperLabelRange: the upper bound of the range of labels
+ * @param lower_label_range: the lower bound of the range of labels
+ * @param upper_label_range: the upper bound of the range of labels
  * @param stream: the cudaStream object
  */
 template <typename T>
 double completeness_score(const T* truthClusterArray,
                           const T* predClusterArray,
                           int size,
-                          T lowerLabelRange,
-                          T upperLabelRange,
+                          T lower_label_range,
+                          T upper_label_range,
                           cudaStream_t stream)
 {
   return detail::homogeneity_score(
-    predClusterArray, truthClusterArray, size, lowerLabelRange, upperLabelRange, stream);
+    predClusterArray, truthClusterArray, size, lower_label_range, upper_label_range, stream);
 }
 
 /**
  * @brief Function to calculate the completeness score between two clusters
  *
- * @tparam DataT the data type
- * @tparam IdxType Index type of matrix extent.
+ * @tparam value_t the data type
+ * @tparam idx_t Index type of matrix extent.
  * @param handle: the raft handle.
- * @param truthClusterArray: the array of truth classes of type DataT
- * @param predClusterArray: the array of predicted classes of type DataT
- * @param lowerLabelRange: the lower bound of the range of labels
- * @param upperLabelRange: the upper bound of the range of labels
+ * @param truth_cluster_array: the array of truth classes of type value_t
+ * @param pred_cluster_array: the array of predicted classes of type value_t
+ * @param lower_label_range: the lower bound of the range of labels
+ * @param upper_label_range: the upper bound of the range of labels
  */
-template <typename DataT, typename IdxType>
+template <typename value_t, typename idx_t>
 double completeness_score(const raft::handle_t& handle,
-                          raft::device_vector_view<const DataT, IdxType> truthClusterArray,
-                          raft::device_vector_view<const DataT, IdxType> predClusterArray,
-                          DataT lowerLabelRange,
-                          DataT upperLabelRange)
+                          raft::device_vector_view<const value_t, idx_t> truth_cluster_array,
+                          raft::device_vector_view<const value_t, idx_t> pred_cluster_array,
+                          value_t lower_label_range,
+                          value_t upper_label_range)
 {
-  RAFT_EXPECTS(truthClusterArray.size() == predClusterArray.size(), "Size mismatch");
-  RAFT_EXPECTS(truthClusterArray.is_exhaustive(), "truthClusterArray must be contiguous");
-  RAFT_EXPECTS(predClusterArray.is_exhaustive(), "predClusterArray must be contiguous");
-  return detail::homogeneity_score(predClusterArray.data_handle(),
-                                   truthClusterArray.data_handle(),
-                                   truthClusterArray.extent(0),
-                                   lowerLabelRange,
-                                   upperLabelRange,
+  RAFT_EXPECTS(truth_cluster_array.size() == pred_cluster_array.size(), "Size mismatch");
+  RAFT_EXPECTS(truth_cluster_array.is_exhaustive(), "truth_cluster_array must be contiguous");
+  RAFT_EXPECTS(pred_cluster_array.is_exhaustive(), "pred_cluster_array must be contiguous");
+  return detail::homogeneity_score(pred_cluster_array.data_handle(),
+                                   truth_cluster_array.data_handle(),
+                                   truth_cluster_array.extent(0),
+                                   lower_label_range,
+                                   upper_label_range,
                                    handle.get_stream());
 }
 

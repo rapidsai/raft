@@ -47,16 +47,16 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
  * <a href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence">more info on KL
  * Divergence</a>
  *
- * @tparam DataT: Data type of the input array
- * @tparam IdxType index type
+ * @tparam value_t: Data type of the input array
+ * @tparam idx_t index type
  * @param handle the raft handle
- * @param modelPDF: the model array of probability density functions of type DataT
- * @param candidatePDF: the candidate array of probability density functions of type DataT
+ * @param modelPDF: the model array of probability density functions of type value_t
+ * @param candidatePDF: the candidate array of probability density functions of type value_t
  */
-template <typename DataT, typename IdxType>
-DataT kl_divergence(const raft::handle_t& handle,
-                    raft::device_vector_view<const DataT, IdxType> modelPDF,
-                    raft::device_vector_view<const DataT, IdxType> candidatePDF)
+template <typename value_t, typename idx_t>
+value_t kl_divergence(const raft::handle_t& handle,
+                      raft::device_vector_view<const value_t, idx_t> modelPDF,
+                      raft::device_vector_view<const value_t, idx_t> candidatePDF)
 {
   RAFT_EXPECTS(modelPDF.size() == candidatePDF.size(), "Size mismatch");
   RAFT_EXPECTS(modelPDF.is_exhaustive(), "modelPDF must be contiguous");
