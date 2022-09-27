@@ -46,23 +46,21 @@ void naiveGather(
   naiveGatherImpl(in, D, N, map, map_length, out);
 }
 
-template <typename MatrixIteratorT, typename MapIteratorT>
+template <typename value_t, typename map_t, typename idx_t>
 void gatherLaunch(const raft::handle_t& handle,
-                  MatrixIteratorT in,
-                  int D,
-                  int N,
-                  MapIteratorT map,
-                  int map_length,
-                  MatrixIteratorT out,
+                  const value_t* in,
+                  idx_t D,
+                  idx_t N,
+                  map_t* map,
+                  idx_t map_length,
+                  value_t* out,
                   cudaStream_t stream)
 {
-  typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
+  auto in_view  = raft::make_device_matrix_view<const value_t, idx_t, row_major>(in, N, D);
+  auto out_view = raft::make_device_matrix_view<value_t, idx_t>(out, N, D);
+  auto map_view = raft::make_device_vector_view<map_t, idx_t, row_major>(map, map_length);
 
-  auto in_view  = raft::make_device_matrix_view<MatrixIteratorT, int>(in, N, D);
-  auto map_view = raft::make_device_vector_view<MapIteratorT, int>(map, map_length);
-  auto out_view = raft::make_device_matrix_view<MatrixIteratorT, int>(out, N, D);
-
-  matrix::gather(handle, in_view, out_view, map_view);
+  raft::matrix::gather(handle, in_view, out_view, map_view);
 }
 
 struct GatherInputs {
@@ -116,9 +114,18 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     naiveGather(h_in.data(), ncols, nrows, h_map.data(), map_length, h_out.data());
     raft::update_device(d_out_exp.data(), h_out.data(), map_length * ncols, stream);
 
-    // launch device version of the kernel
-    gatherLaunch(
-      handle, d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
+    auto in_view = raft::make_device_matrix_view<const MatrixT, std::uint32_t, row_major>(
+      d_in.data(), nrows, ncols);
+    auto out_view =
+      raft::make_device_matrix_view<MatrixT, std::uint32_t>(d_out_act.data(), nrows, ncols);
+    auto map_view =
+      raft::make_device_vector_view<MapT, std::uint32_t, row_major>(d_map.data(), map_length);
+
+    raft::matrix::gather(handle, in_view, out_view, map_view);
+
+    //      // launch device version of the kernel
+    //    gatherLaunch(
+    //      handle, d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
 
     handle.sync_stream(stream);
   }

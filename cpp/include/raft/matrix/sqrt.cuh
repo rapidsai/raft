@@ -31,8 +31,8 @@ namespace raft::matrix {
  */
 template <typename math_t>
 void sqrt(const raft::handle_t& handle,
-              raft::device_matrix_view<math_t> in,
-              raft::device_matrix_view<math_t> out)
+          raft::device_matrix_view<math_t> in,
+          raft::device_matrix_view<math_t> out)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have same size.");
   detail::seqRoot(in.data_handle(), out.data_handle(), in.size(), handle.get_stream());
@@ -61,10 +61,10 @@ void sqrt(const raft::handle_t& handle, raft::device_matrix_view<math_t> inout)
  */
 template <typename math_t>
 void weighted_sqrt(const raft::handle_t& handle,
-                       raft::device_matrix_view<math_t> in,
-                       raft::device_matrix_view<math_t> out,
-                       math_t scalar,
-                       bool set_neg_zero = false)
+                   raft::device_matrix_view<math_t> in,
+                   raft::device_matrix_view<math_t> out,
+                   math_t scalar,
+                   bool set_neg_zero = false)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have same size.");
   detail::seqRoot(
@@ -81,9 +81,9 @@ void weighted_sqrt(const raft::handle_t& handle,
  */
 template <typename math_t>
 void weighted_sqrt(const raft::handle_t& handle,
-                       raft::device_matrix_view<math_t> inout,
-                       math_t scalar,
-                       bool set_neg_zero = false)
+                   raft::device_matrix_view<math_t> inout,
+                   math_t scalar,
+                   bool set_neg_zero = false)
 {
   detail::seqRoot(inout.data_handle(), scalar, inout.size(), handle.get_stream(), set_neg_zero);
 }

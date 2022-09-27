@@ -18,12 +18,12 @@
 #include <gtest/gtest.h>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/reciprocal.cuh>
 #include <raft/matrix/power.cuh>
 #include <raft/matrix/ratio.cuh>
+#include <raft/matrix/reciprocal.cuh>
 #include <raft/matrix/sign_flip.cuh>
-#include <raft/matrix/threshold.cuh>
 #include <raft/matrix/sqrt.cuh>
+#include <raft/matrix/threshold.cuh>
 
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -170,7 +170,8 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     naiveSignFlip(
       in_sign_flip.data(), out_sign_flip_ref.data(), params.n_row, params.n_col, stream);
 
-    auto in_sign_flip_view = raft::make_device_matrix_view<T, int, col_major>(in_sign_flip.data(), params.n_row, params.n_col);
+    auto in_sign_flip_view = raft::make_device_matrix_view<T, int, col_major>(
+      in_sign_flip.data(), params.n_row, params.n_col);
     sign_flip<T>(handle, in_sign_flip_view);
 
     // default threshold is 1e-15
@@ -180,27 +181,27 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     update_device(in_recip_ref.data(), in_recip_ref_h.data(), 4, stream);
     T recip_scalar = T(1.0);
 
-    auto in_recip_view = raft::make_device_matrix_view<const T>(in_recip.data(), 4, 1);
+    auto in_recip_view  = raft::make_device_matrix_view<const T>(in_recip.data(), 4, 1);
     auto out_recip_view = raft::make_device_matrix_view<T>(out_recip.data(), 4, 1);
 
     // this `reciprocal()` has to go first bc next one modifies its input
     reciprocal<T>(handle, in_recip_view, out_recip_view, recip_scalar);
 
-      auto inout_recip_view = raft::make_device_matrix_view<T>(in_recip.data(), 4, 1);
+    auto inout_recip_view = raft::make_device_matrix_view<T>(in_recip.data(), 4, 1);
 
-      reciprocal<T>(handle, inout_recip_view, recip_scalar, true);
+    reciprocal<T>(handle, inout_recip_view, recip_scalar, true);
 
     std::vector<T> in_small_val_zero_h     = {0.1, 1e-16, -1e-16, -0.1};
     std::vector<T> in_small_val_zero_ref_h = {0.1, 0.0, 0.0, -0.1};
 
-    auto in_smallzero_view = raft::make_device_matrix_view<const T>(in_smallzero.data(), 4, 1);
-      auto inout_smallzero_view = raft::make_device_matrix_view<T>(in_smallzero.data(), 4, 1);
-    auto out_smallzero_view = raft::make_device_matrix_view<T>(out_smallzero.data(), 4, 1);
+    auto in_smallzero_view    = raft::make_device_matrix_view<const T>(in_smallzero.data(), 4, 1);
+    auto inout_smallzero_view = raft::make_device_matrix_view<T>(in_smallzero.data(), 4, 1);
+    auto out_smallzero_view   = raft::make_device_matrix_view<T>(out_smallzero.data(), 4, 1);
 
     update_device(in_smallzero.data(), in_small_val_zero_h.data(), 4, stream);
     update_device(out_smallzero_ref.data(), in_small_val_zero_ref_h.data(), 4, stream);
-      zero_small_values<T>(handle, in_smallzero_view, out_smallzero_view);
-      zero_small_values<T>(handle, inout_smallzero_view);
+    zero_small_values<T>(handle, in_smallzero_view, out_smallzero_view);
+    zero_small_values<T>(handle, inout_smallzero_view);
     handle.sync_stream(stream);
   }
 

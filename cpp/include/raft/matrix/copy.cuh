@@ -32,11 +32,11 @@ namespace raft::matrix {
  * @param[out] out output matrix
  * @param[in] indices of the rows to be copied
  */
-template <typename m_t, typename idx_array_t>
+template <typename m_t, typename idx_t, typename layout>
 void copy_rows(const raft::handle_t& handle,
-               raft::device_matrix_view<const m_t> in,
-               raft::device_matrix_view<m_t> out,
-               raft::device_vector_view<idx_array_t> indices)
+               raft::device_matrix_view<const m_t, idx_t, layout> in,
+               raft::device_matrix_view<m_t, idx_t, layout> out,
+               raft::device_vector_view<idx_t, idx_t> indices)
 {
   RAFT_EXPECTS(in.extent(1) == out.extent(1),
                "Input and output matrices must have same number of columns");
@@ -44,9 +44,6 @@ void copy_rows(const raft::handle_t& handle,
                "Number of rows in output matrix must equal number of indices");
   bool in_rowmajor  = raft::is_row_major(in);
   bool out_rowmajor = raft::is_row_major(out);
-
-  RAFT_EXPECTS(in_rowmajor == out_rowmajor,
-               "Input and output matrices must have same layout (row- or column-major)");
 
   detail::copyRows(in.data_handle(),
                    in.extent(0),
@@ -86,16 +83,19 @@ void copy(const raft::handle_t& handle,
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t>
-void trunc_zero_origin(
-  const raft::handle_t &handle,
-  raft::device_matrix_view<const m_t, idx_t, col_major> in,
-  raft::device_matrix_view<m_t, idx_t, col_major> out) {
-
-  RAFT_EXPECTS(out.extent(0) <= in.extent(0) &&
-               out.extent(1) <= in.extent(1),
+void trunc_zero_origin(const raft::handle_t& handle,
+                       raft::device_matrix_view<const m_t, idx_t, col_major> in,
+                       raft::device_matrix_view<m_t, idx_t, col_major> out)
+{
+  RAFT_EXPECTS(out.extent(0) <= in.extent(0) && out.extent(1) <= in.extent(1),
                "Output matrix must have less or equal number of rows and columns");
 
-  detail::truncZeroOrigin<m_t, idx_t>(in.data_handle(), in.extent(0), out.data_handle(), out.extent(0), out.extent(1), handle.get_stream());
+  detail::truncZeroOrigin<m_t, idx_t>(in.data_handle(),
+                                      in.extent(0),
+                                      out.data_handle(),
+                                      out.extent(0),
+                                      out.extent(1),
+                                      handle.get_stream());
 }
 
 }  // namespace raft::matrix

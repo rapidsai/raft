@@ -33,7 +33,7 @@ namespace raft::matrix {
  * @{
  */
 template <typename math_t>
-void reciprocal(const raft::handle_t &handle,
+void reciprocal(const raft::handle_t& handle,
                 raft::device_matrix_view<const math_t> in,
                 raft::device_matrix_view<math_t> out,
                 math_t scalar,

@@ -47,8 +47,7 @@ struct columnSort {
 };
 
 template <typename T>
-::std::ostream & operator<<(::std::ostream & os,
-                                         const columnSort<T>& dims)
+::std::ostream& operator<<(::std::ostream& os, const columnSort<T>& dims)
 {
   return os;
 }
@@ -103,13 +102,15 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
     if (params.testKeys)
       raft::update_device(keySortGolden.data(), &cKeyGolden[0], len, handle.get_stream());
 
-    auto key_in_view = raft::make_device_matrix_view<const T, int, row_major>(keyIn.data(), params.n_row, params.n_col);
-    auto value_out_view =
-      raft::make_device_matrix_view<int, int, row_major>(valueOut.data(), params.n_row, params.n_col);
-    auto key_sorted_view =
-      raft::make_device_matrix_view<T, int, row_major>(keySorted.data(), params.n_row, params.n_col);
+    auto key_in_view = raft::make_device_matrix_view<const T, int, row_major>(
+      keyIn.data(), params.n_row, params.n_col);
+    auto value_out_view = raft::make_device_matrix_view<int, int, row_major>(
+      valueOut.data(), params.n_row, params.n_col);
+    auto key_sorted_view = raft::make_device_matrix_view<T, int, row_major>(
+      keySorted.data(), params.n_row, params.n_col);
 
-    raft::matrix::sort_cols_per_row(handle, key_in_view, value_out_view, std::make_optional(key_sorted_view));
+    raft::matrix::sort_cols_per_row(
+      handle, key_in_view, value_out_view, std::make_optional(key_sorted_view));
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }

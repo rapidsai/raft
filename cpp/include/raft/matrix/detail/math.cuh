@@ -392,11 +392,11 @@ void argmax(const math_t* in, int n_rows, int n_cols, idx_t* out, cudaStream_t s
   if (D <= 32) {
     argmaxKernel<math_t, idx_t, 32><<<N, 32, 0, stream>>>(in, D, N, out);
   } else if (D <= 64) {
-    argmaxKernel<math_t, idx_t,  64><<<N, 64, 0, stream>>>(in, D, N, out);
+    argmaxKernel<math_t, idx_t, 64><<<N, 64, 0, stream>>>(in, D, N, out);
   } else if (D <= 128) {
-    argmaxKernel<math_t, idx_t,  128><<<N, 128, 0, stream>>>(in, D, N, out);
+    argmaxKernel<math_t, idx_t, 128><<<N, 128, 0, stream>>>(in, D, N, out);
   } else {
-    argmaxKernel<math_t, idx_t,  256><<<N, 256, 0, stream>>>(in, D, N, out);
+    argmaxKernel<math_t, idx_t, 256><<<N, 256, 0, stream>>>(in, D, N, out);
   }
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

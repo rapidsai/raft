@@ -36,7 +36,7 @@ void ratio(const raft::handle_t& handle,
            raft::device_matrix_view<math_t> src,
            raft::device_matrix_view<math_t> dest)
 {
-  RAFT_EXPECTS(src.size() == dst.size(), "Input and output matrices must be the same size.");
+  RAFT_EXPECTS(src.size() == dest.size(), "Input and output matrices must be the same size.");
   detail::ratio(handle, src.data_handle(), dest.data_handle(), src.size(), handle.get_stream());
 }
 
@@ -47,10 +47,10 @@ void ratio(const raft::handle_t& handle,
  * @param[in] handle
  * @param[inout] inout: input matrix
  */
-    template <typename math_t>
-    void ratio(const raft::handle_t& handle,
-               raft::device_matrix_view<math_t> inout)
-    {
-        detail::ratio(handle, inout.data_handle(), inout.data_handle(), inout.size(), handle.get_stream());
-    }
+template <typename math_t>
+void ratio(const raft::handle_t& handle, raft::device_matrix_view<math_t> inout)
+{
+  detail::ratio(
+    handle, inout.data_handle(), inout.data_handle(), inout.size(), handle.get_stream());
+}
 }  // namespace raft::matrix

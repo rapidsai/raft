@@ -65,7 +65,8 @@ void sort_cols_per_row(
   const raft::handle_t& handle,
   raft::device_matrix_view<const InType, matrix_idx_t, raft::row_major> in,
   raft::device_matrix_view<OutType, matrix_idx_t, raft::row_major> out,
-  std::optional<raft::device_matrix_view<InType, matrix_idx_t, raft::row_major>> sorted_keys = std::nullopt)
+  std::optional<raft::device_matrix_view<InType, matrix_idx_t, raft::row_major>> sorted_keys =
+    std::nullopt)
 {
   RAFT_EXPECTS(in.extent(1) == out.extent(1) && in.extent(0) == out.extent(0),
                "Input and output matrices must have the same shape.");
@@ -79,33 +80,30 @@ void sort_cols_per_row(
   size_t workspace_size = 0;
   bool alloc_workspace  = false;
 
+  InType* keys = sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr;
 
-  InType *keys = sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr;
-
-  detail::sortColumnsPerRow<InType, OutType>(
-    in.data_handle(),
-    out.data_handle(),
-    in.extent(0),
-    in.extent(1),
-    alloc_workspace,
-    (void*)nullptr,
-    workspace_size,
-    handle.get_stream(),
-    keys);
+  detail::sortColumnsPerRow<InType, OutType>(in.data_handle(),
+                                             out.data_handle(),
+                                             in.extent(0),
+                                             in.extent(1),
+                                             alloc_workspace,
+                                             (void*)nullptr,
+                                             workspace_size,
+                                             handle.get_stream(),
+                                             keys);
 
   if (alloc_workspace) {
     auto workspace = raft::make_device_vector<char>(handle, workspace_size);
 
-    detail::sortColumnsPerRow<InType, OutType>(
-      in.data_handle(),
-      out.data_handle(),
-      in.extent(0),
-      in.extent(1),
-      alloc_workspace,
-      (void*)workspace.data_handle(),
-      workspace_size,
-      handle.get_stream(),
-      keys);
+    detail::sortColumnsPerRow<InType, OutType>(in.data_handle(),
+                                               out.data_handle(),
+                                               in.extent(0),
+                                               in.extent(1),
+                                               alloc_workspace,
+                                               (void*)workspace.data_handle(),
+                                               workspace_size,
+                                               handle.get_stream(),
+                                               keys);
   }
 }
 

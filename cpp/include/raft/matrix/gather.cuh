@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/matrix/detail/gather.cuh>
 
 namespace raft {
@@ -61,27 +61,27 @@ void gather(const MatrixIteratorT in,
  * pointer type).
  *
  * @param  in           Pointer to the input matrix (assumed to be row-major)
- * @param  map          Pointer to the input sequence of gather locations
  * @param  out          Pointer to the output matrix (assumed to be row-major)
+ * @param  map          Pointer to the input sequence of gather locations
  */
-template <typename MatrixIteratorT, typename MapIteratorT, typename IdxT>
+template <typename matrix_t, typename map_t, typename idx_t>
 void gather(const raft::handle_t& handle,
-            raft::device_matrix_view<const MatrixIteratorT, IdxT, row_major> in,
-            raft::device_matrix_view<MatrixIteratorT, IdxT, row_major> out,
-            raft::device_vector_view<MapIteratorT, IdxT> map)
+            raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
+            raft::device_matrix_view<matrix_t, idx_t, row_major> out,
+            raft::device_vector_view<map_t, idx_t> map)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
                "Number of rows in output matrix must equal the size of the map vector");
   RAFT_EXPECTS(out.extent(1) == in.extent(1),
                "Number of columns in input and output matrices must be equal.");
 
-  detail::gather(in.data_handle(),
-                 in.extent(1),
-                 in.extent(0),
-                 map,
-                 map.extent(0),
-                 out.data_handle(),
-                 handle.get_stream());
+  gather(in.data_handle(),
+         static_cast<int>(in.extent(1)),
+         static_cast<int>(in.extent(0)),
+         map.data_handle(),
+         static_cast<int>(map.extent(0)),
+         out.data_handle(),
+         handle.get_stream());
 }
 
 /**
@@ -104,7 +104,7 @@ template <typename MatrixIteratorT, typename MapIteratorT, typename MapTransform
 void gather(const raft::handle_t& handle,
             raft::device_matrix_view<const MatrixIteratorT, IdxT, row_major> in,
             raft::device_matrix_view<MatrixIteratorT, IdxT, row_major> out,
-              raft::device_vector_view<MapIteratorT, IdxT> map,
+            raft::device_vector_view<MapIteratorT, IdxT> map,
             MapTransformOp transform_op)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
@@ -112,11 +112,22 @@ void gather(const raft::handle_t& handle,
   RAFT_EXPECTS(out.extent(1) == in.extent(1),
                "Number of columns in input and output matrices must be equal.");
 
+  /**
+   * template <typename MatrixIteratorT, typename MapIteratorT>
+void gather(const MatrixIteratorT in,
+            int D,
+            int N,
+            MapIteratorT map,
+            int map_length,
+            MatrixIteratorT out,
+            cudaStream_t stream)
+
+   */
   detail::gather(in.data_handle(),
-                 in.extent(1),
-                 in.extent(0),
+                 static_cast<int>(in.extent(1)),
+                 static_cast<int>(in.extent(0)),
                  map,
-                 map.extent(0),
+                 static_cast<int>(map.extent(0)),
                  out.data_handle(),
                  transform_op,
                  handle.get_stream());

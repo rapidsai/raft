@@ -21,7 +21,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/linewise_op.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
@@ -55,36 +55,31 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   {
   }
 
-  template<typename layout>
-  void runLinewiseSum(
-    T* out, const T* in, const I lineLen, const I nLines, const T* vec)
+  template <typename layout>
+  void runLinewiseSum(T* out, const T* in, const I lineLen, const I nLines, const T* vec)
   {
     auto f = [] __device__(T a, T b) -> T { return a + b; };
 
-
-    auto in_view = raft::make_device_matrix_view<T, I, layout>(in, nLines, lineLen);
+    auto in_view  = raft::make_device_matrix_view<const T, I, layout>(in, nLines, lineLen);
     auto out_view = raft::make_device_matrix_view<T, I, layout>(out, nLines, lineLen);
 
-    auto vec_view = raft::make_device_vector_view<T>(vec, lineLen);
-    matrix::line_wise_op(handle, in_view, out_view, alongLines, f, vec);
+    auto vec_view = raft::make_device_vector_view<const T>(vec, lineLen);
+    matrix::linewise_op(handle, in_view, out_view, raft::is_row_major(in_view), f, vec_view);
   }
 
-    template<typename layout>
-  void runLinewiseSum(T* out,
-                      const T* in,
-                      const I lineLen,
-                      const I nLines,
-                      const T* vec1,
-                      const T* vec2)
+  template <typename layout>
+  void runLinewiseSum(
+    T* out, const T* in, const I lineLen, const I nLines, const T* vec1, const T* vec2)
   {
     auto f = [] __device__(T a, T b, T c) -> T { return a + b + c; };
 
-      constexpr auto layout = alongLines ? row_major : col_major;
+    auto in_view   = raft::make_device_matrix_view<const T, I, layout>(in, nLines, lineLen);
+    auto out_view  = raft::make_device_matrix_view<T, I, layout>(out, nLines, lineLen);
+    auto vec1_view = raft::make_device_vector_view<const T, I>(vec1, lineLen);
+    auto vec2_view = raft::make_device_vector_view<const T, I>(vec2, lineLen);
 
-      auto in_view = raft::make_device_matrix_view<T, I, layout>(in, nLines, lineLen)
-      auto out_view = raft::make_device_matrix_view<T, I, layout>(out, nLines, lineLen);
-
-    matrix::line_wise_op(handle, in_view, out_view, alongLines, f, vec1, vec2);
+    matrix::linewise_op(
+      handle, in_view, out_view, raft::is_row_major(in_view), f, vec1_view, vec2_view);
   }
 
   rmm::device_uvector<T> genData(size_t workSizeBytes)
@@ -163,10 +158,10 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
         {
           {
             common::nvtx::range vecs_scope("one vec");
-            if(alongRows) {
-                runLinewiseSum<raft::row_major>(out, in, lineLen, nLines, vec1);
+            if (alongRows) {
+              runLinewiseSum<raft::row_major>(out, in, lineLen, nLines, vec1);
             } else {
-                runLinewiseSum<raft::col_major>(out, in, lineLen, nLines, vec1);
+              runLinewiseSum<raft::col_major>(out, in, lineLen, nLines, vec1);
             }
           }
           if (params.checkCorrectness) {
@@ -179,12 +174,11 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           }
           {
             common::nvtx::range vecs_scope("two vecs");
-            if(alongRows) {
-                runLinewiseSum<raft::row_major>(out, in, lineLen, nLines, vec1, vec2);
+            if (alongRows) {
+              runLinewiseSum<raft::row_major>(out, in, lineLen, nLines, vec1, vec2);
 
             } else {
-                runLinewiseSum<raft::col_major>(out, in, lineLen, nLines, vec1, vec2);
-
+              runLinewiseSum<raft::col_major>(out, in, lineLen, nLines, vec1, vec2);
             }
           }
           if (params.checkCorrectness) {
