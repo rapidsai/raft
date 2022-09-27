@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "linalg_types.hpp"
 #include "detail/reduce.cuh"
+#include "linalg_types.hpp"
 
 #include <raft/core/mdarray.hpp>
 

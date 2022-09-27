@@ -89,20 +89,20 @@ void ternary_op(
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
     ternaryOp<in_value_t, Lambda, out_value_t, std::uint32_t>(out.data_handle(),
-                                                                   in1.data_handle(),
-                                                                   in2.data_handle(),
-                                                                   in3.data_handle(),
-                                                                   out.size(),
-                                                                   op,
-                                                                   handle.get_stream());
+                                                              in1.data_handle(),
+                                                              in2.data_handle(),
+                                                              in3.data_handle(),
+                                                              out.size(),
+                                                              op,
+                                                              handle.get_stream());
   } else {
     ternaryOp<in_value_t, Lambda, out_value_t, std::uint64_t>(out.data_handle(),
-                                                                   in1.data_handle(),
-                                                                   in2.data_handle(),
-                                                                   in3.data_handle(),
-                                                                   out.size(),
-                                                                   op,
-                                                                   handle.get_stream());
+                                                              in1.data_handle(),
+                                                              in2.data_handle(),
+                                                              in3.data_handle(),
+                                                              out.size(),
+                                                              op,
+                                                              handle.get_stream());
   }
 }
 

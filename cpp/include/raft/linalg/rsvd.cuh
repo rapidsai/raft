@@ -206,22 +206,23 @@ void rsvd_fixed_rank(
  *
  * Please see above for documentation of `rsvd_fixed_rank`.
  */
- template <typename ValueType, typename IndexType, typename UType, typename VType>
- void rsvd_fixed_rank(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
-  raft::device_vector_view<ValueType, IndexType> S_vec,
-  IndexType p,
-  ValueType tol,
-  int max_sweeps,
-  UType&& U,
-  VType&& V)
- {
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
- 
-   rsvd_fixed_rank(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
- }
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void rsvd_fixed_rank(const raft::handle_t& handle,
+                     raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+                     raft::device_vector_view<ValueType, IndexType> S_vec,
+                     IndexType p,
+                     ValueType tol,
+                     int max_sweeps,
+                     UType&& U,
+                     VType&& V)
+{
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
+    std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
+    std::forward<VType>(V);
+
+  rsvd_fixed_rank(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
+}
 
 /**
  * @brief randomized singular value decomposition (RSVD) on a column major
@@ -285,22 +286,23 @@ void rsvd_fixed_rank_symmetric(
  *
  * Please see above for documentation of `rsvd_fixed_rank_symmetric`.
  */
- template <typename ValueType, typename IndexType, typename UType, typename VType>
- void rsvd_fixed_rank_symmetric(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
-  raft::device_vector_view<ValueType, IndexType> S_vec,
-  IndexType p,
-  ValueType tol,
-  int max_sweeps,
-  UType&& U,
-  VType&& V)
- {
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
- 
-   rsvd_fixed_rank_symmetric(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
- }
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void rsvd_fixed_rank_symmetric(const raft::handle_t& handle,
+                               raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+                               raft::device_vector_view<ValueType, IndexType> S_vec,
+                               IndexType p,
+                               ValueType tol,
+                               int max_sweeps,
+                               UType&& U,
+                               VType&& V)
+{
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
+    std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
+    std::forward<VType>(V);
+
+  rsvd_fixed_rank_symmetric(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
+}
 
 /**
  * @brief randomized singular value decomposition (RSVD) on a column major
@@ -364,22 +366,23 @@ void rsvd_fixed_rank_jacobi(
  *
  * Please see above for documentation of `rsvd_fixed_rank_jacobi`.
  */
- template <typename ValueType, typename IndexType, typename UType, typename VType>
- void rsvd_fixed_rank_jacobi(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
-  raft::device_vector_view<ValueType, IndexType> S_vec,
-  IndexType p,
-  ValueType tol,
-  int max_sweeps,
-  UType&& U,
-  VType&& V)
- {
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
- 
-   rsvd_fixed_rank_sjacobi(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
- }
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void rsvd_fixed_rank_jacobi(const raft::handle_t& handle,
+                            raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+                            raft::device_vector_view<ValueType, IndexType> S_vec,
+                            IndexType p,
+                            ValueType tol,
+                            int max_sweeps,
+                            UType&& U,
+                            VType&& V)
+{
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
+    std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
+    std::forward<VType>(V);
+
+  rsvd_fixed_rank_sjacobi(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
+}
 
 /**
  * @brief randomized singular value decomposition (RSVD) on a column major
@@ -443,8 +446,8 @@ void rsvd_fixed_rank_symmetric_jacobi(
  *
  * Please see above for documentation of `rsvd_fixed_rank_symmetric_jacobi`.
  */
- template <typename ValueType, typename IndexType, typename UType, typename VType>
- void rsvd_fixed_rank_symmetric_jacobi(
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void rsvd_fixed_rank_symmetric_jacobi(
   const raft::handle_t& handle,
   raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
   raft::device_vector_view<ValueType, IndexType> S_vec,
@@ -453,12 +456,14 @@ void rsvd_fixed_rank_symmetric_jacobi(
   int max_sweeps,
   UType&& U,
   VType&& V)
- {
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
- 
-   rsvd_fixed_rank_symmetric_jacobi(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
- }
+{
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
+    std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
+    std::forward<VType>(V);
+
+  rsvd_fixed_rank_symmetric_jacobi(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
+}
 
 /**
  * @brief randomized singular value decomposition (RSVD) on a column major
@@ -524,24 +529,24 @@ void rsvd_perc(
  *
  * Please see above for documentation of `rsvd_perc`.
  */
- template <typename ValueType, typename IndexType, typename UType, typename VType>
- void rsvd_perc(
-   const raft::handle_t& handle,
-   raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
-   raft::device_vector_view<ValueType, IndexType> S_vec,
-   ValueType PC_perc,
-   ValueType UpS_perc,
-   ValueType tol,
-   int max_sweeps,
-   UType&& U,
-   VType&& V)
- {
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
- 
-   rsvd_perc(handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
- }
- 
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void rsvd_perc(const raft::handle_t& handle,
+               raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+               raft::device_vector_view<ValueType, IndexType> S_vec,
+               ValueType PC_perc,
+               ValueType UpS_perc,
+               ValueType tol,
+               int max_sweeps,
+               UType&& U,
+               VType&& V)
+{
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
+    std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
+    std::forward<VType>(V);
+
+  rsvd_perc(handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
+}
 
 /**
  * @brief randomized singular value decomposition (RSVD) on a column major
@@ -608,19 +613,20 @@ void rsvd_perc_symmetric(
  * Please see above for documentation of `rsvd_perc_symmetric`.
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
-void rsvd_perc_symmetric(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
-  raft::device_vector_view<ValueType, IndexType> S_vec,
-  ValueType PC_perc,
-  ValueType UpS_perc,
-  ValueType tol,
-  int max_sweeps,
-  UType&& U,
-  VType&& V)
+void rsvd_perc_symmetric(const raft::handle_t& handle,
+                         raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+                         raft::device_vector_view<ValueType, IndexType> S_vec,
+                         ValueType PC_perc,
+                         ValueType UpS_perc,
+                         ValueType tol,
+                         int max_sweeps,
+                         UType&& U,
+                         VType&& V)
 {
-  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
-  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
+    std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
+    std::forward<VType>(V);
 
   rsvd_perc_symmetric(handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
 }
@@ -689,23 +695,24 @@ void rsvd_perc_jacobi(
  *
  * Please see above for documentation of `rsvd_perc_jacobi`.
  */
- template <typename ValueType, typename IndexType, typename UType, typename VType>
- void rsvd_perc_jacobi(
-   const raft::handle_t& handle,
-   raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
-   raft::device_vector_view<ValueType, IndexType> S_vec,
-   ValueType PC_perc,
-   ValueType UpS_perc,
-   ValueType tol,
-   int max_sweeps,
-   UType&& U,
-   VType&& V)
- {
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
- 
-   rsvd_perc_jacobi(handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
- }
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void rsvd_perc_jacobi(const raft::handle_t& handle,
+                      raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+                      raft::device_vector_view<ValueType, IndexType> S_vec,
+                      ValueType PC_perc,
+                      ValueType UpS_perc,
+                      ValueType tol,
+                      int max_sweeps,
+                      UType&& U,
+                      VType&& V)
+{
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
+    std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
+    std::forward<VType>(V);
+
+  rsvd_perc_jacobi(handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
+}
 
 /**
  * @brief randomized singular value decomposition (RSVD) on a column major
@@ -771,23 +778,25 @@ void rsvd_perc_symmetric_jacobi(
  *
  * Please see above for documentation of `rsvd_perc_symmetric_jacobi`.
  */
- template <typename ValueType, typename IndexType, typename UType, typename VType>
- void rsvd_perc_symmetric_jacobi(
-   const raft::handle_t& handle,
-   raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
-   raft::device_vector_view<ValueType, IndexType> S_vec,
-   ValueType PC_perc,
-   ValueType UpS_perc,
-   ValueType tol,
-   int max_sweeps,
-   UType&& U,
-   VType&& V)
- {
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
-   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
- 
-   rsvd_perc_symmetric_jacobi(handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
- }
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void rsvd_perc_symmetric_jacobi(const raft::handle_t& handle,
+                                raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+                                raft::device_vector_view<ValueType, IndexType> S_vec,
+                                ValueType PC_perc,
+                                ValueType UpS_perc,
+                                ValueType tol,
+                                int max_sweeps,
+                                UType&& U,
+                                VType&& V)
+{
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
+    std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
+    std::forward<VType>(V);
+
+  rsvd_perc_symmetric_jacobi(
+    handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
+}
 
 /** @} */  // end of group rsvd
 

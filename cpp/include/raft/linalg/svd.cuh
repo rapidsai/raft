@@ -229,6 +229,28 @@ void svd_qr(
 }
 
 /**
+ * @brief Overload of `svd_qr` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `svd_qr`.
+ */
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void svd_qr(const raft::handle_t& handle,
+            raft::device_matrix_view<ValueType, IndexType, raft::col_major> in,
+            raft::device_vector_view<ValueType, IndexType> sing_vals,
+            UType&& U,
+            VType&& V)
+{
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
+    std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
+    std::forward<VType>(V);
+
+  svd_qr(handle, in, sing_vals, U_optional, V_optional);
+}
+
+/**
  * @brief singular value decomposition (SVD) on a column major
  * matrix using QR decomposition. Right singular vector matrix is transposed before returning
  * @param[in] handle raft::handle_t
@@ -273,9 +295,26 @@ void svd_qr_transpose_right_vec(
 }
 
 /**
- * @defgroup svd Singular Value Decomposition
- * @{
+ * @brief Overload of `svd_qr_transpose_right_vec` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `svd_qr_transpose_right_vec`.
  */
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void svd_qr_transpose_right_vec(const raft::handle_t& handle,
+                                raft::device_matrix_view<ValueType, IndexType, raft::col_major> in,
+                                raft::device_vector_view<ValueType, IndexType> sing_vals,
+                                UType&& U,
+                                VType&& V)
+{
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
+    std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
+    std::forward<VType>(V);
+
+  svd_qr_transpose_right_vec(handle, in, sing_vals, U_optional, V_optional);
+}
 
 /**
  * @brief singular value decomposition (SVD) on a column major

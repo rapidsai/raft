@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include "linalg_types.hpp"
 #include "detail/matrix_vector_op.cuh"
+#include "linalg_types.hpp"
 
 #include <raft/core/mdarray.hpp>
 

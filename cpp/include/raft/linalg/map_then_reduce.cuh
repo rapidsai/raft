@@ -20,7 +20,6 @@
 
 #include "detail/map_then_reduce.cuh"
 
-
 namespace raft {
 namespace linalg {
 
@@ -75,15 +74,15 @@ template <typename InType,
           int TPB          = 256,
           typename OutType = InType,
           typename... Args>
-[[deprecated("Use function `mapReduce` from `raft/linalg/map_reduce.cuh")]]
-void mapThenReduce(OutType* out,
-                   size_t len,
-                   OutType neutral,
-                   MapOp map,
-                   ReduceLambda op,
-                   cudaStream_t stream,
-                   const InType* in,
-                   Args... args)
+[[deprecated("Use function `mapReduce` from `raft/linalg/map_reduce.cuh")]] void mapThenReduce(
+  OutType* out,
+  size_t len,
+  OutType neutral,
+  MapOp map,
+  ReduceLambda op,
+  cudaStream_t stream,
+  const InType* in,
+  Args... args)
 {
   detail::mapThenReduceImpl<InType, OutType, IdxType, MapOp, ReduceLambda, TPB, Args...>(
     out, len, neutral, map, op, stream, in, args...);

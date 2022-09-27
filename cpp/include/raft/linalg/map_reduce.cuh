@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- #ifndef __MAP_REDUCE_H
- #define __MAP_REDUCE_H
- 
- #pragma once
+#ifndef __MAP_REDUCE_H
+#define __MAP_REDUCE_H
 
- #include "detail/map_then_reduce.cuh"
+#pragma once
 
- #include <raft/core/mdarray.hpp>
+#include "detail/map_then_reduce.cuh"
+
+#include <raft/core/mdarray.hpp>
 
 namespace raft::linalg {
 
@@ -47,24 +47,24 @@ namespace raft::linalg {
  * @param args additional input arrays
  */
 
- template <typename InType,
- typename MapOp,
- typename ReduceLambda,
- typename IdxType = std::uint32_t,
- int TPB          = 256,
- typename OutType = InType,
- typename... Args>
+template <typename InType,
+          typename MapOp,
+          typename ReduceLambda,
+          typename IdxType = std::uint32_t,
+          int TPB          = 256,
+          typename OutType = InType,
+          typename... Args>
 void mapReduce(OutType* out,
-          size_t len,
-          OutType neutral,
-          MapOp map,
-          ReduceLambda op,
-          cudaStream_t stream,
-          const InType* in,
-          Args... args)
+               size_t len,
+               OutType neutral,
+               MapOp map,
+               ReduceLambda op,
+               cudaStream_t stream,
+               const InType* in,
+               Args... args)
 {
-detail::mapThenReduceImpl<InType, OutType, IdxType, MapOp, ReduceLambda, TPB, Args...>(
-out, len, neutral, map, op, stream, in, args...);
+  detail::mapThenReduceImpl<InType, OutType, IdxType, MapOp, ReduceLambda, TPB, Args...>(
+    out, len, neutral, map, op, stream, in, args...);
 }
 
 /**
@@ -84,36 +84,36 @@ out, len, neutral, map, op, stream, in, args...);
  * @param[in] op the fused reduction device lambda
  * @param[in] args additional input arrays
  */
- template <typename InValueType,
- typename MapOp,
- typename ReduceLambda,
- typename IndexType,
- typename OutValueType,
- typename... Args>
+template <typename InValueType,
+          typename MapOp,
+          typename ReduceLambda,
+          typename IndexType,
+          typename OutValueType,
+          typename... Args>
 void map_reduce(const raft::handle_t& handle,
-       raft::device_vector_view<const InValueType, IndexType> in,
-       raft::device_scalar_view<OutValueType> out,
-       OutValueType neutral,
-       MapOp map,
-       ReduceLambda op,
-       Args... args)
+                raft::device_vector_view<const InValueType, IndexType> in,
+                raft::device_scalar_view<OutValueType> out,
+                OutValueType neutral,
+                MapOp map,
+                ReduceLambda op,
+                Args... args)
 {
-RAFT_EXPECTS(out.is_exhaustive(), "Output is not exhaustive");
-RAFT_EXPECTS(in.is_exhaustive(), "Input is not exhaustive");
+  RAFT_EXPECTS(out.is_exhaustive(), "Output is not exhaustive");
+  RAFT_EXPECTS(in.is_exhaustive(), "Input is not exhaustive");
 
-mapReduce<InValueType, MapOp, ReduceLambda, IndexType, 256, OutValueType, Args...>(
-out.data_handle(),
-in.extent(0),
-neutral,
-map,
-op,
-handle.get_stream(),
-in.data_handle(),
-args...);
+  mapReduce<InValueType, MapOp, ReduceLambda, IndexType, 256, OutValueType, Args...>(
+    out.data_handle(),
+    in.extent(0),
+    neutral,
+    map,
+    op,
+    handle.get_stream(),
+    in.data_handle(),
+    args...);
 }
 
 /** @} */  // end of map_reduce
 
-} // end namespace raft::linalg
+}  // end namespace raft::linalg
 
 #endif
