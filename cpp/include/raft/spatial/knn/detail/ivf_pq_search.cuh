@@ -270,30 +270,24 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
  *     1. `pq_bits * vec_len % 8 * sizeof(OpT) == 0`.
  *     2. `pq_dim % vec_len == 0`
  *
- * @tparam IdxT indexing type
  * @tparam LutT type of the elements in the lookup table.
  *
  * @param pq_bits The bit length of an encoded vector element after compression by PQ
  * @param vec_len == 8 * sizeof(OpT) / gcd(8 * sizeof(OpT), pq_bits)
  * @param pq_dim
- * @param data_ix
- * @param[in] pq_dataset a device pointer to the dataset [n_rows, pq_dim * pq_bits / 8]
+ * @param[in] pq_code_ptr
+ *   a device pointer to the dataset at the indexed position (`pq_dim * pq_bits` bits-wide)
  * @param[in] lut_scores a device or shared memory pointer to the lookup table [pq_dim, pq_width]
  *
  * @return the score for the entry `data_ix` in the `pq_dataset`.
  */
-template <typename OpT, typename IdxT, typename LutT>
-__device__ auto ivfpq_compute_score(uint32_t pq_bits,
-                                    uint32_t vec_len,
-                                    uint32_t pq_dim,
-                                    IdxT data_ix,
-                                    const uint8_t* pq_dataset,
-                                    const LutT* lut_scores) -> float
+template <typename OpT, typename LutT>
+__device__ auto ivfpq_compute_score(
+  uint32_t pq_bits, uint32_t vec_len, uint32_t pq_dim, const OpT* pq_head, const LutT* lut_scores)
+  -> float
 {
   float score                   = 0.0;
   constexpr uint32_t kBitsTotal = 8 * sizeof(OpT);
-  const OpT* pq_head =
-    reinterpret_cast<const OpT*>(pq_dataset + uint64_t(data_ix) * (pq_dim * pq_bits / 8));
   for (int j = 0; j < pq_dim; j += vec_len) {
     OpT pq_code = pq_head[0];
     pq_head += 1;
@@ -420,7 +414,6 @@ __launch_bounds__(1024, 1) __global__
                                        uint32_t pq_bits,
                                        uint32_t pq_dim,
                                        uint32_t batch_size,
-                                       uint32_t max_samples,
                                        distance::DistanceType metric,
                                        codebook_gen codebook_kind,
                                        uint32_t topk,
@@ -488,7 +481,8 @@ __launch_bounds__(1024, 1) __global__
       out_indices = _out_indices + (topk * (probe_ix + (n_probes * batch_ix)));
     } else {
       // Store all calculated distances to out_scores
-      out_scores = _out_scores + (max_samples * batch_ix);
+      // max_samples == cluster_offsets[n_probes]
+      out_scores = _out_scores + (cluster_offsets[n_probes] * batch_ix);
     }
     uint32_t label              = cluster_labels[probe_ix];
     const float* cluster_center = cluster_centers + (dim * label);
@@ -550,11 +544,13 @@ __launch_bounds__(1024, 1) __global__
     __syncthreads();
 
     // Compute a distance for each sample
+    const uint32_t pq_line_width = pq_dim * pq_bits / 8;
     for (uint32_t i = threadIdx.x; i < n_samples32; i += blockDim.x) {
       OutT score = block_sort_t<Capacity, OutT>::queue_t::kDummy;
       if (i < n_samples) {
-        float fscore = ivfpq_compute_score<OpT, IdxT, LutT>(
-          pq_bits, vec_len, pq_dim, cluster_offset + i, pq_dataset, lut_scores);
+        auto pq_ptr =
+          reinterpret_cast<const OpT*>(pq_dataset + uint64_t(pq_line_width) * (cluster_offset + i));
+        float fscore = ivfpq_compute_score<OpT, LutT>(pq_bits, vec_len, pq_dim, pq_ptr, lut_scores);
         switch (metric) {
           // For similarity metrics,
           // we negate the scores as we hardcoded select-topk to always take the minimum
@@ -577,6 +573,7 @@ __launch_bounds__(1024, 1) __global__
       __syncthreads();
     } else {
       // fill in the rest of the out_scores with dummy values
+      uint32_t max_samples = uint32_t(cluster_offsets[n_probes]);
       if (probe_ix + 1 == n_probes) {
         for (uint32_t i = threadIdx.x + sample_offset + n_samples; i < max_samples;
              i += blockDim.x) {
@@ -597,7 +594,6 @@ __launch_bounds__(1024, 1) __global__
 template <typename IdxT, typename OutT, typename LutT>
 struct ivfpq_compute_similarity {
   using kernel_t = void (*)(uint32_t,
-                            uint32_t,
                             uint32_t,
                             uint32_t,
                             uint32_t,
@@ -877,7 +873,6 @@ void ivfpq_search(const handle_t& handle,
                                                          index.pq_bits(),
                                                          index.pq_dim(),
                                                          n_queries,
-                                                         max_samples,
                                                          index.metric(),
                                                          index.codebook_kind(),
                                                          topK,
