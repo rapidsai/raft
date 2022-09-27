@@ -17,6 +17,7 @@
 
 #include <raft/cluster/detail/single_linkage.cuh>
 #include <raft/cluster/single_linkage_types.hpp>
+#include <raft/core/device_mdspan.hpp>
 
 namespace raft::cluster {
 
@@ -48,11 +49,49 @@ void single_linkage(const raft::handle_t& handle,
                     size_t m,
                     size_t n,
                     raft::distance::DistanceType metric,
-                    linkage_output<value_idx, value_t>* out,
+                    linkage_output<value_idx>* out,
                     int c,
                     size_t n_clusters)
 {
   detail::single_linkage<value_idx, value_t, dist_type>(
     handle, X, m, n, metric, out, c, n_clusters);
 }
+
+/**
+ * Single-linkage clustering, capable of constructing a KNN graph to
+ * scale the algorithm beyond the n^2 memory consumption of implementations
+ * that use the fully-connected graph of pairwise distances by connecting
+ * a knn graph when k is not large enough to connect it.
+
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam dist_type method to use for constructing connectivities graph
+ * @param[in] handle raft handle
+ * @param[in] X dense input matrix in row-major layout
+ * @param[in] m number of rows in X
+ * @param[in] n number of columns in X
+ * @param[in] metric distance metrix to use when constructing connectivities graph
+ * @param[out] out struct containing output dendrogram and cluster assignments
+ * @param[in] c a constant used when constructing connectivities from knn graph. Allows the indirect
+ control of k. The algorithm will set `k = log(n) + c`
+ * @param[in] n_clusters number of clusters to assign data samples
+ */
+template <typename value_t, typename idx_t, LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
+void single_linkage(const raft::handle_t& handle,
+                    raft::device_matrix_view<const value_t, idx_t, row_major> X,
+                    raft::distance::DistanceType metric,
+                    linkage_output<idx_t>& out,
+                    int c,
+                    size_t n_clusters)
+{
+  detail::single_linkage<idx_t, value_t, dist_type>(handle,
+                                                    X.data_handle(),
+                                                    static_cast<std::size_t>(X.extent(0)),
+                                                    static_cast<std::size_t>(X.extent(1)),
+                                                    metric,
+                                                    &out,
+                                                    c,
+                                                    n_clusters);
+}
+
 };  // namespace raft::cluster

@@ -74,19 +74,19 @@ void gather(const raft::handle_t& handle,
   RAFT_EXPECTS(out.extent(1) == in.extent(1),
                "Number of columns in input and output matrices must be equal.");
 
-  const matrix_t* in_ptr = in.data_handle();
-  map_t* map_ptr         = map.data_handle();
-  matrix_t* out_ptr      = out.data_handle();
+  matrix_t* in_ptr  = const_cast<matrix_t*>(in.data_handle());
+  map_t* map_ptr    = map.data_handle();
+  matrix_t* out_ptr = out.data_handle();
 
   cudaStream_t stream = handle.get_stream();
 
-  detail::gather(in_ptr,
-                 static_cast<int>(in.extent(1)),
-                 static_cast<int>(in.extent(0)),
-                 map_ptr,
-                 static_cast<int>(map.extent(0)),
-                 out_ptr,
-                 stream);
+  raft::matrix::detail::gather(in_ptr,
+                               static_cast<int>(in.extent(1)),
+                               static_cast<int>(in.extent(0)),
+                               map_ptr,
+                               static_cast<int>(map.extent(0)),
+                               out_ptr,
+                               stream);
 }
 
 /**
