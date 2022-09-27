@@ -23,8 +23,6 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
-#include <rmm/mr/device/managed_memory_resource.hpp>
-
 #include <type_traits>
 
 namespace raft::spatial::knn::ivf_pq {
@@ -128,7 +126,7 @@ struct index : knn::index {
    */
   [[nodiscard]] constexpr inline auto dim_ext() const noexcept -> uint32_t
   {
-    return (dim() + 8u) & ~7u;  // Pow2<8>::roundUp(dim() + 1)
+    return raft::round_up_safe(dim() + 1, 8u);
   }
   /**
    * Dimensionality of the data after transforming it for PQ processing
@@ -200,8 +198,7 @@ struct index : knn::index {
       indices_{make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0))},
       rotation_matrix_{
         make_device_mdarray<float>(handle, make_extents<uint32_t>(this->rot_dim(), this->dim()))},
-      list_offsets_{make_device_mdarray<IdxT>(
-        handle, managed_memory_, make_extents<uint32_t>(this->n_lists() + 1))},
+      list_offsets_{make_device_mdarray<IdxT>(handle, make_extents<uint32_t>(this->n_lists() + 1))},
       centers_{make_device_mdarray<float>(
         handle, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
       centers_rot_{make_device_mdarray<float>(
@@ -331,41 +328,6 @@ struct index : knn::index {
   uint32_t pq_bits_;
   uint32_t pq_dim_;
   uint32_t n_nonempty_lists_;
-
-  /**
-   * This structure keeps the managed memory resource and a pool on top of it
-   * and ensures they're never moved
-   *   (because other rmm resources in this class use raw pointers).
-   */
-  struct managed_memory_t {
-    rmm::mr::managed_memory_resource* upstream;
-    rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource>* pool;
-
-    managed_memory_t()  // NOLINT
-      : upstream{new rmm::mr::managed_memory_resource()},
-        pool{new rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource>(upstream)}
-    {
-    }
-    managed_memory_t(managed_memory_t&& other) : pool{other.pool}, upstream{other.upstream}
-    {
-      other.pool     = nullptr;
-      other.upstream = nullptr;
-    }
-    ~managed_memory_t()
-    {
-      if (pool != nullptr) { delete pool; }
-      if (upstream != nullptr) { delete upstream; }
-    }
-    auto operator=(managed_memory_t&& other) -> managed_memory_t&
-    {
-      std::swap(upstream, other.upstream);
-      std::swap(pool, other.pool);
-      return *this;
-    }
-    managed_memory_t(const managed_memory_t&) = delete;
-    auto operator=(const managed_memory_t&) -> index& = delete;
-    operator rmm::mr::device_memory_resource*() const { return pool; }  // NOLINT
-  } managed_memory_;
 
   device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers_;
   device_mdarray<uint8_t, extent_2d<IdxT>, row_major> pq_dataset_;

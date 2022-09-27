@@ -569,10 +569,17 @@ inline auto extend(const handle_t& handle,
   // (this makes it easy to estimate the max number of samples during search).
   rmm::device_uvector<uint32_t> old_cluster_sizes_buf(n_clusters, stream, &managed_memory);
   rmm::device_uvector<uint32_t> ext_cluster_sizes_buf(n_clusters, stream, &managed_memory);
+  rmm::device_uvector<IdxT> old_cluster_offsets_buf(n_clusters + 1, stream, &managed_memory);
+  rmm::device_uvector<IdxT> ext_cluster_offsets_buf(n_clusters + 1, stream, &managed_memory);
   rmm::device_uvector<uint32_t> cluster_ordering(n_clusters, stream, &managed_memory);
   auto old_cluster_sizes   = old_cluster_sizes_buf.data();
   auto ext_cluster_sizes   = ext_cluster_sizes_buf.data();
-  auto old_cluster_offsets = orig_index.list_offsets().data_handle();
+  auto old_cluster_offsets = old_cluster_offsets_buf.data();
+  auto ext_cluster_offsets = ext_cluster_offsets_buf.data();
+  copy(old_cluster_offsets,
+       orig_index.list_offsets().data_handle(),
+       orig_index.list_offsets().size(),
+       stream);
 
   uint32_t n_nonempty_lists = 0;
   {
@@ -645,8 +652,7 @@ inline auto extend(const handle_t& handle,
        stream);
 
   // calculate extended cluster offsets
-  auto ext_indices         = ext_index.indices().data_handle();
-  auto ext_cluster_offsets = ext_index.list_offsets().data_handle();
+  auto ext_indices = ext_index.indices().data_handle();
   {
     IdxT zero = 0;
     update_device(ext_cluster_offsets, &zero, 1, stream);
@@ -655,6 +661,10 @@ inline auto extend(const handle_t& handle,
                            ext_cluster_sizes + n_clusters,
                            ext_cluster_offsets + 1,
                            [] __device__(IdxT s, uint32_t l) { return s + l; });
+    copy(ext_index.list_offsets().data_handle(),
+         ext_cluster_offsets,
+         ext_index.list_offsets().size(),
+         stream);
   }
 
   // copy cluster-ordering-dependent data
