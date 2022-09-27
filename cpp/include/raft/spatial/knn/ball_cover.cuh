@@ -155,17 +155,14 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  *               many datasets can still have great recall even by only
  *               looking in the closest landmark.
  */
-template <typename idx_t,
-          typename value_t,
-          typename int_t,
-          typename matrix_idx_t>
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
 void rbc_all_knn_query(const raft::handle_t& handle,
                        BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                        raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
                        raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
                        int_t k,
                        bool perform_post_filtering = true,
-                       float weight = 1.0)
+                       float weight                = 1.0)
 {
   RAFT_EXPECTS(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   RAFT_EXPECTS(k <= index.m,
@@ -279,10 +276,7 @@ void rbc_knn_query(const raft::handle_t& handle,
  *               many datasets can still have great recall even by only
  *               looking in the closest landmark.
  */
-template <typename idx_t,
-          typename value_t,
-          typename int_t,
-          typename matrix_idx_t>
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
 void rbc_knn_query(const raft::handle_t& handle,
                    BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                    raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
@@ -290,7 +284,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                    raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
                    int_t k,
                    bool perform_post_filtering = true,
-                   float weight = 1.0)
+                   float weight                = 1.0)
 {
   RAFT_EXPECTS(k <= index.m,
                "k must be less than or equal to the number of data points in the index");
