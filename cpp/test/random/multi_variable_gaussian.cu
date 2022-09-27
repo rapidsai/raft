@@ -279,19 +279,21 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
     raft::update_device(x_d.data(), x.data(), dim, stream);
 
     // Set up the multivariable Gaussian computation
-    auto token    = detail::setup_multi_variable_gaussian<T>(handle, dim, method);
-    std::size_t o = detail::workspace_size(token);
+    {
+      // Test that setup with a default memory resource compiles.
+      auto token = detail::setup_multi_variable_gaussian<T>(handle, dim, method);
+      ASSERT_EQ(dim, token.dim()); // just so token is used
+    }
+    rmm::mr::device_memory_resource* mem_resource = rmm::mr::get_current_device_resource();
+    ASSERT_TRUE(mem_resource != nullptr);
+    auto token = detail::setup_multi_variable_gaussian<T>(handle, mem_resource, dim, method);
 
-    // give the workspace area to mvg
-    workspace_d.resize(o, stream);
-
-    raft::device_vector_view<T, int> workspace_view(workspace_d.data(), o);
     std::optional<raft::device_vector_view<const T, int>> x_view(std::in_place, x_d.data(), dim);
     raft::device_matrix_view<T, int, raft::col_major> P_view(P_d.data(), dim, dim);
     raft::device_matrix_view<T, int, raft::col_major> X_view(X_d.data(), dim, nPoints);
 
     // X_view is the output.
-    detail::compute_multi_variable_gaussian(token, x_view, P_view, X_view, workspace_view);
+    detail::compute_multi_variable_gaussian(token, x_view, P_view, X_view);
 
     // saving the mean of the randoms in Rand_mean
     //@todo can be swapped with a API that calculates mean

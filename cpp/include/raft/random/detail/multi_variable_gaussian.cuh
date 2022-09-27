@@ -19,6 +19,7 @@
 #include <cmath>
 #include <memory>
 #include <optional>
+#include <rmm/device_uvector.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
@@ -300,7 +301,11 @@ multi_variable_gaussian_setup_token<ValueType> setup_multi_variable_gaussian(
   const raft::handle_t& handle, const int dim, multi_variable_gaussian_decomposition_method method);
 
 template <typename ValueType>
-std::size_t workspace_size(const multi_variable_gaussian_setup_token<ValueType>& token);
+multi_variable_gaussian_setup_token<ValueType> setup_multi_variable_gaussian(
+  const raft::handle_t& handle,
+  rmm::mr::device_memory_resource* mem_resource,
+  const int dim,
+  multi_variable_gaussian_decomposition_method method);
 
 // @param x[in] vector of dim elements
 // @param P[inout] On input, dim x dim matrix; overwritten on output
@@ -323,7 +328,11 @@ class multi_variable_gaussian_setup_token {
     multi_variable_gaussian_decomposition_method method);
 
   template <typename T>
-  friend std::size_t workspace_size(multi_variable_gaussian_setup_token<T>& token);
+  friend multi_variable_gaussian_setup_token<T> setup_multi_variable_gaussian(
+    const raft::handle_t& handle,
+    rmm::mr::device_memory_resource* mem_resource,
+    const int dim,
+    multi_variable_gaussian_decomposition_method method);
 
   template <typename T>
   friend void compute_multi_variable_gaussian(
@@ -348,36 +357,53 @@ class multi_variable_gaussian_setup_token {
   // Constructor, only for use by friend functions.
   // Hiding this will let us change the implementation in the future.
   multi_variable_gaussian_setup_token(const raft::handle_t& handle,
+                                      rmm::mr::device_memory_resource* mem_resource,
                                       const int dim,
                                       multi_variable_gaussian_decomposition_method method)
     : impl_(std::make_unique<multi_variable_gaussian_impl<ValueType>>(
         handle, dim, new_enum_to_old_enum(method))),
+      handle_(handle),
+      mem_resource_(mem_resource),
       dim_(dim)
   {
+    RAFT_EXPECTS(mem_resource_ != nullptr, "multi_variable_gaussian: device_memory_resource pointer must be nonnull");
   }
 
  private:
   std::unique_ptr<multi_variable_gaussian_impl<ValueType>> impl_;
+  const raft::handle_t& handle_;
+  rmm::mr::device_memory_resource* mem_resource_ = nullptr;
   int dim_ = 0;
 
  public:
   // FIXME (mfh 2022/09/23) Just a hack, because my friend declarations aren't working.
   multi_variable_gaussian_impl<ValueType>& get_impl() const { return *impl_; }
 
+  auto allocate_workspace() const {
+    const auto num_elements = impl_->get_workspace_size();
+    return rmm::device_uvector<ValueType>{num_elements, handle_.get_stream(), mem_resource_};
+  }
+
   int dim() const { return dim_; }
 };
 
 template <typename ValueType>
 multi_variable_gaussian_setup_token<ValueType> setup_multi_variable_gaussian(
-  const raft::handle_t& handle, const int dim, multi_variable_gaussian_decomposition_method method)
+  const raft::handle_t& handle,
+  rmm::mr::device_memory_resource* mem_resource,
+  const int dim,
+  multi_variable_gaussian_decomposition_method method)
 {
-  return multi_variable_gaussian_setup_token<ValueType>(handle, dim, method);
+  return multi_variable_gaussian_setup_token<ValueType>(handle, mem_resource, dim, method);
 }
 
 template <typename ValueType>
-std::size_t workspace_size(multi_variable_gaussian_setup_token<ValueType>& token)
+multi_variable_gaussian_setup_token<ValueType> setup_multi_variable_gaussian(
+  const raft::handle_t& handle, const int dim, multi_variable_gaussian_decomposition_method method)
 {
-  return token.get_impl().get_workspace_size();
+  rmm::mr::device_memory_resource* mem_resource =
+    rmm::mr::get_current_device_resource();
+  return multi_variable_gaussian_setup_token<ValueType>(handle, mem_resource, dim, method);
 }
 
 template <typename ValueType>
@@ -385,13 +411,8 @@ void compute_multi_variable_gaussian(
   multi_variable_gaussian_setup_token<ValueType>& token,
   std::optional<raft::device_vector_view<const ValueType, int>> x,
   raft::device_matrix_view<ValueType, int, raft::col_major> P,
-  raft::device_matrix_view<ValueType, int, raft::col_major> X,
-  raft::device_vector_view<ValueType, int> workspace)
+  raft::device_matrix_view<ValueType, int, raft::col_major> X)
 {
-  RAFT_EXPECTS(static_cast<std::size_t>(workspace.extent(0)) >= workspace_size(token),
-               "multi_variable_gaussian: Insufficient workspace");
-  token.get_impl().set_workspace(workspace.data_handle());
-
   const int dim = P.extent(0);
   RAFT_EXPECTS(dim == token.dim(),
                "multi_variable_gaussian: "
@@ -409,7 +430,6 @@ void compute_multi_variable_gaussian(
                "P.extent(0) = %d != X.extent(0) = %d",
                P.extent(0),
                X.extent(0));
-
   const bool x_has_value = x.has_value();
   const int x_extent_0   = x_has_value ? (*x).extent(0) : 0;
   RAFT_EXPECTS(not x_has_value || P.extent(0) == x_extent_0,
@@ -420,6 +440,9 @@ void compute_multi_variable_gaussian(
 
   const int nPoints      = X.extent(1);
   const ValueType* x_ptr = x_has_value ? (*x).data_handle() : nullptr;
+
+  auto workspace = token.allocate_workspace();
+  token.get_impl().set_workspace(workspace.data());
   token.get_impl().give_gaussian(nPoints, P.data_handle(), X.data_handle(), x_ptr);
 }
 
