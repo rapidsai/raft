@@ -68,6 +68,20 @@ struct index_params : knn::index_params {
   uint32_t pq_dim = 0;
   /** How PQ codebooks are created. */
   codebook_gen codebook_kind = codebook_gen::PER_SUBSPACE;
+  /**
+   * Apply a random rotation matrix on the input data and queries even if `dim % pq_dim == 0`.
+   *
+   * Note: if `dim` is not multiple of `pq_dim`, a random rotation is always applied to the input
+   * data and queries to transform the working space from `dim` to `rot_dim`, which may be slightly
+   * larger than the original space and and is a multiple of `pq_dim` (`rot_dim % pq_dim == 0`).
+   * However, this transform is not necessary when `dim` is multiple of `pq_dim`
+   *   (`dim == rot_dim`, hence no need in adding "extra" data columns / features).
+   *
+   * By default, if `dim == rot_dim`, the rotation transform is initialized with the identity
+   * matrix. When `force_random_rotation == true`, a random orthogonal transform matrix is generated
+   * regardless of the values of `dim` and `pq_dim`.
+   */
+  bool force_random_rotation = false;
 };
 
 struct search_params : knn::search_params {

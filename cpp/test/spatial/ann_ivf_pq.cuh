@@ -324,6 +324,9 @@ inline auto enum_variety() -> test_cases_t
   ADD_CASE({ x.index_params.pq_bits = 7; });
   ADD_CASE({ x.index_params.pq_bits = 8; });
 
+  ADD_CASE({ x.index_params.force_random_rotation = true; });
+  ADD_CASE({ x.index_params.force_random_rotation = false; });
+
   ADD_CASE({ x.search_params.lut_dtype = CUDA_R_32F; });
   ADD_CASE({ x.search_params.lut_dtype = CUDA_R_16F; });
   ADD_CASE({ x.search_params.lut_dtype = CUDA_R_8U; });

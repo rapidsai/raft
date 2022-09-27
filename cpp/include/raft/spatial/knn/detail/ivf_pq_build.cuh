@@ -171,12 +171,14 @@ inline void ivfpq_encode(uint32_t n_rows,
  * @brief Fill-in a random orthogonal transformation matrix.
  *
  * @param handle
+ * @param force_random_rotation
  * @param n_rows
  * @param n_cols
  * @param[out] rotation_matrix device pointer to a row-major matrix of size [n_rows, n_cols].
  * @param rng random number generator state
  */
 inline void make_rotation_matrix(const handle_t& handle,
+                                 bool force_random_rotation,
                                  uint32_t n_rows,
                                  uint32_t n_cols,
                                  float* rotation_matrix,
@@ -184,22 +186,28 @@ inline void make_rotation_matrix(const handle_t& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::make_rotation_matrix(%u * %u)", n_rows, n_cols);
-  bool inplace = n_rows == n_cols;
   auto stream  = handle.get_stream();
+  bool inplace = n_rows == n_cols;
   uint32_t n   = std::max(n_rows, n_cols);
-  rmm::device_uvector<float> buf(inplace ? 0 : n * n, stream);
-  float* mat = inplace ? rotation_matrix : buf.data();
-  rng.normal(mat, n * n, 0.0f, 1.0f, stream);
-  linalg::detail::qrGetQ_inplace(handle, mat, n, n, stream);
-  if (!inplace) {
-    RAFT_CUDA_TRY(cudaMemcpy2DAsync(rotation_matrix,
-                                    sizeof(float) * n_cols,
-                                    mat,
-                                    sizeof(float) * n,
-                                    sizeof(float) * n_cols,
-                                    n_rows,
-                                    cudaMemcpyDefault,
-                                    stream));
+  if (force_random_rotation || !inplace) {
+    rmm::device_uvector<float> buf(inplace ? 0 : n * n, stream);
+    float* mat = inplace ? rotation_matrix : buf.data();
+    rng.normal(mat, n * n, 0.0f, 1.0f, stream);
+    linalg::detail::qrGetQ_inplace(handle, mat, n, n, stream);
+    if (!inplace) {
+      RAFT_CUDA_TRY(cudaMemcpy2DAsync(rotation_matrix,
+                                      sizeof(float) * n_cols,
+                                      mat,
+                                      sizeof(float) * n,
+                                      sizeof(float) * n_cols,
+                                      n_rows,
+                                      cudaMemcpyDefault,
+                                      stream));
+    }
+  } else {
+    uint32_t stride = n + 1;
+    auto f = [stride] __device__(float* out, uint32_t i) -> void { *out = float(i % stride == 0); };
+    linalg::writeOnlyUnaryOp(rotation_matrix, n * n, f, stream);
   }
 }
 
@@ -865,7 +873,8 @@ inline auto build(
                                  stream);
 
   // Make rotation matrix
-  make_rotation_matrix(handle, index.rot_dim(), index.dim(), rotation_matrix);
+  make_rotation_matrix(
+    handle, params.force_random_rotation, index.rot_dim(), index.dim(), rotation_matrix);
 
   // Rotate cluster_centers
   float alpha = 1.0;
