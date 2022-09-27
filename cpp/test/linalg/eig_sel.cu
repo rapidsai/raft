@@ -91,9 +91,9 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
 
     raft::linalg::eig_dc_selective(handle,
                                    cov_matrix_view,
-                                   static_cast<std::size_t>(params.n_eigen_vals),
                                    eig_vectors_view,
                                    eig_vals_view,
+                                   static_cast<std::size_t>(params.n_eigen_vals),
                                    EigVecMemUsage::OVERWRITE_INPUT);
     handle.sync_stream();
   }

@@ -64,16 +64,16 @@ void axpy(const raft::handle_t& handle,
  * @param [in] handle raft::handle_t
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
- * @param [in] incx stride between consecutive elements of x
  * @param [inout] y Output vector
+ * @param [in] incx stride between consecutive elements of x
  * @param [in] incy stride between consecutive elements of y
  */
 template <typename MdspanType, typename = raft::enable_if_device_mdspan<MdspanType>>
 void axpy(const raft::handle_t& handle,
-          raft::device_scalar_view<typename MdspanType::element_type, ScalarIdxType> alpha,
-          const MdspanType x,
-          const int incx,
+          raft::device_scalar_view<const typename MdspanType::element_type, ScalarIdxType> alpha,
+          MdspanType x,
           MdspanType y,
+          const int incx,
           const int incy)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input")
@@ -97,16 +97,16 @@ void axpy(const raft::handle_t& handle,
  * @param [in] handle raft::handle_t
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
- * @param [in] incx stride between consecutive elements of x
  * @param [inout] y Output vector
+ * @param [in] incx stride between consecutive elements of x
  * @param [in] incy stride between consecutive elements of y
  */
 template <typename MdspanType, typename = raft::enable_if_device_mdspan<MdspanType>>
 void axpy(const raft::handle_t& handle,
           raft::host_scalar_view<const typename MdspanType::value_type, ScalarIdxType> alpha,
           MdspanType x,
-          const int incx,
           MdspanType y,
+          const int incx,
           const int incy)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input")

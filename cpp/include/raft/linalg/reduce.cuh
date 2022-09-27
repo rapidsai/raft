@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "apply.hpp"
+#include "linalg_types.hpp"
 #include "detail/reduce.cuh"
 
 #include <raft/core/mdarray.hpp>

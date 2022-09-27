@@ -101,8 +101,8 @@ void coalescedReduction(OutType* dots,
  * <pre>OutType (*FinalLambda)(OutType);</pre>
  * @param handle raft::handle_t
  * @param[in] data Input of type raft::device_matrix_view
- * @param[in] init initial value to use for the reduction
  * @param[out] dots Output of type raft::device_matrix_view
+ * @param[in] init initial value to use for the reduction
  * @param[in] main_op fused elementwise operation to apply before reduction
  * @param[in] reduce_op fused binary reduction operation
  * @param[in] final_op fused elementwise operation to apply before storing results

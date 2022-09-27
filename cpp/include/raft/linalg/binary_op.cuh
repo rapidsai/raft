@@ -63,7 +63,6 @@ void binaryOp(
  * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
  * @tparam OutType Output Type raft::device_mdspan
- * @tparam TPB threads-per-block in the final kernel launched
  * @param[in] handle raft::handle_t
  * @param[in] in1 First input
  * @param[in] in2 Second input
@@ -75,7 +74,6 @@ void binaryOp(
 template <typename InType,
           typename Lambda,
           typename OutType,
-          int TPB  = 256,
           typename = raft::enable_if_device_mdspan<InType, OutType>>
 void binary_op(const raft::handle_t& handle, InType in1, InType in2, OutType out, Lambda op)
 {
@@ -89,10 +87,10 @@ void binary_op(const raft::handle_t& handle, InType in1, InType in2, OutType out
   using out_value_t = typename OutType::value_type;
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    binaryOp<in_value_t, Lambda, out_value_t, std::uint32_t, TPB>(
+    binaryOp<in_value_t, Lambda, out_value_t, std::uint32_t>(
       out.data_handle(), in1.data_handle(), in2.data_handle(), out.size(), op, handle.get_stream());
   } else {
-    binaryOp<in_value_t, Lambda, out_value_t, std::uint64_t, TPB>(
+    binaryOp<in_value_t, Lambda, out_value_t, std::uint64_t>(
       out.data_handle(), in1.data_handle(), in2.data_handle(), out.size(), op, handle.get_stream());
   }
 }

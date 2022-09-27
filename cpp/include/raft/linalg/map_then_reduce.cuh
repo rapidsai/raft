@@ -20,7 +20,6 @@
 
 #include "detail/map_then_reduce.cuh"
 
-#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace linalg {
@@ -69,7 +68,6 @@ void mapThenSumReduce(
  * @param in the input array
  * @param args additional input arrays
  */
-
 template <typename InType,
           typename MapOp,
           typename ReduceLambda,
@@ -77,6 +75,7 @@ template <typename InType,
           int TPB          = 256,
           typename OutType = InType,
           typename... Args>
+[[deprecated("Use function `mapReduce` from `raft/linalg/map_reduce.cuh")]]
 void mapThenReduce(OutType* out,
                    size_t len,
                    OutType neutral,
@@ -89,60 +88,6 @@ void mapThenReduce(OutType* out,
   detail::mapThenReduceImpl<InType, OutType, IdxType, MapOp, ReduceLambda, TPB, Args...>(
     out, len, neutral, map, op, stream, in, args...);
 }
-
-/**
- * @defgroup map_reduce Map-Reduce ops
- * @{
- */
-
-/**
- * @brief CUDA version of map and then generic reduction operation
- * @tparam InValueType the data-type of the input
- * @tparam MapOp the device-lambda performing the actual map operation
- * @tparam ReduceLambda the device-lambda performing the actual reduction
- * @tparam IndexType the index type
- * @tparam OutValueType the data-type of the output
- * @tparam TPB threads-per-block in the final kernel launched
- * @tparam Args additional parameters
- * @param[in] handle raft::handle_t
- * @param[in] in the input of type raft::device_vector_view
- * @param[in] neutral The neutral element of the reduction operation. For example:
- *    0 for sum, 1 for multiply, +Inf for Min, -Inf for Max
- * @param[out] out the output reduced value assumed to be a raft::device_scalar_view
- * @param[in] map the fused device-lambda
- * @param[in] op the fused reduction device lambda
- * @param[in] args additional input arrays
- */
-template <typename InValueType,
-          typename MapOp,
-          typename ReduceLambda,
-          typename IndexType,
-          typename OutValueType,
-          int TPB = 256,
-          typename... Args>
-void map_reduce(const raft::handle_t& handle,
-                raft::device_vector_view<const InValueType, IndexType> in,
-                raft::device_scalar_view<OutValueType> out,
-                OutValueType neutral,
-                MapOp map,
-                ReduceLambda op,
-                Args... args)
-{
-  RAFT_EXPECTS(out.is_exhaustive(), "Output is not exhaustive");
-  RAFT_EXPECTS(in.is_exhaustive(), "Input is not exhaustive");
-
-  mapThenReduce<InValueType, MapOp, ReduceLambda, IndexType, TPB, OutValueType, Args...>(
-    out.data_handle(),
-    in.extent(0),
-    neutral,
-    map,
-    op,
-    handle.get_stream(),
-    in.data_handle(),
-    args...);
-}
-
-/** @} */  // end of map_reduce
 
 };  // end namespace linalg
 };  // end namespace raft

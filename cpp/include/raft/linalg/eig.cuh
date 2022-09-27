@@ -155,17 +155,17 @@ void eig_dc(const raft::handle_t& handle,
  * @param[in] handle raft::handle_t
  * @param[in] in input raft::device_matrix_view (symmetric matrix that has real eig values and
  * vectors)
- * @param[in] n_eig_vals: number of eigenvectors to be generated
  * @param[out] eig_vectors: eigenvectors output of type raft::device_matrix_view
  * @param[out] eig_vals: eigen values output of type raft::device_vector_view
+ * @param[in] n_eig_vals: number of eigenvectors to be generated
  * @param[in] memUsage: the memory selection for eig vector output
  */
 template <typename ValueType, typename IndexType>
 void eig_dc_selective(const raft::handle_t& handle,
                       raft::device_matrix_view<ValueType, IndexType, raft::col_major> in,
-                      std::size_t n_eig_vals,
                       raft::device_matrix_view<ValueType, IndexType, raft::col_major> eig_vectors,
                       raft::device_vector_view<ValueType, IndexType> eig_vals,
+                      std::size_t n_eig_vals,
                       EigVecMemUsage memUsage)
 {
   RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
@@ -197,7 +197,7 @@ void eig_dc_selective(const raft::handle_t& handle,
  * @param[out] eig_vectors: eigenvectors output of type raft::device_matrix_view
  * @param[out] eig_vals: eigen values output of type raft::device_vector_view
  * @param[in] tol: error tolerance for the jacobi method. Algorithm stops when the
- * error is below tol
+                   Frobenius norm of the absolute error is below tol
  * @param[in] sweeps: number of sweeps in the Jacobi algorithm. The more the better
  * accuracy.
  */

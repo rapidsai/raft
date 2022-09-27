@@ -83,7 +83,6 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
  * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
  * @tparam OutType Output Type raft::device_mdspan
- * @tparam TPB threads-per-block in the final kernel launched
  * @param[in] handle raft::handle_t
  * @param[in] in Input
  * @param[out] out Output
@@ -94,7 +93,6 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
 template <typename InType,
           typename Lambda,
           typename OutType,
-          int TPB  = 256,
           typename = raft::enable_if_device_mdspan<InType, OutType>>
 void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
 {
@@ -106,19 +104,19 @@ void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
   using out_value_t = typename OutType::value_type;
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    unaryOp<in_value_t, Lambda, std::uint32_t, out_value_t, TPB>(
+    unaryOp<in_value_t, Lambda, std::uint32_t, out_value_t>(
       out.data_handle(), in.data_handle(), out.size(), op, handle.get_stream());
   } else {
-    unaryOp<in_value_t, Lambda, std::uint64_t, out_value_t, TPB>(
+    unaryOp<in_value_t, Lambda, std::uint64_t, out_value_t>(
       out.data_handle(), in.data_handle(), out.size(), op, handle.get_stream());
   }
 }
 
 /**
  * @brief perform element-wise binary operation on the input arrays
+ * This function does not read from the input
  * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
- * @tparam TPB threads-per-block in the final kernel launched
  * @param[in] handle raft::handle_t
  * @param[inout] in Input/Output
  * @param[in] op the device-lambda
@@ -127,7 +125,6 @@ void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
  */
 template <typename InType,
           typename Lambda,
-          int TPB  = 256,
           typename = raft::enable_if_device_mdspan<InType>>
 void write_only_unary_op(const raft::handle_t& handle, InType in, Lambda op)
 {
@@ -136,10 +133,10 @@ void write_only_unary_op(const raft::handle_t& handle, InType in, Lambda op)
   using in_value_t = typename InType::value_type;
 
   if (in.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    writeOnlyUnaryOp<in_value_t, Lambda, std::uint32_t, TPB>(
+    writeOnlyUnaryOp<in_value_t, Lambda, std::uint32_t>(
       in.data_handle(), in.size(), op, handle.get_stream());
   } else {
-    writeOnlyUnaryOp<in_value_t, Lambda, std::uint64_t, TPB>(
+    writeOnlyUnaryOp<in_value_t, Lambda, std::uint64_t>(
       in.data_handle(), in.size(), op, handle.get_stream());
   }
 }

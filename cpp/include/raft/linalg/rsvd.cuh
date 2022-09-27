@@ -200,6 +200,30 @@ void rsvd_fixed_rank(
 }
 
 /**
+ * @brief Overload of `rsvd_fixed_rank` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `rsvd_fixed_rank`.
+ */
+ template <typename ValueType, typename IndexType, typename UType, typename VType>
+ void rsvd_fixed_rank(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_vector_view<ValueType, IndexType> S_vec,
+  IndexType p,
+  ValueType tol,
+  int max_sweeps,
+  UType&& U,
+  VType&& V)
+ {
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
+ 
+   rsvd_fixed_rank(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
+ }
+
+/**
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using symmetric Eigen decomposition, by specifying no. of PCs and
  * upsamples directly. The rectangular input matrix is made square and symmetric using B @ B^T
@@ -253,6 +277,30 @@ void rsvd_fixed_rank_symmetric(
                 max_sweeps,
                 handle.get_stream());
 }
+
+/**
+ * @brief Overload of `rsvd_fixed_rank_symmetric` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `rsvd_fixed_rank_symmetric`.
+ */
+ template <typename ValueType, typename IndexType, typename UType, typename VType>
+ void rsvd_fixed_rank_symmetric(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_vector_view<ValueType, IndexType> S_vec,
+  IndexType p,
+  ValueType tol,
+  int max_sweeps,
+  UType&& U,
+  VType&& V)
+ {
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
+ 
+   rsvd_fixed_rank_symmetric(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
+ }
 
 /**
  * @brief randomized singular value decomposition (RSVD) on a column major
@@ -310,6 +358,30 @@ void rsvd_fixed_rank_jacobi(
 }
 
 /**
+ * @brief Overload of `rsvd_fixed_rank_jacobi` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `rsvd_fixed_rank_jacobi`.
+ */
+ template <typename ValueType, typename IndexType, typename UType, typename VType>
+ void rsvd_fixed_rank_jacobi(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_vector_view<ValueType, IndexType> S_vec,
+  IndexType p,
+  ValueType tol,
+  int max_sweeps,
+  UType&& U,
+  VType&& V)
+ {
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
+ 
+   rsvd_fixed_rank_sjacobi(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
+ }
+
+/**
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using Jacobi method, by specifying no. of PCs and
  * upsamples directly. The rectangular input matrix is made square and symmetric using B @ B^T
@@ -363,6 +435,30 @@ void rsvd_fixed_rank_symmetric_jacobi(
                 max_sweeps,
                 handle.get_stream());
 }
+
+/**
+ * @brief Overload of `rsvd_fixed_rank_symmetric_jacobi` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `rsvd_fixed_rank_symmetric_jacobi`.
+ */
+ template <typename ValueType, typename IndexType, typename UType, typename VType>
+ void rsvd_fixed_rank_symmetric_jacobi(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_vector_view<ValueType, IndexType> S_vec,
+  IndexType p,
+  ValueType tol,
+  int max_sweeps,
+  UType&& U,
+  VType&& V)
+ {
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
+ 
+   rsvd_fixed_rank_symmetric_jacobi(handle, M, S_vec, p, tol, max_sweeps, U_optional, V_optional);
+ }
 
 /**
  * @brief randomized singular value decomposition (RSVD) on a column major
@@ -422,6 +518,32 @@ void rsvd_perc(
 }
 
 /**
+ * @brief Overload of `rsvd_perc` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `rsvd_perc`.
+ */
+ template <typename ValueType, typename IndexType, typename UType, typename VType>
+ void rsvd_perc(
+   const raft::handle_t& handle,
+   raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+   raft::device_vector_view<ValueType, IndexType> S_vec,
+   ValueType PC_perc,
+   ValueType UpS_perc,
+   ValueType tol,
+   int max_sweeps,
+   UType&& U,
+   VType&& V)
+ {
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
+ 
+   rsvd_perc(handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
+ }
+ 
+
+/**
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using symmetric Eigen decomposition, by specifying the PC and upsampling
  * ratio. The rectangular input matrix is made square and symmetric using B @ B^T
@@ -476,6 +598,31 @@ void rsvd_perc_symmetric(
            tol,
            max_sweeps,
            handle.get_stream());
+}
+
+/**
+ * @brief Overload of `rsvd_perc_symmetric` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `rsvd_perc_symmetric`.
+ */
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void rsvd_perc_symmetric(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_vector_view<ValueType, IndexType> S_vec,
+  ValueType PC_perc,
+  ValueType UpS_perc,
+  ValueType tol,
+  int max_sweeps,
+  UType&& U,
+  VType&& V)
+{
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
+
+  rsvd_perc_symmetric(handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
 }
 
 /**
@@ -536,6 +683,31 @@ void rsvd_perc_jacobi(
 }
 
 /**
+ * @brief Overload of `rsvd_perc_jacobi` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `rsvd_perc_jacobi`.
+ */
+ template <typename ValueType, typename IndexType, typename UType, typename VType>
+ void rsvd_perc_jacobi(
+   const raft::handle_t& handle,
+   raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+   raft::device_vector_view<ValueType, IndexType> S_vec,
+   ValueType PC_perc,
+   ValueType UpS_perc,
+   ValueType tol,
+   int max_sweeps,
+   UType&& U,
+   VType&& V)
+ {
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
+ 
+   rsvd_perc_jacobi(handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
+ }
+
+/**
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using Jacobi method, by specifying the PC and upsampling
  * ratio. The rectangular input matrix is made square and symmetric using B @ B^T
@@ -591,6 +763,31 @@ void rsvd_perc_symmetric_jacobi(
            max_sweeps,
            handle.get_stream());
 }
+
+/**
+ * @brief Overload of `rsvd_perc_symmetric_jacobi` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `rsvd_perc_symmetric_jacobi`.
+ */
+ template <typename ValueType, typename IndexType, typename UType, typename VType>
+ void rsvd_perc_symmetric_jacobi(
+   const raft::handle_t& handle,
+   raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+   raft::device_vector_view<ValueType, IndexType> S_vec,
+   ValueType PC_perc,
+   ValueType UpS_perc,
+   ValueType tol,
+   int max_sweeps,
+   UType&& U,
+   VType&& V)
+ {
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional = std::forward<UType>(U);
+   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional = std::forward<VType>(V);
+ 
+   rsvd_perc_symmetric_jacobi(handle, M, S_vec, PC_perc, UpS_perc, tol, max_sweeps, U_optional, V_optional);
+ }
 
 /** @} */  // end of group rsvd
 

@@ -61,7 +61,6 @@ void ternaryOp(out_t* out,
  * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
  * @tparam OutType Output Type raft::device_mdspan
- * @tparam TPB threads-per-block in the final kernel launched
  * @param[in] handle raft::handle_t
  * @param[in] in1 First input
  * @param[in] in2 Second input
@@ -74,7 +73,6 @@ void ternaryOp(out_t* out,
 template <typename InType,
           typename Lambda,
           typename OutType,
-          int TPB  = 256,
           typename = raft::enable_if_device_mdspan<InType, OutType>>
 void ternary_op(
   const raft::handle_t& handle, InType in1, InType in2, InType in3, OutType out, Lambda op)
@@ -90,7 +88,7 @@ void ternary_op(
   using out_value_t = typename OutType::value_type;
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    ternaryOp<in_value_t, Lambda, out_value_t, std::uint32_t, TPB>(out.data_handle(),
+    ternaryOp<in_value_t, Lambda, out_value_t, std::uint32_t>(out.data_handle(),
                                                                    in1.data_handle(),
                                                                    in2.data_handle(),
                                                                    in3.data_handle(),
@@ -98,7 +96,7 @@ void ternary_op(
                                                                    op,
                                                                    handle.get_stream());
   } else {
-    ternaryOp<in_value_t, Lambda, out_value_t, std::uint64_t, TPB>(out.data_handle(),
+    ternaryOp<in_value_t, Lambda, out_value_t, std::uint64_t>(out.data_handle(),
                                                                    in1.data_handle(),
                                                                    in2.data_handle(),
                                                                    in3.data_handle(),
