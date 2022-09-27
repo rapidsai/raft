@@ -16,15 +16,13 @@
 
 #pragma once
 
-#include <raft/core/device_mdspan.hpp>
+#include "rmat_rectangular_generator_types.cuh"
+
 #include <raft/core/handle.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-
-#include <optional>
-#include <variant>
 
 namespace raft {
 namespace random {
@@ -188,210 +186,6 @@ void rmat_rectangular_gen_caller(IdxT* out,
 }
 
 /**
- * @brief Implementation detail for checking output vector parameter(s)
- *   of `raft::random::rmat_rectangular_gen`.
- *
- * @tparam IdxT Type of each node index; must be integral.
- *
- * Users can provide either `out` by itself, (`out_src` and `out_dst`)
- * together, or all three (`out`, `out_src`, and `out_dst`).
- * This class prevents users from doing anything other than that.
- * It also checks compatibility of dimensions at run time.
- *
- * The following examples show how to create an output parameter.
- *
- * @code
- * rmat_rectangular_gen_output<size_t> output1(out);
- * rmat_rectangular_gen_output<size_t> output2(out_src, out_dst);
- * rmat_rectangular_gen_output<size_t> output3(out, out_src, out_dst);
- * @endcode
- *
- */
-template <typename IdxT>
-class rmat_rectangular_gen_output {
- public:
-  using out_view_type =
-    raft::device_mdspan<IdxT, raft::extents<IdxT, raft::dynamic_extent, 2>, raft::row_major>;
-  using out_src_view_type = raft::device_vector_view<IdxT, IdxT>;
-  using out_dst_view_type = raft::device_vector_view<IdxT, IdxT>;
-
- private:
-  class output_pair {
-   public:
-    output_pair(const out_src_view_type& src, const out_dst_view_type& dst) : src_(src), dst_(dst)
-    {
-      RAFT_EXPECTS(src.extent(0) == dst.extent(0),
-                   "rmat_rectangular_gen: "
-                   "out_src.extent(0) = %zu != out_dst.extent(0) = %zu",
-                   static_cast<std::size_t>(src.extent(0)),
-                   static_cast<std::size_t>(dst.extent(0)));
-    }
-
-    out_src_view_type out_src_view() const { return src_; }
-
-    out_dst_view_type out_dst_view() const { return dst_; }
-
-    IdxT number_of_edges() const { return src_.extent(0); }
-
-   private:
-    out_src_view_type src_;
-    out_dst_view_type dst_;
-  };
-
-  class output_triple {
-   public:
-    output_triple(const out_view_type& out,
-                  const out_src_view_type& src,
-                  const out_dst_view_type& dst)
-      : out_(out), pair_(src, dst)
-    {
-      RAFT_EXPECTS(out.extent(0) == IdxT(2) * dst.extent(0),
-                   "rmat_rectangular_gen: "
-                   "out.extent(0) = %zu != 2 * out_dst.extent(0) = %zu",
-                   static_cast<std::size_t>(out.extent(0)),
-                   static_cast<std::size_t>(IdxT(2) * dst.extent(0)));
-    }
-
-    out_view_type out_view() const { return out_; }
-
-    out_src_view_type out_src_view() const { return pair_.out_src_view(); }
-
-    out_dst_view_type out_dst_view() const { return pair_.out_dst_view(); }
-
-    IdxT number_of_edges() const { return pair_.number_of_edges(); }
-
-   private:
-    out_view_type out_;
-    output_pair pair_;
-  };
-
- public:
-  /**
-   * @brief Constructor taking no vectors,
-   *   that effectively makes all the vectors length zero.
-   */
-  rmat_rectangular_gen_output() = default;
-
-  /**
-   * @brief Constructor taking a single vector, that packs the source
-   *   node ids and destination node ids in array-of-structs fashion.
-   *
-   * @param[out] out Generated edgelist [on device].  In each row, the
-   *   first element is the source node id, and the second element is
-   *   the destination node id.
-   */
-  rmat_rectangular_gen_output(const out_view_type& out) : data_(out) {}
-
-  /**
-   * @brief Constructor taking two vectors, that store the source node
-   *   ids and the destination node ids separately, in
-   *   struct-of-arrays fashion.
-   *
-   * @param[out] out_src Source node id's [on device] [len = n_edges].
-   *
-   * @param[out] out_dst Destination node id's [on device] [len = n_edges].
-   */
-  rmat_rectangular_gen_output(const out_src_view_type& src, const out_dst_view_type& dst)
-    : data_(output_pair(src, dst))
-  {
-  }
-
-  /**
-   * @brief Constructor taking all three vectors.
-   *
-   * @param[out] out Generated edgelist [on device].  In each row, the
-   *   first element is the source node id, and the second element is
-   *   the destination node id.
-   *
-   * @param[out] out_src Source node id's [on device] [len = n_edges].
-   *
-   * @param[out] out_dst Destination node id's [on device] [len = n_edges].
-   */
-  rmat_rectangular_gen_output(const out_view_type& out,
-                              const out_src_view_type& src,
-                              const out_dst_view_type& dst)
-    : data_(output_triple(out, src, dst))
-  {
-  }
-
-  /**
-   * @brief Whether this object was created with a constructor
-   *   taking more than zero arguments.
-   */
-  bool has_value() const { return not std::holds_alternative<std::nullopt_t>(data_); }
-
-  /**
-   * @brief Vector for the output single edgelist; the argument given
-   *   to the one-argument constructor, or the first argument of the
-   *   three-argument constructor; `std::nullopt` if not provided.
-   */
-  std::optional<out_view_type> out_view() const
-  {
-    if (std::holds_alternative<out_view_type>(data_)) {
-      return std::get<out_view_type>(data_);
-    } else if (std::holds_alternative<output_triple>(data_)) {
-      return std::get<output_triple>(data_).out_view();
-    } else {
-      return std::nullopt;
-    }
-  }
-
-  /**
-   * @brief Vector for the output source edgelist; the first argument
-   *   given to the two-argument constructor, or the second argument
-   *   of the three-argument constructor; `std::nullopt` if not provided.
-   */
-  std::optional<out_src_view_type> out_src_view() const
-  {
-    if (std::holds_alternative<output_pair>(data_)) {
-      return std::get<output_pair>(data_).out_src_view();
-    } else if (std::holds_alternative<output_triple>(data_)) {
-      return std::get<output_triple>(data_).out_src_view();
-    } else {
-      return std::nullopt;
-    }
-  }
-
-  /**
-   * @brief Vector for the output destination edgelist; the second
-   *   argument given to the two-argument constructor, or the third
-   *   argument of the three-argument constructor;
-   *   `std::nullopt` if not provided.
-   */
-  std::optional<out_dst_view_type> out_dst_view() const
-  {
-    if (std::holds_alternative<output_pair>(data_)) {
-      return std::get<output_pair>(data_).out_dst_view();
-    } else if (std::holds_alternative<output_triple>(data_)) {
-      return std::get<output_triple>(data_).out_dst_view();
-    } else {
-      return std::nullopt;
-    }
-  }
-
-  /**
-   * @brief Number of edges in the graph; zero if no output vector
-   *   was provided to the constructor.
-   */
-  IdxT number_of_edges() const
-  {
-    if (std::holds_alternative<out_view_type>(data_)) {
-      return std::get<out_view_type>(data_).extent(0);
-    } else if (std::holds_alternative<output_pair>(data_)) {
-      return std::get<output_pair>(data_).number_of_edges();
-    } else if (std::holds_alternative<output_triple>(data_)) {
-      return std::get<output_triple>(data_).number_of_edges();
-    } else {
-      return IdxT(0);
-    }
-  }
-
- private:
-  // Defaults to std::nullopt.
-  std::variant<std::nullopt_t, out_view_type, output_pair, output_triple> data_;
-};
-
-/**
  * @brief Implementation of `raft::random::rmat_rectangular_gen_impl`.
  *
  * @tparam IdxT  type of each node index
@@ -422,7 +216,7 @@ void rmat_rectangular_gen_impl(const raft::handle_t& handle,
   static_assert(std::is_integral_v<IdxT>,
                 "rmat_rectangular_gen: "
                 "Template parameter IdxT must be an integral type");
-  if (not output.has_value()) {
+  if (output.empty()) {
     return;  // nothing to do; not an error
   }
 
@@ -477,8 +271,8 @@ void rmat_rectangular_gen_impl(const raft::handle_t& handle,
   static_assert(std::is_integral_v<IdxT>,
                 "rmat_rectangular_gen: "
                 "Template parameter IdxT must be an integral type");
-  if (not output.has_value()) {
-    return;  // nowhere to write output, so nothing to do
+  if (output.empty()) {
+    return;  // nothing to do; not an error
   }
 
   auto out                     = output.out_view();
