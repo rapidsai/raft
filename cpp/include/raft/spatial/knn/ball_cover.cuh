@@ -155,16 +155,17 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  *               many datasets can still have great recall even by only
  *               looking in the closest landmark.
  */
-template <typename idx_t = std::int64_t,
+template <typename idx_t,
           typename value_t,
-          typename int_t        = std::uint32_t,
-          typename matrix_idx_t = std::uint32_t>
+          typename int_t,
+          typename matrix_idx_t>
 void rbc_all_knn_query(const raft::handle_t& handle,
                        BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                        raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
                        raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
                        int_t k,
-                       bool perform_post_filtering = true)
+                       bool perform_post_filtering = true,
+                       float weight = 1.0)
 {
   RAFT_EXPECTS(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   RAFT_EXPECTS(k <= index.m,
@@ -177,7 +178,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
                "in index matrix.");
 
   rbc_all_knn_query(
-    handle, index, k, inds.data_handle(), dists.data_handle(), perform_post_filtering, 1.0);
+    handle, index, k, inds.data_handle(), dists.data_handle(), perform_post_filtering, weight);
 }
 
 /**
@@ -209,7 +210,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  *               looking in the closest landmark.
  * @param[in] n_query_pts number of query points
  */
-template <typename idx_t = std::int64_t, typename value_t, typename int_t = std::uint32_t>
+template <typename idx_t, typename value_t, typename int_t>
 void rbc_knn_query(const raft::handle_t& handle,
                    BallCoverIndex<idx_t, value_t, int_t>& index,
                    int_t k,
@@ -278,17 +279,18 @@ void rbc_knn_query(const raft::handle_t& handle,
  *               many datasets can still have great recall even by only
  *               looking in the closest landmark.
  */
-template <typename idx_t = std::int64_t,
+template <typename idx_t,
           typename value_t,
-          typename int_t        = std::uint32_t,
-          typename matrix_idx_t = std::uint32_t>
+          typename int_t,
+          typename matrix_idx_t>
 void rbc_knn_query(const raft::handle_t& handle,
                    BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                    raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
                    raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
                    raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
-                   int_t k                     = 5,
-                   bool perform_post_filtering = true)
+                   int_t k,
+                   bool perform_post_filtering = true,
+                   float weight = 1.0)
 {
   RAFT_EXPECTS(k <= index.m,
                "k must be less than or equal to the number of data points in the index");
@@ -310,7 +312,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                 inds.data_handle(),
                 dists.data_handle(),
                 perform_post_filtering,
-                1.0);
+                weight);
 }
 
 // TODO: implement functions for:
