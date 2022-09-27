@@ -24,12 +24,18 @@
 
 #ifndef _RAFT_HOST_DEVICE
 #if defined(_RAFT_HAS_CUDA)
-#define _RAFT_HOST_DEVICE __host__ __device__
+#define _RAFT_DEVICE      __device__
+#define _RAFT_HOST        __host__
+#define _RAFT_FORCEINLINE __forceinline__
 #else
-#define _RAFT_HOST_DEVICE
+#define _RAFT_DEVICE
+#define _RAFT_HOST
+#define _RAFT_FORCEINLINE inline
 #endif
 #endif
 
+#define _RAFT_HOST_DEVICE _RAFT_HOST _RAFT_DEVICE
+
 #ifndef RAFT_INLINE_FUNCTION
-#define RAFT_INLINE_FUNCTION inline _RAFT_HOST_DEVICE
+#define RAFT_INLINE_FUNCTION _RAFT_FORCEINLINE _RAFT_HOST_DEVICE
 #endif
