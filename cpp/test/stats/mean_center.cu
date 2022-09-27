@@ -66,17 +66,17 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
     if (params.rowMajor) {
       using layout = raft::row_major;
       mean_center(handle,
-                 raft::make_device_matrix_view<const T, int, layout>(data.data(), rows, cols),
-                 raft::make_device_vector_view<const T, int>(meanVec.data(), meanVecSize),
-                 raft::make_device_matrix_view<T, int, layout>(out.data(), rows, cols),
-                 params.bcastAlongRows);
+                  raft::make_device_matrix_view<const T, int, layout>(data.data(), rows, cols),
+                  raft::make_device_vector_view<const T, int>(meanVec.data(), meanVecSize),
+                  raft::make_device_matrix_view<T, int, layout>(out.data(), rows, cols),
+                  params.bcastAlongRows);
     } else {
       using layout = raft::col_major;
       mean_center(handle,
-                 raft::make_device_matrix_view<const T, int, layout>(data.data(), rows, cols),
-                 raft::make_device_vector_view<const T, int>(meanVec.data(), meanVecSize),
-                 raft::make_device_matrix_view<T, int, layout>(out.data(), rows, cols),
-                 params.bcastAlongRows);
+                  raft::make_device_matrix_view<const T, int, layout>(data.data(), rows, cols),
+                  raft::make_device_vector_view<const T, int>(meanVec.data(), meanVecSize),
+                  raft::make_device_matrix_view<T, int, layout>(out.data(), rows, cols),
+                  params.bcastAlongRows);
     }
     raft::linalg::naiveMatVec(out_ref.data(),
                               data.data(),
