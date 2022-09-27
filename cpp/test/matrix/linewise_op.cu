@@ -54,23 +54,37 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   {
   }
 
+  template<bool alongLines>
   void runLinewiseSum(
-    T* out, const T* in, const I lineLen, const I nLines, const bool alongLines, const T* vec)
+    T* out, const T* in, const I lineLen, const I nLines, const T* vec)
   {
     auto f = [] __device__(T a, T b) -> T { return a + b; };
-    matrix::linewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec);
+
+    constexpr auto layout = alongLines ? row_major : col_major;
+
+    auto in_view = raft::make_device_matrix_view<T, I, layout>(in, nLines, lineLen)
+    auto out_view = raft::make_device_matrix_view<T, I, layout>(out, nLines, lineLen);
+
+    auto vec_view = raft::make_device_vector_view<T, I>(vec, lineLen);
+    matrix::line_wise_op(handle, in_view, out_view, alongLines, f, vec);
   }
 
+    template<bool alongLines>
   void runLinewiseSum(T* out,
                       const T* in,
                       const I lineLen,
                       const I nLines,
-                      const bool alongLines,
                       const T* vec1,
                       const T* vec2)
   {
     auto f = [] __device__(T a, T b, T c) -> T { return a + b + c; };
-    matrix::linewiseOp(out, in, lineLen, nLines, alongLines, f, stream, vec1, vec2);
+
+      constexpr auto layout = alongLines ? row_major : col_major;
+
+      auto in_view = raft::make_device_matrix_view<T, I, layout>(in, nLines, lineLen)
+      auto out_view = raft::make_device_matrix_view<T, I, layout>(out, nLines, lineLen);
+
+    matrix::line_wise_op(handle, in_view, out_view, alongLines, f, vec1, vec2);
   }
 
   rmm::device_uvector<T> genData(size_t workSizeBytes)
@@ -149,7 +163,11 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
         {
           {
             common::nvtx::range vecs_scope("one vec");
-            runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1);
+            if(alongRows) {
+                runLinewiseSum<true>(out, in, lineLen, nLines, vec1);
+            } else {
+                runLinewiseSum<false>(out, in, lineLen, nLines, vec1);
+            }
           }
           if (params.checkCorrectness) {
             linalg::naiveMatVec(
@@ -161,7 +179,13 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           }
           {
             common::nvtx::range vecs_scope("two vecs");
-            runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1, vec2);
+            if(alongRows) {
+                runLinewiseSum<true>(out, in, lineLen, nLines, vec1, vec2);
+
+            } else {
+                runLinewiseSum<false>(out, in, lineLen, nLines, vec1, vec2);
+
+            }
           }
           if (params.checkCorrectness) {
             linalg::naiveMatVec(

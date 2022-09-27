@@ -33,9 +33,6 @@ namespace raft::matrix {
  * @param [out] out result of the operation; can be same as `in`; should be aligned the same
  *        as `in` to allow faster vectorized memory transfers.
  * @param [in] in input matrix consisting of `nLines` lines, each `lineLen`-long.
- * @param [in] lineLen length of matrix line in elements (`=nCols` in row-major or `=nRows` in
- * col-major)
- * @param [in] nLines number of matrix lines (`=nRows` in row-major or `=nCols` in col-major)
  * @param [in] alongLines whether vectors are indices along or across lines.
  * @param [in] op the operation applied on each line:
  *    for i in [0..lineLen) and j in [0..nLines):
@@ -46,17 +43,26 @@ namespace raft::matrix {
  * @param [in] vecs zero or more vectors to be passed as arguments,
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
-template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
+template <typename m_t, typename idx_t, typename layout, typename Lambda, typename... Vecs>
 void linewise_op(const raft::handle_t& handle,
-                 raft::device_matrix_view<const m_t> in,
-                 raft::device_matrix_view<m_t> out,
-                 const idx_t lineLen,
-                 const idx_t nLines,
+                 raft::device_matrix_view<const m_t, idx_t, layout> in,
+                 raft::device_matrix_view<m_t, idx_t, layout> out,
                  const bool alongLines,
                  Lambda op,
                  raft::device_vector_view<Vecs>... vecs)
 {
+    constexpr auto is_rowmajor = std::is_same_v<layout, row_major>;
+    constexpr auto is_colmajor = std::is_same_v<layout, col_major>;
+
+    static_assert(is_rowmajor || is_colmajor, "layout for in and out must be either row or col major");
+
+    const idx_t lineLen = is_rowmajor ? in.extent(1) : in.extent(0);
+    const idx_t nLines = is_rowmajor ? in.extent(0) : in.extent(1);
+
+    RAFT_EXPECTS(out.extent(0) == in.extent(0) &&
+                 out.extent(1) == in.extent(1), "Input and output must have the same shape.");
+
   detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
-    out, in, lineLen, nLines, alongLines, op, stream, vecs...);
+    out.data_handle(), in.data_handle(), lineLen, nLines, alongLines, op, stream, vecs...);
 }
 }  // namespace raft::matrix

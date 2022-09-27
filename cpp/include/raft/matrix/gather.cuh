@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/handle.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/matrix/detail/gather.cuh>
 

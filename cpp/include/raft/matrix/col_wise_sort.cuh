@@ -65,8 +65,7 @@ void sort_cols_per_row(
   const raft::handle_t& handle,
   raft::device_matrix_view<const InType, matrix_idx_t, raft::row_major> in,
   raft::device_matrix_view<const OutType, matrix_idx_t, raft::row_major> out,
-  std::optional<raft::device_matrix_view<InType, matrix_idx_t, raft::row_major>> sorted_keys =
-    std::nullptr)
+  std::optional<raft::device_matrix_view<InType, matrix_idx_t, raft::row_major>> sorted_keys = std::nullopt)
 {
   RAFT_EXPECTS(in.extent(1) == out.extent(1) && in.extent(0) == out.extent(0),
                "Input and output matrices must have the same shape.");

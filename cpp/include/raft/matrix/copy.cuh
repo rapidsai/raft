@@ -33,7 +33,7 @@ namespace raft::matrix {
  * @param[out] out output matrix
  * @param[in] indices of the rows to be copied
  */
-template <typename m_t, typename idx_array_t = int, typename idx_t = size_t>
+template <typename m_t, typename idx_array_t>
 void copy_rows(const raft::handle_t& handle,
                raft::device_matrix_view<const m_t> in,
                raft::device_matrix_view<m_t> out,
@@ -64,7 +64,7 @@ void copy_rows(const raft::handle_t& handle,
  * @param[in] in: input matrix
  * @param[out] out: output matrix
  */
-template <typename m_t, typename idx_t = int, typename matrix_idx_t>
+template <typename m_t, typename matrix_idx_t>
 void copy(const raft::handle_t& handle,
           raft::device_matrix_view<const m_t, matrix_idx_t, col_major> in,
           raft::device_matrix_view<m_t, matrix_idx_t, col_major> out)
@@ -86,7 +86,7 @@ void copy(const raft::handle_t& handle,
  * @param out_n_cols: number of columns of output matrix
  * @param stream: cuda stream
  */
-template <typename m_t, typename idx_t = int>
+template <typename m_t, typename idx_t>
 void trunc_zero_origin(
   m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
 {

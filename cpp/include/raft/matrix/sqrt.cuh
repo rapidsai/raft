@@ -30,7 +30,7 @@ namespace raft::matrix {
  * @param[out] out: output matrix. The result is stored in the out matrix
  */
 template <typename math_t>
-void seq_root(const raft::handle_t& handle,
+void sqrt(const raft::handle_t& handle,
               raft::device_matrix_view<math_t> in,
               raft::device_matrix_view<math_t> out)
 {
@@ -44,8 +44,8 @@ void seq_root(const raft::handle_t& handle,
  * @param[in] handle: raft handle
  * @param[inout] inout: input matrix with in-place results
  */
-template <typename math_t, typename IdxType = int>
-void seq_root(const raft::handle_t& handle, raft::device_matrix_view<math_t> inout)
+template <typename math_t>
+void sqrt(const raft::handle_t& handle, raft::device_matrix_view<math_t> inout)
 {
   detail::seqRoot(inout.data_handle(), inout.size(), handle.get_stream());
 }
@@ -60,7 +60,7 @@ void seq_root(const raft::handle_t& handle, raft::device_matrix_view<math_t> ino
  * @param[in] set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t>
-void weighted_seq_root(const raft::handle_t& handle,
+void weighted_sqrt(const raft::handle_t& handle,
                        raft::device_matrix_view<math_t> in,
                        raft::device_matrix_view<math_t> out,
                        math_t scalar,
@@ -80,7 +80,7 @@ void weighted_seq_root(const raft::handle_t& handle,
  * @param set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t>
-void weighted_seq_root(const raft::handle_t& handle,
+void weighted_sqrt(const raft::handle_t& handle,
                        raft::device_matrix_view<math_t> inout,
                        math_t scalar,
                        bool set_neg_zero = false)
