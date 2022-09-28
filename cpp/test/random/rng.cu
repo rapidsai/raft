@@ -106,23 +106,16 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   void SetUp() override
   {
     RngState r(params.seed, params.gtype);
+    auto data_view = raft::make_device_vector_view(data.data(), params.len);
     switch (params.type) {
-      case RNG_Normal: normal(handle, r, data.data(), params.len, params.start, params.end); break;
-      case RNG_LogNormal:
-        lognormal(handle, r, data.data(), params.len, params.start, params.end);
-        break;
-      case RNG_Uniform:
-        uniform(handle, r, data.data(), params.len, params.start, params.end);
-        break;
-      case RNG_Gumbel: gumbel(handle, r, data.data(), params.len, params.start, params.end); break;
-      case RNG_Logistic:
-        logistic(handle, r, data.data(), params.len, params.start, params.end);
-        break;
-      case RNG_Exp: exponential(handle, r, data.data(), params.len, params.start); break;
-      case RNG_Rayleigh: rayleigh(handle, r, data.data(), params.len, params.start); break;
-      case RNG_Laplace:
-        laplace(handle, r, data.data(), params.len, params.start, params.end);
-        break;
+      case RNG_Normal: normal(handle, r, data_view, params.start, params.end); break;
+      case RNG_LogNormal: lognormal(handle, r, data_view, params.start, params.end); break;
+      case RNG_Uniform: uniform(handle, r, data_view, params.start, params.end); break;
+      case RNG_Gumbel: gumbel(handle, r, data_view, params.start, params.end); break;
+      case RNG_Logistic: logistic(handle, r, data_view, params.start, params.end); break;
+      case RNG_Exp: exponential(handle, r, data_view, params.start); break;
+      case RNG_Rayleigh: rayleigh(handle, r, data_view, params.start); break;
+      case RNG_Laplace: laplace(handle, r, data_view, params.start, params.end); break;
     };
     static const int threads = 128;
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
@@ -348,7 +341,8 @@ class ScaledBernoulliTest : public ::testing::Test {
   {
     RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     RngState r(42);
-    scaled_bernoulli(handle, r, data.data(), len, T(0.5), T(scale));
+    auto data_view = raft::make_device_vector_view(data.data(), len);
+    scaled_bernoulli(handle, r, data_view, T(0.5), T(scale));
   }
 
   void rangeCheck()
@@ -381,7 +375,8 @@ class BernoulliTest : public ::testing::Test {
   void SetUp() override
   {
     RngState r(42);
-    bernoulli(handle, r, data.data(), len, T(0.5));
+    auto data_view = make_device_vector_view(data.data(), len);
+    bernoulli(handle, r, data_view, T(0.5));
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 

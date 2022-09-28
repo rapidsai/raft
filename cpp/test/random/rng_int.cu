@@ -84,11 +84,9 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   void SetUp() override
   {
     RngState r(params.seed, params.gtype);
-
+    auto data_view = raft::make_device_vector_view(data.data(), params.len);
     switch (params.type) {
-      case RNG_Uniform:
-        uniformInt(handle, r, data.data(), params.len, params.start, params.end);
-        break;
+      case RNG_Uniform: uniform_int(handle, r, data_view, params.start, params.end); break;
     };
     static const int threads = 128;
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(

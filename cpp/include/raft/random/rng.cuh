@@ -51,6 +51,26 @@ void uniform(const raft::handle_t& handle,
 }
 
 /**
+ * @brief Generate uniformly distributed numbers in the given range
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] start start of the range
+ * @param[in] end end of the range
+ */
+template <typename ValueType, typename IndexType>
+void uniform(const raft::handle_t& handle,
+             RngState& rng_state,
+             raft::device_vector_view<ValueType, IndexType> out,
+             ValueType start,
+             ValueType end)
+{
+  uniform(handle, rng_state, out.data_handle(), out.extent(0), start, end);
+}
+
+/**
  * @brief Generate uniformly distributed integers in the given range
  *
  * @tparam OutType data type of output random number
@@ -71,6 +91,26 @@ void uniformInt(const raft::handle_t& handle,
                 OutType end)
 {
   detail::uniformInt(rng_state, ptr, len, start, end, handle.get_stream());
+}
+
+/**
+ * @brief Generate uniformly distributed integers in the given range
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] start start of the range
+ * @param[in] end end of the range
+ */
+template <typename ValueType, typename IndexType>
+void uniform_int(const raft::handle_t& handle,
+                 RngState& rng_state,
+                 raft::device_vector_view<ValueType, IndexType> out,
+                 ValueType start,
+                 ValueType end)
+{
+  uniformInt(handle, rng_state, out.data_handle(), out.extent(0), start, end);
 }
 
 /**
@@ -97,6 +137,26 @@ void normal(const raft::handle_t& handle,
 }
 
 /**
+ * @brief Generate normal distributed numbers
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] mu mean of the distribution
+ * @param[in] sigma std-dev of the distribution
+ */
+template <typename ValueType, typename IndexType>
+void normal(const raft::handle_t& handle,
+            RngState& rng_state,
+            raft::device_vector_view<ValueType, IndexType> out,
+            ValueType mu,
+            ValueType sigma)
+{
+  normal(handle, rng_state, out.data_handle(), out.extent(0), mu, sigma);
+}
+
+/**
  * @brief Generate normal distributed integers
  *
  * @tparam OutType data type of output random number
@@ -117,6 +177,26 @@ void normalInt(const raft::handle_t& handle,
                IntType sigma)
 {
   detail::normalInt(rng_state, ptr, len, mu, sigma, handle.get_stream());
+}
+
+/**
+ * @brief Generate normal distributed integers
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] mu mean of the distribution
+ * @param[in] sigma std-dev of the distribution
+ */
+template <typename ValueType, typename IndexType>
+void normal_int(const raft::handle_t& handle,
+                RngState& rng_state,
+                raft::device_vector_view<ValueType, IndexType> out,
+                ValueType mu,
+                ValueType sigma)
+{
+  normalInt(handle, rng_state, out.data_handle(), out.extent(0), mu, sigma);
 }
 
 /**
@@ -172,6 +252,24 @@ void fill(const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenTy
 }
 
 /**
+ * @brief Fill an array with the given value
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] val value to be filled
+ */
+template <typename ValueType, typename IndexType>
+void fill(const raft::handle_t& handle,
+          RngState& rng_state,
+          raft::device_vector_view<ValueType, IndexType> out,
+          ValueType val)
+{
+  fill(handle, rng_state, out.data_handle(), out.extent(0), val);
+}
+
+/**
  * @brief Generate bernoulli distributed boolean array
  *
  * @tparam Type    data type in which to compute the probabilities
@@ -189,6 +287,25 @@ void bernoulli(
   const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenType len, Type prob)
 {
   detail::bernoulli(rng_state, ptr, len, prob, handle.get_stream());
+}
+
+/**
+ * @brief Generate bernoulli distributed boolean array
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @tparam ProbType data type to compute probabilities
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] prob coin-toss probability for heads
+ */
+template <typename ValueType, typename IndexType, typename ProbType>
+void bernoulli(const raft::handle_t& handle,
+               RngState& rng_state,
+               raft::device_vector_view<ValueType, IndexType> out,
+               ProbType prob)
+{
+  bernoulli(handle, rng_state, out.data_handle(), out.extent(0), prob);
 }
 
 /**
@@ -212,6 +329,27 @@ void scaled_bernoulli(const raft::handle_t& handle,
                       OutType scale)
 {
   detail::scaled_bernoulli(rng_state, ptr, len, prob, scale, handle.get_stream());
+}
+
+/**
+ * @brief Generate bernoulli distributed array and applies scale
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @tparam ProbType data type to compute probabilities
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] prob coin-toss probability for heads
+ * @param[in] scale scaling factor
+ */
+template <typename ValueType, typename IndexType>
+void scaled_bernoulli(const raft::handle_t& handle,
+                      RngState& rng_state,
+                      raft::device_vector_view<ValueType, IndexType> out,
+                      ValueType prob,
+                      ValueType scale)
+{
+  scaled_bernoulli(handle, rng_state, out.data_handle(), out.extent(0), prob, scale);
 }
 
 /**
@@ -239,6 +377,27 @@ void gumbel(const raft::handle_t& handle,
 }
 
 /**
+ * @brief Generate Gumbel distributed random numbers
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @tparam ProbType data type to compute probabilities
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] mu mean value
+ * @param[in] beta scale value
+ */
+template <typename ValueType, typename IndexType>
+void gumbel(const raft::handle_t& handle,
+            RngState& rng_state,
+            raft::device_vector_view<ValueType, IndexType> out,
+            ValueType mu,
+            ValueType beta)
+{
+  gumbel(handle, rng_state, out.data_handle(), out.extent(0), mu, beta);
+}
+
+/**
  * @brief Generate lognormal distributed numbers
  *
  * @tparam OutType data type of output random number
@@ -259,6 +418,26 @@ void lognormal(const raft::handle_t& handle,
                OutType sigma)
 {
   detail::lognormal(rng_state, ptr, len, mu, sigma, handle.get_stream());
+}
+
+/**
+ * @brief Generate lognormal distributed numbers
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] mu mean of the distribution
+ * @param[in] sigma std-dev of the distribution
+ */
+template <typename ValueType, typename IndexType>
+void lognormal(const raft::handle_t& handle,
+               RngState& rng_state,
+               raft::device_vector_view<ValueType, IndexType> out,
+               ValueType mu,
+               ValueType sigma)
+{
+  lognormal(handle, rng_state, out.data_handle(), out.extent(0), mu, sigma);
 }
 
 /**
@@ -285,6 +464,26 @@ void logistic(const raft::handle_t& handle,
 }
 
 /**
+ * @brief Generate logistic distributed random numbers
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] mu mean of the distribution
+ * @param[in] scale scale value
+ */
+template <typename ValueType, typename IndexType>
+void logistic(const raft::handle_t& handle,
+              RngState& rng_state,
+              raft::device_vector_view<ValueType, IndexType> out,
+              ValueType mu,
+              ValueType scale)
+{
+  logistic(handle, rng_state, out.data_handle(), out.extent(0), mu, scale);
+}
+
+/**
  * @brief Generate exponentially distributed random numbers
  *
  * @tparam OutType data type of output random number
@@ -303,6 +502,24 @@ void exponential(
 }
 
 /**
+ * @brief Generate exponentially distributed random numbers
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] lambda the lambda
+ */
+template <typename ValueType, typename IndexType>
+void exponential(const raft::handle_t& handle,
+                 RngState& rng_state,
+                 raft::device_vector_view<ValueType, IndexType> out,
+                 ValueType lambda)
+{
+  exponential(handle, rng_state, out.data_handle(), out.extent(0), lambda);
+}
+
+/**
  * @brief Generate rayleigh distributed random numbers
  *
  * @tparam OutType data type of output random number
@@ -318,6 +535,24 @@ void rayleigh(
   const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenType len, OutType sigma)
 {
   detail::rayleigh(rng_state, ptr, len, sigma, handle.get_stream());
+}
+
+/**
+ * @brief Generate rayleigh distributed random numbers
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] sigma the sigma
+ */
+template <typename ValueType, typename IndexType>
+void rayleigh(const raft::handle_t& handle,
+              RngState& rng_state,
+              raft::device_vector_view<ValueType, IndexType> out,
+              ValueType sigma)
+{
+  rayleigh(handle, rng_state, out.data_handle(), out.extent(0), sigma);
 }
 
 /**
@@ -341,6 +576,26 @@ void laplace(const raft::handle_t& handle,
              OutType scale)
 {
   detail::laplace(rng_state, ptr, len, mu, scale, handle.get_stream());
+}
+
+/**
+ * @brief Generate laplace distributed random numbers
+ *
+ * @tparam ValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ * @param[in] handle raft handle for resource management
+ * @param[in] out raft::device_vector_view
+ * @param[in] mu mean of the distribution
+ * @param[in] scale scale value
+ */
+template <typename ValueType, typename IndexType>
+void laplace(const raft::handle_t& handle,
+             RngState& rng_state,
+             raft::device_vector_view<ValueType, IndexType> out,
+             ValueType mu,
+             ValueType scale)
+{
+  laplace(handle, rng_state, out.data_handle(), out.extent(0), mu, scale);
 }
 
 /**
