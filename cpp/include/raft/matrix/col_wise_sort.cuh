@@ -86,27 +86,27 @@ void sort_cols_per_row(const raft::handle_t& handle,
   in_t* keys = sorted_keys.has_value() ? sorted_keys.value().data_handle() : nullptr;
 
   detail::sortColumnsPerRow<in_t, out_t>(in.data_handle(),
-                                             out.data_handle(),
-                                             in.extent(0),
-                                             in.extent(1),
-                                             alloc_workspace,
-                                             (void*)nullptr,
-                                             workspace_size,
-                                             handle.get_stream(),
-                                             keys);
+                                         out.data_handle(),
+                                         in.extent(0),
+                                         in.extent(1),
+                                         alloc_workspace,
+                                         (void*)nullptr,
+                                         workspace_size,
+                                         handle.get_stream(),
+                                         keys);
 
   if (alloc_workspace) {
     auto workspace = raft::make_device_vector<char>(handle, workspace_size);
 
     detail::sortColumnsPerRow<in_t, out_t>(in.data_handle(),
-                                               out.data_handle(),
-                                               in.extent(0),
-                                               in.extent(1),
-                                               alloc_workspace,
-                                               (void*)workspace.data_handle(),
-                                               workspace_size,
-                                               handle.get_stream(),
-                                               keys);
+                                           out.data_handle(),
+                                           in.extent(0),
+                                           in.extent(1),
+                                           alloc_workspace,
+                                           (void*)workspace.data_handle(),
+                                           workspace_size,
+                                           handle.get_stream(),
+                                           keys);
   }
 }
 
