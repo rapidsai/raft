@@ -118,7 +118,7 @@ HDI void ivfpq_encode_core(uint32_t n_rows, uint32_t pq_dim, const uint32_t* lab
 template <uint32_t PqBits>
 __global__ void ivfpq_encode_kernel(uint32_t n_rows,
                                     uint32_t pq_dim,
-                                    const uint32_t* label,  // [pq_dim, ldDataset]
+                                    const uint32_t* label,  // [pq_dim, n_rows]
                                     uint8_t* output         // [n_rows, pq_dim]
 )
 {
