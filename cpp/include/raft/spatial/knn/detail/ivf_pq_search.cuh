@@ -145,15 +145,20 @@ __device__ inline auto thread_block_scan(uint32_t x, uint32_t* smem) -> uint32_t
   return x;
 }
 
+/**
+ * For each query, we calculate a cumulative sum of the cluster sizes that we probe, and return that
+ * in chunk_indices. Essentially this is a segmented inclusive scan of the cluster sizes. The total
+ * number of samples per query (sum of the cluster sizes that we probe) is returned in n_samples.
+ */
 template <typename IdxT>
-__global__ void ivfpq_make_chunk_index_ptr(
-  uint32_t n_probes,
-  uint32_t batch_size,
-  const IdxT* cluster_offsets,        // [n_clusters + 1,]
-  const uint32_t* clusters_to_probe,  // [batch_size, n_probes,]
-  uint32_t* chunk_indices,            // [sizeBetch, n_probes,]
-  uint32_t* numSamples                // [batch_size,]
-)
+__launch_bounds__(1024, 1) __global__
+  void ivfpq_make_chunk_index_ptr(uint32_t n_probes,
+                                  uint32_t batch_size,
+                                  const IdxT* cluster_offsets,        // [n_clusters + 1]
+                                  const uint32_t* clusters_to_probe,  // [batch_size, n_probes]
+                                  uint32_t* chunk_indices,            // [batch_size, n_probes]
+                                  uint32_t* n_samples                 // [batch_size]
+  )
 {
   __shared__ uint32_t smem_temp[32];  // NOLINT
   __shared__ uint32_t smem_base[2];   // NOLINT
@@ -177,13 +182,21 @@ __global__ void ivfpq_make_chunk_index_ptr(
     if (i < n_probes) {
       if (j > 0) { val += smem_base[(j - 1) & 0x1]; }
       chunk_indices[i] = val;
-      if (i == n_probes - 1) { numSamples[batch_ix] = val; }
+      if (i == n_probes - 1) { n_samples[batch_ix] = val; }
     }
 
     if ((j < j_end - 1) && (threadIdx.x == 1023)) { smem_base[j & 0x1] = val; }
   }
 }
 
+/**
+ * Look up the dataset index that corresponds to a sample index.
+ * 
+ * Each query vector was compared to all the vectors from n_probes clusters, and sample_ix is one of
+ * such vector. This function looks up which cluster sample_ix belongs to, and returns the original
+ * dataset index for that vector.
+ *
+ */
 template <typename IdxT>
 __device__ void ivfpq_get_id_dataset(uint32_t sample_ix,
                                      uint32_t n_probes,
@@ -217,16 +230,16 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
                                    uint32_t topk,
                                    uint32_t max_samples,
                                    uint32_t batch_size,
-                                   const IdxT* cluster_offsets,     // [n_clusters + 1]
-                                   const IdxT* data_indices,        // [index_size]
-                                   const uint32_t* cluster_labels,  // [batch_size, n_probes]
-                                   const uint32_t* chunk_indices,   // [batch_size, n_probes]
-                                   const ScoreT* scores,            // [batch_size, max_samples] or
-                                                                    // [batch_size, n_probes, topk]
-                                   const uint32_t* scoreTopkIndex,  // [batch_size, n_probes, topk]
-                                   const uint32_t* topkSampleIds,   // [batch_size, topk]
-                                   IdxT* topkNeighbors,             // [batch_size, topk]
-                                   float* topkScores                // [batch_size, topk]
+                                   const IdxT* cluster_offsets,      // [n_clusters + 1]
+                                   const IdxT* data_indices,         // [index_size]
+                                   const uint32_t* cluster_labels,   // [batch_size, n_probes]
+                                   const uint32_t* chunk_indices,    // [batch_size, n_probes]
+                                   const ScoreT* scores,             // [batch_size, max_samples] or
+                                                                     // [batch_size, n_probes, topk]
+                                   const uint32_t* topk_score_ixs,   // [batch_size, n_probes, topk]
+                                   const uint32_t* topk_sample_ixs,  // [batch_size, topk]
+                                   IdxT* topk_out_ixs,               // [batch_size, topk]
+                                   float* topk_out_scores            // [batch_size, topk]
 )
 {
   uint32_t i = threadIdx.x + (blockDim.x * blockIdx.x);
@@ -234,9 +247,9 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
   uint32_t batch_ix = blockIdx.y;
   if (batch_ix >= batch_size) return;
 
-  uint32_t sample_ix = topkSampleIds[i + (topk * batch_ix)];
+  uint32_t sample_ix = topk_sample_ixs[i + (topk * batch_ix)];
   float score;
-  if (scoreTopkIndex == nullptr) {
+  if (topk_score_ixs == nullptr) {
     // 0 <= sample_ix < max_samples
     score = scores[sample_ix + (max_samples * batch_ix)];
     uint32_t chunk_ix;
@@ -250,12 +263,12 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
                          chunk_ix,
                          label,
                          data_ix);
-    topkNeighbors[i + (topk * batch_ix)] = data_indices[data_ix];
+    topk_out_ixs[i + (topk * batch_ix)] = data_indices[data_ix];
   } else {
     // 0 <= sample_ix < (n_probes * topk)
     score        = scores[sample_ix + ((n_probes * topk) * batch_ix)];
-    IdxT data_ix = scoreTopkIndex[sample_ix + ((n_probes * topk) * batch_ix)];
-    topkNeighbors[i + (topk * batch_ix)] = data_indices[data_ix];
+    IdxT data_ix = topk_score_ixs[sample_ix + ((n_probes * topk) * batch_ix)];
+    topk_out_ixs[i + (topk * batch_ix)] = data_indices[data_ix];
   }
   switch (metric) {
     case distance::DistanceType::InnerProduct: {
@@ -263,11 +276,11 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
     } break;
     default: break;
   }
-  topkScores[i + (topk * batch_ix)] = score;
+  topk_out_scores[i + (topk * batch_ix)] = score;
 }
 
 /**
- * @brief Compute the score for the encoded `pq_dataset` using a codebook `lut_scores`
+ * @brief Compute the similarity score between a vector from `pq_dataset` and a query vector.
  *
  * @tparam OpT an unsigned integer type that is used for bit operations on multiple PQ codes
  *   at once; it's selected to maximize throughput while matching criteria:
@@ -338,9 +351,9 @@ template <int Capacity, typename T>
 using block_sort_t = typename pq_block_sort<Capacity, T>::type;
 
 /**
- * The main kernel that computes the top-k scores across multiple queries and probes.
- * If the index output pointer is provided, it also selects top K candidates for each query and
- * probe.
+ * The main kernel that computes similarity scores across multiple queries and probes.
+ * When `Capacity > 0`, it also selects top K candidates for each query and probe
+ * (which need to be merged across probes afterwards).
  *
  * @tparam OpT is a carrier integer type selected to maximize throughput;
  *   Used solely in `ivfpq_compute_score`;
@@ -351,7 +364,7 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  * @tparam LutT
  *   The lookup table element type (lut_scores).
  * @tparam Capacity
- *   Power-of-two; the maximum possible `k` in top-k.
+ *   Power-of-two; the maximum possible `k` in top-k. Value zero disables fused top-k search.
  * @tparam PrecompBaseDiff
  *   Defines whether we should precompute part of the distance and keep it in shared memory
  *   before the main part (score calculation) to increase memory usage efficiency in the latter.
@@ -369,9 +382,6 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  * @param pq_dim
  *   The dimensionality of an encoded vector after compression by PQ.
  * @param batch_size the number of queries.
- * @param max_samples
- *   The maximum number of samples could be retrieved for the given query when all scores are to be
- *   returned rather than only the top k (`kManageLocalTopK = false`).
  * @param metric the distance type.
  * @param codebook_kind Defines the way PQ codebooks have been trained.
  * @param topk the `k` in the select top-k.
@@ -385,7 +395,7 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  *   The device pointer to the PQ index (data) [n_rows, pq_dim * pq_bits / 8].
  * @param cluster_offsets
  *   The device pointer to the cluster offsets [n_clusters + 1].
- * @param _cluster_labels
+ * @param cluster_labels
  *   The device pointer to the labels (clusters) for each query and probe [batch_size, n_probes].
  * @param _chunk_indices
  *   The device pointer to the data offsets for each query and probe [batch_size, n_probes].
@@ -402,7 +412,7 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  *   [batch_size, max_samples] or [batch_size, n_probes, topk].
  * @param _out_indices
  *   The device pointer to the output indices [batch_size, n_probes, topk].
- *   Ignored  when `kManageLocalTopK = false`.
+ *   Ignored  when `Capacity == 0`.
  */
 template <typename OpT,
           typename IdxT,
@@ -425,7 +435,7 @@ __launch_bounds__(1024, 1) __global__
                                        const float* pq_centers,
                                        const uint8_t* pq_dataset,
                                        const IdxT* cluster_offsets,
-                                       const uint32_t* _cluster_labels,
+                                       const uint32_t* cluster_labels,
                                        const uint32_t* _chunk_indices,
                                        const float* queries,
                                        const uint32_t* index_list,
@@ -474,9 +484,8 @@ __launch_bounds__(1024, 1) __global__
     }
     if (batch_ix >= batch_size || probe_ix >= n_probes) continue;
 
-    const uint32_t* cluster_labels = _cluster_labels + (n_probes * batch_ix);
-    const uint32_t* chunk_indices  = _chunk_indices + (n_probes * batch_ix);
-    const float* query             = queries + (dim * batch_ix);
+    const uint32_t* chunk_indices = _chunk_indices + (n_probes * batch_ix);
+    const float* query            = queries + (dim * batch_ix);
     OutT* out_scores;
     uint32_t* out_indices = nullptr;
     if constexpr (kManageLocalTopK) {
@@ -488,7 +497,7 @@ __launch_bounds__(1024, 1) __global__
       // max_samples == cluster_offsets[n_probes]
       out_scores = _out_scores + (cluster_offsets[n_probes] * batch_ix);
     }
-    uint32_t label              = cluster_labels[probe_ix];
+    uint32_t label              = cluster_labels[n_probes * batch_ix + probe_ix];
     const float* cluster_center = cluster_centers + (dim * label);
     const float* pq_center;
     if (codebook_kind == codebook_gen::PER_SUBSPACE) {
@@ -528,7 +537,7 @@ __launch_bounds__(1024, 1) __global__
         case distance::DistanceType::InnerProduct: {
           for (uint32_t j = 0; j < pq_len; j++) {
             uint32_t k = j + (pq_len * i_pq);
-            score      = query[k] * (cluster_center[k] + pq_center[j + pq_len * i_code]);
+            score += query[k] * (cluster_center[k] + pq_center[j + pq_len * i_code]);
           }
         } break;
       }
@@ -687,7 +696,7 @@ void ivfpq_search(const handle_t& handle,
                   uint32_t n_queries,
                   const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                   const float* query,                 // [n_queries, rot_dim]
-                  IdxT* topkNeighbors,                // [n_queries, topK]
+                  IdxT* topk_out_ixs,                 // [n_queries, topK]
                   float* topkDistances,               // [n_queries, topK]
                   rmm::mr::device_memory_resource* mr)
 {
@@ -710,7 +719,6 @@ void ivfpq_search(const handle_t& handle,
     ;
   auto topk_len = manage_local_topk ? n_probes * topK : max_samples;
 
-  rmm::device_uvector<uint32_t> cluster_labels_out(max_batch_size * n_probes, stream, mr);
   rmm::device_uvector<uint32_t> index_list_sorted_buf(0, stream, mr);
   uint32_t* index_list_sorted = nullptr;
   rmm::device_uvector<uint32_t> num_samples(max_batch_size, stream, mr);
@@ -741,6 +749,7 @@ void ivfpq_search(const handle_t& handle,
     // possible.
     index_list_sorted_buf.resize(max_batch_size * n_probes, stream);
     rmm::device_uvector<uint32_t> index_list_buf(max_batch_size * n_probes, stream, mr);
+    rmm::device_uvector<uint32_t> cluster_labels_out(max_batch_size * n_probes, stream, mr);
     auto index_list   = index_list_buf.data();
     index_list_sorted = index_list_sorted_buf.data();
     thrust::sequence(handle.get_thrust_policy(),
@@ -921,7 +930,7 @@ void ivfpq_search(const handle_t& handle,
                                                                    scores_buf.data(),
                                                                    topk_index,
                                                                    topk_sids.data(),
-                                                                   topkNeighbors,
+                                                                   topk_out_ixs,
                                                                    topkDistances);
 }
 
@@ -1004,9 +1013,8 @@ inline void search(const handle_t& handle,
   }
 
   // Maximum number of query vectors to search at the same time.
-  uint32_t batch_size = std::min<uint32_t>(n_queries, 32768);
-  auto max_queries    = min(max(batch_size, 1), 4096);
-  auto max_batch_size = max_queries;
+  const auto max_queries = std::min<uint32_t>(std::max<uint32_t>(n_queries, 1), 4096);
+  auto max_batch_size    = max_queries;
   {
     // TODO: copied from {legacy}; figure this out.
     // Adjust max_batch_size to improve GPU occupancy of topk kernel.
@@ -1084,7 +1092,7 @@ inline void search(const handle_t& handle,
           cluster_centers[i, dim()] contains the squared norm of the center vector i;
           we extend the dimension K of the GEMM to compute it together with all the dot products:
 
-          `cq_distances[i, j] = 0.5 |luster_centers[j]|^2 - (queries[i], cluster_centers[j])`
+          `cq_distances[i, j] = |luster_centers[j]|^2 - 2 * (queries[i], cluster_centers[j])`
 
           This is a monotonous mapping of the proper L2 distance.
 

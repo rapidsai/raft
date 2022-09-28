@@ -154,12 +154,12 @@ struct index : knn::index {
   [[nodiscard]] constexpr inline auto pq_bits() const noexcept -> uint32_t { return pq_bits_; }
   /** The dimensionality of an encoded vector after compression by PQ. */
   [[nodiscard]] constexpr inline auto pq_dim() const noexcept -> uint32_t { return pq_dim_; }
-  /** Dimensionality of the data after splitting vectors into subspaces.  */
+  /** Dimensionality of a subspaces, i.e. the number of vector components mapped to a subspace */
   [[nodiscard]] constexpr inline auto pq_len() const noexcept -> uint32_t
   {
     return raft::div_rounding_up_unsafe(dim(), pq_dim());
   }
-  /** The size of an encoded vector element after compression by PQ (`1 << pq_bits`). */
+  /** The number of vectors in a PQ codebook (`1 << pq_bits`). */
   [[nodiscard]] constexpr inline auto pq_width() const noexcept -> uint32_t
   {
     return 1 << pq_bits();
@@ -174,7 +174,7 @@ struct index : knn::index {
   {
     return codebook_kind_;
   }
-  /** Number of clusters/inverted lists. */
+  /** Number of clusters/inverted lists (first level quantization). */
   [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t { return n_lists_; }
   /** Number of non-empty clusters/inverted lists. */
   [[nodiscard]] constexpr inline auto n_nonempty_lists() const noexcept -> uint32_t
