@@ -197,6 +197,59 @@ inline void make_rotation_matrix(const handle_t& handle,
 }
 
 /**
+ * @brief Compute residual vectors from the source dataset given by selected indices.
+ *
+ * The residual has the form `rotation_matrix %* (dataset[row_ids, :] - center)`
+ *
+ */
+template <typename T, typename IdxT>
+void select_residuals(const handle_t& handle,
+                      float* residuals,
+                      IdxT n_rows,
+                      uint32_t dim,
+                      uint32_t rot_dim,
+                      const float* rotation_matrix,  // [rot_dim, dim]
+                      const float* center,           // [dim]
+                      const T* dataset,              // [dim, ..]
+                      const IdxT* row_ids,           // [n_rows]
+                      rmm::mr::device_memory_resource* device_memory
+
+)
+{
+  auto stream = handle.get_stream();
+  rmm::device_uvector<float> tmp(n_rows * dim, stream, device_memory);
+  utils::copy_selected<float, T>(n_rows, dim, dataset, row_ids, dim, tmp.data(), dim, stream);
+
+  raft::matrix::linewiseOp(
+    tmp.data(),
+    tmp.data(),
+    IdxT(dim),
+    n_rows,
+    true,
+    [] __device__(float a, float b) { return a - b; },
+    stream,
+    center);
+
+  float alpha = 1.0;
+  float beta  = 0.0;
+  linalg::gemm(handle,
+               true,
+               false,
+               rot_dim,
+               n_rows,
+               dim,
+               &alpha,
+               rotation_matrix,
+               dim,
+               tmp.data(),
+               dim,
+               &beta,
+               residuals,
+               rot_dim,
+               stream);
+}
+
+/**
  * @param handle,
  * @param n_rows
  * @param data_dim
@@ -256,7 +309,6 @@ void compute_pq_codes(const handle_t& handle,
   //
   utils::memzero(pq_dataset, n_rows * pq_dim * pq_bits / 8, stream);
 
-  rmm::device_uvector<float> res_vectors(max_cluster_size * data_dim, stream, device_memory);
   rmm::device_uvector<float> rot_vectors(max_cluster_size * rot_dim, stream, device_memory);
   rmm::device_uvector<float> sub_vectors(max_cluster_size * pq_dim * pq_len, stream, device_memory);
   rmm::device_uvector<uint32_t> sub_vector_labels(max_cluster_size * pq_dim, stream, device_memory);
@@ -271,51 +323,16 @@ void compute_pq_codes(const handle_t& handle,
       "ivf_pq::compute_pq_codes::cluster[%u](size = %u)", l, cluster_size);
     if (cluster_size == 0) continue;
 
-    //
-    // Compute the residual vector of the new vector with its cluster
-    // centroids.
-    //   resVectors[..] = new_vectors[..] - cluster_centers[..]
-    //
-    utils::copy_selected<float, T>(cluster_size,
-                                   data_dim,
-                                   dataset,
-                                   data_indices + cluster_offsets[l],
-                                   data_dim,
-                                   res_vectors.data(),
-                                   data_dim,
-                                   stream);
-
-    // substract centers from the vectors in the cluster.
-    raft::matrix::linewiseOp(
-      res_vectors.data(),
-      res_vectors.data(),
-      data_dim,
-      cluster_size,
-      true,
-      [] __device__(float a, float b) { return a - b; },
-      stream,
-      cluster_centers + (uint64_t)l * data_dim);
-
-    //
-    // Rotate the residual vectors using a rotation matrix
-    //
-    float alpha = 1.0;
-    float beta  = 0.0;
-    linalg::gemm(handle,
-                 true,
-                 false,
-                 rot_dim,
-                 cluster_size,
-                 data_dim,
-                 &alpha,
-                 rotation_matrix,
-                 data_dim,
-                 res_vectors.data(),
-                 data_dim,
-                 &beta,
-                 rot_vectors.data(),
-                 rot_dim,
-                 stream);
+    select_residuals(handle,
+                     rot_vectors.data(),
+                     IdxT(cluster_size),
+                     data_dim,
+                     rot_dim,
+                     rotation_matrix,
+                     cluster_centers + uint64_t(l) * data_dim,
+                     dataset,
+                     data_indices + cluster_offsets[l],
+                     device_memory);
 
     //
     // Change the order of the vector data to facilitate processing in
@@ -948,7 +965,6 @@ inline auto build(
         max_cluster_size * index.pq_dim(), stream, device_memory);
       rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_book_size(), stream, device_memory);
 
-      rmm::device_uvector<float> res_vectors(max_cluster_size * index.dim(), stream, device_memory);
       rmm::device_uvector<float> rot_vectors(
         max_cluster_size * index.rot_dim(), stream, device_memory);
 
@@ -959,51 +975,16 @@ inline auto build(
         common::nvtx::range<common::nvtx::domain::raft> pq_per_cluster_scope(
           "ivf_pq::build::per_cluster[%u](size = %u)", l, cluster_size);
 
-        //
-        // Compute the residual vector of the new vector with its cluster
-        // centroids.
-        //   resVectors[..] = new_vectors[..] - cluster_centers[..]
-        //
-        utils::copy_selected<float>(cluster_size,
-                                    index.dim(),
-                                    trainset.data(),
-                                    data_indices + cluster_offsets[l],
-                                    index.dim(),
-                                    res_vectors.data(),
-                                    index.dim(),
-                                    stream);
-
-        // substract centers from the vectors in the cluster.
-        raft::matrix::linewiseOp(
-          res_vectors.data(),
-          res_vectors.data(),
-          index.dim(),
-          cluster_size,
-          true,
-          [] __device__(float a, float b) { return a - b; },
-          stream,
-          cluster_centers + (uint64_t)l * index.dim());
-
-        //
-        // Rotate the residual vectors using a rotation matrix
-        //
-        float alpha = 1.0;
-        float beta  = 0.0;
-        linalg::gemm(handle,
-                     true,
-                     false,
-                     index.rot_dim(),
-                     cluster_size,
-                     index.dim(),
-                     &alpha,
-                     rotation_matrix,
-                     index.dim(),
-                     res_vectors.data(),
-                     index.dim(),
-                     &beta,
-                     rot_vectors.data(),
-                     index.rot_dim(),
-                     stream);
+        select_residuals(handle,
+                         rot_vectors.data(),
+                         IdxT(cluster_size),
+                         index.dim(),
+                         index.rot_dim(),
+                         rotation_matrix,
+                         cluster_centers + uint64_t(l) * index.dim(),
+                         trainset.data(),
+                         data_indices + cluster_offsets[l],
+                         device_memory);
 
         // limit the cluster size to bound the training time.
         // [sic] we interpret the data as pq_len-dimensional
