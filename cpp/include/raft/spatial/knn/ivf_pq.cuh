@@ -72,7 +72,7 @@ inline auto build(
  *
  * Implementation note:
  *    The new data is clustered according to existing kmeans clusters, then the cluster
- *    centers are adjusted to match the newly labeled data.
+ *    centers are unchanged.
  *
  * Usage example:
  * @code{.cpp}
