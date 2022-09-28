@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/stats/detail/contingencyMatrix.cuh>
@@ -54,7 +55,7 @@ void getInputClassCardinality(
  * @param maxLabel: [out] calculated max value in input array
  */
 template <typename value_t, typename idx_t>
-void getInputClassCardinality(const raft::handle_t& handle,
+void get_input_class_cardinality(const raft::handle_t& handle,
                               raft::device_vector_view<const value_t, idx_t> groundTruth,
                               raft::host_scalar_view<value_t> minLabel,
                               raft::host_scalar_view<value_t> maxLabel)
@@ -87,32 +88,6 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
 {
   return detail::getContingencyMatrixWorkspaceSize(
     nSamples, groundTruth, stream, minLabel, maxLabel);
-}
-
-/**
- * @brief Calculate workspace size for running contingency matrix calculations
- * @tparam DataT label type
- * @tparam IdxType Index type of matrix extent.
- * @param handle: the raft handle.
- * @param groundTruth: device 1-d array for ground truth (num of rows)
- * @param minLabel: Optional, min value in input array
- * @param maxLabel: Optional, max value in input array
- */
-template <typename DataT, typename IdxType>
-size_t getContingencyMatrixWorkspaceSize(const raft::handle_t& handle,
-                                         raft::device_vector_view<const DataT, IdxType> groundTruth,
-                                         std::optional<DataT> minLabel = std::nullopt,
-                                         std::optional<DataT> maxLabel = std::nullopt)
-{
-  DataT minLabelValue = std::numeric_limits<DataT>::max();
-  DataT maxLabelValue = std::numeric_limits<DataT>::max();
-  if (minLabel.has_value()) { minLabelValue = minLabel.value(); }
-  if (maxLabel.has_value()) { maxLabelValue = maxLabel.value(); }
-  return detail::getContingencyMatrixWorkspaceSize(groundTruth.extent(0),
-                                                   groundTruth.data_handle(),
-                                                   handle.get_stream(),
-                                                   minLabelValue,
-                                                   maxLabelValue);
 }
 
 /**
@@ -175,13 +150,11 @@ void contingencyMatrix(const T* groundTruth,
 template <typename value_t,
           typename out_t,
           typename idx_t,
-          typename layout_t,
-          typename workspace_value_t>
+          typename layout_t>
 void contingency_matrix(const raft::handle_t& handle,
                         raft::device_vector_view<const value_t, idx_t> ground_truth,
                         raft::device_vector_view<const value_t, idx_t> predicted_label,
-                        raft::device_matrix_view<OutType, idx_t, layout_t> out_mat,
-                        std::optional<raft::device_vector_view<workspace_value_t, idx_t>> workspace,
+                        raft::device_matrix_view<out_t, idx_t, layout_t> out_mat,
                         std::optional<value_t> min_label = std::nullopt,
                         std::optional<value_t> max_label = std::nullopt)
 {
@@ -190,23 +163,26 @@ void contingency_matrix(const raft::handle_t& handle,
   RAFT_EXPECTS(predicted_label.is_exhaustive(), "predicted_label must be contiguous");
   RAFT_EXPECTS(out_mat.is_exhaustive(), "out_mat must be contiguous");
 
-  workspace_value_t* workspace_p = nullptr;
-  idx_t workspace_size           = 0;
-  if (workspace.has_value()) {
-    workspace_p    = workspace.value().data_handle();
-    workspace_size = workspace.value().size() * sizeof(workspace_value_t);
-  }
   value_t min_label_value = std::numeric_limits<value_t>::max();
   value_t max_label_value = std::numeric_limits<value_t>::max();
   if (min_label.has_value()) { min_label_value = min_label.value(); }
   if (max_label.has_value()) { max_label_value = max_label.value(); }
+
+  auto workspace_sz = detail::getContingencyMatrixWorkspaceSize(
+    ground_truth.extent(0),
+    ground_truth.data_handle(),
+    handle.get_stream(),
+    min_label_value,
+    max_label_value);
+  auto workspace = raft::make_device_vector<char>(handle, workspace_sz);
+
   detail::contingencyMatrix<value_t, out_t>(ground_truth.data_handle(),
                                             predicted_label.data_handle(),
                                             ground_truth.extent(0),
                                             out_mat.data_handle(),
                                             handle.get_stream(),
-                                            workspace_p,
-                                            workspace_size,
+                                            workspace.data_handle(),
+                                            workspace_sz,
                                             min_label_value,
                                             max_label_value);
 }

@@ -41,7 +41,6 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
  protected:
   ContingencyMatrixTest()
     : stream(handle.get_stream()),
-      pWorkspace(0, stream),
       dY(0, stream),
       dYHat(0, stream),
       dComputedOutput(0, stream),
@@ -88,7 +87,11 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     raft::update_device(dY.data(), &y[0], numElements, stream);
 
     if (params.calcCardinality) {
-      raft::stats::getInputClassCardinality(dY.data(), numElements, stream, minLabel, maxLabel);
+      raft::stats::get_input_class_cardinality(
+        handle,
+        raft::make_device_vector_view<const T>(dY.data(), numElements),
+        raft::make_host_scalar_view(&minLabel),
+        raft::make_host_scalar_view(&maxLabel));
     } else {
       minLabel = lowerLabelRange;
       maxLabel = upperLabelRange;
@@ -111,10 +114,6 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
 
     raft::update_device(
       dGoldenOutput.data(), hGoldenOutput.data(), numUniqueClasses * numUniqueClasses, stream);
-
-    workspaceSz = raft::stats::getContingencyMatrixWorkspaceSize(
-      numElements, dY.data(), stream, minLabel, maxLabel);
-    pWorkspace.resize(workspaceSz, stream);
     raft::interruptible::synchronize(stream);
   }
 
@@ -126,7 +125,6 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
       raft::make_device_vector_view<const T>(dY.data(), numElements),
       raft::make_device_vector_view<const T>(dYHat.data(), numElements),
       raft::make_device_matrix_view(dComputedOutput.data(), numUniqueClasses, numUniqueClasses),
-      std::make_optional(raft::make_device_vector_view<char, int>(pWorkspace.data(), workspaceSz)),
       std::make_optional(minLabel),
       std::make_optional(maxLabel));
 
@@ -142,8 +140,6 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
   int numUniqueClasses = -1;
   T minLabel, maxLabel;
   cudaStream_t stream = 0;
-  size_t workspaceSz;
-  rmm::device_uvector<char> pWorkspace;
   rmm::device_uvector<T> dY, dYHat;
   rmm::device_uvector<int> dComputedOutput, dGoldenOutput;
 };
