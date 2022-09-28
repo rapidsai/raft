@@ -966,6 +966,8 @@ inline void search(const handle_t& handle,
 
   auto stream = handle.get_stream();
 
+  auto dim      = index.dim();
+  auto dim_ext  = index.dim_ext();
   auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
 
   IdxT max_samples = 0;
@@ -1015,8 +1017,8 @@ inline void search(const handle_t& handle,
     }
   }
 
-  rmm::device_uvector<T> dev_queries(max_queries * index.dim_ext(), stream, mr);
-  rmm::device_uvector<float> cur_queries(max_queries * index.dim_ext(), stream, mr);
+  rmm::device_uvector<T> dev_queries(max_queries * dim_ext, stream, mr);
+  rmm::device_uvector<float> cur_queries(max_queries * dim_ext, stream, mr);
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
   rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * params.n_probes, stream, mr);
   rmm::device_uvector<float> qc_distances(max_queries * index.n_lists(), stream, mr);
@@ -1095,24 +1097,26 @@ inline void search(const handle_t& handle,
       case raft::distance::DistanceType::InnerProduct: norm_factor = 0.0; break;
       default: RAFT_FAIL("Unsupported distance type %d.", int(index.metric()));
     }
-    utils::copy_fill(queries_batch,
-                     index.dim(),
-                     queries + static_cast<size_t>(index.dim()) * i,
-                     index.dim(),
-                     cur_queries.data(),
-                     index.dim_ext(),
-                     norm_factor,
-                     stream);
+    auto queries_ptr = queries + static_cast<size_t>(dim) * i;
+    linalg::writeOnlyUnaryOp(
+      cur_queries.data(),
+      dim_ext * queries_batch,
+      [queries_ptr, dim, dim_ext, norm_factor] __device__(float* out, uint32_t ix) {
+        uint32_t col = ix % dim_ext;
+        uint32_t row = ix / dim_ext;
+        *out = col < dim ? utils::mapping<float>{}(queries_ptr[col + dim * row]) : norm_factor;
+      },
+      stream);
 
     float alpha;
     float beta;
-    uint32_t gemm_k = index.dim();
+    uint32_t gemm_k = dim;
     switch (index.metric()) {
       case raft::distance::DistanceType::L2Expanded: {
         alpha  = -2.0;
         beta   = 0.0;
-        gemm_k = index.dim() + 1;
-        RAFT_EXPECTS(gemm_k <= index.dim_ext(), "unexpected gemm_k or dim_ext");
+        gemm_k = dim + 1;
+        RAFT_EXPECTS(gemm_k <= dim_ext, "unexpected gemm_k or dim_ext");
       } break;
       case raft::distance::DistanceType::InnerProduct: {
         alpha = -1.0;
@@ -1128,9 +1132,9 @@ inline void search(const handle_t& handle,
                  gemm_k,
                  &alpha,
                  index.centers().data_handle(),
-                 index.dim_ext(),
+                 dim_ext,
                  cur_queries.data(),
-                 index.dim_ext(),
+                 dim_ext,
                  &beta,
                  qc_distances.data(),
                  index.n_lists(),
@@ -1144,12 +1148,12 @@ inline void search(const handle_t& handle,
                  false,
                  index.rot_dim(),
                  queries_batch,
-                 index.dim(),
+                 dim,
                  &alpha,
                  index.rotation_matrix().data_handle(),
-                 index.dim(),
+                 dim,
                  cur_queries.data(),
-                 index.dim_ext(),
+                 dim_ext,
                  &beta,
                  rot_queries.data(),
                  index.rot_dim(),
