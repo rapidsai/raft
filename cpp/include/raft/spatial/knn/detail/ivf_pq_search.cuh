@@ -191,7 +191,7 @@ __launch_bounds__(1024, 1) __global__
 
 /**
  * Look up the dataset index that corresponds to a sample index.
- * 
+ *
  * Each query vector was compared to all the vectors from n_probes clusters, and sample_ix is one of
  * such vector. This function looks up which cluster sample_ix belongs to, and returns the original
  * dataset index for that vector.
@@ -203,13 +203,11 @@ __device__ void ivfpq_get_id_dataset(uint32_t sample_ix,
                                      const IdxT* cluster_offsets,     // [n_clusters + 1,]
                                      const uint32_t* cluster_labels,  // [n_probes,]
                                      const uint32_t* chunk_indices,   // [n_probes,]
-                                     uint32_t& chunk_ix,              // NOLINT
-                                     uint32_t& label,                 // NOLINT
                                      IdxT& data_ix)
 {
-  uint32_t ix_min = 0;
-  uint32_t ix_max = n_probes - 1;
-  chunk_ix        = (ix_min + ix_max) / 2;
+  uint32_t ix_min   = 0;
+  uint32_t ix_max   = n_probes - 1;
+  uint32_t chunk_ix = (ix_min + ix_max) / 2;
   while (ix_min < ix_max) {
     if (sample_ix >= chunk_indices[chunk_ix]) {
       ix_min = chunk_ix + 1;
@@ -219,9 +217,8 @@ __device__ void ivfpq_get_id_dataset(uint32_t sample_ix,
     chunk_ix = (ix_min + ix_max) / 2;
   }
 
-  label = cluster_labels[chunk_ix];
   if (chunk_ix > 0) { sample_ix -= chunk_indices[chunk_ix - 1]; }
-  data_ix = sample_ix + cluster_offsets[label];
+  data_ix = sample_ix + cluster_offsets[cluster_labels[chunk_ix]];
 }
 
 template <typename ScoreT, typename IdxT>
@@ -252,16 +249,12 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
   if (topk_score_ixs == nullptr) {
     // 0 <= sample_ix < max_samples
     score = scores[sample_ix + (max_samples * batch_ix)];
-    uint32_t chunk_ix;
-    uint32_t label;
     IdxT data_ix;
     ivfpq_get_id_dataset(sample_ix,
                          n_probes,
                          cluster_offsets,
                          cluster_labels + (n_probes * batch_ix),
                          chunk_indices + (n_probes * batch_ix),
-                         chunk_ix,
-                         label,
                          data_ix);
     topk_out_ixs[i + (topk * batch_ix)] = data_indices[data_ix];
   } else {
@@ -354,6 +347,9 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  * The main kernel that computes similarity scores across multiple queries and probes.
  * When `Capacity > 0`, it also selects top K candidates for each query and probe
  * (which need to be merged across probes afterwards).
+ *
+ * Each block processes a (query, probe) pair: it calculates the distance between the single query
+ * vector and all the dataset vector in the cluster that we are probing.
  *
  * @tparam OpT is a carrier integer type selected to maximize throughput;
  *   Used solely in `ivfpq_compute_score`;
@@ -516,6 +512,8 @@ __launch_bounds__(1024, 1) __global__
     }
 
     // Create a lookup table
+    // For each subspace, the lookup table stores the distance between the actual query vector
+    // (projected into the subspace) and all possible pq vectors in that subspace.
     for (uint32_t i = threadIdx.x; i < (pq_dim << pq_bits); i += blockDim.x) {
       uint32_t i_pq   = i >> pq_bits;
       uint32_t i_code = codebook_kind == codebook_gen::PER_CLUSTER ? i & ((1 << pq_bits) - 1) : i;
