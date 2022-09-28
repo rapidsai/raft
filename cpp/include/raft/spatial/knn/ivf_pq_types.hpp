@@ -88,7 +88,7 @@ struct search_params : knn::search_params {
   /** The number of clusters to search. */
   uint32_t n_probes = 20;
   /**
-   * Data type of LUT to be created dynamically at search time.
+   * Data type of look up table to be created dynamically at search time.
    *
    * Possible values: [CUDA_R_32F, CUDA_R_16F, CUDA_R_8U]
    *
