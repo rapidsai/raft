@@ -24,7 +24,6 @@
 #include <raft/util/integer_utils.hpp>
 
 #include <optional>
-#include <type_traits>
 
 namespace raft::spatial::knn::ivf_flat {
 
