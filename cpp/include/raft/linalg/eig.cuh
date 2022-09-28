@@ -20,7 +20,7 @@
 
 #include "detail/eig.cuh"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 
 namespace raft {
 namespace linalg {
@@ -132,9 +132,6 @@ void eig_dc(const raft::handle_t& handle,
             raft::device_matrix_view<ValueType, IndexType, raft::col_major> eig_vectors,
             raft::device_vector_view<ValueType, IndexType> eig_vals)
 {
-  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
-  RAFT_EXPECTS(eig_vectors.is_exhaustive(), "Eigen Vectors must be contiguous");
-  RAFT_EXPECTS(eig_vals.is_exhaustive(), "Eigen Values must be contiguous");
   RAFT_EXPECTS(in.size() == eig_vectors.size(), "Size mismatch between Input and Eigen Vectors");
   RAFT_EXPECTS(eig_vals.size() == in.extent(1), "Size mismatch between Input and Eigen Values");
 
@@ -168,9 +165,6 @@ void eig_dc_selective(const raft::handle_t& handle,
                       std::size_t n_eig_vals,
                       EigVecMemUsage memUsage)
 {
-  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
-  RAFT_EXPECTS(eig_vectors.is_exhaustive(), "Eigen Vectors must be contiguous");
-  RAFT_EXPECTS(eig_vals.is_exhaustive(), "Eigen Values must be contiguous");
   RAFT_EXPECTS(eig_vectors.size() == n_eig_vals * in.extent(0),
                "Size mismatch between Input and Eigen Vectors");
   RAFT_EXPECTS(eig_vals.size() == n_eig_vals, "Size mismatch between Input and Eigen Values");
@@ -209,9 +203,6 @@ void eig_jacobi(const raft::handle_t& handle,
                 ValueType tol = 1.e-7,
                 int sweeps    = 15)
 {
-  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
-  RAFT_EXPECTS(eig_vectors.is_exhaustive(), "Eigen Vectors must be contiguous");
-  RAFT_EXPECTS(eig_vals.is_exhaustive(), "Eigen Values must be contiguous");
   RAFT_EXPECTS(in.size() == eig_vectors.size(), "Size mismatch between Input and Eigen Vectors");
   RAFT_EXPECTS(eig_vals.size() == in.extent(1), "Size mismatch between Input and Eigen Values");
 

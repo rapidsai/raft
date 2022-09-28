@@ -20,7 +20,11 @@
 
 #include "detail/gemv.hpp"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/host_mdspan.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -249,9 +253,7 @@ void gemv(const raft::handle_t& handle,
           std::optional<ScalarViewType> alpha = std::nullopt,
           std::optional<ScalarViewType> beta  = std::nullopt)
 {
-  RAFT_EXPECTS(A.is_exhaustive(), "A is not contiguous");
-  RAFT_EXPECTS(x.is_exhaustive(), "x is not contiguous");
-  RAFT_EXPECTS(y.is_exhaustive(), "y is not contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(A), "A is not contiguous");
 
   constexpr auto is_A_col_major =
     std::is_same_v<typename decltype(A)::layout_type, raft::col_major>;

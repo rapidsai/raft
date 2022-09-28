@@ -21,7 +21,7 @@
 
 #include "detail/strided_reduction.cuh"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/handle.hpp>
 
 namespace raft {
@@ -125,9 +125,6 @@ void strided_reduction(const raft::handle_t& handle,
                        ReduceLambda reduce_op = raft::Sum<OutElementType>(),
                        FinalLambda final_op   = raft::Nop<OutElementType>())
 {
-  RAFT_EXPECTS(dots.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(data.is_exhaustive(), "Input must be contiguous");
-
   if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
     RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),
                  "Output should be equal to number of columns in Input");

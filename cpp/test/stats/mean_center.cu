@@ -17,10 +17,10 @@
 #include "../linalg/matrix_vector_op.cuh"
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace stats {

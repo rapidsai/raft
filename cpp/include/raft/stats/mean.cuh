@@ -21,7 +21,7 @@
 
 #include "detail/mean.cuh"
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace raft {
 namespace stats {

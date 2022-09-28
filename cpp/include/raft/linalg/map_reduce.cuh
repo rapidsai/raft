@@ -20,7 +20,7 @@
 
 #include "detail/map_then_reduce.cuh"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 
 namespace raft::linalg {
 
@@ -74,6 +74,7 @@ void mapReduce(OutType* out,
  * @tparam ReduceLambda the device-lambda performing the actual reduction
  * @tparam IndexType the index type
  * @tparam OutValueType the data-type of the output
+ * @tparam ScalarIdxType index type of scalar
  * @tparam Args additional parameters
  * @param[in] handle raft::handle_t
  * @param[in] in the input of type raft::device_vector_view
@@ -89,18 +90,16 @@ template <typename InValueType,
           typename ReduceLambda,
           typename IndexType,
           typename OutValueType,
+          typename ScalarIdxType,
           typename... Args>
 void map_reduce(const raft::handle_t& handle,
                 raft::device_vector_view<const InValueType, IndexType> in,
-                raft::device_scalar_view<OutValueType> out,
+                raft::device_scalar_view<OutValueType, ScalarIdxType> out,
                 OutValueType neutral,
                 MapOp map,
                 ReduceLambda op,
                 Args... args)
 {
-  RAFT_EXPECTS(out.is_exhaustive(), "Output is not exhaustive");
-  RAFT_EXPECTS(in.is_exhaustive(), "Input is not exhaustive");
-
   mapReduce<InValueType, MapOp, ReduceLambda, IndexType, 256, OutValueType, Args...>(
     out.data_handle(),
     in.extent(0),

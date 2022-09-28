@@ -21,7 +21,8 @@
 #include "detail/matrix_vector_op.cuh"
 #include "linalg_types.hpp"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -142,8 +143,8 @@ void matrix_vector_op(const raft::handle_t& handle,
                       Apply apply,
                       Lambda op)
 {
-  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(matrix.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(matrix), "Output must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == matrix.size(), "Size mismatch between Output and Input");
 
   auto constexpr rowMajor = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
@@ -205,8 +206,8 @@ void matrix_vector_op(const raft::handle_t& handle,
                       Apply apply,
                       Lambda op)
 {
-  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(matrix.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(matrix), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == matrix.size(), "Size mismatch between Output and Input");
 
   auto constexpr rowMajor = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;

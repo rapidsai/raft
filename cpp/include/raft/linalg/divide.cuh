@@ -20,7 +20,8 @@
 
 #include "detail/divide.cuh"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -73,8 +74,8 @@ void divide_scalar(const raft::handle_t& handle,
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
 
-  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {

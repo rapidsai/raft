@@ -20,8 +20,8 @@
 
 #include "detail/coalesced_reduction.cuh"
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace linalg {
@@ -124,9 +124,6 @@ void coalesced_reduction(const raft::handle_t& handle,
                          ReduceLambda reduce_op = raft::Sum<OutValueType>(),
                          FinalLambda final_op   = raft::Nop<OutValueType>())
 {
-  RAFT_EXPECTS(dots.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(data.is_exhaustive(), "Input must be contiguous");
-
   if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
     RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(0),
                  "Output should be equal to number of rows in Input");

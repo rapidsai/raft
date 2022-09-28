@@ -18,9 +18,11 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -86,9 +88,9 @@ void power(const raft::handle_t& handle, InType in1, InType in2, OutType out)
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
 
-  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(in1.is_exhaustive(), "Input 1 must be contiguous");
-  RAFT_EXPECTS(in2.is_exhaustive(), "Input 2 must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in1), "Input 1 must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in2), "Input 2 must be contiguous");
   RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
                "Size mismatch between Output and Inputs");
 
@@ -129,8 +131,8 @@ void power_scalar(const raft::handle_t& handle,
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
 
-  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {

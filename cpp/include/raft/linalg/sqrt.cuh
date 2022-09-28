@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include <raft/core/mdarray.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace linalg {
@@ -64,8 +64,8 @@ void sqrt(const raft::handle_t& handle, InType in, OutType out)
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
 
-  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(in.is_exhaustive(), "Input 1 must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input 1 must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Inputs");
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {

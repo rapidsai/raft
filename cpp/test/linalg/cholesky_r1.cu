@@ -18,6 +18,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/linalg/cholesky_r1_update.cuh>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

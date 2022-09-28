@@ -20,7 +20,7 @@
 
 #include "detail/rsvd.cuh"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 
 namespace raft {
 namespace linalg {

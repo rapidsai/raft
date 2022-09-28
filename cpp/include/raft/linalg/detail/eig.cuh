@@ -18,9 +18,9 @@
 
 #include "cusolver_wrappers.hpp"
 #include <cuda_runtime_api.h>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

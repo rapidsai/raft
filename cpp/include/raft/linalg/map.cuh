@@ -20,7 +20,8 @@
 
 #include "detail/map.cuh"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -81,8 +82,8 @@ void map(const raft::handle_t& handle, InType in, OutType out, MapOp map, Args..
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
 
-  RAFT_EXPECTS(out.is_exhaustive(), "Output is not exhaustive");
-  RAFT_EXPECTS(in.is_exhaustive(), "Input is not exhaustive");
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output is not exhaustive");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input is not exhaustive");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Input and Output");
 
   if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {

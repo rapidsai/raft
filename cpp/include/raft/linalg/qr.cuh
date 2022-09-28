@@ -81,8 +81,6 @@ void qr_get_q(const raft::handle_t& handle,
               raft::device_matrix_view<const ElementType, IndexType, raft::col_major> M,
               raft::device_matrix_view<ElementType, IndexType, raft::col_major> Q)
 {
-  RAFT_EXPECTS(Q.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(M.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(Q.size() == M.size(), "Size mismatch between Output and Input");
 
   qrGetQ(handle, M.data_handle(), Q.data_handle(), M.extent(0), M.extent(1), handle.get_stream());
@@ -101,8 +99,6 @@ void qr_get_qr(const raft::handle_t& handle,
                raft::device_matrix_view<ElementType, IndexType, raft::col_major> Q,
                raft::device_matrix_view<ElementType, IndexType, raft::col_major> R)
 {
-  RAFT_EXPECTS(Q.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(M.is_exhaustive(), "Input must be contiguous");
   RAFT_EXPECTS(Q.size() == M.size(), "Size mismatch between Output and Input");
 
   qrGetQR(handle,

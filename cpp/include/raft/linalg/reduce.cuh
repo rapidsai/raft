@@ -21,7 +21,8 @@
 #include "detail/reduce.cuh"
 #include "linalg_types.hpp"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -130,8 +131,7 @@ void reduce(const raft::handle_t& handle,
             ReduceLambda reduce_op = raft::Sum<OutElementType>(),
             FinalLambda final_op   = raft::Nop<OutElementType>())
 {
-  RAFT_EXPECTS(dots.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(data.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(data), "Input must be contiguous");
 
   auto constexpr row_major = std::is_same_v<typename decltype(data)::layout_type, raft::row_major>;
   bool along_rows          = apply == Apply::ALONG_ROWS;

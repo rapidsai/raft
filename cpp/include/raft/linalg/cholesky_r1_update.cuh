@@ -19,9 +19,6 @@
 #pragma once
 
 #include "detail/cholesky_r1_update.cuh"
-#include "linalg_types.hpp"
-
-#include <raft/core/mdarray.hpp>
 
 namespace raft {
 namespace linalg {

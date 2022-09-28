@@ -62,9 +62,11 @@ template <typename InValueType, typename IndexType, typename OutValueType, int T
 void mean_squared_error(const raft::handle_t& handle,
                         raft::device_vector_view<const InValueType, IndexType> A,
                         raft::device_vector_view<const InValueType, IndexType> B,
-                        raft::device_vector_view<OutValueType, IndexType> out,
+                        raft::device_scalar_view<OutValueType, IndexType> out,
                         OutValueType weight)
 {
+  RAFT_EXPECTS(A.size() == B.size(), "Size mismatch between inputs");
+
   meanSquaredError(
     out.data_handle(), A.data_handle(), B.data_handle(), A.extent(0), weight, stream);
 }

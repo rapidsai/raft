@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/detail/lstsq.cuh>
 namespace raft {
 namespace linalg {
@@ -138,9 +138,6 @@ void lstsq_svd_qr(const raft::handle_t& handle,
                   raft::device_vector_view<ValueType, IndexType> b,
                   raft::device_vector_view<ValueType, IndexType> w)
 {
-  RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
-  RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
-  RAFT_EXPECTS(w.is_exhaustive(), "Eigen Values must be contiguous");
   RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
   RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
 
@@ -171,9 +168,6 @@ void lstsq_svd_jacobi(const raft::handle_t& handle,
                       raft::device_vector_view<ValueType, IndexType> b,
                       raft::device_vector_view<ValueType, IndexType> w)
 {
-  RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
-  RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
-  RAFT_EXPECTS(w.is_exhaustive(), "Eigen Values must be contiguous");
   RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
   RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
 
@@ -205,9 +199,6 @@ void lstsq_eig(const raft::handle_t& handle,
                raft::device_vector_view<ValueType, IndexType> b,
                raft::device_vector_view<ValueType, IndexType> w)
 {
-  RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
-  RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
-  RAFT_EXPECTS(w.is_exhaustive(), "Eigen Values must be contiguous");
   RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
   RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
 
@@ -239,9 +230,6 @@ void lstsq_qr(const raft::handle_t& handle,
               raft::device_vector_view<ValueType, IndexType> b,
               raft::device_vector_view<ValueType, IndexType> w)
 {
-  RAFT_EXPECTS(A.is_exhaustive(), "Input must be contiguous");
-  RAFT_EXPECTS(b.is_exhaustive(), "Eigen Vectors must be contiguous");
-  RAFT_EXPECTS(w.is_exhaustive(), "Eigen Values must be contiguous");
   RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
   RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
 

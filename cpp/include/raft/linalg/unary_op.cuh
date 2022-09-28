@@ -20,7 +20,9 @@
 
 #include "detail/unary_op.cuh"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -96,8 +98,8 @@ template <typename InType,
           typename = raft::enable_if_device_mdspan<InType, OutType>>
 void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
 {
-  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
   RAFT_EXPECTS(out.size() == in.size(), "Size mismatch between Output and Input");
 
   using in_value_t  = typename InType::value_type;
@@ -126,7 +128,7 @@ void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
 template <typename InType, typename Lambda, typename = raft::enable_if_device_mdspan<InType>>
 void write_only_unary_op(const raft::handle_t& handle, InType in, Lambda op)
 {
-  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
 
   using in_value_t = typename InType::value_type;
 

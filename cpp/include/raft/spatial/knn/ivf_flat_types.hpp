@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include "common.hpp"
+#include "ann_types.hpp"
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
-#include <raft/core/mdarray.hpp>
-#include <raft/distance/distance_type.hpp>
-#include <raft/integer_utils.h>
+#include <raft/distance/distance_types.hpp>
+#include <raft/util/integer_utils.hpp>
 
 #include <optional>
 

@@ -21,7 +21,8 @@
 #include "detail/norm.cuh"
 #include "linalg_types.hpp"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -116,8 +117,7 @@ void norm(const raft::handle_t& handle,
           Apply apply,
           Lambda fin_op = raft::Nop<ElementType, IndexType>())
 {
-  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(in.is_exhaustive(), "Input must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
 
   auto constexpr row_major = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
   auto along_rows          = apply == Apply::ALONG_ROWS;

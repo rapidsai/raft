@@ -17,6 +17,8 @@
 #pragma once
 
 #include "functional.cuh"
+
+#include <raft/core/host_mdspan.hpp>
 #include <raft/linalg/unary_op.cuh>
 
 namespace raft {

@@ -21,7 +21,9 @@
 
 #include "detail/ternary_op.cuh"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -77,10 +79,10 @@ template <typename InType,
 void ternary_op(
   const raft::handle_t& handle, InType in1, InType in2, InType in3, OutType out, Lambda op)
 {
-  RAFT_EXPECTS(out.is_exhaustive(), "Output must be contiguous");
-  RAFT_EXPECTS(in1.is_exhaustive(), "Input 1 must be contiguous");
-  RAFT_EXPECTS(in2.is_exhaustive(), "Input 2 must be contiguous");
-  RAFT_EXPECTS(in3.is_exhaustive(), "Input 3 must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in1), "Input 1 must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in2), "Input 2 must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in3), "Input 3 must be contiguous");
   RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size() && in2.size() == in3.size(),
                "Size mismatch between Output and Inputs");
 

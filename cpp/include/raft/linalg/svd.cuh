@@ -20,6 +20,8 @@
 
 #include "detail/svd.cuh"
 
+#include <optional>
+
 namespace raft {
 namespace linalg {
 
@@ -206,14 +208,14 @@ void svd_qr(
     std::nullopt)
 {
   if (left_sing_vecs) {
-    RAFT_EXPECTS(
-      in.extent(0) == left_sing_vecs.extent(0) && in.extent(1) == left_sing_vecs.extent(1),
-      "U should have dimensions m * n");
+    RAFT_EXPECTS(in.extent(0) == left_sing_vecs.value().extent(0) &&
+                   in.extent(1) == left_sing_vecs.value().extent(1),
+                 "U should have dimensions m * n");
   }
   if (right_sing_vecs) {
-    RAFT_EXPECTS(
-      in.extent(1) == right_sing_vecs.extent(0) && in.extent(1) == right_sing_vecs.extent(1),
-      "V should have dimensions n * n");
+    RAFT_EXPECTS(in.extent(1) == right_sing_vecs.value().extent(0) &&
+                   in.extent(1) == right_sing_vecs.value().extent(1),
+                 "V should have dimensions n * n");
   }
   svdQR(handle,
         in.data_handle(),
@@ -336,7 +338,7 @@ void svd_eig(
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U = std::nullopt)
 {
   if (U) {
-    RAFT_EXPECTS(in.extent(0) == U.extent(0) && in.extent(1) == U.extent(1),
+    RAFT_EXPECTS(in.extent(0) == U.value().extent(0) && in.extent(1) == U.value().extent(1),
                  "U should have dimensions m * n");
   }
   RAFT_EXPECTS(in.extent(0) == V.extent(0) && in.extent(1) == V.extent(1),

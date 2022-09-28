@@ -20,7 +20,8 @@
 
 #include "detail/reduce_rows_by_key.cuh"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 
 namespace raft {
 namespace linalg {
@@ -116,7 +117,7 @@ void reduce_rows_by_key(const DataIteratorT* d_A,
  */
 
 /**
- * @brief Computes the weighted reduction of matrix rows for each given key
+ * @brief Computes the weighted sum-reduction of matrix rows for each given key
  *
  * @tparam ElementType data-type of input and output
  * @tparam KeyType data-type of keys
@@ -141,17 +142,11 @@ void reduce_rows_by_key(
   raft::device_vector_view<char, IndexType> d_keys_char,
   std::optional<raft::device_vector_view<const WeightType, IndexType>> d_weights = std::nullopt)
 {
-  RAFT_EXPECTS(d_A.is_exhaustive(), "Input is not contiguous");
-  RAFT_EXPECTS(d_sums.is_exhaustive(), "Output is not contiguous");
-  RAFT_EXPECTS(d_keys.is_exhaustive(), "Keys is not contiguous");
-  RAFT_EXPECTS(d_keys_char.is_exhaustive(), "Keys is not contiguous");
-
   RAFT_EXPECTS(d_A.extent(0) == d_A.extent(0) && d_sums.extent(1) == nkeys,
                "Output is not of size ncols * nkeys");
   RAFT_EXPECTS(d_keys.extent(0) == d_A.extent(1), "Keys is not of size nrows");
 
   if (d_weights) {
-    RAFT_EXPECTS(d_weights.value().is_exhaustive(), "Weights is not contiguous");
     RAFT_EXPECTS(d_weights.value().extent(0) == d_A.extent(1), "Weights is not of size nrows");
 
     reduce_rows_by_key(d_A.data_handle(),

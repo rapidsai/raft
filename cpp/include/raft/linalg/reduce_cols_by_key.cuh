@@ -20,7 +20,8 @@
 
 #include "detail/reduce_cols_by_key.cuh"
 
-#include <raft/core/mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 
 namespace raft {
 namespace linalg {
@@ -84,10 +85,6 @@ void reduce_cols_by_key(
   raft::device_matrix_view<ElementType, IndexType, raft::row_major> out,
   IndexType nkeys)
 {
-  RAFT_EXPECTS(data.is_exhaustive(), "Input is not contiguous");
-  RAFT_EXPECTS(out.is_exhaustive(), "Output is not contiguous");
-  RAFT_EXPECTS(keys.is_exhaustive(), "Keys is not contiguous");
-
   RAFT_EXPECTS(out.extent(0) == data.extent(0) && out.extent(1) == nkeys,
                "Output is not of size nrows * nkeys");
   RAFT_EXPECTS(keys.extent(0) == data.extent(1), "Keys is not of size ncols");
