@@ -94,8 +94,8 @@ value_t silhouette_score_batched(
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score(
   const raft::handle_t& handle,
-  raft::device_matrix_view<value_t, idx_t, raft::row_major> X_in,
-  raft::device_vector_view<label_t, idx_t> labels,
+  raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_in,
+  raft::device_vector_view<const label_t, idx_t> labels,
   std::optional<raft::device_vector_view<value_t, idx_t>> silhouette_score_per_sample,
   idx_t n_unique_labels,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
@@ -122,8 +122,8 @@ value_t silhouette_score(
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score_batched(
   const raft::handle_t& handle,
-  raft::device_matrix_view<value_t, idx_t, raft::row_major> X,
-  raft::device_vector_view<label_t, idx_t> y,
+  raft::device_matrix_view<const value_t, idx_t, raft::row_major> X,
+  raft::device_vector_view<const label_t, idx_t> y,
   std::optional<raft::device_vector_view<value_t, idx_t>> scores,
   idx_t n_unique_labels,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)

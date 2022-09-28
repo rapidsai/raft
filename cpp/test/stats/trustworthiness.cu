@@ -328,7 +328,8 @@ class TrustworthinessScoreTest : public ::testing::Test {
     score = trustworthiness_score<raft::distance::DistanceType::L2SqrtUnexpanded, float>(
       handle,
       raft::make_device_matrix_view<const float>(d_X.data(), n_sample, n_features_origin),
-      raft::make_device_matrix_view(d_X_embedded.data(), n_sample, n_features_embedded),
+      raft::make_device_matrix_view<const float>(
+        d_X_embedded.data(), n_sample, n_features_embedded),
       5);
   }
 
