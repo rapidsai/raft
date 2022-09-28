@@ -452,7 +452,7 @@ namespace {  // NOLINT
 /**
  * This is a hack to allow constexpr definition of `half` constants.
  *
- * The problem is neither union-based nor reinterpret_cast-based type punning is not possible within
+ * Neither union-based nor reinterpret_cast-based type punning is possible within
  * constexpr; at the same time, all non-default constructors of `half` data type are not constexpr
  * as well.
  *
