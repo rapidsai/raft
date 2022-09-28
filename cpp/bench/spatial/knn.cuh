@@ -22,6 +22,7 @@
 
 #include <raft/spatial/knn/ivf_flat.cuh>
 #include <raft/spatial/knn/ivf_pq.cuh>
+#include <raft/spatial/knn/knn.cuh>
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
 #endif
