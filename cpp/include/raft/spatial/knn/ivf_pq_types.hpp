@@ -121,6 +121,45 @@ static_assert(std::is_aggregate_v<search_params>);
 /**
  * @brief IVF-PQ index.
  *
+ * In the IVF-PQ index, a database vector y is approximated with two level quantization:
+ *
+ * y = Q_1(y) + Q_2(y - Q_1(y))
+ *
+ * The first level quantizer (Q_1), maps the vector y to the nearest cluster center. The number of
+ * clusters is n_lists.
+ *
+ * The second quantizer encodes the residual, and it is defined as a product quantizer [1].
+ *
+ * A product quantizer encodes a `dim` dimensional vector with a `pq_dim` dimensional vector.
+ * First we split the input vector into `pq_dim` subvectors (denoted by u), where each u vector
+ * contains `pq_len` distinct components of y
+ *
+ * y_1, y_2, ... y_{pq_len}, y_{pq_len+1}, ... y_{2*pq_len}, ... y_{dim-pq_len+1} ... y_{dim}
+ *  \___________________/     \____________________________/      \______________________/
+ *         u_1                         u_2                          u_{pq_dim}
+ *
+ * Then each subvector encoded with a separate quantizer q_i, end the results are concatenated
+ *
+ * Q_2(y) = q_1(u_1),q_2(u_2),...,q_{pq_dim}(u_pq_dim})
+ *
+ * Each quantizer q_i outputs a code with pq_bit bits. The second level quantizers are also defined
+ * by k-means clustering in the corresponding sub-space: the reproduction values are the centroids,
+ * and the set of reproduction values is the codebook.
+ *
+ * When the data dimensionality `dim` is not multiple of `pq_dim`, the feature space is transformed
+ * using a random orthogonal matrix to have `rot_dim = pq_dim * pq_len` dimensions
+ * (`rot_dim >= dim`).
+ *
+ * The second-level quantizers are trained either for each subspace or for each cluster:
+ *   (a) codebook_gen::PER_SUBSPACE:
+ *         creates `pq_dim` second-level quantizers - one for each slice of the data along features;
+ *   (b) codebook_gen::PER_CLUSTER:
+ *         creates `n_lists` second-level quantizers - one for each first-level cluster.
+ * In either case, the centroids are again found using k-means clustering interpreting the data as
+ * having pq_len dimensions.
+ *
+ * [1] Product quantization for nearest neighbor search Herve Jegou, Matthijs Douze, Cordelia Schmid
+ *
  * @tparam IdxT type of the indices in the source dataset
  *
  */
