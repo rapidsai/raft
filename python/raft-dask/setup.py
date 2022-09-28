@@ -27,7 +27,7 @@ def exclude_libcxx_symlink(cmake_manifest):
 
 setup(name=f"raft-dask{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
       description="Reusable Accelerated Functions & Tools Dask Infrastructure",
-      version=versioneer.get_version(),
+      version=os.getenv('PYTHON_PACKAGE_VERSIONEER_OVERRIDE', default=versioneer.get_version()),
       classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python",

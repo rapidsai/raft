@@ -27,7 +27,7 @@ def exclude_libcxx_symlink(cmake_manifest):
 
 setup(name='pylibraft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
       description="RAFT: Reusable Algorithms Functions and other Tools",
-      version=versioneer.get_version(),
+      version=os.getenv('PYTHON_PACKAGE_VERSIONEER_OVERRIDE', default=versioneer.get_version()),
       classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python",

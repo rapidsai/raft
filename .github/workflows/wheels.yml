@@ -18,7 +18,7 @@ jobs:
 
       cibw-before-all-amd64: "yum install -y blas-devel lapack-devel"
       cibw-before-all-arm64: "apt-get install -y libblas-dev liblapack-dev"
-      cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
+      cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple PYTHON_PACKAGE_VERSIONEER_OVERRIDE=22.10.00a"
 
       skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL -DFIND_RAFT_CPP=OFF"
 
@@ -46,7 +46,7 @@ jobs:
 
       cibw-before-all-amd64: "yum install -y blas-devel lapack-devel"
       cibw-before-all-arm64: "apt-get install -y libblas-dev liblapack-dev"
-      cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
+      cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple PYTHON_PACKAGE_VERSIONEER_OVERRIDE=22.10.00a"
 
       skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL"
 
