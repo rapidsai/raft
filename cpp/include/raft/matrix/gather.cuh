@@ -99,9 +99,9 @@ void gather(const raft::handle_t& handle,
  */
 template <typename matrix_t, typename map_t, typename map_xform_t, typename idx_t>
 void gather(const raft::handle_t& handle,
-            raft::device_matrix_view<const MatrixIteratorT, idx_t, row_major> in,
-            raft::device_matrix_view<MatrixIteratorT, idx_t, row_major> out,
-            raft::device_vector_view<MapIteratorT, idx_t> map,
+            raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
+            raft::device_vector_view<map_t, idx_t> map,
+            raft::device_matrix_view<matrix_t, idx_t, row_major> out,
             map_xform_t transform_op)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
