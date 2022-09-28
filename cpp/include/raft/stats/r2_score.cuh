@@ -57,9 +57,9 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
  *
  * @tparam value_t the data type
  * @tparam idx_t index type
- * @param handle the raft handle
- * @param y: Array of ground-truth response variables
- * @param y_hat: Array of predicted response variables
+ * @param[in] handle the raft handle
+ * @param[in] y: Array of ground-truth response variables
+ * @param[in] y_hat: Array of predicted response variables
  * @return: The R-squared value.
  */
 template <typename value_t, typename idx_t>

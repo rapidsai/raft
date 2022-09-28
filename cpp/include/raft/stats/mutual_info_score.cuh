@@ -52,11 +52,12 @@ double mutual_info_score(const T* firstClusterArray,
  * <a href="https://en.wikipedia.org/wiki/Mutual_information">more info on mutual information</a>
  * @tparam value_t the data type
  * @tparam idx_t index type
- * @param handle the raft handle
- * @param first_cluster_array: the array of classes of type value_t
- * @param second_cluster_array: the array of classes of type value_t
- * @param lower_label_range: the lower bound of the range of labels
- * @param upper_label_range: the upper bound of the range of labels
+ * @param[in] handle the raft handle
+ * @param[in] first_cluster_array: the array of classes of type value_t
+ * @param[in] second_cluster_array: the array of classes of type value_t
+ * @param[in] lower_label_range: the lower bound of the range of labels
+ * @param[in] upper_label_range: the upper bound of the range of labels
+ * @return the mutual information score
  */
 template <typename value_t, typename idx_t>
 double mutual_info_score(const raft::handle_t& handle,

@@ -100,11 +100,11 @@ void colWeightedMean(
  * @tparam value_t the data type
  * @tparam idx_t Integer type used to for addressing
  * @tparam layout_t Layout type of the input matrix.
- * @param handle the raft handle
- * @param data the input matrix of size nrows * ncols
- * @param weights weight of size ncols if along_row is true, else of size nrows
- * @param mu the output mean vector of size ncols if along_row is true, else of size nrows
- * @param along_rows whether to reduce along rows or columns
+ * @param[in]  handle the raft handle
+ * @param[in]  data the input matrix of size nrows * ncols
+ * @param[in]  weights weight of size ncols if along_row is true, else of size nrows
+ * @param[out] mu the output mean vector of size ncols if along_row is true, else of size nrows
+ * @param[in]  along_rows whether to reduce along rows or columns
  */
 template <typename value_t, typename idx_t = int, typename layout_t>
 void weighted_mean(const raft::handle_t& handle,
@@ -142,10 +142,10 @@ void weighted_mean(const raft::handle_t& handle,
  *
  * @tparam value_t the data type
  * @tparam idx_t Integer type used to for addressing
- * @param handle the raft handle
- * @param data the input matrix of size nrows * ncols
- * @param weights per-col weight
- * @param mu the output mean vector of size ncols
+ * @param[in]  handle the raft handle
+ * @param[in]  data the input matrix of size nrows * ncols
+ * @param[in]  weights per-col weight
+ * @param[out] mu the output mean vector of size ncols
  */
 template <typename value_t, typename idx_t = int>
 void rowWeightedMean(const raft::handle_t& handle,
@@ -162,10 +162,10 @@ void rowWeightedMean(const raft::handle_t& handle,
  *
  * @tparam value_t the data type
  * @tparam idx_t Integer type used to for addressing
- * @param handle the raft handle
- * @param data the input matrix of size nrows * ncols
- * @param weights per-row weight
- * @param mu the output mean vector of size nrows
+ * @param[in]  handle the raft handle
+ * @param[in]  data the input matrix of size nrows * ncols
+ * @param[in]  weights per-row weight
+ * @param[out] mu the output mean vector of size nrows
  */
 template <typename value_t, typename idx_t>
 void colWeightedMean(const raft::handle_t& handle,

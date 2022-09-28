@@ -54,12 +54,13 @@ double v_measure(const T* truthClusterArray,
  *
  * @tparam value_t the data type
  * @tparam idx_t Integer type used to for addressing
- * @param handle the raft handle
- * @param truth_cluster_array: the array of truth classes of type T
- * @param pred_cluster_array: the array of predicted classes of type T
- * @param lower_label_range: the lower bound of the range of labels
- * @param upper_label_range: the upper bound of the range of labels
- * @param beta: v_measure parameter
+ * @param[in] handle the raft handle
+ * @param[in] truth_cluster_array: the array of truth classes of type T
+ * @param[in] pred_cluster_array: the array of predicted classes of type T
+ * @param[in] lower_label_range: the lower bound of the range of labels
+ * @param[in] upper_label_range: the upper bound of the range of labels
+ * @param[in] beta: v_measure parameter
+ * @return the v-measure between the two clusters
  */
 template <typename value_t, typename idx_t>
 double v_measure(const raft::handle_t& handle,

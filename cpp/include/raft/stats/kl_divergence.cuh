@@ -49,9 +49,10 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
  *
  * @tparam value_t: Data type of the input array
  * @tparam idx_t index type
- * @param handle the raft handle
- * @param modelPDF: the model array of probability density functions of type value_t
- * @param candidatePDF: the candidate array of probability density functions of type value_t
+ * @param[in] handle the raft handle
+ * @param[in] modelPDF: the model array of probability density functions of type value_t
+ * @param[in] candidatePDF: the candidate array of probability density functions of type value_t
+ * @return the KL Divergence value
  */
 template <typename value_t, typename idx_t>
 value_t kl_divergence(const raft::handle_t& handle,

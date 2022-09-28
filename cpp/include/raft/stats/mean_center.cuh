@@ -57,11 +57,11 @@ void meanCenter(Type* out,
  * @tparam value_t the data type
  * @tparam idx_t index type
  * @tparam layout_t Layout type of the input matrix.
- * @param handle the raft handle
- * @param data input matrix
- * @param mu the mean vector
- * @param out the output mean-centered matrix
- * @param bcast_along_rows whether to broadcast vector along rows or columns
+ * @param[in]  handle the raft handle
+ * @param[in]  data input matrix
+ * @param[in]  mu the mean vector
+ * @param[out] out the output mean-centered matrix
+ * @param[in]  bcast_along_rows whether to broadcast vector along rows or columns
  */
 template <typename value_t, typename idx_t, typename layout_t>
 void mean_center(const raft::handle_t& handle,
@@ -121,11 +121,11 @@ void meanAdd(Type* out,
  * @tparam idx_t index type
  * @tparam layout_t Layout type of the input matrix.
  * @tparam TPB threads per block of the cuda kernel launched
- * @param handle the raft handle
- * @param data input matrix
- * @param mu the mean vector
- * @param out the output mean-centered matrix
- * @param bcast_along_rows whether to broadcast vector along rows or columns
+ * @param[in]  handle the raft handle
+ * @param[in]  data input matrix
+ * @param[in]  mu the mean vector
+ * @param[out] out the output mean-centered matrix
+ * @param[in]  bcast_along_rows whether to broadcast vector along rows or columns
  */
 template <typename value_t, typename idx_t, typename layout_t>
 void mean_add(const raft::handle_t& handle,

@@ -52,10 +52,10 @@ double entropy(const T* clusterArray,
  *
  * @tparam value_t data type
  * @tparam idx_t index type
- * @param handle the raft handle
- * @param cluster_array: the array of classes of type value_t
- * @param lower_label_range: the lower bound of the range of labels
- * @param upper_label_range: the upper bound of the range of labels
+ * @param[in] handle the raft handle
+ * @param[in] cluster_array: the array of classes of type value_t
+ * @param[in] lower_label_range: the lower bound of the range of labels
+ * @param[in] upper_label_range: the upper bound of the range of labels
  * @return the entropy score
  */
 template <typename value_t, typename idx_t>

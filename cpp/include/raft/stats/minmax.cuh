@@ -76,16 +76,16 @@ void minmax(const T* data,
  *
  * @tparam value_t Data type of input matrix element.
  * @tparam idx_t Index type of matrix extent.
- * @param handle the raft handle
- * @param data input data col-major of size [nrows, ncols], unless rowids or
+ * @param[in]  handle the raft handle
+ * @param[in]  data input data col-major of size [nrows, ncols], unless rowids or
  * colids length is smaller
- * @param rowids actual row ID mappings. It is of length nrows. If you want to
- * skip this index lookup entirely, pass nullptr
- * @param colids actual col ID mappings. It is of length ncols. If you want to
- * skip this index lookup entirely, pass nullptr
- * @param globalmin final col-wise global minimum (size = ncols)
- * @param globalmax final col-wise global maximum (size = ncols)
- * @param sampledcols output sampled data. Pass nullptr if you don't need this
+ * @param[in]  rowids optional row ID mappings of length nrows. If you want to
+ * skip this index lookup entirely, pass std::nullopt
+ * @param[in]  colids optional col ID mappings of length ncols. If you want to
+ * skip this index lookup entirely, pass std::nullopt
+ * @param[out] globalmin final col-wise global minimum (size = ncols)
+ * @param[out] globalmax final col-wise global maximum (size = ncols)
+ * @param[out] sampledcols output sampled data. Pass std::nullopt if you don't need this
  * @note This method makes the following assumptions:
  * 1. input and output matrices are assumed to be col-major
  * 2. ncols is small enough to fit the whole of min/max values across all cols
@@ -108,13 +108,17 @@ void minmax(const raft::handle_t& handle,
   auto row_stride            = data.stride(1);
   if (rowids.has_value()) {
     rowids_ptr = rowids.value().data_handle();
-    nrows      = rowids.value().extent(0);
+    RAFT_EXPECTS(rowids.value().extent(0) <= nrows, "Rowids size is greater than nrows");
+    nrows = rowids.value().extent(0);
   }
   if (colids.has_value()) {
     colids_ptr = colids.value().data_handle();
-    ncols      = colids.value().extent(0);
+    RAFT_EXPECTS(colids.value().extent(0) <= ncols, "Colids size is greater than ncols");
+    ncols = colids.value().extent(0);
   }
   if (sampledcols.has_value()) { sampledcols_ptr = sampledcols.value().data_handle(); }
+  RAFT_EXPECTS(globalmin.extent(0) == ncols, "Size mismatch betwen globalmin and ncols");
+  RAFT_EXPECTS(globalmax.extent(0) == ncols, "Size mismatch betwen globalmax and ncols");
   detail::minmax<value_t>(data.data_handle(),
                           rowids_ptr,
                           colids_ptr,

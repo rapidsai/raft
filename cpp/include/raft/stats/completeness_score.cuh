@@ -52,11 +52,12 @@ double completeness_score(const T* truthClusterArray,
  *
  * @tparam value_t the data type
  * @tparam idx_t Index type of matrix extent.
- * @param handle: the raft handle.
- * @param truth_cluster_array: the array of truth classes of type value_t
- * @param pred_cluster_array: the array of predicted classes of type value_t
- * @param lower_label_range: the lower bound of the range of labels
- * @param upper_label_range: the upper bound of the range of labels
+ * @param[in] handle: the raft handle.
+ * @param[in] truth_cluster_array: the array of truth classes of type value_t
+ * @param[in] pred_cluster_array: the array of predicted classes of type value_t
+ * @param[in] lower_label_range: the lower bound of the range of labels
+ * @param[in] upper_label_range: the upper bound of the range of labels
+ * @return the cluster completeness score
  */
 template <typename value_t, typename idx_t>
 double completeness_score(const raft::handle_t& handle,

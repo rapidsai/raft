@@ -67,15 +67,15 @@ void cov(const raft::handle_t& handle,
  * @tparam value_t the data type
  * @tparam idx_t the index type
  * @tparam layout_t Layout type of the input data.
- * @param handle the raft handle
- * @param data the input matrix (this will get mean-centered at the end!)
+ * @param[in]  handle the raft handle
+ * @param[in]  data the input matrix (this will get mean-centered at the end!)
  * (length = nrows * ncols)
- * @param mu mean vector of the input matrix (length = ncols)
- * @param covar the output covariance matrix (length = ncols * ncols)
- * @param sample whether to evaluate sample covariance or not. In other words,
+ * @param[in]  mu mean vector of the input matrix (length = ncols)
+ * @param[out] covar the output covariance matrix (length = ncols * ncols)
+ * @param[in]  sample whether to evaluate sample covariance or not. In other words,
  * whether to normalize the output using N-1 or N, for true or false,
  * respectively
- * @param stable whether to run the slower-but-numerically-stable version or not
+ * @param[in]  stable whether to run the slower-but-numerically-stable version or not
  * @note if stable=true, then the input data will be mean centered after this
  * function returns!
  */

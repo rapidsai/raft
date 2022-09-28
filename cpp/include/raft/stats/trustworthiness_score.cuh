@@ -60,7 +60,7 @@ double trustworthiness_score(const raft::handle_t& h,
  * @param[in] X_embedded: Data in target dimension (embedding)
  * @param[in] n_neighbors Number of neighbors considered by trustworthiness score
  * @param[in] batch_size Batch size
- * @return[out] Trustworthiness score
+ * @return Trustworthiness score
  */
 template <raft::distance::DistanceType distance_type, typename value_t, typename idx_t>
 double trustworthiness_score(const raft::handle_t& handle,

@@ -58,10 +58,10 @@ void mean(
  * @tparam value_t the data type
  * @tparam idx_t index type
  * @tparam layout_t Layout type of the input matrix.
- * @param handle the raft handle
- * @param data: the input matrix
- * @param mu: the output mean vector
- * @param sample: whether to evaluate sample mean or not. In other words, whether
+ * @param[in]  handle the raft handle
+ * @param[in]  data: the input matrix
+ * @param[out] mu: the output mean vector
+ * @param[in]  sample: whether to evaluate sample mean or not. In other words, whether
  *   to normalize the output using N-1 or N, for true or false, respectively
  */
 template <typename value_t, typename idx_t = int, typename layout_t>

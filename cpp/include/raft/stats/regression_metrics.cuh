@@ -57,9 +57,9 @@ void regression_metrics(const T* predictions,
  * @brief Compute regression metrics mean absolute error, mean squared error, median absolute error
  * @tparam value_t the data type for predictions (e.g., float or double for regression).
  * @tparam idx_t index type
- * @param[in] handle the raft handle
- * @param[in] predictions: array of predictions.
- * @param[in] ref_predictions: array of reference (ground-truth) predictions.
+ * @param[in]  handle the raft handle
+ * @param[in]  predictions: array of predictions.
+ * @param[in]  ref_predictions: array of reference (ground-truth) predictions.
  * @param[out] mean_abs_error: Mean Absolute Error. Sum over n of (|predictions[i] -
  * ref_predictions[i]|) / n.
  * @param[out] mean_squared_error: Mean Squared Error. Sum over n of ((predictions[i] -

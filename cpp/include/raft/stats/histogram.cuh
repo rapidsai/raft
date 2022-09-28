@@ -69,11 +69,11 @@ void histogram(HistType type,
  * @tparam value_t input data type
  * @tparam idx_t data type used to compute indices
  * @tparam binner_op takes the input data and computes its bin index
- * @param handle the raft handle
- * @param type histogram implementation type to choose
- * @param data input data col-major (length = nrows * ncols)
- * @param bins the output bins col-major (length = nbins * ncols)
- * @param binner the operation that computes the bin index of the input data
+ * @param[in]  handle the raft handle
+ * @param[in]  type histogram implementation type to choose
+ * @param[in]  data input data col-major (length = nrows * ncols)
+ * @param[out] bins the output bins col-major (length = nbins * ncols)
+ * @param[in]  binner the operation that computes the bin index of the input data
  *
  * @note signature of binner_op is `int func(value_t, IdxT);`
  */

@@ -55,9 +55,10 @@ double adjusted_rand_index(const T* firstClusterArray,
  * @tparam value_t data-type for input label arrays
  * @tparam MathT integral data-type used for computing n-choose-r
  * @tparam idx_t Index type of matrix extent.
- * @param handle: the raft handle.
- * @param first_cluster_array: the array of classes
- * @param second_cluster_array: the array of classes
+ * @param[in] handle: the raft handle.
+ * @param[in] first_cluster_array: the array of classes
+ * @param[in] second_cluster_array: the array of classes
+ * @return the Adjusted RandIndex
  */
 template <typename value_t, typename MathT = int, typename idx_t>
 double adjusted_rand_index(const raft::handle_t& handle,

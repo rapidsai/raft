@@ -44,9 +44,10 @@ double rand_index(T* firstClusterArray, T* secondClusterArray, uint64_t size, cu
  * <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a>
  * @tparam value_t the data type
  * @tparam idx_t index type
- * @param handle the raft handle
- * @param first_cluster_array: the array of classes of type value_t
- * @param second_cluster_array: the array of classes of type value_t
+ * @param[in] handle the raft handle
+ * @param[in] first_cluster_array: the array of classes of type value_t
+ * @param[in] second_cluster_array: the array of classes of type value_t
+ * @return: The RandIndex value.
  */
 template <typename value_t, typename idx_t>
 double rand_index(const raft::handle_t& handle,

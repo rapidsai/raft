@@ -80,15 +80,16 @@ value_t silhouette_score_batched(
  * @tparam value_t: type of the data samples
  * @tparam label_t: type of the labels
  * @tparam idx_t index type
- * @param[in] handle: raft handle for managing expensive resources
- * @param[in] X_in: input matrix Data in row-major format (nRows x nCols)
- * @param[in] labels: the pointer to the array containing labels for every data sample (length:
+ * @param[in]  handle: raft handle for managing expensive resources
+ * @param[in]  X_in: input matrix Data in row-major format (nRows x nCols)
+ * @param[in]  labels: the pointer to the array containing labels for every data sample (length:
  * nRows)
  * @param[out] silhouette_score_per_sample: optional array populated with the silhouette score
  * for every sample (length: nRows)
- * @param n_unique_labels: number of unique labels in the labels array
- * @param metric: the numerical value that maps to the type of distance metric to be used in the
- * calculations
+ * @param[in]  n_unique_labels: number of unique labels in the labels array
+ * @param[in]  metric: the numerical value that maps to the type of distance metric to be used in
+ * the calculations
+ * @return: The silhouette score.
  */
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score(

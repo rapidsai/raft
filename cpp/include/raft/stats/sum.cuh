@@ -54,9 +54,9 @@ void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, c
  * @tparam value_t the data type
  * @tparam idx_t Integer type used to for addressing
  * @tparam layout_t Layout type of the input matrix.
- * @param handle the raft handle
- * @param input the input matrix
- * @param output the output mean vector
+ * @param[in]  handle the raft handle
+ * @param[in]  input the input matrix
+ * @param[out] output the output mean vector
  */
 template <typename value_t, typename idx_t, typename layout_t>
 void sum(const raft::handle_t& handle,

@@ -62,14 +62,14 @@ DataT dispersion(const DataT* centroids,
  * automatically finding the 'k' (in kmeans) that improves this metric.
  * @tparam value_t data type
  * @tparam idx_t index type
- * @param handle the raft handle
- * @param centroids the cluster centroids. This is assumed to be row-major
+ * @param[in]  handle the raft handle
+ * @param[in]  centroids the cluster centroids. This is assumed to be row-major
  *   and of dimension (n_clusters x dim)
- * @param cluster_sizes number of points in the dataset which belong to each
+ * @param[in]  cluster_sizes number of points in the dataset which belong to each
  *   cluster. This is of length n_clusters
- * @param global_centroid compute the global weighted centroid of all cluster
+ * @param[out] global_centroid compute the global weighted centroid of all cluster
  *   centroids. This is of length dim. Use std::nullopt to not return it.
- * @param n_points number of points in the dataset
+ * @param[in]  n_points number of points in the dataset
  * @return the cluster dispersion value
  */
 template <typename value_t, typename idx_t>
@@ -84,6 +84,8 @@ value_t dispersion(const raft::handle_t& handle,
 
   value_t* global_centroid_ptr = nullptr;
   if (global_centroid.has_value()) {
+    RAFT_EXPECTS(global_centroid.value().extent(0) == centroids.extent(1),
+                 "Size mismatch between global_centroid and centroids");
     RAFT_EXPECTS(global_centroid.value().is_exhaustive(), "global_centroid must be contiguous");
     global_centroid_ptr = global_centroid.value().data_handle();
   }

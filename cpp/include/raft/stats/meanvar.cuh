@@ -67,11 +67,11 @@ void meanvar(Type* mean,
  * @tparam value_t the data type
  * @tparam idx_t Integer type used for addressing
  * @tparam layout_t Layout type of the input matrix.
- * @param handle the raft handle
- * @param [in] data the input matrix of size [N, D]
- * @param [out] mean the output mean vector of size D
- * @param [out] var the output variance vector of size D
- * @param sample whether to evaluate sample variance or not. In other words, whether to
+ * @param[in]  handle the raft handle
+ * @param[in]  data the input matrix of size [N, D]
+ * @param[out] mean the output mean vector of size D
+ * @param[out] var the output variance vector of size D
+ * @param[in]  sample whether to evaluate sample variance or not. In other words, whether to
  * normalize the variance using N-1 or N, for true or false respectively.
  */
 template <typename value_t, typename idx_t = int, typename layout_t>

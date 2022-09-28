@@ -95,11 +95,11 @@ void vars(Type* var,
  * @tparam value_t the data type
  * @tparam idx_t Integer type used to for addressing
  * @tparam layout_t Layout type of the input matrix.
- * @param handle the raft handle
- * @param data the input matrix
- * @param mu the mean vector
- * @param std the output stddev vector
- * @param sample whether to evaluate sample stddev or not. In other words,
+ * @param[in]  handle the raft handle
+ * @param[in]  data the input matrix
+ * @param[in]  mu the mean vector
+ * @param[out] std the output stddev vector
+ * @param[in]  sample whether to evaluate sample stddev or not. In other words,
  * whether
  *  to normalize the output using N-1 or N, for true or false, respectively
  */
@@ -135,11 +135,11 @@ void stddev(const raft::handle_t& handle,
  * @tparam value_t the data type
  * @tparam idx_t Integer type used to for addressing
  * @tparam layout_t Layout type of the input matrix.
- * @param handle the raft handle
- * @param data the input matrix
- * @param mu the mean vector
- * @param var the output stddev vector
- * @param sample whether to evaluate sample stddev or not. In other words,
+ * @param[in]  handle the raft handle
+ * @param[in]  data the input matrix
+ * @param[in]  mu the mean vector
+ * @param[out] var the output stddev vector
+ * @param[in]  sample whether to evaluate sample stddev or not. In other words,
  * whether
  *  to normalize the output using N-1 or N, for true or false, respectively
  */
