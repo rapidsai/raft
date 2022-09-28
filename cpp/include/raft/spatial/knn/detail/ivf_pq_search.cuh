@@ -56,7 +56,10 @@ static_assert((kMaxCapacity >= 32) && !(kMaxCapacity & (kMaxCapacity - 1)),
 
 using namespace raft::spatial::knn::detail;  // NOLINT
 
-/** 8-bit floating-point type. */
+/** 8-bit floating-point storage type. 
+ * 
+ * This is a custom type for the current IVF-PQ implementation. No arithmetic operations defined only conversion to and from fp32. This type is unrelated to the proposed FP8 specification.
+ */
 template <uint32_t ExpBits, bool Signed>
 struct fp_8bit {
   static_assert(ExpBits + uint8_t{Signed} <= 8, "The type does not fit in 8 bits.");
