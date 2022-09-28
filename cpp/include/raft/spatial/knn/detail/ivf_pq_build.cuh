@@ -934,7 +934,8 @@ inline auto build(
         common::nvtx::range<common::nvtx::domain::raft> pq_per_subspace_scope(
           "ivf_pq::build::per_subspace[%u]", j);
 
-        // Get the rotated cluster centers to substract them from the input vectors afterwards.
+        // Get the rotated cluster centers for each training vector.
+        // This will be subtracted from the input vectors afterwards.
         utils::copy_selected(n_rows_train,
                              index.pq_len(),
                              centers_rot + index.pq_len() * j,
