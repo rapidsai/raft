@@ -22,6 +22,12 @@
 
 namespace raft::matrix {
 
+// template<typename idx_t, typename arg, typename... args>
+// args *extract_ptr(raft::device_vector_view<const arg, idx_t> vec, raft::device_vector_view<const
+// args, idx_t>... vecs) {
+//     vecs.data_handle();
+//}
+
 /**
  * Run a function over matrix lines (rows or columns) with a variable number
  * row-vectors or column-vectors.
@@ -43,13 +49,18 @@ namespace raft::matrix {
  * @param [in] vecs zero or more vectors to be passed as arguments,
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
-template <typename m_t, typename idx_t, typename layout, typename Lambda, typename... vec_t>
+template <typename m_t,
+          typename idx_t,
+          typename layout,
+          typename Lambda,
+          typename... vec_t,
+          typename = raft::enable_if_device_mdspan<vec_t...>>
 void linewise_op(const raft::handle_t& handle,
                  raft::device_matrix_view<const m_t, idx_t, layout> in,
                  raft::device_matrix_view<m_t, idx_t, layout> out,
                  const bool alongLines,
                  Lambda op,
-                 raft::device_vector_view<const vec_t, idx_t>... vecs)
+                 vec_t... vecs)
 {
   constexpr auto is_rowmajor = std::is_same_v<layout, row_major>;
   constexpr auto is_colmajor = std::is_same_v<layout, col_major>;
@@ -63,7 +74,13 @@ void linewise_op(const raft::handle_t& handle,
   RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
                "Input and output must have the same shape.");
 
-  //  detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, vec_t...>(
-  //    out.data_handle(), in.data_handle(), lineLen, nLines, alongLines, op, stream, vecs...);
+  detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t>(out.data_handle(),
+                                                     in.data_handle(),
+                                                     lineLen,
+                                                     nLines,
+                                                     alongLines,
+                                                     op,
+                                                     handle.get_stream(),
+                                                     vecs.data_handle()...);
 }
 }  // namespace raft::matrix

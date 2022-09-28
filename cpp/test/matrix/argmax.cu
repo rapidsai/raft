@@ -27,8 +27,8 @@ namespace matrix {
 
 template <typename T, typename IdxT>
 struct ArgMaxInputs {
-  const std::vector<T> input_matrix;
-  const std::vector<IdxT> output_matrix;
+  std::vector<T> input_matrix;
+  std::vector<IdxT> output_matrix;
   std::size_t n_cols;
   std::size_t n_rows;
 };
@@ -50,14 +50,14 @@ class ArgMaxTest : public ::testing::TestWithParam<ArgMaxInputs<T, IdxT>> {
     auto output   = raft::make_device_vector<IdxT>(handle, params.n_rows);
     auto expected = raft::make_device_vector<IdxT>(handle, params.n_rows);
 
-    raft::copy(input.data_handle(),
-               params.input_matrix.data(),
-               params.n_rows * params.n_cols,
-               handle.get_stream());
-    raft::copy(expected.data_handle(),
-               params.output_matrix.data(),
-               params.n_rows * params.n_cols,
-               handle.get_stream());
+    raft::update_device(input.data_handle(),
+                        params.input_matrix.data(),
+                        params.n_rows * params.n_cols,
+                        handle.get_stream());
+    raft::update_device(
+      expected.data_handle(), params.output_matrix.data(), params.n_rows, handle.get_stream());
+
+    printf("Finished copy\n");
 
     auto input_view = raft::make_device_matrix_view<const T, IdxT, col_major>(
       input.data_handle(), params.n_rows, params.n_cols);
