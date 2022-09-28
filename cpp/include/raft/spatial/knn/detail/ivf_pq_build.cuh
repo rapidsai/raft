@@ -196,15 +196,6 @@ inline void make_rotation_matrix(const handle_t& handle,
   }
 }
 
-//
-inline auto calc_pq_trainset_size(uint32_t cluster_size, uint32_t pq_dim, uint32_t pq_bits)
-  -> uint32_t
-{
-  return static_cast<uint32_t>(
-    std::min<size_t>(size_t{cluster_size} * size_t{pq_dim},
-                     size_t{256} * std::max<size_t>(size_t{1} << pq_bits, size_t{pq_dim})));
-}
-
 /**
  * @param handle,
  * @param n_rows
@@ -273,9 +264,6 @@ void compute_pq_codes(const handle_t& handle,
     max_cluster_size * pq_dim * pq_bits / 8 /* NB: pq_dim * bitPQ % 8 == 0 */,
     stream,
     device_memory);
-  rmm::device_uvector<uint32_t> rot_vector_labels(0, stream, device_memory);
-  rmm::device_uvector<uint32_t> pq_cluster_size(0, stream, device_memory);
-  rmm::device_uvector<float> my_pq_centers(0, stream, device_memory);
 
   for (uint32_t l = 0; l < n_clusters; l++) {
     auto cluster_size = cluster_sizes[l];
@@ -685,7 +673,7 @@ inline auto extend(const handle_t& handle,
            stream);
     } break;
     case codebook_gen::PER_CLUSTER: {
-      auto d = orig_index.pq_width() * orig_index.pq_len();
+      auto d = orig_index.pq_book_size() * orig_index.pq_len();
       utils::copy_selected(n_clusters,
                            d,
                            orig_index.pq_centers().data_handle(),
@@ -827,36 +815,6 @@ inline auto build(
                              index.metric(),
                              stream);
 
-  rmm::device_uvector<uint32_t> dataset_labels(n_rows, stream, device_memory);
-  rmm::device_uvector<uint32_t> cluster_sizes(index.n_lists(), stream, &managed_memory);
-  rmm::device_uvector<IdxT> dataset_indices(n_rows, stream, device_memory);
-  rmm::device_uvector<IdxT> dataset_cluster_offsets(
-    index.list_offsets().size(), stream, &managed_memory);
-
-  /* Predict labels of whole dataset
-
-     The labels are needed for training PQ codebooks
-   */
-  kmeans::predict(handle,
-                  cluster_centers,
-                  index.n_lists(),
-                  index.dim(),
-                  dataset,
-                  n_rows,
-                  dataset_labels.data(),
-                  index.metric(),
-                  stream,
-                  device_memory);
-  kmeans::calc_centers_and_sizes(cluster_centers,
-                                 cluster_sizes.data(),
-                                 index.n_lists(),
-                                 index.dim(),
-                                 dataset,
-                                 n_rows,
-                                 dataset_labels.data(),
-                                 true,
-                                 stream);
-
   // Make rotation matrix
   make_rotation_matrix(
     handle, params.force_random_rotation, index.rot_dim(), index.dim(), rotation_matrix);
@@ -880,19 +838,6 @@ inline auto build(
                index.rot_dim(),
                stream);
 
-  //
-  // Make cluster_offsets, data_indices
-  //
-  auto cluster_offsets      = dataset_cluster_offsets.data();
-  auto data_indices         = dataset_indices.data();
-  uint32_t max_cluster_size = calculate_offsets_and_indices(n_rows,
-                                                            index.n_lists(),
-                                                            dataset_labels.data(),
-                                                            cluster_sizes.data(),
-                                                            cluster_offsets,
-                                                            data_indices,
-                                                            stream);
-
   // Training PQ codebooks
   switch (index.codebook_kind()) {
     case codebook_gen::PER_SUBSPACE: {
@@ -913,7 +858,7 @@ inline auto build(
       rmm::device_uvector<float> sub_trainset(n_rows_train * index.pq_len(), stream, device_memory);
       rmm::device_uvector<uint32_t> sub_trainset_labels(n_rows_train, stream, device_memory);
 
-      rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_width(), stream, device_memory);
+      rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_book_size(), stream, device_memory);
 
       for (uint32_t j = 0; j < index.pq_dim(); j++) {
         common::nvtx::range<common::nvtx::domain::raft> pq_per_subspace_scope(
@@ -949,14 +894,14 @@ inline auto build(
                      index.pq_len(),
                      stream);
 
-        // Train kmeans for each PQ
+        // train PQ codebook for this subspace
         kmeans::build_clusters(handle,
                                params.kmeans_n_iters,
                                index.pq_len(),
                                sub_trainset.data(),
                                n_rows_train,
-                               index.pq_width(),
-                               pq_centers + (index.pq_width() * index.pq_len()) * j,
+                               index.pq_book_size(),
+                               pq_centers + (index.pq_book_size() * index.pq_len()) * j,
                                sub_trainset_labels.data(),
                                pq_cluster_sizes.data(),
                                raft::distance::DistanceType::L2Expanded,
@@ -965,9 +910,43 @@ inline auto build(
       }
     } break;
     case codebook_gen::PER_CLUSTER: {
+      rmm::device_uvector<uint32_t> labels(n_rows_train, stream, device_memory);
+      rmm::device_uvector<uint32_t> cluster_sizes(index.n_lists(), stream, &managed_memory);
+      rmm::device_uvector<IdxT> indices_buf(n_rows_train, stream, device_memory);
+      rmm::device_uvector<IdxT> offsets_buf(index.list_offsets().size(), stream, &managed_memory);
+
+      kmeans::predict(handle,
+                      cluster_centers,
+                      index.n_lists(),
+                      index.dim(),
+                      trainset.data(),
+                      n_rows_train,
+                      labels.data(),
+                      index.metric(),
+                      stream,
+                      device_memory);
+
+      raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
+                                             reinterpret_cast<int32_t*>(cluster_sizes.data()),
+                                             IdxT(index.n_lists()),
+                                             labels.data(),
+                                             n_rows_train,
+                                             1,
+                                             stream);
+
+      auto cluster_offsets      = offsets_buf.data();
+      auto data_indices         = indices_buf.data();
+      uint32_t max_cluster_size = calculate_offsets_and_indices(n_rows_train,
+                                                                index.n_lists(),
+                                                                labels.data(),
+                                                                cluster_sizes.data(),
+                                                                cluster_offsets,
+                                                                data_indices,
+                                                                stream);
+
       rmm::device_uvector<uint32_t> rot_vector_labels(
         max_cluster_size * index.pq_dim(), stream, device_memory);
-      rmm::device_uvector<uint32_t> pq_cluster_size(index.pq_width(), stream, device_memory);
+      rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_book_size(), stream, device_memory);
 
       rmm::device_uvector<float> res_vectors(max_cluster_size * index.dim(), stream, device_memory);
       rmm::device_uvector<float> rot_vectors(
@@ -985,14 +964,14 @@ inline auto build(
         // centroids.
         //   resVectors[..] = new_vectors[..] - cluster_centers[..]
         //
-        utils::copy_selected<float, T>(cluster_size,
-                                       index.dim(),
-                                       dataset,
-                                       data_indices + cluster_offsets[l],
-                                       index.dim(),
-                                       res_vectors.data(),
-                                       index.dim(),
-                                       stream);
+        utils::copy_selected<float>(cluster_size,
+                                    index.dim(),
+                                    trainset.data(),
+                                    data_indices + cluster_offsets[l],
+                                    index.dim(),
+                                    res_vectors.data(),
+                                    index.dim(),
+                                    stream);
 
         // substract centers from the vectors in the cluster.
         raft::matrix::linewiseOp(
@@ -1026,17 +1005,21 @@ inline auto build(
                      index.rot_dim(),
                      stream);
 
-        uint32_t n_rows_cluster =
-          calc_pq_trainset_size(cluster_size, index.pq_dim(), index.pq_bits());
+        // limit the cluster size to bound the training time.
+        // [sic] we interpret the data as pq_len-dimensional
+        size_t big_enough     = 256 * std::max(index.pq_book_size(), index.pq_dim());
+        size_t available_rows = cluster_size * index.pq_dim();
+        auto pq_n_rows        = uint32_t(std::min(big_enough, available_rows));
+        // train PQ codebook for this cluster
         kmeans::build_clusters(handle,
                                params.kmeans_n_iters,
                                index.pq_len(),
                                rot_vectors.data(),
-                               n_rows_cluster,
-                               index.pq_width(),
-                               pq_centers + index.pq_width() * index.pq_len() * l,
+                               pq_n_rows,
+                               index.pq_book_size(),
+                               pq_centers + index.pq_book_size() * index.pq_len() * l,
                                rot_vector_labels.data(),
-                               pq_cluster_size.data(),
+                               pq_cluster_sizes.data(),
                                raft::distance::DistanceType::L2Expanded,
                                stream,
                                device_memory);

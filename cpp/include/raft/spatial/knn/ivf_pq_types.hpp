@@ -199,7 +199,7 @@ struct index : knn::index {
     return raft::div_rounding_up_unsafe(dim(), pq_dim());
   }
   /** The number of vectors in a PQ codebook (`1 << pq_bits`). */
-  [[nodiscard]] constexpr inline auto pq_width() const noexcept -> uint32_t
+  [[nodiscard]] constexpr inline auto pq_book_size() const noexcept -> uint32_t
   {
     return 1 << pq_bits();
   }
@@ -291,8 +291,8 @@ struct index : knn::index {
   /**
    * PQ cluster centers
    *
-   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_width, pq_len]
-   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_width, pq_len]
+   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_book_size, pq_len]
+   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_book_size, pq_len]
    */
   inline auto pq_centers() noexcept -> device_mdspan<float, extent_3d<uint32_t>, row_major>
   {
@@ -407,9 +407,9 @@ struct index : knn::index {
   {
     switch (codebook_kind()) {
       case codebook_gen::PER_SUBSPACE:
-        return make_extents<uint32_t>(pq_dim(), pq_width(), pq_len());
+        return make_extents<uint32_t>(pq_dim(), pq_book_size(), pq_len());
       case codebook_gen::PER_CLUSTER:
-        return make_extents<uint32_t>(n_lists(), pq_width(), pq_len());
+        return make_extents<uint32_t>(n_lists(), pq_book_size(), pq_len());
       default: RAFT_FAIL("Unreachable code");
     }
   }

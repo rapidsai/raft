@@ -287,7 +287,8 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
  * @param pq_dim
  * @param[in] pq_code_ptr
  *   a device pointer to the dataset at the indexed position (`pq_dim * pq_bits` bits-wide)
- * @param[in] lut_scores a device or shared memory pointer to the lookup table [pq_dim, pq_width]
+ * @param[in] lut_scores
+ *   a device or shared memory pointer to the lookup table [pq_dim, pq_book_size]
  *
  * @return the score for the entry `data_ix` in the `pq_dataset`.
  */
@@ -298,11 +299,11 @@ __device__ auto ivfpq_compute_score(
 {
   float score                   = 0.0;
   constexpr uint32_t kBitsTotal = 8 * sizeof(OpT);
-  for (int j = 0; j < pq_dim; j += vec_len) {
+  for (; pq_dim > 0; pq_dim -= vec_len) {
     OpT pq_code = pq_head[0];
-    pq_head += 1;
+    pq_head++;
     auto bits_left = kBitsTotal;
-    for (int k = 0; k < vec_len; k += 1) {
+    for (uint32_t k = 0; k < vec_len; k++) {
       uint8_t code = pq_code;
       if (bits_left > pq_bits) {
         pq_code >>= pq_bits;
@@ -310,7 +311,7 @@ __device__ auto ivfpq_compute_score(
       } else {
         if (k < vec_len - 1) {
           pq_code = pq_head[0];
-          pq_head += 1;
+          pq_head++;
         }
         code |= (pq_code << bits_left);
         pq_code >>= (pq_bits - bits_left);
@@ -374,7 +375,7 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  * @param dim the dimensionality of the data (NB: after rotation transform, i.e. `index.rot_dim()`).
  * @param n_probes the number of clusters to search for each query
  * @param pq_bits the bit length of an encoded vector element after compression by PQ
- *   (NB: pq_width = 1 << pq_bits).
+ *   (NB: pq_book_size = 1 << pq_bits).
  * @param pq_dim
  *   The dimensionality of an encoded vector after compression by PQ.
  * @param batch_size the number of queries.
@@ -386,7 +387,7 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  *   [n_clusters, dim].
  * @param pq_centers
  *   The device pointer to the cluster centers in the PQ space
- *   [pq_dim, pq_width, pq_len] or [n_clusters, pq_width, pq_len,].
+ *   [pq_dim, pq_book_size, pq_len] or [n_clusters, pq_book_size, pq_len,].
  * @param pq_dataset
  *   The device pointer to the PQ index (data) [n_rows, pq_dim * pq_bits / 8].
  * @param cluster_offsets
@@ -794,7 +795,7 @@ void ivfpq_search(const handle_t& handle,
     conf_no_smem_lut::kernel(index.pq_bits(), index.pq_dim(), manage_local_topk ? topK : 0u);
 
   const size_t smem_threshold = 48 * 1024;
-  size_t smem_size            = sizeof(LutT) * index.pq_dim() * index.pq_width();
+  size_t smem_size            = sizeof(LutT) * index.pq_dim() * index.pq_book_size();
   size_t smem_size_base_diff  = sizeof(float) * index.rot_dim();
 
   uint32_t n_ctas = n_queries * n_probes;
@@ -875,7 +876,7 @@ void ivfpq_search(const handle_t& handle,
   }
 
   rmm::device_uvector<LutT> precomp_scores(
-    use_smem_lut ? 0 : n_ctas * index.pq_dim() * index.pq_width(), stream, mr);
+    use_smem_lut ? 0 : n_ctas * index.pq_dim() * index.pq_book_size(), stream, mr);
   dim3 cta_threads(n_threads, 1, 1);
   dim3 cta_blocks(n_ctas, 1, 1);
   kernel<<<cta_blocks, cta_threads, smem_size, stream>>>(index.size(),
