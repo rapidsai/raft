@@ -25,8 +25,10 @@ namespace raft::matrix {
 /**
  * @brief sign flip stabilizes the sign of col major eigen vectors.
  * The sign is flipped if the column has negative |max|.
- * @param handle: raft handle
- * @param inout: input matrix. Result also stored in this parameter
+ * @tparam math_t floating point type used for matrix elements
+ * @tparam idx_t integer type used for indexing
+ * @param[in] handle: raft handle
+ * @param[inout] inout: input matrix. Result also stored in this parameter
  */
 template <typename math_t, typename idx_t>
 void sign_flip(const raft::handle_t& handle,

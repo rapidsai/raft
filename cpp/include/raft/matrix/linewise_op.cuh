@@ -35,7 +35,12 @@ namespace raft::matrix {
  * depending on the matrix layout.
  * What matters is if the vectors are applied along lines (indices of vectors correspond to
  * indices within lines), or across lines (indices of vectors correspond to line numbers).
- *
+ * @tparam m_t matrix elements type
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
+ * @tparam Lambda type of lambda function used for the operation
+ * @tparam vec_t variadic types of device_vector_view vectors (size m if alongRows, size n
+ * otherwise)
  * @param [out] out result of the operation; can be same as `in`; should be aligned the same
  *        as `in` to allow faster vectorized memory transfers.
  * @param [in] in input matrix consisting of `nLines` lines, each `lineLen`-long.
@@ -68,8 +73,8 @@ void linewise_op(const raft::handle_t& handle,
   static_assert(is_rowmajor || is_colmajor,
                 "layout for in and out must be either row or col major");
 
-  const idx_t lineLen = is_rowmajor ? in.extent(1) : in.extent(0);
-  const idx_t nLines  = is_rowmajor ? in.extent(0) : in.extent(1);
+  const idx_t lineLen = is_rowmajor ? in.extent(0) : in.extent(1);
+  const idx_t nLines  = is_rowmajor ? in.extent(1) : in.extent(0);
 
   RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
                "Input and output must have the same shape.");

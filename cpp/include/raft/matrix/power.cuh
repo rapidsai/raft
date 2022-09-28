@@ -23,15 +23,18 @@ namespace raft::matrix {
 
 /**
  * @brief Power of every element in the input matrix
+ * @tparam math_t type of matrix elements
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
  * @param[in] handle: raft handle
  * @param[in] in: input matrix
  * @param[out] out: output matrix. The result is stored in the out matrix
  * @param[in] scalar: every element is multiplied with scalar.
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void weighted_power(const raft::handle_t& handle,
-                    raft::device_matrix_view<math_t> in,
-                    raft::device_matrix_view<math_t> out,
+                    raft::device_matrix_view<math_t, idx_t, layout> in,
+                    raft::device_matrix_view<math_t, idx_t, layout> out,
                     math_t scalar)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Size of input and output matrices must be equal");
@@ -40,12 +43,16 @@ void weighted_power(const raft::handle_t& handle,
 
 /**
  * @brief Power of every element in the input matrix (inplace)
+ * @tparam math_t matrix element type
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
+ * @param[in] handle: raft handle
  * @param[inout] inout: input matrix and also the result is stored
  * @param[in] scalar: every element is multiplied with scalar.
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void weighted_power(const raft::handle_t& handle,
-                    raft::device_matrix_view<math_t> inout,
+                    raft::device_matrix_view<math_t, idx_t, layout> inout,
                     math_t scalar)
 {
   detail::power(inout.data_handle(), scalar, inout.size(), handle.get_stream());
@@ -53,25 +60,32 @@ void weighted_power(const raft::handle_t& handle,
 
 /**
  * @brief Power of every element in the input matrix (inplace)
+ * @tparam math_t matrix element type
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
+ * @param[in] handle: raft handle
  * @param[inout] inout: input matrix and also the result is stored
  */
-template <typename math_t>
-void power(const raft::handle_t& handle, raft::device_matrix_view<math_t> inout)
+template <typename math_t, typename idx_t, typename layout>
+void power(const raft::handle_t& handle, raft::device_matrix_view<math_t, idx_t, layout> inout)
 {
   detail::power<math_t>(inout.data_handle(), inout.size(), handle.get_stream());
 }
 
 /**
  * @brief Power of every element in the input matrix
+ * @tparam math_t type used for matrix elements
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix (row or column major)
  * @param[in] handle: raft handle
  * @param[in] in: input matrix
  * @param[out] out: output matrix. The result is stored in the out matrix
  * @{
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void power(const raft::handle_t& handle,
-           raft::device_matrix_view<math_t> in,
-           raft::device_matrix_view<math_t> out)
+           raft::device_matrix_view<math_t, idx_t, layout> in,
+           raft::device_matrix_view<math_t, idx_t, layout> out)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be same size.");
   detail::power<math_t>(in.data_handle(), out.data_handle(), in.size(), handle.get_stream());

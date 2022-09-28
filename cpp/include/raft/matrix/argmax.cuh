@@ -23,16 +23,18 @@ namespace raft::matrix {
 
 /**
  * @brief Argmax: find the row idx with maximum value for each column
+ * @tparam math_t matrix element type
+ * @tparam idx_t integer type for matrix and vector indexing
  * @param[in] handle: raft handle
  * @param[in] in: input matrix of size (n_rows, n_cols)
  * @param[out] out: output vector of size n_cols
  */
-template <typename math_t, typename idx_t, typename matrix_idx_t>
+template <typename math_t, typename idx_t>
 void argmax(const raft::handle_t& handle,
-            raft::device_matrix_view<const math_t, matrix_idx_t, col_major> in,
-            raft::device_vector_view<idx_t> out)
+            raft::device_matrix_view<const math_t, idx_t, col_major> in,
+            raft::device_vector_view<idx_t, idx_t> out)
 {
-  RAFT_EXPECTS(static_cast<matrix_idx_t>(out.extent(0)) == in.extent(0),
+  RAFT_EXPECTS(out.extent(0) == in.extent(0),
                "Size of output vector must equal number of rows in input matrix.");
   detail::argmax(
     in.data_handle(), in.extent(0), in.extent(1), out.data_handle(), handle.get_stream());

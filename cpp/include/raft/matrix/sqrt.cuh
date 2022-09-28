@@ -25,14 +25,16 @@ namespace raft::matrix {
 /**
  * @brief Square root of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
  * @param[in] handle: raft handle
  * @param[in] in: input matrix and also the result is stored
  * @param[out] out: output matrix. The result is stored in the out matrix
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void sqrt(const raft::handle_t& handle,
-          raft::device_matrix_view<math_t> in,
-          raft::device_matrix_view<math_t> out)
+          raft::device_matrix_view<math_t, idx_t, layout> in,
+          raft::device_matrix_view<math_t, idx_t, layout> out)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have same size.");
   detail::seqRoot(in.data_handle(), out.data_handle(), in.size(), handle.get_stream());
@@ -41,11 +43,13 @@ void sqrt(const raft::handle_t& handle,
 /**
  * @brief Square root of every element in the input matrix (in place)
  * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
  * @param[in] handle: raft handle
  * @param[inout] inout: input matrix with in-place results
  */
-template <typename math_t>
-void sqrt(const raft::handle_t& handle, raft::device_matrix_view<math_t> inout)
+template <typename math_t, typename idx_t, typename layout>
+void sqrt(const raft::handle_t& handle, raft::device_matrix_view<math_t, idx_t, layout> inout)
 {
   detail::seqRoot(inout.data_handle(), inout.size(), handle.get_stream());
 }
@@ -53,16 +57,18 @@ void sqrt(const raft::handle_t& handle, raft::device_matrix_view<math_t> inout)
 /**
  * @brief Square root of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
  * @param[in] handle: raft handle
  * @param[in] in: input matrix and also the result is stored
  * @param[out] out: output matrix. The result is stored in the out matrix
  * @param[in] scalar: every element is multiplied with scalar
  * @param[in] set_neg_zero whether to set negative numbers to zero
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void weighted_sqrt(const raft::handle_t& handle,
-                   raft::device_matrix_view<math_t> in,
-                   raft::device_matrix_view<math_t> out,
+                   raft::device_matrix_view<math_t, idx_t, layout> in,
+                   raft::device_matrix_view<math_t, idx_t, layout> out,
                    math_t scalar,
                    bool set_neg_zero = false)
 {
@@ -74,14 +80,16 @@ void weighted_sqrt(const raft::handle_t& handle,
 /**
  * @brief Square root of every element in the input matrix (in place)
  * @tparam math_t data-type upon which the math operation will be performed
- * @param handle: raft handle
- * @param inout: input matrix and also the result is stored
- * @param scalar: every element is multiplied with scalar
- * @param set_neg_zero whether to set negative numbers to zero
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
+ * @param[in] handle: raft handle
+ * @param[inout] inout: input matrix and also the result is stored
+ * @param[in] scalar: every element is multiplied with scalar
+ * @param[in] set_neg_zero whether to set negative numbers to zero
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void weighted_sqrt(const raft::handle_t& handle,
-                   raft::device_matrix_view<math_t> inout,
+                   raft::device_matrix_view<math_t, idx_t, layout> inout,
                    math_t scalar,
                    bool set_neg_zero = false)
 {

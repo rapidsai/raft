@@ -54,88 +54,70 @@ void gather(const MatrixIteratorT in,
 /**
  * @brief  gather copies rows from a source matrix into a destination matrix according to a map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a
- * simple pointer type).
- * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
- * pointer type).
- *
- * @param  in           Pointer to the input matrix (assumed to be row-major)
- * @param  out          Pointer to the output matrix (assumed to be row-major)
- * @param  map          Pointer to the input sequence of gather locations
+ * @tparam matrix_t      Matrix element type
+ * @tparam map_t         Map vector type
+ * @tparam idx_t integer type used for indexing
+ * @param[in]  in           Input matrix (assumed to be row-major)
+ * @param[in]  map          Vector of gather locations
+ * @param[out]  out          Output matrix (assumed to be row-major)
  */
 template <typename matrix_t, typename map_t, typename idx_t>
 void gather(const raft::handle_t& handle,
             raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
-            raft::device_matrix_view<matrix_t, idx_t, row_major> out,
-            raft::device_vector_view<map_t, idx_t> map)
+            raft::device_vector_view<map_t, idx_t> map,
+            raft::device_matrix_view<matrix_t, idx_t, row_major> out)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
                "Number of rows in output matrix must equal the size of the map vector");
   RAFT_EXPECTS(out.extent(1) == in.extent(1),
                "Number of columns in input and output matrices must be equal.");
 
-  matrix_t* in_ptr  = const_cast<matrix_t*>(in.data_handle());
-  map_t* map_ptr    = map.data_handle();
-  matrix_t* out_ptr = out.data_handle();
-
-  cudaStream_t stream = handle.get_stream();
-
-  raft::matrix::detail::gather(in_ptr,
-                               static_cast<int>(in.extent(1)),
-                               static_cast<int>(in.extent(0)),
-                               map_ptr,
-                               static_cast<int>(map.extent(0)),
-                               out_ptr,
-                               stream);
+  raft::matrix::detail::gather(
+    const_cast<matrix_t*>(in.data_handle()),  // TODO: There's a better way to handle this
+    static_cast<int>(in.extent(1)),
+    static_cast<int>(in.extent(0)),
+    map.data_handle(),
+    static_cast<int>(map.extent(0)),
+    out.data_handle(),
+    handle.get_stream());
 }
 
 /**
  * @brief  gather copies rows from a source matrix into a destination matrix according to a
  * transformed map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a
- * simple pointer type).
- * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
- * pointer type).
- * @tparam MapTransformOp       Unary lambda expression or operator type, MapTransformOp's result
- * type must be convertible to IndexT (= int) type.
+ * @tparam matrix_t     Matrix type
+ * @tparam map_t        Map vector type
+ * @tparam map_xform_t       Unary lambda expression or operator type, MapTransformOp's result
+ * type must be convertible to idx_t (= int) type.
+ * @tparam idx_t integer type for indexing
  *
- * @param  in           Pointer to the input matrix (assumed to be row-major)
- * @param  map          Pointer to the input sequence of gather locations
- * @param  out          Pointer to the output matrix (assumed to be row-major)
- * @param  transform_op The transformation operation, transforms the map values to IndexT
+ * @param[in]  in           Input matrix (assumed to be row-major)
+ * @param[in]  map          Input vector of gather locations
+ * @param[out]  out         Output matrix (assumed to be row-major)
+ * @param[in]  transform_op The transformation operation, transforms the map values to idx_t
  */
-template <typename MatrixIteratorT, typename MapIteratorT, typename MapTransformOp, typename IdxT>
+template <typename matrix_t, typename map_t, typename map_xform_t, typename idx_t>
 void gather(const raft::handle_t& handle,
-            raft::device_matrix_view<const MatrixIteratorT, IdxT, row_major> in,
-            raft::device_matrix_view<MatrixIteratorT, IdxT, row_major> out,
-            raft::device_vector_view<MapIteratorT, IdxT> map,
-            MapTransformOp transform_op)
+            raft::device_matrix_view<const MatrixIteratorT, idx_t, row_major> in,
+            raft::device_matrix_view<MatrixIteratorT, idx_t, row_major> out,
+            raft::device_vector_view<MapIteratorT, idx_t> map,
+            map_xform_t transform_op)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
                "Number of rows in output matrix must equal the size of the map vector");
   RAFT_EXPECTS(out.extent(1) == in.extent(1),
                "Number of columns in input and output matrices must be equal.");
 
-  /**
-   * template <typename MatrixIteratorT, typename MapIteratorT>
-void gather(const MatrixIteratorT in,
-            int D,
-            int N,
-            MapIteratorT map,
-            int map_length,
-            MatrixIteratorT out,
-            cudaStream_t stream)
-
-   */
-  detail::gather(in.data_handle(),
-                 static_cast<int>(in.extent(1)),
-                 static_cast<int>(in.extent(0)),
-                 map,
-                 static_cast<int>(map.extent(0)),
-                 out.data_handle(),
-                 transform_op,
-                 handle.get_stream());
+  detail::gather(
+    const_cast<matrix_t*>(in.data_handle()),  // TODO: There's a better way to handle this
+    static_cast<int>(in.extent(1)),
+    static_cast<int>(in.extent(0)),
+    map,
+    static_cast<int>(map.extent(0)),
+    out.data_handle(),
+    transform_op,
+    handle.get_stream());
 }
 
 /**
@@ -217,32 +199,30 @@ void gather_if(const MatrixIteratorT in,
  * @brief  gather_if conditionally copies rows from a source matrix into a destination matrix
  * according to a map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a
- * simple pointer type).
- * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
- * pointer type).
- * @tparam StencilIteratorT     Random-access iterator type, for reading input stencil (may be a
- * simple pointer type).
- * @tparam UnaryPredicateOp     Unary lambda expression or operator type, UnaryPredicateOp's result
+ * @tparam matrix_t      Matrix value type
+ * @tparam map_t         Map vector type
+ * @tparam stencil_t     Stencil vector type
+ * @tparam unary_pred_t     Unary lambda expression or operator type, unary_pred_t's result
  * type must be convertible to bool type.
+ * @tparam idx_t integer type for indexing
  *
- * @param  in           Pointer to the input matrix (assumed to be row-major)
- * @param  map          Pointer to the input sequence of gather locations
- * @param  stencil      Pointer to the input sequence of stencil or predicate values
- * @param  out          Pointer to the output matrix (assumed to be row-major)
- * @param  pred_op      Predicate to apply to the stencil values
+ * @param[in]  in           Input matrix (assumed to be row-major)
+ * @param[in]  map          Input vector of gather locations
+ * @param[in]  stencil      Input vector of stencil or predicate values
+ * @param[out]  out         Output matrix (assumed to be row-major)
+ * @param[in]  pred_op      Predicate to apply to the stencil values
  */
-template <typename MatrixIteratorT,
-          typename MapIteratorT,
-          typename StencilIteratorT,
-          typename UnaryPredicateOp,
-          typename MatrixIdxT>
+template <typename matrix_t,
+          typename map_t,
+          typename stencil_t,
+          typename unary_pred_t,
+          typename idx_t>
 void gather_if(const raft::handle_t& handle,
-               raft::device_matrix_view<const MatrixIteratorT, MatrixIdxT, row_major> in,
-               raft::device_matrix_view<MatrixIteratorT, MatrixIdxT, row_major> out,
-               raft::device_vector_view<MapIteratorT> map,
-               raft::device_vector_view<StencilIteratorT> stencil,
-               UnaryPredicateOp pred_op)
+               raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
+               raft::device_matrix_view<matrix_t, idx_t, row_major> out,
+               raft::device_vector_view<map_t> map,
+               raft::device_vector_view<stencil_t> stencil,
+               unary_pred_t pred_op)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
                "Number of rows in output matrix must equal the size of the map vector");
@@ -251,7 +231,7 @@ void gather_if(const raft::handle_t& handle,
   RAFT_EXPECTS(map.extent(0) == stencil.extent(0),
                "Number of elements in stencil must equal number of elements in map");
 
-  detail::gather_if(in.data_handle(),
+  detail::gather_if(const_cast<matrix_t*>(in.data_handle()),
                     out.extent(1),
                     out.extent(0),
                     map.data_handle(),
@@ -312,37 +292,35 @@ void gather_if(const MatrixIteratorT in,
  * @brief  gather_if conditionally copies rows from a source matrix into a destination matrix
  * according to a transformed map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a
- * simple pointer type).
- * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
- * pointer type).
- * @tparam StencilIteratorT     Random-access iterator type, for reading input stencil (may be a
- * simple pointer type).
- * @tparam UnaryPredicateOp     Unary lambda expression or operator type, UnaryPredicateOp's result
+ * @tparam matrix_t      Matrix value type, for reading input matrix
+ * @tparam map_t         Vector value type for map
+ * @tparam stencil_t     Vector value type for stencil
+ * @tparam unary_pred_t     Unary lambda expression or operator type, unary_pred_t's result
  * type must be convertible to bool type.
- * @tparam MapTransformOp       Unary lambda expression or operator type, MapTransformOp's result
- * type must be convertible to IndexT (= int) type.
+ * @tparam map_xform_t       Unary lambda expression or operator type, map_xform_t's result
+ * type must be convertible to idx_t (= int) type.
+ * @tparam idx_t integer type for indexing
  *
- * @param  in           Pointer to the input matrix (assumed to be row-major)
- * @param  map          Pointer to the input sequence of gather locations
- * @param  stencil      Pointer to the input sequence of stencil or predicate values
- * @param  out          Pointer to the output matrix (assumed to be row-major)
- * @param  pred_op      Predicate to apply to the stencil values
- * @param  transform_op The transformation operation, transforms the map values to IndexT
+ * @param[in]  in           Input matrix (assumed to be row-major)
+ * @param[in]  map          Vector of gather locations
+ * @param[in]  stencil      Vector of stencil or predicate values
+ * @param[out]  out          Output matrix (assumed to be row-major)
+ * @param[in]  pred_op      Predicate to apply to the stencil values
+ * @param[in]  transform_op The transformation operation, transforms the map values to idx_t
  */
-template <typename MatrixIteratorT,
-          typename MapIteratorT,
-          typename StencilIteratorT,
-          typename UnaryPredicateOp,
-          typename MapTransformOp,
-          typename MatrixIdxT>
+template <typename matrix_t,
+          typename map_t,
+          typename stencil_t,
+          typename unary_pred_t,
+          typename map_xform_t,
+          typename idx_t>
 void gather_if(const raft::handle_t& handle,
-               raft::device_matrix_view<const MatrixIteratorT, MatrixIdxT, row_major> in,
-               raft::device_matrix_view<MatrixIteratorT, MatrixIdxT, row_major> out,
-               raft::device_vector_view<MapIteratorT> map,
-               raft::device_vector_view<StencilIteratorT> stencil,
-               UnaryPredicateOp pred_op,
-               MapTransformOp transform_op)
+               raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
+               raft::device_matrix_view<matrix_t, idx_t, row_major> out,
+               raft::device_vector_view<map_t> map,
+               raft::device_vector_view<stencil_t> stencil,
+               unary_pred_t pred_op,
+               map_xform_t transform_op)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
                "Number of rows in output matrix must equal the size of the map vector");
@@ -351,7 +329,7 @@ void gather_if(const raft::handle_t& handle,
   RAFT_EXPECTS(map.extent(0) == stencil.extent(0),
                "Number of elements in stencil must equal number of elements in map");
 
-  detail::gather_if(in.data_handle(),
+  detail::gather_if(const_cast<matrix_t*>(in.data_handle()),
                     in.extent(1),
                     in.extent(0),
                     map.data_handle(),

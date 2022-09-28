@@ -47,7 +47,7 @@ class ArgMaxTest : public ::testing::TestWithParam<ArgMaxInputs<T, IdxT>> {
   void test()
   {
     auto input = raft::make_device_matrix<T, IdxT, col_major>(handle, params.n_rows, params.n_cols);
-    auto output   = raft::make_device_vector<IdxT>(handle, params.n_rows);
+    auto output   = raft::make_device_vector<IdxT, IdxT>(handle, params.n_rows);
     auto expected = raft::make_device_vector<IdxT>(handle, params.n_rows);
 
     raft::update_device(input.data_handle(),

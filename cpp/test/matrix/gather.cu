@@ -104,7 +104,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     auto map_view =
       raft::make_device_vector_view<MapT, std::uint32_t, row_major>(d_map.data(), map_length);
 
-    raft::matrix::gather(handle, in_view, out_view, map_view);
+    raft::matrix::gather(handle, in_view, map_view, out_view);
 
     //      // launch device version of the kernel
     //    gatherLaunch(

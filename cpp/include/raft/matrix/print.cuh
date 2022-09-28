@@ -25,10 +25,12 @@ namespace raft::matrix {
 
 /**
  * @brief Prints the data stored in GPU memory
- * @param handle: raft handle
- * @param in: input matrix
- * @param h_separator: horizontal separator character
- * @param v_separator: vertical separator character
+ * @tparam m_t type of matrix elements
+ * @tparam idx_t integer type used for indexing
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix
+ * @param[in] h_separator: horizontal separator character
+ * @param[in] v_separator: vertical separator character
  */
 template <typename m_t, typename idx_t>
 void print(const raft::handle_t& handle,
@@ -42,6 +44,8 @@ void print(const raft::handle_t& handle,
 
 /**
  * @brief Prints the data stored in CPU memory
+ * @tparam m_t type of matrix elements
+ * @tparam idx_t integer type used for indexing
  * @param in: input matrix with column-major layout
  */
 template <typename m_t, typename idx_t>

@@ -24,15 +24,17 @@ namespace raft::matrix {
 /**
  * @brief sets the small values to zero based on a defined threshold
  * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
  * @param handle: raft handle
- * @param in: input matrix
- * @param out: output matrix. The result is stored in the out matrix
- * @param thres threshold to set values to zero
+ * @param[in] in: input matrix
+ * @param[out] out: output matrix. The result is stored in the out matrix
+ * @param[in] thres threshold to set values to zero
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void zero_small_values(const raft::handle_t& handle,
-                       raft::device_matrix_view<const math_t> in,
-                       raft::device_matrix_view<math_t> out,
+                       raft::device_matrix_view<const math_t, idx_t, layout> in,
+                       raft::device_matrix_view<math_t, idx_t, layout> out,
                        math_t thres = 1e-15)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have same size");
@@ -43,13 +45,15 @@ void zero_small_values(const raft::handle_t& handle,
 /**
  * @brief sets the small values to zero in-place based on a defined threshold
  * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
  * @param handle: raft handle
  * @param inout: input matrix and also the result is stored
  * @param thres: threshold
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void zero_small_values(const raft::handle_t& handle,
-                       raft::device_matrix_view<math_t> inout,
+                       raft::device_matrix_view<math_t, idx_t, layout> inout,
                        math_t thres = 1e-15)
 {
   detail::setSmallValuesZero(inout.data_handle(), inout.size(), handle.get_stream(), thres);

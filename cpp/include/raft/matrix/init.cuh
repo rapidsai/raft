@@ -24,15 +24,17 @@ namespace raft::matrix {
 /**
  * @brief set values to scalar in matrix
  * @tparam math_t data-type upon which the math operation will be performed
- * @param handle: raft handle
- * @param in input matrix
- * @param out output matrix. The result is stored in the out matrix
- * @param scalar svalar value
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
+ * @param[in] handle: raft handle
+ * @param[in] in input matrix
+ * @param[out] out output matrix. The result is stored in the out matrix
+ * @param[in] scalar scalar value to fill matrix elements
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void fill(const raft::handle_t& handle,
-          raft::device_matrix_view<const math_t> in,
-          raft::device_matrix_view<math_t> out,
+          raft::device_matrix_view<const math_t, idx_t, layout> in,
+          raft::device_matrix_view<math_t, idx_t, layout> out,
           math_t scalar)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be the same size.");

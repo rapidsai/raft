@@ -24,6 +24,7 @@ namespace raft::matrix {
 /**
  * @brief Reciprocal of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t integer type used for indexing
  * @param handle: raft handle
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
@@ -32,10 +33,10 @@ namespace raft::matrix {
  * @param thres the threshold used to forcibly set inputs to zero
  * @{
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void reciprocal(const raft::handle_t& handle,
-                raft::device_matrix_view<const math_t> in,
-                raft::device_matrix_view<math_t> out,
+                raft::device_matrix_view<const math_t, idx_t, layout> in,
+                raft::device_matrix_view<math_t, idx_t, layout> out,
                 math_t scalar,
                 bool setzero = false,
                 math_t thres = 1e-15)
@@ -48,15 +49,18 @@ void reciprocal(const raft::handle_t& handle,
 /**
  * @brief Reciprocal of every element in the input matrix (in place)
  * @tparam math_t data-type upon which the math operation will be performed
- * @param inout: input matrix with in-place results
- * @param scalar: every element is multiplied with scalar
- * @param setzero round down to zero if the input is less the threshold
- * @param thres the threshold used to forcibly set inputs to zero
+ * @tparam idx_t integer type used for indexing
+ * @tparam layout layout of the matrix data (must be row or col major)
+ * @param[in] handle: raft handle to manage resources
+ * @param[inout] inout: input matrix with in-place results
+ * @param[in] scalar: every element is multiplied with scalar
+ * @param[in] setzero round down to zero if the input is less the threshold
+ * @param[in] thres the threshold used to forcibly set inputs to zero
  * @{
  */
-template <typename math_t>
+template <typename math_t, typename idx_t, typename layout>
 void reciprocal(const raft::handle_t& handle,
-                raft::device_matrix_view<math_t> inout,
+                raft::device_matrix_view<math_t, idx_t, layout> inout,
                 math_t scalar,
                 bool setzero = false,
                 math_t thres = 1e-15)

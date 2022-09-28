@@ -58,12 +58,16 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   template <typename layout>
   void runLinewiseSum(T* out, const T* in, const I lineLen, const I nLines, const T* vec)
   {
-    auto f = [] __device__(T a, T b) -> T { return a + b; };
+    auto f                  = [] __device__(T a, T b) -> T { return a + b; };
+    constexpr auto rowmajor = std::is_same_v<layout, row_major>;
 
-    auto in_view  = raft::make_device_matrix_view<const T, I, layout>(in, nLines, lineLen);
-    auto out_view = raft::make_device_matrix_view<T, I, layout>(out, nLines, lineLen);
+    I m = rowmajor ? lineLen : nLines;
+    I n = rowmajor ? nLines : lineLen;
 
-    auto vec_view = raft::make_device_vector_view<const T>(vec, lineLen);
+    auto in_view  = raft::make_device_matrix_view<const T, I, layout>(in, m, n);
+    auto out_view = raft::make_device_matrix_view<T, I, layout>(out, m, n);
+
+    auto vec_view = raft::make_device_vector_view<const T>(vec, m);
     matrix::linewise_op(handle, in_view, out_view, raft::is_row_major(in_view), f, vec_view);
   }
 
@@ -71,12 +75,16 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   void runLinewiseSum(
     T* out, const T* in, const I lineLen, const I nLines, const T* vec1, const T* vec2)
   {
-    auto f = [] __device__(T a, T b, T c) -> T { return a + b + c; };
+    auto f                  = [] __device__(T a, T b, T c) -> T { return a + b + c; };
+    constexpr auto rowmajor = std::is_same_v<layout, row_major>;
 
-    auto in_view   = raft::make_device_matrix_view<const T, I, layout>(in, nLines, lineLen);
-    auto out_view  = raft::make_device_matrix_view<T, I, layout>(out, nLines, lineLen);
-    auto vec1_view = raft::make_device_vector_view<const T, I>(vec1, lineLen);
-    auto vec2_view = raft::make_device_vector_view<const T, I>(vec2, lineLen);
+    I m = rowmajor ? lineLen : nLines;
+    I n = rowmajor ? nLines : lineLen;
+
+    auto in_view   = raft::make_device_matrix_view<const T, I, layout>(in, m, n);
+    auto out_view  = raft::make_device_matrix_view<T, I, layout>(out, m, n);
+    auto vec1_view = raft::make_device_vector_view<const T, I>(vec1, m);
+    auto vec2_view = raft::make_device_vector_view<const T, I>(vec2, m);
 
     matrix::linewise_op(
       handle, in_view, out_view, raft::is_row_major(in_view), f, vec1_view, vec2_view);
