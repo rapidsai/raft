@@ -128,41 +128,26 @@ __global__ void ivfpq_encode_kernel(uint32_t n_rows,
 }
 }  // namespace
 
-template <uint32_t PqBits>
-inline void ivfpq_encode_run(uint32_t n_rows,
-                             uint32_t pq_dim,
-                             const uint32_t* label,  // [pq_dim, ldDataset]
-                             uint8_t* output,        // [n_rows, pq_dim]
-                             rmm::cuda_stream_view stream)
-{
-#if 1
-  // GPU
-  dim3 threads(128, 1, 1);
-  dim3 blocks(raft::ceildiv<uint32_t>(n_rows, threads.x), 1, 1);
-  ivfpq_encode_kernel<PqBits><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
-#else
-  // CPU
-  stream.synchronize();
-  for (uint32_t i = 0; i < n_rows; i++) {
-    ivfpq_encode_core<PqBits>(n_rows, pq_dim, label + i, output + (pq_dim * PqBits / 8) * i);
-  }
-  stream.synchronize();
-#endif
-}
-
 inline void ivfpq_encode(uint32_t n_rows,
                          uint32_t pq_dim,
                          uint32_t pq_bits,       // 4 <= pq_bits <= 8
-                         const uint32_t* label,  // [pq_dim, ldDataset]
+                         const uint32_t* label,  // [pq_dim, n_rows]
                          uint8_t* output,        // [n_rows, pq_dim]
                          rmm::cuda_stream_view stream)
 {
+  dim3 threads(128, 1, 1);
+  dim3 blocks(raft::ceildiv<uint32_t>(n_rows, threads.x), 1, 1);
   switch (pq_bits) {
-    case 4: return ivfpq_encode_run<4>(n_rows, pq_dim, label, output, stream);
-    case 5: return ivfpq_encode_run<5>(n_rows, pq_dim, label, output, stream);
-    case 6: return ivfpq_encode_run<6>(n_rows, pq_dim, label, output, stream);
-    case 7: return ivfpq_encode_run<7>(n_rows, pq_dim, label, output, stream);
-    case 8: return ivfpq_encode_run<8>(n_rows, pq_dim, label, output, stream);
+    case 4:
+      return ivfpq_encode_kernel<4><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+    case 5:
+      return ivfpq_encode_kernel<5><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+    case 6:
+      return ivfpq_encode_kernel<6><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+    case 7:
+      return ivfpq_encode_kernel<7><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+    case 8:
+      return ivfpq_encode_kernel<8><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
     default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
   }
 }
