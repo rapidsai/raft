@@ -116,6 +116,111 @@ struct fp_8bit {
   }
 };
 
+/**
+ * Select the clusters to probe and, as a side-effect, translate the queries type `T -> float`
+ *
+ * Assuming the number of clusters is not that big (a few thousands), we do a plain GEMM
+ * followed by select_topk to select the clusters to probe. There's no need to return the similarity
+ * scores here.
+ */
+template <typename T>
+void select_clusters(const handle_t& handle,
+                     uint32_t* clusters_to_probe,  // [n_queries, n_probes]
+                     float* float_queries,         // [n_queries, dim_ext]
+                     uint32_t n_queries,
+                     uint32_t n_probes,
+                     uint32_t n_lists,
+                     uint32_t dim,
+                     uint32_t dim_ext,
+                     raft::distance::DistanceType metric,
+                     const T* queries,              // [n_queries, dim]
+                     const float* cluster_centers,  // [n_lists, dim_ext]
+                     rmm::mr::device_memory_resource* mr)
+{
+  auto stream = handle.get_stream();
+  rmm::device_uvector<float> qc_distances(n_queries * n_lists, stream, mr);
+  /* NOTE[qc_distances]
+
+  We compute query-center distances to choose the clusters to probe.
+  We accomplish that with just one GEMM operation thanks to some preprocessing:
+
+    L2 distance:
+      cluster_centers[i, dim()] contains the squared norm of the center vector i;
+      we extend the dimension K of the GEMM to compute it together with all the dot products:
+
+      `cq_distances[i, j] = |cluster_centers[j]|^2 - 2 * (queries[i], cluster_centers[j])`
+
+      This is a monotonous mapping of the proper L2 distance.
+
+    IP distance:
+      `cq_distances[i, j] = - (queries[i], cluster_centers[j])`
+
+      This is a negative inner-product distance. We minimize it to find the similar clusters.
+
+      NB: cq_distances is NOT used further in ivfpq_search.
+ */
+  float norm_factor;
+  switch (metric) {
+    case raft::distance::DistanceType::L2Expanded: norm_factor = 1.0 / -2.0; break;
+    case raft::distance::DistanceType::InnerProduct: norm_factor = 0.0; break;
+    default: RAFT_FAIL("Unsupported distance type %d.", int(metric));
+  }
+  linalg::writeOnlyUnaryOp(
+    float_queries,
+    dim_ext * n_queries,
+    [queries, dim, dim_ext, norm_factor] __device__(float* out, uint32_t ix) {
+      uint32_t col = ix % dim_ext;
+      uint32_t row = ix / dim_ext;
+      *out         = col < dim ? utils::mapping<float>{}(queries[col + dim * row]) : norm_factor;
+    },
+    stream);
+
+  float alpha;
+  float beta;
+  uint32_t gemm_k = dim;
+  switch (metric) {
+    case raft::distance::DistanceType::L2Expanded: {
+      alpha  = -2.0;
+      beta   = 0.0;
+      gemm_k = dim + 1;
+      RAFT_EXPECTS(gemm_k <= dim_ext, "unexpected gemm_k or dim_ext");
+    } break;
+    case raft::distance::DistanceType::InnerProduct: {
+      alpha = -1.0;
+      beta  = 0.0;
+    } break;
+    default: RAFT_FAIL("Unsupported distance type %d.", int(metric));
+  }
+  linalg::gemm(handle,
+               true,
+               false,
+               n_lists,
+               n_queries,
+               gemm_k,
+               &alpha,
+               cluster_centers,
+               dim_ext,
+               float_queries,
+               dim_ext,
+               &beta,
+               qc_distances.data(),
+               n_lists,
+               stream);
+
+  // Select neighbor clusters for each query.
+  rmm::device_uvector<float> cluster_dists(n_queries * n_probes, stream, mr);
+  select_topk<float, uint32_t>(qc_distances.data(),
+                               nullptr,
+                               n_queries,
+                               n_lists,
+                               n_probes,
+                               cluster_dists.data(),
+                               clusters_to_probe,
+                               true,
+                               stream,
+                               mr);
+}
+
 __device__ inline auto warp_scan(uint32_t x) -> uint32_t
 {
   uint32_t y;
@@ -1028,11 +1133,9 @@ inline void search(const handle_t& handle,
     }
   }
 
-  rmm::device_uvector<T> dev_queries(max_queries * dim_ext, stream, mr);
-  rmm::device_uvector<float> cur_queries(max_queries * dim_ext, stream, mr);
+  rmm::device_uvector<float> float_queries(max_queries * dim_ext, stream, mr);
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
   rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * params.n_probes, stream, mr);
-  rmm::device_uvector<float> qc_distances(max_queries * index.n_lists(), stream, mr);
 
   void (*_ivfpq_search)(const handle_t&,  // NOLINT
                         const ivf_pq::index<IdxT>&,
@@ -1079,81 +1182,25 @@ inline void search(const handle_t& handle,
     default: RAFT_FAIL("all pointers must be accessible from the device.");
   }
 
-  for (uint32_t i = 0; i < n_queries; i += max_queries) {
-    uint32_t queries_batch = min(max_queries, n_queries - i);
+  for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
+    uint32_t queries_batch = min(max_queries, n_queries - offset_q);
 
-    /* NOTE[qc_distances]
-
-      We compute query-center distances to choose the clusters to probe.
-      We accomplish that with just one GEMM operation thanks to some preprocessing:
-
-        L2 distance:
-          cluster_centers[i, dim()] contains the squared norm of the center vector i;
-          we extend the dimension K of the GEMM to compute it together with all the dot products:
-
-          `cq_distances[i, j] = |luster_centers[j]|^2 - 2 * (queries[i], cluster_centers[j])`
-
-          This is a monotonous mapping of the proper L2 distance.
-
-        IP distance:
-          `cq_distances[i, j] = - (queries[i], cluster_centers[j])`
-
-          This is a negative inner-product distance. We minimize it to find the similar clusters.
-
-          NB: cq_distances is NOT used further in ivfpq_search.
-     */
-    float norm_factor;
-    switch (index.metric()) {
-      case raft::distance::DistanceType::L2Expanded: norm_factor = 1.0 / -2.0; break;
-      case raft::distance::DistanceType::InnerProduct: norm_factor = 0.0; break;
-      default: RAFT_FAIL("Unsupported distance type %d.", int(index.metric()));
-    }
-    auto queries_ptr = queries + static_cast<size_t>(dim) * i;
-    linalg::writeOnlyUnaryOp(
-      cur_queries.data(),
-      dim_ext * queries_batch,
-      [queries_ptr, dim, dim_ext, norm_factor] __device__(float* out, uint32_t ix) {
-        uint32_t col = ix % dim_ext;
-        uint32_t row = ix / dim_ext;
-        *out = col < dim ? utils::mapping<float>{}(queries_ptr[col + dim * row]) : norm_factor;
-      },
-      stream);
-
-    float alpha;
-    float beta;
-    uint32_t gemm_k = dim;
-    switch (index.metric()) {
-      case raft::distance::DistanceType::L2Expanded: {
-        alpha  = -2.0;
-        beta   = 0.0;
-        gemm_k = dim + 1;
-        RAFT_EXPECTS(gemm_k <= dim_ext, "unexpected gemm_k or dim_ext");
-      } break;
-      case raft::distance::DistanceType::InnerProduct: {
-        alpha = -1.0;
-        beta  = 0.0;
-      } break;
-      default: RAFT_FAIL("Unsupported distance type %d.", int(index.metric()));
-    }
-    linalg::gemm(handle,
-                 true,
-                 false,
-                 index.n_lists(),
-                 queries_batch,
-                 gemm_k,
-                 &alpha,
-                 index.centers().data_handle(),
-                 dim_ext,
-                 cur_queries.data(),
-                 dim_ext,
-                 &beta,
-                 qc_distances.data(),
-                 index.n_lists(),
-                 stream);
+    select_clusters(handle,
+                    clusters_to_probe.data(),
+                    float_queries.data(),
+                    n_queries,
+                    params.n_probes,
+                    index.n_lists(),
+                    dim,
+                    dim_ext,
+                    index.metric(),
+                    queries + static_cast<size_t>(dim) * offset_q,
+                    index.centers().data_handle(),
+                    mr);
 
     // Rotate queries
-    alpha = 1.0;
-    beta  = 0.0;
+    float alpha = 1.0;
+    float beta  = 0.0;
     linalg::gemm(handle,
                  true,
                  false,
@@ -1163,30 +1210,15 @@ inline void search(const handle_t& handle,
                  &alpha,
                  index.rotation_matrix().data_handle(),
                  dim,
-                 cur_queries.data(),
+                 float_queries.data(),
                  dim_ext,
                  &beta,
                  rot_queries.data(),
                  index.rot_dim(),
                  stream);
 
-    {
-      // Select neighbor clusters for each query.
-      rmm::device_uvector<float> cluster_dists(max_queries * params.n_probes, stream, mr);
-      select_topk<float, uint32_t>(qc_distances.data(),
-                                   nullptr,
-                                   queries_batch,
-                                   index.n_lists(),
-                                   params.n_probes,
-                                   cluster_dists.data(),
-                                   clusters_to_probe.data(),
-                                   true,
-                                   stream,
-                                   mr);
-    }
-
-    for (uint32_t j = 0; j < queries_batch; j += max_batch_size) {
-      uint32_t batch_size = min(max_batch_size, queries_batch - j);
+    for (uint32_t offset_b = 0; offset_b < queries_batch; offset_b += max_batch_size) {
+      uint32_t batch_size = min(max_batch_size, queries_batch - offset_b);
       /* The distance calculation is done in the rotated/transformed space;
          as long as `index.rotation_matrix()` is orthogonal, the distances and thus results are
          preserved.
@@ -1199,10 +1231,10 @@ inline void search(const handle_t& handle,
                     k,
                     params.preferred_thread_block_size,
                     batch_size,
-                    clusters_to_probe.data() + ((uint64_t)(params.n_probes) * j),
-                    rot_queries.data() + ((uint64_t)(index.rot_dim()) * j),
-                    neighbors + ((uint64_t)(k) * (i + j)),
-                    distances + ((uint64_t)(k) * (i + j)),
+                    clusters_to_probe.data() + uint64_t(params.n_probes) * offset_b,
+                    rot_queries.data() + uint64_t(index.rot_dim()) * offset_b,
+                    neighbors + uint64_t(k) * (offset_q + offset_b),
+                    distances + uint64_t(k) * (offset_q + offset_b),
                     mr);
     }
   }
