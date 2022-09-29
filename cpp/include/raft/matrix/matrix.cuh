@@ -274,8 +274,8 @@ void linewiseOp(m_t* out,
 
 template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
 void linewiseOpSpan(
-  aligned_mdspan<m_t, matrix_extent<idx_t>, storage_order_type::row_major_t>& out,
-  const aligned_mdspan<m_t, matrix_extent<idx_t>, storage_order_type::row_major_t>& in,
+  aligned_mdspan<m_t, matrix_extent<idx_t>, StorageOrderType::row_major_t>& out,
+  const aligned_mdspan<m_t, matrix_extent<idx_t>, StorageOrderType::row_major_t>& in,
   const idx_t lineLen,
   const idx_t nLines,
   const bool alongLines,
