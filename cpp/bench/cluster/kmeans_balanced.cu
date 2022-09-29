@@ -38,16 +38,15 @@ struct KMeansBalanced : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     this->loop_on_state(state, [this]() {
-      raft::spatial::knn::detail::kmeans::build_hierarchical<T>(
-        this->handle,
-        this->params.max_iter,
-        (uint32_t)this->params.data.cols,
-        this->X.data_handle(),
-        this->params.data.rows,
-        this->centroids.data_handle(),
-        this->params.n_lists,
-        this->params.metric,
-        this->handle.get_stream());
+      raft::spatial::knn::detail::kmeans::build_hierarchical<T>(this->handle,
+                                                                this->params.max_iter,
+                                                                (uint32_t)this->params.data.cols,
+                                                                this->X.data_handle(),
+                                                                this->params.data.rows,
+                                                                this->centroids.data_handle(),
+                                                                this->params.n_lists,
+                                                                this->params.metric,
+                                                                this->handle.get_stream());
     });
   }
 
