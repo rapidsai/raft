@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <iostream>
-
 #include "../test_utils.h"
 #include "./ann_base_kernel.cuh"
 

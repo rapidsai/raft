@@ -86,15 +86,16 @@ inline void predict_float_core(const handle_t& handle,
       raft::distance::MinAndDistanceReduceOp<IdxT, float> redOp;
       raft::distance::KVPMinReduce<IdxT, float> pairRedOp;
 
-      auto minClusterAndDistance =
-        raft::make_device_vector<cub::KeyValuePair<IdxT, float>, IdxT>(handle, n_rows);
+      auto minClusterAndDistance = raft::make_device_mdarray<cub::KeyValuePair<IdxT, float>, IdxT>(
+        handle, mr, make_extents<IdxT>(n_rows));
       cub::KeyValuePair<IdxT, float> initial_value(0, std::numeric_limits<float>::max());
       thrust::fill(handle.get_thrust_policy(),
                    minClusterAndDistance.data_handle(),
                    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
                    initial_value);
 
-      auto centroidsNorm = raft::make_device_vector<float, IdxT>(handle, n_clusters);
+      auto centroidsNorm =
+        raft::make_device_mdarray<float, uint32_t>(handle, mr, make_extents<uint32_t>(n_clusters));
       raft::linalg::rowNorm<float, IdxT>(
         centroidsNorm.data_handle(), centers, dim, n_clusters, raft::linalg::L2Norm, true, stream);
 
@@ -285,7 +286,6 @@ void compute_norm(float* dataset_norm,
   if (std::is_same_v<float, T>) {
     dataset_ptr = reinterpret_cast<const float*>(dataset);
   } else {
-    // todo(lsugy): should we batch this?
     dataset_float.resize(n_rows * dim, stream);
 
     linalg::unaryOp(dataset_float.data(), dataset, n_rows * dim, utils::mapping<float>{}, stream);
@@ -658,6 +658,10 @@ void build_clusters(const handle_t& handle,
                     rmm::mr::device_memory_resource* device_memory,
                     const float* dataset_norm = nullptr)
 {
+  RAFT_EXPECTS(static_cast<uint64_t>(n_rows) * static_cast<uint64_t>(dim) <=
+                 static_cast<uint64_t>(std::numeric_limits<IdxT>::max()),
+               "the chosen index type cannot represent all indices for the given dataset");
+
   // "randomly initialize labels"
   auto f = [n_clusters] __device__(LabelT * out, IdxT i) {
     *out = LabelT(i % static_cast<IdxT>(n_clusters));
@@ -891,6 +895,10 @@ void build_hierarchical(const handle_t& handle,
                         rmm::cuda_stream_view stream)
 {
   using LabelT = uint32_t;
+
+  RAFT_EXPECTS(static_cast<uint64_t>(n_rows) * static_cast<uint64_t>(dim) <=
+                 static_cast<uint64_t>(std::numeric_limits<IdxT>::max()),
+               "the chosen index type cannot represent all indices for the given dataset");
 
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "kmeans::build_hierarchical(%zu, %u)", n_rows, n_clusters);

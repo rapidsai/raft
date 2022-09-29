@@ -209,7 +209,7 @@ inline auto extend(const handle_t& handle,
 
   // Precompute the centers vector norms for L2Expanded distance
   if (ext_index.center_norms().has_value()) {
-    // todo(lsugy): use other prim and get rid of this one
+    // todo(lsugy): use other prim and remove this one
     utils::dots_along_rows(n_lists,
                            dim,
                            ext_index.centers().data_handle(),

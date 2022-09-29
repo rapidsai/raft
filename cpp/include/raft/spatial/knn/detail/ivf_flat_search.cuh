@@ -1098,7 +1098,7 @@ void search_impl(const handle_t& handle,
   float alpha = 1.0f;
   float beta  = 0.0f;
 
-  // todo(lsugy): raft distance
+  // todo(lsugy): raft distance? (if performance is similar/better than gemm)
   if (index.metric() == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
