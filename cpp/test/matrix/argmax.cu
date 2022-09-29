@@ -57,12 +57,12 @@ class ArgMaxTest : public ::testing::TestWithParam<ArgMaxInputs<T, IdxT>> {
     raft::update_device(
       expected.data_handle(), params.output_matrix.data(), params.n_rows, handle.get_stream());
 
-    printf("Finished copy\n");
-
     auto input_view = raft::make_device_matrix_view<const T, IdxT, col_major>(
       input.data_handle(), params.n_rows, params.n_cols);
 
     raft::matrix::argmax<T, IdxT>(handle, input_view, output.view());
+
+    handle.sync_stream();
 
     ASSERT_TRUE(devArrMatch(output.data_handle(),
                             expected.data_handle(),
