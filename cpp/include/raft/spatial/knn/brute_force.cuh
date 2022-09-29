@@ -23,7 +23,7 @@
 namespace raft::spatial::knn {
 
 /**
- * Performs a k-select across row partitioned index/distance
+ * @brief Performs a k-select across row partitioned index/distance
  * matrices formatted like the following:
  * row1: k0, k1, k2
  * row2: k0, k1, k2
@@ -36,14 +36,14 @@ namespace raft::spatial::knn {
  *
  * @tparam idx_t
  * @tparam value_t
- * @param handle
- * @param in_keys
- * @param in_values
- * @param out_keys
- * @param out_values
- * @param n_samples
- * @param k
- * @param translations
+ * @param[in] handle
+ * @param[in] in_keys matrix of input keys (size n_samples * n_parts * k)
+ * @param[in] in_values matrix of input values (size n_samples * n_parts * k)
+ * @param[out] out_keys matrix of output keys (size n_samples * k)
+ * @param[out] out_values matrix of output values (size n_samples * k)
+ * @param[in] n_samples number of rows in each part
+ * @param[in] k number of neighbors for each part
+ * @param[in] translations optional vector of starting index mappings for each partition
  */
 template <typename idx_t = int64_t, typename value_t = float>
 inline void knn_merge_parts(
@@ -82,10 +82,6 @@ inline void knn_merge_parts(
  * output array for indexes and distances. Inputs can be either
  * row- or column-major but the output matrices will always be in
  * row-major format.
- *
- * @example
- *
- *
  *
  * @param[in] handle the cuml handle to use
  * @param[in] index vector of device matrices (each size m_i*d) to be used as the knn index

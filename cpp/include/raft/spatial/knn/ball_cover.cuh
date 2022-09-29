@@ -36,8 +36,8 @@ namespace knn {
  * @tparam value_t knn value type
  * @tparam int_t integral type for knn params
  * @tparam matrix_idx_t matrix indexing type
- * @param handle library resource management handle
- * @param index an empty (and not previous built) instance of BallCoverIndex
+ * @param[in] handle library resource management handle
+ * @param[inout] index an empty (and not previous built) instance of BallCoverIndex
  */
 template <typename idx_t = std::int64_t,
           typename value_t,
@@ -70,15 +70,15 @@ void rbc_build_index(const raft::handle_t& handle,
  * @tparam idx_t knn index type
  * @tparam value_t knn distance type
  * @tparam int_t type for integers, such as number of rows/cols
- * @param handle raft handle for resource management
- * @param index ball cover index which has not yet been built
- * @param k number of nearest neighbors to find
- * @param perform_post_filtering if this is false, only the closest k landmarks
+ * @param[in] handle raft handle for resource management
+ * @param[inout] index ball cover index which has not yet been built
+ * @param[in] k number of nearest neighbors to find
+ * @param[in] perform_post_filtering if this is false, only the closest k landmarks
  *                               are considered (which will return approximate
  *                               results).
  * @param[out] inds output knn indices
  * @param[out] dists output knn distances
- * @param weight a weight for overlap between the closest landmark and
+ * @param[in] weight a weight for overlap between the closest landmark and
  *               the radius of other landmarks when pruning distances.
  *               Setting this value below 1 can effectively turn off
  *               computing distances against many other balls, enabling
@@ -188,11 +188,11 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  * @tparam idx_t index type
  * @tparam value_t distances type
  * @tparam int_t integer type for size info
- * @param handle raft handle for resource management
- * @param index ball cover index which has not yet been built
- * @param k number of nearest neighbors to find
- * @param query the
- * @param perform_post_filtering if this is false, only the closest k landmarks
+ * @param[in] handle raft handle for resource management
+ * @param[inout] index ball cover index which has not yet been built
+ * @param[in] k number of nearest neighbors to find
+ * @param[in] query the
+ * @param[in] perform_post_filtering if this is false, only the closest k landmarks
  *                               are considered (which will return approximate
  *                               results).
  * @param[out] inds output knn indices
