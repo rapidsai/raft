@@ -308,7 +308,7 @@ constexpr bool is_matrix_view(mdspan<ElementType, Extents> m)
 }
 
 template <class ElementType, class IndexType, size_t... Exts, class Layout, class Accessor>
-constexpr bool is_matrix_view(
+constexpr bool is_vector_view(
   mdspan<ElementType, extents<IndexType, Exts...>, Layout, Accessor> /* m */)
 {
   return sizeof...(Exts) == 1;
@@ -321,7 +321,7 @@ constexpr bool is_vector_view(mdspan<ElementType, Extents> m)
 }
 
 template <class ElementType, class IndexType, size_t... Exts, class Layout, class Accessor>
-constexpr bool is_matrix_view(
+constexpr bool is_scalar_view(
   mdspan<ElementType, extents<IndexType, Exts...>, Layout, Accessor> /* m */)
 {
   return sizeof...(Exts) == 0;
