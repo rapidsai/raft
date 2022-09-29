@@ -221,78 +221,81 @@ void select_clusters(const handle_t& handle,
                                mr);
 }
 
-__device__ inline auto warp_scan(uint32_t x) -> uint32_t
-{
-  uint32_t y;
-  y = __shfl_up_sync(0xffffffff, x, 1);
-  if (threadIdx.x % 32 >= 1) x += y;
-  y = __shfl_up_sync(0xffffffff, x, 2);
-  if (threadIdx.x % 32 >= 2) x += y;
-  y = __shfl_up_sync(0xffffffff, x, 4);
-  if (threadIdx.x % 32 >= 4) x += y;
-  y = __shfl_up_sync(0xffffffff, x, 8);
-  if (threadIdx.x % 32 >= 8) x += y;
-  y = __shfl_up_sync(0xffffffff, x, 16);
-  if (threadIdx.x % 32 >= 16) x += y;
-  return x;
-}
-
-__device__ inline auto thread_block_scan(uint32_t x, uint32_t* smem) -> uint32_t
-{
-  x = warp_scan(x);
-  __syncthreads();
-  if (threadIdx.x % 32 == 31) { smem[threadIdx.x / 32] = x; }
-  __syncthreads();
-  if (threadIdx.x < 32) { smem[threadIdx.x] = warp_scan(smem[threadIdx.x]); }
-  __syncthreads();
-  if (threadIdx.x / 32 > 0) { x += smem[threadIdx.x / 32 - 1]; }
-  __syncthreads();
-  return x;
-}
-
 /**
  * For each query, we calculate a cumulative sum of the cluster sizes that we probe, and return that
  * in chunk_indices. Essentially this is a segmented inclusive scan of the cluster sizes. The total
  * number of samples per query (sum of the cluster sizes that we probe) is returned in n_samples.
  */
-template <typename IdxT>
-__launch_bounds__(1024, 1) __global__
-  void ivfpq_make_chunk_index_ptr(uint32_t n_probes,
-                                  uint32_t batch_size,
-                                  const IdxT* cluster_offsets,        // [n_clusters + 1]
-                                  const uint32_t* clusters_to_probe,  // [batch_size, n_probes]
-                                  uint32_t* chunk_indices,            // [batch_size, n_probes]
-                                  uint32_t* n_samples                 // [batch_size]
+template <int BlockDim, typename IdxT>
+__launch_bounds__(BlockDim) __global__
+  void calc_chunk_indices_kernel(uint32_t n_probes,
+                                 const IdxT* cluster_offsets,        // [n_clusters + 1]
+                                 const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
+                                 uint32_t* chunk_indices,            // [n_queries, n_probes]
+                                 uint32_t* n_samples                 // [n_queries]
   )
 {
-  __shared__ uint32_t smem_temp[32];  // NOLINT
-  __shared__ uint32_t smem_base[2];   // NOLINT
+  using block_scan = cub::BlockScan<uint32_t, BlockDim>;
+  __shared__ typename block_scan::TempStorage shm;
 
-  uint32_t batch_ix = blockIdx.x;
-  if (batch_ix >= batch_size) return;
-  clusters_to_probe += n_probes * batch_ix;
-  chunk_indices += n_probes * batch_ix;
+  // locate the query data
+  clusters_to_probe += n_probes * blockIdx.x;
+  chunk_indices += n_probes * blockIdx.x;
 
-  //
-  uint32_t j_end = raft::ceildiv(n_probes, 1024u);
-  for (uint32_t j = 0; j < j_end; j++) {
-    uint32_t i   = threadIdx.x + (1024 * j);
-    uint32_t val = 0;
-    if (i < n_probes) {
-      uint32_t l = clusters_to_probe[i];
-      val        = static_cast<uint32_t>(cluster_offsets[l + 1] - cluster_offsets[l]);
-    }
-    val = thread_block_scan(val, smem_temp);
-
-    if (i < n_probes) {
-      if (j > 0) { val += smem_base[(j - 1) & 0x1]; }
-      chunk_indices[i] = val;
-      if (i == n_probes - 1) { n_samples[batch_ix] = val; }
-    }
-
-    if ((j < j_end - 1) && (threadIdx.x == 1023)) { smem_base[j & 0x1] = val; }
+  // block scan
+  const uint32_t n_probes_aligned = Pow2<BlockDim>::roundUp(n_probes);
+  uint32_t total                  = 0;
+  for (uint32_t probe_ix = threadIdx.x; probe_ix < n_probes_aligned; probe_ix += BlockDim) {
+    auto label = probe_ix < n_probes ? clusters_to_probe[probe_ix] : 0u;
+    auto chunk = probe_ix < n_probes
+                   ? static_cast<uint32_t>(cluster_offsets[label + 1] - cluster_offsets[label])
+                   : 0u;
+    if (threadIdx.x == 0) { chunk += total; }
+    block_scan(shm).InclusiveSum(chunk, chunk, total);
+    __syncthreads();
+    if (probe_ix < n_probes) { chunk_indices[probe_ix] = chunk; }
   }
+  // save the total size
+  if (threadIdx.x == 0) { n_samples[blockIdx.x] = total; }
 }
+
+template <typename IdxT>
+struct calc_chunk_indices {
+ public:
+  using kernel_t = void (*)(uint32_t, const IdxT*, const uint32_t*, uint32_t*, uint32_t*);
+
+  struct configured {
+    kernel_t kernel;
+    uint32_t block_dim;
+    uint32_t n_probes;
+    uint32_t n_queries;
+
+    void operator()(const IdxT* cluster_offsets,
+                    const uint32_t* clusters_to_probe,
+                    uint32_t* chunk_indices,
+                    uint32_t* n_samples,
+                    rmm::cuda_stream_view stream)
+    {
+      kernel<<<n_queries, block_dim, 0, stream>>>(
+        n_probes, cluster_offsets, clusters_to_probe, chunk_indices, n_samples);
+    }
+  };
+
+  static auto configure(uint32_t n_probes, uint32_t n_queries) -> configured
+  {
+    return try_block_dim<1024>(n_probes, n_queries);
+  }
+
+ private:
+  template <int BlockDim>
+  static auto try_block_dim(uint32_t n_probes, uint32_t n_queries) -> configured
+  {
+    if constexpr (BlockDim >= WarpSize * 2) {
+      if (BlockDim >= n_probes * 2) { return try_block_dim<(BlockDim / 2)>(n_probes, n_queries); }
+    }
+    return {calc_chunk_indices_kernel<BlockDim, IdxT>, BlockDim, n_probes, n_queries};
+  }
+};
 
 /**
  * Look up the dataset index that corresponds to a sample index.
@@ -331,42 +334,42 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
                                    uint32_t n_probes,
                                    uint32_t topk,
                                    uint32_t max_samples,
-                                   uint32_t batch_size,
+                                   uint32_t n_queries,
                                    const IdxT* cluster_offsets,      // [n_clusters + 1]
                                    const IdxT* data_indices,         // [index_size]
-                                   const uint32_t* cluster_labels,   // [batch_size, n_probes]
-                                   const uint32_t* chunk_indices,    // [batch_size, n_probes]
-                                   const ScoreT* scores,             // [batch_size, max_samples] or
-                                                                     // [batch_size, n_probes, topk]
-                                   const uint32_t* topk_score_ixs,   // [batch_size, n_probes, topk]
-                                   const uint32_t* topk_sample_ixs,  // [batch_size, topk]
-                                   IdxT* topk_out_ixs,               // [batch_size, topk]
-                                   float* topk_out_scores            // [batch_size, topk]
+                                   const uint32_t* cluster_labels,   // [n_queries, n_probes]
+                                   const uint32_t* chunk_indices,    // [n_queries, n_probes]
+                                   const ScoreT* scores,             // [n_queries, max_samples] or
+                                                                     // [n_queries, n_probes, topk]
+                                   const uint32_t* topk_score_ixs,   // [n_queries, n_probes, topk]
+                                   const uint32_t* topk_sample_ixs,  // [n_queries, topk]
+                                   IdxT* topk_out_ixs,               // [n_queries, topk]
+                                   float* topk_out_scores            // [n_queries, topk]
 )
 {
   uint32_t i = threadIdx.x + (blockDim.x * blockIdx.x);
   if (i >= topk) return;
-  uint32_t batch_ix = blockIdx.y;
-  if (batch_ix >= batch_size) return;
+  uint32_t query_ix = blockIdx.y;
+  if (query_ix >= n_queries) return;
 
-  uint32_t sample_ix = topk_sample_ixs[i + (topk * batch_ix)];
+  uint32_t sample_ix = topk_sample_ixs[i + (topk * query_ix)];
   float score;
   if (topk_score_ixs == nullptr) {
     // 0 <= sample_ix < max_samples
-    score = scores[sample_ix + (max_samples * batch_ix)];
+    score = scores[sample_ix + (max_samples * query_ix)];
     IdxT data_ix;
     ivfpq_get_id_dataset(sample_ix,
                          n_probes,
                          cluster_offsets,
-                         cluster_labels + (n_probes * batch_ix),
-                         chunk_indices + (n_probes * batch_ix),
+                         cluster_labels + (n_probes * query_ix),
+                         chunk_indices + (n_probes * query_ix),
                          data_ix);
-    topk_out_ixs[i + (topk * batch_ix)] = data_indices[data_ix];
+    topk_out_ixs[i + (topk * query_ix)] = data_indices[data_ix];
   } else {
     // 0 <= sample_ix < (n_probes * topk)
-    score        = scores[sample_ix + ((n_probes * topk) * batch_ix)];
-    IdxT data_ix = topk_score_ixs[sample_ix + ((n_probes * topk) * batch_ix)];
-    topk_out_ixs[i + (topk * batch_ix)] = data_indices[data_ix];
+    score        = scores[sample_ix + ((n_probes * topk) * query_ix)];
+    IdxT data_ix = topk_score_ixs[sample_ix + ((n_probes * topk) * query_ix)];
+    topk_out_ixs[i + (topk * query_ix)] = data_indices[data_ix];
   }
   switch (metric) {
     case distance::DistanceType::InnerProduct: {
@@ -374,7 +377,7 @@ __global__ void ivfpq_make_outputs(distance::DistanceType metric,
     } break;
     default: break;
   }
-  topk_out_scores[i + (topk * batch_ix)] = score;
+  topk_out_scores[i + (topk * query_ix)] = score;
 }
 
 /**
@@ -483,7 +486,7 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  *   (NB: pq_book_size = 1 << pq_bits).
  * @param pq_dim
  *   The dimensionality of an encoded vector after compression by PQ.
- * @param batch_size the number of queries.
+ * @param n_queries the number of queries.
  * @param metric the distance type.
  * @param codebook_kind Defines the way PQ codebooks have been trained.
  * @param topk the `k` in the select top-k.
@@ -498,22 +501,22 @@ using block_sort_t = typename pq_block_sort<Capacity, T>::type;
  * @param cluster_offsets
  *   The device pointer to the cluster offsets [n_clusters + 1].
  * @param cluster_labels
- *   The device pointer to the labels (clusters) for each query and probe [batch_size, n_probes].
+ *   The device pointer to the labels (clusters) for each query and probe [n_queries, n_probes].
  * @param _chunk_indices
- *   The device pointer to the data offsets for each query and probe [batch_size, n_probes].
+ *   The device pointer to the data offsets for each query and probe [n_queries, n_probes].
  * @param queries
- *   The device pointer to the queries (NB: after rotation) [batch_size, dim].
+ *   The device pointer to the queries (NB: after rotation) [n_queries, dim].
  * @param index_list
- *   An optional device pointer to the enforced order of search [batch_size, n_probes].
+ *   An optional device pointer to the enforced order of search [n_queries, n_probes].
  *   One can pass reordered indices here to try to improve data reading locality.
  * @param lut_scores
  *   The device pointer for storing the lookup table globally [gridDim.x, pq_dim << pq_bits].
  *   Ignored when `EnableSMemLut == true`.
  * @param _out_scores
  *   The device pointer to the output scores
- *   [batch_size, max_samples] or [batch_size, n_probes, topk].
+ *   [n_queries, max_samples] or [n_queries, n_probes, topk].
  * @param _out_indices
- *   The device pointer to the output indices [batch_size, n_probes, topk].
+ *   The device pointer to the output indices [n_queries, n_probes, topk].
  *   Ignored  when `Capacity == 0`.
  */
 template <typename OpT,
@@ -529,7 +532,7 @@ __launch_bounds__(1024, 1) __global__
                                        uint32_t n_probes,
                                        uint32_t pq_bits,
                                        uint32_t pq_dim,
-                                       uint32_t batch_size,
+                                       uint32_t n_queries,
                                        distance::DistanceType metric,
                                        codebook_gen codebook_kind,
                                        uint32_t topk,
@@ -574,32 +577,32 @@ __launch_bounds__(1024, 1) __global__
     }
   }
 
-  for (int ib = blockIdx.x; ib < batch_size * n_probes; ib += gridDim.x) {
-    uint32_t batch_ix;
+  for (int ib = blockIdx.x; ib < n_queries * n_probes; ib += gridDim.x) {
+    uint32_t query_ix;
     uint32_t probe_ix;
     if (index_list == nullptr) {
-      batch_ix = ib % batch_size;
-      probe_ix = ib / batch_size;
+      query_ix = ib % n_queries;
+      probe_ix = ib / n_queries;
     } else {
-      batch_ix = index_list[ib] / n_probes;
+      query_ix = index_list[ib] / n_probes;
       probe_ix = index_list[ib] % n_probes;
     }
-    if (batch_ix >= batch_size || probe_ix >= n_probes) continue;
+    if (query_ix >= n_queries || probe_ix >= n_probes) continue;
 
-    const uint32_t* chunk_indices = _chunk_indices + (n_probes * batch_ix);
-    const float* query            = queries + (dim * batch_ix);
+    const uint32_t* chunk_indices = _chunk_indices + (n_probes * query_ix);
+    const float* query            = queries + (dim * query_ix);
     OutT* out_scores;
     uint32_t* out_indices = nullptr;
     if constexpr (kManageLocalTopK) {
       // Store topk calculated distances to out_scores (and its indices to out_indices)
-      out_scores  = _out_scores + (topk * (probe_ix + (n_probes * batch_ix)));
-      out_indices = _out_indices + (topk * (probe_ix + (n_probes * batch_ix)));
+      out_scores  = _out_scores + (topk * (probe_ix + (n_probes * query_ix)));
+      out_indices = _out_indices + (topk * (probe_ix + (n_probes * query_ix)));
     } else {
       // Store all calculated distances to out_scores
       // max_samples == cluster_offsets[n_probes]
-      out_scores = _out_scores + (cluster_offsets[n_probes] * batch_ix);
+      out_scores = _out_scores + (cluster_offsets[n_probes] * query_ix);
     }
-    uint32_t label              = cluster_labels[n_probes * batch_ix + probe_ix];
+    uint32_t label              = cluster_labels[n_probes * query_ix + probe_ix];
     const float* cluster_center = cluster_centers + (dim * label);
     const float* pq_center;
     if (codebook_kind == codebook_gen::PER_SUBSPACE) {
@@ -837,14 +840,8 @@ void ivfpq_search_worker(const handle_t& handle,
     topk_index = topk_index_buf.data();
   }
 
-  dim3 mc_threads(1024, 1, 1);  // DO NOT CHANGE
-  dim3 mc_blocks(n_queries, 1, 1);
-  ivfpq_make_chunk_index_ptr<<<mc_blocks, mc_threads, 0, stream>>>(n_probes,
-                                                                   n_queries,
-                                                                   cluster_offsets,
-                                                                   clusters_to_probe,
-                                                                   chunk_index.data(),
-                                                                   num_samples.data());
+  calc_chunk_indices<IdxT>::configure(n_probes, n_queries)(
+    cluster_offsets, clusters_to_probe, chunk_index.data(), num_samples.data(), stream);
 
   if (n_queries * n_probes > 256) {
     // Sorting index by cluster number (label).
