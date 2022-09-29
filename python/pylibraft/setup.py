@@ -25,9 +25,9 @@ def exclude_libcxx_symlink(cmake_manifest):
     return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
 
 
-setup(name='pylibraft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
+setup(name='pylibraft'+os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default=""),
       description="RAFT: Reusable Algorithms Functions and other Tools",
-      version=os.getenv('PYTHON_PACKAGE_VERSIONEER_OVERRIDE', default=versioneer.get_version()),
+      version=os.getenv('RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE', default=versioneer.get_version()),
       classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python",
@@ -54,12 +54,12 @@ setup(name='pylibraft'+os.getenv("PYTHON_PACKAGE_CUDA_SUFFIX", default=""),
           )
       },
       setup_requires=[
-        f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+        f"rmm{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
       ],
       install_requires=[
         "numpy",
         "cuda-python>=11.5,<11.7.1",
-        f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+        f"rmm{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
       ],
       cmake_process_manifest_hook=exclude_libcxx_symlink,
       packages=find_packages(include=['pylibraft', 'pylibraft.*']),
