@@ -790,19 +790,19 @@ struct ivfpq_compute_similarity {
  *      is guaranteed to fit into GPU memory.
  */
 template <typename ScoreT, typename LutT, typename IdxT>
-void ivfpq_search(const handle_t& handle,
-                  const index<IdxT>& index,
-                  uint32_t max_samples,
-                  uint32_t n_probes,
-                  uint32_t max_batch_size,
-                  uint32_t topK,
-                  uint32_t preferred_thread_block_size,
-                  uint32_t n_queries,
-                  const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
-                  const float* query,                 // [n_queries, rot_dim]
-                  IdxT* topk_out_ixs,                 // [n_queries, topK]
-                  float* topkDistances,               // [n_queries, topK]
-                  rmm::mr::device_memory_resource* mr)
+void ivfpq_search_worker(const handle_t& handle,
+                         const index<IdxT>& index,
+                         uint32_t max_samples,
+                         uint32_t n_probes,
+                         uint32_t max_batch_size,
+                         uint32_t topK,
+                         uint32_t preferred_thread_block_size,
+                         uint32_t n_queries,
+                         const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
+                         const float* query,                 // [n_queries, rot_dim]
+                         IdxT* topk_out_ixs,                 // [n_queries, topK]
+                         float* topkDistances,               // [n_queries, topK]
+                         rmm::mr::device_memory_resource* mr)
 {
   RAFT_EXPECTS(n_queries <= max_batch_size,
                "number of queries (%u) must be smaller the max batch size (%u)",
@@ -1038,6 +1038,71 @@ void ivfpq_search(const handle_t& handle,
                                                                    topkDistances);
 }
 
+/**
+ * This structure helps selecting a proper instance of the worker search function,
+ * which contains a few template parameters.
+ */
+template <typename IdxT>
+struct ivfpq_search {
+ public:
+  using fun_t = void (*)(const handle_t&,
+                         const ivf_pq::index<IdxT>&,
+                         uint32_t,
+                         uint32_t,
+                         uint32_t,
+                         uint32_t,
+                         uint32_t,
+                         uint32_t,
+                         const uint32_t*,
+                         const float*,
+                         IdxT*,
+                         float*,
+                         rmm::mr::device_memory_resource*);
+
+  /**
+   * Select an instance of the ivf-pq search function based on search tuning parameters,
+   * such as the look-up data type or the internal score type.
+   */
+  static auto fun(const search_params& params, distance::DistanceType metric) -> fun_t
+  {
+    return fun_try_score_t(params, metric);
+  }
+
+ private:
+  template <typename ScoreT>
+  static auto fun_try_lut_t(const search_params& params, distance::DistanceType metric) -> fun_t
+  {
+    bool signed_metric = false;
+    switch (metric) {
+      case raft::distance::DistanceType::InnerProduct: signed_metric = true; break;
+      default: break;
+    }
+
+    switch (params.lut_dtype) {
+      case CUDA_R_32F: return ivfpq_search_worker<ScoreT, float, IdxT>;
+      case CUDA_R_16F: return ivfpq_search_worker<ScoreT, half, IdxT>;
+      case CUDA_R_8U:
+      case CUDA_R_8I:
+        if (signed_metric) {
+          return ivfpq_search_worker<float, fp_8bit<5, true>, IdxT>;
+        } else {
+          return ivfpq_search_worker<float, fp_8bit<5, false>, IdxT>;
+        }
+      default: RAFT_FAIL("Unexpected lut_dtype (%d)", int(params.lut_dtype));
+    }
+  }
+
+  static auto fun_try_score_t(const search_params& params, distance::DistanceType metric) -> fun_t
+  {
+    switch (params.internal_distance_dtype) {
+      case CUDA_R_32F: return fun_try_lut_t<float>(params, metric);
+      case CUDA_R_16F: return fun_try_lut_t<half>(params, metric);
+      default:
+        RAFT_FAIL("Unexpected internal_distance_dtype (%d)", int(params.internal_distance_dtype));
+    }
+  }
+};
+
 /** See raft::spatial::knn::ivf_pq::search docs */
 template <typename T, typename IdxT>
 inline void search(const handle_t& handle,
@@ -1075,10 +1140,10 @@ inline void search(const handle_t& handle,
   RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
 
-  bool signed_metric = false;
-  switch (index.metric()) {
-    case raft::distance::DistanceType::InnerProduct: signed_metric = true; break;
-    default: break;
+  switch (utils::check_pointer_residency(queries, neighbors, distances)) {
+    case utils::pointer_residency::device_only:
+    case utils::pointer_residency::host_and_device: break;
+    default: RAFT_FAIL("all pointers must be accessible from the device.");
   }
 
   auto stream = handle.get_stream();
@@ -1137,50 +1202,7 @@ inline void search(const handle_t& handle,
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
   rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * params.n_probes, stream, mr);
 
-  void (*_ivfpq_search)(const handle_t&,  // NOLINT
-                        const ivf_pq::index<IdxT>&,
-                        uint32_t,
-                        uint32_t,
-                        uint32_t,
-                        uint32_t,
-                        uint32_t,
-                        uint32_t,
-                        const uint32_t*,
-                        const float*,
-                        IdxT*,
-                        float*,
-                        rmm::mr::device_memory_resource*);
-  if (params.internal_distance_dtype == CUDA_R_16F) {
-    if (params.lut_dtype == CUDA_R_16F) {
-      _ivfpq_search = ivfpq_search<half, half>;
-    } else if (params.lut_dtype == CUDA_R_8U) {
-      if (signed_metric) {
-        _ivfpq_search = ivfpq_search<half, fp_8bit<5, true>>;
-      } else {
-        _ivfpq_search = ivfpq_search<half, fp_8bit<5, false>>;
-      }
-    } else {
-      _ivfpq_search = ivfpq_search<half, float>;
-    }
-  } else {
-    if (params.lut_dtype == CUDA_R_16F) {
-      _ivfpq_search = ivfpq_search<float, half>;
-    } else if (params.lut_dtype == CUDA_R_8U) {
-      if (signed_metric) {
-        _ivfpq_search = ivfpq_search<float, fp_8bit<5, true>>;
-      } else {
-        _ivfpq_search = ivfpq_search<float, fp_8bit<5, false>>;
-      }
-    } else {
-      _ivfpq_search = ivfpq_search<float, float>;
-    }
-  }
-
-  switch (utils::check_pointer_residency(queries, neighbors, distances)) {
-    case utils::pointer_residency::device_only:
-    case utils::pointer_residency::host_and_device: break;
-    default: RAFT_FAIL("all pointers must be accessible from the device.");
-  }
+  auto search_instance = ivfpq_search<IdxT>::fun(params, index.metric());
 
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
@@ -1223,19 +1245,19 @@ inline void search(const handle_t& handle,
          as long as `index.rotation_matrix()` is orthogonal, the distances and thus results are
          preserved.
        */
-      _ivfpq_search(handle,
-                    index,
-                    max_samples,
-                    params.n_probes,
-                    max_batch_size,
-                    k,
-                    params.preferred_thread_block_size,
-                    batch_size,
-                    clusters_to_probe.data() + uint64_t(params.n_probes) * offset_b,
-                    rot_queries.data() + uint64_t(index.rot_dim()) * offset_b,
-                    neighbors + uint64_t(k) * (offset_q + offset_b),
-                    distances + uint64_t(k) * (offset_q + offset_b),
-                    mr);
+      search_instance(handle,
+                      index,
+                      max_samples,
+                      params.n_probes,
+                      max_batch_size,
+                      k,
+                      params.preferred_thread_block_size,
+                      batch_size,
+                      clusters_to_probe.data() + uint64_t(params.n_probes) * offset_b,
+                      rot_queries.data() + uint64_t(index.rot_dim()) * offset_b,
+                      neighbors + uint64_t(k) * (offset_q + offset_b),
+                      distances + uint64_t(k) * (offset_q + offset_b),
+                      mr);
     }
   }
 }
