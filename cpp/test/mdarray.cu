@@ -552,14 +552,22 @@ void test_mdspan_layout_padded_general()
     static constexpr int X = -1;
     int data_padded[]      = {1, 2, 3, 4, 5, X, X, X, 6, 7, 8, 9, 10, X, X, X};
 
+<<<<<<< HEAD
     using extents_type = stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>;
     using layout_padded_general =
       stdex::layout_padded_general<stdex::padding<int, alignment_bytes>::value,
                                    stdex::StorageOrderType::row_major_t>;
     using padded_mdspan    = stdex::mdspan<int, extents_type, layout_padded_general>;
+=======
+    using extents_type = stdex::extents<size_t, stdex::dynamic_extent, stdex::dynamic_extent>;
+    using padded_layout_row_major =
+      detail::layout_padded_general<detail::padding<int, alignment_bytes>::value,
+                                    StorageOrderType::row_major_t>;
+    using padded_mdspan    = stdex::mdspan<int, extents_type, padded_layout_row_major>;
+>>>>>>> update layout_padded and aligned accessor to align with kokkos implementation
     using row_major_mdspan = stdex::mdspan<int, extents_type, stdex::layout_right>;
 
-    layout_padded_general::mapping<extents_type> layout{extents_type{n_rows, n_cols}};
+    padded_layout_row_major::mapping<extents_type> layout{extents_type{n_rows, n_cols}};
 
     auto padded    = padded_mdspan(data_padded, layout);
     auto row_major = row_major_mdspan(data_row_major, n_rows, n_cols);
@@ -590,12 +598,12 @@ void test_mdarray_padding()
     /**
      * padded device array
      */
-    using layout_padded_general =
-      stdex::layout_padded_general<stdex::padding<float, alignment_bytes>::value,
-                                   stdex::StorageOrderType::row_major_t>;
+    using padded_layout_row_major =
+      detail::layout_padded_general<detail::padding<float, alignment_bytes>::value,
+                                    StorageOrderType::row_major_t>;
 
-    using padded_mdarray_type = device_mdarray<float, extents_type, layout_padded_general>;
-    layout_padded_general::mapping<extents_type> layout(extents_type(rows, cols));
+    using padded_mdarray_type = device_mdarray<float, extents_type, padded_layout_row_major>;
+    padded_layout_row_major::mapping<extents_type> layout(extents_type(rows, cols));
 
     auto device_policy = padded_mdarray_type::container_policy_type{s};
     static_assert(std::is_same_v<typename decltype(device_policy)::accessor_type,
@@ -643,8 +651,13 @@ void test_mdarray_padding()
 
     // manually create span with layout
     {
+<<<<<<< HEAD
       auto data_padded         = padded_device_array.data();
       using padded_mdspan_type = device_mdspan<float, extents_type, layout_padded_general>;
+=======
+      auto data_padded         = padded_device_array.data_handle();
+      using padded_mdspan_type = device_mdspan<float, extents_type, padded_layout_row_major>;
+>>>>>>> update layout_padded and aligned accessor to align with kokkos implementation
       auto padded_span         = padded_mdspan_type(data_padded, layout);
       thrust::for_each_n(rmm::exec_policy(s),
                          thrust::make_counting_iterator(0ul),
@@ -836,10 +849,10 @@ void test_mdspan_padding_by_type()
 
     // manually check strides for row major (c style) padding
     {
-      using padded_layout_row_major = stdex::layout_padded_general<
-        stdex::padding<std::remove_cv_t<std::remove_reference_t<TestElement1>>,
-                       alignment_bytes>::value,
-        stdex::StorageOrderType::row_major_t>;
+      using padded_layout_row_major = detail::layout_padded_general<
+        detail::padding<std::remove_cv_t<std::remove_reference_t<TestElement1>>,
+                        alignment_bytes>::value,
+        StorageOrderType::row_major_t>;
 
       using padded_mdarray_type =
         device_mdarray<TestElement1, extents_type, padded_layout_row_major>;
@@ -847,7 +860,7 @@ void test_mdspan_padding_by_type()
 
       padded_layout_row_major::mapping<extents_type> layout{extents_type{rows, cols}};
       padded_mdarray_type padded_device_array{layout, device_policy};
-      int alignment_elements = stdex::padding<TestElement1, alignment_bytes>::value;
+      int alignment_elements = detail::padding<TestElement1, alignment_bytes>::value;
       auto padded_span       = padded_device_array.view();
       thrust::for_each_n(
         rmm::exec_policy(s),
@@ -865,17 +878,17 @@ void test_mdspan_padding_by_type()
 
     // manually check strides for col major (f style) padding
     {
-      using padded_layout_col_major = stdex::layout_padded_general<
-        stdex::padding<std::remove_cv_t<std::remove_reference_t<TestElement1>>,
-                       alignment_bytes>::value,
-        stdex::StorageOrderType::column_major_t>;
+      using padded_layout_col_major = detail::layout_padded_general<
+        detail::padding<std::remove_cv_t<std::remove_reference_t<TestElement1>>,
+                        alignment_bytes>::value,
+        StorageOrderType::column_major_t>;
       using padded_mdarray_type =
         device_mdarray<TestElement1, extents_type, padded_layout_col_major>;
       auto device_policy = padded_mdarray_type::container_policy_type{s};
 
       padded_layout_col_major::mapping<extents_type> layout{extents_type{rows, cols}};
       padded_mdarray_type padded_device_array{layout, device_policy};
-      int alignment_elements = stdex::padding<TestElement1, alignment_bytes>::value;
+      int alignment_elements = detail::padding<TestElement1, alignment_bytes>::value;
       auto padded_span       = padded_device_array.view();
       thrust::for_each_n(
         rmm::exec_policy(s),
@@ -907,8 +920,8 @@ void test_mdspan_aligned_matrix()
                         10, 11, 12, 13, 14, 15, 16, 17, 18, 19, X, X, X, X, X, X};
 
   auto my_aligned_host_span =
-    make_aligned_mdspan<long, extents_type, stdex::StorageOrderType::row_major_t>(
-      data_padded, extents_type{rows, cols}, stdex::StorageOrderType::row_major_t);
+    make_aligned_mdspan<long, extents_type, StorageOrderType::row_major_t>(
+      data_padded, extents_type{rows, cols}, StorageOrderType::row_major_t);
 
   int failures = 0;
   for (int irow = 0; irow < rows; ++irow) {
@@ -933,8 +946,13 @@ void test_mdspan_aligned_matrix()
   }
 
   auto my_aligned_device_span =
+<<<<<<< HEAD
     make_aligned_mdspan<long, extents_type, stdex::StorageOrderType::row_major_t>(
       device_array_1d.data(), extents_type{rows, cols}, stdex::StorageOrderType::row_major_t);
+=======
+    make_aligned_mdspan<long, extents_type, StorageOrderType::row_major_t>(
+      device_array_1d.data_handle(), extents_type{rows, cols}, StorageOrderType::row_major_t);
+>>>>>>> update layout_padded and aligned accessor to align with kokkos implementation
 
   thrust::device_vector<int32_t> status(1, 0);
   auto p_status = status.data().get();
