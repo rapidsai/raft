@@ -306,12 +306,12 @@ struct calc_chunk_indices {
  *
  */
 template <typename IdxT>
-__device__ void ivfpq_get_id_dataset(uint32_t sample_ix,
-                                     uint32_t n_probes,
-                                     const IdxT* cluster_offsets,     // [n_clusters + 1,]
-                                     const uint32_t* cluster_labels,  // [n_probes,]
-                                     const uint32_t* chunk_indices,   // [n_probes,]
-                                     IdxT& data_ix)
+__device__ void find_db_row(uint32_t sample_ix,
+                            uint32_t n_probes,
+                            const IdxT* cluster_offsets,     // [n_clusters + 1,]
+                            const uint32_t* cluster_labels,  // [n_probes,]
+                            const uint32_t* chunk_indices,   // [n_probes,]
+                            IdxT& data_ix)
 {
   uint32_t ix_min   = 0;
   uint32_t ix_max   = n_probes - 1;
@@ -329,55 +329,98 @@ __device__ void ivfpq_get_id_dataset(uint32_t sample_ix,
   data_ix = sample_ix + cluster_offsets[cluster_labels[chunk_ix]];
 }
 
-template <typename ScoreT, typename IdxT>
-__global__ void ivfpq_make_outputs(distance::DistanceType metric,
-                                   uint32_t n_probes,
-                                   uint32_t topk,
-                                   uint32_t max_samples,
-                                   uint32_t n_queries,
-                                   const IdxT* cluster_offsets,      // [n_clusters + 1]
-                                   const IdxT* data_indices,         // [index_size]
-                                   const uint32_t* cluster_labels,   // [n_queries, n_probes]
-                                   const uint32_t* chunk_indices,    // [n_queries, n_probes]
-                                   const ScoreT* scores,             // [n_queries, max_samples] or
-                                                                     // [n_queries, n_probes, topk]
-                                   const uint32_t* topk_score_ixs,   // [n_queries, n_probes, topk]
-                                   const uint32_t* topk_sample_ixs,  // [n_queries, topk]
-                                   IdxT* topk_out_ixs,               // [n_queries, topk]
-                                   float* topk_out_scores            // [n_queries, topk]
-)
+template <int BlockSize, typename IdxT>
+__launch_bounds__(BlockSize) __global__
+  void postprocess_neighbors_kernel(IdxT* neighbors,                    // [n_queries, topk]
+                                    const IdxT* db_indices,             // [n_rows]
+                                    const IdxT* cluster_offsets,        // [n_clusters + 1]
+                                    const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
+                                    const uint32_t* chunk_indices,      // [n_queries, n_probes]
+                                    uint32_t n_queries,
+                                    uint32_t n_probes,
+                                    uint32_t topk)
 {
-  uint32_t i = threadIdx.x + (blockDim.x * blockIdx.x);
-  if (i >= topk) return;
-  uint32_t query_ix = blockIdx.y;
-  if (query_ix >= n_queries) return;
+  uint64_t i        = threadIdx.x + uint64_t(blockDim.x) * uint64_t(blockIdx.x);
+  uint32_t query_ix = i / uint64_t(topk);
+  if (query_ix >= n_queries) { return; }
+  uint32_t k = i % uint64_t(topk);
+  neighbors += query_ix * topk;
+  IdxT data_ix = neighbors[k];
+  // backtrace the index if we don't have local top-k
+  if (n_probes > 0) {
+    find_db_row(data_ix,
+                n_probes,
+                cluster_offsets,
+                clusters_to_probe + n_probes * query_ix,
+                chunk_indices + n_probes * query_ix,
+                data_ix);
+  }
+  neighbors[k] = db_indices[data_ix];
+}
 
-  uint32_t sample_ix = topk_sample_ixs[i + (topk * query_ix)];
-  float score;
-  if (topk_score_ixs == nullptr) {
-    // 0 <= sample_ix < max_samples
-    score = scores[sample_ix + (max_samples * query_ix)];
-    IdxT data_ix;
-    ivfpq_get_id_dataset(sample_ix,
-                         n_probes,
-                         cluster_offsets,
-                         cluster_labels + (n_probes * query_ix),
-                         chunk_indices + (n_probes * query_ix),
-                         data_ix);
-    topk_out_ixs[i + (topk * query_ix)] = data_indices[data_ix];
-  } else {
-    // 0 <= sample_ix < (n_probes * topk)
-    score        = scores[sample_ix + ((n_probes * topk) * query_ix)];
-    IdxT data_ix = topk_score_ixs[sample_ix + ((n_probes * topk) * query_ix)];
-    topk_out_ixs[i + (topk * query_ix)] = data_indices[data_ix];
-  }
+/**
+ * Transform found neighbor indices into the corresponding database indices
+ * (as stored in index.indices()).
+ *
+ * When the main kernel runs with a fused top-k (`manage_local_topk == true`), this function simply
+ * fetches the index values  by the returned row ids. Otherwise, the found neighors require extra
+ * pre-processing (performed by `find_db_row`).
+ */
+template <typename IdxT>
+void postprocess_neighbors(IdxT* neighbors,  // [n_queries, topk]
+                           bool manage_local_topk,
+                           const IdxT* db_indices,             // [n_rows]
+                           const IdxT* cluster_offsets,        // [n_clusters + 1]
+                           const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
+                           const uint32_t* chunk_indices,      // [n_queries, n_probes]
+                           uint32_t n_queries,
+                           uint32_t n_probes,
+                           uint32_t topk,
+                           rmm::cuda_stream_view stream)
+{
+  constexpr int kPNThreads = 256;
+  const int pn_blocks      = raft::div_rounding_up_unsafe<size_t>(n_queries * topk, kPNThreads);
+  postprocess_neighbors_kernel<kPNThreads, IdxT>
+    <<<pn_blocks, kPNThreads, 0, stream>>>(neighbors,
+                                           db_indices,
+                                           cluster_offsets,
+                                           clusters_to_probe,
+                                           chunk_indices,
+                                           n_queries,
+                                           manage_local_topk ? 0u : n_probes,
+                                           topk);
+}
+
+/**
+ * Post-process the scores depending on the metric type;
+ * translate the element type if necessary.
+ */
+template <typename ScoreT>
+void postprocess_distances(float* out,        // [n_queries, topk]
+                           const ScoreT* in,  // [n_queries, topk]
+                           distance::DistanceType metric,
+                           uint32_t n_queries,
+                           uint32_t topk,
+                           rmm::cuda_stream_view stream)
+{
+  size_t len = size_t(n_queries) * size_t(topk);
   switch (metric) {
-    case distance::DistanceType::InnerProduct: {
-      score = -score;
+    case distance::DistanceType::L2Unexpanded:
+    case distance::DistanceType::L2Expanded: {
+      linalg::unaryOp(
+        out, in, len, [] __device__(ScoreT x) -> float { return float(x); }, stream);
     } break;
-    default: break;
+    case distance::DistanceType::L2SqrtUnexpanded:
+    case distance::DistanceType::L2SqrtExpanded: {
+      linalg::unaryOp(
+        out, in, len, [] __device__(ScoreT x) -> float { return sqrtf(float(x)); }, stream);
+    } break;
+    case distance::DistanceType::InnerProduct: {
+      linalg::unaryOp(
+        out, in, len, [] __device__(ScoreT x) -> float { return -float(x); }, stream);
+    } break;
+    default: RAFT_FAIL("Unexpected metric.");
   }
-  topk_out_scores[i + (topk * query_ix)] = score;
 }
 
 /**
@@ -433,24 +476,24 @@ __device__ auto ivfpq_compute_score(
   return score;
 }
 
-template <typename T>
+template <typename T, typename IdxT>
 struct dummy_block_sort_t {
-  using queue_t = topk::warp_sort_immediate<WarpSize, true, T, uint32_t>;
+  using queue_t = topk::warp_sort_immediate<WarpSize, true, T, IdxT>;
   __device__ dummy_block_sort_t(int k, uint8_t* smem_buf){};
 };
 
-template <int Capacity, typename T>
-struct pq_block_sort : topk::block_sort<topk::warp_sort_immediate, Capacity, true, T, uint32_t> {
-  using type = topk::block_sort<topk::warp_sort_immediate, Capacity, true, T, uint32_t>;
+template <int Capacity, typename T, typename IdxT>
+struct pq_block_sort {
+  using type = topk::block_sort<topk::warp_sort_immediate, Capacity, true, T, IdxT>;
 };
 
-template <typename T>
-struct pq_block_sort<0, T> : dummy_block_sort_t<T> {
-  using type = dummy_block_sort_t<T>;
+template <typename T, typename IdxT>
+struct pq_block_sort<0, T, IdxT> : dummy_block_sort_t<T, IdxT> {
+  using type = dummy_block_sort_t<T, IdxT>;
 };
 
-template <int Capacity, typename T>
-using block_sort_t = typename pq_block_sort<Capacity, T>::type;
+template <int Capacity, typename T, typename IdxT>
+using block_sort_t = typename pq_block_sort<Capacity, T, IdxT>::type;
 
 /**
  * The main kernel that computes similarity scores across multiple queries and probes.
@@ -526,7 +569,7 @@ template <typename OpT,
           int Capacity,
           bool PrecompBaseDiff,
           bool EnableSMemLut>
-__launch_bounds__(1024, 1) __global__
+__launch_bounds__(1024) __global__
   void ivfpq_compute_similarity_kernel(uint32_t n_rows,
                                        uint32_t dim,
                                        uint32_t n_probes,
@@ -546,7 +589,7 @@ __launch_bounds__(1024, 1) __global__
                                        const uint32_t* index_list,
                                        LutT* lut_scores,
                                        OutT* _out_scores,
-                                       uint32_t* _out_indices)
+                                       IdxT* _out_indices)
 {
   /* Shared memory:
 
@@ -592,15 +635,15 @@ __launch_bounds__(1024, 1) __global__
     const uint32_t* chunk_indices = _chunk_indices + (n_probes * query_ix);
     const float* query            = queries + (dim * query_ix);
     OutT* out_scores;
-    uint32_t* out_indices = nullptr;
+    IdxT* out_indices = nullptr;
     if constexpr (kManageLocalTopK) {
       // Store topk calculated distances to out_scores (and its indices to out_indices)
-      out_scores  = _out_scores + (topk * (probe_ix + (n_probes * query_ix)));
-      out_indices = _out_indices + (topk * (probe_ix + (n_probes * query_ix)));
+      out_scores  = _out_scores + topk * (probe_ix + (n_probes * query_ix));
+      out_indices = _out_indices + topk * (probe_ix + (n_probes * query_ix));
     } else {
       // Store all calculated distances to out_scores
-      // max_samples == cluster_offsets[n_probes]
-      out_scores = _out_scores + (cluster_offsets[n_probes] * query_ix);
+      auto max_samples = cluster_offsets[n_probes];
+      out_scores       = _out_scores + max_samples * query_ix;
     }
     uint32_t label              = cluster_labels[n_probes * query_ix + probe_ix];
     const float* cluster_center = cluster_centers + (dim * label);
@@ -657,7 +700,8 @@ __launch_bounds__(1024, 1) __global__
     uint32_t n_samples32 = Pow2<32>::roundUp(n_samples);
     IdxT cluster_offset  = cluster_offsets[label];
 
-    block_sort_t<Capacity, OutT> block_topk(topk, smem_buf);
+    using local_topk_t = block_sort_t<Capacity, OutT, IdxT>;
+    local_topk_t block_topk(topk, smem_buf);
 
     // Ensure lut_scores is written by all threads before using it in ivfpq_compute_score
     __threadfence_block();
@@ -666,7 +710,7 @@ __launch_bounds__(1024, 1) __global__
     // Compute a distance for each sample
     const uint32_t pq_line_width = pq_dim * pq_bits / 8;
     for (uint32_t i = threadIdx.x; i < n_samples32; i += blockDim.x) {
-      OutT score = block_sort_t<Capacity, OutT>::queue_t::kDummy;
+      OutT score = local_topk_t::queue_t::kDummy;
       if (i < n_samples) {
         auto pq_ptr =
           reinterpret_cast<const OpT*>(pq_dataset + uint64_t(pq_line_width) * (cluster_offset + i));
@@ -697,7 +741,7 @@ __launch_bounds__(1024, 1) __global__
       if (probe_ix + 1 == n_probes) {
         for (uint32_t i = threadIdx.x + sample_offset + n_samples; i < max_samples;
              i += blockDim.x) {
-          out_scores[i] = block_sort_t<Capacity, OutT>::queue_t::kDummy;
+          out_scores[i] = local_topk_t::queue_t::kDummy;
         }
       }
     }
@@ -732,7 +776,7 @@ struct ivfpq_compute_similarity {
                             const uint32_t*,
                             LutT*,
                             OutT*,
-                            uint32_t*);
+                            IdxT*);
 
   template <bool PrecompBaseDiff, bool EnableSMemLut>
   struct configured {
@@ -803,8 +847,8 @@ void ivfpq_search_worker(const handle_t& handle,
                          uint32_t n_queries,
                          const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                          const float* query,                 // [n_queries, rot_dim]
-                         IdxT* topk_out_ixs,                 // [n_queries, topK]
-                         float* topkDistances,               // [n_queries, topK]
+                         IdxT* neighbors,                    // [n_queries, topK]
+                         float* distances,                   // [n_queries, topK]
                          rmm::mr::device_memory_resource* mr)
 {
   RAFT_EXPECTS(n_queries <= max_batch_size,
@@ -830,14 +874,13 @@ void ivfpq_search_worker(const handle_t& handle,
   uint32_t* index_list_sorted = nullptr;
   rmm::device_uvector<uint32_t> num_samples(max_batch_size, stream, mr);
   rmm::device_uvector<uint32_t> chunk_index(max_batch_size * n_probes, stream, mr);
-  rmm::device_uvector<uint32_t> topk_sids(max_batch_size * topK, stream, mr);
   // [maxBatchSize, max_samples] or  [maxBatchSize, n_probes, topk]
-  rmm::device_uvector<ScoreT> scores_buf(max_batch_size * topk_len, stream, mr);
-  rmm::device_uvector<uint32_t> topk_index_buf(0, stream, mr);
-  uint32_t* topk_index = nullptr;
+  rmm::device_uvector<ScoreT> distances_buf(max_batch_size * topk_len, stream, mr);
+  rmm::device_uvector<IdxT> neighbors_buf(0, stream, mr);
+  IdxT* neighbors_ptr = nullptr;
   if (manage_local_topk) {
-    topk_index_buf.resize(max_batch_size * topk_len, stream);
-    topk_index = topk_index_buf.data();
+    neighbors_buf.resize(max_batch_size * topk_len, stream);
+    neighbors_ptr = neighbors_buf.data();
   }
 
   calc_chunk_indices<IdxT>::configure(n_probes, n_queries)(
@@ -919,7 +962,7 @@ void ivfpq_search_worker(const handle_t& handle,
   }
   size_t smem_size_local_topk =
     manage_local_topk
-      ? topk::template calc_smem_size_for_block_wide<ScoreT, uint32_t>(n_threads / WarpSize, topK)
+      ? topk::template calc_smem_size_for_block_wide<ScoreT, IdxT>(n_threads / WarpSize, topK)
       : 0;
   smem_size = max(smem_size, smem_size_local_topk);
 
@@ -937,15 +980,15 @@ void ivfpq_search_worker(const handle_t& handle,
       kernel_no_basediff_available = false;
 
       // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
-      kernel               = kernel_no_smem_lut;
-      use_smem_lut         = false;
-      n_threads            = 1024;
-      smem_size_local_topk = manage_local_topk
-                               ? topk::template calc_smem_size_for_block_wide<ScoreT, uint32_t>(
-                                   n_threads / WarpSize, topK)
-                               : 0;
-      smem_size            = max(smem_size_base_diff, smem_size_local_topk);
-      n_ctas               = getMultiProcessorCount();
+      kernel       = kernel_no_smem_lut;
+      use_smem_lut = false;
+      n_threads    = 1024;
+      smem_size_local_topk =
+        manage_local_topk
+          ? topk::template calc_smem_size_for_block_wide<ScoreT, IdxT>(n_threads / WarpSize, topK)
+          : 0;
+      smem_size = max(smem_size_base_diff, smem_size_local_topk);
+      n_ctas    = getMultiProcessorCount();
     }
   }
   if (kernel_no_basediff_available) {
@@ -999,40 +1042,34 @@ void ivfpq_search_worker(const handle_t& handle,
                                                          query,
                                                          index_list_sorted,
                                                          precomp_scores.data(),
-                                                         scores_buf.data(),
-                                                         topk_index);
+                                                         distances_buf.data(),
+                                                         neighbors_ptr);
 
-  {
-    // Select topk vectors for each query
-    rmm::device_uvector<ScoreT> topk_dists(n_queries * topK, stream, mr);
-    select_topk<ScoreT, uint32_t>(scores_buf.data(),
-                                  nullptr,
-                                  n_queries,
-                                  topk_len,
-                                  topK,
-                                  topk_dists.data(),
-                                  topk_sids.data(),
-                                  true,
-                                  stream,
-                                  mr);
-  }
+  // Select topk vectors for each query
+  rmm::device_uvector<ScoreT> topk_dists(n_queries * topK, stream, mr);
+  select_topk<ScoreT, IdxT>(distances_buf.data(),
+                            neighbors_ptr,
+                            n_queries,
+                            topk_len,
+                            topK,
+                            topk_dists.data(),
+                            neighbors,
+                            true,
+                            stream,
+                            mr);
 
-  dim3 mo_threads(128, 1, 1);
-  dim3 mo_blocks(raft::ceildiv<uint32_t>(topK, mo_threads.x), n_queries, 1);
-  ivfpq_make_outputs<ScoreT><<<mo_blocks, mo_threads, 0, stream>>>(index.metric(),
-                                                                   n_probes,
-                                                                   topK,
-                                                                   max_samples,
-                                                                   n_queries,
-                                                                   cluster_offsets,
-                                                                   data_indices,
-                                                                   clusters_to_probe,
-                                                                   chunk_index.data(),
-                                                                   scores_buf.data(),
-                                                                   topk_index,
-                                                                   topk_sids.data(),
-                                                                   topk_out_ixs,
-                                                                   topkDistances);
+  // Postprocessing
+  postprocess_distances(distances, topk_dists.data(), index.metric(), n_queries, topK, stream);
+  postprocess_neighbors(neighbors,
+                        manage_local_topk,
+                        data_indices,
+                        cluster_offsets,
+                        clusters_to_probe,
+                        chunk_index.data(),
+                        n_queries,
+                        n_probes,
+                        topK,
+                        stream);
 }
 
 /**
