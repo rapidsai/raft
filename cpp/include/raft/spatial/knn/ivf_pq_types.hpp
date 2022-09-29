@@ -63,7 +63,8 @@ struct index_params : knn::index_params {
    * Hint: a smaller 'pq_dim' results in a smaller index size and better search performance, but
    * lower recall. If 'pq_bits' is 8, 'pq_dim' can be set to any number, but multiple of 8 are
    * desirable for good performance. If 'pq_bits' is not 8, 'pq_dim' should be a multiple of 8.
-   * For good performance, multiple 32 is desirable.
+   * For good performance, it is desirable that 'pq_dim' is a multiple of 32. Ideally, 'pq_dim'
+   * should be also a divisor of the dataset dim.
    */
   uint32_t pq_dim = 0;
   /** How PQ codebooks are created. */
