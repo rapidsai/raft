@@ -45,7 +45,7 @@ namespace raft::spatial::knn {
  * @param[in] k number of neighbors for each part
  * @param[in] translations optional vector of starting index mappings for each partition
  */
-template <typename idx_t = int64_t, typename value_t = float>
+template <typename idx_t, typename value_t>
 inline void knn_merge_parts(
   const raft::handle_t& handle,
   raft::device_matrix_view<const value_t, idx_t, row_major> in_keys,
@@ -95,10 +95,10 @@ inline void knn_merge_parts(
  * @param[in] translations starting offsets for partitions. should be the same size
  *            as input vector.
  */
-template <typename idx_t      = std::int64_t,
-          typename value_t    = float,
-          typename value_int  = int,
-          typename matrix_idx = int,
+template <typename idx_t,
+          typename value_t,
+          typename value_int,
+          typename matrix_idx,
           typename index_layout,
           typename search_layout>
 void brute_force_knn(

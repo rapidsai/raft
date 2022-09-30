@@ -39,10 +39,10 @@ namespace knn {
  * @param[in] handle library resource management handle
  * @param[inout] index an empty (and not previous built) instance of BallCoverIndex
  */
-template <typename idx_t = std::int64_t,
+template <typename idx_t,
           typename value_t,
-          typename int_t        = std::uint32_t,
-          typename matrix_idx_t = std::uint32_t>
+          typename int_t,
+          typename matrix_idx_t>
 void rbc_build_index(const raft::handle_t& handle,
                      BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index)
 {
@@ -87,10 +87,10 @@ void rbc_build_index(const raft::handle_t& handle,
  *               many datasets can still have great recall even by only
  *               looking in the closest landmark.
  */
-template <typename idx_t = std::int64_t,
+template <typename idx_t,
           typename value_t,
-          typename int_t        = std::uint32_t,
-          typename matrix_idx_t = std::uint32_t>
+          typename int_t,
+          typename matrix_idx_t>
 void rbc_all_knn_query(const raft::handle_t& handle,
                        BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                        int_t k,

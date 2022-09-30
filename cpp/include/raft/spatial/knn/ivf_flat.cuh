@@ -60,7 +60,7 @@ namespace raft::spatial::knn::ivf_flat {
  *
  * @return the constructed ivf-flat index
  */
-template <typename T, typename IdxT = uint32_t>
+template <typename T, typename IdxT>
 inline auto build(
   const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
   -> index<T, IdxT>
@@ -101,9 +101,9 @@ inline auto build(
  * @return the constructed ivf-flat index
  */
 template <typename value_t,
-          typename idx_t        = uint32_t,
-          typename int_t        = std::uint32_t,
-          typename matrix_idx_t = std::uint32_t>
+          typename idx_t,
+          typename int_t,
+          typename matrix_idx_t>
 auto build_index(const handle_t& handle,
                  raft::device_matrix_view<const value_t, matrix_idx_t, row_major> dataset,
                  const index_params& params) -> index<value_t, idx_t>
