@@ -32,8 +32,6 @@ template <typename ElementType,
           typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
-
-
 /**
  * Some helper templates to handle mdspan with padded layouts / aligned memory
  */
@@ -85,7 +83,7 @@ aligned_mdspan<ElementType, Extents, order> make_aligned_mdspan(ElementType* inp
   using value_type = std::remove_cv_t<std::remove_reference_t<ElementType>>;
   using data_handle_type =
     typename std::experimental::aligned_accessor<ElementType,
-                                             detail::alignment::value>::data_handle_type;
+                                                 detail::alignment::value>::data_handle_type;
 
   assert(input_pointer == alignTo(input_pointer, detail::alignment::value));
 
@@ -94,7 +92,6 @@ aligned_mdspan<ElementType, Extents, order> make_aligned_mdspan(ElementType* inp
   using mapping = typename padded_layout<value_type, order>::template mapping<Extents>;
   return {aligned_pointer, mapping{e}};
 };
-
 
 /**
  * Ensure all types listed in the parameter pack `Extents` are integral types.

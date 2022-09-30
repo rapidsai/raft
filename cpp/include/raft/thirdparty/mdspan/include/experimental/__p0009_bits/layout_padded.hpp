@@ -45,12 +45,17 @@
 // NOTE: This code is prematurely taken from https://github.com/kokkos/mdspan/pull/180
 // and matches requirements described in https://github.com/ORNL/cpp-proposals-pub/pull/296
 // Some parts (as submdspan integration) are missing
+// EDIT: the meaning of the template argument 'padding_stride' was adjusted from a 
+// fixed stride to a padding alignment, allowing dimensions > padding_stride to be padded
+// to multiples of 'padding_stride'
 
 #pragma once
 
 #include "macros.hpp"
 #include "trait_backports.hpp"
 #include "extents.hpp"
+#include "layout_left.hpp"
+#include "layout_right.hpp"
 #include <cassert>
 #include <iostream>
 #include <type_traits>
@@ -118,11 +123,24 @@ namespace details {
 		std::index_sequence<3>>::value,
 		"iota_index_sequence defined incorrectly." );
 
+  template <typename IndexType>
+  constexpr IndexType ceildiv(IndexType a, IndexType b)
+  {
+    return (a + b - 1) / b;
+  }
+
+  template <typename IndexType>
+  constexpr IndexType alignTo(IndexType a, IndexType b)
+  {
+    return ceildiv(a, b) * b;
+  }
+
 } // namespace details
 
 // layout_padded_left implementation
 
 namespace details {
+   
 
   // The *_helper functions work around not having C++20
   // templated lambdas: []<size_t... TrailingIndices>{} .
@@ -252,11 +270,11 @@ namespace details {
 		  "Indices pack has the wrong size.");
     using return_type = stdex::extents<
       index_type,
-      PaddingExtent,
+      stdex::dynamic_extent,
       input_type::static_extent(Indices)...
     >;
     return return_type{
-      index_type(padding.extent(0)),
+      index_type(details::alignTo(input.extent(0), padding.extent(0))),
       input.extent(Indices)...
     };
   }
@@ -281,14 +299,15 @@ namespace details {
     constexpr std::size_t rank = input_type::rank();
     static_assert(sizeof...(Indices) == std::size_t(rank - 1),
 		  "Indices pack has the wrong size.");
+
     using return_type = stdex::extents<
       index_type,
       input_type::static_extent(Indices)...,
-      PaddingExtent
+      stdex::dynamic_extent
     >;
     return return_type{
       input.extent(Indices)...,
-      index_type(padding.extent(0))
+      index_type(details::alignTo(input.extent(rank - 1), padding.extent(0)))
     };
   }
 
@@ -433,6 +452,8 @@ namespace details {
   }
 
 } // namespace details
+
+
 
 // TODO (mfh 2022/08/30) Private inheritance from layout_left::mapping
 // resp. layout_right::mapping would reduce inlining depth.
