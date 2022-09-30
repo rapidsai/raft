@@ -25,6 +25,7 @@ namespace linalg {
 
 /**
  * @brief Rank 1 update of Cholesky decomposition.
+ * NOTE: The new mdspan-based API will not be provided for this function.
  *
  * This method is useful if an algorithm iteratively builds up matrix A, and
  * the Cholesky decomposition of A is required at each step.
@@ -109,7 +110,7 @@ namespace linalg {
  * @param L device array for to store the triangular matrix L, and the new
  *     column of A in column major format, size [n*n]
  * @param n number of elements in the new row.
- * @param ld stride of colums in L
+ * @param ld stride of columns in L
  * @param workspace device pointer to workspace shall be nullptr ar an array
  *    of size [n_bytes].
  * @param n_bytes size of workspace is returned here if workspace==nullptr.
@@ -132,6 +133,7 @@ void choleskyRank1Update(const raft::handle_t& handle,
 {
   detail::choleskyRank1Update(handle, L, n, ld, workspace, n_bytes, uplo, stream, eps);
 }
+
 };  // namespace linalg
 };  // namespace raft
 

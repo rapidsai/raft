@@ -37,18 +37,23 @@ using host_mdspan = mdspan<ElementType, Extents, LayoutPolicy, host_accessor<Acc
 namespace detail {
 
 template <typename T, bool B>
-struct is_host_accessible_mdspan : std::false_type {
+struct is_host_mdspan : std::false_type {
 };
 template <typename T>
-struct is_host_accessible_mdspan<T, true>
-  : std::bool_constant<T::accessor_type::is_host_accessible> {
+struct is_host_mdspan<T, true> : std::bool_constant<T::accessor_type::is_host_accessible> {
 };
 
 /**
  * @\brief Boolean to determine if template type T is either raft::host_mdspan or a derived type
  */
 template <typename T>
-using is_host_accessible_mdspan_t = is_host_accessible_mdspan<T, is_mdspan_v<T>>;
+using is_host_mdspan_t = is_host_mdspan<T, is_mdspan_v<T>>;
+
+template <typename T>
+using is_input_host_mdspan_t = is_host_mdspan<T, is_input_mdspan_v<T>>;
+
+template <typename T>
+using is_output_host_mdspan_t = is_host_mdspan<T, is_output_mdspan_v<T>>;
 
 }  // namespace detail
 
@@ -57,11 +62,24 @@ using is_host_accessible_mdspan_t = is_host_accessible_mdspan<T, is_mdspan_v<T>>
  * derived type
  */
 template <typename... Tn>
-inline constexpr bool is_host_accessible_mdspan_v =
-  std::conjunction_v<detail::is_host_accessible_mdspan_t<Tn>...>;
+inline constexpr bool is_host_mdspan_v = std::conjunction_v<detail::is_host_mdspan_t<Tn>...>;
 
 template <typename... Tn>
-using enable_if_host_mdspan = std::enable_if_t<is_host_accessible_mdspan_v<Tn...>>;
+inline constexpr bool is_input_host_mdspan_v =
+  std::conjunction_v<detail::is_input_host_mdspan_t<Tn>...>;
+
+template <typename... Tn>
+inline constexpr bool is_output_host_mdspan_v =
+  std::conjunction_v<detail::is_output_host_mdspan_t<Tn>...>;
+
+template <typename... Tn>
+using enable_if_host_mdspan = std::enable_if_t<is_input_mdspan_v<Tn...>>;
+
+template <typename... Tn>
+using enable_if_input_host_mdspan = std::enable_if_t<is_input_host_mdspan_v<Tn...>>;
+
+template <typename... Tn>
+using enable_if_output_host_mdspan = std::enable_if_t<is_output_host_mdspan_v<Tn...>>;
 
 /**
  * @brief Shorthand for 0-dim host mdspan (scalar).
