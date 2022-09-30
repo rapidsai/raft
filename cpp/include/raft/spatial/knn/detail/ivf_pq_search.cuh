@@ -1151,6 +1151,30 @@ struct ivfpq_search {
   }
 };
 
+/**
+ * A heuristic for bounding the number of queries per batch, to improve GPU utilization.
+ * (based on the number of SMs and the work size).
+ *
+ * @param n_queries number of queries hoped to be processed at once.
+ *                  (maximum value for the returned batch size)
+ *
+ * @return maximum recommended batch size.
+ */
+inline auto get_max_batch_size(uint32_t n_queries) -> uint32_t
+{
+  uint32_t max_batch_size         = n_queries;
+  uint32_t n_ctas_total           = getMultiProcessorCount() * 2;
+  uint32_t n_ctas_total_per_batch = n_ctas_total / max_batch_size;
+  float utilization               = float(n_ctas_total_per_batch * max_batch_size) / n_ctas_total;
+  if (n_ctas_total_per_batch > 1 || (n_ctas_total_per_batch == 1 && utilization < 0.6)) {
+    uint32_t n_ctas_total_per_batch_1 = n_ctas_total_per_batch + 1;
+    uint32_t max_batch_size_1         = n_ctas_total / n_ctas_total_per_batch_1;
+    float utilization_1 = float(n_ctas_total_per_batch_1 * max_batch_size_1) / n_ctas_total;
+    if (utilization < utilization_1) { max_batch_size = max_batch_size_1; }
+  }
+  return max_batch_size;
+}
+
 /** See raft::spatial::knn::ivf_pq::search docs */
 template <typename T, typename IdxT>
 inline void search(const handle_t& handle,
@@ -1231,20 +1255,7 @@ inline void search(const handle_t& handle,
 
   // Maximum number of query vectors to search at the same time.
   const auto max_queries = std::min<uint32_t>(std::max<uint32_t>(n_queries, 1), 4096);
-  auto max_batch_size    = max_queries;
-  {
-    // TODO: copied from {legacy}; figure this out.
-    // Adjust max_batch_size to improve GPU occupancy of topk kernel.
-    uint32_t n_ctas_total           = getMultiProcessorCount() * 2;
-    uint32_t n_ctas_total_per_batch = n_ctas_total / max_batch_size;
-    float utilization               = float(n_ctas_total_per_batch * max_batch_size) / n_ctas_total;
-    if (n_ctas_total_per_batch > 1 || (n_ctas_total_per_batch == 1 && utilization < 0.6)) {
-      uint32_t n_ctas_total_per_batch_1 = n_ctas_total_per_batch + 1;
-      uint32_t max_batch_size_1         = n_ctas_total / n_ctas_total_per_batch_1;
-      float utilization_1 = float(n_ctas_total_per_batch_1 * max_batch_size_1) / n_ctas_total;
-      if (utilization < utilization_1) { max_batch_size = max_batch_size_1; }
-    }
-  }
+  auto max_batch_size    = get_max_batch_size(max_queries);
 
   rmm::device_uvector<float> float_queries(max_queries * dim_ext, stream, mr);
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
