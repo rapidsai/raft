@@ -33,6 +33,67 @@ template <typename ElementType,
 using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
 /**
+ * Some helper templates to handle mdspan with padded layouts / aligned memory
+ */
+enum class StorageOrderType { column_major_t, row_major_t };
+
+namespace detail {
+
+// keeping ByteAlignment as optional to allow testing
+template <class ValueType, size_t ByteAlignment = 128>
+struct padding {
+  static_assert(std::is_same<std::remove_cv_t<ValueType>, ValueType>::value,
+                "std::experimental::padding ValueType has to be provided without "
+                "const or volatile specifiers.");
+  static_assert(ByteAlignment % sizeof(ValueType) == 0 || sizeof(ValueType) % ByteAlignment == 0,
+                "std::experimental::padding sizeof(ValueType) has to be multiple or "
+                "divider of ByteAlignment.");
+  static constexpr size_t value = std::max(ByteAlignment / sizeof(ValueType), 1ul);
+};
+
+template <std::size_t padding, StorageOrderType order>
+using layout_padded_general = std::conditional_t<order == StorageOrderType::row_major_t,
+                                                 std::experimental::layout_right_padded<padding>,
+                                                 std::experimental::layout_left_padded<padding>>;
+
+// alignment fixed to 128 bytes
+struct alignment {
+  static constexpr size_t value = 128;
+};
+
+}  // namespace detail
+
+template <typename ElementType, StorageOrderType order>
+using padded_layout = detail::layout_padded_general<
+  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value,
+  order>;
+
+template <class ElementType, class Extents, StorageOrderType order>
+using aligned_mdspan =
+  mdspan<ElementType,
+         Extents,
+         padded_layout<ElementType, order>,
+         std::experimental::aligned_accessor<ElementType, detail::alignment::value>>;
+
+template <class ElementType, class Extents, StorageOrderType order>
+aligned_mdspan<ElementType, Extents, order> make_aligned_mdspan(ElementType* input_pointer,
+                                                                Extents e,
+                                                                StorageOrderType /*order*/)
+{
+  using value_type = std::remove_cv_t<std::remove_reference_t<ElementType>>;
+  using data_handle_type =
+    typename std::experimental::aligned_accessor<ElementType,
+                                                 detail::alignment::value>::data_handle_type;
+
+  assert(input_pointer == alignTo(input_pointer, detail::alignment::value));
+
+  data_handle_type aligned_pointer = input_pointer;
+
+  using mapping = typename padded_layout<value_type, order>::template mapping<Extents>;
+  return {aligned_pointer, mapping{e}};
+};
+
+/**
  * Ensure all types listed in the parameter pack `Extents` are integral types.
  * Usage:
  *   put it as the last nameless template parameter of a function:
@@ -255,72 +316,5 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
     return unravel_index_impl<uint32_t>(static_cast<uint32_t>(idx), shape);
   }
 }
-
-
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using mdspan = detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
-
-enum class StorageOrderType { column_major_t, row_major_t };
-
-namespace detail {
-
-// keeping ByteAlignment as optional to allow testing
-template <class ValueType, size_t ByteAlignment = 128>
-struct padding {
-  static_assert(std::is_same<std::remove_cv_t<ValueType>, ValueType>::value,
-                "std::experimental::padding ValueType has to be provided without "
-                "const or volatile specifiers.");
-  static_assert(ByteAlignment % sizeof(ValueType) == 0 || sizeof(ValueType) % ByteAlignment == 0,
-                "std::experimental::padding sizeof(ValueType) has to be multiple or "
-                "divider of ByteAlignment.");
-  static constexpr size_t value = std::max(ByteAlignment / sizeof(ValueType), 1ul);
-};
-
-template <std::size_t padding, StorageOrderType order>
-using layout_padded_general = std::conditional_t<order == StorageOrderType::row_major_t,
-                                                 stdex::layout_right_padded<padding>,
-                                                 stdex::layout_left_padded<padding>>;
-
-// alignment fixed to 128 bytes
-struct alignment {
-  static constexpr size_t value = 128;
-};
-
-}  // namespace detail
-
-template <typename ElementType, StorageOrderType order>
-using padded_layout = detail::layout_padded_general<
-  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value,
-  order>;
-
-template <class ElementType, class Extents, StorageOrderType order>
-using aligned_mdspan =
-  mdspan<ElementType,
-         Extents,
-         padded_layout<ElementType, order>,
-         detail::stdex::aligned_accessor<ElementType, detail::alignment::value>>;
-
-using detail::stdex::aligned_accessor;
-
-template <class ElementType, class Extents, StorageOrderType order>
-aligned_mdspan<ElementType, Extents, order> make_aligned_mdspan(ElementType* input_pointer,
-                                                                Extents e,
-                                                                StorageOrderType /*order*/)
-{
-  using value_type = std::remove_cv_t<std::remove_reference_t<ElementType>>;
-  using data_handle_type =
-    typename detail::stdex::aligned_accessor<ElementType,
-                                             detail::alignment::value>::data_handle_type;
-
-  assert(input_pointer == alignTo(input_pointer, detail::alignment::value));
-
-  data_handle_type aligned_pointer = input_pointer;
-
-  using mapping = typename padded_layout<value_type, order>::template mapping<Extents>;
-  return {aligned_pointer, mapping{e}};
-};
 
 }  // namespace raft
