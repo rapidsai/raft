@@ -331,7 +331,7 @@ void predict(const handle_t& handle,
              const float* dataset_norm           = nullptr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "kmeans::predict(%zu, %u)", n_rows, n_clusters);
+    "kmeans::predict(%zu, %u)", static_cast<size_t>(n_rows), n_clusters);
   if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
   IdxT max_minibatch_size =
     calc_minibatch_size(n_clusters, n_rows, dim, metric, std::is_same_v<T, float>);
@@ -468,7 +468,7 @@ auto adjust_centers(float* centers,
                     rmm::mr::device_memory_resource* device_memory) -> bool
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "kmeans::adjust_centers(%zu, %u)", n_rows, n_clusters);
+    "kmeans::adjust_centers(%zu, %u)", static_cast<size_t>(n_rows), n_clusters);
   if (n_clusters == 0) { return false; }
   constexpr static std::array kPrimes{29,   71,   113,  173,  229,  281,  349,  409,  463,  541,
                                       601,  659,  733,  809,  863,  941,  1013, 1069, 1151, 1223,
@@ -738,14 +738,12 @@ inline auto arrange_fine_clusters(uint32_t n_clusters,
 
   RAFT_EXPECTS(mesocluster_size_sum == n_rows,
                "mesocluster sizes do not add up (%zu) to the total trainset size (%zu)",
-               mesocluster_size_sum,
-               n_rows);
+               static_cast<size_t>(mesocluster_size_sum),
+               static_cast<size_t>(n_rows));
   RAFT_EXPECTS(fine_clusters_csum[n_mesoclusters] == n_clusters,
                "fine cluster numbers do not add up (%u) to the total number of clusters (%u)",
                fine_clusters_csum[n_mesoclusters],
-               n_clusters
-
-  );
+               n_clusters);
 
   return std::make_tuple(mesocluster_size_max,
                          fine_clusters_nums_max,
@@ -898,7 +896,7 @@ void build_hierarchical(const handle_t& handle,
                "the chosen index type cannot represent all indices for the given dataset");
 
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "kmeans::build_hierarchical(%zu, %u)", n_rows, n_clusters);
+    "kmeans::build_hierarchical(%zu, %u)", static_cast<size_t>(n_rows), n_clusters);
 
   uint32_t n_mesoclusters = std::min<uint32_t>(n_clusters, std::sqrt(n_clusters) + 0.5);
   RAFT_LOG_DEBUG("kmeans::build_hierarchical: n_mesoclusters: %u", n_mesoclusters);
