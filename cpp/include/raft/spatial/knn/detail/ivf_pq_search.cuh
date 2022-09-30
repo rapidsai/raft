@@ -304,29 +304,31 @@ struct calc_chunk_indices {
  * such vector. This function looks up which cluster sample_ix belongs to, and returns the original
  * dataset index for that vector.
  *
+ * @return whether the input index is in a valid range
+ *    (the opposite can happen if there is not enough data to output in the selected clusters).
  */
 template <typename IdxT>
-__device__ void find_db_row(uint32_t sample_ix,
+__device__ auto find_db_row(IdxT& x,  // NOLINT
                             uint32_t n_probes,
                             const IdxT* cluster_offsets,     // [n_clusters + 1,]
                             const uint32_t* cluster_labels,  // [n_probes,]
-                            const uint32_t* chunk_indices,   // [n_probes,]
-                            IdxT& data_ix)
+                            const uint32_t* chunk_indices    // [n_probes,]
+                            ) -> bool
 {
-  uint32_t ix_min   = 0;
-  uint32_t ix_max   = n_probes - 1;
-  uint32_t chunk_ix = (ix_min + ix_max) / 2;
-  while (ix_min < ix_max) {
-    if (sample_ix >= chunk_indices[chunk_ix]) {
-      ix_min = chunk_ix + 1;
+  uint32_t ix_min = 0;
+  uint32_t ix_max = n_probes;
+  do {
+    uint32_t i = (ix_min + ix_max) / 2;
+    if (IdxT(chunk_indices[i]) < x) {
+      ix_min = i + 1;
     } else {
-      ix_max = chunk_ix;
+      ix_max = i;
     }
-    chunk_ix = (ix_min + ix_max) / 2;
-  }
-
-  if (chunk_ix > 0) { sample_ix -= chunk_indices[chunk_ix - 1]; }
-  data_ix = sample_ix + cluster_offsets[cluster_labels[chunk_ix]];
+  } while (ix_min < ix_max);
+  if (ix_min == n_probes) { return false; }
+  if (ix_min > 0) { x -= chunk_indices[ix_min - 1]; }
+  x += cluster_offsets[cluster_labels[ix_min]];
+  return true;
 }
 
 template <int BlockDim, typename IdxT>
@@ -347,15 +349,15 @@ __launch_bounds__(BlockDim) __global__
   neighbors += query_ix * topk;
   IdxT data_ix = neighbors[k];
   // backtrace the index if we don't have local top-k
+  bool valid = true;
   if (n_probes > 0) {
-    find_db_row(data_ix,
-                n_probes,
-                cluster_offsets,
-                clusters_to_probe + n_probes * query_ix,
-                chunk_indices + n_probes * query_ix,
-                data_ix);
+    valid = find_db_row(data_ix,
+                        n_probes,
+                        cluster_offsets,
+                        clusters_to_probe + n_probes * query_ix,
+                        chunk_indices + n_probes * query_ix);
   }
-  neighbors[k] = db_indices[data_ix];
+  neighbors[k] = valid ? db_indices[data_ix] : std::numeric_limits<IdxT>::max();
 }
 
 /**
