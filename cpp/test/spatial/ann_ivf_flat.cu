@@ -208,10 +208,10 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
         index_params.add_data_on_build        = false;
         index_params.kmeans_trainset_fraction = 0.5;
 
-        auto database_view = raft::make_device_matrix_view<const DataT>(
+        auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
 
-        auto index = ivf_flat::build_index<DataT, IdxT>(handle_, database_view, index_params);
+        auto index = ivf_flat::build_index(handle_, database_view, index_params);
 
         rmm::device_uvector<IdxT> vector_indices(ps.num_db_vecs, stream_);
         thrust::sequence(handle_.get_thrust_policy(),
@@ -221,16 +221,16 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
 
         int64_t half_of_data = ps.num_db_vecs / 2;
 
-        auto half_of_data_view = raft::make_device_matrix_view<const DataT, int>(
+        auto half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), half_of_data, ps.dim);
 
-        auto index_2 = ivf_flat::extend<DataT, IdxT>(handle_, index, half_of_data_view);
+        auto index_2 = ivf_flat::extend(handle_, index, half_of_data_view);
 
-        ivf_flat::extend<DataT, IdxT>(handle_,
-                                      &index_2,
-                                      database.data() + half_of_data * ps.dim,
-                                      vector_indices.data() + half_of_data,
-                                      int64_t(ps.num_db_vecs) - half_of_data);
+        ivf_flat::extend(handle_,
+                         &index_2,
+                         database.data() + half_of_data * ps.dim,
+                         vector_indices.data() + half_of_data,
+                         int64_t(ps.num_db_vecs) - half_of_data);
 
         ivf_flat::search(handle_,
                          search_params,

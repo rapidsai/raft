@@ -100,19 +100,16 @@ inline auto build(
  *
  * @return the constructed ivf-flat index
  */
-template <typename value_t,
-          typename idx_t,
-          typename int_t,
-          typename matrix_idx_t>
+template <typename value_t, typename idx_t>
 auto build_index(const handle_t& handle,
-                 raft::device_matrix_view<const value_t, matrix_idx_t, row_major> dataset,
+                 raft::device_matrix_view<const value_t, idx_t, row_major> dataset,
                  const index_params& params) -> index<value_t, idx_t>
 {
   return raft::spatial::knn::ivf_flat::detail::build(handle,
                                                      params,
                                                      dataset.data_handle(),
                                                      static_cast<idx_t>(dataset.extent(0)),
-                                                     static_cast<int_t>(dataset.extent(1)));
+                                                     static_cast<idx_t>(dataset.extent(1)));
 }
 
 /**
@@ -191,15 +188,12 @@ inline auto extend(const handle_t& handle,
  *
  * @return the constructed extended ivf-flat index
  */
-template <typename value_t,
-          typename idx_t,
-          typename int_t        = std::uint32_t,
-          typename matrix_idx_t = std::uint32_t>
+template <typename value_t, typename idx_t>
 auto extend(const handle_t& handle,
             const index<value_t, idx_t>& orig_index,
-            raft::device_matrix_view<const value_t, matrix_idx_t, row_major> new_vectors,
-            std::optional<raft::device_vector_view<const idx_t, matrix_idx_t>> new_indices =
-              std::nullopt) -> index<value_t, idx_t>
+            raft::device_matrix_view<const value_t, idx_t, row_major> new_vectors,
+            std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
+  -> index<value_t, idx_t>
 {
   return raft::spatial::knn::ivf_flat::detail::extend<value_t, idx_t>(
     handle,
@@ -248,15 +242,11 @@ inline void extend(const handle_t& handle,
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `std::nullopt`
  *    here to imply a continuous range `[0...n_rows)`.
  */
-template <typename value_t,
-          typename idx_t,
-          typename int_t        = std::uint32_t,
-          typename matrix_idx_t = std::uint32_t>
-void extend(
-  const handle_t& handle,
-  index<value_t, idx_t>* index,
-  raft::device_matrix_view<const value_t, matrix_idx_t, row_major> new_vectors,
-  std::optional<raft::device_vector_view<const idx_t, matrix_idx_t>> new_indices = std::nullopt)
+template <typename value_t, typename idx_t>
+void extend(const handle_t& handle,
+            index<value_t, idx_t>* index,
+            raft::device_matrix_view<const value_t, idx_t, row_major> new_vectors,
+            std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
 {
   *index = extend(handle,
                   *index,
@@ -363,15 +353,12 @@ inline void search(const handle_t& handle,
  * @param[in] params configure the search
  * @param[in] k the number of neighbors to find for each query.
  */
-template <typename value_t,
-          typename idx_t,
-          typename int_t        = std::uint32_t,
-          typename matrix_idx_t = std::uint32_t>
+template <typename value_t, typename idx_t, typename int_t>
 void search(const handle_t& handle,
             const index<value_t, idx_t>& index,
-            raft::device_matrix_view<const value_t, matrix_idx_t, row_major> queries,
-            raft::device_matrix_view<idx_t, matrix_idx_t, row_major> neighbors,
-            raft::device_matrix_view<idx_t, matrix_idx_t, float> distances,
+            raft::device_matrix_view<const value_t, idx_t, row_major> queries,
+            raft::device_matrix_view<idx_t, idx_t, row_major> neighbors,
+            raft::device_matrix_view<idx_t, idx_t, float> distances,
             const search_params& params,
             int_t k)
 {
@@ -379,9 +366,9 @@ void search(const handle_t& handle,
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
     "Number of rows in output neighbors and distances matrices must equal the number of queries.");
 
-  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1) &&
-                 neighbors.extent(1) == static_cast<matrix_idx_t>(k),
-               "Number of columns in output neighbors and distances matrices must equal k");
+  RAFT_EXPECTS(
+    neighbors.extent(1) == distances.extent(1) && neighbors.extent(1) == static_cast<idx_t>(k),
+    "Number of columns in output neighbors and distances matrices must equal k");
 
   RAFT_EXPECTS(queries.extent(1) == index.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
