@@ -18,6 +18,8 @@ set(RAFT_CPP_BENCH_TARGET "bench_raft")
 
 # (please keep the filenames in alphabetical order)
 add_executable(${RAFT_CPP_BENCH_TARGET}
+  bench/cluster/kmeans_balanced.cu
+  bench/cluster/kmeans.cu
   bench/distance/distance_cosine.cu
   bench/distance/distance_exp_l2.cu
   bench/distance/distance_l1.cu
