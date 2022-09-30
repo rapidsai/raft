@@ -284,6 +284,7 @@ inline auto with_dims(const std::vector<uint32_t>& dims) -> test_cases_t
   });
 }
 
+/** These will surely trigger the fastest kernel available. */
 inline auto small_dims() -> test_cases_t { return with_dims({1, 2, 3, 4, 5, 8, 15, 16, 17}); }
 
 inline auto small_dims_per_cluster() -> test_cases_t
@@ -295,11 +296,15 @@ inline auto small_dims_per_cluster() -> test_cases_t
   });
 }
 
+/** These will surely trigger no-basediff / no-smem-lut kernels.  */
 inline auto big_dims() -> test_cases_t
 {
   return with_dims({511, 512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053});
 }
 
+/**
+ * A minimal set of tests to check various enum-like parameters.
+ */
 inline auto enum_variety() -> test_cases_t
 {
   test_cases_t xs;
@@ -359,6 +364,10 @@ inline auto enum_variety_ip() -> test_cases_t
   });
 }
 
+/**
+ * Try different number of n_probes, some of which may trigger the non-fused version of the search
+ * kernel.
+ */
 inline auto var_n_probes() -> test_cases_t
 {
   ivf_pq_inputs dflt;
@@ -373,6 +382,25 @@ inline auto var_n_probes() -> test_cases_t
   });
 }
 
+/**
+ * Try different number of nearest neighbours.
+ * Values smaller than 32 test if the code behaves well when Capacity (== 32) does not change,
+ * but `k <= Capacity` changes.
+ *
+ * Values between `32 and ivf_pq::detail::kMaxCapacity` test various instantiations of the
+ * main kernel (Capacity-templated)
+ *
+ * Values above ivf_pq::detail::kMaxCapacity should trigger the non-fused version of the kernel
+ * (manage_local_topk = false).
+ *
+ * Also we test here various values that are close-but-not-power-of-two to catch any problems
+ * related to rounding/alignment.
+ *
+ * Note, we cannot control explicitly which instance of the search kernel to choose, hence it's
+ * important to try a variety of different values of `k` to make sure all paths are triggered.
+ *
+ * Set the log level to DEBUG (5) or above to inspect the selected kernel instances.
+ */
 inline auto var_k() -> test_cases_t
 {
   return map<ivf_pq_inputs, uint32_t>(
