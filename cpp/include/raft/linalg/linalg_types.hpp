@@ -16,21 +16,20 @@
 
 #pragma once
 
-#include "functional.cuh"
+namespace raft::linalg {
 
-#include <raft/core/host_mdspan.hpp>
-#include <raft/linalg/unary_op.cuh>
+/**
+ * @brief Enum for reduction/broadcast where an operation is to be performed along
+ *        a matrix's rows or columns
+ *
+ */
+enum class Apply { ALONG_ROWS, ALONG_COLUMNS };
 
-namespace raft {
-namespace linalg {
-namespace detail {
+/**
+ * @brief Enum for reduction/broadcast where an operation is to be performed along
+ *        a matrix's rows or columns
+ *
+ */
+enum class FillMode { UPPER, LOWER };
 
-template <typename InT, typename OutT = InT, typename IdxType = int>
-void divideScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
-{
-  raft::linalg::unaryOp(out, in, len, divides_scalar<InT, OutT>(scalar), stream);
-}
-
-};  // end namespace detail
-};  // end namespace linalg
-};  // end namespace raft
+}  // end namespace raft::linalg

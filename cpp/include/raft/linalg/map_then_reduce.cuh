@@ -39,13 +39,14 @@ namespace linalg {
 
 template <typename InType,
           typename MapOp,
-          int TPB = 256,
+          typename IdxType = std::uint32_t,
+          int TPB          = 256,
           typename... Args,
           typename OutType = InType>
 void mapThenSumReduce(
-  OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
+  OutType* out, IdxType len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
 {
-  detail::mapThenReduceImpl<InType, OutType, MapOp, detail::sum_tag, TPB, Args...>(
+  detail::mapThenReduceImpl<InType, OutType, IdxType, MapOp, detail::sum_tag, TPB, Args...>(
     out, len, (OutType)0, map, detail::sum_tag(), stream, in, args...);
 }
 
@@ -66,25 +67,27 @@ void mapThenSumReduce(
  * @param in the input array
  * @param args additional input arrays
  */
-
 template <typename InType,
           typename MapOp,
           typename ReduceLambda,
+          typename IdxType = std::uint32_t,
           int TPB          = 256,
           typename OutType = InType,
           typename... Args>
-void mapThenReduce(OutType* out,
-                   size_t len,
-                   OutType neutral,
-                   MapOp map,
-                   ReduceLambda op,
-                   cudaStream_t stream,
-                   const InType* in,
-                   Args... args)
+[[deprecated("Use function `mapReduce` from `raft/linalg/map_reduce.cuh")]] void mapThenReduce(
+  OutType* out,
+  size_t len,
+  OutType neutral,
+  MapOp map,
+  ReduceLambda op,
+  cudaStream_t stream,
+  const InType* in,
+  Args... args)
 {
-  detail::mapThenReduceImpl<InType, OutType, MapOp, ReduceLambda, TPB, Args...>(
+  detail::mapThenReduceImpl<InType, OutType, IdxType, MapOp, ReduceLambda, TPB, Args...>(
     out, len, neutral, map, op, stream, in, args...);
 }
+
 };  // end namespace linalg
 };  // end namespace raft
 

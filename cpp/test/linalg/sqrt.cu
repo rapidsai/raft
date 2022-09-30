@@ -72,9 +72,12 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
     uniform(handle, r, in1.data(), len, T(1.0), T(2.0));
 
     naiveSqrtElem(out_ref.data(), in1.data(), len);
+    auto out_view = raft::make_device_vector_view(out.data(), len);
+    auto in_view  = raft::make_device_vector_view<const T>(in1.data(), len);
+    auto in2_view = raft::make_device_vector_view(in1.data(), len);
 
-    sqrt(out.data(), in1.data(), len, stream);
-    sqrt(in1.data(), in1.data(), len, stream);
+    sqrt(handle, in_view, out_view);
+    sqrt(handle, in_view, in2_view);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
