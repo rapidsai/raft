@@ -567,4 +567,5 @@ void copy_selected(uint64_t n_rows,
     default: RAFT_FAIL("All pointers must reside on the same side, host or device.");
   }
 }
+
 }  // namespace raft::spatial::knn::detail::utils

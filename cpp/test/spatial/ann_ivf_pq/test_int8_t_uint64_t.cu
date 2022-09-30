@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef __KNN_SPECIALIZATIONS_H
-#define __KNN_SPECIALIZATIONS_H
+#include "../ann_ivf_pq.cuh"
 
-#pragma once
+namespace raft::spatial::knn {
 
-#include <raft/spatial/knn/specializations/ball_cover.cuh>
-#include <raft/spatial/knn/specializations/fused_l2_knn.cuh>
-#include <raft/spatial/knn/specializations/knn.cuh>
+using f32_i08_u64 = ivf_pq_test<float, int8_t, uint64_t>;
 
-#include <raft/spatial/knn/specializations/detail/ivf_pq_search.cuh>
+TEST_BUILD_SEARCH(f32_i08_u64)
+INSTANTIATE(f32_i08_u64, defaults() + big_dims() + var_k());
 
-#endif
+}  // namespace raft::spatial::knn
