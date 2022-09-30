@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -25,16 +26,6 @@
 namespace raft {
 namespace random {
 namespace detail {
-
-/**
- * Some macro magic to remove optional parentheses of a macro argument.
- * See https://stackoverflow.com/a/62984543
- */
-#define RAFT_DEPAREN(X)      RAFT_DEPAREN_H2(RAFT_DEPAREN_H1 X)
-#define RAFT_DEPAREN_H1(...) RAFT_DEPAREN_H1 __VA_ARGS__
-#define RAFT_DEPAREN_H2(...) RAFT_DEPAREN_H3(__VA_ARGS__)
-#define RAFT_DEPAREN_H3(...) RAFT_DEPAREN_MAGIC##__VA_ARGS__
-#define RAFT_DEPAREN_MAGICRAFT_DEPAREN_H1
 
 /**
  * This macro will invoke function `func` with the correct instantiation of
