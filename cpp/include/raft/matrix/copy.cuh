@@ -73,12 +73,9 @@ void copy(const raft::handle_t& handle,
 /**
  * @brief copy matrix operation for column major matrices. First n_rows and
  * n_cols of input matrix "in" is copied to "out" matrix.
+ * @param handle: raft handle for managing resources
  * @param in: input matrix
- * @param in_n_rows: number of rows of input matrix
  * @param out: output matrix
- * @param out_n_rows: number of rows of output matrix
- * @param out_n_cols: number of columns of output matrix
- * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t>
 void trunc_zero_origin(const raft::handle_t& handle,

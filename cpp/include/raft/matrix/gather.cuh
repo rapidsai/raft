@@ -57,9 +57,10 @@ void gather(const MatrixIteratorT in,
  * @tparam matrix_t      Matrix element type
  * @tparam map_t         Map vector type
  * @tparam idx_t integer type used for indexing
+ * @param[in] handle            raft handle for managing resources
  * @param[in]  in           Input matrix (assumed to be row-major)
  * @param[in]  map          Vector of gather locations
- * @param[out]  out          Output matrix (assumed to be row-major)
+ * @param[out]  out         Output matrix (assumed to be row-major)
  */
 template <typename matrix_t, typename map_t, typename idx_t>
 void gather(const raft::handle_t& handle,
@@ -91,7 +92,7 @@ void gather(const raft::handle_t& handle,
  * @tparam map_xform_t       Unary lambda expression or operator type, MapTransformOp's result
  * type must be convertible to idx_t (= int) type.
  * @tparam idx_t integer type for indexing
- *
+ * @param[in] handle        raft handle for managing resources
  * @param[in]  in           Input matrix (assumed to be row-major)
  * @param[in]  map          Input vector of gather locations
  * @param[out]  out         Output matrix (assumed to be row-major)
@@ -205,7 +206,7 @@ void gather_if(const MatrixIteratorT in,
  * @tparam unary_pred_t     Unary lambda expression or operator type, unary_pred_t's result
  * type must be convertible to bool type.
  * @tparam idx_t integer type for indexing
- *
+ * @param[in] handle        raft handle for managing resources
  * @param[in]  in           Input matrix (assumed to be row-major)
  * @param[in]  map          Input vector of gather locations
  * @param[in]  stencil      Input vector of stencil or predicate values
@@ -300,7 +301,7 @@ void gather_if(const MatrixIteratorT in,
  * @tparam map_xform_t       Unary lambda expression or operator type, map_xform_t's result
  * type must be convertible to idx_t (= int) type.
  * @tparam idx_t integer type for indexing
- *
+ * @param[in] handle        raft handle for managing resources
  * @param[in]  in           Input matrix (assumed to be row-major)
  * @param[in]  map          Vector of gather locations
  * @param[in]  stencil      Vector of stencil or predicate values

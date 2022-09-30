@@ -43,14 +43,20 @@ void print(const raft::handle_t& handle,
 }
 
 /**
- * @brief Prints the data stored in CPU memory
+ * @brief Prints the host data stored in CPU memory
  * @tparam m_t type of matrix elements
  * @tparam idx_t integer type used for indexing
- * @param in: input matrix with column-major layout
+ * @param[in] handle raft handle for managing resources
+ * @param[in] in input matrix with column-major layout
+ * @param[in] h_separator: horizontal separator character
+ * @param[in] v_separator: vertical separator character
  */
 template <typename m_t, typename idx_t>
-void print(raft::host_matrix_view<const m_t, idx_t, col_major> in)
+void print(const raft::handle_t& handle,
+           raft::host_matrix_view<const m_t, idx_t, col_major> in,
+           char h_separator = ' ',
+           char v_separator = '\n')
 {
-  detail::printHost(in.data_handle(), in.extent(0), in.extent(1));
+  detail::printHost(in.data_handle(), in.extent(0), in.extent(1), h_separator, v_separator);
 }
 }  // namespace raft::matrix

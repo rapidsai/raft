@@ -41,6 +41,7 @@ namespace raft::matrix {
  * @tparam Lambda type of lambda function used for the operation
  * @tparam vec_t variadic types of device_vector_view vectors (size m if alongRows, size n
  * otherwise)
+ * @param[in] handle raft handle for managing resources
  * @param [out] out result of the operation; can be same as `in`; should be aligned the same
  *        as `in` to allow faster vectorized memory transfers.
  * @param [in] in input matrix consisting of `nLines` lines, each `lineLen`-long.
@@ -50,7 +51,6 @@ namespace raft::matrix {
  *      out[i, j] = op(in[i, j], vec1[i], vec2[i], ... veck[i])   if alongLines = true
  *      out[i, j] = op(in[i, j], vec1[j], vec2[j], ... veck[j])   if alongLines = false
  *    where matrix indexing is row-major ([i, j] = [i + lineLen * j]).
- * @param [in] stream a cuda stream for the kernels
  * @param [in] vecs zero or more vectors to be passed as arguments,
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
