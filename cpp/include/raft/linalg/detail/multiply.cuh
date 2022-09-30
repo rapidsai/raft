@@ -23,7 +23,8 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t, typename IdxType = int>
-void multiplyScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+void multiplyScalar(
+  math_t* out, const math_t* in, const math_t scalar, IdxType len, cudaStream_t stream)
 {
   raft::linalg::unaryOp(
     out, in, len, [scalar] __device__(math_t in) { return in * scalar; }, stream);

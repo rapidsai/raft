@@ -57,8 +57,30 @@ struct is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>(
   : std::true_type {
 };
 
+template <typename T, typename = void>
+struct is_input_mdspan : std::false_type {
+};
+template <typename T>
+struct is_input_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
+  : std::bool_constant<std::is_const_v<typename T::element_type>> {
+};
+
+template <typename T, typename = void>
+struct is_output_mdspan : std::false_type {
+};
+template <typename T>
+struct is_output_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
+  : std::bool_constant<not std::is_const_v<typename T::element_type>> {
+};
+
 template <typename T>
 using is_mdspan_t = is_mdspan<std::remove_const_t<T>>;
+
+template <typename T>
+using is_input_mdspan_t = is_input_mdspan<T>;
+
+template <typename T>
+using is_output_mdspan_t = is_output_mdspan<T>;
 
 /**
  * @\brief Boolean to determine if variadic template types Tn are either
@@ -69,6 +91,18 @@ inline constexpr bool is_mdspan_v = std::conjunction_v<is_mdspan_t<Tn>...>;
 
 template <typename... Tn>
 using enable_if_mdspan = std::enable_if_t<is_mdspan_v<Tn...>>;
+
+template <typename... Tn>
+inline constexpr bool is_input_mdspan_v = std::conjunction_v<is_input_mdspan_t<Tn>...>;
+
+template <typename... Tn>
+using enable_if_input_mdspan = std::enable_if_t<is_input_mdspan_v<Tn...>>;
+
+template <typename... Tn>
+inline constexpr bool is_output_mdspan_v = std::conjunction_v<is_output_mdspan_t<Tn>...>;
+
+template <typename... Tn>
+using enable_if_output_mdspan = std::enable_if_t<is_output_mdspan_v<Tn...>>;
 
 // uint division optimization inspired by the CIndexer in cupy.  Division operation is
 // slow on both CPU and GPU, especially 64 bit integer.  So here we first try to avoid 64

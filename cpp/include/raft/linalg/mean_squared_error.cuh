@@ -34,12 +34,44 @@ namespace linalg {
  * @param weight weight to apply to every term in the mean squared error calculation
  * @param stream cuda-stream where to launch this kernel
  */
-template <typename math_t, int TPB = 256>
+template <typename in_t, typename out_t = in_t, typname idx_t = std::uint32_t, tyint TPB = 256>
 void meanSquaredError(
   math_t* out, const math_t* A, const math_t* B, size_t len, math_t weight, cudaStream_t stream)
 {
   detail::meanSquaredError(out, A, B, len, weight, stream);
 }
+
+/**
+ * @defgroup mean_squared_error Mean Squared Error
+ * @{
+ */
+
+/**
+ * @brief CUDA version mean squared error function mean((A-B)**2)
+ * @tparam InValueType Input data-type
+ * @tparam IndexType Input/Output index type
+ * @tparam OutValueType Output data-type
+ * @tparam TPB threads-per-block
+ * @param[in] handle raft::handle_t
+ * @param[in] A input raft::device_vector_view
+ * @param[in] B input raft::device_vector_view
+ * @param[out] out the output mean squared error value of type raft::device_scalar_view
+ * @param[in] weight weight to apply to every term in the mean squared error calculation
+ */
+template <typename InValueType, typename IndexType, typename OutValueType, int TPB = 256>
+void mean_squared_error(const raft::handle_t& handle,
+                        raft::device_vector_view<const InValueType, IndexType> A,
+                        raft::device_vector_view<const InValueType, IndexType> B,
+                        raft::device_scalar_view<OutValueType, IndexType> out,
+                        OutValueType weight)
+{
+  RAFT_EXPECTS(A.size() == B.size(), "Size mismatch between inputs");
+
+  meanSquaredError(
+    out.data_handle(), A.data_handle(), B.data_handle(), A.extent(0), weight, stream);
+}
+
+/** @} */  // end of group mean_squared_error
 
 };  // end namespace linalg
 };  // end namespace raft

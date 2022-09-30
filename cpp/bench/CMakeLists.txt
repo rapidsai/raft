@@ -18,6 +18,8 @@ set(RAFT_CPP_BENCH_TARGET "bench_raft")
 
 # (please keep the filenames in alphabetical order)
 add_executable(${RAFT_CPP_BENCH_TARGET}
+  bench/cluster/kmeans_balanced.cu
+  bench/cluster/kmeans.cu
   bench/distance/distance_cosine.cu
   bench/distance/distance_exp_l2.cu
   bench/distance/distance_l1.cu
@@ -31,7 +33,16 @@ add_executable(${RAFT_CPP_BENCH_TARGET}
   bench/random/rng.cu
   bench/sparse/convert_csr.cu
   bench/spatial/fused_l2_nn.cu
-  bench/spatial/knn.cu
+  bench/spatial/knn/brute_force_float_int64_t.cu
+  bench/spatial/knn/brute_force_float_uint32_t.cu
+  bench/spatial/knn/ivf_flat_float_int64_t.cu
+  bench/spatial/knn/ivf_flat_float_uint32_t.cu
+  bench/spatial/knn/ivf_flat_int8_t_int64_t.cu
+  bench/spatial/knn/ivf_flat_uint8_t_uint32_t.cu
+  bench/spatial/knn/ivf_pq_float_int64_t.cu
+  bench/spatial/knn/ivf_pq_float_uint32_t.cu
+  bench/spatial/knn/ivf_pq_int8_t_int64_t.cu
+  bench/spatial/knn/ivf_pq_uint8_t_uint32_t.cu
   bench/spatial/selection.cu
   bench/main.cpp
 )

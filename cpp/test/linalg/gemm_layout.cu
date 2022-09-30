@@ -94,17 +94,35 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     naiveGemm<<<blocks, threads>>>(
       refZ, X, Y, params.M, params.N, params.K, params.zLayout, params.xLayout, params.yLayout);
 
-    gemm(handle,
-         Z,
-         X,
-         Y,
-         params.M,
-         params.N,
-         params.K,
-         params.zLayout,
-         params.xLayout,
-         params.yLayout,
-         stream);
+    auto x_view_row_major = raft::make_device_matrix_view(X, params.M, params.K);
+    auto y_view_row_major = raft::make_device_matrix_view(Y, params.K, params.N);
+    auto z_view_row_major = raft::make_device_matrix_view(Z, params.M, params.N);
+
+    auto x_view_col_major =
+      raft::make_device_matrix_view<T, int, raft::col_major>(X, params.M, params.K);
+    auto y_view_col_major =
+      raft::make_device_matrix_view<T, int, raft::col_major>(Y, params.K, params.N);
+    auto z_view_col_major =
+      raft::make_device_matrix_view<T, int, raft::col_major>(Z, params.M, params.N);
+
+    if (params.xLayout && params.yLayout && params.zLayout) {
+      gemm(handle, x_view_col_major, y_view_col_major, z_view_col_major);
+    } else if (params.xLayout && params.yLayout && !params.zLayout) {
+      gemm(handle, x_view_col_major, y_view_col_major, z_view_row_major);
+    } else if (params.xLayout && !params.yLayout && params.zLayout) {
+      gemm(handle, x_view_col_major, y_view_row_major, z_view_col_major);
+    } else if (!params.xLayout && params.yLayout && params.zLayout) {
+      gemm(handle, x_view_row_major, y_view_col_major, z_view_col_major);
+    } else if (params.xLayout && !params.yLayout && !params.zLayout) {
+      gemm(handle, x_view_col_major, y_view_row_major, z_view_row_major);
+    } else if (!params.xLayout && params.yLayout && !params.zLayout) {
+      gemm(handle, x_view_row_major, y_view_col_major, z_view_row_major);
+    } else if (!params.xLayout && !params.yLayout && params.zLayout) {
+      gemm(handle, x_view_row_major, y_view_row_major, z_view_col_major);
+    } else if (!params.xLayout && !params.yLayout && !params.zLayout) {
+      gemm(handle, x_view_row_major, y_view_row_major, z_view_row_major);
+    }
+
     handle.sync_stream();
   }
 
