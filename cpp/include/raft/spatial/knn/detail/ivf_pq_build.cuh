@@ -115,14 +115,15 @@ HDI void ivfpq_encode_core(uint32_t n_rows, uint32_t pq_dim, const uint32_t* lab
   }
 }
 
-template <uint32_t PqBits>
-__global__ void ivfpq_encode_kernel(uint32_t n_rows,
+template <uint32_t BlockDim, uint32_t PqBits>
+__launch_bounds__(BlockDim) __global__
+  void ivfpq_encode_kernel(uint32_t n_rows,
                                     uint32_t pq_dim,
                                     const uint32_t* label,  // [pq_dim, n_rows]
                                     uint8_t* output         // [n_rows, pq_dim]
 )
 {
-  uint32_t i = threadIdx.x + blockDim.x * blockIdx.x;
+  uint32_t i = threadIdx.x + BlockDim * blockIdx.x;
   if (i >= n_rows) return;
   ivfpq_encode_core<PqBits>(n_rows, pq_dim, label + i, output + (pq_dim * PqBits / 8) * i);
 }
@@ -135,19 +136,25 @@ inline void ivfpq_encode(uint32_t n_rows,
                          uint8_t* output,        // [n_rows, pq_dim]
                          rmm::cuda_stream_view stream)
 {
-  dim3 threads(128, 1, 1);
-  dim3 blocks(raft::ceildiv<uint32_t>(n_rows, threads.x), 1, 1);
+  constexpr uint32_t kBlockDim = 128;
+  dim3 threads(kBlockDim, 1, 1);
+  dim3 blocks(raft::ceildiv<uint32_t>(n_rows, kBlockDim), 1, 1);
   switch (pq_bits) {
     case 4:
-      return ivfpq_encode_kernel<4><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+      return ivfpq_encode_kernel<kBlockDim, 4>
+        <<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
     case 5:
-      return ivfpq_encode_kernel<5><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+      return ivfpq_encode_kernel<kBlockDim, 5>
+        <<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
     case 6:
-      return ivfpq_encode_kernel<6><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+      return ivfpq_encode_kernel<kBlockDim, 6>
+        <<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
     case 7:
-      return ivfpq_encode_kernel<7><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+      return ivfpq_encode_kernel<kBlockDim, 7>
+        <<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
     case 8:
-      return ivfpq_encode_kernel<8><<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+      return ivfpq_encode_kernel<kBlockDim, 8>
+        <<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
     default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
   }
 }
@@ -389,13 +396,13 @@ void compute_pq_codes(const handle_t& handle,
   }
 }
 
-template <typename IdxT>
-__global__ void fill_indices_kernel(IdxT n_rows,
+template <uint32_t BlockDim, typename IdxT>
+__launch_bounds__(BlockDim) __global__ void fill_indices_kernel(IdxT n_rows,
                                     IdxT* data_indices,
                                     IdxT* data_offsets,
                                     const uint32_t* labels)
 {
-  const auto i = IdxT(blockDim.x) * IdxT(blockIdx.x) + IdxT(threadIdx.x);
+  const auto i = BlockDim * IdxT(blockIdx.x) + IdxT(threadIdx.x);
   if (i >= n_rows) { return; }
   data_indices[atomicAdd<IdxT>(data_offsets + labels[i], 1)] = i;
 }
@@ -444,10 +451,10 @@ auto calculate_offsets_and_indices(IdxT n_rows,
   rmm::device_uvector<IdxT> data_offsets_buf(n_lists, stream);
   auto data_offsets = data_offsets_buf.data();
   copy(data_offsets, cluster_offsets, n_lists, stream);
-  const IdxT n_threads = 128;
-  const IdxT n_blocks  = raft::div_rounding_up_unsafe(n_rows, n_threads);
-  fill_indices_kernel<<<n_blocks, n_threads, 0, stream>>>(
-    n_rows, data_indices, data_offsets, labels);
+  constexpr uint32_t n_threads = 128;  // NOLINT
+  const IdxT n_blocks          = raft::div_rounding_up_unsafe(n_rows, n_threads);
+  fill_indices_kernel<n_threads>
+    <<<n_blocks, n_threads, 0, stream>>>(n_rows, data_indices, data_offsets, labels);
   return max_cluster_size;
 }
 

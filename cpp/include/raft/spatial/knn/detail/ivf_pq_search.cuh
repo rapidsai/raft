@@ -329,8 +329,8 @@ __device__ void find_db_row(uint32_t sample_ix,
   data_ix = sample_ix + cluster_offsets[cluster_labels[chunk_ix]];
 }
 
-template <int BlockSize, typename IdxT>
-__launch_bounds__(BlockSize) __global__
+template <int BlockDim, typename IdxT>
+__launch_bounds__(BlockDim) __global__
   void postprocess_neighbors_kernel(IdxT* neighbors,                    // [n_queries, topk]
                                     const IdxT* db_indices,             // [n_rows]
                                     const IdxT* cluster_offsets,        // [n_clusters + 1]
@@ -340,7 +340,7 @@ __launch_bounds__(BlockSize) __global__
                                     uint32_t n_probes,
                                     uint32_t topk)
 {
-  uint64_t i        = threadIdx.x + uint64_t(blockDim.x) * uint64_t(blockIdx.x);
+  uint64_t i        = threadIdx.x + BlockDim * uint64_t(blockIdx.x);
   uint32_t query_ix = i / uint64_t(topk);
   if (query_ix >= n_queries) { return; }
   uint32_t k = i % uint64_t(topk);
