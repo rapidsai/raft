@@ -20,6 +20,7 @@
 #include <raft/core/host_mdspan.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/matrix/matrix_types.hpp>
 
 namespace raft::matrix {
 
@@ -29,34 +30,18 @@ namespace raft::matrix {
  * @tparam idx_t integer type used for indexing
  * @param[in] handle: raft handle
  * @param[in] in: input matrix
- * @param[in] h_separator: horizontal separator character
- * @param[in] v_separator: vertical separator character
+ * @param[in] separators: horizontal and vertical separator characters
  */
 template <typename m_t, typename idx_t>
 void print(const raft::handle_t& handle,
            raft::device_matrix_view<const m_t, idx_t, col_major> in,
-           char h_separator = ' ',
-           char v_separator = '\n')
+           print_separators& separators)
 {
-  detail::print(
-    in.data_handle(), in.extent(0), in.extent(1), h_separator, v_separator, handle.get_stream());
-}
-
-/**
- * @brief Prints the host data stored in CPU memory
- * @tparam m_t type of matrix elements
- * @tparam idx_t integer type used for indexing
- * @param[in] handle raft handle for managing resources
- * @param[in] in input matrix with column-major layout
- * @param[in] h_separator: horizontal separator character
- * @param[in] v_separator: vertical separator character
- */
-template <typename m_t, typename idx_t>
-void print(const raft::handle_t& handle,
-           raft::host_matrix_view<const m_t, idx_t, col_major> in,
-           char h_separator = ' ',
-           char v_separator = '\n')
-{
-  detail::printHost(in.data_handle(), in.extent(0), in.extent(1), h_separator, v_separator);
+  detail::print(in.data_handle(),
+                in.extent(0),
+                in.extent(1),
+                separators.horizontal,
+                separators.vertical,
+                handle.get_stream());
 }
 }  // namespace raft::matrix
