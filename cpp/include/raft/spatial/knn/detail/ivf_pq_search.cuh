@@ -826,6 +826,147 @@ struct ivfpq_compute_similarity {
       }
     }
   };
+
+  struct selected {
+    kernel_t kernel;
+    uint32_t n_blocks;
+    uint32_t n_threads;
+    size_t smem_size;
+    size_t device_lut_size;
+
+    template <typename... Args>
+    void operator()(rmm::cuda_stream_view stream, Args&&... args)
+    {
+      kernel<<<n_blocks, n_threads, smem_size, stream>>>(std::forward<Args>(args)...);
+    }
+  };
+
+  /**
+   * Use heuristics to choose an optimal instance of the search kernel.
+   * It selects among a few kernel variants (with/out using shared mem for
+   * lookup tables / precomputed distances) and tries to choose the block size
+   * to maximize kernel occupancy.
+   *
+   * @param manage_local_topk
+   *    whether use the fused calculate+select or just calculate the distances for each
+   *    query and probed cluster.
+   *
+   */
+  static inline auto select(bool manage_local_topk,
+                            uint32_t pq_bits,
+                            uint32_t pq_dim,
+                            uint32_t rot_dim,
+                            uint32_t preferred_thread_block_size,
+                            uint32_t n_queries,
+                            uint32_t n_probes,
+                            uint32_t topk) -> selected
+  {
+    using conf_fast        = configured<true, true>;
+    using conf_no_basediff = configured<false, true>;
+    using conf_no_smem_lut = configured<true, false>;
+
+    kernel_t kernel_fast = conf_fast::kernel(pq_bits, pq_dim, manage_local_topk ? topk : 0u);
+    kernel_t kernel_no_basediff =
+      conf_no_basediff::kernel(pq_bits, pq_dim, manage_local_topk ? topk : 0u);
+    kernel_t kernel_no_smem_lut =
+      conf_no_smem_lut::kernel(pq_bits, pq_dim, manage_local_topk ? topk : 0u);
+
+    const size_t smem_threshold = 48 * 1024;
+    size_t smem_size            = sizeof(LutT) * (pq_dim << pq_bits);
+    size_t smem_size_base_diff  = sizeof(float) * rot_dim;
+
+    uint32_t n_blocks  = n_queries * n_probes;
+    uint32_t n_threads = 1024;
+    // preferred_thread_block_size == 0 means using auto thread block size calculation mode
+    if (preferred_thread_block_size == 0) {
+      const uint32_t thread_min = 256;
+      int cur_dev;
+      cudaDeviceProp dev_props;
+      RAFT_CUDA_TRY(cudaGetDevice(&cur_dev));
+      RAFT_CUDA_TRY(cudaGetDeviceProperties(&dev_props, cur_dev));
+      while (n_threads > thread_min) {
+        if (n_blocks < uint32_t(getMultiProcessorCount() * (1024 / (n_threads / 2)))) { break; }
+        if (dev_props.sharedMemPerMultiprocessor * 2 / 3 < smem_size * (1024 / (n_threads / 2))) {
+          break;
+        }
+        n_threads /= 2;
+      }
+    } else {
+      n_threads = preferred_thread_block_size;
+    }
+    size_t smem_size_local_topk =
+      manage_local_topk
+        ? topk::template calc_smem_size_for_block_wide<OutT, IdxT>(n_threads / WarpSize, topk)
+        : 0;
+    smem_size = max(smem_size, smem_size_local_topk);
+
+    kernel_t kernel = kernel_no_basediff;
+
+    bool kernel_no_basediff_available = true;
+    bool use_smem_lut                 = true;
+    if (smem_size > smem_threshold) {
+      cudaError_t cuda_status = cudaFuncSetAttribute(
+        kernel_no_basediff, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+      if (cuda_status != cudaSuccess) {
+        RAFT_EXPECTS(
+          cuda_status == cudaGetLastError(),
+          "Tried to reset the expected cuda error code, but it didn't match the expectation");
+        kernel_no_basediff_available = false;
+
+        // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
+        RAFT_LOG_DEBUG(
+          "Non-shared-mem look-up table kernel is selected, because it wouldn't fit shmem "
+          "required: "
+          "%zu bytes)",
+          smem_size);
+        kernel       = kernel_no_smem_lut;
+        use_smem_lut = false;
+        n_threads    = 1024;
+        smem_size_local_topk =
+          manage_local_topk
+            ? topk::template calc_smem_size_for_block_wide<OutT, IdxT>(n_threads / WarpSize, topk)
+            : 0;
+        smem_size = max(smem_size_base_diff, smem_size_local_topk);
+        n_blocks  = getMultiProcessorCount();
+      }
+    }
+    if (kernel_no_basediff_available) {
+      bool kernel_fast_available = true;
+      if (smem_size + smem_size_base_diff > smem_threshold) {
+        cudaError_t cuda_status = cudaFuncSetAttribute(kernel_fast,
+                                                       cudaFuncAttributeMaxDynamicSharedMemorySize,
+                                                       smem_size + smem_size_base_diff);
+        if (cuda_status != cudaSuccess) {
+          RAFT_EXPECTS(
+            cuda_status == cudaGetLastError(),
+            "Tried to reset the expected cuda error code, but it didn't match the expectation");
+          kernel_fast_available = false;
+          RAFT_LOG_DEBUG(
+            "No-precomputed-basediff kernel is selected, because the basediff wouldn't fit (shmem "
+            "required: %zu bytes)",
+            smem_size + smem_size_base_diff);
+        }
+      }
+      if (kernel_fast_available) {
+        int kernel_no_basediff_n_blocks = 0;
+        RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+          &kernel_no_basediff_n_blocks, kernel_no_basediff, n_threads, smem_size));
+
+        int kernel_fast_n_blocks = 0;
+        RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+          &kernel_fast_n_blocks, kernel_fast, n_threads, smem_size + smem_size_base_diff));
+
+        // Use "kernel_fast" only if GPU occupancy does not drop
+        if (kernel_no_basediff_n_blocks == kernel_fast_n_blocks) {
+          kernel = kernel_fast;
+          smem_size += smem_size_base_diff;
+        }
+      }
+    }
+
+    uint32_t device_lut_size = use_smem_lut ? 0u : n_blocks * (pq_dim << pq_bits);
+    return {kernel, n_blocks, n_threads, smem_size, device_lut_size};
+  }
 };
 
 /**
@@ -932,132 +1073,39 @@ void ivfpq_search_worker(const handle_t& handle,
                                     stream);
   }
 
-  using run_t            = ivfpq_compute_similarity<IdxT, ScoreT, LutT>;
-  using kernel_t         = typename run_t::kernel_t;
-  using conf_fast        = typename run_t::configured<true, true>;
-  using conf_no_basediff = typename run_t::configured<false, true>;
-  using conf_no_smem_lut = typename run_t::configured<true, false>;
-
-  kernel_t kernel_fast =
-    conf_fast::kernel(index.pq_bits(), index.pq_dim(), manage_local_topk ? topK : 0u);
-  kernel_t kernel_no_basediff =
-    conf_no_basediff::kernel(index.pq_bits(), index.pq_dim(), manage_local_topk ? topK : 0u);
-  kernel_t kernel_no_smem_lut =
-    conf_no_smem_lut::kernel(index.pq_bits(), index.pq_dim(), manage_local_topk ? topK : 0u);
-
-  const size_t smem_threshold = 48 * 1024;
-  size_t smem_size            = sizeof(LutT) * index.pq_dim() * index.pq_book_size();
-  size_t smem_size_base_diff  = sizeof(float) * index.rot_dim();
-
-  uint32_t n_ctas = n_queries * n_probes;
-  int n_threads   = 1024;
-  // preferred_thread_block_size == 0 means using auto thread block size calculation
-  // mode
-  if (preferred_thread_block_size == 0) {
-    const int thread_min = 256;
-    while (n_threads > thread_min) {
-      if (n_ctas < uint32_t(getMultiProcessorCount() * (1024 / (n_threads / 2)))) { break; }
-      if (handle.get_device_properties().sharedMemPerMultiprocessor * 2 / 3 <
-          smem_size * (1024 / (n_threads / 2))) {
-        break;
-      }
-      n_threads /= 2;
-    }
-  } else {
-    n_threads = preferred_thread_block_size;
-  }
-  size_t smem_size_local_topk =
-    manage_local_topk
-      ? topk::template calc_smem_size_for_block_wide<ScoreT, IdxT>(n_threads / WarpSize, topK)
-      : 0;
-  smem_size = max(smem_size, smem_size_local_topk);
-
-  kernel_t kernel = kernel_no_basediff;
-
-  bool kernel_no_basediff_available = true;
-  bool use_smem_lut                 = true;
-  if (smem_size > smem_threshold) {
-    cudaError_t cuda_status = cudaFuncSetAttribute(
-      kernel_no_basediff, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
-    if (cuda_status != cudaSuccess) {
-      RAFT_EXPECTS(
-        cuda_status == cudaGetLastError(),
-        "Tried to reset the expected cuda error code, but it didn't match the expectation");
-      kernel_no_basediff_available = false;
-
-      // Use "kernel_no_smem_lut" which just uses small amount of shared memory.
-      RAFT_LOG_DEBUG(
-        "Non-shared-mem look-up table kernel is selected, because it wouldn't fit shmem required: "
-        "%zu bytes)",
-        smem_size);
-      kernel       = kernel_no_smem_lut;
-      use_smem_lut = false;
-      n_threads    = 1024;
-      smem_size_local_topk =
-        manage_local_topk
-          ? topk::template calc_smem_size_for_block_wide<ScoreT, IdxT>(n_threads / WarpSize, topK)
-          : 0;
-      smem_size = max(smem_size_base_diff, smem_size_local_topk);
-      n_ctas    = getMultiProcessorCount();
-    }
-  }
-  if (kernel_no_basediff_available) {
-    bool kernel_fast_available = true;
-    if (smem_size + smem_size_base_diff > smem_threshold) {
-      cudaError_t cuda_status = cudaFuncSetAttribute(
-        kernel_fast, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size + smem_size_base_diff);
-      if (cuda_status != cudaSuccess) {
-        RAFT_EXPECTS(
-          cuda_status == cudaGetLastError(),
-          "Tried to reset the expected cuda error code, but it didn't match the expectation");
-        kernel_fast_available = false;
-        RAFT_LOG_DEBUG(
-          "No-precomputed-basediff kernel is selected, because the basediff wouldn't fit (shmem "
-          "required: %zu bytes)",
-          smem_size + smem_size_base_diff);
-      }
-    }
-    if (kernel_fast_available) {
-      int kernel_no_basediff_n_blocks = 0;
-      RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &kernel_no_basediff_n_blocks, kernel_no_basediff, n_threads, smem_size));
-
-      int kernel_fast_n_blocks = 0;
-      RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &kernel_fast_n_blocks, kernel_fast, n_threads, smem_size + smem_size_base_diff));
-
-      // Use "kernel_fast" only if GPU occupancy does not drop
-      if (kernel_no_basediff_n_blocks == kernel_fast_n_blocks) {
-        kernel = kernel_fast;
-        smem_size += smem_size_base_diff;
-      }
-    }
-  }
-
-  rmm::device_uvector<LutT> precomp_scores(
-    use_smem_lut ? 0 : n_ctas * index.pq_dim() * index.pq_book_size(), stream, mr);
-  dim3 cta_threads(n_threads, 1, 1);
-  dim3 cta_blocks(n_ctas, 1, 1);
-  kernel<<<cta_blocks, cta_threads, smem_size, stream>>>(index.size(),
-                                                         index.rot_dim(),
-                                                         n_probes,
+  // select and run the main search kernel
+  auto search_instance =
+    ivfpq_compute_similarity<IdxT, ScoreT, LutT>::select(manage_local_topk,
                                                          index.pq_bits(),
                                                          index.pq_dim(),
+                                                         index.rot_dim(),
+                                                         preferred_thread_block_size,
                                                          n_queries,
-                                                         index.metric(),
-                                                         index.codebook_kind(),
-                                                         topK,
-                                                         cluster_centers,
-                                                         pq_centers,
-                                                         pq_dataset,
-                                                         cluster_offsets,
-                                                         clusters_to_probe,
-                                                         chunk_index.data(),
-                                                         query,
-                                                         index_list_sorted,
-                                                         precomp_scores.data(),
-                                                         distances_buf.data(),
-                                                         neighbors_ptr);
+                                                         n_probes,
+                                                         topK);
+
+  rmm::device_uvector<LutT> device_lut(search_instance.device_lut_size, stream, mr);
+  search_instance(stream,
+                  index.size(),
+                  index.rot_dim(),
+                  n_probes,
+                  index.pq_bits(),
+                  index.pq_dim(),
+                  n_queries,
+                  index.metric(),
+                  index.codebook_kind(),
+                  topK,
+                  cluster_centers,
+                  pq_centers,
+                  pq_dataset,
+                  cluster_offsets,
+                  clusters_to_probe,
+                  chunk_index.data(),
+                  query,
+                  index_list_sorted,
+                  device_lut.data(),
+                  distances_buf.data(),
+                  neighbors_ptr);
 
   // Select topk vectors for each query
   rmm::device_uvector<ScoreT> topk_dists(n_queries * topK, stream, mr);
