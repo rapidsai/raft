@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/common/cub_wrappers.cuh>
-#include <raft/common/scatter.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/detail/cub_wrappers.cuh>
+#include <raft/util/scatter.cuh>
 
 namespace raft {
 namespace random {

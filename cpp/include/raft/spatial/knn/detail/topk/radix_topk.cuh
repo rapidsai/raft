@@ -18,8 +18,8 @@
 
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/logger.hpp>
-#include <raft/device_atomics.cuh>
-#include <raft/vectorized.cuh>
+#include <raft/util/device_atomics.cuh>
+#include <raft/util/vectorized.cuh>
 
 #include <cub/block/block_load.cuh>
 #include <cub/block/block_scan.cuh>

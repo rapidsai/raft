@@ -24,6 +24,8 @@
 #pragma once
 
 #include <algorithm>
+#include <optional>
+#include <raft/mdarray.hpp>
 
 #include "detail/make_regression.cuh"
 
@@ -58,7 +60,7 @@ namespace raft::random {
  * @param[in]   tail_strength   The relative importance of the fat noisy tail
  *                              of the singular values profile if
  *                              effective_rank is not -1
- * @param[in]   noise           Standard deviation of the gaussian noise
+ * @param[in]   noise           Standard deviation of the Gaussian noise
  *                              applied to the output
  * @param[in]   shuffle         Shuffle the samples and the features
  * @param[in]   seed            Seed for the random number generator
@@ -90,6 +92,81 @@ void make_regression(const raft::handle_t& handle,
                                  n_informative,
                                  stream,
                                  coef,
+                                 n_targets,
+                                 bias,
+                                 effective_rank,
+                                 tail_strength,
+                                 noise,
+                                 shuffle,
+                                 seed,
+                                 type);
+}
+
+/**
+ * @brief GPU-equivalent of sklearn.datasets.make_regression as documented at:
+ * https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
+ *
+ * @tparam  DataT  Scalar type
+ * @tparam  IdxT   Index type
+ *
+ * @param[in]   handle          RAFT handle
+ * @param[out]  out             Row-major (samples, features) matrix to store
+ *                              the problem data
+ * @param[out]  values          Row-major (samples, targets) matrix to store
+ *                              the values for the regression problem
+ * @param[in]   n_informative   Number of informative features (non-zero
+ *                              coefficients)
+ * @param[out]  coef            If present, a row-major (features, targets) matrix
+ *                              to store the coefficients used to generate the values
+ *                              for the regression problem
+ * @param[in]   bias            A scalar that will be added to the values
+ * @param[in]   effective_rank  The approximate rank of the data matrix (used
+ *                              to create correlations in the data). -1 is the
+ *                              code to use well-conditioned data
+ * @param[in]   tail_strength   The relative importance of the fat noisy tail
+ *                              of the singular values profile if
+ *                              effective_rank is not -1
+ * @param[in]   noise           Standard deviation of the Gaussian noise
+ *                              applied to the output
+ * @param[in]   shuffle         Shuffle the samples and the features
+ * @param[in]   seed            Seed for the random number generator
+ * @param[in]   type            Random generator type
+ */
+template <typename DataT, typename IdxT>
+void make_regression(const raft::handle_t& handle,
+                     raft::device_matrix_view<DataT, IdxT, raft::row_major> out,
+                     raft::device_matrix_view<DataT, IdxT, raft::row_major> values,
+                     IdxT n_informative,
+                     std::optional<raft::device_matrix_view<DataT, IdxT, raft::row_major>> coef,
+                     DataT bias          = DataT{},
+                     IdxT effective_rank = static_cast<IdxT>(-1),
+                     DataT tail_strength = DataT{0.5},
+                     DataT noise         = DataT{},
+                     bool shuffle        = true,
+                     uint64_t seed       = 0ULL,
+                     GeneratorType type  = GenPhilox)
+{
+  const auto n_samples = out.extent(0);
+  assert(values.extent(0) == n_samples);
+  const auto n_features = out.extent(1);
+  const auto n_targets  = values.extent(1);
+
+  const bool have_coef = coef.has_value();
+  if (have_coef) {
+    const auto coef_ref = *coef;
+    assert(coef_ref.extent(0) == n_features);
+    assert(coef_ref.extent(1) == n_targets);
+  }
+  DataT* coef_ptr = have_coef ? (*coef).data_handle() : nullptr;
+
+  detail::make_regression_caller(handle,
+                                 out.data_handle(),
+                                 values.data_handle(),
+                                 n_samples,
+                                 n_features,
+                                 n_informative,
+                                 handle.get_stream(),
+                                 coef_ptr,
                                  n_targets,
                                  bias,
                                  effective_rank,

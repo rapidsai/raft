@@ -19,6 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+
 from libcpp.memory cimport shared_ptr
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 from rmm._lib.cuda_stream_pool cimport cuda_stream_pool
@@ -33,3 +34,8 @@ cdef extern from "raft/core/handle.hpp" namespace "raft" nogil:
                  shared_ptr[cuda_stream_pool] stream_pool) except +
         cuda_stream_view get_stream() except +
         void sync_stream() except +
+
+cdef class Handle:
+    cdef unique_ptr[handle_t] c_obj
+    cdef shared_ptr[cuda_stream_pool] stream_pool
+    cdef int n_streams

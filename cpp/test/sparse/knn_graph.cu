@@ -16,12 +16,12 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/selection/knn_graph.cuh>
+#include <raft/sparse/spatial/knn_graph.cuh>
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
 #endif
@@ -77,7 +77,7 @@ class KNNGraphTest : public ::testing::TestWithParam<KNNGraphInputs<value_idx, v
 
     update_device(X.data(), params.X.data(), params.X.size(), stream);
 
-    raft::sparse::selection::knn_graph(
+    raft::sparse::spatial::knn_graph(
       handle, X.data(), params.m, params.n, raft::distance::DistanceType::L2Unexpanded, *out);
 
     rmm::device_scalar<value_idx> sum(stream);

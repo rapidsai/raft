@@ -16,10 +16,13 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include "rmat_rectangular_generator_types.cuh"
+
+#include <raft/core/handle.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace random {
@@ -180,6 +183,111 @@ void rmat_rectangular_gen_caller(IdxT* out,
     out, out_src, out_dst, a, b, c, r_scale, c_scale, n_edges, max_scale, r);
   RAFT_CUDA_TRY(cudaGetLastError());
   r.advance(n_edges, max_scale);
+}
+
+/**
+ * @brief Implementation of `raft::random::rmat_rectangular_gen_impl`.
+ *
+ * @tparam IdxT  type of each node index
+ * @tparam ProbT data type used for probability distributions (either fp32 or fp64)
+ * @param[in]  handle  RAFT handle, containing the CUDA stream on which to schedule work
+ * @param[in]  r       underlying state of the random generator. Especially useful when
+ *                     one wants to call this API for multiple times in order to generate
+ *                     a larger graph. For that case, just create this object with the
+ *                     initial seed once and after every call continue to pass the same
+ *                     object for the successive calls.
+ * @param[out] output  Encapsulation of one, two, or three output vectors.
+ * @param[in]  theta   distribution of each quadrant at each level of resolution.
+ *                     Since these are probabilities, each of the 2x2 matrices for
+ *                     each level of the RMAT must sum to one. [on device]
+ *                     [dim = max(r_scale, c_scale) x 2 x 2]. Of course, it is assumed
+ *                     that each of the group of 2 x 2 numbers all sum up to 1.
+ * @param[in]  r_scale 2^r_scale represents the number of source nodes
+ * @param[in]  c_scale 2^c_scale represents the number of destination nodes
+ */
+template <typename IdxT, typename ProbT>
+void rmat_rectangular_gen_impl(const raft::handle_t& handle,
+                               raft::random::RngState& r,
+                               raft::device_vector_view<const ProbT, IdxT> theta,
+                               raft::random::detail::rmat_rectangular_gen_output<IdxT> output,
+                               IdxT r_scale,
+                               IdxT c_scale)
+{
+  static_assert(std::is_integral_v<IdxT>,
+                "rmat_rectangular_gen: "
+                "Template parameter IdxT must be an integral type");
+  if (output.empty()) {
+    return;  // nothing to do; not an error
+  }
+
+  const IdxT expected_theta_len = IdxT(4) * (r_scale >= c_scale ? r_scale : c_scale);
+  RAFT_EXPECTS(theta.extent(0) == expected_theta_len,
+               "rmat_rectangular_gen: "
+               "theta.extent(0) = %zu != 2 * 2 * max(r_scale = %zu, c_scale = %zu) = %zu",
+               static_cast<std::size_t>(theta.extent(0)),
+               static_cast<std::size_t>(r_scale),
+               static_cast<std::size_t>(c_scale),
+               static_cast<std::size_t>(expected_theta_len));
+
+  auto out                     = output.out_view();
+  auto out_src                 = output.out_src_view();
+  auto out_dst                 = output.out_dst_view();
+  const bool out_has_value     = out.has_value();
+  const bool out_src_has_value = out_src.has_value();
+  const bool out_dst_has_value = out_dst.has_value();
+  IdxT* out_ptr                = out_has_value ? (*out).data_handle() : nullptr;
+  IdxT* out_src_ptr            = out_src_has_value ? (*out_src).data_handle() : nullptr;
+  IdxT* out_dst_ptr            = out_dst_has_value ? (*out_dst).data_handle() : nullptr;
+  const IdxT n_edges           = output.number_of_edges();
+
+  rmat_rectangular_gen_caller(out_ptr,
+                              out_src_ptr,
+                              out_dst_ptr,
+                              theta.data_handle(),
+                              r_scale,
+                              c_scale,
+                              n_edges,
+                              handle.get_stream(),
+                              r);
+}
+
+/**
+ * @brief Overload of `rmat_rectangular_gen` that assumes the same
+ *   a, b, c, d probability distributions across all the scales.
+ *
+ * `a`, `b, and `c` effectively replace the above overload's
+ * `theta` parameter.
+ */
+template <typename IdxT, typename ProbT>
+void rmat_rectangular_gen_impl(const raft::handle_t& handle,
+                               raft::random::RngState& r,
+                               raft::random::detail::rmat_rectangular_gen_output<IdxT> output,
+                               ProbT a,
+                               ProbT b,
+                               ProbT c,
+                               IdxT r_scale,
+                               IdxT c_scale)
+{
+  static_assert(std::is_integral_v<IdxT>,
+                "rmat_rectangular_gen: "
+                "Template parameter IdxT must be an integral type");
+  if (output.empty()) {
+    return;  // nothing to do; not an error
+  }
+
+  auto out                     = output.out_view();
+  auto out_src                 = output.out_src_view();
+  auto out_dst                 = output.out_dst_view();
+  const bool out_has_value     = out.has_value();
+  const bool out_src_has_value = out_src.has_value();
+  const bool out_dst_has_value = out_dst.has_value();
+  IdxT* out_ptr                = out_has_value ? (*out).data_handle() : nullptr;
+  IdxT* out_src_ptr            = out_src_has_value ? (*out_src).data_handle() : nullptr;
+  IdxT* out_dst_ptr            = out_dst_has_value ? (*out_dst).data_handle() : nullptr;
+  const IdxT n_edges           = output.number_of_edges();
+
+  detail::rmat_rectangular_gen_caller(
+    out_ptr, out_src_ptr, out_dst_ptr, a, b, c, r_scale, c_scale, n_edges, handle.get_stream(), r);
 }
 
 }  // end namespace detail
