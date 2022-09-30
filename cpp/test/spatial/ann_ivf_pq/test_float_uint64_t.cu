@@ -21,6 +21,6 @@ namespace raft::spatial::knn {
 using f32_f32_u64 = ivf_pq_test<float, float, uint64_t>;
 
 TEST_BUILD_EXTEND_SEARCH(f32_f32_u64)
-INSTANTIATE(f32_f32_u64, defaults() + small_dims() + big_dims());
+INSTANTIATE(f32_f32_u64, defaults() + small_dims() + big_dims_moderate_lut());
 
 }  // namespace raft::spatial::knn

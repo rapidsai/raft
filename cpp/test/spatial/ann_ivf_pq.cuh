@@ -214,10 +214,12 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     update_host(indices_ivf_pq.data(), indices_ivf_pq_dev.data(), queries_size, stream_);
     handle_.sync_stream(stream_);
 
-    // unless something is really wrong with clustering, this could serve as a lower bound on
-    // recall
-    double min_recall =
-      static_cast<double>(ps.search_params.n_probes) / static_cast<double>(ps.index_params.n_lists);
+    // Using very dense, small codebooks results in large errors in the distance calculation
+    double low_precision_factor =
+      static_cast<double>(index.pq_dim() * index.pq_bits()) / static_cast<double>(ps.dim * 8);
+    // A very conservative lower bound on recall
+    double min_recall = low_precision_factor * static_cast<double>(ps.search_params.n_probes) /
+                        static_cast<double>(ps.index_params.n_lists);
 
     ASSERT_TRUE(eval_neighbours(indices_ref,
                                 indices_ivf_pq,
@@ -225,7 +227,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                                 distances_ivf_pq,
                                 ps.num_queries,
                                 ps.k,
-                                0.001,
+                                0.001 / low_precision_factor,
                                 min_recall));
   }
 
@@ -296,10 +298,34 @@ inline auto small_dims_per_cluster() -> test_cases_t
   });
 }
 
-/** These will surely trigger no-basediff / no-smem-lut kernels.  */
 inline auto big_dims() -> test_cases_t
 {
-  return with_dims({511, 512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053});
+  return with_dims({512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053, 6144});
+  // return with_dims({512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053, 6144, 8192, 12288,
+  // 16384});
+}
+
+/** These will surely trigger no-smem-lut kernel.  */
+inline auto big_dims_moderate_lut() -> test_cases_t
+{
+  return map<ivf_pq_inputs>(big_dims(), [](const ivf_pq_inputs& x) {
+    ivf_pq_inputs y(x);
+    y.index_params.pq_bits    = 6;
+    y.search_params.lut_dtype = CUDA_R_16F;
+    return y;
+  });
+}
+
+/** Some of these should trigger no-basediff kernel.  */
+inline auto big_dims_small_lut() -> test_cases_t
+{
+  return map<ivf_pq_inputs>(big_dims(), [](const ivf_pq_inputs& x) {
+    ivf_pq_inputs y(x);
+    y.index_params.pq_dim     = raft::round_up_safe(y.dim / 8u, 64u);
+    y.index_params.pq_bits    = 6;
+    y.search_params.lut_dtype = CUDA_R_8U;
+    return y;
+  });
 }
 
 /**
