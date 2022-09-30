@@ -78,7 +78,7 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     raft::update_device(right_eig_vectors_ref.data(), right_eig_vectors_ref_h, right_evl, stream);
     raft::update_device(sing_vals_ref.data(), sing_vals_ref_h, params.n_col, stream);
 
-    auto data_view = raft::make_device_matrix_view<T, int, raft::col_major>(
+    auto data_view = raft::make_device_matrix_view<const T, int, raft::col_major>(
       data.data(), params.n_row, params.n_col);
     auto sing_vals_qr_view =
       raft::make_device_vector_view<T, int>(sing_vals_qr.data(), params.n_col);

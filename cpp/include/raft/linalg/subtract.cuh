@@ -98,13 +98,14 @@ void subtractDevScalar(math_t* outDev,
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @param handle raft::handle_t
- * @param out    Output
- * @param in1    First Input
- * @param in2    Second Input
+ * @param[in] in1    First Input
+ * @param[in] in2    Second Input
+ * @param[out] out    Output
  */
 template <typename InType,
           typename OutType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void subtract(const raft::handle_t& handle, InType in1, InType in2, OutType out)
 {
   using in_value_t  = typename InType::value_type;
@@ -144,7 +145,8 @@ void subtract(const raft::handle_t& handle, InType in1, InType in2, OutType out)
 template <typename InType,
           typename OutType,
           typename ScalarIdxType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void subtract_scalar(
   const raft::handle_t& handle,
   InType in,
@@ -188,7 +190,8 @@ void subtract_scalar(
 template <typename InType,
           typename OutType,
           typename ScalarIdxType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void subtract_scalar(
   const raft::handle_t& handle,
   InType in,

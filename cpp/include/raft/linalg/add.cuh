@@ -109,8 +109,9 @@ void addDevScalar(
  */
 template <typename InType,
           typename OutType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
-void add(const raft::handle_t& handle, const InType in1, const InType in2, OutType out)
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
+void add(const raft::handle_t& handle, InType in1, InType in2, OutType out)
 {
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
@@ -149,7 +150,8 @@ void add(const raft::handle_t& handle, const InType in1, const InType in2, OutTy
 template <typename InType,
           typename OutType,
           typename ScalarIdxType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void add_scalar(const raft::handle_t& handle,
                 InType in,
                 OutType out,
@@ -190,7 +192,8 @@ void add_scalar(const raft::handle_t& handle,
 template <typename InType,
           typename OutType,
           typename ScalarIdxType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void add_scalar(const raft::handle_t& handle,
                 const InType in,
                 OutType out,

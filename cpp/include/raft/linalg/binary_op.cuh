@@ -76,7 +76,8 @@ void binaryOp(
 template <typename InType,
           typename Lambda,
           typename OutType,
-          typename = raft::enable_if_device_mdspan<InType, OutType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void binary_op(const raft::handle_t& handle, InType in1, InType in2, OutType out, Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");

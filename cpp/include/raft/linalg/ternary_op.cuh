@@ -75,7 +75,8 @@ void ternaryOp(out_t* out,
 template <typename InType,
           typename Lambda,
           typename OutType,
-          typename = raft::enable_if_device_mdspan<InType, OutType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void ternary_op(
   const raft::handle_t& handle, InType in1, InType in2, InType in3, OutType out, Lambda op)
 {

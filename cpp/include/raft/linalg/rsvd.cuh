@@ -152,8 +152,6 @@ void rsvdPerc(const raft::handle_t& handle,
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] p no. of upsamples
- * @param[in] tol tolerance for Jacobi-based solvers
- * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
  * @param[out] U optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
  * @param[out] V optional right singular values of raft::device_matrix_view with layout
@@ -162,11 +160,9 @@ void rsvdPerc(const raft::handle_t& handle,
 template <typename ValueType, typename IndexType>
 void rsvd_fixed_rank(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
   raft::device_vector_view<ValueType, IndexType> S_vec,
   IndexType p,
-  ValueType tol,
-  int max_sweeps,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U = std::nullopt,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V = std::nullopt)
 {
@@ -182,7 +178,7 @@ void rsvd_fixed_rank(
   }
 
   rsvdFixedRank(handle,
-                M.data_handle(),
+                const_cast<ValueType*>(M.data_handle()),
                 M.extent(0),
                 M.extent(1),
                 S_vec.data_handle(),
@@ -194,8 +190,8 @@ void rsvd_fixed_rank(
                 U.has_value(),
                 V.has_value(),
                 false,
-                tol,
-                max_sweeps,
+                static_cast<ValueType>(0),
+                0,
                 handle.get_stream());
 }
 
@@ -208,7 +204,7 @@ void rsvd_fixed_rank(
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
 void rsvd_fixed_rank(const raft::handle_t& handle,
-                     raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+                     raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
                      raft::device_vector_view<ValueType, IndexType> S_vec,
                      IndexType p,
                      ValueType tol,
@@ -232,8 +228,6 @@ void rsvd_fixed_rank(const raft::handle_t& handle,
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] p no. of upsamples
- * @param[in] tol tolerance for Jacobi-based solvers
- * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
  * @param[out] U optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
  * @param[out] V optional right singular values of raft::device_matrix_view with layout
@@ -242,11 +236,9 @@ void rsvd_fixed_rank(const raft::handle_t& handle,
 template <typename ValueType, typename IndexType>
 void rsvd_fixed_rank_symmetric(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
   raft::device_vector_view<ValueType, IndexType> S_vec,
   IndexType p,
-  ValueType tol,
-  int max_sweeps,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U = std::nullopt,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V = std::nullopt)
 {
@@ -262,7 +254,7 @@ void rsvd_fixed_rank_symmetric(
   }
 
   rsvdFixedRank(handle,
-                M.data_handle(),
+                const_cast<ValueType*>(M.data_handle()),
                 M.extent(0),
                 M.extent(1),
                 S_vec.data_handle(),
@@ -274,8 +266,8 @@ void rsvd_fixed_rank_symmetric(
                 U.has_value(),
                 V.has_value(),
                 false,
-                tol,
-                max_sweeps,
+                static_cast<ValueType>(0),
+                0,
                 handle.get_stream());
 }
 
@@ -287,14 +279,15 @@ void rsvd_fixed_rank_symmetric(
  * Please see above for documentation of `rsvd_fixed_rank_symmetric`.
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
-void rsvd_fixed_rank_symmetric(const raft::handle_t& handle,
-                               raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
-                               raft::device_vector_view<ValueType, IndexType> S_vec,
-                               IndexType p,
-                               ValueType tol,
-                               int max_sweeps,
-                               UType&& U,
-                               VType&& V)
+void rsvd_fixed_rank_symmetric(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
+  raft::device_vector_view<ValueType, IndexType> S_vec,
+  IndexType p,
+  ValueType tol,
+  int max_sweeps,
+  UType&& U,
+  VType&& V)
 {
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
     std::forward<UType>(U);
@@ -322,7 +315,7 @@ void rsvd_fixed_rank_symmetric(const raft::handle_t& handle,
 template <typename ValueType, typename IndexType>
 void rsvd_fixed_rank_jacobi(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
   raft::device_vector_view<ValueType, IndexType> S_vec,
   IndexType p,
   ValueType tol,
@@ -342,7 +335,7 @@ void rsvd_fixed_rank_jacobi(
   }
 
   rsvdFixedRank(handle,
-                M.data_handle(),
+                const_cast<ValueType*>(M.data_handle()),
                 M.extent(0),
                 M.extent(1),
                 S_vec.data_handle(),
@@ -368,7 +361,7 @@ void rsvd_fixed_rank_jacobi(
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
 void rsvd_fixed_rank_jacobi(const raft::handle_t& handle,
-                            raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+                            raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
                             raft::device_vector_view<ValueType, IndexType> S_vec,
                             IndexType p,
                             ValueType tol,
@@ -402,7 +395,7 @@ void rsvd_fixed_rank_jacobi(const raft::handle_t& handle,
 template <typename ValueType, typename IndexType>
 void rsvd_fixed_rank_symmetric_jacobi(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
   raft::device_vector_view<ValueType, IndexType> S_vec,
   IndexType p,
   ValueType tol,
@@ -422,7 +415,7 @@ void rsvd_fixed_rank_symmetric_jacobi(
   }
 
   rsvdFixedRank(handle,
-                M.data_handle(),
+                const_cast<ValueType*>(M.data_handle()),
                 M.extent(0),
                 M.extent(1),
                 S_vec.data_handle(),
@@ -449,7 +442,7 @@ void rsvd_fixed_rank_symmetric_jacobi(
 template <typename ValueType, typename IndexType, typename UType, typename VType>
 void rsvd_fixed_rank_symmetric_jacobi(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
   raft::device_vector_view<ValueType, IndexType> S_vec,
   IndexType p,
   ValueType tol,
@@ -474,8 +467,6 @@ void rsvd_fixed_rank_symmetric_jacobi(
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] PC_perc percentage of singular values to be computed
  * @param[in] UpS_perc upsampling percentage
- * @param[in] tol tolerance for Jacobi-based solvers
- * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
  * @param[out] U optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
  * @param[out] V optional right singular values of raft::device_matrix_view with layout
@@ -484,12 +475,10 @@ void rsvd_fixed_rank_symmetric_jacobi(
 template <typename ValueType, typename IndexType>
 void rsvd_perc(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
   raft::device_vector_view<ValueType, IndexType> S_vec,
   ValueType PC_perc,
   ValueType UpS_perc,
-  ValueType tol,
-  int max_sweeps,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U = std::nullopt,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V = std::nullopt)
 {
@@ -505,7 +494,7 @@ void rsvd_perc(
   }
 
   rsvdPerc(handle,
-           M.data_handle(),
+           const_cast<ValueType*>(M.data_handle()),
            M.extent(0),
            M.extent(1),
            S_vec.data_handle(),
@@ -517,8 +506,8 @@ void rsvd_perc(
            U.has_value(),
            V.has_value(),
            false,
-           tol,
-           max_sweeps,
+           static_cast<ValueType>(0),
+           0,
            handle.get_stream());
 }
 
@@ -531,7 +520,7 @@ void rsvd_perc(
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
 void rsvd_perc(const raft::handle_t& handle,
-               raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+               raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
                raft::device_vector_view<ValueType, IndexType> S_vec,
                ValueType PC_perc,
                ValueType UpS_perc,
@@ -557,8 +546,6 @@ void rsvd_perc(const raft::handle_t& handle,
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] PC_perc percentage of singular values to be computed
  * @param[in] UpS_perc upsampling percentage
- * @param[in] tol tolerance for Jacobi-based solvers
- * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
  * @param[out] U optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
  * @param[out] V optional right singular values of raft::device_matrix_view with layout
@@ -567,12 +554,10 @@ void rsvd_perc(const raft::handle_t& handle,
 template <typename ValueType, typename IndexType>
 void rsvd_perc_symmetric(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
   raft::device_vector_view<ValueType, IndexType> S_vec,
   ValueType PC_perc,
   ValueType UpS_perc,
-  ValueType tol,
-  int max_sweeps,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U = std::nullopt,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V = std::nullopt)
 {
@@ -588,7 +573,7 @@ void rsvd_perc_symmetric(
   }
 
   rsvdPerc(handle,
-           M.data_handle(),
+           const_cast<ValueType*>(M.data_handle()),
            M.extent(0),
            M.extent(1),
            S_vec.data_handle(),
@@ -600,8 +585,8 @@ void rsvd_perc_symmetric(
            U.has_value(),
            V.has_value(),
            false,
-           tol,
-           max_sweeps,
+           static_cast<ValueType>(0),
+           0,
            handle.get_stream());
 }
 
@@ -614,7 +599,7 @@ void rsvd_perc_symmetric(
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
 void rsvd_perc_symmetric(const raft::handle_t& handle,
-                         raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+                         raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
                          raft::device_vector_view<ValueType, IndexType> S_vec,
                          ValueType PC_perc,
                          ValueType UpS_perc,
@@ -650,7 +635,7 @@ void rsvd_perc_symmetric(const raft::handle_t& handle,
 template <typename ValueType, typename IndexType>
 void rsvd_perc_jacobi(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
   raft::device_vector_view<ValueType, IndexType> S_vec,
   ValueType PC_perc,
   ValueType UpS_perc,
@@ -671,7 +656,7 @@ void rsvd_perc_jacobi(
   }
 
   rsvdPerc(handle,
-           M.data_handle(),
+           const_cast<ValueType*>(M.data_handle()),
            M.extent(0),
            M.extent(1),
            S_vec.data_handle(),
@@ -697,7 +682,7 @@ void rsvd_perc_jacobi(
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
 void rsvd_perc_jacobi(const raft::handle_t& handle,
-                      raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+                      raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
                       raft::device_vector_view<ValueType, IndexType> S_vec,
                       ValueType PC_perc,
                       ValueType UpS_perc,
@@ -733,7 +718,7 @@ void rsvd_perc_jacobi(const raft::handle_t& handle,
 template <typename ValueType, typename IndexType>
 void rsvd_perc_symmetric_jacobi(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
   raft::device_vector_view<ValueType, IndexType> S_vec,
   ValueType PC_perc,
   ValueType UpS_perc,
@@ -754,7 +739,7 @@ void rsvd_perc_symmetric_jacobi(
   }
 
   rsvdPerc(handle,
-           M.data_handle(),
+           const_cast<ValueType*>(M.data_handle()),
            M.extent(0),
            M.extent(1),
            S_vec.data_handle(),
@@ -779,15 +764,16 @@ void rsvd_perc_symmetric_jacobi(
  * Please see above for documentation of `rsvd_perc_symmetric_jacobi`.
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
-void rsvd_perc_symmetric_jacobi(const raft::handle_t& handle,
-                                raft::device_matrix_view<ValueType, IndexType, raft::col_major> M,
-                                raft::device_vector_view<ValueType, IndexType> S_vec,
-                                ValueType PC_perc,
-                                ValueType UpS_perc,
-                                ValueType tol,
-                                int max_sweeps,
-                                UType&& U,
-                                VType&& V)
+void rsvd_perc_symmetric_jacobi(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> M,
+  raft::device_vector_view<ValueType, IndexType> S_vec,
+  ValueType PC_perc,
+  ValueType UpS_perc,
+  ValueType tol,
+  int max_sweeps,
+  UType&& U,
+  VType&& V)
 {
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
     std::forward<UType>(U);

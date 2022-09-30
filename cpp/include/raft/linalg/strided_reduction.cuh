@@ -87,9 +87,9 @@ void stridedReduction(OutType* dots,
  *        along the rows whereas a column-major matrix will be reduced along
  *        the columns.
  *
- * @tparam InElementType the input data-type of underlying raft::matrix_view
+ * @tparam InValueType the input data-type of underlying raft::matrix_view
  * @tparam LayoutPolicy The layout of Input/Output (row or col major)
- * @tparam OutElementType the output data-type of underlying raft::matrix_view and reduction
+ * @tparam OutValueType the output data-type of underlying raft::matrix_view and reduction
  * @tparam IndexType Integer type used to for addressing
  * @tparam MainLambda Unary lambda applied while acculumation (eg: L1 or L2 norm)
  * It must be a 'callable' supporting the following input and output:
@@ -109,21 +109,21 @@ void stridedReduction(OutType* dots,
  * @param[in] final_op fused elementwise operation to apply before storing results
  * @param[in] inplace reduction result added inplace or overwrites old values?
  */
-template <typename InElementType,
+template <typename InValueType,
           typename LayoutPolicy,
-          typename OutElementType = InElementType,
-          typename IndexType      = std::uint32_t,
-          typename MainLambda     = raft::Nop<InElementType>,
-          typename ReduceLambda   = raft::Sum<OutElementType>,
-          typename FinalLambda    = raft::Nop<OutElementType>>
+          typename OutValueType,
+          typename IndexType,
+          typename MainLambda   = raft::Nop<InValueType>,
+          typename ReduceLambda = raft::Sum<OutValueType>,
+          typename FinalLambda  = raft::Nop<OutValueType>>
 void strided_reduction(const raft::handle_t& handle,
-                       const raft::device_matrix_view<InElementType, IndexType, LayoutPolicy> data,
-                       raft::device_vector_view<OutElementType, IndexType> dots,
-                       OutElementType init,
+                       raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> data,
+                       raft::device_vector_view<OutValueType, IndexType> dots,
+                       OutValueType init,
                        bool inplace           = false,
-                       MainLambda main_op     = raft::Nop<InElementType>(),
-                       ReduceLambda reduce_op = raft::Sum<OutElementType>(),
-                       FinalLambda final_op   = raft::Nop<OutElementType>())
+                       MainLambda main_op     = raft::Nop<InValueType>(),
+                       ReduceLambda reduce_op = raft::Sum<OutValueType>(),
+                       FinalLambda final_op   = raft::Nop<OutValueType>())
 {
   if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
     RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),

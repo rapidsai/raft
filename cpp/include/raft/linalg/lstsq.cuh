@@ -134,18 +134,18 @@ void lstsqQR(const raft::handle_t& handle,
  */
 template <typename ValueType, typename IndexType>
 void lstsq_svd_qr(const raft::handle_t& handle,
-                  raft::device_matrix_view<ValueType, IndexType, raft::col_major> A,
-                  raft::device_vector_view<ValueType, IndexType> b,
+                  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
+                  raft::device_vector_view<const ValueType, IndexType> b,
                   raft::device_vector_view<ValueType, IndexType> w)
 {
   RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
   RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
 
   lstsqSvdQR(handle,
-             A.data_handle(),
+             const_cast<ValueType*>(A.data_handle()),
              A.extent(0),
              A.extent(1),
-             b.data_handle(),
+             const_cast<ValueType*>(b.data_handle()),
              w.data_handle(),
              handle.get_stream());
 }
@@ -164,18 +164,18 @@ void lstsq_svd_qr(const raft::handle_t& handle,
  */
 template <typename ValueType, typename IndexType>
 void lstsq_svd_jacobi(const raft::handle_t& handle,
-                      raft::device_matrix_view<ValueType, IndexType, raft::col_major> A,
-                      raft::device_vector_view<ValueType, IndexType> b,
+                      raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
+                      raft::device_vector_view<const ValueType, IndexType> b,
                       raft::device_vector_view<ValueType, IndexType> w)
 {
   RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
   RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
 
   lstsqSvdJacobi(handle,
-                 A.data_handle(),
+                 const_cast<ValueType*>(A.data_handle()),
                  A.extent(0),
                  A.extent(1),
-                 b.data_handle(),
+                 const_cast<ValueType*>(b.data_handle()),
                  w.data_handle(),
                  handle.get_stream());
 }
@@ -195,18 +195,18 @@ void lstsq_svd_jacobi(const raft::handle_t& handle,
  */
 template <typename ValueType, typename IndexType>
 void lstsq_eig(const raft::handle_t& handle,
-               raft::device_matrix_view<ValueType, IndexType, raft::col_major> A,
-               raft::device_vector_view<ValueType, IndexType> b,
+               raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
+               raft::device_vector_view<const ValueType, IndexType> b,
                raft::device_vector_view<ValueType, IndexType> w)
 {
   RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
   RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
 
   lstsqEig(handle,
-           A.data_handle(),
+           const_cast<ValueType*>(A.data_handle()),
            A.extent(0),
            A.extent(1),
-           b.data_handle(),
+           const_cast<ValueType*>(b.data_handle()),
            w.data_handle(),
            handle.get_stream());
 }
@@ -226,18 +226,18 @@ void lstsq_eig(const raft::handle_t& handle,
  */
 template <typename ValueType, typename IndexType>
 void lstsq_qr(const raft::handle_t& handle,
-              raft::device_matrix_view<ValueType, IndexType, raft::col_major> A,
-              raft::device_vector_view<ValueType, IndexType> b,
+              raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
+              raft::device_vector_view<const ValueType, IndexType> b,
               raft::device_vector_view<ValueType, IndexType> w)
 {
   RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
   RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
 
   lstsqQR(handle,
-          A.data_handle(),
+          const_cast<ValueType*>(A.data_handle()),
           A.extent(0),
           A.extent(1),
-          b.data_handle(),
+          const_cast<ValueType*>(b.data_handle()),
           w.data_handle(),
           handle.get_stream());
 }

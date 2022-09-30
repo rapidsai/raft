@@ -95,7 +95,8 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
 template <typename InType,
           typename Lambda,
           typename OutType,
-          typename = raft::enable_if_device_mdspan<InType, OutType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
@@ -125,7 +126,7 @@ void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
  * @note Lambda must be a functor with the following signature:
  *       `InType func(const InType& val);`
  */
-template <typename InType, typename Lambda, typename = raft::enable_if_device_mdspan<InType>>
+template <typename InType, typename Lambda, typename = raft::enable_if_output_device_mdspan<InType>>
 void write_only_unary_op(const raft::handle_t& handle, InType in, Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");

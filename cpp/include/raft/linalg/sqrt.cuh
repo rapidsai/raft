@@ -58,7 +58,8 @@ void sqrt(out_t* out, const in_t* in, IdxType len, cudaStream_t stream)
  */
 template <typename InType,
           typename OutType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void sqrt(const raft::handle_t& handle, InType in, OutType out)
 {
   using in_value_t  = typename InType::value_type;

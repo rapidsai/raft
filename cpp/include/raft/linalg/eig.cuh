@@ -159,7 +159,7 @@ void eig_dc(const raft::handle_t& handle,
  */
 template <typename ValueType, typename IndexType>
 void eig_dc_selective(const raft::handle_t& handle,
-                      raft::device_matrix_view<ValueType, IndexType, raft::col_major> in,
+                      raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
                       raft::device_matrix_view<ValueType, IndexType, raft::col_major> eig_vectors,
                       raft::device_vector_view<ValueType, IndexType> eig_vals,
                       std::size_t n_eig_vals,
@@ -170,7 +170,7 @@ void eig_dc_selective(const raft::handle_t& handle,
   RAFT_EXPECTS(eig_vals.size() == n_eig_vals, "Size mismatch between Input and Eigen Values");
 
   raft::linalg::eigSelDC(handle,
-                         in.data_handle(),
+                         const_cast<ValueType*>(in.data_handle()),
                          in.extent(0),
                          in.extent(1),
                          n_eig_vals,

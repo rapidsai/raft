@@ -67,9 +67,9 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
     auto mul          = [] __device__(T a, T b, T c) { return a * b * c; };
     auto out_add_view = raft::make_device_vector_view(out_add.data(), len);
     auto out_mul_view = raft::make_device_vector_view(out_mul.data(), len);
-    auto in1_view     = raft::make_device_vector_view(in1.data(), len);
-    auto in2_view     = raft::make_device_vector_view(in2.data(), len);
-    auto in3_view     = raft::make_device_vector_view(in3.data(), len);
+    auto in1_view     = raft::make_device_vector_view<const T>(in1.data(), len);
+    auto in2_view     = raft::make_device_vector_view<const T>(in2.data(), len);
+    auto in3_view     = raft::make_device_vector_view<const T>(in3.data(), len);
 
     ternary_op(handle, in1_view, in2_view, in3_view, out_add_view, add);
     ternary_op(handle, in1_view, in2_view, in3_view, out_mul_view, mul);

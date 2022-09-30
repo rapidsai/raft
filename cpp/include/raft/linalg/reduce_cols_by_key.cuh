@@ -63,6 +63,7 @@ void reduce_cols_by_key(const T* data,
 
 /**
  * @brief Computes the sum-reduction of matrix columns for each given key
+ * TODO: Support generic reduction lambdas https://github.com/rapidsai/raft/issues/860
  * @tparam ElementType the input data type (as well as the output reduced matrix)
  * @tparam KeyType data type of the keys
  * @tparam IndexType indexing arithmetic type

@@ -200,7 +200,7 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
 template <typename ValueType, typename IndexType>
 void svd_qr(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> in,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
   raft::device_vector_view<ValueType, IndexType> sing_vals,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> left_sing_vecs =
     std::nullopt,
@@ -218,7 +218,7 @@ void svd_qr(
                  "V should have dimensions n * n");
   }
   svdQR(handle,
-        in.data_handle(),
+        const_cast<ValueType*>(in.data_handle()),
         in.extent(0),
         in.extent(1),
         sing_vals.data_handle(),
@@ -239,7 +239,7 @@ void svd_qr(
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
 void svd_qr(const raft::handle_t& handle,
-            raft::device_matrix_view<ValueType, IndexType, raft::col_major> in,
+            raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
             raft::device_vector_view<ValueType, IndexType> sing_vals,
             UType&& U,
             VType&& V)
@@ -266,7 +266,7 @@ void svd_qr(const raft::handle_t& handle,
 template <typename ValueType, typename IndexType>
 void svd_qr_transpose_right_vec(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> in,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
   raft::device_vector_view<ValueType, IndexType> sing_vals,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> left_sing_vecs =
     std::nullopt,
@@ -284,7 +284,7 @@ void svd_qr_transpose_right_vec(
                  "V should have dimensions n * n");
   }
   svdQR(handle,
-        in.data_handle(),
+        const_cast<ValueType*>(in.data_handle()),
         in.extent(0),
         in.extent(1),
         sing_vals.data_handle(),
@@ -304,11 +304,12 @@ void svd_qr_transpose_right_vec(
  * Please see above for documentation of `svd_qr_transpose_right_vec`.
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
-void svd_qr_transpose_right_vec(const raft::handle_t& handle,
-                                raft::device_matrix_view<ValueType, IndexType, raft::col_major> in,
-                                raft::device_vector_view<ValueType, IndexType> sing_vals,
-                                UType&& U,
-                                VType&& V)
+void svd_qr_transpose_right_vec(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
+  raft::device_vector_view<ValueType, IndexType> sing_vals,
+  UType&& U,
+  VType&& V)
 {
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
     std::forward<UType>(U);
@@ -332,7 +333,7 @@ void svd_qr_transpose_right_vec(const raft::handle_t& handle,
 template <typename ValueType, typename IndexType>
 void svd_eig(
   const raft::handle_t& handle,
-  raft::device_matrix_view<ValueType, IndexType, raft::col_major> in,
+  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
   raft::device_vector_view<ValueType, IndexType> S,
   raft::device_matrix_view<ValueType, IndexType, raft::col_major> V,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U = std::nullopt)
@@ -344,7 +345,7 @@ void svd_eig(
   RAFT_EXPECTS(in.extent(0) == V.extent(0) && in.extent(1) == V.extent(1),
                "V should have dimensions n * n");
   svdEig(handle,
-         in.data_handle(),
+         const_cast<ValueType*>(in.data_handle()),
          in.extent(0),
          in.extent(1),
          S.data_handle(),
@@ -367,9 +368,9 @@ void svd_eig(
  */
 template <typename ValueType, typename IndexType>
 void svd_reconstruction(const raft::handle_t& handle,
-                        raft::device_matrix_view<ValueType, IndexType, raft::col_major> U,
-                        raft::device_vector_view<ValueType, IndexType> S,
-                        raft::device_matrix_view<ValueType, IndexType, raft::col_major> V,
+                        raft::device_matrix_view<const ValueType, IndexType, raft::col_major> U,
+                        raft::device_vector_view<const ValueType, IndexType> S,
+                        raft::device_matrix_view<const ValueType, IndexType, raft::col_major> V,
                         raft::device_matrix_view<ValueType, IndexType, raft::col_major> out)
 {
   RAFT_EXPECTS(S.extent(0) == S.extent(1), "S should be a square matrix");
@@ -382,9 +383,9 @@ void svd_reconstruction(const raft::handle_t& handle,
                "in out and V");
 
   svdReconstruction(handle,
-                    U.data_handle(),
-                    S.data_handle(),
-                    V.data_handle(),
+                    const_cast<ValueType*>(U.data_handle()),
+                    const_cast<ValueType*>(S.data_handle()),
+                    const_cast<ValueType*>(V.data_handle()),
                     out.extent(0),
                     out.extent(1),
                     S.extent(0),

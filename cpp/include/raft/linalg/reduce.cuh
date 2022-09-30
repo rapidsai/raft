@@ -122,7 +122,7 @@ template <typename InElementType,
           typename ReduceLambda   = raft::Sum<OutElementType>,
           typename FinalLambda    = raft::Nop<OutElementType>>
 void reduce(const raft::handle_t& handle,
-            const raft::device_matrix_view<InElementType, IndexType, LayoutPolicy> data,
+            raft::device_matrix_view<const InElementType, IndexType, LayoutPolicy> data,
             raft::device_vector_view<OutElementType, IndexType> dots,
             OutElementType init,
             Apply apply,

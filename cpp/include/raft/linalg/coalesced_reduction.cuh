@@ -103,10 +103,10 @@ void coalescedReduction(OutType* dots,
  * @param[in] data Input of type raft::device_matrix_view
  * @param[out] dots Output of type raft::device_matrix_view
  * @param[in] init initial value to use for the reduction
+ * @param[in] inplace reduction result added inplace or overwrites old values?
  * @param[in] main_op fused elementwise operation to apply before reduction
  * @param[in] reduce_op fused binary reduction operation
  * @param[in] final_op fused elementwise operation to apply before storing results
- * @param[in] inplace reduction result added inplace or overwrites old values?
  */
 template <typename InValueType,
           typename LayoutPolicy,

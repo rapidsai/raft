@@ -32,7 +32,7 @@ void unaryOpLaunch(OutType* out, const InType* in, InType scalar, IdxType len, c
 {
   raft::handle_t handle{stream};
   auto out_view = raft::make_device_vector_view(out, len);
-  auto in_view  = raft::make_device_vector_view(in, len);
+  auto in_view  = raft::make_device_vector_view<const InType>(in, len);
   if (in == nullptr) {
     auto op = [scalar] __device__(OutType * ptr, IdxType idx) {
       *ptr = static_cast<OutType>(scalar * idx);

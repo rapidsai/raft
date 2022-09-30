@@ -59,7 +59,7 @@ void axpy(const raft::handle_t& handle,
  * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
  *
- * @tparam MdspanType  Type raft::device_mdspan
+ * @tparam InType  Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
  * @param [in] handle raft::handle_t
  * @param [in] alpha raft::device_scalar_view
@@ -68,24 +68,27 @@ void axpy(const raft::handle_t& handle,
  * @param [in] incx stride between consecutive elements of x
  * @param [in] incy stride between consecutive elements of y
  */
-template <typename MdspanType, typename = raft::enable_if_device_mdspan<MdspanType>>
+template <typename InType,
+          typename OutType,
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void axpy(const raft::handle_t& handle,
-          raft::device_scalar_view<const typename MdspanType::element_type, ScalarIdxType> alpha,
-          MdspanType x,
-          MdspanType y,
+          raft::device_scalar_view<const typename InType::value_type, ScalarIdxType> alpha,
+          InType x,
+          OutType y,
           const int incx,
           const int incy)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input")
 
-  axpy<typename MdspanType::element_type, true>(handle,
-                                                y.size(),
-                                                alpha.data_handle(),
-                                                x.data_handle(),
-                                                incx,
-                                                y.data_handle(),
-                                                incy,
-                                                handle.get_stream());
+  axpy<typename InType::value_type, true>(handle,
+                                          y.size(),
+                                          alpha.data_handle(),
+                                          x.data_handle(),
+                                          incx,
+                                          y.data_handle(),
+                                          incy,
+                                          handle.get_stream());
 }
 
 /**
@@ -101,24 +104,26 @@ void axpy(const raft::handle_t& handle,
  * @param [in] incx stride between consecutive elements of x
  * @param [in] incy stride between consecutive elements of y
  */
-template <typename MdspanType, typename = raft::enable_if_device_mdspan<MdspanType>>
+template <typename InType,
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void axpy(const raft::handle_t& handle,
-          raft::host_scalar_view<const typename MdspanType::value_type, ScalarIdxType> alpha,
-          MdspanType x,
-          MdspanType y,
+          raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> alpha,
+          InType x,
+          OutType y,
           const int incx,
           const int incy)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input")
 
-  axpy<typename MdspanType::value_type, false>(handle,
-                                               y.size(),
-                                               alpha.data_handle(),
-                                               x.data_handle(),
-                                               incx,
-                                               y.data_handle(),
-                                               incy,
-                                               handle.get_stream());
+  axpy<typename InType::value_type, false>(handle,
+                                           y.size(),
+                                           alpha.data_handle(),
+                                           x.data_handle(),
+                                           incx,
+                                           y.data_handle(),
+                                           incy,
+                                           handle.get_stream());
 }
 
 /** @} */  // end of group axpy

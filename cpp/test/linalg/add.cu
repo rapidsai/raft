@@ -48,8 +48,8 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len, stream);
 
     auto out_view = raft::make_device_vector_view(out.data(), out.size());
-    auto in1_view = raft::make_device_vector_view(in1.data(), in1.size());
-    auto in2_view = raft::make_device_vector_view(in2.data(), in2.size());
+    auto in1_view = raft::make_device_vector_view<const InT>(in1.data(), in1.size());
+    auto in2_view = raft::make_device_vector_view<const InT>(in2.data(), in2.size());
 
     add(handle, in1_view, in2_view, out_view);
     handle.sync_stream(stream);

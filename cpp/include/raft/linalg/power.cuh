@@ -39,7 +39,7 @@ namespace linalg {
  * @{
  */
 template <typename in_t, typename out_t = in_t, typename IdxType = int>
-void powerScalar(out_t* out, const in_t* in, in_t scalar, IdxType len, cudaStream_t stream)
+void powerScalar(out_t* out, const in_t* in, const in_t scalar, IdxType len, cudaStream_t stream)
 {
   raft::linalg::unaryOp(
     out, in, len, [scalar] __device__(in_t in) { return raft::myPow(in, scalar); }, stream);
@@ -82,7 +82,8 @@ void power(out_t* out, const in_t* in1, const in_t* in2, IdxType len, cudaStream
  */
 template <typename InType,
           typename OutType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void power(const raft::handle_t& handle, InType in1, InType in2, OutType out)
 {
   using in_value_t  = typename InType::value_type;
@@ -122,11 +123,13 @@ void power(const raft::handle_t& handle, InType in1, InType in2, OutType out)
 template <typename InType,
           typename OutType,
           typename ScalarIdxType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
-void power_scalar(const raft::handle_t& handle,
-                  InType in,
-                  OutType out,
-                  const raft::host_scalar_view<typename InType::element_type, ScalarIdxType> scalar)
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
+void power_scalar(
+  const raft::handle_t& handle,
+  InType in,
+  OutType out,
+  const raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)
 {
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;

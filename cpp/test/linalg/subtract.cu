@@ -92,16 +92,18 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
     naiveSubtractElem(out_ref.data(), in1.data(), in2.data(), len, stream);
     naiveSubtractScalar(out_ref.data(), out_ref.data(), T(1), len, stream);
 
-    auto out_view     = raft::make_device_vector_view(out.data(), len);
-    auto in1_view     = raft::make_device_vector_view(in1.data(), len);
-    auto in2_view     = raft::make_device_vector_view(in2.data(), len);
-    const auto scalar = static_cast<T>(1);
-    auto scalar_view  = raft::make_host_scalar_view(&scalar);
+    auto out_view       = raft::make_device_vector_view(out.data(), len);
+    auto in1_view       = raft::make_device_vector_view(in1.data(), len);
+    auto const_out_view = raft::make_device_vector_view<const T>(out.data(), len);
+    auto const_in1_view = raft::make_device_vector_view<const T>(in1.data(), len);
+    auto const_in2_view = raft::make_device_vector_view<const T>(in2.data(), len);
+    const auto scalar   = static_cast<T>(1);
+    auto scalar_view    = raft::make_host_scalar_view(&scalar);
 
-    subtract(handle, in1_view, in2_view, out_view);
-    subtract_scalar(handle, out_view, out_view, scalar_view);
-    subtract(handle, in1_view, in2_view, in1_view);
-    subtract_scalar(handle, in1_view, in1_view, scalar_view);
+    subtract(handle, const_in1_view, const_in2_view, out_view);
+    subtract_scalar(handle, const_out_view, out_view, scalar_view);
+    subtract(handle, const_in1_view, const_in2_view, in1_view);
+    subtract_scalar(handle, const_in1_view, in1_view, scalar_view);
     handle.sync_stream(stream);
   }
 

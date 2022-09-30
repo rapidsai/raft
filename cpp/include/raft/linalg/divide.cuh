@@ -65,7 +65,8 @@ void divideScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_
 template <typename InType,
           typename OutType,
           typename ScalarIdxType,
-          typename = raft::enable_if_device_mdspan<OutType, InType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void divide_scalar(const raft::handle_t& handle,
                    InType in,
                    OutType out,

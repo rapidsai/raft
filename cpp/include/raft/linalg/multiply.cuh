@@ -65,11 +65,13 @@ void multiplyScalar(out_t* out, const in_t* in, in_t scalar, IdxType len, cudaSt
 template <typename InType,
           typename OutType,
           typename ScalarIdxType,
-          typename = raft::enable_if_device_mdspan<InType, OutType>>
-void multiply_scalar(const raft::handle_t& handle,
-                     InType in,
-                     OutType out,
-                     raft::host_scalar_view<typename InType::value_type, ScalarIdxType> scalar)
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
+void multiply_scalar(
+  const raft::handle_t& handle,
+  InType in,
+  OutType out,
+  raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)
 {
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;

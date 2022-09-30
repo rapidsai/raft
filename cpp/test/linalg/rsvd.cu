@@ -124,7 +124,7 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     RAFT_CUDA_TRY(cudaMemsetAsync(S.data(), 0, S.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(V.data(), 0, V.size() * sizeof(T), stream));
 
-    auto A_view = raft::make_device_matrix_view<T, int, raft::col_major>(A.data(), m, n);
+    auto A_view = raft::make_device_matrix_view<const T, int, raft::col_major>(A.data(), m, n);
     std::optional<raft::device_matrix_view<T, int, raft::col_major>> U_view =
       raft::make_device_matrix_view<T, int, raft::col_major>(U.data(), m, params.k);
     std::optional<raft::device_matrix_view<T, int, raft::col_major>> V_view =
@@ -134,25 +134,10 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     // RSVD tests
     if (params.k == 0) {  // Test with PC and upsampling ratio
       if (params.use_bbt) {
-        rsvd_perc_symmetric(handle,
-                            A_view,
-                            S_vec_view,
-                            params.PC_perc,
-                            params.UpS_perc,
-                            eig_svd_tol,
-                            max_sweeps,
-                            U_view,
-                            V_view);
+        rsvd_perc_symmetric(
+          handle, A_view, S_vec_view, params.PC_perc, params.UpS_perc, U_view, V_view);
       } else {
-        rsvd_perc(handle,
-                  A_view,
-                  S_vec_view,
-                  params.PC_perc,
-                  params.UpS_perc,
-                  eig_svd_tol,
-                  max_sweeps,
-                  U_view,
-                  V_view);
+        rsvd_perc(handle, A_view, S_vec_view, params.PC_perc, params.UpS_perc, U_view, V_view);
       }
     } else {  // Test with directly given fixed rank
       if (params.use_bbt) {

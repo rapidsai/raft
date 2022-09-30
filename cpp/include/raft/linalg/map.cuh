@@ -76,7 +76,8 @@ template <typename InType,
           typename OutType,
           int TPB = 256,
           typename... Args,
-          typename = enable_if_device_mdspan<InType, OutType>>
+          typename = raft::enable_if_input_device_mdspan<InType>,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
 void map(const raft::handle_t& handle, InType in, OutType out, MapOp map, Args... args)
 {
   using in_value_t  = typename InType::value_type;
