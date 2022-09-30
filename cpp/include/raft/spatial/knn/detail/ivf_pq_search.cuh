@@ -870,10 +870,10 @@ void ivfpq_search_worker(const handle_t& handle,
     ;
   auto topk_len = manage_local_topk ? n_probes * topK : max_samples;
   if (manage_local_topk) {
-    RAFT_LOG_DEBUG("Fused version of the search kernel is selected (manage_local_topk== true)");
+    RAFT_LOG_DEBUG("Fused version of the search kernel is selected (manage_local_topk == true)");
   } else {
     RAFT_LOG_DEBUG(
-      "Non-fused version of the search kernel is selected (manage_local_topk== false)");
+      "Non-fused version of the search kernel is selected (manage_local_topk == false)");
   }
 
   rmm::device_uvector<uint32_t> index_list_sorted_buf(0, stream, mr);
@@ -1012,8 +1012,8 @@ void ivfpq_search_worker(const handle_t& handle,
           "Tried to reset the expected cuda error code, but it didn't match the expectation");
         kernel_fast_available = false;
         RAFT_LOG_DEBUG(
-          "No-precomputed-basediff kernel is selected, because it wouldn't fit (shmem required: "
-          "%zu bytes)",
+          "No-precomputed-basediff kernel is selected, because the basediff wouldn't fit (shmem "
+          "required: %zu bytes)",
           smem_size + smem_size_base_diff);
       }
     }
