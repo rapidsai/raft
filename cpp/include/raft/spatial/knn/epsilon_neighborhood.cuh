@@ -76,7 +76,7 @@ void epsUnexpL2SqNeighborhood(bool* adj,
  * @param[in]  eps    defines epsilon neighborhood radius (should be passed as
  *                    squared as we compute L2-squared distance in this method)
  */
-template <typename value_t, typename idx_t, typename matrix_idx_t = std::uint32_t>
+template <typename value_t, typename idx_t, typename matrix_idx_t>
 void eps_neighbors_l2sq(const raft::handle_t& handle,
                         raft::device_matrix_view<const value_t, matrix_idx_t, row_major> x,
                         raft::device_matrix_view<const value_t, matrix_idx_t, row_major> y,
