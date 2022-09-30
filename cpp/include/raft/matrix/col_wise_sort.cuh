@@ -22,8 +22,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/matrix/detail/columnWiseSort.cuh>
 
-namespace raft {
-namespace matrix {
+namespace raft::matrix {
 
 /**
  * @brief sort columns within each row of row-major input matrix and return sorted indexes
@@ -110,7 +109,47 @@ void sort_cols_per_row(const raft::handle_t& handle,
   }
 }
 
-};  // end namespace matrix
-};  // end namespace raft
+namespace sort_cols_per_row_impl {
+template <typename T>
+struct sorted_keys_alias {
+};
+
+template <>
+struct sorted_keys_alias<std::nullopt_t> {
+  using type = double;
+};
+
+template <typename in_t, typename matrix_idx_t>
+struct sorted_keys_alias<
+  std::optional<raft::device_matrix_view<in_t, matrix_idx_t, raft::row_major>>> {
+  using type = typename raft::device_matrix_view<in_t, matrix_idx_t, raft::row_major>::value_type;
+};
+
+template <typename T>
+using sorted_keys_t = typename sorted_keys_alias<T>::type;
+}  // namespace sort_cols_per_row_impl
+
+/**
+ * @brief Overload of `sort_keys_per_row` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `sort_keys_per_row`.
+ */
+template <typename in_t, typename out_t, typename matrix_idx_t, typename sorted_keys_vector_type>
+void sort_cols_per_row(const raft::handle_t& handle,
+                       raft::device_matrix_view<const in_t, matrix_idx_t, raft::row_major> in,
+                       raft::device_matrix_view<out_t, matrix_idx_t, raft::row_major> out,
+                       sorted_keys_vector_type sorted_keys)
+{
+  using sorted_keys_type = sort_cols_per_row_impl::sorted_keys_t<
+    std::remove_const_t<std::remove_reference_t<sorted_keys_vector_type>>>;
+  std::optional<raft::device_matrix_view<in_t, matrix_idx_t, raft::row_major>> sorted_keys_opt =
+    std::forward<sorted_keys_vector_type>(sorted_keys);
+
+  sort_cols_per_row(handle, in, out, sorted_keys_opt);
+}
+
+};  // end namespace raft::matrix
 
 #endif

@@ -102,7 +102,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     auto out_view =
       raft::make_device_matrix_view<MatrixT, std::uint32_t>(d_out_act.data(), map_length, ncols);
     auto map_view =
-      raft::make_device_vector_view<MapT, std::uint32_t, row_major>(d_map.data(), map_length);
+      raft::make_device_vector_view<const MapT, std::uint32_t, row_major>(d_map.data(), map_length);
 
     raft::matrix::gather(handle, in_view, map_view, out_view);
 

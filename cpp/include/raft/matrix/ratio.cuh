@@ -32,7 +32,7 @@ namespace raft::matrix {
  */
 template <typename math_t, typename idx_t, typename layout>
 void ratio(const raft::handle_t& handle,
-           raft::device_matrix_view<math_t, idx_t, layout> src,
+           raft::device_matrix_view<const math_t, idx_t, layout> src,
            raft::device_matrix_view<math_t, idx_t, layout> dest)
 {
   RAFT_EXPECTS(src.size() == dest.size(), "Input and output matrices must be the same size.");

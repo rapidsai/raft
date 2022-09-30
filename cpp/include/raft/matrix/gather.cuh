@@ -65,7 +65,7 @@ void gather(const MatrixIteratorT in,
 template <typename matrix_t, typename map_t, typename idx_t>
 void gather(const raft::handle_t& handle,
             raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
-            raft::device_vector_view<map_t, idx_t> map,
+            raft::device_vector_view<const map_t, idx_t> map,
             raft::device_matrix_view<matrix_t, idx_t, row_major> out)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
@@ -101,8 +101,8 @@ void gather(const raft::handle_t& handle,
 template <typename matrix_t, typename map_t, typename map_xform_t, typename idx_t>
 void gather(const raft::handle_t& handle,
             raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
-            raft::device_vector_view<map_t, idx_t> map,
-            raft::device_matrix_view<matrix_t, idx_t, row_major> out,
+            raft::device_vector_view<const map_t, idx_t> map,
+            raft::device_matrix_view<const matrix_t, idx_t, row_major> out,
             map_xform_t transform_op)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
@@ -221,8 +221,8 @@ template <typename matrix_t,
 void gather_if(const raft::handle_t& handle,
                raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
                raft::device_matrix_view<matrix_t, idx_t, row_major> out,
-               raft::device_vector_view<map_t> map,
-               raft::device_vector_view<stencil_t> stencil,
+               raft::device_vector_view<const map_t> map,
+               raft::device_vector_view<const stencil_t> stencil,
                unary_pred_t pred_op)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),
@@ -318,8 +318,8 @@ template <typename matrix_t,
 void gather_if(const raft::handle_t& handle,
                raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
                raft::device_matrix_view<matrix_t, idx_t, row_major> out,
-               raft::device_vector_view<map_t> map,
-               raft::device_vector_view<stencil_t> stencil,
+               raft::device_vector_view<const map_t> map,
+               raft::device_vector_view<const stencil_t> stencil,
                unary_pred_t pred_op,
                map_xform_t transform_op)
 {

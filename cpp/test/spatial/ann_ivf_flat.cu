@@ -219,7 +219,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                          thrust::device_pointer_cast(vector_indices.data() + ps.num_db_vecs));
         handle_.sync_stream(stream_);
 
-        int64_t half_of_data = ps.num_db_vecs / 2;
+        IdxT half_of_data = ps.num_db_vecs / 2;
 
         auto half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), half_of_data, ps.dim);
@@ -230,7 +230,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs> {
                          &index_2,
                          database.data() + half_of_data * ps.dim,
                          vector_indices.data() + half_of_data,
-                         int64_t(ps.num_db_vecs) - half_of_data);
+                         IdxT(ps.num_db_vecs) - half_of_data);
 
         ivf_flat::search(handle_,
                          search_params,

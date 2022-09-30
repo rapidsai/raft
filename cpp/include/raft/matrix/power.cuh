@@ -33,7 +33,7 @@ namespace raft::matrix {
  */
 template <typename math_t, typename idx_t, typename layout>
 void weighted_power(const raft::handle_t& handle,
-                    raft::device_matrix_view<math_t, idx_t, layout> in,
+                    raft::device_matrix_view<const math_t, idx_t, layout> in,
                     raft::device_matrix_view<math_t, idx_t, layout> out,
                     math_t scalar)
 {
@@ -84,7 +84,7 @@ void power(const raft::handle_t& handle, raft::device_matrix_view<math_t, idx_t,
  */
 template <typename math_t, typename idx_t, typename layout>
 void power(const raft::handle_t& handle,
-           raft::device_matrix_view<math_t, idx_t, layout> in,
+           raft::device_matrix_view<const math_t, idx_t, layout> in,
            raft::device_matrix_view<math_t, idx_t, layout> out)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be same size.");
