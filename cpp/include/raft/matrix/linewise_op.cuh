@@ -22,12 +22,6 @@
 
 namespace raft::matrix {
 
-// template<typename idx_t, typename arg, typename... args>
-// args *extract_ptr(raft::device_vector_view<const arg, idx_t> vec, raft::device_vector_view<const
-// args, idx_t>... vecs) {
-//     vecs.data_handle();
-//}
-
 /**
  * Run a function over matrix lines (rows or columns) with a variable number
  * row-vectors or column-vectors.
