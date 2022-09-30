@@ -18,7 +18,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <raft/core/macro_utils.hpp>
+#include <raft/core/detail/macros.hpp>
 
 #ifdef DEBUG
 #define COUT() (std::cout)

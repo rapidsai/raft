@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/macro_utils.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cudart_utils.hpp>

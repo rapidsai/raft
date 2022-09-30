@@ -18,9 +18,9 @@
 
 #include <memory>
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/core/macro_utils.hpp>
 #include <raft/cudart_utils.h>
 #include <raft/interruptible.hpp>
 #include <raft/random/make_blobs.cuh>
