@@ -51,6 +51,12 @@ struct MinAndDistanceReduceOpImpl {
     }
   }
 
+  DI void operator()(LabelT rid, DataT* out, const KVP& other)
+  {
+    if (other.value < *out) { *out = other.value; }
+  }
+
+  DI void init(DataT* out, DataT maxVal) { *out = maxVal; }
   DI void init(KVP* out, DataT maxVal)
   {
     out->key   = -1;
