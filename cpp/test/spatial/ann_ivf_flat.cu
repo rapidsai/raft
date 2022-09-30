@@ -31,6 +31,10 @@
 
 #include <thrust/sequence.h>
 
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#include <raft/cluster/specializations.cuh>
+#endif
+
 #include <cstddef>
 #include <iostream>
 #include <vector>
