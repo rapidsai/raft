@@ -118,10 +118,10 @@ HDI void ivfpq_encode_core(uint32_t n_rows, uint32_t pq_dim, const uint32_t* lab
 template <uint32_t BlockDim, uint32_t PqBits>
 __launch_bounds__(BlockDim) __global__
   void ivfpq_encode_kernel(uint32_t n_rows,
-                                    uint32_t pq_dim,
-                                    const uint32_t* label,  // [pq_dim, n_rows]
-                                    uint8_t* output         // [n_rows, pq_dim]
-)
+                           uint32_t pq_dim,
+                           const uint32_t* label,  // [pq_dim, n_rows]
+                           uint8_t* output         // [n_rows, pq_dim]
+  )
 {
   uint32_t i = threadIdx.x + BlockDim * blockIdx.x;
   if (i >= n_rows) return;
@@ -217,7 +217,7 @@ void select_residuals(const handle_t& handle,
                       uint32_t rot_dim,
                       const float* rotation_matrix,  // [rot_dim, dim]
                       const float* center,           // [dim]
-                      const T* dataset,              // [dim, ..]
+                      const T* dataset,              // [.., dim]
                       const IdxT* row_ids,           // [n_rows]
                       rmm::mr::device_memory_resource* device_memory
 
@@ -398,9 +398,9 @@ void compute_pq_codes(const handle_t& handle,
 
 template <uint32_t BlockDim, typename IdxT>
 __launch_bounds__(BlockDim) __global__ void fill_indices_kernel(IdxT n_rows,
-                                    IdxT* data_indices,
-                                    IdxT* data_offsets,
-                                    const uint32_t* labels)
+                                                                IdxT* data_indices,
+                                                                IdxT* data_offsets,
+                                                                const uint32_t* labels)
 {
   const auto i = BlockDim * IdxT(blockIdx.x) + IdxT(threadIdx.x);
   if (i >= n_rows) { return; }
@@ -456,6 +456,146 @@ auto calculate_offsets_and_indices(IdxT n_rows,
   fill_indices_kernel<n_threads>
     <<<n_blocks, n_threads, 0, stream>>>(n_rows, data_indices, data_offsets, labels);
   return max_cluster_size;
+}
+
+template <typename IdxT>
+void train_per_subset(const handle_t& handle,
+                      index<IdxT>& index,
+                      IdxT n_rows,
+                      const float* trainset,   // [n_rows, dim]
+                      const uint32_t* labels,  // [n_rows]
+                      uint32_t kmeans_n_iters,
+                      rmm::mr::device_memory_resource* managed_memory,
+                      rmm::mr::device_memory_resource* device_memory)
+{
+  auto stream = handle.get_stream();
+
+  rmm::device_uvector<float> sub_trainset(n_rows * index.pq_len(), stream, device_memory);
+  rmm::device_uvector<uint32_t> sub_labels(n_rows, stream, device_memory);
+
+  rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_book_size(), stream, device_memory);
+
+  for (uint32_t j = 0; j < index.pq_dim(); j++) {
+    common::nvtx::range<common::nvtx::domain::raft> pq_per_subspace_scope(
+      "ivf_pq::build::per_subspace[%u]", j);
+
+    // Get the rotated cluster centers for each training vector.
+    // This will be subtracted from the input vectors afterwards.
+    utils::copy_selected(n_rows,
+                         index.pq_len(),
+                         index.centers_rot().data_handle() + index.pq_len() * j,
+                         labels,
+                         index.rot_dim(),
+                         sub_trainset.data(),
+                         index.pq_len(),
+                         stream);
+
+    // sub_trainset is the slice of: rotate(trainset) - centers_rot
+    float alpha = 1.0;
+    float beta  = -1.0;
+    linalg::gemm(handle,
+                 true,
+                 false,
+                 index.pq_len(),
+                 n_rows,
+                 index.dim(),
+                 &alpha,
+                 index.rotation_matrix().data_handle() + index.dim() * index.pq_len() * j,
+                 index.dim(),
+                 trainset,
+                 index.dim(),
+                 &beta,
+                 sub_trainset.data(),
+                 index.pq_len(),
+                 stream);
+
+    // train PQ codebook for this subspace
+    kmeans::build_clusters(
+      handle,
+      kmeans_n_iters,
+      index.pq_len(),
+      sub_trainset.data(),
+      n_rows,
+      index.pq_book_size(),
+      index.pq_centers().data_handle() + (index.pq_book_size() * index.pq_len()) * j,
+      sub_labels.data(),
+      pq_cluster_sizes.data(),
+      raft::distance::DistanceType::L2Expanded,
+      stream,
+      device_memory);
+  }
+}
+
+template <typename IdxT>
+void train_per_cluster(const handle_t& handle,
+                       index<IdxT>& index,
+                       IdxT n_rows,
+                       const float* trainset,   // [n_rows, dim]
+                       const uint32_t* labels,  // [n_rows]
+                       uint32_t kmeans_n_iters,
+                       rmm::mr::device_memory_resource* managed_memory,
+                       rmm::mr::device_memory_resource* device_memory)
+{
+  auto stream = handle.get_stream();
+  rmm::device_uvector<uint32_t> cluster_sizes(index.n_lists(), stream, managed_memory);
+  rmm::device_uvector<IdxT> indices_buf(n_rows, stream, device_memory);
+  rmm::device_uvector<IdxT> offsets_buf(index.list_offsets().size(), stream, managed_memory);
+
+  raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
+                                         reinterpret_cast<int32_t*>(cluster_sizes.data()),
+                                         IdxT(index.n_lists()),
+                                         labels,
+                                         n_rows,
+                                         1,
+                                         stream);
+
+  auto cluster_offsets      = offsets_buf.data();
+  auto indices              = indices_buf.data();
+  uint32_t max_cluster_size = calculate_offsets_and_indices(
+    n_rows, index.n_lists(), labels, cluster_sizes.data(), cluster_offsets, indices, stream);
+
+  rmm::device_uvector<uint32_t> pq_labels(max_cluster_size * index.pq_dim(), stream, device_memory);
+  rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_book_size(), stream, device_memory);
+  rmm::device_uvector<float> rot_vectors(max_cluster_size * index.rot_dim(), stream, device_memory);
+
+  handle.sync_stream();  // make sure cluster offsets are up-to-date
+  for (uint32_t l = 0; l < index.n_lists(); l++) {
+    auto cluster_size = cluster_sizes.data()[l];
+    if (cluster_size == 0) continue;
+    common::nvtx::range<common::nvtx::domain::raft> pq_per_cluster_scope(
+      "ivf_pq::build::per_cluster[%u](size = %u)", l, cluster_size);
+
+    select_residuals(handle,
+                     rot_vectors.data(),
+                     IdxT(cluster_size),
+                     index.dim(),
+                     index.rot_dim(),
+                     index.rotation_matrix().data_handle(),
+                     index.centers().data_handle() + uint64_t(l) * index.dim_ext(),
+                     trainset,
+                     indices + cluster_offsets[l],
+                     device_memory);
+
+    // limit the cluster size to bound the training time.
+    // [sic] we interpret the data as pq_len-dimensional
+    size_t big_enough     = 256 * std::max(index.pq_book_size(), index.pq_dim());
+    size_t available_rows = cluster_size * index.pq_dim();
+    auto pq_n_rows        = uint32_t(std::min(big_enough, available_rows));
+    // train PQ codebook for this cluster
+    kmeans::build_clusters(
+      handle,
+      kmeans_n_iters,
+      index.pq_len(),
+      rot_vectors.data(),
+      pq_n_rows,
+      index.pq_book_size(),
+      index.pq_centers().data_handle() + index.pq_book_size() * index.pq_len() * l,
+      pq_labels.data(),
+      pq_cluster_sizes.data(),
+      raft::distance::DistanceType::L2Expanded,
+      stream,
+      device_memory);
+  }
 }
 
 /** See raft::spatial::knn::ivf_pq::extend docs */
@@ -778,7 +918,6 @@ inline auto build(
 
   ivf_pq::index<IdxT> index(handle, params, dim);
   utils::memzero(index.list_offsets().data_handle(), index.list_offsets().size(), stream);
-  utils::memzero(index.pq_centers().data_handle(), index.pq_centers().size(), stream);
 
   auto trainset_ratio = std::max<IdxT>(
     1, n_rows / std::max<IdxT>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
@@ -824,9 +963,6 @@ inline auto build(
   rmm::device_uvector<float> cluster_centers_buf(
     index.n_lists() * index.dim(), stream, device_memory);
   auto cluster_centers = cluster_centers_buf.data();
-  auto pq_centers      = index.pq_centers().data_handle();
-  auto rotation_matrix = index.rotation_matrix().data_handle();
-  auto centers_rot     = index.centers_rot().data_handle();
 
   // Train balanced hierarchical kmeans clustering
   kmeans::build_hierarchical(handle,
@@ -839,9 +975,49 @@ inline auto build(
                              index.metric(),
                              stream);
 
+  // Trainset labels are needed for training PQ codebooks
+  rmm::device_uvector<uint32_t> labels(n_rows_train, stream, device_memory);
+  kmeans::predict(handle,
+                  cluster_centers,
+                  index.n_lists(),
+                  index.dim(),
+                  trainset.data(),
+                  n_rows_train,
+                  labels.data(),
+                  index.metric(),
+                  stream,
+                  device_memory);
+
+  {
+    // combine cluster_centers and their norms
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle(),
+                                    sizeof(float) * index.dim_ext(),
+                                    cluster_centers,
+                                    sizeof(float) * index.dim(),
+                                    sizeof(float) * index.dim(),
+                                    index.n_lists(),
+                                    cudaMemcpyDefault,
+                                    stream));
+
+    rmm::device_uvector<float> center_norms(index.n_lists(), stream, device_memory);
+    utils::dots_along_rows(
+      index.n_lists(), index.dim(), cluster_centers, center_norms.data(), stream);
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle() + index.dim(),
+                                    sizeof(float) * index.dim_ext(),
+                                    center_norms.data(),
+                                    sizeof(float),
+                                    sizeof(float),
+                                    index.n_lists(),
+                                    cudaMemcpyDefault,
+                                    stream));
+  }
+
   // Make rotation matrix
-  make_rotation_matrix(
-    handle, params.force_random_rotation, index.rot_dim(), index.dim(), rotation_matrix);
+  make_rotation_matrix(handle,
+                       params.force_random_rotation,
+                       index.rot_dim(),
+                       index.dim(),
+                       index.rotation_matrix().data_handle());
 
   // Rotate cluster_centers
   float alpha = 1.0;
@@ -853,191 +1029,39 @@ inline auto build(
                index.n_lists(),
                index.dim(),
                &alpha,
-               rotation_matrix,
+               index.rotation_matrix().data_handle(),
                index.dim(),
                cluster_centers,
                index.dim(),
                &beta,
-               centers_rot,
+               index.centers_rot().data_handle(),
                index.rot_dim(),
                stream);
 
-  // Training PQ codebooks
+  // Train PQ codebooks
   switch (index.codebook_kind()) {
-    case codebook_gen::PER_SUBSPACE: {
-      rmm::device_uvector<uint32_t> trainset_labels(n_rows_train, stream, device_memory);
-
-      // Predict label of trainset again
-      kmeans::predict(handle,
-                      cluster_centers,
-                      index.n_lists(),
-                      index.dim(),
-                      trainset.data(),
-                      n_rows_train,
-                      trainset_labels.data(),
-                      index.metric(),
-                      stream,
-                      device_memory);
-
-      rmm::device_uvector<float> sub_trainset(n_rows_train * index.pq_len(), stream, device_memory);
-      rmm::device_uvector<uint32_t> sub_trainset_labels(n_rows_train, stream, device_memory);
-
-      rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_book_size(), stream, device_memory);
-
-      for (uint32_t j = 0; j < index.pq_dim(); j++) {
-        common::nvtx::range<common::nvtx::domain::raft> pq_per_subspace_scope(
-          "ivf_pq::build::per_subspace[%u]", j);
-
-        // Get the rotated cluster centers for each training vector.
-        // This will be subtracted from the input vectors afterwards.
-        utils::copy_selected(n_rows_train,
-                             index.pq_len(),
-                             centers_rot + index.pq_len() * j,
-                             trainset_labels.data(),
-                             index.rot_dim(),
-                             sub_trainset.data(),
-                             index.pq_len(),
-                             stream);
-
-        // sub_trainset is the slice of: rotate(trainset) - centers_rot
-        float alpha = 1.0;
-        float beta  = -1.0;
-        linalg::gemm(handle,
-                     true,
-                     false,
-                     index.pq_len(),
-                     n_rows_train,
-                     index.dim(),
-                     &alpha,
-                     rotation_matrix + index.dim() * index.pq_len() * j,
-                     index.dim(),
-                     trainset.data(),
-                     index.dim(),
-                     &beta,
-                     sub_trainset.data(),
-                     index.pq_len(),
-                     stream);
-
-        // train PQ codebook for this subspace
-        kmeans::build_clusters(handle,
-                               params.kmeans_n_iters,
-                               index.pq_len(),
-                               sub_trainset.data(),
-                               n_rows_train,
-                               index.pq_book_size(),
-                               pq_centers + (index.pq_book_size() * index.pq_len()) * j,
-                               sub_trainset_labels.data(),
-                               pq_cluster_sizes.data(),
-                               raft::distance::DistanceType::L2Expanded,
-                               stream,
-                               device_memory);
-      }
-    } break;
-    case codebook_gen::PER_CLUSTER: {
-      rmm::device_uvector<uint32_t> labels(n_rows_train, stream, device_memory);
-      rmm::device_uvector<uint32_t> cluster_sizes(index.n_lists(), stream, &managed_memory);
-      rmm::device_uvector<IdxT> indices_buf(n_rows_train, stream, device_memory);
-      rmm::device_uvector<IdxT> offsets_buf(index.list_offsets().size(), stream, &managed_memory);
-
-      kmeans::predict(handle,
-                      cluster_centers,
-                      index.n_lists(),
-                      index.dim(),
-                      trainset.data(),
-                      n_rows_train,
-                      labels.data(),
-                      index.metric(),
-                      stream,
-                      device_memory);
-
-      raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
-                                             reinterpret_cast<int32_t*>(cluster_sizes.data()),
-                                             IdxT(index.n_lists()),
-                                             labels.data(),
-                                             n_rows_train,
-                                             1,
-                                             stream);
-
-      auto cluster_offsets      = offsets_buf.data();
-      auto data_indices         = indices_buf.data();
-      uint32_t max_cluster_size = calculate_offsets_and_indices(n_rows_train,
-                                                                index.n_lists(),
-                                                                labels.data(),
-                                                                cluster_sizes.data(),
-                                                                cluster_offsets,
-                                                                data_indices,
-                                                                stream);
-
-      rmm::device_uvector<uint32_t> rot_vector_labels(
-        max_cluster_size * index.pq_dim(), stream, device_memory);
-      rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_book_size(), stream, device_memory);
-
-      rmm::device_uvector<float> rot_vectors(
-        max_cluster_size * index.rot_dim(), stream, device_memory);
-
-      handle.sync_stream();  // make sure cluster offsets are up-to-date
-      for (uint32_t l = 0; l < index.n_lists(); l++) {
-        auto cluster_size = cluster_sizes.data()[l];
-        if (cluster_size == 0) continue;
-        common::nvtx::range<common::nvtx::domain::raft> pq_per_cluster_scope(
-          "ivf_pq::build::per_cluster[%u](size = %u)", l, cluster_size);
-
-        select_residuals(handle,
-                         rot_vectors.data(),
-                         IdxT(cluster_size),
-                         index.dim(),
-                         index.rot_dim(),
-                         rotation_matrix,
-                         cluster_centers + uint64_t(l) * index.dim(),
-                         trainset.data(),
-                         data_indices + cluster_offsets[l],
-                         device_memory);
-
-        // limit the cluster size to bound the training time.
-        // [sic] we interpret the data as pq_len-dimensional
-        size_t big_enough     = 256 * std::max(index.pq_book_size(), index.pq_dim());
-        size_t available_rows = cluster_size * index.pq_dim();
-        auto pq_n_rows        = uint32_t(std::min(big_enough, available_rows));
-        // train PQ codebook for this cluster
-        kmeans::build_clusters(handle,
-                               params.kmeans_n_iters,
-                               index.pq_len(),
-                               rot_vectors.data(),
-                               pq_n_rows,
-                               index.pq_book_size(),
-                               pq_centers + index.pq_book_size() * index.pq_len() * l,
-                               rot_vector_labels.data(),
-                               pq_cluster_sizes.data(),
-                               raft::distance::DistanceType::L2Expanded,
-                               stream,
-                               device_memory);
-      }
-
-    } break;
+    case codebook_gen::PER_SUBSPACE:
+      train_per_subset(handle,
+                       index,
+                       n_rows_train,
+                       trainset.data(),
+                       labels.data(),
+                       params.kmeans_n_iters,
+                       &managed_memory,
+                       device_memory);
+      break;
+    case codebook_gen::PER_CLUSTER:
+      train_per_cluster(handle,
+                        index,
+                        n_rows_train,
+                        trainset.data(),
+                        labels.data(),
+                        params.kmeans_n_iters,
+                        &managed_memory,
+                        device_memory);
+      break;
     default: RAFT_FAIL("Unreachable code");
   }
-
-  // combine cluster_centers and their norms
-  RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle(),
-                                  sizeof(float) * index.dim_ext(),
-                                  cluster_centers,
-                                  sizeof(float) * index.dim(),
-                                  sizeof(float) * index.dim(),
-                                  index.n_lists(),
-                                  cudaMemcpyDefault,
-                                  stream));
-
-  rmm::device_uvector<float> center_norms(index.n_lists(), stream, device_memory);
-  utils::dots_along_rows(
-    index.n_lists(), index.dim(), cluster_centers, center_norms.data(), stream);
-  RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle() + index.dim(),
-                                  sizeof(float) * index.dim_ext(),
-                                  center_norms.data(),
-                                  sizeof(float),
-                                  sizeof(float),
-                                  index.n_lists(),
-                                  cudaMemcpyDefault,
-                                  stream));
 
   // add the data if necessary
   if (params.add_data_on_build) {
