@@ -18,6 +18,7 @@
 
 #include "ann_utils.cuh"
 
+#include <thrust/gather.h>
 #include <thrust/transform.h>
 
 #include <raft/common/nvtx.hpp>
@@ -831,15 +832,11 @@ auto build_fine_clusters(const handle_t& handle,
                          stream);
     if (metric == raft::distance::DistanceType::L2Expanded ||
         metric == raft::distance::DistanceType::L2SqrtExpanded) {
-      // todo(lsugy): more efficient kernel (for dim=1)
-      utils::copy_selected((IdxT)mesocluster_sizes[i],
-                           (IdxT)1,
-                           dataset_norm_mptr,
-                           mc_trainset_ids,
-                           (IdxT)1,
-                           mc_trainset_norm,
-                           (IdxT)1,
-                           stream);
+      thrust::gather(handle.get_thrust_policy(),
+                     mc_trainset_ids,
+                     mc_trainset_ids + mesocluster_sizes[i],
+                     dataset_norm_mptr,
+                     mc_trainset_norm);
     }
 
     build_clusters<float, IdxT, LabelT>(handle,
