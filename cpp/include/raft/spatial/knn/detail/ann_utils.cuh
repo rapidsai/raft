@@ -151,17 +151,16 @@ inline void memzero(T* ptr, IdxT n_elems, rmm::cuda_stream_view stream)
   }
 }
 
-template <typename IdxT, typename LabelT>
-__global__ void argmin_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const float* a, LabelT* out)
+template <typename IdxT, typename OutT>
+__global__ void argmin_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const float* a, OutT* out)
 {
-  __shared__ uint8_t shm_ids_uint8[1024 * sizeof(LabelT)];  // NOLINT
-  __shared__ float shm_vals[1024];                          // NOLINT
-  LabelT* shm_ids = reinterpret_cast<LabelT*>(shm_ids_uint8);
-  IdxT i          = blockIdx.x;
+  __shared__ OutT shm_ids[1024];    // NOLINT
+  __shared__ float shm_vals[1024];  // NOLINT
+  IdxT i = blockIdx.x;
   if (i >= n_rows) return;
-  LabelT min_idx = n_cols;
-  float min_val  = raft::upper_bound<float>();
-  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
+  OutT min_idx  = n_cols;
+  float min_val = raft::upper_bound<float>();
+  for (OutT j = threadIdx.x; j < n_cols; j += blockDim.x) {
     if (min_val > a[j + n_cols * i]) {
       min_val = a[j + n_cols * i];
       min_idx = j;
@@ -191,8 +190,8 @@ __global__ void argmin_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const flo
  * NB: device-only function
  * TODO: specialize select_k for the case of `k == 1` and use that one instead.
  *
- * @tparam IdxT   index type
- * @tparam LabelT label type
+ * @tparam IdxT index type
+ * @tparam OutT output type
  *
  * @param n_rows
  * @param n_cols
@@ -200,20 +199,20 @@ __global__ void argmin_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const flo
  * @param[out] out device pointer to the vector of selected indices [n_rows]
  * @param stream
  */
-template <typename IdxT, typename LabelT>
+template <typename IdxT, typename OutT>
 inline void argmin_along_rows(
-  IdxT n_rows, uint32_t n_cols, const float* a, LabelT* out, rmm::cuda_stream_view stream)
+  IdxT n_rows, IdxT n_cols, const float* a, OutT* out, rmm::cuda_stream_view stream)
 {
-  uint32_t block_dim = 1024;
+  IdxT block_dim = 1024;
   while (block_dim > n_cols) {
     block_dim /= 2;
   }
-  block_dim = max(block_dim, 128);
-  argmin_along_rows_kernel<<<n_rows, block_dim, 0, stream>>>(n_rows, n_cols, a, out);
+  block_dim = max(block_dim, (IdxT)128);
+  argmin_along_rows_kernel<IdxT, OutT><<<n_rows, block_dim, 0, stream>>>(n_rows, n_cols, a, out);
 }
 
 template <typename IdxT>
-__global__ void dots_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const float* a, float* out)
+__global__ void dots_along_rows_kernel(IdxT n_rows, IdxT n_cols, const float* a, float* out)
 {
   IdxT i = threadIdx.y + (blockDim.y * static_cast<IdxT>(blockIdx.x));
   if (i >= n_rows) return;
@@ -246,11 +245,11 @@ __global__ void dots_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const float
  */
 template <typename IdxT>
 inline void dots_along_rows(
-  IdxT n_rows, uint32_t n_cols, const float* a, float* out, rmm::cuda_stream_view stream)
+  IdxT n_rows, IdxT n_cols, const float* a, float* out, rmm::cuda_stream_view stream)
 {
   dim3 threads(32, 4, 1);
-  dim3 blocks(ceildiv(n_rows, threads.y), 1, 1);
-  dots_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, a, out);
+  dim3 blocks(ceildiv<IdxT>(n_rows, threads.y), 1, 1);
+  dots_along_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a, out);
   /**
    * TODO: this can be replaced with the rowNorm helper as shown below.
    * However, the rowNorm helper seems to incur a significant performance penalty
@@ -327,7 +326,7 @@ void accumulate_into_selected(IdxT n_rows,
 }
 
 template <typename IdxT>
-__global__ void normalize_rows_kernel(IdxT n_rows, uint32_t n_cols, float* a)
+__global__ void normalize_rows_kernel(IdxT n_rows, IdxT n_cols, float* a)
 {
   IdxT i = threadIdx.y + (blockDim.y * static_cast<IdxT>(blockIdx.x));
   if (i >= n_rows) return;
@@ -362,11 +361,11 @@ __global__ void normalize_rows_kernel(IdxT n_rows, uint32_t n_cols, float* a)
  * @param stream
  */
 template <typename IdxT>
-inline void normalize_rows(IdxT n_rows, uint32_t n_cols, float* a, rmm::cuda_stream_view stream)
+inline void normalize_rows(IdxT n_rows, IdxT n_cols, float* a, rmm::cuda_stream_view stream)
 {
   dim3 threads(32, 4, 1);  // DO NOT CHANGE
   dim3 blocks(ceildiv(n_rows, threads.y), 1, 1);
-  normalize_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
+  normalize_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
 }
 
 template <typename IdxT, typename Lambda>
@@ -404,7 +403,7 @@ inline void map_along_rows(IdxT n_rows,
                            rmm::cuda_stream_view stream)
 {
   dim3 threads(128, 1, 1);
-  dim3 blocks(ceildiv<IdxT>(n_rows * static_cast<IdxT>(n_cols), threads.x), 1, 1);
+  dim3 blocks(ceildiv<IdxT>(n_rows * n_cols, threads.x), 1, 1);
   map_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, m, v, op);
 }
 

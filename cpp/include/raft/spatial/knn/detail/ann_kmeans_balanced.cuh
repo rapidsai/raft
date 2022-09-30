@@ -149,7 +149,8 @@ inline void predict_float_core(const handle_t& handle,
                    distances.data(),
                    n_clusters,
                    stream);
-      utils::argmin_along_rows(n_rows, n_clusters, distances.data(), labels, stream);
+      utils::argmin_along_rows(
+        n_rows, static_cast<IdxT>(n_clusters), distances.data(), labels, stream);
       break;
     }
     default: {
@@ -615,7 +616,7 @@ void balancing_em_iters(const handle_t& handle,
       case raft::distance::DistanceType::InnerProduct:
       case raft::distance::DistanceType::CosineExpanded:
       case raft::distance::DistanceType::CorrelationExpanded:
-        utils::normalize_rows(n_clusters, dim, cluster_centers, stream);
+        utils::normalize_rows<uint32_t>(n_clusters, dim, cluster_centers, stream);
       default: break;
     }
     // E: Expectation step - predict labels
