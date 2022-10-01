@@ -75,8 +75,8 @@ void sample_landmarks(const raft::handle_t& handle,
   rmm::device_uvector<value_idx> R_indices(index.n_landmarks, handle.get_stream());
 
   thrust::sequence(handle.get_thrust_policy(),
-                   index.get_R_1nn_cols(),
-                   index.get_R_1nn_cols() + index.m,
+                   index.get_R_1nn_cols().data_handle(),
+                   index.get_R_1nn_cols().data_handle() + index.m,
                    (value_idx)0);
 
   thrust::fill(
@@ -93,15 +93,15 @@ void sample_landmarks(const raft::handle_t& handle,
                                          rng_state,
                                          R_indices.data(),
                                          R_1nn_cols2.data(),
-                                         index.get_R_1nn_cols(),
+                                         index.get_R_1nn_cols().data_handle(),
                                          R_1nn_ones.data(),
                                          (value_idx)index.n_landmarks,
                                          (value_idx)index.m);
 
-  raft::matrix::copyRows<value_t, value_idx, size_t>(index.get_X(),
+  raft::matrix::copyRows<value_t, value_idx, size_t>(index.get_X().data_handle(),
                                                      index.m,
                                                      index.n,
-                                                     index.get_R(),
+                                                     index.get_R().data_handle(),
                                                      R_1nn_cols2.data(),
                                                      index.n_landmarks,
                                                      handle.get_stream(),
@@ -133,7 +133,7 @@ void construct_landmark_1nn(const raft::handle_t& handle,
                std::numeric_limits<value_idx>::max());
 
   value_idx* R_1nn_inds_ptr = R_1nn_inds.data();
-  value_t* R_1nn_dists_ptr  = index.get_R_1nn_dists();
+  value_t* R_1nn_dists_ptr  = index.get_R_1nn_dists().data_handle();
 
   auto idxs = thrust::make_counting_iterator<value_idx>(0);
   thrust::for_each(handle.get_thrust_policy(), idxs, idxs + index.m, [=] __device__(value_idx i) {
@@ -141,16 +141,22 @@ void construct_landmark_1nn(const raft::handle_t& handle,
     R_1nn_dists_ptr[i] = R_knn_dists_ptr[i * k];
   });
 
-  auto keys =
-    thrust::make_zip_iterator(thrust::make_tuple(R_1nn_inds.data(), index.get_R_1nn_dists()));
+  auto keys = thrust::make_zip_iterator(
+    thrust::make_tuple(R_1nn_inds.data(), index.get_R_1nn_dists().data_handle()));
 
   // group neighborhoods for each reference landmark and sort each group by distance
-  thrust::sort_by_key(
-    handle.get_thrust_policy(), keys, keys + index.m, index.get_R_1nn_cols(), NNComp());
+  thrust::sort_by_key(handle.get_thrust_policy(),
+                      keys,
+                      keys + index.m,
+                      index.get_R_1nn_cols().data_handle(),
+                      NNComp());
 
   // convert to CSR for fast lookup
-  raft::sparse::convert::sorted_coo_to_csr(
-    R_1nn_inds.data(), index.m, index.get_R_indptr(), index.n_landmarks + 1, handle.get_stream());
+  raft::sparse::convert::sorted_coo_to_csr(R_1nn_inds.data(),
+                                           index.m,
+                                           index.get_R_indptr().data_handle(),
+                                           index.n_landmarks + 1,
+                                           handle.get_stream());
 }
 
 /**
@@ -175,7 +181,7 @@ void k_closest_landmarks(const raft::handle_t& handle,
                          value_idx* R_knn_inds,
                          value_t* R_knn_dists)
 {
-  std::vector<value_t*> input      = {index.get_R()};
+  std::vector<value_t*> input      = {index.get_R().data_handle()};
   std::vector<std::uint32_t> sizes = {index.n_landmarks};
 
   brute_force_knn_impl<value_int, value_idx>(handle,
@@ -207,9 +213,9 @@ void compute_landmark_radii(const raft::handle_t& handle,
 {
   auto entries = thrust::make_counting_iterator<value_idx>(0);
 
-  const value_idx* R_indptr_ptr  = index.get_R_indptr();
-  const value_t* R_1nn_dists_ptr = index.get_R_1nn_dists();
-  value_t* R_radius_ptr          = index.get_R_radius();
+  const value_idx* R_indptr_ptr  = index.get_R_indptr().data_handle();
+  const value_t* R_1nn_dists_ptr = index.get_R_1nn_dists().data_handle();
+  value_t* R_radius_ptr          = index.get_R_radius().data_handle();
   thrust::for_each(handle.get_thrust_policy(),
                    entries,
                    entries + index.n_landmarks,
@@ -350,8 +356,8 @@ void rbc_build_index(const raft::handle_t& handle,
                R_knn_inds.end(),
                std::numeric_limits<value_idx>::max());
   thrust::fill(handle.get_thrust_policy(),
-               index.get_R_closest_landmark_dists(),
-               index.get_R_closest_landmark_dists() + index.m,
+               index.get_R_closest_landmark_dists().data_handle(),
+               index.get_R_closest_landmark_dists().data_handle() + index.m,
                std::numeric_limits<value_t>::max());
 
   /**
@@ -365,11 +371,11 @@ void rbc_build_index(const raft::handle_t& handle,
   value_int k = 1;
   k_closest_landmarks(handle,
                       index,
-                      index.get_X(),
+                      index.get_X().data_handle(),
                       index.m,
                       k,
                       R_knn_inds.data(),
-                      index.get_R_closest_landmark_dists());
+                      index.get_R_closest_landmark_dists().data_handle());
 
   /**
    * 3. Create L_r = knn[:,0].T (CSR)
@@ -377,7 +383,8 @@ void rbc_build_index(const raft::handle_t& handle,
    * Slice closest neighboring R
    * Secondary sort by (R_knn_inds, R_knn_dists)
    */
-  construct_landmark_1nn(handle, R_knn_inds.data(), index.get_R_closest_landmark_dists(), k, index);
+  construct_landmark_1nn(
+    handle, R_knn_inds.data(), index.get_R_closest_landmark_dists().data_handle(), k, index);
 
   /**
    * Compute radius of each R for filtering: p(q, r) <= p(q, q_r) + radius(r)
@@ -432,7 +439,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
   sample_landmarks<value_idx, value_t>(handle, index);
 
   k_closest_landmarks(
-    handle, index, index.get_X(), index.m, k, R_knn_inds.data(), R_knn_dists.data());
+    handle, index, index.get_X().data_handle(), index.m, k, R_knn_inds.data(), R_knn_dists.data());
 
   construct_landmark_1nn(handle, R_knn_inds.data(), R_knn_dists.data(), k, index);
 
@@ -440,7 +447,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
 
   perform_rbc_query(handle,
                     index,
-                    index.get_X(),
+                    index.get_X().data_handle(),
                     index.m,
                     k,
                     R_knn_inds.data(),

@@ -18,6 +18,7 @@
 
 #include "detail/knn_brute_force_faiss.cuh"
 #include "detail/selection_faiss.cuh"
+#include <raft/core/device_mdspan.hpp>
 
 #include "detail/topk/radix_topk.cuh"
 #include "detail/topk/warpsort_topk.cuh"
@@ -224,4 +225,5 @@ void brute_force_knn(raft::handle_t const& handle,
                                metric,
                                metric_arg);
 }
+
 }  // namespace raft::spatial::knn
