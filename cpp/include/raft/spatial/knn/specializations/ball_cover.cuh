@@ -34,7 +34,7 @@ extern template void rbc_build_index<std::int64_t, float, std::uint32_t, std::ui
 
 extern template void rbc_knn_query<std::int64_t, float, std::uint32_t>(
   const raft::handle_t& handle,
-  BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
+  const BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
   std::uint32_t k,
   const float* query,
   std::uint32_t n_query_pts,

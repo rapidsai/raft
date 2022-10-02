@@ -54,7 +54,7 @@ void single_linkage(const raft::handle_t& handle,
                     size_t m,
                     size_t n,
                     raft::distance::DistanceType metric,
-                    linkage_output<value_idx, value_t>* out,
+                    linkage_output<value_idx>* out,
                     int c,
                     size_t n_clusters)
 {

@@ -203,7 +203,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
  */
 template <typename idx_t, typename value_t, typename int_t>
 void rbc_knn_query(const raft::handle_t& handle,
-                   BallCoverIndex<idx_t, value_t, int_t>& index,
+                   const BallCoverIndex<idx_t, value_t, int_t>& index,
                    int_t k,
                    const value_t* query,
                    int_t n_query_pts,
@@ -272,7 +272,7 @@ void rbc_knn_query(const raft::handle_t& handle,
  */
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
 void rbc_knn_query(const raft::handle_t& handle,
-                   BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
+                   const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                    raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
                    raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
                    raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
@@ -289,7 +289,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                "Number of rows in output indices and distances matrices must equal number of rows "
                "in search matrix.");
 
-  RAFT_EXPECTS(query.extent(1) == index.get_R().extent(1),
+  RAFT_EXPECTS(query.extent(1) == index.get_X().extent(1),
                "Number of columns in query and index matrices must match.");
 
   rbc_knn_query(handle,

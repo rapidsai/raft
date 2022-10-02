@@ -24,6 +24,7 @@
 #include <raft/spatial/knn/specializations.cuh>
 #endif
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/sparse/hierarchy/single_linkage.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -175,23 +176,24 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     raft::copy(data.data(), params.data.data(), data.size(), stream);
     raft::copy(labels_ref.data(), params.expected_labels.data(), params.n_row, stream);
 
-    raft::hierarchy::linkage_output<IdxT, T> out_arrs;
-    out_arrs.labels = labels.data();
-
     rmm::device_uvector<IdxT> out_children(params.n_row * 2, stream);
 
-    out_arrs.children = out_children.data();
-
     raft::handle_t handle;
-    raft::hierarchy::single_linkage<IdxT, T, raft::hierarchy::LinkageDistance::KNN_GRAPH>(
+
+    auto data_view =
+      raft::make_device_matrix_view<T, IdxT, row_major>(data.data(), params.n_row, params.n_col);
+    auto dendrogram_view =
+      raft::make_device_matrix_view<IdxT, IdxT, row_major>(out_children.data(), params.n_row, 2);
+    auto labels_view = raft::make_device_vector_view<IdxT, IdxT>(labels.data(), params.n_row);
+
+    raft::cluster::single_linkage<T, IdxT, raft::hierarchy::LinkageDistance::KNN_GRAPH>(
       handle,
-      data.data(),
-      params.n_row,
-      params.n_col,
+      data_view,
+      dendrogram_view,
+      labels_view,
       raft::distance::DistanceType::L2SqrtExpanded,
-      &out_arrs,
-      params.c,
-      params.n_clusters);
+      params.n_clusters,
+      std::make_optional<int>(params.c));
 
     handle.sync_stream(stream);
 

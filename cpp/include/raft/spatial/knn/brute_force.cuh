@@ -42,7 +42,6 @@ namespace raft::spatial::knn {
  * @param[out] out_keys matrix of output keys (size n_samples * k)
  * @param[out] out_values matrix of output values (size n_samples * k)
  * @param[in] n_samples number of rows in each part
- * @param[in] k number of neighbors for each part
  * @param[in] translations optional vector of starting index mappings for each partition
  */
 template <typename idx_t, typename value_t>
@@ -53,7 +52,6 @@ inline void knn_merge_parts(
   raft::device_matrix_view<value_t, idx_t, row_major> out_keys,
   raft::device_matrix_view<idx_t, idx_t, row_major> out_values,
   size_t n_samples,
-  int k,
   std::optional<raft::device_vector_view<idx_t, idx_t>> translations = std::nullopt)
 {
   RAFT_EXPECTS(in_keys.extent(1) == in_values.extent(1) && in_keys.extent(0) == in_values.extent(0),
@@ -61,7 +59,7 @@ inline void knn_merge_parts(
   RAFT_EXPECTS(
     out_keys.extent(0) == out_values.extent(0) == n_samples,
     "Number of rows in output keys and val matrices must equal number of rows in search matrix.");
-  RAFT_EXPECTS(out_keys.extent(1) == out_values.extent(1) == k,
+  RAFT_EXPECTS(out_keys.extent(1) == out_values.extent(1) == in_keys.extent(1),
                "Number of columns in output indices and distances matrices must be equal to k");
 
   auto n_parts = in_keys.extent(0) / n_samples;
@@ -71,7 +69,7 @@ inline void knn_merge_parts(
                           out_values.data_handle(),
                           n_samples,
                           n_parts,
-                          k,
+                          in_keys.extent(1),
                           handle.get_stream(),
                           translations.value_or(nullptr));
 }

@@ -82,6 +82,8 @@ if(BUILD_TESTS)
             PATH
             test/cluster/kmeans.cu
             test/cluster_solvers.cu
+            test/sparse/linkage.cu
+            OPTIONAL DIST NN
     )
 
     ConfigureTest(NAME CORE_TEST
@@ -212,7 +214,6 @@ if(BUILD_TESTS)
             test/sparse/connect_components.cu
             test/sparse/knn.cu
             test/sparse/knn_graph.cu
-            test/sparse/linkage.cu
             OPTIONAL DIST NN
     )
 
