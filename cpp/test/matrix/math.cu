@@ -185,7 +185,8 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     auto out_recip_view = raft::make_device_matrix_view<T>(out_recip.data(), 4, 1);
 
     // this `reciprocal()` has to go first bc next one modifies its input
-    reciprocal<T>(handle, in_recip_view, out_recip_view, recip_scalar);
+    reciprocal<T>(
+      handle, in_recip_view, out_recip_view, raft::make_host_scalar_view(&recip_scalar));
 
     auto inout_recip_view = raft::make_device_matrix_view<T>(in_recip.data(), 4, 1);
 

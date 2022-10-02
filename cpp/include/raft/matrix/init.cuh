@@ -35,9 +35,10 @@ template <typename math_t, typename idx_t, typename layout>
 void fill(const raft::handle_t& handle,
           raft::device_matrix_view<const math_t, idx_t, layout> in,
           raft::device_matrix_view<math_t, idx_t, layout> out,
-          math_t scalar)
+          raft::host_scalar_view<math_t> scalar)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be the same size.");
-  detail::setValue(out.data_handle(), in.data_handle(), scalar, in.size(), handle.get_stream());
+  detail::setValue(
+    out.data_handle(), in.data_handle(), *(scalar.data_handle()), in.size(), handle.get_stream());
 }
 }  // namespace raft::matrix

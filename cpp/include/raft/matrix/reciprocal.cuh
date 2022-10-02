@@ -37,13 +37,18 @@ template <typename math_t, typename idx_t, typename layout>
 void reciprocal(const raft::handle_t& handle,
                 raft::device_matrix_view<const math_t, idx_t, layout> in,
                 raft::device_matrix_view<math_t, idx_t, layout> out,
-                math_t scalar,
+                raft::host_scalar_view<math_t> scalar,
                 bool setzero = false,
                 math_t thres = 1e-15)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have the same size.");
-  detail::reciprocal<math_t>(
-    in.data_handle(), out.data_handle(), scalar, in.size(), handle.get_stream(), setzero, thres);
+  detail::reciprocal<math_t>(in.data_handle(),
+                             out.data_handle(),
+                             *(scalar.data_handle()),
+                             in.size(),
+                             handle.get_stream(),
+                             setzero,
+                             thres);
 }
 
 /**
@@ -61,11 +66,15 @@ void reciprocal(const raft::handle_t& handle,
 template <typename math_t, typename idx_t, typename layout>
 void reciprocal(const raft::handle_t& handle,
                 raft::device_matrix_view<math_t, idx_t, layout> inout,
-                math_t scalar,
+                raft::host_scalar_view<math_t> scalar,
                 bool setzero = false,
                 math_t thres = 1e-15)
 {
-  detail::reciprocal<math_t>(
-    inout.data_handle(), scalar, inout.size(), handle.get_stream(), setzero, thres);
+  detail::reciprocal<math_t>(inout.data_handle(),
+                             *(scalar.data_handle()),
+                             inout.size(),
+                             handle.get_stream(),
+                             setzero,
+                             thres);
 }
 }  // namespace raft::matrix
