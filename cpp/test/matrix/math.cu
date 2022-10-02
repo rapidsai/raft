@@ -190,7 +190,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
 
     auto inout_recip_view = raft::make_device_matrix_view<T>(in_recip.data(), 4, 1);
 
-    reciprocal<T>(handle, inout_recip_view, recip_scalar, true);
+    reciprocal<T>(handle, inout_recip_view, raft::make_host_scalar_view(&recip_scalar), true);
 
     std::vector<T> in_small_val_zero_h     = {0.1, 1e-16, -1e-16, -0.1};
     std::vector<T> in_small_val_zero_ref_h = {0.1, 0.0, 0.0, -0.1};
