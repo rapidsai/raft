@@ -255,5 +255,4 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
     return unravel_index_impl<uint32_t>(static_cast<uint32_t>(idx), shape);
   }
 }
-
 }  // namespace raft

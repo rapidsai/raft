@@ -174,15 +174,16 @@ void construct_landmark_1nn(const raft::handle_t& handle,
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
 void k_closest_landmarks(const raft::handle_t& handle,
-                         BallCoverIndex<value_idx, value_t, value_int>& index,
+                         const BallCoverIndex<value_idx, value_t, value_int>& index,
                          const value_t* query_pts,
                          value_int n_query_pts,
                          value_int k,
                          value_idx* R_knn_inds,
                          value_t* R_knn_dists)
 {
-  std::vector<value_t*> input      = {index.get_R().data_handle()};
-  std::vector<std::uint32_t> sizes = {index.n_landmarks};
+  // TODO: Add const to the brute-force knn inputs
+  std::vector<value_t*> input  = {const_cast<value_t*>(index.get_R().data_handle())};
+  std::vector<value_int> sizes = {index.n_landmarks};
 
   brute_force_knn_impl<value_int, value_idx>(handle,
                                              input,
@@ -196,7 +197,7 @@ void k_closest_landmarks(const raft::handle_t& handle,
                                              true,
                                              true,
                                              nullptr,
-                                             index.metric);
+                                             index.get_metric());
 }
 
 /**
@@ -240,7 +241,7 @@ template <typename value_idx,
           typename value_int = std::uint32_t,
           typename dist_func>
 void perform_rbc_query(const raft::handle_t& handle,
-                       BallCoverIndex<value_idx, value_t, value_int>& index,
+                       const BallCoverIndex<value_idx, value_t, value_int>& index,
                        const value_t* query,
                        value_int n_query_pts,
                        std::uint32_t k,
@@ -470,7 +471,7 @@ template <typename value_idx = std::int64_t,
           typename value_int = std::uint32_t,
           typename distance_func>
 void rbc_knn_query(const raft::handle_t& handle,
-                   BallCoverIndex<value_idx, value_t, value_int>& index,
+                   const BallCoverIndex<value_idx, value_t, value_int>& index,
                    value_int k,
                    const value_t* query,
                    value_int n_query_pts,
