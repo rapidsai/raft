@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/core/host_mdspan.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/matrix/detail/math.cuh>
 
 namespace raft::matrix {
