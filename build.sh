@@ -218,7 +218,9 @@ fi
 
 if hasArg bench || (( ${NUMARGS} == 0 )); then
     BUILD_BENCH=ON
+    COMPILE_DIST_LIBRARY=ON
     ENABLE_NN_DEPENDENCIES=ON
+    COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};bench_raft"
 fi
 
