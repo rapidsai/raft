@@ -185,8 +185,9 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
       handle,
       raft::make_device_matrix_view<const DataT>(d_X.data(), nRows, nCols),
       raft::make_device_vector_view<const LabelT>(d_labels.data(), nRows),
-      std::make_optional(raft::make_device_vector_view(sampleSilScore.data(), chunk)),
+      std::make_optional(raft::make_device_vector_view(sampleSilScore.data(), nRows)),
       nLabels,
+      chunk,
       params.metric);
   }
 
