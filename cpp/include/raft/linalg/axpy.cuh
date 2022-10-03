@@ -70,6 +70,7 @@ void axpy(const raft::handle_t& handle,
  */
 template <typename InType,
           typename OutType,
+          typename ScalarIdxType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
 void axpy(const raft::handle_t& handle,
@@ -79,7 +80,7 @@ void axpy(const raft::handle_t& handle,
           const int incx,
           const int incy)
 {
-  RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input")
+  RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input");
 
   axpy<typename InType::value_type, true>(handle,
                                           y.size(),
@@ -105,6 +106,8 @@ void axpy(const raft::handle_t& handle,
  * @param [in] incy stride between consecutive elements of y
  */
 template <typename InType,
+          typename OutType,
+          typename ScalarIdxType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
 void axpy(const raft::handle_t& handle,
@@ -114,7 +117,7 @@ void axpy(const raft::handle_t& handle,
           const int incx,
           const int incy)
 {
-  RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input")
+  RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input");
 
   axpy<typename InType::value_type, false>(handle,
                                            y.size(),
