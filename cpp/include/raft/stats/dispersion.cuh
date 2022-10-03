@@ -60,6 +60,8 @@ DataT dispersion(const DataT* centroids,
 /**
  * @brief Compute cluster dispersion metric. This is very useful for
  * automatically finding the 'k' (in kmeans) that improves this metric.
+ * The cluster dispersion metric is defined as the square root of the sum of the
+ * squared distances between the cluster centroids and the global centroid
  * @tparam value_t data type
  * @tparam idx_t index type
  * @param[in]  handle the raft handle
