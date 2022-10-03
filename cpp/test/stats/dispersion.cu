@@ -64,7 +64,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     for (const auto& val : h_counts) {
       npoints += val;
     }
-    actualVal = dispersion(
+    actualVal = cluster_dispersion(
       handle,
       raft::make_device_matrix_view<const T, int>(data.data(), params.clusters, params.dim),
       raft::make_device_vector_view<const int, int>(counts.data(), params.clusters),

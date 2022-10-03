@@ -103,7 +103,7 @@ void vars(Type* var,
  * whether
  *  to normalize the output using N-1 or N, for true or false, respectively
  */
-template <typename value_t, typename idx_t = int, typename layout_t>
+template <typename value_t, typename idx_t, typename layout_t>
 void stddev(const raft::handle_t& handle,
             raft::device_matrix_view<const value_t, idx_t, layout_t> data,
             raft::device_vector_view<const value_t, idx_t> mu,
@@ -143,7 +143,7 @@ void stddev(const raft::handle_t& handle,
  * whether
  *  to normalize the output using N-1 or N, for true or false, respectively
  */
-template <typename value_t, typename idx_t = int, typename layout_t>
+template <typename value_t, typename idx_t, typename layout_t>
 void vars(const raft::handle_t& handle,
           raft::device_matrix_view<const value_t, idx_t, layout_t> data,
           raft::device_vector_view<const value_t, idx_t> mu,

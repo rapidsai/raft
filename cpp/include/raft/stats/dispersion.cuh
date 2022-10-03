@@ -73,11 +73,12 @@ DataT dispersion(const DataT* centroids,
  * @return the cluster dispersion value
  */
 template <typename value_t, typename idx_t>
-value_t dispersion(const raft::handle_t& handle,
-                   raft::device_matrix_view<const value_t, idx_t, raft::row_major> centroids,
-                   raft::device_vector_view<const idx_t, idx_t> cluster_sizes,
-                   std::optional<raft::device_vector_view<value_t, idx_t>> global_centroid,
-                   const idx_t n_points)
+value_t cluster_dispersion(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<const value_t, idx_t, raft::row_major> centroids,
+  raft::device_vector_view<const idx_t, idx_t> cluster_sizes,
+  std::optional<raft::device_vector_view<value_t, idx_t>> global_centroid,
+  const idx_t n_points)
 {
   RAFT_EXPECTS(cluster_sizes.extent(0) == centroids.extent(0), "Size mismatch");
   RAFT_EXPECTS(cluster_sizes.is_exhaustive(), "cluster_sizes must be contiguous");

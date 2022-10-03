@@ -106,7 +106,7 @@ void colWeightedMean(
  * @param[out] mu the output mean vector of size ncols if along_row is true, else of size nrows
  * @param[in]  along_rows whether to reduce along rows or columns
  */
-template <typename value_t, typename idx_t = int, typename layout_t>
+template <typename value_t, typename idx_t, typename layout_t>
 void weighted_mean(const raft::handle_t& handle,
                    raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                    raft::device_vector_view<const value_t, idx_t> weights,
@@ -147,13 +147,13 @@ void weighted_mean(const raft::handle_t& handle,
  * @param[in]  weights per-col weight
  * @param[out] mu the output mean vector of size ncols
  */
-template <typename value_t, typename idx_t = int>
-void rowWeightedMean(const raft::handle_t& handle,
-                     raft::device_matrix_view<const value_t, idx_t, raft::row_major> data,
-                     raft::device_vector_view<const value_t, idx_t> weights,
-                     raft::device_vector_view<value_t, idx_t> mu)
+template <typename value_t, typename idx_t>
+void row_weighted_mean(const raft::handle_t& handle,
+                       raft::device_matrix_view<const value_t, idx_t, raft::row_major> data,
+                       raft::device_vector_view<const value_t, idx_t> weights,
+                       raft::device_vector_view<value_t, idx_t> mu)
 {
-  weightedMean(handle, data, weights, mu, true);
+  weighted_mean(handle, data, weights, mu, true);
 }
 
 /**
@@ -168,12 +168,12 @@ void rowWeightedMean(const raft::handle_t& handle,
  * @param[out] mu the output mean vector of size nrows
  */
 template <typename value_t, typename idx_t>
-void colWeightedMean(const raft::handle_t& handle,
-                     raft::device_matrix_view<const value_t, idx_t, raft::row_major> data,
-                     raft::device_vector_view<const value_t, idx_t> weights,
-                     raft::device_vector_view<value_t, idx_t> mu)
+void col_weighted_mean(const raft::handle_t& handle,
+                       raft::device_matrix_view<const value_t, idx_t, raft::row_major> data,
+                       raft::device_vector_view<const value_t, idx_t> weights,
+                       raft::device_vector_view<value_t, idx_t> mu)
 {
-  weightedMean(handle, data, weights, mu, false);
+  weighted_mean(handle, data, weights, mu, false);
 }
 };  // end namespace stats
 };  // end namespace raft

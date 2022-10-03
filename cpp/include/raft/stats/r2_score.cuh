@@ -62,7 +62,6 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
  * @param[in] y_hat: Array of predicted response variables
  * @return: The R-squared value.
  * @note The constness of y and y_hat is currently casted away.
- * TODO: Change the underlying implementation to remove the need to const_cast
  */
 template <typename value_t, typename idx_t>
 value_t r2_score(const raft::handle_t& handle,
@@ -72,6 +71,8 @@ value_t r2_score(const raft::handle_t& handle,
   RAFT_EXPECTS(y.extent(0) == y_hat.extent(0), "Size mismatch betwen y and y_hat");
   RAFT_EXPECTS(y.is_exhaustive(), "y must be contiguous");
   RAFT_EXPECTS(y_hat.is_exhaustive(), "y_hat must be contiguous");
+
+  // TODO: Change the underlying implementation to remove the need to const_cast
   return detail::r2_score(const_cast<value_t*>(y.data_handle()),
                           const_cast<value_t*>(y_hat.data_handle()),
                           y.extent(0),

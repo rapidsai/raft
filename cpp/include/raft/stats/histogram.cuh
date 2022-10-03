@@ -77,9 +77,7 @@ void histogram(HistType type,
  *
  * @note signature of binner_op is `int func(value_t, IdxT);`
  */
-template <typename value_t,
-          typename idx_t     = int,
-          typename binner_op = IdentityBinner<value_t, idx_t>>
+template <typename value_t, typename idx_t, typename binner_op = IdentityBinner<value_t, idx_t>>
 void histogram(const raft::handle_t& handle,
                HistType type,
                raft::device_matrix_view<const value_t, idx_t, raft::col_major> data,

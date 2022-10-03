@@ -63,7 +63,6 @@ double trustworthiness_score(const raft::handle_t& h,
  * @return Trustworthiness score
  * @note The constness of the data in X_embedded is currently casted away and the data is slightly
  * modified.
- * TODO: Change the underlying implementation to remove the need to const_cast X_embedded.
  */
 template <raft::distance::DistanceType distance_type, typename value_t, typename idx_t>
 double trustworthiness_score(
@@ -76,6 +75,8 @@ double trustworthiness_score(
   RAFT_EXPECTS(X.extent(0) == X_embedded.extent(0), "Size mismatch between X and X_embedded");
   RAFT_EXPECTS(std::is_integral_v<idx_t> && X.extent(0) <= std::numeric_limits<int>::max(),
                "Index type not supported");
+
+  // TODO: Change the underlying implementation to remove the need to const_cast X_embedded.
   return detail::trustworthiness_score<value_t, distance_type>(
     handle,
     X.data_handle(),

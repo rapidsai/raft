@@ -53,14 +53,14 @@ double adjusted_rand_index(const T* firstClusterArray,
  * @brief Function to calculate Adjusted RandIndex as described
  *        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
  * @tparam value_t data-type for input label arrays
- * @tparam MathT integral data-type used for computing n-choose-r
+ * @tparam math_t integral data-type used for computing n-choose-r
  * @tparam idx_t Index type of matrix extent.
  * @param[in] handle: the raft handle.
  * @param[in] first_cluster_array: the array of classes
  * @param[in] second_cluster_array: the array of classes
  * @return the Adjusted RandIndex
  */
-template <typename value_t, typename MathT = int, typename idx_t>
+template <typename value_t, typename math_t, typename idx_t>
 double adjusted_rand_index(const raft::handle_t& handle,
                            raft::device_vector_view<const value_t, idx_t> first_cluster_array,
                            raft::device_vector_view<const value_t, idx_t> second_cluster_array)
@@ -69,10 +69,10 @@ double adjusted_rand_index(const raft::handle_t& handle,
   RAFT_EXPECTS(first_cluster_array.is_exhaustive(), "first_cluster_array must be contiguous");
   RAFT_EXPECTS(second_cluster_array.is_exhaustive(), "second_cluster_array must be contiguous");
 
-  return detail::compute_adjusted_rand_index<value_t, MathT>(first_cluster_array.data_handle(),
-                                                             second_cluster_array.data_handle(),
-                                                             first_cluster_array.extent(0),
-                                                             handle.get_stream());
+  return detail::compute_adjusted_rand_index<value_t, math_t>(first_cluster_array.data_handle(),
+                                                              second_cluster_array.data_handle(),
+                                                              first_cluster_array.extent(0),
+                                                              handle.get_stream());
 }
 
 };  // end namespace stats
