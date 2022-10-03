@@ -181,6 +181,30 @@ void contingency_matrix(const raft::handle_t& handle,
                                             max_label_value);
 }
 
+/**
+ * @brief Overload of `contingency_matrix` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for the optional arguments.
+ *
+ * Please see above for documentation of `contingency_matrix`.
+ */
+template <typename value_t,
+          typename out_t,
+          typename idx_t,
+          typename layout_t,
+          typename opt_min_label_t,
+          typename opt_max_label_t>
+void contingency_matrix(const raft::handle_t& handle,
+                        raft::device_vector_view<const value_t, idx_t> ground_truth,
+                        raft::device_vector_view<const value_t, idx_t> predicted_label,
+                        raft::device_matrix_view<out_t, idx_t, layout_t> out_mat,
+                        opt_min_label_t&& min_label = std::nullopt,
+                        opt_max_label_t&& max_label = std::nullopt)
+{
+  std::optional<value_t> opt_min_label = std::forward<opt_min_label_t>(min_label);
+  std::optional<value_t> opt_max_label = std::forward<opt_max_label_t>(max_label);
+  contingency_matrix(handle, ground_truth, predicted_label, out_mat, opt_min_label, opt_max_label);
+}
 };  // namespace stats
 };  // namespace raft
 
