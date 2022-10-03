@@ -17,6 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <limits>
+#include <raft/linalg/map_reduce.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -149,19 +150,23 @@ class MapGenericReduceTest : public ::testing::Test {
 
   void testMin()
   {
-    auto op               = [] __device__(InType in) { return in; };
-    const OutType neutral = std::numeric_limits<InType>::max();
-    mapThenReduce(
-      output.data(), input.size(), neutral, op, cub::Min(), handle.get_stream(), input.data());
+    auto op          = [] __device__(InType in) { return in; };
+    OutType neutral  = std::numeric_limits<InType>::max();
+    auto output_view = raft::make_device_scalar_view(output.data());
+    auto input_view  = raft::make_device_vector_view<const InType>(
+      input.data(), static_cast<std::uint32_t>(input.size()));
+    map_reduce(handle, input_view, output_view, neutral, op, cub::Min());
     EXPECT_TRUE(raft::devArrMatch(
       OutType(1), output.data(), 1, raft::Compare<OutType>(), handle.get_stream()));
   }
   void testMax()
   {
-    auto op               = [] __device__(InType in) { return in; };
-    const OutType neutral = std::numeric_limits<InType>::min();
-    mapThenReduce(
-      output.data(), input.size(), neutral, op, cub::Max(), handle.get_stream(), input.data());
+    auto op          = [] __device__(InType in) { return in; };
+    OutType neutral  = std::numeric_limits<InType>::min();
+    auto output_view = raft::make_device_scalar_view(output.data());
+    auto input_view  = raft::make_device_vector_view<const InType>(
+      input.data(), static_cast<std::uint32_t>(input.size()));
+    map_reduce(handle, input_view, output_view, neutral, op, cub::Max());
     EXPECT_TRUE(raft::devArrMatch(
       OutType(5), output.data(), 1, raft::Compare<OutType>(), handle.get_stream()));
   }

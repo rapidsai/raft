@@ -33,12 +33,14 @@ void mapLaunch(OutType* out,
                IdxType len,
                cudaStream_t stream)
 {
+  raft::handle_t handle{stream};
+  auto out_view = raft::make_device_vector_view(out, len);
+  auto in1_view = raft::make_device_vector_view(in1, len);
   map(
-    out,
-    len,
+    handle,
+    in1_view,
+    out_view,
     [=] __device__(InType a, InType b, InType c) { return a + b + c + scalar; },
-    stream,
-    in1,
     in2,
     in3);
 }

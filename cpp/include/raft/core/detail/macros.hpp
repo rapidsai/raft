@@ -39,3 +39,20 @@
 #ifndef RAFT_INLINE_FUNCTION
 #define RAFT_INLINE_FUNCTION _RAFT_FORCEINLINE _RAFT_HOST_DEVICE
 #endif
+
+/**
+ * Some macro magic to remove optional parentheses of a macro argument.
+ * See https://stackoverflow.com/a/62984543
+ */
+#ifndef RAFT_DEPAREN_MAGICRAFT_DEPAREN_H1
+#define RAFT_DEPAREN(X)      RAFT_DEPAREN_H2(RAFT_DEPAREN_H1 X)
+#define RAFT_DEPAREN_H1(...) RAFT_DEPAREN_H1 __VA_ARGS__
+#define RAFT_DEPAREN_H2(...) RAFT_DEPAREN_H3(__VA_ARGS__)
+#define RAFT_DEPAREN_H3(...) RAFT_DEPAREN_MAGIC##__VA_ARGS__
+#define RAFT_DEPAREN_MAGICRAFT_DEPAREN_H1
+#endif
+
+#ifndef RAFT_STRINGIFY
+#define RAFT_STRINGIFY_DETAIL(...) #__VA_ARGS__
+#define RAFT_STRINGIFY(...)        RAFT_STRINGIFY_DETAIL(__VA_ARGS__)
+#endif

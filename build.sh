@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
-HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>]
+HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
@@ -40,6 +40,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
                                   the only option to be supported)
    --minimal-deps              - disables dependencies like thrust so they can be overridden.
                                  can be useful for a pure header-only install
+   --limit-tests               - semicolon-separated list of test executables to compile (e.g. TEST_SPATIAL;TEST_CLUSTER)
    --allgpuarch                - build for all supported GPU architectures
    --buildfaiss                - build faiss statically into raft
    --install                   - install cmake targets
@@ -50,7 +51,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
                                  to speedup the build process.
    -h                          - print this text
 
- default action (no args) is to build both libraft and raft-dask targets
+ default action (no args) is to build libraft, tests, pylibraft and raft-dask targets
 "
 LIBRAFT_BUILD_DIR=${LIBRAFT_BUILD_DIR:=${REPODIR}/cpp/build}
 SPHINX_BUILD_DIR=${REPODIR}/docs
@@ -69,6 +70,8 @@ COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=OFF
+
+TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NN_TEST;SPATIAL_TEST;STATS_TEST;UTILS_TEST"
 
 ENABLE_thrust_DEPENDENCY=ON
 
@@ -136,6 +139,21 @@ function cacheTool {
     fi
 }
 
+function limitTests {
+    # Check for option to limit the set of test binaries to build
+    if [[ -n $(echo $ARGS | { grep -E "\-\-limit\-tests" || true; } ) ]]; then
+        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
+        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
+        # on the invalid option error
+        LIMIT_TEST_TARGETS=$(echo $ARGS | sed -e 's/.*--limit-tests=//' -e 's/ .*//')
+        if [[ -n ${LIMIT_TEST_TARGETS} ]]; then
+            # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//--limit-tests=$LIMIT_TEST_TARGETS/}
+            TEST_TARGETS=${LIMIT_TEST_TARGETS}
+        fi
+    fi
+}
+
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
@@ -145,6 +163,7 @@ fi
 if (( ${NUMARGS} != 0 )); then
     cmakeArgs
     cacheTool
+    limitTests
     for a in ${ARGS}; do
         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
             echo "Invalid option: ${a}"
@@ -194,12 +213,14 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
-    CMAKE_TARGET="${CMAKE_TARGET};CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NN_TEST;SPATIAL_TEST;STATS_TEST;UTILS_TEST"
+    CMAKE_TARGET="${CMAKE_TARGET};${TEST_TARGETS}"
 fi
 
 if hasArg bench || (( ${NUMARGS} == 0 )); then
     BUILD_BENCH=ON
+    COMPILE_DIST_LIBRARY=ON
     ENABLE_NN_DEPENDENCIES=ON
+    COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};bench_raft"
 fi
 

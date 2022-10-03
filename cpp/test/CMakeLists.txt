@@ -81,6 +81,8 @@ if(BUILD_TESTS)
             PATH
             test/cluster/kmeans.cu
             test/cluster_solvers.cu
+            test/sparse/linkage.cu
+            OPTIONAL DIST NN
     )
 
     ConfigureTest(NAME CORE_TEST
@@ -211,13 +213,17 @@ if(BUILD_TESTS)
             test/sparse/connect_components.cu
             test/sparse/knn.cu
             test/sparse/knn_graph.cu
-            test/sparse/linkage.cu
             OPTIONAL DIST NN
     )
 
     ConfigureTest(NAME SPATIAL_TEST
             PATH
             test/spatial/ann_ivf_flat.cu
+            test/spatial/ann_ivf_pq/test_float_int64_t.cu
+            test/spatial/ann_ivf_pq/test_float_uint32_t.cu
+            test/spatial/ann_ivf_pq/test_float_uint64_t.cu
+            test/spatial/ann_ivf_pq/test_int8_t_uint64_t.cu
+            test/spatial/ann_ivf_pq/test_uint8_t_uint64_t.cu
             test/spatial/knn.cu
             test/spatial/fused_l2_knn.cu
             test/spatial/haversine.cu

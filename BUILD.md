@@ -5,6 +5,7 @@
     - [Build Dependencies](#required_depenencies)
     - [Header-only C++](#install_header_only_cpp)
     - [C++ Shared Libraries](#shared_cpp_libs)
+    - [Improving Rebuild Times](#ccache)
     - [Googletests](#gtests)
     - [C++ Using Cmake](#cpp_using_cmake)
     - [Python](#python)
@@ -29,7 +30,6 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 - [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
   
 #### Optional
-- [mdspan](https://github.com/rapidsai/mdspan) - On by default but can be disabled. 
 - [Thrust](https://github.com/NVIDIA/thrust) v1.15 / [CUB](https://github.com/NVIDIA/cub) - On by default but can be disabled.
 - [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
 - [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0
@@ -53,11 +53,6 @@ The following example will download the needed dependencies and install the RAFT
 ./build.sh libraft --install
 ```
 
-The `--minimal-deps` flag can be used to install the headers with minimal dependencies:
-```bash
-./build.sh libraft --install --minimal-deps
-```
-
 ### <a id="shared_cpp_libs"></a>C++ Shared Libraries (optional)
 
 For larger projects which make heavy use of the pairwise distances or nearest neighbors APIs, shared libraries can be built to speed up compile times. These shared libraries can also significantly improve re-compile times both while developing RAFT and developing against the APIs. Build all of the available shared libraries by passing `--compile-libs` flag to `build.sh`:
@@ -71,6 +66,14 @@ Individual shared libraries have their own flags and multiple can be used (thoug
 ```
 
 Add the `--install` flag to the above example to also install the shared libraries into `$INSTALL_PREFIX/lib`.
+
+### <a id="ccache"></a>`ccache` and `sccache`
+
+`ccache` and `sccache` can be used to better cache parts of the build when rebuilding frequently, such as when working on a new feature. You can also use `ccache` or `sccache` with `build.sh`:
+
+```bash
+./build.sh libraft --cache-tool=ccache
+```
 
 ### <a id="gtests"></a>Tests
 
@@ -86,10 +89,17 @@ Test compile times can be improved significantly by using the optional shared li
 ./build.sh libraft tests --compile-libs
 ```
 
-To run C++ tests:
+The tests are broken apart by algorithm category, so you will find several binaries in `cpp/build/` named `*_TEST`.
+
+For example, to run the distance tests:
+```bash
+./cpp/build/DISTANCE_TEST
+```
+
+It can take sometime to compile all of the tests. You can build individual tests by providing a semicolon-separated list to the `--limit-tests` option in `build.sh`:
 
 ```bash
-./cpp/build/test_raft
+./build.sh libraft tests --limit-tests=SPATIAL_TEST;DISTANCE_TEST;MATRIX_TEST
 ```
 
 ### <a id="benchmarks"></a>Benchmarks

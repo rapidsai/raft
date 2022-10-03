@@ -16,9 +16,10 @@
 
 #include "../test_utils.h"
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/spatial/knn/knn.cuh>
+#include <raft/spatial/knn/brute_force.cuh>
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
 #endif
@@ -80,28 +81,22 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
  protected:
   void testBruteForce()
   {
-#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
+    //#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
     raft::print_device_vector("Input array: ", input_.data(), rows_ * cols_, std::cout);
     std::cout << "K: " << k_ << std::endl;
     raft::print_device_vector("Labels array: ", search_labels_.data(), rows_, std::cout);
-#endif
+    //#endif
 
-    std::vector<float*> input_vec;
-    std::vector<int> sizes_vec;
-    input_vec.push_back(input_.data());
-    sizes_vec.push_back(rows_);
+    std::vector<device_matrix_view<const T, IdxT, row_major>> index = {
+      make_device_matrix_view((const T*)(input_.data()), rows_, cols_)};
+    auto search = raft::make_device_matrix_view<const T, IdxT, row_major>(
+      (const T*)(search_data_.data()), rows_, cols_);
 
-    brute_force_knn(handle,
-                    input_vec,
-                    sizes_vec,
-                    cols_,
-                    search_data_.data(),
-                    rows_,
-                    indices_.data(),
-                    distances_.data(),
-                    k_,
-                    true,
-                    true);
+    auto indices = raft::make_device_matrix_view<IdxT, IdxT, row_major>(indices_.data(), rows_, k_);
+    auto distances =
+      raft::make_device_matrix_view<T, IdxT, row_major>(distances_.data(), rows_, k_);
+
+    brute_force_knn(handle, index, search, indices, distances, k_);
 
     build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       actual_labels_.data(), rows_, k_, search_labels_.data(), indices_.data());

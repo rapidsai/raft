@@ -506,8 +506,8 @@ template <template <int, bool, typename, typename> class WarpSortClass,
           bool Ascending,
           typename T,
           typename IdxT>
-__global__ void block_kernel(
-  const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx)
+__launch_bounds__(256) __global__
+  void block_kernel(const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx)
 {
   extern __shared__ __align__(256) uint8_t smem_buf_bytes[];
   block_sort<WarpSortClass, Capacity, Ascending, T, IdxT> queue(k, smem_buf_bytes);
