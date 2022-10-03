@@ -63,7 +63,7 @@ setup(name='pylibraft'+os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default=""),
       ],
       cmake_process_manifest_hook=exclude_libcxx_symlink,
       packages=find_packages(include=['pylibraft', 'pylibraft.*']),
-      license="Apache",
+      license="Apache 2.0",
       cmdclass=versioneer.get_cmdclass(),
       zip_safe=False
       )
