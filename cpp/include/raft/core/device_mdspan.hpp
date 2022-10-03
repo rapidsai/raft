@@ -44,18 +44,23 @@ using managed_mdspan = mdspan<ElementType, Extents, LayoutPolicy, managed_access
 
 namespace detail {
 template <typename T, bool B>
-struct is_device_accessible_mdspan : std::false_type {
+struct is_device_mdspan : std::false_type {
 };
 template <typename T>
-struct is_device_accessible_mdspan<T, true>
-  : std::bool_constant<T::accessor_type::is_device_accessible> {
+struct is_device_mdspan<T, true> : std::bool_constant<T::accessor_type::is_device_accessible> {
 };
 
 /**
  * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
  */
 template <typename T>
-using is_device_accessible_mdspan_t = is_device_accessible_mdspan<T, is_mdspan_v<T>>;
+using is_device_mdspan_t = is_device_mdspan<T, is_mdspan_v<T>>;
+
+template <typename T>
+using is_input_device_mdspan_t = is_device_mdspan<T, is_input_mdspan_v<T>>;
+
+template <typename T>
+using is_output_device_mdspan_t = is_device_mdspan<T, is_output_mdspan_v<T>>;
 
 template <typename T, bool B>
 struct is_managed_mdspan : std::false_type {
@@ -70,6 +75,12 @@ struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_mana
 template <typename T>
 using is_managed_mdspan_t = is_managed_mdspan<T, is_mdspan_v<T>>;
 
+template <typename T>
+using is_input_managed_mdspan_t = is_managed_mdspan<T, is_input_mdspan_v<T>>;
+
+template <typename T>
+using is_output_managed_mdspan_t = is_managed_mdspan<T, is_output_mdspan_v<T>>;
+
 }  // end namespace detail
 
 /**
@@ -77,11 +88,24 @@ using is_managed_mdspan_t = is_managed_mdspan<T, is_mdspan_v<T>>;
  * derived type
  */
 template <typename... Tn>
-inline constexpr bool is_device_accessible_mdspan_v =
-  std::conjunction_v<detail::is_device_accessible_mdspan_t<Tn>...>;
+inline constexpr bool is_device_mdspan_v = std::conjunction_v<detail::is_device_mdspan_t<Tn>...>;
 
 template <typename... Tn>
-using enable_if_device_mdspan = std::enable_if_t<is_device_accessible_mdspan_v<Tn...>>;
+inline constexpr bool is_input_device_mdspan_v =
+  std::conjunction_v<detail::is_input_device_mdspan_t<Tn>...>;
+
+template <typename... Tn>
+inline constexpr bool is_output_device_mdspan_v =
+  std::conjunction_v<detail::is_output_device_mdspan_t<Tn>...>;
+
+template <typename... Tn>
+using enable_if_device_mdspan = std::enable_if_t<is_device_mdspan_v<Tn...>>;
+
+template <typename... Tn>
+using enable_if_input_device_mdspan = std::enable_if_t<is_input_device_mdspan_v<Tn...>>;
+
+template <typename... Tn>
+using enable_if_output_device_mdspan = std::enable_if_t<is_output_device_mdspan_v<Tn...>>;
 
 /**
  * @\brief Boolean to determine if variadic template types Tn are either raft::managed_mdspan or a
@@ -91,7 +115,21 @@ template <typename... Tn>
 inline constexpr bool is_managed_mdspan_v = std::conjunction_v<detail::is_managed_mdspan_t<Tn>...>;
 
 template <typename... Tn>
+inline constexpr bool is_input_managed_mdspan_v =
+  std::conjunction_v<detail::is_input_managed_mdspan_t<Tn>...>;
+
+template <typename... Tn>
+inline constexpr bool is_output_managed_mdspan_v =
+  std::conjunction_v<detail::is_output_managed_mdspan_t<Tn>...>;
+
+template <typename... Tn>
 using enable_if_managed_mdspan = std::enable_if_t<is_managed_mdspan_v<Tn...>>;
+
+template <typename... Tn>
+using enable_if_input_managed_mdspan = std::enable_if_t<is_input_managed_mdspan_v<Tn...>>;
+
+template <typename... Tn>
+using enable_if_output_managed_mdspan = std::enable_if_t<is_output_managed_mdspan_v<Tn...>>;
 
 /**
  * @brief Shorthand for 0-dim host mdspan (scalar).

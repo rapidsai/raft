@@ -563,12 +563,12 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
     X.data_handle() + cIdx * n_features, 1, n_features);
 
   // flag the sample that is chosen as initial centroid
-  std::vector<IndexT> h_isSampleCentroid(n_samples);
+  std::vector<uint8_t> h_isSampleCentroid(n_samples);
   std::fill(h_isSampleCentroid.begin(), h_isSampleCentroid.end(), 0);
   h_isSampleCentroid[cIdx] = 1;
 
   // device buffer to flag the sample that is chosen as initial centroid
-  auto isSampleCentroid = raft::make_device_vector<IndexT, IndexT>(handle, n_samples);
+  auto isSampleCentroid = raft::make_device_vector<uint8_t, IndexT>(handle, n_samples);
 
   raft::copy(
     isSampleCentroid.data_handle(), h_isSampleCentroid.data(), isSampleCentroid.size(), stream);
@@ -799,6 +799,17 @@ void kmeans_fit(handle_t const& handle,
                "invalid parameter (centroids.extent(0) != n_clusters)");
   RAFT_EXPECTS(centroids.extent(1) == n_features,
                "invalid parameter (centroids.extent(1) != n_features)");
+
+  // Display a warning if batch_centroids is set and a fusedL2NN-compatible metric is used
+  if (params.batch_centroids != 0 && params.batch_centroids != params.n_clusters &&
+      (params.metric == raft::distance::DistanceType::L2Expanded ||
+       params.metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+    RAFT_LOG_INFO(
+      "batch_centroids=%d was passed, but batch_centroids=%d will be used (reason: "
+      "batch_centroids has no impact on the memory footprint when FusedL2NN can be used)",
+      params.batch_centroids,
+      params.n_clusters);
+  }
 
   logger::get(RAFT_NAME).set_level(params.verbosity);
 

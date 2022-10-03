@@ -148,7 +148,7 @@ void gemm(const raft::handle_t& handle,
     handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
 }
 
-template <typename T>
+template <typename T, bool DevicePointerMode = false>
 void gemm(const raft::handle_t& handle,
           T* z,
           T* x,
@@ -160,10 +160,11 @@ void gemm(const raft::handle_t& handle,
           bool isXColMajor,
           bool isYColMajor,
           cudaStream_t stream,
-          T alpha = T(1.0),
-          T beta  = T(0.0))
+          T* alpha,
+          T* beta)
 {
   cublasHandle_t cublas_h = handle.get_cublas_handle();
+  cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
 
   cublasOperation_t trans_a, trans_b;
   T *a, *b, *c;
@@ -233,7 +234,7 @@ void gemm(const raft::handle_t& handle,
   }
   // Actual cuBLAS call
   RAFT_CUBLAS_TRY(
-    cublasgemm(cublas_h, trans_a, trans_b, M, N, K, &alpha, a, lda, b, ldb, &beta, c, ldc, stream));
+    cublasgemm(cublas_h, trans_a, trans_b, M, N, K, alpha, a, lda, b, ldb, beta, c, ldc, stream));
 }
 
 }  // namespace detail

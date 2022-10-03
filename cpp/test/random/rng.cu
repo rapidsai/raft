@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <memory>
 #include <sys/timeb.h>
 
 #include "../test_utils.h"
@@ -187,7 +188,100 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   T h_stats[2];  // mean, var
 };
 
-typedef RngTest<float> RngTestF;
+template <typename T>
+class RngMdspanTest : public ::testing::TestWithParam<RngInputs<T>> {
+ public:
+  RngMdspanTest()
+    : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(0, stream),
+      stats(2, stream)
+  {
+    data.resize(params.len, stream);
+    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(T), stream));
+  }
+
+ protected:
+  void SetUp() override
+  {
+    RngState r(params.seed, params.gtype);
+
+    raft::device_vector_view<T> data_view(data.data(), data.size());
+    const auto len = data_view.extent(0);
+
+    switch (params.type) {
+      case RNG_Normal: normal(handle, r, data_view, params.start, params.end); break;
+      case RNG_LogNormal: lognormal(handle, r, data_view, params.start, params.end); break;
+      case RNG_Uniform: uniform(handle, r, data_view, params.start, params.end); break;
+      case RNG_Gumbel: gumbel(handle, r, data_view, params.start, params.end); break;
+      case RNG_Logistic: logistic(handle, r, data_view, params.start, params.end); break;
+      case RNG_Exp: exponential(handle, r, data_view, params.start); break;
+      case RNG_Rayleigh: rayleigh(handle, r, data_view, params.start); break;
+      case RNG_Laplace: laplace(handle, r, data_view, params.start, params.end); break;
+    };
+    static const int threads = 128;
+    meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
+      stats.data(), data.data(), params.len);
+    update_host<T>(h_stats, stats.data(), 2, stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    h_stats[0] /= params.len;
+    h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  }
+
+  void getExpectedMeanVar(T meanvar[2])
+  {
+    switch (params.type) {
+      case RNG_Normal:
+        meanvar[0] = params.start;
+        meanvar[1] = params.end * params.end;
+        break;
+      case RNG_LogNormal: {
+        auto var   = params.end * params.end;
+        auto mu    = params.start;
+        meanvar[0] = raft::myExp(mu + var * T(0.5));
+        meanvar[1] = (raft::myExp(var) - T(1.0)) * raft::myExp(T(2.0) * mu + var);
+        break;
+      }
+      case RNG_Uniform:
+        meanvar[0] = (params.start + params.end) * T(0.5);
+        meanvar[1] = params.end - params.start;
+        meanvar[1] = meanvar[1] * meanvar[1] / T(12.0);
+        break;
+      case RNG_Gumbel: {
+        auto gamma = T(0.577215664901532);
+        meanvar[0] = params.start + params.end * gamma;
+        meanvar[1] = T(3.1415) * T(3.1415) * params.end * params.end / T(6.0);
+        break;
+      }
+      case RNG_Logistic:
+        meanvar[0] = params.start;
+        meanvar[1] = T(3.1415) * T(3.1415) * params.end * params.end / T(3.0);
+        break;
+      case RNG_Exp:
+        meanvar[0] = T(1.0) / params.start;
+        meanvar[1] = meanvar[0] * meanvar[0];
+        break;
+      case RNG_Rayleigh:
+        meanvar[0] = params.start * raft::mySqrt(T(3.1415 / 2.0));
+        meanvar[1] = ((T(4.0) - T(3.1415)) / T(2.0)) * params.start * params.start;
+        break;
+      case RNG_Laplace:
+        meanvar[0] = params.start;
+        meanvar[1] = T(2.0) * params.end * params.end;
+        break;
+    };
+  }
+
+ protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
+  RngInputs<T> params;
+  rmm::device_uvector<T> data, stats;
+  T h_stats[2];  // mean, var
+};
+
 const std::vector<RngInputs<float>> inputsf = {
   // Test with Philox
   {1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
@@ -206,16 +300,22 @@ const std::vector<RngInputs<float>> inputsf = {
   {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPC, 1234ULL},
   {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPC, 1234ULL}};
 
-TEST_P(RngTestF, Result)
-{
-  float meanvar[2];
-  getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(NUM_SIGMA * MAX_SIGMA)));
-  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(NUM_SIGMA * MAX_SIGMA)));
-}
+#define _RAFT_RNG_TEST_BODY(VALUE_TYPE)                                                           \
+  do {                                                                                            \
+    VALUE_TYPE meanvar[2];                                                                        \
+    getExpectedMeanVar(meanvar);                                                                  \
+    ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<VALUE_TYPE>(NUM_SIGMA * MAX_SIGMA))); \
+    ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<VALUE_TYPE>(NUM_SIGMA * MAX_SIGMA))); \
+  } while (false)
+
+using RngTestF = RngTest<float>;
+TEST_P(RngTestF, Result) { _RAFT_RNG_TEST_BODY(float); }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestF, ::testing::ValuesIn(inputsf));
 
-typedef RngTest<double> RngTestD;
+using RngMdspanTestF = RngMdspanTest<float>;
+TEST_P(RngMdspanTestF, Result) { _RAFT_RNG_TEST_BODY(float); }
+INSTANTIATE_TEST_SUITE_P(RngMdspanTests, RngMdspanTestF, ::testing::ValuesIn(inputsf));
+
 const std::vector<RngInputs<double>> inputsd = {
   // Test with Philox
   {1024 * 1024, 3.0f, 1.3f, RNG_Normal, GenPhilox, 1234ULL},
@@ -234,14 +334,13 @@ const std::vector<RngInputs<double>> inputsd = {
   {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, GenPC, 1234ULL},
   {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, GenPC, 1234ULL}};
 
-TEST_P(RngTestD, Result)
-{
-  double meanvar[2];
-  getExpectedMeanVar(meanvar);
-  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<double>(NUM_SIGMA * MAX_SIGMA)));
-  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<double>(NUM_SIGMA * MAX_SIGMA)));
-}
+using RngTestD = RngTest<double>;
+TEST_P(RngTestD, Result) { _RAFT_RNG_TEST_BODY(double); }
 INSTANTIATE_TEST_SUITE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
+
+using RngMdspanTestD = RngMdspanTest<double>;
+TEST_P(RngMdspanTestD, Result) { _RAFT_RNG_TEST_BODY(double); }
+INSTANTIATE_TEST_SUITE_P(RngMdspanTests, RngMdspanTestD, ::testing::ValuesIn(inputsd));
 
 // ---------------------------------------------------------------------- //
 // Test for expected variance in mean calculations
@@ -353,11 +452,10 @@ class ScaledBernoulliTest : public ::testing::Test {
 
   void rangeCheck()
   {
-    T* h_data = new T[len];
-    update_host(h_data, data.data(), len, stream);
-    ASSERT_TRUE(
-      std::none_of(h_data, h_data + len, [](const T& a) { return a < -scale || a > scale; }));
-    delete[] h_data;
+    auto h_data = std::make_unique<T[]>(len);
+    update_host(h_data.get(), data.data(), len, stream);
+    ASSERT_TRUE(std::none_of(
+      h_data.get(), h_data.get() + len, [](const T& a) { return a < -scale || a > scale; }));
   }
 
   raft::handle_t handle;

@@ -18,7 +18,7 @@
 
 #include "../ivf_flat_types.hpp"
 #include "ann_utils.cuh"
-#include "topk/radix_topk.cuh"
+#include "topk.cuh"
 #include "topk/warpsort_topk.cuh"
 
 #include <raft/core/cudart_utils.hpp>
@@ -1133,29 +1133,16 @@ void search_impl(const handle_t& handle,
                stream);
 
   RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), std::min<uint32_t>(20, index.n_lists()));
-  if (n_probes <= raft::spatial::knn::detail::topk::kMaxCapacity) {
-    topk::warp_sort_topk<AccT, uint32_t>(distance_buffer_dev.data(),
-                                         nullptr,
-                                         n_queries,
-                                         index.n_lists(),
-                                         n_probes,
-                                         coarse_distances_dev.data(),
-                                         coarse_indices_dev.data(),
-                                         select_min,
-                                         stream,
-                                         search_mr);
-  } else {
-    topk::radix_topk<AccT, uint32_t, 11, 512>(distance_buffer_dev.data(),
-                                              nullptr,
-                                              n_queries,
-                                              index.n_lists(),
-                                              n_probes,
-                                              coarse_distances_dev.data(),
-                                              coarse_indices_dev.data(),
-                                              select_min,
-                                              stream,
-                                              search_mr);
-  }
+  select_topk<AccT, uint32_t>(distance_buffer_dev.data(),
+                              nullptr,
+                              n_queries,
+                              index.n_lists(),
+                              n_probes,
+                              coarse_distances_dev.data(),
+                              coarse_indices_dev.data(),
+                              select_min,
+                              stream,
+                              search_mr);
   RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), n_probes);
   RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), n_probes);
 
@@ -1204,31 +1191,16 @@ void search_impl(const handle_t& handle,
 
   // Merge topk values from different blocks
   if (grid_dim_x > 1) {
-    if (k <= raft::spatial::knn::detail::topk::kMaxCapacity) {
-      topk::warp_sort_topk<AccT, IdxT>(refined_distances_dev.data(),
-                                       refined_indices_dev.data(),
-                                       n_queries,
-                                       k * grid_dim_x,
-                                       k,
-                                       distances,
-                                       neighbors,
-                                       select_min,
-                                       stream,
-                                       search_mr);
-    } else {
-      // NB: this branch can only be triggered once `ivfflat_interleaved_scan` above supports larger
-      // `k` values (kMaxCapacity limit as a dependency of topk::block_sort)
-      topk::radix_topk<AccT, IdxT, 11, 512>(refined_distances_dev.data(),
-                                            refined_indices_dev.data(),
-                                            n_queries,
-                                            k * grid_dim_x,
-                                            k,
-                                            distances,
-                                            neighbors,
-                                            select_min,
-                                            stream,
-                                            search_mr);
-    }
+    select_topk<AccT, IdxT>(refined_distances_dev.data(),
+                            refined_indices_dev.data(),
+                            n_queries,
+                            k * grid_dim_x,
+                            k,
+                            distances,
+                            neighbors,
+                            select_min,
+                            stream,
+                            search_mr);
   }
 }
 
