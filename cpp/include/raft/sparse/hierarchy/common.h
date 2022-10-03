@@ -28,7 +28,7 @@
 
 namespace raft::hierarchy {
 using raft::cluster::linkage_output;
-using raft::cluster::linkage_output__int64_float;
-using raft::cluster::linkage_output_int_float;
+using raft::cluster::linkage_output_int64;
+using raft::cluster::linkage_output_int;
 using raft::cluster::LinkageDistance;
 }  // namespace raft::hierarchy
