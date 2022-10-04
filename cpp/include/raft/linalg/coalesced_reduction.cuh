@@ -20,6 +20,9 @@
 
 #include "detail/coalesced_reduction.cuh"
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
+
 namespace raft {
 namespace linalg {
 
@@ -58,8 +61,8 @@ template <typename InType,
           typename FinalLambda  = raft::Nop<OutType>>
 void coalescedReduction(OutType* dots,
                         const InType* data,
-                        int D,
-                        int N,
+                        IdxType D,
+                        IdxType N,
                         OutType init,
                         cudaStream_t stream,
                         bool inplace           = false,
@@ -70,6 +73,90 @@ void coalescedReduction(OutType* dots,
   detail::coalescedReduction<InType, OutType, IdxType>(
     dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
 }
+
+/**
+ * @defgroup coalesced_reduction Coalesced Memory Access Reductions
+ * For reducing along rows for col-major and along columns for row-major
+ * @{
+ */
+
+/**
+ * @brief Compute reduction of the input matrix along the leading dimension
+ *        This API is to be used when the desired reduction is along the dimension
+ *        of the memory layout. For example, a row-major matrix will be reduced
+ *        along the columns whereas a column-major matrix will be reduced along
+ *        the rows.
+ *
+ * @tparam InValueType the input data-type of underlying raft::matrix_view
+ * @tparam LayoutPolicy The layout of Input/Output (row or col major)
+ * @tparam OutValueType the output data-type of underlying raft::matrix_view and reduction
+ * @tparam IndexType Integer type used to for addressing
+ * @tparam MainLambda Unary lambda applied while acculumation (eg: L1 or L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*MainLambda)(InType, IdxType);</pre>
+ * @tparam ReduceLambda Binary lambda applied for reduction (eg: addition(+) for L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*ReduceLambda)(OutType);</pre>
+ * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*FinalLambda)(OutType);</pre>
+ * @param handle raft::handle_t
+ * @param[in] data Input of type raft::device_matrix_view
+ * @param[out] dots Output of type raft::device_matrix_view
+ * @param[in] init initial value to use for the reduction
+ * @param[in] inplace reduction result added inplace or overwrites old values?
+ * @param[in] main_op fused elementwise operation to apply before reduction
+ * @param[in] reduce_op fused binary reduction operation
+ * @param[in] final_op fused elementwise operation to apply before storing results
+ */
+template <typename InValueType,
+          typename LayoutPolicy,
+          typename OutValueType,
+          typename IndexType,
+          typename MainLambda   = raft::Nop<InValueType>,
+          typename ReduceLambda = raft::Sum<OutValueType>,
+          typename FinalLambda  = raft::Nop<OutValueType>>
+void coalesced_reduction(const raft::handle_t& handle,
+                         raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> data,
+                         raft::device_vector_view<OutValueType, IndexType> dots,
+                         OutValueType init,
+                         bool inplace           = false,
+                         MainLambda main_op     = raft::Nop<InValueType>(),
+                         ReduceLambda reduce_op = raft::Sum<OutValueType>(),
+                         FinalLambda final_op   = raft::Nop<OutValueType>())
+{
+  if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
+    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(0),
+                 "Output should be equal to number of rows in Input");
+
+    coalescedReduction(dots.data_handle(),
+                       data.data_handle(),
+                       data.extent(1),
+                       data.extent(0),
+                       init,
+                       handle.get_stream(),
+                       inplace,
+                       main_op,
+                       reduce_op,
+                       final_op);
+  } else if constexpr (std::is_same_v<LayoutPolicy, raft::col_major>) {
+    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),
+                 "Output should be equal to number of columns in Input");
+
+    coalescedReduction(dots.data_handle(),
+                       data.data_handle(),
+                       data.extent(0),
+                       data.extent(1),
+                       init,
+                       handle.get_stream(),
+                       inplace,
+                       main_op,
+                       reduce_op,
+                       final_op);
+  }
+}
+
+/** @} */  // end of group coalesced_reduction
 
 };  // end namespace linalg
 };  // end namespace raft

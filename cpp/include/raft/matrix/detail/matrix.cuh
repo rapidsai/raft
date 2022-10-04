@@ -67,7 +67,7 @@ void copyRows(const m_t* in,
 
 template <typename m_t, typename idx_t = int>
 void truncZeroOrigin(
-  m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
+  const m_t* in, idx_t in_n_rows, m_t* out, idx_t out_n_rows, idx_t out_n_cols, cudaStream_t stream)
 {
   auto m         = out_n_rows;
   auto k         = in_n_rows;
@@ -279,7 +279,6 @@ m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t st
 {
   cublasHandle_t cublasH = handle.get_cublas_handle();
   m_t normval            = 0;
-  // #TODO: Call from the public API when ready
   RAFT_CUBLAS_TRY(raft::linalg::detail::cublasnrm2(cublasH, size, in, 1, &normval, stream));
   return normval;
 }

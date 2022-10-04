@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
+
 namespace raft::cluster {
 
 enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
@@ -27,23 +29,33 @@ enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
  * @tparam value_idx
  * @tparam value_t
  */
-template <typename value_idx, typename value_t>
+template <typename idx_t>
 class linkage_output {
  public:
-  value_idx m;
-  value_idx n_clusters;
+  idx_t m;
+  idx_t n_clusters;
 
-  value_idx n_leaves;
-  value_idx n_connected_components;
+  idx_t n_leaves;
+  idx_t n_connected_components;
 
-  value_idx* labels;  // size: m
+  // TODO: These will be made private in a future release
+  idx_t* labels;    // size: m
+  idx_t* children;  // size: (m-1, 2)
 
-  value_idx* children;  // size: (m-1, 2)
+  raft::device_vector_view<idx_t> get_labels()
+  {
+    return raft::make_device_vector_view<idx_t>(labels, m);
+  }
+
+  raft::device_matrix_view<idx_t> get_children()
+  {
+    return raft::make_device_matrix_view<idx_t>(children, m - 1, 2);
+  }
 };
 
-class linkage_output_int_float : public linkage_output<int, float> {
+class linkage_output_int : public linkage_output<int> {
 };
-class linkage_output__int64_float : public linkage_output<int64_t, float> {
+class linkage_output_int64 : public linkage_output<int64_t> {
 };
 
 };  // namespace raft::cluster

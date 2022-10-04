@@ -19,6 +19,10 @@
 #pragma once
 
 #include "detail/reduce.cuh"
+#include "linalg_types.hpp"
+
+#include <raft/core/device_mdspan.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -60,8 +64,8 @@ template <typename InType,
           typename FinalLambda  = raft::Nop<OutType>>
 void reduce(OutType* dots,
             const InType* data,
-            int D,
-            int N,
+            IdxType D,
+            IdxType N,
             OutType init,
             bool rowMajor,
             bool alongRows,
@@ -74,6 +78,87 @@ void reduce(OutType* dots,
   detail::reduce<InType, OutType, IdxType>(
     dots, data, D, N, init, rowMajor, alongRows, stream, inplace, main_op, reduce_op, final_op);
 }
+
+/**
+ * @defgroup reduction Reduction Along Requested Dimension
+ * @{
+ */
+
+/**
+ * @brief Compute reduction of the input matrix along the requested dimension
+ *        This API computes a reduction of a matrix whose underlying storage
+ *        is either row-major or column-major, while allowing the choose the
+ *        dimension for reduction. Depending upon the dimension chosen for
+ *        reduction, the memory accesses may be coalesced or strided.
+ *
+ * @tparam InElementType the input data-type of underlying raft::matrix_view
+ * @tparam LayoutPolicy The layout of Input/Output (row or col major)
+ * @tparam OutElementType the output data-type of underlying raft::matrix_view and reduction
+ * @tparam IndexType Integer type used to for addressing
+ * @tparam MainLambda Unary lambda applied while acculumation (eg: L1 or L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*MainLambda)(InType, IdxType);</pre>
+ * @tparam ReduceLambda Binary lambda applied for reduction (eg: addition(+) for L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*ReduceLambda)(OutType);</pre>
+ * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*FinalLambda)(OutType);</pre>
+ * @param[in] handle raft::handle_t
+ * @param[in] data Input of type raft::device_matrix_view
+ * @param[out] dots Output of type raft::device_matrix_view
+ * @param[in] init initial value to use for the reduction
+ * @param[in] apply whether to reduce along rows or along columns (using raft::linalg::Apply)
+ * @param[in] main_op fused elementwise operation to apply before reduction
+ * @param[in] reduce_op fused binary reduction operation
+ * @param[in] final_op fused elementwise operation to apply before storing results
+ * @param[in] inplace reduction result added inplace or overwrites old values?
+ */
+template <typename InElementType,
+          typename LayoutPolicy,
+          typename OutElementType = InElementType,
+          typename IndexType      = std::uint32_t,
+          typename MainLambda     = raft::Nop<InElementType>,
+          typename ReduceLambda   = raft::Sum<OutElementType>,
+          typename FinalLambda    = raft::Nop<OutElementType>>
+void reduce(const raft::handle_t& handle,
+            raft::device_matrix_view<const InElementType, IndexType, LayoutPolicy> data,
+            raft::device_vector_view<OutElementType, IndexType> dots,
+            OutElementType init,
+            Apply apply,
+            bool inplace           = false,
+            MainLambda main_op     = raft::Nop<InElementType>(),
+            ReduceLambda reduce_op = raft::Sum<OutElementType>(),
+            FinalLambda final_op   = raft::Nop<OutElementType>())
+{
+  RAFT_EXPECTS(raft::is_row_or_column_major(data), "Input must be contiguous");
+
+  auto constexpr row_major = std::is_same_v<typename decltype(data)::layout_type, raft::row_major>;
+  bool along_rows          = apply == Apply::ALONG_ROWS;
+
+  if (along_rows) {
+    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),
+                 "Output should be equal to number of columns in Input");
+  } else {
+    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(0),
+                 "Output should be equal to number of rows in Input");
+  }
+
+  reduce(dots.data_handle(),
+         data.data_handle(),
+         data.extent(1),
+         data.extent(0),
+         init,
+         row_major,
+         along_rows,
+         handle.get_stream(),
+         inplace,
+         main_op,
+         reduce_op,
+         final_op);
+}
+
+/** @} */  // end of group reduction
 
 };  // end namespace linalg
 };  // end namespace raft

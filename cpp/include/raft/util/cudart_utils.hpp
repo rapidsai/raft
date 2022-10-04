@@ -30,6 +30,7 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
+#include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
 #include <chrono>
@@ -421,7 +422,7 @@ bool is_aligned(Type* ptr, size_t alignment)
  * @ return gcd of a and b
  */
 template <typename IntType>
-IntType gcd(IntType a, IntType b)
+constexpr IntType gcd(IntType a, IntType b)
 {
   while (b != 0) {
     IntType tmp = b;
@@ -445,6 +446,36 @@ constexpr T upper_bound()
 {
   if constexpr (std::numeric_limits<T>::has_infinity) { return std::numeric_limits<T>::infinity(); }
   return std::numeric_limits<T>::max();
+}
+
+namespace {  // NOLINT
+/**
+ * This is a hack to allow constexpr definition of `half` constants.
+ *
+ * Neither union-based nor reinterpret_cast-based type punning is possible within
+ * constexpr; at the same time, all non-default constructors of `half` data type are not constexpr
+ * as well.
+ *
+ * Based on the implementation details in `cuda_fp16.hpp`, we define here a new constructor for
+ * `half` data type, that is a proper constexpr.
+ *
+ * When we switch to C++20, perhaps we can use `bit_cast` for the same purpose.
+ */
+struct __half_constexpr : __half {  // NOLINT
+  constexpr explicit inline __half_constexpr(uint16_t u) : __half() { __x = u; }
+};
+}  // namespace
+
+template <>
+constexpr inline auto lower_bound<half>() -> half
+{
+  return static_cast<half>(__half_constexpr{0xfc00u});
+}
+
+template <>
+constexpr inline auto upper_bound<half>() -> half
+{
+  return static_cast<half>(__half_constexpr{0x7c00u});
 }
 
 /**
