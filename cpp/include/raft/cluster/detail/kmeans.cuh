@@ -114,8 +114,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
 
   rmm::device_uvector<DataT> L2NormBuf_OR_DistBuf(0, stream);
   rmm::device_scalar<DataT> clusterCost(stream);
-  rmm::device_scalar<raft::distance::raft::KeyValuePair<int, DataT>> minClusterIndexAndDistance(
-    stream);
+  rmm::device_scalar<raft::KeyValuePair<int, DataT>> minClusterIndexAndDistance(stream);
 
   // L2 norm of X: ||c||^2
   auto L2NormX = raft::make_device_vector<DataT, IndexT>(handle, n_samples);
@@ -280,8 +279,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
   //   - key is the index of nearest cluster
   //   - value is the distance to the nearest cluster
   auto minClusterAndDistance =
-    raft::make_device_vector<raft::distance::raft::KeyValuePair<IndexT, DataT>, IndexT>(handle,
-                                                                                        n_samples);
+    raft::make_device_vector<raft::KeyValuePair<IndexT, DataT>, IndexT>(handle, n_samples);
 
   // temporary buffer to store L2 norm of centroids or distance matrix,
   // destructor releases the resource
@@ -295,7 +293,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
   // resource
   auto wtInCluster = raft::make_device_vector<DataT, IndexT>(handle, n_clusters);
 
-  rmm::device_scalar<raft::distance::raft::KeyValuePair<IndexT, DataT>> clusterCostD(stream);
+  rmm::device_scalar<raft::KeyValuePair<IndexT, DataT>> clusterCostD(stream);
 
   // L2 norm of X: ||x||^2
   auto L2NormX = raft::make_device_vector<DataT, IndexT>(handle, n_samples);
@@ -340,12 +338,12 @@ void kmeans_fit_main(const raft::handle_t& handle,
                                                         workspace);
 
     // Using TransformInputIteratorT to dereference an array of
-    // raft::distance::raft::KeyValuePair and converting them to just return the Key to be used
+    // raft::KeyValuePair and converting them to just return the Key to be used
     // in reduce_rows_by_key prims
     detail::KeyValueIndexOp<IndexT, DataT> conversion_op;
     cub::TransformInputIterator<IndexT,
                                 detail::KeyValueIndexOp<IndexT, DataT>,
-                                raft::distance::raft::KeyValuePair<IndexT, DataT>*>
+                                raft::KeyValuePair<IndexT, DataT>*>
       itr(minClusterAndDistance.data_handle(), conversion_op);
 
     workspace.resize(n_samples, stream);
@@ -403,14 +401,14 @@ void kmeans_fit_main(const raft::handle_t& handle,
       itr_wt,
       wtInCluster.size(),
       newCentroids.data_handle(),
-      [=] __device__(raft::distance::raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
+      [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
         // copy when the # of samples in the cluster is 0
         if (map.value == 0)
           return true;
         else
           return false;
       },
-      [=] __device__(raft::distance::raft::KeyValuePair<ptrdiff_t, DataT> map) {  // map
+      [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // map
         return map.key;
       },
       stream);
@@ -438,18 +436,17 @@ void kmeans_fit_main(const raft::handle_t& handle,
     bool done = false;
     if (params.inertia_check) {
       // calculate cluster cost phi_x(C)
-      detail::computeClusterCost(
-        handle,
-        minClusterAndDistance.view(),
-        workspace,
-        raft::make_device_scalar_view(clusterCostD.data()),
-        [] __device__(const raft::distance::raft::KeyValuePair<IndexT, DataT>& a,
-                      const raft::distance::raft::KeyValuePair<IndexT, DataT>& b) {
-          raft::distance::raft::KeyValuePair<IndexT, DataT> res;
-          res.key   = 0;
-          res.value = a.value + b.value;
-          return res;
-        });
+      detail::computeClusterCost(handle,
+                                 minClusterAndDistance.view(),
+                                 workspace,
+                                 raft::make_device_scalar_view(clusterCostD.data()),
+                                 [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
+                                               const raft::KeyValuePair<IndexT, DataT>& b) {
+                                   raft::KeyValuePair<IndexT, DataT> res;
+                                   res.key   = 0;
+                                   res.value = a.value + b.value;
+                                   return res;
+                                 });
 
       DataT curClusteringCost = 0;
       raft::copy(&curClusteringCost, &(clusterCostD.data()->value), 1, stream);
@@ -488,32 +485,30 @@ void kmeans_fit_main(const raft::handle_t& handle,
                                                       workspace);
 
   // TODO: add different templates for InType of binaryOp to avoid thrust transform
-  thrust::transform(
-    handle.get_thrust_policy(),
-    minClusterAndDistance.data_handle(),
-    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
-    weight.data_handle(),
-    minClusterAndDistance.data_handle(),
-    [=] __device__(const raft::distance::raft::KeyValuePair<IndexT, DataT> kvp, DataT wt) {
-      raft::distance::raft::KeyValuePair<IndexT, DataT> res;
-      res.value = kvp.value * wt;
-      res.key   = kvp.key;
-      return res;
-    });
+  thrust::transform(handle.get_thrust_policy(),
+                    minClusterAndDistance.data_handle(),
+                    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
+                    weight.data_handle(),
+                    minClusterAndDistance.data_handle(),
+                    [=] __device__(const raft::KeyValuePair<IndexT, DataT> kvp, DataT wt) {
+                      raft::KeyValuePair<IndexT, DataT> res;
+                      res.value = kvp.value * wt;
+                      res.key   = kvp.key;
+                      return res;
+                    });
 
   // calculate cluster cost phi_x(C)
-  detail::computeClusterCost(
-    handle,
-    minClusterAndDistance.view(),
-    workspace,
-    raft::make_device_scalar_view(clusterCostD.data()),
-    [] __device__(const raft::distance::raft::KeyValuePair<IndexT, DataT>& a,
-                  const raft::distance::raft::KeyValuePair<IndexT, DataT>& b) {
-      raft::distance::raft::KeyValuePair<IndexT, DataT> res;
-      res.key   = 0;
-      res.value = a.value + b.value;
-      return res;
-    });
+  detail::computeClusterCost(handle,
+                             minClusterAndDistance.view(),
+                             workspace,
+                             raft::make_device_scalar_view(clusterCostD.data()),
+                             [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
+                                           const raft::KeyValuePair<IndexT, DataT>& b) {
+                               raft::KeyValuePair<IndexT, DataT> res;
+                               res.key   = 0;
+                               res.value = a.value + b.value;
+                               return res;
+                             });
 
   raft::copy(inertia.data_handle(), &(clusterCostD.data()->value), 1, stream);
 
@@ -976,8 +971,7 @@ void kmeans_predict(handle_t const& handle,
   if (normalize_weight) checkWeight(handle, weight.view(), workspace);
 
   auto minClusterAndDistance =
-    raft::make_device_vector<raft::distance::raft::KeyValuePair<IndexT, DataT>, IndexT>(handle,
-                                                                                        n_samples);
+    raft::make_device_vector<raft::KeyValuePair<IndexT, DataT>, IndexT>(handle, n_samples);
   rmm::device_uvector<DataT> L2NormBuf_OR_DistBuf(0, stream);
 
   // L2 norm of X: ||x||^2
@@ -1008,42 +1002,39 @@ void kmeans_predict(handle_t const& handle,
                                                       workspace);
 
   // calculate cluster cost phi_x(C)
-  rmm::device_scalar<raft::distance::raft::KeyValuePair<IndexT, DataT>> clusterCostD(stream);
+  rmm::device_scalar<raft::KeyValuePair<IndexT, DataT>> clusterCostD(stream);
   // TODO: add different templates for InType of binaryOp to avoid thrust transform
-  thrust::transform(
-    handle.get_thrust_policy(),
-    minClusterAndDistance.data_handle(),
-    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
-    weight.data_handle(),
-    minClusterAndDistance.data_handle(),
-    [=] __device__(const raft::distance::raft::KeyValuePair<IndexT, DataT> kvp, DataT wt) {
-      raft::distance::raft::KeyValuePair<IndexT, DataT> res;
-      res.value = kvp.value * wt;
-      res.key   = kvp.key;
-      return res;
-    });
+  thrust::transform(handle.get_thrust_policy(),
+                    minClusterAndDistance.data_handle(),
+                    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
+                    weight.data_handle(),
+                    minClusterAndDistance.data_handle(),
+                    [=] __device__(const raft::KeyValuePair<IndexT, DataT> kvp, DataT wt) {
+                      raft::KeyValuePair<IndexT, DataT> res;
+                      res.value = kvp.value * wt;
+                      res.key   = kvp.key;
+                      return res;
+                    });
 
-  detail::computeClusterCost(
-    handle,
-    minClusterAndDistance.view(),
-    workspace,
-    raft::make_device_scalar_view(clusterCostD.data()),
-    [] __device__(const raft::distance::raft::KeyValuePair<IndexT, DataT>& a,
-                  const raft::distance::raft::KeyValuePair<IndexT, DataT>& b) {
-      raft::distance::raft::KeyValuePair<IndexT, DataT> res;
-      res.key   = 0;
-      res.value = a.value + b.value;
-      return res;
-    });
+  detail::computeClusterCost(handle,
+                             minClusterAndDistance.view(),
+                             workspace,
+                             raft::make_device_scalar_view(clusterCostD.data()),
+                             [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
+                                           const raft::KeyValuePair<IndexT, DataT>& b) {
+                               raft::KeyValuePair<IndexT, DataT> res;
+                               res.key   = 0;
+                               res.value = a.value + b.value;
+                               return res;
+                             });
 
   raft::copy(inertia.data_handle(), &(clusterCostD.data()->value), 1, stream);
 
-  thrust::transform(
-    handle.get_thrust_policy(),
-    minClusterAndDistance.data_handle(),
-    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
-    labels.data_handle(),
-    [=] __device__(raft::distance::raft::KeyValuePair<IndexT, DataT> pair) { return pair.key; });
+  thrust::transform(handle.get_thrust_policy(),
+                    minClusterAndDistance.data_handle(),
+                    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
+                    labels.data_handle(),
+                    [=] __device__(raft::KeyValuePair<IndexT, DataT> pair) { return pair.key; });
 }
 
 template <typename DataT, typename IndexT = int>
