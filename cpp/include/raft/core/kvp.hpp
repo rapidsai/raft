@@ -43,6 +43,11 @@ struct KeyValuePair {
     : key(kvp.key), value(kvp.value)
   {
   }
+
+  RAFT_INLINE_FUNCTION operator cub::KeyValuePair<_Key, _Value>()
+  {
+    return cub::KeyValuePair(key, value);
+  }
 #endif
 
   /// Constructor

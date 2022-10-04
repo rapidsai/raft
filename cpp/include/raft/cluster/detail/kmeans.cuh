@@ -114,7 +114,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
 
   rmm::device_uvector<DataT> L2NormBuf_OR_DistBuf(0, stream);
   rmm::device_scalar<DataT> clusterCost(stream);
-  rmm::device_scalar<raft::KeyValuePair<int, DataT>> minClusterIndexAndDistance(stream);
+  rmm::device_scalar<cub::KeyValuePair<int, DataT>> minClusterIndexAndDistance(stream);
 
   // L2 norm of X: ||c||^2
   auto L2NormX = raft::make_device_vector<DataT, IndexT>(handle, n_samples);
