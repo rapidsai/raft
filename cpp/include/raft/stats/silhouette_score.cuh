@@ -209,7 +209,8 @@ value_t silhouette_score_batched(
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
 {
   std::optional<raft::device_vector_view<value_t, idx_t>> opt_scores = silhouette_score_per_sample;
-  return silhouette_score_batched(handle, X, labels, opt_scores, n_unique_labels, batch_size, metric);
+  return silhouette_score_batched(
+    handle, X, labels, opt_scores, n_unique_labels, batch_size, metric);
 }
 };  // namespace stats
 };  // namespace raft

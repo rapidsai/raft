@@ -91,7 +91,10 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     dexp = hexp;
 
     // compute result
-    rowWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(), cols, rows, stream);
+    row_weighted_mean(handle,
+                      raft::make_device_matrix_view<const T>(din.data().get(), rows, cols),
+                      raft::make_device_vector_view<const T>(dweights.data().get(), cols),
+                      raft::make_device_vector_view(dact.data().get(), rows));
 
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;

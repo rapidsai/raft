@@ -50,7 +50,7 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
       out(rows * cols, stream),
       out_ref(rows * cols, stream),
       data(rows * cols, stream),
-      meanVec(params.bcastAlongRows ? cols : rows, stream)
+      meanVec(params.bcastAlongRows ? rows : cols, stream)
   {
   }
 
@@ -59,7 +59,7 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
   {
     raft::random::RngState r(params.seed);
     auto len         = rows * cols;
-    auto meanVecSize = params.bcastAlongRows ? cols : rows;
+    auto meanVecSize = params.bcastAlongRows ? rows : cols;
     normal(handle, r, data.data(), len, params.mean, (T)1.0);
     raft::stats::mean(
       meanVec.data(), data.data(), cols, rows, params.sample, params.rowMajor, stream);

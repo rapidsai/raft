@@ -73,8 +73,8 @@ void mean_center(const raft::handle_t& handle,
   static_assert(
     std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
     "Data layout not supported");
-  auto mean_vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
-  RAFT_EXPECTS(out.size() == data.size(), "Size mismatch");
+  auto mean_vec_size = bcast_along_rows ? data.extent(0) : data.extent(1);
+  RAFT_EXPECTS(out.extents() == data.extents(), "Size mismatch");
   RAFT_EXPECTS(mean_vec_size == mu.extent(0), "Size mismatch betwen data and mu");
   RAFT_EXPECTS(out.is_exhaustive(), "out must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
@@ -137,8 +137,8 @@ void mean_add(const raft::handle_t& handle,
   static_assert(
     std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
     "Data layout not supported");
-  auto mean_vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
-  RAFT_EXPECTS(out.size() == data.size(), "Size mismatch");
+  auto mean_vec_size = bcast_along_rows ? data.extent(0) : data.extent(1);
+  RAFT_EXPECTS(out.extents() == data.extents(), "Size mismatch");
   RAFT_EXPECTS(mean_vec_size == mu.extent(0), "Size mismatch betwen data and mu");
   RAFT_EXPECTS(out.is_exhaustive(), "out must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");

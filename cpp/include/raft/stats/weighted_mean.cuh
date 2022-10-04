@@ -118,11 +118,12 @@ void weighted_mean(const raft::handle_t& handle,
   static_assert(is_row_major || is_col_major,
                 "weighted_mean: Layout must be either "
                 "raft::row_major or raft::col_major (or one of their aliases)");
-  auto mean_vec_size = along_rows ? data.extent(1) : data.extent(0);
+  auto mean_vec_size = along_rows ? data.extent(0) : data.extent(1);
+  auto weight_size   = along_rows ? data.extent(1) : data.extent(0);
 
-  RAFT_EXPECTS(weights.extent(0) == mean_vec_size,
-               "Size mismatch betwen weights and mean_vec_size");
-  RAFT_EXPECTS(mu.extent(0) == mean_vec_size, "Size mismatch betwen mu and mean_vec_size");
+  RAFT_EXPECTS(weights.extent(0) == weight_size,
+               "Size mismatch betwen weights and expected weight_size");
+  RAFT_EXPECTS(mu.extent(0) == mean_vec_size, "Size mismatch betwen mu and expected mean_vec_size");
   RAFT_EXPECTS(weights.is_exhaustive(), "weights must be contiguous");
   RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
 
