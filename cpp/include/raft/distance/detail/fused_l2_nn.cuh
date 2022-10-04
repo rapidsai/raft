@@ -25,6 +25,11 @@
 
 namespace raft {
 namespace distance {
+
+// TODO: Need to declare or redefine this in the public namespace
+template <typename A, typename B>
+using KeyValuePair = cub::KeyValuePair<A, B>;
+
 namespace detail {
 
 #if (ENABLE_MEMCPY_ASYNC == 1)
@@ -34,15 +39,14 @@ using namespace nvcuda::experimental;
 
 template <typename LabelT, typename DataT>
 struct KVPMinReduceImpl {
-  typedef KeyValuePair<LabelT, DataT> KVP;
-
+  typedef raft::distance::KeyValuePair<LabelT, DataT> KVP;
   DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
 
 };  // KVPMinReduce
 
 template <typename LabelT, typename DataT>
 struct MinAndDistanceReduceOpImpl {
-  typedef typename KeyValuePair<LabelT, DataT> KVP;
+  typedef typename raft::distance::KeyValuePair<LabelT, DataT> KVP;
   DI void operator()(LabelT rid, KVP* out, const KVP& other)
   {
     if (other.value < out->value) {
@@ -66,7 +70,7 @@ struct MinAndDistanceReduceOpImpl {
 
 template <typename LabelT, typename DataT>
 struct MinReduceOpImpl {
-  typedef typename KeyValuePair<LabelT, DataT> KVP;
+  typedef typename raft::distance::KeyValuePair<LabelT, DataT> KVP;
   DI void operator()(LabelT rid, DataT* out, const KVP& other)
   {
     if (other.value < *out) { *out = other.value; }
