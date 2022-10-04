@@ -44,8 +44,9 @@ using namespace raft::spatial::knn::detail;  // NOLINT
  *   X dimension must cover the dataset (n_rows), YZ are not used;
  *   there are no dependencies between threads, hence no constraints on the block size.
  *
- * @tparam T the element type.
- * @tparam IdxT type of the indices in the source source_vecs
+ * @tparam T      element type.
+ * @tparam IdxT   type of the indices in the source source_vecs
+ * @tparam LabelT label type
  *
  * @param[in] labels device pointer to the cluster ids for each row [n_rows]
  * @param[in] list_offsets device pointer to the cluster offsets in the output (index) [n_lists]
@@ -60,8 +61,8 @@ using namespace raft::spatial::knn::detail;  // NOLINT
  * @param veclen size of vectorized loads/stores; must satisfy `dim % veclen == 0`.
  *
  */
-template <typename T, typename IdxT>
-__global__ void build_index_kernel(const uint32_t* labels,
+template <typename T, typename IdxT, typename LabelT>
+__global__ void build_index_kernel(const LabelT* labels,
                                    const IdxT* list_offsets,
                                    const T* source_vecs,
                                    const IdxT* source_ixs,
@@ -110,6 +111,8 @@ inline auto extend(const handle_t& handle,
                    const IdxT* new_indices,
                    IdxT n_rows) -> index<T, IdxT>
 {
+  using LabelT = uint32_t;
+
   auto stream  = handle.get_stream();
   auto n_lists = orig_index.n_lists();
   auto dim     = orig_index.dim();
@@ -119,16 +122,16 @@ inline auto extend(const handle_t& handle,
   RAFT_EXPECTS(new_indices != nullptr || orig_index.size() == 0,
                "You must pass data indices when the index is non-empty.");
 
-  rmm::device_uvector<uint32_t> new_labels(n_rows, stream);
-  kmeans::predict(handle,
-                  orig_index.centers().data_handle(),
-                  n_lists,
-                  dim,
-                  new_vectors,
-                  n_rows,
-                  new_labels.data(),
-                  orig_index.metric(),
-                  stream);
+  rmm::device_uvector<LabelT> new_labels(n_rows, stream);
+  kmeans::predict<T, IdxT, LabelT>(handle,
+                                   orig_index.centers().data_handle(),
+                                   n_lists,
+                                   dim,
+                                   new_vectors,
+                                   n_rows,
+                                   new_labels.data(),
+                                   orig_index.metric(),
+                                   stream);
 
   index<T, IdxT> ext_index(handle, orig_index.metric(), n_lists, dim);
 
@@ -206,6 +209,7 @@ inline auto extend(const handle_t& handle,
 
   // Precompute the centers vector norms for L2Expanded distance
   if (ext_index.center_norms().has_value()) {
+    // todo(lsugy): use other prim and remove this one
     utils::dots_along_rows(n_lists,
                            dim,
                            ext_index.centers().data_handle(),
@@ -250,15 +254,15 @@ inline auto build(
                                     n_rows_train,
                                     cudaMemcpyDefault,
                                     stream));
-    kmeans::build_hierarchical(handle,
-                               params.kmeans_n_iters,
-                               index.dim(),
-                               trainset.data(),
-                               n_rows_train,
-                               index.centers().data_handle(),
-                               index.n_lists(),
-                               index.metric(),
-                               stream);
+    kmeans::build_hierarchical<T, IdxT>(handle,
+                                        params.kmeans_n_iters,
+                                        index.dim(),
+                                        trainset.data(),
+                                        n_rows_train,
+                                        index.centers().data_handle(),
+                                        index.n_lists(),
+                                        index.metric(),
+                                        stream);
   }
 
   // add the data if necessary

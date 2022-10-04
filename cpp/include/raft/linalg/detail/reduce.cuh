@@ -44,16 +44,16 @@ void reduce(OutType* dots,
             FinalLambda final_op   = raft::Nop<OutType>())
 {
   if (rowMajor && alongRows) {
-    raft::linalg::coalescedReduction(
+    raft::linalg::coalescedReduction<InType, OutType, IdxType>(
       dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   } else if (rowMajor && !alongRows) {
-    raft::linalg::stridedReduction(
+    raft::linalg::stridedReduction<InType, OutType, IdxType>(
       dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   } else if (!rowMajor && alongRows) {
-    raft::linalg::stridedReduction(
+    raft::linalg::stridedReduction<InType, OutType, IdxType>(
       dots, data, N, D, init, stream, inplace, main_op, reduce_op, final_op);
   } else {
-    raft::linalg::coalescedReduction(
+    raft::linalg::coalescedReduction<InType, OutType, IdxType>(
       dots, data, N, D, init, stream, inplace, main_op, reduce_op, final_op);
   }
 }
