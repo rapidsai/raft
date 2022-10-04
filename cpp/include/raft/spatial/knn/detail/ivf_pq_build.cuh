@@ -31,6 +31,7 @@
 #include <raft/random/rng.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/device_atomics.cuh>
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
