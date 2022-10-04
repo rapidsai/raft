@@ -18,6 +18,7 @@
 #include <optional>
 #include <raft/cluster/detail/kmeans.cuh>
 #include <raft/cluster/kmeans_types.hpp>
+#include <raft/core/kvp.hpp>
 #include <raft/core/mdarray.hpp>
 
 namespace raft::cluster {
@@ -353,7 +354,8 @@ void minClusterAndDistanceCompute(
   const KMeansParams& params,
   const raft::device_matrix_view<const DataT, IndexT> X,
   const raft::device_matrix_view<const DataT, IndexT> centroids,
-  const raft::device_vector_view<cub::KeyValuePair<IndexT, DataT>, IndexT>& minClusterAndDistance,
+  const raft::device_vector_view<cub::raft::KeyValuePair<IndexT, DataT>, IndexT>&
+    minClusterAndDistance,
   const raft::device_vector_view<DataT, IndexT>& L2NormX,
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
   rmm::device_uvector<char>& workspace)

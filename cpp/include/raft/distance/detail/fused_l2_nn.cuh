@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
 #include <limits>
+#include <raft/core/kvp.hpp>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -25,10 +25,6 @@
 
 namespace raft {
 namespace distance {
-
-// TODO: Need to declare or redefine this in the public namespace
-template <typename A, typename B>
-using KeyValuePair = cub::KeyValuePair<A, B>;
 
 namespace detail {
 
@@ -39,14 +35,14 @@ using namespace nvcuda::experimental;
 
 template <typename LabelT, typename DataT>
 struct KVPMinReduceImpl {
-  typedef raft::distance::KeyValuePair<LabelT, DataT> KVP;
+  typedef raft::KeyValuePair<LabelT, DataT> KVP;
   DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
 
 };  // KVPMinReduce
 
 template <typename LabelT, typename DataT>
 struct MinAndDistanceReduceOpImpl {
-  typedef typename raft::distance::KeyValuePair<LabelT, DataT> KVP;
+  typedef typename raft::KeyValuePair<LabelT, DataT> KVP;
   DI void operator()(LabelT rid, KVP* out, const KVP& other)
   {
     if (other.value < out->value) {
@@ -70,7 +66,7 @@ struct MinAndDistanceReduceOpImpl {
 
 template <typename LabelT, typename DataT>
 struct MinReduceOpImpl {
-  typedef typename raft::distance::KeyValuePair<LabelT, DataT> KVP;
+  typedef typename raft::KeyValuePair<LabelT, DataT> KVP;
   DI void operator()(LabelT rid, DataT* out, const KVP& other)
   {
     if (other.value < *out) { *out = other.value; }

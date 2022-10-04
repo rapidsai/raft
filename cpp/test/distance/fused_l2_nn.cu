@@ -15,6 +15,7 @@
  */
 
 #include "../test_utils.h"
+#include <raft/core/kvp.hpp>
 #include <gtest/gtest.h>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/fused_l2_nn.cuh>
@@ -23,19 +24,19 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-// TODO: Once fusedL2NN is specialized in the raft_distance shared library, add
-// the following:
-//
-// #if defined RAFT_NN_COMPILED
-// #include <raft/spatial/knn/specializations.hpp>
-// #endif
+ TODO: Once fusedL2NN is specialized in the raft_distance shared library, add
+ the following:
+
+ #if defined RAFT_NN_COMPILED
+ #include <raft/spatial/knn/specializations.hpp>
+ #endif
 
 namespace raft {
 namespace distance {
 
 template <typename LabelT, typename DataT>
 struct CubKVPMinReduce {
-  typedef cub::KeyValuePair<LabelT, DataT> KVP;
+  typedef raft::KeyValuePair<LabelT, DataT> KVP;
 
   DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
 
@@ -44,7 +45,7 @@ struct CubKVPMinReduce {
 };  // KVPMinReduce
 
 template <typename DataT, bool Sqrt, typename ReduceOpT, int NWARPS>
-__global__ void naiveKernel(cub::KeyValuePair<int, DataT>* min,
+__global__ void naiveKernel(raft::KeyValuePair<int, DataT>* min,
                             DataT* x,
                             DataT* y,
                             int m,
@@ -64,10 +65,10 @@ __global__ void naiveKernel(cub::KeyValuePair<int, DataT>* min,
   }
   if (Sqrt) { acc = raft::mySqrt(acc); }
   ReduceOpT redOp;
-  typedef cub::WarpReduce<cub::KeyValuePair<int, DataT>> WarpReduce;
+  typedef cub::WarpReduce<raft::KeyValuePair<int, DataT>> WarpReduce;
   __shared__ typename WarpReduce::TempStorage temp[NWARPS];
   int warpId = threadIdx.x / raft::WarpSize;
-  cub::KeyValuePair<int, DataT> tmp;
+  raft::KeyValuePair<int, DataT> tmp;
   tmp.key   = nidx;
   tmp.value = midx >= m || nidx >= n ? maxVal : acc;
   tmp       = WarpReduce(temp[warpId]).Reduce(tmp, CubKVPMinReduce<int, DataT>());
@@ -82,7 +83,7 @@ __global__ void naiveKernel(cub::KeyValuePair<int, DataT>* min,
 }
 
 template <typename DataT, bool Sqrt>
-void naive(cub::KeyValuePair<int, DataT>* min,
+void naive(raft::KeyValuePair<int, DataT>* min,
            DataT* x,
            DataT* y,
            int m,
@@ -96,7 +97,7 @@ void naive(cub::KeyValuePair<int, DataT>* min,
   RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   auto blks = raft::ceildiv(m, 256);
   MinAndDistanceReduceOp<int, DataT> op;
-  detail::initKernel<DataT, cub::KeyValuePair<int, DataT>, int>
+  detail::initKernel<DataT, raft::KeyValuePair<int, DataT>, int>
     <<<blks, 256, 0, stream>>>(min, m, std::numeric_limits<DataT>::max(), op);
   RAFT_CUDA_TRY(cudaGetLastError());
   naiveKernel<DataT, Sqrt, MinAndDistanceReduceOp<int, DataT>, 16>
@@ -165,8 +166,8 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   rmm::device_uvector<DataT> y;
   rmm::device_uvector<DataT> xn;
   rmm::device_uvector<DataT> yn;
-  rmm::device_uvector<cub::KeyValuePair<int, DataT>> min;
-  rmm::device_uvector<cub::KeyValuePair<int, DataT>> min_ref;
+  rmm::device_uvector<raft::KeyValuePair<int, DataT>> min;
+  rmm::device_uvector<raft::KeyValuePair<int, DataT>> min_ref;
   rmm::device_uvector<char> workspace;
   raft::handle_t handle;
   cudaStream_t stream;
@@ -179,13 +180,13 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     naive<DataT, Sqrt>(min_ref.data(), x.data(), y.data(), m, n, k, (int*)workspace.data(), stream);
   }
 
-  void runTest(cub::KeyValuePair<int, DataT>* out)
+  void runTest(raft::KeyValuePair<int, DataT>* out)
   {
     int m = params.m;
     int n = params.n;
     int k = params.k;
     MinAndDistanceReduceOp<int, DataT> redOp;
-    fusedL2NN<DataT, cub::KeyValuePair<int, DataT>, int>(out,
+    fusedL2NN<DataT, raft::KeyValuePair<int, DataT>, int>(out,
                                                          x.data(),
                                                          y.data(),
                                                          xn.data(),
@@ -205,7 +206,7 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
 
 template <typename T>
 struct CompareApproxAbsKVP {
-  typedef typename cub::KeyValuePair<int, T> KVP;
+  typedef typename raft::KeyValuePair<int, T> KVP;
   CompareApproxAbsKVP(T eps_) : eps(eps_) {}
   bool operator()(const KVP& a, const KVP& b) const
   {
@@ -221,7 +222,7 @@ struct CompareApproxAbsKVP {
 
 template <typename T>
 struct CompareExactKVP {
-  typedef typename cub::KeyValuePair<int, T> KVP;
+  typedef typename raft::KeyValuePair<int, T> KVP;
   bool operator()(const KVP& a, const KVP& b) const
   {
     if (a.value != b.value) return false;
@@ -230,13 +231,13 @@ struct CompareExactKVP {
 };
 
 template <typename K, typename V, typename L>
-::testing::AssertionResult devArrMatch(const cub::KeyValuePair<K, V>* expected,
-                                       const cub::KeyValuePair<K, V>* actual,
+::testing::AssertionResult devArrMatch(const raft::KeyValuePair<K, V>* expected,
+                                       const raft::KeyValuePair<K, V>* actual,
                                        size_t size,
                                        L eq_compare,
                                        cudaStream_t stream = 0)
 {
-  typedef typename cub::KeyValuePair<K, V> KVP;
+  typedef typename raft::KeyValuePair<K, V> KVP;
   std::shared_ptr<KVP> exp_h(new KVP[size]);
   std::shared_ptr<KVP> act_h(new KVP[size]);
   raft::update_host<KVP>(exp_h.get(), expected, size, stream);
@@ -384,7 +385,7 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
   raft::handle_t handle;
   cudaStream_t stream;
 
-  rmm::device_uvector<cub::KeyValuePair<int, DataT>> min1;
+  rmm::device_uvector<raft::KeyValuePair<int, DataT>> min1;
 
   static const int NumRepeats = 100;
 
