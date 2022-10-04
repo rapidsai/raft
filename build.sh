@@ -40,7 +40,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
                                   the only option to be supported)
    --minimal-deps              - disables dependencies like thrust so they can be overridden.
                                  can be useful for a pure header-only install
-   --limit-tests               - semicolon-separated list of test executables to compile (e.g. TEST_SPATIAL;TEST_CLUSTER)
+   --limit-tests               - semicolon-separated list of test executables to compile (e.g. SPATIAL_TEST;CLUSTER_TEST)
    --allgpuarch                - build for all supported GPU architectures
    --buildfaiss                - build faiss statically into raft
    --install                   - install cmake targets
