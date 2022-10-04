@@ -7,6 +7,7 @@
     - [C++ Shared Libraries](#shared_cpp_libs)
     - [Improving Rebuild Times](#ccache)
     - [Googletests](#gtests)
+    - [Googlebench](#gbench)
     - [C++ Using Cmake](#cpp_using_cmake)
     - [Python](#python)
 - [Using RAFT in downstream projects](#use_raft)
@@ -102,17 +103,17 @@ It can take sometime to compile all of the tests. You can build individual tests
 ./build.sh libraft tests --limit-tests=SPATIAL_TEST;DISTANCE_TEST;MATRIX_TEST
 ```
 
-### <a id="benchmarks"></a>Benchmarks
+### <a id="gbench"></a>Benchmarks
 
-Compile the benchmarks using the `bench` target in `build.sh`:
+The benchmarks are broken apart by algorithm category, so you will find several binaries in `cpp/build/` named `*_BENCH`.
 ```bash
 ./build.sh libraft bench
 ```
 
-To run the benchmarks:
+It can take sometime to compile all of the tests. You can build individual tests by providing a semicolon-separated list to the `--limit-tests` option in `build.sh`:
 
 ```bash
-./cpp/build/bench_raft
+./build.sh libraft bench --limit-bench=SPATIAL_BENCH;DISTANCE_BENCH;LINALG_BENCH
 ```
 
 ### <a id="cpp_using_cmake"></a>C++ Using Cmake
