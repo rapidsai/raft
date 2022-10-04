@@ -31,6 +31,9 @@
 namespace raft {
 namespace distance {
 
+template <typename A, typename B>
+using KeyValuePair = cub::KeyValuePair<A, B>;
+
 template <typename LabelT, typename DataT>
 using KVPMinReduce = detail::KVPMinReduceImpl<LabelT, DataT>;
 

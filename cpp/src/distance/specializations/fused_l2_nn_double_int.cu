@@ -19,7 +19,7 @@
 namespace raft {
 namespace distance {
 
-template void fusedL2NNMinReduce<double, cub::KeyValuePair<int, double>, int>(
+template void fusedL2NNMinReduce<double, KeyValuePair<int, double>, int>(
   cub::KeyValuePair<int, double>* min,
   const double* x,
   const double* y,

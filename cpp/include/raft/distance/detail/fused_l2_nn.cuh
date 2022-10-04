@@ -34,7 +34,7 @@ using namespace nvcuda::experimental;
 
 template <typename LabelT, typename DataT>
 struct KVPMinReduceImpl {
-  typedef cub::KeyValuePair<LabelT, DataT> KVP;
+  typedef KeyValuePair<LabelT, DataT> KVP;
 
   DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
 
@@ -42,7 +42,7 @@ struct KVPMinReduceImpl {
 
 template <typename LabelT, typename DataT>
 struct MinAndDistanceReduceOpImpl {
-  typedef typename cub::KeyValuePair<LabelT, DataT> KVP;
+  typedef typename KeyValuePair<LabelT, DataT> KVP;
   DI void operator()(LabelT rid, KVP* out, const KVP& other)
   {
     if (other.value < out->value) {
@@ -66,7 +66,7 @@ struct MinAndDistanceReduceOpImpl {
 
 template <typename LabelT, typename DataT>
 struct MinReduceOpImpl {
-  typedef typename cub::KeyValuePair<LabelT, DataT> KVP;
+  typedef typename KeyValuePair<LabelT, DataT> KVP;
   DI void operator()(LabelT rid, DataT* out, const KVP& other)
   {
     if (other.value < *out) { *out = other.value; }
@@ -146,7 +146,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
 {
   extern __shared__ char smem[];
 
-  typedef cub::KeyValuePair<IdxT, DataT> KVPair;
+  typedef KeyValuePair<IdxT, DataT> KVPair;
   KVPair val[P::AccRowsPerTh];
 #pragma unroll
   for (int i = 0; i < P::AccRowsPerTh; ++i) {
@@ -285,7 +285,7 @@ void fusedL2NNImpl(OutT* min,
   dim3 blk(P::Nthreads);
   auto nblks            = raft::ceildiv<int>(m, P::Nthreads);
   constexpr auto maxVal = std::numeric_limits<DataT>::max();
-  typedef cub::KeyValuePair<IdxT, DataT> KVPair;
+  typedef KeyValuePair<IdxT, DataT> KVPair;
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
