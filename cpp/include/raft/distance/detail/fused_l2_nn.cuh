@@ -59,7 +59,7 @@ struct MinAndDistanceReduceOpImpl {
   DI void init(DataT* out, DataT maxVal) { *out = maxVal; }
   DI void init(KVP* out, DataT maxVal)
   {
-    out->key   = -1;
+    out->key   = 0;
     out->value = maxVal;
   }
 };
@@ -150,7 +150,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
   KVPair val[P::AccRowsPerTh];
 #pragma unroll
   for (int i = 0; i < P::AccRowsPerTh; ++i) {
-    val[i] = {-1, maxVal};
+    val[i] = {0, maxVal};
   }
 
   // epilogue operation lambda for final value calculation
@@ -222,7 +222,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
     // reset the val array.
 #pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        val[i] = {-1, maxVal};
+        val[i] = {0, maxVal};
       }
     };
 
