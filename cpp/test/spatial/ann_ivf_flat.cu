@@ -32,6 +32,10 @@
 
 #include <thrust/sequence.h>
 
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#include <raft/cluster/specializations.cuh>
+#endif
+
 #include <cstddef>
 #include <iostream>
 #include <vector>
@@ -110,7 +114,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                &index,
                                dynamic_cast<raft::spatial::knn::knnIndexParam*>(&ivfParams),
                                ps.metric,
-                               0,
+                               (IdxT)0,
                                database.data(),
                                ps.num_db_vecs,
                                ps.dim);

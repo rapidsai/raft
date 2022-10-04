@@ -71,7 +71,8 @@ void stridedReduction(OutType* dots,
                       ReduceLambda reduce_op = raft::Sum<OutType>(),
                       FinalLambda final_op   = raft::Nop<OutType>())
 {
-  detail::stridedReduction(dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
+  detail::stridedReduction<InType, OutType, IdxType>(
+    dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
 }
 
 /**

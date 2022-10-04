@@ -226,7 +226,8 @@ void select_residuals(const handle_t& handle,
 {
   auto stream = handle.get_stream();
   rmm::device_uvector<float> tmp(n_rows * dim, stream, device_memory);
-  utils::copy_selected<float, T>(n_rows, dim, dataset, row_ids, dim, tmp.data(), dim, stream);
+  utils::copy_selected<float, T>(
+    n_rows, (IdxT)dim, dataset, row_ids, (IdxT)dim, tmp.data(), (IdxT)dim, stream);
 
   raft::matrix::linewiseOp(
     tmp.data(),
@@ -483,12 +484,12 @@ void train_per_subset(const handle_t& handle,
     // Get the rotated cluster centers for each training vector.
     // This will be subtracted from the input vectors afterwards.
     utils::copy_selected(n_rows,
-                         index.pq_len(),
+                         (IdxT)index.pq_len(),
                          index.centers_rot().data_handle() + index.pq_len() * j,
                          labels,
-                         index.rot_dim(),
+                         (IdxT)index.rot_dim(),
                          sub_trainset.data(),
-                         index.pq_len(),
+                         (IdxT)index.pq_len(),
                          stream);
 
     // sub_trainset is the slice of: rotate(trainset) - centers_rot
@@ -871,13 +872,13 @@ inline auto extend(const handle_t& handle,
              new_cluster_size,
              stream);
       } else {
-        utils::copy_selected(new_cluster_size,
-                             1,
+        utils::copy_selected((IdxT)new_cluster_size,
+                             (IdxT)1,
                              new_indices,
                              new_data_indices.data() + new_cluster_offsets.data()[k],
-                             1,
+                             (IdxT)1,
                              ext_indices + ext_cluster_offsets[l] + old_cluster_size,
-                             1,
+                             (IdxT)1,
                              stream);
       }
     }

@@ -1098,15 +1098,16 @@ void search_impl(const handle_t& handle,
   float alpha = 1.0f;
   float beta  = 0.0f;
 
+  // todo(lsugy): raft distance? (if performance is similar/better than gemm)
   if (index.metric() == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
     utils::dots_along_rows(
       n_queries, index.dim(), converted_queries_ptr, query_norm_dev.data(), stream);
     utils::outer_add(query_norm_dev.data(),
-                     n_queries,
+                     (IdxT)n_queries,
                      index.center_norms()->data_handle(),
-                     index.n_lists(),
+                     (IdxT)index.n_lists(),
                      distance_buffer_dev.data(),
                      stream);
     RAFT_LOG_TRACE_VEC(index.center_norms()->data_handle(), std::min<uint32_t>(20, index.dim()));
