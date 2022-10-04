@@ -21,7 +21,9 @@
 #include <raft/spatial/knn/detail/topk.cuh>
 #include <raft/util/cuda_utils.cuh>
 
+#include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft::spatial::knn {
 
