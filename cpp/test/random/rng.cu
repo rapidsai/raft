@@ -596,7 +596,8 @@ class RngNormalTableMdspanTest : public ::testing::TestWithParam<RngNormalTableI
 
     fill(handle, r, mu_vec.data(), params.cols, params.mu);
 
-    raft::device_matrix_view<T, int, raft::row_major> data_view(data.data(), params.rows, params.cols);
+    raft::device_matrix_view<T, int, raft::row_major> data_view(
+      data.data(), params.rows, params.cols);
     raft::device_vector_view<const T, int> mu_vec_view(mu_vec.data(), params.cols);
     std::variant<raft::device_vector_view<const T, int>, T> sigma_var(params.sigma);
 
@@ -652,7 +653,9 @@ TEST_P(RngNormalTableMdspanTestF, Result)
   ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(num_sigma * params.tolerance)));
   ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(num_sigma * params.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(RngNormalTableMdspanTests, RngNormalTableMdspanTestF, ::testing::ValuesIn(inputsf_t));
+INSTANTIATE_TEST_SUITE_P(RngNormalTableMdspanTests,
+                         RngNormalTableMdspanTestF,
+                         ::testing::ValuesIn(inputsf_t));
 
 const std::vector<RngNormalTableInputs<double>> inputsd_t = {
   {0.0055, 32, 1024, 1.0, 1.0, GenPhilox, 1234ULL},
@@ -679,7 +682,9 @@ TEST_P(RngNormalTableMdspanTestD, Result)
   ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<double>(num_sigma * params.tolerance)));
   ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<double>(num_sigma * params.tolerance)));
 }
-INSTANTIATE_TEST_SUITE_P(RngNormalTableMdspanTests, RngNormalTableMdspanTestD, ::testing::ValuesIn(inputsd_t));
+INSTANTIATE_TEST_SUITE_P(RngNormalTableMdspanTests,
+                         RngNormalTableMdspanTestD,
+                         ::testing::ValuesIn(inputsd_t));
 
 struct RngAffineInputs {
   int n;

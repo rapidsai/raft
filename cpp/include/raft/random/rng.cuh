@@ -21,10 +21,10 @@
 #include "rng_state.hpp"
 #include <cassert>
 #include <optional>
-#include <variant>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <type_traits>
+#include <variant>
 
 namespace raft::random {
 
@@ -92,9 +92,10 @@ void uniformInt(const raft::handle_t& handle,
                 OutputValueType start,
                 OutputValueType end)
 {
-  static_assert(std::is_same<OutputValueType, typename std::remove_cv<OutputValueType>::type>::value,
-                "uniformInt: The output vector must be a view of nonconst, "
-                "so that we can write to it.");
+  static_assert(
+    std::is_same<OutputValueType, typename std::remove_cv<OutputValueType>::type>::value,
+    "uniformInt: The output vector must be a view of nonconst, "
+    "so that we can write to it.");
   static_assert(std::is_integral<OutputValueType>::value,
                 "uniformInt: The elements of the output vector must have integral type.");
   detail::uniformInt(rng_state, out.data_handle(), out.extent(0), start, end, handle.get_stream());
@@ -213,11 +214,12 @@ void normalInt(const raft::handle_t& handle,
  * @param[out] ptr the output table
  */
 template <typename OutputValueType, typename IndexType>
-void normalTable(const raft::handle_t& handle,
-                 RngState& rng_state,
-                 raft::device_vector_view<const OutputValueType, IndexType> mu_vec,
-                 std::variant<raft::device_vector_view<const OutputValueType, IndexType>, OutputValueType> sigma,
-                 raft::device_matrix_view<OutputValueType, IndexType, raft::row_major> out)
+void normalTable(
+  const raft::handle_t& handle,
+  RngState& rng_state,
+  raft::device_vector_view<const OutputValueType, IndexType> mu_vec,
+  std::variant<raft::device_vector_view<const OutputValueType, IndexType>, OutputValueType> sigma,
+  raft::device_matrix_view<OutputValueType, IndexType, raft::row_major> out)
 {
   const OutputValueType* sigma_vec_ptr = nullptr;
   OutputValueType sigma_value{};
@@ -225,10 +227,12 @@ void normalTable(const raft::handle_t& handle,
   using sigma_vec_type = raft::device_vector_view<const OutputValueType, IndexType>;
   if (std::holds_alternative<sigma_vec_type>(sigma)) {
     auto sigma_vec = std::get<sigma_vec_type>(sigma);
-    RAFT_EXPECTS( sigma_vec.extent(0) == out.extent(1), "normalTable: The sigma vector "
-                  "has length %zu, which does not equal the number of columns "
-                  "in the output table %zu.", static_cast<size_t>(sigma_vec.extent(0)),
-                  static_cast<size_t>(out.extent(1)) );
+    RAFT_EXPECTS(sigma_vec.extent(0) == out.extent(1),
+                 "normalTable: The sigma vector "
+                 "has length %zu, which does not equal the number of columns "
+                 "in the output table %zu.",
+                 static_cast<size_t>(sigma_vec.extent(0)),
+                 static_cast<size_t>(out.extent(1)));
     // The extra length check makes this work even if sigma_vec views a std::vector,
     // where .data() need not return nullptr even if .size() is zero.
     sigma_vec_ptr = sigma_vec.extent(0) == 0 ? nullptr : sigma_vec.data_handle();
@@ -236,14 +240,21 @@ void normalTable(const raft::handle_t& handle,
     sigma_value = std::get<OutputValueType>(sigma);
   }
 
-  RAFT_EXPECTS( mu_vec.extent(0) == out.extent(1), "normalTable: The mu vector "
-                "has length %zu, which does not equal the number of columns "
-                "in the output table %zu.", static_cast<size_t>(mu_vec.extent(0)),
-                static_cast<size_t>(out.extent(1)) );
+  RAFT_EXPECTS(mu_vec.extent(0) == out.extent(1),
+               "normalTable: The mu vector "
+               "has length %zu, which does not equal the number of columns "
+               "in the output table %zu.",
+               static_cast<size_t>(mu_vec.extent(0)),
+               static_cast<size_t>(out.extent(1)));
 
-  detail::normalTable(
-    rng_state, out.data_handle(), out.extent(0), out.extent(1),
-    mu_vec.data_handle(), sigma_vec_ptr, sigma_value, handle.get_stream());
+  detail::normalTable(rng_state,
+                      out.data_handle(),
+                      out.extent(0),
+                      out.extent(1),
+                      mu_vec.data_handle(),
+                      sigma_vec_ptr,
+                      sigma_value,
+                      handle.get_stream());
 }
 
 /**

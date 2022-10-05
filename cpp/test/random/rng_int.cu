@@ -141,9 +141,7 @@ class RngMdspanTest : public ::testing::TestWithParam<RngInputs<T>> {
     raft::device_vector_view<T> data_view(data.data(), data.size());
 
     switch (params.type) {
-      case RNG_Uniform:
-        uniformInt(handle, r, data_view, params.start, params.end);
-        break;
+      case RNG_Uniform: uniformInt(handle, r, data_view, params.start, params.end); break;
     };
     static const int threads = 128;
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
