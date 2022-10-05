@@ -102,7 +102,7 @@ void colWeightedMean(
  * @tparam layout_t Layout type of the input matrix.
  * @param[in]  handle the raft handle
  * @param[in]  data the input matrix of size nrows * ncols
- * @param[in]  weights weight of size ncols if along_row is true, else of size nrows
+ * @param[in]  weights weight of size nrows if along_row is true, else of size ncols
  * @param[out] mu the output mean vector of size ncols if along_row is true, else of size nrows
  * @param[in]  along_rows whether to reduce along rows or columns
  */
@@ -118,8 +118,8 @@ void weighted_mean(const raft::handle_t& handle,
   static_assert(is_row_major || is_col_major,
                 "weighted_mean: Layout must be either "
                 "raft::row_major or raft::col_major (or one of their aliases)");
-  auto mean_vec_size = along_rows ? data.extent(0) : data.extent(1);
-  auto weight_size   = along_rows ? data.extent(1) : data.extent(0);
+  auto mean_vec_size = along_rows ? data.extent(1) : data.extent(0);
+  auto weight_size   = along_rows ? data.extent(0) : data.extent(1);
 
   RAFT_EXPECTS(weights.extent(0) == weight_size,
                "Size mismatch betwen weights and expected weight_size");
@@ -139,13 +139,13 @@ void weighted_mean(const raft::handle_t& handle,
 
 /**
  * @brief Compute the row-wise weighted mean of the input matrix with a
- * vector of column weights
+ * vector of row weights
  *
  * @tparam value_t the data type
  * @tparam idx_t Integer type used to for addressing
  * @param[in]  handle the raft handle
  * @param[in]  data the input matrix of size nrows * ncols
- * @param[in]  weights per-col weight
+ * @param[in]  weights weight of size nrows
  * @param[out] mu the output mean vector of size ncols
  */
 template <typename value_t, typename idx_t>
@@ -159,13 +159,13 @@ void row_weighted_mean(const raft::handle_t& handle,
 
 /**
  * @brief Compute the column-wise weighted mean of the input matrix with a
- * vector of row weights
+ * vector of col weights
  *
  * @tparam value_t the data type
  * @tparam idx_t Integer type used to for addressing
  * @param[in]  handle the raft handle
  * @param[in]  data the input matrix of size nrows * ncols
- * @param[in]  weights per-row weight
+ * @param[in]  weights weight of size ncols
  * @param[out] mu the output mean vector of size nrows
  */
 template <typename value_t, typename idx_t>
