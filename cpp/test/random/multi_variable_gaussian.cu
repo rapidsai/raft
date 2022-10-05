@@ -278,12 +278,6 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
     raft::device_matrix_view<T, int, raft::col_major> P_view(P_d.data(), dim, dim);
     raft::device_matrix_view<T, int, raft::col_major> X_view(X_d.data(), dim, nPoints);
 
-    {
-      // Test that setup with a default memory resource compiles.
-      auto token = raft::random::setup_multi_variable_gaussian<T>(handle, dim, method);
-      (void)token;
-    }
-
     rmm::mr::device_memory_resource* mem_resource_ptr = rmm::mr::get_current_device_resource();
     ASSERT_TRUE(mem_resource_ptr != nullptr);
     raft::random::compute_multi_variable_gaussian(

@@ -296,7 +296,7 @@ template <typename ValueType>
 class multi_variable_gaussian_setup_token;
 
 template <typename ValueType>
-multi_variable_gaussian_setup_token<ValueType> setup_multi_variable_gaussian_impl(
+multi_variable_gaussian_setup_token<ValueType> build_multi_variable_gaussian_token_impl(
   const raft::handle_t& handle,
   rmm::mr::device_memory_resource& mem_resource,
   const int dim,
@@ -312,7 +312,7 @@ void compute_multi_variable_gaussian_impl(
 template <typename ValueType>
 class multi_variable_gaussian_setup_token {
   template <typename T>
-  friend multi_variable_gaussian_setup_token<T> setup_multi_variable_gaussian_impl(
+  friend multi_variable_gaussian_setup_token<T> build_multi_variable_gaussian_token_impl(
     const raft::handle_t& handle,
     rmm::mr::device_memory_resource& mem_resource,
     const int dim,
@@ -411,7 +411,7 @@ class multi_variable_gaussian_setup_token {
 };
 
 template <typename ValueType>
-multi_variable_gaussian_setup_token<ValueType> setup_multi_variable_gaussian_impl(
+multi_variable_gaussian_setup_token<ValueType> build_multi_variable_gaussian_token_impl(
   const raft::handle_t& handle,
   rmm::mr::device_memory_resource& mem_resource,
   const int dim,
@@ -440,7 +440,7 @@ void compute_multi_variable_gaussian_impl(
   const multi_variable_gaussian_decomposition_method method)
 {
   auto token =
-    setup_multi_variable_gaussian_impl<ValueType>(handle, mem_resource, P.extent(0), method);
+    build_multi_variable_gaussian_token_impl<ValueType>(handle, mem_resource, P.extent(0), method);
   compute_multi_variable_gaussian_impl(token, x, P, X);
 }
 
