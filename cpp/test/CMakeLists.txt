@@ -157,6 +157,8 @@ if(BUILD_TESTS)
 
     ConfigureTest(NAME MATRIX_TEST
             PATH
+            test/matrix/argmax.cu
+            test/matrix/diagonal.cu
             test/matrix/gather.cu
             test/matrix/math.cu
             test/matrix/matrix.cu

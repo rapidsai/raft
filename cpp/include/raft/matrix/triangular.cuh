@@ -28,7 +28,7 @@ namespace raft::matrix {
  * @param[in] src: input matrix with a size of n_rows x n_cols
  * @param[out] dst: output matrix with a size of kxk, k = min(n_rows, n_cols)
  */
-template <typename m_t, typename idx_t = int>
+template <typename m_t, typename idx_t>
 void upper_triangular(const raft::handle_t& handle,
                       raft::device_matrix_view<const m_t, idx_t, col_major> src,
                       raft::device_matrix_view<m_t, idx_t, col_major> dst)

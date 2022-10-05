@@ -42,6 +42,13 @@ void slice(const raft::handle_t& handle,
            idx_t x2,
            idx_t y2)
 {
+  RAFT_EXPECTS(x2 > x1, "x2 must be > x1");
+  RAFT_EXPECTS(y2 > y1, "y2 must be > y1");
+  RAFT_EXPECTS(x1 >= 0, "x1 must be >= 0");
+  RAFT_EXPECTS(x2 <= in.extents(0), "x2 must be <= number of rows in the input matrix")
+  RAFT_EXPECTS(y1 >= 0, "y1 must be >= 0");
+  RAFT_EXPECTS(y2 <= in.extents(1), "y2 must be <= number of columns in the input matrix");
+
   detail::sliceMatrix(in.data_handle(),
                       in.extent(0),
                       in.extent(1),

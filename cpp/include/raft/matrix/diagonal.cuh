@@ -24,14 +24,17 @@ namespace raft::matrix {
 
 /**
  * @brief Initialize a diagonal matrix with a vector
- * @param vec: vector of length k = min(n_rows, n_cols)
- * @param matrix: matrix of size n_rows x n_cols
+ * @param[in] vec: vector of length k = min(n_rows, n_cols)
+ * @param[out] matrix: matrix of size n_rows x n_cols
  */
-template <typename m_t, typename idx_t = int>
-void initialize_diagonal(const raft::handle_t& handle,
-                         raft::device_vector_view<m_t> vec,
-                         raft::device_matrix_view<m_t, idx_t, col_major> matrix)
+template <typename m_t, typename idx_t, typename layout>
+void set_diagonal(const raft::handle_t& handle,
+                  raft::device_vector_view<const m_t, idx_t> vec,
+                  raft::device_matrix_view<m_t, idx_t, layout> matrix)
 {
+  RAFT_EXPECTS(vec.extent(0) == std::min(matrix.extent(0), matrix.extent(1)),
+               "Diagonal vector must be min(matrix.n_rows, matrix.n_cols)");
+
   detail::initializeDiagonalMatrix(vec.data_handle(),
                                    matrix.data_handle(),
                                    matrix.extent(0),
@@ -40,14 +43,34 @@ void initialize_diagonal(const raft::handle_t& handle,
 }
 
 /**
- * @brief Take reciprocal of elements on diagonal of square matrix (in-place)
- * @param in: square input matrix with size len x len
+ * @brief Initialize a diagonal matrix with a vector
+ * @param[in] matrix: matrix of size n_rows x n_cols
+ * @param[out] vec: vector of length k = min(n_rows, n_cols)
  */
-template <typename m_t, typename idx_t = int>
-void invert_diagonal(const raft::handle_t& handle,
-                     raft::device_matrix_view<m_t, idx_t, col_major> in)
+template <typename m_t, typename idx_t, typename layout>
+void get_diagonal(const raft::handle_t& handle,
+                  raft::device_matrix_view<const m_t, idx_t, layout> matrix,
+                  raft::device_vector_view<m_t, idx_t> vec)
 {
-  RAFT_EXPECTS(in.extent(0) == in.extent(1), "Matrix must be square.");
-  detail::getDiagonalInverseMatrix(in.data_handle(), in.extent(0), handle.get_stream());
+  RAFT_EXPECTS(vec.extent(0) == std::min(matrix.extent(0), matrix.extent(1)),
+               "Diagonal vector must be min(matrix.n_rows, matrix.n_cols)");
+  detail::getDiagonalMatrix(vec.data_handle(),
+                            matrix.data_handle(),
+                            matrix.extent(0),
+                            matrix.extent(1),
+                            handle.get_stream());
+}
+
+/**
+ * @brief Take reciprocal of elements on diagonal of square matrix (in-place)
+ * @param[inout] inout: square input matrix with size len x len
+ */
+template <typename m_t, typename idx_t, typename layout>
+void invert_diagonal(const raft::handle_t& handle,
+                     raft::device_matrix_view<m_t, idx_t, layout> inout)
+{
+  // TODO: Use get_diagonal for this to support rectangular
+  RAFT_EXPECTS(inout.extent(0) == inout.extent(1), "Matrix must be square.");
+  detail::getDiagonalInverseMatrix(inout.data_handle(), inout.extent(0), handle.get_stream());
 }
 }  // namespace raft::matrix

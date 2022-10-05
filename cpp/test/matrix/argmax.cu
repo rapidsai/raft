@@ -15,6 +15,7 @@
  */
 
 #include "../test_utils.h"
+#include <cstdint>
 #include <gtest/gtest.h>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -28,12 +29,12 @@ template <typename T, typename IdxT>
 struct ArgMaxInputs {
   std::vector<T> input_matrix;
   std::vector<IdxT> output_matrix;
-  int n_cols;
-  int n_rows;
+  std::size_t n_cols;
+  std::size_t n_rows;
 };
 
-template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const ArgMaxInputs<T>& dims)
+template <typename T, typename IdxT>
+::std::ostream& operator<<(::std::ostream& os, const ArgMaxInputs<T, IdxT>& dims)
 {
   return os;
 }
@@ -43,30 +44,40 @@ class ArgMaxTest : public ::testing::TestWithParam<ArgMaxInputs<T, IdxT>> {
  public:
   ArgMaxTest()
     : params(::testing::TestWithParam<ArgMaxInputs<T, IdxT>>::GetParam()),
-      input(std::move(raft::make_device_matrix<T>(handle, params.n_rows, params.n_cols))),
-      output(std::move(raft::make_device_vector<IdxT>(handle, params.n_rows))),
-      expected(std::move(raft::make_device_vector<IdxT>(handle, params.n_rows)))
+      input(raft::make_device_matrix<T, std::uint32_t, col_major>(
+        handle, params.n_rows, params.n_cols)),
+      output(raft::make_device_vector<IdxT, std::uint32_t>(handle, params.n_rows)),
+      expected(raft::make_device_vector<IdxT, std::uint32_t>(handle, params.n_rows))
   {
-    raft::copy(input.data_handle(), params.input_matrix.data(), params.n_rows * params.n_cols);
-    raft::copy(expected.data_handle(), params.output_matrix.data(), params.n_rows * params.n_cols);
+    raft::copy(input.data_handle(),
+               params.input_matrix.data(),
+               params.n_rows * params.n_cols,
+               handle.get_stream());
+    raft::copy(expected.data_handle(),
+               params.output_matrix.data(),
+               params.n_rows * params.n_cols,
+               handle.get_stream());
 
-    raft::matrix::argmax(handle, input, output);
+    auto input_const_view = raft::make_device_matrix_view<const T, std::uint32_t, col_major>(
+      input.data_handle(), input.extent(0), input.extent(1));
+
+    raft::matrix::argmax(handle, input_const_view, output.view());
   }
 
  protected:
   raft::handle_t handle;
-  ArgMaxInputs<T> params;
+  ArgMaxInputs<T, IdxT> params;
 
-  raft::device_matrix<T> input;
-  raft::device_vector<IdxT> output;
-  raft::device_vector<IdxT> expected;
+  raft::device_matrix<T, std::uint32_t, col_major> input;
+  raft::device_vector<IdxT, std::uint32_t> output;
+  raft::device_vector<IdxT, std::uint32_t> expected;
 };
 
 const std::vector<ArgMaxInputs<float, int>> inputsf = {
-  {0.1f, 0.2f, 0.3f, 0.4f}, {0.4f, 0.3f, 0.2f, 0.1f}, {0.2f, 0.3f, 0.5f, 0.0f}, {3, 0, 2}, 3, 4};
+  {{0.1f, 0.4f, 0.2f, 0.2f, 0.3f, 0.3f, 0.3f, 0.2f, 0.5f, 0.4f, 0.1f, 0.0f}, {3, 0, 2}, 3, 4}};
 
 const std::vector<ArgMaxInputs<double, int>> inputsd = {
-  {0.1, 0.2, 0.3, 0.4}, {0.4, 0.3, 0.2, 0.1}, {0.2, 0.3, 0.5, 0.0}, {3, 0, 2}, 3, 4};
+  {{0.1, 0.4, 0.2, 0.2, 0.3, 0.3, 0.3, 0.2, 0.5, 0.4, 0.1, 0.0}, {3, 0, 2}, 3, 4}};
 
 typedef ArgMaxTest<float, int> ArgMaxTestF;
 TEST_P(ArgMaxTestF, Result)
@@ -88,9 +99,9 @@ TEST_P(ArgMaxTestD, Result)
                           handle.get_stream()));
 }
 
-INSTANTIATE_TEST_SUITE_P(ArgMaxTest, ArgMaxTestTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_SUITE_P(ArgMaxTest, ArgMaxTestF, ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_SUITE_P(ArgMaxTest, ArgMaxTestTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_SUITE_P(ArgMaxTest, ArgMaxTestD, ::testing::ValuesIn(inputsd));
 
 }  // namespace matrix
 }  // namespace raft

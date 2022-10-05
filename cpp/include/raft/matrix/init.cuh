@@ -18,7 +18,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
-#include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/detail/math.cuh>
 #include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
@@ -32,10 +32,10 @@ namespace raft::matrix {
  * @param[out] out output matrix. The result is stored in the out matrix
  * @param[in] scalar scalar value to fill matrix elements
  */
-template <typename math_t, typename idx_t, typename layout>
+template <typename math_t, typename extents, typename layout>
 void fill(const raft::handle_t& handle,
-          raft::device_matrix_view<const math_t, idx_t, layout> in,
-          raft::device_matrix_view<math_t, idx_t, layout> out,
+          raft::device_mdspan<const math_t, extents, layout> in,
+          raft::device_mdspan<math_t, extents, layout> out,
           raft::host_scalar_view<math_t> scalar)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be the same size.");

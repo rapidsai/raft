@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <raft/core/mdspan.hpp>
 
 #include <raft/core/detail/host_device_accessor.hpp>
