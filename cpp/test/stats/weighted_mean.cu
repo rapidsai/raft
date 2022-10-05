@@ -15,9 +15,7 @@
  */
 
 #include "../test_utils.h"
-#include <cstdint>
 #include <gtest/gtest.h>
-#include <raft/core/device_mdspan.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/weighted_mean.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -92,25 +90,8 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     naiveRowWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, true);
     dexp = hexp;
 
-    if (params.row_major) {
-      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::row_major>(
-        din.data().get(), rows, cols);
-      auto output = raft::make_device_vector_view<T, std::uint32_t>(dact.data().get(), rows);
-      auto weights =
-        raft::make_device_vector_view<const T, std::uint32_t>(dweights.data().get(), cols);
-
-      // compute result
-      row_weighted_mean(handle, input, weights, output);
-    } else {
-      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
-        din.data().get(), rows, cols);
-      auto output = raft::make_device_vector_view<T, std::uint32_t>(dact.data().get(), rows);
-      auto weights =
-        raft::make_device_vector_view<const T, std::uint32_t>(dweights.data().get(), cols);
-
-      // compute result
-      row_weighted_mean(handle, input, weights, output);
-    }
+    // compute result
+    rowWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(), cols, rows, stream);
 
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;
@@ -172,25 +153,9 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, true);
     dexp = hexp;
 
-    if (params.row_major) {
-      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::row_major>(
-        din.data().get(), rows, cols);
-      auto output = raft::make_device_vector_view<T, std::uint32_t>(dact.data().get(), rows);
-      auto weights =
-        raft::make_device_vector_view<const T, std::uint32_t>(dweights.data().get(), cols);
+    // compute result
+    colWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(), cols, rows, stream);
 
-      // compute result
-      col_weighted_mean(handle, input, weights, output);
-    } else {
-      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
-        din.data().get(), rows, cols);
-      auto output = raft::make_device_vector_view<T, std::uint32_t>(dact.data().get(), rows);
-      auto weights =
-        raft::make_device_vector_view<const T, std::uint32_t>(dweights.data().get(), cols);
-
-      // compute result
-      col_weighted_mean(handle, input, weights, output);
-    }
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.M;
   }
@@ -235,25 +200,16 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
       naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, params.row_major);
     dexp = hexp;
 
-    if (params.row_major) {
-      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::row_major>(
-        din.data().get(), rows, cols);
-      auto output = raft::make_device_vector_view<T, std::uint32_t>(dact.data().get(), rows);
-      auto weights =
-        raft::make_device_vector_view<const T, std::uint32_t>(dweights.data().get(), cols);
+    // compute result
+    weightedMean(dact.data().get(),
+                 din.data().get(),
+                 dweights.data().get(),
+                 cols,
+                 rows,
+                 params.row_major,
+                 params.along_rows,
+                 stream);
 
-      // compute result
-      weighted_mean(handle, input, weights, output, params.along_rows);
-    } else {
-      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
-        din.data().get(), rows, cols);
-      auto output = raft::make_device_vector_view<T, std::uint32_t>(dact.data().get(), rows);
-      auto weights =
-        raft::make_device_vector_view<const T, std::uint32_t>(dweights.data().get(), cols);
-
-      // compute result
-      weighted_mean(handle, input, weights, output, params.along_rows);
-    }
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;
   }
