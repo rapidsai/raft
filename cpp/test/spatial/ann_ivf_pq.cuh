@@ -439,6 +439,34 @@ inline auto var_k() -> test_cases_t
     });
 }
 
+/**
+ * Cases brought up from downstream projects.
+ */
+inline auto special_cases() -> test_cases_t
+{
+  test_cases_t xs;
+
+#define ADD_CASE(f)                               \
+  do {                                            \
+    xs.push_back({});                             \
+    ([](ivf_pq_inputs & x) f)(xs[xs.size() - 1]); \
+  } while (0);
+
+  ADD_CASE({
+    x.num_db_vecs                = 1183514;
+    x.dim                        = 100;
+    x.num_queries                = 10000;
+    x.k                          = 10;
+    x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_SUBSPACE;
+    x.index_params.pq_dim        = 10;
+    x.index_params.pq_bits       = 8;
+    x.index_params.n_lists       = 1024;
+    x.search_params.n_probes     = 50;
+  });
+
+  return xs;
+}
+
 /* Test instantiations */
 
 #define TEST_BUILD_SEARCH(type)                         \
