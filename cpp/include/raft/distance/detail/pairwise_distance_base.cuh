@@ -122,8 +122,8 @@ struct PairwiseDistances : public BaseClass {
       epilog_op(_epilog_op),
       fin_op(_fin_op),
       rowEpilog_op(_rowEpilog_op),
-      grid_stride_m(P::Nblk * gridDim.y),
-      grid_stride_n(P::Mblk * gridDim.x),
+      grid_stride_m(P::Mblk * gridDim.y),
+      grid_stride_n(P::Nblk * gridDim.x),
       grid_offset_m(P::Mblk * blockIdx.y),
       grid_offset_n(P::Nblk * blockIdx.x)
   {
