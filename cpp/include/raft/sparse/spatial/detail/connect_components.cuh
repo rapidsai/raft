@@ -31,6 +31,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
+#include <raft/core/kvp.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -45,43 +46,6 @@
 #include <limits>
 
 namespace raft::sparse::spatial::detail {
-/**
- * \brief A key identifier paired with a corresponding value
- *
- * NOTE: This is being included close to where it's being used
- * because it's meant to be temporary. There is a conflict
- * between the cub and thrust_cub namespaces with older CUDA
- * versions so we're using our own as a workaround.
- */
-template <typename _Key, typename _Value>
-struct KeyValuePair {
-  typedef _Key Key;      ///< Key data type
-  typedef _Value Value;  ///< Value data type
-
-  Key key;      ///< Item key
-  Value value;  ///< Item value
-
-  /// Constructor
-  __host__ __device__ __forceinline__ KeyValuePair() {}
-
-  /// Copy Constructor
-  __host__ __device__ __forceinline__ KeyValuePair(cub::KeyValuePair<_Key, _Value> kvp)
-    : key(kvp.key), value(kvp.value)
-  {
-  }
-
-  /// Constructor
-  __host__ __device__ __forceinline__ KeyValuePair(Key const& key, Value const& value)
-    : key(key), value(value)
-  {
-  }
-
-  /// Inequality operator
-  __host__ __device__ __forceinline__ bool operator!=(const KeyValuePair& b)
-  {
-    return (value != b.value) || (key != b.key);
-  }
-};
 
 /**
  * Functor with reduction ops for performing fused 1-nn
@@ -97,7 +61,7 @@ struct FixConnectivitiesRedOp {
 
   FixConnectivitiesRedOp(value_idx* colors_, value_idx m_) : colors(colors_), m(m_){};
 
-  typedef typename cub::KeyValuePair<value_idx, value_t> KVP;
+  typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP* out, const KVP& other)
   {
     if (rit < m && other.value < out->value && colors[rit] != colors[other.key]) {
@@ -148,7 +112,7 @@ struct TupleComp {
 
 template <typename LabelT, typename DataT>
 struct CubKVPMinReduce {
-  typedef cub::KeyValuePair<LabelT, DataT> KVP;
+  typedef raft::KeyValuePair<LabelT, DataT> KVP;
 
   DI KVP
 
@@ -197,7 +161,7 @@ struct LookupColorOp {
 
   DI value_idx
 
-  operator()(const cub::KeyValuePair<value_idx, value_t>& kvp)
+  operator()(const raft::KeyValuePair<value_idx, value_t>& kvp)
   {
     return colors[kvp.key];
   }
@@ -218,7 +182,7 @@ struct LookupColorOp {
  * @param[in] stream cuda stream for which to order cuda operations
  */
 template <typename value_idx, typename value_t, typename red_op>
-void perform_1nn(cub::KeyValuePair<value_idx, value_t>* kvp,
+void perform_1nn(raft::KeyValuePair<value_idx, value_t>* kvp,
                  value_idx* nn_colors,
                  value_idx* colors,
                  const value_t* X,
@@ -232,7 +196,7 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t>* kvp,
 
   raft::linalg::rowNorm(x_norm.data(), X, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
 
-  raft::distance::fusedL2NN<value_t, cub::KeyValuePair<value_idx, value_t>, value_idx>(
+  raft::distance::fusedL2NN<value_t, raft::KeyValuePair<value_idx, value_t>, value_idx>(
     kvp,
     X,
     X,
@@ -267,7 +231,7 @@ void perform_1nn(cub::KeyValuePair<value_idx, value_t>* kvp,
 template <typename value_idx, typename value_t>
 void sort_by_color(value_idx* colors,
                    value_idx* nn_colors,
-                   cub::KeyValuePair<value_idx, value_t>* kvp,
+                   raft::KeyValuePair<value_idx, value_t>* kvp,
                    value_idx* src_indices,
                    size_t n_rows,
                    cudaStream_t stream)
@@ -289,7 +253,7 @@ __global__ void min_components_by_color_kernel(value_idx* out_rows,
                                                value_t* out_vals,
                                                const value_idx* out_index,
                                                const value_idx* indices,
-                                               const cub::KeyValuePair<value_idx, value_t>* kvp,
+                                               const raft::KeyValuePair<value_idx, value_t>* kvp,
                                                size_t nnz)
 {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -323,7 +287,7 @@ template <typename value_idx, typename value_t>
 void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
                              const value_idx* out_index,
                              const value_idx* indices,
-                             const cub::KeyValuePair<value_idx, value_t>* kvp,
+                             const raft::KeyValuePair<value_idx, value_t>* kvp,
                              size_t nnz,
                              cudaStream_t stream)
 {
@@ -384,7 +348,7 @@ void connect_components(
    * is guaranteed to be != color of its nearest neighbor.
    */
   rmm::device_uvector<value_idx> nn_colors(n_rows, stream);
-  rmm::device_uvector<cub::KeyValuePair<value_idx, value_t>> temp_inds_dists(n_rows, stream);
+  rmm::device_uvector<raft::KeyValuePair<value_idx, value_t>> temp_inds_dists(n_rows, stream);
   rmm::device_uvector<value_idx> src_indices(n_rows, stream);
 
   perform_1nn(temp_inds_dists.data(),
