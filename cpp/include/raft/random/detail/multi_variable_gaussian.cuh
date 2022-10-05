@@ -16,6 +16,7 @@
 
 #pragma once
 #include "curand_wrappers.hpp"
+#include "random_types.hpp"
 #include <cmath>
 #include <memory>
 #include <optional>
@@ -290,8 +291,6 @@ class multi_variable_gaussian_impl {
 
   ~multi_variable_gaussian_impl() { deinit(); }
 };  // end of multi_variable_gaussian_impl
-
-enum class multi_variable_gaussian_decomposition_method { CHOLESKY, JACOBI, QR };
 
 template <typename ValueType>
 class multi_variable_gaussian_setup_token;
