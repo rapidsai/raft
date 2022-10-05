@@ -21,6 +21,7 @@
 #include "rng_state.hpp"
 #include <cassert>
 #include <optional>
+#include <variant>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <type_traits>
@@ -197,7 +198,60 @@ void normalInt(const raft::handle_t& handle,
  *
  * Each row in this table conforms to a normally distributed n-dim vector
  * whose mean is the input vector and standard deviation is the corresponding
- * vector or scalar. Correlations among the dimensions itself is assumed to
+ * vector or scalar. Correlations among the dimensions itself are assumed to
+ * be absent.
+ *
+ * @tparam OutputValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[in] mu_vec mean vector (of length `out.extent(1)`)
+ * @param[in] sigma_vec Either the standard-deviation vector
+ *            (of length `out.extent(1)`) of each component,
+ *            or a scalar standard deviation for all components.
+ * @param[out] ptr the output table
+ */
+template <typename OutputValueType, typename IndexType>
+void normalTable(const raft::handle_t& handle,
+                 RngState& rng_state,
+                 raft::device_vector_view<const OutputValueType, IndexType> mu_vec,
+                 std::variant<raft::device_vector_view<const OutputValueType, IndexType>, OutputValueType> sigma,
+                 raft::device_matrix_view<OutputValueType, IndexType, raft::row_major> out)
+{
+  const OutputValueType* sigma_vec_ptr = nullptr;
+  OutputValueType sigma_value{};
+
+  using sigma_vec_type = raft::device_vector_view<const OutputValueType, IndexType>;
+  if (std::holds_alternative<sigma_vec_type>(sigma)) {
+    auto sigma_vec = std::get<sigma_vec_type>(sigma);
+    RAFT_EXPECTS( sigma_vec.extent(0) == out.extent(1), "normalTable: The sigma vector "
+                  "has length %zu, which does not equal the number of columns "
+                  "in the output table %zu.", static_cast<size_t>(sigma_vec.extent(0)),
+                  static_cast<size_t>(out.extent(1)) );
+    // The extra length check makes this work even if sigma_vec views a std::vector,
+    // where .data() need not return nullptr even if .size() is zero.
+    sigma_vec_ptr = sigma_vec.extent(0) == 0 ? nullptr : sigma_vec.data_handle();
+  } else {
+    sigma_value = std::get<OutputValueType>(sigma);
+  }
+
+  RAFT_EXPECTS( mu_vec.extent(0) == out.extent(1), "normalTable: The mu vector "
+                "has length %zu, which does not equal the number of columns "
+                "in the output table %zu.", static_cast<size_t>(mu_vec.extent(0)),
+                static_cast<size_t>(out.extent(1)) );
+
+  detail::normalTable(
+    rng_state, out.data_handle(), out.extent(0), out.extent(1),
+    mu_vec.data_handle(), sigma_vec_ptr, sigma_value, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `normalTable`.
+ *
+ * Each row in this table conforms to a normally distributed n-dim vector
+ * whose mean is the input vector and standard deviation is the corresponding
+ * vector or scalar. Correlations among the dimensions itself are assumed to
  * be absent.
  *
  * @tparam OutType data type of output random number

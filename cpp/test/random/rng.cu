@@ -572,7 +572,61 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
   int num_sigma;
 };
 
-typedef RngNormalTableTest<float> RngNormalTableTestF;
+template <typename T>
+class RngNormalTableMdspanTest : public ::testing::TestWithParam<RngNormalTableInputs<T>> {
+ public:
+  RngNormalTableMdspanTest()
+    : params(::testing::TestWithParam<RngNormalTableInputs<T>>::GetParam()),
+      stream(handle.get_stream()),
+      data(params.rows * params.cols, stream),
+      stats(2, stream),
+      mu_vec(params.cols, stream)
+  {
+    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, 2 * sizeof(T), stream));
+  }
+
+ protected:
+  void SetUp() override
+  {
+    // Tests are configured with their expected test-values sigma. For example,
+    // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
+    num_sigma = 10;
+    int len   = params.rows * params.cols;
+    RngState r(params.seed, params.gtype);
+
+    fill(handle, r, mu_vec.data(), params.cols, params.mu);
+
+    raft::device_matrix_view<T, int, raft::row_major> data_view(data.data(), params.rows, params.cols);
+    raft::device_vector_view<const T, int> mu_vec_view(mu_vec.data(), params.cols);
+    std::variant<raft::device_vector_view<const T, int>, T> sigma_var(params.sigma);
+
+    normalTable(handle, r, mu_vec_view, sigma_var, data_view);
+    static const int threads = 128;
+    meanKernel<T, threads>
+      <<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data(), data.data(), len);
+    update_host<T>(h_stats, stats.data(), 2, stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    h_stats[0] /= len;
+    h_stats[1] = (h_stats[1] / len) - (h_stats[0] * h_stats[0]);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  }
+
+  void getExpectedMeanVar(T meanvar[2])
+  {
+    meanvar[0] = params.mu;
+    meanvar[1] = params.sigma * params.sigma;
+  }
+
+ protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
+  RngNormalTableInputs<T> params;
+  rmm::device_uvector<T> data, stats, mu_vec;
+  T h_stats[2];  // mean, var
+  int num_sigma;
+};
+
 const std::vector<RngNormalTableInputs<float>> inputsf_t = {
   {0.0055, 32, 1024, 1.f, 1.f, GenPhilox, 1234ULL},
   {0.011, 8, 1024, 1.f, 1.f, GenPhilox, 1234ULL},
@@ -580,6 +634,7 @@ const std::vector<RngNormalTableInputs<float>> inputsf_t = {
   {0.0055, 32, 1024, 1.f, 1.f, GenPC, 1234ULL},
   {0.011, 8, 1024, 1.f, 1.f, GenPC, 1234ULL}};
 
+using RngNormalTableTestF = RngNormalTableTest<float>;
 TEST_P(RngNormalTableTestF, Result)
 {
   float meanvar[2];
@@ -589,13 +644,24 @@ TEST_P(RngNormalTableTestF, Result)
 }
 INSTANTIATE_TEST_SUITE_P(RngNormalTableTests, RngNormalTableTestF, ::testing::ValuesIn(inputsf_t));
 
-typedef RngNormalTableTest<double> RngNormalTableTestD;
+using RngNormalTableMdspanTestF = RngNormalTableMdspanTest<float>;
+TEST_P(RngNormalTableMdspanTestF, Result)
+{
+  float meanvar[2];
+  getExpectedMeanVar(meanvar);
+  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<float>(num_sigma * params.tolerance)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<float>(num_sigma * params.tolerance)));
+}
+INSTANTIATE_TEST_SUITE_P(RngNormalTableMdspanTests, RngNormalTableMdspanTestF, ::testing::ValuesIn(inputsf_t));
+
 const std::vector<RngNormalTableInputs<double>> inputsd_t = {
   {0.0055, 32, 1024, 1.0, 1.0, GenPhilox, 1234ULL},
   {0.011, 8, 1024, 1.0, 1.0, GenPhilox, 1234ULL},
 
   {0.0055, 32, 1024, 1.0, 1.0, GenPC, 1234ULL},
   {0.011, 8, 1024, 1.0, 1.0, GenPC, 1234ULL}};
+
+using RngNormalTableTestD = RngNormalTableTest<double>;
 TEST_P(RngNormalTableTestD, Result)
 {
   double meanvar[2];
@@ -604,6 +670,16 @@ TEST_P(RngNormalTableTestD, Result)
   ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<double>(num_sigma * params.tolerance)));
 }
 INSTANTIATE_TEST_SUITE_P(RngNormalTableTests, RngNormalTableTestD, ::testing::ValuesIn(inputsd_t));
+
+using RngNormalTableMdspanTestD = RngNormalTableMdspanTest<double>;
+TEST_P(RngNormalTableMdspanTestD, Result)
+{
+  double meanvar[2];
+  getExpectedMeanVar(meanvar);
+  ASSERT_TRUE(match(meanvar[0], h_stats[0], CompareApprox<double>(num_sigma * params.tolerance)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1], CompareApprox<double>(num_sigma * params.tolerance)));
+}
+INSTANTIATE_TEST_SUITE_P(RngNormalTableMdspanTests, RngNormalTableMdspanTestD, ::testing::ValuesIn(inputsd_t));
 
 struct RngAffineInputs {
   int n;
