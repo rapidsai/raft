@@ -292,7 +292,27 @@ void normalTable(const raft::handle_t& handle,
 }
 
 /**
- * @brief Fill an array with the given value
+ * @brief Fill a vector with the given value
+ *
+ * @tparam OutputValueType Value type of the output vector
+ * @tparam IndexType Integral type used to represent length of the output vector
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[in] val value with which to fill the output vector
+ * @param[out] out the output vector
+ */
+template <typename OutputValueType, typename IndexType>
+void fill(const raft::handle_t& handle,
+          RngState& rng_state,
+          OutputValueType val,
+          raft::device_vector_view<OutputValueType, IndexType> out)
+{
+  detail::fill(rng_state, out.data_handle(), out.extent(0), val, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `fill`
  *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays

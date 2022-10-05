@@ -594,13 +594,13 @@ class RngNormalTableMdspanTest : public ::testing::TestWithParam<RngNormalTableI
     int len   = params.rows * params.cols;
     RngState r(params.seed, params.gtype);
 
-    fill(handle, r, mu_vec.data(), params.cols, params.mu);
-
     raft::device_matrix_view<T, int, raft::row_major> data_view(
       data.data(), params.rows, params.cols);
     raft::device_vector_view<const T, int> mu_vec_view(mu_vec.data(), params.cols);
+    raft::device_vector_view<T, int> mu_vec_nc_view(mu_vec.data(), params.cols);
     std::variant<raft::device_vector_view<const T, int>, T> sigma_var(params.sigma);
 
+    fill(handle, r, params.mu, mu_vec_nc_view);
     normalTable(handle, r, mu_vec_view, sigma_var, data_view);
     static const int threads = 128;
     meanKernel<T, threads>
