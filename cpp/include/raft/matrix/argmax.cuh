@@ -30,11 +30,11 @@ namespace raft::matrix {
  */
 template <typename math_t, typename idx_t, typename matrix_idx_t>
 void argmax(const raft::handle_t& handle,
-            raft::device_matrix_view<const math_t, matrix_idx_t, col_major> in,
+            raft::device_matrix_view<const math_t, matrix_idx_t, row_major> in,
             raft::device_vector_view<idx_t, matrix_idx_t> out)
 {
-  RAFT_EXPECTS(out.extent(1) == in.extent(1),
-               "Size of output vector must equal number of columns in input matrix.");
+  RAFT_EXPECTS(out.extent(0) == in.extent(0),
+               "Size of output vector must equal number of rows in input matrix.");
   detail::argmax(
     in.data_handle(), in.extent(0), in.extent(1), out.data_handle(), handle.get_stream());
 }
