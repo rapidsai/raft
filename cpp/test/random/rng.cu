@@ -499,11 +499,48 @@ class BernoulliTest : public ::testing::Test {
   rmm::device_uvector<bool> data;
 };
 
-typedef BernoulliTest<float, 1000> BernoulliTest1;
+template <typename T, int len>
+class BernoulliMdspanTest : public ::testing::Test {
+ public:
+  BernoulliMdspanTest() : stream(handle.get_stream()), data(len, stream) {}
+
+ protected:
+  void SetUp() override
+  {
+    RngState r(42);
+
+    raft::device_vector_view<bool, int> data_view(data.data(), data.size());
+
+    bernoulli(handle, r, data_view, T(0.5));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+  }
+
+  void trueFalseCheck()
+  {
+    // both true and false values must be present
+    auto h_data = std::make_unique<bool[]>(len);
+    update_host(h_data.get(), data.data(), len, stream);
+    ASSERT_TRUE(std::any_of(h_data.get(), h_data.get() + len, [](bool a) { return a; }));
+    ASSERT_TRUE(std::any_of(h_data.get(), h_data.get() + len, [](bool a) { return !a; }));
+  }
+
+  raft::handle_t handle;
+  cudaStream_t stream;
+
+  rmm::device_uvector<bool> data;
+};
+
+using BernoulliTest1 = BernoulliTest<float, 1000>;
 TEST_F(BernoulliTest1, TrueFalseCheck) { trueFalseCheck(); }
 
-typedef BernoulliTest<double, 1000> BernoulliTest2;
+using BernoulliMdspanTest1 = BernoulliMdspanTest<float, 1000>;
+TEST_F(BernoulliMdspanTest1, TrueFalseCheck) { trueFalseCheck(); }
+
+using BernoulliTest2 = BernoulliTest<double, 1000>;
 TEST_F(BernoulliTest2, TrueFalseCheck) { trueFalseCheck(); }
+
+using BernoulliMdspanTest2 = BernoulliMdspanTest<double, 1000>;
+TEST_F(BernoulliMdspanTest2, TrueFalseCheck) { trueFalseCheck(); }
 
 /** Rng::normalTable tests */
 template <typename T>

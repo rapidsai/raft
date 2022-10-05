@@ -331,6 +331,28 @@ void fill(const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenTy
 /**
  * @brief Generate bernoulli distributed boolean array
  *
+ * @tparam OutputValueType Type of each element of the output vector;
+ *         must be able to represent boolean values (e.g., `bool`)
+ * @tparam IndexType Integral type of the output vector's length
+ * @tparam Type Data type in which to compute the probabilities
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output vector
+ * @param[in] prob coin-toss probability for heads
+ */
+template <typename OutputValueType, typename IndexType, typename Type>
+void bernoulli(const raft::handle_t& handle,
+               RngState& rng_state,
+               raft::device_vector_view<OutputValueType, IndexType> out,
+               Type prob)
+{
+  detail::bernoulli(rng_state, out.data_handle(), out.extent(0), prob, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `bernoulli`
+ *
  * @tparam Type    data type in which to compute the probabilities
  * @tparam OutType output data type
  * @tparam LenType data type used to represent length of the arrays
