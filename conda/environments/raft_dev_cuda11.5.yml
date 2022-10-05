@@ -5,8 +5,11 @@ channels:
 - rapidsai-nightly
 - conda-forge
 dependencies:
+- c-compiler
+- cxx-compiler
 - cudatoolkit=11.5
 - cuda-python >=11.5,<11.7.1
+- ninja
 - clang=11.1.0
 - clang-tools=11.1.0
 - cython>=0.29,<0.30
