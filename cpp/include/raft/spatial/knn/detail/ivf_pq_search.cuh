@@ -393,22 +393,6 @@ void postprocess_neighbors(IdxT* neighbors,  // [n_queries, topk]
                                            topk);
 }
 
-template <typename T>
-HDI auto undo_normalization(const float& x, bool squared)
-  -> std::enable_if_t<std::is_same_v<T, float>, float>
-{
-  return x;
-};
-
-template <typename T>
-HDI auto undo_normalization(const float& x, bool squared)
-  -> std::enable_if_t<!std::is_same_v<T, float>, float>
-{
-  double kMult = utils::config<T>::kDivisor / utils::config<float>::kDivisor;
-  if (squared) { kMult *= kMult; }
-  return x * static_cast<float>(kMult);
-};
-
 /**
  * Post-process the scores depending on the metric type;
  * translate the element type if necessary.
@@ -422,6 +406,8 @@ void postprocess_distances(float* out,        // [n_queries, topk]
                            rmm::cuda_stream_view stream)
 {
   size_t len = size_t(n_queries) * size_t(topk);
+  double kMult =
+    std::is_same_v<T, float> ? 1.0 : utils::config<T>::kDivisor / utils::config<float>::kDivisor;
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
@@ -429,7 +415,9 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [] __device__(ScoreT x) -> float { return undo_normalization<T>(float(x), true); },
+        [kMult] __device__(ScoreT x) -> float {
+          return static_cast<float>(kMult * kMult) * float(x);
+        },
         stream);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
@@ -438,7 +426,9 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [] __device__(ScoreT x) -> float { return undo_normalization<T>(sqrtf(float(x)), false); },
+        [kMult] __device__(ScoreT x) -> float {
+          return static_cast<float>(kMult) * sqrtf(float(x));
+        },
         stream);
     } break;
     case distance::DistanceType::InnerProduct: {
@@ -446,7 +436,9 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [] __device__(ScoreT x) -> float { return undo_normalization<T>(-float(x), true); },
+        [kMult] __device__(ScoreT x) -> float {
+          return -static_cast<float>(kMult * kMult) * float(x);
+        },
         stream);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
