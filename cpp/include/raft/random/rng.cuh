@@ -173,6 +173,35 @@ void normal(const raft::handle_t& handle,
 /**
  * @brief Generate normal distributed integers
  *
+ * @tparam OutputValueType Integral type; value type of the output vector
+ * @tparam IndexType Integral type of the output vector's length
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output array
+ * @param[in] mu mean of the distribution
+ * @param[in] sigma standard deviation of the distribution
+ */
+template <typename OutputValueType, typename IndexType>
+void normalInt(const raft::handle_t& handle,
+               RngState& rng_state,
+               raft::device_vector_view<OutputValueType, IndexType> out,
+               OutputValueType mu,
+               OutputValueType sigma)
+{
+  static_assert(
+    std::is_same<OutputValueType, typename std::remove_cv<OutputValueType>::type>::value,
+    "normalInt: The output vector must be a view of nonconst, "
+    "so that we can write to it.");
+  static_assert(std::is_integral<OutputValueType>::value,
+                "normalInt: The output vector's value type must be an integer.");
+
+  detail::normalInt(rng_state, out.data_handle(), out.extent(0), mu, sigma, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `normalInt`
+ *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
