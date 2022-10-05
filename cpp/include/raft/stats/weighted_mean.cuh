@@ -102,8 +102,8 @@ void colWeightedMean(
  * @tparam layout_t Layout type of the input matrix.
  * @param[in]  handle the raft handle
  * @param[in]  data the input matrix of size nrows * ncols
- * @param[in]  weights weight of size nrows if along_row is true, else of size ncols
- * @param[out] mu the output mean vector of size ncols if along_row is true, else of size nrows
+ * @param[in]  weights weights of size ncols if along_row is true, else of size nrows
+ * @param[out] mu the output mean vector of size nrows if along_row is true, else of size ncols
  * @param[in]  along_rows whether to reduce along rows or columns
  */
 template <typename value_t, typename idx_t, typename layout_t>
@@ -122,7 +122,7 @@ void weighted_mean(const raft::handle_t& handle,
   auto weight_size   = along_rows ? data.extent(0) : data.extent(1);
 
   RAFT_EXPECTS(weights.extent(0) == weight_size,
-               "Size mismatch betwen weights and expected weight_size");
+               "Size mismatch between weights and expected weight_size");
   RAFT_EXPECTS(mu.extent(0) == mean_vec_size, "Size mismatch betwen mu and expected mean_vec_size");
   RAFT_EXPECTS(weights.is_exhaustive(), "weights must be contiguous");
   RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
@@ -145,12 +145,12 @@ void weighted_mean(const raft::handle_t& handle,
  * @tparam idx_t Integer type used to for addressing
  * @param[in]  handle the raft handle
  * @param[in]  data the input matrix of size nrows * ncols
- * @param[in]  weights weight of size nrows
- * @param[out] mu the output mean vector of size ncols
+ * @param[in]  weights weights of size ncols
+ * @param[out] mu the output mean vector of size nrows
  */
-template <typename value_t, typename idx_t>
+template <typename value_t, typename idx_t, typename layout_t>
 void row_weighted_mean(const raft::handle_t& handle,
-                       raft::device_matrix_view<const value_t, idx_t, raft::row_major> data,
+                       raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                        raft::device_vector_view<const value_t, idx_t> weights,
                        raft::device_vector_view<value_t, idx_t> mu)
 {
@@ -165,12 +165,12 @@ void row_weighted_mean(const raft::handle_t& handle,
  * @tparam idx_t Integer type used to for addressing
  * @param[in]  handle the raft handle
  * @param[in]  data the input matrix of size nrows * ncols
- * @param[in]  weights weight of size ncols
- * @param[out] mu the output mean vector of size nrows
+ * @param[in]  weights weight of size nrows
+ * @param[out] mu the output mean vector of size ncols
  */
-template <typename value_t, typename idx_t>
+template <typename value_t, typename idx_t, typename layout_t>
 void col_weighted_mean(const raft::handle_t& handle,
-                       raft::device_matrix_view<const value_t, idx_t, raft::row_major> data,
+                       raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                        raft::device_vector_view<const value_t, idx_t> weights,
                        raft::device_vector_view<value_t, idx_t> mu)
 {
