@@ -75,6 +75,33 @@ void uniform(const raft::handle_t& handle,
 /**
  * @brief Generate uniformly distributed integers in the given range
  *
+ * @tparam OutputValueType Integral type; value type of the output vector
+ * @tparam IndexType Type used to represent length of the output vector
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output vector of random numbers
+ * @param[in] start start of the range
+ * @param[in] end end of the range
+ */
+template <typename OutputValueType, typename IndexType>
+void uniformInt(const raft::handle_t& handle,
+                RngState& rng_state,
+                raft::device_vector_view<OutputValueType, IndexType> out,
+                OutputValueType start,
+                OutputValueType end)
+{
+  static_assert(std::is_same<OutputValueType, typename std::remove_cv<OutputValueType>::type>::value,
+                "uniformInt: The output vector must be a view of nonconst, "
+                "so that we can write to it.");
+  static_assert(std::is_integral<OutputValueType>::value,
+                "uniformInt: The elements of the output vector must have integral type.");
+  detail::uniformInt(rng_state, out.data_handle(), out.extent(0), start, end, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `uniformInt`
+ *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
