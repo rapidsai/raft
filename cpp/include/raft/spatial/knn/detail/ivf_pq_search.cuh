@@ -646,7 +646,7 @@ __launch_bounds__(1024) __global__
       out_indices = _out_indices + topk * (probe_ix + (n_probes * query_ix));
     } else {
       // Store all calculated distances to out_scores
-      auto max_samples = cluster_offsets[n_probes];
+      auto max_samples = Pow2<128>::roundUp(cluster_offsets[n_probes]);
       out_scores       = _out_scores + max_samples * query_ix;
     }
     uint32_t label              = cluster_labels[n_probes * query_ix + probe_ix];
@@ -741,7 +741,7 @@ __launch_bounds__(1024) __global__
       __syncthreads();
     } else {
       // fill in the rest of the out_scores with dummy values
-      uint32_t max_samples = uint32_t(cluster_offsets[n_probes]);
+      uint32_t max_samples = uint32_t(Pow2<128>::roundUp(cluster_offsets[n_probes]));
       if (probe_ix + 1 == n_probes) {
         for (uint32_t i = threadIdx.x + sample_offset + n_samples; i < max_samples;
              i += blockDim.x) {
