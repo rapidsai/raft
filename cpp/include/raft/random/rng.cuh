@@ -211,7 +211,7 @@ void normalInt(const raft::handle_t& handle,
  * @param[in] sigma_vec Either the standard-deviation vector
  *            (of length `out.extent(1)`) of each component,
  *            or a scalar standard deviation for all components.
- * @param[out] ptr the output table
+ * @param[out] out the output table
  */
 template <typename OutputValueType, typename IndexType>
 void normalTable(
