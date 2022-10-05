@@ -16,7 +16,11 @@
 
 #pragma once
 #include "curand_wrappers.hpp"
+#include "random_types.hpp"
 #include <cmath>
+#include <memory>
+#include <optional>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
@@ -24,7 +28,9 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <rmm/device_uvector.hpp>
 #include <stdio.h>
+#include <type_traits>
 
 // mvg.cuh takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)
@@ -285,6 +291,158 @@ class multi_variable_gaussian_impl {
 
   ~multi_variable_gaussian_impl() { deinit(); }
 };  // end of multi_variable_gaussian_impl
+
+template <typename ValueType>
+class multi_variable_gaussian_setup_token;
+
+template <typename ValueType>
+multi_variable_gaussian_setup_token<ValueType> build_multi_variable_gaussian_token_impl(
+  const raft::handle_t& handle,
+  rmm::mr::device_memory_resource& mem_resource,
+  const int dim,
+  const multi_variable_gaussian_decomposition_method method);
+
+template <typename ValueType>
+void compute_multi_variable_gaussian_impl(
+  multi_variable_gaussian_setup_token<ValueType>& token,
+  std::optional<raft::device_vector_view<const ValueType, int>> x,
+  raft::device_matrix_view<ValueType, int, raft::col_major> P,
+  raft::device_matrix_view<ValueType, int, raft::col_major> X);
+
+template <typename ValueType>
+class multi_variable_gaussian_setup_token {
+  template <typename T>
+  friend multi_variable_gaussian_setup_token<T> build_multi_variable_gaussian_token_impl(
+    const raft::handle_t& handle,
+    rmm::mr::device_memory_resource& mem_resource,
+    const int dim,
+    const multi_variable_gaussian_decomposition_method method);
+
+  template <typename T>
+  friend void compute_multi_variable_gaussian_impl(
+    multi_variable_gaussian_setup_token<T>& token,
+    std::optional<raft::device_vector_view<const T, int>> x,
+    raft::device_matrix_view<T, int, raft::col_major> P,
+    raft::device_matrix_view<T, int, raft::col_major> X);
+
+ private:
+  typename multi_variable_gaussian_impl<ValueType>::Decomposer new_enum_to_old_enum(
+    multi_variable_gaussian_decomposition_method method)
+  {
+    if (method == multi_variable_gaussian_decomposition_method::CHOLESKY) {
+      return multi_variable_gaussian_impl<ValueType>::chol_decomp;
+    } else if (method == multi_variable_gaussian_decomposition_method::JACOBI) {
+      return multi_variable_gaussian_impl<ValueType>::jacobi;
+    } else {
+      return multi_variable_gaussian_impl<ValueType>::qr;
+    }
+  }
+
+  // Constructor, only for use by friend functions.
+  // Hiding this will let us change the implementation in the future.
+  multi_variable_gaussian_setup_token(const raft::handle_t& handle,
+                                      rmm::mr::device_memory_resource& mem_resource,
+                                      const int dim,
+                                      const multi_variable_gaussian_decomposition_method method)
+    : impl_(std::make_unique<multi_variable_gaussian_impl<ValueType>>(
+        handle, dim, new_enum_to_old_enum(method))),
+      handle_(handle),
+      mem_resource_(mem_resource),
+      dim_(dim)
+  {
+  }
+
+  /**
+   * @brief Compute the multivariable Gaussian.
+   *
+   * @param[in]    x vector of dim elements
+   * @param[inout] P On input, dim x dim matrix; overwritten on output
+   * @param[out]   X dim x nPoints matrix
+   */
+  void compute(std::optional<raft::device_vector_view<const ValueType, int>> x,
+               raft::device_matrix_view<ValueType, int, raft::col_major> P,
+               raft::device_matrix_view<ValueType, int, raft::col_major> X)
+  {
+    const int input_dim = P.extent(0);
+    RAFT_EXPECTS(input_dim == dim(),
+                 "multi_variable_gaussian: "
+                 "P.extent(0) = %d does not match the extent %d "
+                 "with which the token was created",
+                 input_dim,
+                 dim());
+    RAFT_EXPECTS(P.extent(0) == P.extent(1),
+                 "multi_variable_gaussian: "
+                 "P must be square, but P.extent(0) = %d != P.extent(1) = %d",
+                 P.extent(0),
+                 P.extent(1));
+    RAFT_EXPECTS(P.extent(0) == X.extent(0),
+                 "multi_variable_gaussian: "
+                 "P.extent(0) = %d != X.extent(0) = %d",
+                 P.extent(0),
+                 X.extent(0));
+    const bool x_has_value = x.has_value();
+    const int x_extent_0   = x_has_value ? (*x).extent(0) : 0;
+    RAFT_EXPECTS(not x_has_value || P.extent(0) == x_extent_0,
+                 "multi_variable_gaussian: "
+                 "P.extent(0) = %d != x.extent(0) = %d",
+                 P.extent(0),
+                 x_extent_0);
+    const int nPoints      = X.extent(1);
+    const ValueType* x_ptr = x_has_value ? (*x).data_handle() : nullptr;
+
+    auto workspace = allocate_workspace();
+    impl_->set_workspace(workspace.data());
+    impl_->give_gaussian(nPoints, P.data_handle(), X.data_handle(), x_ptr);
+  }
+
+ private:
+  std::unique_ptr<multi_variable_gaussian_impl<ValueType>> impl_;
+  const raft::handle_t& handle_;
+  rmm::mr::device_memory_resource& mem_resource_;
+  int dim_ = 0;
+
+  auto allocate_workspace() const
+  {
+    const auto num_elements = impl_->get_workspace_size();
+    return rmm::device_uvector<ValueType>{num_elements, handle_.get_stream(), &mem_resource_};
+  }
+
+  int dim() const { return dim_; }
+};
+
+template <typename ValueType>
+multi_variable_gaussian_setup_token<ValueType> build_multi_variable_gaussian_token_impl(
+  const raft::handle_t& handle,
+  rmm::mr::device_memory_resource& mem_resource,
+  const int dim,
+  const multi_variable_gaussian_decomposition_method method)
+{
+  return multi_variable_gaussian_setup_token<ValueType>(handle, mem_resource, dim, method);
+}
+
+template <typename ValueType>
+void compute_multi_variable_gaussian_impl(
+  multi_variable_gaussian_setup_token<ValueType>& token,
+  std::optional<raft::device_vector_view<const ValueType, int>> x,
+  raft::device_matrix_view<ValueType, int, raft::col_major> P,
+  raft::device_matrix_view<ValueType, int, raft::col_major> X)
+{
+  token.compute(x, P, X);
+}
+
+template <typename ValueType>
+void compute_multi_variable_gaussian_impl(
+  const raft::handle_t& handle,
+  rmm::mr::device_memory_resource& mem_resource,
+  std::optional<raft::device_vector_view<const ValueType, int>> x,
+  raft::device_matrix_view<ValueType, int, raft::col_major> P,
+  raft::device_matrix_view<ValueType, int, raft::col_major> X,
+  const multi_variable_gaussian_decomposition_method method)
+{
+  auto token =
+    build_multi_variable_gaussian_token_impl<ValueType>(handle, mem_resource, P.extent(0), method);
+  compute_multi_variable_gaussian_impl(token, x, P, X);
+}
 
 };  // end of namespace detail
 };  // end of namespace raft::random
