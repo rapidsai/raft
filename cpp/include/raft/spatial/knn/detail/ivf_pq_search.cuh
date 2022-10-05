@@ -393,11 +393,27 @@ void postprocess_neighbors(IdxT* neighbors,  // [n_queries, topk]
                                            topk);
 }
 
+template <typename T>
+HDI auto undo_normalization(const float& x, bool squared)
+  -> std::enable_if_t<std::is_same_v<T, float>, float>
+{
+  return x;
+};
+
+template <typename T>
+HDI auto undo_normalization(const float& x, bool squared)
+  -> std::enable_if_t<!std::is_same_v<T, float>, float>
+{
+  double kMult = utils::config<T>::kDivisor / utils::config<float>::kDivisor;
+  if (squared) { kMult *= kMult; }
+  return x * static_cast<float>(kMult);
+};
+
 /**
  * Post-process the scores depending on the metric type;
  * translate the element type if necessary.
  */
-template <typename ScoreT>
+template <typename T, typename ScoreT>
 void postprocess_distances(float* out,        // [n_queries, topk]
                            const ScoreT* in,  // [n_queries, topk]
                            distance::DistanceType metric,
@@ -410,16 +426,28 @@ void postprocess_distances(float* out,        // [n_queries, topk]
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
       linalg::unaryOp(
-        out, in, len, [] __device__(ScoreT x) -> float { return float(x); }, stream);
+        out,
+        in,
+        len,
+        [] __device__(ScoreT x) -> float { return undo_normalization<T>(float(x), true); },
+        stream);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
       linalg::unaryOp(
-        out, in, len, [] __device__(ScoreT x) -> float { return sqrtf(float(x)); }, stream);
+        out,
+        in,
+        len,
+        [] __device__(ScoreT x) -> float { return undo_normalization<T>(sqrtf(float(x)), false); },
+        stream);
     } break;
     case distance::DistanceType::InnerProduct: {
       linalg::unaryOp(
-        out, in, len, [] __device__(ScoreT x) -> float { return -float(x); }, stream);
+        out,
+        in,
+        len,
+        [] __device__(ScoreT x) -> float { return undo_normalization<T>(-float(x), true); },
+        stream);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }
@@ -979,7 +1007,7 @@ struct ivfpq_compute_similarity {
  *   3. split the query batch into smaller chunks, so that the device workspace
  *      is guaranteed to fit into GPU memory.
  */
-template <typename ScoreT, typename LutT, typename IdxT>
+template <typename T, typename ScoreT, typename LutT, typename IdxT>
 void ivfpq_search_worker(const handle_t& handle,
                          const index<IdxT>& index,
                          uint32_t max_samples,
@@ -1123,7 +1151,7 @@ void ivfpq_search_worker(const handle_t& handle,
                             mr);
 
   // Postprocessing
-  postprocess_distances(distances, topk_dists.data(), index.metric(), n_queries, topK, stream);
+  postprocess_distances<T>(distances, topk_dists.data(), index.metric(), n_queries, topK, stream);
   postprocess_neighbors(neighbors,
                         manage_local_topk,
                         data_indices,
@@ -1140,7 +1168,7 @@ void ivfpq_search_worker(const handle_t& handle,
  * This structure helps selecting a proper instance of the worker search function,
  * which contains a few template parameters.
  */
-template <typename IdxT>
+template <typename T, typename IdxT>
 struct ivfpq_search {
  public:
   using fun_t = void (*)(const handle_t&,
@@ -1177,14 +1205,14 @@ struct ivfpq_search {
     }
 
     switch (params.lut_dtype) {
-      case CUDA_R_32F: return ivfpq_search_worker<ScoreT, float, IdxT>;
-      case CUDA_R_16F: return ivfpq_search_worker<ScoreT, half, IdxT>;
+      case CUDA_R_32F: return ivfpq_search_worker<T, ScoreT, float, IdxT>;
+      case CUDA_R_16F: return ivfpq_search_worker<T, ScoreT, half, IdxT>;
       case CUDA_R_8U:
       case CUDA_R_8I:
         if (signed_metric) {
-          return ivfpq_search_worker<float, fp_8bit<5, true>, IdxT>;
+          return ivfpq_search_worker<T, float, fp_8bit<5, true>, IdxT>;
         } else {
-          return ivfpq_search_worker<float, fp_8bit<5, false>, IdxT>;
+          return ivfpq_search_worker<T, float, fp_8bit<5, false>, IdxT>;
         }
       default: RAFT_FAIL("Unexpected lut_dtype (%d)", int(params.lut_dtype));
     }
@@ -1311,7 +1339,7 @@ inline void search(const handle_t& handle,
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
   rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * params.n_probes, stream, mr);
 
-  auto search_instance = ivfpq_search<IdxT>::fun(params, index.metric());
+  auto search_instance = ivfpq_search<T, IdxT>::fun(params, index.metric());
 
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
