@@ -464,11 +464,46 @@ class ScaledBernoulliTest : public ::testing::Test {
   rmm::device_uvector<T> data;
 };
 
-typedef ScaledBernoulliTest<float, 500, 35> ScaledBernoulliTest1;
+template <typename T, int len, int scale>
+class ScaledBernoulliMdspanTest : public ::testing::Test {
+ public:
+  ScaledBernoulliMdspanTest() : stream(handle.get_stream()), data(len, stream) {}
+
+ protected:
+  void SetUp() override
+  {
+    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    RngState r(42);
+
+    raft::device_vector_view<T, int> data_view(data.data(), data.size());
+    scaled_bernoulli(handle, r, data_view, T(0.5), T(scale));
+  }
+
+  void rangeCheck()
+  {
+    auto h_data = std::make_unique<T[]>(len);
+    update_host(h_data.get(), data.data(), len, stream);
+    ASSERT_TRUE(std::none_of(
+      h_data.get(), h_data.get() + len, [](const T& a) { return a < -scale || a > scale; }));
+  }
+
+  raft::handle_t handle;
+  cudaStream_t stream;
+
+  rmm::device_uvector<T> data;
+};
+
+using ScaledBernoulliTest1 = ScaledBernoulliTest<float, 500, 35>;
 TEST_F(ScaledBernoulliTest1, RangeCheck) { rangeCheck(); }
 
-typedef ScaledBernoulliTest<double, 100, 220> ScaledBernoulliTest2;
+using ScaledBernoulliMdspanTest1 = ScaledBernoulliMdspanTest<float, 500, 35>;
+TEST_F(ScaledBernoulliMdspanTest1, RangeCheck) { rangeCheck(); }
+
+using ScaledBernoulliTest2 = ScaledBernoulliTest<double, 100, 220>;
 TEST_F(ScaledBernoulliTest2, RangeCheck) { rangeCheck(); }
+
+using ScaledBernoulliMdspanTest2 = ScaledBernoulliMdspanTest<double, 100, 220>;
+TEST_F(ScaledBernoulliMdspanTest2, RangeCheck) { rangeCheck(); }
 
 template <typename T, int len>
 class BernoulliTest : public ::testing::Test {

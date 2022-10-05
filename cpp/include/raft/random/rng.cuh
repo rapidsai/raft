@@ -373,6 +373,29 @@ void bernoulli(
 /**
  * @brief Generate bernoulli distributed array and applies scale
  *
+ * @tparam OutputValueType Data type in which to compute the probabilities
+ * @tparam IndexType Integral type of the output vector's length
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output vector
+ * @param[in] prob coin-toss probability for heads
+ * @param[in] scale scaling factor
+ */
+template <typename OutputValueType, typename IndexType>
+void scaled_bernoulli(const raft::handle_t& handle,
+                      RngState& rng_state,
+                      raft::device_vector_view<OutputValueType, IndexType> out,
+                      OutputValueType prob,
+                      OutputValueType scale)
+{
+  detail::scaled_bernoulli(
+    rng_state, out.data_handle(), out.extent(0), prob, scale, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `scaled_bernoulli`
+ *
  * @tparam OutType data type in which to compute the probabilities
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
