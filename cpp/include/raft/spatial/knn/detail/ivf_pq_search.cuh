@@ -405,7 +405,7 @@ void postprocess_distances(float* out,        // [n_queries, topk]
                            distance::DistanceType metric,
                            uint32_t n_queries,
                            uint32_t topk,
-                           double scaling_factor,
+                           float scaling_factor,
                            rmm::cuda_stream_view stream)
 {
   size_t len = size_t(n_queries) * size_t(topk);
@@ -417,7 +417,7 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         in,
         len,
         [scaling_factor] __device__(ScoreT x) -> float {
-          return static_cast<float>(scaling_factor * scaling_factor) * float(x);
+          return scaling_factor * scaling_factor * float(x);
         },
         stream);
     } break;
@@ -427,9 +427,7 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [scaling_factor] __device__(ScoreT x) -> float {
-          return static_cast<float>(scaling_factor) * sqrtf(float(x));
-        },
+        [scaling_factor] __device__(ScoreT x) -> float { return scaling_factor * sqrtf(float(x)); },
         stream);
     } break;
     case distance::DistanceType::InnerProduct: {
@@ -438,7 +436,7 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         in,
         len,
         [scaling_factor] __device__(ScoreT x) -> float {
-          return -static_cast<float>(scaling_factor * scaling_factor) * float(x);
+          return -scaling_factor * scaling_factor * float(x);
         },
         stream);
     } break;
@@ -1017,7 +1015,7 @@ void ivfpq_search_worker(const handle_t& handle,
                          const float* query,                 // [n_queries, rot_dim]
                          IdxT* neighbors,                    // [n_queries, topK]
                          float* distances,                   // [n_queries, topK]
-                         double scaling_factor,
+                         float scaling_factor,
                          rmm::mr::device_memory_resource* mr)
 {
   auto stream = handle.get_stream();
@@ -1177,7 +1175,7 @@ struct ivfpq_search {
                          const float*,
                          IdxT*,
                          float*,
-                         double,
+                         float,
                          rmm::mr::device_memory_resource*);
 
   /**
@@ -1388,9 +1386,7 @@ inline void search(const handle_t& handle,
                       rot_queries.data() + uint64_t(index.rot_dim()) * offset_b,
                       neighbors + uint64_t(k) * (offset_q + offset_b),
                       distances + uint64_t(k) * (offset_q + offset_b),
-                      std::is_same_v<T, float>
-                        ? 1.0
-                        : utils::config<T>::kDivisor / utils::config<float>::kDivisor,
+                      utils::config<T>::kDivisor / utils::config<float>::kDivisor,
                       mr);
     }
   }
