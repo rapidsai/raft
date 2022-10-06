@@ -312,7 +312,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
 fi
 
 # Build and (optionally) install the raft-dask Python package
-if (( ${NUMARGS} == 0 )) || hasArg raft-dask || hasArg docs; then
+if (( ${NUMARGS} == 0 )) || hasArg raft-dask  then
 
     cd ${REPODIR}/python/raft-dask
     python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
