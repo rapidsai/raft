@@ -109,7 +109,6 @@ __global__ void naive_distance_kernel(EvalT* dist,
                                       IdxT k,
                                       raft::distance::DistanceType type)
 {
-  detail::utils::mapping<EvalT> f{};
   IdxT midx = threadIdx.x + blockIdx.x * blockDim.x;
   if (midx >= m) return;
   for (IdxT nidx = threadIdx.y + blockIdx.y * blockDim.y; nidx < n;
@@ -118,8 +117,8 @@ __global__ void naive_distance_kernel(EvalT* dist,
     for (IdxT i = 0; i < k; ++i) {
       IdxT xidx = i + midx * k;
       IdxT yidx = i + nidx * k;
-      EvalT xv  = f(x[xidx]);
-      EvalT yv  = f(y[yidx]);
+      EvalT xv  = (EvalT)x[xidx];
+      EvalT yv  = (EvalT)y[yidx];
       if (type == raft::distance::DistanceType::InnerProduct) {
         acc += xv * yv;
       } else {

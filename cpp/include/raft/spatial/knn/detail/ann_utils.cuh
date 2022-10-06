@@ -135,8 +135,8 @@ struct mapping {
  * @param[in] value
  * @param[in] n_bytes
  */
-template <typename T>
-inline void memzero(T* ptr, size_t n_elems, rmm::cuda_stream_view stream)
+template <typename T, typename IdxT>
+inline void memzero(T* ptr, IdxT n_elems, rmm::cuda_stream_view stream)
 {
   switch (check_pointer_residency(ptr)) {
     case pointer_residency::host_and_device:
@@ -152,7 +152,7 @@ inline void memzero(T* ptr, size_t n_elems, rmm::cuda_stream_view stream)
 }
 
 template <typename IdxT, typename OutT>
-__global__ void argmin_along_rows_kernel(IdxT n_rows, IdxT n_cols, const float* a, OutT* out)
+__global__ void argmin_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const float* a, OutT* out)
 {
   __shared__ OutT shm_ids[1024];    // NOLINT
   __shared__ float shm_vals[1024];  // NOLINT
@@ -214,7 +214,7 @@ inline void argmin_along_rows(
 template <typename IdxT>
 __global__ void dots_along_rows_kernel(IdxT n_rows, IdxT n_cols, const float* a, float* out)
 {
-  IdxT i = threadIdx.y + (blockDim.y * blockIdx.x);
+  IdxT i = threadIdx.y + (blockDim.y * static_cast<IdxT>(blockIdx.x));
   if (i >= n_rows) return;
 
   float sqsum = 0.0;
@@ -259,19 +259,19 @@ inline void dots_along_rows(
    */
 }
 
-template <typename T>
-__global__ void accumulate_into_selected_kernel(uint32_t n_rows,
+template <typename T, typename IdxT, typename LabelT>
+__global__ void accumulate_into_selected_kernel(IdxT n_rows,
                                                 uint32_t n_cols,
                                                 float* output,
                                                 uint32_t* selection_counters,
                                                 const T* input,
-                                                const uint32_t* row_ids)
+                                                const LabelT* row_ids)
 {
-  uint64_t gid = threadIdx.x + (blockDim.x * static_cast<uint64_t>(blockIdx.x));
-  uint64_t j   = gid % n_cols;
-  uint64_t i   = gid / n_cols;
+  IdxT gid = threadIdx.x + (blockDim.x * static_cast<IdxT>(blockIdx.x));
+  IdxT j   = gid % n_cols;
+  IdxT i   = gid / n_cols;
   if (i >= n_rows) return;
-  uint64_t l = row_ids[i];
+  IdxT l = static_cast<IdxT>(row_ids[i]);
   if (j == 0) { atomicAdd(&(selection_counters[l]), 1); }
   atomicAdd(&(output[j + n_cols * l]), mapping<float>{}(input[gid]));
 }
@@ -281,7 +281,9 @@ __global__ void accumulate_into_selected_kernel(uint32_t n_rows,
  * (cast and possibly scale the data input type). Count the number of times every output
  * row was selected along the way.
  *
- * @tparam T
+ * @tparam T      element type
+ * @tparam IdxT   index type
+ * @tparam LabelT label type
  *
  * @param n_cols number of columns in all matrices
  * @param[out] output output matrix [..., n_cols]
@@ -290,13 +292,13 @@ __global__ void accumulate_into_selected_kernel(uint32_t n_rows,
  * @param[in] input row-major input matrix [n_rows, n_cols]
  * @param[in] row_ids row indices in the output matrix [n_rows]
  */
-template <typename T>
-void accumulate_into_selected(size_t n_rows,
+template <typename T, typename IdxT, typename LabelT>
+void accumulate_into_selected(IdxT n_rows,
                               uint32_t n_cols,
                               float* output,
                               uint32_t* selection_counters,
                               const T* input,
-                              const uint32_t* row_ids,
+                              const LabelT* row_ids,
                               rmm::cuda_stream_view stream)
 {
   switch (check_pointer_residency(output, input, selection_counters, row_ids)) {
@@ -304,16 +306,16 @@ void accumulate_into_selected(size_t n_rows,
     case pointer_residency::device_only: {
       uint32_t block_dim = 128;
       auto grid_dim =
-        static_cast<uint32_t>(ceildiv<size_t>(n_rows * static_cast<size_t>(n_cols), block_dim));
+        static_cast<uint32_t>(ceildiv<IdxT>(n_rows * static_cast<IdxT>(n_cols), block_dim));
       accumulate_into_selected_kernel<T><<<grid_dim, block_dim, 0, stream>>>(
         n_rows, n_cols, output, selection_counters, input, row_ids);
     } break;
     case pointer_residency::host_only: {
       stream.synchronize();
-      for (size_t i = 0; i < n_rows; i++) {
-        uint32_t l = row_ids[i];
+      for (IdxT i = 0; i < n_rows; i++) {
+        IdxT l = static_cast<IdxT>(row_ids[i]);
         selection_counters[l]++;
-        for (uint32_t j = 0; j < n_cols; j++) {
+        for (IdxT j = 0; j < n_cols; j++) {
           output[j + n_cols * l] += mapping<float>{}(input[j + n_cols * i]);
         }
       }
@@ -326,7 +328,7 @@ void accumulate_into_selected(size_t n_rows,
 template <typename IdxT>
 __global__ void normalize_rows_kernel(IdxT n_rows, IdxT n_cols, float* a)
 {
-  uint64_t i = threadIdx.y + (blockDim.y * blockIdx.x);
+  IdxT i = threadIdx.y + (blockDim.y * static_cast<IdxT>(blockIdx.x));
   if (i >= n_rows) return;
 
   float sqsum = 0.0;
@@ -366,12 +368,12 @@ inline void normalize_rows(IdxT n_rows, IdxT n_cols, float* a, rmm::cuda_stream_
   normalize_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
 }
 
-template <typename Lambda>
+template <typename IdxT, typename Lambda>
 __global__ void map_along_rows_kernel(
-  uint32_t n_rows, uint32_t n_cols, float* a, const uint32_t* d, Lambda map)
+  IdxT n_rows, uint32_t n_cols, float* a, const uint32_t* d, Lambda map)
 {
-  uint64_t gid = threadIdx.x + blockDim.x * blockIdx.x;
-  uint64_t i   = gid / n_cols;
+  IdxT gid = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);
+  IdxT i   = gid / n_cols;
   if (i >= n_rows) return;
   float& x = a[gid];
   x        = map(x, d[i]);
@@ -383,6 +385,7 @@ __global__ void map_along_rows_kernel(
  *
  * NB: device-only function
  *
+ * @tparam IdxT   index type
  * @tparam Lambda
  *
  * @param n_rows
@@ -391,8 +394,8 @@ __global__ void map_along_rows_kernel(
  * @param[in] v device pointer to a vector [n_rows]
  * @param op the binary operation to apply on every element of matrix rows and of the vector
  */
-template <typename Lambda>
-inline void map_along_rows(uint32_t n_rows,
+template <typename IdxT, typename Lambda>
+inline void map_along_rows(IdxT n_rows,
                            uint32_t n_cols,
                            float* m,
                            const uint32_t* v,
@@ -400,19 +403,16 @@ inline void map_along_rows(uint32_t n_rows,
                            rmm::cuda_stream_view stream)
 {
   dim3 threads(128, 1, 1);
-  dim3 blocks(
-    ceildiv<uint64_t>(static_cast<uint64_t>(n_rows) * static_cast<uint64_t>(n_cols), threads.x),
-    1,
-    1);
+  dim3 blocks(ceildiv<IdxT>(n_rows * n_cols, threads.x), 1, 1);
   map_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, m, v, op);
 }
 
-template <typename T>
-__global__ void outer_add_kernel(const T* a, uint32_t len_a, const T* b, uint32_t len_b, T* c)
+template <typename T, typename IdxT>
+__global__ void outer_add_kernel(const T* a, IdxT len_a, const T* b, IdxT len_b, T* c)
 {
-  uint64_t gid = threadIdx.x + blockDim.x * blockIdx.x;
-  uint64_t i   = gid / len_b;
-  uint64_t j   = gid % len_b;
+  IdxT gid = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);
+  IdxT i   = gid / len_b;
+  IdxT j   = gid % len_b;
   if (i >= len_a) return;
   c[gid] = (a == nullptr ? T(0) : a[i]) + (b == nullptr ? T(0) : b[j]);
 }
@@ -425,7 +425,7 @@ __global__ void block_copy_kernel(const IdxT* in_offsets,
                                   T* out_data,
                                   IdxT n_mult)
 {
-  IdxT i = IdxT(blockDim.x) * IdxT(blockIdx.x) + threadIdx.x;
+  IdxT i = static_cast<IdxT>(blockDim.x) * static_cast<IdxT>(blockIdx.x) + threadIdx.x;
   // find the source offset using the binary search.
   uint32_t l     = 0;
   uint32_t r     = n_blocks;
@@ -482,7 +482,8 @@ void block_copy(const IdxT* in_offsets,
  *
  * NB: device-only function
  *
- * @tparam T element type
+ * @tparam T    element type
+ * @tparam IdxT index type
  *
  * @param[in] a device pointer to a vector [len_a]
  * @param len_a number of elements in `a`
@@ -491,32 +492,23 @@ void block_copy(const IdxT* in_offsets,
  * @param[out] c row-major matrix [len_a, len_b]
  * @param stream
  */
-template <typename T>
-void outer_add(
-  const T* a, uint32_t len_a, const T* b, uint32_t len_b, T* c, rmm::cuda_stream_view stream)
+template <typename T, typename IdxT>
+void outer_add(const T* a, IdxT len_a, const T* b, IdxT len_b, T* c, rmm::cuda_stream_view stream)
 {
   dim3 threads(128, 1, 1);
-  dim3 blocks(
-    ceildiv<uint64_t>(static_cast<uint64_t>(len_a) * static_cast<uint64_t>(len_b), threads.x),
-    1,
-    1);
+  dim3 blocks(ceildiv<IdxT>(len_a * len_b, threads.x), 1, 1);
   outer_add_kernel<<<blocks, threads, 0, stream>>>(a, len_a, b, len_b, c);
 }
 
-template <typename T, typename S, typename IdxT>
-__global__ void copy_selected_kernel(uint64_t n_rows,
-                                     uint64_t n_cols,
-                                     const S* src,
-                                     const IdxT* row_ids,
-                                     uint64_t ld_src,
-                                     T* dst,
-                                     uint64_t ld_dst)
+template <typename T, typename S, typename IdxT, typename LabelT>
+__global__ void copy_selected_kernel(
+  IdxT n_rows, IdxT n_cols, const S* src, const LabelT* row_ids, IdxT ld_src, T* dst, IdxT ld_dst)
 {
-  uint64_t gid   = threadIdx.x + uint64_t{blockDim.x} * uint64_t{blockIdx.x};
-  uint64_t j     = gid % n_cols;
-  uint64_t i_dst = gid / n_cols;
+  IdxT gid   = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);
+  IdxT j     = gid % n_cols;
+  IdxT i_dst = gid / n_cols;
   if (i_dst >= n_rows) return;
-  auto i_src              = static_cast<uint64_t>(row_ids[i_dst]);
+  auto i_src              = static_cast<IdxT>(row_ids[i_dst]);
   dst[ld_dst * i_dst + j] = mapping<T>{}(src[ld_src * i_src + j]);
 }
 
@@ -524,8 +516,10 @@ __global__ void copy_selected_kernel(uint64_t n_rows,
  * @brief Copy selected rows of a matrix while mapping the data from the source to the target
  * type.
  *
- * @tparam T target type
- * @tparam S source type
+ * @tparam T      target type
+ * @tparam S      source type
+ * @tparam IdxT   index type
+ * @tparam LabelT label type
  *
  * @param n_rows
  * @param n_cols
@@ -536,29 +530,29 @@ __global__ void copy_selected_kernel(uint64_t n_rows,
  * @param ld_dst number of cols in the output (ld_dst >= n_cols)
  * @param stream
  */
-template <typename T, typename S, typename IdxT>
-void copy_selected(uint64_t n_rows,
-                   uint64_t n_cols,
+template <typename T, typename S, typename IdxT, typename LabelT>
+void copy_selected(IdxT n_rows,
+                   IdxT n_cols,
                    const S* src,
-                   const IdxT* row_ids,
-                   uint64_t ld_src,
+                   const LabelT* row_ids,
+                   IdxT ld_src,
                    T* dst,
-                   uint64_t ld_dst,
+                   IdxT ld_dst,
                    rmm::cuda_stream_view stream)
 {
   switch (check_pointer_residency(src, dst, row_ids)) {
     case pointer_residency::host_and_device:
     case pointer_residency::device_only: {
-      uint64_t block_dim = 128;
-      uint64_t grid_dim  = ceildiv(n_rows * n_cols, block_dim);
+      IdxT block_dim = 128;
+      IdxT grid_dim  = ceildiv(n_rows * n_cols, block_dim);
       copy_selected_kernel<T, S>
         <<<grid_dim, block_dim, 0, stream>>>(n_rows, n_cols, src, row_ids, ld_src, dst, ld_dst);
     } break;
     case pointer_residency::host_only: {
       stream.synchronize();
-      for (uint64_t i_dst = 0; i_dst < n_rows; i_dst++) {
-        auto i_src = static_cast<uint64_t>(row_ids[i_dst]);
-        for (uint64_t j = 0; j < n_cols; j++) {
+      for (IdxT i_dst = 0; i_dst < n_rows; i_dst++) {
+        auto i_src = static_cast<IdxT>(row_ids[i_dst]);
+        for (IdxT j = 0; j < n_cols; j++) {
           dst[ld_dst * i_dst + j] = mapping<T>{}(src[ld_src * i_src + j]);
         }
       }
