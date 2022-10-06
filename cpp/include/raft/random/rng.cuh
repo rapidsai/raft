@@ -237,7 +237,7 @@ void normalInt(const raft::handle_t& handle,
  * @param[in] handle raft handle for resource management
  * @param[in] rng_state random number generator state
  * @param[in] mu_vec mean vector (of length `out.extent(1)`)
- * @param[in] sigma_vec Either the standard-deviation vector
+ * @param[in] sigma Either the standard-deviation vector
  *            (of length `out.extent(1)`) of each component,
  *            or a scalar standard deviation for all components.
  * @param[out] out the output table
