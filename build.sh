@@ -330,6 +330,10 @@ fi
 
 # Build and (optionally) install the raft-dask Python package
 if (( ${NUMARGS} == 0 )) || hasArg raft-dask || hasArg docs; then
+    # Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
+    if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
+        EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
+    fi
 
     cd ${REPODIR}/python/raft-dask
     python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
@@ -340,6 +344,10 @@ fi
 
 # Build and (optionally) install the pylibraft Python package
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
+    # Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
+    if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
+        EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
+    fi
 
     cd ${REPODIR}/python/pylibraft
     python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
