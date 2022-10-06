@@ -158,13 +158,25 @@ mamba env create --name raft_env_name -f conda/environments/raft_dev_cuda11.5.ym
 mamba activate raft_env_name
 ```
 
-The Python APIs can be built using the `build.sh` script:
+The Python APIs can be built and installed using the `build.sh` script:
 
 ```bash
 # to build pylibraft
 ./build.sh libraft pylibraft --install --compile-libs
 # to build raft-dask
 ./build.sh libraft raft-dask --install --compile-libs
+```
+
+`setup.py` can also be used to build the Python APIs manually:
+
+```
+cd python/raft-dask
+python setup.py build_ext --inplace
+python setup.py install
+
+cd python/pylibraft
+python setup.py build_ext --inplace
+python setup.py install
 ```
 
 To run the Python tests:
