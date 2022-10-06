@@ -399,17 +399,17 @@ void postprocess_neighbors(IdxT* neighbors,  // [n_queries, topk]
  * Post-process the scores depending on the metric type;
  * translate the element type if necessary.
  */
-template <typename T, typename ScoreT>
+template <typename ScoreT>
 void postprocess_distances(float* out,        // [n_queries, topk]
                            const ScoreT* in,  // [n_queries, topk]
                            distance::DistanceType metric,
                            uint32_t n_queries,
                            uint32_t topk,
+                           double scaling_factor,
                            rmm::cuda_stream_view stream)
 {
   size_t len = size_t(n_queries) * size_t(topk);
-  double kMult =
-    std::is_same_v<T, float> ? 1.0 : utils::config<T>::kDivisor / utils::config<float>::kDivisor;
+  // todo(lsugy): pass as arg
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
@@ -417,8 +417,8 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [kMult] __device__(ScoreT x) -> float {
-          return static_cast<float>(kMult * kMult) * float(x);
+        [scaling_factor] __device__(ScoreT x) -> float {
+          return static_cast<float>(scaling_factor * scaling_factor) * float(x);
         },
         stream);
     } break;
@@ -428,8 +428,8 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [kMult] __device__(ScoreT x) -> float {
-          return static_cast<float>(kMult) * sqrtf(float(x));
+        [scaling_factor] __device__(ScoreT x) -> float {
+          return static_cast<float>(scaling_factor) * sqrtf(float(x));
         },
         stream);
     } break;
@@ -438,8 +438,8 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [kMult] __device__(ScoreT x) -> float {
-          return -static_cast<float>(kMult * kMult) * float(x);
+        [scaling_factor] __device__(ScoreT x) -> float {
+          return -static_cast<float>(scaling_factor * scaling_factor) * float(x);
         },
         stream);
     } break;
@@ -1006,7 +1006,7 @@ struct ivfpq_compute_similarity {
  *   3. split the query batch into smaller chunks, so that the device workspace
  *      is guaranteed to fit into GPU memory.
  */
-template <typename T, typename ScoreT, typename LutT, typename IdxT>
+template <typename ScoreT, typename LutT, typename IdxT>
 void ivfpq_search_worker(const handle_t& handle,
                          const index<IdxT>& index,
                          uint32_t max_samples,
@@ -1018,6 +1018,7 @@ void ivfpq_search_worker(const handle_t& handle,
                          const float* query,                 // [n_queries, rot_dim]
                          IdxT* neighbors,                    // [n_queries, topK]
                          float* distances,                   // [n_queries, topK]
+                         double scaling_factor,
                          rmm::mr::device_memory_resource* mr)
 {
   auto stream = handle.get_stream();
@@ -1145,7 +1146,8 @@ void ivfpq_search_worker(const handle_t& handle,
                             mr);
 
   // Postprocessing
-  postprocess_distances<T>(distances, topk_dists.data(), index.metric(), n_queries, topK, stream);
+  postprocess_distances(
+    distances, topk_dists.data(), index.metric(), n_queries, topK, scaling_factor, stream);
   postprocess_neighbors(neighbors,
                         manage_local_topk,
                         data_indices,
@@ -1162,7 +1164,7 @@ void ivfpq_search_worker(const handle_t& handle,
  * This structure helps selecting a proper instance of the worker search function,
  * which contains a few template parameters.
  */
-template <typename T, typename IdxT>
+template <typename IdxT>
 struct ivfpq_search {
  public:
   using fun_t = void (*)(const handle_t&,
@@ -1176,6 +1178,7 @@ struct ivfpq_search {
                          const float*,
                          IdxT*,
                          float*,
+                         double,
                          rmm::mr::device_memory_resource*);
 
   /**
@@ -1198,14 +1201,14 @@ struct ivfpq_search {
     }
 
     switch (params.lut_dtype) {
-      case CUDA_R_32F: return ivfpq_search_worker<T, ScoreT, float, IdxT>;
-      case CUDA_R_16F: return ivfpq_search_worker<T, ScoreT, half, IdxT>;
+      case CUDA_R_32F: return ivfpq_search_worker<ScoreT, float, IdxT>;
+      case CUDA_R_16F: return ivfpq_search_worker<ScoreT, half, IdxT>;
       case CUDA_R_8U:
       case CUDA_R_8I:
         if (signed_metric) {
-          return ivfpq_search_worker<T, float, fp_8bit<5, true>, IdxT>;
+          return ivfpq_search_worker<float, fp_8bit<5, true>, IdxT>;
         } else {
-          return ivfpq_search_worker<T, float, fp_8bit<5, false>, IdxT>;
+          return ivfpq_search_worker<float, fp_8bit<5, false>, IdxT>;
         }
       default: RAFT_FAIL("Unexpected lut_dtype (%d)", int(params.lut_dtype));
     }
@@ -1332,7 +1335,7 @@ inline void search(const handle_t& handle,
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
   rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * params.n_probes, stream, mr);
 
-  auto search_instance = ivfpq_search<T, IdxT>::fun(params, index.metric());
+  auto search_instance = ivfpq_search<IdxT>::fun(params, index.metric());
 
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
@@ -1386,6 +1389,9 @@ inline void search(const handle_t& handle,
                       rot_queries.data() + uint64_t(index.rot_dim()) * offset_b,
                       neighbors + uint64_t(k) * (offset_q + offset_b),
                       distances + uint64_t(k) * (offset_q + offset_b),
+                      std::is_same_v<T, float>
+                        ? 1.0
+                        : utils::config<T>::kDivisor / utils::config<float>::kDivisor,
                       mr);
     }
   }
