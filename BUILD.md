@@ -10,6 +10,7 @@
     - [Googlebench](#gbench)
     - [C++ Using Cmake](#cpp_using_cmake)
     - [Python](#python)
+    - [Documentation](#docs)
 - [Using RAFT in downstream projects](#use_raft)
     - [Cmake Header-only Integration](#cxx_integration)
     - [Using Shared Libraries in Cmake](#use_shared_libs)
@@ -187,6 +188,18 @@ py.test -s -v
 cd python/pylibraft
 py.test -s -v
 ```
+
+### <a id="docs"></a>Documentation
+
+The documentation requires that the C++ headers and python packages have been built and installed. 
+
+The following will build the docs along with the C++ and Python packages:
+
+```
+./build.sh libraft pylibraft raft-dask docs --compile-libs --install
+```
+
+
 
 ## <a id="use_raft"></a>Using RAFT in downstream projects
 
