@@ -24,10 +24,6 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
-#endif
-
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.hpp>
 #endif
@@ -36,7 +32,7 @@ namespace raft {
 namespace distance {
 
 template <typename LabelT, typename DataT>
-struct CubKVPMinReduce {
+struct RaftKVPMinReduce {
   typedef raft::KeyValuePair<LabelT, DataT> KVP;
 
   DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
@@ -72,7 +68,7 @@ __global__ void naiveKernel(raft::KeyValuePair<int, DataT>* min,
   raft::KeyValuePair<int, DataT> tmp;
   tmp.key   = nidx;
   tmp.value = midx >= m || nidx >= n ? maxVal : acc;
-  tmp       = WarpReduce(temp[warpId]).Reduce(tmp, CubKVPMinReduce<int, DataT>());
+  tmp       = WarpReduce(temp[warpId]).Reduce(tmp, RaftKVPMinReduce<int, DataT>());
   if (threadIdx.x % raft::WarpSize == 0 && midx < m) {
     while (atomicCAS(workspace + midx, 0, 1) == 1)
       ;
