@@ -84,9 +84,9 @@ inline void predict_float_core(const handle_t& handle,
       auto workspace = raft::make_device_mdarray<char, IdxT>(
         handle, mr, make_extents<IdxT>((sizeof(int)) * n_rows));
 
-      auto minClusterAndDistance = raft::make_device_mdarray<cub::KeyValuePair<IdxT, float>, IdxT>(
+      auto minClusterAndDistance = raft::make_device_mdarray<raft::KeyValuePair<IdxT, float>, IdxT>(
         handle, mr, make_extents<IdxT>(n_rows));
-      cub::KeyValuePair<IdxT, float> initial_value(0, std::numeric_limits<float>::max());
+      raft::KeyValuePair<IdxT, float> initial_value(0, std::numeric_limits<float>::max());
       thrust::fill(handle.get_thrust_policy(),
                    minClusterAndDistance.data_handle(),
                    minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
@@ -97,7 +97,7 @@ inline void predict_float_core(const handle_t& handle,
       raft::linalg::rowNorm<float, IdxT>(
         centroidsNorm.data_handle(), centers, dim, n_clusters, raft::linalg::L2Norm, true, stream);
 
-      raft::distance::fusedL2NNMinReduce<float, cub::KeyValuePair<IdxT, float>, IdxT>(
+      raft::distance::fusedL2NNMinReduce<float, raft::KeyValuePair<IdxT, float>, IdxT>(
         minClusterAndDistance.data_handle(),
         dataset,
         centers,
@@ -117,7 +117,7 @@ inline void predict_float_core(const handle_t& handle,
                         minClusterAndDistance.data_handle(),
                         minClusterAndDistance.data_handle() + n_rows,
                         labels,
-                        [=] __device__(cub::KeyValuePair<IdxT, float> kvp) {
+                        [=] __device__(raft::KeyValuePair<IdxT, float> kvp) {
                           return static_cast<LabelT>(kvp.key);
                         });
       break;
