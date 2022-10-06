@@ -53,7 +53,7 @@ struct fused_l2_nn : public fixture {
     uniform(handle, r, y.data(), p.n * p.k, T(-1.0), T(1.0));
     raft::linalg::rowNorm(xn.data(), x.data(), p.k, p.m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(yn.data(), y.data(), p.k, p.n, raft::linalg::L2Norm, true, stream);
-    raft::distance::initialize<T, raft::KeyValuePair<int, T>, int>(
+    raft::distance::initialize<T, cub::KeyValuePair<int, T>, int>(
       handle, out.data(), p.m, std::numeric_limits<T>::max(), op);
   }
 
@@ -61,20 +61,20 @@ struct fused_l2_nn : public fixture {
   {
     loop_on_state(state, [this]() {
       // it is enough to only benchmark the L2-squared metric
-      raft::distance::fusedL2NN<T, raft::KeyValuePair<int, T>, int>(out.data(),
-                                                                    x.data(),
-                                                                    y.data(),
-                                                                    xn.data(),
-                                                                    yn.data(),
-                                                                    params.m,
-                                                                    params.n,
-                                                                    params.k,
-                                                                    (void*)workspace.data(),
-                                                                    op,
-                                                                    pairRedOp,
-                                                                    false,
-                                                                    false,
-                                                                    stream);
+      raft::distance::fusedL2NN<T, cub::KeyValuePair<int, T>, int>(out.data(),
+                                                                   x.data(),
+                                                                   y.data(),
+                                                                   xn.data(),
+                                                                   yn.data(),
+                                                                   params.m,
+                                                                   params.n,
+                                                                   params.k,
+                                                                   (void*)workspace.data(),
+                                                                   op,
+                                                                   pairRedOp,
+                                                                   false,
+                                                                   false,
+                                                                   stream);
     });
 
     // Num distance calculations
@@ -92,7 +92,7 @@ struct fused_l2_nn : public fixture {
     state.counters["FLOP/s"] = benchmark::Counter(
       num_flops, benchmark::Counter::kIsIterationInvariantRate, benchmark::Counter::OneK::kIs1000);
 
-    state.counters["BW Wr"] = benchmark::Counter(write_elts * sizeof(raft::KeyValuePair<int, T>),
+    state.counters["BW Wr"] = benchmark::Counter(write_elts * sizeof(cub::KeyValuePair<int, T>),
                                                  benchmark::Counter::kIsIterationInvariantRate,
                                                  benchmark::Counter::OneK::kIs1000);
     state.counters["BW Rd"] = benchmark::Counter(read_elts * sizeof(float),
@@ -105,7 +105,7 @@ struct fused_l2_nn : public fixture {
  private:
   fused_l2_nn_inputs params;
   rmm::device_uvector<T> x, y, xn, yn;
-  rmm::device_uvector<raft::KeyValuePair<int, T>> out;
+  rmm::device_uvector<cub::KeyValuePair<int, T>> out;
   rmm::device_uvector<int> workspace;
   raft::distance::KVPMinReduce<int, T> pairRedOp;
   raft::distance::MinAndDistanceReduceOp<int, T> op;
