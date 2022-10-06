@@ -1074,9 +1074,9 @@ void search_impl(const handle_t& handle,
   rmm::device_uvector<float> coarse_distances_dev(n_queries * n_probes, stream, search_mr);
   // The topk  index of cluster(list) and queries
   rmm::device_uvector<uint32_t> coarse_indices_dev(n_queries * n_probes, stream, search_mr);
-  // The topk distance value of candicate vectors from each cluster(list)
+  // The topk distance value of candidate vectors from each cluster(list)
   rmm::device_uvector<AccT> refined_distances_dev(n_queries * n_probes * k, stream, search_mr);
-  // The topk index of candicate vectors from each cluster(list)
+  // The topk index of candidate vectors from each cluster(list)
   rmm::device_uvector<IdxT> refined_indices_dev(n_queries * n_probes * k, stream, search_mr);
 
   size_t float_query_size;
