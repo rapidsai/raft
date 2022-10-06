@@ -409,7 +409,6 @@ void postprocess_distances(float* out,        // [n_queries, topk]
                            rmm::cuda_stream_view stream)
 {
   size_t len = size_t(n_queries) * size_t(topk);
-  // todo(lsugy): pass as arg
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
