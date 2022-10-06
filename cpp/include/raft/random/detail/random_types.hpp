@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-#include "../ann_ivf_pq.cuh"
+#pragma once
 
-namespace raft::spatial::knn {
+namespace raft::random::detail {
 
-using f32_f32_u32 = ivf_pq_test<float, float, uint32_t>;
+enum class multi_variable_gaussian_decomposition_method { CHOLESKY, JACOBI, QR };
 
-TEST_BUILD_SEARCH(f32_f32_u32)
-INSTANTIATE(f32_f32_u32, defaults() + var_n_probes() + var_k() + special_cases());
-
-}  // namespace raft::spatial::knn
+};  // end of namespace raft::random::detail

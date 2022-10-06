@@ -101,10 +101,6 @@ void fusedL2NN(OutT* min,
                bool initOutBuffer,
                cudaStream_t stream)
 {
-  // Assigning -1 to unsigned integers results in a compiler error.
-  // Enforce a signed IdxT here with a clear error message.
-  static_assert(std::is_signed_v<IdxT>, "fusedL2NN only supports signed index types.");
-
   // When k is smaller than 32, the Policy4x4 results in redundant calculations
   // as it uses tiles that have k=32. Therefore, use a "skinny" policy instead
   // that uses tiles with a smaller value of k.

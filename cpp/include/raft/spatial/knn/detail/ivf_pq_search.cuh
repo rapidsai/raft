@@ -262,13 +262,11 @@ __launch_bounds__(BlockDim) __global__
 template <typename IdxT>
 struct calc_chunk_indices {
  public:
-  using kernel_t = void (*)(uint32_t, const IdxT*, const uint32_t*, uint32_t*, uint32_t*);
-
   struct configured {
-    kernel_t kernel;
-    uint32_t block_dim;
+    void* kernel;
+    dim3 block_dim;
+    dim3 grid_dim;
     uint32_t n_probes;
-    uint32_t n_queries;
 
     void operator()(const IdxT* cluster_offsets,
                     const uint32_t* clusters_to_probe,
@@ -276,8 +274,9 @@ struct calc_chunk_indices {
                     uint32_t* n_samples,
                     rmm::cuda_stream_view stream)
     {
-      kernel<<<n_queries, block_dim, 0, stream>>>(
-        n_probes, cluster_offsets, clusters_to_probe, chunk_indices, n_samples);
+      void* args[] =  // NOLINT
+        {&n_probes, &cluster_offsets, &clusters_to_probe, &chunk_indices, &n_samples};
+      RAFT_CUDA_TRY(cudaLaunchKernel(kernel, grid_dim, block_dim, args, 0, stream));
     }
   };
 
@@ -293,7 +292,10 @@ struct calc_chunk_indices {
     if constexpr (BlockDim >= WarpSize * 2) {
       if (BlockDim >= n_probes * 2) { return try_block_dim<(BlockDim / 2)>(n_probes, n_queries); }
     }
-    return {calc_chunk_indices_kernel<BlockDim, IdxT>, BlockDim, n_probes, n_queries};
+    return {reinterpret_cast<void*>(calc_chunk_indices_kernel<BlockDim, IdxT>),
+            dim3(BlockDim, 1, 1),
+            dim3(n_queries, 1, 1),
+            n_probes};
   }
 };
 
@@ -403,6 +405,7 @@ void postprocess_distances(float* out,        // [n_queries, topk]
                            distance::DistanceType metric,
                            uint32_t n_queries,
                            uint32_t topk,
+                           float scaling_factor,
                            rmm::cuda_stream_view stream)
 {
   size_t len = size_t(n_queries) * size_t(topk);
@@ -410,16 +413,32 @@ void postprocess_distances(float* out,        // [n_queries, topk]
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
       linalg::unaryOp(
-        out, in, len, [] __device__(ScoreT x) -> float { return float(x); }, stream);
+        out,
+        in,
+        len,
+        [scaling_factor] __device__(ScoreT x) -> float {
+          return scaling_factor * scaling_factor * float(x);
+        },
+        stream);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
       linalg::unaryOp(
-        out, in, len, [] __device__(ScoreT x) -> float { return sqrtf(float(x)); }, stream);
+        out,
+        in,
+        len,
+        [scaling_factor] __device__(ScoreT x) -> float { return scaling_factor * sqrtf(float(x)); },
+        stream);
     } break;
     case distance::DistanceType::InnerProduct: {
       linalg::unaryOp(
-        out, in, len, [] __device__(ScoreT x) -> float { return -float(x); }, stream);
+        out,
+        in,
+        len,
+        [scaling_factor] __device__(ScoreT x) -> float {
+          return -scaling_factor * scaling_factor * float(x);
+        },
+        stream);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }
@@ -644,7 +663,7 @@ __launch_bounds__(1024) __global__
       out_indices = _out_indices + topk * (probe_ix + (n_probes * query_ix));
     } else {
       // Store all calculated distances to out_scores
-      auto max_samples = cluster_offsets[n_probes];
+      auto max_samples = Pow2<128>::roundUp(cluster_offsets[n_probes]);
       out_scores       = _out_scores + max_samples * query_ix;
     }
     uint32_t label              = cluster_labels[n_probes * query_ix + probe_ix];
@@ -739,7 +758,7 @@ __launch_bounds__(1024) __global__
       __syncthreads();
     } else {
       // fill in the rest of the out_scores with dummy values
-      uint32_t max_samples = uint32_t(cluster_offsets[n_probes]);
+      uint32_t max_samples = uint32_t(Pow2<128>::roundUp(cluster_offsets[n_probes]));
       if (probe_ix + 1 == n_probes) {
         for (uint32_t i = threadIdx.x + sample_offset + n_samples; i < max_samples;
              i += blockDim.x) {
@@ -830,16 +849,17 @@ struct ivfpq_compute_similarity {
   };
 
   struct selected {
-    kernel_t kernel;
-    uint32_t n_blocks;
-    uint32_t n_threads;
+    void* kernel;
+    dim3 grid_dim;
+    dim3 block_dim;
     size_t smem_size;
     size_t device_lut_size;
 
     template <typename... Args>
-    void operator()(rmm::cuda_stream_view stream, Args&&... args)
+    void operator()(rmm::cuda_stream_view stream, Args... args)
     {
-      kernel<<<n_blocks, n_threads, smem_size, stream>>>(std::forward<Args>(args)...);
+      void* xs[] = {&args...};  // NOLINT
+      RAFT_CUDA_TRY(cudaLaunchKernel(kernel, grid_dim, block_dim, xs, smem_size, stream));
     }
   };
 
@@ -967,7 +987,11 @@ struct ivfpq_compute_similarity {
     }
 
     uint32_t device_lut_size = use_smem_lut ? 0u : n_blocks * (pq_dim << pq_bits);
-    return {kernel, n_blocks, n_threads, smem_size, device_lut_size};
+    return {reinterpret_cast<void*>(kernel),
+            dim3(n_blocks, 1, 1),
+            dim3(n_threads, 1, 1),
+            smem_size,
+            device_lut_size};
   }
 };
 
@@ -984,7 +1008,6 @@ void ivfpq_search_worker(const handle_t& handle,
                          const index<IdxT>& index,
                          uint32_t max_samples,
                          uint32_t n_probes,
-                         uint32_t max_batch_size,
                          uint32_t topK,
                          uint32_t preferred_thread_block_size,
                          uint32_t n_queries,
@@ -992,12 +1015,9 @@ void ivfpq_search_worker(const handle_t& handle,
                          const float* query,                 // [n_queries, rot_dim]
                          IdxT* neighbors,                    // [n_queries, topK]
                          float* distances,                   // [n_queries, topK]
+                         float scaling_factor,
                          rmm::mr::device_memory_resource* mr)
 {
-  RAFT_EXPECTS(n_queries <= max_batch_size,
-               "number of queries (%u) must be smaller the max batch size (%u)",
-               n_queries,
-               max_batch_size);
   auto stream = handle.get_stream();
 
   auto pq_centers      = index.pq_centers().data_handle();
@@ -1006,10 +1026,10 @@ void ivfpq_search_worker(const handle_t& handle,
   auto cluster_centers = index.centers_rot().data_handle();
   auto cluster_offsets = index.list_offsets().data_handle();
 
-  bool manage_local_topk =
-    topK <= kMaxCapacity                 // depth is not too large
-    && n_probes >= 16                    // not too few clusters looked up
-    && max_batch_size * n_probes >= 256  // overall amount of work is not too small
+  bool manage_local_topk = topK <= kMaxCapacity  // depth is not too large
+                           && n_probes >= 16     // not too few clusters looked up
+                           &&
+                           n_queries * n_probes >= 256  // overall amount of work is not too small
     ;
   auto topk_len = manage_local_topk ? n_probes * topK : max_samples;
   if (manage_local_topk) {
@@ -1021,14 +1041,14 @@ void ivfpq_search_worker(const handle_t& handle,
 
   rmm::device_uvector<uint32_t> index_list_sorted_buf(0, stream, mr);
   uint32_t* index_list_sorted = nullptr;
-  rmm::device_uvector<uint32_t> num_samples(max_batch_size, stream, mr);
-  rmm::device_uvector<uint32_t> chunk_index(max_batch_size * n_probes, stream, mr);
+  rmm::device_uvector<uint32_t> num_samples(n_queries, stream, mr);
+  rmm::device_uvector<uint32_t> chunk_index(n_queries * n_probes, stream, mr);
   // [maxBatchSize, max_samples] or  [maxBatchSize, n_probes, topk]
-  rmm::device_uvector<ScoreT> distances_buf(max_batch_size * topk_len, stream, mr);
+  rmm::device_uvector<ScoreT> distances_buf(n_queries * topk_len, stream, mr);
   rmm::device_uvector<IdxT> neighbors_buf(0, stream, mr);
   IdxT* neighbors_ptr = nullptr;
   if (manage_local_topk) {
-    neighbors_buf.resize(max_batch_size * topk_len, stream);
+    neighbors_buf.resize(n_queries * topk_len, stream);
     neighbors_ptr = neighbors_buf.data();
   }
 
@@ -1040,9 +1060,9 @@ void ivfpq_search_worker(const handle_t& handle,
     // The goal is to incrase the L2 cache hit rate to read the vectors
     // of a cluster by processing the cluster at the same time as much as
     // possible.
-    index_list_sorted_buf.resize(max_batch_size * n_probes, stream);
-    rmm::device_uvector<uint32_t> index_list_buf(max_batch_size * n_probes, stream, mr);
-    rmm::device_uvector<uint32_t> cluster_labels_out(max_batch_size * n_probes, stream, mr);
+    index_list_sorted_buf.resize(n_queries * n_probes, stream);
+    rmm::device_uvector<uint32_t> index_list_buf(n_queries * n_probes, stream, mr);
+    rmm::device_uvector<uint32_t> cluster_labels_out(n_queries * n_probes, stream, mr);
     auto index_list   = index_list_buf.data();
     index_list_sorted = index_list_sorted_buf.data();
     thrust::sequence(handle.get_thrust_policy(),
@@ -1123,7 +1143,8 @@ void ivfpq_search_worker(const handle_t& handle,
                             mr);
 
   // Postprocessing
-  postprocess_distances(distances, topk_dists.data(), index.metric(), n_queries, topK, stream);
+  postprocess_distances(
+    distances, topk_dists.data(), index.metric(), n_queries, topK, scaling_factor, stream);
   postprocess_neighbors(neighbors,
                         manage_local_topk,
                         data_indices,
@@ -1150,11 +1171,11 @@ struct ivfpq_search {
                          uint32_t,
                          uint32_t,
                          uint32_t,
-                         uint32_t,
                          const uint32_t*,
                          const float*,
                          IdxT*,
                          float*,
+                         float,
                          rmm::mr::device_memory_resource*);
 
   /**
@@ -1319,7 +1340,7 @@ inline void search(const handle_t& handle,
     select_clusters(handle,
                     clusters_to_probe.data(),
                     float_queries.data(),
-                    n_queries,
+                    queries_batch,
                     params.n_probes,
                     index.n_lists(),
                     dim,
@@ -1358,7 +1379,6 @@ inline void search(const handle_t& handle,
                       index,
                       max_samples,
                       params.n_probes,
-                      max_batch_size,
                       k,
                       params.preferred_thread_block_size,
                       batch_size,
@@ -1366,6 +1386,7 @@ inline void search(const handle_t& handle,
                       rot_queries.data() + uint64_t(index.rot_dim()) * offset_b,
                       neighbors + uint64_t(k) * (offset_q + offset_b),
                       distances + uint64_t(k) * (offset_q + offset_b),
+                      utils::config<T>::kDivisor / utils::config<float>::kDivisor,
                       mr);
     }
   }

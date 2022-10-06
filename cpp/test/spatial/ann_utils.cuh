@@ -21,7 +21,9 @@
 #include <raft/spatial/knn/detail/topk.cuh>
 #include <raft/util/cuda_utils.cuh>
 
+#include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft::spatial::knn {
 
@@ -99,15 +101,14 @@ inline auto operator<<(std::ostream& os, const print_metric& p) -> std::ostream&
 }
 
 template <typename EvalT, typename DataT, typename IdxT>
-__global__ void naiveDistanceKernel(EvalT* dist,
-                                    const DataT* x,
-                                    const DataT* y,
-                                    IdxT m,
-                                    IdxT n,
-                                    IdxT k,
-                                    raft::distance::DistanceType type)
+__global__ void naive_distance_kernel(EvalT* dist,
+                                      const DataT* x,
+                                      const DataT* y,
+                                      IdxT m,
+                                      IdxT n,
+                                      IdxT k,
+                                      raft::distance::DistanceType type)
 {
-  detail::utils::mapping<EvalT> f{};
   IdxT midx = threadIdx.x + blockIdx.x * blockDim.x;
   if (midx >= m) return;
   for (IdxT nidx = threadIdx.y + blockIdx.y * blockDim.y; nidx < n;
@@ -116,8 +117,8 @@ __global__ void naiveDistanceKernel(EvalT* dist,
     for (IdxT i = 0; i < k; ++i) {
       IdxT xidx = i + midx * k;
       IdxT yidx = i + nidx * k;
-      EvalT xv  = f(x[xidx]);
-      EvalT yv  = f(y[yidx]);
+      EvalT xv  = (EvalT)x[xidx];
+      EvalT yv  = (EvalT)y[yidx];
       if (type == raft::distance::DistanceType::InnerProduct) {
         acc += xv * yv;
       } else {
@@ -146,23 +147,26 @@ void naiveBfKnn(EvalT* dist_topk,
                 size_t dim,
                 uint32_t k,
                 raft::distance::DistanceType type,
-                cudaStream_t stream = 0)
+                rmm::cuda_stream_view stream)
 {
+  rmm::mr::device_memory_resource* mr = nullptr;
+  auto pool_guard                     = raft::get_pool_memory_resource(mr, 1024 * 1024);
+
   dim3 block_dim(16, 32, 1);
   // maximum reasonable grid size in `y` direction
-  uint16_t grid_y =
+  auto grid_y =
     static_cast<uint16_t>(std::min<size_t>(raft::ceildiv<size_t>(input_len, block_dim.y), 32768));
 
   // bound the memory used by this function
   size_t max_batch_size =
     std::min<size_t>(n_inputs, raft::ceildiv<size_t>(size_t(1) << size_t(27), input_len));
-  rmm::device_uvector<EvalT> dist(max_batch_size * input_len, stream);
+  rmm::device_uvector<EvalT> dist(max_batch_size * input_len, stream, mr);
 
   for (size_t offset = 0; offset < n_inputs; offset += max_batch_size) {
     size_t batch_size = std::min(max_batch_size, n_inputs - offset);
     dim3 grid_dim(raft::ceildiv<size_t>(batch_size, block_dim.x), grid_y, 1);
 
-    naiveDistanceKernel<EvalT, DataT, IdxT><<<grid_dim, block_dim, 0, stream>>>(
+    naive_distance_kernel<EvalT, DataT, IdxT><<<grid_dim, block_dim, 0, stream>>>(
       dist.data(), x + offset * dim, y, batch_size, input_len, dim, type);
 
     detail::select_topk<EvalT, IdxT>(dist.data(),
@@ -173,7 +177,8 @@ void naiveBfKnn(EvalT* dist_topk,
                                      dist_topk + offset * k,
                                      indices_topk + offset * k,
                                      type != raft::distance::DistanceType::InnerProduct,
-                                     stream);
+                                     stream,
+                                     mr);
   }
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }
@@ -183,7 +188,7 @@ struct idx_dist_pair {
   IdxT idx;
   DistT dist;
   CompareDist eq_compare;
-  bool operator==(const idx_dist_pair<IdxT, DistT, CompareDist>& a) const
+  auto operator==(const idx_dist_pair<IdxT, DistT, CompareDist>& a) const -> bool
   {
     if (idx == a.idx) return true;
     if (eq_compare(dist, a.dist)) return true;

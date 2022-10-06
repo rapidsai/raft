@@ -7,8 +7,10 @@
     - [C++ Shared Libraries](#shared_cpp_libs)
     - [Improving Rebuild Times](#ccache)
     - [Googletests](#gtests)
+    - [Googlebench](#gbench)
     - [C++ Using Cmake](#cpp_using_cmake)
     - [Python](#python)
+    - [Documentation](#docs)
 - [Using RAFT in downstream projects](#use_raft)
     - [Cmake Header-only Integration](#cxx_integration)
     - [Using Shared Libraries in Cmake](#use_shared_libs)
@@ -28,7 +30,7 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 
 #### Required
 - [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
-  
+
 #### Optional
 - [Thrust](https://github.com/NVIDIA/thrust) v1.15 / [CUB](https://github.com/NVIDIA/cub) - On by default but can be disabled.
 - [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
@@ -102,17 +104,17 @@ It can take sometime to compile all of the tests. You can build individual tests
 ./build.sh libraft tests --limit-tests=SPATIAL_TEST;DISTANCE_TEST;MATRIX_TEST
 ```
 
-### <a id="benchmarks"></a>Benchmarks
+### <a id="gbench"></a>Benchmarks
 
-Compile the benchmarks using the `bench` target in `build.sh`:
+The benchmarks are broken apart by algorithm category, so you will find several binaries in `cpp/build/` named `*_BENCH`.
 ```bash
 ./build.sh libraft bench
 ```
 
-To run the benchmarks:
+It can take sometime to compile all of the tests. You can build individual tests by providing a semicolon-separated list to the `--limit-tests` option in `build.sh`:
 
 ```bash
-./cpp/build/bench_raft
+./build.sh libraft bench --limit-bench=SPATIAL_BENCH;DISTANCE_BENCH;LINALG_BENCH
 ```
 
 ### <a id="cpp_using_cmake"></a>C++ Using Cmake
@@ -138,7 +140,7 @@ RAFT's cmake has the following configurable flags available:.
 | RAFT_COMPILE_DIST_LIBRARY | ON, OFF | OFF | Compiles the `libraft-distance` shared library |
 | RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. Needed for `raft::spatial::knn` |
 | RAFT_ENABLE_thrust_DEPENDENCY | ON, OFF | ON | Enables the Thrust dependency. This can be disabled when using many simple utilities or to override with a different Thrust version. |
-| RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` | 
+| RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` |
 | RAFT_STATIC_LINK_LIBRARIES | ON, OFF | ON | Build static link libraries instead of shared libraries |
 | DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
 | NVTX | ON, OFF | OFF | Enable NVTX Markers |
@@ -150,21 +152,25 @@ Currently, shared libraries are provided for the `libraft-nn` and `libraft-dista
 
 ### <a id="python"></a>Python
 
-Conda environment scripts are provided for installing the necessary dependencies for building and using the Python APIs. It is preferred to use `mamba`, as it provides significant speedup over `conda`. The following example will install create and install dependencies for a CUDA 11.5 conda environment:
+Conda environment scripts are provided for installing the necessary dependencies for building and using the Python APIs. It is preferred to use `mamba`, as it provides significant speedup over `conda`. In addition you will have to manually install `nvcc` as it will not be installed as part of the conda environment. The following example will install create and install dependencies for a CUDA 11.5 conda environment:
 
 ```bash
 mamba env create --name raft_env_name -f conda/environments/raft_dev_cuda11.5.yml
 mamba activate raft_env_name
 ```
 
-The Python APIs can be built using the `build.sh` script:
+The Python APIs can be built and installed using the `build.sh` script:
 
 ```bash
-./build.sh raft-dask pylibraft
+# to build pylibraft
+./build.sh libraft pylibraft --install --compile-libs
+# to build raft-dask
+./build.sh libraft raft-dask --install --compile-libs
 ```
 
 `setup.py` can also be used to build the Python APIs manually:
-```bash
+
+```
 cd python/raft-dask
 python setup.py build_ext --inplace
 python setup.py install
@@ -177,15 +183,27 @@ python setup.py install
 To run the Python tests:
 ```bash
 cd python/raft-dask
-py.test -s -v raft
+py.test -s -v
 
-cd python pylibraft
-py.test -s -v pylibraft
+cd python/pylibraft
+py.test -s -v
 ```
+
+### <a id="docs"></a>Documentation
+
+The documentation requires that the C++ headers and python packages have been built and installed. 
+
+The following will build the docs along with the C++ and Python packages:
+
+```
+./build.sh libraft pylibraft raft-dask docs --compile-libs --install
+```
+
+
 
 ## <a id="use_raft"></a>Using RAFT in downstream projects
 
-There are two different strategies for including RAFT in downstream projects, depending on whether or not the required dependencies are already installed and available on the `lib` and `include` paths. 
+There are two different strategies for including RAFT in downstream projects, depending on whether or not the required dependencies are already installed and available on the `lib` and `include` paths.
 
 ### <a id="cxx_integration"></a>C++ header-only integration using cmake
 
@@ -218,7 +236,7 @@ The following example tells the compiler to ignore the pre-compiled templates fo
 
 ### <a id="build_cxx_source"></a>Building RAFT C++ from source in cmake
 
-RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library so it can be more easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [CMake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). 
+RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library so it can be more easily included into downstream projects. RAPIDS cmake provides a convenience layer around the [CMake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake).
 
 The following example is similar to invoking `find_package(raft)` but uses `rapids_cpm_find`, which provides a richer and more flexible configuration landscape by using CPM to fetch any dependencies not already available to the build. The `raft::raft` link target will be made available and it's recommended that it be used as a `PRIVATE` link dependency in downstream projects. The `COMPILE_LIBRARIES` option enables the building the shared libraries.
 
@@ -233,7 +251,7 @@ set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 function(find_and_configure_raft)
   set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC
           COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
-          USE_NN_LIBRARY USE_DISTANCE_LIBRARY 
+          USE_NN_LIBRARY USE_DISTANCE_LIBRARY
           ENABLE_thrust_DEPENDENCY)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                             "${multiValueArgs}" ${ARGN} )

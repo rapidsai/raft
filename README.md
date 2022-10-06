@@ -110,10 +110,12 @@ The easiest way to install RAFT is through conda and several packages are provid
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives
 - `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
 
-Use the following command to install RAFT with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
+Use the following command to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
-mamba install -c rapidsai libraft-headers libraft-nn libraft-distance raft-dask pylibraft
+mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft
 ```
+
+You can also install the `libraft-*` conda packages individually using the `mamba` command above.
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
 
@@ -193,11 +195,18 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
 - `ci`: Scripts for running CI in PRs
 - `conda`: Conda recipes and development conda environments
 - `cpp`: Source code for C++ libraries. 
-  - `docs`: Doxygen configuration
-  - `include`: The C++ API is fully-contained here
-  - `src`: Compiled template specializations for the shared libraries
+  - `bench`: Benchmarks source code
+  - `cmake`: Cmake modules and templates
+  - `doxygen`: Doxygen configuration
+  - `include`: The C++ API headers are fully-contained here
+  - `scripts`: Helpful scripts for development
+  - `src`: Compiled APIs and template specializations for the shared libraries
+  - `test`: Googletests source code
 - `docs`: Source code and scripts for building library documentation (doxygen + pydocs)
 - `python`: Source code for Python libraries.
+  - `pylibraft`: Python build and source code for pylibraft library
+  - `raft-dask`: Python build and source code for raft-dask library
+- `thirdparty`: Third-party licenses
 
 ## Contributing
 
