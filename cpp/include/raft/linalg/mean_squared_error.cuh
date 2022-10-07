@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
 #include "detail/mean_squared_error.cuh"
 
 namespace raft {
