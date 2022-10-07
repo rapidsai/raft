@@ -112,13 +112,13 @@ struct mapping {
    * @{
    */
   template <typename S>
-  HDI auto operator()(const S& x) -> std::enable_if_t<std::is_same_v<S, T>, T>
+  HDI auto operator()(const S& x) const -> std::enable_if_t<std::is_same_v<S, T>, T>
   {
     return x;
   };
 
   template <typename S>
-  HDI auto operator()(const S& x) -> std::enable_if_t<!std::is_same_v<S, T>, T>
+  HDI auto operator()(const S& x) const -> std::enable_if_t<!std::is_same_v<S, T>, T>
   {
     constexpr double kMult = config<T>::kDivisor / config<S>::kDivisor;
     if constexpr (std::is_floating_point_v<S>) { return static_cast<T>(x * static_cast<S>(kMult)); }
@@ -382,6 +382,8 @@ __global__ void map_along_rows_kernel(
 /**
  * @brief Map a binary function over a matrix and a vector element-wise, broadcasting the vector
  * values along rows: `m[i, j] = op(m[i,j], v[i])`
+ *
+ * @todo(lsugy): replace with matrix_vector_op
  *
  * NB: device-only function
  *
