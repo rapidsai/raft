@@ -73,14 +73,43 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
   {
     int rows = params.rows, cols = params.cols;
 
-    mean(mean_act.data(), data, cols, rows, params.sample, params.rowMajor, stream);
+    if (params.rowMajor) {
+      using layout_t = raft::row_major;
+      mean(handle,
+           raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+           raft::make_device_vector_view<T, int>(mean_act.data(), cols),
+           params.sample);
 
-    stddev(
-      stddev_act.data(), data, mean_act.data(), cols, rows, params.sample, params.rowMajor, stream);
+      stddev(handle,
+             raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+             raft::make_device_vector_view<const T, int>(mean_act.data(), cols),
+             raft::make_device_vector_view<T, int>(stddev_act.data(), cols),
+             params.sample);
 
-    vars(
-      vars_act.data(), data, mean_act.data(), cols, rows, params.sample, params.rowMajor, stream);
+      vars(handle,
+           raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+           raft::make_device_vector_view<const T, int>(mean_act.data(), cols),
+           raft::make_device_vector_view<T, int>(vars_act.data(), cols),
+           params.sample);
+    } else {
+      using layout_t = raft::col_major;
+      mean(handle,
+           raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+           raft::make_device_vector_view<T>(mean_act.data(), cols),
+           params.sample);
 
+      stddev(handle,
+             raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+             raft::make_device_vector_view<const T, int>(mean_act.data(), cols),
+             raft::make_device_vector_view<T, int>(stddev_act.data(), cols),
+             params.sample);
+
+      vars(handle,
+           raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+           raft::make_device_vector_view<const T, int>(mean_act.data(), cols),
+           raft::make_device_vector_view<T, int>(vars_act.data(), cols),
+           params.sample);
+    }
     raft::matrix::seqRoot(vars_act.data(), T(1), cols, stream);
   }
 

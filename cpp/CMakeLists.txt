@@ -569,7 +569,6 @@ endif()
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
-
 include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE doxygen/Doxyfile.in
         OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
