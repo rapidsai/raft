@@ -23,7 +23,7 @@
 #include <raft/random/rng.cuh>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/spatial/distance/specializations.hpp>
+#include <raft/distance/specializations.hpp>
 #endif
 
 namespace raft::bench::spatial {
