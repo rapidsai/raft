@@ -357,7 +357,8 @@ if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
 fi
 
 if hasArg docs; then
-    cmake --build ${LIBRAFT_BUILD_DIR} --target docs_raft
+    set -x
+    cmake --build --verbose ${LIBRAFT_BUILD_DIR} --target docs_raft
     cd ${SPHINX_BUILD_DIR}
     make html
 fi
