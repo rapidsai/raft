@@ -358,7 +358,7 @@ fi
 
 if hasArg docs; then
     set -x
-    cmake --build --verbose ${LIBRAFT_BUILD_DIR} --target docs_raft
+    cmake --build ${LIBRAFT_BUILD_DIR} --target docs_raft
     cd ${SPHINX_BUILD_DIR}
     make html
 fi
