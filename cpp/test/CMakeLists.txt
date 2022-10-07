@@ -237,6 +237,7 @@ if(BUILD_TESTS)
 
     ConfigureTest(NAME STATS_TEST
             PATH
+            test/stats/accuracy.cu
             test/stats/adjusted_rand_index.cu
             test/stats/completeness_score.cu
             test/stats/contingencyMatrix.cu
@@ -252,7 +253,9 @@ if(BUILD_TESTS)
             test/stats/mean_center.cu
             test/stats/minmax.cu
             test/stats/mutual_info_score.cu
+            test/stats/r2_score.cu
             test/stats/rand_index.cu
+            test/stats/regression_metrics.cu
             test/stats/silhouette_score.cu
             test/stats/stddev.cu
             test/stats/sum.cu
