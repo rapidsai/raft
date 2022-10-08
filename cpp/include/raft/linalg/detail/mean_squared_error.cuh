@@ -30,7 +30,7 @@ void meanSquaredError(
     math_t diff = a - b;
     return diff * diff * weight / len;
   };
-  raft::linalg::mapThenSumReduce<math_t, decltype(sq_diff), TPB>(out, len, sq_diff, stream, A, B);
+  raft::linalg::mapThenSumReduce<math_t, decltype(sq_diff)>(out, len, sq_diff, stream, A, B);
 }
 
 };  // end namespace detail

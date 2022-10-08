@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/mean_squared_error.cuh"
+#include <raft/core/device_mdspan.hpp>
 
 namespace raft {
 namespace linalg {

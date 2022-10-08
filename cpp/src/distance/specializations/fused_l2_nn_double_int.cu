@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+#include <raft/core/kvp.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 
 namespace raft {
 namespace distance {
 
-template void fusedL2NNMinReduce<double, cub::KeyValuePair<int, double>, int>(
-  cub::KeyValuePair<int, double>* min,
+template void fusedL2NNMinReduce<double, raft::KeyValuePair<int, double>, int>(
+  raft::KeyValuePair<int, double>* min,
   const double* x,
   const double* y,
   const double* xn,
