@@ -24,6 +24,7 @@ namespace raft::matrix {
 
 /**
  * @brief Initialize a diagonal matrix with a vector
+ * @param[in] handle: raft handle
  * @param[in] vec: vector of length k = min(n_rows, n_cols)
  * @param[out] matrix: matrix of size n_rows x n_cols
  */
@@ -44,6 +45,7 @@ void set_diagonal(const raft::handle_t& handle,
 
 /**
  * @brief Initialize a diagonal matrix with a vector
+ * @param handle: raft handle
  * @param[in] matrix: matrix of size n_rows x n_cols
  * @param[out] vec: vector of length k = min(n_rows, n_cols)
  */
@@ -63,6 +65,7 @@ void get_diagonal(const raft::handle_t& handle,
 
 /**
  * @brief Take reciprocal of elements on diagonal of square matrix (in-place)
+ * @param handle raft handle
  * @param[inout] inout: square input matrix with size len x len
  */
 template <typename m_t, typename idx_t, typename layout>

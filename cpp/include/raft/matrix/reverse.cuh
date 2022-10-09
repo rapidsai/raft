@@ -25,10 +25,8 @@ namespace raft::matrix {
 /**
  * @brief Columns of a column major matrix are reversed in place (i.e. first column and
  * last column are swapped)
+ * @param handle: raft handle
  * @param inout: input and output matrix
- * @param n_rows: number of rows of input matrix
- * @param n_cols: number of columns of input matrix
- * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t>
 void col_reverse(const raft::handle_t& handle,
@@ -40,10 +38,8 @@ void col_reverse(const raft::handle_t& handle,
 /**
  * @brief Columns of a column major matrix are reversed in place (i.e. first column and
  * last column are swapped)
+ * @param handle: raft handle
  * @param inout: input and output matrix
- * @param n_rows: number of rows of input matrix
- * @param n_cols: number of columns of input matrix
- * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t>
 void col_reverse(const raft::handle_t& handle,
@@ -55,10 +51,8 @@ void col_reverse(const raft::handle_t& handle,
 /**
  * @brief Rows of a column major matrix are reversed in place (i.e. first row and last
  * row are swapped)
+ * @param handle: raft handle
  * @param inout: input and output matrix
- * @param n_rows: number of rows of input matrix
- * @param n_cols: number of columns of input matrix
- * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t>
 void row_reverse(const raft::handle_t& handle,
@@ -70,10 +64,8 @@ void row_reverse(const raft::handle_t& handle,
 /**
  * @brief Rows of a column major matrix are reversed in place (i.e. first row and last
  * row are swapped)
+ * @param handle: raft handle
  * @param inout: input and output matrix
- * @param n_rows: number of rows of input matrix
- * @param n_cols: number of columns of input matrix
- * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t>
 void row_reverse(const raft::handle_t& handle,
