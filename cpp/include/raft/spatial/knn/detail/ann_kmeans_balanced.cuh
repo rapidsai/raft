@@ -291,7 +291,6 @@ void calc_centers_and_sizes(const handle_t& handle,
                                    reset_counters);
 
   // Compute weight of each cluster
-  // todo(lsugy): larger index type?
   raft::cluster::detail::countLabels(
     handle, labels, temp_sizes, (uint32_t)n_rows, (uint32_t)n_clusters, workspace);
 
@@ -307,7 +306,6 @@ void calc_centers_and_sizes(const handle_t& handle,
       sizes_f[idx] = static_cast<float>(temp_size);
     });
 
-  // todo(lsugy): custom iterator for float conversion?
   raft::linalg::matrixVectorOp(
     centers,
     centers,
