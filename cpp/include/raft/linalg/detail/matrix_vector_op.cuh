@@ -74,6 +74,7 @@ __global__ void matrixVectorOpKernel(Type* out,
   mat.store(out, idx);
 }
 
+// todo(lsugy): remove this function? It isn't used.
 template <typename Type, int veclen_, typename Lambda, typename IdxType, int TPB>
 void matrixVectorOpImpl(Type* out,
                         const Type* matrix,
@@ -92,10 +93,15 @@ void matrixVectorOpImpl(Type* out,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type* out,
-                    const Type* matrix,
-                    const Type* vec,
+template <typename OutT,
+          typename Lambda,
+          typename MatT,
+          typename VecT,
+          typename IdxType = int,
+          int TPB          = 256>
+void matrixVectorOp(OutT* out,
+                    const MatT* matrix,
+                    const VecT* vec,
                     IdxType D,
                     IdxType N,
                     bool rowMajor,
@@ -109,11 +115,17 @@ void matrixVectorOp(Type* out,
     out, matrix, stride, nLines, rowMajor == bcastAlongRows, op, stream, vec);
 }
 
-template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type* out,
-                    const Type* matrix,
-                    const Type* vec1,
-                    const Type* vec2,
+template <typename OutT,
+          typename Lambda,
+          typename MatT,
+          typename Vec1T,
+          typename Vec2T,
+          typename IdxType = int,
+          int TPB          = 256>
+void matrixVectorOp(OutT* out,
+                    const MatT* matrix,
+                    const Vec1T* vec1,
+                    const Vec2T* vec2,
                     IdxType D,
                     IdxType N,
                     bool rowMajor,

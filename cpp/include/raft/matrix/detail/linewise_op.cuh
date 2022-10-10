@@ -76,7 +76,7 @@ struct Linewise {
                                                     IdxType rowDiv,
                                                     IdxType rowMod,
                                                     Lambda op,
-                                                    Vecs... vecs) noexcept
+                                                    const Vecs*... vecs) noexcept
   {
     constexpr IdxType warpPad = (AlignWarp::Value - 1) * VecElems;
     Type args[sizeof...(Vecs)];
@@ -157,11 +157,14 @@ struct Linewise {
    * @param [in] rowLen the length of a vector.
    * @return a contiguous chunk of a vector, suitable for `vectorRows`.
    */
-  static __device__ __forceinline__ Vec loadVec(Type* shm,
-                                                const Type* p,
-                                                const IdxType blockOffset,
-                                                const IdxType rowLen) noexcept
+  template <typename VecT>
+  static __device__ __forceinline__ raft::TxN_t<VecT, VecElems> loadVec(
+    VecT* shm, const VecT* p, const IdxType blockOffset, const IdxType rowLen) noexcept
   {
+    static_assert(
+      sizeof(Type) == sizeof(VecT),
+      "linewiseOp currently requires that the size of the matrix and vector types be the same");
+
     IdxType j = blockOffset + threadIdx.x;
 #pragma unroll VecElems
     for (int k = threadIdx.x; k < VecElems * BlockSize; k += BlockSize, j += BlockSize) {
@@ -171,8 +174,9 @@ struct Linewise {
     }
     __syncthreads();
     {
-      Vec out;
-      *out.vectorized_data() = reinterpret_cast<typename Vec::io_t*>(shm)[threadIdx.x];
+      raft::TxN_t<VecT, VecElems> out;
+      *out.vectorized_data() =
+        reinterpret_cast<typename raft::TxN_t<VecT, VecElems>::io_t*>(shm)[threadIdx.x];
       return out;
     }
   }
@@ -209,7 +213,7 @@ __global__ void __launch_bounds__(BlockSize)
                                   const IdxType len,
                                   const IdxType elemsPerThread,
                                   Lambda op,
-                                  Vecs... vecs)
+                                  const Vecs*... vecs)
 {
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
 
@@ -253,7 +257,7 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                                   const IdxType rowLen,
                                   const IdxType len,
                                   Lambda op,
-                                  Vecs... vecs)
+                                  const Vecs*... vecs)
 {
   // Note, L::VecElems == 1
   typedef Linewise<Type, IdxType, sizeof(Type), MaxOffset> L;
@@ -309,7 +313,7 @@ __global__ void __launch_bounds__(BlockSize)
                                   const IdxType rowLen,
                                   const IdxType len,
                                   Lambda op,
-                                  Vecs... vecs)
+                                  const Vecs*... vecs)
 {
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
   constexpr uint workSize = L::VecElems * BlockSize;
@@ -322,7 +326,7 @@ __global__ void __launch_bounds__(BlockSize)
     reinterpret_cast<const typename L::Vec::io_t*>(in),
     L::AlignElems::div(len),
     op,
-    (workOffset ^= workSize, L::loadVec(shm + workOffset, vecs, blockOffset, rowLen))...);
+    (workOffset ^= workSize, L::loadVec((Vecs*)(shm + workOffset), vecs, blockOffset, rowLen))...);
 }
 
 /**
@@ -351,7 +355,7 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                                   const IdxType rowLen,
                                   const IdxType len,
                                   Lambda op,
-                                  Vecs... vecs)
+                                  const Vecs*... vecs)
 {
   // Note, L::VecElems == 1
   constexpr uint workSize = MaxOffset;
@@ -360,20 +364,21 @@ __global__ void __launch_bounds__(MaxOffset, 2)
   typedef Linewise<Type, IdxType, sizeof(Type), MaxOffset> L;
   if (blockIdx.x == 0) {
     // first block: offset = 0, length = arrOffset
-    L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out),
-                  reinterpret_cast<const typename L::Vec::io_t*>(in),
-                  arrOffset,
-                  op,
-                  (workOffset ^= workSize, L::loadVec(shm + workOffset, vecs, 0, rowLen))...);
+    L::vectorRows(
+      reinterpret_cast<typename L::Vec::io_t*>(out),
+      reinterpret_cast<const typename L::Vec::io_t*>(in),
+      arrOffset,
+      op,
+      (workOffset ^= workSize, L::loadVec((Vecs*)(shm + workOffset), vecs, 0, rowLen))...);
   } else {
     // second block: offset = arrTail, length = len - arrTail
     // NB: I substract MaxOffset (= blockDim.x) to get the correct indexing for block 1
-    L::vectorRows(
-      reinterpret_cast<typename L::Vec::io_t*>(out + arrTail - MaxOffset),
-      reinterpret_cast<const typename L::Vec::io_t*>(in + arrTail - MaxOffset),
-      len - arrTail + MaxOffset,
-      op,
-      (workOffset ^= workSize, L::loadVec(shm + workOffset, vecs, arrTail % rowLen, rowLen))...);
+    L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out + arrTail - MaxOffset),
+                  reinterpret_cast<const typename L::Vec::io_t*>(in + arrTail - MaxOffset),
+                  len - arrTail + MaxOffset,
+                  op,
+                  (workOffset ^= workSize,
+                   L::loadVec((Vecs*)(shm + workOffset), vecs, arrTail % rowLen, rowLen))...);
   }
 }
 
@@ -409,7 +414,7 @@ void matrixLinewiseVecCols(Type* out,
                            const IdxType nRows,
                            Lambda op,
                            cudaStream_t stream,
-                           Vecs... vecs)
+                           const Vecs*... vecs)
 {
   typedef raft::Pow2<VecBytes> AlignBytes;
   constexpr std::size_t VecElems = VecBytes / sizeof(Type);
@@ -456,7 +461,7 @@ void matrixLinewiseVecRows(Type* out,
                            const IdxType nRows,
                            Lambda op,
                            cudaStream_t stream,
-                           Vecs... vecs)
+                           const Vecs*... vecs)
 {
   typedef raft::Pow2<VecBytes> AlignBytes;
   constexpr std::size_t VecElems = VecBytes / sizeof(Type);
@@ -527,8 +532,9 @@ struct MatrixLinewiseOp {
                   const bool alongLines,
                   Lambda op,
                   cudaStream_t stream,
-                  Vecs... vecs)
+                  const Vecs*... vecs)
   {
+    // todo(lsugy): add test with different vector types
     if constexpr (VecBytes > sizeof(Type)) {
       if (!raft::Pow2<VecBytes>::areSameAlignOffsets(in, out))
         return MatrixLinewiseOp<std::max((VecBytes >> 1), sizeof(Type)), BlockSize>::run(

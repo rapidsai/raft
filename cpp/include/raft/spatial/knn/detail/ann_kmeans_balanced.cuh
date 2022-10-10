@@ -252,18 +252,19 @@ void calc_centers_and_sizes(const handle_t& handle,
   if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
 
   if (!reset_counters) {
-    utils::map_along_rows(
-      n_clusters,
-      dim,
+    raft::linalg::matrixVectorOp(
+      centers,
       centers,
       cluster_sizes,
-      [] __device__(float c, uint32_t s) -> float { return c * s; },
+      (int64_t)dim,
+      (int64_t)n_clusters,
+      true,
+      false,
+      [=] __device__(float c, uint32_t s) -> float { return c * s; },
       stream);
   }
 
   rmm::device_uvector<char> workspace(0, stream, mr);
-  rmm::device_uvector<float> cluster_sizes_f(n_clusters, stream, mr);
-  float* sizes_f = cluster_sizes_f.data();
 
   // If we reset the counters, we can compute directly the new sizes in cluster_sizes.
   // If we don't reset, we compute in a temporary buffer and add in a separate step.
@@ -295,6 +296,7 @@ void calc_centers_and_sizes(const handle_t& handle,
     handle, labels, temp_sizes, (uint32_t)n_rows, (uint32_t)n_clusters, workspace);
 
   // Add previous sizes if necessary and cast to float
+  // todo(lsugy): replace with add wrapped in if
   auto counting = thrust::make_counting_iterator<int>(0);
   thrust::for_each(
     handle.get_thrust_policy(), counting, counting + n_clusters, [=] __device__(int idx) {
@@ -303,19 +305,18 @@ void calc_centers_and_sizes(const handle_t& handle,
         temp_size += cluster_sizes[idx];
         cluster_sizes[idx] = temp_size;
       }
-      sizes_f[idx] = static_cast<float>(temp_size);
     });
 
   raft::linalg::matrixVectorOp(
     centers,
     centers,
-    sizes_f,
+    cluster_sizes,
     (int64_t)dim,
     (int64_t)n_clusters,
     true,
     false,
-    [=] __device__(float mat, float vec) {
-      if (vec == 0.0f)
+    [=] __device__(float mat, uint32_t vec) {
+      if (vec == 0u)
         return 0.0f;
       else
         return mat / vec;
