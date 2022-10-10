@@ -39,6 +39,7 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
   {
     // getting the parameters
     params = ::testing::TestWithParam<klDivergenceParam>::GetParam();
+    stream = handle.get_stream();
 
     nElements = params.nElements;
 
@@ -54,8 +55,6 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
       h_candidatePDF.begin(), h_candidatePDF.end(), [&]() { return realGenerator(dre); });
 
     // allocating and initializing memory to the GPU
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-
     rmm::device_uvector<DataT> d_modelPDF(nElements, stream);
     rmm::device_uvector<DataT> d_candidatePDF(nElements, stream);
     RAFT_CUDA_TRY(cudaMemset(d_modelPDF.data(), 0, d_modelPDF.size() * sizeof(DataT)));
@@ -74,12 +73,14 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
     }
 
     // calling the kl_divergence CUDA implementation
-    computedklDivergence =
-      raft::stats::kl_divergence(d_modelPDF.data(), d_candidatePDF.data(), nElements, stream);
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
+    computedklDivergence = raft::stats::kl_divergence(
+      handle,
+      raft::make_device_vector_view<const DataT>(d_modelPDF.data(), nElements),
+      raft::make_device_vector_view<const DataT>(d_candidatePDF.data(), nElements));
   }
 
   // declaring the data values
+  raft::handle_t handle;
   klDivergenceParam params;
   int nElements              = 0;
   DataT truthklDivergence    = 0;

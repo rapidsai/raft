@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #=============================================================================
-set(RAPIDS_VERSION "22.10")
-set(RAFT_VERSION "22.10.00")
+set(RAPIDS_VERSION "22.12")
+set(RAFT_VERSION "22.12.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -569,7 +569,6 @@ endif()
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
-
 include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE doxygen/Doxyfile.in
         OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile

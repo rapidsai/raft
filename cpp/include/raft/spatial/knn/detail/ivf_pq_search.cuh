@@ -405,6 +405,7 @@ void postprocess_distances(float* out,        // [n_queries, topk]
                            distance::DistanceType metric,
                            uint32_t n_queries,
                            uint32_t topk,
+                           float scaling_factor,
                            rmm::cuda_stream_view stream)
 {
   size_t len = size_t(n_queries) * size_t(topk);
@@ -412,16 +413,32 @@ void postprocess_distances(float* out,        // [n_queries, topk]
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
       linalg::unaryOp(
-        out, in, len, [] __device__(ScoreT x) -> float { return float(x); }, stream);
+        out,
+        in,
+        len,
+        [scaling_factor] __device__(ScoreT x) -> float {
+          return scaling_factor * scaling_factor * float(x);
+        },
+        stream);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
       linalg::unaryOp(
-        out, in, len, [] __device__(ScoreT x) -> float { return sqrtf(float(x)); }, stream);
+        out,
+        in,
+        len,
+        [scaling_factor] __device__(ScoreT x) -> float { return scaling_factor * sqrtf(float(x)); },
+        stream);
     } break;
     case distance::DistanceType::InnerProduct: {
       linalg::unaryOp(
-        out, in, len, [] __device__(ScoreT x) -> float { return -float(x); }, stream);
+        out,
+        in,
+        len,
+        [scaling_factor] __device__(ScoreT x) -> float {
+          return -scaling_factor * scaling_factor * float(x);
+        },
+        stream);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }
@@ -646,7 +663,7 @@ __launch_bounds__(1024) __global__
       out_indices = _out_indices + topk * (probe_ix + (n_probes * query_ix));
     } else {
       // Store all calculated distances to out_scores
-      auto max_samples = cluster_offsets[n_probes];
+      auto max_samples = Pow2<128>::roundUp(cluster_offsets[n_probes]);
       out_scores       = _out_scores + max_samples * query_ix;
     }
     uint32_t label              = cluster_labels[n_probes * query_ix + probe_ix];
@@ -741,7 +758,7 @@ __launch_bounds__(1024) __global__
       __syncthreads();
     } else {
       // fill in the rest of the out_scores with dummy values
-      uint32_t max_samples = uint32_t(cluster_offsets[n_probes]);
+      uint32_t max_samples = uint32_t(Pow2<128>::roundUp(cluster_offsets[n_probes]));
       if (probe_ix + 1 == n_probes) {
         for (uint32_t i = threadIdx.x + sample_offset + n_samples; i < max_samples;
              i += blockDim.x) {
@@ -998,6 +1015,7 @@ void ivfpq_search_worker(const handle_t& handle,
                          const float* query,                 // [n_queries, rot_dim]
                          IdxT* neighbors,                    // [n_queries, topK]
                          float* distances,                   // [n_queries, topK]
+                         float scaling_factor,
                          rmm::mr::device_memory_resource* mr)
 {
   auto stream = handle.get_stream();
@@ -1125,7 +1143,8 @@ void ivfpq_search_worker(const handle_t& handle,
                             mr);
 
   // Postprocessing
-  postprocess_distances(distances, topk_dists.data(), index.metric(), n_queries, topK, stream);
+  postprocess_distances(
+    distances, topk_dists.data(), index.metric(), n_queries, topK, scaling_factor, stream);
   postprocess_neighbors(neighbors,
                         manage_local_topk,
                         data_indices,
@@ -1156,6 +1175,7 @@ struct ivfpq_search {
                          const float*,
                          IdxT*,
                          float*,
+                         float,
                          rmm::mr::device_memory_resource*);
 
   /**
@@ -1366,6 +1386,7 @@ inline void search(const handle_t& handle,
                       rot_queries.data() + uint64_t(index.rot_dim()) * offset_b,
                       neighbors + uint64_t(k) * (offset_q + offset_b),
                       distances + uint64_t(k) * (offset_q + offset_b),
+                      utils::config<T>::kDivisor / utils::config<float>::kDivisor,
                       mr);
     }
   }
