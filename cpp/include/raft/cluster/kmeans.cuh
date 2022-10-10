@@ -17,12 +17,11 @@
 
 #include <optional>
 #include <raft/cluster/detail/kmeans.cuh>
-#include <raft/cluster/kmeans_params.hpp>
+#include <raft/cluster/kmeans_types.hpp>
+#include <raft/core/kvp.hpp>
 #include <raft/core/mdarray.hpp>
 
-namespace raft {
-namespace cluster {
-
+namespace raft::cluster {
 /**
  * @brief Find clusters with k-means algorithm.
  *   Initial centroids are chosen with k-means++ algorithm. Empty
@@ -355,7 +354,7 @@ void minClusterAndDistanceCompute(
   const KMeansParams& params,
   const raft::device_matrix_view<const DataT, IndexT> X,
   const raft::device_matrix_view<const DataT, IndexT> centroids,
-  const raft::device_vector_view<cub::KeyValuePair<IndexT, DataT>, IndexT>& minClusterAndDistance,
+  const raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT>& minClusterAndDistance,
   const raft::device_vector_view<DataT, IndexT>& L2NormX,
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
   rmm::device_uvector<char>& workspace)
@@ -488,5 +487,4 @@ void kmeans_fit_main(const raft::handle_t& handle,
   detail::kmeans_fit_main<DataT, IndexT>(
     handle, params, X, weight, centroidsRawData, inertia, n_iter, workspace);
 }
-}  // namespace cluster
-}  // namespace raft
+}  // namespace raft::cluster

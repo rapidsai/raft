@@ -21,15 +21,15 @@
 #include <iostream>
 #include <math.h>
 #include <numeric>
-#include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/linalg/reduce_cols_by_key.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_scalar.hpp>
 
 namespace raft {
@@ -56,7 +56,7 @@ template <typename DataT, typename LabelT>
 __global__ void populateAKernel(DataT* sampleToClusterSumOfDistances,
                                 DataT* binCountArray,
                                 DataT* d_aArray,
-                                LabelT* labels,
+                                const LabelT* labels,
                                 int nRows,
                                 int nLabels,
                                 const DataT MAX_VAL)
@@ -102,7 +102,7 @@ __global__ void populateAKernel(DataT* sampleToClusterSumOfDistances,
  * @param stream: the cuda stream where to launch this kernel
  */
 template <typename DataT, typename LabelT>
-void countLabels(LabelT* labels,
+void countLabels(const LabelT* labels,
                  DataT* binCountArray,
                  int nRows,
                  int nUniqueLabels,
@@ -205,10 +205,10 @@ struct MinOp {
 template <typename DataT, typename LabelT>
 DataT silhouette_score(
   const raft::handle_t& handle,
-  DataT* X_in,
+  const DataT* X_in,
   int nRows,
   int nCols,
-  LabelT* labels,
+  const LabelT* labels,
   int nLabels,
   DataT* silhouette_scorePerSample,
   cudaStream_t stream,

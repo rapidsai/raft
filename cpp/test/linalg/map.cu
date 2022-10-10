@@ -16,10 +16,10 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -33,12 +33,14 @@ void mapLaunch(OutType* out,
                IdxType len,
                cudaStream_t stream)
 {
+  raft::handle_t handle{stream};
+  auto out_view = raft::make_device_vector_view(out, len);
+  auto in1_view = raft::make_device_vector_view(in1, len);
   map(
-    out,
-    len,
+    handle,
+    in1_view,
+    out_view,
     [=] __device__(InType a, InType b, InType c) { return a + b + c + scalar; },
-    stream,
-    in1,
     in2,
     in3);
 }

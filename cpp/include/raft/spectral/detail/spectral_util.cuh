@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>

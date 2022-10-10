@@ -17,7 +17,7 @@
 #pragma once
 
 #include <optional>
-#include <raft/common/detail/nvtx.hpp>
+#include <raft/core/detail/nvtx.hpp>
 
 /**
  * \section Usage

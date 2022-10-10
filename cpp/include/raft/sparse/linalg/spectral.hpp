@@ -18,31 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __SPARSE_SPECTRAL_H
-#define __SPARSE_SPECTRAL_H
+/**
+ * DISCLAIMER: this file is deprecated: use spectral.cuh instead
+ */
 
-#include <raft/handle.hpp>
-#include <raft/sparse/linalg/detail/spectral.cuh>
+#pragma once
 
-namespace raft {
-namespace sparse {
-namespace spectral {
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-template <typename T>
-void fit_embedding(const raft::handle_t& handle,
-                   int* rows,
-                   int* cols,
-                   T* vals,
-                   int nnz,
-                   int n,
-                   int n_components,
-                   T* out,
-                   unsigned long long seed = 1234567)
-{
-  detail::fit_embedding(handle, rows, cols, vals, nnz, n, n_components, out, seed);
-}
-};  // namespace spectral
-};  // namespace sparse
-};  // namespace raft
-
-#endif
+#include "spectral.cuh"

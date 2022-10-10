@@ -18,5 +18,14 @@
  * Please use the cuh version instead.
  */
 
+/**
+ * DISCLAIMER: this file is deprecated: use rsvd.cuh instead
+ */
+
 #pragma once
-#include <raft/linalg/rsvd.cuh>
+
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
+
+#include "rsvd.cuh"

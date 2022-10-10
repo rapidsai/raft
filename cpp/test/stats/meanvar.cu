@@ -16,10 +16,10 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/matrix/math.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/meanvar.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <algorithm>
 
@@ -67,14 +67,24 @@ class MeanVarTest : public ::testing::TestWithParam<MeanVarInputs<T>> {
   {
     random::RngState r(params.seed);
     normal(handle, r, data.data(), params.cols * params.rows, params.mean, params.stddev);
-    meanvar(mean_act.data(),
-            vars_act.data(),
-            data.data(),
-            params.cols,
-            params.rows,
-            params.sample,
-            params.rowMajor,
-            stream);
+
+    if (params.rowMajor) {
+      using layout = raft::row_major;
+      meanvar(
+        handle,
+        raft::make_device_matrix_view<const T, int, layout>(data.data(), params.rows, params.cols),
+        raft::make_device_vector_view<T, int>(mean_act.data(), params.cols),
+        raft::make_device_vector_view<T, int>(vars_act.data(), params.cols),
+        params.sample);
+    } else {
+      using layout = raft::col_major;
+      meanvar(
+        handle,
+        raft::make_device_matrix_view<const T, int, layout>(data.data(), params.rows, params.cols),
+        raft::make_device_vector_view<T, int>(mean_act.data(), params.cols),
+        raft::make_device_vector_view<T, int>(vars_act.data(), params.cols),
+        params.sample);
+    }
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 

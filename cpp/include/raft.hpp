@@ -15,11 +15,12 @@
  */
 
 /**
- * This file is deprecated and will be removed in release 22.06.
+ * This file is deprecated and will be removed in a future release.
  */
-#include "raft/handle.hpp"
-#include "raft/mdarray.hpp"
-#include "raft/span.hpp"
+#include "raft/core/device_mdarray.hpp"
+#include "raft/core/device_mdspan.hpp"
+#include "raft/core/device_span.hpp"
+#include "raft/core/handle.hpp"
 
 #include <string>
 

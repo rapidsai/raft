@@ -15,7 +15,7 @@
  */
 
 #include <common/benchmark.hpp>
-#include <raft/linalg/map_then_reduce.hpp>
+#include <raft/linalg/map_then_reduce.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft::bench::linalg {

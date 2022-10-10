@@ -16,10 +16,10 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
 #include <raft/stats/cov.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -69,16 +69,23 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     normal(handle, r, data.data(), len, params.mean, var);
     raft::stats::mean(
       mean_act.data(), data.data(), cols, rows, params.sample, params.rowMajor, stream);
-    cov(handle,
-        cov_act.data(),
-        data.data(),
-        mean_act.data(),
-        cols,
-        rows,
-        params.sample,
-        params.rowMajor,
-        params.stable,
-        stream);
+    if (params.rowMajor) {
+      using layout = raft::row_major;
+      cov(handle,
+          raft::make_device_matrix_view<T, std::uint32_t, layout>(data.data(), rows, cols),
+          raft::make_device_vector_view<const T, std::uint32_t>(mean_act.data(), cols),
+          raft::make_device_matrix_view<T, std::uint32_t, layout>(cov_act.data(), cols, cols),
+          params.sample,
+          params.stable);
+    } else {
+      using layout = raft::col_major;
+      cov(handle,
+          raft::make_device_matrix_view<T, std::uint32_t, layout>(data.data(), rows, cols),
+          raft::make_device_vector_view<const T, std::uint32_t>(mean_act.data(), cols),
+          raft::make_device_matrix_view<T, std::uint32_t, layout>(cov_act.data(), cols, cols),
+          params.sample,
+          params.stable);
+    }
 
     T data_h[6]       = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
     T cov_cm_ref_h[4] = {4.3333, -2.8333, -2.8333, 2.333};

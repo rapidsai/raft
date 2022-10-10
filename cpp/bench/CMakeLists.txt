@@ -14,63 +14,122 @@
 # limitations under the License.
 #=============================================================================
 
-set(RAFT_CPP_BENCH_TARGET "bench_raft")
+###################################################################################################
+# - compiler function -----------------------------------------------------------------------------
 
-# (please keep the filenames in alphabetical order)
-add_executable(${RAFT_CPP_BENCH_TARGET}
-  bench/distance/distance_cosine.cu
-  bench/distance/distance_exp_l2.cu
-  bench/distance/distance_l1.cu
-  bench/distance/distance_unexp_l2.cu
-  bench/linalg/add.cu
-  bench/linalg/map_then_reduce.cu
-  bench/linalg/matrix_vector_op.cu
-  bench/linalg/reduce.cu
-  bench/random/make_blobs.cu
-  bench/random/permute.cu
-  bench/random/rng.cu
-  bench/sparse/convert_csr.cu
-  bench/spatial/fused_l2_nn.cu
-  bench/spatial/knn.cu
-  bench/spatial/selection.cu
-  bench/main.cpp
-)
+function(ConfigureBench)
 
-set_target_properties(${RAFT_CPP_BENCH_TARGET}
-  PROPERTIES BUILD_RPATH "\$ORIGIN"
-          # set target compile options
-          CXX_STANDARD                        17
-          CXX_STANDARD_REQUIRED               ON
-          CUDA_STANDARD                       17
-          CUDA_STANDARD_REQUIRED              ON
-          POSITION_INDEPENDENT_CODE           ON
-          INTERFACE_POSITION_INDEPENDENT_CODE ON
-          INSTALL_RPATH "\$ORIGIN/../../../lib"
-)
+set(options OPTIONAL DIST NN)
+set(oneValueArgs NAME )
+set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
-target_compile_options(${RAFT_CPP_BENCH_TARGET}
-  PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-)
+cmake_parse_arguments(ConfigureBench "${options}" "${oneValueArgs}"
+        "${multiValueArgs}" ${ARGN} )
 
-target_include_directories(${RAFT_CPP_BENCH_TARGET}
-  PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/bench>"
-)
+set(BENCH_NAME ${ConfigureBench_NAME})
 
-target_link_libraries(${RAFT_CPP_BENCH_TARGET}
-  PRIVATE
-    raft::raft
-    raft::distance
-    raft::nn
-    faiss::faiss
-    benchmark::benchmark
-    $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-    $<TARGET_NAME_IF_EXISTS:conda_env>
-)
+add_executable(${BENCH_NAME} ${ConfigureBench_PATH})
+
+message("BENCH PATH: ${ConfigureBench_PATH}")
+
+target_link_libraries(${BENCH_NAME}
+        PRIVATE
+        raft::raft
+        $<$<BOOL:${ConfigureBench_DIST}>:raft::distance>
+        $<$<BOOL:${ConfigureBench_NN}>:raft::nn>
+        benchmark::benchmark
+        Threads::Threads
+        $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+        $<TARGET_NAME_IF_EXISTS:conda_env>
+        )
+
+set_target_properties(${BENCH_NAME}
+        PROPERTIES
+        # set target compile options
+        INSTALL_RPATH "\$ORIGIN/../../../lib"
+        CXX_STANDARD                        17
+        CXX_STANDARD_REQUIRED               ON
+        CUDA_STANDARD                       17
+        CUDA_STANDARD_REQUIRED              ON
+        POSITION_INDEPENDENT_CODE           ON
+        INTERFACE_POSITION_INDEPENDENT_CODE ON
+        )
+
+target_compile_options(${BENCH_NAME}
+        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+        "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+        )
+
+target_include_directories(${BENCH_NAME}
+        PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/bench>"
+        )
 
 install(
-  TARGETS ${RAFT_CPP_BENCH_TARGET}
-  COMPONENT testing
-  DESTINATION bin/libraft/gbench
-  EXCLUDE_FROM_ALL
-)
+        TARGETS ${BENCH_NAME}
+        COMPONENT testing
+        DESTINATION bin/gbench/libraft
+        EXCLUDE_FROM_ALL)
+
+endfunction()
+
+if(BUILD_BENCH)
+    ConfigureBench(NAME CLUSTER_BENCH
+            PATH
+            bench/cluster/kmeans_balanced.cu
+            bench/cluster/kmeans.cu
+            bench/main.cpp
+            OPTIONAL DIST NN
+            )
+
+    ConfigureBench(NAME DISTANCE_BENCH
+            PATH
+            bench/distance/distance_cosine.cu
+            bench/distance/distance_exp_l2.cu
+            bench/distance/distance_l1.cu
+            bench/distance/distance_unexp_l2.cu
+            bench/main.cpp
+            OPTIONAL DIST
+            )
+
+    ConfigureBench(NAME LINALG_BENCH
+            PATH
+            bench/linalg/add.cu
+            bench/linalg/map_then_reduce.cu
+            bench/linalg/matrix_vector_op.cu
+            bench/linalg/reduce.cu
+            bench/main.cpp
+            )
+
+    ConfigureBench(NAME RANDOM_BENCH
+            PATH
+            bench/random/make_blobs.cu
+            bench/random/permute.cu
+            bench/random/rng.cu
+            bench/main.cpp
+            )
+
+    ConfigureBench(NAME SPARSE_BENCH
+            PATH
+            bench/sparse/convert_csr.cu
+            bench/main.cpp
+            )
+
+    ConfigureBench(NAME SPATIAL_BENCH
+            PATH
+            bench/spatial/fused_l2_nn.cu
+            bench/spatial/knn/brute_force_float_int64_t.cu
+            bench/spatial/knn/brute_force_float_uint32_t.cu
+            bench/spatial/knn/ivf_flat_float_int64_t.cu
+            bench/spatial/knn/ivf_flat_float_uint32_t.cu
+            bench/spatial/knn/ivf_flat_int8_t_int64_t.cu
+            bench/spatial/knn/ivf_flat_uint8_t_uint32_t.cu
+            bench/spatial/knn/ivf_pq_float_int64_t.cu
+            bench/spatial/knn/ivf_pq_float_uint32_t.cu
+            bench/spatial/knn/ivf_pq_int8_t_int64_t.cu
+            bench/spatial/knn/ivf_pq_uint8_t_uint32_t.cu
+            bench/spatial/selection.cu
+            bench/main.cpp
+            OPTIONAL DIST NN
+            )
+endif()
+

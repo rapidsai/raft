@@ -18,48 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __INIT_H
-#define __INIT_H
+/**
+ * DISCLAIMER: this file is deprecated: use init.cuh instead
+ */
 
 #pragma once
 
-#include "detail/init.hpp"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace linalg {
-
-/**
- * @brief Like Python range.
- *
- * Fills the output as out[i] = i.
- *
- * \param [out] out device array, size [end-start]
- * \param [in] start of the range
- * \param [in] end of range (exclusive)
- * \param [in] stream cuda stream
- */
-template <typename T>
-void range(T* out, int start, int end, cudaStream_t stream)
-{
-  detail::range(out, start, end, stream);
-}
-
-/**
- * @brief Like Python range.
- *
- * Fills the output as out[i] = i.
- *
- * \param [out] out device array, size [n]
- * \param [in] n length of the array
- * \param [in] stream cuda stream
- */
-template <typename T, int TPB = 256>
-void range(T* out, int n, cudaStream_t stream)
-{
-  detail::range(out, n, stream);
-}
-
-}  // namespace linalg
-}  // namespace raft
-
-#endif
+#include "init.cuh"

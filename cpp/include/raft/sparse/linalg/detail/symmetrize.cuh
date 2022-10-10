@@ -18,14 +18,14 @@
 
 #include <cusparse_v2.h>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <raft/device_atomics.cuh>
 #include <raft/sparse/op/sort.cuh>
+#include <raft/util/device_atomics.cuh>
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 

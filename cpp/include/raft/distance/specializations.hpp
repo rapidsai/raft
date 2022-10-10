@@ -18,11 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __DISTANCE_SPECIALIZATIONS_H
-#define __DISTANCE_SPECIALIZATIONS_H
+/**
+ * DISCLAIMER: this file is deprecated: use specializations.cuh instead
+ */
 
 #pragma once
 
-#include <raft/distance/specializations/distance.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-#endif
+#include "specializations.cuh"

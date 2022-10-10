@@ -21,10 +21,12 @@
 
 #include <cub/cub.cuh>
 #include <limits>
-#include <raft/cuda_utils.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
-#include <raft/handle.hpp>
+#include <raft/linalg/contractions.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <stdint.h>
+#include <type_traits>
 
 namespace raft {
 namespace distance {
@@ -99,17 +101,112 @@ void fusedL2NN(OutT* min,
                bool initOutBuffer,
                cudaStream_t stream)
 {
+  // When k is smaller than 32, the Policy4x4 results in redundant calculations
+  // as it uses tiles that have k=32. Therefore, use a "skinny" policy instead
+  // that uses tiles with a smaller value of k.
+  bool is_skinny = k < 32;
+
   size_t bytes = sizeof(DataT) * k;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
-    detail::fusedL2NNImpl<DataT, OutT, IdxT, 16 / sizeof(DataT), ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    if (is_skinny) {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4Skinny<DataT, 16 / sizeof(DataT)>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    } else {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4<DataT, 16 / sizeof(DataT)>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    }
   } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
-    detail::fusedL2NNImpl<DataT, OutT, IdxT, 8 / sizeof(DataT), ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    if (is_skinny) {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4Skinny<DataT, 8 / sizeof(DataT)>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    } else {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4<DataT, 8 / sizeof(DataT)>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    }
   } else {
-    detail::fusedL2NNImpl<DataT, OutT, IdxT, 1, ReduceOpT>(
-      min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    if (is_skinny) {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4Skinny<DataT, 1>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    } else {
+      detail::fusedL2NNImpl<DataT,
+                            OutT,
+                            IdxT,
+                            typename linalg::Policy4x4<DataT, 1>::Policy,
+                            ReduceOpT>(
+        min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
+    }
   }
+}
+
+/**
+ * @brief Wrapper around fusedL2NN with minimum reduction operators.
+ *
+ * fusedL2NN cannot be compiled in the distance library due to the lambda
+ * operators, so this wrapper covers the most common case (minimum).
+ * This should be preferred to the more generic API when possible, in order to
+ * reduce compilation times for users of the shared library.
+ *
+ * @tparam DataT     data type
+ * @tparam OutT      output type to either store 1-NN indices and their minimum
+ *                   distances (e.g. raft::KeyValuePair<int, float>) or store only the min
+ * distances.
+ * @tparam IdxT      indexing arithmetic type
+ * @param[out] min           will contain the reduced output (Length = `m`)
+ *                           (on device)
+ * @param[in]  x             first matrix. Row major. Dim = `m x k`.
+ *                           (on device).
+ * @param[in]  y             second matrix. Row major. Dim = `n x k`.
+ *                           (on device).
+ * @param[in]  xn            L2 squared norm of `x`. Length = `m`. (on device).
+ * @param[in]  yn            L2 squared norm of `y`. Length = `n`. (on device)
+ * @param[in]  m             gemm m
+ * @param[in]  n             gemm n
+ * @param[in]  k             gemm k
+ * @param[in]  workspace     temp workspace. Size = sizeof(int)*m. (on device)
+ * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
+ * @param[in]  initOutBuffer whether to initialize the output buffer before the
+ *                           main kernel launch
+ * @param[in]  stream        cuda stream
+ */
+template <typename DataT, typename OutT, typename IdxT>
+void fusedL2NNMinReduce(OutT* min,
+                        const DataT* x,
+                        const DataT* y,
+                        const DataT* xn,
+                        const DataT* yn,
+                        IdxT m,
+                        IdxT n,
+                        IdxT k,
+                        void* workspace,
+                        bool sqrt,
+                        bool initOutBuffer,
+                        cudaStream_t stream)
+{
+  MinAndDistanceReduceOp<IdxT, DataT> redOp;
+  KVPMinReduce<IdxT, DataT> pairRedOp;
+
+  fusedL2NN<DataT, OutT, IdxT>(
+    min, x, y, xn, yn, m, n, k, workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
 }
 
 }  // namespace distance

@@ -18,42 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __TERNARY_OP_H
-#define __TERNARY_OP_H
+/**
+ * DISCLAIMER: this file is deprecated: use ternary_op.cuh instead
+ */
 
 #pragma once
 
-#include <raft/linalg/detail/ternary_op.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace linalg {
-/**
- * @brief perform element-wise ternary operation on the input arrays
- * @tparam math_t data-type upon which the math operation will be performed
- * @tparam Lambda the device-lambda performing the actual operation
- * @tparam IdxType Integer type used to for addressing
- * @tparam TPB threads-per-block in the final kernel launched
- * @param out the output array
- * @param in1 the first input array
- * @param in2 the second input array
- * @param in3 the third input array
- * @param len number of elements in the input array
- * @param op the device-lambda
- * @param stream cuda stream where to launch work
- */
-template <typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
-void ternaryOp(math_t* out,
-               const math_t* in1,
-               const math_t* in2,
-               const math_t* in3,
-               IdxType len,
-               Lambda op,
-               cudaStream_t stream)
-{
-  detail::ternaryOp(out, in1, in2, in3, len, op, stream);
-}
-
-};  // end namespace linalg
-};  // end namespace raft
-
-#endif
+#include "ternary_op.cuh"

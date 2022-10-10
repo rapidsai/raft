@@ -17,9 +17,9 @@
 #include "../test_utils.h"
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/divide.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -59,7 +59,10 @@ class DivideTest : public ::testing::TestWithParam<raft::linalg::UnaryOpInputs<T
     int len = params.len;
     uniform(handle, r, in.data(), len, T(-1.0), T(1.0));
     naiveDivide(out_ref.data(), in.data(), params.scalar, len, stream);
-    divideScalar(out.data(), in.data(), params.scalar, len, stream);
+    auto out_view    = raft::make_device_vector_view(out.data(), len);
+    auto in_view     = raft::make_device_vector_view<const T>(in.data(), len);
+    auto scalar_view = raft::make_host_scalar_view<const T>(&params.scalar);
+    divide_scalar(handle, in_view, out_view, scalar_view);
     handle.sync_stream(stream);
   }
 

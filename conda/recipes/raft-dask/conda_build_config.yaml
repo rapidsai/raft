@@ -1,0 +1,17 @@
+c_compiler_version:
+  - 9
+
+cxx_compiler_version:
+  - 9
+
+cuda_compiler:
+  - nvcc
+
+sysroot_version:
+  - "2.17"
+
+ucx_version:
+  - "1.13.0"
+
+cmake_version:
+  - ">=3.23.1"
