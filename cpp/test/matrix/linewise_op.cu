@@ -266,7 +266,11 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           }
 
           if (params.checkCorrectness) {
-            runLinewiseSum(out, in, lineLen, nLines, alongRows, vec1);
+            if (alongRows) {
+              runLinewiseSum<raft::row_major>(out, in, lineLen, nLines, vec1);
+            } else {
+              runLinewiseSum<raft::col_major>(out, in, lineLen, nLines, vec1);
+            }
             auto out_dense = blob_val.data();
             thrust::for_each_n(rmm::exec_policy(stream),
                                thrust::make_counting_iterator(0ul),
