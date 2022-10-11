@@ -30,6 +30,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -144,8 +145,7 @@ inline void predict_float_core(const handle_t& handle,
                    distances.data(),
                    n_clusters,
                    stream);
-      utils::argmin_along_rows(
-        n_rows, static_cast<IdxT>(n_clusters), distances.data(), labels, stream);
+      raft::matrix::argmin(distances.data(), (IdxT)n_clusters, n_rows, labels, stream);
       break;
     }
     default: {
