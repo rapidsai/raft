@@ -17,7 +17,7 @@ jobs:
       package-dir: python/pylibraft
       python-version: "3.8 3.9"
       python-package-versioneer-override: "22.10.00a"
-      python-package-build-tag: "14"
+      python-package-build-tag: "15"
 
       manylinux-container-amd64: "rapidsai/manylinux2014"
       manylinux-container-arm64: "rapidsai/manylinux_2_31"
@@ -47,7 +47,7 @@ jobs:
       package-dir: python/raft-dask
       python-version: "3.8 3.9"
       python-package-versioneer-override: "22.10.00a"
-      python-package-build-tag: "14"
+      python-package-build-tag: "15"
 
       manylinux-container-amd64: "rapidsai/manylinux2014"
       manylinux-container-arm64: "rapidsai/manylinux_2_31"
@@ -61,8 +61,8 @@ jobs:
       auditwheel-repair-command-amd64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_17_x86_64 {wheel}"
       auditwheel-repair-command-arm64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_24_aarch64 {wheel}"
 
-      test-before-amd64: "if [ ! -d dask-cuda ]; then git clone https://github.com/rapidsai/dask-cuda.git && cd dask-cuda && git checkout branch-22.10 && sed -i 's/version = os.environ.*/version = \"22.10.00\"/g' setup.py && GIT_DESCRIBE_TAG='placeholder' pip install .; fi"
-      test-before-arm64: "if [ ! -d dask-cuda ]; then git clone https://github.com/rapidsai/dask-cuda.git && cd dask-cuda && git checkout branch-22.10 && sed -i 's/version = os.environ.*/version = \"22.10.00\"/g' setup.py && GIT_DESCRIBE_TAG='placeholder' pip install .; fi"
+      test-before-amd64: "if [ ! -d dask-cuda ]; then git clone https://github.com/rapidsai/dask-cuda.git && cd dask-cuda && git checkout branch-22.10 && sed -i 's/version = os.environ.*/version = \"22.10.00\"/g' setup.py; else cd dask-cuda; fi; GIT_DESCRIBE_TAG='placeholder' pip install ."
+      test-before-arm64: "if [ ! -d dask-cuda ]; then git clone https://github.com/rapidsai/dask-cuda.git && cd dask-cuda && git checkout branch-22.10 && sed -i 's/version = os.environ.*/version = \"22.10.00\"/g' setup.py; else cd dask-cuda; fi; GIT_DESCRIBE_TAG='placeholder' pip install ."
       test-container-amd64: "rapidsai/manylinux_2_27"
       test-container-arm64: "rapidsai/manylinux_2_27"
       test-requires: "pytest dask[distributed,dataframe]"
