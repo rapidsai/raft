@@ -17,7 +17,7 @@ jobs:
       package-dir: python/pylibraft
       python-version: "3.8 3.9"
       python-package-versioneer-override: "22.10.00a"
-      python-package-build-tag: "16"
+      python-package-build-tag: "17"
 
       manylinux-container-amd64: "rapidsai/manylinux2014"
       manylinux-container-arm64: "rapidsai/manylinux_2_31"
@@ -47,7 +47,7 @@ jobs:
       package-dir: python/raft-dask
       python-version: "3.8 3.9"
       python-package-versioneer-override: "22.10.00a"
-      python-package-build-tag: "16"
+      python-package-build-tag: "17"
 
       manylinux-container-amd64: "rapidsai/manylinux2014"
       manylinux-container-arm64: "rapidsai/manylinux_2_31"
