@@ -100,6 +100,12 @@ if(BUILD_BENCH)
             bench/main.cpp
             )
 
+    ConfigureBench(NAME MATRIX_BENCH
+            PATH
+            bench/matrix/argmin.cu
+            bench/main.cpp
+            )
+
     ConfigureBench(NAME RANDOM_BENCH
             PATH
             bench/random/make_blobs.cu
