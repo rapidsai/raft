@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/mdspan.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
@@ -563,8 +564,14 @@ void matrixLinewiseVecColsSpan(
     const IdxType elemsPerThread =
       raft::ceildiv<IdxType>(alignedLen, gs.x * VecElems * BlockSize) * VecElems;
     matrixLinewiseVecColsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
-      <<<gs, bs, 0, stream>>>(
-        out.data(), in.data(), 0, paddedRowLen, alignedLen, elemsPerThread, op, vecs...);
+      <<<gs, bs, 0, stream>>>(out.data_handle(),
+                              in.data_handle(),
+                              0,
+                              paddedRowLen,
+                              alignedLen,
+                              elemsPerThread,
+                              op,
+                              vecs...);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
@@ -696,7 +703,8 @@ void matrixLinewiseVecRowsSpan(
                   1);
 
     matrixLinewiseVecRowsSpanKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
-      <<<gs, bs, 0, stream>>>(out.data(), in.data(), rowLen, paddedRowLen, alignedLen, op, vecs...);
+      <<<gs, bs, 0, stream>>>(
+        out.data_handle(), in.data_handle(), rowLen, paddedRowLen, alignedLen, op, vecs...);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
