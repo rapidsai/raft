@@ -366,7 +366,9 @@ void matrixVectorBinarySub(Type* data,
 template <typename RedOp, int TPB, typename T, typename OutT, typename IdxT>
 __global__ void argReduceKernel(const T* d_in, IdxT D, IdxT N, OutT* out)
 {
-  typedef cub::BlockReduce<cub::KeyValuePair<IdxT, T>, TPB> BlockReduce;
+  typedef cub::
+    BlockReduce<cub::KeyValuePair<IdxT, T>, TPB, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
+      BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
   using KVP     = cub::KeyValuePair<IdxT, T>;
