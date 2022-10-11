@@ -99,7 +99,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     return blob;
   }
 
-  void runLinewiseSumSpan(
+  void runLinewiseSum(
     aligned_mdspan<T, matrix_extent<I>, StorageOrderType::row_major_t>& out,
     const aligned_mdspan<T, matrix_extent<I>, StorageOrderType::row_major_t>& in,
     const I lineLen,
@@ -108,7 +108,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     const T* vec)
   {
     auto f = [] __device__(T a, T b) -> T { return a + b; };
-    matrix::linewiseOpSpan(out, in, lineLen, nLines, alongLines, f, stream, vec);
+    matrix::linewiseOp(handle, out, in, lineLen, nLines, alongLines, f, vec);
   }
 
   /**
@@ -262,7 +262,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
           // actual testrun
           {
             common::nvtx::range vecs_scope("one vec");
-            runLinewiseSumSpan(outSpan, inSpan, lineLen, nLines, alongRows, vec1);
+            runLinewiseSum(outSpan, inSpan, lineLen, nLines, alongRows, vec1);
           }
 
           if (params.checkCorrectness) {

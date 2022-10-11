@@ -300,26 +300,6 @@ void linewiseOp(m_t* out,
     out, in, lineLen, nLines, alongLines, op, stream, vecs...);
 }
 
-template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
-void linewiseOpSpan(
-  aligned_mdspan<m_t, matrix_extent<idx_t>, StorageOrderType::row_major_t>& out,
-  const aligned_mdspan<m_t, matrix_extent<idx_t>, StorageOrderType::row_major_t>& in,
-  const idx_t lineLen,
-  const idx_t nLines,
-  const bool alongLines,
-  Lambda op,
-  cudaStream_t stream,
-  Vecs... vecs)
-{
-  common::nvtx::range<common::nvtx::domain::raft> fun_scope("linewiseOpSpan-%c-%zu (%zu, %zu)",
-                                                            alongLines ? 'l' : 'x',
-                                                            sizeof...(Vecs),
-                                                            size_t(lineLen),
-                                                            size_t(nLines));
-  detail::MatrixLinewiseOpSpan<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
-    out, in, lineLen, nLines, alongLines, op, stream, vecs...);
-}
-
 };  // end namespace matrix
 };  // end namespace raft
 

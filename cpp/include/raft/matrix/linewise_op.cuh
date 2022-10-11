@@ -82,4 +82,23 @@ void linewise_op(const raft::handle_t& handle,
                                                      handle.get_stream(),
                                                      vecs.data_handle()...);
 }
+
+
+template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
+void linewiseOp(
+  const raft::handle_t& handle,
+  aligned_mdspan<m_t, matrix_extent<idx_t>, StorageOrderType::row_major_t>& out,
+  const aligned_mdspan<m_t, matrix_extent<idx_t>, StorageOrderType::row_major_t>& in,
+  const idx_t lineLen,
+  const idx_t nLines,
+  const bool alongLines,
+  Lambda op,
+  Vecs... vecs)
+{
+  
+  detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
+    out, in, lineLen, nLines, alongLines, op, handle.get_stream(), vecs...);
+}
+
+
 }  // namespace raft::matrix

@@ -742,10 +742,7 @@ struct MatrixLinewiseOp {
       return matrixLinewiseVecCols<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>(
         out, in, lineLen, nLines, op, stream, vecs...);
   }
-};
 
-template <std::size_t VecBytes = 16, int BlockSize = 256>
-struct MatrixLinewiseOpSpan {
   template <typename Type, typename IdxType, typename Lambda, typename... Vecs>
   static void run(
     aligned_mdspan<Type, matrix_extent<IdxType>, StorageOrderType::row_major_t>& out,
@@ -768,6 +765,7 @@ struct MatrixLinewiseOpSpan {
         out, in, lineLen, nLines, op, stream, vecs...);
   }
 };
+
 
 }  // end namespace detail
 }  // end namespace matrix
