@@ -17,7 +17,7 @@ jobs:
       package-dir: python/pylibraft
       python-version: "3.8 3.9"
       python-package-versioneer-override: "22.10.00a"
-      python-package-build-tag: "19"
+      python-package-build-tag: "20"
 
       manylinux-container-amd64: "rapidsai/manylinux2014"
       manylinux-container-arm64: "rapidsai/manylinux_2_31"
@@ -47,7 +47,7 @@ jobs:
       package-dir: python/raft-dask
       python-version: "3.8 3.9"
       python-package-versioneer-override: "22.10.00a"
-      python-package-build-tag: "19"
+      python-package-build-tag: "20"
 
       manylinux-container-amd64: "rapidsai/manylinux2014"
       manylinux-container-arm64: "rapidsai/manylinux_2_31"
@@ -62,7 +62,7 @@ jobs:
       auditwheel-repair-command-arm64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_24_aarch64 {wheel}"
 
       test-container-amd64: "rapidsai/manylinux_2_27"
-      test-container-arm64: "rapidsai/manylinux_2_27"
+      test-container-arm64: "rapidsai/manylinux_2_31"
       test-before-amd64: "pip install ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       test-before-arm64: "pip install ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       test-requires: "pytest dask[distributed,dataframe] dask-cuda"
