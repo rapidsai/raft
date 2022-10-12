@@ -300,11 +300,13 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
 }
 
 template <typename m_t, typename idx_t = int>
-m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t stream)
+m_t getL2Norm(const raft::handle_t& handle, const m_t* in, idx_t size, cudaStream_t stream)
 {
   cublasHandle_t cublasH = handle.get_cublas_handle();
   m_t normval            = 0;
-  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasnrm2(cublasH, size, in, 1, &normval, stream));
+  RAFT_EXPECTS(std::is_integral_v<idx_t> && size <= std::numeric_limits<int>::max(),
+               "Index type not supported");
+  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasnrm2(cublasH, static_cast<int>(size), in, 1, &normval, stream));
   return normval;
 }
 

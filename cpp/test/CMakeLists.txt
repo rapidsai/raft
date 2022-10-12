@@ -162,6 +162,7 @@ if(BUILD_TESTS)
             test/matrix/gather.cu
             test/matrix/math.cu
             test/matrix/matrix.cu
+            test/matrix/norm.cu
             test/matrix/columnSort.cu
             test/matrix/linewise_op.cu
             test/spectral_matrix.cu

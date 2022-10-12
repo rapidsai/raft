@@ -32,7 +32,7 @@ namespace raft {
 namespace matrix {
 
 template <typename Type>
-__global__ void nativePowerKernel(Type* in, Type* out, int len)
+__global__ void naivePowerKernel(Type* in, Type* out, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = in[idx] * in[idx]; }
@@ -43,12 +43,12 @@ void naivePower(Type* in, Type* out, int len, cudaStream_t stream)
 {
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
-  nativePowerKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
+  naivePowerKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename Type>
-__global__ void nativeSqrtKernel(Type* in, Type* out, int len)
+__global__ void naiveSqrtKernel(Type* in, Type* out, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = std::sqrt(in[idx]); }
@@ -59,7 +59,7 @@ void naiveSqrt(Type* in, Type* out, int len, cudaStream_t stream)
 {
   static const int TPB = 64;
   int nblks            = raft::ceildiv(len, TPB);
-  nativeSqrtKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
+  naiveSqrtKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 

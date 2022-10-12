@@ -29,7 +29,7 @@ namespace raft::matrix {
  * @returns matrix l2 norm
  */
 template <typename m_t, typename idx_t>
-m_t l2_norm(const raft::handle_t& handle, raft::device_mdspan<m_t, idx_t> in)
+m_t l2_norm(const raft::handle_t& handle, raft::device_mdspan<const m_t, idx_t> in)
 {
   return detail::getL2Norm(handle, in.data_handle(), in.size(), handle.get_stream());
 }
