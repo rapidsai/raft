@@ -1160,19 +1160,6 @@ void ivfpq_search_worker(const handle_t& handle,
                                                          topK);
 
   rmm::device_uvector<LutT> device_lut(search_instance.device_lut_size, stream, mr);
-  printf(
-    "===|     raft: n_rows = %zu, n_lists = %u, n_queries = %u, n_probes = %u, dim = %u, pq_dim = "
-    "%u, k = %u, max_samples = %u, metric = %d, codebook_kind = %d\n",
-    uint64_t(index.size()),
-    uint32_t(index.n_lists()),
-    uint32_t(n_queries),
-    uint32_t(n_probes),
-    uint32_t(index.rot_dim()),
-    uint32_t(index.pq_dim()),
-    uint32_t(topK),
-    uint32_t(max_samples),
-    int(index.metric()),
-    int(index.codebook_kind()));
 
   search_instance(stream,
                   index.size(),
