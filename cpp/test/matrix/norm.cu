@@ -65,7 +65,7 @@
    {
      raft::random::RngState r(params.seed);
      int rows = params.rows, cols = params.cols, len = rows * cols;
-     uniform(handle, r, data.data(), len, T(-1.0), T(1.0));
+     uniform(handle, r, data.data(), len, T(-10.0), T(10.0));
      std::vector<T> h_data(rows*cols);
      raft::update_host(h_data.data(), data.data(), rows*cols, stream);
      out_scalar_exp = naiveNorm(h_data.data(), cols, rows);
@@ -110,13 +110,13 @@
  typedef NormTest<float> NormTestF;
  TEST_P(NormTestF, Result)
  {
-    ASSERT_NEAR(out_scalar_exp, out_scalar_act, params.tolerance);
+    ASSERT_NEAR(out_scalar_exp, out_scalar_act, params.tolerance * params.rows * params.cols);
  }
  
  typedef NormTest<double> NormTestD;
  TEST_P(NormTestD, Result)
  {
-    ASSERT_NEAR(out_scalar_exp, out_scalar_act, params.tolerance);
+    ASSERT_NEAR(out_scalar_exp, out_scalar_act, params.tolerance * params.rows * params.cols);
  }
  
  INSTANTIATE_TEST_CASE_P(NormTests, NormTestF, ::testing::ValuesIn(inputsf));
