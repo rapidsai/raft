@@ -20,8 +20,8 @@
 
 #include <raft/random/rng.cuh>
 
-#include <raft/spatial/knn/ivf_flat.cuh>
-#include <raft/spatial/knn/ivf_pq.cuh>
+#include <raft/neighbors/ivf_flat.cuh>
+#include <raft/neighbors/ivf_pq.cuh>
 #include <raft/spatial/knn/knn.cuh>
 
 #if defined RAFT_DISTANCE_COMPILED
@@ -143,16 +143,16 @@ template <typename ValT, typename IdxT>
 struct ivf_flat_knn {
   using dist_t = float;
 
-  std::optional<const raft::spatial::knn::ivf_flat::index<ValT, IdxT>> index;
-  raft::spatial::knn::ivf_flat::index_params index_params;
-  raft::spatial::knn::ivf_flat::search_params search_params;
+  std::optional<const raft::neighbors::ivf_flat::index<ValT, IdxT>> index;
+  raft::neighbors::ivf_flat::index_params index_params;
+  raft::neighbors::ivf_flat::search_params search_params;
   params ps;
 
   ivf_flat_knn(const raft::handle_t& handle, const params& ps, const ValT* data) : ps(ps)
   {
     index_params.n_lists = 4096;
     index_params.metric  = raft::distance::DistanceType::L2Expanded;
-    index.emplace(raft::spatial::knn::ivf_flat::build(
+    index.emplace(raft::neighbors::ivf_flat::build(
       handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
   }
 
@@ -162,7 +162,7 @@ struct ivf_flat_knn {
               IdxT* out_idxs)
   {
     search_params.n_probes = 20;
-    raft::spatial::knn::ivf_flat::search(
+    raft::neighbors::ivf_flat::search(
       handle, search_params, *index, search_items, ps.n_queries, ps.k, out_idxs, out_dists);
   }
 };
@@ -171,16 +171,16 @@ template <typename ValT, typename IdxT>
 struct ivf_pq_knn {
   using dist_t = float;
 
-  std::optional<const raft::spatial::knn::ivf_pq::index<IdxT>> index;
-  raft::spatial::knn::ivf_pq::index_params index_params;
-  raft::spatial::knn::ivf_pq::search_params search_params;
+  std::optional<const raft::neighbors::ivf_pq::index<IdxT>> index;
+  raft::neighbors::ivf_pq::index_params index_params;
+  raft::neighbors::ivf_pq::search_params search_params;
   params ps;
 
   ivf_pq_knn(const raft::handle_t& handle, const params& ps, const ValT* data) : ps(ps)
   {
     index_params.n_lists = 4096;
     index_params.metric  = raft::distance::DistanceType::L2Expanded;
-    index.emplace(raft::spatial::knn::ivf_pq::build(
+    index.emplace(raft::neighbors::ivf_pq::build(
       handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
   }
 
@@ -190,7 +190,7 @@ struct ivf_pq_knn {
               IdxT* out_idxs)
   {
     search_params.n_probes = 20;
-    raft::spatial::knn::ivf_pq::search(
+    raft::neighbors::ivf_pq::search(
       handle, search_params, *index, search_items, ps.n_queries, ps.k, out_idxs, out_dists);
   }
 };
