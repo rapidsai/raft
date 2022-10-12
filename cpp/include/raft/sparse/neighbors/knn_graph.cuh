@@ -18,11 +18,11 @@
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/spatial/detail/knn_graph.cuh>
+#include <raft/sparse/neighbors/detail/knn_graph.cuh>
 
 #include <cstdint>
 
-namespace raft::sparse::spatial {
+namespace raft::sparse::neighbors {
 
 /**
  * Constructs a (symmetrized) knn graph edge list from
@@ -52,4 +52,4 @@ void knn_graph(const handle_t& handle,
   detail::knn_graph(handle, X, m, n, metric, out, c);
 }
 
-};  // namespace raft::sparse::spatial
+};  // namespace raft::sparse::neighbors

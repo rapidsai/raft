@@ -209,11 +209,11 @@ if(BUILD_TESTS)
             OPTIONAL DIST NN
     )
 
-    ConfigureTest(NAME SPARSE_NN_TEST
+    ConfigureTest(NAME SPARSE_NEIGHBORS_TEST
             PATH
-            test/sparse/connect_components.cu
-            test/sparse/knn.cu
-            test/sparse/knn_graph.cu
+            test/sparse/neighbors/connect_components.cu
+            test/sparse/neighbors/brute_force.cu
+            test/sparse/neighbors/knn_graph.cu
             OPTIONAL DIST NN
     )
 

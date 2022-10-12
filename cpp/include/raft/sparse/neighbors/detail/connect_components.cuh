@@ -45,7 +45,7 @@
 
 #include <limits>
 
-namespace raft::sparse::spatial::detail {
+namespace raft::sparse::neighbors::detail {
 
 /**
  * Functor with reduction ops for performing fused 1-nn
@@ -401,4 +401,4 @@ void connect_components(
     handle, min_edges.rows(), min_edges.cols(), min_edges.vals(), n_rows, n_rows, size, out);
 }
 
-};  // end namespace raft::sparse::spatial::detail
+};  // end namespace raft::sparse::neighbors::detail

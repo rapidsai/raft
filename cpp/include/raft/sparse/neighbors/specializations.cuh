@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,23 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * This file is deprecated and will be removed in release 22.06.
- * Please use the cuh version instead.
- */
-
-/**
- * DISCLAIMER: this file is deprecated: use knn.cuh instead
- */
 
 #pragma once
 
-#pragma message(__FILE__                                                  \
-                " is deprecated and will be removed in a future release." \
-                " Please use the sparse/spatial version instead.")
-
-#include <raft/sparse/neighbors/knn.cuh>
-
-namespace raft::sparse::selection {
-using raft::sparse::neighbors::brute_force_knn;
-}
+#include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
