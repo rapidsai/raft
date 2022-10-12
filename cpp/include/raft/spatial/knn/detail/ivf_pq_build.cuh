@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include "../ivf_pq_types.hpp"
 #include "ann_kmeans_balanced.cuh"
 #include "ann_utils.cuh"
+
+#include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
@@ -48,6 +49,10 @@
 namespace raft::spatial::knn::ivf_pq::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
+
+using raft::neighbors::ivf_pq::codebook_gen;
+using raft::neighbors::ivf_pq::index;
+using raft::neighbors::ivf_pq::index_params;
 
 namespace {
 
@@ -318,6 +323,8 @@ void compute_pq_codes(const handle_t& handle,
   //
   utils::memzero(pq_dataset, n_rows * pq_dim * pq_bits / 8, stream);
 
+  uint32_t pq_width = 1 << pq_bits;
+  rmm::device_uvector<float> pq_centers_tmp(pq_len * pq_width, stream, device_memory);
   rmm::device_uvector<float> rot_vectors(max_cluster_size * rot_dim, stream, device_memory);
   rmm::device_uvector<float> sub_vectors(max_cluster_size * pq_dim * pq_len, stream, device_memory);
   rmm::device_uvector<uint32_t> sub_vector_labels(max_cluster_size * pq_dim, stream, device_memory);
@@ -360,23 +367,36 @@ void compute_pq_codes(const handle_t& handle,
                                       stream));
     }
 
+    if (codebook_kind == codebook_gen::PER_CLUSTER) {
+      linalg::writeOnlyUnaryOp(
+        pq_centers_tmp.data(),
+        pq_len * pq_width,
+        [pq_centers, pq_width, pq_len, l] __device__(float* out, uint32_t i) {
+          auto i0 = i % pq_len;
+          auto i1 = i / pq_len;
+          *out    = pq_centers[pq_width * pq_len * l + i0 * pq_width + i1];
+        },
+        stream);
+    }
+
     //
     // Find a label (cluster ID) for each vector subspace.
     //
     for (uint32_t j = 0; j < pq_dim; j++) {
-      const float* sub_pq_centers = nullptr;
-      switch (codebook_kind) {
-        case codebook_gen::PER_SUBSPACE:
-          sub_pq_centers = pq_centers + ((1 << pq_bits) * pq_len) * j;
-          break;
-        case codebook_gen::PER_CLUSTER:
-          sub_pq_centers = pq_centers + ((1 << pq_bits) * pq_len) * l;
-          break;
-        default: RAFT_FAIL("Unreachable code");
+      if (codebook_kind == codebook_gen::PER_SUBSPACE) {
+        linalg::writeOnlyUnaryOp(
+          pq_centers_tmp.data(),
+          pq_len * pq_width,
+          [pq_centers, pq_width, pq_len, j] __device__(float* out, uint32_t i) {
+            auto i0 = i % pq_len;
+            auto i1 = i / pq_len;
+            *out    = pq_centers[pq_width * pq_len * j + i0 * pq_width + i1];
+          },
+          stream);
       }
       kmeans::predict(handle,
-                      sub_pq_centers,
-                      (1 << pq_bits),
+                      pq_centers_tmp.data(),
+                      pq_width,
                       pq_len,
                       sub_vectors.data() + j * (cluster_size * pq_len),
                       cluster_size,
@@ -461,6 +481,25 @@ auto calculate_offsets_and_indices(IdxT n_rows,
 }
 
 template <typename IdxT>
+void transpose_pq_centers(index<IdxT>& index,
+                          const float* pq_centers_source,
+                          rmm::cuda_stream_view stream)
+{
+  auto pq_bits = index.pq_bits();
+  auto pq_len  = index.pq_len();
+  linalg::writeOnlyUnaryOp(
+    index.pq_centers().data_handle(),
+    index.pq_centers().size(),
+    [pq_centers_source, pq_bits, pq_len] __device__(float* out, size_t i) {
+      auto i0  = i & ((1 << pq_bits) - 1);
+      auto i1  = (i >> pq_bits) % pq_len;
+      auto i2p = i - (i1 << pq_bits) - i0;
+      *out     = pq_centers_source[i1 + i0 * pq_len + i2p];
+    },
+    stream);
+}
+
+template <typename IdxT>
 void train_per_subset(const handle_t& handle,
                       index<IdxT>& index,
                       IdxT n_rows,
@@ -472,6 +511,7 @@ void train_per_subset(const handle_t& handle,
 {
   auto stream = handle.get_stream();
 
+  rmm::device_uvector<float> pq_centers_tmp(index.pq_centers().size(), stream, device_memory);
   rmm::device_uvector<float> sub_trainset(n_rows * index.pq_len(), stream, device_memory);
   rmm::device_uvector<uint32_t> sub_labels(n_rows, stream, device_memory);
 
@@ -512,20 +552,20 @@ void train_per_subset(const handle_t& handle,
                  stream);
 
     // train PQ codebook for this subspace
-    kmeans::build_clusters(
-      handle,
-      kmeans_n_iters,
-      index.pq_len(),
-      sub_trainset.data(),
-      n_rows,
-      index.pq_book_size(),
-      index.pq_centers().data_handle() + (index.pq_book_size() * index.pq_len()) * j,
-      sub_labels.data(),
-      pq_cluster_sizes.data(),
-      raft::distance::DistanceType::L2Expanded,
-      stream,
-      device_memory);
+    kmeans::build_clusters(handle,
+                           kmeans_n_iters,
+                           index.pq_len(),
+                           sub_trainset.data(),
+                           n_rows,
+                           index.pq_book_size(),
+                           pq_centers_tmp.data() + (index.pq_book_size() * index.pq_len()) * j,
+                           sub_labels.data(),
+                           pq_cluster_sizes.data(),
+                           raft::distance::DistanceType::L2Expanded,
+                           stream,
+                           device_memory);
   }
+  transpose_pq_centers(index, pq_centers_tmp.data(), stream);
 }
 
 template <typename IdxT>
@@ -539,6 +579,8 @@ void train_per_cluster(const handle_t& handle,
                        rmm::mr::device_memory_resource* device_memory)
 {
   auto stream = handle.get_stream();
+
+  rmm::device_uvector<float> pq_centers_tmp(index.pq_centers().size(), stream, device_memory);
   rmm::device_uvector<uint32_t> cluster_sizes(index.n_lists(), stream, managed_memory);
   rmm::device_uvector<IdxT> indices_buf(n_rows, stream, device_memory);
   rmm::device_uvector<IdxT> offsets_buf(index.list_offsets().size(), stream, managed_memory);
@@ -584,20 +626,20 @@ void train_per_cluster(const handle_t& handle,
     size_t available_rows = cluster_size * index.pq_dim();
     auto pq_n_rows        = uint32_t(std::min(big_enough, available_rows));
     // train PQ codebook for this cluster
-    kmeans::build_clusters(
-      handle,
-      kmeans_n_iters,
-      index.pq_len(),
-      rot_vectors.data(),
-      pq_n_rows,
-      index.pq_book_size(),
-      index.pq_centers().data_handle() + index.pq_book_size() * index.pq_len() * l,
-      pq_labels.data(),
-      pq_cluster_sizes.data(),
-      raft::distance::DistanceType::L2Expanded,
-      stream,
-      device_memory);
+    kmeans::build_clusters(handle,
+                           kmeans_n_iters,
+                           index.pq_len(),
+                           rot_vectors.data(),
+                           pq_n_rows,
+                           index.pq_book_size(),
+                           pq_centers_tmp.data() + index.pq_book_size() * index.pq_len() * l,
+                           pq_labels.data(),
+                           pq_cluster_sizes.data(),
+                           raft::distance::DistanceType::L2Expanded,
+                           stream,
+                           device_memory);
   }
+  transpose_pq_centers(index, pq_centers_tmp.data(), stream);
 }
 
 /** See raft::spatial::knn::ivf_pq::extend docs */

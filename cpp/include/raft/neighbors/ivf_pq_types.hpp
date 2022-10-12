@@ -292,8 +292,8 @@ struct index : ann::index {
   /**
    * PQ cluster centers
    *
-   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_book_size, pq_len]
-   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_book_size, pq_len]
+   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_len, pq_book_size]
+   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_len, pq_book_size]
    */
   inline auto pq_centers() noexcept -> device_mdspan<float, extent_3d<uint32_t>, row_major>
   {
@@ -408,9 +408,9 @@ struct index : ann::index {
   {
     switch (codebook_kind()) {
       case codebook_gen::PER_SUBSPACE:
-        return make_extents<uint32_t>(pq_dim(), pq_book_size(), pq_len());
+        return make_extents<uint32_t>(pq_dim(), pq_len(), pq_book_size());
       case codebook_gen::PER_CLUSTER:
-        return make_extents<uint32_t>(n_lists(), pq_book_size(), pq_len());
+        return make_extents<uint32_t>(n_lists(), pq_len(), pq_book_size());
       default: RAFT_FAIL("Unreachable code");
     }
   }
@@ -420,7 +420,7 @@ struct index : ann::index {
     // If the dimensionality is large enough, we can reduce it to improve performance
     if (dim >= 128) { dim /= 2; }
     // Round it down to 32 to improve performance.
-    uint32_t r = raft::round_down_safe<uint32_t>(dim, 32);
+    auto r = raft::round_down_safe<uint32_t>(dim, 32);
     if (r > 0) return r;
     // If the dimensionality is really low, round it to the closest power-of-two
     r = 1;
