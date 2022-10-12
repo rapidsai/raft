@@ -213,7 +213,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
       - `distance`: Sparse distance computations
       - `linalg`: Sparse linear algebra
       - `neighbors`: Sparse nearest neighbors and knn graph construction
-      - `op`: Various sparse operations such as slicing and filtering
+      - `op`: Various sparse operations such as slicing and filtering (Note: this will soon be renamed to `sparse/matrix`)
       - `solver`: Sparse solvers for optimization and approximation
     - `stats`: Moments, summary statistics, model performance measures
     - `util`: Various reusable tools and utilities for accelerated algorithm development
