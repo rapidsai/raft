@@ -18,39 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __MUTUAL_INFO_SCORE_H
-#define __MUTUAL_INFO_SCORE_H
+/**
+ * DISCLAIMER: this file is deprecated: use mutual_info_score.cuh instead
+ */
 
 #pragma once
 
-#include <raft/stats/detail/mutual_info_score.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace stats {
-
-/**
- * @brief Function to calculate the mutual information between two clusters
- * <a href="https://en.wikipedia.org/wiki/Mutual_information">more info on mutual information</a>
- * @param firstClusterArray: the array of classes of type T
- * @param secondClusterArray: the array of classes of type T
- * @param size: the size of the data points of type int
- * @param lowerLabelRange: the lower bound of the range of labels
- * @param upperLabelRange: the upper bound of the range of labels
- * @param stream: the cudaStream object
- */
-template <typename T>
-double mutual_info_score(const T* firstClusterArray,
-                         const T* secondClusterArray,
-                         int size,
-                         T lowerLabelRange,
-                         T upperLabelRange,
-                         cudaStream_t stream)
-{
-  return detail::mutual_info_score(
-    firstClusterArray, secondClusterArray, size, lowerLabelRange, upperLabelRange, stream);
-}
-
-};  // end namespace stats
-};  // end namespace raft
-
-#endif
+#include "mutual_info_score.cuh"

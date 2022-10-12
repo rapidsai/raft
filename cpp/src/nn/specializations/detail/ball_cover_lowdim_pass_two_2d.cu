@@ -25,7 +25,7 @@ namespace detail {
 
 template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t, 2>(
   const raft::handle_t& handle,
-  BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
+  const BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
   const std::uint32_t n_query_rows,
   std::uint32_t k,

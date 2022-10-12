@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/reduce.hpp>
-#include <raft/stats/sum.hpp>
+#include <raft/linalg/reduce.cuh>
+#include <raft/stats/sum.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace stats {

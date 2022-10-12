@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/strided_reduction.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace linalg {
@@ -32,8 +32,8 @@ template <typename InType,
           typename FinalLambda  = raft::Nop<OutType>>
 void reduce(OutType* dots,
             const InType* data,
-            int D,
-            int N,
+            IdxType D,
+            IdxType N,
             OutType init,
             bool rowMajor,
             bool alongRows,
@@ -44,16 +44,16 @@ void reduce(OutType* dots,
             FinalLambda final_op   = raft::Nop<OutType>())
 {
   if (rowMajor && alongRows) {
-    raft::linalg::coalescedReduction(
+    raft::linalg::coalescedReduction<InType, OutType, IdxType>(
       dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   } else if (rowMajor && !alongRows) {
-    raft::linalg::stridedReduction(
+    raft::linalg::stridedReduction<InType, OutType, IdxType>(
       dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
   } else if (!rowMajor && alongRows) {
-    raft::linalg::stridedReduction(
+    raft::linalg::stridedReduction<InType, OutType, IdxType>(
       dots, data, N, D, init, stream, inplace, main_op, reduce_op, final_op);
   } else {
-    raft::linalg::coalescedReduction(
+    raft::linalg::coalescedReduction<InType, OutType, IdxType>(
       dots, data, N, D, init, stream, inplace, main_op, reduce_op, final_op);
   }
 }

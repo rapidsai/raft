@@ -17,9 +17,9 @@
 #include "../test_utils.h"
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -30,14 +30,18 @@ namespace linalg {
 template <typename InType, typename IdxType = int, typename OutType = InType>
 void unaryOpLaunch(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
 {
+  raft::handle_t handle{stream};
+  auto out_view = raft::make_device_vector_view(out, len);
+  auto in_view  = raft::make_device_vector_view<const InType>(in, len);
   if (in == nullptr) {
     auto op = [scalar] __device__(OutType * ptr, IdxType idx) {
       *ptr = static_cast<OutType>(scalar * idx);
     };
-    writeOnlyUnaryOp<OutType, decltype(op), IdxType>(out, len, op, stream);
+
+    write_only_unary_op(handle, out_view, op);
   } else {
     auto op = [scalar] __device__(InType in) { return static_cast<OutType>(in * scalar); };
-    unaryOp<InType, decltype(op), IdxType, OutType>(out, in, len, op, stream);
+    unary_op(handle, in_view, out_view, op);
   }
 }
 

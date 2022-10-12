@@ -36,7 +36,7 @@ export CMAKE_GENERATOR="Ninja"
 export CONDA_BLD_DIR="${WORKSPACE}/.conda-bld"
 
 # ucx-py version
-export UCX_PY_VERSION='0.27.*'
+export UCX_PY_VERSION='0.28.*'
 
 ################################################################################
 # SETUP - Check environment
@@ -94,22 +94,26 @@ if [ "$BUILD_LIBRAFT" == "1" ]; then
   sccache --show-stats
 else
   gpuci_logger "SKIPPING build of conda packages for libraft-nn, libraft-distance, libraft-headers and libraft-tests"
+
+  # Install pre-built conda packages from previous CI step
+  gpuci_logger "Install libraft conda packages from CPU job"
+  CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/raft/cpu/.conda-bld/ # notice there is no `linux-64` here
+  gpuci_mamba_retry install -y -c ${CONDA_ARTIFACT_PATH} libraft-headers libraft-distance libraft-nn libraft-tests
 fi
 
 if [ "$BUILD_RAFT" == '1' ]; then
   gpuci_logger "Building Python conda packages for raft"
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pyraft --python=$PYTHON
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pylibraft --python=$PYTHON
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/raft-dask --python=$PYTHON
   else
-    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pyraft -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=$PYTHON
-    mkdir -p ${CONDA_BLD_DIR}/pyraft/work
-    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/pyraft/work
-
     gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/pylibraft -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=$PYTHON
     mkdir -p ${CONDA_BLD_DIR}/pylibraft/work
     mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/pylibraft/work
 
+    gpuci_conda_retry mambabuild --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/raft-dask -c ${CONDA_LOCAL_CHANNEL} --dirty --no-remove-work-dir --python=$PYTHON
+    mkdir -p ${CONDA_BLD_DIR}/raft-dask/work
+    mv ${CONDA_BLD_DIR}/work ${CONDA_BLD_DIR}/raft-dask/work
   fi
 else
   gpuci_logger "SKIPPING build of Python conda packages for raft"

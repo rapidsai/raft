@@ -15,7 +15,7 @@
  */
 
 #include <common/benchmark.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft::bench::linalg {

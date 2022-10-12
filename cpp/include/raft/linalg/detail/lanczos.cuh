@@ -26,11 +26,11 @@
 #include <curand.h>
 
 #include "cublas_wrappers.hpp"
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/spectral/detail/lapack.hpp>
 #include <raft/spectral/detail/warn_dbg.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {

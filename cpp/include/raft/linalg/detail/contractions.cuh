@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/common/device_loads_stores.cuh>
+#include <raft/util/device_loads_stores.cuh>
 
 namespace raft {
 namespace linalg {

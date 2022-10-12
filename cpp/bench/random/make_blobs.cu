@@ -15,7 +15,7 @@
  */
 
 #include <common/benchmark.hpp>
-#include <raft/random/make_blobs.hpp>
+#include <raft/random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
 #include <vector>
 

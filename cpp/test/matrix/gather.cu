@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+#include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
-#include <test_utils.h>
 
 namespace raft {
 
@@ -43,19 +44,6 @@ void naiveGather(
   MatrixIteratorT in, int D, int N, MapIteratorT map, int map_length, MatrixIteratorT out)
 {
   naiveGatherImpl(in, D, N, map, map_length, out);
-}
-
-template <typename MatrixIteratorT, typename MapIteratorT>
-void gatherLaunch(MatrixIteratorT in,
-                  int D,
-                  int N,
-                  MapIteratorT map,
-                  int map_length,
-                  MatrixIteratorT out,
-                  cudaStream_t stream)
-{
-  typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
-  matrix::gather(in, D, N, map, map_length, out, stream);
 }
 
 struct GatherInputs {
@@ -109,8 +97,18 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     naiveGather(h_in.data(), ncols, nrows, h_map.data(), map_length, h_out.data());
     raft::update_device(d_out_exp.data(), h_out.data(), map_length * ncols, stream);
 
-    // launch device version of the kernel
-    gatherLaunch(d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
+    auto in_view = raft::make_device_matrix_view<const MatrixT, std::uint32_t, row_major>(
+      d_in.data(), nrows, ncols);
+    auto out_view =
+      raft::make_device_matrix_view<MatrixT, std::uint32_t>(d_out_act.data(), map_length, ncols);
+    auto map_view =
+      raft::make_device_vector_view<const MapT, std::uint32_t, row_major>(d_map.data(), map_length);
+
+    raft::matrix::gather(handle, in_view, map_view, out_view);
+
+    //      // launch device version of the kernel
+    //    gatherLaunch(
+    //      handle, d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
 
     handle.sync_stream(stream);
   }

@@ -23,4 +23,6 @@
 #include <raft/spatial/knn/specializations/fused_l2_knn.cuh>
 #include <raft/spatial/knn/specializations/knn.cuh>
 
+#include <raft/spatial/knn/specializations/detail/ivf_pq_search.cuh>
+
 #endif

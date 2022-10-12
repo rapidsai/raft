@@ -17,14 +17,17 @@
 #include <common/benchmark.hpp>
 #include <limits>
 #include <raft/cudart_utils.h>
-#include <raft/distance/fused_l2_nn.hpp>
+#include <raft/distance/fused_l2_nn.cuh>
 #include <raft/handle.hpp>
-#include <raft/linalg/norm.hpp>
+#include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
-#endif
+// TODO: Once fusedL2NN is specialized in the raft_distance shared library, add
+// back
+//
+// #if defined RAFT_NN_COMPILED
+// #include <raft/spatial/knn/specializations.hpp>
+// #endif
 
 namespace raft::bench::spatial {
 
@@ -73,6 +76,30 @@ struct fused_l2_nn : public fixture {
                                                                    false,
                                                                    stream);
     });
+
+    // Num distance calculations
+    int64_t num_dist_calcs = (int64_t)params.n * (int64_t)params.m;
+
+    int64_t num_flops = 3 * num_dist_calcs * params.k;
+
+    int64_t read_elts  = (int64_t)params.n * params.k + (int64_t)params.m * params.k;
+    int64_t write_elts = (int64_t)params.n;
+
+    state.counters["D/s"] = benchmark::Counter(num_dist_calcs,
+                                               benchmark::Counter::kIsIterationInvariantRate,
+                                               benchmark::Counter::OneK::kIs1000);
+
+    state.counters["FLOP/s"] = benchmark::Counter(
+      num_flops, benchmark::Counter::kIsIterationInvariantRate, benchmark::Counter::OneK::kIs1000);
+
+    state.counters["BW Wr"] = benchmark::Counter(write_elts * sizeof(cub::KeyValuePair<int, T>),
+                                                 benchmark::Counter::kIsIterationInvariantRate,
+                                                 benchmark::Counter::OneK::kIs1000);
+    state.counters["BW Rd"] = benchmark::Counter(read_elts * sizeof(float),
+                                                 benchmark::Counter::kIsIterationInvariantRate,
+                                                 benchmark::Counter::OneK::kIs1000);
+
+    state.counters["K"] = benchmark::Counter(params.k);
   }
 
  private:
@@ -88,9 +115,9 @@ const std::vector<fused_l2_nn_inputs> fused_l2_nn_input_vecs = {
   {32, 16384, 16384},  {64, 16384, 16384},   {128, 16384, 16384},   {256, 16384, 16384},
   {512, 16384, 16384}, {1024, 16384, 16384}, {16384, 32, 16384},    {16384, 64, 16384},
   {16384, 128, 16384}, {16384, 256, 16384},  {16384, 512, 16384},   {16384, 1024, 16384},
+  {16384, 16384, 2},   {16384, 16384, 4},    {16384, 16384, 8},     {16384, 16384, 16},
   {16384, 16384, 32},  {16384, 16384, 64},   {16384, 16384, 128},   {16384, 16384, 256},
   {16384, 16384, 512}, {16384, 16384, 1024}, {16384, 16384, 16384},
-
 };
 
 RAFT_BENCH_REGISTER(fused_l2_nn<float>, "", fused_l2_nn_input_vecs);

@@ -15,7 +15,7 @@
  */
 
 #include <common/benchmark.hpp>
-#include <raft/linalg/add.hpp>
+#include <raft/linalg/add.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft::bench::linalg {

@@ -18,35 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __MSE_H
-#define __MSE_H
+/**
+ * DISCLAIMER: this file is deprecated: use mean_squared_error.cuh instead
+ */
 
 #pragma once
 
-#include "detail/mean_squared_error.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace linalg {
-
-/**
- * @brief CUDA version mean squared error function mean((A-B)**2)
- * @tparam math_t data-type upon which the math operation will be performed
- * @tparam TPB threads-per-block
- * @param out the output mean squared error value (assumed to be a device pointer)
- * @param A input array (assumed to be a device pointer)
- * @param B input array (assumed to be a device pointer)
- * @param len number of elements in the input arrays
- * @param weight weight to apply to every term in the mean squared error calculation
- * @param stream cuda-stream where to launch this kernel
- */
-template <typename math_t, int TPB = 256>
-void meanSquaredError(
-  math_t* out, const math_t* A, const math_t* B, size_t len, math_t weight, cudaStream_t stream)
-{
-  detail::meanSquaredError(out, A, B, len, weight, stream);
-}
-
-};  // end namespace linalg
-};  // end namespace raft
-
-#endif
+#include "mean_squared_error.cuh"

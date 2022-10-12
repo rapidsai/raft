@@ -17,9 +17,10 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <memory>
-#include <raft/cudart_utils.h>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/spatial/knn/epsilon_neighborhood.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -40,12 +41,18 @@ template <typename T, typename IdxT>
 template <typename T, typename IdxT>
 class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
  protected:
-  EpsNeighTest() : data(0, stream), adj(0, stream), labels(0, stream), vd(0, stream) {}
+  EpsNeighTest()
+    : data(0, handle.get_stream()),
+      adj(0, handle.get_stream()),
+      labels(0, handle.get_stream()),
+      vd(0, handle.get_stream())
+  {
+  }
 
   void SetUp() override
   {
-    param = ::testing::TestWithParam<EpsInputs<T, IdxT>>::GetParam();
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    auto stream = handle.get_stream();
+    param       = ::testing::TestWithParam<EpsInputs<T, IdxT>>::GetParam();
     data.resize(param.n_row * param.n_col, stream);
     labels.resize(param.n_row, stream);
     batchSize = param.n_row / param.n_batches;
@@ -65,14 +72,13 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
                                 false);
   }
 
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
   EpsInputs<T, IdxT> param;
   cudaStream_t stream = 0;
   rmm::device_uvector<T> data;
   rmm::device_uvector<bool> adj;
   rmm::device_uvector<IdxT> labels, vd;
   IdxT batchSize;
+  const raft::handle_t handle;
 };  // class EpsNeighTest
 
 const std::vector<EpsInputs<float, int>> inputsfi = {
@@ -93,15 +99,16 @@ TEST_P(EpsNeighTestFI, Result)
   for (int i = 0; i < param.n_batches; ++i) {
     RAFT_CUDA_TRY(cudaMemsetAsync(adj.data(), 0, sizeof(bool) * param.n_row * batchSize, stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(vd.data(), 0, sizeof(int) * (batchSize + 1), stream));
-    epsUnexpL2SqNeighborhood<float, int>(adj.data(),
-                                         vd.data(),
-                                         data.data(),
-                                         data.data() + (i * batchSize * param.n_col),
-                                         param.n_row,
-                                         batchSize,
-                                         param.n_col,
-                                         param.eps * param.eps,
-                                         stream);
+
+    auto adj_view = make_device_matrix_view<bool, int>(adj.data(), param.n_row, batchSize);
+    auto vd_view  = make_device_vector_view<int, int>(vd.data(), batchSize + 1);
+    auto x_view   = make_device_matrix_view<float, int>(data.data(), param.n_row, param.n_col);
+    auto y_view   = make_device_matrix_view<float, int>(
+      data.data() + (i * batchSize * param.n_col), batchSize, param.n_col);
+
+    eps_neighbors_l2sq<float, int, int>(
+      handle, x_view, y_view, adj_view, vd_view, param.eps * param.eps);
+
     ASSERT_TRUE(raft::devArrMatch(
       param.n_row / param.n_centers, vd.data(), batchSize, raft::Compare<int>(), stream));
   }

@@ -23,11 +23,11 @@
 #include <raft/linalg/transpose.cuh>
 
 #include <raft/common/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -66,15 +66,9 @@ void svdQR(const raft::handle_t& handle,
   char jobu  = 'S';
   char jobvt = 'A';
 
-  if (!gen_left_vec) {
-    char new_u = 'N';
-    strcpy(&jobu, &new_u);
-  }
+  if (!gen_left_vec) { jobu = 'N'; }
 
-  if (!gen_right_vec) {
-    char new_vt = 'N';
-    strcpy(&jobvt, &new_vt);
-  }
+  if (!gen_right_vec) { jobvt = 'N'; }
 
   RAFT_CUSOLVER_TRY(cusolverDngesvd(cusolverH,
                                     jobu,

@@ -18,36 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __SQRT_H
-#define __SQRT_H
+/**
+ * DISCLAIMER: this file is deprecated: use sqrt.cuh instead
+ */
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/unary_op.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace linalg {
-
-/**
- * @defgroup ScalarOps Scalar operations on the input buffer
- * @tparam math_t data-type upon which the math operation will be performed
- * @tparam IdxType Integer type used to for addressing
- * @param out the output buffer
- * @param in the input buffer
- * @param len number of elements in the input buffer
- * @param stream cuda stream where to launch work
- * @{
- */
-template <typename math_t, typename IdxType = int>
-void sqrt(math_t* out, const math_t* in, IdxType len, cudaStream_t stream)
-{
-  raft::linalg::unaryOp(
-    out, in, len, [] __device__(math_t in) { return raft::mySqrt(in); }, stream);
-}
-/** @} */
-
-};  // end namespace linalg
-};  // end namespace raft
-
-#endif
+#include "sqrt.cuh"

@@ -16,9 +16,9 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/ternary_op.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -63,10 +63,16 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
     fill(handle, rng, in2.data(), len, T(2.0));
     fill(handle, rng, in3.data(), len, T(3.0));
 
-    auto add = [] __device__(T a, T b, T c) { return a + b + c; };
-    auto mul = [] __device__(T a, T b, T c) { return a * b * c; };
-    ternaryOp(out_add.data(), in1.data(), in2.data(), in3.data(), len, add, stream);
-    ternaryOp(out_mul.data(), in1.data(), in2.data(), in3.data(), len, mul, stream);
+    auto add          = [] __device__(T a, T b, T c) { return a + b + c; };
+    auto mul          = [] __device__(T a, T b, T c) { return a * b * c; };
+    auto out_add_view = raft::make_device_vector_view(out_add.data(), len);
+    auto out_mul_view = raft::make_device_vector_view(out_mul.data(), len);
+    auto in1_view     = raft::make_device_vector_view<const T>(in1.data(), len);
+    auto in2_view     = raft::make_device_vector_view<const T>(in2.data(), len);
+    auto in3_view     = raft::make_device_vector_view<const T>(in3.data(), len);
+
+    ternary_op(handle, in1_view, in2_view, in3_view, out_add_view, add);
+    ternary_op(handle, in1_view, in2_view, in3_view, out_mul_view, mul);
   }
 
  protected:

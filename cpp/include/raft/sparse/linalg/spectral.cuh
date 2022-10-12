@@ -16,7 +16,7 @@
 #ifndef __SPARSE_SPECTRAL_H
 #define __SPARSE_SPECTRAL_H
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/sparse/linalg/detail/spectral.cuh>
 
 namespace raft {

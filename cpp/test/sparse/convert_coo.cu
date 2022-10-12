@@ -16,11 +16,11 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/csr.hpp>
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
 #include "../test_utils.h"
 

@@ -15,10 +15,10 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/cholesky_r1_update.cuh>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -123,10 +123,10 @@ class CholeskyR1Test : public ::testing::Test {
   int n_rows = 4;
   int Lwork;
   math_t G_host[16] =  // clang-format off
-    {107.,  1393.,  1141.,  91.,
-     1393., 21132., 15689., 9539.,
-     1141., 15689., 13103., 2889.,
-     91.,   9539.,  2889.,  23649.};
+     {107.,  1393.,  1141.,  91.,
+      1393., 21132., 15689., 9539.,
+      1141., 15689., 13103., 2889.,
+      91.,   9539.,  2889.,  23649.};
                        // clang-format on
 
   math_t G2_host[4] = {3, 4, 2, 1};

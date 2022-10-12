@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #=============================================================================
-set(RAPIDS_VERSION "22.06")
-set(RAFT_VERSION "${RAPIDS_VERSION}.00")
+set(RAPIDS_VERSION "22.10")
+set(RAFT_VERSION "22.10.00")
 
-cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(RAFT)
 
-project(RAFT VERSION 22.08.00 LANGUAGES CXX CUDA)
+project(RAFT VERSION ${RAFT_VERSION} LANGUAGES CXX CUDA)
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -53,7 +53,7 @@ option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_BENCH "Build raft C++ benchmark tests" OFF)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF)
-option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
+option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
@@ -85,7 +85,7 @@ message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${RAFT_NVTX}")
-message(VERBOSE "RAFT: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
+message(VERBOSE "RAFT: Statically link the CUDA toolkit runtime and libraries: ${CUDA_STATIC_RUNTIME}")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
@@ -105,6 +105,21 @@ endif()
 
 ##############################################################################
 # - compiler options ---------------------------------------------------------
+
+set(_ctk_static_suffix "")
+if(CUDA_STATIC_RUNTIME)
+  # If we're statically linking CTK cuBLAS,
+  # we also want to statically link BLAS
+  set(BLA_STATIC ON)
+  set(_ctk_static_suffix "_static")
+  # Control legacy FindCUDA.cmake behavior too
+  # Remove this after we push it into rapids-cmake:
+  # https://github.com/rapidsai/rapids-cmake/pull/259
+  set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
+endif()
+
+# CUDA runtime
+rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
 
 if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
@@ -168,12 +183,11 @@ target_include_directories(raft INTERFACE
 # Only CUDA libs and rmm should
 # be used in global target.
 target_link_libraries(raft INTERFACE
-        CUDA::cublas
-        CUDA::curand
-        CUDA::cusolver
-        CUDA::cudart
-        CUDA::cusparse
         rmm::rmm
+        CUDA::cublas${_ctk_static_suffix}
+        CUDA::curand${_ctk_static_suffix}
+        CUDA::cusolver${_ctk_static_suffix}
+        CUDA::cusparse${_ctk_static_suffix}
         $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
 )
 
@@ -214,6 +228,11 @@ endif()
 
 ##############################################################################
 # - raft_distance ------------------------------------------------------------
+# TODO:
+# Currently, this package also contains the 'random' namespace (for rmat logic)
+# We couldn't get this to work properly due to strange CI failures as noticed
+# in the PR#778. In the long term, we should rename this package to `raft_compiled`
+# in order to have a single pre-compiled raft package for those who need it.
 add_library(raft_distance INTERFACE)
 
 if(TARGET raft_distance AND (NOT TARGET raft::distance))
@@ -255,6 +274,17 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
     src/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
     src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
+    src/distance/specializations/detail/russel_rao_double_double_double_int.cu
+    src/distance/specializations/detail/russel_rao_float_float_float_uint32.cu
+    src/distance/specializations/detail/russel_rao_float_float_float_int.cu
+#    src/distance/specializations/fused_l2_nn_double_int.cu
+#    src/distance/specializations/fused_l2_nn_double_int64.cu
+#    src/distance/specializations/fused_l2_nn_float_int.cu
+#    src/distance/specializations/fused_l2_nn_float_int64.cu
+    src/random/specializations/rmat_rectangular_generator_int_double.cu
+    src/random/specializations/rmat_rectangular_generator_int64_double.cu
+    src/random/specializations/rmat_rectangular_generator_int_float.cu
+    src/random/specializations/rmat_rectangular_generator_int64_float.cu
   )
   set_target_properties(
     raft_distance_lib
@@ -310,6 +340,21 @@ if(RAFT_COMPILE_NN_LIBRARY)
           src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
           src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
           src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_float_fast.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_fast.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_no_basediff.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_no_smem_lut.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_fast.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_no_basediff.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_no_smem_lut.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_half_fast.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
+          src/nn/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
+          src/nn/specializations/detail/ivfpq_search_float_int64_t.cu
+          src/nn/specializations/detail/ivfpq_search_float_uint32_t.cu
+          src/nn/specializations/detail/ivfpq_search_float_uint64_t.cu
           src/nn/specializations/fused_l2_knn_long_float_true.cu
           src/nn/specializations/fused_l2_knn_long_float_false.cu
           src/nn/specializations/fused_l2_knn_int_float_true.cu
