@@ -17,6 +17,7 @@
 #pragma once
 
 #include "ann_kmeans_balanced.cuh"
+#include "ann_serialization.h"
 #include "ann_utils.cuh"
 
 #include <raft/neighbors/ivf_pq_types.hpp>
@@ -1267,6 +1268,92 @@ inline auto build(
                                        return build_device<T, IdxT>(
                                          handle, params, dataset_dev, n_rows, dim);
                                      }}();
+}
+
+const int serialization_version = 1;
+
+template <typename IdxT>
+void save(const handle_t& handle_, const std::string& filename, const index<IdxT>& index_)
+{
+  std::ofstream of(filename, std::ios::out | std::ios::binary);
+  if (!of) {
+    std::cerr << "Cannot open " << filename << std::endl;
+    return;
+  }
+
+  std::cout << "Size " << index_.size() << std::endl;
+  std::cout << "dim " << index_.dim() << std::endl;
+  std::cout << "pq_dim, bits " << index_.pq_dim() << ", " << index_.pq_bits() << std::endl;
+
+  write_scalar(of, serialization_version);
+  write_scalar(of, index_.size());
+  write_scalar(of, index_.dim());
+  write_scalar(of, index_.pq_bits());
+  write_scalar(of, index_.pq_dim());
+
+  write_scalar(of, index_.metric());
+  write_scalar(of, index_.codebook_kind());
+  write_scalar(of, index_.n_lists());
+  write_scalar(of, index_.n_nonempty_lists());
+
+  write_mdspan(handle_, of, index_.pq_centers());
+  write_mdspan(handle_, of, index_.pq_dataset());
+  write_mdspan(handle_, of, index_.indices());
+  write_mdspan(handle_, of, index_.rotation_matrix());
+  write_mdspan(handle_, of, index_.list_offsets());
+  write_mdspan(handle_, of, index_.centers());
+  write_mdspan(handle_, of, index_.centers_rot());
+
+  of.close();
+  if (!of) { std::cerr << "Error writing output " << filename << std::endl; }
+  return;
+}
+
+template <typename IdxT>
+auto load(const handle_t& handle_, const std::string& filename) -> index<IdxT>
+{
+  std::ifstream infile(filename, std::ios::in | std::ios::binary);
+
+  if (!infile) {
+    std::cerr << "Cannot open " << filename << std::endl;
+    return index<IdxT>(handle_, raft::spatial::knn::ivf_pq::index_params{}, 0);
+  }
+
+  auto ver = read_scalar<int>(infile);
+  if (ver != serialization_version) {
+    std::cerr << "serialization version mismatch " << ver << " vs. " << serialization_version;
+    return index<IdxT>(handle_, raft::spatial::knn::ivf_pq::index_params{}, 0);
+  }
+  auto n_rows  = read_scalar<IdxT>(infile);
+  auto dim     = read_scalar<uint32_t>(infile);
+  auto pq_bits = read_scalar<uint32_t>(infile);
+  auto pq_dim  = read_scalar<uint32_t>(infile);
+
+  auto metric           = read_scalar<raft::distance::DistanceType>(infile);
+  auto codebook_kind    = read_scalar<raft::spatial::knn::ivf_pq::codebook_gen>(infile);
+  auto n_lists          = read_scalar<uint32_t>(infile);
+  auto n_nonempty_lists = read_scalar<uint32_t>(infile);
+
+  std::cout << "n_rows " << n_rows << std::endl;
+  std::cout << "dim " << dim << std::endl;
+  std::cout << "pq_dim, bits " << pq_dim << ", " << pq_bits << std::endl;
+  std::cout << "dim " << n_lists << std::endl;
+
+  auto index_ = raft::spatial::knn::ivf_pq::index<IdxT>(
+    handle_, metric, codebook_kind, n_lists, dim, pq_bits, pq_dim, n_nonempty_lists);
+  index_.allocate(handle_, n_rows);
+
+  read_mdspan(handle_, infile, index_.pq_centers());
+  read_mdspan(handle_, infile, index_.pq_dataset());
+  read_mdspan(handle_, infile, index_.indices());
+  read_mdspan(handle_, infile, index_.rotation_matrix());
+  read_mdspan(handle_, infile, index_.list_offsets());
+  read_mdspan(handle_, infile, index_.centers());
+  read_mdspan(handle_, infile, index_.centers_rot());
+
+  infile.close();
+
+  return index_;
 }
 
 }  // namespace raft::spatial::knn::ivf_pq::detail
