@@ -682,7 +682,7 @@ __launch_bounds__(1024, 1) __global__
     } else {
       // Store all calculated distances to out_scores
       auto max_samples = Pow2<128>::roundUp(cluster_offsets[n_probes]);
-      out_scores       = _out_scores + max_samples * query_ix;
+      out_scores       = _out_scores + uint64_t(max_samples) * query_ix;
     }
     uint32_t label              = cluster_labels[n_probes * query_ix + probe_ix];
     const float* cluster_center = cluster_centers + (dim * label);
@@ -1080,11 +1080,11 @@ void ivfpq_search_worker(const handle_t& handle,
   rmm::device_uvector<uint32_t> num_samples(n_queries, stream, mr);
   rmm::device_uvector<uint32_t> chunk_index(n_queries * n_probes, stream, mr);
   // [maxBatchSize, max_samples] or  [maxBatchSize, n_probes, topk]
-  rmm::device_uvector<ScoreT> distances_buf(n_queries * topk_len, stream, mr);
+  rmm::device_uvector<ScoreT> distances_buf(uint64_t(n_queries) * uint64_t(topk_len), stream, mr);
   rmm::device_uvector<IdxT> neighbors_buf(0, stream, mr);
   IdxT* neighbors_ptr = nullptr;
   if (manage_local_topk) {
-    neighbors_buf.resize(n_queries * topk_len, stream);
+    neighbors_buf.resize(uint64_t(n_queries) * topk_len, stream);
     neighbors_ptr = neighbors_buf.data();
   }
 
