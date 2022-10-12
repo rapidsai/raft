@@ -198,7 +198,25 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
   - `bench`: Benchmarks source code
   - `cmake`: Cmake modules and templates
   - `doxygen`: Doxygen configuration
-  - `include`: The C++ API headers are fully-contained here
+  - `include`: The C++ API headers are fully-contained here (deprecated directories are excluded from the listing below)
+    - `cluster`: Basic clustering primitives and algorithms.
+    - `comms`: A multi-node multi-GPU communications abstraction layer for NCCL+UCX and MPI+NCCL, which can be deployed in Dask clusters using the `raft-dask` Python package.
+    - `core`: Core API headers which require minimal dependencies aside from RMM and Cudatoolkit. These are safe to expose on public APIs and do not require `nvcc` to build. This is the same for any headers in RAFT which have the suffix `*_types.hpp`. 
+    - `distance`: Distance primitives
+    - `linalg`: Dense linear algebra
+    - `matrix`: Dense matrix operations
+    - `neighbors`: Nearest neighbors and knn graph construction
+    - `random`: Random number generation, sampling, and data generation primitives
+    - `solver`: Iterative and combinatorial solvers for optimization and approximation
+    - `sparse`: Sparse matrix operations
+      - `convert`: Sparse conversion functions
+      - `distance`: Sparse distance computations
+      - `linalg`: Sparse linear algebra
+      - `op`: Various sparse operations such as slicing and filtering
+      - `solver`: Sparse solvers for optimization and approximation
+      - `spatial`: Sparse nearest neighbors and knn graph construction
+    - `stats`: Moments, summary statistics, model performance measures
+    - `util`: Various reusable tools and utilities for accelerated algorithm development
   - `scripts`: Helpful scripts for development
   - `src`: Compiled APIs and template specializations for the shared libraries
   - `test`: Googletests source code
