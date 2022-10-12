@@ -717,6 +717,7 @@ cusolverStatus_t cusolverDnxgesvdr_bufferSize(  // NOLINT
   size_t*            workspaceInBytesOnHost,
   cudaStream_t       stream)
 {
+  RAFT_EXPECTS(std::is_floating_point_v<T>, "Unsupported data type");
   cudaDataType dataType =
     std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
   RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));

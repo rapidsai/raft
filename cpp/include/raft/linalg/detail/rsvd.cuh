@@ -33,20 +33,20 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void randomizedSVD(const raft::handle_t& handle,
-                   math_t* in,
-                   std::size_t n_rows,
-                   std::size_t n_cols,
-                   std::size_t k,
-                   std::size_t p,
-                   std::size_t niters,
-                   math_t* S,
-                   math_t* U,
-                   math_t* V,
-                   bool trans_V,
-                   bool gen_U,
-                   bool gen_V,
-                   bool rowMajor=false)
+void randomized_svd(const raft::handle_t& handle,
+                    math_t* in,
+                    std::size_t n_rows,
+                    std::size_t n_cols,
+                    std::size_t k,
+                    std::size_t p,
+                    std::size_t niters,
+                    math_t* S,
+                    math_t* U,
+                    math_t* V,
+                    bool trans_V,
+                    bool gen_U,
+                    bool gen_V,
+                    bool row_major=false)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "raft::linalg::randomizedSVD(%d, %d)", n_rows, n_cols);
@@ -58,14 +58,9 @@ void randomizedSVD(const raft::handle_t& handle,
   cusolverDnParams_t dn_params = nullptr;
   RAFT_CUSOLVER_TRY(cusolverDnCreateParams(&dn_params));
 
-  char jobu  = 'S';
-  char jobv = 'S';
-  if (!gen_U) {
-    jobu = 'N';
-  }
-  if (!gen_V) {
-    jobv = 'N';
-  }
+  char jobu = gen_U ? 'S' : 'N';
+  char jobv = gen_V ? 'S' : 'N';
+  // TODO: add row_major
   auto lda = n_rows;
   auto ldu = n_rows;
   auto ldv = n_cols;

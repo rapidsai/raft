@@ -78,10 +78,8 @@ void SetUp() override
     raft::update_device(right_eig_vectors_ref.data(), right_eig_vectors_ref_h, right_evl, stream);
     raft::update_device(sing_vals_ref.data(), sing_vals_ref_h, params.n_col, stream);
 
-    randomizedSVD(handle,
-        data.data(),
-        params.n_row,
-        params.n_col,
+    randomized_svd(handle,
+        raft::make_device_matrix_view(data.data(), params.n_row, params.n_col),
         2,
         4,
         2,

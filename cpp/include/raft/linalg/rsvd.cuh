@@ -47,10 +47,10 @@ namespace linalg {
  * @param trans_V:  Transpose V back ?
  * @param gen_U:    left vector needs to be generated or not?
  * @param gen_V:    right vector needs to be generated or not?
- * @param rowMajor: Is the data row major?
+ * @param row_major: Is the data row major?
  */
 template <typename math_t>
-void randomizedSVD(const raft::handle_t& handle,
+void randomized_svd(const raft::handle_t& handle,
                    math_t* in,
                    std::size_t n_rows,
                    std::size_t n_cols,
@@ -63,15 +63,18 @@ void randomizedSVD(const raft::handle_t& handle,
                    bool trans_V,
                    bool gen_U,
                    bool gen_V,
-                   bool rowMajor=false)
+                   bool row_major=false)
 {
-  detail::randomizedSVD<math_t>(handle, in, n_rows, n_cols, k, p, niters, S, U,
-    V, trans_V, gen_U, gen_V);
+  detail::randomized_svd<math_t>(handle, in, n_rows, n_cols, k, p, niters, S, U,
+    V, trans_V, gen_U, gen_V, row_major);
 }
 
 
 /**
  * @brief randomized singular value decomposition (RSVD)
+ * @tparam math_t the data type
+ * @tparam idx_t index type
+ * @tparam layout_t Layout type of the input matrix.
  * @param handle:  raft handle
  * @param in:      input matrix
  *                 [dim = n_rows * n_cols] 
@@ -94,21 +97,26 @@ void randomizedSVD(const raft::handle_t& handle,
  * @param gen_U:   left vector needs to be generated or not?
  * @param gen_V:   right vector needs to be generated or not?
  */
-template <typename math_t, typename IdxType, typename LayoutPolicy, typename AccessorPolicy>
-void randomizedSVD(const raft::handle_t& handle,
-                   raft::mdspan<const math_t, raft::matrix_extent<IdxType>, LayoutPolicy, AccessorPolicy> in,
-                   std::size_t k,
-                   std::size_t p,
-                   std::size_t niters,
-                   raft::mdspan<math_t, raft::vector_extent<IdxType>> S,
-                   raft::mdspan<math_t, raft::matrix_extent<IdxType>> U,
-                   raft::mdspan<math_t, raft::matrix_extent<IdxType>> V,
-                   bool trans_V,
-                   bool gen_U,
-                   bool gen_V)
+template <typename math_t, typename idx_t, typename layout_t>
+void randomized_svd(const raft::handle_t& handle,
+                    raft::device_matrix_view<const math_t, idx_t, layout_t> in,
+                    raft::device_vector_view<math_t, idx_t> S,
+                    raft::device_matrix_view<math_t, idx_t, layout_t> U,
+                    raft::device_matrix_view<math_t, idx_t, layout_t> V,
+                    std::size_t k,
+                    std::size_t p,
+                    std::size_t niters,
+                    bool trans_V,
+                    bool gen_U,
+                    bool gen_V)
 {
-  detail::randomizedSVD<math_t>(handle, in, in.extent(0), in.extent(1), k, p, niters, S.data(), U.data(),
-    V.data(), trans_V, gen_U, gen_V, std::is_same_v<LayoutPolicy, raft::row_major>);
+  constexpr bool is_row_major = std::is_same_v<layout_t, raft::row_major>;
+  constexpr bool is_col_major = std::is_same_v<layout_t, raft::col_major>;
+  static_assert(is_row_major || is_col_major,
+                "randomized_svd: Layout must be either "
+                "raft::row_major or raft::col_major (or one of their aliases)");
+  detail::randomized_svd<math_t>(handle, in, in.extent(0), in.extent(1), k, p, niters, S.data(), U.data(),
+    V.data(), trans_V, gen_U, gen_V, is_row_major);
 }
 
 /**
