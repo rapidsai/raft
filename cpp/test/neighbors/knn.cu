@@ -19,9 +19,9 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/spatial/knn/brute_force.cuh>
+#include <raft/neighbors/brute_force.cuh>
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 #include <rmm/device_buffer.hpp>
@@ -32,9 +32,7 @@
 #include <iostream>
 #include <vector>
 
-namespace raft {
-namespace spatial {
-namespace knn {
+namespace raft::neighbors::brute_force {
 struct KNNInputs {
   std::vector<std::vector<float>> input;
   int k;
@@ -96,7 +94,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     auto distances =
       raft::make_device_matrix_view<T, IdxT, row_major>(distances_.data(), rows_, k_);
 
-    brute_force_knn(handle, index, search, indices, distances, k_);
+    knn(handle, index, search, indices, distances, k_);
 
     build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       actual_labels_.data(), rows_, k_, search_labels_.data(), indices_.data());
@@ -197,6 +195,4 @@ TEST_P(KNNTestFuint32_t, BruteForce) { this->testBruteForce(); }
 INSTANTIATE_TEST_CASE_P(KNNTest, KNNTestFint64_t, ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(KNNTest, KNNTestFuint32_t, ::testing::ValuesIn(inputs));
 
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+}  // namespace raft::neighbors::brute_force

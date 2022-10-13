@@ -209,29 +209,29 @@ if(BUILD_TESTS)
             OPTIONAL DIST NN
     )
 
-    ConfigureTest(NAME SPARSE_NN_TEST
+    ConfigureTest(NAME SPARSE_NEIGHBORS_TEST
             PATH
-            test/sparse/connect_components.cu
-            test/sparse/knn.cu
-            test/sparse/knn_graph.cu
+            test/sparse/neighbors/connect_components.cu
+            test/sparse/neighbors/brute_force.cu
+            test/sparse/neighbors/knn_graph.cu
             OPTIONAL DIST NN
     )
 
-    ConfigureTest(NAME SPATIAL_TEST
+    ConfigureTest(NAME NEIGHBORS_TEST
             PATH
-            test/spatial/ann_ivf_flat.cu
-            test/spatial/ann_ivf_pq/test_float_int64_t.cu
-            test/spatial/ann_ivf_pq/test_float_uint32_t.cu
-            test/spatial/ann_ivf_pq/test_float_uint64_t.cu
-            test/spatial/ann_ivf_pq/test_int8_t_uint64_t.cu
-            test/spatial/ann_ivf_pq/test_uint8_t_uint64_t.cu
-            test/spatial/knn.cu
-            test/spatial/fused_l2_knn.cu
-            test/spatial/haversine.cu
-            test/spatial/ball_cover.cu
-            test/spatial/epsilon_neighborhood.cu
-            test/spatial/faiss_mr.cu
-            test/spatial/selection.cu
+            test/neighbors/ann_ivf_flat.cu
+            test/neighbors/ann_ivf_pq/test_float_int64_t.cu
+            test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
+            test/neighbors/ann_ivf_pq/test_float_uint64_t.cu
+            test/neighbors/ann_ivf_pq/test_int8_t_uint64_t.cu
+            test/neighbors/ann_ivf_pq/test_uint8_t_uint64_t.cu
+            test/neighbors/knn.cu
+            test/neighbors/fused_l2_knn.cu
+            test/neighbors/haversine.cu
+            test/neighbors/ball_cover.cu
+            test/neighbors/epsilon_neighborhood.cu
+            test/neighbors/faiss_mr.cu
+            test/neighbors/selection.cu
             OPTIONAL DIST NN
     )
 

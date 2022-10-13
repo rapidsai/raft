@@ -19,9 +19,9 @@
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/spatial/detail/connect_components.cuh>
+#include <raft/sparse/neighbors/detail/connect_components.cuh>
 
-namespace raft::sparse::spatial {
+namespace raft::sparse::neighbors {
 
 template <typename value_idx, typename value_t>
 using FixConnectivitiesRedOp = detail::FixConnectivitiesRedOp<value_idx, value_t>;
@@ -76,4 +76,4 @@ void connect_components(
   detail::connect_components(handle, out, X, orig_colors, n_rows, n_cols, reduction_op, metric);
 }
 
-};  // end namespace raft::sparse::spatial
+};  // end namespace raft::sparse::neighbors

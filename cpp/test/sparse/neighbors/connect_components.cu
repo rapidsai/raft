@@ -24,8 +24,8 @@
 
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/mst/mst.cuh>
+#include <raft/sparse/neighbors/knn_graph.cuh>
 #include <raft/sparse/selection/connect_components.cuh>
-#include <raft/sparse/spatial/knn_graph.cuh>
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
@@ -34,7 +34,7 @@
 #include <raft/sparse/hierarchy/single_linkage.cuh>
 #include <rmm/device_uvector.hpp>
 
-#include "../test_utils.h"
+#include "../../test_utils.h"
 
 namespace raft {
 namespace sparse {
@@ -75,13 +75,13 @@ class ConnectComponentsTest
      */
     raft::sparse::COO<value_t, value_idx> knn_graph_coo(stream);
 
-    raft::sparse::spatial::knn_graph(handle,
-                                     data.data(),
-                                     params.n_row,
-                                     params.n_col,
-                                     raft::distance::DistanceType::L2SqrtExpanded,
-                                     knn_graph_coo,
-                                     params.c);
+    raft::sparse::neighbors::knn_graph(handle,
+                                       data.data(),
+                                       params.n_row,
+                                       params.n_col,
+                                       raft::distance::DistanceType::L2SqrtExpanded,
+                                       knn_graph_coo,
+                                       params.c);
 
     raft::sparse::convert::sorted_coo_to_csr(
       knn_graph_coo.rows(), knn_graph_coo.nnz, indptr.data(), params.n_row + 1, stream);
