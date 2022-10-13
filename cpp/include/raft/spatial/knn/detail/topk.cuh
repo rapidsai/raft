@@ -19,6 +19,8 @@
 #include "topk/radix_topk.cuh"
 #include "topk/warpsort_topk.cuh"
 
+#include <raft/core/nvtx.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
@@ -73,7 +75,11 @@ void select_topk(const T* in,
                  rmm::cuda_stream_view stream,
                  rmm::mr::device_memory_resource* mr = nullptr)
 {
-  if (k <= raft::spatial::knn::detail::topk::kMaxCapacity) {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "matrix::select_topk(batch_size = %zu, len = %zu, k = %d)", batch_size, len, k);
+  // TODO (achirkin): investigate the trade-off for a wider variety of inputs.
+  const bool radix_faster = batch_size >= 64 && len >= 102400 && k >= 128;
+  if (k <= raft::spatial::knn::detail::topk::kMaxCapacity && !radix_faster) {
     topk::warp_sort_topk<T, IdxT>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
   } else {
