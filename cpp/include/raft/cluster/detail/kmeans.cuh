@@ -28,6 +28,7 @@
 
 #include <raft/cluster/detail/kmeans_common.cuh>
 #include <raft/cluster/kmeans_types.hpp>
+#include <raft/common/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
@@ -61,6 +62,7 @@ void initRandom(const raft::handle_t& handle,
                 const raft::device_matrix_view<const DataT, IndexT>& X,
                 const raft::device_matrix_view<DataT, IndexT>& centroids)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("initRandom");
   cudaStream_t stream = handle.get_stream();
   auto n_clusters     = params.n_clusters;
   detail::shuffleAndGather<DataT, IndexT>(handle, X, centroids, n_clusters, params.rng_state.seed);
@@ -87,6 +89,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
                     const raft::device_matrix_view<DataT, IndexT>& centroidsRawData,
                     rmm::device_uvector<char>& workspace)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeansPlusPlus");
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
@@ -268,6 +271,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
                      const raft::host_scalar_view<IndexT>& n_iter,
                      rmm::device_uvector<char>& workspace)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_fit_main");
   logger::get(RAFT_NAME).set_level(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
@@ -547,6 +551,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
                                 const raft::device_matrix_view<DataT, IndexT> centroidsRawData,
                                 rmm::device_uvector<char>& workspace)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("initScalableKMeansPlusPlus");
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
@@ -785,6 +790,7 @@ void kmeans_fit(handle_t const& handle,
                 raft::host_scalar_view<DataT> inertia,
                 raft::host_scalar_view<IndexT> n_iter)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_fit");
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   auto n_clusters     = params.n_clusters;
@@ -939,6 +945,7 @@ void kmeans_predict(handle_t const& handle,
                     bool normalize_weight,
                     raft::host_scalar_view<DataT> inertia)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_predict");
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   cudaStream_t stream = handle.get_stream();
@@ -1079,6 +1086,7 @@ void kmeans_fit_predict(handle_t const& handle,
                         raft::host_scalar_view<DataT> inertia,
                         raft::host_scalar_view<IndexT> n_iter)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_fit_predict");
   if (!centroids.has_value()) {
     auto n_features = X.extent(1);
     auto centroids_matrix =
@@ -1142,6 +1150,7 @@ void kmeans_transform(const raft::handle_t& handle,
                       raft::device_matrix_view<const DataT> centroids,
                       raft::device_matrix_view<DataT> X_new)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_transform");
   logger::get(RAFT_NAME).set_level(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);

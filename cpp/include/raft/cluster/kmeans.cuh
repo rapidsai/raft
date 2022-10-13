@@ -385,10 +385,9 @@ void shuffleAndGather(const raft::handle_t& handle,
                       const raft::device_matrix_view<const DataT, IndexT>& in,
                       const raft::device_matrix_view<DataT, IndexT>& out,
                       uint32_t n_samples_to_gather,
-                      uint64_t seed,
-                      rmm::device_uvector<char>* workspace = nullptr)
+                      uint64_t seed)
 {
-  detail::shuffleAndGather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed, workspace);
+  detail::shuffleAndGather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed);
 }
 
 /**
