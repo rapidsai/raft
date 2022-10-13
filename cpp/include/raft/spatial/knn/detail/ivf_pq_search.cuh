@@ -682,7 +682,7 @@ __launch_bounds__(1024, 1) __global__
     } else {
       // Store all calculated distances to out_scores
       auto max_samples = Pow2<128>::roundUp(cluster_offsets[n_probes]);
-      out_scores       = _out_scores + uint64_t(max_samples) * query_ix;
+      out_scores       = _out_scores + max_samples * query_ix;
     }
     uint32_t label              = cluster_labels[n_probes * query_ix + probe_ix];
     const float* cluster_center = cluster_centers + (dim * label);
@@ -1031,6 +1031,14 @@ struct ivfpq_compute_similarity {
   }
 };
 
+auto is_local_topk_feasible(uint32_t k, uint32_t n_probes, uint32_t n_queries) -> bool
+{
+  if (k > kMaxCapacity) { return false; }             // warp_sort not possible
+  if (n_probes <= 16) { return false; }               // too few clusters
+  if (n_queries * n_probes <= 256) { return false; }  // overall amount of work is too small
+  return true;
+}
+
 /**
  * The "main part" of the search, which assumes that outer-level `search` has already:
  *
@@ -1062,12 +1070,8 @@ void ivfpq_search_worker(const handle_t& handle,
   auto cluster_centers = index.centers_rot().data_handle();
   auto cluster_offsets = index.list_offsets().data_handle();
 
-  bool manage_local_topk = topK <= kMaxCapacity  // depth is not too large
-                           && n_probes >= 16     // not too few clusters looked up
-                           &&
-                           n_queries * n_probes >= 256  // overall amount of work is not too small
-    ;
-  auto topk_len = manage_local_topk ? n_probes * topK : max_samples;
+  bool manage_local_topk = is_local_topk_feasible(topK, n_probes, n_queries);
+  auto topk_len          = manage_local_topk ? n_probes * topK : max_samples;
   if (manage_local_topk) {
     RAFT_LOG_DEBUG("Fused version of the search kernel is selected (manage_local_topk == true)");
   } else {
@@ -1080,11 +1084,11 @@ void ivfpq_search_worker(const handle_t& handle,
   rmm::device_uvector<uint32_t> num_samples(n_queries, stream, mr);
   rmm::device_uvector<uint32_t> chunk_index(n_queries * n_probes, stream, mr);
   // [maxBatchSize, max_samples] or  [maxBatchSize, n_probes, topk]
-  rmm::device_uvector<ScoreT> distances_buf(uint64_t(n_queries) * uint64_t(topk_len), stream, mr);
+  rmm::device_uvector<ScoreT> distances_buf(n_queries * topk_len, stream, mr);
   rmm::device_uvector<IdxT> neighbors_buf(0, stream, mr);
   IdxT* neighbors_ptr = nullptr;
   if (manage_local_topk) {
-    neighbors_buf.resize(uint64_t(n_queries) * topk_len, stream);
+    neighbors_buf.resize(n_queries * topk_len, stream);
     neighbors_ptr = neighbors_buf.data();
   }
 
@@ -1280,12 +1284,18 @@ struct ivfpq_search {
  * A heuristic for bounding the number of queries per batch, to improve GPU utilization.
  * (based on the number of SMs and the work size).
  *
+ * @param k top-k
+ * @param n_probes number of selected clusters per query
  * @param n_queries number of queries hoped to be processed at once.
  *                  (maximum value for the returned batch size)
+ * @param max_samples maximum possible number of samples to be processed for the given `n_probes`
  *
  * @return maximum recommended batch size.
  */
-inline auto get_max_batch_size(uint32_t n_queries) -> uint32_t
+inline auto get_max_batch_size(uint32_t k,
+                               uint32_t n_probes,
+                               uint32_t n_queries,
+                               uint32_t max_samples) -> uint32_t
 {
   uint32_t max_batch_size         = n_queries;
   uint32_t n_ctas_total           = getMultiProcessorCount() * 2;
@@ -1296,6 +1306,23 @@ inline auto get_max_batch_size(uint32_t n_queries) -> uint32_t
     uint32_t max_batch_size_1         = n_ctas_total / n_ctas_total_per_batch_1;
     float utilization_1 = float(n_ctas_total_per_batch_1 * max_batch_size_1) / n_ctas_total;
     if (utilization < utilization_1) { max_batch_size = max_batch_size_1; }
+  }
+  // Check in the tmp distance buffer is not too big
+  auto ws_size = [k, n_probes, max_samples](uint32_t bs) -> uint64_t {
+    return uint64_t(is_local_topk_feasible(k, n_probes, bs) ? k * n_probes : max_samples) * bs;
+  };
+  constexpr uint64_t kMaxWsSize = 2ul * 1024 * 1024 * 1024;
+  if (ws_size(max_batch_size) > kMaxWsSize) {
+    uint32_t smaller_batch_size = 1;
+    // take powers of two for better alignment
+    while (smaller_batch_size * 2 <= max_batch_size) {
+      smaller_batch_size <<= 1;
+    }
+    // gradually reduce the batch size until we fit into the max size limit.
+    while (smaller_batch_size > 1 && ws_size(smaller_batch_size) > kMaxWsSize) {
+      smaller_batch_size >>= 1;
+    }
+    return smaller_batch_size;
   }
   return max_batch_size;
 }
@@ -1384,7 +1411,7 @@ inline void search(const handle_t& handle,
 
   // Maximum number of query vectors to search at the same time.
   const auto max_queries = std::min<uint32_t>(std::max<uint32_t>(n_queries, 1), 4096);
-  auto max_batch_size    = get_max_batch_size(max_queries);
+  auto max_batch_size    = get_max_batch_size(k, n_probes, max_queries, max_samples);
 
   rmm::device_uvector<float> float_queries(max_queries * dim_ext, stream, mr);
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
