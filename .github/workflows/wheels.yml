@@ -19,25 +19,14 @@ jobs:
       python-package-versioneer-override: "22.10.00a"
       python-package-build-tag: "21"
 
-      manylinux-container-amd64: "rapidsai/manylinux2014"
-      manylinux-container-arm64: "rapidsai/manylinux_2_31"
-
-      cibw-before-all-amd64: "yum install -y blas-devel lapack-devel"
-      cibw-before-all-arm64: "apt-get install -y libblas-dev liblapack-dev"
       cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
 
       skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL -DFIND_RAFT_CPP=OFF"
 
-      auditwheel-repair-command-amd64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_17_x86_64 {wheel}"
-      auditwheel-repair-command-arm64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_24_aarch64 {wheel}"
-
-      test-container-amd64: "rapidsai/manylinux_2_27"
-      test-container-arm64: "rapidsai/manylinux_2_27"
       test-before-amd64: "pip install cupy-cuda115 && pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       test-requires: "pytest scipy"
       test-unittest: "python -m py.test -v ./python/pylibraft/pylibraft/test"
-      test-smoketest: "import pylibraft; print(pylibraft); import cupy as cp; from pylibraft.distance import pairwise_distance; n_samples = 5000; n_features = 50; in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32); in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32); output = cp.empty((n_samples, n_samples), dtype=cp.float32); pairwise_distance(in1, in2, output, metric='euclidean'); assert cp.count_nonzero(output) > 0"
     secrets: inherit
   raft-dask-wheel:
     needs: pylibraft-wheel
@@ -49,23 +38,12 @@ jobs:
       python-package-versioneer-override: "22.10.00a"
       python-package-build-tag: "21"
 
-      manylinux-container-amd64: "rapidsai/manylinux2014"
-      manylinux-container-arm64: "rapidsai/manylinux_2_31"
-
-      cibw-before-all-amd64: "yum install -y blas-devel lapack-devel"
-      cibw-before-all-arm64: "apt-get install -y libblas-dev liblapack-dev"
       cibw-environment: "PIP_INDEX_URL=https://pypi.k8s.rapids.ai/simple"
 
       skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL"
 
-      auditwheel-repair-command-amd64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_17_x86_64 {wheel}"
-      auditwheel-repair-command-arm64: "auditwheel --verbose repair -w {dest_dir} --plat manylinux_2_24_aarch64 {wheel}"
-
-      test-container-amd64: "rapidsai/manylinux_2_27"
-      test-container-arm64: "rapidsai/manylinux_2_31"
       test-before-amd64: "pip install ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       test-before-arm64: "pip install ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       test-requires: "pytest dask[distributed,dataframe] dask-cuda"
-      test-unittest: "python -m py.test -v ./python/raft-dask/raft_dask/test"
-      test-smoketest: "import raft_dask; print(raft_dask); raft_dask.raft_include_test()"
+      test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"
     secrets: inherit
