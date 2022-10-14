@@ -54,6 +54,19 @@ void range(T* out, int n, cudaStream_t stream)
   detail::range(out, n, stream);
 }
 
+/**
+ * @brief Zeros the output.
+ *
+ * \param [out] out device array, size [n]
+ * \param [in] n length of the array
+ * \param [in] stream cuda stream
+ */
+template <typename T>
+void zero(T* out, int n, cudaStream_t stream)
+{
+  RAFT_CUDA_TRY(cudaMemsetAsync(static_cast<void*>(out), 0, n * sizeof(T), stream));
+}
+
 }  // namespace linalg
 }  // namespace raft
 
