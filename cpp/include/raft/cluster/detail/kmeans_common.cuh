@@ -354,11 +354,12 @@ void minClusterAndDistanceCompute(
   auto n_clusters     = centroids.extent(0);
   auto metric         = params.metric;
   // todo(lsugy): change batch size computation when using fusedL2NN!
-  auto dataBatchSize      = getDataBatchSize(params, n_samples);
+  bool is_fused = metric == raft::distance::DistanceType::L2Expanded ||
+                  metric == raft::distance::DistanceType::L2SqrtExpanded;
+  auto dataBatchSize      = is_fused ? (IndexT)n_samples : getDataBatchSize(params, n_samples);
   auto centroidsBatchSize = getCentroidsBatchSize(params, n_clusters);
 
-  if (metric == raft::distance::DistanceType::L2Expanded ||
-      metric == raft::distance::DistanceType::L2SqrtExpanded) {
+  if (is_fused) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
     raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(),
                           centroids.data_handle(),
@@ -404,8 +405,7 @@ void minClusterAndDistanceCompute(
     auto L2NormXView =
       raft::make_device_vector_view<DataT, IndexT>(L2NormX.data_handle() + dIdx, ns);
 
-    if (metric == raft::distance::DistanceType::L2Expanded ||
-        metric == raft::distance::DistanceType::L2SqrtExpanded) {
+    if (is_fused) {
       workspace.resize((sizeof(int)) * ns, stream);
 
       // todo(lsugy): remove cIdx
@@ -485,11 +485,12 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
   auto n_clusters     = centroids.extent(0);
   auto metric         = params.metric;
 
-  auto dataBatchSize      = getDataBatchSize(params, n_samples);
+  bool is_fused = metric == raft::distance::DistanceType::L2Expanded ||
+                  metric == raft::distance::DistanceType::L2SqrtExpanded;
+  auto dataBatchSize      = is_fused ? (IndexT)n_samples : getDataBatchSize(params, n_samples);
   auto centroidsBatchSize = getCentroidsBatchSize(params, n_clusters);
 
-  if (metric == raft::distance::DistanceType::L2Expanded ||
-      metric == raft::distance::DistanceType::L2SqrtExpanded) {
+  if (is_fused) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
     raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(),
                           centroids.data_handle(),
@@ -533,8 +534,7 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
     auto L2NormXView =
       raft::make_device_vector_view<DataT, IndexT>(L2NormX.data_handle() + dIdx, ns);
 
-    if (metric == raft::distance::DistanceType::L2Expanded ||
-        metric == raft::distance::DistanceType::L2SqrtExpanded) {
+    if (is_fused) {
       workspace.resize((sizeof(IndexT)) * ns, stream);
 
       // todo(lsugy): remove cIdx
