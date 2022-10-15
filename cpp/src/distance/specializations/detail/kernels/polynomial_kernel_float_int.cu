@@ -16,4 +16,4 @@
 
 #include <raft/distance/detail/kernels/kernel_matrices.cuh>
 
-template class raft::distance::kernels::detail::PolynomalKernel<float, int>;
+template class raft::distance::kernels::detail::PolynomialKernel<float, int>;

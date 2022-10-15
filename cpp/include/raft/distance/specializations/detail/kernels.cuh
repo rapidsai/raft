@@ -26,5 +26,6 @@ extern template class raft::distance::kernels::detail::PolynomialKernel<float, i
 extern template class raft::distance::kernels::detail::TanhKernel<double>;
 extern template class raft::distance::kernels::detail::TanhKernel<float>;
 
-extern template class raft::distance::kernels::detail::RBFKernel<double>;
-extern template class raft::distance::kernels::detail::RBFKernel<float>;
+// These are somehow missing a kernel definition which is causing a compile error
+//extern template class raft::distance::kernels::detail::RBFKernel<double>;
+//extern template class raft::distance::kernels::detail::RBFKernel<float>;
