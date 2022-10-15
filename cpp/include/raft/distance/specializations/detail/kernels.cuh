@@ -27,5 +27,5 @@ extern template class raft::distance::kernels::detail::TanhKernel<double>;
 extern template class raft::distance::kernels::detail::TanhKernel<float>;
 
 // These are somehow missing a kernel definition which is causing a compile error
-//extern template class raft::distance::kernels::detail::RBFKernel<double>;
-//extern template class raft::distance::kernels::detail::RBFKernel<float>;
+// extern template class raft::distance::kernels::detail::RBFKernel<double>;
+// extern template class raft::distance::kernels::detail::RBFKernel<float>;
