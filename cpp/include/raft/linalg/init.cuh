@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/util/cudart_utils.hpp>
 #include "detail/init.hpp"
 
 namespace raft {
