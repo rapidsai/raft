@@ -27,8 +27,9 @@
 #include <string>
 #include <vector>
 
-namespace raft::distance::kernels::bench {
+namespace raft::bench::distance::kernels {
 
+using namespace raft::distance::kernels;
 struct GramTestParams {
   int m;  // m parameter of the GEMM
   int k;  // k parameter of the GEMM
@@ -38,25 +39,20 @@ struct GramTestParams {
 };  // struct GramTestParams
 
 template <typename T>
-struct GramMatrix : public Fixture {
-  GramMatrix(const std::string& name, const GramTestParams& p)
-    : Fixture(name), params(p), A(0, stream), B(0, stream), C(0, stream)
+struct GramMatrix : public fixture {
+  GramMatrix(const GramTestParams& p)
+    : params(p), handle(stream), A(0, stream), B(0, stream), C(0, stream)
   {
-    std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
-    std::ostringstream oss;
-    oss << name << "/" << kernel_names[p.kernel_params.kernel] << "/" << p.m << "x" << p.k << "x"
-        << p.n << "/" << (p.is_row_major ? "row_major" : "col_major");
-    this->SetName(oss.str().c_str());
+    //    std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
+    //    std::ostringstream oss;
+    //    oss << name << "/" << kernel_names[p.kernel_params.kernel] << "/" << p.m << "x" << p.k <<
+    //    "x"
+    //        << p.n << "/" << (p.is_row_major ? "row_major" : "col_major");
+    //    this->SetName(oss.str().c_str());
 
     kernel = std::unique_ptr<GramMatrixBase<T>>(
       KernelFactory<T>::create(p.kernel_params, handle.get_cublas_handle()));
-  }
 
-  ~GramMatrix() {}
-
- protected:
-  void allocateBuffers(const ::benchmark::State& state) override
-  {
     A.resize(params.m * params.k, stream);
     B.resize(params.k * params.n, stream);
     C.resize(params.m * params.n, stream);
@@ -64,16 +60,18 @@ struct GramMatrix : public Fixture {
     r.uniform(A.data(), params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(B.data(), params.k * params.n, T(-1.0), T(1.0), stream);
   }
-  void deallocateBuffers(const ::benchmark::State& state) override
+
+  ~GramMatrix()
   {
     A.release();
     B.release();
     C.release();
   }
-  void runBenchmark(::benchmark::State& state) override
+
+  void run_benchmark(::benchmark::State& state) override
   {
     if (!this->kernel) { state.SkipWithError("Kernel matrix is not initialized"); }
-    loopOnState(state, [this]() {
+    loop_on_state(state, [this]() {
       (*this->kernel)(A.data(),
                       this->params.m,
                       this->params.k,
@@ -86,7 +84,7 @@ struct GramMatrix : public Fixture {
   }
 
  private:
-  raft::handle_t& handle;
+  const raft::handle_t handle;
   std::unique_ptr<GramMatrixBase<T>> kernel;
   GramTestParams params;
 
@@ -126,7 +124,7 @@ static std::vector<GramTestParams> getInputs()
   return param_vec;
 }
 
-ML_BENCH_REGISTER(GramTestParams, GramMatrix<float>, "", getInputs());
-ML_BENCH_REGISTER(GramTestParams, GramMatrix<double>, "", getInputs());
+RAFT_BENCH_REGISTER(GramMatrix<float>, "", getInputs());
+RAFT_BENCH_REGISTER(GramMatrix<double>, "", getInputs());
 
-}  // namespace raft::distance::kernels::bench
+}  // namespace raft::bench::distance::kernels
