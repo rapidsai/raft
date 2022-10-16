@@ -18,6 +18,7 @@
 
 #include <cub/cub.cuh>
 
+#include <raft/core/logger.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/util/cache_util.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -150,14 +151,14 @@ namespace raft::cache {
       RAFT_CUDA_TRY(cudaMemsetAsync(cache_time.data(), 0, cache_time.size() * sizeof(int), stream));
     } else {
       if (cache_size > 0) {
-        CUML_LOG_WARN(
+        RAFT_LOG_WARN(
           "Warning: not enough memory to cache a single set of "
           "rows, not using cache");
       }
       n_cache_sets = 0;
       cache_size   = 0;
     }
-    CUML_LOG_DEBUG(
+    RAFT_LOG_DEBUG(
       "Creating cache with size=%f MiB, to store %d vectors, in "
       "%d sets with associativity=%d",
       cache_size,
