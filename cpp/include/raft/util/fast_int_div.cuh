@@ -23,10 +23,10 @@ namespace raft::util {
 
 /**
  * @brief Perform fast integer division and modulo using a known divisor
+ * From Hacker's Delight, Second Edition, Chapter 10
  *
  * @note This currently only supports 32b signed integers
  * @todo Extend support for signed divisors
- * @ref Hacker's Delight, Second Edition, Chapter 10
  */
 struct FastIntDiv {
   /**
