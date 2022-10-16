@@ -27,7 +27,7 @@
 
 #include <cstddef>
 
-namespace raft::util::cache {
+namespace raft::cache {
 
   /**
    * @brief Associative cache with least recently used replacement policy.
@@ -403,4 +403,4 @@ namespace raft::util::cache {
   }
 };
 }
-;  // namespace raft::util::cache
+;  // namespace raft::cache
