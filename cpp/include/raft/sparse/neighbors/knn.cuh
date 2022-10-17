@@ -13,13 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+/**
+ * DISCLAIMER: this file is deprecated: use knn.cuh instead
+ */
+
 #pragma once
 
-#include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/sparse/spatial/detail/knn.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the sparse/spatial version instead.")
 
-namespace raft::sparse::spatial {
+#include <raft/sparse/neighbors/brute_force.cuh>
+
+namespace raft::sparse::neighbors {
 
 /**
  * Search the sparse kNN for the k-nearest neighbors of a set of sparse query vectors
@@ -67,27 +78,26 @@ void brute_force_knn(const value_idx* idxIndptr,
                      raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
                      float metricArg                     = 0)
 {
-  detail::sparse_knn_t<value_idx, value_t>(idxIndptr,
-                                           idxIndices,
-                                           idxData,
-                                           idxNNZ,
-                                           n_idx_rows,
-                                           n_idx_cols,
-                                           queryIndptr,
-                                           queryIndices,
-                                           queryData,
-                                           queryNNZ,
-                                           n_query_rows,
-                                           n_query_cols,
-                                           output_indices,
-                                           output_dists,
-                                           k,
-                                           handle,
-                                           batch_size_index,
-                                           batch_size_query,
-                                           metric,
-                                           metricArg)
-    .run();
+  brute_force::knn<value_idx, value_t>(idxIndptr,
+                                       idxIndices,
+                                       idxData,
+                                       idxNNZ,
+                                       n_idx_rows,
+                                       n_idx_cols,
+                                       queryIndptr,
+                                       queryIndices,
+                                       queryData,
+                                       queryNNZ,
+                                       n_query_rows,
+                                       n_query_cols,
+                                       output_indices,
+                                       output_dists,
+                                       k,
+                                       handle,
+                                       batch_size_index,
+                                       batch_size_query,
+                                       metric,
+                                       metricArg);
 }
 
-};  // namespace raft::sparse::spatial
+};  // namespace raft::sparse::neighbors

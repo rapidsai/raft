@@ -78,7 +78,9 @@ namespace detail {
  */
 inline std::string format(const char* fmt, va_list& vl)
 {
-  int length = std::vsnprintf(nullptr, 0, fmt, vl);
+  va_list vl_copy;
+  va_copy(vl_copy, vl);
+  int length = std::vsnprintf(nullptr, 0, fmt, vl_copy);
   assert(length >= 0);
   std::vector<char> buf(length + 1);
   std::vsnprintf(buf.data(), length + 1, fmt, vl);

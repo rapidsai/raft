@@ -19,9 +19,9 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <raft/sparse/neighbors/connect_components.cuh>
 #include <raft/sparse/op/sort.cuh>
 #include <raft/sparse/solver/mst.cuh>
-#include <raft/sparse/spatial/connect_components.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
@@ -80,7 +80,7 @@ void connect_knn_graph(
 
   raft::sparse::COO<value_t, value_idx> connected_edges(stream);
 
-  raft::sparse::spatial::connect_components<value_idx, value_t>(
+  raft::sparse::neighbors::connect_components<value_idx, value_t>(
     handle, connected_edges, X, color, m, n, reduction_op);
 
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
@@ -153,14 +153,14 @@ void build_sorted_mst(
     handle, indptr, indices, pw_dists, (value_idx)m, nnz, color, stream, false, true);
 
   int iters        = 1;
-  int n_components = raft::sparse::spatial::get_n_components(color, m, stream);
+  int n_components = raft::sparse::neighbors::get_n_components(color, m, stream);
 
   while (n_components > 1 && iters < max_iter) {
     connect_knn_graph<value_idx, value_t>(handle, X, mst_coo, m, n, color, reduction_op);
 
     iters++;
 
-    n_components = raft::sparse::spatial::get_n_components(color, m, stream);
+    n_components = raft::sparse::neighbors::get_n_components(color, m, stream);
   }
 
   /**

@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include "detail/knn_brute_force_faiss.cuh"
-#include "detail/selection_faiss.cuh"
 #include <raft/core/device_mdspan.hpp>
+#include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
+#include <raft/spatial/knn/detail/selection_faiss.cuh>
 
-namespace raft::spatial::knn {
+namespace raft::neighbors::brute_force {
 
 /**
  * @brief Performs a k-select across row partitioned index/distance
@@ -63,15 +63,15 @@ inline void knn_merge_parts(
                "Number of columns in output indices and distances matrices must be equal to k");
 
   auto n_parts = in_keys.extent(0) / n_samples;
-  detail::knn_merge_parts(in_keys.data_handle(),
-                          in_values.data_handle(),
-                          out_keys.data_handle(),
-                          out_values.data_handle(),
-                          n_samples,
-                          n_parts,
-                          in_keys.extent(1),
-                          handle.get_stream(),
-                          translations.value_or(nullptr));
+  spatial::knn::detail::knn_merge_parts(in_keys.data_handle(),
+                                        in_values.data_handle(),
+                                        out_keys.data_handle(),
+                                        out_values.data_handle(),
+                                        n_samples,
+                                        n_parts,
+                                        in_keys.extent(1),
+                                        handle.get_stream(),
+                                        translations.value_or(nullptr));
 }
 
 /**
@@ -99,16 +99,15 @@ template <typename idx_t,
           typename matrix_idx,
           typename index_layout,
           typename search_layout>
-void brute_force_knn(
-  raft::handle_t const& handle,
-  std::vector<raft::device_matrix_view<const value_t, matrix_idx, index_layout>> index,
-  raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,
-  raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
-  raft::device_matrix_view<value_t, matrix_idx, row_major> distances,
-  value_int k,
-  distance::DistanceType metric                  = distance::DistanceType::L2Unexpanded,
-  std::optional<float> metric_arg                = std::make_optional<float>(2.0f),
-  std::optional<std::vector<idx_t>> translations = std::nullopt)
+void knn(raft::handle_t const& handle,
+         std::vector<raft::device_matrix_view<const value_t, matrix_idx, index_layout>> index,
+         raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,
+         raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
+         raft::device_matrix_view<value_t, matrix_idx, row_major> distances,
+         value_int k,
+         distance::DistanceType metric                  = distance::DistanceType::L2Unexpanded,
+         std::optional<float> metric_arg                = std::make_optional<float>(2.0f),
+         std::optional<std::vector<idx_t>> translations = std::nullopt)
 {
   RAFT_EXPECTS(index[0].extent(1) == search.extent(1),
                "Number of dimensions for both index and search matrices must be equal");
@@ -132,21 +131,21 @@ void brute_force_knn(
 
   std::vector<idx_t>* trans = translations.has_value() ? &(*translations) : nullptr;
 
-  detail::brute_force_knn_impl(handle,
-                               inputs,
-                               sizes,
-                               static_cast<value_int>(index[0].extent(1)),
-                               // TODO: This is unfortunate. Need to fix.
-                               const_cast<value_t*>(search.data_handle()),
-                               static_cast<value_int>(search.extent(0)),
-                               indices.data_handle(),
-                               distances.data_handle(),
-                               k,
-                               rowMajorIndex,
-                               rowMajorQuery,
-                               trans,
-                               metric,
-                               metric_arg.value_or(2.0f));
+  raft::spatial::knn::detail::brute_force_knn_impl(handle,
+                                                   inputs,
+                                                   sizes,
+                                                   static_cast<value_int>(index[0].extent(1)),
+                                                   // TODO: This is unfortunate. Need to fix.
+                                                   const_cast<value_t*>(search.data_handle()),
+                                                   static_cast<value_int>(search.extent(0)),
+                                                   indices.data_handle(),
+                                                   distances.data_handle(),
+                                                   k,
+                                                   rowMajorIndex,
+                                                   rowMajorQuery,
+                                                   trans,
+                                                   metric,
+                                                   metric_arg.value_or(2.0f));
 }
 
-}  // namespace raft::spatial::knn
+}  // namespace raft::neighbors::brute_force
