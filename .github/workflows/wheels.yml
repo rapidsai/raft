@@ -15,9 +15,7 @@ jobs:
     with:
       package-name: pylibraft
       package-dir: python/pylibraft
-      python-version: "3.8 3.9"
-      python-package-versioneer-override: "22.10.00a"
-      python-package-build-tag: "24"
+      python-package-versioneer-override: "22.10.00"
 
       skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL -DFIND_RAFT_CPP=OFF"
 
@@ -32,9 +30,7 @@ jobs:
     with:
       package-name: raft_dask
       package-dir: python/raft-dask
-      python-version: "3.8 3.9"
-      python-package-versioneer-override: "22.10.00a"
-      python-package-build-tag: "24"
+      python-package-versioneer-override: "22.10.00"
 
       skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL"
 
