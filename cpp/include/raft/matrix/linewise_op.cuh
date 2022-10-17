@@ -67,8 +67,8 @@ void linewise_op(const raft::handle_t& handle,
   static_assert(is_rowmajor || is_colmajor,
                 "layout for in and out must be either row or col major");
 
-  const idx_t lineLen = is_rowmajor ? in.extent(0) : in.extent(1);
-  const idx_t nLines  = is_rowmajor ? in.extent(1) : in.extent(0);
+  const idx_t nLines  = is_rowmajor ? in.extent(0) : in.extent(1);
+  const idx_t lineLen = is_rowmajor ? in.extent(1) : in.extent(0);
 
   RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
                "Input and output must have the same shape.");
@@ -83,22 +83,32 @@ void linewise_op(const raft::handle_t& handle,
                                                      vecs.data_handle()...);
 }
 
-
-template <typename m_t, typename idx_t = int, typename Lambda, typename... Vecs>
-void linewiseOp(
-  const raft::handle_t& handle,
-  aligned_mdspan<m_t, matrix_extent<idx_t>, StorageOrderType::row_major_t>& out,
-  const aligned_mdspan<m_t, matrix_extent<idx_t>, StorageOrderType::row_major_t>& in,
-  const idx_t lineLen,
-  const idx_t nLines,
-  const bool alongLines,
-  Lambda op,
-  Vecs... vecs)
+template <typename m_t,
+          typename idx_t,
+          typename layout,
+          typename Lambda,
+          typename... vec_t,
+          typename = raft::enable_if_device_mdspan<vec_t...>>
+void linewise_op(const raft::handle_t& handle,
+                 raft::device_aligned_matrix_view<const m_t, idx_t, layout> in,
+                 raft::device_aligned_matrix_view<m_t, idx_t, layout> out,
+                 Lambda op,
+                 vec_t... vecs)
 {
-  
-  detail::MatrixLinewiseOp<16, 256>::run<m_t, idx_t, Lambda, Vecs...>(
-    out, in, lineLen, nLines, alongLines, op, handle.get_stream(), vecs...);
-}
+  constexpr auto is_rowmajor = std::is_same_v<layout, raft::layout_right_padded<m_t>>;
+  constexpr auto is_colmajor = std::is_same_v<layout, raft::layout_left_padded<m_t>>;
 
+  static_assert(is_rowmajor || is_colmajor,
+                "layout for in and out must be either padded row or col major");
+
+  const idx_t nLines  = is_rowmajor ? in.extent(0) : in.extent(1);
+  const idx_t lineLen = is_rowmajor ? in.extent(1) : in.extent(0);
+
+  RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
+               "Input and output must have the same shape.");
+
+  detail::MatrixLinewiseOp<16, 256>::runPadded<m_t, idx_t>(
+    out, in, lineLen, nLines, is_rowmajor, op, handle.get_stream(), vecs.data_handle()...);
+}
 
 }  // namespace raft::matrix

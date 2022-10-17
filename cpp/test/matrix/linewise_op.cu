@@ -64,10 +64,10 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     I m = rowmajor ? lineLen : nLines;
     I n = rowmajor ? nLines : lineLen;
 
-    auto in_view  = raft::make_device_matrix_view<const T, I, layout>(in, m, n);
-    auto out_view = raft::make_device_matrix_view<T, I, layout>(out, m, n);
+    auto in_view  = raft::make_device_matrix_view<const T, I, layout>(in, n, m);
+    auto out_view = raft::make_device_matrix_view<T, I, layout>(out, n, m);
 
-    auto vec_view = raft::make_device_vector_view<const T>(vec, m);
+    auto vec_view = raft::make_device_vector_view<const T>(vec, lineLen);
     matrix::linewise_op(handle, in_view, out_view, raft::is_row_major(in_view), f, vec_view);
   }
 
@@ -81,10 +81,10 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     I m = rowmajor ? lineLen : nLines;
     I n = rowmajor ? nLines : lineLen;
 
-    auto in_view   = raft::make_device_matrix_view<const T, I, layout>(in, m, n);
-    auto out_view  = raft::make_device_matrix_view<T, I, layout>(out, m, n);
-    auto vec1_view = raft::make_device_vector_view<const T, I>(vec1, m);
-    auto vec2_view = raft::make_device_vector_view<const T, I>(vec2, m);
+    auto in_view   = raft::make_device_matrix_view<const T, I, layout>(in, n, m);
+    auto out_view  = raft::make_device_matrix_view<T, I, layout>(out, n, m);
+    auto vec1_view = raft::make_device_vector_view<const T, I>(vec1, lineLen);
+    auto vec2_view = raft::make_device_vector_view<const T, I>(vec2, lineLen);
 
     matrix::linewise_op(
       handle, in_view, out_view, raft::is_row_major(in_view), f, vec1_view, vec2_view);
@@ -99,16 +99,16 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     return blob;
   }
 
-  void runLinewiseSum(
-    aligned_mdspan<T, matrix_extent<I>, StorageOrderType::row_major_t>& out,
-    const aligned_mdspan<T, matrix_extent<I>, StorageOrderType::row_major_t>& in,
-    const I lineLen,
-    const I nLines,
-    const bool alongLines,
-    const T* vec)
+  template <typename layout>
+  void runLinewiseSumPadded(raft::device_aligned_matrix_view<T, I, layout> out,
+                            raft::device_aligned_matrix_view<const T, I, layout> in,
+                            const I lineLen,
+                            const I nLines,
+                            const T* vec)
   {
-    auto f = [] __device__(T a, T b) -> T { return a + b; };
-    matrix::linewiseOp(handle, out, in, lineLen, nLines, alongLines, f, vec);
+    auto f        = [] __device__(T a, T b) -> T { return a + b; };
+    auto vec_view = raft::make_device_vector_view<const T, I>(vec, lineLen);
+    matrix::linewise_op(handle, in, out, f, vec_view);
   }
 
   /**
@@ -232,56 +232,95 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
         auto [out, in, vec1, vec2] = assignSafePtrs(blob, n, m);
         common::nvtx::range dims_scope("Dims-%zu-%zu", std::size_t(n), std::size_t(m));
         common::nvtx::range dir_scope(alongRows ? "alongRows" : "acrossRows");
-        auto lineLen = alongRows ? m : n;
-        auto nLines  = alongRows ? n : m;
+
+        auto lineLen = m;
+        auto nLines  = n;
 
         // create a padded span based on testdata (just for functional testing)
-        auto extents = matrix_extent<I>{nLines, lineLen};
-        typename padded_layout<T, StorageOrderType::row_major_t>::mapping<matrix_extent<I>> layout{
-          extents};
+        size_t matrix_size_padded;
+        if (alongRows) {
+          auto extents = matrix_extent<I>{n, m};
+          typename raft::layout_right_padded<T>::mapping<matrix_extent<I>> layout{extents};
+          matrix_size_padded = layout.required_span_size();
+        } else {
+          auto extents = matrix_extent<I>{m, n};
+          typename raft::layout_left_padded<T>::mapping<matrix_extent<I>> layout{extents};
+          matrix_size_padded = layout.required_span_size();
+        }
 
-        auto matrix_size_padded = layout.required_span_size();
         rmm::device_uvector<T> blob_in(matrix_size_padded, stream);
         rmm::device_uvector<T> blob_out(matrix_size_padded, stream);
 
-        auto inSpan = make_aligned_mdspan<T, matrix_extent<I>, StorageOrderType::row_major_t>(
-          blob_in.data(), extents, StorageOrderType::row_major_t);
-        auto outSpan = make_aligned_mdspan<T, matrix_extent<I>, StorageOrderType::row_major_t>(
-          blob_out.data(), extents, StorageOrderType::row_major_t);
-
         {
           auto in2 = in;
-          // prep padded input data
-          thrust::for_each_n(rmm::exec_policy(stream),
-                             thrust::make_counting_iterator(0ul),
-                             nLines * lineLen,
-                             [inSpan, in2, lineLen] __device__(size_t i) {
-                               inSpan(i / lineLen, i % lineLen) = in2[i];
-                             });
 
           // actual testrun
-          {
-            common::nvtx::range vecs_scope("one vec");
-            runLinewiseSum(outSpan, inSpan, lineLen, nLines, alongRows, vec1);
-          }
-
-          if (params.checkCorrectness) {
-            if (alongRows) {
-              runLinewiseSum<raft::row_major>(out, in, lineLen, nLines, vec1);
-            } else {
-              runLinewiseSum<raft::col_major>(out, in, lineLen, nLines, vec1);
-            }
-            auto out_dense = blob_val.data();
+          common::nvtx::range vecs_scope("one vec");
+          if (alongRows) {
+            auto inSpan = make_device_aligned_matrix_view<T, I, raft::layout_right_padded<T>>(
+              blob_in.data(), nLines, lineLen);
+            auto outSpan = make_device_aligned_matrix_view<T, I, raft::layout_right_padded<T>>(
+              blob_out.data(), nLines, lineLen);
+            // prep padded input data
             thrust::for_each_n(rmm::exec_policy(stream),
                                thrust::make_counting_iterator(0ul),
                                nLines * lineLen,
-                               [outSpan, out_dense, lineLen] __device__(size_t i) {
-                                 out_dense[i] = outSpan(i / lineLen, i % lineLen);
+                               [inSpan, in2, lineLen] __device__(size_t i) {
+                                 inSpan(i / lineLen, i % lineLen) = in2[i];
                                });
-            r = devArrMatch(out_dense, out, n * m, CompareApprox<T>(params.tolerance))
-                << " " << (alongRows ? "alongRows" : "acrossRows")
-                << " with one vec;  lineLen: " << lineLen << "; nLines " << nLines;
-            if (!r) break;
+            auto inSpanConst =
+              make_device_aligned_matrix_view<const T, I, raft::layout_right_padded<T>>(
+                blob_in.data(), nLines, lineLen);
+            runLinewiseSumPadded<raft::layout_right_padded<T>>(
+              outSpan, inSpanConst, lineLen, nLines, vec1);
+
+            if (params.checkCorrectness) {
+              runLinewiseSum<raft::row_major>(out, in, lineLen, nLines, vec1);
+              auto out_dense = blob_val.data();
+              thrust::for_each_n(rmm::exec_policy(stream),
+                                 thrust::make_counting_iterator(0ul),
+                                 nLines * lineLen,
+                                 [outSpan, out_dense, lineLen] __device__(size_t i) {
+                                   out_dense[i] = outSpan(i / lineLen, i % lineLen);
+                                 });
+              r = devArrMatch(out_dense, out, n * m, CompareApprox<T>(params.tolerance))
+                  << " " << (alongRows ? "alongRows" : "acrossRows")
+                  << " with one vec;  lineLen: " << lineLen << "; nLines " << nLines;
+              if (!r) break;
+            }
+
+          } else {
+            auto inSpan = make_device_aligned_matrix_view<T, I, raft::layout_left_padded<T>>(
+              blob_in.data(), lineLen, nLines);
+            auto outSpan = make_device_aligned_matrix_view<T, I, raft::layout_left_padded<T>>(
+              blob_out.data(), lineLen, nLines);
+            // prep padded input data
+            thrust::for_each_n(rmm::exec_policy(stream),
+                               thrust::make_counting_iterator(0ul),
+                               nLines * lineLen,
+                               [inSpan, in2, lineLen] __device__(size_t i) {
+                                 inSpan(i % lineLen, i / lineLen) = in2[i];
+                               });
+            auto inSpanConst =
+              make_device_aligned_matrix_view<const T, I, raft::layout_left_padded<T>>(
+                blob_in.data(), lineLen, nLines);
+            runLinewiseSumPadded<raft::layout_left_padded<T>>(
+              outSpan, inSpanConst, lineLen, nLines, vec1);
+
+            if (params.checkCorrectness) {
+              runLinewiseSum<raft::col_major>(out, in, lineLen, nLines, vec1);
+              auto out_dense = blob_val.data();
+              thrust::for_each_n(rmm::exec_policy(stream),
+                                 thrust::make_counting_iterator(0ul),
+                                 nLines * lineLen,
+                                 [outSpan, out_dense, lineLen] __device__(size_t i) {
+                                   out_dense[i] = outSpan(i % lineLen, i / lineLen);
+                                 });
+              r = devArrMatch(out_dense, out, n * m, CompareApprox<T>(params.tolerance))
+                  << " " << (alongRows ? "alongRows" : "acrossRows")
+                  << " with one vec;  lineLen: " << lineLen << "; nLines " << nLines;
+              if (!r) break;
+            }
           }
         }
       }

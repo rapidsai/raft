@@ -32,11 +32,6 @@ template <typename ElementType,
           typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
-/**
- * Some helper templates to handle mdspan with padded layouts / aligned memory
- */
-enum class StorageOrderType { column_major_t, row_major_t };
-
 namespace detail {
 
 // keeping ByteAlignment as optional to allow testing
@@ -51,11 +46,6 @@ struct padding {
   static constexpr size_t value = std::max(ByteAlignment / sizeof(ValueType), 1ul);
 };
 
-template <std::size_t padding, StorageOrderType order>
-using layout_padded_general = std::conditional_t<order == StorageOrderType::row_major_t,
-                                                 std::experimental::layout_right_padded<padding>,
-                                                 std::experimental::layout_left_padded<padding>>;
-
 // alignment fixed to 128 bytes
 struct alignment {
   static constexpr size_t value = 128;
@@ -63,35 +53,18 @@ struct alignment {
 
 }  // namespace detail
 
-template <typename ElementType, StorageOrderType order>
-using padded_layout = detail::layout_padded_general<
-  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value,
-  order>;
+template <typename ElementType>
+using layout_right_padded = std::experimental::layout_right_padded<
+  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
 
-template <class ElementType, class Extents, StorageOrderType order>
-using aligned_mdspan =
-  mdspan<ElementType,
-         Extents,
-         padded_layout<ElementType, order>,
-         std::experimental::aligned_accessor<ElementType, detail::alignment::value>>;
+template <typename ElementType>
+using layout_left_padded = std::experimental::layout_left_padded<
+  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
 
-template <class ElementType, class Extents, StorageOrderType order>
-aligned_mdspan<ElementType, Extents, order> make_aligned_mdspan(ElementType* input_pointer,
-                                                                Extents e,
-                                                                StorageOrderType /*order*/)
-{
-  using value_type = std::remove_cv_t<std::remove_reference_t<ElementType>>;
-  using data_handle_type =
-    typename std::experimental::aligned_accessor<ElementType,
-                                                 detail::alignment::value>::data_handle_type;
-
-  assert(input_pointer == alignTo(input_pointer, detail::alignment::value));
-
-  data_handle_type aligned_pointer = input_pointer;
-
-  using mapping = typename padded_layout<value_type, order>::template mapping<Extents>;
-  return {aligned_pointer, mapping{e}};
-};
+template <typename ElementType, typename LayoutPolicy>
+using enable_if_layout_padded =
+  std::enable_if_t<std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
+                   std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value>;
 
 /**
  * Ensure all types listed in the parameter pack `Extents` are integral types.
