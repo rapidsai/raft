@@ -35,7 +35,7 @@ namespace raft::matrix {
  */
 template <typename m_t, typename idx_t>
 void slice(const raft::handle_t& handle,
-           raft::device_matrix_view<m_t, idx_t, col_major> in,
+           raft::device_matrix_view<const m_t, idx_t, col_major> in,
            raft::device_matrix_view<m_t, idx_t, col_major> out,
            idx_t x1,
            idx_t y1,
@@ -45,9 +45,9 @@ void slice(const raft::handle_t& handle,
   RAFT_EXPECTS(x2 > x1, "x2 must be > x1");
   RAFT_EXPECTS(y2 > y1, "y2 must be > y1");
   RAFT_EXPECTS(x1 >= 0, "x1 must be >= 0");
-  RAFT_EXPECTS(x2 <= in.extents(0), "x2 must be <= number of rows in the input matrix")
+  RAFT_EXPECTS(x2 <= in.extent(0), "x2 must be <= number of rows in the input matrix");
   RAFT_EXPECTS(y1 >= 0, "y1 must be >= 0");
-  RAFT_EXPECTS(y2 <= in.extents(1), "y2 must be <= number of columns in the input matrix");
+  RAFT_EXPECTS(y2 <= in.extent(1), "y2 must be <= number of columns in the input matrix");
 
   detail::sliceMatrix(in.data_handle(),
                       in.extent(0),

@@ -170,7 +170,7 @@ void printHost(const m_t* in, idx_t n_rows, idx_t n_cols)
  */
 template <typename m_t, typename idx_t = int>
 __global__ void slice(
-  m_t* src_d, idx_t m, idx_t n, m_t* dst_d, idx_t x1, idx_t y1, idx_t x2, idx_t y2)
+  const m_t* src_d, idx_t m, idx_t n, m_t* dst_d, idx_t x1, idx_t y1, idx_t x2, idx_t y2)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
   idx_t dm = x2 - x1, dn = y2 - y1;
@@ -182,7 +182,7 @@ __global__ void slice(
 }
 
 template <typename m_t, typename idx_t = int>
-void sliceMatrix(m_t* in,
+void sliceMatrix(const m_t* in,
                  idx_t n_rows,
                  idx_t n_cols,
                  m_t* out,
@@ -306,7 +306,8 @@ m_t getL2Norm(const raft::handle_t& handle, const m_t* in, idx_t size, cudaStrea
   m_t normval            = 0;
   RAFT_EXPECTS(std::is_integral_v<idx_t> && size <= std::numeric_limits<int>::max(),
                "Index type not supported");
-  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasnrm2(cublasH, static_cast<int>(size), in, 1, &normval, stream));
+  RAFT_CUBLAS_TRY(
+    raft::linalg::detail::cublasnrm2(cublasH, static_cast<int>(size), in, 1, &normval, stream));
   return normval;
 }
 
