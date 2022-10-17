@@ -18,12 +18,12 @@
 #include "spatial_data.h"
 #include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ball_cover.cuh>
 #include <raft/random/make_blobs.cuh>
-#include <raft/spatial/knn/ball_cover.cuh>
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
 #include <raft/util/cudart_utils.hpp>
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 #include <rmm/device_uvector.hpp>
@@ -38,10 +38,7 @@
 #include <iostream>
 #include <vector>
 
-namespace raft {
-namespace spatial {
-namespace knn {
-
+namespace raft::neighbors::ball_cover {
 using namespace std;
 
 template <typename value_idx, typename value_t>
@@ -214,9 +211,8 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<va
 
     BallCoverIndex<value_idx, value_t, value_int, value_int> index(handle, X_view, metric);
 
-    raft::spatial::knn::rbc_build_index(handle, index);
-    raft::spatial::knn::rbc_knn_query(
-      handle, index, X2_view, d_pred_I_view, d_pred_D_view, k, true);
+    build_index(handle, index);
+    knn_query(handle, index, X2_view, d_pred_I_view, d_pred_D_view, k, true);
 
     handle.sync_stream();
     // What we really want are for the distances to match exactly. The
@@ -304,7 +300,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
 
     BallCoverIndex<value_idx, value_t> index(handle, X_view, metric);
 
-    raft::spatial::knn::rbc_all_knn_query(handle, index, d_pred_I_view, d_pred_D_view, k, true);
+    all_knn_query(handle, index, d_pred_I_view, d_pred_D_view, k, true);
 
     handle.sync_stream();
     // What we really want are for the distances to match exactly. The
@@ -365,6 +361,4 @@ INSTANTIATE_TEST_CASE_P(BallCoverKNNQueryTest,
 TEST_P(BallCoverAllKNNTestF, Fit) { basicTest(); }
 TEST_P(BallCoverKNNQueryTestF, Fit) { basicTest(); }
 
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+}  // namespace raft::neighbors::ball_cover

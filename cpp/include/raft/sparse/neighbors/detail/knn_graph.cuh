@@ -35,7 +35,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace raft::sparse::spatial::detail {
+namespace raft::sparse::neighbors::detail {
 
 /**
  * Fills indices array of pairwise distance array
@@ -147,4 +147,4 @@ void knn_graph(const handle_t& handle,
     handle, rows.data(), indices.data(), data.data(), m, k, nnz, out);
 }
 
-};  // namespace raft::sparse::spatial::detail
+};  // namespace raft::sparse::neighbors::detail
