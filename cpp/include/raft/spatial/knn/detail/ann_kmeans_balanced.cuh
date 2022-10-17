@@ -210,14 +210,7 @@ constexpr inline auto calc_minibatch_size(uint32_t n_clusters,
  * multiple times with different datasets with the same effect as if calling this function once
  * on the combined dataset_.
  *
- * NB: `centers` and `cluster_sizes` must be accessible on GPU due to
- * divide_along_rows/normalize_rows. The rest can be both, under assumption that all pointers are
- * accessible from the same place.
- *
- * i.e. two variants are possible:
- *
- *   1. All pointers are on the device.
- *   2. All pointers are on the host, but `centers` and `cluster_sizes` are accessible from GPU.
+ * NB: all pointers must be accessible on the device.
  *
  * @tparam T      element type
  * @tparam IdxT   index type
@@ -234,7 +227,7 @@ constexpr inline auto calc_minibatch_size(uint32_t n_clusters,
  *    When set to `false`, this function may be used to update existing centers and sizes using
  *    the weighted average principle.
  * @param stream
- * @param mr (optional) memory resource to use for temporary allocations
+ * @param mr (optional) memory resource to use for temporary allocations on the device
  */
 template <typename T, typename IdxT, typename LabelT>
 void calc_centers_and_sizes(const handle_t& handle,
