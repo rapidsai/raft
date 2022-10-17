@@ -27,14 +27,14 @@ namespace linalg {
 /**
  * @brief randomized singular value decomposition (RSVD)
  * @param handle:   raft handle
- * @param in:       input matrix
+ * @param in:       input matrix. On exit this matrix is destroyed
  *                  [dim = n_rows * n_cols] 
  * @param n_rows:   number rows of input matrix
  * @param n_cols:   number columns of input matrix
  * @param k:        Rank of the k-SVD decomposition of matrix in. Number of singular values to be computed.
  *                  The rank is less than min(m,n). 
  * @param p:        Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n).
- *                  (Recommanded to be at least 2*k)
+ *                  (Recommended to be at least 2*k)
  * @param niters:   Number of iteration of power method.
  * @param S:        array of singular values of input matrix.
  *                  [dim = min(n_rows, n_cols)] 
@@ -76,15 +76,8 @@ void randomized_svd(const raft::handle_t& handle,
  * @tparam idx_t index type
  * @tparam layout_t Layout type of the input matrix.
  * @param handle:  raft handle
- * @param in:      input matrix
+ * @param in:      input matrix. On exit this matrix is destroyed
  *                 [dim = n_rows * n_cols] 
- * @param n_rows:  number rows of input matrix
- * @param n_cols:  number columns of input matrix
- * @param k:       Rank of the k-SVD decomposition of matrix in. Number of singular values to be computed.
- *                 The rank is less than min(m,n). 
- * @param p:       Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n).
- *                 (Recommanded to be at least 2*k)
- * @param niters:  Number of iteration of power method. (2 is recommanded)
  * @param S:       array of singular values of input matrix.
  *                 [dim = min(n_rows, n_cols)] 
  * @param U:       left singular values of input matrix.
@@ -93,13 +86,18 @@ void randomized_svd(const raft::handle_t& handle,
  * @param V:       right singular values of input matrix.
  *                 [dim = n_cols * n_cols] if gen_V
  *                 [dim = min(n_rows,n_cols) * n_cols] else
+ * @param k:       Rank of the k-SVD decomposition of matrix in. Number of singular values to be computed.
+ *                 The rank is less than min(m,n). 
+ * @param p:       Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n).
+ *                 (Recommended to be at least 2*k)
+ * @param niters:  Number of iteration of power method. (2 is recommended)
  * @param trans_V: Transpose V back ?
  * @param gen_U:   left vector needs to be generated or not?
  * @param gen_V:   right vector needs to be generated or not?
  */
 template <typename math_t, typename idx_t, typename layout_t>
 void randomized_svd(const raft::handle_t& handle,
-                    raft::device_matrix_view<const math_t, idx_t, layout_t> in,
+                    raft::device_matrix_view<math_t, idx_t, layout_t> in,
                     raft::device_vector_view<math_t, idx_t> S,
                     raft::device_matrix_view<math_t, idx_t, layout_t> U,
                     raft::device_matrix_view<math_t, idx_t, layout_t> V,
@@ -115,8 +113,8 @@ void randomized_svd(const raft::handle_t& handle,
   static_assert(is_row_major || is_col_major,
                 "randomized_svd: Layout must be either "
                 "raft::row_major or raft::col_major (or one of their aliases)");
-  detail::randomized_svd<math_t>(handle, in, in.extent(0), in.extent(1), k, p, niters, S.data(), U.data(),
-    V.data(), trans_V, gen_U, gen_V, is_row_major);
+  detail::randomized_svd(handle, in.data_handle(), in.extent(0), in.extent(1), k, p, niters, S.data_handle(), U.data_handle(),
+    V.data_handle(), trans_V, gen_U, gen_V, is_row_major);
 }
 
 /**

@@ -49,7 +49,7 @@ void randomized_svd(const raft::handle_t& handle,
                     bool row_major=false)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "raft::linalg::randomizedSVD(%d, %d)", n_rows, n_cols);
+    "raft::linalg::randomized_svd(%d, %d)", n_rows, n_cols);
 
   ASSERT(k < std::min(n_rows, n_cols), "k must be < min(n_rows, n_cols)");
   ASSERT((k + p) < std::min(n_rows, n_cols), "k + p must be < min(n_rows, n_cols)");
