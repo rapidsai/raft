@@ -317,8 +317,6 @@ __global__ void map_along_rows_kernel(
  * @brief Map a binary function over a matrix and a vector element-wise, broadcasting the vector
  * values along rows: `m[i, j] = op(m[i,j], v[i])`
  *
- * @todo(lsugy): replace with matrix_vector_op
- *
  * NB: device-only function
  *
  * @tparam IdxT   index type
