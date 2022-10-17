@@ -42,9 +42,12 @@ namespace raft::matrix {
  * @param [in] alongLines whether vectors are indices along or across lines.
  * @param [in] op the operation applied on each line:
  *    for i in [0..lineLen) and j in [0..nLines):
+ *      out[j, i] = op(in[j, i], vec1[i], vec2[i], ... veck[i])   if alongLines = true
+ *      out[j, i] = op(in[j, i], vec1[j], vec2[j], ... veck[j])   if alongLines = false
+ *    where matrix indexing is row-major ([j, i] = [i + lineLen * j]).
  *      out[i, j] = op(in[i, j], vec1[i], vec2[i], ... veck[i])   if alongLines = true
  *      out[i, j] = op(in[i, j], vec1[j], vec2[j], ... veck[j])   if alongLines = false
- *    where matrix indexing is row-major ([i, j] = [i + lineLen * j]).
+ *    where matrix indexing is col-major ([i, j] = [i + lineLen * j]).
  * @param [in] vecs zero or more vectors to be passed as arguments,
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
@@ -92,6 +95,7 @@ template <typename m_t,
 void linewise_op(const raft::handle_t& handle,
                  raft::device_aligned_matrix_view<const m_t, idx_t, layout> in,
                  raft::device_aligned_matrix_view<m_t, idx_t, layout> out,
+                 const bool alongLines,
                  Lambda op,
                  vec_t... vecs)
 {
@@ -108,7 +112,7 @@ void linewise_op(const raft::handle_t& handle,
                "Input and output must have the same shape.");
 
   detail::MatrixLinewiseOp<16, 256>::runPadded<m_t, idx_t>(
-    out, in, lineLen, nLines, is_rowmajor, op, handle.get_stream(), vecs.data_handle()...);
+    out, in, lineLen, nLines, alongLines, op, handle.get_stream(), vecs.data_handle()...);
 }
 
 }  // namespace raft::matrix

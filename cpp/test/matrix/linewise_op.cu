@@ -104,11 +104,12 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
                             raft::device_aligned_matrix_view<const T, I, layout> in,
                             const I lineLen,
                             const I nLines,
+                            const bool alongLines,
                             const T* vec)
   {
     auto f        = [] __device__(T a, T b) -> T { return a + b; };
     auto vec_view = raft::make_device_vector_view<const T, I>(vec, lineLen);
-    matrix::linewise_op(handle, in, out, f, vec_view);
+    matrix::linewise_op(handle, in, out, alongLines, f, vec_view);
   }
 
   /**
@@ -272,7 +273,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
               make_device_aligned_matrix_view<const T, I, raft::layout_right_padded<T>>(
                 blob_in.data(), nLines, lineLen);
             runLinewiseSumPadded<raft::layout_right_padded<T>>(
-              outSpan, inSpanConst, lineLen, nLines, vec1);
+              outSpan, inSpanConst, lineLen, nLines, alongRows, vec1);
 
             if (params.checkCorrectness) {
               runLinewiseSum<raft::row_major>(out, in, lineLen, nLines, vec1);
@@ -305,7 +306,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
               make_device_aligned_matrix_view<const T, I, raft::layout_left_padded<T>>(
                 blob_in.data(), lineLen, nLines);
             runLinewiseSumPadded<raft::layout_left_padded<T>>(
-              outSpan, inSpanConst, lineLen, nLines, vec1);
+              outSpan, inSpanConst, lineLen, nLines, alongRows, vec1);
 
             if (params.checkCorrectness) {
               runLinewiseSum<raft::col_major>(out, in, lineLen, nLines, vec1);
