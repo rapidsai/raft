@@ -33,7 +33,7 @@
 
 #include <algorithm>
 
-namespace raft::sparse::spatial::detail {
+namespace raft::sparse::neighbors::detail {
 
 template <typename value_idx, typename value_t>
 struct csr_batcher_t {
@@ -425,4 +425,4 @@ class sparse_knn_t {
   const raft::handle_t& handle;
 };
 
-};  // namespace raft::sparse::spatial::detail
+};  // namespace raft::sparse::neighbors::detail

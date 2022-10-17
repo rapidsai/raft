@@ -30,8 +30,6 @@ set(BENCH_NAME ${ConfigureBench_NAME})
 
 add_executable(${BENCH_NAME} ${ConfigureBench_PATH})
 
-message("BENCH PATH: ${ConfigureBench_PATH}")
-
 target_link_libraries(${BENCH_NAME}
         PRIVATE
         raft::raft
@@ -120,20 +118,20 @@ if(BUILD_BENCH)
             bench/main.cpp
             )
 
-    ConfigureBench(NAME SPATIAL_BENCH
+    ConfigureBench(NAME NEIGHBORS_BENCH
             PATH
-            bench/spatial/fused_l2_nn.cu
-            bench/spatial/knn/brute_force_float_int64_t.cu
-            bench/spatial/knn/brute_force_float_uint32_t.cu
-            bench/spatial/knn/ivf_flat_float_int64_t.cu
-            bench/spatial/knn/ivf_flat_float_uint32_t.cu
-            bench/spatial/knn/ivf_flat_int8_t_int64_t.cu
-            bench/spatial/knn/ivf_flat_uint8_t_uint32_t.cu
-            bench/spatial/knn/ivf_pq_float_int64_t.cu
-            bench/spatial/knn/ivf_pq_float_uint32_t.cu
-            bench/spatial/knn/ivf_pq_int8_t_int64_t.cu
-            bench/spatial/knn/ivf_pq_uint8_t_uint32_t.cu
-            bench/spatial/selection.cu
+            bench/neighbors/fused_l2_nn.cu
+            bench/neighbors/knn/brute_force_float_int64_t.cu
+            bench/neighbors/knn/brute_force_float_uint32_t.cu
+            bench/neighbors/knn/ivf_flat_float_int64_t.cu
+            bench/neighbors/knn/ivf_flat_float_uint32_t.cu
+            bench/neighbors/knn/ivf_flat_int8_t_int64_t.cu
+            bench/neighbors/knn/ivf_flat_uint8_t_uint32_t.cu
+            bench/neighbors/knn/ivf_pq_float_int64_t.cu
+            bench/neighbors/knn/ivf_pq_float_uint32_t.cu
+            bench/neighbors/knn/ivf_pq_int8_t_int64_t.cu
+            bench/neighbors/knn/ivf_pq_uint8_t_uint32_t.cu
+            bench/neighbors/selection.cu
             bench/main.cpp
             OPTIONAL DIST NN
             )
