@@ -133,7 +133,8 @@ void matrixVectorOp(OutT* out,
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
- * @tparam InValueType the data-type of the input matrices and vectors
+ * @tparam MatValueType the data-type of the input matrix
+ * @tparam VecValueType the data-type of the input vector
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
  * @tparam OutElementType the data-type of the output raft::matrix_view
@@ -147,15 +148,16 @@ void matrixVectorOp(OutT* out,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param[in] op the mathematical operation
  */
-template <typename InValueType,
+template <typename MatValueType,
+          typename VecValueType,
           typename LayoutPolicy,
           typename Lambda,
           typename OutValueType,
           typename IndexType,
           int TPB = 256>
 void matrix_vector_op(const raft::handle_t& handle,
-                      raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> matrix,
-                      raft::device_vector_view<const InValueType, IndexType> vec,
+                      raft::device_matrix_view<const MatValueType, IndexType, LayoutPolicy> matrix,
+                      raft::device_vector_view<const VecValueType, IndexType> vec,
                       raft::device_matrix_view<OutValueType, IndexType, LayoutPolicy> out,
                       Apply apply,
                       Lambda op)
@@ -194,7 +196,9 @@ void matrix_vector_op(const raft::handle_t& handle,
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
- * @tparam InValueType the data-type of the input matrices and vectors
+ * @tparam MatValueType the data-type of the input matrix
+ * @tparam Vec1ValueType the data-type of the first input vector
+ * @tparam Vec2ValueType the data-type of the second input vector
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
  * @tparam OutElementType the data-type of the output raft::matrix_view
@@ -209,16 +213,18 @@ void matrix_vector_op(const raft::handle_t& handle,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param op the mathematical operation
  */
-template <typename InValueType,
+template <typename MatValueType,
+          typename Vec1ValueType,
+          typename Vec2ValueType,
           typename LayoutPolicy,
           typename Lambda,
           typename OutValueType,
           typename IndexType,
           int TPB = 256>
 void matrix_vector_op(const raft::handle_t& handle,
-                      raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> matrix,
-                      raft::device_vector_view<const InValueType, IndexType> vec1,
-                      raft::device_vector_view<const InValueType, IndexType> vec2,
+                      raft::device_matrix_view<const MatValueType, IndexType, LayoutPolicy> matrix,
+                      raft::device_vector_view<const Vec1ValueType, IndexType> vec1,
+                      raft::device_vector_view<const Vec2ValueType, IndexType> vec2,
                       raft::device_matrix_view<OutValueType, IndexType, LayoutPolicy> out,
                       Apply apply,
                       Lambda op)
