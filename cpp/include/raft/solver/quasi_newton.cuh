@@ -28,14 +28,63 @@
 
 namespace raft::solver::quasi_newton {
 
-    using raft::solver::quasi_newton::detail::objectives::AbsLoss;
-    using raft::solver::quasi_newton::detail::objectives::HingeLoss;
-    using raft::solver::quasi_newton::detail::objectives::LogisticLoss;
-    using raft::solver::quasi_newton::detail::objectives::LinearDims;
-    using raft::solver::quasi_newton::detail::objectives::SqHingeLoss;
+    /**
+     * The follow loss functions are wrapped so they will be included in the docs
+     * @tparam T
+     */
+
+    /**
+     *
+     * @tparam T
+     */
+    template <typename T>
+    struct AbsLoss : detail::objectives::AbsLoss<T> {
+        AbsLoss(const raft::handle_t &handle, int D, bool has_bias)
+                : detail::objectives::AbsLoss(handle, D, has_bias) {}
+    }
+
+    /**
+     *
+     * @tparam T
+     */
+    template <typename T>
+    struct HingeLoss : detail::objectives::HingeLoss<T> {
+        HingeLoss(const raft::handle_t &handle, int D, bool has_bias)
+                : detail::objectives::HingeLoss(handle, D, has_bias) {}
+    }
+
+    /**
+     *
+     * @tparam T
+     */
+    template <typename T>
+    struct LogisticLoss : detail::objectives::LogisticLoss<T> {
+        LogisticLoss(const raft::handle_t &handle, int D, bool has_bias)
+                : detail::objectives::LogisticLoss(handle, D, has_bias) {}
+    }
+
+    /**
+     *
+     * @tparam T
+     */
+    template <typename T>
+    struct SqHingeLoss : detail::objectives::SqHingeLoss<T> {
+        SqHingeLoss(const raft::handle_t &handle, int D, bool has_bias)
+                : detail::objectives::SqHingeLoss(handle, D, has_bias) {}
+    }
+
+
+    template <typename T>
+    struct EpsInsHingeLoss : QNLinearBase<T, EpsInsHingeLoss<T>> {
+        typedef QNLinearBase<T, EpsInsHingeLoss<T>> Super;
+        EpsInsHingeLoss(const raft::handle_t& handle, int D, bool has_bias, T sensitivity)
+                : Super(handle, D, 1, has_bias), lz{sensitivity}, dlz{sensitivity}
+        {
+        }
+
     using raft::solver::quasi_newton::detail::objectives::SqEpsInsHingeLoss;
     using raft::solver::quasi_newton::detail::objectives::EpsInsHingeLoss;
-    using raft::solver::quasi_newton::detail::LBFGSParam
+    using raft::solver::quasi_newton::detail::LBFGSParam;
 
     /**
      *
@@ -56,17 +105,36 @@ namespace raft::solver::quasi_newton {
     template <typename T, class Loss>
     struct QNLinearBase : detail::objectives::QNLinearBase<T, Loss> {
         QNLinearBase(const raft::handle_t &handle, int D, int C, bool fit_intercept)
-                : detail::objectives::QNLinearBase<T, Loss>(C, D, fit_intercept) {}
+                : detail::objectives::QNLinearBase(C, D, fit_intercept) {}
     }
 
-
-        using raft::solver::quasi_newton::detail::objectives::Softmax;
-
+    using raft::solver::quasi_newton::detail::objectives::Softmax;
     using raft::solver::quasi_newton::detail::objectives::QNWithData;
-    using raft::solver::quasi_newton::detail::objectives::QuasiNewtonBase;
+    using raft::solver::quasi_newton::detail::objectives::QNLinearBase;
+
+    template <typename T, typename Function>
+    OPT_RETCODE lbfgs_minimize(const LBFGSParam<T>& param,
+                                 Function& f,              // function to minimize
+                                 SimpleVec<T>& x,          // initial point, holds result
+                                 T& fx,                    // output function value
+                                 int* k,                   // output iterations
+                                 SimpleVec<T>& workspace,  // scratch space
+                                 cudaStream_t stream,
+                                 int verbosity = 0)
+
+    template <typename T, typename Function>
+    OPT_RETCODE owl_minimize(const LBFGSParam<T>& param,
+                                    Function& f,
+                                    const T l1_penalty,
+                                    const int pg_limit,
+                                    SimpleVec<T>& x,
+                                    T& fx,
+                                    int* k) {
+
+    }
 
     template <typename T, typename LossFunction>
-    inline int qn_minimize(const raft::handle_t& handle,
+    int qn_minimize(const raft::handle_t& handle,
                            T *x,
                            T* fx,
                            int* num_iters,

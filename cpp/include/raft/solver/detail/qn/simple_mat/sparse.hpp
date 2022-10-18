@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "base.hpp"
-#include <raft/util//cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/ternary_op.cuh>

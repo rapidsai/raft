@@ -75,10 +75,10 @@ inline bool update_and_check(const char* solver,
                              T& fx,
                              T& fxp,
                              const T& gnorm,
-                             ML::SimpleVec<T>& x,
-                             ML::SimpleVec<T>& xp,
-                             ML::SimpleVec<T>& grad,
-                             ML::SimpleVec<T>& gradp,
+                             raft::solver::quasi_newton::SimpleVec<T>& x,
+                             raft::solver::quasi_newton::SimpleVec<T>& xp,
+                             raft::solver::quasi_newton::SimpleVec<T>& grad,
+                             raft::solver::quasi_newton::SimpleVec<T>& gradp,
                              std::vector<T>& fx_hist,
                              T* dev_scalar,
                              OPT_RETCODE& outcode,
@@ -174,7 +174,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
   std::vector<T> fx_hist(param.past > 0 ? param.past : 0);
 
   *k = 0;
-  ML::Logger::get().setLevel(verbosity);
+  raft::solver::quasi_newton::Logger::get().setLevel(verbosity);
   RAFT_LOG_DEBUG("Running L-BFGS");
 
   // Evaluate function and compute gradient
@@ -300,7 +300,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
   p_ws += vec_size;
   T* dev_scalar = p_ws;
 
-  ML::Logger::get().setLevel(verbosity);
+  raft::solver::quasi_newton::Logger::get().setLevel(verbosity);
 
   SimpleVec<T> svec, yvec;  // mask vectors
 
