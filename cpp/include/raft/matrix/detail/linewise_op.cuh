@@ -161,6 +161,7 @@ struct Linewise {
   static __device__ __forceinline__ raft::TxN_t<VecT, VecElems> loadVec(
     VecT* shm, const VecT* p, const IdxType blockOffset, const IdxType rowLen) noexcept
   {
+    // todo(lsugy): remove this check
     static_assert(
       sizeof(Type) == sizeof(VecT),
       "linewiseOp currently requires that the size of the matrix and vector types be the same");
@@ -324,6 +325,7 @@ __global__ void __launch_bounds__(BlockSize)
                                   Lambda op,
                                   const Vecs*... vecs)
 {
+  // todo(lsugy): use appropriate Linewise type per vec
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
   constexpr uint workSize         = L::VecElems * BlockSize;
   constexpr size_t maxVecItemSize = maxSizeOf<Vecs...>();
@@ -332,12 +334,12 @@ __global__ void __launch_bounds__(BlockSize)
     maxVecItemSize *
     L::VecElems) char shm[workSize * maxVecItemSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
   const IdxType blockOffset = (arrOffset + BlockSize * L::VecElems * blockIdx.x) % rowLen;
-  return L::vectorRows(
-    reinterpret_cast<typename L::Vec::io_t*>(out),
-    reinterpret_cast<const typename L::Vec::io_t*>(in),
-    L::AlignElems::div(len),
-    op,
-    (workOffset ^= workSize, L::loadVec((Vecs*)(shm + workOffset), vecs, blockOffset, rowLen))...);
+  return L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out),
+                       reinterpret_cast<const typename L::Vec::io_t*>(in),
+                       L::AlignElems::div(len),
+                       op,
+                       (workOffset ^= workSize * maxVecItemSize,
+                        L::loadVec((Vecs*)(shm + workOffset), vecs, blockOffset, rowLen))...);
 }
 
 /**
@@ -371,17 +373,18 @@ __global__ void __launch_bounds__(MaxOffset, 2)
   // Note, L::VecElems == 1
   constexpr uint workSize         = MaxOffset;
   constexpr size_t maxVecItemSize = maxSizeOf<Vecs...>();
-  uint workOffset         = workSize * maxVecItemSize;
+  uint workOffset                 = workSize * maxVecItemSize;
   __shared__ char shm[workSize * maxVecItemSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
+  // todo(lsugy): use appropriate Linewise type per vec
   typedef Linewise<Type, IdxType, sizeof(Type), MaxOffset> L;
   if (blockIdx.x == 0) {
     // first block: offset = 0, length = arrOffset
-    L::vectorRows(
-      reinterpret_cast<typename L::Vec::io_t*>(out),
-      reinterpret_cast<const typename L::Vec::io_t*>(in),
-      arrOffset,
-      op,
-      (workOffset ^= workSize, L::loadVec((Vecs*)(shm + workOffset), vecs, 0, rowLen))...);
+    L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out),
+                  reinterpret_cast<const typename L::Vec::io_t*>(in),
+                  arrOffset,
+                  op,
+                  (workOffset ^= workSize * maxVecItemSize,
+                   L::loadVec((Vecs*)(shm + workOffset), vecs, 0, rowLen))...);
   } else {
     // second block: offset = arrTail, length = len - arrTail
     // NB: I substract MaxOffset (= blockDim.x) to get the correct indexing for block 1
@@ -389,7 +392,7 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                   reinterpret_cast<const typename L::Vec::io_t*>(in + arrTail - MaxOffset),
                   len - arrTail + MaxOffset,
                   op,
-                  (workOffset ^= workSize,
+                  (workOffset ^= workSize * maxVecItemSize,
                    L::loadVec((Vecs*)(shm + workOffset), vecs, arrTail % rowLen, rowLen))...);
   }
 }
