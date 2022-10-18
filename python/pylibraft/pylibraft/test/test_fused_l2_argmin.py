@@ -42,10 +42,6 @@ def test_fused_l2_nn_minarg(n_rows, n_cols, n_clusters, dtype):
     output_device = TestDeviceBuffer(output, "C")
 
     fused_l2_nn_argmin(input1_device, input2_device, output_device, True)
-
     actual = output_device.copy_to_host()
 
-    print(str(expected))
-
-    print(str(actual))
     assert np.allclose(expected, actual, rtol=1e-4)

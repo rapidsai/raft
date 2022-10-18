@@ -18,7 +18,7 @@
 #include <raft/distance/distance_types.hpp>
 
 namespace raft::distance::runtime {
-    /**
+/**
  * @brief Wrapper around fusedL2NN with minimum reduction operators.
  *
  * fusedL2NN cannot be compiled in the distance library due to the lambda
@@ -36,25 +36,22 @@ namespace raft::distance::runtime {
  * @param[in]  n             gemm n
  * @param[in]  k             gemm k
  */
-    void fused_l2_nn_min_arg(
-            raft::handle_t const& handle,
-            int* min,
-            const float* x,
-            const float* y,
-            int m,
-            int n,
-            int k,
-            bool sqrt);
+void fused_l2_nn_min_arg(raft::handle_t const& handle,
+                         int* min,
+                         const float* x,
+                         const float* y,
+                         int m,
+                         int n,
+                         int k,
+                         bool sqrt);
 
-    void fused_l2_nn_min_arg(
-            raft::handle_t const& handle,
-            int* min,
-            const double* x,
-            const double* y,
-            int m,
-            int n,
-            int k,
-            bool sqrt);
+void fused_l2_nn_min_arg(raft::handle_t const& handle,
+                         int* min,
+                         const double* x,
+                         const double* y,
+                         int m,
+                         int n,
+                         int k,
+                         bool sqrt);
 
-
-} // end namespace raft::distance::runtime
+}  // end namespace raft::distance::runtime
