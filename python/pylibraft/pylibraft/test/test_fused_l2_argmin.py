@@ -21,9 +21,9 @@ from pylibraft.distance import fused_l2_nn_argmin
 from pylibraft.testing.utils import TestDeviceBuffer
 
 
-@pytest.mark.parametrize("n_rows", [10])
-@pytest.mark.parametrize("n_clusters", [5])
-@pytest.mark.parametrize("n_cols", [3])
+@pytest.mark.parametrize("n_rows", [10, 100])
+@pytest.mark.parametrize("n_clusters", [5, 10])
+@pytest.mark.parametrize("n_cols", [3, 5])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_fused_l2_nn_minarg(n_rows, n_cols, n_clusters, dtype):
     input1 = np.random.random_sample((n_rows, n_cols))
@@ -41,7 +41,7 @@ def test_fused_l2_nn_minarg(n_rows, n_cols, n_clusters, dtype):
     input2_device = TestDeviceBuffer(input2, "C")
     output_device = TestDeviceBuffer(output, "C")
 
-    fused_l2_nn_argmin(input1_device, input2_device, output_device, False)
+    fused_l2_nn_argmin(input1_device, input2_device, output_device, True)
 
     actual = output_device.copy_to_host()
 
