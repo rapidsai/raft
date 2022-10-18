@@ -23,18 +23,27 @@
 namespace raft {
 namespace linalg {
 
-template <typename T, typename IdxType = int>
+template <typename IdxType = int>
 struct MatVecOpInputs {
-  T tolerance;
   IdxType rows, cols;
   bool rowMajor, bcastAlongRows;
   unsigned long long int seed;
 };
 
-template <typename T, typename IdxType>
-::std::ostream& operator<<(::std::ostream& os, const MatVecOpInputs<T, IdxType>& dims)
+template <typename IdxType>
+::std::ostream& operator<<(::std::ostream& os, const MatVecOpInputs<IdxType>& dims)
 {
   return os;
+}
+
+template <typename T, typename LenT>
+inline void gen_uniform(const raft::handle_t& handle, raft::random::RngState& rng, T* ptr, LenT len)
+{
+  if constexpr (std::is_integral_v<T>) {
+    raft::random::uniformInt(handle, rng, ptr, len, (T)0, (T)100);
+  } else {
+    raft::random::uniform(handle, rng, ptr, len, (T)-10.0, (T)10.0);
+  }
 }
 
 // Or else, we get the following compilation error
@@ -88,10 +97,10 @@ template <typename OpT,
           typename MatT  = OutT,
           typename Vec1T = MatT,
           typename Vec2T = Vec1T>
-class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<OutT, IdxType>> {
+class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
  public:
   MatVecOpTest()
-    : params(::testing::TestWithParam<MatVecOpInputs<OutT, IdxType>>::GetParam()),
+    : params(::testing::TestWithParam<MatVecOpInputs<IdxType>>::GetParam()),
       stream(handle.get_stream()),
       in(params.rows * params.cols, stream),
       out_ref(params.rows * params.cols, stream),
@@ -108,9 +117,9 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<OutT, IdxTyp
     IdxType N = params.rows, D = params.cols;
     IdxType len    = N * D;
     IdxType vecLen = params.bcastAlongRows ? D : N;
-    uniform(handle, r, in.data(), len, (MatT)-1.0, (MatT)1.0);
-    uniform(handle, r, vec1.data(), vecLen, (Vec1T)-1.0, (Vec1T)1.0);
-    uniform(handle, r, vec2.data(), vecLen, (Vec2T)-1.0, (Vec2T)1.0);
+    gen_uniform<MatT>(handle, r, in.data(), len);
+    gen_uniform<Vec1T>(handle, r, vec1.data(), vecLen);
+    gen_uniform<Vec2T>(handle, r, vec2.data(), vecLen);
     if constexpr (OpT::useTwoVectors) {
       naiveMatVec(out_ref.data(),
                   in.data(),
@@ -149,56 +158,49 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<OutT, IdxTyp
   raft::handle_t handle;
   cudaStream_t stream;
 
-  MatVecOpInputs<OutT, IdxType> params;
+  MatVecOpInputs<IdxType> params;
   rmm::device_uvector<MatT> in;
   rmm::device_uvector<OutT> out;
-  rmm::device_uvector<MatT> out_ref;
+  rmm::device_uvector<OutT> out_ref;
   rmm::device_uvector<Vec1T> vec1;
   rmm::device_uvector<Vec2T> vec2;
 };
 
-#define MVTEST(TestClass, inputs)                                     \
-  TEST_P(TestClass, Result)                                           \
-  {                                                                   \
-    ASSERT_TRUE(devArrMatch(out_ref.data(),                           \
-                            out.data(),                               \
-                            params.rows* params.cols,                 \
-                            CompareApprox<float>(params.tolerance))); \
-  }                                                                   \
+#define MVTEST(TestClass, inputs, tolerance)                                                   \
+  TEST_P(TestClass, Result)                                                                    \
+  {                                                                                            \
+    ASSERT_TRUE(devArrMatch(                                                                   \
+      out_ref.data(), out.data(), params.rows* params.cols, CompareApprox<float>(tolerance))); \
+  }                                                                                            \
   INSTANTIATE_TEST_SUITE_P(MatVecOpTests, TestClass, ::testing::ValuesIn(inputs))
 
-const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {
-  {0.00001f, 1024, 32, true, true, 1234ULL},
-  {0.00001f, 1024, 64, true, true, 1234ULL},
-  {0.00001f, 1024, 32, true, false, 1234ULL},
-  {0.00001f, 1024, 64, true, false, 1234ULL},
-  {0.00001f, 1024, 32, false, true, 1234ULL},
-  {0.00001f, 1024, 64, false, true, 1234ULL},
-  {0.00001f, 1024, 32, false, false, 1234ULL},
-  {0.00001f, 1024, 64, false, false, 1234ULL}};
-const std::vector<MatVecOpInputs<float, size_t>> inputsf_i64 = {
-  {0.00001f, 2500, 250, false, false, 1234ULL}, {0.00001f, 2500, 250, false, false, 1234ULL}};
-const std::vector<MatVecOpInputs<double, int>> inputsd_i32 = {
-  {0.0000001, 1024, 32, true, true, 1234ULL},
-  {0.0000001, 1024, 64, true, true, 1234ULL},
-  {0.0000001, 1024, 32, true, false, 1234ULL},
-  {0.0000001, 1024, 64, true, false, 1234ULL},
-  {0.0000001, 1024, 32, false, true, 1234ULL},
-  {0.0000001, 1024, 64, false, true, 1234ULL},
-  {0.0000001, 1024, 32, false, false, 1234ULL},
-  {0.0000001, 1024, 64, false, false, 1234ULL}};
-const std::vector<MatVecOpInputs<double, size_t>> inputsd_i64 = {
-  {0.0000001, 2500, 250, false, false, 1234ULL}, {0.0000001, 2500, 250, false, false, 1234ULL}};
+#define MV_EPS_F 0.00001f
+#define MV_EPS_D 0.0000001
+
+/*
+ * This set of tests covers cases where all the types are the same.
+ */
+
+const std::vector<MatVecOpInputs<int>> inputs_i32    = {{1024, 32, true, true, 1234ULL},
+                                                     {1024, 64, true, true, 1234ULL},
+                                                     {1024, 32, true, false, 1234ULL},
+                                                     {1024, 64, true, false, 1234ULL},
+                                                     {1024, 32, false, true, 1234ULL},
+                                                     {1024, 64, false, true, 1234ULL},
+                                                     {1024, 32, false, false, 1234ULL},
+                                                     {1024, 64, false, false, 1234ULL}};
+const std::vector<MatVecOpInputs<size_t>> inputs_i64 = {{2500, 250, false, false, 1234ULL},
+                                                        {2500, 250, false, false, 1234ULL}};
 
 template <typename T>
 struct Add1Vec {
   static constexpr bool useTwoVectors = false;
-  HDI float operator()(T a, T b) const { return a + b; };
+  HDI T operator()(T a, T b) const { return a + b; };
 };
 template <typename T>
 struct Add2Vec {
   static constexpr bool useTwoVectors = true;
-  HDI float operator()(T a, T b, T c) const { return a + b + c; };
+  HDI T operator()(T a, T b, T c) const { return a + b + c; };
 };
 
 typedef MatVecOpTest<Add1Vec<float>, float, int> MatVecOpTestF_i32_add1vec;
@@ -210,14 +212,46 @@ typedef MatVecOpTest<Add2Vec<double>, double, int> MatVecOpTestD_i32_add2vec;
 typedef MatVecOpTest<Add1Vec<double>, double, size_t> MatVecOpTestD_i64_add1vec;
 typedef MatVecOpTest<Add2Vec<double>, double, size_t> MatVecOpTestD_i64_add2vec;
 
-MVTEST(MatVecOpTestF_i32_add1vec, inputsf_i32);
-MVTEST(MatVecOpTestF_i32_add2vec, inputsf_i32);
-MVTEST(MatVecOpTestF_i64_add1vec, inputsf_i64);
-MVTEST(MatVecOpTestF_i64_add2vec, inputsf_i64);
-MVTEST(MatVecOpTestD_i32_add1vec, inputsd_i32);
-MVTEST(MatVecOpTestD_i32_add2vec, inputsd_i32);
-MVTEST(MatVecOpTestD_i64_add1vec, inputsd_i64);
-MVTEST(MatVecOpTestD_i64_add2vec, inputsd_i64);
+MVTEST(MatVecOpTestF_i32_add1vec, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_add2vec, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i64_add1vec, inputs_i64, MV_EPS_F);
+MVTEST(MatVecOpTestF_i64_add2vec, inputs_i64, MV_EPS_F);
+MVTEST(MatVecOpTestD_i32_add1vec, inputs_i32, MV_EPS_D);
+MVTEST(MatVecOpTestD_i32_add2vec, inputs_i32, MV_EPS_D);
+MVTEST(MatVecOpTestD_i64_add1vec, inputs_i64, MV_EPS_D);
+MVTEST(MatVecOpTestD_i64_add2vec, inputs_i64, MV_EPS_D);
+
+/*
+ * This set of tests covers cases with different types.
+ */
+
+template <typename OutT, typename MatT, typename Vec1T, typename Vec2T>
+struct DivAndAdd {
+  static constexpr bool useTwoVectors = true;
+  HDI OutT operator()(MatT a, Vec1T b, Vec2T c) const { return a / b + c; };
+};
+
+typedef MatVecOpTest<DivAndAdd<float, float, int32_t, float>, float, int, float, int32_t, float>
+  MatVecOpTestF_i32_DivAndAdd_f_i32_f;
+// typedef MatVecOpTest<DivAndAdd<float, double, int32_t, float>, float, int, double, int32_t,
+// float>
+//   MatVecOpTestF_i32_DivAndAdd_d_i32_f;
+// typedef MatVecOpTest<DivAndAdd<double, float, int32_t, float>, double, int, float, int32_t,
+// float>
+//   MatVecOpTestD_i32_DivAndAdd_f_i32_f;
+typedef MatVecOpTest<DivAndAdd<float, float, int32_t, double>, float, int, float, int32_t, double>
+  MatVecOpTestF_i32_DivAndAdd_f_i32_d;
+typedef MatVecOpTest<DivAndAdd<float, float, int64_t, float>, float, int, float, int64_t, float>
+  MatVecOpTestF_i32_DivAndAdd_f_i64_f;
+typedef MatVecOpTest<DivAndAdd<double, double, int32_t, float>, double, int, double, int32_t, float>
+  MatVecOpTestD_i32_DivAndAdd_d_i32_f;
+
+MVTEST(MatVecOpTestF_i32_DivAndAdd_f_i32_f, inputs_i32, MV_EPS_F);
+// MVTEST(MatVecOpTestF_i32_DivAndAdd_d_i32_f, inputs_i32, MV_EPS_F);
+// MVTEST(MatVecOpTestD_i32_DivAndAdd_f_i32_f, inputs_i32, (double)MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_DivAndAdd_f_i32_d, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_DivAndAdd_f_i64_f, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestD_i32_DivAndAdd_d_i32_f, inputs_i32, (double)MV_EPS_F);
 
 }  // end namespace linalg
 }  // end namespace raft

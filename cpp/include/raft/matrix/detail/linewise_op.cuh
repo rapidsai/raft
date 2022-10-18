@@ -325,7 +325,6 @@ __global__ void __launch_bounds__(BlockSize)
                                   Lambda op,
                                   const Vecs*... vecs)
 {
-  // todo(lsugy): use appropriate Linewise type per vec
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
   constexpr uint workSize         = L::VecElems * BlockSize;
   constexpr size_t maxVecItemSize = maxSizeOf<Vecs...>();
@@ -339,7 +338,8 @@ __global__ void __launch_bounds__(BlockSize)
                        L::AlignElems::div(len),
                        op,
                        (workOffset ^= workSize * maxVecItemSize,
-                        L::loadVec((Vecs*)(shm + workOffset), vecs, blockOffset, rowLen))...);
+                        Linewise<Vecs, IdxType, VecBytes, BlockSize>::loadVec(
+                          (Vecs*)(shm + workOffset), vecs, blockOffset, rowLen))...);
 }
 
 /**
@@ -375,7 +375,6 @@ __global__ void __launch_bounds__(MaxOffset, 2)
   constexpr size_t maxVecItemSize = maxSizeOf<Vecs...>();
   uint workOffset                 = workSize * maxVecItemSize;
   __shared__ char shm[workSize * maxVecItemSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
-  // todo(lsugy): use appropriate Linewise type per vec
   typedef Linewise<Type, IdxType, sizeof(Type), MaxOffset> L;
   if (blockIdx.x == 0) {
     // first block: offset = 0, length = arrOffset
@@ -384,7 +383,7 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                   arrOffset,
                   op,
                   (workOffset ^= workSize * maxVecItemSize,
-                   L::loadVec((Vecs*)(shm + workOffset), vecs, 0, rowLen))...);
+                   Linewise<Vecs, IdxType, sizeof(Vecs), MaxOffset>::loadVec((Vecs*)(shm + workOffset), vecs, 0, rowLen))...);
   } else {
     // second block: offset = arrTail, length = len - arrTail
     // NB: I substract MaxOffset (= blockDim.x) to get the correct indexing for block 1
@@ -393,7 +392,7 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                   len - arrTail + MaxOffset,
                   op,
                   (workOffset ^= workSize * maxVecItemSize,
-                   L::loadVec((Vecs*)(shm + workOffset), vecs, arrTail % rowLen, rowLen))...);
+                   Linewise<Vecs, IdxType, sizeof(Vecs), MaxOffset>::loadVec((Vecs*)(shm + workOffset), vecs, arrTail % rowLen, rowLen))...);
   }
 }
 
@@ -549,7 +548,7 @@ struct MatrixLinewiseOp {
                   cudaStream_t stream,
                   const Vecs*... vecs)
   {
-    // todo(lsugy): add test with different vector types
+    // todo(lsugy): vectors alignment? Where is it checked/enforced?
     if constexpr (VecBytes > sizeof(Type)) {
       if (!raft::Pow2<VecBytes>::areSameAlignOffsets(in, out))
         return MatrixLinewiseOp<std::max((VecBytes >> 1), sizeof(Type)), BlockSize>::run(

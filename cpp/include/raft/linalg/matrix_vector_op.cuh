@@ -68,6 +68,7 @@ void matrixVectorOp(OutT* out,
                     Lambda op,
                     cudaStream_t stream)
 {
+  // todo(lsugy): at the moment only OutT == MatT supported!
   detail::matrixVectorOp(out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
 }
 
@@ -117,6 +118,7 @@ void matrixVectorOp(OutT* out,
                     Lambda op,
                     cudaStream_t stream)
 {
+  // todo(lsugy): at the moment only OutT == MatT supported!
   detail::matrixVectorOp(out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
 }
 
