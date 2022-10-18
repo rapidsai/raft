@@ -65,7 +65,7 @@ void matrixVectorOpLaunch(const raft::handle_t& handle,
   auto apply     = bcastAlongRows ? Apply::ALONG_ROWS : Apply::ALONG_COLUMNS;
   auto len       = bcastAlongRows ? D : N;
   auto vec1_view = raft::make_device_vector_view<const Vec1T, IdxType>(vec1, len);
-  
+
   if constexpr (OpT::useTwoVectors) {
     auto vec2_view = raft::make_device_vector_view<const Vec2T, IdxType>(vec2, len);
     if (rowMajor) {
@@ -120,7 +120,7 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<OutT, IdxTyp
                   N,
                   params.rowMajor,
                   params.bcastAlongRows,
-                  (OutT)1.0,
+                  OpT{},
                   stream);
     } else {
       naiveMatVec(out_ref.data(),
@@ -130,7 +130,7 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<OutT, IdxTyp
                   N,
                   params.rowMajor,
                   params.bcastAlongRows,
-                  (OutT)1.0,
+                  OpT{},
                   stream);
     }
     matrixVectorOpLaunch<OpT>(handle,
