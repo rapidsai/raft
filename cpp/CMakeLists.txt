@@ -248,11 +248,21 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/detail/chebyshev.cu
     src/distance/specializations/detail/correlation.cu
     src/distance/specializations/detail/cosine.cu
+    src/distance/specializations/detail/cosine.cu
     src/distance/specializations/detail/hamming_unexpanded.cu
     src/distance/specializations/detail/hellinger_expanded.cu
     src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
     src/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
     src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
+    src/distance/specializations/detail/kernels/gram_matrix_base_double.cu
+    src/distance/specializations/detail/kernels/gram_matrix_base_float.cu
+    src/distance/specializations/detail/kernels/polynomial_kernel_double_int.cu
+    src/distance/specializations/detail/kernels/polynomial_kernel_float_int.cu
+# These are somehow missing a kernel definition which is causing a compile error.
+#    src/distance/specializations/detail/kernels/rbf_kernel_double.cu
+#    src/distance/specializations/detail/kernels/rbf_kernel_float.cu
+    src/distance/specializations/detail/kernels/tanh_kernel_double.cu
+    src/distance/specializations/detail/kernels/tanh_kernel_float.cu
     src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
     src/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
     src/distance/specializations/detail/kl_divergence_double_double_double_int.cu

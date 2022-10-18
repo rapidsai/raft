@@ -23,6 +23,7 @@
 #include <raft/distance/specializations/detail/hamming_unexpanded.cuh>
 #include <raft/distance/specializations/detail/hellinger_expanded.cuh>
 #include <raft/distance/specializations/detail/jensen_shannon.cuh>
+#include <raft/distance/specializations/detail/kernels.cuh>
 #include <raft/distance/specializations/detail/kl_divergence.cuh>
 #include <raft/distance/specializations/detail/l1.cuh>
 #include <raft/distance/specializations/detail/l2_expanded.cuh>
