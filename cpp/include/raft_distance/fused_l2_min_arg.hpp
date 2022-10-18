@@ -18,13 +18,13 @@
 #include <raft/distance/distance_types.hpp>
 
 namespace raft::distance::runtime {
+
 /**
  * @brief Wrapper around fusedL2NN with minimum reduction operators.
  *
  * fusedL2NN cannot be compiled in the distance library due to the lambda
  * operators, so this wrapper covers the most common case (minimum).
- * This should be preferred to the more generic API when possible, in order to
- * reduce compilation times for users of the shared library.
+ *
  * @param[in] handle         raft handle
  * @param[out] min           will contain the reduced output (Length = `m`)
  *                           (on device)
@@ -35,6 +35,7 @@ namespace raft::distance::runtime {
  * @param[in]  m             gemm m
  * @param[in]  n             gemm n
  * @param[in]  k             gemm k
+ * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
  */
 void fused_l2_nn_min_arg(raft::handle_t const& handle,
                          int* min,

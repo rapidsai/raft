@@ -71,26 +71,6 @@ void compute_fused_l2_nn_min_arg(raft::handle_t const& handle,
   handle.sync_stream();
 }
 
-/**
- * @brief Wrapper around fusedL2NN with minimum reduction operators.
- *
- * fusedL2NN cannot be compiled in the distance library due to the lambda
- * operators, so this wrapper covers the most common case (minimum).
- * This should be preferred to the more generic API when possible, in order to
- * reduce compilation times for users of the shared library.
- * @param[in] handle         raft handle
- * @param[out] min           will contain the reduced output (Length = `m`)
- *                           (on device)
- * @param[in]  x             first matrix. Row major. Dim = `m x k`.
- *                           (on device).
- * @param[in]  y             second matrix. Row major. Dim = `n x k`.
- *                           (on device).
- * @param[in]  xn            L2 squared norm of `x`. Length = `m`. (on device).
- * @param[in]  yn            L2 squared norm of `y`. Length = `n`. (on device)
- * @param[in]  m             gemm m
- * @param[in]  n             gemm n
- * @param[in]  k             gemm k
- */
 void fused_l2_nn_min_arg(raft::handle_t const& handle,
                          int* min,
                          const float* x,
