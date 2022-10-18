@@ -284,6 +284,15 @@ __global__ void __launch_bounds__(MaxOffset, 2)
     vecs...);
 }
 
+/** Helper function to get the largest type from a variadic list of types */
+template <typename... Types>
+constexpr size_t maxSizeOf()
+{
+  size_t maxSize = 0;
+  ((maxSize = std::max(maxSize, sizeof(Types))), ...);
+  return maxSize;
+}
+
 /**
  * This kernel prepares the inputs for the `vectorRows` function where the most of the
  * work happens; see `vectorRows` for details.
@@ -316,10 +325,12 @@ __global__ void __launch_bounds__(BlockSize)
                                   const Vecs*... vecs)
 {
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
-  constexpr uint workSize = L::VecElems * BlockSize;
-  uint workOffset         = workSize;
-  __shared__ __align__(sizeof(Type) * L::VecElems)
-    Type shm[workSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
+  constexpr uint workSize         = L::VecElems * BlockSize;
+  constexpr size_t maxVecItemSize = maxSizeOf<Vecs...>();
+  uint workOffset                 = workSize * maxVecItemSize;
+  __shared__ __align__(
+    maxVecItemSize *
+    L::VecElems) char shm[workSize * maxVecItemSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
   const IdxType blockOffset = (arrOffset + BlockSize * L::VecElems * blockIdx.x) % rowLen;
   return L::vectorRows(
     reinterpret_cast<typename L::Vec::io_t*>(out),
@@ -358,9 +369,10 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                                   const Vecs*... vecs)
 {
   // Note, L::VecElems == 1
-  constexpr uint workSize = MaxOffset;
-  uint workOffset         = workSize;
-  __shared__ Type shm[workSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
+  constexpr uint workSize         = MaxOffset;
+  constexpr size_t maxVecItemSize = maxSizeOf<Vecs...>();
+  uint workOffset         = workSize * maxVecItemSize;
+  __shared__ char shm[workSize * maxVecItemSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
   typedef Linewise<Type, IdxType, sizeof(Type), MaxOffset> L;
   if (blockIdx.x == 0) {
     // first block: offset = 0, length = arrOffset
