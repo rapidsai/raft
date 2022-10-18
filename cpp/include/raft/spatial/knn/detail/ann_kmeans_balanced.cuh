@@ -293,7 +293,7 @@ void calc_centers_and_sizes(const handle_t& handle,
 
   // Compute weight of each cluster
   raft::cluster::detail::countLabels(
-    handle, labels, temp_sizes, (uint32_t)n_rows, (uint32_t)n_clusters, workspace);
+    handle, labels, temp_sizes, (int64_t)n_rows, (int64_t)n_clusters, workspace);
 
   // Add previous sizes if necessary and cast to float
   // todo(lsugy): replace with add wrapped in if
