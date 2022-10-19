@@ -875,7 +875,7 @@ __launch_bounds__(1024, 1) __global__
         reinterpret_cast<const OpT*>(pq_cluster_data + pq_line_width * i),
         lut_scores,
         i < n_samples);
-      if (fscore < float(score)) { score = OutT(fscore); }
+      if (i < n_samples && fscore < float(score)) { score = OutT(fscore); }
       if constexpr (kManageLocalTopK) {
         block_topk.add(score, cluster_offset + i);
       } else {
