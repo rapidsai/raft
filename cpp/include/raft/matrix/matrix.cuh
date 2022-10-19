@@ -127,7 +127,7 @@ void truncZeroOrigin(
 template <typename m_t, typename idx_t = int>
 void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
-  detail::colReverse(inout, n_rows, n_cols, stream);
+  detail::col_major_col_reverse(inout, n_rows, n_cols, stream);
 }
 
 /**
@@ -141,7 +141,7 @@ void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 template <typename m_t, typename idx_t = int>
 void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
-  detail::rowReverse(inout, n_rows, n_cols, stream);
+  detail::col_major_row_reverse(inout, n_rows, n_cols, stream);
 }
 
 /**

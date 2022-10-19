@@ -84,7 +84,7 @@ void truncZeroOrigin(
 }
 
 template <typename m_t, typename idx_t = int>
-void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+void col_major_col_reverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   auto n            = n_cols;
   auto m            = n_rows;
@@ -106,7 +106,7 @@ void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 }
 
 template <typename m_t, typename idx_t = int>
-void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+void col_major_row_reverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   auto m            = n_rows;
   idx_t size        = n_rows * n_cols;
@@ -116,15 +116,14 @@ void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 
   thrust::for_each(
     rmm::exec_policy(stream), counting, counting + (size / 2), [=] __device__(idx_t idx) {
-      idx_t dest_row = idx % m;
-      idx_t dest_col = idx / m;
+      idx_t dest_row = idx % (m / 2);
+      idx_t dest_col = idx / (m / 2);
       idx_t src_row  = (m - dest_row) - 1;
-      ;
-      idx_t src_col = dest_col;
+      idx_t src_col  = dest_col;
 
-      m_t temp                   = (m_t)d_q_reversed[idx];
-      d_q_reversed[idx]          = d_q[src_col * m + src_row];
-      d_q[src_col * m + src_row] = temp;
+      m_t temp                              = (m_t)d_q_reversed[dest_col * m + dest_row];
+      d_q_reversed[dest_col * m + dest_row] = d_q[src_col * m + src_row];
+      d_q[src_col * m + src_row]            = temp;
     });
 }
 
