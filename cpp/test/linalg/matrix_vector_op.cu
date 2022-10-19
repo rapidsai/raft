@@ -226,32 +226,24 @@ MVTEST(MatVecOpTestD_i64_add2vec, inputs_i64, MV_EPS_D);
  */
 
 template <typename OutT, typename MatT, typename Vec1T, typename Vec2T>
-struct DivAndAdd {
+struct MulAndAdd {
   static constexpr bool useTwoVectors = true;
-  HDI OutT operator()(MatT a, Vec1T b, Vec2T c) const { return a / b + c; };
+  HDI OutT operator()(MatT a, Vec1T b, Vec2T c) const { return a * b + c; };
 };
 
-typedef MatVecOpTest<DivAndAdd<float, float, int32_t, float>, float, int, float, int32_t, float>
-  MatVecOpTestF_i32_DivAndAdd_f_i32_f;
-// typedef MatVecOpTest<DivAndAdd<float, double, int32_t, float>, float, int, double, int32_t,
-// float>
-//   MatVecOpTestF_i32_DivAndAdd_d_i32_f;
-// typedef MatVecOpTest<DivAndAdd<double, float, int32_t, float>, double, int, float, int32_t,
-// float>
-//   MatVecOpTestD_i32_DivAndAdd_f_i32_f;
-typedef MatVecOpTest<DivAndAdd<float, float, int32_t, double>, float, int, float, int32_t, double>
-  MatVecOpTestF_i32_DivAndAdd_f_i32_d;
-typedef MatVecOpTest<DivAndAdd<float, float, int64_t, float>, float, int, float, int64_t, float>
-  MatVecOpTestF_i32_DivAndAdd_f_i64_f;
-typedef MatVecOpTest<DivAndAdd<double, double, int32_t, float>, double, int, double, int32_t, float>
-  MatVecOpTestD_i32_DivAndAdd_d_i32_f;
+typedef MatVecOpTest<MulAndAdd<float, float, int32_t, float>, float, int, float, int32_t, float>
+  MatVecOpTestF_i32_MulAndAdd_f_i32_f;
+typedef MatVecOpTest<MulAndAdd<float, float, int32_t, double>, float, int, float, int32_t, double>
+  MatVecOpTestF_i32_MulAndAdd_f_i32_d;
+typedef MatVecOpTest<MulAndAdd<float, float, int64_t, float>, float, int, float, int64_t, float>
+  MatVecOpTestF_i32_MulAndAdd_f_i64_f;
+typedef MatVecOpTest<MulAndAdd<double, double, int32_t, float>, double, int, double, int32_t, float>
+  MatVecOpTestD_i32_MulAndAdd_d_i32_f;
 
-MVTEST(MatVecOpTestF_i32_DivAndAdd_f_i32_f, inputs_i32, MV_EPS_F);
-// MVTEST(MatVecOpTestF_i32_DivAndAdd_d_i32_f, inputs_i32, MV_EPS_F);
-// MVTEST(MatVecOpTestD_i32_DivAndAdd_f_i32_f, inputs_i32, (double)MV_EPS_F);
-MVTEST(MatVecOpTestF_i32_DivAndAdd_f_i32_d, inputs_i32, MV_EPS_F);
-MVTEST(MatVecOpTestF_i32_DivAndAdd_f_i64_f, inputs_i32, MV_EPS_F);
-MVTEST(MatVecOpTestD_i32_DivAndAdd_d_i32_f, inputs_i32, (double)MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_MulAndAdd_f_i32_f, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_MulAndAdd_f_i32_d, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_MulAndAdd_f_i64_f, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestD_i32_MulAndAdd_d_i32_f, inputs_i32, (double)MV_EPS_F);
 
 }  // end namespace linalg
 }  // end namespace raft

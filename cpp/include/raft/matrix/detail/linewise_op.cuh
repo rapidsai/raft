@@ -26,6 +26,11 @@ namespace raft {
 namespace matrix {
 namespace detail {
 
+template <typename Type, int VecElems>
+struct VecArg {
+  Type val[VecElems];
+};
+
 template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize>
 struct Linewise {
   static constexpr IdxType VecElems = VecBytes / sizeof(Type);
@@ -79,6 +84,7 @@ struct Linewise {
                                                     const Vecs*... vecs) noexcept
   {
     constexpr IdxType warpPad = (AlignWarp::Value - 1) * VecElems;
+    // todo(lsugy): don't use Type!
     Type args[sizeof...(Vecs)];
     Vec v, w;
     bool update = true;
@@ -141,7 +147,7 @@ struct Linewise {
       *v.vectorized_data() = __ldcv(in + i);
 #pragma unroll VecElems
       for (int k = 0; k < VecElems; k++)
-        v.val.data[k] = op(v.val.data[k], args.val.data[k]...);
+        v.val.data[k] = op(v.val.data[k], args.val[k]...);
       __stwt(out + i, *v.vectorized_data());
     }
   }
@@ -158,14 +164,11 @@ struct Linewise {
    * @return a contiguous chunk of a vector, suitable for `vectorRows`.
    */
   template <typename VecT>
-  static __device__ __forceinline__ raft::TxN_t<VecT, VecElems> loadVec(
-    VecT* shm, const VecT* p, const IdxType blockOffset, const IdxType rowLen) noexcept
+  static __device__ __forceinline__ VecArg<VecT, VecElems> loadVec(VecT* shm,
+                                                                   const VecT* p,
+                                                                   const IdxType blockOffset,
+                                                                   const IdxType rowLen) noexcept
   {
-    // todo(lsugy): remove this check
-    static_assert(
-      sizeof(Type) == sizeof(VecT),
-      "linewiseOp currently requires that the size of the matrix and vector types be the same");
-
     IdxType j = blockOffset + threadIdx.x;
 #pragma unroll VecElems
     for (int k = threadIdx.x; k < VecElems * BlockSize; k += BlockSize, j += BlockSize) {
@@ -175,9 +178,10 @@ struct Linewise {
     }
     __syncthreads();
     {
-      raft::TxN_t<VecT, VecElems> out;
-      *out.vectorized_data() =
-        reinterpret_cast<typename raft::TxN_t<VecT, VecElems>::io_t*>(shm)[threadIdx.x];
+      VecArg<VecT, VecElems> out;
+#pragma unroll VecElems
+      for (int i = 0; i < VecElems; i++)
+        out.val[i] = shm[threadIdx.x * VecElems + i];
       return out;
     }
   }
@@ -338,8 +342,7 @@ __global__ void __launch_bounds__(BlockSize)
                        L::AlignElems::div(len),
                        op,
                        (workOffset ^= workSize * maxVecItemSize,
-                        Linewise<Vecs, IdxType, VecBytes, BlockSize>::loadVec(
-                          (Vecs*)(shm + workOffset), vecs, blockOffset, rowLen))...);
+                        L::loadVec((Vecs*)(shm + workOffset), vecs, blockOffset, rowLen))...);
 }
 
 /**
@@ -383,7 +386,7 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                   arrOffset,
                   op,
                   (workOffset ^= workSize * maxVecItemSize,
-                   Linewise<Vecs, IdxType, sizeof(Vecs), MaxOffset>::loadVec((Vecs*)(shm + workOffset), vecs, 0, rowLen))...);
+                   L::loadVec((Vecs*)(shm + workOffset), vecs, 0, rowLen))...);
   } else {
     // second block: offset = arrTail, length = len - arrTail
     // NB: I substract MaxOffset (= blockDim.x) to get the correct indexing for block 1
@@ -392,7 +395,7 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                   len - arrTail + MaxOffset,
                   op,
                   (workOffset ^= workSize * maxVecItemSize,
-                   Linewise<Vecs, IdxType, sizeof(Vecs), MaxOffset>::loadVec((Vecs*)(shm + workOffset), vecs, arrTail % rowLen, rowLen))...);
+                   L::loadVec((Vecs*)(shm + workOffset), vecs, arrTail % rowLen, rowLen))...);
   }
 }
 
@@ -503,6 +506,7 @@ void matrixLinewiseVecRows(Type* out,
     const uint expected_grid_size = rowLen / raft::gcd(block_work_size, uint(rowLen));
     // Minimum size of the grid to make the device well occupied
     const uint occupy = getOptimalGridSize<BlockSize>();
+    // todo(lsugy): alignedLen instead of totalLen?
     const dim3 gs(std::min(
                     // does not make sense to have more blocks than this
                     raft::ceildiv<uint>(uint(totalLen), block_work_size),
@@ -548,7 +552,6 @@ struct MatrixLinewiseOp {
                   cudaStream_t stream,
                   const Vecs*... vecs)
   {
-    // todo(lsugy): vectors alignment? Where is it checked/enforced?
     if constexpr (VecBytes > sizeof(Type)) {
       if (!raft::Pow2<VecBytes>::areSameAlignOffsets(in, out))
         return MatrixLinewiseOp<std::max((VecBytes >> 1), sizeof(Type)), BlockSize>::run(
