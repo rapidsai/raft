@@ -16,11 +16,11 @@
 
 #include "../ann_ivf_pq.cuh"
 
-namespace raft::spatial::knn {
+namespace raft::neighbors::ivf_pq {
 
 using f32_i08_u64 = ivf_pq_test<float, int8_t, uint64_t>;
 
 TEST_BUILD_SEARCH(f32_i08_u64)
 INSTANTIATE(f32_i08_u64, defaults() + big_dims() + var_k());
 
-}  // namespace raft::spatial::knn
+}  // namespace raft::neighbors::ivf_pq

@@ -1333,7 +1333,7 @@ template <typename IdxT>
 struct ivfpq_search {
  public:
   using fun_t = void (*)(const handle_t&,
-                         const ivf_pq::index<IdxT>&,
+                         const index<IdxT>&,
                          uint32_t,
                          uint32_t,
                          uint32_t,

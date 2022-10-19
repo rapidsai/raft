@@ -845,14 +845,14 @@ inline auto extend(const handle_t& handle,
   }
 
   // Assemble the extended index
-  ivf_pq::index<IdxT> ext_index(handle,
-                                orig_index.metric(),
-                                orig_index.codebook_kind(),
-                                n_clusters,
-                                orig_index.dim(),
-                                orig_index.pq_bits(),
-                                orig_index.pq_dim(),
-                                n_nonempty_lists);
+  index<IdxT> ext_index(handle,
+                        orig_index.metric(),
+                        orig_index.codebook_kind(),
+                        n_clusters,
+                        orig_index.dim(),
+                        orig_index.pq_bits(),
+                        orig_index.pq_dim(),
+                        n_nonempty_lists);
   ext_index.allocate(handle, orig_index.size() + n_rows);
 
   // Copy the unchanged parts
@@ -902,7 +902,7 @@ inline auto extend(const handle_t& handle,
            stream);
     } break;
     case codebook_gen::PER_CLUSTER: {
-      auto d = orig_index.pq_book_size() * orig_index.pq_len();
+      auto d = orig_index.pq_book_size() * Pow2<4>::roundUp(orig_index.pq_len());
       utils::copy_selected(n_clusters,
                            d,
                            orig_index.pq_centers().data_handle(),
@@ -981,7 +981,7 @@ inline auto build(
 
   auto stream = handle.get_stream();
 
-  ivf_pq::index<IdxT> index(handle, params, dim);
+  index<IdxT> index(handle, params, dim);
   utils::memzero(index.list_offsets().data_handle(), index.list_offsets().size(), stream);
 
   auto trainset_ratio = std::max<size_t>(

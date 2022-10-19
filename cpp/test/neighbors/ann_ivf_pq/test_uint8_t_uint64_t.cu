@@ -16,7 +16,7 @@
 
 #include "../ann_ivf_pq.cuh"
 
-namespace raft::spatial::knn {
+namespace raft::neighbors::ivf_pq {
 
 using f32_u08_u64 = ivf_pq_test<float, uint8_t, uint64_t>;
 
@@ -24,4 +24,4 @@ TEST_BUILD_SEARCH(f32_u08_u64)
 TEST_BUILD_EXTEND_SEARCH(f32_u08_u64)
 INSTANTIATE(f32_u08_u64, small_dims_per_cluster() + enum_variety());
 
-}  // namespace raft::spatial::knn
+}  // namespace raft::neighbors::ivf_pq

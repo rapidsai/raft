@@ -20,10 +20,10 @@
 
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ivf_pq.cuh>
 #include <raft/random/rng.cuh>
-#include <raft/spatial/knn/ivf_pq.cuh>
 #if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
 #else
 #pragma message("NN specializations are not enabled; expect very long building times.")
 #endif
@@ -42,15 +42,15 @@
 #include <iostream>
 #include <vector>
 
-namespace raft::spatial::knn {
+namespace raft::neighbors::ivf_pq {
 
 struct ivf_pq_inputs {
   uint32_t num_db_vecs = 4096;
   uint32_t num_queries = 1024;
   uint32_t dim         = 64;
   uint32_t k           = 32;
-  raft::spatial::knn::ivf_pq::index_params index_params;
-  raft::spatial::knn::ivf_pq::search_params search_params;
+  ivf_pq::index_params index_params;
+  ivf_pq::search_params search_params;
 
   // Set some default parameters for tests
   ivf_pq_inputs()
@@ -484,4 +484,4 @@ inline auto special_cases() -> test_cases_t
 #define INSTANTIATE(type, vals) \
   INSTANTIATE_TEST_SUITE_P(IvfPq, type, ::testing::ValuesIn(vals)); /* NOLINT */
 
-}  // namespace raft::spatial::knn
+}  // namespace raft::neighbors::ivf_pq
