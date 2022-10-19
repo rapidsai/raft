@@ -38,26 +38,27 @@ cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
         namespace "raft::distance::runtime":
 
     void fused_l2_nn_min_arg(
-            const handle_t &handle,
-            int* min,
-            const float* x,
-            const float* y,
-            int m,
-            int n,
-            int k,
-            bool sqrt);
+        const handle_t &handle,
+        int* min,
+        const float* x,
+        const float* y,
+        int m,
+        int n,
+        int k,
+        bool sqrt)
 
     void fused_l2_nn_min_arg(
-            const handle_t &handle,
-            int* min,
-            const double* x,
-            const double* y,
-            int m,
-            int n,
-            int k,
-            bool sqrt);
+        const handle_t &handle,
+        int* min,
+        const double* x,
+        const double* y,
+        int m,
+        int n,
+        int k,
+        bool sqrt)
 
-def fused_l2_nn_argmin(X, Y, output, sqrt = True):
+
+def fused_l2_nn_argmin(X, Y, output, sqrt=True):
     """
     Compute the 1-nearest neighbors between X and Y using the L2 distance
 
@@ -129,21 +130,21 @@ def fused_l2_nn_argmin(X, Y, output, sqrt = True):
 
     if x_dt == np.float32:
         fused_l2_nn_min_arg(deref(h),
-                    <int*> d_ptr,
-                    <float*> x_ptr,
-                    <float*> y_ptr,
-                    <int>m,
-                    <int>n,
-                    <int>x_k,
-                    <bool>sqrt)
+                            <int*> d_ptr,
+                            <float*> x_ptr,
+                            <float*> y_ptr,
+                            <int>m,
+                            <int>n,
+                            <int>x_k,
+                            <bool>sqrt)
     elif x_dt == np.float64:
         fused_l2_nn_min_arg(deref(h),
-                    <int*> d_ptr,
-                    <double*> x_ptr,
-                    <double*> y_ptr,
-                    <int>m,
-                    <int>n,
-                    <int>x_k,
-                    <bool>sqrt)
+                            <int*> d_ptr,
+                            <double*> x_ptr,
+                            <double*> y_ptr,
+                            <int>m,
+                            <int>n,
+                            <int>x_k,
+                            <bool>sqrt)
     else:
         raise ValueError("dtype %s not supported" % x_dt)
