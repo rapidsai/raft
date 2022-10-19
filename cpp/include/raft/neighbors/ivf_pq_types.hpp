@@ -289,18 +289,20 @@ struct index : ann::index {
     check_consistency();
   }
 
+  using pq_centers_extents =
+    std::experimental::extents<uint32_t, dynamic_extent, dynamic_extent, dynamic_extent, 4>;
   /**
    * PQ cluster centers
    *
-   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_len, pq_book_size]
-   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_len, pq_book_size]
+   *   - codebook_gen::PER_SUBSPACE: [pq_dim , ceildiv(pq_len, 4), pq_book_size, 4]
+   *   - codebook_gen::PER_CLUSTER:  [n_lists, ceildiv(pq_len, 4), pq_book_size, 4]
    */
-  inline auto pq_centers() noexcept -> device_mdspan<float, extent_3d<uint32_t>, row_major>
+  inline auto pq_centers() noexcept -> device_mdspan<float, pq_centers_extents, row_major>
   {
     return pq_centers_.view();
   }
   [[nodiscard]] inline auto pq_centers() const noexcept
-    -> device_mdspan<const float, extent_3d<uint32_t>, row_major>
+    -> device_mdspan<const float, pq_centers_extents, row_major>
   {
     return pq_centers_.view();
   }
@@ -383,7 +385,7 @@ struct index : ann::index {
   uint32_t pq_dim_;
   uint32_t n_nonempty_lists_;
 
-  device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers_;
+  device_mdarray<float, pq_centers_extents, row_major> pq_centers_;
   device_mdarray<uint8_t, extent_2d<IdxT>, row_major> pq_dataset_;
   device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> rotation_matrix_;
@@ -404,13 +406,14 @@ struct index : ann::index {
                  pq_bits() * pq_dim());
   }
 
-  auto make_pq_centers_extents() -> extent_3d<uint32_t>
+  auto make_pq_centers_extents() -> pq_centers_extents
   {
+    auto d = raft::div_rounding_up_unsafe(pq_len(), 4);
     switch (codebook_kind()) {
       case codebook_gen::PER_SUBSPACE:
-        return make_extents<uint32_t>(pq_dim(), pq_len(), pq_book_size());
+        return make_extents<uint32_t>(pq_dim(), d, pq_book_size(), 4);
       case codebook_gen::PER_CLUSTER:
-        return make_extents<uint32_t>(n_lists(), pq_len(), pq_book_size());
+        return make_extents<uint32_t>(n_lists(), d, pq_book_size(), 4);
       default: RAFT_FAIL("Unreachable code");
     }
   }
