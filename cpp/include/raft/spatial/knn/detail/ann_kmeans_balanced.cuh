@@ -273,19 +273,23 @@ void calc_centers_and_sizes(const handle_t& handle,
 
   // todo(lsugy): use iterator from KV output of fusedL2NN
   raft::linalg::reduce_rows_by_key(mapping_itr,
-                                   (int64_t)dim,
+                                   static_cast<int64_t>(dim),
                                    labels,
                                    nullptr,
-                                   (int64_t)n_rows,
-                                   (int64_t)dim,
-                                   (int64_t)n_clusters,
+                                   static_cast<int64_t>(n_rows),
+                                   static_cast<int64_t>(dim),
+                                   static_cast<int64_t>(n_clusters),
                                    centers,
                                    stream,
                                    reset_counters);
 
   // Compute weight of each cluster
-  raft::cluster::detail::countLabels(
-    handle, labels, temp_sizes, (int64_t)n_rows, (int64_t)n_clusters, workspace);
+  raft::cluster::detail::countLabels(handle,
+                                     labels,
+                                     temp_sizes,
+                                     static_cast<int64_t>(n_rows),
+                                     static_cast<int64_t>(n_clusters),
+                                     workspace);
 
   // Add previous sizes if necessary and cast to float
   auto counting = thrust::make_counting_iterator<int>(0);
@@ -303,8 +307,8 @@ void calc_centers_and_sizes(const handle_t& handle,
     centers,
     centers,
     sizes_f,
-    (int64_t)dim,
-    (int64_t)n_clusters,
+    static_cast<int64_t>(dim),
+    static_cast<int64_t>(n_clusters),
     true,
     false,
     [=] __device__(float mat, float vec) {
