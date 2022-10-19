@@ -21,13 +21,16 @@
 #include <thrust/gather.h>
 #include <thrust/transform.h>
 
+#include <raft/cluster/detail/kmeans_common.cuh>
 #include <raft/common/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
+#include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
@@ -207,14 +210,7 @@ constexpr inline auto calc_minibatch_size(uint32_t n_clusters,
  * multiple times with different datasets with the same effect as if calling this function once
  * on the combined dataset_.
  *
- * NB: `centers` and `cluster_sizes` must be accessible on GPU due to
- * divide_along_rows/normalize_rows. The rest can be both, under assumption that all pointers are
- * accessible from the same place.
- *
- * i.e. two variants are possible:
- *
- *   1. All pointers are on the device.
- *   2. All pointers are on the host, but `centers` and `cluster_sizes` are accessible from GPU.
+ * NB: all pointers must be accessible on the device.
  *
  * @tparam T      element type
  * @tparam IdxT   index type
@@ -231,9 +227,11 @@ constexpr inline auto calc_minibatch_size(uint32_t n_clusters,
  *    When set to `false`, this function may be used to update existing centers and sizes using
  *    the weighted average principle.
  * @param stream
+ * @param mr (optional) memory resource to use for temporary allocations on the device
  */
 template <typename T, typename IdxT, typename LabelT>
-void calc_centers_and_sizes(float* centers,
+void calc_centers_and_sizes(const handle_t& handle,
+                            float* centers,
                             uint32_t* cluster_sizes,
                             uint32_t n_clusters,
                             uint32_t dim,
@@ -241,12 +239,12 @@ void calc_centers_and_sizes(float* centers,
                             IdxT n_rows,
                             const LabelT* labels,
                             bool reset_counters,
-                            rmm::cuda_stream_view stream)
+                            rmm::cuda_stream_view stream,
+                            rmm::mr::device_memory_resource* mr = nullptr)
 {
-  if (reset_counters) {
-    utils::memzero(centers, n_clusters * dim, stream);
-    utils::memzero(cluster_sizes, n_clusters, stream);
-  } else {
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+
+  if (!reset_counters) {
     utils::map_along_rows(
       n_clusters,
       dim,
@@ -255,13 +253,70 @@ void calc_centers_and_sizes(float* centers,
       [] __device__(float c, uint32_t s) -> float { return c * s; },
       stream);
   }
-  utils::accumulate_into_selected(n_rows, dim, centers, cluster_sizes, dataset, labels, stream);
-  utils::map_along_rows(
-    n_clusters,
-    dim,
+
+  rmm::device_uvector<char> workspace(0, stream, mr);
+  rmm::device_uvector<float> cluster_sizes_f(n_clusters, stream, mr);
+  float* sizes_f = cluster_sizes_f.data();
+
+  // If we reset the counters, we can compute directly the new sizes in cluster_sizes.
+  // If we don't reset, we compute in a temporary buffer and add in a separate step.
+  rmm::device_uvector<uint32_t> temp_cluster_sizes(0, stream, mr);
+  uint32_t* temp_sizes = cluster_sizes;
+  if (!reset_counters) {
+    temp_cluster_sizes.resize(n_clusters, stream);
+    temp_sizes = temp_cluster_sizes.data();
+  }
+
+  utils::mapping<float> mapping_op;
+  cub::TransformInputIterator<float, utils::mapping<float>, const T*> mapping_itr(dataset,
+                                                                                  mapping_op);
+
+  // todo(lsugy): use iterator from KV output of fusedL2NN
+  raft::linalg::reduce_rows_by_key(mapping_itr,
+                                   static_cast<int64_t>(dim),
+                                   labels,
+                                   nullptr,
+                                   static_cast<int64_t>(n_rows),
+                                   static_cast<int64_t>(dim),
+                                   static_cast<int64_t>(n_clusters),
+                                   centers,
+                                   stream,
+                                   reset_counters);
+
+  // Compute weight of each cluster
+  raft::cluster::detail::countLabels(handle,
+                                     labels,
+                                     temp_sizes,
+                                     static_cast<int64_t>(n_rows),
+                                     static_cast<int64_t>(n_clusters),
+                                     workspace);
+
+  // Add previous sizes if necessary and cast to float
+  auto counting = thrust::make_counting_iterator<int>(0);
+  thrust::for_each(
+    handle.get_thrust_policy(), counting, counting + n_clusters, [=] __device__(int idx) {
+      uint32_t temp_size = temp_sizes[idx];
+      if (!reset_counters) {
+        temp_size += cluster_sizes[idx];
+        cluster_sizes[idx] = temp_size;
+      }
+      sizes_f[idx] = static_cast<float>(temp_size);
+    });
+
+  raft::linalg::matrixVectorOp(
     centers,
-    cluster_sizes,
-    [] __device__(float c, uint32_t s) -> float { return s == 0 ? 0.0f : c / float(s); },
+    centers,
+    sizes_f,
+    static_cast<int64_t>(dim),
+    static_cast<int64_t>(n_clusters),
+    true,
+    false,
+    [=] __device__(float mat, float vec) {
+      if (vec == 0.0f)
+        return 0.0f;
+      else
+        return mat / vec;
+    },
     stream);
 }
 
@@ -627,7 +682,8 @@ void balancing_em_iters(const handle_t& handle,
                              device_memory,
                              dataset_norm);
     // M: Maximization step - calculate optimal cluster centers
-    calc_centers_and_sizes(cluster_centers,
+    calc_centers_and_sizes(handle,
+                           cluster_centers,
                            cluster_sizes,
                            n_clusters,
                            dim,
@@ -635,7 +691,8 @@ void balancing_em_iters(const handle_t& handle,
                            n_rows,
                            cluster_labels,
                            true,
-                           stream);
+                           stream,
+                           device_memory);
   }
 }
 
@@ -666,8 +723,17 @@ void build_clusters(const handle_t& handle,
   linalg::writeOnlyUnaryOp<LabelT, decltype(f), IdxT>(cluster_labels, n_rows, f, stream);
 
   // update centers to match the initialized labels.
-  calc_centers_and_sizes(
-    cluster_centers, cluster_sizes, n_clusters, dim, dataset, n_rows, cluster_labels, true, stream);
+  calc_centers_and_sizes(handle,
+                         cluster_centers,
+                         cluster_sizes,
+                         n_clusters,
+                         dim,
+                         dataset,
+                         n_rows,
+                         cluster_labels,
+                         true,
+                         stream,
+                         device_memory);
 
   // run EM
   balancing_em_iters<T, IdxT, LabelT>(handle,
