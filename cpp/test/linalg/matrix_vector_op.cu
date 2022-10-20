@@ -49,14 +49,9 @@ inline void gen_uniform(const raft::handle_t& handle, raft::random::RngState& rn
 // Or else, we get the following compilation error
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
-template <typename OpT,
-          typename OutT,
-          typename IdxType,
-          typename MatT,
-          typename Vec1T,
-          typename Vec2T>
+template <typename OpT, typename MatT, typename IdxType, typename Vec1T, typename Vec2T>
 void matrixVectorOpLaunch(const raft::handle_t& handle,
-                          OutT* out,
+                          MatT* out,
                           const MatT* in,
                           const Vec1T* vec1,
                           const Vec2T* vec2,
@@ -65,10 +60,10 @@ void matrixVectorOpLaunch(const raft::handle_t& handle,
                           bool rowMajor,
                           bool bcastAlongRows)
 {
-  auto out_row_major = raft::make_device_matrix_view<OutT, IdxType, raft::row_major>(out, N, D);
+  auto out_row_major = raft::make_device_matrix_view<MatT, IdxType, raft::row_major>(out, N, D);
   auto in_row_major = raft::make_device_matrix_view<const MatT, IdxType, raft::row_major>(in, N, D);
 
-  auto out_col_major = raft::make_device_matrix_view<OutT, IdxType, raft::col_major>(out, N, D);
+  auto out_col_major = raft::make_device_matrix_view<MatT, IdxType, raft::col_major>(out, N, D);
   auto in_col_major = raft::make_device_matrix_view<const MatT, IdxType, raft::col_major>(in, N, D);
 
   auto apply     = bcastAlongRows ? Apply::ALONG_ROWS : Apply::ALONG_COLUMNS;
@@ -92,9 +87,8 @@ void matrixVectorOpLaunch(const raft::handle_t& handle,
 }
 
 template <typename OpT,
-          typename OutT,
+          typename MatT,
           typename IdxType,
-          typename MatT  = OutT,
           typename Vec1T = MatT,
           typename Vec2T = Vec1T>
 class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
@@ -160,8 +154,8 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
 
   MatVecOpInputs<IdxType> params;
   rmm::device_uvector<MatT> in;
-  rmm::device_uvector<OutT> out;
-  rmm::device_uvector<OutT> out_ref;
+  rmm::device_uvector<MatT> out;
+  rmm::device_uvector<MatT> out_ref;
   rmm::device_uvector<Vec1T> vec1;
   rmm::device_uvector<Vec2T> vec2;
 };
@@ -225,25 +219,25 @@ MVTEST(MatVecOpTestD_i64_add2vec, inputs_i64, MV_EPS_D);
  * This set of tests covers cases with different types.
  */
 
-template <typename OutT, typename MatT, typename Vec1T, typename Vec2T>
+template <typename MatT, typename Vec1T, typename Vec2T>
 struct MulAndAdd {
   static constexpr bool useTwoVectors = true;
-  HDI OutT operator()(MatT a, Vec1T b, Vec2T c) const { return a * b + c; };
+  HDI MatT operator()(MatT a, Vec1T b, Vec2T c) const { return a * b + c; };
 };
 
-typedef MatVecOpTest<MulAndAdd<float, float, int32_t, float>, float, int, float, int32_t, float>
-  MatVecOpTestF_i32_MulAndAdd_f_i32_f;
-typedef MatVecOpTest<MulAndAdd<float, float, int32_t, double>, float, int, float, int32_t, double>
-  MatVecOpTestF_i32_MulAndAdd_f_i32_d;
-typedef MatVecOpTest<MulAndAdd<float, float, int64_t, float>, float, int, float, int64_t, float>
-  MatVecOpTestF_i32_MulAndAdd_f_i64_f;
-typedef MatVecOpTest<MulAndAdd<double, double, int32_t, float>, double, int, double, int32_t, float>
-  MatVecOpTestD_i32_MulAndAdd_d_i32_f;
+typedef MatVecOpTest<MulAndAdd<float, int32_t, float>, float, int, int32_t, float>
+  MatVecOpTestF_i32_MulAndAdd_i32_f;
+typedef MatVecOpTest<MulAndAdd<float, int32_t, double>, float, int, int32_t, double>
+  MatVecOpTestF_i32_MulAndAdd_i32_d;
+typedef MatVecOpTest<MulAndAdd<float, int64_t, float>, float, int, int64_t, float>
+  MatVecOpTestF_i32_MulAndAdd_i64_f;
+typedef MatVecOpTest<MulAndAdd<double, int32_t, float>, double, int, int32_t, float>
+  MatVecOpTestD_i32_MulAndAdd_i32_f;
 
-MVTEST(MatVecOpTestF_i32_MulAndAdd_f_i32_f, inputs_i32, MV_EPS_F);
-MVTEST(MatVecOpTestF_i32_MulAndAdd_f_i32_d, inputs_i32, MV_EPS_F);
-MVTEST(MatVecOpTestF_i32_MulAndAdd_f_i64_f, inputs_i32, MV_EPS_F);
-MVTEST(MatVecOpTestD_i32_MulAndAdd_d_i32_f, inputs_i32, (double)MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_MulAndAdd_i32_f, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_MulAndAdd_i32_d, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_MulAndAdd_i64_f, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestD_i32_MulAndAdd_i32_f, inputs_i32, (double)MV_EPS_F);
 
 }  // end namespace linalg
 }  // end namespace raft
