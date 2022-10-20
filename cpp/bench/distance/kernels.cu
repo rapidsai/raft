@@ -43,13 +43,6 @@ struct GramMatrix : public fixture {
   GramMatrix(const GramTestParams& p)
     : params(p), handle(stream), A(0, stream), B(0, stream), C(0, stream)
   {
-    //    std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
-    //    std::ostringstream oss;
-    //    oss << name << "/" << kernel_names[p.kernel_params.kernel] << "/" << p.m << "x" << p.k <<
-    //    "x"
-    //        << p.n << "/" << (p.is_row_major ? "row_major" : "col_major");
-    //    this->SetName(oss.str().c_str());
-
     kernel = std::unique_ptr<GramMatrixBase<T>>(
       KernelFactory<T>::create(p.kernel_params, handle.get_cublas_handle()));
 

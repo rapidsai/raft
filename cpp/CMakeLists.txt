@@ -244,6 +244,7 @@ set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 if(RAFT_COMPILE_DIST_LIBRARY)
   add_library(raft_distance_lib
     src/distance/pairwise_distance.cu
+    src/distance/fused_l2_min_arg.cu
     src/distance/specializations/detail/canberra.cu
     src/distance/specializations/detail/chebyshev.cu
     src/distance/specializations/detail/correlation.cu
