@@ -210,14 +210,7 @@ constexpr inline auto calc_minibatch_size(uint32_t n_clusters,
  * multiple times with different datasets with the same effect as if calling this function once
  * on the combined dataset_.
  *
- * NB: `centers` and `cluster_sizes` must be accessible on GPU due to
- * divide_along_rows/normalize_rows. The rest can be both, under assumption that all pointers are
- * accessible from the same place.
- *
- * i.e. two variants are possible:
- *
- *   1. All pointers are on the device.
- *   2. All pointers are on the host, but `centers` and `cluster_sizes` are accessible from GPU.
+ * NB: all pointers must be accessible on the device.
  *
  * @tparam T      element type
  * @tparam IdxT   index type
@@ -234,7 +227,7 @@ constexpr inline auto calc_minibatch_size(uint32_t n_clusters,
  *    When set to `false`, this function may be used to update existing centers and sizes using
  *    the weighted average principle.
  * @param stream
- * @param mr (optional) memory resource to use for temporary allocations
+ * @param mr (optional) memory resource to use for temporary allocations on the device
  */
 template <typename T, typename IdxT, typename LabelT>
 void calc_centers_and_sizes(const handle_t& handle,
@@ -281,22 +274,26 @@ void calc_centers_and_sizes(const handle_t& handle,
 
   // todo(lsugy): use iterator from KV output of fusedL2NN
   raft::linalg::reduce_rows_by_key(mapping_itr,
-                                   (int64_t)dim,
+                                   static_cast<int64_t>(dim),
                                    labels,
                                    nullptr,
-                                   (int64_t)n_rows,
-                                   (int64_t)dim,
-                                   (int64_t)n_clusters,
+                                   static_cast<int64_t>(n_rows),
+                                   static_cast<int64_t>(dim),
+                                   static_cast<int64_t>(n_clusters),
                                    centers,
                                    stream,
                                    reset_counters);
 
   // Compute weight of each cluster
-  raft::cluster::detail::countLabels(
-    handle, labels, temp_sizes, (int64_t)n_rows, (int64_t)n_clusters, workspace);
+  raft::cluster::detail::countLabels(handle,
+                                     labels,
+                                     temp_sizes,
+                                     static_cast<int64_t>(n_rows),
+                                     static_cast<int64_t>(n_clusters),
+                                     workspace);
 
   // Add previous sizes if necessary and cast to float
-  // todo(lsugy): replace with add wrapped in if
+  // todo(lsugy): add wrapped in if
   auto counting = thrust::make_counting_iterator<int>(0);
   thrust::for_each(
     handle.get_thrust_policy(), counting, counting + n_clusters, [=] __device__(int idx) {
@@ -311,8 +308,8 @@ void calc_centers_and_sizes(const handle_t& handle,
     centers,
     centers,
     cluster_sizes,
-    (int64_t)dim,
-    (int64_t)n_clusters,
+    static_cast<int64_t>dim,
+    static_cast<int64_t>n_clusters,
     true,
     false,
     [=] __device__(float mat, uint32_t vec) {

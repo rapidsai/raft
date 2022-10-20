@@ -128,7 +128,7 @@ __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4)
       // we are not reusing the keys - after profiling
       // d_keys is mainly loaded from L2, and this kernel is DRAM BW bounded
       // (experimentation gave a 10% speed up - not worth the many code lines added)
-      IdxT row_key = (irow < nrows) ? d_keys[irow] : -1;
+      IdxT row_key = (irow < nrows) ? d_keys[irow] : std::numeric_limits<IdxT>::max();
 
       thread_sums.x += (row_key == 0) ? static_cast<SumsT>(val) : 0.0;
       thread_sums.y += (row_key == 1) ? static_cast<SumsT>(val) : 0.0;
