@@ -292,24 +292,17 @@ void calc_centers_and_sizes(const handle_t& handle,
                                      static_cast<int64_t>(n_clusters),
                                      workspace);
 
-  // Add previous sizes if necessary and cast to float
-  // todo(lsugy): add wrapped in if
-  auto counting = thrust::make_counting_iterator<int>(0);
-  thrust::for_each(
-    handle.get_thrust_policy(), counting, counting + n_clusters, [=] __device__(int idx) {
-      uint32_t temp_size = temp_sizes[idx];
-      if (!reset_counters) {
-        temp_size += cluster_sizes[idx];
-        cluster_sizes[idx] = temp_size;
-      }
-    });
+  // Add previous sizes if necessary
+  if (!reset_counters) {
+    raft::linalg::add(cluster_sizes, cluster_sizes, temp_sizes, n_clusters, stream);
+  }
 
   raft::linalg::matrixVectorOp(
     centers,
     centers,
     cluster_sizes,
-    static_cast<int64_t>dim,
-    static_cast<int64_t>n_clusters,
+    static_cast<int64_t>(dim),
+    static_cast<int64_t>(n_clusters),
     true,
     false,
     [=] __device__(float mat, uint32_t vec) {
