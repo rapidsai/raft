@@ -315,6 +315,7 @@ void pairwise_distance(const raft::handle_t& handle,
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::CosineExpanded>(
         x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
       break;
+#if 0
     case raft::distance::DistanceType::L1:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L1>(
         x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
@@ -364,6 +365,7 @@ void pairwise_distance(const raft::handle_t& handle,
         pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::CorrelationExpanded>(
           x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
       break;
+#endif
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };
 }

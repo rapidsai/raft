@@ -162,7 +162,8 @@ add_library(raft::raft ALIAS raft)
 
 target_include_directories(raft INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:include>")
+        "$<INSTALL_INTERFACE:include>"
+        "${CUTLASS_DIR}/include")
 
 # Keep RAFT as lightweight as possible.
 # Only CUDA libs and rmm should
@@ -225,21 +226,21 @@ set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 if(RAFT_COMPILE_DIST_LIBRARY)
   add_library(raft_distance_lib
     src/distance/pairwise_distance.cu
-    src/distance/specializations/detail/canberra.cu
-    src/distance/specializations/detail/chebyshev.cu
-    src/distance/specializations/detail/correlation.cu
-    src/distance/specializations/detail/cosine.cu
-    src/distance/specializations/detail/hamming_unexpanded.cu
-    src/distance/specializations/detail/hellinger_expanded.cu
-    src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
-    src/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
-    src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
-    src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
-    src/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
-    src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
-    src/distance/specializations/detail/l1_float_float_float_int.cu
-    src/distance/specializations/detail/l1_float_float_float_uint32.cu
-    src/distance/specializations/detail/l1_double_double_double_int.cu
+#    src/distance/specializations/detail/canberra.cu
+#    src/distance/specializations/detail/chebyshev.cu
+#    src/distance/specializations/detail/correlation.cu
+#    src/distance/specializations/detail/cosine.cu
+#    src/distance/specializations/detail/hamming_unexpanded.cu
+#    src/distance/specializations/detail/hellinger_expanded.cu
+#    src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
+#    src/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
+#    src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
+#    src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
+#    src/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
+#    src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
+#    src/distance/specializations/detail/l1_float_float_float_int.cu
+#    src/distance/specializations/detail/l1_float_float_float_uint32.cu
+#    src/distance/specializations/detail/l1_double_double_double_int.cu
     src/distance/specializations/detail/l2_expanded_float_float_float_int.cu
     src/distance/specializations/detail/l2_expanded_float_float_float_uint32.cu
     src/distance/specializations/detail/l2_expanded_double_double_double_int.cu
@@ -249,12 +250,12 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
     src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_uint32.cu
     src/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_unexpanded_float_float_float_uint32.cu
-    src/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
-    src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
+#    src/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
+#    src/distance/specializations/detail/l2_unexpanded_float_float_float_uint32.cu
+#    src/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
+#    src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
+#    src/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
+#    src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
   )
   set_target_properties(
     raft_distance_lib
@@ -305,16 +306,16 @@ set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 
 if(RAFT_COMPILE_NN_LIBRARY)
   add_library(raft_nn_lib
-          src/nn/specializations/ball_cover.cu
-          src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
-          src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
-          src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
-          src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
+#          src/nn/specializations/ball_cover.cu
+#          src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
+#          src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
+#          src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
+#          src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
           src/nn/specializations/fused_l2_knn_long_float_true.cu
           src/nn/specializations/fused_l2_knn_long_float_false.cu
           src/nn/specializations/fused_l2_knn_int_float_true.cu
           src/nn/specializations/fused_l2_knn_int_float_false.cu
-          src/nn/specializations/knn.cu
+#          src/nn/specializations/knn.cu
           )
   set_target_properties(
     raft_nn_lib
