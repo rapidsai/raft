@@ -22,11 +22,7 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
-template <typename MatT,
-          typename Lambda,
-          typename VecT,
-          typename IdxType = int,
-          int TPB          = 256>
+template <typename MatT, typename Lambda, typename VecT, typename IdxType = int, int TPB = 256>
 void matrixVectorOp(MatT* out,
                     const MatT* matrix,
                     const VecT* vec,
