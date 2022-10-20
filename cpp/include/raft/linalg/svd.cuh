@@ -277,23 +277,27 @@ void svd_qr_transpose_right_vec(
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> right_sing_vecs =
     std::nullopt)
 {
+  ValueType* left_sing_vecs_ptr = nullptr;
+  ValueType* right_sing_vecs_ptr = nullptr;
   if (left_sing_vecs) {
     RAFT_EXPECTS(in.extent(0) == left_sing_vecs.value().extent(0) &&
                    in.extent(1) == left_sing_vecs.value().extent(1),
                  "U should have dimensions m * n");
+    left_sing_vecs_ptr = left_sing_vecs.value().data_handle();
   }
   if (right_sing_vecs) {
     RAFT_EXPECTS(in.extent(1) == right_sing_vecs.value().extent(0) &&
                    in.extent(1) == right_sing_vecs.value().extent(1),
                  "V should have dimensions n * n");
+    right_sing_vecs_ptr = right_sing_vecs.value().data_handle();
   }
   svdQR(handle,
         const_cast<ValueType*>(in.data_handle()),
         in.extent(0),
         in.extent(1),
         sing_vals.data_handle(),
-        left_sing_vecs.value().data_handle(),
-        right_sing_vecs.value().data_handle(),
+        left_sing_vecs_ptr,
+        right_sing_vecs_ptr,
         true,
         left_sing_vecs.has_value(),
         right_sing_vecs.has_value(),
@@ -342,19 +346,21 @@ void svd_eig(
   raft::device_matrix_view<ValueType, IndexType, raft::col_major> V,
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U = std::nullopt)
 {
+  ValueType* left_sing_vecs_ptr = nullptr;
   if (U) {
     RAFT_EXPECTS(in.extent(0) == U.value().extent(0) && in.extent(1) == U.value().extent(1),
                  "U should have dimensions m * n");
+    left_sing_vecs_ptr = U.value().data_handle();
   }
-  RAFT_EXPECTS(in.extent(0) == V.extent(0) && in.extent(1) == V.extent(1),
+  RAFT_EXPECTS(in.extent(1) == V.extent(0) && in.extent(1) == V.extent(1),
                "V should have dimensions n * n");
   svdEig(handle,
          const_cast<ValueType*>(in.data_handle()),
          in.extent(0),
          in.extent(1),
          S.data_handle(),
-         U.value().data_handle(),
-         V.value().data_handle(),
+         left_sing_vecs_ptr,
+         V.data_handle(),
          U.has_value(),
          handle.get_stream());
 }
