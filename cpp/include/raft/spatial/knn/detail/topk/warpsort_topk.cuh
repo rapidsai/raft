@@ -276,14 +276,19 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
   using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
   using warp_sort<Capacity, Ascending, T, IdxT>::k;
 
-  __device__ warp_sort_filtered(int k)
-    : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0), k_th_(kDummy)
+  __device__ warp_sort_filtered(int k, T limit)
+    : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0), k_th_(limit)
   {
 #pragma unroll
     for (int i = 0; i < kMaxBufLen; i++) {
       val_buf_[i] = kDummy;
       idx_buf_[i] = IdxT{};
     }
+  }
+
+  __device__ __forceinline__ explicit warp_sort_filtered(int k)
+    : warp_sort_filtered<Capacity, Ascending, T, IdxT>(k, kDummy)
+  {
   }
 
   __device__ void add(T val, IdxT idx)
@@ -436,7 +441,8 @@ class block_sort {
  public:
   using queue_t = WarpSortWarpWide<Capacity, Ascending, T, IdxT>;
 
-  __device__ block_sort(int k, uint8_t* smem_buf) : queue_(k)
+  template <typename... Args>
+  __device__ block_sort(int k, uint8_t* smem_buf, Args... args) : queue_(k, args...)
   {
     val_smem_             = reinterpret_cast<T*>(smem_buf);
     const int num_of_warp = subwarp_align::div(blockDim.x);

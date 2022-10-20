@@ -39,6 +39,7 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 
 #include <cub/cub.cuh>
+#include <thrust/fill.h>
 #include <thrust/sequence.h>
 
 #include <cuda_fp16.h>
@@ -477,7 +478,7 @@ __device__ __forceinline__ void compute_score_inner_loop(
 {
   uint8_t code = extract_bits<PqBits>(pq_code);
   if constexpr (BitsLeft < PqBits) {  // `code` is on the border between two `OpT` ints
-    pq_code = valid_range ? *pq_head : OpT(0);
+    pq_code = valid_range ? __ldcs(pq_head) : OpT(0);
     ++pq_head;
     code <<= PqBits - BitsLeft;
     code |= extract_bits<PqBits - BitsLeft>(pq_code);
@@ -504,7 +505,7 @@ __device__ __forceinline__ auto compute_score(uint32_t pq_dim,
 
   // These two nested loops combined span exactly `pq_dim` iterations.
   for (; pq_dim > 0; pq_dim -= kVecLen) {
-    OpT pq_code = valid_range ? *pq_head : OpT(0);
+    OpT pq_code = valid_range ? __ldcs(pq_head) : OpT(0);
     ++pq_head;
     compute_score_inner_loop<kBitsTotal, PqBits, OpT, LutT>(
       pq_head, lut_scores, pq_code, score, valid_range);
@@ -591,13 +592,14 @@ __device__ __noinline__ auto ivfpq_compute_score(const uint32_t pq_bits,
 
 template <typename T, typename IdxT>
 struct dummy_block_sort_t {
-  using queue_t = topk::warp_sort_immediate<WarpSize, true, T, IdxT>;
-  __device__ dummy_block_sort_t(int k, uint8_t* smem_buf){};
+  using queue_t = topk::warp_sort_filtered<WarpSize, true, T, IdxT>;
+  template <typename... Args>
+  __device__ dummy_block_sort_t(int k, uint8_t* smem_buf, Args...){};
 };
 
 template <int Capacity, typename T, typename IdxT>
 struct pq_block_sort {
-  using type = topk::block_sort<topk::warp_sort_immediate, Capacity, true, T, IdxT>;
+  using type = topk::block_sort<topk::warp_sort_filtered, Capacity, true, T, IdxT>;
 };
 
 template <typename T, typename IdxT>
@@ -700,6 +702,7 @@ __launch_bounds__(1024, 1) __global__
                                        const uint32_t* _chunk_indices,
                                        const float* queries,
                                        const uint32_t* index_list,
+                                       float* query_kths,
                                        LutT* lut_scores,
                                        OutT* _out_scores,
                                        IdxT* _out_indices)
@@ -746,7 +749,6 @@ __launch_bounds__(1024, 1) __global__
       query_ix = index_list[ib] / n_probes;
       probe_ix = index_list[ib] % n_probes;
     }
-    if (query_ix >= n_queries || probe_ix >= n_probes) continue;
 
     const uint32_t* chunk_indices = _chunk_indices + (n_probes * query_ix);
     const float* query            = queries + (dim * query_ix);
@@ -860,7 +862,9 @@ __launch_bounds__(1024, 1) __global__
     auto pq_cluster_data         = pq_dataset + size_t(cluster_offset) * size_t(pq_line_width);
 
     using local_topk_t = block_sort_t<Capacity, OutT, IdxT>;
-    local_topk_t block_topk(topk, smem_buf);
+    OutT query_kth     = local_topk_t::queue_t::kDummy;
+    if constexpr (kManageLocalTopK) { query_kth = OutT(query_kths[query_ix]); }
+    local_topk_t block_topk(topk, smem_buf, query_kth);
 
     // Ensure lut_scores is written by all threads before using it in ivfpq-compute-score
     __threadfence_block();
@@ -887,6 +891,7 @@ __launch_bounds__(1024, 1) __global__
       __syncthreads();
       block_topk.done();
       block_topk.store(out_scores, out_indices);
+      if (threadIdx.x == 0) { atomicMin(query_kths + query_ix, float(out_scores[topk - 1])); }
     } else {
       // fill in the rest of the out_scores with dummy values
       uint32_t max_samples = uint32_t(Pow2<128>::roundUp(cluster_offsets[n_probes]));
@@ -926,6 +931,7 @@ struct ivfpq_compute_similarity {
                             const uint32_t*,
                             const float*,
                             const uint32_t*,
+                            float*,
                             LutT*,
                             OutT*,
                             IdxT*);
@@ -952,7 +958,7 @@ struct ivfpq_compute_similarity {
       if constexpr (Capacity > 0) {
         if (k_max == 0 || k_max > Capacity) { return kernel_try_capacity<OpT, 0>(k_max); }
       }
-      if constexpr (Capacity > 32) {
+      if constexpr (Capacity > 1) {
         if (k_max * 2 <= Capacity) { return kernel_try_capacity<OpT, (Capacity / 2)>(k_max); }
       }
       return ivfpq_compute_similarity_kernel<OpT,
@@ -1047,9 +1053,13 @@ struct ivfpq_compute_similarity {
     } else {
       n_threads = preferred_thread_block_size;
     }
+    uint32_t subwarp_size = WarpSize;
+    while (topk * 2 <= subwarp_size) {
+      subwarp_size /= 2;
+    }
     size_t smem_size_local_topk =
       manage_local_topk
-        ? topk::template calc_smem_size_for_block_wide<OutT, IdxT>(n_threads / WarpSize, topk)
+        ? topk::template calc_smem_size_for_block_wide<OutT, IdxT>(n_threads / subwarp_size, topk)
         : 0;
     size_t smem_fast        = max(lut_mem + bdf_mem, smem_size_local_topk);
     size_t smem_no_basediff = max(lut_mem, smem_size_local_topk);
@@ -1075,15 +1085,15 @@ struct ivfpq_compute_similarity {
           "required: "
           "%zu bytes)",
           smem_size);
-        kernel       = kernel_no_smem_lut;
-        smem_size    = smem_no_smem_lut;
-        use_smem_lut = false;
-        n_threads    = 1024;
-        smem_size_local_topk =
-          manage_local_topk
-            ? topk::template calc_smem_size_for_block_wide<OutT, IdxT>(n_threads / WarpSize, topk)
-            : 0;
-        n_blocks = getMultiProcessorCount();
+        kernel               = kernel_no_smem_lut;
+        smem_size            = smem_no_smem_lut;
+        use_smem_lut         = false;
+        n_threads            = 1024;
+        smem_size_local_topk = manage_local_topk
+                                 ? topk::template calc_smem_size_for_block_wide<OutT, IdxT>(
+                                     n_threads / subwarp_size, topk)
+                                 : 0;
+        n_blocks             = getMultiProcessorCount();
       }
     }
     if (kernel_no_basediff_available) {
@@ -1275,6 +1285,14 @@ void ivfpq_search_worker(const handle_t& handle,
     int(index.metric()),
     int(index.codebook_kind()));
 
+  rmm::device_uvector<float> query_kths(0, stream, mr);
+  if (manage_local_topk) {
+    query_kths.resize(n_queries, stream);
+    thrust::fill_n(handle.get_thrust_policy(),
+                   query_kths.data(),
+                   n_queries,
+                   float(dummy_block_sort_t<ScoreT, IdxT>::queue_t::kDummy));
+  }
   search_instance(stream,
                   index.size(),
                   index.rot_dim(),
@@ -1293,6 +1311,7 @@ void ivfpq_search_worker(const handle_t& handle,
                   chunk_index.data(),
                   query,
                   index_list_sorted,
+                  query_kths.data(),
                   device_lut.data(),
                   distances_buf.data(),
                   neighbors_ptr);
