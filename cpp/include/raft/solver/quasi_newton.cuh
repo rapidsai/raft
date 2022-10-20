@@ -267,7 +267,7 @@ struct Tikhonov : detail::objectives::Tikhonov<T> {
    * @return
    */
   template <typename T, typename LossFunction>
-  inline int qn_minimize(const raft::handle_t& handle,
+  inline int minimize(const raft::handle_t& handle,
                          SimpleVec<T>& x,
                          T* fx,
                          int* num_iters,

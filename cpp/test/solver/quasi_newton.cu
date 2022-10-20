@@ -50,14 +50,14 @@ namespace raft::solver::quasi_newton {
         if (l2 == 0) {
             ObjectiveWithData<T, LossFunction> lossWith(&loss, X, y, Z);
 
-            return qn_minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param);
+            return minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param);
 
         } else {
             Tikhonov<T> reg(l2);
             RegularizedQN<T, LossFunction, decltype(reg)> obj(&loss, &reg);
             ObjectiveWithData<T, decltype(obj)> lossWith(&obj, X, y, Z);
 
-            return qn_minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param);
+            return minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param);
         }
     }
 

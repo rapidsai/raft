@@ -26,12 +26,64 @@ enum lr_type {
 };
 
 enum loss_funct {
-  SQRD_LOSS,
+  SQUARED,
   HINGE,
   LOG,
 };
 
 enum penalty { NONE, L1, L2, ELASTICNET };
+
+namespace gradient_descent {
+    template<typename math_t>
+    struct sgd_params {
+        int batch_size;
+        int epochs;
+        lr_type lr_type;
+        math_t eta0;
+        math_t power_t;
+        loss_funct loss;
+        penalty penalty;
+        math_t alpha;
+        math_t l1_ratio;
+        bool shuffle;
+        math_t tol;
+        int n_iter_no_change;
+
+        sgd_params() : batch_size(100), epochs(100), lr_type(lr_type::OPTIMAL), eta0(0.5), power_t(0.5),
+        loss(loss_funct::SQUARED), penalty(penalty::L1), alpha(0.5), l1_ratio(0.2), shuffle(true), tol(1e-8), n_iter_no_change(5){}
+    };
+}
+namespace coordinate_descent {
+    template<typename math_t>
+    struct cd_params {
+        bool normalize;   // whether to normalize the data to zero-mean and unit std
+        int epochs;       // number of iterations
+        loss_funct loss;   // loss function to minimize
+        math_t alpha;     // l1 penalty parameter
+        math_t l1_ratio;  // ratio of alpha that will be used for l1 penalty. (1 - l1_ratio) * alpha will be used for l2 penalty
+        bool shuffle;     // randomly pick coordinates
+        math_t tol;      // early-stopping convergence tolerance
+
+        cd_params() :
+                normalize(true),
+                epochs(100),
+                alpha(0.3),
+                l1_ratio(0.5),
+                shuffle(true),
+                tol(1e-8),
+                loss(loss_funct::SQRD_LOSS) {}
+    };
+}
+
+namespace least_angle_regression {
+    template<typename math_t>
+    struct lars_params {
+        int max_iter;
+        math_t eps;
+
+        lars_params(): max_iter(500), eps(-1) {}
+    };
+}
 
 enum class LarsFitStatus { kOk, kCollinear, kError, kStop };
 

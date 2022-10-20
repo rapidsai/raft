@@ -809,7 +809,7 @@ void updateCoef(const raft::handle_t& handle,
 }
 
 /**
- * @brief Train a regressor using Least Angre Regression.
+ * @brief Train a regressor using Least Angle Regression.
  *
  * Least Angle Regression (LAR or LARS) is a model selection algorithm. It
  * builds up the model using the following algorithm:

@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include "shuffle.h"
-#include <cuml/solvers/params.hpp>
-#include <functions/linearReg.cuh>
-#include <functions/penalty.cuh>
-#include <functions/softThres.cuh>
-#include <glm/preprocess.cuh>
-#include <raft/core/cudart_utils.hpp>
+#include <raft/solver/detail/shuffle.h>
+#include <raft/solver/solver_types.hpp>
+#include <raft/solver/detail/objectives/linearReg.cuh>
+#include <raft/solver/detail/penalty.cuh>
+#include <raft/solver/detail/softThres.cuh>
+#include <raft/solver/detail/preprocess.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/axpy.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -85,7 +85,7 @@ __global__ void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
  *
  * i.e. finds coefficients that minimize the following loss function:
  *
- * f(coef) = 1/2 * || labels - input * coef ||^2
+ * f(coef) = 1/2 * || b - A * x ||^2
  *         + 1/2 * alpha * (1 - l1_ratio) * ||coef||^2
  *         +       alpha *    l1_ratio    * ||coef||_1
  *
@@ -174,7 +174,7 @@ void cdFit(const raft::handle_t& handle,
     mu_labels.resize(1, stream);
     if (normalize) { norm2_input.resize(n_cols, stream); }
 
-    GLM::preProcessData(handle,
+    preProcessData(handle,
                         input,
                         n_rows,
                         n_cols,
@@ -295,7 +295,7 @@ void cdFit(const raft::handle_t& handle,
   }
 
   if (fit_intercept) {
-    GLM::postProcessData(handle,
+    postProcessData(handle,
                          input,
                          n_rows,
                          n_cols,

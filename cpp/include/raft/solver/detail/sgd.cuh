@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include "learning_rate.h"
-#include "shuffle.h"
-#include <cuml/solvers/params.hpp>
-#include <functions/hinge.cuh>
-#include <functions/linearReg.cuh>
-#include <functions/logisticReg.cuh>
-#include <glm/preprocess.cuh>
-#include <raft/core/cudart_utils.hpp>
-#include <raft/cuda_utils.cuh>
+#include <raft/solver/detail/learning_rate.h>
+#include <raft/solver/detail/shuffle.h>
+#include <raft/sovler/solver_types.hpp>
+#include <raft/solver/detail/objectives/hinge.cuh>
+#include <raft/solver/detail/objectives/linearReg.cuh>
+#include <raft/solver/detail/objectives/logisticReg.cuh>
+#include <raft/solver/detail/preprocess.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemv.cuh>
@@ -40,7 +40,7 @@
 namespace raft::solver::detail {
 
 /**
- * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
+ * Fits a linear, lasso, and elastic-net regression model using Gradient Descent solver
  * @param handle
  *        Reference of raft::handle_t
  * @param input
@@ -123,7 +123,7 @@ void sgdFit(const raft::handle_t& handle,
     mu_input.resize(n_cols, stream);
     mu_labels.resize(1, stream);
 
-    GLM::preProcessData(handle,
+    preProcessData(handle,
                         input,
                         n_rows,
                         n_cols,
