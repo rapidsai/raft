@@ -206,7 +206,7 @@ void sliceMatrix(const m_t* in,
  * @param k: min(n_rows, n_cols)
  */
 template <typename m_t, typename idx_t = int>
-__global__ void getUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, idx_t k)
+__global__ void getUpperTriangular(const m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, idx_t k)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
   idx_t m = n_rows, n = n_cols;
@@ -217,7 +217,7 @@ __global__ void getUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_col
 }
 
 template <typename m_t, typename idx_t = int>
-void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+void copyUpperTriangular(const m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   idx_t m = n_rows, n = n_cols;
   idx_t k = std::min(m, n);
@@ -303,8 +303,9 @@ m_t getL2Norm(const raft::handle_t& handle, const m_t* in, idx_t size, cudaStrea
 {
   cublasHandle_t cublasH = handle.get_cublas_handle();
   m_t normval            = 0;
-  RAFT_EXPECTS(std::is_integral_v<idx_t> && size <= std::numeric_limits<int>::max(),
-               "Index type not supported");
+  RAFT_EXPECTS(
+    std::is_integral_v<idx_t> && (std::size_t)size <= (std::size_t)std::numeric_limits<int>::max(),
+    "Index type not supported");
   RAFT_CUBLAS_TRY(
     raft::linalg::detail::cublasnrm2(cublasH, static_cast<int>(size), in, 1, &normval, stream));
   return normval;

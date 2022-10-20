@@ -68,8 +68,7 @@ class NormTest : public ::testing::TestWithParam<NormInputs<T>> {
     std::vector<T> h_data(rows * cols);
     raft::update_host(h_data.data(), data.data(), rows * cols, stream);
     out_scalar_exp = naiveNorm(h_data.data(), cols, rows);
-    auto input =
-      raft::make_device_matrix_view<const T, uint32_t>(data.data(), params.rows, params.cols);
+    auto input = raft::make_device_matrix_view<const T, int>(data.data(), params.rows, params.cols);
     out_scalar_act = l2_norm(handle, input);
     handle.sync_stream(stream);
   }

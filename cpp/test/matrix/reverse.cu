@@ -85,7 +85,6 @@ class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
     raft::random::RngState r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
 
-    rmm::device_uvector<T> d_act_result(len, stream);
     act_result.resize(len);
     exp_result.resize(len);
 

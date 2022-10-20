@@ -18,7 +18,6 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/matrix/detail/matrix.cuh>
-#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -33,6 +32,9 @@ void upper_triangular(const raft::handle_t& handle,
                       raft::device_matrix_view<const m_t, idx_t, col_major> src,
                       raft::device_matrix_view<m_t, idx_t, col_major> dst)
 {
+  auto k = std::min(src.extent(0), src.extent(1));
+  RAFT_EXPECTS(k == dst.extent(0) && k == dst.extent(1),
+               "dst should be of size kxk, k = min(n_rows, n_cols)");
   detail::copyUpperTriangular(
     src.data_handle(), dst.data_handle(), src.extent(0), src.extent(1), handle.get_stream());
 }
