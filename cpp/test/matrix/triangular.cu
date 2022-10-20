@@ -101,30 +101,22 @@ class TriangularTest : public ::testing::TestWithParam<TriangularInputs<T>> {
 
 ///// Row- and column-wise tests
 const std::vector<TriangularInputs<float>> inputsf = {{4, 4, 1234ULL},
-                                                      {2, 12, 1234ULL},
-                                                      {2, 12, 1234ULL},
                                                       {2, 64, 1234ULL},
                                                       {64, 512, 1234ULL},
                                                       {64, 1024, 1234ULL},
-                                                      {128, 1024, 1234ULL},
                                                       {256, 1024, 1234ULL},
                                                       {512, 512, 1234ULL},
                                                       {1024, 32, 1234ULL},
-                                                      {1024, 64, 1234ULL},
                                                       {1024, 128, 1234ULL},
                                                       {1024, 256, 1234ULL}};
 
 const std::vector<TriangularInputs<double>> inputsd = {{4, 4, 1234ULL},
-                                                       {2, 12, 1234ULL},
-                                                       {2, 12, 1234ULL},
                                                        {2, 64, 1234ULL},
                                                        {64, 512, 1234ULL},
                                                        {64, 1024, 1234ULL},
-                                                       {128, 1024, 1234ULL},
                                                        {256, 1024, 1234ULL},
                                                        {512, 512, 1234ULL},
                                                        {1024, 32, 1234ULL},
-                                                       {1024, 64, 1234ULL},
                                                        {1024, 128, 1234ULL},
                                                        {1024, 256, 1234ULL}};
 
