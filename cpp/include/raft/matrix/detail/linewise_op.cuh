@@ -21,15 +21,27 @@
 #include <raft/util/vectorized.cuh>
 
 #include <algorithm>
+#include <thrust/tuple.h>
 
 namespace raft {
 namespace matrix {
 namespace detail {
 
+/** This type simplifies returning arrays and passing them as arguments */
 template <typename Type, int VecElems>
 struct VecArg {
   Type val[VecElems];
 };
+
+/** Executes the operation with the given matrix element and an arbitrary number of vector elements
+ * contained in the given tuple. The index_sequence is used here for compile-time indexing of the
+ * tuple in the fold expression. */
+template <typename MatT, typename Lambda, class Tuple, size_t... Is>
+__device__ __forceinline__ MatT
+RunMatVecOp(Lambda op, MatT mat, Tuple&& args, std::index_sequence<Is...>)
+{
+  return op(mat, (thrust::get<Is>(args))...);
+}
 
 template <typename Type, typename IdxType, std::size_t VecBytes, int BlockSize>
 struct Linewise {
@@ -84,8 +96,10 @@ struct Linewise {
                                                     const Vecs*... vecs) noexcept
   {
     constexpr IdxType warpPad = (AlignWarp::Value - 1) * VecElems;
-    // todo(lsugy): don't use Type!
-    Type args[sizeof...(Vecs)];
+    constexpr auto index      = std::index_sequence_for<Vecs...>();
+    // todo(lsugy): switch to cuda::std::tuple from libcudacxx if we add it as a required
+    // dependency. Note that thrust::tuple is limited to 10 elements.
+    thrust::tuple<Vecs...> args;
     Vec v, w;
     bool update = true;
     for (; in < in_end; in += AlignWarp::Value, out += AlignWarp::Value, rowMod += warpPad) {
@@ -96,8 +110,7 @@ struct Linewise {
         update = true;
       }
       if (update) {
-        int l = 0;
-        ((args[l] = vecs[rowDiv], l++), ...);
+        args   = thrust::make_tuple((vecs[rowDiv])...);
         update = false;
       }
 #pragma unroll VecElems
@@ -105,11 +118,9 @@ struct Linewise {
         if (rowMod == rowLen) {
           rowMod = 0;
           rowDiv++;
-          int l = 0;
-          ((args[l] = vecs[rowDiv], l++), ...);
+          args = thrust::make_tuple((vecs[rowDiv])...);
         }
-        int l         = 0;
-        w.val.data[k] = op(v.val.data[k], (std::ignore = vecs, args[l++])...);
+        w.val.data[k] = RunMatVecOp(op, v.val.data[k], args, index);
       }
       *out = *w.vectorized_data();
     }
