@@ -182,7 +182,8 @@ if(BUILD_TESTS)
             PATH
             test/cluster_solvers_deprecated.cu
             test/eigen_solvers.cu
-            test/lap/lap.cu
+            test/solver/lap.cu
+            test/solver/quasi_newton.cu
             test/mst.cu
     )
 

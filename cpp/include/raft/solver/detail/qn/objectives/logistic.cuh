@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "../simple_mat.cuh"
+#include <raft/solver/simple_mat.cuh>
 #include "base.cuh"
 #include <raft/linalg/add.cuh>
 #include <raft/util/cuda_utils.cuh>

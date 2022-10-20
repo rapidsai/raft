@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "../simple_mat.cuh"
+#include <raft/solver/simple_mat.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
