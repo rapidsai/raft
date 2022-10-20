@@ -27,13 +27,13 @@
 #include <raft/core/logger.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/cholesky_r1_update.cuh>
-#include <raft/util/cache_util.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cache_util.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
@@ -46,7 +46,6 @@
 #include <thrust/sort.h>
 
 namespace raft::solver::detail {
-
 
 /**
  * @brief Select the largest element from the inactive working set.

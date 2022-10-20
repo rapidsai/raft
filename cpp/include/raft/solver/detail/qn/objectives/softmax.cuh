@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include "base.cuh"
 #include "../simple_mat.cuh"
-#include <raft/util/cuda_utils.cuh>
+#include "base.cuh"
 #include <raft/linalg/add.cuh>
+#include <raft/util/cuda_utils.cuh>
 
-namespace  raft::solver::quasi_newton::detail::objectives {
+namespace raft::solver::quasi_newton::detail::objectives {
 using raft::ceildiv;
 using raft::myExp;
 using raft::myLog;

@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include "base.cuh"
 #include "../simple_mat.cuh"
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/cuda_utils.cuh>
+#include "base.cuh"
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
-namespace  raft::solver::quasi_newton::detail::objectives {
+namespace raft::solver::quasi_newton::detail::objectives {
 
 template <typename T>
 struct Tikhonov {

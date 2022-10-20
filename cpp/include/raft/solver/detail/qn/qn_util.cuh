@@ -16,13 +16,11 @@
 
 #pragma once
 
-#include <raft/core/logger.hpp>
 #include <limits>
+#include <raft/core/logger.hpp>
 #include <raft/util/cuda_utils.cuh>
 
-namespace  raft::solver::quasi_newton::detail {
-
-
+namespace raft::solver::quasi_newton::detail {
 
 inline bool qn_is_classification(qn_loss_type t)
 {
@@ -36,7 +34,8 @@ inline bool qn_is_classification(qn_loss_type t)
 }
 
 template <typename T>
-HDI T project_orth(T x, T y) {
+HDI T project_orth(T x, T y)
+{
   return x * y <= T(0) ? T(0) : x;
 }
 

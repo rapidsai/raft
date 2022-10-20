@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "base.cuh"
 #include "../simple_mat.cuh"
-#include <raft/util/cuda_utils.cuh>
+#include "base.cuh"
 #include <raft/linalg/add.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft::solver::quasi_newton::detail::objectives {
 

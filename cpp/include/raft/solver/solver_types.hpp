@@ -16,185 +16,183 @@
 
 #pragma once
 
-
-
 namespace raft::solver {
 
-    enum lr_type {
-        OPTIMAL,
-        CONSTANT,
-        INVSCALING,
-        ADAPTIVE,
-    };
+enum lr_type {
+  OPTIMAL,
+  CONSTANT,
+  INVSCALING,
+  ADAPTIVE,
+};
 
-    enum loss_funct {
-        SQRD_LOSS,
-        HINGE,
-        LOG,
-    };
+enum loss_funct {
+  SQRD_LOSS,
+  HINGE,
+  LOG,
+};
 
-    enum penalty { NONE, L1, L2, ELASTICNET };
+enum penalty { NONE, L1, L2, ELASTICNET };
 
+enum class LarsFitStatus { kOk, kCollinear, kError, kStop };
 
-    enum class LarsFitStatus { kOk, kCollinear, kError, kStop };
+namespace quasi_newton {
 
+struct qn_params {
+  /** Loss type. */
+  qn_loss_type loss;
+  /** Regularization: L1 component. */
+  double penalty_l1;
+  /** Regularization: L2 component. */
+  double penalty_l2;
+  /** Convergence criteria: the threshold on the gradient. */
+  double grad_tol;
+  /** Convergence criteria: the threshold on the function change. */
+  double change_tol;
+  /** Maximum number of iterations. */
+  int max_iter;
+  /** Maximum number of linesearch (inner loop) iterations. */
+  int linesearch_max_iter;
+  /** Number of vectors approximating the hessian (l-bfgs). */
+  int lbfgs_memory;
+  /** Triggers extra output when greater than zero. */
+  int verbose;
+  /** Whether to fit the bias term. */
+  bool fit_intercept;
+  /**
+   * Whether to divide the L1 and L2 regularization parameters by the sample size.
+   *
+   * Note, the defined QN loss functions normally are scaled for the sample size,
+   * e.g. the average across the data rows is calculated.
+   * Enabling `penalty_normalized` makes this solver's behavior compatible to those solvers,
+   * which do not scale the loss functions (like sklearn.LogisticRegression()).
+   */
+  bool penalty_normalized;
 
-    namespace quasi_newton {
+  qn_params()
+    : loss(QN_LOSS_UNKNOWN),
+      penalty_l1(0),
+      penalty_l2(0),
+      grad_tol(1e-4),
+      change_tol(1e-5),
+      max_iter(1000),
+      linesearch_max_iter(50),
+      lbfgs_memory(5),
+      verbose(0),
+      fit_intercept(true),
+      penalty_normalized(true)
+  {
+  }
+};
 
-        struct qn_params {
-            /** Loss type. */
-            qn_loss_type loss;
-            /** Regularization: L1 component. */
-            double penalty_l1;
-            /** Regularization: L2 component. */
-            double penalty_l2;
-            /** Convergence criteria: the threshold on the gradient. */
-            double grad_tol;
-            /** Convergence criteria: the threshold on the function change. */
-            double change_tol;
-            /** Maximum number of iterations. */
-            int max_iter;
-            /** Maximum number of linesearch (inner loop) iterations. */
-            int linesearch_max_iter;
-            /** Number of vectors approximating the hessian (l-bfgs). */
-            int lbfgs_memory;
-            /** Triggers extra output when greater than zero. */
-            int verbose;
-            /** Whether to fit the bias term. */
-            bool fit_intercept;
-            /**
-             * Whether to divide the L1 and L2 regularization parameters by the sample size.
-             *
-             * Note, the defined QN loss functions normally are scaled for the sample size,
-             * e.g. the average across the data rows is calculated.
-             * Enabling `penalty_normalized` makes this solver's behavior compatible to those solvers,
-             * which do not scale the loss functions (like sklearn.LogisticRegression()).
-             */
-            bool penalty_normalized;
+enum LINE_SEARCH_ALGORITHM {
+  LBFGS_LS_BT_ARMIJO       = 1,
+  LBFGS_LS_BT              = 2,  // Default. Alias for Wolfe
+  LBFGS_LS_BT_WOLFE        = 2,
+  LBFGS_LS_BT_STRONG_WOLFE = 3
+};
 
-            qn_params()
-                    : loss(QN_LOSS_UNKNOWN),
-                      penalty_l1(0),
-                      penalty_l2(0),
-                      grad_tol(1e-4),
-                      change_tol(1e-5),
-                      max_iter(1000),
-                      linesearch_max_iter(50),
-                      lbfgs_memory(5),
-                      verbose(0),
-                      fit_intercept(true),
-                      penalty_normalized(true) {}
-        };
+enum LINE_SEARCH_RETCODE {
+  LS_SUCCESS           = 0,
+  LS_INVALID_STEP_MIN  = 1,
+  LS_INVALID_STEP_MAX  = 2,
+  LS_MAX_ITERS_REACHED = 3,
+  LS_INVALID_DIR       = 4,
+  LS_INVALID_STEP      = 5
+};
 
-        enum LINE_SEARCH_ALGORITHM {
-            LBFGS_LS_BT_ARMIJO       = 1,
-            LBFGS_LS_BT              = 2,  // Default. Alias for Wolfe
-            LBFGS_LS_BT_WOLFE        = 2,
-            LBFGS_LS_BT_STRONG_WOLFE = 3
-        };
+enum OPT_RETCODE {
+  OPT_SUCCESS           = 0,
+  OPT_NUMERIC_ERROR     = 1,
+  OPT_LS_FAILED         = 2,
+  OPT_MAX_ITERS_REACHED = 3,
+  OPT_INVALID_ARGS      = 4
+};
 
-        enum LINE_SEARCH_RETCODE {
-            LS_SUCCESS           = 0,
-            LS_INVALID_STEP_MIN  = 1,
-            LS_INVALID_STEP_MAX  = 2,
-            LS_MAX_ITERS_REACHED = 3,
-            LS_INVALID_DIR       = 4,
-            LS_INVALID_STEP      = 5
-        };
+template <typename T = double>
+class LBFGSParam {
+ public:
+  int m;      // lbfgs memory limit
+  T epsilon;  // controls convergence
+  int past;   // lookback for function value based convergence test
+  T delta;    // controls fun val based conv test
+  int max_iterations;
+  int linesearch;  // see enum above
+  int max_linesearch;
+  T min_step;  // min. allowed step length
+  T max_step;  // max. allowed step length
+  T ftol;      // line  search tolerance
+  T wolfe;     // wolfe parameter
+  T ls_dec;    // line search decrease factor
+  T ls_inc;    // line search increase factor
 
-        enum OPT_RETCODE {
-            OPT_SUCCESS           = 0,
-            OPT_NUMERIC_ERROR     = 1,
-            OPT_LS_FAILED         = 2,
-            OPT_MAX_ITERS_REACHED = 3,
-            OPT_INVALID_ARGS      = 4
-        };
+ public:
+  LBFGSParam()
+  {
+    m              = 6;
+    epsilon        = T(1e-5);
+    past           = 0;
+    delta          = T(0);
+    max_iterations = 0;
+    linesearch     = LBFGS_LS_BT_ARMIJO;
+    max_linesearch = 20;
+    min_step       = T(1e-20);
+    max_step       = T(1e+20);
+    ftol           = T(1e-4);
+    wolfe          = T(0.9);
+    ls_dec         = T(0.5);
+    ls_inc         = T(2.1);
+  }
 
-        template <typename T = double>
-        class LBFGSParam {
-        public:
-            int m;      // lbfgs memory limit
-            T epsilon;  // controls convergence
-            int past;   // lookback for function value based convergence test
-            T delta;    // controls fun val based conv test
-            int max_iterations;
-            int linesearch;  // see enum above
-            int max_linesearch;
-            T min_step;  // min. allowed step length
-            T max_step;  // max. allowed step length
-            T ftol;      // line  search tolerance
-            T wolfe;     // wolfe parameter
-            T ls_dec;    // line search decrease factor
-            T ls_inc;    // line search increase factor
+  explicit LBFGSParam(const qn_params& pams) : LBFGSParam()
+  {
+    m       = pams.lbfgs_memory;
+    epsilon = T(pams.grad_tol);
+    // sometimes even number works better - to detect zig-zags;
+    past           = pams.change_tol > 0 ? 10 : 0;
+    delta          = T(pams.change_tol);
+    max_iterations = pams.max_iter;
+    max_linesearch = pams.linesearch_max_iter;
+    ftol           = pams.change_tol > 0 ? T(pams.change_tol * 0.1) : T(1e-4);
+  }
 
-        public:
-            LBFGSParam()
-            {
-                m              = 6;
-                epsilon        = T(1e-5);
-                past           = 0;
-                delta          = T(0);
-                max_iterations = 0;
-                linesearch     = LBFGS_LS_BT_ARMIJO;
-                max_linesearch = 20;
-                min_step       = T(1e-20);
-                max_step       = T(1e+20);
-                ftol           = T(1e-4);
-                wolfe          = T(0.9);
-                ls_dec         = T(0.5);
-                ls_inc         = T(2.1);
-            }
+  inline int check_param() const
+  {  // TODO exceptions
+    int ret = 1;
+    if (m <= 0) return ret;
+    ret++;
+    if (epsilon <= 0) return ret;
+    ret++;
+    if (past < 0) return ret;
+    ret++;
+    if (delta < 0) return ret;
+    ret++;
+    if (max_iterations < 0) return ret;
+    ret++;
+    if (linesearch < LBFGS_LS_BT_ARMIJO || linesearch > LBFGS_LS_BT_STRONG_WOLFE) return ret;
+    ret++;
+    if (max_linesearch <= 0) return ret;
+    ret++;
+    if (min_step < 0) return ret;
+    ret++;
+    if (max_step < min_step) return ret;
+    ret++;
+    if (ftol <= 0 || ftol >= 0.5) return ret;
+    ret++;
+    if (wolfe <= ftol || wolfe >= 1) return ret;
+    ret++;
+    return 0;
+  }
+};
 
-            explicit LBFGSParam(const qn_params& pams) : LBFGSParam()
-            {
-                m       = pams.lbfgs_memory;
-                epsilon = T(pams.grad_tol);
-                // sometimes even number works better - to detect zig-zags;
-                past           = pams.change_tol > 0 ? 10 : 0;
-                delta          = T(pams.change_tol);
-                max_iterations = pams.max_iter;
-                max_linesearch = pams.linesearch_max_iter;
-                ftol           = pams.change_tol > 0 ? T(pams.change_tol * 0.1) : T(1e-4);
-            }
+struct LinearDims {
+  bool fit_intercept;
+  int C, D, dims, n_param;
+  LinearDims(int C, int D, bool fit_intercept) : C(C), D(D), fit_intercept(fit_intercept)
+  {
+    dims    = D + fit_intercept;
+    n_param = dims * C;
+  }
+};
+}  // namespace quasi_newton
 
-            inline int check_param() const
-            {  // TODO exceptions
-                int ret = 1;
-                if (m <= 0) return ret;
-                ret++;
-                if (epsilon <= 0) return ret;
-                ret++;
-                if (past < 0) return ret;
-                ret++;
-                if (delta < 0) return ret;
-                ret++;
-                if (max_iterations < 0) return ret;
-                ret++;
-                if (linesearch < LBFGS_LS_BT_ARMIJO || linesearch > LBFGS_LS_BT_STRONG_WOLFE) return ret;
-                ret++;
-                if (max_linesearch <= 0) return ret;
-                ret++;
-                if (min_step < 0) return ret;
-                ret++;
-                if (max_step < min_step) return ret;
-                ret++;
-                if (ftol <= 0 || ftol >= 0.5) return ret;
-                ret++;
-                if (wolfe <= ftol || wolfe >= 1) return ret;
-                ret++;
-                return 0;
-            }
-        };
-
-        struct LinearDims {
-            bool fit_intercept;
-            int C, D, dims, n_param;
-            LinearDims(int C, int D, bool fit_intercept) : C(C), D(D), fit_intercept(fit_intercept)
-            {
-                dims    = D + fit_intercept;
-                n_param = dims * C;
-            }
-        };
-    }
-
-}
+}  // namespace raft::solver

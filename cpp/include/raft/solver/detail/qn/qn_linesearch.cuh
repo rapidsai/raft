@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <raft/core/logger.hpp>
 #include "qn_util.cuh"
+#include <raft/core/logger.hpp>
 
 /*
  * Linesearch functions
  */
 
-namespace  raft::solver::quasi_newton::detail {
+namespace raft::solver::quasi_newton::detail {
 
 template <typename T>
 struct LSProjectedStep {

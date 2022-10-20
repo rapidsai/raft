@@ -17,13 +17,13 @@
 #pragma once
 
 #include "../simple_mat.cuh"
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
@@ -89,8 +89,6 @@ inline void linearBwd(const raft::handle_t& handle,
     G.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
   }
 }
-
-
 
 template <typename T, class Loss>
 struct QNLinearBase : LinearDims {
@@ -199,7 +197,10 @@ struct QNWithData : LinearDims {
   SimpleDenseMat<T>* Z;
   QuasiNewtonObjective* objective;
 
-  QNWithData(QuasiNewtonObjective* obj, const SimpleMat<T>& X, const SimpleVec<T>& y, SimpleDenseMat<T>& Z)
+  QNWithData(QuasiNewtonObjective* obj,
+             const SimpleMat<T>& X,
+             const SimpleVec<T>& y,
+             SimpleDenseMat<T>& Z)
     : objective(obj), X(&X), y(&y), Z(&Z), LinearDims(obj->C, obj->D, obj->fit_intercept)
   {
   }

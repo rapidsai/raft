@@ -47,7 +47,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
-namespace  raft::solver::quasi_newton::detail {
+namespace raft::solver::quasi_newton::detail {
 
 // TODO better way to deal with alignment? Smaller aligne possible?
 constexpr size_t qn_align = 256;
