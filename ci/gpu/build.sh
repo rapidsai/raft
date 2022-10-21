@@ -31,7 +31,13 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 unset GIT_DESCRIBE_TAG
 
 # ucx-py version
-export UCX_PY_VERSION='0.27.*'
+export UCX_PY_VERSION='0.29.*'
+
+# Whether to install dask nightly or stable packages.
+export INSTALL_DASK_MAIN=1
+
+# Dask version to install when `INSTALL_DASK_MAIN=0`
+export DASK_STABLE_VERSION="2022.9.2"
 
 ################################################################################
 # SETUP - Check environment
@@ -63,9 +69,13 @@ conda list --show-channel-urls
 gpuci_logger "Build and install Python targets"
 CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 gpuci_mamba_retry install boa
-gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pyraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
+
+# Install pylibraft first since it's a dependency of raft-dask
 gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/pylibraft -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
-gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pyraft pylibraft
+gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" pylibraft
+
+gpuci_conda_retry mambabuild --no-build-id --croot "${CONDA_BLD_DIR}" conda/recipes/raft-dask -c "${CONDA_ARTIFACT_PATH}" --python="${PYTHON}"
+gpuci_mamba_retry install -y -c "${CONDA_BLD_DIR}" -c "${CONDA_ARTIFACT_PATH}" raft-dask
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for RAFT
@@ -76,26 +86,39 @@ if hasArg --skip-tests; then
     exit 0
 fi
 
-# Install the master version of dask, distributed, and dask-ml
-gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+# Install latest nightly version for dask and distributed depending on `INSTALL_DASK_MAIN`
+if [[ "${INSTALL_DASK_MAIN}" == 1 ]]; then
+  gpuci_logger "Installing dask and distributed from dask nightly channel"
+  gpuci_mamba_retry install -c dask/label/dev \
+    "dask/label/dev::dask" \
+    "dask/label/dev::distributed"
+else
+  gpuci_logger "gpuci_mamba_retry install conda-forge::dask==${DASK_STABLE_VERSION} conda-forge::distributed==${DASK_STABLE_VERSION} conda-forge::dask-core==${DASK_STABLE_VERSION} --force-reinstall"
+  gpuci_mamba_retry install conda-forge::dask==${DASK_STABLE_VERSION} conda-forge::distributed==${DASK_STABLE_VERSION} conda-forge::dask-core==${DASK_STABLE_VERSION} --force-reinstall
+fi
 set +x
 
 gpuci_logger "Check GPU usage"
 nvidia-smi
 
-gpuci_logger "GoogleTest for raft"
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/raft_cpp/" $CONDA_PREFIX/bin/libraft/gtests/test_raft
+gpuci_logger "GoogleTest for libraft"
+GTEST_ARGS="xml:${WORKSPACE}/test-results/libraft/"
+for gt in "$CONDA_PREFIX/bin/gtests/libraft/"*; do
+    test_name=$(basename $gt)
+    echo "Running gtest $test_name"
+    ${gt} ${GTEST_ARGS}
+    echo "Ran gtest $test_name : return code was: $?, test script exit code is now: $EXITCODE"
+done
 
-gpuci_logger "Python pytest for pyraft"
-cd "$WORKSPACE/python/raft/raft/test"
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pyraft.xml" -v -s
 
 gpuci_logger "Python pytest for pylibraft"
 cd "$WORKSPACE/python/pylibraft/pylibraft/test"
-python -m pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
+pytest --cache-clear --junitxml="$WORKSPACE/junit-pylibraft.xml" -v -s
+
+gpuci_logger "Python pytest for raft-dask"
+cd "$WORKSPACE/python/raft-dask/raft_dask/test"
+pytest --cache-clear --junitxml="$WORKSPACE/junit-raft-dask.xml" -v -s
 
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"

@@ -17,9 +17,9 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -103,7 +103,7 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
     raft::random::RngState r(params.seed);
     raft::random::RngState r_int(params.seed);
 
-    int nobs       = params.nobs;
+    uint32_t nobs  = params.nobs;
     uint32_t cols  = params.cols;
     uint32_t nkeys = params.nkeys;
     uniform(handle, r, in.data(), nobs * cols, T(0.0), T(2.0 / nobs));
@@ -126,21 +126,20 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
                          nkeys,
                          out_ref.data(),
                          stream);
+    auto input_view = raft::make_device_matrix_view<const T>(
+      in.data(), params.cols, static_cast<uint32_t>(params.nobs));
+    auto output_view = raft::make_device_matrix_view(out.data(), params.cols, params.nkeys);
+    auto keys_view   = raft::make_device_vector_view<const uint32_t>(
+      keys.data(), static_cast<uint32_t>(params.nobs));
+    auto scratch_buf_view =
+      raft::make_device_vector_view(scratch_buf.data(), static_cast<uint32_t>(params.nobs));
+    std::optional<raft::device_vector_view<const T>> weights_view;
     if (params.weighted) {
-      reduce_rows_by_key(in.data(),
-                         cols,
-                         keys.data(),
-                         params.weighted ? weight.data() : nullptr,
-                         scratch_buf.data(),
-                         nobs,
-                         cols,
-                         nkeys,
-                         out.data(),
-                         stream);
-    } else {
-      reduce_rows_by_key(
-        in.data(), cols, keys.data(), scratch_buf.data(), nobs, cols, nkeys, out.data(), stream);
+      weights_view.emplace(weight.data(), static_cast<uint32_t>(params.nobs));
     }
+
+    reduce_rows_by_key(
+      handle, input_view, keys_view, output_view, params.nkeys, scratch_buf_view, weights_view);
     handle.sync_stream(stream);
   }
 

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include <raft/core/mdarray.hpp>
-#include <raft/core/mdspan.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/device_vector.hpp>
@@ -382,6 +382,18 @@ void test_factory_methods()
     auto view = make_host_scalar_view(h_scalar.data_handle());
     ASSERT_EQ(view(0), 17.0);
   }
+
+  // managed
+  {
+    raft::handle_t handle{};
+    auto mda = make_device_vector<int>(handle, 10);
+
+    auto mdv = make_managed_mdspan(mda.data_handle(), raft::vector_extent<int>{10});
+
+    static_assert(decltype(mdv)::accessor_type::is_managed_accessible, "Not managed mdspan");
+
+    ASSERT_EQ(mdv.size(), 10);
+  }
 }
 }  // anonymous namespace
 
@@ -455,19 +467,19 @@ void test_mdarray_unravel()
 
   // examples from numpy unravel_index
   {
-    auto coord = unravel_index(22, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
+    auto coord = unravel_index(22, matrix_extent<int>{7, 6}, stdex::layout_right{});
     static_assert(std::tuple_size<decltype(coord)>::value == 2);
     ASSERT_EQ(std::get<0>(coord), 3);
     ASSERT_EQ(std::get<1>(coord), 4);
   }
   {
-    auto coord = unravel_index(41, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
+    auto coord = unravel_index(41, matrix_extent<int>{7, 6}, stdex::layout_right{});
     static_assert(std::tuple_size<decltype(coord)>::value == 2);
     ASSERT_EQ(std::get<0>(coord), 6);
     ASSERT_EQ(std::get<1>(coord), 5);
   }
   {
-    auto coord = unravel_index(37, detail::matrix_extent<int>{7, 6}, stdex::layout_right{});
+    auto coord = unravel_index(37, matrix_extent<int>{7, 6}, stdex::layout_right{});
     static_assert(std::tuple_size<decltype(coord)>::value == 2);
     ASSERT_EQ(std::get<0>(coord), 6);
     ASSERT_EQ(std::get<1>(coord), 1);

@@ -17,10 +17,10 @@
 #pragma once
 
 #include <raft/common/seive.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/stats/common.hpp>
-#include <raft/vectorized.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/vectorized.cuh>
 #include <stdint.h>
 
 // This file is a shameless amalgamation of independent works done by
@@ -465,7 +465,7 @@ HistType selectBestHistAlgo(IdxT nbins)
  * @param nbins number of bins
  * @param data input data (length = ncols * nrows)
  * @param nrows data array length in each column (or batch)
- * @param ncols number of columsn (or batch size)
+ * @param ncols number of columns (or batch size)
  * @param stream cuda stream
  * @param binner the operation that computes the bin index of the input data
  *

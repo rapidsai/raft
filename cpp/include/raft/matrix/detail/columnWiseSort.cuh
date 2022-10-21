@@ -20,7 +20,7 @@
 #include <cub/cub.cuh>
 #include <limits>
 #include <map>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #define INST_BLOCK_SORT(keyIn, keyOut, valueInOut, rows, columns, blockSize, elemPT, stream)     \
   devKeyValSortColumnPerRow<InType, OutType, blockSize, elemPT><<<rows, blockSize, 0, stream>>>( \

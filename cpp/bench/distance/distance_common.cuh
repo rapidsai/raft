@@ -15,10 +15,10 @@
  */
 
 #include <common/benchmark.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
+#include <raft/util/cudart_utils.hpp>
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/specializations.cuh>
 #endif
 #include <rmm/device_uvector.hpp>
 

@@ -27,19 +27,22 @@
 #include <thrust/transform.h>
 
 #include <raft/cluster/detail/kmeans_common.cuh>
-#include <raft/cluster/kmeans_params.hpp>
+#include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/cudart_utils.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/kvp.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -276,7 +279,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
   //   - key is the index of nearest cluster
   //   - value is the distance to the nearest cluster
   auto minClusterAndDistance =
-    raft::make_device_vector<cub::KeyValuePair<IndexT, DataT>, IndexT>(handle, n_samples);
+    raft::make_device_vector<raft::KeyValuePair<IndexT, DataT>, IndexT>(handle, n_samples);
 
   // temporary buffer to store L2 norm of centroids or distance matrix,
   // destructor releases the resource
@@ -290,7 +293,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
   // resource
   auto wtInCluster = raft::make_device_vector<DataT, IndexT>(handle, n_clusters);
 
-  rmm::device_scalar<cub::KeyValuePair<IndexT, DataT>> clusterCostD(stream);
+  rmm::device_scalar<raft::KeyValuePair<IndexT, DataT>> clusterCostD(stream);
 
   // L2 norm of X: ||x||^2
   auto L2NormX = raft::make_device_vector<DataT, IndexT>(handle, n_samples);
@@ -335,12 +338,12 @@ void kmeans_fit_main(const raft::handle_t& handle,
                                                         workspace);
 
     // Using TransformInputIteratorT to dereference an array of
-    // cub::KeyValuePair and converting them to just return the Key to be used
+    // raft::KeyValuePair and converting them to just return the Key to be used
     // in reduce_rows_by_key prims
     detail::KeyValueIndexOp<IndexT, DataT> conversion_op;
     cub::TransformInputIterator<IndexT,
                                 detail::KeyValueIndexOp<IndexT, DataT>,
-                                cub::KeyValuePair<IndexT, DataT>*>
+                                raft::KeyValuePair<IndexT, DataT>*>
       itr(minClusterAndDistance.data_handle(), conversion_op);
 
     workspace.resize(n_samples, stream);
@@ -398,14 +401,14 @@ void kmeans_fit_main(const raft::handle_t& handle,
       itr_wt,
       wtInCluster.size(),
       newCentroids.data_handle(),
-      [=] __device__(cub::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
+      [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
         // copy when the # of samples in the cluster is 0
         if (map.value == 0)
           return true;
         else
           return false;
       },
-      [=] __device__(cub::KeyValuePair<ptrdiff_t, DataT> map) {  // map
+      [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // map
         return map.key;
       },
       stream);
@@ -437,9 +440,9 @@ void kmeans_fit_main(const raft::handle_t& handle,
                                  minClusterAndDistance.view(),
                                  workspace,
                                  raft::make_device_scalar_view(clusterCostD.data()),
-                                 [] __device__(const cub::KeyValuePair<IndexT, DataT>& a,
-                                               const cub::KeyValuePair<IndexT, DataT>& b) {
-                                   cub::KeyValuePair<IndexT, DataT> res;
+                                 [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
+                                               const raft::KeyValuePair<IndexT, DataT>& b) {
+                                   raft::KeyValuePair<IndexT, DataT> res;
                                    res.key   = 0;
                                    res.value = a.value + b.value;
                                    return res;
@@ -487,8 +490,8 @@ void kmeans_fit_main(const raft::handle_t& handle,
                     minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
                     weight.data_handle(),
                     minClusterAndDistance.data_handle(),
-                    [=] __device__(const cub::KeyValuePair<IndexT, DataT> kvp, DataT wt) {
-                      cub::KeyValuePair<IndexT, DataT> res;
+                    [=] __device__(const raft::KeyValuePair<IndexT, DataT> kvp, DataT wt) {
+                      raft::KeyValuePair<IndexT, DataT> res;
                       res.value = kvp.value * wt;
                       res.key   = kvp.key;
                       return res;
@@ -499,9 +502,9 @@ void kmeans_fit_main(const raft::handle_t& handle,
                              minClusterAndDistance.view(),
                              workspace,
                              raft::make_device_scalar_view(clusterCostD.data()),
-                             [] __device__(const cub::KeyValuePair<IndexT, DataT>& a,
-                                           const cub::KeyValuePair<IndexT, DataT>& b) {
-                               cub::KeyValuePair<IndexT, DataT> res;
+                             [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
+                                           const raft::KeyValuePair<IndexT, DataT>& b) {
+                               raft::KeyValuePair<IndexT, DataT> res;
                                res.key   = 0;
                                res.value = a.value + b.value;
                                return res;
@@ -561,12 +564,12 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
     X.data_handle() + cIdx * n_features, 1, n_features);
 
   // flag the sample that is chosen as initial centroid
-  std::vector<IndexT> h_isSampleCentroid(n_samples);
+  std::vector<uint8_t> h_isSampleCentroid(n_samples);
   std::fill(h_isSampleCentroid.begin(), h_isSampleCentroid.end(), 0);
   h_isSampleCentroid[cIdx] = 1;
 
   // device buffer to flag the sample that is chosen as initial centroid
-  auto isSampleCentroid = raft::make_device_vector<IndexT, IndexT>(handle, n_samples);
+  auto isSampleCentroid = raft::make_device_vector<uint8_t, IndexT>(handle, n_samples);
 
   raft::copy(
     isSampleCentroid.data_handle(), h_isSampleCentroid.data(), isSampleCentroid.size(), stream);
@@ -798,6 +801,17 @@ void kmeans_fit(handle_t const& handle,
   RAFT_EXPECTS(centroids.extent(1) == n_features,
                "invalid parameter (centroids.extent(1) != n_features)");
 
+  // Display a warning if batch_centroids is set and a fusedL2NN-compatible metric is used
+  if (params.batch_centroids != 0 && params.batch_centroids != params.n_clusters &&
+      (params.metric == raft::distance::DistanceType::L2Expanded ||
+       params.metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+    RAFT_LOG_INFO(
+      "batch_centroids=%d was passed, but batch_centroids=%d will be used (reason: "
+      "batch_centroids has no impact on the memory footprint when FusedL2NN can be used)",
+      params.batch_centroids,
+      params.n_clusters);
+  }
+
   logger::get(RAFT_NAME).set_level(params.verbosity);
 
   // Allocate memory
@@ -957,7 +971,7 @@ void kmeans_predict(handle_t const& handle,
   if (normalize_weight) checkWeight(handle, weight.view(), workspace);
 
   auto minClusterAndDistance =
-    raft::make_device_vector<cub::KeyValuePair<IndexT, DataT>, IndexT>(handle, n_samples);
+    raft::make_device_vector<raft::KeyValuePair<IndexT, DataT>, IndexT>(handle, n_samples);
   rmm::device_uvector<DataT> L2NormBuf_OR_DistBuf(0, stream);
 
   // L2 norm of X: ||x||^2
@@ -988,15 +1002,15 @@ void kmeans_predict(handle_t const& handle,
                                                       workspace);
 
   // calculate cluster cost phi_x(C)
-  rmm::device_scalar<cub::KeyValuePair<IndexT, DataT>> clusterCostD(stream);
+  rmm::device_scalar<raft::KeyValuePair<IndexT, DataT>> clusterCostD(stream);
   // TODO: add different templates for InType of binaryOp to avoid thrust transform
   thrust::transform(handle.get_thrust_policy(),
                     minClusterAndDistance.data_handle(),
                     minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
                     weight.data_handle(),
                     minClusterAndDistance.data_handle(),
-                    [=] __device__(const cub::KeyValuePair<IndexT, DataT> kvp, DataT wt) {
-                      cub::KeyValuePair<IndexT, DataT> res;
+                    [=] __device__(const raft::KeyValuePair<IndexT, DataT> kvp, DataT wt) {
+                      raft::KeyValuePair<IndexT, DataT> res;
                       res.value = kvp.value * wt;
                       res.key   = kvp.key;
                       return res;
@@ -1006,9 +1020,9 @@ void kmeans_predict(handle_t const& handle,
                              minClusterAndDistance.view(),
                              workspace,
                              raft::make_device_scalar_view(clusterCostD.data()),
-                             [] __device__(const cub::KeyValuePair<IndexT, DataT>& a,
-                                           const cub::KeyValuePair<IndexT, DataT>& b) {
-                               cub::KeyValuePair<IndexT, DataT> res;
+                             [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
+                                           const raft::KeyValuePair<IndexT, DataT>& b) {
+                               raft::KeyValuePair<IndexT, DataT> res;
                                res.key   = 0;
                                res.value = a.value + b.value;
                                return res;
@@ -1020,7 +1034,7 @@ void kmeans_predict(handle_t const& handle,
                     minClusterAndDistance.data_handle(),
                     minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
                     labels.data_handle(),
-                    [=] __device__(cub::KeyValuePair<IndexT, DataT> pair) { return pair.key; });
+                    [=] __device__(raft::KeyValuePair<IndexT, DataT> pair) { return pair.key; });
 }
 
 template <typename DataT, typename IndexT = int>

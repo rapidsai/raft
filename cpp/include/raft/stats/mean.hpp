@@ -18,43 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __MEAN_H
-#define __MEAN_H
+/**
+ * DISCLAIMER: this file is deprecated: use mean.cuh instead
+ */
 
 #pragma once
 
-#include "detail/mean.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-#include <raft/handle.hpp>
-
-namespace raft {
-namespace stats {
-
-/**
- * @brief Compute mean of the input matrix
- *
- * Mean operation is assumed to be performed on a given column.
- *
- * @tparam Type: the data type
- * @tparam IdxType Integer type used to for addressing
- * @param mu: the output mean vector
- * @param data: the input matrix
- * @param D: number of columns of data
- * @param N: number of rows of data
- * @param sample: whether to evaluate sample mean or not. In other words,
- * whether
- *  to normalize the output using N-1 or N, for true or false, respectively
- * @param rowMajor: whether the input data is row or col major
- * @param stream: cuda stream
- */
-template <typename Type, typename IdxType = int>
-void mean(
-  Type* mu, const Type* data, IdxType D, IdxType N, bool sample, bool rowMajor, cudaStream_t stream)
-{
-  detail::mean(mu, data, D, N, sample, rowMajor, stream);
-}
-
-};  // namespace stats
-};  // namespace raft
-
-#endif
+#include "mean.cuh"

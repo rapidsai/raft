@@ -17,10 +17,11 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <limits>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/minmax.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -117,16 +118,15 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
                 minmax_ref.data(),
                 minmax_ref.data() + params.cols,
                 stream);
-    minmax<T, 512>(data.data(),
-                   nullptr,
-                   nullptr,
-                   params.rows,
-                   params.cols,
-                   params.rows,
-                   minmax_act.data(),
-                   minmax_act.data() + params.cols,
-                   nullptr,
-                   stream);
+    raft::stats::minmax<T, int>(
+      handle,
+      raft::make_device_matrix_view<const T, int, raft::layout_f_contiguous>(
+        data.data(), params.rows, params.cols),
+      std::nullopt,
+      std::nullopt,
+      raft::make_device_vector_view<T, int>(minmax_act.data(), params.cols),
+      raft::make_device_vector_view<T, int>(minmax_act.data() + params.cols, params.cols),
+      std::nullopt);
   }
 
  protected:

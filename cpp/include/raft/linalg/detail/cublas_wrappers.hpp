@@ -18,7 +18,7 @@
 
 #include <cublas_v2.h>
 #include <raft/core/cublas_macros.hpp>
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 
 #include <cstdint>
 #include <cublas_v2.h>

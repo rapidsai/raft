@@ -19,12 +19,39 @@
 #include "detail/rng_impl.cuh"
 #include "detail/rng_impl_deprecated.cuh"  // necessary for now (to be removed)
 #include "rng_state.hpp"
+#include <cassert>
+#include <optional>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
+#include <type_traits>
+#include <variant>
 
 namespace raft::random {
 
 /**
  * @brief Generate uniformly distributed numbers in the given range
+ *
+ * @tparam OutputValueType Data type of output random number
+ * @tparam Index Data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output array
+ * @param[in] start start of the range
+ * @param[in] end end of the range
+ */
+template <typename OutputValueType, typename IndexType>
+void uniform(const raft::handle_t& handle,
+             RngState& rng_state,
+             raft::device_vector_view<OutputValueType, IndexType> out,
+             OutputValueType start,
+             OutputValueType end)
+{
+  detail::uniform(rng_state, out.data_handle(), out.extent(0), start, end, handle.get_stream());
+}
+
+/**
+ * @brief Legacy overload of `uniform` taking raw pointers
  *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
@@ -49,6 +76,34 @@ void uniform(const raft::handle_t& handle,
 /**
  * @brief Generate uniformly distributed integers in the given range
  *
+ * @tparam OutputValueType Integral type; value type of the output vector
+ * @tparam IndexType Type used to represent length of the output vector
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output vector of random numbers
+ * @param[in] start start of the range
+ * @param[in] end end of the range
+ */
+template <typename OutputValueType, typename IndexType>
+void uniformInt(const raft::handle_t& handle,
+                RngState& rng_state,
+                raft::device_vector_view<OutputValueType, IndexType> out,
+                OutputValueType start,
+                OutputValueType end)
+{
+  static_assert(
+    std::is_same<OutputValueType, typename std::remove_cv<OutputValueType>::type>::value,
+    "uniformInt: The output vector must be a view of nonconst, "
+    "so that we can write to it.");
+  static_assert(std::is_integral<OutputValueType>::value,
+                "uniformInt: The elements of the output vector must have integral type.");
+  detail::uniformInt(rng_state, out.data_handle(), out.extent(0), start, end, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `uniformInt`
+ *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
@@ -71,6 +126,29 @@ void uniformInt(const raft::handle_t& handle,
 
 /**
  * @brief Generate normal distributed numbers
+ *   with a given mean and standard deviation
+ *
+ * @tparam OutputValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output array
+ * @param[in] mu mean of the distribution
+ * @param[in] sigma std-dev of the distribution
+ */
+template <typename OutputValueType, typename IndexType>
+void normal(const raft::handle_t& handle,
+            RngState& rng_state,
+            raft::device_vector_view<OutputValueType, IndexType> out,
+            OutputValueType mu,
+            OutputValueType sigma)
+{
+  detail::normal(rng_state, out.data_handle(), out.extent(0), mu, sigma, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `normal`.
  *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
@@ -94,6 +172,35 @@ void normal(const raft::handle_t& handle,
 
 /**
  * @brief Generate normal distributed integers
+ *
+ * @tparam OutputValueType Integral type; value type of the output vector
+ * @tparam IndexType Integral type of the output vector's length
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output array
+ * @param[in] mu mean of the distribution
+ * @param[in] sigma standard deviation of the distribution
+ */
+template <typename OutputValueType, typename IndexType>
+void normalInt(const raft::handle_t& handle,
+               RngState& rng_state,
+               raft::device_vector_view<OutputValueType, IndexType> out,
+               OutputValueType mu,
+               OutputValueType sigma)
+{
+  static_assert(
+    std::is_same<OutputValueType, typename std::remove_cv<OutputValueType>::type>::value,
+    "normalInt: The output vector must be a view of nonconst, "
+    "so that we can write to it.");
+  static_assert(std::is_integral<OutputValueType>::value,
+                "normalInt: The output vector's value type must be an integer.");
+
+  detail::normalInt(rng_state, out.data_handle(), out.extent(0), mu, sigma, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `normalInt`
  *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
@@ -121,7 +228,70 @@ void normalInt(const raft::handle_t& handle,
  *
  * Each row in this table conforms to a normally distributed n-dim vector
  * whose mean is the input vector and standard deviation is the corresponding
- * vector or scalar. Correlations among the dimensions itself is assumed to
+ * vector or scalar. Correlations among the dimensions itself are assumed to
+ * be absent.
+ *
+ * @tparam OutputValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[in] mu_vec mean vector (of length `out.extent(1)`)
+ * @param[in] sigma Either the standard-deviation vector
+ *            (of length `out.extent(1)`) of each component,
+ *            or a scalar standard deviation for all components.
+ * @param[out] out the output table
+ */
+template <typename OutputValueType, typename IndexType>
+void normalTable(
+  const raft::handle_t& handle,
+  RngState& rng_state,
+  raft::device_vector_view<const OutputValueType, IndexType> mu_vec,
+  std::variant<raft::device_vector_view<const OutputValueType, IndexType>, OutputValueType> sigma,
+  raft::device_matrix_view<OutputValueType, IndexType, raft::row_major> out)
+{
+  const OutputValueType* sigma_vec_ptr = nullptr;
+  OutputValueType sigma_value{};
+
+  using sigma_vec_type = raft::device_vector_view<const OutputValueType, IndexType>;
+  if (std::holds_alternative<sigma_vec_type>(sigma)) {
+    auto sigma_vec = std::get<sigma_vec_type>(sigma);
+    RAFT_EXPECTS(sigma_vec.extent(0) == out.extent(1),
+                 "normalTable: The sigma vector "
+                 "has length %zu, which does not equal the number of columns "
+                 "in the output table %zu.",
+                 static_cast<size_t>(sigma_vec.extent(0)),
+                 static_cast<size_t>(out.extent(1)));
+    // The extra length check makes this work even if sigma_vec views a std::vector,
+    // where .data() need not return nullptr even if .size() is zero.
+    sigma_vec_ptr = sigma_vec.extent(0) == 0 ? nullptr : sigma_vec.data_handle();
+  } else {
+    sigma_value = std::get<OutputValueType>(sigma);
+  }
+
+  RAFT_EXPECTS(mu_vec.extent(0) == out.extent(1),
+               "normalTable: The mu vector "
+               "has length %zu, which does not equal the number of columns "
+               "in the output table %zu.",
+               static_cast<size_t>(mu_vec.extent(0)),
+               static_cast<size_t>(out.extent(1)));
+
+  detail::normalTable(rng_state,
+                      out.data_handle(),
+                      out.extent(0),
+                      out.extent(1),
+                      mu_vec.data_handle(),
+                      sigma_vec_ptr,
+                      sigma_value,
+                      handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `normalTable`.
+ *
+ * Each row in this table conforms to a normally distributed n-dim vector
+ * whose mean is the input vector and standard deviation is the corresponding
+ * vector or scalar. Correlations among the dimensions itself are assumed to
  * be absent.
  *
  * @tparam OutType data type of output random number
@@ -151,7 +321,27 @@ void normalTable(const raft::handle_t& handle,
 }
 
 /**
- * @brief Fill an array with the given value
+ * @brief Fill a vector with the given value
+ *
+ * @tparam OutputValueType Value type of the output vector
+ * @tparam IndexType Integral type used to represent length of the output vector
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[in] val value with which to fill the output vector
+ * @param[out] out the output vector
+ */
+template <typename OutputValueType, typename IndexType>
+void fill(const raft::handle_t& handle,
+          RngState& rng_state,
+          OutputValueType val,
+          raft::device_vector_view<OutputValueType, IndexType> out)
+{
+  detail::fill(rng_state, out.data_handle(), out.extent(0), val, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `fill`
  *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
@@ -169,6 +359,28 @@ void fill(const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenTy
 
 /**
  * @brief Generate bernoulli distributed boolean array
+ *
+ * @tparam OutputValueType Type of each element of the output vector;
+ *         must be able to represent boolean values (e.g., `bool`)
+ * @tparam IndexType Integral type of the output vector's length
+ * @tparam Type Data type in which to compute the probabilities
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output vector
+ * @param[in] prob coin-toss probability for heads
+ */
+template <typename OutputValueType, typename IndexType, typename Type>
+void bernoulli(const raft::handle_t& handle,
+               RngState& rng_state,
+               raft::device_vector_view<OutputValueType, IndexType> out,
+               Type prob)
+{
+  detail::bernoulli(rng_state, out.data_handle(), out.extent(0), prob, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `bernoulli`
  *
  * @tparam Type    data type in which to compute the probabilities
  * @tparam OutType output data type
@@ -189,6 +401,29 @@ void bernoulli(
 
 /**
  * @brief Generate bernoulli distributed array and applies scale
+ *
+ * @tparam OutputValueType Data type in which to compute the probabilities
+ * @tparam IndexType Integral type of the output vector's length
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output vector
+ * @param[in] prob coin-toss probability for heads
+ * @param[in] scale scaling factor
+ */
+template <typename OutputValueType, typename IndexType>
+void scaled_bernoulli(const raft::handle_t& handle,
+                      RngState& rng_state,
+                      raft::device_vector_view<OutputValueType, IndexType> out,
+                      OutputValueType prob,
+                      OutputValueType scale)
+{
+  detail::scaled_bernoulli(
+    rng_state, out.data_handle(), out.extent(0), prob, scale, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `scaled_bernoulli`
  *
  * @tparam OutType data type in which to compute the probabilities
  * @tparam LenType data type used to represent length of the arrays
@@ -212,6 +447,29 @@ void scaled_bernoulli(const raft::handle_t& handle,
 
 /**
  * @brief Generate Gumbel distributed random numbers
+ *
+ * @tparam OutputValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out output array
+ * @param[in] mu mean value
+ * @param[in] beta scale value
+ * @note https://en.wikipedia.org/wiki/Gumbel_distribution
+ */
+template <typename OutputValueType, typename IndexType = int>
+void gumbel(const raft::handle_t& handle,
+            RngState& rng_state,
+            raft::device_vector_view<OutputValueType, IndexType> out,
+            OutputValueType mu,
+            OutputValueType beta)
+{
+  detail::gumbel(rng_state, out.data_handle(), out.extent(0), mu, beta, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `gumbel`.
  *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
@@ -237,6 +495,28 @@ void gumbel(const raft::handle_t& handle,
 /**
  * @brief Generate lognormal distributed numbers
  *
+ * @tparam OutputValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out the output array
+ * @param[in] mu mean of the distribution
+ * @param[in] sigma standard deviation of the distribution
+ */
+template <typename OutputValueType, typename IndexType>
+void lognormal(const raft::handle_t& handle,
+               RngState& rng_state,
+               raft::device_vector_view<OutputValueType, IndexType> out,
+               OutputValueType mu,
+               OutputValueType sigma)
+{
+  detail::lognormal(rng_state, out.data_handle(), out.extent(0), mu, sigma, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `lognormal`.
+ *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
@@ -244,7 +524,7 @@ void gumbel(const raft::handle_t& handle,
  * @param[out] ptr the output array
  * @param[in] len the number of elements in the output
  * @param[in] mu mean of the distribution
- * @param[in] sigma std-dev of the distribution
+ * @param[in] sigma standard deviation of the distribution
  */
 template <typename OutType, typename LenType = int>
 void lognormal(const raft::handle_t& handle,
@@ -259,6 +539,28 @@ void lognormal(const raft::handle_t& handle,
 
 /**
  * @brief Generate logistic distributed random numbers
+ *
+ * @tparam OutputValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out output array
+ * @param[in] mu mean value
+ * @param[in] scale scale value
+ */
+template <typename OutputValueType, typename IndexType = int>
+void logistic(const raft::handle_t& handle,
+              RngState& rng_state,
+              raft::device_vector_view<OutputValueType, IndexType> out,
+              OutputValueType mu,
+              OutputValueType scale)
+{
+  detail::logistic(rng_state, out.data_handle(), out.extent(0), mu, scale, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `logistic`.
  *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
@@ -283,13 +585,33 @@ void logistic(const raft::handle_t& handle,
 /**
  * @brief Generate exponentially distributed random numbers
  *
+ * @tparam OutputValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out output array
+ * @param[in] lambda the exponential distribution's lambda parameter
+ */
+template <typename OutputValueType, typename IndexType>
+void exponential(const raft::handle_t& handle,
+                 RngState& rng_state,
+                 raft::device_vector_view<OutputValueType, IndexType> out,
+                 OutputValueType lambda)
+{
+  detail::exponential(rng_state, out.data_handle(), out.extent(0), lambda, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `exponential`.
+ *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
  * @param[in] rng_state random number generator state
  * @param[out] ptr output array
  * @param[in] len number of elements in the output array
- * @param[in] lambda the lambda
+ * @param[in] lambda the exponential distribution's lambda parameter
  */
 template <typename OutType, typename LenType = int>
 void exponential(
@@ -301,13 +623,33 @@ void exponential(
 /**
  * @brief Generate rayleigh distributed random numbers
  *
+ * @tparam OutputValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out output array
+ * @param[in] sigma the distribution's sigma parameter
+ */
+template <typename OutputValueType, typename IndexType>
+void rayleigh(const raft::handle_t& handle,
+              RngState& rng_state,
+              raft::device_vector_view<OutputValueType, IndexType> out,
+              OutputValueType sigma)
+{
+  detail::rayleigh(rng_state, out.data_handle(), out.extent(0), sigma, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `rayleigh`.
+ *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
  * @param[in] handle raft handle for resource management
  * @param[in] rng_state random number generator state
  * @param[out] ptr output array
  * @param[in] len number of elements in the output array
- * @param[in] sigma the sigma
+ * @param[in] sigma the distribution's sigma parameter
  */
 template <typename OutType, typename LenType = int>
 void rayleigh(
@@ -318,6 +660,28 @@ void rayleigh(
 
 /**
  * @brief Generate laplace distributed random numbers
+ *
+ * @tparam OutputValueType data type of output random number
+ * @tparam IndexType data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out output array
+ * @param[in] mu the mean
+ * @param[in] scale the scale
+ */
+template <typename OutputValueType, typename IndexType>
+void laplace(const raft::handle_t& handle,
+             RngState& rng_state,
+             raft::device_vector_view<OutputValueType, IndexType> out,
+             OutputValueType mu,
+             OutputValueType scale)
+{
+  detail::laplace(rng_state, out.data_handle(), out.extent(0), mu, scale, handle.get_stream());
+}
+
+/**
+ * @brief Legacy raw pointer overload of `laplace`.
  *
  * @tparam OutType data type of output random number
  * @tparam LenType data type used to represent length of the arrays
@@ -340,20 +704,143 @@ void laplace(const raft::handle_t& handle,
 }
 
 /**
- * @brief Sample the input array without replacement, optionally based on the
- * input weight vector for each element in the array
+ * @brief Sample the input vector without replacement, optionally based on the
+ * input weight vector for each element in the array.
  *
- * Implementation here is based on the `one-pass sampling` algo described here:
- * https://www.ethz.ch/content/dam/ethz/special-interest/baug/ivt/ivt-dam/vpl/reports/1101-1200/ab1141.pdf
+ * The implementation is based on the `one-pass sampling` algorithm described in
+ * ["Accelerating weighted random sampling without
+ * replacement,"](https://www.ethz.ch/content/dam/ethz/special-interest/baug/ivt/ivt-dam/vpl/reports/1101-1200/ab1141.pdf)
+ * a technical report by Kirill Mueller.
  *
- * @note In the sampled array the elements which are picked will always appear
- * in the increasing order of their weights as computed using the exponential
- * distribution. So, if you're particular about the order (for eg. array
- * permutations), then this might not be the right choice!
+ * If no input weight vector is provided, then input elements will be
+ * sampled uniformly.  Otherwise, the elements sampled from the input
+ * vector will always appear in increasing order of their weights as
+ * computed using the exponential distribution. So, if you are
+ * particular about the order (for e.g., array permutations), then
+ * this might not be the right choice.
+ *
+ * @tparam DataT type of each element of the input array @c in
+ * @tparam IdxT type of the dimensions of the arrays; output index type
+ * @tparam WeightsT type of each elements of the weights array @c wts
+ *
+ * @note Please do not specify template parameters explicitly,
+ *   as the compiler can deduce them from the arguments.
+ *
+ * @param[in] handle RAFT handle containing (among other resources)
+ *   the CUDA stream on which to run.
+ * @param[inout] rng_state Pseudorandom number generator state.
+ * @param[in] in Input vector to be sampled.
+ * @param[in] wts Optional weights vector.
+ *        If not provided, uniform sampling will be used.
+ * @param[out] out Vector of samples from the input vector.
+ * @param[out] outIdx If provided, vector of the indices
+ *   sampled from the input array.
+ *
+ * @pre The number of samples `out.extent(0)`
+ *   is less than or equal to the number of inputs `in.extent(0)`.
+ *
+ * @pre The number of weights `wts.extent(0)`
+ *   equals the number of inputs `in.extent(0)`.
+ */
+template <typename DataT, typename IdxT, typename WeightsT>
+void sample_without_replacement(const raft::handle_t& handle,
+                                RngState& rng_state,
+                                raft::device_vector_view<const DataT, IdxT> in,
+                                std::optional<raft::device_vector_view<const WeightsT, IdxT>> wts,
+                                raft::device_vector_view<DataT, IdxT> out,
+                                std::optional<raft::device_vector_view<IdxT, IdxT>> outIdx)
+{
+  static_assert(std::is_integral<IdxT>::value, "IdxT must be an integral type.");
+  const IdxT sampledLen = out.extent(0);
+  const IdxT len        = in.extent(0);
+  RAFT_EXPECTS(sampledLen <= len,
+               "sampleWithoutReplacement: "
+               "sampledLen (out.extent(0)) must be <= len (in.extent(0))");
+  RAFT_EXPECTS(len == 0 || in.data_handle() != nullptr,
+               "sampleWithoutReplacement: "
+               "If in.extents(0) != 0, then in.data_handle() must be nonnull");
+  RAFT_EXPECTS(sampledLen == 0 || out.data_handle() != nullptr,
+               "sampleWithoutReplacement: "
+               "If out.extents(0) != 0, then out.data_handle() must be nonnull");
+
+  const bool outIdx_has_value = outIdx.has_value();
+  if (outIdx_has_value) {
+    RAFT_EXPECTS((*outIdx).extent(0) == sampledLen,
+                 "sampleWithoutReplacement: "
+                 "If outIdx is provided, its extent(0) must equal out.extent(0)");
+  }
+  IdxT* outIdx_ptr = outIdx_has_value ? (*outIdx).data_handle() : nullptr;
+
+  const bool wts_has_value = wts.has_value();
+  if (wts_has_value) {
+    RAFT_EXPECTS((*wts).extent(0) == len,
+                 "sampleWithoutReplacement: "
+                 "If wts is provided, its extent(0) must equal in.extent(0)");
+  }
+  const WeightsT* wts_ptr = wts_has_value ? (*wts).data_handle() : nullptr;
+
+  detail::sampleWithoutReplacement(rng_state,
+                                   out.data_handle(),
+                                   outIdx_ptr,
+                                   in.data_handle(),
+                                   wts_ptr,
+                                   sampledLen,
+                                   len,
+                                   handle.get_stream());
+}
+
+namespace sample_without_replacement_impl {
+template <typename T>
+struct weight_alias {
+};
+
+template <>
+struct weight_alias<std::nullopt_t> {
+  using type = double;
+};
+
+template <typename ElementType, typename IndexType>
+struct weight_alias<std::optional<raft::device_vector_view<ElementType, IndexType>>> {
+  using type = typename raft::device_vector_view<ElementType, IndexType>::value_type;
+};
+
+template <typename T>
+using weight_t = typename weight_alias<T>::type;
+}  // namespace sample_without_replacement_impl
+
+/**
+ * @brief Overload of `sample_without_replacement` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for one or both of the optional arguments.
+ *
+ * Please see above for documentation of `sample_without_replacement`.
+ */
+template <typename DataT, typename IdxT, typename WeightsVectorType, class OutIndexVectorType>
+void sample_without_replacement(const raft::handle_t& handle,
+                                RngState& rng_state,
+                                raft::device_vector_view<const DataT, IdxT> in,
+                                WeightsVectorType&& wts,
+                                raft::device_vector_view<DataT, IdxT> out,
+                                OutIndexVectorType&& outIdx)
+{
+  using weight_type = sample_without_replacement_impl::weight_t<
+    std::remove_const_t<std::remove_reference_t<WeightsVectorType>>>;
+  std::optional<raft::device_vector_view<const weight_type, IdxT>> weights =
+    std::forward<WeightsVectorType>(wts);
+  std::optional<raft::device_vector_view<IdxT, IdxT>> output_indices =
+    std::forward<OutIndexVectorType>(outIdx);
+
+  sample_without_replacement(handle, rng_state, in, weights, out, output_indices);
+}
+
+/**
+ * @brief Legacy version of @c sample_without_replacement (see above)
+ *   that takes raw arrays instead of device mdspan.
  *
  * @tparam DataT data type
  * @tparam WeightsT weights type
  * @tparam IdxT index type
+ *
  * @param[in] handle raft handle for resource management
  * @param[in] rng_state random number generator state
  * @param[out] out output sampled array (of length 'sampledLen')

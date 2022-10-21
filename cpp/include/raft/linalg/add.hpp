@@ -18,78 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __ADD_H
-#define __ADD_H
+/**
+ * DISCLAIMER: this file is deprecated: use add.cuh instead
+ */
 
 #pragma once
 
-#include "detail/add.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace linalg {
-
-using detail::adds_scalar;
-
-/**
- * @brief Elementwise scalar add operation on the input buffer
- *
- * @tparam InT     input data-type. Also the data-type upon which the math ops
- *                 will be performed
- * @tparam OutT    output data-type
- * @tparam IdxType Integer type used to for addressing
- *
- * @param out    the output buffer
- * @param in     the input buffer
- * @param scalar the scalar used in the operations
- * @param len    number of elements in the input buffer
- * @param stream cuda stream where to launch work
- */
-template <typename InT, typename OutT = InT, typename IdxType = int>
-void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
-{
-  detail::addScalar(out, in, scalar, len, stream);
-}
-
-/**
- * @brief Elementwise add operation on the input buffers
- * @tparam InT     input data-type. Also the data-type upon which the math ops
- *                 will be performed
- * @tparam OutT    output data-type
- * @tparam IdxType Integer type used to for addressing
- *
- * @param out    the output buffer
- * @param in1    the first input buffer
- * @param in2    the second input buffer
- * @param len    number of elements in the input buffers
- * @param stream cuda stream where to launch work
- */
-template <typename InT, typename OutT = InT, typename IdxType = int>
-void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
-{
-  detail::add(out, in1, in2, len, stream);
-}
-
-/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
- * write result to outDev[i]
- * @tparam math_t data-type upon which the math operation will be performed
- * @tparam IdxType Integer type used to for addressing
- * @param outDev the output buffer
- * @param inDev the input buffer
- * @param singleScalarDev pointer to the scalar located in device memory
- * @param len number of elements in the input and output buffer
- * @param stream cuda stream
- */
-template <typename math_t, typename IdxType = int>
-void addDevScalar(math_t* outDev,
-                  const math_t* inDev,
-                  const math_t* singleScalarDev,
-                  IdxType len,
-                  cudaStream_t stream)
-{
-  detail::addDevScalar(outDev, inDev, singleScalarDev, len, stream);
-}
-
-};  // end namespace linalg
-};  // end namespace raft
-
-#endif
+#include "add.cuh"

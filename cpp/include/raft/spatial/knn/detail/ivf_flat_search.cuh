@@ -18,24 +18,22 @@
 
 #include "../ivf_flat_types.hpp"
 #include "ann_utils.cuh"
-#include "topk/radix_topk.cuh"
+#include "topk.cuh"
 #include "topk/warpsort_topk.cuh"
 
-#include <raft/common/device_loads_stores.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
-#include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
-#include <raft/distance/distance_type.hpp>
-#include <raft/pow2_utils.cuh>
-#include <raft/vectorized.cuh>
+#include <raft/distance/distance_types.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/device_loads_stores.cuh>
+#include <raft/util/pow2_utils.cuh>
+#include <raft/util/vectorized.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
-
-#include <optional>
 
 namespace raft::spatial::knn::ivf_flat::detail {
 
@@ -698,8 +696,8 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
   copy_vectorized(query_shared, query, std::min(dim, query_smem_elems));
   __syncthreads();
 
-  topk::block_sort<topk::warp_sort_filtered, Capacity, Ascending, float, IdxT> queue(
-    k, interleaved_scan_kernel_smem + query_smem_elems * sizeof(T));
+  using block_sort_t = topk::block_sort<topk::warp_sort_filtered, Capacity, Ascending, float, IdxT>;
+  block_sort_t queue(k, interleaved_scan_kernel_smem + query_smem_elems * sizeof(T));
 
   {
     using align_warp  = Pow2<WarpSize>;
@@ -768,8 +766,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
         }
 
         // Enqueue one element per thread
-        constexpr float kDummy = Ascending ? upper_bound<float>() : lower_bound<float>();
-        const float val        = valid ? static_cast<float>(dist) : kDummy;
+        const float val  = valid ? static_cast<float>(dist) : block_sort_t::queue_t::kDummy;
         const size_t idx = valid ? static_cast<size_t>(list_indices[list_offset + vec_id]) : 0;
         queue.add(val, idx);
       }
@@ -819,16 +816,16 @@ void launch_kernel(Lambda lambda,
                    uint32_t& grid_dim_x,
                    rmm::cuda_stream_view stream)
 {
-  RAFT_EXPECTS(Veclen == index.veclen,
+  RAFT_EXPECTS(Veclen == index.veclen(),
                "Configured Veclen does not match the index interleaving pattern.");
   constexpr auto kKernel =
     interleaved_scan_kernel<Capacity, Veclen, Ascending, T, AccT, IdxT, Lambda>;
   const int max_query_smem = 16384;
   int query_smem_elems =
-    std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(index.dim));
+    std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(index.dim()));
   int smem_size              = query_smem_elems * sizeof(T);
   constexpr int kSubwarpSize = std::min<int>(Capacity, WarpSize);
-  smem_size += raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<AccT, size_t>(
+  smem_size += raft::spatial::knn::detail::topk::calc_smem_size_for_block_wide<AccT, IdxT>(
     kThreadsPerBlock / kSubwarpSize, k);
 
   // power-of-two less than cuda limit (for better addr alignment)
@@ -855,16 +852,16 @@ void launch_kernel(Lambda lambda,
                                                         query_smem_elems,
                                                         queries,
                                                         coarse_index,
-                                                        index.indices.data(),
-                                                        index.data.data(),
-                                                        index.list_sizes.data(),
-                                                        index.list_offsets.data(),
+                                                        index.indices().data_handle(),
+                                                        index.data().data_handle(),
+                                                        index.list_sizes().data_handle(),
+                                                        index.list_offsets().data_handle(),
                                                         n_probes,
                                                         k,
-                                                        index.dim,
+                                                        index.dim(),
                                                         neighbors,
                                                         distances);
-    queries += grid_dim_y * index.dim;
+    queries += grid_dim_y * index.dim();
     neighbors += grid_dim_y * grid_dim_x * k;
     distances += grid_dim_y * grid_dim_x * k;
   }
@@ -1041,7 +1038,7 @@ void ivfflat_interleaved_scan(const ivf_flat::index<T, IdxT>& index,
 {
   const int capacity = raft::spatial::knn::detail::topk::calc_capacity(k);
   select_interleaved_scan_kernel<T, AccT, IdxT>::run(capacity,
-                                                     index.veclen,
+                                                     index.veclen(),
                                                      select_min,
                                                      metric,
                                                      index,
@@ -1066,25 +1063,25 @@ void search_impl(const handle_t& handle,
                  bool select_min,
                  IdxT* neighbors,
                  AccT* distances,
-                 rmm::cuda_stream_view stream,
                  rmm::mr::device_memory_resource* search_mr)
 {
+  auto stream = handle.get_stream();
   // The norm of query
   rmm::device_uvector<float> query_norm_dev(n_queries, stream, search_mr);
   // The distance value of cluster(list) and queries
-  rmm::device_uvector<float> distance_buffer_dev(n_queries * index.n_lists, stream, search_mr);
+  rmm::device_uvector<float> distance_buffer_dev(n_queries * index.n_lists(), stream, search_mr);
   // The topk distance value of cluster(list) and queries
   rmm::device_uvector<float> coarse_distances_dev(n_queries * n_probes, stream, search_mr);
   // The topk  index of cluster(list) and queries
   rmm::device_uvector<uint32_t> coarse_indices_dev(n_queries * n_probes, stream, search_mr);
-  // The topk distance value of candicate vectors from each cluster(list)
+  // The topk distance value of candidate vectors from each cluster(list)
   rmm::device_uvector<AccT> refined_distances_dev(n_queries * n_probes * k, stream, search_mr);
-  // The topk index of candicate vectors from each cluster(list)
+  // The topk index of candidate vectors from each cluster(list)
   rmm::device_uvector<IdxT> refined_indices_dev(n_queries * n_probes * k, stream, search_mr);
 
   size_t float_query_size;
   if constexpr (std::is_integral_v<T>) {
-    float_query_size = n_queries * index.dim;
+    float_query_size = n_queries * index.dim();
   } else {
     float_query_size = 0;
   }
@@ -1095,25 +1092,26 @@ void search_impl(const handle_t& handle,
     converted_queries_ptr = const_cast<float*>(queries);
   } else {
     linalg::unaryOp(
-      converted_queries_ptr, queries, n_queries * index.dim, utils::mapping<float>{}, stream);
+      converted_queries_ptr, queries, n_queries * index.dim(), utils::mapping<float>{}, stream);
   }
 
   float alpha = 1.0f;
   float beta  = 0.0f;
 
-  if (index.metric == raft::distance::DistanceType::L2Expanded) {
+  // todo(lsugy): raft distance? (if performance is similar/better than gemm)
+  if (index.metric() == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
     utils::dots_along_rows(
-      n_queries, index.dim, converted_queries_ptr, query_norm_dev.data(), stream);
+      n_queries, index.dim(), converted_queries_ptr, query_norm_dev.data(), stream);
     utils::outer_add(query_norm_dev.data(),
-                     n_queries,
-                     index.center_norms->data(),
-                     index.n_lists,
+                     (IdxT)n_queries,
+                     index.center_norms()->data_handle(),
+                     (IdxT)index.n_lists(),
                      distance_buffer_dev.data(),
                      stream);
-    RAFT_LOG_TRACE_VEC(index.center_norms->data(), 20);
-    RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
+    RAFT_LOG_TRACE_VEC(index.center_norms()->data_handle(), std::min<uint32_t>(20, index.dim()));
+    RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), std::min<uint32_t>(20, index.n_lists()));
   } else {
     alpha = 1.0f;
     beta  = 0.0f;
@@ -1122,45 +1120,32 @@ void search_impl(const handle_t& handle,
   linalg::gemm(handle,
                true,
                false,
-               index.n_lists,
+               index.n_lists(),
                n_queries,
-               index.dim,
+               index.dim(),
                &alpha,
-               index.centers.data(),
-               index.dim,
+               index.centers().data_handle(),
+               index.dim(),
                converted_queries_ptr,
-               index.dim,
+               index.dim(),
                &beta,
                distance_buffer_dev.data(),
-               index.n_lists,
+               index.n_lists(),
                stream);
 
-  RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), 20);
-  if (n_probes <= raft::spatial::knn::detail::topk::kMaxCapacity) {
-    topk::warp_sort_topk<AccT, uint32_t>(distance_buffer_dev.data(),
-                                         nullptr,
-                                         n_queries,
-                                         index.n_lists,
-                                         n_probes,
-                                         coarse_distances_dev.data(),
-                                         coarse_indices_dev.data(),
-                                         select_min,
-                                         stream,
-                                         search_mr);
-  } else {
-    topk::radix_topk<AccT, uint32_t, 11, 512>(distance_buffer_dev.data(),
-                                              nullptr,
-                                              n_queries,
-                                              index.n_lists,
-                                              n_probes,
-                                              coarse_distances_dev.data(),
-                                              coarse_indices_dev.data(),
-                                              select_min,
-                                              stream,
-                                              search_mr);
-  }
-  RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), 1 * n_probes);
-  RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), 1 * n_probes);
+  RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), std::min<uint32_t>(20, index.n_lists()));
+  select_topk<AccT, uint32_t>(distance_buffer_dev.data(),
+                              nullptr,
+                              n_queries,
+                              index.n_lists(),
+                              n_probes,
+                              coarse_distances_dev.data(),
+                              coarse_indices_dev.data(),
+                              select_min,
+                              stream,
+                              search_mr);
+  RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), n_probes);
+  RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), n_probes);
 
   auto distances_dev_ptr = refined_distances_dev.data();
   auto indices_dev_ptr   = refined_indices_dev.data();
@@ -1172,7 +1157,7 @@ void search_impl(const handle_t& handle,
                                                                           nullptr,
                                                                           nullptr,
                                                                           n_queries,
-                                                                          index.metric,
+                                                                          index.metric(),
                                                                           n_probes,
                                                                           k,
                                                                           select_min,
@@ -1193,7 +1178,7 @@ void search_impl(const handle_t& handle,
                                                                         queries,
                                                                         coarse_indices_dev.data(),
                                                                         n_queries,
-                                                                        index.metric,
+                                                                        index.metric(),
                                                                         n_probes,
                                                                         k,
                                                                         select_min,
@@ -1207,31 +1192,16 @@ void search_impl(const handle_t& handle,
 
   // Merge topk values from different blocks
   if (grid_dim_x > 1) {
-    if (k <= raft::spatial::knn::detail::topk::kMaxCapacity) {
-      topk::warp_sort_topk<AccT, IdxT>(refined_distances_dev.data(),
-                                       refined_indices_dev.data(),
-                                       n_queries,
-                                       k * grid_dim_x,
-                                       k,
-                                       distances,
-                                       neighbors,
-                                       select_min,
-                                       stream,
-                                       search_mr);
-    } else {
-      // NB: this branch can only be triggered once `ivfflat_interleaved_scan` above supports larger
-      // `k` values (kMaxCapacity limit as a dependency of topk::block_sort)
-      topk::radix_topk<AccT, IdxT, 11, 512>(refined_distances_dev.data(),
-                                            refined_indices_dev.data(),
-                                            n_queries,
-                                            k * grid_dim_x,
-                                            k,
-                                            distances,
-                                            neighbors,
-                                            select_min,
-                                            stream,
-                                            search_mr);
-    }
+    select_topk<AccT, IdxT>(refined_distances_dev.data(),
+                            refined_indices_dev.data(),
+                            n_queries,
+                            k * grid_dim_x,
+                            k,
+                            distances,
+                            neighbors,
+                            select_min,
+                            stream,
+                            search_mr);
   }
 }
 
@@ -1245,23 +1215,22 @@ inline void search(const handle_t& handle,
                    uint32_t k,
                    IdxT* neighbors,
                    float* distances,
-                   rmm::cuda_stream_view stream,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "ivf_flat::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim);
+    "ivf_flat::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim());
 
   RAFT_EXPECTS(params.n_probes > 0,
                "n_probes (number of clusters to probe in the search) must be positive.");
-  auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists);
+  auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
 
   bool select_min;
-  switch (index.metric) {
+  switch (index.metric()) {
     case raft::distance::DistanceType::InnerProduct:
     case raft::distance::DistanceType::CosineExpanded:
     case raft::distance::DistanceType::CorrelationExpanded:
       // Similarity metrics have the opposite meaning, i.e. nearest neigbours are those with larger
-      // similarity (See the same logic at cpp/include/raft/sparse/selection/detail/knn.cuh:362
+      // similarity (See the same logic at cpp/include/raft/sparse/spatial/detail/knn.cuh:362
       // {perform_k_selection})
       select_min = false;
       break;
@@ -1275,7 +1244,7 @@ inline void search(const handle_t& handle,
   }
 
   return search_impl<T, float, IdxT>(
-    handle, index, queries, n_queries, k, n_probes, select_min, neighbors, distances, stream, mr);
+    handle, index, queries, n_queries, k, n_probes, select_min, neighbors, distances, mr);
 }
 
 }  // namespace raft::spatial::knn::ivf_flat::detail

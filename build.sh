@@ -18,14 +18,14 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pyraft pylibraft docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
-HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>]
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
                       around the C++ code.
-   pyraft           - build the pyraft Python package
    pylibraft        - build the pylibraft Python package
+   raft-dask        - build the raft-dask Python package. this also requires pylibraft.
    docs             - build the documentation
    tests            - build the tests
    bench            - build the benchmarks
@@ -35,9 +35,13 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    -g                          - build for debug
    --compile-libs              - compile shared libraries for all components
    --compile-nn                - compile shared library for nn component
-   --compile-dist              - compile shared library for distance component
+   --compile-dist              - compile shared library for distance and current random components
+                                 (eventually, this will be renamed to something more generic and
+                                  the only option to be supported)
    --minimal-deps              - disables dependencies like thrust so they can be overridden.
                                  can be useful for a pure header-only install
+   --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
+   --limit-bench               - semicolon-separated list of benchmark executables to compute (e.g. NEIGHBORS_BENCH;CLUSTER_BENCH)
    --allgpuarch                - build for all supported GPU architectures
    --buildfaiss                - build faiss statically into raft
    --install                   - install cmake targets
@@ -48,7 +52,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
                                  to speedup the build process.
    -h                          - print this text
 
- default action (no args) is to build both libraft and pyraft targets
+ default action (no args) is to build libraft, tests, pylibraft and raft-dask targets
 "
 LIBRAFT_BUILD_DIR=${LIBRAFT_BUILD_DIR:=${REPODIR}/cpp/build}
 SPHINX_BUILD_DIR=${REPODIR}/docs
@@ -68,6 +72,8 @@ COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=OFF
 
+TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
+BENCH_TARGETS="CLUSTER_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;SPARSE_BENCH;RANDOM_BENCH"
 ENABLE_thrust_DEPENDENCY=ON
 
 CACHE_ARGS=""
@@ -134,6 +140,36 @@ function cacheTool {
     fi
 }
 
+function limitTests {
+    # Check for option to limit the set of test binaries to build
+    if [[ -n $(echo $ARGS | { grep -E "\-\-limit\-tests" || true; } ) ]]; then
+        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
+        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
+        # on the invalid option error
+        LIMIT_TEST_TARGETS=$(echo $ARGS | sed -e 's/.*--limit-tests=//' -e 's/ .*//')
+        if [[ -n ${LIMIT_TEST_TARGETS} ]]; then
+            # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//--limit-tests=$LIMIT_TEST_TARGETS/}
+            TEST_TARGETS=${LIMIT_TEST_TARGETS}
+        fi
+    fi
+}
+
+function limitBench {
+    # Check for option to limit the set of test binaries to build
+    if [[ -n $(echo $ARGS | { grep -E "\-\-limit\-bench" || true; } ) ]]; then
+        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
+        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
+        # on the invalid option error
+        LIMIT_BENCH_TARGETS=$(echo $ARGS | sed -e 's/.*--limit-bench=//' -e 's/ .*//')
+        if [[ -n ${LIMIT_BENCH_TARGETS} ]]; then
+            # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//--limit-bench=$LIMIT_BENCH_TARGETS/}
+            BENCH_TARGETS=${LIMIT_BENCH_TARGETS}
+        fi
+    fi
+}
+
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
@@ -143,6 +179,8 @@ fi
 if (( ${NUMARGS} != 0 )); then
     cmakeArgs
     cacheTool
+    limitTests
+    limitBench
     for a in ${ARGS}; do
         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
             echo "Invalid option: ${a}"
@@ -192,13 +230,15 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
-    CMAKE_TARGET="${CMAKE_TARGET};test_raft"
+    CMAKE_TARGET="${CMAKE_TARGET};${TEST_TARGETS}"
 fi
 
 if hasArg bench || (( ${NUMARGS} == 0 )); then
     BUILD_BENCH=ON
+    COMPILE_DIST_LIBRARY=ON
     ENABLE_NN_DEPENDENCIES=ON
-    CMAKE_TARGET="${CMAKE_TARGET};bench_raft"
+    COMPILE_NN_LIBRARY=ON
+    CMAKE_TARGET="${CMAKE_TARGET};${BENCH_TARGETS}"
 fi
 
 if hasArg --buildfaiss; then
@@ -239,7 +279,7 @@ if (( ${CLEAN} == 1 )); then
       fi
     done
 
-    cd ${REPODIR}/python/raft
+    cd ${REPODIR}/python/raft-dask
     python setup.py clean --all
     cd ${REPODIR}
 
@@ -288,11 +328,15 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
   fi
 fi
 
-# Build and (optionally) install the pyraft Python package
-if (( ${NUMARGS} == 0 )) || hasArg pyraft || hasArg docs; then
+# Build and (optionally) install the raft-dask Python package
+if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
+    # Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
+    if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
+        EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
+    fi
 
-    cd ${REPODIR}/python/raft
-    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS}
+    cd ${REPODIR}/python/raft-dask
+    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
@@ -300,16 +344,21 @@ fi
 
 # Build and (optionally) install the pylibraft Python package
 if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
+    # Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
+    if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
+        EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
+    fi
 
     cd ${REPODIR}/python/pylibraft
-    python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS}
+    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
 fi
 
 if hasArg docs; then
-    cmake --build ${LIBRAFT_BUILD_DIR} --target docs_raft
+    set -x
+    cmake --build ${LIBRAFT_BUILD_DIR} -v --target docs_raft
     cd ${SPHINX_BUILD_DIR}
     make html
 fi

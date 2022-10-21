@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/distance/detail/canberra.cuh>
 #include <raft/distance/detail/chebyshev.cuh>
 #include <raft/distance/detail/correlation.cuh>
@@ -30,7 +29,8 @@
 #include <raft/distance/detail/l1.cuh>
 #include <raft/distance/detail/minkowski.cuh>
 #include <raft/distance/detail/russell_rao.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -616,6 +616,8 @@ void distance(const InType* x,
  *  worksize, the number of bytes of workspace required
  */
 
+// Default final op functor which facilitates elementwise operation on 
+// final distance value if any.
 template <typename AccType, typename OutType, typename Index>
 struct default_fin_op {
   __host__ __device__ default_fin_op() noexcept {};

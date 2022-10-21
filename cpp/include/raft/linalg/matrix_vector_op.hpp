@@ -18,93 +18,14 @@
  * Please use the cuh version instead.
  */
 
-#ifndef __MATRIX_VECTOR_OP_H
-#define __MATRIX_VECTOR_OP_H
+/**
+ * DISCLAIMER: this file is deprecated: use matrix_vector_op.cuh instead
+ */
 
 #pragma once
 
-#include "detail/matrix_vector_op.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace linalg {
-
-/**
- * @brief Operations for all the columns or rows with a given vector.
- * Caution : Threads process multiple elements to speed up processing. These
- * are loaded in a single read thanks to type promotion. Faster processing
- * would thus only be enabled when adresses are optimally aligned for it.
- * Note : the function will also check that the size of the window of accesses
- * is a multiple of the number of elements processed by a thread in order to
- * enable faster processing
- * @tparam Type the matrix/vector type
- * @tparam Lambda a device function which represents a binary operator
- * @tparam IdxType Integer type used to for addressing
- * @tparam TPB threads per block of the cuda kernel launched
- * @param out the output matrix (passing out = matrix makes it in-place)
- * @param matrix the input matrix
- * @param vec the vector
- * @param D number of columns of matrix
- * @param N number of rows of matrix
- * @param rowMajor whether input is row or col major
- * @param bcastAlongRows whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns
- * @param op the mathematical operation
- * @param stream cuda stream where to launch work
- */
-template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type* out,
-                    const Type* matrix,
-                    const Type* vec,
-                    IdxType D,
-                    IdxType N,
-                    bool rowMajor,
-                    bool bcastAlongRows,
-                    Lambda op,
-                    cudaStream_t stream)
-{
-  detail::matrixVectorOp(out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
-}
-
-/**
- * @brief Operations for all the columns or rows with the given vectors.
- * Caution : Threads process multiple elements to speed up processing. These
- * are loaded in a single read thanks to type promotion. Faster processing
- * would thus only be enabled when adresses are optimally aligned for it.
- * Note : the function will also check that the size of the window of accesses
- * is a multiple of the number of elements processed by a thread in order to
- * enable faster processing
- * @tparam Type the matrix/vector type
- * @tparam Lambda a device function which represents a binary operator
- * @tparam IdxType Integer type used to for addressing
- * @tparam TPB threads per block of the cuda kernel launched
- * @param out the output matrix (passing out = matrix makes it in-place)
- * @param matrix the input matrix
- * @param vec1 the first vector
- * @param vec2 the second vector
- * @param D number of columns of matrix
- * @param N number of rows of matrix
- * @param rowMajor whether input is row or col major
- * @param bcastAlongRows whether the broadcast of vector needs to happen along
- * the rows of the matrix or columns
- * @param op the mathematical operation
- * @param stream cuda stream where to launch work
- */
-template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type* out,
-                    const Type* matrix,
-                    const Type* vec1,
-                    const Type* vec2,
-                    IdxType D,
-                    IdxType N,
-                    bool rowMajor,
-                    bool bcastAlongRows,
-                    Lambda op,
-                    cudaStream_t stream)
-{
-  detail::matrixVectorOp(out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
-}
-
-};  // end namespace linalg
-};  // end namespace raft
-
-#endif
+#include "matrix_vector_op.cuh"

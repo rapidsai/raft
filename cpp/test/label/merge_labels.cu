@@ -18,8 +18,8 @@
 #include <raft/label/merge_labels.cuh>
 
 #include "../test_utils.h"
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>

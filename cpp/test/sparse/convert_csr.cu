@@ -16,7 +16,7 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>

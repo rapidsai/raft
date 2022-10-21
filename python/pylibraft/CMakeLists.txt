@@ -12,9 +12,9 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
-set(pylibraft_version 22.08.00)
+set(pylibraft_version 22.12.00)
 
 include(../../fetch_rapids.cmake)
 
@@ -28,14 +28,14 @@ project(
             C
             CXX)
 
-option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
-       OFF)
+option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files" ON)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
     find_package(raft ${pylibraft_version} REQUIRED COMPONENTS distance)
     if(NOT TARGET raft::raft_distance_lib)
-        message(FATAL_ERROR "Building against a preexisting libraft library requires the distance component of that library to have been built!")
+        message(FATAL_ERROR "Building against a preexisting libraft library requires the distance components of that library to have been built!")
+
     endif()
 else()
   set(raft_FOUND OFF)
@@ -59,11 +59,15 @@ if(NOT raft_FOUND)
   add_subdirectory(../../cpp raft-cpp)
 
   # When building the C++ libraries from source we must copy
-  # libraft_distance.so alongside the pairwise_distance Cython library.
+  # libraft_distance.so alongside the pairwise_distance and random Cython libraries
+  # TODO: when we have a single 'compiled' raft library, we shouldn't need this
   install(TARGETS raft_distance_lib DESTINATION pylibraft/distance)
+  install(TARGETS raft_distance_lib DESTINATION pylibraft/random)
 endif()
 
 include(rapids-cython)
 rapids_cython_init()
 
+add_subdirectory(pylibraft/common)
 add_subdirectory(pylibraft/distance)
+add_subdirectory(pylibraft/random)

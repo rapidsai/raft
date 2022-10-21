@@ -17,9 +17,9 @@
 #include "../test_utils.h"
 #include "add.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/add.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -46,7 +46,12 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     uniform(handle, r, in1.data(), len, InT(-1.0), InT(1.0));
     uniform(handle, r, in2.data(), len, InT(-1.0), InT(1.0));
     naiveAddElem<InT, OutT>(out_ref.data(), in1.data(), in2.data(), len, stream);
-    add<InT, OutT>(out.data(), in1.data(), in2.data(), len, stream);
+
+    auto out_view = raft::make_device_vector_view(out.data(), out.size());
+    auto in1_view = raft::make_device_vector_view<const InT>(in1.data(), in1.size());
+    auto in2_view = raft::make_device_vector_view<const InT>(in2.data(), in2.size());
+
+    add(handle, in1_view, in2_view, out_view);
     handle.sync_stream(stream);
   }
 

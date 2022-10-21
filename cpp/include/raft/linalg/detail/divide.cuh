@@ -17,16 +17,18 @@
 #pragma once
 
 #include "functional.cuh"
+
+#include <raft/core/host_mdspan.hpp>
 #include <raft/linalg/unary_op.cuh>
 
 namespace raft {
 namespace linalg {
 namespace detail {
 
-template <typename math_t, typename IdxType = int>
-void divideScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void divideScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, divides_scalar<math_t>(scalar), stream);
+  raft::linalg::unaryOp(out, in, len, divides_scalar<InT, OutT>(scalar), stream);
 }
 
 };  // end namespace detail

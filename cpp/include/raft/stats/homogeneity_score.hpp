@@ -13,46 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 /**
  * This file is deprecated and will be removed in release 22.06.
  * Please use the cuh version instead.
  */
 
-#ifndef __HOMOGENEITY_SCORE_H
-#define __HOMOGENEITY_SCORE_H
+/**
+ * DISCLAIMER: this file is deprecated: use homogeneity_score.cuh instead
+ */
 
 #pragma once
 
-#include <raft/stats/detail/homogeneity_score.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the cuh version instead.")
 
-namespace raft {
-namespace stats {
-
-/**
- * @brief Function to calculate the homogeneity score between two clusters
- * <a href="https://en.wikipedia.org/wiki/Homogeneity_(statistics)">more info on mutual
- * information</a>
- * @param truthClusterArray: the array of truth classes of type T
- * @param predClusterArray: the array of predicted classes of type T
- * @param size: the size of the data points of type int
- * @param lowerLabelRange: the lower bound of the range of labels
- * @param upperLabelRange: the upper bound of the range of labels
- * @param stream: the cudaStream object
- */
-template <typename T>
-double homogeneity_score(const T* truthClusterArray,
-                         const T* predClusterArray,
-                         int size,
-                         T lowerLabelRange,
-                         T upperLabelRange,
-                         cudaStream_t stream)
-{
-  return detail::homogeneity_score(
-    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
-}
-
-};  // end namespace stats
-};  // end namespace raft
-
-#endif
+#include "homogeneity_score.cuh"
