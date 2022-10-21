@@ -517,10 +517,9 @@ void matrixLinewiseVecRows(Type* out,
     const uint expected_grid_size = rowLen / raft::gcd(block_work_size, uint(rowLen));
     // Minimum size of the grid to make the device well occupied
     const uint occupy = getOptimalGridSize<BlockSize>();
-    // todo(lsugy): alignedLen instead of totalLen?
     const dim3 gs(std::min(
                     // does not make sense to have more blocks than this
-                    raft::ceildiv<uint>(uint(totalLen), block_work_size),
+                    raft::ceildiv<uint>(uint(alignedLen), block_work_size),
                     // increase the grid size to be not less than `occupy` while
                     // still being the multiple of `expected_grid_size`
                     raft::ceildiv<uint>(occupy, expected_grid_size) * expected_grid_size),
