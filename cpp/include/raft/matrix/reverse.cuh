@@ -31,8 +31,7 @@ template <typename m_t, typename idx_t>
 void col_reverse(const raft::handle_t& handle,
                  raft::device_matrix_view<m_t, idx_t, col_major> inout)
 {
-  detail::col_major_col_reverse(
-    inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
+  detail::colReverse(inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
 }
 
 /**
@@ -45,8 +44,7 @@ template <typename m_t, typename idx_t>
 void col_reverse(const raft::handle_t& handle,
                  raft::device_matrix_view<m_t, idx_t, row_major> inout)
 {
-  detail::col_major_row_reverse(
-    inout.data_handle(), inout.extent(1), inout.extent(0), handle.get_stream());
+  detail::rowReverse(inout.data_handle(), inout.extent(1), inout.extent(0), handle.get_stream());
 }
 
 /**
@@ -59,8 +57,7 @@ template <typename m_t, typename idx_t>
 void row_reverse(const raft::handle_t& handle,
                  raft::device_matrix_view<m_t, idx_t, col_major> inout)
 {
-  detail::col_major_row_reverse(
-    inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
+  detail::rowReverse(inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
 }
 
 /**
@@ -73,8 +70,7 @@ template <typename m_t, typename idx_t>
 void row_reverse(const raft::handle_t& handle,
                  raft::device_matrix_view<m_t, idx_t, row_major> inout)
 {
-  detail::col_major_col_reverse(
-    inout.data_handle(), inout.extent(1), inout.extent(0), handle.get_stream());
+  detail::colReverse(inout.data_handle(), inout.extent(1), inout.extent(0), handle.get_stream());
 }
 
 }  // namespace raft::matrix

@@ -84,7 +84,7 @@ void truncZeroOrigin(
 }
 
 template <typename m_t, typename idx_t = int>
-void col_major_col_reverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+void colReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   auto n            = n_cols;
   auto m            = n_rows;
@@ -106,7 +106,7 @@ void col_major_col_reverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t 
 }
 
 template <typename m_t, typename idx_t = int>
-void col_major_row_reverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   auto m            = n_rows;
   idx_t size        = n_rows * n_cols;
