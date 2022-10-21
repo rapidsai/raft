@@ -1,7 +1,7 @@
-Optimization
-============
+Solvers
+=======
 
-This page provides C++ class references for the publicly-exposed elements of the optimization package.
+This page provides C++ class references for the publicly-exposed elements of the iterative and combinatorial solvers package.
 
 
 Linear Assignment Problem

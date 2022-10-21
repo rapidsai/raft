@@ -28,6 +28,27 @@ namespace raft::cluster::kmeans {
  *   Initial centroids are chosen with k-means++ algorithm. Empty
  *   clusters are reinitialized by choosing new centroids with
  *   k-means++ algorithm.
+ *
+ * @code{.cpp}
+ *   #include <raft/core/handle.hpp>
+ *   #include <raft/cluster/kmeans.cuh>
+ *   #include <raft/cluster/kmeans_types.hpp>
+ *   using namespace raft::cluster;
+ *   ...
+ *   raft::handle_t handle;
+ *   raft::cluster::KMeansParams params;
+ *   int n_features = 15, inertia, n_iter;
+ *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
+ *
+ *   kmeans::fit(handle,
+ *               params,
+ *               X,
+ *               std::nullopt,
+ *               centroids,
+ *               raft::make_scalar_view(&inertia),
+ *               raft::make_scalar_view(&n_iter));
+ * @endcode
+ *
  * @tparam DataT the type of data used for weights, distances.
  * @tparam IndexT the type of data used for indexing.
  * @param[in]     handle        The raft handle.
@@ -47,7 +68,7 @@ namespace raft::cluster::kmeans {
  *                              closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-template <typename DataT, typename IndexT = int>
+template <typename DataT, typename IndexT>
 void fit(handle_t const& handle,
          const KMeansParams& params,
          raft::device_matrix_view<const DataT, IndexT> X,
@@ -59,23 +80,40 @@ void fit(handle_t const& handle,
   detail::kmeans_fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
 }
 
-template <typename DataT, typename IndexT = int>
-void fit(handle_t const& handle,
-         const KMeansParams& params,
-         const DataT* X,
-         const DataT* sample_weight,
-         DataT* centroids,
-         IndexT n_samples,
-         IndexT n_features,
-         DataT& inertia,
-         IndexT& n_iter)
-{
-  detail::kmeans_fit<DataT, IndexT>(
-    handle, params, X, sample_weight, centroids, n_samples, n_features, inertia, n_iter);
-}
-
 /**
  * @brief Predict the closest cluster each sample in X belongs to.
+ *
+ * @code{.cpp}
+ *   #include <raft/core/handle.hpp>
+ *   #include <raft/cluster/kmeans.cuh>
+ *   #include <raft/cluster/kmeans_types.hpp>
+ *   using namespace raft::cluster;
+ *   ...
+ *   raft::handle_t handle;
+ *   raft::cluster::KMeansParams params;
+ *   int n_features = 15, inertia, n_iter;
+ *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
+ *
+ *   kmeans::fit(handle,
+ *               params,
+ *               X,
+ *               std::nullopt,
+ *               centroids.view(),
+ *               raft::make_scalar_view(&inertia),
+ *               raft::make_scalar_view(&n_iter));
+ *   ...
+ *   auto labels = raft::make_device_vector<int, int>(handle, X.extent(0));
+ *
+ *   kmeans::predict(handle,
+ *                   params,
+ *                   X,
+ *                   std::nullopt,
+ *                   centroids.view(),
+ *                   false,
+ *                   labels.view(),
+ *                   raft::make_scalar_view(&ineratia));
+ * @endcode
+ *
  * @tparam DataT the type of data used for weights, distances.
  * @tparam IndexT the type of data used for indexing.
  * @param[in]     handle           The raft handle.
@@ -94,7 +132,7 @@ void fit(handle_t const& handle,
  * @param[out]    inertia          Sum of squared distances of samples to
  *                                 their closest cluster center.
  */
-template <typename DataT, typename IndexT = int>
+template <typename DataT, typename IndexT>
 void predict(handle_t const& handle,
              const KMeansParams& params,
              raft::device_matrix_view<const DataT, IndexT> X,
@@ -108,33 +146,31 @@ void predict(handle_t const& handle,
     handle, params, X, sample_weight, centroids, labels, normalize_weight, inertia);
 }
 
-template <typename DataT, typename IndexT = int>
-void predict(handle_t const& handle,
-             const KMeansParams& params,
-             const DataT* X,
-             const DataT* sample_weight,
-             const DataT* centroids,
-             IndexT n_samples,
-             IndexT n_features,
-             IndexT* labels,
-             bool normalize_weight,
-             DataT& inertia)
-{
-  detail::kmeans_predict<DataT, IndexT>(handle,
-                                        params,
-                                        X,
-                                        sample_weight,
-                                        centroids,
-                                        n_samples,
-                                        n_features,
-                                        labels,
-                                        normalize_weight,
-                                        inertia);
-}
-
 /**
  * @brief Compute k-means clustering and predicts cluster index for each sample
  * in the input.
+ *
+ * @code{.cpp}
+ *   #include <raft/core/handle.hpp>
+ *   #include <raft/cluster/kmeans.cuh>
+ *   #include <raft/cluster/kmeans_types.hpp>
+ *   using namespace raft::cluster;
+ *   ...
+ *   raft::handle_t handle;
+ *   raft::cluster::KMeansParams params;
+ *   int n_features = 15, inertia, n_iter;
+ *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
+ *   auto labels = raft::make_device_vector<int, int>(handle, X.extent(0));
+ *
+ *   kmeans::fit_predict(handle,
+ *                       params,
+ *                       X,
+ *                       std::nullopt,
+ *                       centroids.view(),
+ *                       labels.view(),
+ *                       raft::make_scalar_view(&inertia),
+ *                       raft::make_scalar_view(&n_iter));
+ * @endcode
  *
  * @tparam DataT the type of data used for weights, distances.
  * @tparam IndexT the type of data used for indexing.
@@ -159,7 +195,7 @@ void predict(handle_t const& handle,
  *                              closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-template <typename DataT, typename IndexT = int>
+template <typename DataT, typename IndexT>
 void fit_predict(handle_t const& handle,
                  const KMeansParams& params,
                  raft::device_matrix_view<const DataT, IndexT> X,
@@ -171,22 +207,6 @@ void fit_predict(handle_t const& handle,
 {
   detail::kmeans_fit_predict<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, labels, inertia, n_iter);
-}
-
-template <typename DataT, typename IndexT = int>
-void fit_predict(handle_t const& handle,
-                 const KMeansParams& params,
-                 const DataT* X,
-                 const DataT* sample_weight,
-                 DataT* centroids,
-                 IndexT n_samples,
-                 IndexT n_features,
-                 IndexT* labels,
-                 DataT& inertia,
-                 IndexT& n_iter)
-{
-  detail::kmeans_fit_predict<DataT, IndexT>(
-    handle, params, X, sample_weight, centroids, n_samples, n_features, labels, inertia, n_iter);
 }
 
 /**
@@ -204,7 +224,7 @@ void fit_predict(handle_t const& handle,
  * @param[out]    X_new         X transformed in the new space.
  *                              [dim = n_samples x n_features]
  */
-template <typename DataT, typename IndexT = int>
+template <typename DataT, typename IndexT>
 void transform(const raft::handle_t& handle,
                const KMeansParams& params,
                raft::device_matrix_view<const DataT, IndexT> X,
@@ -214,7 +234,7 @@ void transform(const raft::handle_t& handle,
   detail::kmeans_transform<DataT, IndexT>(handle, params, X, centroids, X_new);
 }
 
-template <typename DataT, typename IndexT = int>
+template <typename DataT, typename IndexT>
 void transform(const raft::handle_t& handle,
                const KMeansParams& params,
                const DataT* X,
@@ -227,7 +247,7 @@ void transform(const raft::handle_t& handle,
     handle, params, X, centroids, n_samples, n_features, X_new);
 }
 
-template <typename DataT, typename IndexT = int>
+template <typename DataT, typename IndexT>
 using SamplingOp = detail::SamplingOp<DataT, IndexT>;
 
 template <typename IndexT, typename DataT>
@@ -252,7 +272,7 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  * @param[in]  workspace          Temporary workspace buffer which can get resized
  *
  */
-template <typename DataT, typename IndexT = int>
+template <typename DataT, typename IndexT>
 void sample_centroids(const raft::handle_t& handle,
                       raft::device_matrix_view<const DataT, IndexT> X,
                       raft::device_vector_view<DataT, IndexT> minClusterDistance,
@@ -279,7 +299,7 @@ void sample_centroids(const raft::handle_t& handle,
  * @param[in]  reduction_op       The reduction operation used for the cost
  *
  */
-template <typename DataT, typename ReductionOpT, typename IndexT = int>
+template <typename DataT, typename IndexT, typename ReductionOpT>
 void cluster_cost(const raft::handle_t& handle,
                   raft::device_vector_view<DataT, IndexT> minClusterDistance,
                   rmm::device_uvector<char> workspace,
@@ -424,11 +444,10 @@ void count_samples_in_cluster(const raft::handle_t& handle,
     handle, params, X, L2NormX, centroids, workspace, sampleCountInCluster);
 }
 
-/*
+/**
  * @brief Selects 'n_clusters' samples from the input X using kmeans++ algorithm.
-
- * @note  This is the algorithm described in
- *        "k-means++: the advantages of careful seeding". 2007, Arthur, D. and Vassilvitskii, S.
+ *
+ * @see "k-means++: the advantages of careful seeding". 2007, Arthur, D. and Vassilvitskii, S.
  *        ACM-SIAM symposium on Discrete algorithms.
  *
  * @tparam DataT the type of data used for weights, distances.
@@ -446,10 +465,10 @@ template <typename DataT, typename IndexT>
 void init_plus_plus(const raft::handle_t& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
-                    raft::device_matrix_view<DataT, IndexT> centroidsRawData,
+                    raft::device_matrix_view<DataT, IndexT> centroids,
                     rmm::device_uvector<char>& workspace)
 {
-  detail::kmeansPlusPlus<DataT, IndexT>(handle, params, X, centroidsRawData, workspace);
+  detail::kmeansPlusPlus<DataT, IndexT>(handle, params, X, centroids, workspace);
 }
 
 /*
@@ -480,13 +499,13 @@ void fit_main(const raft::handle_t& handle,
               const KMeansParams& params,
               raft::device_matrix_view<const DataT, IndexT> X,
               raft::device_vector_view<const DataT, IndexT> weight,
-              raft::device_matrix_view<DataT, IndexT> centroidsRawData,
+              raft::device_matrix_view<DataT, IndexT> centroids,
               raft::host_scalar_view<DataT> inertia,
               raft::host_scalar_view<IndexT> n_iter,
               rmm::device_uvector<char>& workspace)
 {
   detail::kmeans_fit_main<DataT, IndexT>(
-    handle, params, X, weight, centroidsRawData, inertia, n_iter, workspace);
+    handle, params, X, weight, centroids, inertia, n_iter, workspace);
 }
 
 };  // end namespace raft::cluster::kmeans

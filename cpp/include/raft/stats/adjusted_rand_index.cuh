@@ -31,8 +31,8 @@ namespace raft {
 namespace stats {
 
 /**
- * @brief Function to calculate Adjusted RandIndex as described
- *        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
+ * @brief Function to calculate Adjusted RandIndex
+ * @see https://en.wikipedia.org/wiki/Rand_index
  * @tparam T data-type for input label arrays
  * @tparam MathT integral data-type used for computing n-choose-r
  * @param firstClusterArray: the array of classes
@@ -50,8 +50,8 @@ double adjusted_rand_index(const T* firstClusterArray,
 }
 
 /**
- * @brief Function to calculate Adjusted RandIndex as described
- *        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
+ * @brief Function to calculate Adjusted RandIndex
+ * @see https://en.wikipedia.org/wiki/Rand_index
  * @tparam value_t data-type for input label arrays
  * @tparam math_t integral data-type used for computing n-choose-r
  * @tparam idx_t Index type of matrix extent.

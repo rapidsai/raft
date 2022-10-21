@@ -37,7 +37,7 @@ namespace raft::neighbors::ivf_pq {
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   // use default index parameters
  *   ivf_pq::index_params index_params;
  *   // create and fill the index from a [N, D] dataset
