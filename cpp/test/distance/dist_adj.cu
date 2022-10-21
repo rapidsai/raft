@@ -78,9 +78,9 @@ template <typename AccT, typename DataT, typename OutT, typename Index>
 struct threshold_final_op {
   DataT threshold_val;
 
-  __device__ __host__ threshold_final_op() : threshold_val(0.0) {}
-  __device__ __host__ threshold_final_op(DataT val) : threshold_val(val) {}
-  __device__ __host__ OutT operator()(AccT d_val, Index g_idx) const
+  __device__ __host__ threshold_final_op() noexcept : threshold_val(0.0) {}
+  __device__ __host__ threshold_final_op(DataT val) noexcept : threshold_val(val) {}
+  __device__ __host__ OutT operator()(AccT d_val, Index g_idx) const noexcept
   {
     return d_val <= threshold_val;
   }

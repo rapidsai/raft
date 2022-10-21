@@ -28,15 +28,15 @@ template <typename DataT, typename AccT>
 struct L2ExpandedOp {
   bool sqrt;
 
-  __device__ __host__ L2ExpandedOp() : sqrt(false) {}
-  __device__ __host__ L2ExpandedOp(bool isSqrt) : sqrt(isSqrt) {}
-  __device__ __host__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const
+  __device__ __host__ L2ExpandedOp() noexcept : sqrt(false) {}
+  __device__ __host__ L2ExpandedOp(bool isSqrt) noexcept : sqrt(isSqrt) {}
+  __device__ __host__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
   {
     AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
     return sqrt ? raft::mySqrt(outVal) : outVal;
   }
 
-  __device__ __host__ AccT operator()(DataT aData) const { return aData; }
+  __device__ __host__ AccT operator()(DataT aData) const noexcept { return aData; }
 };
 
 /**
