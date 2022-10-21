@@ -42,6 +42,19 @@
 
 #include <cuda_fp16.h>
 
+// Disable warnings like 'error: variable "base_diff" was declared but never referenced'
+// and 'error: missing return statement at end of non-void function'
+#define RAFT_PRAGMA(X) _Pragma(#X)
+#if defined __NVCC_DIAG_PRAGMA_SUPPORT__
+#define RAFT_DIAG_SUPPRESS(X) RAFT_PRAGMA(nv_diag_suppress X)
+#else
+#define RAFT_DIAG_SUPPRESS(X) RAFT_PRAGMA(diag_suppress X)
+#endif
+RAFT_DIAG_SUPPRESS(177)
+RAFT_DIAG_SUPPRESS(940)
+#undef RAFT_DIAG_SUPPRESS
+#undef RAFT_PRAGMA
+
 namespace raft::spatial::knn::ivf_pq::detail {
 
 /**
@@ -1391,5 +1404,4 @@ inline void search(const handle_t& handle,
     }
   }
 }
-
 }  // namespace raft::spatial::knn::ivf_pq::detail
