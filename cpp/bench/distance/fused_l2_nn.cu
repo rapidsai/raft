@@ -40,7 +40,6 @@ struct fusedl2nn : public fixture {
 
   void allocate_data(const ::benchmark::State& state) override
   {
-    using_pool_memory_res default_resource;
     x      = raft::make_device_matrix<DataT, IdxT>(handle, params.m, params.k);
     y      = raft::make_device_matrix<DataT, IdxT>(handle, params.n, params.k);
     x_norm = raft::make_device_vector<DataT, IdxT>(handle, params.m);
@@ -110,7 +109,8 @@ template <typename IdxT>
 std::vector<fusedl2nn_inputs> getFusedL2NNInputs()
 {
   std::vector<fusedl2nn_inputs> inputs;
-  std::vector<int64_t> m_list = {100000, 1000000, 10000000};
+  std::vector<int64_t> m_list = {100000, 1000000};
+  if constexpr (sizeof(IdxT) == 8) { m_list.push_back(10000000); }
   std::vector<int64_t> n_list = {100, 1000, 10000};
   std::vector<int64_t> k_list = {64, 128, 256};
   for (auto m : m_list) {
@@ -123,13 +123,16 @@ std::vector<fusedl2nn_inputs> getFusedL2NNInputs()
   return inputs;
 }
 
-RAFT_BENCH_REGISTER((fusedl2nn<float, int, float>), "", getFusedL2NNInputs<int>());
-RAFT_BENCH_REGISTER((fusedl2nn<double, int, double>), "", getFusedL2NNInputs<int>());
-RAFT_BENCH_REGISTER((fusedl2nn<float, int, raft::KeyValuePair<int, float>>),
-                    "",
-                    getFusedL2NNInputs<int>());
-RAFT_BENCH_REGISTER((fusedl2nn<double, int, raft::KeyValuePair<int, double>>),
-                    "",
-                    getFusedL2NNInputs<int>());
+#define FUSEDL2NN_BENCH(DataT, IdxT, OutT) \
+  RAFT_BENCH_REGISTER((fusedl2nn<DataT, IdxT, RAFT_DEPAREN(OutT)>), "", getFusedL2NNInputs<IdxT>())
+
+FUSEDL2NN_BENCH(float, int, float);
+FUSEDL2NN_BENCH(double, int, double);
+FUSEDL2NN_BENCH(float, int, (raft::KeyValuePair<int, float>));
+FUSEDL2NN_BENCH(float, int, (raft::KeyValuePair<int, float>));
+FUSEDL2NN_BENCH(float, int64_t, float);
+FUSEDL2NN_BENCH(double, int64_t, double);
+FUSEDL2NN_BENCH(float, int64_t, (raft::KeyValuePair<int64_t, float>));
+FUSEDL2NN_BENCH(float, int64_t, (raft::KeyValuePair<int64_t, float>));
 
 }  // namespace raft::bench::distance
