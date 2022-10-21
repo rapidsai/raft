@@ -312,14 +312,14 @@ void cluster_cost(const raft::handle_t& handle,
  *
  */
 template <typename DataT, typename IndexT>
-void min_cluster_distance_compute(const raft::handle_t& handle,
-                                  const KMeansParams& params,
-                                  const raft::device_matrix_view<const DataT, IndexT>& X,
-                                  const raft::device_matrix_view<DataT, IndexT>& centroids,
-                                  const raft::device_vector_view<DataT, IndexT>& minClusterDistance,
-                                  const raft::device_vector_view<DataT, IndexT>& L2NormX,
-                                  rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
-                                  rmm::device_uvector<char>& workspace)
+void min_cluster_distance(const raft::handle_t& handle,
+                          const KMeansParams& params,
+                          const raft::device_matrix_view<const DataT, IndexT>& X,
+                          const raft::device_matrix_view<DataT, IndexT>& centroids,
+                          const raft::device_vector_view<DataT, IndexT>& minClusterDistance,
+                          const raft::device_vector_view<DataT, IndexT>& L2NormX,
+                          rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
+                          rmm::device_uvector<char>& workspace)
 {
   detail::minClusterDistanceCompute<DataT, IndexT>(
     handle, params, X, centroids, minClusterDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
@@ -525,7 +525,7 @@ void kmeans_fit(handle_t const& handle,
                 raft::host_scalar_view<DataT> inertia,
                 raft::host_scalar_view<IndexT> n_iter)
 {
-  detail::kmeans_fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
+  kmeans::fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
 }
 
 template <typename DataT, typename IndexT = int>
@@ -539,7 +539,7 @@ void kmeans_fit(handle_t const& handle,
                 DataT& inertia,
                 IndexT& n_iter)
 {
-  detail::kmeans_fit<DataT, IndexT>(
+  kmeans::fit<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, n_samples, n_features, inertia, n_iter);
 }
 
@@ -573,7 +573,7 @@ void kmeans_predict(handle_t const& handle,
                     bool normalize_weight,
                     raft::host_scalar_view<DataT> inertia)
 {
-  detail::kmeans_predict<DataT, IndexT>(
+  kmeans::predict<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, labels, normalize_weight, inertia);
 }
 
@@ -589,16 +589,16 @@ void kmeans_predict(handle_t const& handle,
                     bool normalize_weight,
                     DataT& inertia)
 {
-  detail::kmeans_predict<DataT, IndexT>(handle,
-                                        params,
-                                        X,
-                                        sample_weight,
-                                        centroids,
-                                        n_samples,
-                                        n_features,
-                                        labels,
-                                        normalize_weight,
-                                        inertia);
+  kmeans::predict<DataT, IndexT>(handle,
+                                 params,
+                                 X,
+                                 sample_weight,
+                                 centroids,
+                                 n_samples,
+                                 n_features,
+                                 labels,
+                                 normalize_weight,
+                                 inertia);
 }
 
 /**
@@ -638,7 +638,7 @@ void kmeans_fit_predict(handle_t const& handle,
                         raft::host_scalar_view<DataT> inertia,
                         raft::host_scalar_view<IndexT> n_iter)
 {
-  detail::kmeans_fit_predict<DataT, IndexT>(
+  kmeans::fit_predict<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, labels, inertia, n_iter);
 }
 
@@ -654,7 +654,7 @@ void kmeans_fit_predict(handle_t const& handle,
                         DataT& inertia,
                         IndexT& n_iter)
 {
-  detail::kmeans_fit_predict<DataT, IndexT>(
+  kmeans::fit_predict<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, n_samples, n_features, labels, inertia, n_iter);
 }
 
@@ -680,7 +680,7 @@ void kmeans_transform(const raft::handle_t& handle,
                       raft::device_matrix_view<const DataT, IndexT> centroids,
                       raft::device_matrix_view<DataT, IndexT> X_new)
 {
-  detail::kmeans_transform<DataT, IndexT>(handle, params, X, centroids, X_new);
+  kmeans::transform<DataT, IndexT>(handle, params, X, centroids, X_new);
 }
 
 template <typename DataT, typename IndexT = int>
@@ -692,15 +692,14 @@ void kmeans_transform(const raft::handle_t& handle,
                       IndexT n_features,
                       DataT* X_new)
 {
-  detail::kmeans_transform<DataT, IndexT>(
-    handle, params, X, centroids, n_samples, n_features, X_new);
+  kmeans::transform<DataT, IndexT>(handle, params, X, centroids, n_samples, n_features, X_new);
 }
 
 template <typename DataT, typename IndexT = int>
-using SamplingOp = detail::SamplingOp<DataT, IndexT>;
+using SamplingOp = kmeans::SamplingOp<DataT, IndexT>;
 
 template <typename IndexT, typename DataT>
-using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
+using KeyValueIndexOp = kmeans::KeyValueIndexOp<IndexT, DataT>;
 
 /**
  * @brief Select centroids according to a sampling operation
@@ -730,7 +729,7 @@ void sampleCentroids(const raft::handle_t& handle,
                      rmm::device_uvector<DataT>& inRankCp,
                      rmm::device_uvector<char>& workspace)
 {
-  detail::sampleCentroids<DataT, IndexT>(
+  kmeans::sample_entroids<DataT, IndexT>(
     handle, X, minClusterDistance, isSampleCentroid, select_op, inRankCp, workspace);
 }
 
@@ -755,7 +754,7 @@ void computeClusterCost(const raft::handle_t& handle,
                         const raft::device_scalar_view<DataT>& clusterCost,
                         ReductionOpT reduction_op)
 {
-  detail::computeClusterCost<DataT, ReductionOpT, IndexT>(
+  kmeans::cluster_cost<DataT, ReductionOpT, IndexT>(
     handle, minClusterDistance, workspace, clusterCost, reduction_op);
 }
 
@@ -790,7 +789,7 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
                                rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
                                rmm::device_uvector<char>& workspace)
 {
-  detail::minClusterDistanceCompute<DataT, IndexT>(
+  kmeans::min_cluster_distance<DataT, IndexT>(
     handle, params, X, centroids, minClusterDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
 }
 
@@ -829,7 +828,7 @@ void minClusterAndDistanceCompute(
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
   rmm::device_uvector<char>& workspace)
 {
-  detail::minClusterAndDistanceCompute<DataT, IndexT>(
+  kmeans::min_cluster_and_distance<DataT, IndexT>(
     handle, params, X, centroids, minClusterAndDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
 }
 
@@ -858,7 +857,7 @@ void shuffleAndGather(const raft::handle_t& handle,
                       uint64_t seed,
                       rmm::device_uvector<char>* workspace = nullptr)
 {
-  detail::shuffleAndGather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed, workspace);
+  kmeans::shuffle_and_gather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed, workspace);
 }
 
 /**
@@ -889,7 +888,7 @@ void countSamplesInCluster(const raft::handle_t& handle,
                            rmm::device_uvector<char>& workspace,
                            const raft::device_vector_view<DataT, IndexT>& sampleCountInCluster)
 {
-  detail::countSamplesInCluster<DataT, IndexT>(
+  kmeans::count_samples_in_cluster<DataT, IndexT>(
     handle, params, X, L2NormX, centroids, workspace, sampleCountInCluster);
 }
 
@@ -918,7 +917,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
                     const raft::device_matrix_view<DataT, IndexT>& centroidsRawData,
                     rmm::device_uvector<char>& workspace)
 {
-  detail::kmeansPlusPlus<DataT, IndexT>(handle, params, X, centroidsRawData, workspace);
+  kmeans::init_plus_plus<DataT, IndexT>(handle, params, X, centroidsRawData, workspace);
 }
 
 /*
@@ -954,7 +953,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
                      const raft::host_scalar_view<IndexT>& n_iter,
                      rmm::device_uvector<char>& workspace)
 {
-  detail::kmeans_fit_main<DataT, IndexT>(
+  kmeans::fit_main<DataT, IndexT>(
     handle, params, X, weight, centroidsRawData, inertia, n_iter, workspace);
 }
 }  // namespace raft::cluster

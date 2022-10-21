@@ -102,8 +102,6 @@ void single_linkage(const raft::handle_t& handle,
 }
 }  // namespace hierarchy
 
-constexpr int DEFAULT_CONST_C = 15;
-
 /**
  * Single-linkage clustering, capable of constructing a KNN graph to
  * scale the algorithm beyond the n^2 memory consumption of implementations
@@ -136,7 +134,7 @@ void single_linkage(const raft::handle_t& handle,
                     int c,
                     size_t n_clusters)
 {
-  detail::single_linkage<value_idx, value_t, dist_type>(
+  hierarchy::single_linkage<value_idx, value_t, dist_type>(
     handle, X, m, n, metric, out, c, n_clusters);
 }
 
@@ -165,20 +163,10 @@ void single_linkage(const raft::handle_t& handle,
                     raft::device_vector_view<idx_t, idx_t> labels,
                     raft::distance::DistanceType metric,
                     size_t n_clusters,
-                    std::optional<int> c = std::make_optional<int>(DEFAULT_CONST_C))
+                    std::optional<int> c = std::make_optional<int>(hierarchy::DEFAULT_CONST_C))
 {
-  linkage_output<idx_t> out_arrs;
-  out_arrs.children = dendrogram.data_handle();
-  out_arrs.labels   = labels.data_handle();
-
-  single_linkage<idx_t, value_t, dist_type>(handle,
-                                            X.data_handle(),
-                                            static_cast<std::size_t>(X.extent(0)),
-                                            static_cast<std::size_t>(X.extent(1)),
-                                            metric,
-                                            &out_arrs,
-                                            c.has_value() ? c.value() : DEFAULT_CONST_C,
-                                            n_clusters);
+  hierarchy::single_linkage<idx_t, value_t, dist_type>(
+    handle, X, dendrogram, labels, metric, n_clusters, c);
 }
 
 };  // namespace raft::cluster
