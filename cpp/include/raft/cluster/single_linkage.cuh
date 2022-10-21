@@ -103,6 +103,12 @@ void single_linkage(const raft::handle_t& handle,
 }  // namespace hierarchy
 
 /**
+ * Note: All of the functions below in the raft::cluster namespace are deprecated
+ * and will be removed in a future release. Please use raft::cluster::hierarchy
+ * instead.
+ */
+
+/**
  * Single-linkage clustering, capable of constructing a KNN graph to
  * scale the algorithm beyond the n^2 memory consumption of implementations
  * that use the fully-connected graph of pairwise distances by connecting
