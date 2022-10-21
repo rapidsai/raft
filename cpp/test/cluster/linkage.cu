@@ -180,20 +180,21 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     raft::handle_t handle;
 
-    auto data_view =
-      raft::make_device_matrix_view<T, IdxT, row_major>(data.data(), params.n_row, params.n_col);
+    auto data_view = raft::make_device_matrix_view<const T, IdxT, row_major>(
+      data.data(), params.n_row, params.n_col);
     auto dendrogram_view =
       raft::make_device_matrix_view<IdxT, IdxT, row_major>(out_children.data(), params.n_row, 2);
     auto labels_view = raft::make_device_vector_view<IdxT, IdxT>(labels.data(), params.n_row);
 
-    raft::cluster::single_linkage<T, IdxT, raft::hierarchy::LinkageDistance::KNN_GRAPH>(
-      handle,
-      data_view,
-      dendrogram_view,
-      labels_view,
-      raft::distance::DistanceType::L2SqrtExpanded,
-      params.n_clusters,
-      std::make_optional<int>(params.c));
+    raft::cluster::hierarchy::
+      single_linkage<T, IdxT, raft::cluster::hierarchy::LinkageDistance::KNN_GRAPH>(
+        handle,
+        data_view,
+        dendrogram_view,
+        labels_view,
+        raft::distance::DistanceType::L2SqrtExpanded,
+        params.n_clusters,
+        std::make_optional<int>(params.c));
 
     handle.sync_stream(stream);
 
