@@ -20,6 +20,7 @@
 
 namespace raft::cluster {
 
+namespace hierarchy {
 enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
 
 /**
@@ -57,5 +58,12 @@ class linkage_output_int : public linkage_output<int> {
 };
 class linkage_output_int64 : public linkage_output<int64_t> {
 };
+
+}  // end namespace hierarchy
+
+using hierarchy::linkage_output;
+using hierarchy::linkage_output_int;
+using hierarchy::linkage_output_int64;
+using hierarchy::LinkageDistance;
 
 };  // namespace raft::cluster

@@ -18,8 +18,9 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/random/rng_state.hpp>
 
-namespace raft {
-namespace cluster {
+namespace raft::cluster {
+
+namespace kmeans {
 
 struct KMeansParams {
   enum InitMethod { KMeansPlusPlus, Random, Array };
@@ -69,5 +70,9 @@ struct KMeansParams {
 
   bool inertia_check = false;
 };
-}  // namespace cluster
-}  // namespace raft
+
+}  // namespace kmeans
+
+using kmeans::KMeansParams;
+
+}  // namespace raft::cluster
