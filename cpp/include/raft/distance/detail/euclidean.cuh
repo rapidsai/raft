@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/distance/detail/pairwise_distance_base.cuh>
-#include <raft/linalg/norm.cuh>
 #include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
+#include <raft/linalg/norm.cuh>
 
 namespace raft {
 namespace distance {
@@ -26,18 +26,17 @@ namespace detail {
 
 template <typename DataT, typename AccT>
 struct L2ExpandedOp {
-    bool sqrt;
+  bool sqrt;
 
-    __device__ __host__ L2ExpandedOp() : sqrt(false) { }
-    __device__ __host__ L2ExpandedOp(bool isSqrt) : sqrt(isSqrt) { }
-    __device__ __host__ AccT operator() (DataT &aNorm, const DataT &bNorm, DataT &accVal) const {
-        AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
-        return sqrt ? raft::mySqrt(outVal) : outVal;
-    }
+  __device__ __host__ L2ExpandedOp() : sqrt(false) {}
+  __device__ __host__ L2ExpandedOp(bool isSqrt) : sqrt(isSqrt) {}
+  __device__ __host__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const
+  {
+    AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
+    return sqrt ? raft::mySqrt(outVal) : outVal;
+  }
 
-    __device__ __host__ AccT operator() (DataT aData) const {
-        return aData;
-    }
+  __device__ __host__ AccT operator()(DataT aData) const { return aData; }
 };
 
 /**
@@ -89,16 +88,15 @@ void euclideanExpImpl(const DataT* x,
                       FinalLambda fin_op,
                       cudaStream_t stream)
 {
-  const auto deviceVersion  = getMajorMinorVersion();
+  const auto deviceVersion = getMajorMinorVersion();
   if (deviceVersion.first >= 8) {
     using L2Op = L2ExpandedOp<DataT, AccT>;
     L2Op L2_dist_op(sqrt);
 
     cutlassDistanceKernel<DataT, AccT, OutT, IdxT, VecLen, FinalLambda, L2Op, isRowMajor>(
-                    x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, L2_dist_op, stream);
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, L2_dist_op, stream);
 
   } else {
-
     typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
     typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
@@ -111,21 +109,21 @@ void euclideanExpImpl(const DataT* x,
 
     // epilogue operation lambda for final value calculation
     auto epilog_lambda = [sqrt] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                          DataT * regxn,
-                                          DataT * regyn,
-                                          IdxT gridStrideX,
-                                          IdxT gridStrideY) {
-  #pragma unroll
+                                           DataT * regxn,
+                                           DataT * regyn,
+                                           IdxT gridStrideX,
+                                           IdxT gridStrideY) {
+#pragma unroll
       for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
-  #pragma unroll
+#pragma unroll
         for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
           acc[i][j] = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
         }
       }
       if (sqrt) {
-  #pragma unroll
+#pragma unroll
         for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
-  #pragma unroll
+#pragma unroll
           for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
             acc[i][j] = raft::mySqrt(acc[i][j]);
           }
@@ -133,33 +131,34 @@ void euclideanExpImpl(const DataT* x,
       }
     };
 
-    constexpr size_t shmemSize = KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
+    constexpr size_t shmemSize =
+      KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
     if (isRowMajor) {
-      auto euclideanExpRowMajor = pairwiseDistanceMatKernel<true,
-                                                            DataT,
-                                                            AccT,
-                                                            OutT,
-                                                            IdxT,
-                                                            KPolicy,
-                                                            decltype(core_lambda),
-                                                            decltype(epilog_lambda),
-                                                            FinalLambda,
-                                                            true>;
+      auto euclideanExpRowMajor = pairwiseDistanceMatKernelPriorToAmpere<true,
+                                                                         DataT,
+                                                                         AccT,
+                                                                         OutT,
+                                                                         IdxT,
+                                                                         KPolicy,
+                                                                         decltype(core_lambda),
+                                                                         decltype(epilog_lambda),
+                                                                         FinalLambda,
+                                                                         true>;
       dim3 grid = launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpRowMajor);
 
       euclideanExpRowMajor<<<grid, blk, shmemSize, stream>>>(
         x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
     } else {
-      auto euclideanExpColMajor = pairwiseDistanceMatKernel<true,
-                                                            DataT,
-                                                            AccT,
-                                                            OutT,
-                                                            IdxT,
-                                                            KPolicy,
-                                                            decltype(core_lambda),
-                                                            decltype(epilog_lambda),
-                                                            FinalLambda,
-                                                            false>;
+      auto euclideanExpColMajor = pairwiseDistanceMatKernelPriorToAmpere<true,
+                                                                         DataT,
+                                                                         AccT,
+                                                                         OutT,
+                                                                         IdxT,
+                                                                         KPolicy,
+                                                                         decltype(core_lambda),
+                                                                         decltype(epilog_lambda),
+                                                                         FinalLambda,
+                                                                         false>;
       dim3 grid = launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpColMajor);
       euclideanExpColMajor<<<grid, blk, shmemSize, stream>>>(
         x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);

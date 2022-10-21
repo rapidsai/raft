@@ -355,7 +355,7 @@ inline int getMultiProcessorCount()
 }
 
 /** helper method to get max usable shared mem per block parameter */
-inline std::pair <int,int> getMajorMinorVersion()
+inline std::pair<int, int> getMajorMinorVersion()
 {
   int devId;
   RAFT_CUDA_TRY(cudaGetDevice(&devId));
@@ -365,7 +365,6 @@ inline std::pair <int,int> getMajorMinorVersion()
 
   return std::make_pair(majorVer, minorVer);
 }
-
 
 /** helper method to convert an array on device to a string on host */
 template <typename T>

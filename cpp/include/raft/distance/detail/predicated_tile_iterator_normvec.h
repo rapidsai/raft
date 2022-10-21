@@ -38,18 +38,18 @@
 
 #pragma once
 
-#include "cutlass/cutlass.h"
-#include "cutlass/numeric_types.h"
+#include "cutlass/arch/arch.h"
+#include "cutlass/arch/memory.h"
 #include "cutlass/array.h"
+#include "cutlass/cutlass.h"
+#include "cutlass/epilogue/threadblock/output_tile_thread_map.h"
+#include "cutlass/epilogue/threadblock/predicated_tile_iterator_params.h"
 #include "cutlass/layout/matrix.h"
 #include "cutlass/layout/tensor.h"
 #include "cutlass/matrix_shape.h"
+#include "cutlass/numeric_types.h"
 #include "cutlass/tensor_ref.h"
 #include "cutlass/transform/pitch_linear_thread_map.h"
-#include "cutlass/epilogue/threadblock/output_tile_thread_map.h"
-#include "cutlass/arch/arch.h"
-#include "cutlass/arch/memory.h"
-#include "cutlass/epilogue/threadblock/predicated_tile_iterator_params.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -66,45 +66,41 @@ namespace threadblock {
 ///
 /// Satisfies: ReadableTileIterator | PredicatedTileIterator | ForwardTileIterator
 ///
-template <
-  typename ThreadMap_,       ///< Thread map (conept: OutputTileThreadMap)
-  typename Element_,         ///< Element data type
-  typename Layout_,
-  bool ScatterD = false,     ///< Scatter D operand or not
-  bool UseCUDAStore = false
->
+template <typename ThreadMap_,  ///< Thread map (conept: OutputTileThreadMap)
+          typename Element_,    ///< Element data type
+          typename Layout_,
+          bool ScatterD     = false,  ///< Scatter D operand or not
+          bool UseCUDAStore = false>
 class PredicatedTileIteratorNormVec {
-public:
+ public:
   using ThreadMap = ThreadMap_;
-  using Shape = typename ThreadMap::Shape;
+  using Shape     = typename ThreadMap::Shape;
 
   using Element = Element_;
 
-  //using Layout = layout::RowMajor;
-  using Layout = Layout_;
-  using TensorRef = TensorRef<Element, Layout>;
+  // using Layout = layout::RowMajor;
+  using Layout         = Layout_;
+  using TensorRef      = TensorRef<Element, Layout>;
   using ConstTensorRef = typename TensorRef::ConstTensorRef;
 
-  using Index = typename Layout::Index;
-  using LongIndex = typename Layout::LongIndex;
+  using Index       = typename Layout::Index;
+  using LongIndex   = typename Layout::LongIndex;
   using TensorCoord = MatrixCoord;
 
   static int const kElementsPerAccess = ThreadMap::kElementsPerAccess;
-  static int const kThreads = ThreadMap::kThreads;
-  static int const kIterations = ThreadMap::Count::kTile;
+  static int const kThreads           = ThreadMap::kThreads;
+  static int const kIterations        = ThreadMap::Count::kTile;
 
-  static_assert( ThreadMap::Iterations::kRow > 0,"ThreadMap::Iterations::kRow must be > 0");
-  static_assert( ThreadMap::Iterations::kGroup > 0,"ThreadMap::Iterations::kGroup must be > 0");
-  static_assert( ThreadMap::Iterations::kCluster > 0,"ThreadMap::Iterations::kCluster must be > 0");
-  static_assert( ThreadMap::Iterations::kColumn > 0,"ThreadMap::Iterations::kColumn must be > 0");
+  static_assert(ThreadMap::Iterations::kRow > 0, "ThreadMap::Iterations::kRow must be > 0");
+  static_assert(ThreadMap::Iterations::kGroup > 0, "ThreadMap::Iterations::kGroup must be > 0");
+  static_assert(ThreadMap::Iterations::kCluster > 0, "ThreadMap::Iterations::kCluster must be > 0");
+  static_assert(ThreadMap::Iterations::kColumn > 0, "ThreadMap::Iterations::kColumn must be > 0");
 
   /// Fragment object
-  using Fragment = Array<
-    Element, 
-    ThreadMap::Iterations::kColumn * 
-    ThreadMap::Iterations::kRow * 
-    ThreadMap::Iterations::kGroup * 
-    ThreadMap::Iterations::kCluster * ThreadMap::kElementsPerAccess>;
+  using Fragment = Array<Element,
+                         ThreadMap::Iterations::kColumn * ThreadMap::Iterations::kRow *
+                           ThreadMap::Iterations::kGroup * ThreadMap::Iterations::kCluster *
+                           ThreadMap::kElementsPerAccess>;
 
   /// Memory access size
   using AccessType = AlignedArray<Element, ThreadMap::kElementsPerAccess>;
@@ -118,24 +114,22 @@ public:
     using Base = PredicatedTileIteratorParams;
 
     CUTLASS_HOST_DEVICE
-    Params() { }
+    Params() {}
 
     CUTLASS_HOST_DEVICE
-    Params(Layout const &layout): 
-      PredicatedTileIteratorParams(
-        layout.stride(0) * int(sizeof(AccessType)) / kElementsPerAccess,
-        make_OutputTileThreadMapDesc<ThreadMap>()
-      ) 
-    { }
+    Params(Layout const& layout)
+      : PredicatedTileIteratorParams(
+          layout.stride(0) * int(sizeof(AccessType)) / kElementsPerAccess,
+          make_OutputTileThreadMapDesc<ThreadMap>())
+    {
+    }
 
     CUTLASS_HOST_DEVICE
-    Params(Base const &base) : 
-      Base(base) { }
+    Params(Base const& base) : Base(base) {}
   };
 
   /// Mask object
   struct Mask {
-
     static int const kCount = ThreadMap::Iterations::kColumn;
 
     /// Predicate state
@@ -145,12 +139,11 @@ public:
     // Mask
     //
     CUTLASS_HOST_DEVICE
-    Mask() {
-      enable();
-    }
+    Mask() { enable(); }
 
     ///< Efficiently disables all accesses guarded by mask
-    CUTLASS_HOST_DEVICE void clear() {
+    CUTLASS_HOST_DEVICE void clear()
+    {
       CUTLASS_PRAGMA_UNROLL
       for (int i = 0; i < kCount; ++i) {
         predicates[i] = false;
@@ -158,7 +151,8 @@ public:
     }
 
     ///< CUTLASS_HOST_DEVICE enables all accesses guarded by mask
-    CUTLASS_DEVICE void enable() {
+    CUTLASS_DEVICE void enable()
+    {
       CUTLASS_PRAGMA_UNROLL
       for (int i = 0; i < kCount; ++i) {
         predicates[i] = true;
@@ -166,8 +160,7 @@ public:
     }
   };
 
-private:
-
+ private:
   //
   // Data members
   //
@@ -176,7 +169,7 @@ private:
   PredicatedTileIteratorParams params_;
 
   /// Byte-level pointer
-  uint8_t *byte_pointer_;
+  uint8_t* byte_pointer_;
 
   /// Array of boolean values to contain steady-state predicates
   Mask mask_;
@@ -197,8 +190,8 @@ private:
   int state_[3];
 
   /// Scatter indices
-  int const *indices_; 
- 
+  int const* indices_;
+
   //
   // Static asserts about internal strides
   //
@@ -207,63 +200,53 @@ private:
   static_assert(sizeof(thread_start_row_) == 4, "Expected 32b extents");
   static_assert(sizeof(PredicatedTileIteratorParams::stride) == 8, "Expected 64b strides");
 
-private:
-
+ private:
   //
   // Methods
   //
 
-public:
-
+ public:
   //
   // Methods
   //
 
   /// Constructor
   CUTLASS_DEVICE
-  PredicatedTileIteratorNormVec(
-    PredicatedTileIteratorParams const & params,
-    Element *pointer,
-    TensorCoord extent,
-    int thread_idx,
-    TensorCoord threadblock_offset = TensorCoord(),
-    int const *indices = nullptr
-  ): 
-    params_(params), indices_(indices)
+  PredicatedTileIteratorNormVec(PredicatedTileIteratorParams const& params,
+                                Element* pointer,
+                                TensorCoord extent,
+                                int thread_idx,
+                                TensorCoord threadblock_offset = TensorCoord(),
+                                int const* indices             = nullptr)
+    : params_(params), indices_(indices)
   {
-
     TensorCoord thread_offset = ThreadMap::initial_offset(thread_idx) + threadblock_offset;
 
-    extent_row_ = extent.row();
+    extent_row_    = extent.row();
     extent_column_ = extent.column();
 
-    thread_start_row_ = thread_offset.row();
+    thread_start_row_    = thread_offset.row();
     thread_start_column_ = thread_offset.column();
 
     // Initialize predicates
     CUTLASS_PRAGMA_UNROLL
     for (int c = 0; c < ThreadMap::Iterations::kColumn; ++c) {
-
-      mask_.predicates[c] = ((thread_offset.column() 
-        + ThreadMap::Delta::kColumn * c) < extent.column());
+      mask_.predicates[c] =
+        ((thread_offset.column() + ThreadMap::Delta::kColumn * c) < extent.column());
     }
 
     // Null pointer performs no accesses
-    if (!pointer) {
-      mask_.clear();
-    }
+    if (!pointer) { mask_.clear(); }
 
-    if (ScatterD && !indices) {
-      mask_.clear();
-    }
+    if (ScatterD && !indices) { mask_.clear(); }
 
     // Initialize pointer
-    byte_pointer_ = reinterpret_cast<uint8_t *>(pointer) + 
-       LongIndex(thread_offset.row()) * LongIndex(params_.stride);
+    byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
+                    LongIndex(thread_offset.row()) * LongIndex(params_.stride);
 
     if (ScatterD) {
-      byte_pointer_ = reinterpret_cast<uint8_t *>(pointer) +
-        LongIndex(thread_offset.column()) * sizeof(AccessType) / kElementsPerAccess;
+      byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
+                      LongIndex(thread_offset.column()) * sizeof(AccessType) / kElementsPerAccess;
     }
 
     // Initialize internal state counter
@@ -272,40 +255,39 @@ public:
 
   /// Adds a pointer offset in units of Element
   CUTLASS_HOST_DEVICE
-  void add_pointer_offset(LongIndex pointer_offset) {
+  void add_pointer_offset(LongIndex pointer_offset)
+  {
     byte_pointer_ += pointer_offset * sizeof_bits<Element>::value / 8;
   }
 
   /// Loads a fragment from memory
   CUTLASS_DEVICE
-  void load_with_byte_offset(Fragment &frag, int64_t byte_offset) const {
-    uint8_t *byte_pointer = byte_pointer_;
-    AccessType *frag_ptr = reinterpret_cast<AccessType *>(&frag);
+  void load_with_byte_offset(Fragment& frag, int64_t byte_offset) const
+  {
+    uint8_t* byte_pointer = byte_pointer_;
+    AccessType* frag_ptr  = reinterpret_cast<AccessType*>(&frag);
 
     CUTLASS_PRAGMA_UNROLL
     for (int cluster = 0; cluster < ThreadMap::Iterations::kCluster; ++cluster) {
-
       CUTLASS_PRAGMA_UNROLL
       for (int group = 0; group < ThreadMap::Iterations::kGroup; ++group) {
-
         CUTLASS_PRAGMA_UNROLL
         for (int row = 0; row < ThreadMap::Iterations::kRow; ++row) {
-
-          int frag_row_idx = 
+          int frag_row_idx =
             (row + ThreadMap::Iterations::kRow * (group + ThreadMap::Iterations::kGroup * cluster));
 
-          int row_offset = row * ThreadMap::Delta::kRow 
-            + group * ThreadMap::Delta::kGroup 
-            + cluster * ThreadMap::Delta::kCluster;
+          int row_offset = row * ThreadMap::Delta::kRow + group * ThreadMap::Delta::kGroup +
+                           cluster * ThreadMap::Delta::kCluster;
 
           bool row_guard = ((row_offset + thread_start_row_) < extent_row_);
 
-          AccessType *memory_pointer = reinterpret_cast<AccessType *>(byte_pointer + byte_offset);
+          AccessType* memory_pointer = reinterpret_cast<AccessType*>(byte_pointer + byte_offset);
 
           if (ScatterD && row_guard) {
             assert(indices_);
 
-            memory_pointer = reinterpret_cast<AccessType *>(byte_pointer + byte_offset +
+            memory_pointer = reinterpret_cast<AccessType*>(
+              byte_pointer + byte_offset +
               LongIndex(indices_[row_offset + thread_start_row_]) * LongIndex(params_.stride));
           }
 
@@ -313,27 +295,18 @@ public:
           for (int column = 0; column < ThreadMap::Iterations::kColumn; ++column) {
             bool guard = row_guard && mask_.predicates[column];
 
- 
-            cutlass::arch::global_load<
-              AccessType, 
-              sizeof(AccessType)
-            >(
-                frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column],
-                (void *)&memory_pointer[0],
-                guard);
- 
+            cutlass::arch::global_load<AccessType, sizeof(AccessType)>(
+              frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column],
+              (void*)&memory_pointer[0],
+              guard);
           }
 
           if (row + 1 < ThreadMap::Iterations::kRow) {
-            if (!ScatterD) {
-              byte_pointer += params_.increment_row;
-            }
+            if (!ScatterD) { byte_pointer += params_.increment_row; }
           }
         }
 
-        if (group + 1 < ThreadMap::Iterations::kGroup) {
-          byte_pointer += params_.increment_group;
-        }
+        if (group + 1 < ThreadMap::Iterations::kGroup) { byte_pointer += params_.increment_group; }
       }
 
       if (cluster + 1 < ThreadMap::Iterations::kCluster) {
@@ -344,72 +317,62 @@ public:
 
   /// Loads a fragment from memory
   CUTLASS_DEVICE
-  void load(Fragment &frag) const {
-
-    load_with_byte_offset(frag, 0);
-  }
+  void load(Fragment& frag) const { load_with_byte_offset(frag, 0); }
 
   /// Stores a fragment to memory
   CUTLASS_DEVICE
-  void store_with_byte_offset(Fragment const &frag, int64_t byte_offset) const {
-    uint8_t *byte_pointer = byte_pointer_;
-    AccessType const *frag_ptr = reinterpret_cast<AccessType const *>(&frag);
+  void store_with_byte_offset(Fragment const& frag, int64_t byte_offset) const
+  {
+    uint8_t* byte_pointer      = byte_pointer_;
+    AccessType const* frag_ptr = reinterpret_cast<AccessType const*>(&frag);
 
     CUTLASS_PRAGMA_UNROLL
     for (int cluster = 0; cluster < ThreadMap::Iterations::kCluster; ++cluster) {
-
       CUTLASS_PRAGMA_UNROLL
       for (int group = 0; group < ThreadMap::Iterations::kGroup; ++group) {
-
         CUTLASS_PRAGMA_UNROLL
         for (int row = 0; row < ThreadMap::Iterations::kRow; ++row) {
-
-          int frag_row_idx = 
+          int frag_row_idx =
             (row + ThreadMap::Iterations::kRow * (group + ThreadMap::Iterations::kGroup * cluster));
 
-          int row_offset = row * ThreadMap::Delta::kRow 
-            + group * ThreadMap::Delta::kGroup 
-            + cluster * ThreadMap::Delta::kCluster;
+          int row_offset = row * ThreadMap::Delta::kRow + group * ThreadMap::Delta::kGroup +
+                           cluster * ThreadMap::Delta::kCluster;
 
           bool row_guard = ((row_offset + thread_start_row_) < extent_row_);
 
-          AccessType *memory_pointer = reinterpret_cast<AccessType *>(byte_pointer + byte_offset);
+          AccessType* memory_pointer = reinterpret_cast<AccessType*>(byte_pointer + byte_offset);
 
           if (ScatterD && row_guard) {
             assert(indices_);
 
-            memory_pointer = reinterpret_cast<AccessType *>(byte_pointer + byte_offset +
+            memory_pointer = reinterpret_cast<AccessType*>(
+              byte_pointer + byte_offset +
               LongIndex(indices_[row_offset + thread_start_row_]) * LongIndex(params_.stride));
           }
 
           CUTLASS_PRAGMA_UNROLL
           for (int column = 0; column < ThreadMap::Iterations::kColumn; ++column) {
-
             bool guard = row_guard && mask_.predicates[column];
 
             if (UseCUDAStore) {
               if (guard) {
                 memory_pointer[column * ThreadMap::Delta::kColumn / kElementsPerAccess] =
-                    frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column];
+                  frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column];
               }
             } else {
               cutlass::arch::global_store<AccessType, sizeof(AccessType)>(
-                  frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column],
-                  (void *)&memory_pointer[column * ThreadMap::Delta::kColumn / kElementsPerAccess],
-                  guard);
+                frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column],
+                (void*)&memory_pointer[column * ThreadMap::Delta::kColumn / kElementsPerAccess],
+                guard);
             }
           }
 
           if (row + 1 < ThreadMap::Iterations::kRow) {
-            if (!ScatterD) {
-              byte_pointer += params_.increment_row;
-            }
+            if (!ScatterD) { byte_pointer += params_.increment_row; }
           }
         }
 
-        if (group + 1 < ThreadMap::Iterations::kGroup) {
-          byte_pointer += params_.increment_group;
-        }
+        if (group + 1 < ThreadMap::Iterations::kGroup) { byte_pointer += params_.increment_group; }
       }
 
       if (cluster + 1 < ThreadMap::Iterations::kCluster) {
@@ -420,73 +383,62 @@ public:
 
   /// Stores a fragment to memory
   CUTLASS_DEVICE
-  void store(Fragment const &frag) const {
-
-    store_with_byte_offset(frag, 0);
-  }
+  void store(Fragment const& frag) const { store_with_byte_offset(frag, 0); }
 
   /// Loads a fragment from memory
   CUTLASS_DEVICE
-  void downsample_load_with_byte_offset(Fragment &frag, int64_t byte_offset, int convolution_P, int convolution_Q, int add_P, int add_Q, int problem_N) const {
-
-    uint8_t *byte_pointer = byte_pointer_;
-    AccessType *frag_ptr = reinterpret_cast<AccessType *>(&frag);
+  void downsample_load_with_byte_offset(Fragment& frag,
+                                        int64_t byte_offset,
+                                        int convolution_P,
+                                        int convolution_Q,
+                                        int add_P,
+                                        int add_Q,
+                                        int problem_N) const
+  {
+    uint8_t* byte_pointer = byte_pointer_;
+    AccessType* frag_ptr  = reinterpret_cast<AccessType*>(&frag);
 
     CUTLASS_PRAGMA_UNROLL
     for (int cluster = 0; cluster < ThreadMap::Iterations::kCluster; ++cluster) {
-
       CUTLASS_PRAGMA_UNROLL
       for (int group = 0; group < ThreadMap::Iterations::kGroup; ++group) {
-
         CUTLASS_PRAGMA_UNROLL
         for (int row = 0; row < ThreadMap::Iterations::kRow; ++row) {
-
-          int frag_row_idx = 
+          int frag_row_idx =
             (row + ThreadMap::Iterations::kRow * (group + ThreadMap::Iterations::kGroup * cluster));
 
-          int row_offset = row * ThreadMap::Delta::kRow 
-            + group * ThreadMap::Delta::kGroup 
-            + cluster * ThreadMap::Delta::kCluster;
+          int row_offset = row * ThreadMap::Delta::kRow + group * ThreadMap::Delta::kGroup +
+                           cluster * ThreadMap::Delta::kCluster;
 
           bool row_guard = ((row_offset + thread_start_row_) < extent_row_);
 
           int output_row = row_offset + thread_start_row_;
-          int output_N = output_row / (convolution_P * convolution_Q);
-          int output_PQ = output_row % (convolution_P * convolution_Q);
-          int output_P = output_PQ / convolution_Q;
-          int output_Q = output_PQ % convolution_Q;
+          int output_N   = output_row / (convolution_P * convolution_Q);
+          int output_PQ  = output_row % (convolution_P * convolution_Q);
+          int output_P   = output_PQ / convolution_Q;
+          int output_Q   = output_PQ % convolution_Q;
 
           int input_row = output_N * 2 * convolution_P * 2 * convolution_Q +
-            (2 * output_P + add_P) * 2 * convolution_Q + 2 * output_Q + add_Q;
+                          (2 * output_P + add_P) * 2 * convolution_Q + 2 * output_Q + add_Q;
 
-          int64_t byte_offset = (input_row-output_row)*problem_N*sizeof(float);
+          int64_t byte_offset = (input_row - output_row) * problem_N * sizeof(float);
 
-          AccessType *memory_pointer = reinterpret_cast<AccessType *>(byte_pointer + byte_offset);
+          AccessType* memory_pointer = reinterpret_cast<AccessType*>(byte_pointer + byte_offset);
 
           CUTLASS_PRAGMA_UNROLL
           for (int column = 0; column < ThreadMap::Iterations::kColumn; ++column) {
-
             bool guard = row_guard && mask_.predicates[column];
 
-            cutlass::arch::global_load<
-              AccessType, 
-              sizeof(AccessType)
-            >(
-                frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn +
-                         column],
-                (void *)&memory_pointer[column * ThreadMap::Delta::kColumn /
-                                        kElementsPerAccess],
-                guard);
+            cutlass::arch::global_load<AccessType, sizeof(AccessType)>(
+              frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column],
+              (void*)&memory_pointer[column * ThreadMap::Delta::kColumn / kElementsPerAccess],
+              guard);
           }
 
-          if (row + 1 < ThreadMap::Iterations::kRow) {
-            byte_pointer += params_.increment_row;
-          }
+          if (row + 1 < ThreadMap::Iterations::kRow) { byte_pointer += params_.increment_row; }
         }
 
-        if (group + 1 < ThreadMap::Iterations::kGroup) {
-          byte_pointer += params_.increment_group;
-        }
+        if (group + 1 < ThreadMap::Iterations::kGroup) { byte_pointer += params_.increment_group; }
       }
 
       if (cluster + 1 < ThreadMap::Iterations::kCluster) {
@@ -497,70 +449,63 @@ public:
 
   /// Loads a fragment from memory
   CUTLASS_DEVICE
-  void upsample_load_with_byte_offset(Fragment &frag, int64_t byte_offset, int convolution_P, int convolution_Q, int add_P, int add_Q, int problem_N) const {
-
-    uint8_t *byte_pointer = byte_pointer_;
-    AccessType *frag_ptr = reinterpret_cast<AccessType *>(&frag);
+  void upsample_load_with_byte_offset(Fragment& frag,
+                                      int64_t byte_offset,
+                                      int convolution_P,
+                                      int convolution_Q,
+                                      int add_P,
+                                      int add_Q,
+                                      int problem_N) const
+  {
+    uint8_t* byte_pointer = byte_pointer_;
+    AccessType* frag_ptr  = reinterpret_cast<AccessType*>(&frag);
 
     CUTLASS_PRAGMA_UNROLL
     for (int cluster = 0; cluster < ThreadMap::Iterations::kCluster; ++cluster) {
-
       CUTLASS_PRAGMA_UNROLL
       for (int group = 0; group < ThreadMap::Iterations::kGroup; ++group) {
-
         CUTLASS_PRAGMA_UNROLL
         for (int row = 0; row < ThreadMap::Iterations::kRow; ++row) {
-
-          int frag_row_idx = 
+          int frag_row_idx =
             (row + ThreadMap::Iterations::kRow * (group + ThreadMap::Iterations::kGroup * cluster));
 
-          int row_offset = row * ThreadMap::Delta::kRow 
-            + group * ThreadMap::Delta::kGroup 
-            + cluster * ThreadMap::Delta::kCluster;
+          int row_offset = row * ThreadMap::Delta::kRow + group * ThreadMap::Delta::kGroup +
+                           cluster * ThreadMap::Delta::kCluster;
 
           bool row_guard = ((row_offset + thread_start_row_) < extent_row_);
 
           int output_row = row_offset + thread_start_row_;
-          int output_N = output_row / (convolution_P * convolution_Q);
-          int output_PQ = output_row % (convolution_P * convolution_Q);
-          int output_P = output_PQ / convolution_Q;
-          int output_Q = output_PQ % convolution_Q;
-          int row_add_P = add_P;
-          int row_add_Q = add_Q;
-	  if (output_P > convolution_P - 2) row_add_P = 0;
-	  if (output_Q > convolution_Q - 2) row_add_Q = 0;
+          int output_N   = output_row / (convolution_P * convolution_Q);
+          int output_PQ  = output_row % (convolution_P * convolution_Q);
+          int output_P   = output_PQ / convolution_Q;
+          int output_Q   = output_PQ % convolution_Q;
+          int row_add_P  = add_P;
+          int row_add_Q  = add_Q;
+          if (output_P > convolution_P - 2) row_add_P = 0;
+          if (output_Q > convolution_Q - 2) row_add_Q = 0;
 
-          int input_row = output_N * (convolution_P/2) * (convolution_Q/2) +
-            ((output_P + row_add_P)/2) * (convolution_Q/2) + (output_Q + row_add_Q)/2;
+          int input_row = output_N * (convolution_P / 2) * (convolution_Q / 2) +
+                          ((output_P + row_add_P) / 2) * (convolution_Q / 2) +
+                          (output_Q + row_add_Q) / 2;
 
-          int64_t byte_offset = (input_row-output_row)*problem_N*sizeof(float);
+          int64_t byte_offset = (input_row - output_row) * problem_N * sizeof(float);
 
-          AccessType *memory_pointer = reinterpret_cast<AccessType *>(byte_pointer + byte_offset);
+          AccessType* memory_pointer = reinterpret_cast<AccessType*>(byte_pointer + byte_offset);
 
           CUTLASS_PRAGMA_UNROLL
           for (int column = 0; column < ThreadMap::Iterations::kColumn; ++column) {
-
             bool guard = row_guard && mask_.predicates[column];
 
-            cutlass::arch::global_load<
-              AccessType, 
-              sizeof(AccessType)
-            >(
-                frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn +
-                         column],
-                (void *)&memory_pointer[column * ThreadMap::Delta::kColumn /
-                                        kElementsPerAccess],
-                guard);
+            cutlass::arch::global_load<AccessType, sizeof(AccessType)>(
+              frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column],
+              (void*)&memory_pointer[column * ThreadMap::Delta::kColumn / kElementsPerAccess],
+              guard);
           }
 
-          if (row + 1 < ThreadMap::Iterations::kRow) {
-            byte_pointer += params_.increment_row;
-          }
+          if (row + 1 < ThreadMap::Iterations::kRow) { byte_pointer += params_.increment_row; }
         }
 
-        if (group + 1 < ThreadMap::Iterations::kGroup) {
-          byte_pointer += params_.increment_group;
-        }
+        if (group + 1 < ThreadMap::Iterations::kGroup) { byte_pointer += params_.increment_group; }
       }
 
       if (cluster + 1 < ThreadMap::Iterations::kCluster) {
@@ -570,63 +515,49 @@ public:
   }
 
   CUTLASS_DEVICE
-  MatrixCoord thread_start() const {
-    return MatrixCoord(thread_start_row_, thread_start_column_);
-  }
+  MatrixCoord thread_start() const { return MatrixCoord(thread_start_row_, thread_start_column_); }
 
   /// Need to get the thread start row from the tile iterator
   CUTLASS_DEVICE
-  int32_t thread_start_row() const {
-    return thread_start_row_;
-  }
+  int32_t thread_start_row() const { return thread_start_row_; }
 
   /// Need to get the thread start row from the tile iterator
   CUTLASS_DEVICE
-  int32_t thread_start_column() const {
-    return thread_start_column_;
-  }
+  int32_t thread_start_column() const { return thread_start_column_; }
 
   /// Extent of the matrix in rows
   CUTLASS_DEVICE
-  Index extent_row() const {
-    return extent_row_;
-  }
+  Index extent_row() const { return extent_row_; }
 
   /// Extent of the matrix in columns
   CUTLASS_DEVICE
-  Index extent_column() const {
-    return extent_column_;
-  }
+  Index extent_column() const { return extent_column_; }
 
   /// Advances to the next position to load or store
   CUTLASS_HOST_DEVICE
-  PredicatedTileIteratorNormVec &operator++() {
-
+  PredicatedTileIteratorNormVec& operator++()
+  {
     ++state_[0];
 
-    if (!ScatterD) {
-      byte_pointer_ += params_.advance_row;
-    }
+    if (!ScatterD) { byte_pointer_ += params_.advance_row; }
 
     thread_start_row_ += ThreadMap::Shape::kRow;
-    
-    if (state_[0] == ThreadMap::Count::kRow) {
 
+    if (state_[0] == ThreadMap::Count::kRow) {
       state_[0] = 0;
       ++state_[1];
       byte_pointer_ += params_.advance_group;
 
-      thread_start_row_ += (ThreadMap::Shape::kGroup - 1) * 
-        ThreadMap::Shape::kRow * ThreadMap::Count::kRow;
+      thread_start_row_ +=
+        (ThreadMap::Shape::kGroup - 1) * ThreadMap::Shape::kRow * ThreadMap::Count::kRow;
 
       if (state_[1] == ThreadMap::Count::kGroup) {
-
         state_[1] = 0;
         ++state_[2];
         byte_pointer_ += params_.advance_cluster;
 
-        thread_start_row_ += ThreadMap::Count::kGroup * 
-          ThreadMap::Shape::kGroup * ThreadMap::Count::kRow * ThreadMap::Shape::kRow;
+        thread_start_row_ += ThreadMap::Count::kGroup * ThreadMap::Shape::kGroup *
+                             ThreadMap::Count::kRow * ThreadMap::Shape::kRow;
 
         if (state_[2] == ThreadMap::Count::kCluster) {
           state_[2] = 0;
@@ -639,32 +570,22 @@ public:
   }
 
   ///< Efficiently disables all accesses guarded by mask
-  CUTLASS_DEVICE void clear_mask() {
-    mask_.clear();
-  }
+  CUTLASS_DEVICE void clear_mask() { mask_.clear(); }
 
   ///< Efficiently enables all accesses guarded by mask
-  CUTLASS_DEVICE void enable_mask() {
-    mask_.enable();
-  }
+  CUTLASS_DEVICE void enable_mask() { mask_.enable(); }
 
   ///< Sets the mask
-  CUTLASS_DEVICE void get_mask(Mask &mask) const {
-    mask = mask_;
-  }
+  CUTLASS_DEVICE void get_mask(Mask& mask) const { mask = mask_; }
 
   ///< Sets the mask
-  CUTLASS_DEVICE void set_mask(Mask const &mask) {
-    mask_ = mask;
-  }
+  CUTLASS_DEVICE void set_mask(Mask const& mask) { mask_ = mask; }
 };
-
-
 
 ///////////////////////////////////////////////////////////////////////////////
 
-} // namespace threadblock
-} // namespace epilogue
-} // namespace cutlass
+}  // namespace threadblock
+}  // namespace epilogue
+}  // namespace cutlass
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/distance/detail/pairwise_distance_base.cuh>
-#include <raft/linalg/norm.cuh>
 #include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
+#include <raft/linalg/norm.cuh>
 
 namespace raft {
 namespace distance {
@@ -26,15 +26,13 @@ namespace detail {
 
 template <typename DataT, typename AccT>
 struct CosineOp {
-    __device__ __host__ CosineOp() { }
-    __device__ __host__ AccT operator() (DataT &aNorm, const DataT &bNorm, DataT &accVal) const {
-        return static_cast<AccT>(1.0) - (AccT) (accVal / (aNorm * bNorm));
-    }
-    __device__ __host__ AccT operator() (DataT aData) const {
-        return aData;
-    }
+  __device__ __host__ CosineOp() {}
+  __device__ __host__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const
+  {
+    return static_cast<AccT>(1.0) - (AccT)(accVal / (aNorm * bNorm));
+  }
+  __device__ __host__ AccT operator()(DataT aData) const { return aData; }
 };
-
 
 /**
  * @brief the cosine distance matrix calculation implementer
@@ -84,16 +82,15 @@ void cosineImpl(const DataT* x,
                 FinalLambda fin_op,
                 cudaStream_t stream)
 {
-  const auto deviceVersion  = getMajorMinorVersion();
+  const auto deviceVersion = getMajorMinorVersion();
   if (deviceVersion.first >= 8) {
     using CosineOp_ = CosineOp<DataT, AccT>;
     CosineOp_ cosine_dist_op;
 
     cutlassDistanceKernel<DataT, AccT, OutT, IdxT, VecLen, FinalLambda, CosineOp_, isRowMajor>(
-                    x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, cosine_dist_op, stream);
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, cosine_dist_op, stream);
 
   } else {
-
     typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
     typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
@@ -106,15 +103,15 @@ void cosineImpl(const DataT* x,
 
     // epilogue operation lambda for final value calculation
     auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                      DataT * regxn,
-                                      DataT * regyn,
-                                      IdxT gridStrideX,
-                                      IdxT gridStrideY) {
-  #pragma unroll
+                                       DataT * regxn,
+                                       DataT * regyn,
+                                       IdxT gridStrideX,
+                                       IdxT gridStrideY) {
+#pragma unroll
       for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
-  #pragma unroll
+#pragma unroll
         for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-          acc[i][j] = 1.0 - (acc[i][j] / (regxn[i] * regyn[j]) );
+          acc[i][j] = 1.0 - (acc[i][j] / (regxn[i] * regyn[j]));
         }
       }
     };
@@ -122,30 +119,30 @@ void cosineImpl(const DataT* x,
     constexpr size_t shmemSize =
       KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
     if (isRowMajor) {
-      auto cosineRowMajor = pairwiseDistanceMatKernel<true,
-                                                      DataT,
-                                                      AccT,
-                                                      OutT,
-                                                      IdxT,
-                                                      KPolicy,
-                                                      decltype(core_lambda),
-                                                      decltype(epilog_lambda),
-                                                      FinalLambda,
-                                                      true>;
+      auto cosineRowMajor = pairwiseDistanceMatKernelPriorToAmpere<true,
+                                                                   DataT,
+                                                                   AccT,
+                                                                   OutT,
+                                                                   IdxT,
+                                                                   KPolicy,
+                                                                   decltype(core_lambda),
+                                                                   decltype(epilog_lambda),
+                                                                   FinalLambda,
+                                                                   true>;
       dim3 grid           = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineRowMajor);
       cosineRowMajor<<<grid, blk, shmemSize, stream>>>(
         x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
     } else {
-      auto cosineColMajor = pairwiseDistanceMatKernel<true,
-                                                      DataT,
-                                                      AccT,
-                                                      OutT,
-                                                      IdxT,
-                                                      KPolicy,
-                                                      decltype(core_lambda),
-                                                      decltype(epilog_lambda),
-                                                      FinalLambda,
-                                                      false>;
+      auto cosineColMajor = pairwiseDistanceMatKernelPriorToAmpere<true,
+                                                                   DataT,
+                                                                   AccT,
+                                                                   OutT,
+                                                                   IdxT,
+                                                                   KPolicy,
+                                                                   decltype(core_lambda),
+                                                                   decltype(epilog_lambda),
+                                                                   FinalLambda,
+                                                                   false>;
       dim3 grid           = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineColMajor);
       cosineColMajor<<<grid, blk, shmemSize, stream>>>(
         x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);

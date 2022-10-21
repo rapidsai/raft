@@ -76,11 +76,12 @@ struct DistanceAdjInputs {
 
 template <typename AccT, typename DataT, typename OutT, typename Index>
 struct threshold_final_op {
-  DataT threshold_val; 
+  DataT threshold_val;
 
   __device__ __host__ threshold_final_op() : threshold_val(0.0) {}
   __device__ __host__ threshold_final_op(DataT val) : threshold_val(val) {}
-  __device__ __host__ OutT operator()(AccT d_val, Index g_idx) const {
+  __device__ __host__ OutT operator()(AccT d_val, Index g_idx) const
+  {
     return d_val <= threshold_val;
   }
 };
@@ -123,26 +124,25 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
       getWorkspaceSize<raft::distance::DistanceType::L2Expanded, DataType, DataType, uint8_t>(
         x.data(), y.data(), m, n, k);
     rmm::device_uvector<char> workspace(worksize, stream);
-#if 0
-    auto fin_op = [threshold] __device__(DataType d_val, int g_d_idx) {
-      return d_val <= threshold;
-    };
-#else
+
     using threshold_final_op_ = threshold_final_op<DataType, DataType, uint8_t, int>;
     threshold_final_op_ threshold_op(threshold);
-#endif
-    raft::distance::distance<raft::distance::DistanceType::L2Expanded, DataType, DataType, uint8_t, threshold_final_op_>(
-      x.data(),
-      y.data(),
-      dist.data(),
-      m,
-      n,
-      k,
-      workspace.data(),
-      workspace.size(),
-      threshold_op,
-      stream,
-      isRowMajor);
+
+    raft::distance::distance<raft::distance::DistanceType::L2Expanded,
+                             DataType,
+                             DataType,
+                             uint8_t,
+                             threshold_final_op_>(x.data(),
+                                                  y.data(),
+                                                  dist.data(),
+                                                  m,
+                                                  n,
+                                                  k,
+                                                  workspace.data(),
+                                                  workspace.size(),
+                                                  threshold_op,
+                                                  stream,
+                                                  isRowMajor);
     handle.sync_stream(stream);
   }
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#pragma once 
+#pragma once
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
@@ -22,16 +22,16 @@
 #include <rmm/device_uvector.hpp>
 
 #include "cutlass/cutlass.h"
-#include "cutlass/gemm/device/gemm_universal_adapter.h"
 #include "cutlass/gemm/device/gemm.h"
+#include "cutlass/gemm/device/gemm_universal_adapter.h"
 
-#include "cutlass/tensor_view.h"
-#include "cutlass/matrix_coord.h"
 #include "cutlass/layout/matrix.h"
 #include "cutlass/layout/tensor.h"
+#include "cutlass/matrix_coord.h"
+#include "cutlass/tensor_view.h"
 
-#include "./pairwise_distance_gemm.h"
 #include "./pairwise_distance_epilogue_elementwise.h"
+#include "./pairwise_distance_gemm.h"
 
 #define CUTLASS_CHECK(status)                                                                    \
   {                                                                                              \
@@ -56,30 +56,29 @@ template <typename DataT,
           typename DistanceFn,
           bool isRowMajor>
 void cutlassDistanceKernel(const DataT* x,
-                      const DataT* y,
-                      const DataT* xn,
-                      const DataT* yn,
-                      IdxT m,
-                      IdxT n,
-                      IdxT k,
-                      IdxT lda,
-                      IdxT ldb,
-                      IdxT ldd,
-                      OutT* dOutput,
-                      FinalLambda fin_op,
-                      DistanceFn dist_op,
-                      cudaStream_t stream) {
-
-  using EpilogueOutputOp = cutlass::epilogue::thread::PairwiseDistanceEpilogueElementwise<
-      DataT,  // ElementC_
-      AccT,  // ElementAccumulator_
-      DataT,  // ElementCompute_
-      AccT,  // ElementZ_
-      OutT,  // ElementT_
-      1,  // Elements per access 1
-      DistanceFn,
-      FinalLambda
-      >;
+                           const DataT* y,
+                           const DataT* xn,
+                           const DataT* yn,
+                           IdxT m,
+                           IdxT n,
+                           IdxT k,
+                           IdxT lda,
+                           IdxT ldb,
+                           IdxT ldd,
+                           OutT* dOutput,
+                           FinalLambda fin_op,
+                           DistanceFn dist_op,
+                           cudaStream_t stream)
+{
+  using EpilogueOutputOp =
+    cutlass::epilogue::thread::PairwiseDistanceEpilogueElementwise<DataT,  // ElementC_
+                                                                   AccT,   // ElementAccumulator_
+                                                                   DataT,  // ElementCompute_
+                                                                   AccT,   // ElementZ_
+                                                                   OutT,   // ElementT_
+                                                                   1,      // Elements per access 1
+                                                                   DistanceFn,
+                                                                   FinalLambda>;
   constexpr int batch_count = 1;
 
   constexpr auto mode = cutlass::gemm::GemmUniversalMode::kGemm;
@@ -88,63 +87,63 @@ void cutlassDistanceKernel(const DataT* x,
 
   const DataT *a, *b;
 
-  IdxT gemm_lda, gemm_ldb; 
+  IdxT gemm_lda, gemm_ldb;
 
   // Number of pipelines you want to use
   constexpr int NumStages = 3;
-  // Alignment 
+  // Alignment
   constexpr int Alignment = VecLen;
 
   // default initialize problem size with row major inputs
-  auto problem_size = cutlass::gemm::GemmCoord(static_cast<int>(n), static_cast<int>(m), static_cast<int>(k));
+  auto problem_size =
+    cutlass::gemm::GemmCoord(static_cast<int>(n), static_cast<int>(m), static_cast<int>(k));
 
-  using cutlassDistKernel = typename cutlass::gemm::kernel::PairwiseDistanceGemm<
-      DataT, Alignment, DataT, Alignment,
-      AccT, AccT,
-      EpilogueOutputOp, 
-      NumStages, // Number of pipeline stages   
-      isRowMajor
-  >::GemmKernel;
+  using cutlassDistKernel =
+    typename cutlass::gemm::kernel::PairwiseDistanceGemm<DataT,
+                                                         Alignment,
+                                                         DataT,
+                                                         Alignment,
+                                                         AccT,
+                                                         AccT,
+                                                         EpilogueOutputOp,
+                                                         NumStages,  // Number of pipeline stages
+                                                         isRowMajor>::GemmKernel;
 
   using cutlassDist = cutlass::gemm::device::GemmUniversalAdapter<cutlassDistKernel>;
 
   if constexpr (isRowMajor) {
-      a = y;
-      b = x;
-      gemm_lda = ldb;
-      gemm_ldb = lda;
+    a        = y;
+    b        = x;
+    gemm_lda = ldb;
+    gemm_ldb = lda;
   } else {
-      problem_size = cutlass::gemm::GemmCoord(static_cast<int>(m), static_cast<int>(n), static_cast<int>(k));
-      a = x;
-      b = y;
-      gemm_lda = lda;
-      gemm_ldb = ldb;
+    problem_size =
+      cutlass::gemm::GemmCoord(static_cast<int>(m), static_cast<int>(n), static_cast<int>(k));
+    a        = x;
+    b        = y;
+    gemm_lda = lda;
+    gemm_ldb = ldb;
   }
 
-  typename cutlassDist::Arguments arguments {
-                                          mode,
-                                          problem_size,
-                                          batch_count,
-                                          epilog_op_param,
-                                          a,
-                                          b,
-                                          xn,         // C matrix eq vector param, which here is A norm
-                                          nullptr,    //tensor_Z,
-                                          (DataT*)yn, // this is broadcast vec, which is required to be non-const param
-                                          dOutput,    // Output distance matrix
-                                          (int64_t)0, // batch stride A
-                                          (int64_t) 0, // batch stride B
-                                          (int64_t)0, // batch stride Norm A
-                                          (int64_t)0, 
-                                          (int64_t)0, // batch stride Norm B
-                                          (int64_t)0, // batch stride Output
-                                          gemm_lda,   // stride A 
-                                          gemm_ldb,   // stride B 
-                                          1,          // stride A norm
-                                          0,          // this is no-op for Z
-                                          0,          // This must be zero
-                                          ldd         // stride Output matrix
-                                          };
+  typename cutlassDist::Arguments arguments{
+    mode,       problem_size, batch_count, epilog_op_param, a, b,
+    xn,          // C matrix eq vector param, which here is A norm
+    nullptr,     // tensor_Z,
+    (DataT*)yn,  // this is broadcast vec, which is required to be non-const param
+    dOutput,     // Output distance matrix
+    (int64_t)0,  // batch stride A
+    (int64_t)0,  // batch stride B
+    (int64_t)0,  // batch stride Norm A
+    (int64_t)0,
+    (int64_t)0,  // batch stride Norm B
+    (int64_t)0,  // batch stride Output
+    gemm_lda,    // stride A
+    gemm_ldb,    // stride B
+    1,           // stride A norm
+    0,           // this is no-op for Z
+    0,           // This must be zero
+    ldd          // stride Output matrix
+  };
 
   // Using the arguments, query for extra workspace required for matrix multiplication computation
   size_t workspace_size = cutlassDist::get_workspace_size(arguments);
@@ -152,7 +151,7 @@ void cutlassDistanceKernel(const DataT* x,
   rmm::device_uvector<uint8_t> workspace(workspace_size, stream);
   // Instantiate CUTLASS kernel depending on templates
   cutlassDist cutlassDist_op;
-  // Check the problem size is supported or not 
+  // Check the problem size is supported or not
   cutlass::Status status = cutlassDist_op.can_implement(arguments);
   CUTLASS_CHECK(status);
   // Initialize CUTLASS kernel with arguments and workspace pointer
@@ -163,7 +162,7 @@ void cutlassDistanceKernel(const DataT* x,
   CUTLASS_CHECK(status);
 }
 
-};
-};
-};
+};  // namespace detail
+};  // namespace distance
+};  // namespace raft
 #pragma GCC diagnostic pop

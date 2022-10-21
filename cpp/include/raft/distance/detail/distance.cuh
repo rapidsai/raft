@@ -618,11 +618,9 @@ void distance(const InType* x,
 
 template <typename AccType, typename OutType, typename Index>
 struct default_fin_op {
-    __host__ __device__  default_fin_op() { };
-    // functor signature.
-    __host__ __device__ OutType operator()(AccType d_val, Index g_d_idx) const {
-      return d_val;
-    }
+  __host__ __device__ default_fin_op(){};
+  // functor signature.
+  __host__ __device__ OutType operator()(AccType d_val, Index g_d_idx) const { return d_val; }
 };
 
 template <raft::distance::DistanceType distanceType,

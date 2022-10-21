@@ -38,9 +38,9 @@
 
 #pragma once
 
+#include "cutlass/array.h"
 #include "cutlass/cutlass.h"
 #include "cutlass/numeric_types.h"
-#include "cutlass/array.h"
 
 #include "cutlass/gemm/gemm.h"
 
@@ -59,66 +59,51 @@ namespace threadblock {
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Defines sensible defaults for epilogues for TensorOps.
-template <
-  typename Shape,
-  typename WarpMmaTensorOp,
-  int PartitionsK,
-  typename ElementOutput,
-  typename ElementTensor,
-  typename ElementVector,
-  typename OutputOp,
-  typename LayoutT,
-  int ElementsPerAccess,
-  bool ScatterD = false
->
+template <typename Shape,
+          typename WarpMmaTensorOp,
+          int PartitionsK,
+          typename ElementOutput,
+          typename ElementTensor,
+          typename ElementVector,
+          typename OutputOp,
+          typename LayoutT,
+          int ElementsPerAccess,
+          bool ScatterD = false>
 struct PairwiseDistanceEpilogue {
-
   /// Use defaults related to the existing epilogue
-  using Base = DefaultEpilogueTensorOp<
-    Shape,
-    WarpMmaTensorOp,
-    PartitionsK,
-    OutputOp,
-    ElementsPerAccess
-  >;
+  using Base =
+    DefaultEpilogueTensorOp<Shape, WarpMmaTensorOp, PartitionsK, OutputOp, ElementsPerAccess>;
 
   //
   // Stores the result z = (y = GEMM(A, B, C), broadcast)
   //
-  using OutputTileIterator = cutlass::epilogue::threadblock::PredicatedTileIteratorNormVec<
-    typename Base::OutputTileThreadMap,
-    ElementOutput,
-    LayoutT
-  >;
+  using OutputTileIterator = cutlass::epilogue::threadblock::
+    PredicatedTileIteratorNormVec<typename Base::OutputTileThreadMap, ElementOutput, LayoutT>;
 
   //
   // Additional tensor tile iterator - stores t = Elementwise(z)
   //
-  using TensorTileIterator = cutlass::epilogue::threadblock::PredicatedTileIterator<
-    typename Base::OutputTileThreadMap,
-    ElementTensor
-  >;
+  using TensorTileIterator =
+    cutlass::epilogue::threadblock::PredicatedTileIterator<typename Base::OutputTileThreadMap,
+                                                           ElementTensor>;
 
   /// Define the epilogue
-  using Epilogue = EpilogueWithBroadcast<
-    Shape,
-    WarpMmaTensorOp,
-    PartitionsK,
-    OutputTileIterator,
-    TensorTileIterator,
-    ElementVector,
-    typename Base::AccumulatorFragmentIterator,
-    typename Base::WarpTileIterator,
-    typename Base::SharedLoadIterator,
-    OutputOp,
-    typename Base::Padding,
-    Base::kFragmentsPerIteration
-  >;
+  using Epilogue = EpilogueWithBroadcast<Shape,
+                                         WarpMmaTensorOp,
+                                         PartitionsK,
+                                         OutputTileIterator,
+                                         TensorTileIterator,
+                                         ElementVector,
+                                         typename Base::AccumulatorFragmentIterator,
+                                         typename Base::WarpTileIterator,
+                                         typename Base::SharedLoadIterator,
+                                         OutputOp,
+                                         typename Base::Padding,
+                                         Base::kFragmentsPerIteration>;
 };
 
-
-} // namespace threadblock
-} // namespace epilogue
-} // namespace cutlass
+}  // namespace threadblock
+}  // namespace epilogue
+}  // namespace cutlass
 
 ////////////////////////////////////////////////////////////////////////////////
