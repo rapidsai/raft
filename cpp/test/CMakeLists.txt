@@ -82,7 +82,7 @@ if(BUILD_TESTS)
             PATH
             test/cluster/kmeans.cu
             test/cluster_solvers.cu
-            test/sparse/linkage.cu
+            test/cluster/linkage.cu
             OPTIONAL DIST NN
     )
 

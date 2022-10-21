@@ -18,9 +18,15 @@
 
 #include <raft/core/device_mdspan.hpp>
 
+namespace raft::cluster::hierarchy {
+enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
+
+};  // end namespace raft::cluster::hierarchy
+
+// The code below is legacy
 namespace raft::cluster {
 
-enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
+using hierarchy::LinkageDistance;
 
 /**
  * Simple POCO for consolidating linkage results. This closely

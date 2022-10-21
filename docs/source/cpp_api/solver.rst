@@ -7,13 +7,12 @@ This page provides C++ class references for the publicly-exposed elements of the
 Linear Assignment Problem
 #########################
 
-.. doxygenclass:: raft::lap::LinearAssignmentProblem
+.. doxygenclass:: raft::solver::LinearAssignmentProblem
     :project: RAFT
     :members:
 
 Minimum Spanning Tree
 #####################
 
-.. doxygennamespace:: raft::mst
+.. doxygenfunction:: raft::sparse::solver::mst
     :project: RAFT
-    :members:
