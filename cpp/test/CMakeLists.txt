@@ -129,6 +129,7 @@ if(BUILD_TESTS)
     ConfigureTest(NAME LINALG_TEST
             PATH
             test/linalg/add.cu
+            test/linalg/axpy.cu
             test/linalg/binary_op.cu
             test/linalg/cholesky_r1.cu
             test/linalg/coalesced_reduction.cu

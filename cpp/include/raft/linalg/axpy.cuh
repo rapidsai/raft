@@ -17,8 +17,10 @@
 #define __AXPY_H
 
 #pragma once
-
 #include "detail/axpy.cuh"
+
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdspan.hpp>
 
 namespace raft::linalg {
 
