@@ -489,7 +489,7 @@ void fit_main(const raft::handle_t& handle,
     handle, params, X, weight, centroidsRawData, inertia, n_iter, workspace);
 }
 
-}  // end namespace raft::cluster::kmeans
+};  // end namespace raft::cluster::kmeans
 
 namespace raft::cluster {
 
@@ -962,4 +962,4 @@ void kmeans_fit_main(const raft::handle_t& handle,
   kmeans::fit_main<DataT, IndexT>(
     handle, params, X, weight, centroidsRawData, inertia, n_iter, workspace);
 }
-}  // namespace raft::cluster
+};  // namespace raft::cluster
