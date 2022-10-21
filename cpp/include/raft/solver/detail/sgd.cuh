@@ -16,15 +16,6 @@
 
 #pragma once
 
-#include <raft/solver/detail/learning_rate.h>
-#include <raft/solver/detail/shuffle.h>
-#include <raft/sovler/solver_types.hpp>
-#include <raft/solver/detail/objectives/hinge.cuh>
-#include <raft/solver/detail/objectives/linearReg.cuh>
-#include <raft/solver/detail/objectives/logisticReg.cuh>
-#include <raft/solver/detail/preprocess.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemv.cuh>
@@ -33,8 +24,17 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/solver/detail/learning_rate.h>
+#include <raft/solver/detail/objectives/hinge.cuh>
+#include <raft/solver/detail/objectives/linearReg.cuh>
+#include <raft/solver/detail/objectives/logisticReg.cuh>
+#include <raft/solver/detail/preprocess.cuh>
+#include <raft/solver/detail/shuffle.h>
+#include <raft/sovler/solver_types.hpp>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft::solver::detail {
@@ -124,16 +124,16 @@ void sgdFit(const raft::handle_t& handle,
     mu_labels.resize(1, stream);
 
     preProcessData(handle,
-                        input,
-                        n_rows,
-                        n_cols,
-                        labels,
-                        intercept,
-                        mu_input.data(),
-                        mu_labels.data(),
-                        norm2_input.data(),
-                        fit_intercept,
-                        false);
+                   input,
+                   n_rows,
+                   n_cols,
+                   labels,
+                   intercept,
+                   mu_input.data(),
+                   mu_labels.data(),
+                   norm2_input.data(),
+                   fit_intercept,
+                   false);
   }
 
   rmm::device_uvector<math_t> grads(n_cols, stream);

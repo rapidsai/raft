@@ -16,15 +16,7 @@
 
 #pragma once
 
-#include <raft/solver/detail/shuffle.h>
-#include <raft/solver/solver_types.hpp>
-#include <raft/solver/detail/objectives/linearReg.cuh>
-#include <raft/solver/detail/penalty.cuh>
-#include <raft/solver/detail/softThres.cuh>
-#include <raft/solver/detail/preprocess.cuh>
-#include <raft/util/cudart_utils.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/axpy.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -38,7 +30,15 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/solver/detail/objectives/linearReg.cuh>
+#include <raft/solver/detail/penalty.cuh>
+#include <raft/solver/detail/preprocess.cuh>
+#include <raft/solver/detail/shuffle.h>
+#include <raft/solver/detail/softThres.cuh>
+#include <raft/solver/solver_types.hpp>
 #include <raft/stats/sum.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft::solver::detail {
 
@@ -175,17 +175,17 @@ void cdFit(const raft::handle_t& handle,
     if (normalize) { norm2_input.resize(n_cols, stream); }
 
     preProcessData(handle,
-                        input,
-                        n_rows,
-                        n_cols,
-                        labels,
-                        intercept,
-                        mu_input.data(),
-                        mu_labels.data(),
-                        norm2_input.data(),
-                        fit_intercept,
-                        normalize,
-                        sample_weight);
+                   input,
+                   n_rows,
+                   n_cols,
+                   labels,
+                   intercept,
+                   mu_input.data(),
+                   mu_labels.data(),
+                   norm2_input.data(),
+                   fit_intercept,
+                   normalize,
+                   sample_weight);
   }
   if (sample_weight != nullptr) {
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
@@ -296,17 +296,17 @@ void cdFit(const raft::handle_t& handle,
 
   if (fit_intercept) {
     postProcessData(handle,
-                         input,
-                         n_rows,
-                         n_cols,
-                         labels,
-                         coef,
-                         intercept,
-                         mu_input.data(),
-                         mu_labels.data(),
-                         norm2_input.data(),
-                         fit_intercept,
-                         normalize);
+                    input,
+                    n_rows,
+                    n_cols,
+                    labels,
+                    coef,
+                    intercept,
+                    mu_input.data(),
+                    mu_labels.data(),
+                    norm2_input.data(),
+                    fit_intercept,
+                    normalize);
 
   } else {
     *intercept = math_t(0);

@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/core/host_mdspan.hpp>
-#include <raft/solver/solver_types.hpp>
 #include <raft/solver/detail/lars.cuh>
+#include <raft/solver/solver_types.hpp>
 
 namespace raft::solver::least_angle_regression {
 
@@ -79,18 +79,17 @@ namespace raft::solver::least_angle_regression {
  */
 template <typename math_t, typename idx_t>
 void minimize(const raft::handle_t& handle,
-             raft::device_matrix_view<const math_t, idx_t, col_major> A,
-             raft::device_vector_view<const math_t, idx_t> b,
-             std::optional<raft::device_matrix_view<const math_t, idx_t>> Gram,
-             raft::device_vector_view<math_t, idx_t> x,
-             raft::device_vector_view<idx_t, idx_t> active_idx,
-             raft::device_vector_view<math_t, idx_t> alphas,
-             raft::host_scalar_view<idx_t> n_active,
-             std::optional<raft::device_vector_view<math_t, idx_t>> coef_path,
-             lars_params<math_t> &params,
-             idx_t ld_X        = 0,
-             idx_t ld_G        = 0) {
-
-
-    }
+              raft::device_matrix_view<const math_t, idx_t, col_major> A,
+              raft::device_vector_view<const math_t, idx_t> b,
+              std::optional<raft::device_matrix_view<const math_t, idx_t>> Gram,
+              raft::device_vector_view<math_t, idx_t> x,
+              raft::device_vector_view<idx_t, idx_t> active_idx,
+              raft::device_vector_view<math_t, idx_t> alphas,
+              raft::host_scalar_view<idx_t> n_active,
+              std::optional<raft::device_vector_view<math_t, idx_t>> coef_path,
+              lars_params<math_t>& params,
+              idx_t ld_X = 0,
+              idx_t ld_G = 0)
+{
 }
+}  // namespace raft::solver::least_angle_regression

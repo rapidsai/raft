@@ -42,8 +42,8 @@
 
 #include "qn_linesearch.cuh"
 #include "qn_util.cuh"
-#include <raft/solver/simple_mat.cuh>
 #include <raft/core/logger.hpp>
+#include <raft/solver/simple_mat.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 

@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/solver/simple_mat.cuh>
 #include "base.cuh"
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
+#include <raft/solver/simple_mat.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
