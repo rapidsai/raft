@@ -735,7 +735,7 @@ void sampleCentroids(const raft::handle_t& handle,
                      rmm::device_uvector<DataT>& inRankCp,
                      rmm::device_uvector<char>& workspace)
 {
-  kmeans::sample_entroids<DataT, IndexT>(
+  kmeans::sample_centroids<DataT, IndexT>(
     handle, X, minClusterDistance, isSampleCentroid, select_op, inRankCp, workspace);
 }
 
