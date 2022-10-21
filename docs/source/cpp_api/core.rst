@@ -6,7 +6,6 @@ require minimal dependencies, can be compiled without `nvcc`, and thus are safe 
 the headers in the `raft/core` include directory, any headers in the codebase with the suffix `_types.hpp` are also safe to
 expose in public APIs.
 
-
 handle_t
 ########
 
@@ -37,6 +36,48 @@ mdarray
     :project: RAFT
     :members:
 
+.. doxygenclass:: raft::make_device_matrix
+    :project: RAFT
+
+.. doxygenclass:: raft::make_device_vector
+    :project: RAFT
+
+.. doxygenclass:: raft::make_device_scalar
+    :project: RAFT
+
+.. doxygenclass:: raft::make_host_matrix
+    :project: RAFT
+
+.. doxygenclass:: raft::make_host_vector
+    :project: RAFT
+
+.. doxygenclass:: raft::make_device_scalar
+    :project: RAFT
+
+
+mdspan
+#######
+
+.. doxygenfunction:: raft::make_device_mdspan
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_device_matrix_view
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_device_vector_view
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_device_scalar_view
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_host_matrix_view
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_host_vector_view
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_device_scalar_view
+    :project: RAFT
 
 Device Factories
 ----------------
