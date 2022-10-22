@@ -18,9 +18,9 @@
 #include <raft/core/error.hpp>
 #include <raft/core/mdspan_types.hpp>
 
-#include <raft/core/detail/host_device_accessor.hpp>
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
+#include <raft/core/host_device_accessor.hpp>
 
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 

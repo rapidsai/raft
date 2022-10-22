@@ -24,8 +24,8 @@
 
 #include <stddef.h>
 
-#include <raft/core/detail/host_device_accessor.hpp>
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
