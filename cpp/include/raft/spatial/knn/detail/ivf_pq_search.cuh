@@ -592,14 +592,14 @@ __device__ __noinline__ auto ivfpq_compute_score(const uint32_t pq_bits,
 
 template <typename T, typename IdxT>
 struct dummy_block_sort_t {
-  using queue_t = topk::warp_sort_filtered<WarpSize, true, T, IdxT>;
+  using queue_t = topk::warp_sort_distributed<WarpSize, true, T, IdxT>;
   template <typename... Args>
   __device__ dummy_block_sort_t(int k, uint8_t* smem_buf, Args...){};
 };
 
 template <int Capacity, typename T, typename IdxT>
 struct pq_block_sort {
-  using type = topk::block_sort<topk::warp_sort_filtered, Capacity, true, T, IdxT>;
+  using type = topk::block_sort<topk::warp_sort_distributed, Capacity, true, T, IdxT>;
 };
 
 template <typename T, typename IdxT>
