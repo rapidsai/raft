@@ -149,10 +149,9 @@ template <typename ElementType,
           size_t... Extents>
 auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
-  using accessor_type =
-    detail::host_device_accessor<std::experimental::default_accessor<ElementType>,
-                                 is_host_accessible,
-                                 is_device_accessible>;
+  using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
+                                             is_host_accessible,
+                                             is_device_accessible>;
 
   return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
 }

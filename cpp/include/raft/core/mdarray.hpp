@@ -154,13 +154,12 @@ class mdarray
               std::conditional_t<std::is_const_v<E>,
                                  typename container_policy_type::const_accessor_policy,
                                  typename container_policy_type::accessor_policy>>
-  using view_type_impl =
-    mdspan<E,
-           extents_type,
-           layout_type,
-           detail::host_device_accessor<ViewAccessorPolicy,
-                                        container_policy_type::is_host_accessible,
-                                        container_policy_type::is_device_accessible>>;
+  using view_type_impl = mdspan<E,
+                                extents_type,
+                                layout_type,
+                                host_device_accessor<ViewAccessorPolicy,
+                                                     container_policy_type::is_host_accessible,
+                                                     container_policy_type::is_device_accessible>>;
 
  public:
   /**
