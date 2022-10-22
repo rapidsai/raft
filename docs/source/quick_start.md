@@ -1,11 +1,10 @@
 # Quick Start
 
-
 This guide is meant to provide a quick-start tutorial for interacting with RAFT's C++ APIs.
 
 ## RAPIDS Memory Manager (RMM)
 
-RAFT relies heavily on RMM which eases the burden of configuring different allocation strategies globally across the libraries that use it.
+RAFT relies heavily on the [RMM](https://github.com/rapidsai/rmm) library which eases the burden of configuring different allocation strategies globally across the libraries that use it.
 
 ## Multi-dimensional Spans and Arrays
 
