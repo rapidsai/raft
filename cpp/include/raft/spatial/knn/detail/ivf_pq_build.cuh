@@ -435,11 +435,8 @@ auto calculate_offsets_and_indices(IdxT n_rows,
   // Calculate the offsets
   IdxT cumsum = 0;
   update_device(cluster_offsets, &cumsum, 1, stream);
-  thrust::inclusive_scan(exec_policy,
-                         cluster_sizes,
-                         cluster_sizes + n_lists,
-                         cluster_offsets + 1,
-                         [] __device__(IdxT s, uint32_t l) { return s + l; });
+  thrust::inclusive_scan(
+    exec_policy, cluster_sizes, cluster_sizes + n_lists, cluster_offsets + 1, thrust::plus<IdxT>{});
   update_host(&cumsum, cluster_offsets + n_lists, 1, stream);
   uint32_t max_cluster_size =
     *thrust::max_element(exec_policy, cluster_sizes, cluster_sizes + n_lists);
@@ -550,7 +547,7 @@ void train_per_cluster(const handle_t& handle,
   auto cluster_offsets      = offsets_buf.data();
   auto indices              = indices_buf.data();
   uint32_t max_cluster_size = calculate_offsets_and_indices(
-    IdxT(n_rows), index.n_lists(), labels, cluster_sizes.data(), cluster_offsets, indices, stream);
+    n_rows, index.n_lists(), labels, cluster_sizes.data(), cluster_offsets, indices, stream);
 
   rmm::device_uvector<uint32_t> pq_labels(max_cluster_size * index.pq_dim(), stream, device_memory);
   rmm::device_uvector<uint32_t> pq_cluster_sizes(index.pq_book_size(), stream, device_memory);
