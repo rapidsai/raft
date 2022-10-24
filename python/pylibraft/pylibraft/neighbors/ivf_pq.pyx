@@ -25,8 +25,6 @@ from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from .distance_type cimport DistanceType
-
-from pylibraft.common import Handle
 from pylibraft.common.handle cimport handle_t
 
 
@@ -90,7 +88,7 @@ SUPPORTED_DISTANCES = ["euclidean", "l1", "cityblock", "l2", "inner_product",
                        "hamming", "jensenshannon", "cosine", "sqeuclidean"]
 
 
-def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
+def distance(X, Y, dists, metric="euclidean", p=2.0):
     """
     Compute pairwise distances between X and Y
 
@@ -108,7 +106,6 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
     dists : Writable CUDA array interface matrix shape (m, n)
     metric : string denoting the metric type (default="euclidean")
     p : metric parameter (currently used only for "minkowski")
-    handle : Optional RAFT handle for reusing expensive CUDA resources
 
     Examples
     --------
@@ -117,7 +114,6 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
 
         import cupy as cp
 
-        from pylibraft.common import Handle
         from pylibraft.distance import pairwise_distance
 
         n_samples = 5000
@@ -129,9 +125,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
                                       dtype=cp.float32)
         output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
-        handle = Handle()
-        pairwise_distance(in1, in2, output, metric="euclidean", handle=handle)
-        handle.sync()
+        pairwise_distance(in1, in2, output, metric="euclidean")
    """
 
     x_cai = X.__cuda_array_interface__
@@ -152,8 +146,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
     y_ptr = <uintptr_t>y_cai["data"][0]
     d_ptr = <uintptr_t>dists_cai["data"][0]
 
-    handle = handle if handle != None else Handle()
-    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef handle_t *h = new handle_t()
 
     x_dt = np.dtype(x_cai["typestr"])
     y_dt = np.dtype(y_cai["typestr"])
