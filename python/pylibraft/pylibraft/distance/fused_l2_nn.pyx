@@ -91,7 +91,7 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
                                       dtype=cp.float32)
         output = cp.empty((n_samples, 1), dtype=cp.int32)
 
-        # A single RAFT handle can optionally be used across
+        # A single RAFT handle can optionally be reused across
         # pylibraft functions.
         handle = Handle()
         ...

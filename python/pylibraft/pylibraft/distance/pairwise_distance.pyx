@@ -129,7 +129,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
                                       dtype=cp.float32)
         output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
-        # A single RAFT handle can optionally be used across
+        # A single RAFT handle can optionally be reused across
         # pylibraft functions.
         handle = Handle()
         ...
