@@ -18,9 +18,9 @@
 #include <raft/core/error.hpp>
 #include <raft/core/mdspan_types.hpp>
 
-#include <raft/core/detail/host_device_accessor.hpp>
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
+#include <raft/core/host_device_accessor.hpp>
 
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
@@ -149,10 +149,9 @@ template <typename ElementType,
           size_t... Extents>
 auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
-  using accessor_type =
-    detail::host_device_accessor<std::experimental::default_accessor<ElementType>,
-                                 is_host_accessible,
-                                 is_device_accessible>;
+  using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
+                                             is_host_accessible,
+                                             is_device_accessible>;
 
   return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
 }

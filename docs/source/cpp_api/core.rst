@@ -1,8 +1,10 @@
 Core
 ====
 
-This page provides C++ class references for the publicly-exposed elements of the core package.
-
+This page provides C++ class references for the publicly-exposed elements of the `raft/core` package. The `raft/core` headers
+require minimal dependencies, can be compiled without `nvcc`, and thus are safe to expose on your own public APIs. Aside from
+the headers in the `raft/core` include directory, any headers in the codebase with the suffix `_types.hpp` are also safe to
+expose in public APIs.
 
 handle_t
 ########
@@ -12,7 +14,7 @@ handle_t
     :members:
 
 
-interruptible
+Interruptible
 #############
 
 .. doxygenclass:: raft::interruptible
@@ -27,71 +29,10 @@ NVTX
     :members:
 
 
-mdarray
-#######
-
-.. doxygenclass:: raft::mdarray
-    :project: RAFT
-    :members:
-
-.. doxygenclass:: raft::make_device_matrix
-    :project: RAFT
-
-.. doxygenclass:: raft::make_device_vector
-    :project: RAFT
-
-.. doxygenclass:: raft::make_device_scalar
-    :project: RAFT
-
-.. doxygenclass:: raft::make_host_matrix
-    :project: RAFT
-
-.. doxygenclass:: raft::make_host_vector
-    :project: RAFT
-
-.. doxygenclass:: raft::make_device_scalar
-    :project: RAFT
-
-
-mdspan
-#######
-
-.. doxygenfunction:: raft::make_device_mdspan
-    :project: RAFT
-
-.. doxygenfunction:: raft::make_device_matrix_view
-    :project: RAFT
-
-.. doxygenfunction:: raft::make_device_vector_view
-    :project: RAFT
-
-.. doxygenfunction:: raft::make_device_scalar_view
-    :project: RAFT
-
-.. doxygenfunction:: raft::make_host_matrix_view
-    :project: RAFT
-
-.. doxygenfunction:: raft::make_host_vector_view
-    :project: RAFT
-
-.. doxygenfunction:: raft::make_device_scalar_view
-    :project: RAFT
-
-span
-####
-
-.. doxygenclass:: raft::device_span
-    :project: RAFT
-    :members:
-
-.. doxygenclass:: raft::host_span
-    :project: RAFT
-    :members:
-
 Key-Value Pair
 ##############
 
-.. doxygenclass:: raft::KeyValuePair
+.. doxygenstruct:: raft::KeyValuePair
     :project: RAFT
     :members:
 

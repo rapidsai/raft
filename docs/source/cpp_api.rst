@@ -1,6 +1,7 @@
-~~~~~~~~~~~~~~~~~~~~~~
-RAFT C++ API Reference
-~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+C++ API Reference
+~~~~~~~~~~~~~~~~~
+
 
 
 .. _api:
@@ -13,6 +14,7 @@ RAFT C++ API Reference
    cpp_api/distance.rst
    cpp_api/linalg.rst
    cpp_api/matrix.rst
+   cpp_api/mdspan.rst
    cpp_api/neighbors.rst
    cpp_api/solver.rst
    cpp_api/random.rst

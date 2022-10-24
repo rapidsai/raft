@@ -1,7 +1,7 @@
 # Building Documentation
 ## Building locally:
 
-#### [Build and install RAFT](../BUILD.md)
+#### [Build and install RAFT](source/build.md)
 
 #### Generate the docs
 ```shell script

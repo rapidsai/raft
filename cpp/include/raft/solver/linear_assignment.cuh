@@ -39,8 +39,19 @@
 
 namespace raft::solver {
 
+/**
+ * @brief CUDA Implementation of O(n^3) alternating tree Hungarian Algorithm
+ * @note This is a port to RAFT from original authors Ketan Date and Rakesh Nagi
+ *
+ * @see Date, Ketan, and Rakesh Nagi. "GPU-accelerated Hungarian algorithms
+ *          for the Linear Assignment Problem." Parallel Computing 57 (2016): 52-72.
+ *
+ * @tparam vertex_t
+ * @tparam weight_t
+ */
 template <typename vertex_t, typename weight_t>
 class LinearAssignmentProblem {
+ private:
   vertex_t size_;
   vertex_t batchsize_;
   weight_t epsilon_;
@@ -66,6 +77,13 @@ class LinearAssignmentProblem {
   rmm::device_uvector<weight_t> obj_val_dual_v;
 
  public:
+  /**
+   * @brief Constructor
+   * @param handle raft handle for managing resources
+   * @param size size of square matrix
+   * @param batchsize
+   * @param epsilon
+   */
   LinearAssignmentProblem(raft::handle_t const& handle,
                           vertex_t size,
                           vertex_t batchsize,
@@ -91,7 +109,12 @@ class LinearAssignmentProblem {
   {
   }
 
-  // Executes Hungarian algorithm on the input cost matrix.
+  /**
+   * Executes Hungarian algorithm on the input cost matrix.
+   * @param d_cost_matrix
+   * @param d_row_assignment
+   * @param d_col_assignment
+   */
   void solve(weight_t const* d_cost_matrix, vertex_t* d_row_assignment, vertex_t* d_col_assignment)
   {
     initializeDevice();
@@ -118,19 +141,31 @@ class LinearAssignmentProblem {
     d_costs_ = nullptr;
   }
 
-  // Function for getting optimal row dual vector for subproblem spId.
+  /**
+   * Function for getting optimal row dual vector for subproblem spId.
+   * @param spId
+   * @return
+   */
   std::pair<const weight_t*, vertex_t> getRowDualVector(int spId) const
   {
     return std::make_pair(row_duals_v.data() + spId * size_, size_);
   }
 
-  // Function for getting optimal col dual vector for subproblem spId.
+  /**
+   * Function for getting optimal col dual vector for subproblem spId.
+   * @param spId
+   * @return
+   */
   std::pair<const weight_t*, vertex_t> getColDualVector(int spId)
   {
     return std::make_pair(col_duals_v.data() + spId * size_, size_);
   }
 
-  // Function for getting optimal primal objective value for subproblem spId.
+  /**
+   * Function for getting optimal primal objective value for subproblem spId.
+   * @param spId
+   * @return
+   */
   weight_t getPrimalObjectiveValue(int spId)
   {
     weight_t result;
@@ -139,7 +174,11 @@ class LinearAssignmentProblem {
     return result;
   }
 
-  // Function for getting optimal dual objective value for subproblem spId.
+  /**
+   * Function for getting optimal dual objective value for subproblem spId.
+   * @param spId
+   * @return
+   */
   weight_t getDualObjectiveValue(int spId)
   {
     weight_t result;
