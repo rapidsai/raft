@@ -23,11 +23,11 @@ namespace raft::matrix {
 
 /**
  * @brief Slice a matrix (in-place)
- * @param handle: raft handle
- * @param in: input matrix (column-major)
- * @param out: output matrix (column-major)
- * @param x1, y1: coordinate of the top-left point of the wanted area (0-based)
- * @param x2, y2: coordinate of the bottom-right point of the wanted area
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix (column-major)
+ * @param[inout] out: output matrix (column-major)
+ * @param[in] x1, y1: coordinate of the top-left point of the wanted area (0-based)
+ * @param[in] x2, y2: coordinate of the bottom-right point of the wanted area
  * (1-based)
  * example: Slice the 2nd and 3rd columns of a 4x3 matrix: slice_matrix(M_d, 4,
  * 3, 0, 1, 4, 3);

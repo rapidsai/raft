@@ -23,8 +23,8 @@ namespace raft::matrix {
 
 /**
  * @brief Get the L2/F-norm of a matrix
- * @param handle: raft handle
- * @param in: input matrix/vector with totally size elements
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix/vector with totally size elements
  * @returns matrix l2 norm
  */
 template <typename m_t, typename idx_t>

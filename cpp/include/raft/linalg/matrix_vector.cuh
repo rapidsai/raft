@@ -17,7 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/detail/matrix.cuh>
+#include <raft/linalg/linalg_types.hpp>
+#include <raft/matrix/detail/math.cuh>
 #include <raft/util/input_validation.hpp>
 
 namespace raft::linalg {
@@ -27,30 +28,32 @@ namespace raft::linalg {
  * @param [in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
- * @param[in] bcast_along_rows: whether to broadcast vector along rows of matrix or columns
+ * @param[in] apply whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
-template <typename Type, typename IdxType>
+template <typename math_t, typename idx_t, typename layout_t>
 void binary_mult_skip_zero(const raft::handle_t& handle,
-                           raft::device_matrix_view<Type, IdxType> data,
-                           raft::device_vector_view<const Type> vec,
-                           bool bcast_along_rows)
+                           raft::device_matrix_view<math_t, idx_t, layout_t> data,
+                           raft::device_vector_view<const math_t, idx_t> vec,
+                           Apply apply)
 {
-  bool row_major = raft::is_row_major(data);
+  bool row_major        = raft::is_row_major(data);
+  auto bcast_along_rows = apply == Apply::ALONG_ROWS;
 
-  IdxType vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
+  idx_t vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
 
   RAFT_EXPECTS(
     vec.extent(0) == vec_size,
     "If `bcast_along_rows==true`, vector size must equal number of columns in the matrix."
     "If `bcast_along_rows==false`, vector size must equal number of rows in the matrix.");
 
-  matrix::detail::matrixVectorBinaryMultSkipZero<Type, IdxType>(data.data_handle(),
-                                                                vec.data_handle(),
-                                                                matrix.extent(0),
-                                                                matrix.extent(1),
-                                                                row_major,
-                                                                bcast_along_rows,
-                                                                handle.get_stream());
+  matrix::detail::matrixVectorBinaryMultSkipZero(data.data_handle(),
+                                                 vec.data_handle(),
+                                                 data.extent(0),
+                                                 data.extent(1),
+                                                 row_major,
+                                                 bcast_along_rows,
+                                                 handle.get_stream());
 }
 
 /**
@@ -58,30 +61,32 @@ void binary_mult_skip_zero(const raft::handle_t& handle,
  * @param[in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
- * @param[in] bcast_along_rows: whether to broadcast vector along rows of matrix or columns
+ * @param[in] apply whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
-template <typename Type, typename IdxType>
+template <typename math_t, typename idx_t, typename layout_t>
 void binary_div(const raft::handle_t& handle,
-                raft::device_matrix_view<Type, IdxType> data,
-                raft::device_vector_view<const Type> vec,
-                bool bcast_along_rows)
+                raft::device_matrix_view<math_t, idx_t, layout_t> data,
+                raft::device_vector_view<const math_t, idx_t> vec,
+                Apply apply)
 {
-  bool row_major = raft::is_row_major(data);
+  bool row_major        = raft::is_row_major(data);
+  auto bcast_along_rows = apply == Apply::ALONG_ROWS;
 
-  IdxType vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
+  idx_t vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
 
   RAFT_EXPECTS(
     vec.extent(0) == vec_size,
     "If `bcast_along_rows==true`, vector size must equal number of columns in the matrix."
     "If `bcast_along_rows==false`, vector size must equal number of rows in the matrix.");
 
-  matrix::detail::matrixVectorBinaryDiv<Type, IdxType>(data.data_handle(),
-                                                       vec.data_handle(),
-                                                       data.extent(0),
-                                                       data.extent(1),
-                                                       row_major,
-                                                       bcast_along_rows,
-                                                       handle.get_stream());
+  matrix::detail::matrixVectorBinaryDiv(data.data_handle(),
+                                        vec.data_handle(),
+                                        data.extent(0),
+                                        data.extent(1),
+                                        row_major,
+                                        bcast_along_rows,
+                                        handle.get_stream());
 }
 
 /**
@@ -89,34 +94,36 @@ void binary_div(const raft::handle_t& handle,
  * @param[in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
- * @param[in] bcast_along_rows: whether to broadcast vector along rows of matrix or columns
+ * @param[in] apply whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param[in] return_zero: result is zero if true and vector value is below threshold, original
  * value if false
  */
-template <typename Type, typename IdxType>
+template <typename math_t, typename idx_t, typename layout_t>
 void binary_div_skip_zero(const raft::handle_t& handle,
-                          raft::device_matrix_view<Type, IdxType> data,
-                          raft::device_vector_view<const Type> vec,
-                          bool bcast_along_rows,
+                          raft::device_matrix_view<math_t, idx_t, layout_t> data,
+                          raft::device_vector_view<const math_t, idx_t> vec,
+                          Apply apply,
                           bool return_zero = false)
 {
-  bool row_major = raft::is_row_major(data);
+  bool row_major        = raft::is_row_major(data);
+  auto bcast_along_rows = apply == Apply::ALONG_ROWS;
 
-  IdxType vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
+  idx_t vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
 
   RAFT_EXPECTS(
     vec.extent(0) == vec_size,
     "If `bcast_along_rows==true`, vector size must equal number of columns in the matrix."
     "If `bcast_along_rows==false`, vector size must equal number of rows in the matrix.");
 
-  matrix::detail::matrixVectorBinaryDivSkipZero<Type, IdxType>(data.data_handle(),
-                                                               vec.data_handle(),
-                                                               data.extent(0),
-                                                               data.extent(1),
-                                                               row_major,
-                                                               bcast_along_rows,
-                                                               handle.get_stream(),
-                                                               return_zero);
+  matrix::detail::matrixVectorBinaryDivSkipZero(data.data_handle(),
+                                                vec.data_handle(),
+                                                data.extent(0),
+                                                data.extent(1),
+                                                row_major,
+                                                bcast_along_rows,
+                                                handle.get_stream(),
+                                                return_zero);
 }
 
 /**
@@ -124,30 +131,32 @@ void binary_div_skip_zero(const raft::handle_t& handle,
  * @param[in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
- * @param[in] bcast_along_rows: whether to broadcast vector along rows of matrix or columns
+ * @param[in] apply whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
-template <typename Type, typename IdxType>
+template <typename math_t, typename idx_t, typename layout_t>
 void binary_add(const raft::handle_t& handle,
-                raft::device_matrix_view<Type, IdxType> data,
-                raft::device_vector_view<const Type> vec,
-                bool bcast_along_rows)
+                raft::device_matrix_view<math_t, idx_t, layout_t> data,
+                raft::device_vector_view<const math_t, idx_t> vec,
+                Apply apply)
 {
-  bool row_major = raft::is_row_major(data);
+  bool row_major        = raft::is_row_major(data);
+  auto bcast_along_rows = apply == Apply::ALONG_ROWS;
 
-  IdxType vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
+  idx_t vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
 
   RAFT_EXPECTS(
     vec.extent(0) == vec_size,
     "If `bcast_along_rows==true`, vector size must equal number of columns in the matrix."
     "If `bcast_along_rows==false`, vector size must equal number of rows in the matrix.");
 
-  matrix::detail::matrixVectorBinaryAdd<Type, IdxType, TPB>(data.data_handle(),
-                                                            vec.data_handle(),
-                                                            data.extent(0),
-                                                            data.extent(1),
-                                                            row_major,
-                                                            bcast_along_rows,
-                                                            handle.get_stream());
+  matrix::detail::matrixVectorBinaryAdd(data.data_handle(),
+                                        vec.data_handle(),
+                                        data.extent(0),
+                                        data.extent(1),
+                                        row_major,
+                                        bcast_along_rows,
+                                        handle.get_stream());
 }
 
 /**
@@ -155,30 +164,31 @@ void binary_add(const raft::handle_t& handle,
  * @param[in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
  * @param[in] vec: input vector
- * @param[in] bcast_along_rows: whether to broadcast vector along rows of matrix or columns
+ * @param[in] apply whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
-template <typename Type, typename IdxType>
+template <typename math_t, typename idx_t, typename layout_t>
 void binary_sub(const raft::handle_t& handle,
-                raft::device_matrix_view<Type, IdxType> data,
-                raft::device_vector_view<const Type> vec,
-                bool bcast_along_rows)
+                raft::device_matrix_view<math_t, idx_t, layout_t> data,
+                raft::device_vector_view<const math_t, idx_t> vec,
+                Apply apply)
 {
-  bool row_major = raft::is_row_major(data);
+  bool row_major        = raft::is_row_major(data);
+  auto bcast_along_rows = apply == Apply::ALONG_ROWS;
 
-  IdxType vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
+  idx_t vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
 
   RAFT_EXPECTS(
     vec.extent(0) == vec_size,
     "If `bcast_along_rows==true`, vector size must equal number of columns in the matrix."
     "If `bcast_along_rows==false`, vector size must equal number of rows in the matrix.");
 
-  matrix::detail::matrixVectorBinarySub<Type, IdxType>(data.data_handle(),
-                                                       vec.data_handle(),
-                                                       data.extent(0),
-                                                       data.extent(1),
-                                                       row_major,
-                                                       bcast_along_rows,
-                                                       handle.get_stream());
+  matrix::detail::matrixVectorBinarySub(data.data_handle(),
+                                        vec.data_handle(),
+                                        data.extent(0),
+                                        data.extent(1),
+                                        row_major,
+                                        bcast_along_rows,
+                                        handle.get_stream());
 }
-
 }  // namespace raft::linalg

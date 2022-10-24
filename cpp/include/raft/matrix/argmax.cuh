@@ -18,15 +18,14 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/matrix/detail/math.cuh>
-#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
 /**
  * @brief Argmax: find the row idx with maximum value for each column
- * @param handle: raft handle
- * @param in: input matrix of size (n_rows, n_cols)
- * @param out: output vector of size n_cols
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix of size (n_rows, n_cols)
+ * @param[out] out: output vector of size n_cols
  */
 template <typename math_t, typename idx_t, typename matrix_idx_t>
 void argmax(const raft::handle_t& handle,
