@@ -376,11 +376,9 @@ void compute_pq_codes(
         pq_centers_tmp.data(),
         pq_len * pq_width,
         [pq_centers, pq_width, pq_len, l] __device__(float* out, uint32_t i) {
-          auto pq_i = i % pq_len;
-          auto i0   = pq_i % 4;
-          auto i2   = pq_i / 4;
-          auto i1   = i / pq_len;
-          *out      = pq_centers(l, i2, i1, i0);
+          auto i0 = i / pq_len;
+          auto i1 = i % pq_len;
+          *out    = pq_centers(l, i1, i0);
         },
         stream);
     }
@@ -394,11 +392,9 @@ void compute_pq_codes(
           pq_centers_tmp.data(),
           pq_len * pq_width,
           [pq_centers, pq_width, pq_len, j] __device__(float* out, uint32_t i) {
-            auto pq_i = i % pq_len;
-            auto i0   = pq_i % 4;
-            auto i2   = pq_i / 4;
-            auto i1   = i / pq_len;
-            *out      = pq_centers(j, i2, i1, i0);
+            auto i0 = i / pq_len;
+            auto i1 = i % pq_len;
+            *out    = pq_centers(j, i1, i0);
           },
           stream);
       }
@@ -500,13 +496,13 @@ void transpose_pq_centers(index<IdxT>& index,
     index.pq_centers().data_handle(),
     index.pq_centers().size(),
     [pq_centers_source, extents, pq_len, pq_width] __device__(float* out, size_t i) {
-      uint32_t ii[4];
-      for (int r = 3; r > 0; r--) {
+      uint32_t ii[3];
+      for (int r = 2; r > 0; r--) {
         ii[r] = i % extents.extent(r);
         i /= extents.extent(r);
       }
       ii[0]   = i;
-      auto j2 = ii[3] + ii[1] * extents.extent(3);
+      auto j2 = ii[1];
       auto j1 = ii[2];
       auto j0 = ii[0];
       auto j  = ((j0 * pq_width) + j1) * pq_len + j2;
@@ -902,7 +898,7 @@ inline auto extend(const handle_t& handle,
            stream);
     } break;
     case codebook_gen::PER_CLUSTER: {
-      auto d = orig_index.pq_book_size() * Pow2<4>::roundUp(orig_index.pq_len());
+      auto d = orig_index.pq_book_size() * orig_index.pq_len();
       utils::copy_selected(n_clusters,
                            d,
                            orig_index.pq_centers().data_handle(),

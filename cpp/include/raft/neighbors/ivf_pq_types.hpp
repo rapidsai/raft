@@ -290,12 +290,12 @@ struct index : ann::index {
   }
 
   using pq_centers_extents =
-    std::experimental::extents<uint32_t, dynamic_extent, dynamic_extent, dynamic_extent, 4>;
+    std::experimental::extents<uint32_t, dynamic_extent, dynamic_extent, dynamic_extent>;
   /**
    * PQ cluster centers
    *
-   *   - codebook_gen::PER_SUBSPACE: [pq_dim , ceildiv(pq_len, 4), pq_book_size, 4]
-   *   - codebook_gen::PER_CLUSTER:  [n_lists, ceildiv(pq_len, 4), pq_book_size, 4]
+   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_len, pq_book_size]
+   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_len, pq_book_size]
    */
   inline auto pq_centers() noexcept -> device_mdspan<float, pq_centers_extents, row_major>
   {
@@ -408,12 +408,11 @@ struct index : ann::index {
 
   auto make_pq_centers_extents() -> pq_centers_extents
   {
-    auto d = raft::div_rounding_up_unsafe(pq_len(), 4);
     switch (codebook_kind()) {
       case codebook_gen::PER_SUBSPACE:
-        return make_extents<uint32_t>(pq_dim(), d, pq_book_size(), 4);
+        return make_extents<uint32_t>(pq_dim(), pq_len(), pq_book_size());
       case codebook_gen::PER_CLUSTER:
-        return make_extents<uint32_t>(n_lists(), d, pq_book_size(), 4);
+        return make_extents<uint32_t>(n_lists(), pq_len(), pq_book_size());
       default: RAFT_FAIL("Unreachable code");
     }
   }

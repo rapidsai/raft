@@ -769,7 +769,7 @@ __launch_bounds__(1024, 1) __global__
     if (codebook_kind == codebook_gen::PER_SUBSPACE) {
       pq_center = pq_centers;
     } else {
-      pq_center = pq_centers + (Pow2<4>::roundUp(pq_len) << pq_bits) * label;
+      pq_center = pq_centers + (pq_len << pq_bits) * label;
     }
 
     if constexpr (PrecompBaseDiff) {
@@ -797,58 +797,42 @@ __launch_bounds__(1024, 1) __global__
       // For each subspace, the lookup table stores the distance between the actual query vector
       // (projected into the subspace) and all possible pq vectors in that subspace.
       const uint32_t pq_shift = 1u << pq_bits;
-      using f4                = raft::TxN_t<float, 4>;
       for (uint32_t i = threadIdx.x; i < lut_size; i += blockDim.x) {
         const uint32_t i_pq  = i >> pq_bits;
         uint32_t j           = i_pq * pq_len;
         const uint32_t j_end = pq_len + j;
-        auto cur_pq_center = reinterpret_cast<const f4::io_t*>(pq_center) + (i & (pq_shift - 1u)) +
-                             (codebook_kind == codebook_gen::PER_SUBSPACE
-                                ? (i_pq * Pow2<4>::roundUp(pq_len)) << (pq_bits - 2)
-                                : 0u);
+        auto cur_pq_center   = pq_center + (i & (pq_shift - 1u)) +
+                             (codebook_kind == codebook_gen::PER_SUBSPACE ? j << pq_bits : 0u);
         float score = 0.0;
         do {
-          f4 pq_c;
-          *pq_c.vectorized_data() = *cur_pq_center;
+          float pq_c = *cur_pq_center;
           cur_pq_center += pq_shift;
           switch (metric) {
             case distance::DistanceType::L2Expanded: {
-              f4 diff;
-#pragma unroll
-              for (int l = 0; l < 4; l++, j++) {
-                if constexpr (PrecompBaseDiff) {
-                  diff.val.data[l] = j < j_end ? base_diff[j] : 0.0f;
-                } else {
-                  diff.val.data[l] = j < j_end ? query[j] - cluster_center[j] : 0.0f;
-                }
+              float diff;
+              if constexpr (PrecompBaseDiff) {
+                diff = base_diff[j];
+              } else {
+                diff = query[j] - cluster_center[j];
               }
-#pragma unroll
-              for (int l = 0; l < 4; l++) {
-                float d = diff.val.data[l] - pq_c.val.data[l];
-                score += d * d;
-              }
+              diff -= pq_c;
+              score += diff * diff;
             } break;
             case distance::DistanceType::InnerProduct: {
               // NB: we negate the scores as we hardcoded select-topk to always compute the minimum
-              f4 q;
-#pragma unroll
-              for (int l = 0; l < 4; l++, j++) {
-                if constexpr (PrecompBaseDiff) {
-                  float2 pvals  = j < j_end ? reinterpret_cast<float2*>(base_diff)[j] : float2{};
-                  q.val.data[l] = pvals.x;
-                  score -= pvals.y;
-                } else {
-                  q.val.data[l] = j < j_end ? query[j] : 0.0f;
-                  score -= j < j_end ? q.val.data[l] * cluster_center[j] : 0.0f;
-                }
+              float q;
+              if constexpr (PrecompBaseDiff) {
+                float2 pvals = reinterpret_cast<float2*>(base_diff)[j];
+                q            = pvals.x;
+                score -= pvals.y;
+              } else {
+                q = query[j];
+                score -= q * cluster_center[j];
               }
-#pragma unroll
-              for (int l = 0; l < 4; l++) {
-                score -= q.val.data[l] * pq_c.val.data[l];
-              }
+              score -= q * pq_c;
             } break;
           }
-        } while (j < j_end);
+        } while (++j < j_end);
         lut_scores[i] = LutT(score);
       }
     }
