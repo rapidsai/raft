@@ -129,9 +129,14 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
                                       dtype=cp.float32)
         output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
+        # A single RAFT handle can optionally be used across
+        # pylibraft functions.
         handle = Handle()
+        ...
         pairwise_distance(in1, in2, output, metric="euclidean", handle=handle)
-        handle.sync()
+        ...
+        # pylibraft functions are often asynchronous so the
+        # handle needs to be explicitly synchronized
    """
 
     x_cai = X.__cuda_array_interface__

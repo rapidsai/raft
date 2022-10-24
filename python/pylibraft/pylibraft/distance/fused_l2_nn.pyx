@@ -91,9 +91,15 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
                                       dtype=cp.float32)
         output = cp.empty((n_samples, 1), dtype=cp.int32)
 
+        # A single RAFT handle can optionally be used across
+        # pylibraft functions.
         handle = Handle()
+        ...
         fused_l2_nn_argmin(in1, in2, output, handle=handle)
-        handle.sync()
+        ...
+        # pylibraft functions are often asynchronous so the
+        # handle needs to be explicitly synchronized
+        handle.sync()     #
    """
 
     x_cai = X.__cuda_array_interface__
