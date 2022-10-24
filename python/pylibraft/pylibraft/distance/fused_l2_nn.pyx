@@ -115,7 +115,7 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
 
     d_ptr = <uintptr_t>output_cai["data"][0]
 
-    handle = handle if handle != None else Handle()
+    handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
     x_dt = np.dtype(x_cai["typestr"])

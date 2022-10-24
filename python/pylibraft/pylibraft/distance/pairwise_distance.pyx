@@ -152,7 +152,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
     y_ptr = <uintptr_t>y_cai["data"][0]
     d_ptr = <uintptr_t>dists_cai["data"][0]
 
-    handle = handle if handle != None else Handle()
+    handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
     x_dt = np.dtype(x_cai["typestr"])
