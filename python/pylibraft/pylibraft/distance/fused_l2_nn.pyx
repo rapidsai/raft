@@ -99,7 +99,7 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
         ...
         # pylibraft functions are often asynchronous so the
         # handle needs to be explicitly synchronized
-        handle.sync()     #
+        handle.sync()
    """
 
     x_cai = X.__cuda_array_interface__

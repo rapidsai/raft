@@ -137,6 +137,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
         ...
         # pylibraft functions are often asynchronous so the
         # handle needs to be explicitly synchronized
+        handle.sync()
    """
 
     x_cai = X.__cuda_array_interface__
