@@ -277,12 +277,12 @@ template <typename DataT, typename IndexT>
 void update_centroids(
   const raft::handle_t& handle,
   raft::device_matrix_view<const DataT, IndexT, row_major> X,
-  raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
-  raft::device_vector_view<const DataT, IndexT> weight,
+  raft::device_vector_view<const DataT, IndexT> sample_weights,
   raft::device_vector_view<const DataT, IndexT> l2norm_x,
+  raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
   raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> min_cluster_and_dist,
+  raft::device_vector_view<DataT, IndexT> weight_per_cluster,
   raft::device_matrix_view<DataT, IndexT, row_major> new_centroids,
-  raft::device_vector_view<DataT, IndexT> new_weight,
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
   raft::distance::DistanceType metric,
   int batch_samples,
@@ -324,7 +324,7 @@ void update_centroids(
   raft::linalg::reduce_rows_by_key((DataT*)X.data_handle(),
                                    X.extent(1),
                                    itr,
-                                   weight.data_handle(),
+                                   sample_weights.data_handle(),
                                    workspace.data(),
                                    X.extent(0),
                                    X.extent(1),
@@ -333,11 +333,11 @@ void update_centroids(
                                    handle.get_stream());
 
   // Reduce weights by key to compute weight in each cluster
-  raft::linalg::reduce_cols_by_key(weight.data_handle(),
+  raft::linalg::reduce_cols_by_key(sample_weights.data_handle(),
                                    itr,
-                                   new_weight.data_handle(),
+                                   weight_per_cluster.data_handle(),
                                    (IndexT)1,
-                                   (IndexT)weight.extent(0),
+                                   (IndexT)sample_weights.extent(0),
                                    (IndexT)n_clusters,
                                    handle.get_stream());
 
@@ -349,7 +349,7 @@ void update_centroids(
   raft::linalg::matrixVectorOp(
     new_centroids.data_handle(),
     new_centroids.data_handle(),
-    new_weight.data_handle(),
+    weight_per_cluster.data_handle(),
     new_centroids.extent(1),
     new_centroids.extent(0),
     true,
@@ -363,14 +363,14 @@ void update_centroids(
     handle.get_stream());
 
   // copy centroids[i] to new_centroids[i] when new_weight[i] is 0
-  cub::ArgIndexInputIterator<DataT*> itr_wt(new_weight.data_handle());
+  cub::ArgIndexInputIterator<DataT*> itr_wt(weight_per_cluster.data_handle());
   raft::matrix::gather_if(
     const_cast<DataT*>(centroids.data_handle()),
     static_cast<int>(centroids.extent(1)),
     static_cast<int>(centroids.extent(0)),
     itr_wt,
     itr_wt,
-    static_cast<int>(new_weight.size()),
+    static_cast<int>(weight_per_cluster.size()),
     new_centroids.data_handle(),
     [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
       // copy when the # of samples in the cluster is 0
@@ -453,13 +453,13 @@ void kmeans_fit_main(const raft::handle_t& handle,
 
     update_centroids(handle,
                      X,
-                     raft::make_device_matrix_view<const DataT, IndexT>(
-                       centroidsRawData.data_handle(), n_clusters, n_features),
                      weight,
                      l2normx_view,
+                     raft::make_device_matrix_view<const DataT, IndexT>(
+                       centroidsRawData.data_handle(), n_clusters, n_features),
                      minClusterAndDistance.view(),
-                     newCentroids.view(),
                      wtInCluster.view(),
+                     newCentroids.view(),
                      L2NormBuf_OR_DistBuf,
                      params.metric,
                      params.batch_samples,

@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-from scipy.spatial.distance import cdist
 import pytest
 import numpy as np
 
@@ -37,49 +36,40 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype):
     # pylibraft functions.
     handle = Handle()
 
-    X = np.random.random_sample((n_rows, n_cols)).astype(np.float32)
-    centroids = np.random.random_sample((n_clusters, n_cols)).astype(np.float32)
+    X = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+    X_device = TestDeviceBuffer(X, order)
 
+    centroids = np.random.random_sample((n_clusters, n_cols)).astype(dtype)
+    centroids_device = TestDeviceBuffer(centroids, order)
 
     l2norm_x = np.linalg.norm(X, axis=0, ord=2)
 
+    weight_per_cluster = np.empty((n_clusters, ), dtype=dtype)
+    weight_per_cluster_device = TestDeviceBuffer(weight_per_cluster, order)
 
-
-    new_weight = np.empty((n_clusters, ), dtype=np.float32)
-    new_centroids = np.empty((n_clusters, n_cols), dtype=np.float32)
-
-    X_device = TestDeviceBuffer(X, order)
-    centroids_device = TestDeviceBuffer(centroids, order)
-
-    argmin = np.empty((n_rows, ), dtype=np.int32)
-    argmin_device = TestDeviceBuffer(argmin, order)
-
-    weight, _ = np.histogram(argmin_device.copy_to_host(), bins=np.arange(0, n_clusters+1))
-    weight = weight.astype(np.float32)
-
-    weight_device = TestDeviceBuffer(weight, order)
-
-    fused_l2_nn_argmin(centroids_device, X_device, argmin_device, handle=handle)
-
-    new_weight_device = TestDeviceBuffer(new_weight, order)
+    new_centroids = np.empty((n_clusters, n_cols), dtype=dtype)
     new_centroids_device = TestDeviceBuffer(new_centroids, order)
+
+    sample_weights = np.ones((n_rows,)).astype(dtype) / n_rows
+    sample_weights_device = TestDeviceBuffer(sample_weights, order)
+
     l2norm_x_device = TestDeviceBuffer(l2norm_x, order)
 
     compute_new_centroids(X_device,
-                     centroids_device,
-                     weight_device,
-                     l2norm_x_device,
-                     new_centroids_device,
-                     new_weight_device,
-                     n_rows,
-                     n_clusters)
+                          sample_weights_device,
+                          l2norm_x_device,
+                          centroids_device,
+                          new_centroids_device,
+                          weight_per_cluster_device,
+                          n_rows,
+                          n_clusters)
 
     # pylibraft functions are often asynchronous so the
     # handle needs to be explicitly synchronized
     handle.sync()
 
-    print(str(new_centroids))
-    print(str(new_weight))
+    print(str(new_centroids_device.copy_to_host()))
+    print(str(weight_per_cluster_device.copy_to_host()))
 
     # actual[actual <= 1e-5] = 0.0
     #

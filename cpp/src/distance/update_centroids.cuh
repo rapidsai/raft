@@ -27,11 +27,11 @@ void update_centroids(raft::handle_t const& handle,
                       int n_samples,
                       int n_features,
                       int n_clusters,
-                      const DataT* centroids,
-                      const DataT* weight,
+                      const DataT* sample_weights,
                       const DataT* l2norm_x,
+                      const DataT* centroids,
                       DataT* new_centroids,
-                      DataT* new_weight,
+                      DataT* weight_per_cluster,
                       raft::distance::DistanceType metric,
                       int batch_samples,
                       int batch_centroids)
@@ -41,20 +41,22 @@ void update_centroids(raft::handle_t const& handle,
   auto X_view = raft::make_device_matrix_view<const DataT, IndexT>(X, n_samples, n_features);
   auto centroids_view =
     raft::make_device_matrix_view<const DataT, IndexT>(centroids, n_clusters, n_features);
-  auto weight_view   = raft::make_device_vector_view<const DataT, IndexT>(weight, n_clusters);
+  auto sample_weights_view =
+    raft::make_device_vector_view<const DataT, IndexT>(sample_weights, n_clusters);
   auto l2norm_x_view = raft::make_device_vector_view<const DataT, IndexT>(l2norm_x, n_samples);
   auto new_centroids_view =
     raft::make_device_matrix_view<DataT, IndexT>(new_centroids, n_clusters, n_features);
-  auto new_weight_view = raft::make_device_vector_view<DataT, IndexT>(new_weight, n_clusters);
+  auto weight_per_cluster_view =
+    raft::make_device_vector_view<DataT, IndexT>(weight_per_cluster, n_clusters);
 
   raft::cluster::kmeans::update_centroids<DataT, IndexT>(handle,
                                                          X_view,
-                                                         centroids_view,
-                                                         weight_view,
+                                                         sample_weights_view,
                                                          l2norm_x_view,
+                                                         centroids_view,
                                                          min_cluster_and_dist.view(),
+                                                         weight_per_cluster_view,
                                                          new_centroids_view,
-                                                         new_weight_view,
                                                          metric,
                                                          batch_samples,
                                                          batch_centroids);

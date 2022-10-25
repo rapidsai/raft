@@ -326,13 +326,13 @@ void cluster_cost(const raft::handle_t& handle,
  * @tparam IndexT
  * @param[in] handle: Raft handle to use for managing library resources
  * @param[in] X: input matrix (size n_samples, n_features)
- * @param[in] weight: number of samples currently assigned to each centroid (size n_clusters)
- * @param[in] cur_centroids: matrix of current centroids (size n_clusters, n_features)
+ * @param[in] sample_weights: number of samples currently assigned to each centroid (size n_samples)
  * @param[in] l2norm_x: optional array of l2 norms for each input data sample (size n_samples)
+ * @param[in] centroids: matrix of current centroids (size n_clusters, n_features)
  * @param[out] min_cluster_and_dist: output vector to store key/value pairs of min cluster indices
  * and distances (size n_clusters)
  * @param[out] new_centroids: output matrix of updated centroids (size n_clusters, n_features)
- * @param[out] new_weight: number of samples assigned to each new centroid (size n_clusters)
+ * @param[out] weight_per_cluster: sum of sample weights per cluster (size n_clusters)
  * @param[in] metric: distance metric to use. Must be either L2Expanded, L2SqrtExpanded,
  * L2Unexpanded, or L2SqrtUnexpanded
  * @param[in] batch_samples: batch size for data samples when computing distances
@@ -342,12 +342,12 @@ template <typename DataT, typename IndexT>
 void update_centroids(
   const raft::handle_t& handle,
   raft::device_matrix_view<const DataT, IndexT, row_major> X,
-  raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
-  raft::device_vector_view<const DataT, IndexT> weight,
+  raft::device_vector_view<const DataT, IndexT> sample_weights,
   std::optional<raft::device_vector_view<const DataT, IndexT>> l2norm_x,
+  raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
   raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> min_cluster_and_dist,
+  raft::device_vector_view<DataT, IndexT> weight_per_cluster,
   raft::device_matrix_view<DataT, IndexT, row_major> new_centroids,
-  raft::device_vector_view<DataT, IndexT> new_weight,
   raft::distance::DistanceType metric,
   int batch_samples,
   int batch_centroids)
@@ -359,12 +359,12 @@ void update_centroids(
 
   detail::update_centroids<DataT, IndexT>(handle,
                                           X,
-                                          centroids,
-                                          weight,
+                                          sample_weights,
                                           l2norm_x.value(),
+                                          centroids,
                                           min_cluster_and_dist,
+                                          weight_per_cluster,
                                           new_centroids,
-                                          new_weight,
                                           dist_workspace,
                                           metric,
                                           batch_samples,
@@ -580,14 +580,14 @@ template <typename DataT, typename IndexT>
 void fit_main(const raft::handle_t& handle,
               const KMeansParams& params,
               raft::device_matrix_view<const DataT, IndexT> X,
-              raft::device_vector_view<const DataT, IndexT> weight,
+              raft::device_vector_view<const DataT, IndexT> sample_weights,
               raft::device_matrix_view<DataT, IndexT> centroids,
               raft::host_scalar_view<DataT> inertia,
               raft::host_scalar_view<IndexT> n_iter,
               rmm::device_uvector<char>& workspace)
 {
   detail::kmeans_fit_main<DataT, IndexT>(
-    handle, params, X, weight, centroids, inertia, n_iter, workspace);
+    handle, params, X, sample_weights, centroids, inertia, n_iter, workspace);
 }
 
 };  // end namespace raft::cluster::kmeans
