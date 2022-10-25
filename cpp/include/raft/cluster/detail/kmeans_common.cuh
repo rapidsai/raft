@@ -166,16 +166,16 @@ void checkWeight(const raft::handle_t& handle,
 }
 
 template <typename IndexT>
-IndexT getDataBatchSize(const KMeansParams& params, IndexT n_samples)
+IndexT getDataBatchSize(int batch_samples, IndexT n_samples)
 {
-  auto minVal = std::min(static_cast<IndexT>(params.batch_samples), n_samples);
+  auto minVal = std::min(static_cast<IndexT>(batch_samples), n_samples);
   return (minVal == 0) ? n_samples : minVal;
 }
 
 template <typename IndexT>
-IndexT getCentroidsBatchSize(const KMeansParams& params, IndexT n_local_clusters)
+IndexT getCentroidsBatchSize(int batch_centroids, IndexT n_local_clusters)
 {
-  auto minVal = std::min(static_cast<IndexT>(params.batch_centroids), n_local_clusters);
+  auto minVal = std::min(static_cast<IndexT>(batch_centroids), n_local_clusters);
   return (minVal == 0) ? n_local_clusters : minVal;
 }
 
@@ -353,21 +353,22 @@ void shuffleAndGather(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void minClusterAndDistanceCompute(
   const raft::handle_t& handle,
-  const KMeansParams& params,
   raft::device_matrix_view<const DataT, IndexT> X,
   raft::device_matrix_view<const DataT, IndexT> centroids,
   raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> minClusterAndDistance,
   raft::device_vector_view<const DataT, IndexT> L2NormX,
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
+  raft::distance::DistanceType metric,
+  int batch_samples,
+  int batch_centroids,
   rmm::device_uvector<char>& workspace)
 {
   cudaStream_t stream     = handle.get_stream();
   auto n_samples          = X.extent(0);
   auto n_features         = X.extent(1);
   auto n_clusters         = centroids.extent(0);
-  auto metric             = params.metric;
-  auto dataBatchSize      = getDataBatchSize(params, n_samples);
-  auto centroidsBatchSize = getCentroidsBatchSize(params, n_clusters);
+  auto dataBatchSize      = getDataBatchSize(batch_samples, n_samples);
+  auto centroidsBatchSize = getCentroidsBatchSize(batch_centroids, n_clusters);
 
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded) {
@@ -380,6 +381,9 @@ void minClusterAndDistanceCompute(
                           true,
                           stream);
   } else {
+    // TODO: Unless pool allocator is used, passing in a workspace for this
+    // isn't really increasing performance because this needs to do a re-allocation
+    // anyways.
     L2NormBuf_OR_DistBuf.resize(dataBatchSize * centroidsBatchSize, stream);
   }
 
@@ -483,22 +487,23 @@ void minClusterAndDistanceCompute(
 
 template <typename DataT, typename IndexT>
 void minClusterDistanceCompute(const raft::handle_t& handle,
-                               const KMeansParams& params,
                                raft::device_matrix_view<const DataT, IndexT> X,
                                raft::device_matrix_view<DataT, IndexT> centroids,
                                raft::device_vector_view<DataT, IndexT> minClusterDistance,
                                raft::device_vector_view<DataT, IndexT> L2NormX,
                                rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
+                               raft::distance::DistanceType metric,
+                               int batch_samples,
+                               int batch_centroids,
                                rmm::device_uvector<char>& workspace)
 {
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   auto n_clusters     = centroids.extent(0);
-  auto metric         = params.metric;
 
-  auto dataBatchSize      = getDataBatchSize(params, n_samples);
-  auto centroidsBatchSize = getCentroidsBatchSize(params, n_clusters);
+  auto dataBatchSize      = getDataBatchSize(batch_samples, n_samples);
+  auto centroidsBatchSize = getCentroidsBatchSize(batch_centroids, n_clusters);
 
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded) {
@@ -635,12 +640,14 @@ void countSamplesInCluster(const raft::handle_t& handle,
   //   centroid) and 'value' is the distance between the sample 'X[i]' and the
   //   'centroid[key]'
   detail::minClusterAndDistanceCompute(handle,
-                                       params,
                                        X,
                                        (raft::device_matrix_view<const DataT, IndexT>)centroids,
                                        minClusterAndDistance.view(),
                                        L2NormX,
                                        L2NormBuf_OR_DistBuf,
+                                       params.metric,
+                                       params.batch_samples,
+                                       params.batch_centroids,
                                        workspace);
 
   // Using TransformInputIteratorT to dereference an array of raft::KeyValuePair

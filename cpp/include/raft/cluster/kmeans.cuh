@@ -318,6 +318,61 @@ void cluster_cost(const raft::handle_t& handle,
 }
 
 /**
+ * @brief Update centroids given current centroids and number of points assigned to each centroid.
+ *  This function also produces a vector of RAFT key/value pairs containing the cluster assignment
+ *  for each point and its distance.
+ *
+ * @tparam DataT
+ * @tparam IndexT
+ * @param[in] handle: Raft handle to use for managing library resources
+ * @param[in] X: input matrix (size n_samples, n_features)
+ * @param[in] weight: number of samples currently assigned to each centroid (size n_clusters)
+ * @param[in] cur_centroids: matrix of current centroids (size n_clusters, n_features)
+ * @param[in] l2norm_x: optional array of l2 norms for each input data sample (size n_samples)
+ * @param[out] min_cluster_and_dist: output vector to store key/value pairs of min cluster indices
+ * and distances (size n_clusters)
+ * @param[out] new_centroids: output matrix of updated centroids (size n_clusters, n_features)
+ * @param[out] new_weight: number of samples assigned to each new centroid (size n_clusters)
+ * @param[in] metric: distance metric to use. Must be either L2Expanded, L2SqrtExpanded,
+ * L2Unexpanded, or L2SqrtUnexpanded
+ * @param[in] batch_samples: batch size for data samples when computing distances
+ * @param[in] batch_centroids: batch size for centroids when computing distances
+ */
+template <typename DataT, typename IndexT>
+void update_centroids(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<const DataT, IndexT, row_major> X,
+  raft::device_vector_view<const DataT, IndexT> weight,
+  raft::device_matrix_view<const DataT, IndexT, row_major> cur_centroids,
+  std::optional<raft::device_vector_view<const DataT, IndexT>> l2norm_x,
+  raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> min_cluster_and_dist,
+  raft::device_matrix_view<DataT, IndexT, row_major> new_centroids,
+  raft::device_vector_view<DataT, IndexT> new_weight,
+  raft::distance::DistanceType metric,
+  int batch_samples,
+  int batch_centroids)
+{
+  // TODO: Passing these into the algorithm doesn't really present much of a benefit
+  // because they are being resized anyways.
+  rmm::device_uvector<DataT> dist_workspace(0, handle.get_stream());
+  rmm::device_uvector<char> workspace(0, handle.get_stream());
+
+  detail::update_centroids<DataT, IndexT>(handle,
+                                          X,
+                                          weight,
+                                          cur_centroids,
+                                          l2norm_x.value(),
+                                          min_cluster_and_dist,
+                                          new_centroids,
+                                          new_weight,
+                                          dist_workspace,
+                                          metric,
+                                          batch_samples,
+                                          batch_centroids,
+                                          workspace);
+}
+
+/**
  * @brief Compute distance for every sample to it's nearest centroid
  *
  * @tparam DataT the type of data used for weights, distances.
@@ -340,16 +395,26 @@ void cluster_cost(const raft::handle_t& handle,
  */
 template <typename DataT, typename IndexT>
 void min_cluster_distance(const raft::handle_t& handle,
-                          const KMeansParams& params,
                           raft::device_matrix_view<const DataT, IndexT> X,
                           raft::device_matrix_view<DataT, IndexT> centroids,
                           raft::device_vector_view<DataT, IndexT> minClusterDistance,
                           raft::device_vector_view<DataT, IndexT> L2NormX,
                           rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
+                          raft::distance::DistanceType metric,
+                          int batch_samples,
+                          int batch_centroids,
                           rmm::device_uvector<char>& workspace)
 {
-  detail::minClusterDistanceCompute<DataT, IndexT>(
-    handle, params, X, centroids, minClusterDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
+  detail::minClusterDistanceCompute<DataT, IndexT>(handle,
+                                                   X,
+                                                   centroids,
+                                                   minClusterDistance,
+                                                   L2NormX,
+                                                   L2NormBuf_OR_DistBuf,
+                                                   metric,
+                                                   batch_samples,
+                                                   batch_centroids,
+                                                   workspace);
 }
 
 /**
@@ -379,16 +444,26 @@ void min_cluster_distance(const raft::handle_t& handle,
 template <typename DataT, typename IndexT>
 void min_cluster_and_distance(
   const raft::handle_t& handle,
-  const KMeansParams& params,
   raft::device_matrix_view<const DataT, IndexT> X,
   raft::device_matrix_view<const DataT, IndexT> centroids,
   raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> minClusterAndDistance,
   raft::device_vector_view<DataT, IndexT> L2NormX,
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
+  raft::distance::DistanceType metric,
+  int batch_samples,
+  int batch_centroids,
   rmm::device_uvector<char>& workspace)
 {
-  detail::minClusterAndDistanceCompute<DataT, IndexT>(
-    handle, params, X, centroids, minClusterAndDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
+  detail::minClusterAndDistanceCompute<DataT, IndexT>(handle,
+                                                      X,
+                                                      centroids,
+                                                      minClusterAndDistance,
+                                                      L2NormX,
+                                                      L2NormBuf_OR_DistBuf,
+                                                      metric,
+                                                      batch_samples,
+                                                      batch_centroids,
+                                                      workspace);
 }
 
 /**
@@ -821,8 +896,16 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
                                rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
                                rmm::device_uvector<char>& workspace)
 {
-  kmeans::min_cluster_distance<DataT, IndexT>(
-    handle, params, X, centroids, minClusterDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
+  kmeans::min_cluster_distance<DataT, IndexT>(handle,
+                                              X,
+                                              centroids,
+                                              minClusterDistance,
+                                              L2NormX,
+                                              L2NormBuf_OR_DistBuf,
+                                              params.metric,
+                                              params.batch_samples,
+                                              params.batch_centroids,
+                                              workspace);
 }
 
 /**
@@ -860,8 +943,16 @@ void minClusterAndDistanceCompute(
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
   rmm::device_uvector<char>& workspace)
 {
-  kmeans::min_cluster_and_distance<DataT, IndexT>(
-    handle, params, X, centroids, minClusterAndDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
+  kmeans::min_cluster_and_distance<DataT, IndexT>(handle,
+                                                  X,
+                                                  centroids,
+                                                  minClusterAndDistance,
+                                                  L2NormX,
+                                                  L2NormBuf_OR_DistBuf,
+                                                  params.metric,
+                                                  params.batch_samples,
+                                                  params.batch_centroids,
+                                                  workspace);
 }
 
 /**
