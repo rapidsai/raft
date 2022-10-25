@@ -95,6 +95,21 @@ struct fusedl2nn : public fixture {
                                                             true,
                                                             stream);
     });
+
+    int64_t num_flops = 2 * params.m * params.n * params.k;
+
+    int64_t read_elts  = params.n * params.k + params.m * params.k;
+    int64_t write_elts = params.m;
+
+    state.counters["FLOP/s"] = benchmark::Counter(
+      num_flops, benchmark::Counter::kIsIterationInvariantRate, benchmark::Counter::OneK::kIs1000);
+
+    state.counters["BW Wr"] = benchmark::Counter(write_elts * sizeof(OutT),
+                                                 benchmark::Counter::kIsIterationInvariantRate,
+                                                 benchmark::Counter::OneK::kIs1000);
+    state.counters["BW Rd"] = benchmark::Counter(read_elts * sizeof(DataT),
+                                                 benchmark::Counter::kIsIterationInvariantRate,
+                                                 benchmark::Counter::OneK::kIs1000);
   }
 
  private:
@@ -129,10 +144,10 @@ std::vector<fusedl2nn_inputs> getFusedL2NNInputs()
 FUSEDL2NN_BENCH(float, int, float);
 FUSEDL2NN_BENCH(double, int, double);
 FUSEDL2NN_BENCH(float, int, (raft::KeyValuePair<int, float>));
-FUSEDL2NN_BENCH(float, int, (raft::KeyValuePair<int, float>));
+FUSEDL2NN_BENCH(double, int, (raft::KeyValuePair<int, double>));
 FUSEDL2NN_BENCH(float, int64_t, float);
 FUSEDL2NN_BENCH(double, int64_t, double);
 FUSEDL2NN_BENCH(float, int64_t, (raft::KeyValuePair<int64_t, float>));
-FUSEDL2NN_BENCH(float, int64_t, (raft::KeyValuePair<int64_t, float>));
+FUSEDL2NN_BENCH(double, int64_t, (raft::KeyValuePair<int64_t, double>));
 
 }  // namespace raft::bench::distance

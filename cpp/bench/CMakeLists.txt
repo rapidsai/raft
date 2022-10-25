@@ -117,7 +117,6 @@ if(BUILD_BENCH)
 
     ConfigureBench(NAME NEIGHBORS_BENCH
             PATH
-            bench/neighbors/fused_l2_nn.cu
             bench/neighbors/knn/brute_force_float_int64_t.cu
             bench/neighbors/knn/brute_force_float_uint32_t.cu
             bench/neighbors/knn/ivf_flat_float_int64_t.cu
