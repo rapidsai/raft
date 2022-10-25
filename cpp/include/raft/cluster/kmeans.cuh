@@ -342,8 +342,8 @@ template <typename DataT, typename IndexT>
 void update_centroids(
   const raft::handle_t& handle,
   raft::device_matrix_view<const DataT, IndexT, row_major> X,
+  raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
   raft::device_vector_view<const DataT, IndexT> weight,
-  raft::device_matrix_view<const DataT, IndexT, row_major> cur_centroids,
   std::optional<raft::device_vector_view<const DataT, IndexT>> l2norm_x,
   raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> min_cluster_and_dist,
   raft::device_matrix_view<DataT, IndexT, row_major> new_centroids,
@@ -359,8 +359,8 @@ void update_centroids(
 
   detail::update_centroids<DataT, IndexT>(handle,
                                           X,
+                                          centroids,
                                           weight,
-                                          cur_centroids,
                                           l2norm_x.value(),
                                           min_cluster_and_dist,
                                           new_centroids,

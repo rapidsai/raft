@@ -14,21 +14,19 @@
  * limitations under the License.
  */
 
-#include "update_centroids.cuh"
 #include <raft/distance/distance_types.hpp>
-#include <raft/distance/specializations.cuh>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace raft::cluster::kmeans::runtime {
 
     void update_centroids(
-            const raft::handle_t& handle,
+            raft::handle_t const &handle,
             const float *X,
             int n_samples,
             int n_features,
             int n_clusters,
+            const float *centroids,
             const float *weight,
-            const float *cur_centroids,
             const float *l2norm_x,
             float *new_centroids,
             float *new_weight,
@@ -38,13 +36,13 @@ namespace raft::cluster::kmeans::runtime {
 
 
     void update_centroids(
-            const raft::handle_t& handle,
+            raft::handle_t const &handle,
             const double *X,
             int n_samples,
             int n_features,
             int n_clusters,
+            const double *centroids,
             const double *weight,
-            const double *cur_centroids,
             const double *l2norm_x,
             double *new_centroids,
             double *new_weight,

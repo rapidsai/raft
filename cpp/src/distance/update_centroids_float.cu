@@ -21,23 +21,33 @@
 
 namespace raft::cluster::kmeans::runtime {
 
-    void update_centroids(
-            const raft::handle_t& handle,
-            const float *X,
-            int n_samples,
-            int n_features,
-            int n_clusters,
-            const float *weight,
-            const float *cur_centroids,
-            const float *l2norm_x,
-            float *new_centroids,
-            float *new_weight,
-            raft::distance::DistanceType metric,
-            int batch_samples,
-            int batch_centroids) {
-        update_centroids<float, int>(handle, X, n_samples, n_features, n_clusters, weight, cur_centroids, l2norm_x,
-                                     new_centroids, new_weight, metric, batch_samples, batch_centroids);
-    }
-
+void update_centroids(raft::handle_t const& handle,
+                      const float* X,
+                      int n_samples,
+                      int n_features,
+                      int n_clusters,
+                      const float* centroids,
+                      const float* weight,
+                      const float* l2norm_x,
+                      float* new_centroids,
+                      float* new_weight,
+                      raft::distance::DistanceType metric,
+                      int batch_samples,
+                      int batch_centroids)
+{
+  update_centroids<float, int>(handle,
+                               X,
+                               n_samples,
+                               n_features,
+                               n_clusters,
+                               centroids,
+                               weight,
+                               l2norm_x,
+                               new_centroids,
+                               new_weight,
+                               metric,
+                               batch_samples,
+                               batch_centroids);
+}
 
 }  // namespace raft::cluster::kmeans::runtime

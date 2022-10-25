@@ -277,8 +277,8 @@ template <typename DataT, typename IndexT>
 void update_centroids(
   const raft::handle_t& handle,
   raft::device_matrix_view<const DataT, IndexT, row_major> X,
+  raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
   raft::device_vector_view<const DataT, IndexT> weight,
-  raft::device_matrix_view<const DataT, IndexT, row_major> cur_centroids,
   raft::device_vector_view<const DataT, IndexT> l2norm_x,
   raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> min_cluster_and_dist,
   raft::device_matrix_view<DataT, IndexT, row_major> new_centroids,
@@ -289,7 +289,7 @@ void update_centroids(
   int batch_centroids,
   rmm::device_uvector<char>& workspace)
 {
-  auto n_clusters = cur_centroids.extent(0);
+  auto n_clusters = centroids.extent(0);
   auto n_samples  = X.extent(0);
 
   // computes minClusterAndDistance[0:n_samples) where
@@ -299,7 +299,7 @@ void update_centroids(
   //   'centroid[key]'
   detail::minClusterAndDistanceCompute<DataT, IndexT>(handle,
                                                       X,
-                                                      cur_centroids,
+                                                      centroids,
                                                       min_cluster_and_dist,
                                                       l2norm_x,
                                                       L2NormBuf_OR_DistBuf,
@@ -365,9 +365,9 @@ void update_centroids(
   // copy centroids[i] to new_centroids[i] when new_weight[i] is 0
   cub::ArgIndexInputIterator<DataT*> itr_wt(new_weight.data_handle());
   raft::matrix::gather_if(
-    const_cast<DataT*>(cur_centroids.data_handle()),
-    static_cast<int>(cur_centroids.extent(1)),
-    static_cast<int>(cur_centroids.extent(0)),
+    const_cast<DataT*>(centroids.data_handle()),
+    static_cast<int>(centroids.extent(1)),
+    static_cast<int>(centroids.extent(0)),
     itr_wt,
     itr_wt,
     static_cast<int>(new_weight.size()),
@@ -453,9 +453,9 @@ void kmeans_fit_main(const raft::handle_t& handle,
 
     update_centroids(handle,
                      X,
-                     weight,
                      raft::make_device_matrix_view<const DataT, IndexT>(
                        centroidsRawData.data_handle(), n_clusters, n_features),
+                     weight,
                      l2normx_view,
                      minClusterAndDistance.view(),
                      newCentroids.view(),
