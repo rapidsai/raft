@@ -65,7 +65,8 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
                           l2norm_x=l2norm_x_device,
                           weight_per_cluster=weight_per_cluster_device,
                           batch_samples=n_rows,
-                          batch_centroids=n_clusters)
+                          batch_centroids=n_clusters,
+                          handle=handle)
 
     # pylibraft functions are often asynchronous so the
     # handle needs to be explicitly synchronized

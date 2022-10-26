@@ -44,34 +44,34 @@ cdef extern from "raft_distance/kmeans.hpp" \
         namespace "raft::cluster::kmeans::runtime":
 
     cdef void update_centroids(
-            const handle_t& handle,
-            const double *X,
-            int n_samples,
-            int n_features,
-            int n_clusters,
-            const double *sample_weights,
-            const double *l2norm_x,
-            const double *centroids,
-            double *new_centroids,
-            double *weight_per_cluster,
-            DistanceType metric,
-            int batch_samples,
-            int batch_centroids);
+        const handle_t& handle,
+        const double *X,
+        int n_samples,
+        int n_features,
+        int n_clusters,
+        const double *sample_weights,
+        const double *l2norm_x,
+        const double *centroids,
+        double *new_centroids,
+        double *weight_per_cluster,
+        DistanceType metric,
+        int batch_samples,
+        int batch_centroids);
 
-    cdef void update_centroids(
-            const handle_t& handle,
-            const float *X,
-            int n_samples,
-            int n_features,
-            int n_clusters,
-            const float *sample_weights,
-            const float *l2norm_x,
-            const float *centroids,
-            float *new_centroids,
-            float *weight_per_cluster,
-            DistanceType metric,
-            int batch_samples,
-            int batch_centroids);
+    cdef void update_centroids(v
+        const handle_t& handle,
+        const float *X,
+        int n_samples,
+        int n_features,
+        int n_clusters,
+        const float *sample_weights,
+        const float *l2norm_x,
+        const float *centroids,
+        float *new_centroids,
+        float *weight_per_cluster,
+        DistanceType metric,
+        int batch_samples,
+        int batch_centroids);
 
 def compute_new_centroids(X, centroids,
                           new_centroids,
