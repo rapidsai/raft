@@ -273,49 +273,20 @@ void kmeansPlusPlus(const raft::handle_t& handle,
  * @param[out] new_weight
  * @param[inout] workspace
  */
-template <typename DataT, typename IndexT>
-void update_centroids(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<const DataT, IndexT, row_major> X,
-  raft::device_vector_view<const DataT, IndexT> sample_weights,
-  raft::device_vector_view<const DataT, IndexT> l2norm_x,
-  raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
-  raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> min_cluster_and_dist,
-  raft::device_vector_view<DataT, IndexT> weight_per_cluster,
-  raft::device_matrix_view<DataT, IndexT, row_major> new_centroids,
-  rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
-  raft::distance::DistanceType metric,
-  int batch_samples,
-  int batch_centroids,
-  rmm::device_uvector<char>& workspace)
+template <typename DataT, typename IndexT, typename LabelsIterator>
+void update_centroids(const raft::handle_t& handle,
+                      raft::device_matrix_view<const DataT, IndexT, row_major> X,
+                      raft::device_vector_view<const DataT, IndexT> sample_weights,
+                      raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
+
+                      // TODO: Figure out how to best wrap iterator types in mdspan
+                      LabelsIterator cluster_labels,
+                      raft::device_vector_view<DataT, IndexT> weight_per_cluster,
+                      raft::device_matrix_view<DataT, IndexT, row_major> new_centroids,
+                      rmm::device_uvector<char>& workspace)
 {
   auto n_clusters = centroids.extent(0);
   auto n_samples  = X.extent(0);
-
-  // computes minClusterAndDistance[0:n_samples) where
-  // minClusterAndDistance[i] is a <key, value> pair where
-  //   'key' is index to a sample in 'centroids' (index of the nearest
-  //   centroid) and 'value' is the distance between the sample 'X[i]' and the
-  //   'centroid[key]'
-  detail::minClusterAndDistanceCompute<DataT, IndexT>(handle,
-                                                      X,
-                                                      centroids,
-                                                      min_cluster_and_dist,
-                                                      l2norm_x,
-                                                      L2NormBuf_OR_DistBuf,
-                                                      metric,
-                                                      batch_samples,
-                                                      batch_centroids,
-                                                      workspace);
-
-  // Using TransformInputIteratorT to dereference an array of
-  // raft::KeyValuePair and converting them to just return the Key to be used
-  // in reduce_rows_by_key prims
-  detail::KeyValueIndexOp<IndexT, DataT> conversion_op;
-  cub::TransformInputIterator<IndexT,
-                              detail::KeyValueIndexOp<IndexT, DataT>,
-                              raft::KeyValuePair<IndexT, DataT>*>
-    itr(min_cluster_and_dist.data_handle(), conversion_op);
 
   workspace.resize(n_samples, handle.get_stream());
 
@@ -323,7 +294,7 @@ void update_centroids(
   // result in new_centroids[i]
   raft::linalg::reduce_rows_by_key((DataT*)X.data_handle(),
                                    X.extent(1),
-                                   itr,
+                                   cluster_labels,
                                    sample_weights.data_handle(),
                                    workspace.data(),
                                    X.extent(0),
@@ -334,7 +305,7 @@ void update_centroids(
 
   // Reduce weights by key to compute weight in each cluster
   raft::linalg::reduce_cols_by_key(sample_weights.data_handle(),
-                                   itr,
+                                   cluster_labels,
                                    weight_per_cluster.data_handle(),
                                    (IndexT)1,
                                    (IndexT)sample_weights.extent(0),
@@ -452,19 +423,39 @@ void kmeans_fit_main(const raft::handle_t& handle,
     auto centroids = raft::make_device_matrix_view<DataT, IndexT>(
       centroidsRawData.data_handle(), n_clusters, n_features);
 
+    // computes minClusterAndDistance[0:n_samples) where
+    // minClusterAndDistance[i] is a <key, value> pair where
+    //   'key' is index to a sample in 'centroids' (index of the nearest
+    //   centroid) and 'value' is the distance between the sample 'X[i]' and the
+    //   'centroid[key]'
+    detail::minClusterAndDistanceCompute<DataT, IndexT>(handle,
+                                                        X,
+                                                        centroids,
+                                                        minClusterAndDistance.view(),
+                                                        l2normx_view,
+                                                        L2NormBuf_OR_DistBuf,
+                                                        params.metric,
+                                                        params.batch_samples,
+                                                        params.batch_centroids,
+                                                        workspace);
+
+    // Using TransformInputIteratorT to dereference an array of
+    // raft::KeyValuePair and converting them to just return the Key to be used
+    // in reduce_rows_by_key prims
+    detail::KeyValueIndexOp<IndexT, DataT> conversion_op;
+    cub::TransformInputIterator<IndexT,
+                                detail::KeyValueIndexOp<IndexT, DataT>,
+                                raft::KeyValuePair<IndexT, DataT>*>
+      itr(minClusterAndDistance.data_handle(), conversion_op);
+
     update_centroids(handle,
                      X,
                      weight,
-                     l2normx_view,
                      raft::make_device_matrix_view<const DataT, IndexT>(
                        centroidsRawData.data_handle(), n_clusters, n_features),
-                     minClusterAndDistance.view(),
+                     itr,
                      wtInCluster.view(),
                      newCentroids.view(),
-                     L2NormBuf_OR_DistBuf,
-                     params.metric,
-                     params.batch_samples,
-                     params.batch_centroids,
                      workspace);
 
     // compute the squared norm between the newCentroids and the original

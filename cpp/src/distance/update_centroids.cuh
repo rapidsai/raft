@@ -29,16 +29,11 @@ void update_centroids(raft::handle_t const& handle,
                       int n_features,
                       int n_clusters,
                       const DataT* sample_weights,
-                      const DataT* l2norm_x,
                       const DataT* centroids,
+                      const IndexT* labels,
                       DataT* new_centroids,
-                      DataT* weight_per_cluster,
-                      raft::distance::DistanceType metric,
-                      int batch_samples,
-                      int batch_centroids)
+                      DataT* weight_per_cluster)
 {
-  auto min_cluster_and_dist =
-    raft::make_device_vector<raft::KeyValuePair<IndexT, DataT>, IndexT>(handle, n_samples);
   auto X_view = raft::make_device_matrix_view<const DataT, IndexT>(X, n_samples, n_features);
   auto centroids_view =
     raft::make_device_matrix_view<const DataT, IndexT>(centroids, n_clusters, n_features);
@@ -55,20 +50,6 @@ void update_centroids(raft::handle_t const& handle,
   auto sample_weights_view = raft::make_device_vector_view<const DataT, IndexT>(
     sample_weights == nullptr ? sample_weights_uvec.data() : sample_weights, n_samples);
 
-  rmm::device_uvector<DataT> l2norm_x_uvec(0, handle.get_stream());
-  if (l2norm_x == nullptr) {
-    l2norm_x_uvec.resize(n_samples, handle.get_stream());
-    raft::linalg::rowNorm(l2norm_x_uvec.data(),
-                          X,
-                          n_samples,
-                          n_features,
-                          raft::linalg::L2Norm,
-                          true,
-                          handle.get_stream());
-  }
-  auto l2norm_x_view = raft::make_device_vector_view<const DataT, IndexT>(
-    l2norm_x == nullptr ? l2norm_x_uvec.data() : l2norm_x, n_samples);
-
   auto new_centroids_view =
     raft::make_device_matrix_view<DataT, IndexT>(new_centroids, n_clusters, n_features);
   rmm::device_uvector<DataT> weight_per_cluster_uvec(0, handle.get_stream());
@@ -82,13 +63,9 @@ void update_centroids(raft::handle_t const& handle,
   raft::cluster::kmeans::update_centroids<DataT, IndexT>(handle,
                                                          X_view,
                                                          sample_weights_view,
-                                                         l2norm_x_view,
                                                          centroids_view,
-                                                         min_cluster_and_dist.view(),
+                                                         labels,
                                                          weight_per_cluster_view,
-                                                         new_centroids_view,
-                                                         metric,
-                                                         batch_samples,
-                                                         batch_centroids);
+                                                         new_centroids_view);
 }
 }  // namespace raft::cluster::kmeans::runtime

@@ -44,9 +44,7 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
     centroids = X[:n_clusters]
     centroids_device = TestDeviceBuffer(centroids, order)
 
-    l2norm_x = np.sum(X**2, axis=1)
-    l2norm_x_device = TestDeviceBuffer(l2norm_x, order) \
-        if additional_args else None
+
 
     weight_per_cluster = np.zeros((n_clusters, ), dtype=dtype)
     weight_per_cluster_device = TestDeviceBuffer(weight_per_cluster, order) \
@@ -65,7 +63,9 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
     pairwise_distance(X_device, centroids_device, dists_device, metric=metric)
     handle.sync()
 
-    labels = np.argmin(dists_device.copy_to_host(), axis=1)
+    labels = np.argmin(dists_device.copy_to_host(), axis=1).astype(np.int32)
+    labels_device = TestDeviceBuffer(labels, order)
+
     expected_centers = np.empty((n_clusters, n_cols), dtype=dtype)
     expected_wX = X * sample_weights.reshape((-1, 1))
     for i in range(n_clusters):
@@ -76,13 +76,10 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
 
     compute_new_centroids(X_device,
                           centroids_device,
+                          labels_device,
                           new_centroids_device,
                           sample_weights=sample_weights_device,
-                          l2norm_x=l2norm_x_device,
                           weight_per_cluster=weight_per_cluster_device,
-                          batch_samples=n_rows/2,
-                          batch_centroids=n_clusters/2,
-                          metric=metric,
                           handle=handle)
 
     # pylibraft functions are often asynchronous so the

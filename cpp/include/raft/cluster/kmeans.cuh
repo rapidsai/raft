@@ -338,38 +338,21 @@ void cluster_cost(const raft::handle_t& handle,
  * @param[in] batch_samples: batch size for data samples when computing distances
  * @param[in] batch_centroids: batch size for centroids when computing distances
  */
-template <typename DataT, typename IndexT>
-void update_centroids(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<const DataT, IndexT, row_major> X,
-  raft::device_vector_view<const DataT, IndexT> sample_weights,
-  std::optional<raft::device_vector_view<const DataT, IndexT>> l2norm_x,
-  raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
-  raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> min_cluster_and_dist,
-  raft::device_vector_view<DataT, IndexT> weight_per_cluster,
-  raft::device_matrix_view<DataT, IndexT, row_major> new_centroids,
-  raft::distance::DistanceType metric,
-  int batch_samples,
-  int batch_centroids)
+template <typename DataT, typename IndexT, typename LabelsIterator>
+void update_centroids(const raft::handle_t& handle,
+                      raft::device_matrix_view<const DataT, IndexT, row_major> X,
+                      raft::device_vector_view<const DataT, IndexT> sample_weights,
+                      raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
+                      LabelsIterator labels,
+                      raft::device_vector_view<DataT, IndexT> weight_per_cluster,
+                      raft::device_matrix_view<DataT, IndexT, row_major> new_centroids)
 {
   // TODO: Passing these into the algorithm doesn't really present much of a benefit
   // because they are being resized anyways.
-  rmm::device_uvector<DataT> dist_workspace(0, handle.get_stream());
   rmm::device_uvector<char> workspace(0, handle.get_stream());
 
-  detail::update_centroids<DataT, IndexT>(handle,
-                                          X,
-                                          sample_weights,
-                                          l2norm_x.value(),
-                                          centroids,
-                                          min_cluster_and_dist,
-                                          weight_per_cluster,
-                                          new_centroids,
-                                          dist_workspace,
-                                          metric,
-                                          batch_samples,
-                                          batch_centroids,
-                                          workspace);
+  detail::update_centroids<DataT, IndexT>(
+    handle, X, sample_weights, centroids, labels, weight_per_cluster, new_centroids, workspace);
 }
 
 /**

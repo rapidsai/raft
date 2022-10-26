@@ -27,13 +27,10 @@ void update_centroids(raft::handle_t const& handle,
                       int n_features,
                       int n_clusters,
                       const double* sample_weights,
-                      const double* l2norm_x,
                       const double* centroids,
+                      const int* labels,
                       double* new_centroids,
-                      double* weight_per_cluster,
-                      raft::distance::DistanceType metric,
-                      int batch_samples,
-                      int batch_centroids)
+                      double* weight_per_cluster)
 {
   update_centroids<double, int>(handle,
                                 X,
@@ -41,13 +38,10 @@ void update_centroids(raft::handle_t const& handle,
                                 n_features,
                                 n_clusters,
                                 sample_weights,
-                                l2norm_x,
                                 centroids,
+                                labels,
                                 new_centroids,
-                                weight_per_cluster,
-                                metric,
-                                batch_samples,
-                                batch_centroids);
+                                weight_per_cluster);
 }
 
 }  // namespace raft::cluster::kmeans::runtime
