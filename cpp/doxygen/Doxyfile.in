@@ -900,7 +900,9 @@ EXCLUDE                = @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/linalg/s
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/span.hpp \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/vectorized.cuh \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/raft.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/cudart_utils.hpp
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/cudart_utils.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/matrix/math.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/matrix/matrix.cuh
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded

@@ -16,16 +16,16 @@
 
 #pragma once
 
-#include <raft/core/detail/host_device_accessor.hpp>
+#include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 
 namespace raft {
 
 template <typename AccessorPolicy>
-using device_accessor = detail::host_device_accessor<AccessorPolicy, false, true>;
+using device_accessor = host_device_accessor<AccessorPolicy, false, true>;
 
 template <typename AccessorPolicy>
-using managed_accessor = detail::host_device_accessor<AccessorPolicy, true, true>;
+using managed_accessor = host_device_accessor<AccessorPolicy, true, true>;
 
 /**
  * @brief std::experimental::mdspan with device tag to avoid accessing incorrect memory location.

@@ -154,7 +154,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
 
-        auto index = ivf_flat::build_index(handle_, database_view, index_params);
+        auto index = ivf_flat::build(handle_, database_view, index_params);
 
         rmm::device_uvector<IdxT> vector_indices(ps.num_db_vecs, stream_);
         thrust::sequence(handle_.get_thrust_policy(),

@@ -25,8 +25,8 @@
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#include <raft/core/detail/host_device_accessor.hpp>
 #include <raft/core/detail/span.hpp>  // dynamic_extent
+#include <raft/core/host_device_accessor.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
