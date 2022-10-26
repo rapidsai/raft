@@ -18,7 +18,6 @@ import numpy as np
 
 from pylibraft.common import Handle
 from pylibraft.cluster.kmeans import compute_new_centroids
-from pylibraft.distance import fused_l2_nn_argmin
 
 from pylibraft.testing.utils import TestDeviceBuffer
 
@@ -58,7 +57,6 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
     sample_weights = np.ones((n_rows,)).astype(dtype)
     sample_weights_device = TestDeviceBuffer(sample_weights, order) \
         if additional_args else None
-
 
     compute_new_centroids(X_device,
                           centroids_device,
