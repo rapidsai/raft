@@ -17,6 +17,7 @@
 #define __AXPY_H
 
 #pragma once
+
 #include "detail/axpy.cuh"
 
 #include <raft/core/device_mdspan.hpp>
@@ -67,8 +68,6 @@ void axpy(const raft::handle_t& handle,
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [inout] y Output vector
- * @param [in] incx stride between consecutive elements of x
- * @param [in] incy stride between consecutive elements of y
  */
 template <typename InType,
           typename OutType,
@@ -78,9 +77,7 @@ template <typename InType,
 void axpy(const raft::handle_t& handle,
           raft::device_scalar_view<const typename InType::value_type, ScalarIdxType> alpha,
           InType x,
-          OutType y,
-          const int incx,
-          const int incy)
+          OutType y)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input");
 
@@ -88,9 +85,9 @@ void axpy(const raft::handle_t& handle,
                                           y.size(),
                                           alpha.data_handle(),
                                           x.data_handle(),
-                                          incx,
+                                          x.stride(0),
                                           y.data_handle(),
-                                          incy,
+                                          y.stride(0),
                                           handle.get_stream());
 }
 
@@ -104,8 +101,6 @@ void axpy(const raft::handle_t& handle,
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [inout] y Output vector
- * @param [in] incx stride between consecutive elements of x
- * @param [in] incy stride between consecutive elements of y
  */
 template <typename InType,
           typename OutType,
@@ -115,9 +110,7 @@ template <typename InType,
 void axpy(const raft::handle_t& handle,
           raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> alpha,
           InType x,
-          OutType y,
-          const int incx,
-          const int incy)
+          OutType y)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input");
 
@@ -125,9 +118,9 @@ void axpy(const raft::handle_t& handle,
                                            y.size(),
                                            alpha.data_handle(),
                                            x.data_handle(),
-                                           incx,
+                                           x.stride(0),
                                            y.data_handle(),
-                                           incy,
+                                           y.stride(0),
                                            handle.get_stream());
 }
 

@@ -31,6 +31,17 @@ __global__ void naiveAxpy(const int n, const T alpha, const T* x, T* y, int incx
   if (idx < n) { y[idx * incy] += alpha * x[idx * incx]; }
 }
 
+template <typename ElementType,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_stride>
+auto make_strided_device_vector_view(ElementType* ptr, IndexType n, IndexType stride)
+{
+  vector_extent<IndexType> exts{n};
+  std::array<IndexType, 1> strides{stride};
+  auto layout = layout_stride::mapping<vector_extent<IndexType>>{exts, strides};
+  return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, layout};
+}
+
 template <typename InType, typename IdxType = int, typename OutType = InType>
 struct AxpyInputs {
   OutType tolerance;
@@ -71,13 +82,14 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
     int y_len = params.len * params.incy;
     rmm::device_uvector<T> x(x_len, stream);
     y.resize(y_len, stream);
+    refy.resize(y_len, stream);
 
     uniform(handle, r, x.data(), x_len, T(-1.0), T(1.0));
     uniform(handle, r, y.data(), y_len, T(-1.0), T(1.0));
 
     // Take a copy of the random generated values in y for the naive reference implementation
     // this is necessary since axpy uses y for both input and output
-    refy = rmm::device_uvector<T>(y, stream);
+    raft::copy(refy.data(), y.data(), y_len, stream);
 
     int threads = 64;
     int blocks  = raft::ceildiv<int>(params.len, threads);
@@ -85,15 +97,28 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
     naiveAxpy<T><<<blocks, threads, 0, stream>>>(
       params.len, params.alpha, x.data(), refy.data(), params.incx, params.incy);
 
-    // TODO: passing incx/incy > 1 to axpy produces wrong results
-    // https://github.com/rapidsai/raft/issues/944
-    // We probably should be passing a strided mdspan here?
-    axpy(handle,
-         make_host_scalar_view<const T>(&params.alpha),
-         make_device_vector_view<const T>(x.data(), x_len),
-         make_device_vector_view<T>(y.data(), y_len),
-         params.incx,
-         params.incy);
+    if ((params.incx > 1) && (params.incy > 1)) {
+      axpy(handle,
+           make_host_scalar_view<const T>(&params.alpha),
+           make_strided_device_vector_view<const T>(x.data(), params.len, params.incx),
+           make_strided_device_vector_view<T>(y.data(), params.len, params.incy));
+    } else if (params.incx > 1) {
+      axpy(handle,
+           make_host_scalar_view<const T>(&params.alpha),
+           make_strided_device_vector_view<const T>(x.data(), params.len, params.incx),
+           make_device_vector_view<T>(y.data(), params.len));
+    } else if (params.incy > 1) {
+      axpy(handle,
+           make_host_scalar_view<const T>(&params.alpha),
+           make_device_vector_view<const T>(x.data(), params.len),
+           make_strided_device_vector_view<T>(y.data(), params.len, params.incy));
+    } else {
+      axpy(handle,
+           make_host_scalar_view<const T>(&params.alpha),
+           make_device_vector_view<const T>(x.data(), params.len),
+           make_device_vector_view<T>(y.data(), params.len));
+    }
+
     handle.sync_stream();
   }
 
@@ -105,6 +130,9 @@ const std::vector<AxpyInputs<float>> inputsf = {
   {0.000001f, 16 * 1024 * 1024, 128.f, 1, 1, 1234ULL},
   {0.000001f, 98689, 4.f, 1, 1, 1234ULL},
   {0.000001f, 4 * 1024 * 1024, -1, 1, 1, 1234ULL},
+  {0.000001f, 1024 * 1024, 6, 4, 1, 1234ULL},
+  {0.000001f, 1024 * 1024, 7, 1, 3, 1234ULL},
+  {0.000001f, 1024 * 1024, 8, 4, 3, 1234ULL},
 };
 
 const std::vector<AxpyInputs<double>> inputsd = {
@@ -112,6 +140,9 @@ const std::vector<AxpyInputs<double>> inputsd = {
   {0.000001f, 16 * 1024 * 1024, 128.f, 1, 1, 1234ULL},
   {0.000001f, 98689, 4.f, 1, 1, 1234ULL},
   {0.000001f, 4 * 1024 * 1024, -1, 1, 1, 1234ULL},
+  {0.000001f, 1024 * 1024, 6, 4, 1, 1234ULL},
+  {0.000001f, 1024 * 1024, 7, 1, 3, 1234ULL},
+  {0.000001f, 1024 * 1024, 8, 4, 3, 1234ULL},
 };
 
 typedef AxpyTest<float> AxpyTestF;
