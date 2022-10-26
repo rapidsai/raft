@@ -38,17 +38,17 @@ auto make_strided_device_vector_view(ElementType* ptr, IndexType n, IndexType st
 {
   vector_extent<IndexType> exts{n};
   std::array<IndexType, 1> strides{stride};
-  auto layout = layout_stride::mapping<vector_extent<IndexType>>{exts, strides};
+  auto layout = typename LayoutPolicy::mapping<vector_extent<IndexType>>{exts, strides};
   return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, layout};
 }
 
-template <typename InType, typename IdxType = int, typename OutType = InType>
+template <typename InType, typename IndexType = int, typename OutType = InType>
 struct AxpyInputs {
   OutType tolerance;
-  IdxType len;
+  IndexType len;
   InType alpha;
-  int incx;
-  int incy;
+  IndexType incx;
+  IndexType incy;
   unsigned long long int seed;
 };
 
