@@ -28,7 +28,7 @@ from libcpp cimport nullptr
 
 from pylibraft.common import Handle
 from pylibraft.common.handle cimport handle_t
-
+from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
 
 
@@ -153,9 +153,11 @@ def compute_new_centroids(X,
     new_centroids_dt = np.dtype(new_centroids_cai["typestr"])
     labels_dt = np.dtype(labels_cai["typestr"])
 
-    if x_k != centroids_k:
-        raise ValueError("Inputs must have same number of columns. "
-                         "a=%s, b=%s" % (x_k, centroids_k))
+    if not do_cols_match(X, centroids):
+        raise ValueError("X and centroids must have same number of columns.")
+
+    if not do_rows_match(X, labels):
+        raise ValueError("X and labels must have same number of rows")
 
     x_ptr = <uintptr_t>x_cai["data"][0]
     centroids_ptr = <uintptr_t>centroids_cai["data"][0]
@@ -187,7 +189,7 @@ def compute_new_centroids(X,
             or not new_centroids_c_contiguous:
         raise ValueError("Inputs must all be c contiguous")
 
-    if x_dt != centroids_dt or x_dt != new_centroids_dt:
+    if not do_dtypes_match(X, centroids, new_centroids):
         raise ValueError("Inputs must all have the same dtypes "
                          "(float32 or float64)")
 
