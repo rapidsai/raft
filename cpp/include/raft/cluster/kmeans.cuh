@@ -377,7 +377,6 @@ void minClusterAndDistanceCompute(
  *                                 [dim = n_samples_to_gather x n_features]
  * @param[in]  n_samples_to_gather Number of sample to gather
  * @param[in]  seed                Seed for the shuffle
- * @param[in]  workspace           Temporary workspace buffer which can get resized
  *
  */
 template <typename DataT, typename IndexT>
