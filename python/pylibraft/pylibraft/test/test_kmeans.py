@@ -44,8 +44,6 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
     centroids = X[:n_clusters]
     centroids_device = TestDeviceBuffer(centroids, order)
 
-
-
     weight_per_cluster = np.zeros((n_clusters, ), dtype=dtype)
     weight_per_cluster_device = TestDeviceBuffer(weight_per_cluster, order) \
         if additional_args else None

@@ -48,6 +48,7 @@ def do_cols_match(*cais):
         last_col = cols
     return True
 
+
 def do_shapes_match(*cais):
     last_shape = cais[0].__cuda_array_interface__["shape"]
     for cai in cais:
