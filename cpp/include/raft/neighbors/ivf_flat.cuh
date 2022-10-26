@@ -195,7 +195,7 @@ auto extend(const handle_t& handle,
             std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
   -> index<value_t, idx_t>
 {
-  return raft::spatial::knn::ivf_flat::detail::extend<value_t, idx_t>(
+  return raft::spatial::knn::ivf_flat::extend<value_t, idx_t>(
     handle,
     orig_index,
     new_vectors.data_handle(),
@@ -376,7 +376,7 @@ void search(const handle_t& handle,
             const index<value_t, idx_t>& index,
             raft::device_matrix_view<const value_t, idx_t, row_major> queries,
             raft::device_matrix_view<idx_t, idx_t, row_major> neighbors,
-            raft::device_matrix_view<idx_t, idx_t, float> distances,
+            raft::device_matrix_view<float, idx_t, row_major> distances,
             const search_params& params,
             int_t k)
 {
@@ -391,15 +391,15 @@ void search(const handle_t& handle,
   RAFT_EXPECTS(queries.extent(1) == index.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
 
-  return raft::spatial::knn::ivf_flat::detail::search(handle,
-                                                      params,
-                                                      index,
-                                                      queries.data_handle(),
-                                                      queries.extent(0),
-                                                      k,
-                                                      neighbors.data_handle(),
-                                                      distances.data_handle(),
-                                                      nullptr);
+  return raft::spatial::knn::ivf_flat::search(handle,
+                                              params,
+                                              index,
+                                              queries.data_handle(),
+                                              const_cast<std::uint32_t>(queries.extent(0)),
+                                              const_cast<std::uint32_t>(k),
+                                              neighbors.data_handle(),
+                                              distances.data_handle(),
+                                              nullptr);
 }
 
 }  // namespace raft::neighbors::ivf_flat
