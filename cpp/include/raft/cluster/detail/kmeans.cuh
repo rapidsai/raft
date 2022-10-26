@@ -319,7 +319,7 @@ void update_centroids(
 
   workspace.resize(n_samples, handle.get_stream());
 
-  // Calculates weighted sum of all the samples assigned to cluster-i and store the
+  // Calculates weighted sum of all the samples assigned to cluster-i and stores the
   // result in new_centroids[i]
   raft::linalg::reduce_rows_by_key((DataT*)X.data_handle(),
                                    X.extent(1),
@@ -341,11 +341,12 @@ void update_centroids(
                                    (IndexT)n_clusters,
                                    handle.get_stream());
 
-  // Computes new_centroids[i] = new_centroids[i]/new_weight[i] where
+  // Computes new_centroids[i] = new_centroids[i]/weight_per_cluster[i] where
   //   new_centroids[n_clusters x n_features] - 2D array, new_centroids[i] has sum of all the
-  //   samples assigned to cluster-i new_weight[n_clusters] - 1D array, new_weight[i] contains #
-  //   of samples in cluster-i.
-  // Note - when new_weight[i] is 0, new_centroids[i] is reset to 0
+  //   samples assigned to cluster-i
+  //   weight_per_cluster[n_clusters] - 1D array, weight_per_cluster[i] contains sum of weights in
+  //   cluster-i.
+  // Note - when weight_per_cluster[i] is 0, new_centroids[i] is reset to 0
   raft::linalg::matrixVectorOp(
     new_centroids.data_handle(),
     new_centroids.data_handle(),
@@ -362,7 +363,7 @@ void update_centroids(
     },
     handle.get_stream());
 
-  // copy centroids[i] to new_centroids[i] when new_weight[i] is 0
+  // copy centroids[i] to new_centroids[i] when weight_per_cluster[i] is 0
   cub::ArgIndexInputIterator<DataT*> itr_wt(weight_per_cluster.data_handle());
   raft::matrix::gather_if(
     const_cast<DataT*>(centroids.data_handle()),
@@ -373,7 +374,7 @@ void update_centroids(
     static_cast<int>(weight_per_cluster.size()),
     new_centroids.data_handle(),
     [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
-      // copy when the # of samples in the cluster is 0
+      // copy when the sum of weights in the cluster is 0
       return map.value == 0;
     },
     [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // map

@@ -53,7 +53,7 @@ void update_centroids(raft::handle_t const& handle,
                  weight);
   }
   auto sample_weights_view = raft::make_device_vector_view<const DataT, IndexT>(
-    sample_weights == nullptr ? sample_weights_uvec.data() : sample_weights, n_clusters);
+    sample_weights == nullptr ? sample_weights_uvec.data() : sample_weights, n_samples);
 
   rmm::device_uvector<DataT> l2norm_x_uvec(0, handle.get_stream());
   if (l2norm_x == nullptr) {

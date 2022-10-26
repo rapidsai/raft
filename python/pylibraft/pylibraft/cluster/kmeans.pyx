@@ -136,7 +136,7 @@ def compute_new_centroids(X, centroids,
 
         new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
 
-        compute_new_centroids(X, centroids, new_centroids)
+        compute_new_centroids(X, centroids, new_centroids, handle=handle)
 
         # pylibraft functions are often asynchronous so the
         # handle needs to be explicitly synchronized
@@ -148,8 +148,8 @@ def compute_new_centroids(X, centroids,
     new_centroids_cai = new_centroids.__cuda_array_interface__
 
     m = x_cai["shape"][0]
-    n_clusters = centroids_cai["shape"][0]
     x_k = x_cai["shape"][1]
+    n_clusters = centroids_cai["shape"][0]
 
     if batch_samples is None:
         batch_samples = m
