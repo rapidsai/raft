@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/util/itertools.hpp>
 
 namespace raft {
 namespace linalg {
@@ -27,6 +28,7 @@ template <typename IdxType = int>
 struct MatVecOpInputs {
   IdxType rows, cols;
   bool rowMajor, bcastAlongRows;
+  IdxType inAlignOffset, outAlignOffset;
   unsigned long long int seed;
 };
 
@@ -94,55 +96,58 @@ template <typename OpT,
 class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
  public:
   MatVecOpTest()
-    : params(::testing::TestWithParam<MatVecOpInputs<IdxType>>::GetParam()),
-      stream(handle.get_stream()),
-      in(params.rows * params.cols, stream),
-      out_ref(params.rows * params.cols, stream),
-      out(params.rows * params.cols, stream),
-      vec1(params.bcastAlongRows ? params.cols : params.rows, stream),
-      vec2(params.bcastAlongRows ? params.cols : params.rows, stream)
+    : stream(handle.get_stream()),
+      params(::testing::TestWithParam<MatVecOpInputs<IdxType>>::GetParam()),
+      vec_size(params.bcastAlongRows ? params.cols : params.rows),
+      in(params.rows * params.cols + params.inAlignOffset, stream),
+      out_ref(params.rows * params.cols + params.outAlignOffset, stream),
+      out(params.rows * params.cols + params.outAlignOffset, stream),
+      vec1(vec_size, stream),
+      vec2(vec_size, stream)
   {
   }
 
  protected:
   void SetUp() override
   {
+    MatT* in_ptr      = in.data() + params.inAlignOffset;
+    MatT* out_ptr     = out.data() + params.outAlignOffset;
+    MatT* out_ref_ptr = out_ref.data() + params.outAlignOffset;
+
     raft::random::RngState r(params.seed);
-    IdxType N = params.rows, D = params.cols;
-    IdxType len    = N * D;
-    IdxType vecLen = params.bcastAlongRows ? D : N;
-    gen_uniform<MatT>(handle, r, in.data(), len);
-    gen_uniform<Vec1T>(handle, r, vec1.data(), vecLen);
-    gen_uniform<Vec2T>(handle, r, vec2.data(), vecLen);
+    IdxType len = params.rows * params.cols;
+    gen_uniform<MatT>(handle, r, in_ptr, len);
+    gen_uniform<Vec1T>(handle, r, vec1.data(), vec_size);
+    gen_uniform<Vec2T>(handle, r, vec2.data(), vec_size);
     if constexpr (OpT::useTwoVectors) {
-      naiveMatVec(out_ref.data(),
-                  in.data(),
+      naiveMatVec(out_ref_ptr,
+                  in_ptr,
                   vec1.data(),
                   vec2.data(),
-                  D,
-                  N,
+                  params.cols,
+                  params.rows,
                   params.rowMajor,
                   params.bcastAlongRows,
                   OpT{},
                   stream);
     } else {
-      naiveMatVec(out_ref.data(),
-                  in.data(),
+      naiveMatVec(out_ref_ptr,
+                  in_ptr,
                   vec1.data(),
-                  D,
-                  N,
+                  params.cols,
+                  params.rows,
                   params.rowMajor,
                   params.bcastAlongRows,
                   OpT{},
                   stream);
     }
     matrixVectorOpLaunch<OpT>(handle,
-                              out.data(),
-                              in.data(),
+                              out_ptr,
+                              in_ptr,
                               vec1.data(),
                               vec2.data(),
-                              D,
-                              N,
+                              params.cols,
+                              params.rows,
                               params.rowMajor,
                               params.bcastAlongRows);
     handle.sync_stream();
@@ -153,6 +158,7 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
   cudaStream_t stream;
 
   MatVecOpInputs<IdxType> params;
+  IdxType vec_size;
   rmm::device_uvector<MatT> in;
   rmm::device_uvector<MatT> out;
   rmm::device_uvector<MatT> out_ref;
@@ -160,12 +166,14 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
   rmm::device_uvector<Vec2T> vec2;
 };
 
-#define MVTEST(TestClass, inputs, tolerance)                                                   \
-  TEST_P(TestClass, Result)                                                                    \
-  {                                                                                            \
-    ASSERT_TRUE(devArrMatch(                                                                   \
-      out_ref.data(), out.data(), params.rows* params.cols, CompareApprox<float>(tolerance))); \
-  }                                                                                            \
+#define MVTEST(TestClass, inputs, tolerance)                        \
+  TEST_P(TestClass, Result)                                         \
+  {                                                                 \
+    ASSERT_TRUE(devArrMatch(out_ref.data() + params.outAlignOffset, \
+                            out.data() + params.outAlignOffset,     \
+                            params.rows * params.cols,              \
+                            CompareApprox<float>(tolerance)));      \
+  }                                                                 \
   INSTANTIATE_TEST_SUITE_P(MatVecOpTests, TestClass, ::testing::ValuesIn(inputs))
 
 #define MV_EPS_F 0.00001f
@@ -175,16 +183,11 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
  * This set of tests covers cases where all the types are the same.
  */
 
-const std::vector<MatVecOpInputs<int>> inputs_i32    = {{1024, 32, true, true, 1234ULL},
-                                                     {1024, 64, true, true, 1234ULL},
-                                                     {1024, 32, true, false, 1234ULL},
-                                                     {1024, 64, true, false, 1234ULL},
-                                                     {1024, 32, false, true, 1234ULL},
-                                                     {1024, 64, false, true, 1234ULL},
-                                                     {1024, 32, false, false, 1234ULL},
-                                                     {1024, 64, false, false, 1234ULL}};
-const std::vector<MatVecOpInputs<size_t>> inputs_i64 = {{2500, 250, false, false, 1234ULL},
-                                                        {2500, 250, false, false, 1234ULL}};
+const std::vector<MatVecOpInputs<int>> inputs_i32 = raft::itertools::product<MatVecOpInputs<int>>(
+  {1024}, {32, 64}, {true, false}, {true, false}, {0, 1, 2}, {0, 1, 2}, {1234ULL});
+const std::vector<MatVecOpInputs<int64_t>> inputs_i64 =
+  raft::itertools::product<MatVecOpInputs<int64_t>>(
+    {2500}, {250}, {false}, {false}, {0, 1}, {0, 1}, {1234ULL});
 
 template <typename T>
 struct Add1Vec {
@@ -199,12 +202,12 @@ struct Add2Vec {
 
 typedef MatVecOpTest<Add1Vec<float>, float, int> MatVecOpTestF_i32_add1vec;
 typedef MatVecOpTest<Add2Vec<float>, float, int> MatVecOpTestF_i32_add2vec;
-typedef MatVecOpTest<Add1Vec<float>, float, size_t> MatVecOpTestF_i64_add1vec;
-typedef MatVecOpTest<Add2Vec<float>, float, size_t> MatVecOpTestF_i64_add2vec;
+typedef MatVecOpTest<Add1Vec<float>, float, int64_t> MatVecOpTestF_i64_add1vec;
+typedef MatVecOpTest<Add2Vec<float>, float, int64_t> MatVecOpTestF_i64_add2vec;
 typedef MatVecOpTest<Add1Vec<double>, double, int> MatVecOpTestD_i32_add1vec;
 typedef MatVecOpTest<Add2Vec<double>, double, int> MatVecOpTestD_i32_add2vec;
-typedef MatVecOpTest<Add1Vec<double>, double, size_t> MatVecOpTestD_i64_add1vec;
-typedef MatVecOpTest<Add2Vec<double>, double, size_t> MatVecOpTestD_i64_add2vec;
+typedef MatVecOpTest<Add1Vec<double>, double, int64_t> MatVecOpTestD_i64_add1vec;
+typedef MatVecOpTest<Add2Vec<double>, double, int64_t> MatVecOpTestD_i64_add2vec;
 
 MVTEST(MatVecOpTestF_i32_add1vec, inputs_i32, MV_EPS_F);
 MVTEST(MatVecOpTestF_i32_add2vec, inputs_i32, MV_EPS_F);
