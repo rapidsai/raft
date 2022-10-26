@@ -58,8 +58,7 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
     sample_weights = np.ones((n_rows,)).astype(dtype) / n_rows
     sample_weights_device = TestDeviceBuffer(sample_weights, order) \
         if additional_args else None
-
-
+2
     # Compute new centroids naively
     dists = np.zeros((n_rows, n_clusters), dtype=dtype)
     dists_device = TestDeviceBuffer(dists, order)
