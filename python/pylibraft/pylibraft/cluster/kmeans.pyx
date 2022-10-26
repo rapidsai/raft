@@ -56,9 +56,9 @@ cdef extern from "raft_distance/kmeans.hpp" \
         double *weight_per_cluster,
         DistanceType metric,
         int batch_samples,
-        int batch_centroids);
+        int batch_centroids)
 
-    cdef void update_centroids(v
+    cdef void update_centroids(
         const handle_t& handle,
         const float *X,
         int n_samples,
@@ -71,7 +71,8 @@ cdef extern from "raft_distance/kmeans.hpp" \
         float *weight_per_cluster,
         DistanceType metric,
         int batch_samples,
-        int batch_centroids);
+        int batch_centroids)
+
 
 def compute_new_centroids(X, centroids,
                           new_centroids,
@@ -96,10 +97,12 @@ def compute_new_centroids(X, centroids,
                     (n_clusters, k)
     new_centroids : Writable CUDA array interface compliant matrix shape
                     (n_clusters, k)
-    sample_weights : Optional input CUDA array interface compliant matrix shape (n_clusters, 1) default: None
-    l2norm_x : Optional input CUDA array interface compliant matrix shape (m, 1) default: None
-    weight_per_cluster : Optional writable CUDA array interface compliant matrix shape
-                        (n_clusters, 1) default: None
+    sample_weights : Optional input CUDA array interface compliant matrix shape
+                     (n_clusters, 1) default: None
+    l2norm_x : Optional input CUDA array interface compliant matrix shape
+               (m, 1) default: None
+    weight_per_cluster : Optional writable CUDA array interface compliant
+                         matrix shape (n_clusters, 1) default: None
     batch_samples : Optional integer specifying the batch size for X to compute
                     distances in batches. default: m
     batch_centroids : Optional integer specifying the batch size for centroids
@@ -198,42 +201,42 @@ def compute_new_centroids(X, centroids,
     new_centroids_c_contiguous = is_c_cont(new_centroids_cai, new_centroids_dt)
 
     if not x_c_contiguous or not centroids_c_contiguous \
-        or not new_centroids_c_contiguous:
-            raise ValueError("Inputs must all be c contiguous")
+            or not new_centroids_c_contiguous:
+        raise ValueError("Inputs must all be c contiguous")
 
     cdef DistanceType distance_type = DISTANCE_TYPES[metric]
 
     if x_dt != centroids_dt or x_dt != new_centroids_dt:
-            raise ValueError("Inputs must all have the same dtypes "
-                              "(float32 or float64)")
+        raise ValueError("Inputs must all have the same dtypes "
+                         "(float32 or float64)")
 
     if x_dt == np.float32:
         update_centroids(deref(h),
-                          <float*> x_ptr,
-                          <int> m,
-                          <int> x_k,
-                          <int> n_clusters,
-                          <float*> sample_weights_ptr,
-                          <float*> l2norm_x_ptr,
-                          <float*> centroids_ptr,
-                          <float*> new_centroids_ptr,
-                          <float*> weight_per_cluster_ptr,
-                          <DistanceType>distance_type,
-                          <int>batch_samples,
-                          <int>batch_centroids)
+                         <float*> x_ptr,
+                         <int> m,
+                         <int> x_k,
+                         <int> n_clusters,
+                         <float*> sample_weights_ptr,
+                         <float*> l2norm_x_ptr,
+                         <float*> centroids_ptr,
+                         <float*> new_centroids_ptr,
+                         <float*> weight_per_cluster_ptr,
+                         <DistanceType>distance_type,
+                         <int>batch_samples,
+                         <int>batch_centroids)
     elif x_dt == np.float64:
         update_centroids(deref(h),
-                          <double*> x_ptr,
-                          <int> m,
-                          <int> x_k,
-                          <int> n_clusters,
-                          <double*> sample_weights_ptr,
-                          <double*> l2norm_x_ptr,
-                          <double*> centroids_ptr,
-                          <double*> new_centroids_ptr,
-                          <double*> weight_per_cluster_ptr,
-                          <DistanceType>distance_type,
-                          <int>batch_samples,
-                          <int>batch_centroids)
+                         <double*> x_ptr,
+                         <int> m,
+                         <int> x_k,
+                         <int> n_clusters,
+                         <double*> sample_weights_ptr,
+                         <double*> l2norm_x_ptr,
+                         <double*> centroids_ptr,
+                         <double*> new_centroids_ptr,
+                         <double*> weight_per_cluster_ptr,
+                         <DistanceType>distance_type,
+                         <int>batch_samples,
+                         <int>batch_centroids)
     else:
         raise ValueError("dtype %s not supported" % x_dt)
