@@ -81,8 +81,8 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
                           sample_weights=sample_weights_device,
                           l2norm_x=l2norm_x_device,
                           weight_per_cluster=weight_per_cluster_device,
-                          batch_samples=n_rows,
-                          batch_centroids=n_clusters,
+                          batch_samples=n_rows/2,
+                          batch_centroids=n_clusters/2,
                           metric=metric,
                           handle=handle)
 
