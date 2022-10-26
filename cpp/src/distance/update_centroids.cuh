@@ -18,6 +18,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/specializations.cuh>
 #include <raft/handle.hpp>
+#include <raft/linalg/norm.cuh>
 
 namespace raft::cluster::kmeans::runtime {
 
@@ -41,13 +42,42 @@ void update_centroids(raft::handle_t const& handle,
   auto X_view = raft::make_device_matrix_view<const DataT, IndexT>(X, n_samples, n_features);
   auto centroids_view =
     raft::make_device_matrix_view<const DataT, IndexT>(centroids, n_clusters, n_features);
-  auto sample_weights_view =
-    raft::make_device_vector_view<const DataT, IndexT>(sample_weights, n_clusters);
-  auto l2norm_x_view = raft::make_device_vector_view<const DataT, IndexT>(l2norm_x, n_samples);
+
+  rmm::device_uvector<DataT> sample_weights_uvec(0, handle.get_stream());
+  if (sample_weights == nullptr) {
+    sample_weights_uvec.resize(n_samples, handle.get_stream());
+    DataT weight = 1.0 / n_samples;
+    thrust::fill(handle.get_thrust_policy(),
+                 sample_weights_uvec.data(),
+                 sample_weights_uvec.data() + n_samples,
+                 weight);
+  }
+  auto sample_weights_view = raft::make_device_vector_view<const DataT, IndexT>(
+    sample_weights == nullptr ? sample_weights_uvec.data() : sample_weights, n_clusters);
+
+  rmm::device_uvector<DataT> l2norm_x_uvec(0, handle.get_stream());
+  if (l2norm_x == nullptr) {
+    l2norm_x_uvec.resize(n_samples, handle.get_stream());
+    raft::linalg::rowNorm(l2norm_x_uvec.data(),
+                          X,
+                          n_samples,
+                          n_features,
+                          raft::linalg::L2Norm,
+                          true,
+                          handle.get_stream());
+  }
+  auto l2norm_x_view = raft::make_device_vector_view<const DataT, IndexT>(
+    l2norm_x == nullptr ? l2norm_x_uvec.data() : l2norm_x, n_samples);
+
   auto new_centroids_view =
     raft::make_device_matrix_view<DataT, IndexT>(new_centroids, n_clusters, n_features);
-  auto weight_per_cluster_view =
-    raft::make_device_vector_view<DataT, IndexT>(weight_per_cluster, n_clusters);
+  rmm::device_uvector<DataT> weight_per_cluster_uvec(0, handle.get_stream());
+  if (weight_per_cluster == nullptr) {
+    weight_per_cluster_uvec.resize(n_clusters, handle.get_stream());
+  }
+  auto weight_per_cluster_view = raft::make_device_vector_view<DataT, IndexT>(
+    weight_per_cluster == nullptr ? weight_per_cluster_uvec.data() : weight_per_cluster,
+    n_clusters);
 
   raft::cluster::kmeans::update_centroids<DataT, IndexT>(handle,
                                                          X_view,

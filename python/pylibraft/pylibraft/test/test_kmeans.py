@@ -28,7 +28,9 @@ from pylibraft.testing.utils import TestDeviceBuffer
 @pytest.mark.parametrize("n_clusters", [5])
 @pytest.mark.parametrize("metric", ["euclidean", "sqeuclidean"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype):
+@pytest.mark.parametrize("additional_args", [True, False])
+def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
+                               additional_args):
 
     order = "C"
 
@@ -43,33 +45,38 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype):
     centroids_device = TestDeviceBuffer(centroids, order)
 
     l2norm_x = np.linalg.norm(X, axis=0, ord=2)
+    l2norm_x_device = TestDeviceBuffer(l2norm_x, order) \
+        if additional_args else None
 
     weight_per_cluster = np.empty((n_clusters, ), dtype=dtype)
-    weight_per_cluster_device = TestDeviceBuffer(weight_per_cluster, order)
+    weight_per_cluster_device = TestDeviceBuffer(weight_per_cluster, order) \
+        if additional_args else None
 
     new_centroids = np.empty((n_clusters, n_cols), dtype=dtype)
     new_centroids_device = TestDeviceBuffer(new_centroids, order)
 
-    sample_weights = np.ones((n_rows,)).astype(dtype) / n_rows
-    sample_weights_device = TestDeviceBuffer(sample_weights, order)
+    sample_weights = np.ones((n_rows,)).astype(dtype)
+    sample_weights_device = TestDeviceBuffer(sample_weights, order) \
+        if additional_args else None
 
-    l2norm_x_device = TestDeviceBuffer(l2norm_x, order)
 
     compute_new_centroids(X_device,
-                          sample_weights_device,
-                          l2norm_x_device,
                           centroids_device,
                           new_centroids_device,
-                          weight_per_cluster_device,
-                          n_rows,
-                          n_clusters)
+                          sample_weights=sample_weights_device,
+                          l2norm_x=l2norm_x_device,
+                          weight_per_cluster=weight_per_cluster_device,
+                          batch_samples=n_rows,
+                          batch_centroids=n_clusters)
 
     # pylibraft functions are often asynchronous so the
     # handle needs to be explicitly synchronized
     handle.sync()
 
     print(str(new_centroids_device.copy_to_host()))
-    print(str(weight_per_cluster_device.copy_to_host()))
+
+    if(additional_args):
+        print(str(weight_per_cluster_device.copy_to_host()))
 
     # actual[actual <= 1e-5] = 0.0
     #

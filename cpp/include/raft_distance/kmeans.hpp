@@ -14,41 +14,37 @@
  * limitations under the License.
  */
 
-#include <raft/distance/distance_types.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/distance/distance_types.hpp>
 
 namespace raft::cluster::kmeans::runtime {
 
-    void update_centroids(
-            raft::handle_t const &handle,
-            const float *X,
-            int n_samples,
-            int n_features,
-            int n_clusters,
-            const float *sample_weights,
-            const float *l2norm_x,
-            const float *centroids,
-            float *new_centroids,
-            float *weight_per_cluster,
-            raft::distance::DistanceType metric,
-            int batch_samples,
-            int batch_centroids);
+void update_centroids(raft::handle_t const& handle,
+                      const float* X,
+                      int n_samples,
+                      int n_features,
+                      int n_clusters,
+                      const float* sample_weights,
+                      const float* l2norm_x,
+                      const float* centroids,
+                      float* new_centroids,
+                      float* weight_per_cluster,
+                      raft::distance::DistanceType metric,
+                      int batch_samples,
+                      int batch_centroids);
 
-
-    void update_centroids(
-            raft::handle_t const &handle,
-            const double *X,
-            int n_samples,
-            int n_features,
-            int n_clusters,
-            const double *sample_weights,
-            const double *l2norm_x,
-            const double *centroids,
-            double *new_centroids,
-            double *weight_per_cluster,
-            raft::distance::DistanceType metric,
-            int batch_samples,
-            int batch_centroids);
-
+void update_centroids(raft::handle_t const& handle,
+                      const double* X,
+                      int n_samples,
+                      int n_features,
+                      int n_clusters,
+                      const double* sample_weights,
+                      const double* l2norm_x,
+                      const double* centroids,
+                      double* new_centroids,
+                      double* weight_per_cluster,
+                      raft::distance::DistanceType metric,
+                      int batch_samples,
+                      int batch_centroids);
 
 }  // namespace raft::cluster::kmeans::runtime

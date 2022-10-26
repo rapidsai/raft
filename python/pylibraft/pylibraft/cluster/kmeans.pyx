@@ -24,6 +24,8 @@ from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
+from libcpp cimport nullptr
+
 from pylibraft.distance.distance_type cimport DistanceType
 
 from pylibraft.common import Handle
@@ -71,16 +73,15 @@ cdef extern from "raft_distance/kmeans.hpp" \
             int batch_samples,
             int batch_centroids);
 
-def compute_new_centroids(X,
-                     sample_weights,
-                     l2norm_x,
-                     centroids,
-                     new_centroids,
-                     weight_per_cluster,
-                     batch_samples,
-                     batch_centroids,
-                     metric="euclidean",
-                     handle=None):
+def compute_new_centroids(X, centroids,
+                          new_centroids,
+                          sample_weights=None,
+                          l2norm_x=None,
+                          weight_per_cluster=None,
+                          batch_samples=None,
+                          batch_centroids=None,
+                          metric="euclidean",
+                          handle=None):
     """
     Compute new centroids given an input matrix and existing centroids
 
@@ -91,18 +92,18 @@ def compute_new_centroids(X,
     ----------
 
     X : Input CUDA array interface compliant matrix shape (m, k)
-    sample_weights : Input CUDA array interface compliant matrix shape (n_clusters, 1)
-    l2norm_x : Input CUDA array interface compliant matrix shape (m, 1)
     centroids : Input CUDA array interface compliant matrix shape
                     (n_clusters, k)
     new_centroids : Writable CUDA array interface compliant matrix shape
                     (n_clusters, k)
-    weight_per_cluster : Writable CUDA array interface compliant matrix shape
-                        (n_clusters, 1)
-    batch_samples : integer specifying the batch size for X to compute
-                    distances in batches
-    batch_centroids : integer specifying the batch size for centroids
-                      to compute distances in batches
+    sample_weights : Optional input CUDA array interface compliant matrix shape (n_clusters, 1) default: None
+    l2norm_x : Optional input CUDA array interface compliant matrix shape (m, 1) default: None
+    weight_per_cluster : Optional writable CUDA array interface compliant matrix shape
+                        (n_clusters, 1) default: None
+    batch_samples : Optional integer specifying the batch size for X to compute
+                    distances in batches. default: m
+    batch_centroids : Optional integer specifying the batch size for centroids
+                      to compute distances in batches. default: n_clusters
     handle : Optional RAFT handle for reusing expensive CUDA resources
 
     Examples
@@ -130,16 +131,9 @@ def compute_new_centroids(X,
         centroids = cp.random.random_sample((n_clusters, n_features),
                                                 dtype=cp.float32)
 
-        l2norm_x = cupy.linalg.norm(X, axis=0, ord=2)
-
-        sample_weights = cp.ones((n_samples,)).astype(cp.float32)
-
-        weight_per_cluster = cp.empty((n_clusters, ), dtype=cp.float32)
         new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
 
-        compute_new_centroids(X, sample_weights, l2norm_x, centroids,
-                              new_centroids, weight_per_cluster,
-                              n_samples, n_clusters)
+        compute_new_centroids(X, centroids, new_centroids)
 
         # pylibraft functions are often asynchronous so the
         # handle needs to be explicitly synchronized
@@ -148,17 +142,24 @@ def compute_new_centroids(X,
 
     x_cai = X.__cuda_array_interface__
     centroids_cai = centroids.__cuda_array_interface__
-    sample_weights_cai = sample_weights.__cuda_array_interface__
-    l2norm_x_cai = l2norm_x.__cuda_array_interface__
     new_centroids_cai = new_centroids.__cuda_array_interface__
-    weight_per_cluster_cai = weight_per_cluster.__cuda_array_interface__
 
     m = x_cai["shape"][0]
     n_clusters = centroids_cai["shape"][0]
-
     x_k = x_cai["shape"][1]
+
+    if batch_samples is None:
+        batch_samples = m
+
+    if batch_centroids is None:
+        batch_centroids = n_clusters
+
     centroids_k = centroids_cai["shape"][1]
     new_centroids_k = centroids_cai["shape"][1]
+
+    x_dt = np.dtype(x_cai["typestr"])
+    centroids_dt = np.dtype(centroids_cai["typestr"])
+    new_centroids_dt = np.dtype(new_centroids_cai["typestr"])
 
     if x_k != centroids_k:
         raise ValueError("Inputs must have same number of columns. "
@@ -166,20 +167,31 @@ def compute_new_centroids(X,
 
     x_ptr = <uintptr_t>x_cai["data"][0]
     centroids_ptr = <uintptr_t>centroids_cai["data"][0]
-    sample_weights_ptr = <uintptr_t>sample_weights_cai["data"][0]
-    l2norm_x_ptr = <uintptr_t>l2norm_x_cai["data"][0]
     new_centroids_ptr = <uintptr_t>new_centroids_cai["data"][0]
-    weight_per_cluster_ptr = <uintptr_t>weight_per_cluster_cai["data"][0]
+
+    if sample_weights is not None:
+        sample_weights_cai = sample_weights.__cuda_array_interface__
+        sample_weights_ptr = <uintptr_t>sample_weights_cai["data"][0]
+        sample_weights_dt = np.dtype(sample_weights_cai["typestr"])
+    else:
+        sample_weights_ptr = <uintptr_t>nullptr
+
+    if l2norm_x is not None:
+        l2norm_x_cai = l2norm_x.__cuda_array_interface__
+        l2norm_x_ptr = <uintptr_t>l2norm_x_cai["data"][0]
+        l2norm_x_dt = np.dtype(l2norm_x_cai["typestr"])
+    else:
+        l2norm_x_ptr = <uintptr_t>nullptr
+
+    if weight_per_cluster is not None:
+        weight_per_cluster_cai = weight_per_cluster.__cuda_array_interface__
+        weight_per_cluster_ptr = <uintptr_t>weight_per_cluster_cai["data"][0]
+        weight_per_cluster_dt = np.dtype(weight_per_cluster_cai["typestr"])
+    else:
+        weight_per_cluster_ptr = <uintptr_t>nullptr
 
     handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
-
-    x_dt = np.dtype(x_cai["typestr"])
-    centroids_dt = np.dtype(centroids_cai["typestr"])
-    sample_weights_dt = np.dtype(sample_weights_cai["typestr"])
-    new_centroids_dt = np.dtype(new_centroids_cai["typestr"])
-    weight_per_cluster_dt = np.dtype(weight_per_cluster_cai["typestr"])
-    l2norm_x_dt = np.dtype(l2norm_x_cai["typestr"])
 
     x_c_contiguous = is_c_cont(x_cai, x_dt)
     centroids_c_contiguous = is_c_cont(centroids_cai, centroids_dt)
@@ -191,11 +203,9 @@ def compute_new_centroids(X,
 
     cdef DistanceType distance_type = DISTANCE_TYPES[metric]
 
-    if x_dt != centroids_dt or x_dt != sample_weights_dt \
-        or x_dt != new_centroids_dt or x_dt != weight_per_cluster_dt \
-        or x_dt != l2norm_x_dt:
-        raise ValueError("Inputs must all have the same dtypes "
-                          "(float32 or float64)")
+    if x_dt != centroids_dt or x_dt != new_centroids_dt:
+            raise ValueError("Inputs must all have the same dtypes "
+                              "(float32 or float64)")
 
     if x_dt == np.float32:
         update_centroids(deref(h),
