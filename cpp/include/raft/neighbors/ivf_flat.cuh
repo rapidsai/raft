@@ -195,7 +195,7 @@ auto extend(const handle_t& handle,
             std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
   -> index<value_t, idx_t>
 {
-  return raft::spatial::knn::ivf_flat::extend<value_t, idx_t>(
+  return extend<value_t, idx_t>(
     handle,
     orig_index,
     new_vectors.data_handle(),
@@ -391,7 +391,7 @@ void search(const handle_t& handle,
   RAFT_EXPECTS(queries.extent(1) == index.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
 
-  return raft::spatial::knn::ivf_flat::search(handle,
+  return search(handle,
                                               params,
                                               index,
                                               queries.data_handle(),
