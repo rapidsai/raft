@@ -392,14 +392,14 @@ void search(const handle_t& handle,
                "Number of query dimensions should equal number of dimensions in the index.");
 
   return search(handle,
-                                              params,
-                                              index,
-                                              queries.data_handle(),
-                                              static_cast<std::uint32_t>(queries.extent(0)),
-                                              static_cast<std::uint32_t>(k),
-                                              neighbors.data_handle(),
-                                              distances.data_handle(),
-                                              nullptr);
+                params,
+                index,
+                queries.data_handle(),
+                static_cast<std::uint32_t>(queries.extent(0)),
+                static_cast<std::uint32_t>(k),
+                neighbors.data_handle(),
+                distances.data_handle(),
+                nullptr);
 }
 
 }  // namespace raft::neighbors::ivf_flat

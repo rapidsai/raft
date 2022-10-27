@@ -169,24 +169,24 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
         auto index_2 = ivf_flat::extend(handle_, index, half_of_data_view);
 
-
         auto new_half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
-                database.data() + half_of_data * ps.dim, IdxT(ps.num_db_vecs) - half_of_data, ps.dim
-                );
+          database.data() + half_of_data * ps.dim, IdxT(ps.num_db_vecs) - half_of_data, ps.dim);
 
         auto new_half_of_data_indices_view = raft::make_device_vector_view<const IdxT, IdxT>(
-                  vector_indices.data() + half_of_data, IdxT(ps.num_db_vecs) - half_of_data
-                );
-
+          vector_indices.data() + half_of_data, IdxT(ps.num_db_vecs) - half_of_data);
 
         ivf_flat::extend(handle_,
                          &index_2,
                          new_half_of_data_view,
-                         std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(new_half_of_data_indices_view));
+                         std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(
+                           new_half_of_data_indices_view));
 
-        auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(search_queries.data(), ps.num_queries, ps.dim);
-        auto indices_out_view = raft::make_device_matrix_view<IdxT, IdxT>(indices_ivfflat_dev.data(), ps.num_queries, ps.k);
-          auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(distances_ivfflat_dev.data(), ps.num_queries, ps.k);
+        auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
+          search_queries.data(), ps.num_queries, ps.dim);
+        auto indices_out_view = raft::make_device_matrix_view<IdxT, IdxT>(
+          indices_ivfflat_dev.data(), ps.num_queries, ps.k);
+        auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
+          distances_ivfflat_dev.data(), ps.num_queries, ps.k);
         ivf_flat::search(handle_,
                          index_2,
                          search_queries_view,
