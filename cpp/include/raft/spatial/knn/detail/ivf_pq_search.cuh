@@ -60,6 +60,8 @@ using namespace raft::spatial::knn::detail;  // NOLINT
 
 using raft::neighbors::ivf_pq::codebook_gen;
 using raft::neighbors::ivf_pq::index;
+using raft::neighbors::ivf_pq::kIndexGroupSize;
+using raft::neighbors::ivf_pq::kIndexGroupVecLen;
 using raft::neighbors::ivf_pq::search_params;
 
 /** 8-bit floating-point storage type.
@@ -232,10 +234,10 @@ void select_clusters(const handle_t& handle,
  * in chunk_indices. Essentially this is a segmented inclusive scan of the cluster sizes. The total
  * number of samples per query (sum of the cluster sizes that we probe) is returned in n_samples.
  */
-template <int BlockDim, typename IdxT>
+template <int BlockDim>
 __launch_bounds__(BlockDim) __global__
   void calc_chunk_indices_kernel(uint32_t n_probes,
-                                 const IdxT* cluster_offsets,        // [n_clusters + 1]
+                                 const uint32_t* cluster_sizes,      // [n_clusters]
                                  const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                                  uint32_t* chunk_indices,            // [n_queries, n_probes]
                                  uint32_t* n_samples                 // [n_queries]
@@ -253,9 +255,7 @@ __launch_bounds__(BlockDim) __global__
   uint32_t total                  = 0;
   for (uint32_t probe_ix = threadIdx.x; probe_ix < n_probes_aligned; probe_ix += BlockDim) {
     auto label = probe_ix < n_probes ? clusters_to_probe[probe_ix] : 0u;
-    auto chunk = probe_ix < n_probes
-                   ? static_cast<uint32_t>(cluster_offsets[label + 1] - cluster_offsets[label])
-                   : 0u;
+    auto chunk = probe_ix < n_probes ? cluster_sizes[label] : 0u;
     if (threadIdx.x == 0) { chunk += total; }
     block_scan(shm).InclusiveSum(chunk, chunk, total);
     __syncthreads();
@@ -265,7 +265,6 @@ __launch_bounds__(BlockDim) __global__
   if (threadIdx.x == 0) { n_samples[blockIdx.x] = total; }
 }
 
-template <typename IdxT>
 struct calc_chunk_indices {
  public:
   struct configured {
@@ -274,19 +273,19 @@ struct calc_chunk_indices {
     dim3 grid_dim;
     uint32_t n_probes;
 
-    void operator()(const IdxT* cluster_offsets,
-                    const uint32_t* clusters_to_probe,
-                    uint32_t* chunk_indices,
-                    uint32_t* n_samples,
-                    rmm::cuda_stream_view stream)
+    inline void operator()(const uint32_t* cluster_sizes,
+                           const uint32_t* clusters_to_probe,
+                           uint32_t* chunk_indices,
+                           uint32_t* n_samples,
+                           rmm::cuda_stream_view stream)
     {
       void* args[] =  // NOLINT
-        {&n_probes, &cluster_offsets, &clusters_to_probe, &chunk_indices, &n_samples};
+        {&n_probes, &cluster_sizes, &clusters_to_probe, &chunk_indices, &n_samples};
       RAFT_CUDA_TRY(cudaLaunchKernel(kernel, grid_dim, block_dim, args, 0, stream));
     }
   };
 
-  static auto configure(uint32_t n_probes, uint32_t n_queries) -> configured
+  static inline auto configure(uint32_t n_probes, uint32_t n_queries) -> configured
   {
     return try_block_dim<1024>(n_probes, n_queries);
   }
@@ -298,7 +297,7 @@ struct calc_chunk_indices {
     if constexpr (BlockDim >= WarpSize * 2) {
       if (BlockDim >= n_probes * 2) { return try_block_dim<(BlockDim / 2)>(n_probes, n_queries); }
     }
-    return {reinterpret_cast<void*>(calc_chunk_indices_kernel<BlockDim, IdxT>),
+    return {reinterpret_cast<void*>(calc_chunk_indices_kernel<BlockDim>),
             dim3(BlockDim, 1, 1),
             dim3(n_queries, 1, 1),
             n_probes};
@@ -450,146 +449,6 @@ void postprocess_distances(float* out,        // [n_queries, topk]
   }
 }
 
-/** Extract `Bits` lowest bits from the `source` and shift the remaining content by this number.  */
-template <uint32_t Bits, typename OpT>
-__device__ __forceinline__ auto extract_bits(OpT& source) -> uint8_t
-{
-  if constexpr (Bits < 8 * sizeof(OpT)) {
-    constexpr uint32_t Mask = (1u << Bits) - 1u;  // NOLINT
-    uint8_t r               = source & Mask;
-    source >>= Bits;
-    return r;
-  } else {
-    uint8_t r = source;
-    source    = 0;
-    return r;
-  }
-}
-
-/**
- * Starting with `BitsLeft = kBitsTotal = 8 * sizeof(OpT)`,
- *   loop over `lcm(kBitsTotal, PqBits) = PqBits * kVecLen` bits of data.
- * Thanks to `lcm` in the expression above,
- *   `BitsLeft` is zero after exactly kVecLen iterations.
- */
-template <uint32_t BitsLeft, uint32_t PqBits, typename OpT, typename LutT>
-__device__ __forceinline__ void compute_score_inner_loop(
-  const OpT*& pq_head, const LutT*& lut_scores, OpT& pq_code, float& score, const bool valid_range)
-{
-  uint8_t code = extract_bits<PqBits>(pq_code);
-  if constexpr (BitsLeft < PqBits) {  // `code` is on the border between two `OpT` ints
-    pq_code = valid_range ? __ldcs(pq_head) : OpT(0);
-    ++pq_head;
-    code <<= PqBits - BitsLeft;
-    code |= extract_bits<PqBits - BitsLeft>(pq_code);
-  }
-  score += valid_range ? float(lut_scores[code]) : 0.0f;
-  lut_scores += (1u << PqBits);
-  if constexpr (BitsLeft != PqBits) {
-    constexpr uint32_t kBitsLeftNext =
-      BitsLeft < PqBits ? (8 * sizeof(OpT) + BitsLeft - PqBits) : (BitsLeft - PqBits);
-    compute_score_inner_loop<kBitsLeftNext, PqBits, OpT, LutT>(
-      pq_head, lut_scores, pq_code, score, valid_range);
-  }
-}
-
-template <uint32_t PqBits, typename OpT, typename LutT>
-__device__ __forceinline__ auto compute_score(uint32_t pq_dim,
-                                              const OpT* pq_head,
-                                              const LutT* lut_scores,
-                                              const bool valid_range) -> float
-{
-  float score                   = 0.0;
-  constexpr uint32_t kBitsTotal = 8 * sizeof(OpT);
-  constexpr uint32_t kVecLen    = kBitsTotal / gcd<uint32_t>(kBitsTotal, PqBits);
-
-  // These two nested loops combined span exactly `pq_dim` iterations.
-  for (; pq_dim > 0; pq_dim -= kVecLen) {
-    OpT pq_code = valid_range ? __ldcs(pq_head) : OpT(0);
-    ++pq_head;
-    compute_score_inner_loop<kBitsTotal, PqBits, OpT, LutT>(
-      pq_head, lut_scores, pq_code, score, valid_range);
-  }
-  return score;
-}
-
-/**
- * @brief Compute the similarity score between a vector from `pq_dataset` and a query vector.
- *
- * @tparam OpT an unsigned integer type that is used for bit operations on multiple PQ codes
- *   at once; it's selected to maximize throughput while matching criteria:
- *     1. `pq_bits * vec_len % 8 * sizeof(OpT) == 0`.
- *     2. `pq_dim % vec_len == 0`
- *
- *   Here `vec_len` is fully determined by `OpT` and `pq_bits`:
- *        vec_len == 8 * sizeof(OpT) / gcd(8 * sizeof(OpT), pq_bits)
- *                == lcm(8 * sizeof(OpT), pq_bits) / pq_bits
- *
- *
- * @tparam LutT type of the elements in the lookup table.
- *
- * @param pq_bits The bit length of an encoded vector element after compression by PQ
- * @param pq_dim
- * @param[in] pq_code_ptr
- *   a device pointer to the dataset at the indexed position (`pq_dim * pq_bits` bits-wide)
- * @param[in] lut_scores
- *   a device or shared memory pointer to the lookup table [pq_dim, pq_book_size]
- * @param valid_range
- *   whether reads and writes are allowed
- *
- * @return the score for the entry `data_ix` in the `pq_dataset`.
- */
-template <typename OpT, typename LutT>
-__device__ __noinline__ auto ivfpq_compute_score(const uint32_t pq_bits,
-                                                 uint32_t pq_dim,
-                                                 const OpT* pq_head,
-                                                 const LutT* lut_scores,
-                                                 const bool valid_range) -> float
-{
-  switch (pq_bits) {
-    case 4: return compute_score<4, OpT, LutT>(pq_dim, pq_head, lut_scores, valid_range);
-    case 5: return compute_score<5, OpT, LutT>(pq_dim, pq_head, lut_scores, valid_range);
-    case 6: return compute_score<6, OpT, LutT>(pq_dim, pq_head, lut_scores, valid_range);
-    case 7: return compute_score<7, OpT, LutT>(pq_dim, pq_head, lut_scores, valid_range);
-    case 8: return compute_score<8, OpT, LutT>(pq_dim, pq_head, lut_scores, valid_range);
-  }
-}
-
-// template <typename OpT, typename LutT>
-// __device__ __forceinline__ auto ivfpq_compute_score(const uint32_t pq_bits,
-//                                                     const uint32_t vec_len,
-//                                                     uint32_t pq_dim,
-//                                                     const OpT* pq_head,
-//                                                     const LutT* lut_scores,
-//                                                     bool valid_range) -> float
-// {
-//   float score                  = 0.0;
-//   constexpr int32_t kBitsTotal = 8 * sizeof(OpT);
-//   // These two nested loops combined span exactly `pq_dim` iterations.
-//   for (; pq_dim > 0; pq_dim -= vec_len) {
-//     OpT pq_code = valid_range ? *pq_head : OpT(0);
-//     ++pq_head;
-//     // Loop over lcm(kBitsTotal, pq_bits) = pq_bits * vec_len.
-//     // Thanks to `lcm` in the expression above,
-//     // `bits_left` is zero after exactly vec_len iterations.
-// #pragma unroll sizeof(OpT)
-//     for (int32_t bits_left = kBitsTotal; bits_left != 0;) {
-//       uint8_t code = extract_bits(pq_bits, pq_code);
-//       bits_left -= pq_bits;
-//       if (bits_left < 0) {  // `code` is on the border between two `OpT` ints
-//         pq_code = valid_range ? *pq_head : OpT(0);
-//         ++pq_head;
-//         code <<= -bits_left;
-//         code |= extract_bits(-bits_left, pq_code);
-//         bits_left += kBitsTotal;
-//       }
-//       score += valid_range ? float(lut_scores[code]) : 0.0f;
-//       lut_scores += (1 << pq_bits);
-//     }
-//   }
-//   return score;
-// }
-
 template <typename T, typename IdxT>
 struct dummy_block_sort_t {
   using queue_t = topk::warp_sort_distributed<WarpSize, true, T, IdxT>;
@@ -677,8 +536,7 @@ using block_sort_t = typename pq_block_sort<Capacity, T, IdxT>::type;
  *   The device pointer to the output indices [n_queries, n_probes, topk].
  *   Ignored  when `Capacity == 0`.
  */
-template <typename OpT,
-          typename IdxT,
+template <typename IdxT,
           typename OutT,
           typename LutT,
           int Capacity,
@@ -718,7 +576,9 @@ __launch_bounds__(1024, 1) __global__
   constexpr bool kManageLocalTopK = Capacity > 0;
 
   const uint32_t pq_len   = dim / pq_dim;
-  const uint32_t lut_size = pq_dim << pq_bits;
+  const uint32_t pq_shift = 1u << pq_bits;
+  const uint32_t lut_size = pq_dim * pq_shift;
+  const uint32_t pq_mask  = pq_shift - 1u;
 
   if constexpr (EnableSMemLut) {
     lut_scores = reinterpret_cast<LutT*>(smem_buf);
@@ -746,8 +606,9 @@ __launch_bounds__(1024, 1) __global__
       query_ix = ib % n_queries;
       probe_ix = ib / n_queries;
     } else {
-      query_ix = index_list[ib] / n_probes;
-      probe_ix = index_list[ib] % n_probes;
+      auto ordered_ix = index_list[ib];
+      query_ix        = ordered_ix / n_probes;
+      probe_ix        = ordered_ix % n_probes;
     }
 
     const uint32_t* chunk_indices = _chunk_indices + (n_probes * query_ix);
@@ -788,6 +649,7 @@ __launch_bounds__(1024, 1) __global__
             reinterpret_cast<float2*>(base_diff)[i] = pvals;
           }
         } break;
+        default: __builtin_unreachable();
       }
       __syncthreads();
     }
@@ -796,13 +658,12 @@ __launch_bounds__(1024, 1) __global__
       // Create a lookup table
       // For each subspace, the lookup table stores the distance between the actual query vector
       // (projected into the subspace) and all possible pq vectors in that subspace.
-      const uint32_t pq_shift = 1u << pq_bits;
       for (uint32_t i = threadIdx.x; i < lut_size; i += blockDim.x) {
         const uint32_t i_pq  = i >> pq_bits;
         uint32_t j           = i_pq * pq_len;
         const uint32_t j_end = pq_len + j;
-        auto cur_pq_center   = pq_center + (i & (pq_shift - 1u)) +
-                             (codebook_kind == codebook_gen::PER_SUBSPACE ? j << pq_bits : 0u);
+        auto cur_pq_center   = pq_center + (i & pq_mask) +
+                             (codebook_kind == codebook_gen::PER_SUBSPACE ? j * pq_shift : 0u);
         float score = 0.0;
         do {
           float pq_c = *cur_pq_center;
@@ -831,22 +692,32 @@ __launch_bounds__(1024, 1) __global__
               }
               score -= q * pq_c;
             } break;
+            default: __builtin_unreachable();
           }
         } while (++j < j_end);
         lut_scores[i] = LutT(score);
       }
     }
 
+    using group_align  = Pow2<kIndexGroupSize>;
+    using vec_align    = Pow2<kIndexGroupVecLen>;
+    using local_topk_t = block_sort_t<Capacity, OutT, IdxT>;
+    using op_t         = uint32_t;
+    using vec_t        = TxN_t<op_t, kIndexGroupVecLen / sizeof(op_t)>;
+
     uint32_t sample_offset = 0;
     if (probe_ix > 0) { sample_offset = chunk_indices[probe_ix - 1]; }
-    uint32_t n_samples           = chunk_indices[probe_ix] - sample_offset;
-    uint32_t n_samples32         = Pow2<32>::roundUp(n_samples);
-    IdxT cluster_offset          = cluster_offsets[label];
-    const uint32_t pq_line_width = pq_dim * pq_bits / 8;
-    auto pq_cluster_data         = pq_dataset + size_t(cluster_offset) * size_t(pq_line_width);
+    uint32_t n_samples         = chunk_indices[probe_ix] - sample_offset;
+    uint32_t n_samples_aligned = group_align::roundUp(n_samples);
+    IdxT cluster_offset        = cluster_offsets[label];
+    uint32_t pq_line_width     = vec_align::roundUp(pq_dim * pq_bits / 8);
+    auto pq_thread_data =
+      pq_dataset + (size_t(cluster_offset) + group_align::roundDown(threadIdx.x)) * pq_line_width +
+      group_align::mod(threadIdx.x) * vec_align::Value;
+    pq_line_width *= blockDim.x;
 
-    using local_topk_t = block_sort_t<Capacity, OutT, IdxT>;
-    OutT query_kth     = local_topk_t::queue_t::kDummy;
+    constexpr OutT kDummy = upper_bound<OutT>();
+    OutT query_kth        = kDummy;
     if constexpr (kManageLocalTopK) { query_kth = OutT(query_kths[query_ix]); }
     local_topk_t block_topk(topk, smem_buf, query_kth);
 
@@ -855,19 +726,52 @@ __launch_bounds__(1024, 1) __global__
     __syncthreads();
 
     // Compute a distance for each sample
-    for (uint32_t i = threadIdx.x; i < n_samples32; i += blockDim.x) {
-      OutT score   = local_topk_t::queue_t::kDummy;
-      float fscore = ivfpq_compute_score<OpT, LutT>(
-        pq_bits,
-        pq_dim,
-        reinterpret_cast<const OpT*>(pq_cluster_data + pq_line_width * i),
-        lut_scores,
-        i < n_samples);
-      if (i < n_samples && fscore < float(score)) { score = OutT(fscore); }
+    for (uint32_t i = threadIdx.x; i < n_samples_aligned;
+         i += blockDim.x, pq_thread_data += pq_line_width) {
+      float score = 0;
+      bool valid  = i < n_samples;
+
+      {
+        // pq_reader_t<op_t> reader(pq_thread_data);
+        auto pq_head       = reinterpret_cast<const vec_t::io_t*>(pq_thread_data);
+        uint32_t bits_left = 0;
+        op_t pq_code       = 0;
+        auto lut_head      = lut_scores;
+        auto lut_end       = lut_scores + lut_size;
+        vec_t pq_codes;
+        do {
+          *pq_codes.vectorized_data() = *pq_head;
+          pq_head += kIndexGroupSize;
+#pragma unroll
+          for (uint32_t l = 0; l < vec_t::Ratio; l++) {
+            while (bits_left >= pq_bits && lut_head < lut_end) {
+              uint8_t code = pq_code & pq_mask;
+              pq_code >>= pq_bits;
+              score += valid ? float(lut_head[code]) : 0.0f;
+              lut_head += pq_shift;
+              bits_left -= pq_bits;
+            }
+            if (lut_head < lut_end) {
+              uint32_t rem_bits = pq_bits - bits_left;
+              uint8_t code      = pq_code << rem_bits;
+              pq_code           = pq_codes.val.data[l];
+              code |= pq_code & ((1u << rem_bits) - 1u);
+              pq_code >>= rem_bits;
+              score += valid ? float(lut_head[code]) : 0.0f;
+              lut_head += pq_shift;
+              bits_left += 8 * sizeof(op_t) - pq_bits;
+            } else {
+              break;
+            }
+          }
+        } while (lut_head < lut_end);
+      }
+
+      if (!valid || score >= float(kDummy)) { score = float(kDummy); }
       if constexpr (kManageLocalTopK) {
-        block_topk.add(score, cluster_offset + i);
+        block_topk.add(OutT(score), cluster_offset + i);
       } else {
-        if (i < n_samples) { out_scores[i + sample_offset] = score; }
+        if (valid) { out_scores[i + sample_offset] = OutT(score); }
       }
     }
     if constexpr (kManageLocalTopK) {
@@ -882,7 +786,7 @@ __launch_bounds__(1024, 1) __global__
       if (probe_ix + 1 == n_probes) {
         for (uint32_t i = threadIdx.x + sample_offset + n_samples; i < max_samples;
              i += blockDim.x) {
-          out_scores[i] = local_topk_t::queue_t::kDummy;
+          out_scores[i] = kDummy;
         }
       }
     }
@@ -930,42 +834,27 @@ struct ivfpq_compute_similarity {
      * @param pq_dim
      * @param k_max
      */
-    static auto kernel(uint32_t pq_bits, uint32_t pq_dim, uint32_t k_max) -> kernel_t
+    static auto kernel(uint32_t k_max) -> kernel_t
     {
-      return kernel_base(pq_bits, pq_dim, k_max);
+      return kernel_try_capacity<kMaxCapacity>(k_max);
     }
 
    private:
-    template <typename OpT, int Capacity>
+    template <int Capacity>
     static auto kernel_try_capacity(uint32_t k_max) -> kernel_t
     {
       if constexpr (Capacity > 0) {
-        if (k_max == 0 || k_max > Capacity) { return kernel_try_capacity<OpT, 0>(k_max); }
+        if (k_max == 0 || k_max > Capacity) { return kernel_try_capacity<0>(k_max); }
       }
       if constexpr (Capacity > 1) {
-        if (k_max * 2 <= Capacity) { return kernel_try_capacity<OpT, (Capacity / 2)>(k_max); }
+        if (k_max * 2 <= Capacity) { return kernel_try_capacity<(Capacity / 2)>(k_max); }
       }
-      return ivfpq_compute_similarity_kernel<OpT,
-                                             IdxT,
+      return ivfpq_compute_similarity_kernel<IdxT,
                                              OutT,
                                              LutT,
                                              Capacity,
                                              PrecompBaseDiff,
                                              EnableSMemLut>;
-    }
-
-    static auto kernel_base(uint32_t pq_bits, uint32_t pq_dim, uint32_t k_max) -> kernel_t
-    {
-      switch (gcd<uint32_t>(pq_bits * pq_dim, 64)) {
-        case 64: return kernel_try_capacity<uint64_t, kMaxCapacity>(k_max);
-        case 32: return kernel_try_capacity<uint32_t, kMaxCapacity>(k_max);
-        case 16: return kernel_try_capacity<uint16_t, kMaxCapacity>(k_max);
-        case 8: return kernel_try_capacity<uint8_t, kMaxCapacity>(k_max);
-        default:
-          RAFT_FAIL("`pq_bits * pq_dim` must be a multiple of 8 (pq_bits = %u, pq_dim = %u).",
-                    pq_bits,
-                    pq_dim);
-      }
     }
   };
 
@@ -1008,11 +897,9 @@ struct ivfpq_compute_similarity {
     using conf_no_basediff = configured<false, true>;
     using conf_no_smem_lut = configured<true, false>;
 
-    kernel_t kernel_fast = conf_fast::kernel(pq_bits, pq_dim, manage_local_topk ? topk : 0u);
-    kernel_t kernel_no_basediff =
-      conf_no_basediff::kernel(pq_bits, pq_dim, manage_local_topk ? topk : 0u);
-    kernel_t kernel_no_smem_lut =
-      conf_no_smem_lut::kernel(pq_bits, pq_dim, manage_local_topk ? topk : 0u);
+    kernel_t kernel_fast        = conf_fast::kernel(manage_local_topk ? topk : 0u);
+    kernel_t kernel_no_basediff = conf_no_basediff::kernel(manage_local_topk ? topk : 0u);
+    kernel_t kernel_no_smem_lut = conf_no_smem_lut::kernel(manage_local_topk ? topk : 0u);
 
     const size_t smem_threshold = 48 * 1024;
     size_t lut_mem              = sizeof(LutT) * (pq_dim << pq_bits);
@@ -1160,6 +1047,7 @@ void ivfpq_search_worker(const handle_t& handle,
   auto data_indices    = index.indices().data_handle();
   auto cluster_centers = index.centers_rot().data_handle();
   auto cluster_offsets = index.list_offsets().data_handle();
+  auto cluster_sizes   = index.list_sizes().data_handle();
 
   bool manage_local_topk = is_local_topk_feasible(topK, n_probes, n_queries);
   auto topk_len          = manage_local_topk ? n_probes * topK : max_samples;
@@ -1183,8 +1071,8 @@ void ivfpq_search_worker(const handle_t& handle,
     neighbors_ptr = neighbors_buf.data();
   }
 
-  calc_chunk_indices<IdxT>::configure(n_probes, n_queries)(
-    cluster_offsets, clusters_to_probe, chunk_index.data(), num_samples.data(), stream);
+  calc_chunk_indices::configure(n_probes, n_queries)(
+    cluster_sizes, clusters_to_probe, chunk_index.data(), num_samples.data(), stream);
 
   if (n_queries * n_probes > 256) {
     // Sorting index by cluster number (label).
@@ -1255,20 +1143,6 @@ void ivfpq_search_worker(const handle_t& handle,
                                                          topK);
 
   rmm::device_uvector<LutT> device_lut(search_instance.device_lut_size, stream, mr);
-  printf(
-    "===|     raft: n_rows = %zu, n_lists = %u, n_queries = %u, n_probes = %u, dim = %u, pq_dim = "
-    "%u, k = %u, max_samples = %u, metric = %d, codebook_kind = %d\n",
-    uint64_t(index.size()),
-    uint32_t(index.n_lists()),
-    uint32_t(n_queries),
-    uint32_t(n_probes),
-    uint32_t(index.rot_dim()),
-    uint32_t(index.pq_dim()),
-    uint32_t(topK),
-    uint32_t(max_samples),
-    int(index.metric()),
-    int(index.codebook_kind()));
-
   rmm::device_uvector<float> query_kths(0, stream, mr);
   if (manage_local_topk) {
     query_kths.resize(n_queries, stream);

@@ -26,6 +26,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/qr.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.cuh>
@@ -53,6 +54,7 @@ using namespace raft::spatial::knn::detail;  // NOLINT
 using raft::neighbors::ivf_pq::codebook_gen;
 using raft::neighbors::ivf_pq::index;
 using raft::neighbors::ivf_pq::index_params;
+using raft::neighbors::ivf_pq::kIndexGroupSize;
 
 namespace {
 
@@ -777,14 +779,19 @@ inline auto extend(const handle_t& handle,
   rmm::device_uvector<uint32_t> ext_cluster_sizes_buf(n_clusters, stream, &managed_memory);
   rmm::device_uvector<IdxT> old_cluster_offsets_buf(n_clusters + 1, stream, &managed_memory);
   rmm::device_uvector<IdxT> ext_cluster_offsets_buf(n_clusters + 1, stream, &managed_memory);
-  rmm::device_uvector<uint32_t> cluster_ordering(n_clusters, stream, &managed_memory);
+  rmm::device_uvector<uint32_t> cluster_ordering_buf(n_clusters, stream, &managed_memory);
   auto old_cluster_sizes   = old_cluster_sizes_buf.data();
   auto ext_cluster_sizes   = ext_cluster_sizes_buf.data();
   auto old_cluster_offsets = old_cluster_offsets_buf.data();
   auto ext_cluster_offsets = ext_cluster_offsets_buf.data();
+  auto cluster_ordering    = cluster_ordering_buf.data();
   copy(old_cluster_offsets,
        orig_index.list_offsets().data_handle(),
        orig_index.list_offsets().size(),
+       stream);
+  copy(old_cluster_sizes,
+       orig_index.list_sizes().data_handle(),
+       orig_index.list_sizes().size(),
        stream);
 
   uint32_t n_nonempty_lists = 0;
@@ -792,16 +799,7 @@ inline auto extend(const handle_t& handle,
     rmm::device_uvector<uint32_t> ext_cluster_sizes_buf_in(n_clusters, stream, device_memory);
     rmm::device_uvector<uint32_t> cluster_ordering_in(n_clusters, stream, device_memory);
     auto ext_cluster_sizes_in = ext_cluster_sizes_buf_in.data();
-    linalg::writeOnlyUnaryOp(
-      old_cluster_sizes,
-      n_clusters,
-      [ext_cluster_sizes_in, new_cluster_sizes, old_cluster_offsets] __device__(uint32_t * out,
-                                                                                size_t i) {
-        auto old_size           = old_cluster_offsets[i + 1] - old_cluster_offsets[i];
-        ext_cluster_sizes_in[i] = old_size + new_cluster_sizes[i];
-        *out                    = old_size;
-      },
-      stream);
+    linalg::add(ext_cluster_sizes_in, old_cluster_sizes, new_cluster_sizes, n_clusters, stream);
 
     thrust::sequence(handle.get_thrust_policy(),
                      cluster_ordering_in.data(),
@@ -815,7 +813,7 @@ inline auto extend(const handle_t& handle,
                                               ext_cluster_sizes_in,
                                               ext_cluster_sizes,
                                               cluster_ordering_in.data(),
-                                              cluster_ordering.data(),
+                                              cluster_ordering,
                                               n_clusters,
                                               begin_bit,
                                               end_bit,
@@ -826,7 +824,7 @@ inline auto extend(const handle_t& handle,
                                               ext_cluster_sizes_in,
                                               ext_cluster_sizes,
                                               cluster_ordering_in.data(),
-                                              cluster_ordering.data(),
+                                              cluster_ordering,
                                               n_clusters,
                                               begin_bit,
                                               end_bit,
@@ -849,7 +847,29 @@ inline auto extend(const handle_t& handle,
                         orig_index.pq_bits(),
                         orig_index.pq_dim(),
                         n_nonempty_lists);
-  ext_index.allocate(handle, orig_index.size() + n_rows);
+  // calculate extended cluster offsets
+  {
+    using group_align = Pow2<kIndexGroupSize>;
+    IdxT size         = 0;
+    update_device(ext_cluster_offsets, &size, 1, stream);
+    thrust::inclusive_scan(
+      handle.get_thrust_policy(),
+      ext_cluster_sizes,
+      ext_cluster_sizes + n_clusters,
+      ext_cluster_offsets + 1,
+      [] __device__(IdxT a, IdxT b) { return group_align::roundUp(a) + group_align::roundUp(b); });
+    update_host(&size, ext_cluster_offsets + n_clusters, 1, stream);
+    handle.sync_stream();
+    copy(ext_index.list_offsets().data_handle(),
+         ext_cluster_offsets,
+         ext_index.list_offsets().size(),
+         stream);
+    copy(ext_index.list_sizes().data_handle(),
+         ext_cluster_sizes,
+         ext_index.list_sizes().size(),
+         stream);
+    ext_index.allocate(handle, size);
+  }
 
   // Copy the unchanged parts
   copy(ext_index.rotation_matrix().data_handle(),
@@ -857,27 +877,11 @@ inline auto extend(const handle_t& handle,
        orig_index.rotation_matrix().size(),
        stream);
 
-  // calculate extended cluster offsets
-  auto ext_indices = ext_index.indices().data_handle();
-  {
-    IdxT zero = 0;
-    update_device(ext_cluster_offsets, &zero, 1, stream);
-    thrust::inclusive_scan(handle.get_thrust_policy(),
-                           ext_cluster_sizes,
-                           ext_cluster_sizes + n_clusters,
-                           ext_cluster_offsets + 1,
-                           [] __device__(IdxT s, uint32_t l) { return s + l; });
-    copy(ext_index.list_offsets().data_handle(),
-         ext_cluster_offsets,
-         ext_index.list_offsets().size(),
-         stream);
-  }
-
   // copy cluster-ordering-dependent data
   utils::copy_selected(n_clusters,
                        ext_index.dim_ext(),
                        orig_index.centers().data_handle(),
-                       cluster_ordering.data(),
+                       cluster_ordering,
                        orig_index.dim_ext(),
                        ext_index.centers().data_handle(),
                        ext_index.dim_ext(),
@@ -885,7 +889,7 @@ inline auto extend(const handle_t& handle,
   utils::copy_selected(n_clusters,
                        ext_index.rot_dim(),
                        orig_index.centers_rot().data_handle(),
-                       cluster_ordering.data(),
+                       cluster_ordering,
                        orig_index.rot_dim(),
                        ext_index.centers_rot().data_handle(),
                        ext_index.rot_dim(),
@@ -902,7 +906,7 @@ inline auto extend(const handle_t& handle,
       utils::copy_selected(n_clusters,
                            d,
                            orig_index.pq_centers().data_handle(),
-                           cluster_ordering.data(),
+                           cluster_ordering,
                            d,
                            ext_index.pq_centers().data_handle(),
                            d,
@@ -913,8 +917,9 @@ inline auto extend(const handle_t& handle,
 
   // Make ext_indices
   handle.sync_stream();  // make sure cluster sizes are up-to-date
+  auto ext_indices = ext_index.indices().data_handle();
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
-    auto k                = cluster_ordering.data()[l];
+    auto k                = cluster_ordering[l];
     auto old_cluster_size = old_cluster_sizes[k];
     auto new_cluster_size = new_cluster_sizes[k];
     if (old_cluster_size > 0) {
@@ -944,19 +949,43 @@ inline auto extend(const handle_t& handle,
   }
 
   /* Extend the pq_dataset */
-  auto ext_pq_dataset    = ext_index.pq_dataset().data_handle();
-  size_t pq_dataset_unit = ext_index.pq_dim() * ext_index.pq_bits() / 8;
+  auto ext_pq_dataset = ext_index.pq_dataset().data_handle();
+  auto pq_dataset_unit =
+    size_t(ext_index.pq_dataset().extent(1)) * size_t(ext_index.pq_dataset().extent(3));
+  auto raw_data_unit = size_t(ext_index.pq_dim() * ext_index.pq_bits() / 8);
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
-    auto k                = cluster_ordering.data()[l];
-    auto old_cluster_size = size_t(old_cluster_sizes[k]);
-    copy(ext_pq_dataset + pq_dataset_unit * size_t(ext_cluster_offsets[l]),
-         orig_index.pq_dataset().data_handle() + pq_dataset_unit * size_t(old_cluster_offsets[k]),
-         pq_dataset_unit * old_cluster_size,
-         stream);
-    copy(ext_pq_dataset + pq_dataset_unit * size_t(ext_cluster_offsets[l] + old_cluster_size),
-         new_pq_codes.data() + pq_dataset_unit * size_t(new_cluster_offsets.data()[k]),
-         pq_dataset_unit * size_t(new_cluster_sizes[k]),
-         stream);
+    auto k                = cluster_ordering[l];
+    auto old_cluster_size = old_cluster_sizes[k];
+    auto old_pq_dataset =
+      make_mdspan(orig_index.pq_dataset().data_handle() + pq_dataset_unit * old_cluster_offsets[k],
+                  ext_index.make_pq_dataset_extents(old_cluster_size));
+    auto new_pq_data =
+      make_mdspan(new_pq_codes.data() + raw_data_unit * new_cluster_offsets.data()[k],
+                  make_extents<size_t>(new_cluster_sizes[k], raw_data_unit));
+    linalg::writeOnlyUnaryOp(
+      ext_pq_dataset + pq_dataset_unit * ext_cluster_offsets[l],
+      pq_dataset_unit * size_t(ext_cluster_offsets[l + 1] - ext_cluster_offsets[l]),
+      [old_pq_dataset, new_pq_data, old_cluster_size] __device__(uint8_t * out, size_t i_flat) {
+        size_t i[4];
+        for (int r = 3; r > 0; r--) {
+          i[r] = i_flat % old_pq_dataset.extent(r);
+          i_flat /= old_pq_dataset.extent(r);
+        }
+        i[0]        = i_flat;
+        auto row_ix = i[0] * old_pq_dataset.extent(2) + i[2];
+        if (row_ix < old_cluster_size) {
+          *out = old_pq_dataset(i[0], i[1], i[2], i[3]);
+        } else {
+          row_ix -= old_cluster_size;
+          auto col_ix = i[1] * old_pq_dataset.extent(3) + i[3];
+          if (row_ix < new_pq_data.extent(0) && col_ix < new_pq_data.extent(1)) {
+            *out = new_pq_data(row_ix, col_ix);
+          } else {
+            *out = 0;
+          }
+        }
+      },
+      stream);
   }
 
   return ext_index;
@@ -979,6 +1008,7 @@ inline auto build(
 
   index<IdxT> index(handle, params, dim);
   utils::memzero(index.list_offsets().data_handle(), index.list_offsets().size(), stream);
+  utils::memzero(index.list_sizes().data_handle(), index.list_sizes().size(), stream);
 
   auto trainset_ratio = std::max<size_t>(
     1,

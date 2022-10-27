@@ -119,6 +119,11 @@ struct search_params : ann::search_params {
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);
 
+/** Size of the interleaved group. */
+constexpr static uint32_t kIndexGroupSize = 32;
+/** Stride of the interleaved group for vectorized loads. */
+constexpr static uint32_t kIndexGroupVecLen = 16;
+
 /**
  * @brief IVF-PQ index.
  *
@@ -247,12 +252,12 @@ struct index : ann::index {
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
       n_nonempty_lists_(n_nonempty_lists),
       pq_centers_{make_device_mdarray<float>(handle, make_pq_centers_extents())},
-      pq_dataset_{make_device_mdarray<uint8_t>(
-        handle, make_extents<IdxT>(0, this->pq_dim() * this->pq_bits() / 8))},
+      pq_dataset_{make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(0))},
       indices_{make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0))},
       rotation_matrix_{
         make_device_mdarray<float>(handle, make_extents<uint32_t>(this->rot_dim(), this->dim()))},
       list_offsets_{make_device_mdarray<IdxT>(handle, make_extents<uint32_t>(this->n_lists() + 1))},
+      list_sizes_{make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(this->n_lists()))},
       centers_{make_device_mdarray<float>(
         handle, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
       centers_rot_{make_device_mdarray<float>(
@@ -283,9 +288,8 @@ struct index : ann::index {
    */
   void allocate(const handle_t& handle, IdxT index_size)
   {
-    pq_dataset_ =
-      make_device_mdarray<uint8_t>(handle, make_extents<IdxT>(index_size, pq_dataset_.extent(1)));
-    indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));
+    indices_    = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
     check_consistency();
   }
 
@@ -307,13 +311,21 @@ struct index : ann::index {
     return pq_centers_.view();
   }
 
-  /** PQ-encoded data [size, pq_dim * pq_bits / 8]. */
-  inline auto pq_dataset() noexcept -> device_mdspan<uint8_t, extent_2d<IdxT>, row_major>
+  using pq_dataset_extents = std::experimental::
+    extents<IdxT, dynamic_extent, dynamic_extent, kIndexGroupSize, kIndexGroupVecLen>;
+  /** PQ-encoded data
+   *    [ceildiv(size, kIndexGroupSize)
+   *    , ceildiv(pq_dim * pq_bits / 8, kIndexGroupVecLen)
+   *    , kIndexGroupSize
+   *    , kIndexGroupVecLen
+   *    ].
+   */
+  inline auto pq_dataset() noexcept -> device_mdspan<uint8_t, pq_dataset_extents, row_major>
   {
     return pq_dataset_.view();
   }
   [[nodiscard]] inline auto pq_dataset() const noexcept
-    -> device_mdspan<const uint8_t, extent_2d<IdxT>, row_major>
+    -> device_mdspan<const uint8_t, pq_dataset_extents, row_major>
   {
     return pq_dataset_.view();
   }
@@ -354,6 +366,17 @@ struct index : ann::index {
     return list_offsets_.view();
   }
 
+  /** Sizes of the lists [n_lists]. */
+  inline auto list_sizes() noexcept -> device_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return list_sizes_.view();
+  }
+  [[nodiscard]] inline auto list_sizes() const noexcept
+    -> device_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return list_sizes_.view();
+  }
+
   /** Cluster centers corresponding to the lists in the original space [n_lists, dim_ext] */
   inline auto centers() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
   {
@@ -376,6 +399,17 @@ struct index : ann::index {
     return centers_rot_.view();
   }
 
+  /** A helper function to determine the extents of an array enough to hold a given amount of data.
+   */
+  auto make_pq_dataset_extents(IdxT n_rows) -> pq_dataset_extents
+  {
+    auto l = pq_dim() * pq_bits() / 8;
+    return make_extents<IdxT>(raft::div_rounding_up_safe<IdxT>(n_rows, kIndexGroupSize),
+                              raft::div_rounding_up_safe<IdxT>(l, kIndexGroupVecLen),
+                              kIndexGroupSize,
+                              kIndexGroupVecLen);
+  }
+
  private:
   raft::distance::DistanceType metric_;
   codebook_gen codebook_kind_;
@@ -386,10 +420,11 @@ struct index : ann::index {
   uint32_t n_nonempty_lists_;
 
   device_mdarray<float, pq_centers_extents, row_major> pq_centers_;
-  device_mdarray<uint8_t, extent_2d<IdxT>, row_major> pq_dataset_;
+  device_mdarray<uint8_t, pq_dataset_extents, row_major> pq_dataset_;
   device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> rotation_matrix_;
   device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
+  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_rot_;
 
