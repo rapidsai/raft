@@ -362,7 +362,6 @@ void update_centroids(const raft::handle_t& handle,
  * @tparam IndexT the type of data used for indexing.
  *
  * @param[in]  handle               The raft handle
- * @param[in]  params               The parameters for KMeans
  * @param[in]  X                    The data in row-major format
  *                                  [dim = n_samples x n_features]
  * @param[in]  centroids            Centroids data
@@ -373,6 +372,9 @@ void update_centroids(const raft::handle_t& handle,
  *                                  [dim = n_samples]
  * @param[out] L2NormBuf_OR_DistBuf Resizable buffer to store L2 norm of centroids or distance
  *                                  matrix
+ * @param[in]  metric               Distance metric to use
+ * @param[in]  batch_samples        batch size for input data samples
+ * @param[in]  batch_centroids      batch size for input centroids
  * @param[in]  workspace            Temporary workspace buffer which can get resized
  *
  */
