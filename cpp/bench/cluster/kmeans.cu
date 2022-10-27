@@ -18,8 +18,8 @@
 #include <raft/cluster/kmeans.cuh>
 #include <raft/cluster/kmeans_params.hpp>
 
-#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
-#include <raft/cluster/specializations.cuh>
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
 #endif
 
 namespace raft::bench::cluster {
@@ -30,12 +30,22 @@ struct KMeansBenchParams {
   raft::cluster::KMeansParams kmeans;
 };
 
+inline auto operator<<(std::ostream& os, const KMeansBenchParams& p) -> std::ostream&
+{
+  os << p.data.rows << "#" << p.data.cols << "#" << p.kmeans.n_clusters;
+  return os;
+}
+
 template <typename T, typename IndexT = int>
 struct KMeans : public BlobsFixture<T, IndexT> {
   KMeans(const KMeansBenchParams& p) : BlobsFixture<T, IndexT>(p.data, p.blobs), params(p) {}
 
   void run_benchmark(::benchmark::State& state) override
   {
+    std::ostringstream label_stream;
+    label_stream << params;
+    state.SetLabel(label_stream.str());
+
     raft::device_matrix_view<const T, IndexT> X_view                          = this->X.view();
     std::optional<raft::device_vector_view<const T, IndexT>> opt_weights_view = std::nullopt;
     std::optional<raft::device_matrix_view<T, IndexT>> centroids_view =
@@ -97,10 +107,7 @@ std::vector<KMeansBenchParams> getKMeansInputs()
     p.data.cols         = std::get<1>(rck);
     p.blobs.n_clusters  = std::get<2>(rck);
     p.kmeans.n_clusters = std::get<2>(rck);
-    for (auto bs_shift : std::vector<int>({16, 18})) {
-      p.kmeans.batch_samples = 1 << bs_shift;
-      out.push_back(p);
-    }
+    out.push_back(p);
   }
   return out;
 }
