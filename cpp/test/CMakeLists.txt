@@ -140,6 +140,7 @@ if(BUILD_TESTS)
             test/linalg/map.cu
             test/linalg/map_then_reduce.cu
             test/linalg/matrix_vector_op.cu
+            test/linalg/mean_squared_error.cu
             test/linalg/multiply.cu
             test/linalg/norm.cu
             test/linalg/power.cu
