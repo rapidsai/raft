@@ -87,7 +87,7 @@ class SliceTest : public ::testing::TestWithParam<SliceInputs<T>> {
       raft::make_device_matrix_view<const T, int, raft::col_major>(data.data(), rows, cols);
     auto output = raft::make_device_matrix_view<T, int, raft::col_major>(
       d_act_result.data(), row2 - row1, col2 - col1);
-    slice(handle, input, output, row1, col1, row2, col2);
+    slice(handle, input, output, slice_coordinates(row1, col1, row2, col2));
 
     raft::update_host(act_result.data(), d_act_result.data(), d_act_result.size(), stream);
     handle.sync_stream(stream);
