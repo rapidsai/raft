@@ -514,7 +514,7 @@ void fit_main(const raft::handle_t& handle,
     handle, params, X, weight, centroids, inertia, n_iter, workspace);
 }
 
-};  // namespace raft::cluster
+};  // namespace raft::cluster::kmeans
 
 namespace raft::cluster {
 
