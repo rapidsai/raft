@@ -13,7 +13,8 @@
 # =============================================================================
 
 # Set the list of Cython files to build
-set(cython_sources pairwise_distance.pyx)
+set(cython_sources pairwise_distance.pyx
+                   fused_l2_nn.pyx)
 set(linked_libraries raft::raft raft::distance)
 
 # Build all of the Cython targets

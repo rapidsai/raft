@@ -15,8 +15,8 @@
  */
 
 #include <cstdint>
+#include <raft/neighbors/specializations/detail/ball_cover_lowdim.hpp>
 #include <raft/spatial/knn/detail/ball_cover/registers.cuh>
-#include <raft/spatial/knn/specializations/detail/ball_cover_lowdim.hpp>
 
 namespace raft {
 namespace spatial {
