@@ -40,6 +40,7 @@ While not exhaustive, the following general categories help summarize the accele
    :caption: Contents:
 
    quick_start.md
+   build.md
    cpp_api.rst
    pylibraft_api.rst
    raft_dask_api.rst

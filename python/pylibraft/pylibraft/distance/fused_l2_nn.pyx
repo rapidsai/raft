@@ -25,6 +25,7 @@ from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from .distance_type cimport DistanceType
+from pylibraft.common import Handle
 from pylibraft.common.handle cimport handle_t
 
 
@@ -58,7 +59,7 @@ cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
         bool sqrt)
 
 
-def fused_l2_nn_argmin(X, Y, output, sqrt=True):
+def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
     """
     Compute the 1-nearest neighbors between X and Y using the L2 distance
 
@@ -68,6 +69,7 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True):
     X : CUDA array interface compliant matrix shape (m, k)
     Y : CUDA array interface compliant matrix shape (n, k)
     output : Writable CUDA array interface matrix shape (m, 1)
+    handle : Optional RAFT handle for reusing expensive CUDA resources
 
     Examples
     --------
@@ -76,6 +78,7 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True):
 
         import cupy as cp
 
+        from pylibraft.common import Handle
         from pylibraft.distance import fused_l2_nn
 
         n_samples = 5000
@@ -88,7 +91,15 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True):
                                       dtype=cp.float32)
         output = cp.empty((n_samples, 1), dtype=cp.int32)
 
-        fused_l2_nn_argmin(in1, in2, output)
+        # A single RAFT handle can optionally be reused across
+        # pylibraft functions.
+        handle = Handle()
+        ...
+        fused_l2_nn_argmin(in1, in2, output, handle=handle)
+        ...
+        # pylibraft functions are often asynchronous so the
+        # handle needs to be explicitly synchronized
+        handle.sync()
    """
 
     x_cai = X.__cuda_array_interface__
@@ -110,7 +121,8 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True):
 
     d_ptr = <uintptr_t>output_cai["data"][0]
 
-    cdef handle_t *h = new handle_t()
+    handle = handle if handle is not None else Handle()
+    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
     x_dt = np.dtype(x_cai["typestr"])
     y_dt = np.dtype(y_cai["typestr"])
@@ -122,7 +134,6 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True):
     if x_c_contiguous != y_c_contiguous:
         raise ValueError("Inputs must have matching strides")
 
-    print(x_dt)
     if x_dt != y_dt:
         raise ValueError("Inputs must have the same dtypes")
     if d_dt != np.int32:

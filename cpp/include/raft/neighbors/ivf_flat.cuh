@@ -121,7 +121,7 @@ auto build(const handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_flat::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
@@ -164,7 +164,7 @@ auto extend(const handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_flat::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
@@ -195,7 +195,7 @@ auto extend(const handle_t& handle,
             std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
   -> index<value_t, idx_t>
 {
-  return raft::spatial::knn::ivf_flat::detail::extend<value_t, idx_t>(
+  return extend<value_t, idx_t>(
     handle,
     orig_index,
     new_vectors.data_handle(),
@@ -208,7 +208,7 @@ auto extend(const handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_flat::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
@@ -244,7 +244,7 @@ void extend(const handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_flat::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
@@ -376,7 +376,7 @@ void search(const handle_t& handle,
             const index<value_t, idx_t>& index,
             raft::device_matrix_view<const value_t, idx_t, row_major> queries,
             raft::device_matrix_view<idx_t, idx_t, row_major> neighbors,
-            raft::device_matrix_view<idx_t, idx_t, float> distances,
+            raft::device_matrix_view<float, idx_t, row_major> distances,
             const search_params& params,
             int_t k)
 {
@@ -391,15 +391,15 @@ void search(const handle_t& handle,
   RAFT_EXPECTS(queries.extent(1) == index.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
 
-  return raft::spatial::knn::ivf_flat::detail::search(handle,
-                                                      params,
-                                                      index,
-                                                      queries.data_handle(),
-                                                      queries.extent(0),
-                                                      k,
-                                                      neighbors.data_handle(),
-                                                      distances.data_handle(),
-                                                      nullptr);
+  return search(handle,
+                params,
+                index,
+                queries.data_handle(),
+                static_cast<std::uint32_t>(queries.extent(0)),
+                static_cast<std::uint32_t>(k),
+                neighbors.data_handle(),
+                distances.data_handle(),
+                nullptr);
 }
 
 }  // namespace raft::neighbors::ivf_flat
