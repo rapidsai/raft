@@ -121,7 +121,7 @@ auto build(const handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_flat::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
@@ -164,7 +164,7 @@ auto extend(const handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_flat::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
@@ -208,7 +208,7 @@ auto extend(const handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_flat::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
@@ -244,7 +244,7 @@ void extend(const handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_flat::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training

@@ -76,7 +76,7 @@ inline auto build(
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_pq::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
