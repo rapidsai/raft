@@ -357,7 +357,7 @@ void minClusterAndDistanceCompute(
   // todo(lsugy): change batch size computation when using fusedL2NN!
   bool is_fused = metric == raft::distance::DistanceType::L2Expanded ||
                   metric == raft::distance::DistanceType::L2SqrtExpanded;
-  auto dataBatchSize      = is_fused ? (IndexT)n_samples : getDataBatchSize(batch_samples, n_samples);
+  auto dataBatchSize = is_fused ? (IndexT)n_samples : getDataBatchSize(batch_samples, n_samples);
   auto centroidsBatchSize = getCentroidsBatchSize(batch_centroids, n_clusters);
 
   if (is_fused) {
@@ -492,7 +492,7 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
 
   bool is_fused = metric == raft::distance::DistanceType::L2Expanded ||
                   metric == raft::distance::DistanceType::L2SqrtExpanded;
-  auto dataBatchSize      = is_fused ? (IndexT)n_samples : getDataBatchSize(batch_samples, n_samples);
+  auto dataBatchSize = is_fused ? (IndexT)n_samples : getDataBatchSize(batch_samples, n_samples);
   auto centroidsBatchSize = getCentroidsBatchSize(batch_centroids, n_clusters);
 
   if (is_fused) {
