@@ -43,7 +43,7 @@ struct AbsLoss : detail::objectives::AbsLoss<T> {
     : detail::objectives::AbsLoss(handle, D, has_bias)
   {
   }
-}
+};
 
 /**
  * Squared loss function specification
@@ -55,7 +55,7 @@ struct SquaredLoss : detail::objectives::SquaredLoss<T> {
     : detail::objectives::SquaredLoss(handle, D, 1, has_bias), lz{}, dlz{}
   {
   }
-}
+};
 
 /**
  * Standard hinge loss function specification
@@ -67,7 +67,7 @@ struct HingeLoss : detail::objectives::HingeLoss<T> {
     : detail::objectives::HingeLoss(handle, D, has_bias)
   {
   }
-}
+};
 
 /**
  *
@@ -79,7 +79,7 @@ struct LogisticLoss : detail::objectives::LogisticLoss<T> {
     : detail::objectives::LogisticLoss(handle, D, has_bias)
   {
   }
-}
+};
 
 /**
  * Squared hinge loss function specification
@@ -91,19 +91,19 @@ struct SqHingeLoss : detail::objectives::SqHingeLoss<T> {
     : detail::objectives::SqHingeLoss(handle, D, has_bias)
   {
   }
-}
+};
 
   /**
    * Epsilon insensitive (regression) hinge loss function specification
    * @tparam T
    */
   template <typename T>
-  struct EpsInsHingeLoss : detail::objectives::EpsInsHingeLoss > {
+  struct EpsInsHingeLoss : detail::objectives::EpsInsHingeLoss<T> {
   EpsInsHingeLoss(const raft::handle_t& handle, int D, bool has_bias, T sensitivity)
     : detail::objectives::EpsInsHingeLoss(handle, D, 1, has_bias), lz{sensitivity}, dlz{sensitivity}
   {
   }
-}
+};
 
 /**
  * Squared Epsilon insensitive (regression) hinge loss function specification
@@ -160,7 +160,7 @@ struct QNLinearBase : detail::objectives::QNLinearBase<T, Loss> {
     : detail::objectives::QNLinearBase(C, D, fit_intercept)
   {
   }
-}
+};
 
 /**
  * Softmax loss function specification
@@ -172,7 +172,7 @@ struct Softmax : detail::objectives::Softmax<T> {
     : detail::objectives::Softmax(handle, D, C, has_bias)
   {
   }
-}
+};
 
 /**
  * Constructs a end-to-end quasi-newton objective function to solve the system
@@ -192,7 +192,7 @@ struct ObjectiveWithData : detail::objectives::QNWithData<T, QuasiNewtonObjectiv
     : detail::objectives::QNWithData(obj->C, obj->D, obj->fit_intercept)
   {
   }
-}
+};
 
 /**
  * @brief Minimize the given `raft::solver::quasi_newton::ObjectiveWithData` using

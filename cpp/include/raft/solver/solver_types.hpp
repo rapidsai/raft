@@ -18,7 +18,9 @@
 
 namespace raft::solver {
 
-enum lr_type {
+enum STORAGE_ORDER { COL_MAJOR = 0, ROW_MAJOR = 1 };
+
+    enum lr_type {
   OPTIMAL,
   CONSTANT,
   INVSCALING,
@@ -105,7 +107,46 @@ enum class LarsFitStatus { kOk, kCollinear, kError, kStop };
 
 namespace quasi_newton {
 
-struct qn_params {
+/** Loss function types supported by the Quasi-Newton solvers. */
+enum qn_loss_type {
+    /** Logistic classification.
+     *  Expected target: {0, 1}.
+     */
+    QN_LOSS_LOGISTIC = 0,
+    /** L2 regression.
+     *  Expected target: R.
+     */
+    QN_LOSS_SQUARED = 1,
+    /** Softmax classification..
+     *  Expected target: {0, 1, ...}.
+     */
+    QN_LOSS_SOFTMAX = 2,
+    /** Hinge.
+     *  Expected target: {0, 1}.
+     */
+    QN_LOSS_HINGE = 3,
+    /** Squared-hinge.
+     *  Expected target: {0, 1}.
+     */
+    QN_LOSS_SQ_HINGE = 4,
+    /** Epsilon-insensitive.
+     *  Expected target: R.
+     */
+    QN_LOSS_HINGE_EPS_INS = 5,
+    /** Epsilon-insensitive-squared.
+     *  Expected target: R.
+     */
+    QN_LOSS_HINGE_SQ_EPS_INS = 6,
+    /** L1 regression.
+     *  Expected target: R.
+     */
+    QN_LOSS_ABS = 7,
+    /** Someone forgot to set the loss type! */
+    QN_LOSS_UNKNOWN = 99
+};
+
+
+    struct qn_params {
   /** Loss type. */
   qn_loss_type loss;
   /** Regularization: L1 component. */

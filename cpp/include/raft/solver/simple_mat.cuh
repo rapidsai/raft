@@ -18,23 +18,27 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/interruptible.hpp>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/solver/solver_types.hpp>
 
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/ternary_op.cuh>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/sparse/detail/cusparse_wrappers.h>
+
+#include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/ternary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/sparse/detail/cusparse_wrappers.h>
 
 /**
  * NOTE: This will eventually get replaced with mdspan/mdarray
  */
 
-namespace raft::solver {
+namespace raft::solver::quasi_newton {
+
+template<typename T>
+struct SimpleDenseMat;
 
 template <typename T>
 struct SimpleMat {
@@ -63,7 +67,6 @@ struct SimpleMat {
                      cudaStream_t stream) const = 0;
 };
 
-enum STORAGE_ORDER { COL_MAJOR = 0, ROW_MAJOR = 1 };
 
 template <typename T>
 struct SimpleDenseMat : SimpleMat<T> {

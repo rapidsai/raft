@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
-#include <cuml/linear_model/glm.hpp>
-#include <gtest/gtest.h>
 #include <raft/core/handle.hpp>
+
 #include <raft/linalg/transpose.cuh>
+
+#include <raft/solver/solver_types.hpp>
 #include <raft/solver/quasi_newton.cuh>
+
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
 #include <test_utils.h>
 #include <vector>
 
@@ -149,16 +153,6 @@ inline void qn_fit_x(const raft::handle_t& handle,
 }
 
 struct QuasiNewtonTest : ::testing::Test {
-  static constexpr int N = 10;
-  static constexpr int D = 2;
-
-  const static double* nobptr;
-  const static double tol;
-  const static double X[N][D];
-  const raft::handle_t& handle;
-  cudaStream_t stream = 0;
-  std::shared_ptr<SimpleMatOwning<double>> Xdev;
-  std::shared_ptr<SimpleVecOwning<double>> ydev;
 
   QuasiNewtonTest() {}
   void SetUp()
@@ -171,6 +165,18 @@ struct QuasiNewtonTest : ::testing::Test {
     handle.sync_stream(stream);
   }
   void TearDown() {}
+
+    static constexpr int N = 10;
+    static constexpr int D = 2;
+
+    const static double* nobptr;
+    const static double tol;
+    const static double X[N][D];
+    const raft::handle_t handle;
+    cudaStream_t stream = 0;
+    std::shared_ptr<SimpleMatOwning<double>> Xdev;
+    std::shared_ptr<SimpleVecOwning<double>> ydev;
+
 };
 
 const double* QuasiNewtonTest::nobptr                                   = 0;
@@ -192,7 +198,7 @@ template <typename T, class Comp>
                                             const T* host_weights,
                                             const T* host_bias,
                                             const T* w,
-                                            const GLMDims& dims,
+                                            const LinearDims& dims,
                                             Comp& comp,
                                             cudaStream_t stream)
 {
@@ -243,7 +249,7 @@ T run(const raft::handle_t& handle,
 }
 
 template <typename T>
-T run_api(const raft::handle_t& cuml_handle,
+T run_api(const raft::handle_t& handle,
           qn_loss_type loss_type,
           int C,
           bool fit_intercept,
@@ -275,7 +281,7 @@ T run_api(const raft::handle_t& cuml_handle,
   w0.fill(T(0), stream);
   T fx;
 
-  qn_fit_on_x(cuml_handle,
+  qn_fit_on_x(handle,
               pams,
               X_dense->data,
               X_dense->ord == COL_MAJOR,
@@ -286,10 +292,8 @@ T run_api(const raft::handle_t& cuml_handle,
               w,
               &fx,
               &num_iters);
-}
-else { ADD_FAILURE(); }
 
-return fx;
+    return fx;
 }
 
 TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
@@ -338,7 +342,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l2_b[0], &b_l2_b, w0.data, loss_b, compApprox, stream));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_LOGISTIC,
                2,
                loss_b.fit_intercept,
@@ -362,7 +366,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
   ASSERT_TRUE(
     checkParamsEqual(handle, &w_l1_no_b[0], nobptr, w0.data, loss_no_b, compApprox, stream));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_LOGISTIC,
                2,
                loss_no_b.fit_intercept,
@@ -386,7 +390,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
   ASSERT_TRUE(
     checkParamsEqual(handle, &w_l2_no_b[0], nobptr, w0.data, loss_no_b, compApprox, stream));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_LOGISTIC,
                2,
                loss_no_b.fit_intercept,
@@ -432,7 +436,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
   fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_SOFTMAX,
                C,
                loss_b.fit_intercept,
@@ -453,7 +457,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
   fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_SOFTMAX,
                C,
                loss_b.fit_intercept,
@@ -474,7 +478,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
   fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_SOFTMAX,
                C,
                loss_no_b.fit_intercept,
@@ -496,7 +500,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
   fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_SOFTMAX,
                C,
                loss_no_b.fit_intercept,
@@ -544,7 +548,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l1_b[0], &b_l1_b, w0.data, loss_b, compApprox, stream));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_SQUARED,
                1,
                loss_b.fit_intercept,
@@ -568,7 +572,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l2_b[0], &b_l2_b, w0.data, loss_b, compApprox, stream));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_SQUARED,
                1,
                loss_b.fit_intercept,
@@ -592,7 +596,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
   ASSERT_TRUE(
     checkParamsEqual(handle, &w_l1_no_b[0], nobptr, w0.data, loss_no_b, compApprox, stream));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_SQUARED,
                1,
                loss_no_b.fit_intercept,
@@ -616,7 +620,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
   ASSERT_TRUE(
     checkParamsEqual(handle, &w_l2_no_b[0], nobptr, w0.data, loss_no_b, compApprox, stream));
 
-  fx = run_api(cuml_handle,
+  fx = run_api(handle,
                QN_LOSS_SQUARED,
                1,
                loss_no_b.fit_intercept,
@@ -784,7 +788,7 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
       ASSERT_TRUE(compApprox(preds_dense_host[i], preds_sparse_host[i]));
     }
 
-    f_dense  = run_api(cuml_handle,
+    f_dense  = run_api(handle,
                       QN_LOSS_SOFTMAX,
                       C,
                       loss.fit_intercept,
@@ -796,7 +800,7 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
                       z_dense,
                       0,
                       stream);
-    f_sparse = run_api(cuml_handle,
+    f_sparse = run_api(handle,
                        QN_LOSS_SOFTMAX,
                        C,
                        loss.fit_intercept,

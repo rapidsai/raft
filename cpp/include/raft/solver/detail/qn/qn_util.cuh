@@ -27,8 +27,8 @@ inline bool qn_is_classification(qn_loss_type t)
   switch (t) {
     case QN_LOSS_LOGISTIC:
     case QN_LOSS_SOFTMAX:
-    case QN_LOSS_SVC_L1:
-    case QN_LOSS_SVC_L2: return true;
+    case QN_LOSS_HINGE:
+    case QN_LOSS_SQ_HINGE: return true;
     default: return false;
   }
 }
