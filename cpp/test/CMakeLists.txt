@@ -140,6 +140,7 @@ if(BUILD_TESTS)
             test/linalg/gemv.cu
             test/linalg/map.cu
             test/linalg/map_then_reduce.cu
+            test/linalg/matrix_vector.cu
             test/linalg/matrix_vector_op.cu
             test/linalg/multiply.cu
             test/linalg/norm.cu
@@ -159,11 +160,17 @@ if(BUILD_TESTS)
 
     ConfigureTest(NAME MATRIX_TEST
             PATH
+            test/matrix/argmax.cu
+            test/matrix/columnSort.cu
+            test/matrix/diagonal.cu
             test/matrix/gather.cu
+            test/matrix/linewise_op.cu
             test/matrix/math.cu
             test/matrix/matrix.cu
-            test/matrix/columnSort.cu
-            test/matrix/linewise_op.cu
+            test/matrix/norm.cu
+            test/matrix/reverse.cu
+            test/matrix/slice.cu
+            test/matrix/triangular.cu
             test/spectral_matrix.cu
     )
 
