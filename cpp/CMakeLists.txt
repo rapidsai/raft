@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #=============================================================================
-set(RAPIDS_VERSION "22.10")
-set(RAFT_VERSION "22.10.00")
+set(RAPIDS_VERSION "22.12")
+set(RAFT_VERSION "22.12.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -167,7 +167,8 @@ if(BUILD_TESTS)
 endif()
 
 if(BUILD_BENCH)
-  include(cmake/thirdparty/get_gbench.cmake)
+  include(${rapids-cmake-dir}/cpm/gbench.cmake)
+  rapids_cpm_gbench()
 endif()
 
 ##############################################################################
@@ -244,15 +245,26 @@ set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 if(RAFT_COMPILE_DIST_LIBRARY)
   add_library(raft_distance_lib
     src/distance/pairwise_distance.cu
+    src/distance/fused_l2_min_arg.cu
     src/distance/specializations/detail/canberra.cu
     src/distance/specializations/detail/chebyshev.cu
     src/distance/specializations/detail/correlation.cu
+    src/distance/specializations/detail/cosine.cu
     src/distance/specializations/detail/cosine.cu
     src/distance/specializations/detail/hamming_unexpanded.cu
     src/distance/specializations/detail/hellinger_expanded.cu
     src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
     src/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
     src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
+    src/distance/specializations/detail/kernels/gram_matrix_base_double.cu
+    src/distance/specializations/detail/kernels/gram_matrix_base_float.cu
+    src/distance/specializations/detail/kernels/polynomial_kernel_double_int.cu
+    src/distance/specializations/detail/kernels/polynomial_kernel_float_int.cu
+# These are somehow missing a kernel definition which is causing a compile error.
+#    src/distance/specializations/detail/kernels/rbf_kernel_double.cu
+#    src/distance/specializations/detail/kernels/rbf_kernel_float.cu
+    src/distance/specializations/detail/kernels/tanh_kernel_double.cu
+    src/distance/specializations/detail/kernels/tanh_kernel_float.cu
     src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
     src/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
     src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
@@ -277,10 +289,10 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/detail/russel_rao_double_double_double_int.cu
     src/distance/specializations/detail/russel_rao_float_float_float_uint32.cu
     src/distance/specializations/detail/russel_rao_float_float_float_int.cu
-#    src/distance/specializations/fused_l2_nn_double_int.cu
-#    src/distance/specializations/fused_l2_nn_double_int64.cu
-#    src/distance/specializations/fused_l2_nn_float_int.cu
-#    src/distance/specializations/fused_l2_nn_float_int64.cu
+    src/distance/specializations/fused_l2_nn_double_int.cu
+    src/distance/specializations/fused_l2_nn_double_int64.cu
+    src/distance/specializations/fused_l2_nn_float_int.cu
+    src/distance/specializations/fused_l2_nn_float_int64.cu
     src/random/specializations/rmat_rectangular_generator_int_double.cu
     src/random/specializations/rmat_rectangular_generator_int64_double.cu
     src/random/specializations/rmat_rectangular_generator_int_float.cu
@@ -569,7 +581,6 @@ endif()
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
-
 include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE doxygen/Doxyfile.in
         OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile

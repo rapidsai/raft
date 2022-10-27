@@ -112,7 +112,7 @@ __global__ void compute_chunked_a_b_kernel(value_t* a,
 
 template <typename value_idx, typename label_idx>
 rmm::device_uvector<value_idx> get_cluster_counts(const raft::handle_t& handle,
-                                                  label_idx* y,
+                                                  const label_idx* y,
                                                   value_idx& n_rows,
                                                   label_idx& n_labels)
 {
@@ -129,8 +129,8 @@ rmm::device_uvector<value_idx> get_cluster_counts(const raft::handle_t& handle,
 
 template <typename value_t, typename value_idx>
 rmm::device_uvector<value_t> get_pairwise_distance(const raft::handle_t& handle,
-                                                   value_t* left_begin,
-                                                   value_t* right_begin,
+                                                   const value_t* left_begin,
+                                                   const value_t* right_begin,
                                                    value_idx& n_left_rows,
                                                    value_idx& n_right_rows,
                                                    value_idx& n_cols,
@@ -170,10 +170,10 @@ void compute_chunked_a_b(const raft::handle_t& handle,
 template <typename value_t, typename value_idx, typename label_idx>
 value_t silhouette_score(
   const raft::handle_t& handle,
-  value_t* X,
+  const value_t* X,
   value_idx n_rows,
   value_idx n_cols,
-  label_idx* y,
+  const label_idx* y,
   label_idx n_labels,
   value_t* scores,
   value_idx chunk,
@@ -221,8 +221,8 @@ value_t silhouette_score(
 
       auto chunk_stream = handle.get_next_usable_stream(i + chunk * j);
 
-      auto* left_begin  = X + (i * n_cols);
-      auto* right_begin = X + (j * n_cols);
+      const auto* left_begin  = X + (i * n_cols);
+      const auto* right_begin = X + (j * n_cols);
 
       auto n_left_rows  = (i + chunk) < n_rows ? chunk : (n_rows - i);
       auto n_right_rows = (j + chunk) < n_rows ? chunk : (n_rows - j);

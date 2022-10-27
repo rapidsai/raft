@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/mdspan.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
@@ -176,6 +178,37 @@ struct Linewise {
       return out;
     }
   }
+
+  /**
+   * @brief Same as loadVec, but padds data with Ones
+   *
+   * @param shm
+   * @param p
+   * @param blockOffset
+   * @param rowLen
+   * @param rowLenPadded
+   * @return a contiguous chunk of a vector, suitable for `vectorRows`.
+   */
+  static __device__ __forceinline__ Vec loadVecPadded(Type* shm,
+                                                      const Type* p,
+                                                      const IdxType blockOffset,
+                                                      const IdxType rowLen,
+                                                      const IdxType rowLenPadded) noexcept
+  {
+    IdxType j = blockOffset + threadIdx.x;
+#pragma unroll VecElems
+    for (int k = threadIdx.x; k < VecElems * BlockSize; k += BlockSize, j += BlockSize) {
+      while (j >= rowLenPadded)
+        j -= rowLenPadded;
+      shm[k] = j < rowLen ? p[j] : Type(1);
+    }
+    __syncthreads();
+    {
+      Vec out;
+      *out.vectorized_data() = reinterpret_cast<typename Vec::io_t*>(shm)[threadIdx.x];
+      return out;
+    }
+  }
 };
 
 /**
@@ -326,6 +359,48 @@ __global__ void __launch_bounds__(BlockSize)
 }
 
 /**
+ * Simplified version of `matrixLinewiseVecRowsMainKernel` for use with padded data.
+ * Data is required to be aligned and padded.
+ *
+ * @param [out] out the start of the *aligned* part of the output matrix
+ * @param [in] in the start of the *aligned* part of the input matrix
+ * @param [in] arrOffset such an offset into the matrices that makes them aligned to `VecBytes`
+ * @param [in] rowLen number of elements in a row (= the vector size)
+ * @param [in] len the total length of the aligned part of the matrices
+ * @param [in] op the function to apply
+ * @param [in] vecs pointers to the argument vectors
+ */
+template <typename Type,
+          typename IdxType,
+          std::size_t VecBytes,
+          int BlockSize,
+          typename Lambda,
+          typename... Vecs>
+__global__ void __launch_bounds__(BlockSize)
+  matrixLinewiseVecRowsSpanKernel(Type* out,
+                                  const Type* in,
+                                  const IdxType rowLen,
+                                  const IdxType rowLenPadded,
+                                  const IdxType lenPadded,
+                                  Lambda op,
+                                  Vecs... vecs)
+{
+  typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
+  constexpr uint workSize = L::VecElems * BlockSize;
+  uint workOffset         = workSize;
+  __shared__ __align__(sizeof(Type) * L::VecElems)
+    Type shm[workSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
+  const IdxType blockOffset = (BlockSize * L::VecElems * blockIdx.x) % rowLenPadded;
+  return L::vectorRows(
+    reinterpret_cast<typename L::Vec::io_t*>(out),
+    reinterpret_cast<const typename L::Vec::io_t*>(in),
+    L::AlignElems::div(lenPadded),
+    op,
+    (workOffset ^= workSize,
+     L::loadVecPadded(shm + workOffset, vecs, blockOffset, rowLen, rowLenPadded))...);
+}
+
+/**
  * This kernel is similar to `matrixLinewiseVecRowsMainKernel`, but processes only the unaligned
  * head and tail parts of the matrix.
  * This kernel is always launched in just two blocks; the first block processes the head of the
@@ -444,6 +519,59 @@ void matrixLinewiseVecCols(Type* out,
   }
 }
 
+/**
+ *  input/output data is expected to be aligned and padded
+ *  we simply extend the operation over the padded elements to be fully aligned
+ */
+template <typename Type,
+          typename IdxType,
+          typename LayoutPolicy,
+          std::size_t VecBytes,
+          int BlockSize,
+          typename Lambda,
+          typename... Vecs>
+void matrixLinewiseVecColsSpan(
+  raft::device_aligned_matrix_view<Type, IdxType, LayoutPolicy> out,
+  raft::device_aligned_matrix_view<const Type, IdxType, LayoutPolicy> in,
+  const IdxType rowLen,
+  const IdxType nRows,
+  Lambda op,
+  cudaStream_t stream,
+  Vecs... vecs)
+{
+  typedef raft::Pow2<VecBytes> AlignBytes;
+  constexpr std::size_t VecElems = VecBytes / sizeof(Type);
+
+  typedef raft::Pow2<raft::layout_left_padded<Type>::padding> AlignPadding;
+
+  const uint paddedRowLen  = AlignPadding::roundUp(rowLen);
+  const IdxType alignedLen = paddedRowLen * nRows;
+
+  if (rowLen * nRows > 0) {
+    constexpr dim3 bs(BlockSize, 1, 1);
+    // Minimum size of the grid to make the device well occupied
+    const uint occupy = getOptimalGridSize<BlockSize>();
+    // does not make sense to have more blocks than this
+    const uint maxBlocks = raft::ceildiv<uint>(uint(alignedLen), bs.x * VecElems);
+    const dim3 gs(std::min(maxBlocks, occupy), 1, 1);
+    // The work arrangement is blocked on the block and warp levels;
+    //   see more details at Linewise::vectorCols.
+    // The value below determines how many scalar elements are processed by on thread in total.
+    const IdxType elemsPerThread =
+      raft::ceildiv<IdxType>(alignedLen, gs.x * VecElems * BlockSize) * VecElems;
+    matrixLinewiseVecColsMainKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
+      <<<gs, bs, 0, stream>>>(out.data_handle(),
+                              in.data_handle(),
+                              0,
+                              paddedRowLen,
+                              alignedLen,
+                              elemsPerThread,
+                              op,
+                              vecs...);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
+}
+
 template <typename Type,
           typename IdxType,
           std::size_t VecBytes,
@@ -509,6 +637,70 @@ void matrixLinewiseVecRows(Type* out,
 }
 
 /**
+ *  input/output data is expected to be aligned and padded
+ *  we simply extend the operation over the padded elements to be fully aligned
+ *  special treatment for 'Vecs' is needed as no elements are available for the padded region
+ */
+template <typename Type,
+          typename IdxType,
+          typename LayoutPolicy,
+          std::size_t VecBytes,
+          int BlockSize,
+          typename Lambda,
+          typename... Vecs>
+void matrixLinewiseVecRowsSpan(
+  raft::device_aligned_matrix_view<Type, IdxType, LayoutPolicy> out,
+  raft::device_aligned_matrix_view<const Type, IdxType, LayoutPolicy> in,
+  const IdxType rowLen,
+  const IdxType nRows,
+  Lambda op,
+  cudaStream_t stream,
+  Vecs... vecs)
+{
+  constexpr std::size_t VecElems = VecBytes / sizeof(Type);
+  typedef raft::Pow2<VecBytes> AlignBytes;
+
+  typedef raft::Pow2<raft::layout_right_padded<Type>::padding> AlignPadding;
+
+  const uint paddedRowLen  = AlignPadding::roundUp(rowLen);
+  const IdxType alignedLen = paddedRowLen * nRows;
+
+  if (rowLen * nRows > 0) {
+    constexpr dim3 bs(BlockSize, 1, 1);
+    // The work arrangement is striped;
+    //   see more details at Linewise::vectorRows.
+    // Below is the work amount performed by one block in one iteration.
+    constexpr uint block_work_size = bs.x * uint(VecElems);
+    /* Here I would define `grid_work_size = lcm(block_work_size, rowLen)` (Least Common Multiple)
+       This way, the grid spans a set of one or more rows each iteration, and, most importantly,
+       on every iteration each row processes the same set of indices within a row (= the same set
+       of vector indices).
+       This means, each block needs to load the values from the vector arguments only once.
+       Sadly, sometimes `grid_work_size > rowLen*nRows`, and sometimes grid_work_size > UINT_MAX.
+       That's why I don't declare it here explicitly.
+       Instead, I straightaway compute the
+         expected_grid_size = lcm(block_work_size, rowLen) / block_work_size
+     */
+    const uint expected_grid_size = paddedRowLen / raft::gcd(block_work_size, uint(paddedRowLen));
+    // Minimum size of the grid to make the device well occupied
+    const uint occupy = getOptimalGridSize<BlockSize>();
+    const dim3 gs(std::min(
+                    // does not make sense to have more blocks than this
+                    raft::ceildiv<uint>(uint(alignedLen), block_work_size),
+                    // increase the grid size to be not less than `occupy` while
+                    // still being the multiple of `expected_grid_size`
+                    raft::ceildiv<uint>(occupy, expected_grid_size) * expected_grid_size),
+                  1,
+                  1);
+
+    matrixLinewiseVecRowsSpanKernel<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>
+      <<<gs, bs, 0, stream>>>(
+        out.data_handle(), in.data_handle(), rowLen, paddedRowLen, alignedLen, op, vecs...);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
+}
+
+/**
  * Select one of the implementations:
  *   a. vectors applied along/across lines
  *   b. recursively try different VecBytes, such that alignments of `in` and `out`
@@ -540,6 +732,47 @@ struct MatrixLinewiseOp {
     else
       return matrixLinewiseVecCols<Type, IdxType, VecBytes, BlockSize, Lambda, Vecs...>(
         out, in, lineLen, nLines, op, stream, vecs...);
+  }
+
+  template <typename Type,
+            typename IdxType,
+            typename LayoutPolicy,
+            typename Lambda,
+            typename... Vecs>
+  static void runPadded(raft::device_aligned_matrix_view<Type, IdxType, LayoutPolicy> out,
+                        raft::device_aligned_matrix_view<const Type, IdxType, LayoutPolicy> in,
+                        const IdxType lineLen,
+                        const IdxType nLines,
+                        const bool alongLines,
+                        Lambda op,
+                        cudaStream_t stream,
+                        Vecs... vecs)
+  {
+    constexpr auto is_rowmajor = std::is_same_v<LayoutPolicy, raft::layout_right_padded<Type>>;
+    constexpr auto is_colmajor = std::is_same_v<LayoutPolicy, raft::layout_left_padded<Type>>;
+
+    static_assert(is_rowmajor || is_colmajor,
+                  "layout for in and out must be either padded row or col major");
+
+    // also statically assert padded matrix alignment == 2^i*VecBytes
+    assert(raft::Pow2<VecBytes>::areSameAlignOffsets(in, out));
+
+    if (alongLines)
+      return matrixLinewiseVecRowsSpan<Type,
+                                       IdxType,
+                                       LayoutPolicy,
+                                       VecBytes,
+                                       BlockSize,
+                                       Lambda,
+                                       Vecs...>(out, in, lineLen, nLines, op, stream, vecs...);
+    else
+      return matrixLinewiseVecColsSpan<Type,
+                                       IdxType,
+                                       LayoutPolicy,
+                                       VecBytes,
+                                       BlockSize,
+                                       Lambda,
+                                       Vecs...>(out, in, lineLen, nLines, op, stream, vecs...);
   }
 };
 

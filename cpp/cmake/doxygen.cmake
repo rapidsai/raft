@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ function(add_doxygen_target)
     set(multiValueArgs "")
     cmake_parse_arguments(dox "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     configure_file(${dox_IN_DOXYFILE} ${dox_OUT_DOXYFILE} @ONLY)
+
+    message("Command: ${DOXYGEN_EXECUTABLE} ${dox_OUT_DOXYFILE}")
     add_custom_target(docs_raft
       ${DOXYGEN_EXECUTABLE} ${dox_OUT_DOXYFILE}
       WORKING_DIRECTORY ${dox_CWD}

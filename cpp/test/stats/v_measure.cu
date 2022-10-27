@@ -65,7 +65,7 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
 
     // allocating and initializing memory to the GPU
 
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    stream = handle.get_stream();
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
     raft::update_device(truthClusterArray.data(), &arr1[0], (int)nElements, stream);
@@ -93,19 +93,17 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
       truthVMeasure = ((1 + params.beta) * truthHomogeity * truthCompleteness /
                        (params.beta * truthHomogeity + truthCompleteness));
     // calling the v_measure CUDA implementation
-    computedVMeasure = raft::stats::v_measure(truthClusterArray.data(),
-                                              predClusterArray.data(),
-                                              nElements,
-                                              lowerLabelRange,
-                                              upperLabelRange,
-                                              stream,
-                                              params.beta);
+    computedVMeasure = raft::stats::v_measure(
+      handle,
+      raft::make_device_vector_view<const T>(truthClusterArray.data(), nElements),
+      raft::make_device_vector_view<const T>(predClusterArray.data(), nElements),
+      lowerLabelRange,
+      upperLabelRange,
+      params.beta);
   }
 
-  // the destructor
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
   // declaring the data values
+  raft::handle_t handle;
   vMeasureParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements           = 0;

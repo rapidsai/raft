@@ -1,4 +1,8 @@
-# raft 22.10.00 (12 Oct 2022)
+# raft 22.12.00 (Date TBD)
+
+Please see https://github.com/rapidsai/raft/releases/tag/v22.12.00a for the latest changes to this development branch.
+
+# raft 22.10.00 (Date TBD)
 
 ## 🚨 Breaking Changes
 
