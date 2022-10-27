@@ -134,7 +134,6 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
     if x_c_contiguous != y_c_contiguous:
         raise ValueError("Inputs must have matching strides")
 
-    print(x_dt)
     if x_dt != y_dt:
         raise ValueError("Inputs must have the same dtypes")
     if d_dt != np.int32:
