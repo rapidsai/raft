@@ -327,16 +327,10 @@ void cluster_cost(const raft::handle_t& handle,
  * @param[in] handle: Raft handle to use for managing library resources
  * @param[in] X: input matrix (size n_samples, n_features)
  * @param[in] sample_weights: number of samples currently assigned to each centroid (size n_samples)
- * @param[in] l2norm_x: optional array of l2 norms for each input data sample (size n_samples)
  * @param[in] centroids: matrix of current centroids (size n_clusters, n_features)
- * @param[out] min_cluster_and_dist: output vector to store key/value pairs of min cluster indices
- * and distances (size n_clusters)
- * @param[out] new_centroids: output matrix of updated centroids (size n_clusters, n_features)
+ * @param[in] labels: Iterator of labels (can also be a raw pointer)
  * @param[out] weight_per_cluster: sum of sample weights per cluster (size n_clusters)
- * @param[in] metric: distance metric to use. Must be either L2Expanded, L2SqrtExpanded,
- * L2Unexpanded, or L2SqrtUnexpanded
- * @param[in] batch_samples: batch size for data samples when computing distances
- * @param[in] batch_centroids: batch size for centroids when computing distances
+ * @param[out] new_centroids: output matrix of updated centroids (size n_clusters, n_features)
  */
 template <typename DataT, typename IndexT, typename LabelsIterator>
 void update_centroids(const raft::handle_t& handle,
@@ -413,7 +407,7 @@ void min_cluster_distance(const raft::handle_t& handle,
  * @param[in]  handle                The raft handle
  * @param[in]  X                     The data in row-major format
  *                                   [dim = n_samples x n_features]
- * @param[in]  centroids             Centroids data
+-c * @param[in]  centroids             Centroids data
  *                                   [dim = n_cluster x n_features]
  * @param[out] minClusterAndDistance Distance vector that contains for every sample, the nearest
  *                                   centroid and it's distance
@@ -467,6 +461,7 @@ void min_cluster_and_distance(
  *                                 [dim = n_samples_to_gather x n_features]
  * @param[in]  n_samples_to_gather Number of sample to gather
  * @param[in]  seed                Seed for the shuffle
+ * @param[in]  workspace           Temporary workspace buffer which can get resized
  *
  */
 template <typename DataT, typename IndexT>
@@ -474,9 +469,10 @@ void shuffle_and_gather(const raft::handle_t& handle,
                         raft::device_matrix_view<const DataT, IndexT> in,
                         raft::device_matrix_view<DataT, IndexT> out,
                         uint32_t n_samples_to_gather,
-                        uint64_t seed)
+                        uint64_t seed,
+                        rmm::device_uvector<char>* workspace = nullptr)
 {
-  detail::shuffleAndGather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed);
+  detail::shuffleAndGather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed, workspace);
 }
 
 /**
@@ -954,6 +950,7 @@ void minClusterAndDistanceCompute(
  *                                 [dim = n_samples_to_gather x n_features]
  * @param[in]  n_samples_to_gather Number of sample to gather
  * @param[in]  seed                Seed for the shuffle
+ * @param[in]  workspace           Temporary workspace buffer which can get resized
  *
  */
 template <typename DataT, typename IndexT>
@@ -961,9 +958,10 @@ void shuffleAndGather(const raft::handle_t& handle,
                       raft::device_matrix_view<const DataT, IndexT> in,
                       raft::device_matrix_view<DataT, IndexT> out,
                       uint32_t n_samples_to_gather,
-                      uint64_t seed)
+                      uint64_t seed,
+                      rmm::device_uvector<char>* workspace = nullptr)
 {
-  kmeans::shuffle_and_gather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed);
+  kmeans::shuffle_and_gather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed, workspace);
 }
 
 /**
