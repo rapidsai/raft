@@ -28,6 +28,7 @@
 
 #include <raft/cluster/detail/kmeans_common.cuh>
 #include <raft/cluster/kmeans_types.hpp>
+#include <raft/common/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
@@ -61,6 +62,7 @@ void initRandom(const raft::handle_t& handle,
                 raft::device_matrix_view<const DataT, IndexT> X,
                 raft::device_matrix_view<DataT, IndexT> centroids)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("initRandom");
   cudaStream_t stream = handle.get_stream();
   auto n_clusters     = params.n_clusters;
   detail::shuffleAndGather<DataT, IndexT>(handle, X, centroids, n_clusters, params.rng_state.seed);
@@ -87,6 +89,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
                     raft::device_matrix_view<DataT, IndexT> centroidsRawData,
                     rmm::device_uvector<char>& workspace)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeansPlusPlus");
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
@@ -365,6 +368,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
                      raft::host_scalar_view<IndexT> n_iter,
                      rmm::device_uvector<char>& workspace)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_fit_main");
   logger::get(RAFT_NAME).set_level(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
@@ -594,6 +598,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
                                 raft::device_matrix_view<DataT, IndexT> centroidsRawData,
                                 rmm::device_uvector<char>& workspace)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("initScalableKMeansPlusPlus");
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
@@ -836,6 +841,7 @@ void kmeans_fit(handle_t const& handle,
                 raft::host_scalar_view<DataT> inertia,
                 raft::host_scalar_view<IndexT> n_iter)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_fit");
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   auto n_clusters     = params.n_clusters;
@@ -852,11 +858,21 @@ void kmeans_fit(handle_t const& handle,
   RAFT_EXPECTS(centroids.extent(1) == n_features,
                "invalid parameter (centroids.extent(1) != n_features)");
 
-  // Display a warning if batch_centroids is set and a fusedL2NN-compatible metric is used
+  // Display a message if the batch size is smaller than n_samples but will be ignored
+  if (params.batch_samples < (int)n_samples &&
+      (params.metric == raft::distance::DistanceType::L2Expanded ||
+       params.metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+    RAFT_LOG_DEBUG(
+      "batch_samples=%d was passed, but batch_samples=%d will be used (reason: "
+      "batch_samples has no impact on the memory footprint when FusedL2NN can be used)",
+      params.batch_samples,
+      (int)n_samples);
+  }
+  // Display a message if batch_centroids is set and a fusedL2NN-compatible metric is used
   if (params.batch_centroids != 0 && params.batch_centroids != params.n_clusters &&
       (params.metric == raft::distance::DistanceType::L2Expanded ||
        params.metric == raft::distance::DistanceType::L2SqrtExpanded)) {
-    RAFT_LOG_INFO(
+    RAFT_LOG_DEBUG(
       "batch_centroids=%d was passed, but batch_centroids=%d will be used (reason: "
       "batch_centroids has no impact on the memory footprint when FusedL2NN can be used)",
       params.batch_centroids,
@@ -990,6 +1006,7 @@ void kmeans_predict(handle_t const& handle,
                     bool normalize_weight,
                     raft::host_scalar_view<DataT> inertia)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_predict");
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   cudaStream_t stream = handle.get_stream();
@@ -1134,6 +1151,7 @@ void kmeans_fit_predict(handle_t const& handle,
                         raft::host_scalar_view<DataT> inertia,
                         raft::host_scalar_view<IndexT> n_iter)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_fit_predict");
   if (!centroids.has_value()) {
     auto n_features = X.extent(1);
     auto centroids_matrix =
@@ -1197,6 +1215,7 @@ void kmeans_transform(const raft::handle_t& handle,
                       raft::device_matrix_view<const DataT> centroids,
                       raft::device_matrix_view<DataT> X_new)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_transform");
   logger::get(RAFT_NAME).set_level(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = X.extent(0);

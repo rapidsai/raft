@@ -21,6 +21,48 @@
 namespace raft {
 namespace linalg {
 
+template <typename Type, typename IdxType, typename LambdaOp>
+__global__ void naiveMatVecOpKernel(Type* mat,
+                                    const Type* vec,
+                                    IdxType D,
+                                    IdxType N,
+                                    bool rowMajor,
+                                    bool bcastAlongRows,
+                                    LambdaOp operation)
+{
+  IdxType idx = threadIdx.x + blockIdx.x * blockDim.x;
+  IdxType len = N * D;
+  IdxType col;
+  if (rowMajor && bcastAlongRows) {
+    col = idx % D;
+  } else if (!rowMajor && !bcastAlongRows) {
+    col = idx % N;
+  } else if (rowMajor && !bcastAlongRows) {
+    col = idx / D;
+  } else {
+    col = idx / N;
+  }
+  if (idx < len) { mat[idx] = operation(mat[idx], vec[col]); }
+}
+
+template <typename Type, typename IdxType, typename LambdaOp>
+void naiveMatVecOp(Type* mat,
+                   const Type* vec,
+                   IdxType D,
+                   IdxType N,
+                   bool rowMajor,
+                   bool bcastAlongRows,
+                   LambdaOp operation,
+                   cudaStream_t stream)
+{
+  static const IdxType TPB = 64;
+  IdxType len              = N * D;
+  IdxType nblks            = raft::ceildiv(len, TPB);
+  naiveMatVecOpKernel<Type>
+    <<<nblks, TPB, 0, stream>>>(mat, vec, D, N, rowMajor, bcastAlongRows, operation);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
 template <typename Type, typename IdxType = int>
 __global__ void naiveMatVecKernel(Type* out,
                                   const Type* mat,

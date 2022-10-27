@@ -167,7 +167,8 @@ if(BUILD_TESTS)
 endif()
 
 if(BUILD_BENCH)
-  include(cmake/thirdparty/get_gbench.cmake)
+  include(${rapids-cmake-dir}/cpm/gbench.cmake)
+  rapids_cpm_gbench()
 endif()
 
 ##############################################################################

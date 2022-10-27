@@ -221,8 +221,8 @@ template <typename matrix_t,
 void gather_if(const raft::handle_t& handle,
                raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
                raft::device_matrix_view<matrix_t, idx_t, row_major> out,
-               raft::device_vector_view<const map_t> map,
-               raft::device_vector_view<const stencil_t> stencil,
+               raft::device_vector_view<const map_t, idx_t> map,
+               raft::device_vector_view<const stencil_t, idx_t> stencil,
                unary_pred_t pred_op)
 {
   RAFT_EXPECTS(out.extent(0) == map.extent(0),

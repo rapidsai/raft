@@ -32,6 +32,40 @@ template <typename ElementType,
           typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
+namespace detail {
+
+// keeping ByteAlignment as optional to allow testing
+template <class ValueType, size_t ByteAlignment = 128>
+struct padding {
+  static_assert(std::is_same<std::remove_cv_t<ValueType>, ValueType>::value,
+                "std::experimental::padding ValueType has to be provided without "
+                "const or volatile specifiers.");
+  static_assert(ByteAlignment % sizeof(ValueType) == 0 || sizeof(ValueType) % ByteAlignment == 0,
+                "std::experimental::padding sizeof(ValueType) has to be multiple or "
+                "divider of ByteAlignment.");
+  static constexpr size_t value = std::max(ByteAlignment / sizeof(ValueType), 1ul);
+};
+
+// alignment fixed to 128 bytes
+struct alignment {
+  static constexpr size_t value = 128;
+};
+
+}  // namespace detail
+
+template <typename ElementType>
+using layout_right_padded = std::experimental::layout_right_padded<
+  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
+
+template <typename ElementType>
+using layout_left_padded = std::experimental::layout_left_padded<
+  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
+
+template <typename ElementType, typename LayoutPolicy>
+using enable_if_layout_padded =
+  std::enable_if_t<std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
+                   std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value>;
+
 /**
  * Ensure all types listed in the parameter pack `Extents` are integral types.
  * Usage:
@@ -254,4 +288,5 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
     return unravel_index_impl<uint32_t>(static_cast<uint32_t>(idx), shape);
   }
 }
+
 }  // namespace raft
