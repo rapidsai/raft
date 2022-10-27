@@ -70,6 +70,9 @@ void cutlassDistanceKernel(const DataT* x,
                            DistanceFn dist_op,
                            cudaStream_t stream)
 {
+  static_assert(!(std::is_same<OutT, bool>::value),
+                "OutType bool is not supported use uint8_t instead");
+
   using EpilogueOutputOp =
     cutlass::epilogue::thread::PairwiseDistanceEpilogueElementwise<DataT,  // ElementC_
                                                                    AccT,   // ElementAccumulator_
@@ -95,8 +98,7 @@ void cutlassDistanceKernel(const DataT* x,
   constexpr int Alignment = VecLen;
 
   // default initialize problem size with row major inputs
-  auto problem_size =
-    cutlass::gemm::GemmCoord(static_cast<int>(n), static_cast<int>(m), static_cast<int>(k));
+  auto problem_size = cutlass::gemm::GemmCoord(n, m, k);
 
   using cutlassDistKernel =
     typename cutlass::gemm::kernel::PairwiseDistanceGemm<DataT,
@@ -117,12 +119,11 @@ void cutlassDistanceKernel(const DataT* x,
     gemm_lda = ldb;
     gemm_ldb = lda;
   } else {
-    problem_size =
-      cutlass::gemm::GemmCoord(static_cast<int>(m), static_cast<int>(n), static_cast<int>(k));
-    a        = x;
-    b        = y;
-    gemm_lda = lda;
-    gemm_ldb = ldb;
+    problem_size = cutlass::gemm::GemmCoord(m, n, k);
+    a            = x;
+    b            = y;
+    gemm_lda     = lda;
+    gemm_ldb     = ldb;
   }
 
   typename cutlassDist::Arguments arguments{

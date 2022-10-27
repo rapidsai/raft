@@ -26,12 +26,14 @@ namespace detail {
 
 template <typename DataT, typename AccT>
 struct CosineOp {
-  __device__ __host__ CosineOp() noexcept {}
-  __device__ __host__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
+  __device__  CosineOp() noexcept {}
+  __device__  AccT operator()(DataT& aNorm,
+                                      const DataT& bNorm,
+                                      DataT& accVal) const noexcept
   {
     return static_cast<AccT>(1.0) - (AccT)(accVal / (aNorm * bNorm));
   }
-  __device__ __host__ AccT operator()(DataT aData) const noexcept { return aData; }
+  __device__  AccT operator()(DataT aData) const noexcept { return aData; }
 };
 
 /**

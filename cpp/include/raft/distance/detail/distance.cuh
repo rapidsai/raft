@@ -616,7 +616,7 @@ void distance(const InType* x,
  *  worksize, the number of bytes of workspace required
  */
 
-// Default final op functor which facilitates elementwise operation on 
+// Default final op functor which facilitates elementwise operation on
 // final distance value if any.
 template <typename AccType, typename OutType, typename Index>
 struct default_fin_op {
@@ -624,7 +624,7 @@ struct default_fin_op {
   // functor signature.
   __host__ __device__ OutType operator()(AccType d_val, Index g_d_idx) const noexcept
   {
-    return d_val; 
+    return d_val;
   }
 };
 
