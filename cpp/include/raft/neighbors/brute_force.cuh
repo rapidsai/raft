@@ -200,13 +200,30 @@ void knn(raft::handle_t const& handle,
  * computation when k < 64. The value of k will be inferred from the number
  * of columns in the output matrices.
  *
- * @tparam value_t
- * @tparam idx_t,
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/neighbors/brute_force.cuh>
+ *  #include <raft/distance/distance_types.hpp>
+ *  using namespace raft::neighbors;
+ *
+ *  raft::handle_t handle;
+ *  ...
+ *  int k = 10;
+ *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
+ *  brute_force::fused_l2_knn(handle, index, search, indices, distances, metric);
+ * @endcode
+
+ * @tparam value_t type of values
+ * @tparam idx_t type of indices
+ * @tparam idx_layout layout type of index matrix
+ * @tparam query_layout layout type of query matrix
  * @param[in] handle raft handle for sharing expensive resources
  * @param[in] index input index array on device (size m * d)
  * @param[in] query input query array on device (size n * d)
  * @param[out] out_inds output indices array on device (size n * k)
  * @param[out] out_dists output dists array on device (size n * k)
+ * @param[in] metric type of distance computation to perform (must be a variant of L2)
  */
 template <typename value_t, typename idx_t, typename idx_layout, typename query_layout>
 void fused_l2_knn(const raft::handle_t& handle,
