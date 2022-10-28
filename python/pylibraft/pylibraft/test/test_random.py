@@ -15,6 +15,7 @@
 
 import numpy as np
 import pytest
+
 from pylibraft.common import Handle
 from pylibraft.random import rmat
 from pylibraft.testing.utils import TestDeviceBuffer

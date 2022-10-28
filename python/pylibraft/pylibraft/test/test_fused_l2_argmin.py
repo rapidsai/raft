@@ -15,10 +15,11 @@
 
 import numpy as np
 import pytest
+from scipy.spatial.distance import cdist
+
 from pylibraft.common import Handle
 from pylibraft.distance import fused_l2_nn_argmin
 from pylibraft.testing.utils import TestDeviceBuffer
-from scipy.spatial.distance import cdist
 
 
 @pytest.mark.parametrize("n_rows", [10, 100])

@@ -15,6 +15,7 @@
 
 import numpy as np
 import pytest
+
 from pylibraft.cluster.kmeans import compute_new_centroids
 from pylibraft.common import Handle
 from pylibraft.distance import pairwise_distance

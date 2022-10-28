@@ -5,6 +5,7 @@ import signal
 import time
 
 import pytest
+
 from pylibraft.common.interruptible import cuda_interruptible, cuda_yield
 
 

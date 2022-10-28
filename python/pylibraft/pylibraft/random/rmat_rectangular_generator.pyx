@@ -26,6 +26,7 @@ from libc.stdint cimport int64_t, uintptr_t
 from pylibraft.common import Handle
 
 from libcpp cimport bool
+
 from pylibraft.common.handle cimport handle_t
 
 from .rng_state cimport RngState
