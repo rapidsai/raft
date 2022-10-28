@@ -19,11 +19,11 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
-
+from libc.stdint cimport uintptr_t
+from libc.stdlib cimport free, malloc
 from libcpp cimport bool
-from libc.stdlib cimport malloc, free
+
 
 cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
     void get_unique_id(char *uid, int size) except +

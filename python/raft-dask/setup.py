@@ -14,37 +14,36 @@
 # limitations under the License.
 #
 
+import versioneer
 from setuptools import find_packages
 from skbuild import setup
 
-import versioneer
-
-
-setup(name='raft-dask',
-      description="Reusable Accelerated Functions & Tools Dask Infrastructure",
-      version=versioneer.get_version(),
-      classifiers=[
+setup(
+    name="raft-dask",
+    description="Reusable Accelerated Functions & Tools Dask Infrastructure",
+    version=versioneer.get_version(),
+    classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9"
-      ],
-      author="NVIDIA Corporation",
-      package_data={
-          # Note: A dict comprehension with an explicit copy is necessary
-          # (rather than something simpler like a dict.fromkeys) because
-          # otherwise every package will refer to the same list and skbuild
-          # modifies it in place.
-          key: ["*.hpp", "*.pxd"]
-          for key in find_packages(
-              include=[
-                  "raft_dask.common",
-                  "raft_dask.common.includes",
-              ]
-          )
-      },
-      packages=find_packages(include=['raft_dask', 'raft_dask.*']),
-      license="Apache",
-      cmdclass=versioneer.get_cmdclass(),
-      zip_safe=False
-      )
+        "Programming Language :: Python :: 3.9",
+    ],
+    author="NVIDIA Corporation",
+    package_data={
+        # Note: A dict comprehension with an explicit copy is necessary
+        # (rather than something simpler like a dict.fromkeys) because
+        # otherwise every package will refer to the same list and skbuild
+        # modifies it in place.
+        key: ["*.hpp", "*.pxd"]
+        for key in find_packages(
+            include=[
+                "raft_dask.common",
+                "raft_dask.common.includes",
+            ]
+        )
+    },
+    packages=find_packages(include=["raft_dask", "raft_dask.*"]),
+    license="Apache",
+    cmdclass=versioneer.get_cmdclass(),
+    zip_safe=False,
+)

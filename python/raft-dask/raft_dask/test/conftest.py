@@ -1,13 +1,12 @@
 # Copyright (c) 2022, NVIDIA CORPORATION.
 
+import os
+
 import pytest
 
 from dask.distributed import Client
+from dask_cuda import LocalCUDACluster, initialize
 
-from dask_cuda import initialize
-from dask_cuda import LocalCUDACluster
-
-import os
 os.environ["UCX_LOG_LEVEL"] = "error"
 
 
@@ -25,14 +24,18 @@ def cluster():
 
 @pytest.fixture(scope="session")
 def ucx_cluster():
-    initialize.initialize(create_cuda_context=True,
-                          enable_tcp_over_ucx=enable_tcp_over_ucx,
-                          enable_nvlink=enable_nvlink,
-                          enable_infiniband=enable_infiniband)
-    cluster = LocalCUDACluster(protocol="ucx",
-                               enable_tcp_over_ucx=enable_tcp_over_ucx,
-                               enable_nvlink=enable_nvlink,
-                               enable_infiniband=enable_infiniband)
+    initialize.initialize(
+        create_cuda_context=True,
+        enable_tcp_over_ucx=enable_tcp_over_ucx,
+        enable_nvlink=enable_nvlink,
+        enable_infiniband=enable_infiniband,
+    )
+    cluster = LocalCUDACluster(
+        protocol="ucx",
+        enable_tcp_over_ucx=enable_tcp_over_ucx,
+        enable_nvlink=enable_nvlink,
+        enable_infiniband=enable_infiniband,
+    )
     yield cluster
     cluster.close()
 

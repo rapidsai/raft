@@ -32,8 +32,8 @@ def parse_host_port(address):
     -------
     tuple with host and port info : tuple(host, port)
     """
-    if '://' in address:
-        address = address.rsplit('://', 1)[1]
-    host, port = address.split(':')
+    if "://" in address:
+        address = address.rsplit("://", 1)[1]
+    host, port = address.split(":")
     port = int(port)
     return host, port

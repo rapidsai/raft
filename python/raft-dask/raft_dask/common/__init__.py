@@ -13,22 +13,21 @@
 # limitations under the License.
 #
 
-from .comms import Comms
-from .comms import local_handle
-
-from .comms_utils import inject_comms_on_handle
-from .comms_utils import inject_comms_on_handle_coll_only
-from .comms_utils import perform_test_comms_allreduce
-from .comms_utils import perform_test_comms_send_recv
-from .comms_utils import perform_test_comms_device_send_or_recv
-from .comms_utils import perform_test_comms_device_sendrecv
-from .comms_utils import perform_test_comms_device_multicast_sendrecv
-from .comms_utils import perform_test_comms_allgather
-from .comms_utils import perform_test_comms_gather
-from .comms_utils import perform_test_comms_gatherv
-from .comms_utils import perform_test_comms_bcast
-from .comms_utils import perform_test_comms_reduce
-from .comms_utils import perform_test_comms_reducescatter
-from .comms_utils import perform_test_comm_split
-
+from .comms import Comms, local_handle
+from .comms_utils import (
+    inject_comms_on_handle,
+    inject_comms_on_handle_coll_only,
+    perform_test_comm_split,
+    perform_test_comms_allgather,
+    perform_test_comms_allreduce,
+    perform_test_comms_bcast,
+    perform_test_comms_device_multicast_sendrecv,
+    perform_test_comms_device_send_or_recv,
+    perform_test_comms_device_sendrecv,
+    perform_test_comms_gather,
+    perform_test_comms_gatherv,
+    perform_test_comms_reduce,
+    perform_test_comms_reducescatter,
+    perform_test_comms_send_recv,
+)
 from .ucx import UCX

@@ -17,14 +17,12 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from libc.stdlib cimport malloc, free
-from cython.operator cimport dereference as deref
-
 from cpython.long cimport PyLong_AsVoidPtr
-
+from cython.operator cimport dereference as deref
+from libc.stdint cimport uintptr_t
+from libc.stdlib cimport free, malloc
 from libcpp cimport bool
 
-from libc.stdint cimport uintptr_t
 
 cdef extern from "nccl.h":
 

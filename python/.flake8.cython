@@ -16,7 +16,7 @@
 
 [flake8]
 filename = *.pyx, *.pxd
-exclude = *.egg, build, docs, .git
+exclude = *.egg, build, docs, .git, __init__.py, cpp, thirdparty, versioneer.py, _version.py
 ignore = E999, E225, E226, E227, W503, W504
 
 # Rules ignored:

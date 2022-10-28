@@ -13,8 +13,9 @@
 # limitations under the License.
 #
 
-import pytest
 import sys
+
+import pytest
 
 try:
     import raft_dask
@@ -23,7 +24,7 @@ except ImportError:
     pytestmart = pytest.mark.skip
 
 pytestmark = pytest.mark.skipif(
-    'raft_dask' not in sys.argv, reason="marker to allow integration of RAFT"
+    "raft_dask" not in sys.argv, reason="marker to allow integration of RAFT"
 )
 
 

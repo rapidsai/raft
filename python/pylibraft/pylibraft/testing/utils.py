@@ -19,12 +19,12 @@ import rmm
 
 
 class TestDeviceBuffer:
-
     def __init__(self, ndarray, order):
 
         self.ndarray_ = ndarray
-        self.device_buffer_ = \
-            rmm.DeviceBuffer.to_device(ndarray.ravel(order=order).tobytes())
+        self.device_buffer_ = rmm.DeviceBuffer.to_device(
+            ndarray.ravel(order=order).tobytes()
+        )
 
     @property
     def __cuda_array_interface__(self):
@@ -35,8 +35,12 @@ class TestDeviceBuffer:
         return host_cai
 
     def copy_to_host(self):
-        return np.frombuffer(self.device_buffer_.tobytes(),
-                             dtype=self.ndarray_.dtype,
-                             like=self.ndarray_)\
-            .astype(self.ndarray_.dtype)\
+        return (
+            np.frombuffer(
+                self.device_buffer_.tobytes(),
+                dtype=self.ndarray_.dtype,
+                like=self.ndarray_,
+            )
+            .astype(self.ndarray_.dtype)
             .reshape(self.ndarray_.shape)
+        )

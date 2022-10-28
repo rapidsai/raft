@@ -13,29 +13,28 @@
 # limitations under the License.
 #
 
-from .nccl import nccl
-from .ucx import UCX
-
-from .comms_utils import inject_comms_on_handle
-from .comms_utils import inject_comms_on_handle_coll_only
-
-from .utils import parse_host_port
-from pylibraft.common.handle import Handle
-
-from dask.distributed import get_worker, default_client
-
-import warnings
-
 import logging
 import time
 import uuid
+import warnings
 from collections import OrderedDict
+
+from pylibraft.common.handle import Handle
+
+from dask.distributed import default_client, get_worker
+
+from .comms_utils import (
+    inject_comms_on_handle,
+    inject_comms_on_handle_coll_only,
+)
+from .nccl import nccl
+from .ucx import UCX
+from .utils import parse_host_port
 
 logger = logging.getLogger(__name__)
 
 
 class Comms:
-
     """
     Initializes and manages underlying NCCL and UCX comms handles across
     the workers of a Dask cluster. It is expected that `init()` will be
@@ -45,7 +44,7 @@ class Comms:
 
     Examples
     --------
-   .. code-block:: python
+    .. code-block:: python
 
         # The following code block assumes we have wrapped a C++
         # function in a Python function called `run_algorithm`,
@@ -175,7 +174,6 @@ class Comms:
 
         Parameters
         ----------
-
         workers : Sequence
                   Unique collection of workers for initializing comms.
         """
@@ -256,7 +254,6 @@ def local_handle(sessionId):
 
     Returns
     -------
-
     handle : raft.Handle or None
     """
     state = get_raft_comm_state(sessionId, get_worker())
@@ -277,7 +274,6 @@ def get_raft_comm_state(sessionId, state_object=None):
 
     Returns
     -------
-
     session state : str
                     session state associated with sessionId
     """
