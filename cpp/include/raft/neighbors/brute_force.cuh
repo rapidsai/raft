@@ -252,8 +252,8 @@ void fused_l2_knn(const raft::handle_t& handle,
   RAFT_EXPECTS(raft::is_row_or_column_major(index), "Index must be row or column major layout");
   RAFT_EXPECTS(raft::is_row_or_column_major(query), "Query must be row or column major layout");
 
-  constexpr bool rowMajorIndex = raft::is_row_major(index);
-  constexpr bool rowMajorQuery = raft::is_row_major(query);
+  const bool rowMajorIndex = raft::is_row_major(index);
+  const bool rowMajorQuery = raft::is_row_major(query);
 
   raft::spatial::knn::detail::fusedL2Knn(D,
                                          out_inds.data_handle(),
