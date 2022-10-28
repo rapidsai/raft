@@ -385,11 +385,22 @@ __global__ void argReduceKernel(const T* d_in, IdxT D, IdxT N, OutT* out)
   if (threadIdx.x == 0) { out[blockIdx.x] = maxKV.key; }
 }
 
+/**
+ * @brief Computes an argmin/argmax coalesced reduction
+ *
+ * @tparam RedOp Reduction operation (cub::ArgMin or cub::ArgMax)
+ * @tparam math_t Value type
+ * @tparam out_t Output key type
+ * @tparam idx_t Matrix index type
+ * @param[in]  in     Input matrix (DxN column-major or NxD row-major)
+ * @param[in]  D      Dimension of the axis to reduce along
+ * @param[in]  N      Number of reductions
+ * @param[out] out    Output keys (N)
+ * @param[in]  stream CUDA stream
+ */
 template <typename RedOp, typename math_t, typename out_t, typename idx_t>
-inline void argReduce(const math_t* in, idx_t n_rows, idx_t n_cols, out_t* out, cudaStream_t stream)
+inline void argReduce(const math_t* in, idx_t D, idx_t N, out_t* out, cudaStream_t stream)
 {
-  idx_t D = n_rows;
-  idx_t N = n_cols;
   if (D <= 32) {
     argReduceKernel<RedOp, 32><<<N, 32, 0, stream>>>(in, D, N, out);
   } else if (D <= 64) {
@@ -403,15 +414,15 @@ inline void argReduce(const math_t* in, idx_t n_rows, idx_t n_cols, out_t* out, 
 }
 
 template <typename math_t, typename out_t, typename idx_t>
-void argmin(const math_t* in, idx_t n_rows, idx_t n_cols, out_t* out, cudaStream_t stream)
+void argmin(const math_t* in, idx_t D, idx_t N, out_t* out, cudaStream_t stream)
 {
-  argReduce<cub::ArgMin>(in, n_rows, n_cols, out, stream);
+  argReduce<cub::ArgMin>(in, D, N, out, stream);
 }
 
 template <typename math_t, typename out_t, typename idx_t>
-void argmax(const math_t* in, idx_t n_rows, idx_t n_cols, out_t* out, cudaStream_t stream)
+void argmax(const math_t* in, idx_t D, idx_t N, out_t* out, cudaStream_t stream)
 {
-  argReduce<cub::ArgMax>(in, n_rows, n_cols, out, stream);
+  argReduce<cub::ArgMax>(in, D, N, out, stream);
 }
 
 // Utility kernel needed for signFlip.

@@ -304,7 +304,7 @@ void ratio(
 
 /**
  * @brief Argmin: find the row idx with minimum value for each column
- * @param in: input matrix
+ * @param in: input matrix (column-major)
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
  * @param out: output vector of size n_cols
@@ -318,7 +318,7 @@ void argmin(const math_t* in, idx_t n_rows, idx_t n_cols, out_t* out, cudaStream
 
 /**
  * @brief Argmax: find the row idx with maximum value for each column
- * @param in: input matrix
+ * @param in: input matrix (column-major)
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
  * @param out: output vector of size n_cols
