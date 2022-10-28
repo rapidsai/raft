@@ -24,8 +24,7 @@
  *
  */
 
-namespace raft {
-namespace itertools {
+namespace raft::util::itertools {
 
 template <class S, typename... Args, size_t... Is>
 inline std::vector<S> product(std::index_sequence<Is...> index, const std::vector<Args>&... vecs)
@@ -50,5 +49,4 @@ std::vector<S> product(std::initializer_list<Args>... lists)
   return product<S>(std::index_sequence_for<Args...>(), (std::vector<Args>(lists))...);
 }
 
-};  // namespace itertools
-};  // namespace raft
+}  // namespace raft::util::itertools

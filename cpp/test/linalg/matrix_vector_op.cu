@@ -184,10 +184,11 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
  * This set of tests covers cases where all the types are the same.
  */
 
-const std::vector<MatVecOpInputs<int>> inputs_i32 = raft::itertools::product<MatVecOpInputs<int>>(
-  {1024}, {32, 64}, {true, false}, {true, false}, {0, 1, 2}, {0, 1, 2}, {1234ULL});
+const std::vector<MatVecOpInputs<int>> inputs_i32 =
+  raft::utils::itertools::product<MatVecOpInputs<int>>(
+    {1024}, {32, 64}, {true, false}, {true, false}, {0, 1, 2}, {0, 1, 2}, {1234ULL});
 const std::vector<MatVecOpInputs<int64_t>> inputs_i64 =
-  raft::itertools::product<MatVecOpInputs<int64_t>>(
+  raft::utils::itertools::product<MatVecOpInputs<int64_t>>(
     {2500}, {250}, {false}, {false}, {0, 1}, {0, 1}, {1234ULL});
 
 template <typename T>
