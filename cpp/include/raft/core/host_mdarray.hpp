@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <raft/core/host_mdspan.hpp>
 
 #include <raft/core/detail/host_mdarray.hpp>

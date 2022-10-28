@@ -4,7 +4,6 @@ Sparse
 This page provides C++ class references for the publicly-exposed elements of the sparse package.
 
 
-
 Conversion
 ##########
 
@@ -26,20 +25,16 @@ Linear Algebra
     :project: RAFT
     :members:
 
-Misc Operations
-###############
+Matrix Operations
+#################
 
 .. doxygennamespace:: raft::sparse::op
     :project: RAFT
     :members:
 
-Selection
-#########
+Nearest Neighbors
+#################
 
-.. doxygennamespace:: raft::sparse::selection
-    :project: RAFT
-    :members:
-
-.. doxygennamespace:: raft::linkage
+.. doxygennamespace:: raft::sparse::neighbors
     :project: RAFT
     :members:

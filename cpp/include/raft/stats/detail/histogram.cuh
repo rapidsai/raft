@@ -32,6 +32,12 @@ namespace raft {
 namespace stats {
 namespace detail {
 
+/** Default mapper which just returns the value of the data itself */
+template <typename DataT, typename IdxT>
+struct IdentityBinner {
+  DI int operator()(DataT val, IdxT row, IdxT col) { return int(val); }
+};
+
 static const int ThreadsPerBlock = 256;
 
 template <typename IdxT, int VecLen>

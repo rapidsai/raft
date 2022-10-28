@@ -308,8 +308,7 @@ void shuffleAndGather(const raft::handle_t& handle,
                       const raft::device_matrix_view<const DataT, IndexT>& in,
                       const raft::device_matrix_view<DataT, IndexT>& out,
                       uint32_t n_samples_to_gather,
-                      uint64_t seed,
-                      rmm::device_uvector<char>* workspace = nullptr)
+                      uint64_t seed)
 {
   cudaStream_t stream = handle.get_stream();
   auto n_samples      = in.extent(0);
@@ -317,26 +316,14 @@ void shuffleAndGather(const raft::handle_t& handle,
 
   auto indices = raft::make_device_vector<IndexT, IndexT>(handle, n_samples);
 
-  if (workspace) {
-    // shuffle indices on device
-    raft::random::permute<DataT, IndexT, IndexT>(indices.data_handle(),
-                                                 nullptr,
-                                                 nullptr,
-                                                 (IndexT)in.extent(1),
-                                                 (IndexT)in.extent(0),
-                                                 true,
-                                                 stream);
-  } else {
-    // shuffle indices on host and copy to device...
-    std::vector<IndexT> ht_indices(n_samples);
-
-    std::iota(ht_indices.begin(), ht_indices.end(), 0);
-
-    std::mt19937 gen(seed);
-    std::shuffle(ht_indices.begin(), ht_indices.end(), gen);
-
-    raft::copy(indices.data_handle(), ht_indices.data(), indices.size(), stream);
-  }
+  // shuffle indices on device
+  raft::random::permute<DataT, IndexT, IndexT>(indices.data_handle(),
+                                               nullptr,
+                                               nullptr,
+                                               (IndexT)in.extent(1),
+                                               (IndexT)in.extent(0),
+                                               true,
+                                               stream);
 
   raft::matrix::gather((DataT*)in.data_handle(),
                        in.extent(1),
@@ -361,16 +348,18 @@ void minClusterAndDistanceCompute(
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
   rmm::device_uvector<char>& workspace)
 {
-  cudaStream_t stream     = handle.get_stream();
-  auto n_samples          = X.extent(0);
-  auto n_features         = X.extent(1);
-  auto n_clusters         = centroids.extent(0);
-  auto metric             = params.metric;
-  auto dataBatchSize      = getDataBatchSize(params, n_samples);
+  cudaStream_t stream = handle.get_stream();
+  auto n_samples      = X.extent(0);
+  auto n_features     = X.extent(1);
+  auto n_clusters     = centroids.extent(0);
+  auto metric         = params.metric;
+  // todo(lsugy): change batch size computation when using fusedL2NN!
+  bool is_fused = metric == raft::distance::DistanceType::L2Expanded ||
+                  metric == raft::distance::DistanceType::L2SqrtExpanded;
+  auto dataBatchSize      = is_fused ? (IndexT)n_samples : getDataBatchSize(params, n_samples);
   auto centroidsBatchSize = getCentroidsBatchSize(params, n_clusters);
 
-  if (metric == raft::distance::DistanceType::L2Expanded ||
-      metric == raft::distance::DistanceType::L2SqrtExpanded) {
+  if (is_fused) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
     raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(),
                           centroids.data_handle(),
@@ -416,8 +405,7 @@ void minClusterAndDistanceCompute(
     auto L2NormXView =
       raft::make_device_vector_view<DataT, IndexT>(L2NormX.data_handle() + dIdx, ns);
 
-    if (metric == raft::distance::DistanceType::L2Expanded ||
-        metric == raft::distance::DistanceType::L2SqrtExpanded) {
+    if (is_fused) {
       workspace.resize((sizeof(int)) * ns, stream);
 
       // todo(lsugy): remove cIdx
@@ -497,11 +485,12 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
   auto n_clusters     = centroids.extent(0);
   auto metric         = params.metric;
 
-  auto dataBatchSize      = getDataBatchSize(params, n_samples);
+  bool is_fused = metric == raft::distance::DistanceType::L2Expanded ||
+                  metric == raft::distance::DistanceType::L2SqrtExpanded;
+  auto dataBatchSize      = is_fused ? (IndexT)n_samples : getDataBatchSize(params, n_samples);
   auto centroidsBatchSize = getCentroidsBatchSize(params, n_clusters);
 
-  if (metric == raft::distance::DistanceType::L2Expanded ||
-      metric == raft::distance::DistanceType::L2SqrtExpanded) {
+  if (is_fused) {
     L2NormBuf_OR_DistBuf.resize(n_clusters, stream);
     raft::linalg::rowNorm(L2NormBuf_OR_DistBuf.data(),
                           centroids.data_handle(),
@@ -545,8 +534,7 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
     auto L2NormXView =
       raft::make_device_vector_view<DataT, IndexT>(L2NormX.data_handle() + dIdx, ns);
 
-    if (metric == raft::distance::DistanceType::L2Expanded ||
-        metric == raft::distance::DistanceType::L2SqrtExpanded) {
+    if (is_fused) {
       workspace.resize((sizeof(IndexT)) * ns, stream);
 
       // todo(lsugy): remove cIdx
