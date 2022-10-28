@@ -24,10 +24,10 @@
 
 #pragma once
 
-#include <cutlass/cutlass.h>
 #include <cutlass/arch/arch.h>
 #include <cutlass/arch/memory.h>
 #include <cutlass/array.h>
+#include <cutlass/cutlass.h>
 #include <cutlass/epilogue/threadblock/output_tile_thread_map.h>
 #include <cutlass/epilogue/threadblock/predicated_tile_iterator_params.h>
 #include <cutlass/layout/matrix.h>
