@@ -21,14 +21,14 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include "cutlass/cutlass.h"
-#include "cutlass/gemm/device/gemm.h"
-#include "cutlass/gemm/device/gemm_universal_adapter.h"
+#include <cutlass/cutlass.h>
+#include <cutlass/gemm/device/gemm.h>
+#include <cutlass/gemm/device/gemm_universal_adapter.h>
 
-#include "cutlass/layout/matrix.h"
-#include "cutlass/layout/tensor.h"
-#include "cutlass/matrix_coord.h"
-#include "cutlass/tensor_view.h"
+#include <cutlass/layout/matrix.h>
+#include <cutlass/layout/tensor.h>
+#include <cutlass/matrix_coord.h>
+#include <cutlass/tensor_view.h>
 
 #include "./pairwise_distance_epilogue_elementwise.h"
 #include "./pairwise_distance_gemm.h"

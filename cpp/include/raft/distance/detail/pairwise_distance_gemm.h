@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include "cutlass/cutlass.h"
+#include <cutlass/cutlass.h>
 
-#include "cutlass/gemm/kernel/default_gemm_universal.h"
-#include "cutlass/gemm/kernel/gemm_with_fused_epilogue.h"
-#include "cutlass/layout/matrix.h"
-#include "cutlass/layout/tensor.h"
+#include <cutlass/gemm/kernel/default_gemm_universal.h>
+#include <cutlass/gemm/kernel/gemm_with_fused_epilogue.h>
+#include <cutlass/layout/matrix.h>
+#include <cutlass/layout/tensor.h>
 
-#include "pairwise_distance_epilogue.h"
+#include "./pairwise_distance_epilogue.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 

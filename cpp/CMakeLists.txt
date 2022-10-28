@@ -62,6 +62,7 @@ option(RAFT_NVTX "Enable nvtx markers" OFF)
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
 option(RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations" ${RAFT_COMPILE_LIBRARIES})
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations" ${RAFT_COMPILE_LIBRARIES})
+option(RAFT_ENABLE_DIST_DEPENDENCIES "Search for raft::distance dependencies like cutlass" ${RAFT_COMPILE_LIBRARIES})
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss" ${RAFT_COMPILE_LIBRARIES})
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
@@ -156,6 +157,7 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
+include(cmake/thirdparty/get_cutlass.cmake)
 
 if(RAFT_ENABLE_cuco_DEPENDENCY)
   include(${rapids-cmake-dir}/cpm/cuco.cmake)
@@ -178,7 +180,7 @@ add_library(raft::raft ALIAS raft)
 target_include_directories(raft INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>"
-        "${CUTLASS_DIR}/include")
+        "${CUTLASS_INCLUDE_DIR}")
 
 # Keep RAFT as lightweight as possible.
 # Only CUDA libs and rmm should
@@ -320,6 +322,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
           )
   target_compile_definitions(raft_distance_lib
           INTERFACE "RAFT_DISTANCE_COMPILED")
+  target_compile_definitions(raft_distance_lib
+          INTERFACE "CUTLASS_NAMESPACE=${RAFT_CUTLASS_NAMESPACE}")
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_distance_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")

@@ -24,17 +24,17 @@
 
 #pragma once
 
-#include "cutlass/array.h"
-#include "cutlass/cutlass.h"
-#include "cutlass/numeric_types.h"
+#include <cutlass/cutlass.h>
+#include <cutlass/array.h>
+#include <cutlass/numeric_types.h>
 
-#include "cutlass/gemm/gemm.h"
+#include <cutlass/gemm/gemm.h>
 
-#include "cutlass/epilogue/threadblock/default_epilogue_tensor_op.h"
-#include "cutlass/epilogue/threadblock/default_epilogue_volta_tensor_op.h"
-#include "cutlass/epilogue/threadblock/epilogue.h"
-#include "cutlass/epilogue/threadblock/epilogue_with_broadcast.h"
-#include "predicated_tile_iterator_normvec.h"
+#include <cutlass/epilogue/threadblock/default_epilogue_tensor_op.h>
+#include <cutlass/epilogue/threadblock/default_epilogue_volta_tensor_op.h>
+#include <cutlass/epilogue/threadblock/epilogue.h>
+#include <cutlass/epilogue/threadblock/epilogue_with_broadcast.h>
+#include "./predicated_tile_iterator_normvec.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
