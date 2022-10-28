@@ -209,7 +209,6 @@ void knn(raft::handle_t const& handle,
  *
  *  raft::handle_t handle;
  *  ...
- *  int k = 10;
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
  *  brute_force::fused_l2_knn(handle, index, search, indices, distances, metric);
  * @endcode
@@ -233,7 +232,7 @@ void fused_l2_knn(const raft::handle_t& handle,
                   raft::device_matrix_view<value_t, idx_t, row_major> out_dists,
                   raft::distance::DistanceType metric)
 {
-  int k = out_inds.extent(1);
+  int k = static_cast<int>(out_inds.extent(1));
 
   RAFT_EXPECTS(k <= 64, "For fused k-selection, k must be < 64");
   RAFT_EXPECTS(out_inds.extent(1) == out_dists.extent(1), "Value of k must match for outputs");
@@ -253,8 +252,8 @@ void fused_l2_knn(const raft::handle_t& handle,
   RAFT_EXPECTS(raft::is_row_or_column_major(index), "Index must be row or column major layout");
   RAFT_EXPECTS(raft::is_row_or_column_major(query), "Query must be row or column major layout");
 
-  bool rowMajorIndex = raft::is_row_major(index);
-  bool rowMajorQuery = raft::is_row_major(query);
+  constexpr bool rowMajorIndex = raft::is_row_major(index);
+  constexpr bool rowMajorQuery = raft::is_row_major(query);
 
   raft::spatial::knn::detail::fusedL2Knn(D,
                                          out_inds.data_handle(),
