@@ -18,12 +18,36 @@
 
 #include <raft/core/device_mdspan.hpp>
 
-namespace raft::cluster {
-
-enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
+namespace raft::cluster::hierarchy {
 
 /**
- * Simple POCO for consolidating linkage results. This closely
+ * Determines the method for computing the minimum spanning tree (MST)
+ */
+enum LinkageDistance {
+
+  /**
+   * Use a pairwise distance matrix as input to the mst. This
+   * is very fast and the best option for fairly small datasets (~50k data points)
+   */
+  PAIRWISE = 0,
+
+  /**
+   * Construct a KNN graph as input to the mst and provide additional
+   * edges if the mst does not converge. This is slower but scales
+   * to very large datasets.
+   */
+  KNN_GRAPH = 1
+};
+
+};  // end namespace raft::cluster::hierarchy
+
+// The code below is now considered legacy
+namespace raft::cluster {
+
+using hierarchy::LinkageDistance;
+
+/**
+ * Simple container object for consolidating linkage results. This closely
  * mirrors the trained instance variables populated in
  * Scikit-learn's AgglomerativeClustering estimator.
  * @tparam value_idx

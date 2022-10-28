@@ -33,8 +33,7 @@
 namespace raft::spatial::knn::ivf_flat {
 
 using raft::neighbors::ivf_flat::build;
-using raft::neighbors::ivf_flat::build_index;
 using raft::neighbors::ivf_flat::extend;
 using raft::neighbors::ivf_flat::search;
 
-}  // namespace raft::spatial::knn::ivf_flat
+};  // namespace raft::spatial::knn::ivf_flat
