@@ -372,7 +372,7 @@ void minClusterAndDistanceCompute(
   } else {
     // TODO: Unless pool allocator is used, passing in a workspace for this
     // isn't really increasing performance because this needs to do a re-allocation
-    // anyways.
+    // anyways. ref https://github.com/rapidsai/raft/issues/930
     L2NormBuf_OR_DistBuf.resize(dataBatchSize * centroidsBatchSize, stream);
   }
 

@@ -343,6 +343,7 @@ void update_centroids(const raft::handle_t& handle,
 {
   // TODO: Passing these into the algorithm doesn't really present much of a benefit
   // because they are being resized anyways.
+  // ref https://github.com/rapidsai/raft/issues/930
   rmm::device_uvector<char> workspace(0, handle.get_stream());
 
   detail::update_centroids<DataT, IndexT>(
