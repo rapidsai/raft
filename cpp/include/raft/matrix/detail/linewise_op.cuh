@@ -170,6 +170,7 @@ struct Linewise {
    * of a vector. Most of the time this is not aligned, so we load it thread-striped
    * within a block and then use the shared memory to get a contiguous chunk.
    *
+   * @tparam VecT Type of the vector to load
    * @param [in] shm a shared memory region for rearranging the data among threads
    * @param [in] p pointer to a vector
    * @param [in] blockOffset the offset of the current block into a vector.
@@ -202,6 +203,7 @@ struct Linewise {
   /**
    * @brief Same as loadVec, but padds data with Ones
    *
+   * @tparam VecT Type of the vector to load
    * @param shm
    * @param p
    * @param blockOffset
@@ -209,23 +211,27 @@ struct Linewise {
    * @param rowLenPadded
    * @return a contiguous chunk of a vector, suitable for `vectorRows`.
    */
-  static __device__ __forceinline__ Vec loadVecPadded(Type* shm,
-                                                      const Type* p,
-                                                      const IdxType blockOffset,
-                                                      const IdxType rowLen,
-                                                      const IdxType rowLenPadded) noexcept
+  template <typename VecT>
+  static __device__ __forceinline__ VecArg<VecT, VecElems> loadVecPadded(
+    VecT* shm,
+    const VecT* p,
+    const IdxType blockOffset,
+    const IdxType rowLen,
+    const IdxType rowLenPadded) noexcept
   {
     IdxType j = blockOffset + threadIdx.x;
 #pragma unroll VecElems
     for (int k = threadIdx.x; k < VecElems * BlockSize; k += BlockSize, j += BlockSize) {
       while (j >= rowLenPadded)
         j -= rowLenPadded;
-      shm[k] = j < rowLen ? p[j] : Type(1);
+      shm[k] = j < rowLen ? p[j] : VecT(1);
     }
     __syncthreads();
     {
-      Vec out;
-      *out.vectorized_data() = reinterpret_cast<typename Vec::io_t*>(shm)[threadIdx.x];
+      VecArg<VecT, VecElems> out;
+#pragma unroll VecElems
+      for (int i = 0; i < VecElems; i++)
+        out.val[i] = shm[threadIdx.x * VecElems + i];
       return out;
     }
   }
@@ -414,21 +420,23 @@ __global__ void __launch_bounds__(BlockSize)
                                   const IdxType rowLenPadded,
                                   const IdxType lenPadded,
                                   Lambda op,
-                                  Vecs... vecs)
+                                  const Vecs*... vecs)
 {
   typedef Linewise<Type, IdxType, VecBytes, BlockSize> L;
-  constexpr uint workSize = L::VecElems * BlockSize;
-  uint workOffset         = workSize;
-  __shared__ __align__(sizeof(Type) * L::VecElems)
-    Type shm[workSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
+  constexpr uint workSize         = L::VecElems * BlockSize;
+  constexpr size_t maxVecItemSize = maxSizeOf<Vecs...>();
+  uint workOffset                 = workSize * maxVecItemSize;
+  __shared__ __align__(
+    maxVecItemSize *
+    L::VecElems) char shm[workSize * maxVecItemSize * ((sizeof...(Vecs)) > 1 ? 2 : 1)];
   const IdxType blockOffset = (BlockSize * L::VecElems * blockIdx.x) % rowLenPadded;
   return L::vectorRows(
     reinterpret_cast<typename L::Vec::io_t*>(out),
     reinterpret_cast<const typename L::Vec::io_t*>(in),
     L::AlignElems::div(lenPadded),
     op,
-    (workOffset ^= workSize,
-     L::loadVecPadded(shm + workOffset, vecs, blockOffset, rowLen, rowLenPadded))...);
+    (workOffset ^= workSize * maxVecItemSize,
+     L::loadVecPadded((Vecs*)(shm + workOffset), vecs, blockOffset, rowLen, rowLenPadded))...);
 }
 
 /**
@@ -570,7 +578,7 @@ void matrixLinewiseVecColsSpan(
   const IdxType nRows,
   Lambda op,
   cudaStream_t stream,
-  Vecs... vecs)
+  const Vecs*... vecs)
 {
   typedef raft::Pow2<VecBytes> AlignBytes;
   constexpr std::size_t VecElems = VecBytes / sizeof(Type);
@@ -688,7 +696,7 @@ void matrixLinewiseVecRowsSpan(
   const IdxType nRows,
   Lambda op,
   cudaStream_t stream,
-  Vecs... vecs)
+  const Vecs*... vecs)
 {
   constexpr std::size_t VecElems = VecBytes / sizeof(Type);
   typedef raft::Pow2<VecBytes> AlignBytes;
@@ -779,7 +787,7 @@ struct MatrixLinewiseOp {
                         const bool alongLines,
                         Lambda op,
                         cudaStream_t stream,
-                        Vecs... vecs)
+                        const Vecs*... vecs)
   {
     constexpr auto is_rowmajor = std::is_same_v<LayoutPolicy, raft::layout_right_padded<Type>>;
     constexpr auto is_colmajor = std::is_same_v<LayoutPolicy, raft::layout_left_padded<Type>>;
