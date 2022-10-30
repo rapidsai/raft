@@ -400,6 +400,8 @@ if(RAFT_COMPILE_NN_LIBRARY)
     src/nn/specializations/detail/ivfpq_compute_similarity_half_fast.cu
     src/nn/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
     src/nn/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
+    src/nn/specializations/detail/ivfpq_build.cu
+    src/nn/specializations/detail/ivfpq_search.cu
     src/nn/specializations/detail/ivfpq_search_float_int64_t.cu
     src/nn/specializations/detail/ivfpq_search_float_uint32_t.cu
     src/nn/specializations/detail/ivfpq_search_float_uint64_t.cu
