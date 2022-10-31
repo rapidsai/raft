@@ -286,9 +286,7 @@ auto make_device_vector_view(ElementType* ptr, IndexType n)
  * @param[in] stride stride between elements
  * @return raft::device_vector_view
  */
-template <typename ElementType,
-          typename IndexType    = int,
-          typename LayoutPolicy = layout_stride>
+template <typename ElementType, typename IndexType = int, typename LayoutPolicy = layout_stride>
 auto make_strided_device_vector_view(ElementType* ptr, IndexType n, IndexType stride)
 {
   vector_extent<IndexType> exts{n};
