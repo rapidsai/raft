@@ -31,17 +31,6 @@ __global__ void naiveAxpy(const int n, const T alpha, const T* x, T* y, int incx
   if (idx < n) { y[idx * incy] += alpha * x[idx * incx]; }
 }
 
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_stride>
-auto make_strided_device_vector_view(ElementType* ptr, IndexType n, IndexType stride)
-{
-  vector_extent<IndexType> exts{n};
-  std::array<IndexType, 1> strides{stride};
-  auto layout = typename LayoutPolicy::mapping<vector_extent<IndexType>>{exts, strides};
-  return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, layout};
-}
-
 template <typename InType, typename IndexType = int, typename OutType = InType>
 struct AxpyInputs {
   OutType tolerance;
