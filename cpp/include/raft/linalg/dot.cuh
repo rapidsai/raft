@@ -25,37 +25,26 @@
 #include <raft/core/host_mdspan.hpp>
 
 namespace raft::linalg {
-
 /**
  * @brief Computes the dot product of two vectors.
- * @tparam InputType1  raft::device_mdspan for the first input vector
- * @tparam InputType2  raft::device_mdspan for the second input vector
- * @tparam OutputType  Either a host_scalar_view or device_scalar_view for the output
  * @param[in] handle   raft::handle_t
  * @param[in] x        First input vector
  * @param[in] y        Second input vector
- * @param[out] out     The output dot product between the x and y vectors
+ * @param[out] out     The output dot product between the x and y vectors.
+ * @note The out parameter can be either a host_scalar_view or device_scalar_view
  */
-template <typename InputType1,
-          typename InputType2,
-          typename OutputType,
-          typename = raft::enable_if_input_device_mdspan<InputType1>,
-          typename = raft::enable_if_input_device_mdspan<InputType2>,
-          typename = raft::enable_if_output_mdspan<OutputType>>
-void dot(const raft::handle_t& handle, InputType1 x, InputType2 y, OutputType out)
+template <typename ValueType,
+          typename IndexType       = std::uint32_t,
+          typename ScalarIndexType = std::uint32_t,
+          typename LayoutPolicy1   = layout_c_contiguous,
+          typename LayoutPolicy2   = layout_c_contiguous>
+void dot(const raft::handle_t& handle,
+         raft::device_vector_view<const ValueType, IndexType, LayoutPolicy1> x,
+         raft::device_vector_view<const ValueType, IndexType, LayoutPolicy2> y,
+         raft::device_scalar_view<ValueType, ScalarIndexType> out)
 {
   RAFT_EXPECTS(x.size() == y.size(),
                "Size mismatch between x and y input vectors in raft::linalg::dot");
-
-  // Right now the inputs and outputs need to all have the same value_type (float/double etc).
-  // Try to output a meaningful compiler error if mismatched types are passed here.
-  // Note: In the future we could remove this restriction using the cublasDotEx function
-  // in the cublas wrapper call, instead of the cublassdot and cublasddot functions.
-  static_assert(std::is_same_v<typename InputType1::value_type, typename InputType2::value_type>,
-                "Both input vectors need to have the same value_type in raft::linalg::dot call");
-  static_assert(
-    std::is_same_v<typename InputType1::value_type, typename OutputType::value_type>,
-    "Input vectors and output scalar need to have the same value_type in raft::linalg::dot call");
 
   RAFT_CUBLAS_TRY(detail::cublasdot(handle.get_cublas_handle(),
                                     x.size(),

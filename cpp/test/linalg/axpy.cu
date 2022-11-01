@@ -41,11 +41,11 @@ struct AxpyInputs {
   unsigned long long int seed;
 };
 
-template <typename T>
+template <typename T, typename IndexType = int>
 class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
  protected:
   raft::handle_t handle;
-  AxpyInputs<T> params;
+  AxpyInputs<T, IndexType> params;
   rmm::device_uvector<T> refy;
   rmm::device_uvector<T> y;
 
@@ -67,8 +67,8 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
 
     raft::random::RngState r(params.seed);
 
-    int x_len = params.len * params.incx;
-    int y_len = params.len * params.incy;
+    IndexType x_len = params.len * params.incx;
+    IndexType y_len = params.len * params.incy;
     rmm::device_uvector<T> x(x_len, stream);
     y.resize(y_len, stream);
     refy.resize(y_len, stream);
@@ -89,18 +89,21 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
     if ((params.incx > 1) && (params.incy > 1)) {
       axpy(handle,
            make_host_scalar_view<const T>(&params.alpha),
-           make_strided_device_vector_view<const T>(x.data(), params.len, params.incx),
-           make_strided_device_vector_view<T>(y.data(), params.len, params.incy));
+           make_device_vector_view<const T, IndexType, layout_stride>(
+             x.data(), params.len, params.incx),
+           make_device_vector_view<T, IndexType, layout_stride>(y.data(), params.len, params.incy));
+
     } else if (params.incx > 1) {
       axpy(handle,
            make_host_scalar_view<const T>(&params.alpha),
-           make_strided_device_vector_view<const T>(x.data(), params.len, params.incx),
+           make_device_vector_view<const T, IndexType, layout_stride>(
+             x.data(), params.len, params.incx),
            make_device_vector_view<T>(y.data(), params.len));
     } else if (params.incy > 1) {
       axpy(handle,
            make_host_scalar_view<const T>(&params.alpha),
            make_device_vector_view<const T>(x.data(), params.len),
-           make_strided_device_vector_view<T>(y.data(), params.len, params.incy));
+           make_device_vector_view<T, IndexType, layout_stride>(y.data(), params.len, params.incy));
     } else {
       axpy(handle,
            make_host_scalar_view<const T>(&params.alpha),

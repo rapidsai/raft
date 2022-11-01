@@ -266,32 +266,23 @@ auto make_device_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_col
  * @tparam LayoutPolicy policy for strides and layout ordering
  * @param[in] ptr on device to wrap
  * @param[in] n number of elements in pointer
+ * @param[in] stride the stride between consecutive elements in the vector. Setting to a value
+ *            other than 1 requires LayoutPolicy to be set to layout_stride
  * @return raft::device_vector_view
  */
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto make_device_vector_view(ElementType* ptr, IndexType n)
+auto make_device_vector_view(ElementType* ptr, IndexType n, IndexType stride = 1)
 {
-  return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, n};
-}
-
-/**
- * @brief Create a 1-dim mdspan instance for device pointer, using a strided layout
- * @tparam ElementType the data type of the vector elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] ptr on device to wrap
- * @param[in] n number of elements in pointer
- * @param[in] stride stride between elements
- * @return raft::device_vector_view
- */
-template <typename ElementType, typename IndexType = int, typename LayoutPolicy = layout_stride>
-auto make_strided_device_vector_view(ElementType* ptr, IndexType n, IndexType stride)
-{
-  vector_extent<IndexType> exts{n};
-  std::array<IndexType, 1> strides{stride};
-  auto layout = typename LayoutPolicy::template mapping<vector_extent<IndexType>>{exts, strides};
-  return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, layout};
+  if constexpr (std::is_same_v<layout_stride, LayoutPolicy>) {
+    vector_extent<IndexType> exts{n};
+    std::array<IndexType, 1> strides{stride};
+    auto layout = typename LayoutPolicy::template mapping<vector_extent<IndexType>>{exts, strides};
+    return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, layout};
+  } else {
+    RAFT_EXPECTS(stride == 1, "Having a stride != 1 requires a layout_stride LayoutPolicy");
+    return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, n};
+  }
 }
 }  // end namespace raft

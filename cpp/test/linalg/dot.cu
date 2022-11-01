@@ -23,7 +23,6 @@
 
 namespace raft {
 namespace linalg {
-
 // Reference dot implementation.
 template <typename T>
 __global__ void naiveDot(const int n, const T* x, int incx, const T* y, int incy, T* out)
@@ -44,11 +43,11 @@ struct DotInputs {
   unsigned long long int seed;
 };
 
-template <typename T>
+template <typename T, typename IndexType = int>
 class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
  protected:
   raft::handle_t handle;
-  DotInputs<T> params;
+  DotInputs<T, IndexType> params;
   rmm::device_scalar<T> output;
   rmm::device_scalar<T> refoutput;
 
@@ -70,8 +69,8 @@ class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
 
     raft::random::RngState r(params.seed);
 
-    int x_len = params.len * params.incx;
-    int y_len = params.len * params.incy;
+    IndexType x_len = params.len * params.incx;
+    IndexType y_len = params.len * params.incy;
 
     rmm::device_uvector<T> x(x_len, stream);
     rmm::device_uvector<T> y(y_len, stream);
@@ -81,22 +80,26 @@ class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
     naiveDot<<<256, 256, 0, stream>>>(
       params.len, x.data(), params.incx, y.data(), params.incy, refoutput.data());
 
-    auto out_view = make_device_scalar_view<T, int>(output.data());
+    auto out_view = make_device_scalar_view<T, IndexType>(output.data());
 
     if ((params.incx > 1) && (params.incy > 1)) {
       dot(handle,
-          make_strided_device_vector_view<const T>(x.data(), params.len, params.incx),
-          make_strided_device_vector_view<const T>(y.data(), params.len, params.incy),
+          make_device_vector_view<const T, IndexType, layout_stride>(
+            x.data(), params.len, params.incx),
+          make_device_vector_view<const T, IndexType, layout_stride>(
+            y.data(), params.len, params.incy),
           out_view);
     } else if (params.incx > 1) {
       dot(handle,
-          make_strided_device_vector_view<const T>(x.data(), params.len, params.incx),
+          make_device_vector_view<const T, IndexType, layout_stride>(
+            x.data(), params.len, params.incx),
           make_device_vector_view<const T>(y.data(), params.len),
           out_view);
     } else if (params.incy > 1) {
       dot(handle,
           make_device_vector_view<const T>(x.data(), params.len),
-          make_strided_device_vector_view<const T>(y.data(), params.len, params.incy),
+          make_device_vector_view<const T, IndexType, layout_stride>(
+            y.data(), params.len, params.incy),
           out_view);
     } else {
       dot(handle,
