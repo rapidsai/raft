@@ -23,5 +23,5 @@ rapids_cython_create_modules(
     CXX
     SOURCE_FILES "${cython_sources}"
     LINKED_LIBRARIES "${linked_libraries}"
-    ASSOCIATED_TARGETS cuml
+    ASSOCIATED_TARGETS raft
     MODULE_PREFIX random_)
