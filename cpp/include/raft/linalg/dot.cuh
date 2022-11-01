@@ -33,15 +33,15 @@ namespace raft::linalg {
  * @param[out] out     The output dot product between the x and y vectors.
  * @note The out parameter can be either a host_scalar_view or device_scalar_view
  */
-template <typename ValueType,
+template <typename ElementType,
           typename IndexType       = std::uint32_t,
           typename ScalarIndexType = std::uint32_t,
           typename LayoutPolicy1   = layout_c_contiguous,
           typename LayoutPolicy2   = layout_c_contiguous>
 void dot(const raft::handle_t& handle,
-         raft::device_vector_view<const ValueType, IndexType, LayoutPolicy1> x,
-         raft::device_vector_view<const ValueType, IndexType, LayoutPolicy2> y,
-         raft::device_scalar_view<ValueType, ScalarIndexType> out)
+         raft::device_vector_view<const ElementType, IndexType, LayoutPolicy1> x,
+         raft::device_vector_view<const ElementType, IndexType, LayoutPolicy2> y,
+         raft::device_scalar_view<ElementType, ScalarIndexType> out)
 {
   RAFT_EXPECTS(x.size() == y.size(),
                "Size mismatch between x and y input vectors in raft::linalg::dot");
