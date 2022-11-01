@@ -17,6 +17,7 @@ from scipy.spatial.distance import cdist
 import pytest
 import numpy as np
 
+from pylibraft.common import Handle
 from pylibraft.distance import pairwise_distance
 
 from pylibraft.testing.utils import TestDeviceBuffer
@@ -53,7 +54,10 @@ def test_distance(n_rows, n_cols, metric, order, dtype):
     input1_device = TestDeviceBuffer(input1, order)
     output_device = TestDeviceBuffer(output, order)
 
+    handle = Handle()
     pairwise_distance(input1_device, input1_device, output_device, metric)
+    handle.sync()
+
     actual = output_device.copy_to_host()
 
     actual[actual <= 1e-5] = 0.0

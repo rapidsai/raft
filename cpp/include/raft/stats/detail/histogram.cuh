@@ -32,6 +32,12 @@ namespace raft {
 namespace stats {
 namespace detail {
 
+/** Default mapper which just returns the value of the data itself */
+template <typename DataT, typename IdxT>
+struct IdentityBinner {
+  DI int operator()(DataT val, IdxT row, IdxT col) { return int(val); }
+};
+
 static const int ThreadsPerBlock = 256;
 
 template <typename IdxT, int VecLen>
@@ -465,7 +471,7 @@ HistType selectBestHistAlgo(IdxT nbins)
  * @param nbins number of bins
  * @param data input data (length = ncols * nrows)
  * @param nrows data array length in each column (or batch)
- * @param ncols number of columsn (or batch size)
+ * @param ncols number of columns (or batch size)
  * @param stream cuda stream
  * @param binner the operation that computes the bin index of the input data
  *

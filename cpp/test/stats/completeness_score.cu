@@ -40,6 +40,8 @@ template <typename T>
 class completenessTest : public ::testing::TestWithParam<completenessParam> {
  protected:
   // the constructor
+  completenessTest() : stream(handle.get_stream()) {}
+
   void SetUp() override
   {
     // getting the parameters
@@ -64,9 +66,6 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     }
 
     // allocating and initializing memory to the GPU
-
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
     raft::update_device(truthClusterArray.data(), arr1.data(), (int)nElements, stream);
@@ -92,18 +91,16 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     if (nElements == 0) truthCompleteness = 1.0;
 
     // calling the completeness CUDA implementation
-    computedCompleteness = raft::stats::completeness_score(truthClusterArray.data(),
-                                                           predClusterArray.data(),
-                                                           nElements,
-                                                           lowerLabelRange,
-                                                           upperLabelRange,
-                                                           stream);
+    computedCompleteness = raft::stats::completeness_score(
+      handle,
+      raft::make_device_vector_view<const T>(truthClusterArray.data(), nElements),
+      raft::make_device_vector_view<const T>(predClusterArray.data(), nElements),
+      lowerLabelRange,
+      upperLabelRange);
   }
 
-  // the destructor
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
   // declaring the data values
+  raft::handle_t handle;
   completenessParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements               = 0;

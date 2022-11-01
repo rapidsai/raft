@@ -30,8 +30,6 @@ set(BENCH_NAME ${ConfigureBench_NAME})
 
 add_executable(${BENCH_NAME} ${ConfigureBench_PATH})
 
-message("BENCH PATH: ${ConfigureBench_PATH}")
-
 target_link_libraries(${BENCH_NAME}
         PRIVATE
         raft::raft
@@ -87,6 +85,8 @@ if(BUILD_BENCH)
             bench/distance/distance_exp_l2.cu
             bench/distance/distance_l1.cu
             bench/distance/distance_unexp_l2.cu
+            bench/distance/fused_l2_nn.cu
+            bench/distance/kernels.cu
             bench/main.cpp
             OPTIONAL DIST
             )
@@ -96,6 +96,7 @@ if(BUILD_BENCH)
             bench/linalg/add.cu
             bench/linalg/map_then_reduce.cu
             bench/linalg/matrix_vector_op.cu
+            bench/linalg/reduce_rows_by_key.cu
             bench/linalg/reduce.cu
             bench/main.cpp
             )
@@ -114,20 +115,19 @@ if(BUILD_BENCH)
             bench/main.cpp
             )
 
-    ConfigureBench(NAME SPATIAL_BENCH
+    ConfigureBench(NAME NEIGHBORS_BENCH
             PATH
-            bench/spatial/fused_l2_nn.cu
-            bench/spatial/knn/brute_force_float_int64_t.cu
-            bench/spatial/knn/brute_force_float_uint32_t.cu
-            bench/spatial/knn/ivf_flat_float_int64_t.cu
-            bench/spatial/knn/ivf_flat_float_uint32_t.cu
-            bench/spatial/knn/ivf_flat_int8_t_int64_t.cu
-            bench/spatial/knn/ivf_flat_uint8_t_uint32_t.cu
-            bench/spatial/knn/ivf_pq_float_int64_t.cu
-            bench/spatial/knn/ivf_pq_float_uint32_t.cu
-            bench/spatial/knn/ivf_pq_int8_t_int64_t.cu
-            bench/spatial/knn/ivf_pq_uint8_t_uint32_t.cu
-            bench/spatial/selection.cu
+            bench/neighbors/knn/brute_force_float_int64_t.cu
+            bench/neighbors/knn/brute_force_float_uint32_t.cu
+            bench/neighbors/knn/ivf_flat_float_int64_t.cu
+            bench/neighbors/knn/ivf_flat_float_uint32_t.cu
+            bench/neighbors/knn/ivf_flat_int8_t_int64_t.cu
+            bench/neighbors/knn/ivf_flat_uint8_t_uint32_t.cu
+            bench/neighbors/knn/ivf_pq_float_int64_t.cu
+            bench/neighbors/knn/ivf_pq_float_uint32_t.cu
+            bench/neighbors/knn/ivf_pq_int8_t_int64_t.cu
+            bench/neighbors/knn/ivf_pq_uint8_t_uint32_t.cu
+            bench/neighbors/selection.cu
             bench/main.cpp
             OPTIONAL DIST NN
             )

@@ -320,10 +320,17 @@ class TrustworthinessScoreTest : public ::testing::Test {
 
     raft::update_device(d_X.data(), X.data(), X.size(), stream);
     raft::update_device(d_X_embedded.data(), X_embedded.data(), X_embedded.size(), stream);
+    auto n_sample            = 50;
+    auto n_features_origin   = 30;
+    auto n_features_embedded = 8;
 
     // euclidean test
-    score = trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
-      handle, d_X.data(), d_X_embedded.data(), 50, 30, 8, 5);
+    score = trustworthiness_score<raft::distance::DistanceType::L2SqrtUnexpanded, float>(
+      handle,
+      raft::make_device_matrix_view<const float>(d_X.data(), n_sample, n_features_origin),
+      raft::make_device_matrix_view<const float>(
+        d_X_embedded.data(), n_sample, n_features_embedded),
+      5);
   }
 
   void SetUp() override { basicTest(); }

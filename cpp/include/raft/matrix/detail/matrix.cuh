@@ -116,15 +116,14 @@ void rowReverse(m_t* inout, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 
   thrust::for_each(
     rmm::exec_policy(stream), counting, counting + (size / 2), [=] __device__(idx_t idx) {
-      idx_t dest_row = idx % m;
-      idx_t dest_col = idx / m;
+      idx_t dest_row = idx % (m / 2);
+      idx_t dest_col = idx / (m / 2);
       idx_t src_row  = (m - dest_row) - 1;
-      ;
-      idx_t src_col = dest_col;
+      idx_t src_col  = dest_col;
 
-      m_t temp                   = (m_t)d_q_reversed[idx];
-      d_q_reversed[idx]          = d_q[src_col * m + src_row];
-      d_q[src_col * m + src_row] = temp;
+      m_t temp                              = (m_t)d_q_reversed[dest_col * m + dest_row];
+      d_q_reversed[dest_col * m + dest_row] = d_q[src_col * m + src_row];
+      d_q[src_col * m + src_row]            = temp;
     });
 }
 
@@ -170,7 +169,7 @@ void printHost(const m_t* in, idx_t n_rows, idx_t n_cols)
  */
 template <typename m_t, typename idx_t = int>
 __global__ void slice(
-  m_t* src_d, idx_t m, idx_t n, m_t* dst_d, idx_t x1, idx_t y1, idx_t x2, idx_t y2)
+  const m_t* src_d, idx_t m, idx_t n, m_t* dst_d, idx_t x1, idx_t y1, idx_t x2, idx_t y2)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
   idx_t dm = x2 - x1, dn = y2 - y1;
@@ -182,7 +181,7 @@ __global__ void slice(
 }
 
 template <typename m_t, typename idx_t = int>
-void sliceMatrix(m_t* in,
+void sliceMatrix(const m_t* in,
                  idx_t n_rows,
                  idx_t n_cols,
                  m_t* out,
@@ -207,7 +206,7 @@ void sliceMatrix(m_t* in,
  * @param k: min(n_rows, n_cols)
  */
 template <typename m_t, typename idx_t = int>
-__global__ void getUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, idx_t k)
+__global__ void getUpperTriangular(const m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, idx_t k)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
   idx_t m = n_rows, n = n_cols;
@@ -218,7 +217,7 @@ __global__ void getUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_col
 }
 
 template <typename m_t, typename idx_t = int>
-void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+void copyUpperTriangular(const m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   idx_t m = n_rows, n = n_cols;
   idx_t k = std::min(m, n);
@@ -236,21 +235,46 @@ void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStr
  * @param k: dimensionality
  */
 template <typename m_t, typename idx_t = int>
-__global__ void copyVectorToMatrixDiagonal(m_t* vec, m_t* matrix, idx_t m, idx_t n, idx_t k)
+__global__ void copyVectorToMatrixDiagonal(const m_t* vec, m_t* matrix, idx_t m, idx_t n, idx_t k)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
   if (idx < k) { matrix[idx + idx * m] = vec[idx]; }
 }
 
+/**
+ * @brief Copy matrix diagonal to vector
+ * @param vec: vector of length k = min(n_rows, n_cols)
+ * @param matrix: matrix of size n_rows x n_cols
+ * @param m: number of rows of the matrix
+ * @param n: number of columns of the matrix
+ * @param k: dimensionality
+ */
+template <typename m_t, typename idx_t = int>
+__global__ void copyVectorFromMatrixDiagonal(m_t* vec, const m_t* matrix, idx_t m, idx_t n, idx_t k)
+{
+  idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
+
+  if (idx < k) { vec[idx] = matrix[idx + idx * m]; }
+}
+
 template <typename m_t, typename idx_t = int>
 void initializeDiagonalMatrix(
-  m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+  const m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   idx_t k = std::min(n_rows, n_cols);
   dim3 block(64);
   dim3 grid((k + block.x - 1) / block.x);
   copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows, n_cols, k);
+}
+
+template <typename m_t, typename idx_t = int>
+void getDiagonalMatrix(m_t* vec, const m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  idx_t k = std::min(n_rows, n_cols);
+  dim3 block(64);
+  dim3 grid((k + block.x - 1) / block.x);
+  copyVectorFromMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows, n_cols, k);
 }
 
 /**
@@ -275,11 +299,15 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
 }
 
 template <typename m_t, typename idx_t = int>
-m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t stream)
+m_t getL2Norm(const raft::handle_t& handle, const m_t* in, idx_t size, cudaStream_t stream)
 {
   cublasHandle_t cublasH = handle.get_cublas_handle();
   m_t normval            = 0;
-  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasnrm2(cublasH, size, in, 1, &normval, stream));
+  RAFT_EXPECTS(
+    std::is_integral_v<idx_t> && (std::size_t)size <= (std::size_t)std::numeric_limits<int>::max(),
+    "Index type not supported");
+  RAFT_CUBLAS_TRY(
+    raft::linalg::detail::cublasnrm2(cublasH, static_cast<int>(size), in, 1, &normval, stream));
   return normval;
 }
 

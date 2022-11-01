@@ -173,25 +173,22 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     host_silhouette_score();
 
     // calling the silhouette_score CUDA implementation
-    computedSilhouetteScore = raft::stats::silhouette_score(handle,
-                                                            d_X.data(),
-                                                            nRows,
-                                                            nCols,
-                                                            d_labels.data(),
-                                                            nLabels,
-                                                            sampleSilScore.data(),
-                                                            handle.get_stream(),
-                                                            params.metric);
+    computedSilhouetteScore = raft::stats::silhouette_score(
+      handle,
+      raft::make_device_matrix_view<const DataT>(d_X.data(), nRows, nCols),
+      raft::make_device_vector_view<const LabelT>(d_labels.data(), nRows),
+      std::make_optional(raft::make_device_vector_view(sampleSilScore.data(), nRows)),
+      nLabels,
+      params.metric);
 
-    batchedSilhouetteScore = raft::stats::silhouette_score_batched(handle,
-                                                                   d_X.data(),
-                                                                   nRows,
-                                                                   nCols,
-                                                                   d_labels.data(),
-                                                                   nLabels,
-                                                                   sampleSilScore.data(),
-                                                                   chunk,
-                                                                   params.metric);
+    batchedSilhouetteScore = raft::stats::silhouette_score_batched(
+      handle,
+      raft::make_device_matrix_view<const DataT>(d_X.data(), nRows, nCols),
+      raft::make_device_vector_view<const LabelT>(d_labels.data(), nRows),
+      std::make_optional(raft::make_device_vector_view(sampleSilScore.data(), nRows)),
+      nLabels,
+      chunk,
+      params.metric);
   }
 
   // declaring the data values
