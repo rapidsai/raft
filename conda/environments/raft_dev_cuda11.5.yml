@@ -1,15 +1,15 @@
 name: raft_dev
 channels:
 - rapidsai
-- nvidia
-- rapidsai-nightly
 - dask/label/dev
 - conda-forge
+- nvidia
+- rapidsai-nightly
 dependencies:
 - c-compiler
 - cxx-compiler
 - cudatoolkit=11.5
-- cuda-python >=11.5,<11.7.1
+- cuda-python >=11.7.1,<12.0
 - ninja
 - clang=11.1.0
 - clang-tools=11.1.0
