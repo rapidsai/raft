@@ -68,11 +68,11 @@ class SliceTest : public ::testing::TestWithParam<SliceInputs<T>> {
     int rows = params.rows, cols = params.cols, len = rows * cols;
     uniform(handle, r, data.data(), len, T(-10.0), T(10.0));
 
-    std::uniform_int_distribution<int> rowGenerator(0, rows / 2);
+    std::uniform_int_distribution<int> rowGenerator(0, (rows / 2) - 1);
     auto row1 = rowGenerator(dre);
     auto row2 = rowGenerator(dre) + rows / 2;
 
-    std::uniform_int_distribution<int> colGenerator(0, cols / 2);
+    std::uniform_int_distribution<int> colGenerator(0, (cols / 2) - 1);
     auto col1 = colGenerator(dre);
     auto col2 = colGenerator(dre) + cols / 2;
 

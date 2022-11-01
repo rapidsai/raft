@@ -309,12 +309,11 @@ void sample_centroids(const raft::handle_t& handle,
 template <typename DataT, typename IndexT, typename ReductionOpT>
 void cluster_cost(const raft::handle_t& handle,
                   raft::device_vector_view<DataT, IndexT> minClusterDistance,
-                  rmm::device_uvector<char> workspace,
+                  rmm::device_uvector<char>& workspace,
                   raft::device_scalar_view<DataT> clusterCost,
                   ReductionOpT reduction_op)
 {
-  detail::computeClusterCost<DataT, ReductionOpT, IndexT>(
-    handle, minClusterDistance, workspace, clusterCost, reduction_op);
+  detail::computeClusterCost(handle, minClusterDistance, workspace, clusterCost, reduction_op);
 }
 
 /**
@@ -843,8 +842,7 @@ void computeClusterCost(const raft::handle_t& handle,
                         raft::device_scalar_view<DataT> clusterCost,
                         ReductionOpT reduction_op)
 {
-  kmeans::cluster_cost<DataT, ReductionOpT, IndexT>(
-    handle, minClusterDistance, workspace, clusterCost, reduction_op);
+  kmeans::cluster_cost(handle, minClusterDistance, workspace, clusterCost, reduction_op);
 }
 
 /**
