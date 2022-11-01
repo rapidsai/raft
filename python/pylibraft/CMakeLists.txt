@@ -41,6 +41,8 @@ else()
   set(raft_FOUND OFF)
 endif()
 
+include(rapids-cython)
+
 if(NOT raft_FOUND)
   # TODO: This will not be necessary once we upgrade to CMake 3.22, which will
   # pull in the required languages for the C++ project even if this project
@@ -61,14 +63,17 @@ if(NOT raft_FOUND)
   # When building the C++ libraries from source we must copy
   # libraft_distance.so alongside the pairwise_distance and random Cython libraries
   # TODO: when we have a single 'compiled' raft library, we shouldn't need this
-  install(TARGETS raft_distance_lib DESTINATION pylibraft/distance)
-  install(TARGETS raft_distance_lib DESTINATION pylibraft/random)
+  set(cython_lib_dir pylibraft)
+  install(TARGETS raft_distance_lib DESTINATION ${cython_lib_dir})
 endif()
 
-include(rapids-cython)
 rapids_cython_init()
 
 add_subdirectory(pylibraft/common)
 add_subdirectory(pylibraft/distance)
 add_subdirectory(pylibraft/random)
 add_subdirectory(pylibraft/cluster)
+
+if(DEFINED cython_lib_dir)
+  rapids_cython_add_rpath_entries(TARGET raft PATHS "${cython_lib_dir}")
+endif()
