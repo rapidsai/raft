@@ -32,6 +32,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/normalize.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -666,7 +667,7 @@ void balancing_em_iters(const handle_t& handle,
       case raft::distance::DistanceType::InnerProduct:
       case raft::distance::DistanceType::CosineExpanded:
       case raft::distance::DistanceType::CorrelationExpanded:
-        utils::normalize_rows<uint32_t>(n_clusters, dim, cluster_centers, stream);
+        raft::linalg::rowNormalize(cluster_centers, cluster_centers, dim, n_clusters, true, stream);
       default: break;
     }
     // E: Expectation step - predict labels

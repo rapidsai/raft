@@ -44,7 +44,7 @@ using detail::NormType;
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of row-wise dot products
- * @param data the input matrix (currently assumed to be row-major)
+ * @param data the input matrix
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
@@ -71,7 +71,7 @@ void rowNorm(Type* dots,
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of column-wise dot products
- * @param data the input matrix (currently assumed to be row-major)
+ * @param data the input matrix
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
