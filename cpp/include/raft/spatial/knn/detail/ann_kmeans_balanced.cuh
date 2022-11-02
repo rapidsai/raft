@@ -666,8 +666,15 @@ void balancing_em_iters(const handle_t& handle,
       // To avoid converging to zero, we normalize the center vectors on every iteration.
       case raft::distance::DistanceType::InnerProduct:
       case raft::distance::DistanceType::CosineExpanded:
-      case raft::distance::DistanceType::CorrelationExpanded:
-        raft::linalg::rowNormalize(cluster_centers, cluster_centers, dim, n_clusters, true, stream);
+      case raft::distance::DistanceType::CorrelationExpanded: {
+        auto clusters_in_view =
+          raft::make_device_matrix_view<const float, uint32_t, raft::row_major>(
+            cluster_centers, n_clusters, dim);
+        auto clusters_out_view = raft::make_device_matrix_view<float, uint32_t, raft::row_major>(
+          cluster_centers, n_clusters, dim);
+        raft::linalg::rowNormalize(handle, clusters_in_view, clusters_out_view);
+        break;
+      }
       default: break;
     }
     // E: Expectation step - predict labels

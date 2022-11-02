@@ -72,7 +72,12 @@ class RowNormalizeTest : public ::testing::TestWithParam<RowNormalizeInputs<T, I
     uniform(handle, r, data.data(), len, T(-10.0), T(10.0));
 
     rowNormalizeRef(out_exp.data(), data.data(), params.cols, params.rows, stream);
-    raft::linalg::rowNormalize(out_act.data(), data.data(), params.cols, params.rows, stream);
+
+    auto input_view = raft::make_device_matrix_view<const T, IdxT, raft::row_major>(
+      data.data(), params.rows, params.cols);
+    auto output_view = raft::make_device_matrix_view<T, IdxT, raft::row_major>(
+      out_act.data(), params.rows, params.cols);
+    raft::linalg::rowNormalize(handle, input_view, output_view);
 
     handle.sync_stream(stream);
   }
