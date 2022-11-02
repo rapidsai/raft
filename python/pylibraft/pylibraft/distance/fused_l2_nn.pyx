@@ -79,7 +79,7 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
         import cupy as cp
 
         from pylibraft.common import Handle
-        from pylibraft.distance import fused_l2_nn
+        from pylibraft.distance import fused_l2_nn_argmin
 
         n_samples = 5000
         n_clusters = 5
