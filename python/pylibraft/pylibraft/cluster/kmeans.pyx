@@ -129,7 +129,9 @@ def compute_new_centroids(X,
 
         new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
 
-        compute_new_centroids(X, centroids, labels, new_centroids, handle=handle)
+        compute_new_centroids(
+            X, centroids, labels, new_centroids, handle=handle
+        )
 
         # pylibraft functions are often asynchronous so the
         # handle needs to be explicitly synchronized
