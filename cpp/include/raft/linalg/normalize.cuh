@@ -31,9 +31,7 @@ namespace linalg {
  * @tparam IndexType Integer type used to for addressing
  * @param[in] handle raft::handle_t
  * @param[in] in the input raft::device_matrix_view
- * @param[out] out the output raft::device_vector_view
- * @param out the output matrix (row-major)
- * @param in the input matrix (row-major)
+ * @param[out] out the output raft::device_matrix_view
  */
 template <typename ElementType, typename IndexType>
 void rowNormalize(const raft::handle_t& handle,
