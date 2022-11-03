@@ -17,10 +17,10 @@
 #include <exception>
 
 namespace raft {
-#ifdef RAFT_ENABLE_CUDA
-auto constexpr static const CUDA_ENABLED = true;
-#else
+#ifdef RAFT_DISABLE_CUDA
 auto constexpr static const CUDA_ENABLED = false;
+#else
+auto constexpr static const CUDA_ENABLED = true;
 #endif
 
 struct cuda_unsupported : std::exception {

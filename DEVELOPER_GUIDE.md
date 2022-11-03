@@ -26,7 +26,7 @@ The public APIs should be lightweight wrappers around calls to private APIs insi
 
 ## CUDA-Free Usage
 
-Some applications may wish to use specific CPU-only RAFT components in builds where nvcc and CUDA headers are unavailable. To facilitate this use case, the build system offers the `DISABLE_CUDA` CMake option. By default, this is set to `OFF`, which defines the `RAFT_ENABLE_CUDA` identifier during compilation.
+Some applications may wish to use specific CPU-only RAFT components in builds where nvcc and CUDA headers are unavailable. To facilitate this use case, the build system offers the `DISABLE_CUDA` CMake option, which will define the `RAFT_DISABLE_CUDA` identifier during compilation if set. By default, this is set to `OFF`.
 
 Based on this identifier, the constexpr boolean `raft::CUDA_ENABLED` is defined in `raft/core/device_support.hpp`, which can in turn be used to conditionally provide CUDA-free alternatives for some RAFT components.
 
