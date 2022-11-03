@@ -15,24 +15,28 @@
  */
 
 #include <raft/neighbors/ivf_pq.cuh>
+#include <raft/neighbors/specializations/detail/ivf_pq_search.cuh>
 #include <raft/neighbors/specializations/ivf_pq_specialization.hpp>
 
 namespace raft::neighbors::ivf_pq {
 
-#define RAFT_SEARCH_INST(T, IdxT)                     \
-  template void search<T, IdxT>(const handle_t&,      \
-                                const search_params&, \
-                                const index<IdxT>&,   \
-                                const T*,             \
-                                uint32_t,             \
-                                uint32_t,             \
-                                IdxT*,                \
-                                float*,               \
-                                rmm::mr::device_memory_resource*);
+#define RAFT_SEARCH_INST(T, IdxT)                                                          \
+  void search(const handle_t& handle,                                                      \
+              const search_params& params,                                                 \
+              const index<IdxT>& idx,                                                      \
+              const T* queries,                                                            \
+              uint32_t n_queries,                                                          \
+              uint32_t k,                                                                  \
+              IdxT* neighbors,                                                             \
+              float* distances,                                                            \
+              rmm::mr::device_memory_resource* mr)                                         \
+  {                                                                                        \
+    search<T, IdxT>(handle, params, idx, queries, n_queries, k, neighbors, distances, mr); \
+  }
 
-RAFT_SEARCH_INST(float, int64_t);
-RAFT_SEARCH_INST(float, uint32_t);
 RAFT_SEARCH_INST(float, uint64_t);
+RAFT_SEARCH_INST(int8_t, uint64_t);
+RAFT_SEARCH_INST(uint8_t, uint64_t);
 
 #undef RAFT_INST_SEARCH
 

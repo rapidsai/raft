@@ -81,39 +81,59 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
 cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
         namespace "raft::neighbors::ivf_pq":
 
-    cdef void search(const handle_t& handle,
-                   const search_params& params,
-                   const index[int64_t]& index,
-                   const float* queries,
-                   uint32_t n_queries,
-                   uint32_t k,
-                   int64_t* neighbors,
-                   float* distances,
-                   device_memory_resource* mr)
-
-    cdef index[int64_t] build(const handle_t& handle,      
+    cdef index[uint64_t] build(const handle_t& handle,      
              const index_params& params,     
              const float* dataset,               
-             int64_t n_rows,                    
+             uint64_t n_rows,                    
              uint32_t dim)  
 
-    # cdef index[int64_t] build(const handle_t& handle,      
-    #          const index_params& params,     
-    #          const int8_t* dataset,               
-    #          int64_t n_rows,                    
-    #          uint32_t dim)
+    cdef index[uint64_t] build(const handle_t& handle,      
+             const index_params& params,     
+             const int8_t* dataset,               
+             uint64_t n_rows,                    
+             uint32_t dim)
 
-    # cdef index[int64_t] build(const handle_t& handle,      
-    #          const index_params& params,     
-    #          const uint8_t* dataset,               
-    #          int64_t n_rows,                    
-    #          uint32_t dim)   
+    cdef index[uint64_t] build(const handle_t& handle,      
+             const index_params& params,     
+             const uint8_t* dataset,               
+             uint64_t n_rows,                    
+             uint32_t dim)   
 
     cdef index[IdxT] extend[T, IdxT](const handle_t& handle,        
               const index[IdxT]& orig_index, 
               const T* new_vectors,          
               const IdxT* new_indices,       
               IdxT n_rows)                   
+
+    cdef void search(const handle_t& handle,
+                   const search_params& params,
+                   const index[uint64_t]& index,
+                   const float* queries,
+                   uint32_t n_queries,
+                   uint32_t k,
+                   uint64_t* neighbors,
+                   float* distances,
+                   device_memory_resource* mr)
+    
+    cdef void search(const handle_t& handle,
+                   const search_params& params,
+                   const index[uint64_t]& index,
+                   const int8_t* queries,
+                   uint32_t n_queries,
+                   uint32_t k,
+                   uint64_t* neighbors,
+                   float* distances,
+                   device_memory_resource* mr)
+    
+    cdef void search(const handle_t& handle,
+                   const search_params& params,
+                   const index[uint64_t]& index,
+                   const uint8_t* queries,
+                   uint32_t n_queries,
+                   uint32_t k,
+                   uint64_t* neighbors,
+                   float* distances,
+                   device_memory_resource* mr)
 
 
 def is_c_cont(cai, dt):
@@ -124,15 +144,16 @@ def is_c_cont(cai, dt):
     
 def _get_codebook_kind(kind):
     return {
-        'per_subspace': 0, # codebook_gen.PER_SUBSPACE,
-        'per_cluster': 1 #codebook_gen.PER_CLUSTER
+        'per_subspace': 0, # codebook_gen.PER_SUBSPACE
+        'per_cluster': 1 # codebook_gen.PER_CLUSTER
         }[kind]
 
 
 def _get_metric(metric):
     SUPPORTED_DISTANCES = {
-        "sqeuclidean": DistanceType.L2Expanded,
-        "euclidean": DistanceType.L2SqrtExpanded,
+        "l2_expanded": DistanceType.L2Expanded,
+        # TODO(tfeher): fix inconsistency: index building for L2SqrtExpanded is only supported by build, not by search.
+        # "euclidean": DistanceType.L2SqrtExpanded
         "inner_product": DistanceType.InnerProduct
     }
     if metric not in SUPPORTED_DISTANCES:
@@ -145,6 +166,11 @@ class IvfPq:
     Nearest neighbors search using IVF-PQ method.
     """
 
+    # Class variables to provide easier access for data type parameters for the search function.
+    CUDA_R_32F = cudaDataType_t.CUDA_R_32F
+    CUDA_R_16F = cudaDataType_t.CUDA_R_16F
+    CUDA_R_8U = cudaDataType_t.CUDA_R_8U
+
     def __init__(self, handle=None):
         self.handle = pylibraft.common.handle.Handle() if handle is None \
             else handle
@@ -155,9 +181,9 @@ class IvfPq:
 
     def _dealloc(self):
         # deallocate the index
-        cdef index[int64_t] *idx
+        cdef index[uint64_t] *idx
         if self._index is not None:
-            idx = <index[int64_t]*><uintptr_t>self._index
+            idx = <index[uint64_t]*><uintptr_t>self._index
             del idx
 
     def build(self, 
@@ -183,7 +209,7 @@ class IvfPq:
         n_list : int, default = 1024
             The number of clusters used in the coarse quantizer.
         metric : string denoting the metric type, default="euclidean"
-            Valid values for metric: ["euclidean", "sqeuclidean", "inner_product"],
+            Valid values for metric: ["l2_expanded", "inner_product"],
             where sqeuclidean is the equclidean distance without the square root operation.
         kmeans_trainset_fraction : int, default = 0.5
             If kmeans_trainset_fraction is less than 1, then the dataset is subsampled,
@@ -258,15 +284,15 @@ class IvfPq:
         params.add_data_on_build = add_data_on_build
 
 
-        # cdef index[int64_t] *index_ptr
-        cdef int64_t n_rows = dataset_cai["shape"][0] # make it uint32_t
+        # cdef index[uint64_t] *index_ptr
+        cdef uint64_t n_rows = dataset_cai["shape"][0] # make it uint32_t
         cdef uint32_t dim = dataset_cai["shape"][1]
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t dataset_ptr = dataset_cai["data"][0]
         
         self._dealloc()
 
-        cdef index[int64_t] *idx = new index[int64_t](deref(handle_), 
+        cdef index[uint64_t] *idx = new index[uint64_t](deref(handle_), 
                                  _get_metric(metric), 
                                  codebook_gen.PER_SUBSPACE , 
                                  <uint32_t>n_lists,
@@ -281,22 +307,22 @@ class IvfPq:
                            <float*> dataset_ptr,               
                            n_rows,
                            dim)
-            self._index = <uintptr_t>idx
-        # elif dataset_dt == np.int8:
-        #     idx[0] = build(deref(handle_),      
-        #                    params,     
-        #                    <int8_t*> dataset_ptr,               
-        #                    n_rows,
-        #                    dim)
-        #     self._index = <uintptr_t>idx
-        # elif dataset_dt == np.uint8:
-        #     idx[0] = build(deref(handle_),      
-        #                    params,     
-        #                    <uint8_t*> dataset_ptr,               
-        #                    n_rows,
-        #                    dim)       
+        elif dataset_dt == np.byte:
+            idx[0] = build(deref(handle_),      
+                           params,     
+                           <int8_t*> dataset_ptr,               
+                           n_rows,
+                           dim)
+        elif dataset_dt == np.ubyte:
+            idx[0] = build(deref(handle_),      
+                           params,     
+                           <uint8_t*> dataset_ptr,               
+                           n_rows,
+                           dim)  
         else:
             raise ValueError("dtype %s not supported" % dataset_dt)
+
+        self._index = <uintptr_t>idx 
 
         self.handle.sync()      
 
@@ -315,10 +341,10 @@ class IvfPq:
         Parameters
         ----------
         queries : CUDA array interface compliant matrix shape (n_samples, dim)
-            Supported dtype [float] TODO(tfeher): clarify which other types shall we support.
+            Supported dtype [float, int8, uint8]
         k : int
             The number of neighbors.
-        neighbors : CUDA array interface compliant matrix shape (n_queries, k)
+        neighbors : CUDA array interface compliant matrix shape (n_queries, k), dtype uint64_t
             If this parameter is specified, then the neighbor indices will be returned here. Otherwise a
             new array is created.
         distances : CUDA array interface compliant matrix shape (n_queries, k)
@@ -361,7 +387,7 @@ class IvfPq:
         cdef uint32_t n_queries = queries_cai["shape"][0]
         cdef uint32_t dim_queries = queries_cai["shape"][1]
         assert(n_queries > 0)
-        assert(queries_dt in [np.dtype('float32')])
+        assert(queries_dt in [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte') ])
 
         
         # #assert(dim_queries == self._index_params['dimDataset'])
@@ -370,7 +396,7 @@ class IvfPq:
         neighbors_dt = np.dtype(neighbors_cai["typestr"])
         assert(neighbors_cai["shape"][0] == n_queries)
         assert(neighbors_cai["shape"][1] == k)
-        assert(neighbors_dt is np.dtype('int64'))
+        assert(neighbors_dt is np.dtype('uint64'))
 
         distances_cai = distances.__cuda_array_interface__
         distances_dt = np.dtype(distances_cai["typestr"])
@@ -385,21 +411,44 @@ class IvfPq:
         params.preferred_thread_block_size = preferred_thread_block_size
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef index[int64_t] *idx = <index[int64_t]*><uintptr_t>self._index
+        cdef index[uint64_t] *idx = <index[uint64_t]*><uintptr_t>self._index
         cdef uintptr_t queries_ptr = queries_cai["data"][0]
         cdef uintptr_t neighbors_ptr = neighbors_cai["data"][0]
         cdef uintptr_t distances_ptr = distances_cai["data"][0]
         cdef device_memory_resource* mr_ptr = <device_memory_resource*> nullptr
 
-        search(deref(handle_),
-              params,
-              deref(idx),
-              <float*>queries_ptr,
-              <uint32_t> n_queries,
-              <uint32_t> k,
-              <int64_t*> neighbors_ptr,
-              <float*> distances_ptr,
-              mr_ptr)
+        if queries_dt == np.float32:
+            search(deref(handle_),
+                params,
+                deref(idx),
+                <float*>queries_ptr,
+                <uint32_t> n_queries,
+                <uint32_t> k,
+                <uint64_t*> neighbors_ptr,
+                <float*> distances_ptr,
+                mr_ptr)
+        elif queries_dt == np.byte:
+            search(deref(handle_),
+                params,
+                deref(idx),
+                <int8_t*>queries_ptr,
+                <uint32_t> n_queries,
+                <uint32_t> k,
+                <uint64_t*> neighbors_ptr,
+                <float*> distances_ptr,
+                mr_ptr)
+        elif queries_dt == np.ubyte:
+            search(deref(handle_),
+                params,
+                deref(idx),
+                <uint8_t*>queries_ptr,
+                <uint32_t> n_queries,
+                <uint32_t> k,
+                <uint64_t*> neighbors_ptr,
+                <float*> distances_ptr,
+                mr_ptr)
+        else:
+            raise ValueError("query dtype %s not supported" % queries_dt)
 
         self.handle.sync()      
 

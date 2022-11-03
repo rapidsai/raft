@@ -31,9 +31,9 @@ namespace raft::neighbors ::ivf_pq {
               float*,               \
               rmm::mr::device_memory_resource*);
 
-RAFT_INST_SEARCH(float, int64_t);
-RAFT_INST_SEARCH(float, uint32_t);
 RAFT_INST_SEARCH(float, uint64_t);
+RAFT_INST_SEARCH(int8_t, uint64_t);
+RAFT_INST_SEARCH(uint8_t, uint64_t);
 
 #undef RAFT_INST_SEARCH
 
@@ -52,11 +52,9 @@ RAFT_INST_SEARCH(float, uint64_t);
               IdxT n_rows)                   \
     ->index<IdxT>;
 
-RAFT_INST_BUILD_EXTEND(float, int64_t)
-RAFT_INST_BUILD_EXTEND(int8_t, int64_t)
-RAFT_INST_BUILD_EXTEND(uint8_t, int64_t)
-// RAFT_INST_BUILD_EXTEND(float, uint32_t);
-// RAFT_INST_BUILD_EXTEND(float, uint64_t);
+RAFT_INST_BUILD_EXTEND(float, uint64_t)
+RAFT_INST_BUILD_EXTEND(int8_t, uint64_t)
+RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t)
 
 #undef RAFT_INST_BUILD_EXTEND
 

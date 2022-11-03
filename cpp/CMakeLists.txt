@@ -332,6 +332,21 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/specializations/fused_l2_nn_float_int64.cu
+    src/nn/specializations/detail/ivfpq_build.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_float_fast.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_fast.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_no_basediff.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_no_smem_lut.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_fast.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_no_basediff.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_no_smem_lut.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_half_fast.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
+    src/nn/specializations/detail/ivfpq_search.cu
+    src/nn/specializations/detail/ivfpq_search_float_uint64_t.cu
     src/random/specializations/rmat_rectangular_generator_int_double.cu
     src/random/specializations/rmat_rectangular_generator_int64_double.cu
     src/random/specializations/rmat_rectangular_generator_int_float.cu
