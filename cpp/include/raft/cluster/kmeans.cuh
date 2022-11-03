@@ -407,7 +407,7 @@ void min_cluster_distance(const raft::handle_t& handle,
  * @param[in]  handle                The raft handle
  * @param[in]  X                     The data in row-major format
  *                                   [dim = n_samples x n_features]
--c * @param[in]  centroids             Centroids data
+ * @param[in]  centroids             Centroids data
  *                                   [dim = n_cluster x n_features]
  * @param[out] minClusterAndDistance Distance vector that contains for every sample, the nearest
  *                                   centroid and it's distance
