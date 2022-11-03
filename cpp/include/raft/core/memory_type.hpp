@@ -29,7 +29,7 @@ auto constexpr is_host_accessible(memory_type mem_type)
 }
 auto constexpr is_host_device_accessible(memory_type mem_type)
 {
-  return is_device_accessible() && is_host_accessible();
+  return is_device_accessible(mem_type) && is_host_accessible(mem_type);
 }
 
 }  // end namespace raft
