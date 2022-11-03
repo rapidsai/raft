@@ -16,20 +16,19 @@
 #pragma once
 
 namespace raft {
-enum class memory_type {
-  host,
-  device,
-  managed,
-  pinned
-};
+enum class memory_type { host, device, managed, pinned };
 
-auto constexpr is_device_accessible(memory_type mem_type) {
+auto constexpr is_device_accessible(memory_type mem_type)
+{
   return (mem_type == memory_type::device || mem_type == memory_type::managed);
 }
-auto constexpr is_host_accessible(memory_type mem_type) {
-  return (mem_type == memory_type::host || mem_type == memory_type::managed || mem_type == memory_type::pinned);
+auto constexpr is_host_accessible(memory_type mem_type)
+{
+  return (mem_type == memory_type::host || mem_type == memory_type::managed ||
+          mem_type == memory_type::pinned);
 }
-auto constexpr is_host_device_accessible(memory_type mem_type) {
+auto constexpr is_host_device_accessible(memory_type mem_type)
+{
   return mem_type == memory_type::managed;
 }
 
