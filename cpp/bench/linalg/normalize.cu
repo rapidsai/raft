@@ -15,8 +15,6 @@
  */
 
 #include <common/benchmark.hpp>
-#include <raft/linalg/matrix_vector_op.cuh>  // todo: remove
-#include <raft/linalg/norm.cuh>              // todo: remove
 #include <raft/linalg/normalize.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
