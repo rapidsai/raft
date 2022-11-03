@@ -22,10 +22,11 @@ function(find_and_configure_cutlass)
     if(RAFT_ENABLE_DIST_DEPENDENCIES OR RAFT_COMPILE_LIBRARIES)
       rapids_find_generate_module(cutlass
           HEADER_NAMES  cutlass/include/*
+          INCLUDE_SUFFIXES cutlass
       )
       set(CUTLASS_ENABLE_HEADERS_ONLY ON)
       set(RAFT_CUTLASS_NAMESPACE "raft_cutlass" CACHE STRING "Top level namespace of CUTLASS")
-      set(BUILD_SHARED_LIBS OFF)
+#      set(BUILD_SHARED_LIBS OFF)
       # if (PKG_BUILD_STATIC_LIBS)
       #   set(BUILD_SHARED_LIBS OFF)
       #   set(CPM_DOWNLOAD_cutlass ON)
@@ -38,6 +39,7 @@ function(find_and_configure_cutlass)
             GIT_TAG          ${PKG_PINNED_TAG}
             EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
             OPTIONS
+              "CMAKE_INSTALL_INCLUDEDIR include"
               "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
       )
 
@@ -54,10 +56,10 @@ function(find_and_configure_cutlass)
     endif()
 
     # We generate the faiss-config files when we built faiss locally, so always do `find_dependency`
-    #rapids_export_package(BUILD cutlass raft-distance-lib-exports GLOBAL_TARGETS cutlass::cutlass cutlass)
+    rapids_export_package(BUILD cutlass raft-distance-lib-exports GLOBAL_TARGETS cutlass::cutlass cutlass)
     rapids_export_package(INSTALL cutlass raft-distance-lib-exports GLOBAL_TARGETS cutlass::cutlass cutlass)
 
-    # Tell cmake where it can find the generated faiss-config.cmake we wrote.
+    # Tell cmake where it can find the generated cutlass-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
     rapids_export_find_package_root(INSTALL cutlass [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-distance-lib-exports)
 endfunction()

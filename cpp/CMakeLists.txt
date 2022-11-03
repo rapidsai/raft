@@ -180,7 +180,7 @@ add_library(raft::raft ALIAS raft)
 target_include_directories(raft INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>"
-        "${CUTLASS_INCLUDE_DIR}")
+        "$<BUILD_INTERFACE:${CUTLASS_INCLUDE_DIR}>")
 
 # Keep RAFT as lightweight as possible.
 # Only CUDA libs and rmm should
@@ -448,7 +448,6 @@ if(TARGET raft_nn_lib)
           COMPONENT nn
           EXPORT raft-nn-lib-exports)
 endif()
-
 
 install(DIRECTORY include/raft
         COMPONENT raft
