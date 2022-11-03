@@ -23,6 +23,7 @@ import numpy as np
 from libc.stdint cimport uintptr_t, int64_t
 from cython.operator cimport dereference as deref
 from pylibraft.common import Handle
+from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.handle cimport handle_t
 from .rng_state cimport RngState
 
@@ -73,6 +74,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    RngState& r)
 
 
+@auto_sync_handle
 def rmat(out, theta, r_scale, c_scale, seed=12345, handle=None):
     """
     Generate RMAT adjacency list based on the input distribution.
