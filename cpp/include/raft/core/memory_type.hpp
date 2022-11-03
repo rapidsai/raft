@@ -29,7 +29,7 @@ auto constexpr is_host_accessible(memory_type mem_type)
 }
 auto constexpr is_host_device_accessible(memory_type mem_type)
 {
-  return mem_type == memory_type::managed;
+  return is_device_accessible() && is_host_accessible();
 }
 
 }  // end namespace raft
