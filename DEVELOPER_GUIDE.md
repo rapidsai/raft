@@ -24,6 +24,14 @@ The public APIs should be lightweight wrappers around calls to private APIs insi
 
 4. Before creating a new primitive, check to see if one exists already. If one exists but the API isn't flexible enough to include your use-case, consider first refactoring the existing primitive. If that is not possible without an extreme number of changes, consider how the public API could be made more flexible. If the new primitive is different enough from all existing primitives, consider whether an existing public API could invoke the new primitive as an option or argument. If the new primitive is different enough from what exists already, add a header for the new public API function to the appropriate subdirectory and namespace.
 
+## CUDA-Free Usage
+
+Some applications may wish to use specific CPU-only RAFT components in builds where nvcc and CUDA headers are unavailable. To facilitate this use case, the build system offers the `DISABLE_CUDA` CMake option. By default, this is set to `OFF`, which defines the `RAFT_ENABLE_CUDA` identifier during compilation.
+
+Based on this identifier, the constexpr boolean `raft::CUDA_ENABLED` is defined in `raft/core/device_support.hpp`, which can in turn be used to conditionally provide CUDA-free alternatives for some RAFT components.
+
+At this point, the vast majority of RAFT does not offer optional CUDA-free compilation, but this may grow over time.
+
 ## Testing
 
 It's important for RAFT to maintain a high test coverage in order to minimize the potential for downstream projects to encounter unexpected build or runtime behavior as a result of changes. A well-defined public API can help maintain compile-time stability but means more focus should be placed on testing the functional requirements and verifying execution on the various edge cases within RAFT itself. Ideally, bug fixes and new features should be able to be made to RAFT independently of the consuming projects.
