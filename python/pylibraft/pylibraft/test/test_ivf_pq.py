@@ -59,7 +59,6 @@ def check_distances(dataset, queries, skl_metric, out_idx, out_dist):
     dist_eps = abs(dist)
     dist_eps[dist < 1e-3] = 1e-3
     diff = abs(out_dist - dist) / dist_eps
-    print(np.max(diff), np.min(diff), np.mean(diff), np.std(diff))
 
     # Quantization leads to errors in the distance calculation.
     # The aim of this test is not to test precision, but to catch obvious errors.
@@ -100,10 +99,11 @@ def run_ivf_pq_build_search_test(
 
     nn.build(dataset_device)
 
-    if not add_data_on_build:
-        assert False  # Extend interface not yet implemented
-
     assert nn._index is not None
+
+    if not add_data_on_build:
+        IvfPQ.extend(dataset[: n_rows // 2, :])
+        IvfPQ.extend(dataset[n_rows // 2 :, :])
 
     queries = generate_data((n_queries, n_cols), dtype)
     out_idx = np.zeros((n_queries, k), dtype=np.uint64)
@@ -148,7 +148,6 @@ def run_ivf_pq_build_search_test(
 @pytest.mark.parametrize("metric", ["l2_expanded"])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
 def test_ivf_pq_build(n_rows, n_cols, n_queries, n_lists, metric, dtype):
-
     run_ivf_pq_build_search_test(
         n_rows=n_rows,
         n_cols=n_cols,
@@ -156,6 +155,27 @@ def test_ivf_pq_build(n_rows, n_cols, n_queries, n_lists, metric, dtype):
         k=10,
         n_lists=n_lists,
         metric=metric,
+        dtype=dtype,
+        pq_bits=8,
+        pq_dim=0,
+        codebook_kind="per_subspace",
+        force_random_rotation=False,
+        add_data_on_build=True,
+        n_probes=100,
+        lut_dtype=IvfPq.CUDA_R_32F,
+        internal_distance_dtype=IvfPq.CUDA_R_32F,
+    )
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
+def test_extend(dtype):
+    run_ivf_pq_build_search_test(
+        n_rows=10000,
+        n_cols=10,
+        n_queries=100,
+        k=10,
+        n_lists=100,
+        metric="l2_expanded",
         dtype=dtype,
         pq_bits=8,
         pq_dim=0,

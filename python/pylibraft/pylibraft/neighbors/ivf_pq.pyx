@@ -99,11 +99,23 @@ cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
              uint64_t n_rows,                    
              uint32_t dim)   
 
-    cdef index[IdxT] extend[T, IdxT](const handle_t& handle,        
-              const index[IdxT]& orig_index, 
-              const T* new_vectors,          
-              const IdxT* new_indices,       
-              IdxT n_rows)                   
+    cdef index[uint64_t] extend(const handle_t& handle,        
+              const index[uint64_t]& orig_index, 
+              const float* new_vectors,          
+              const uint64_t* new_indices,       
+              uint64_t n_rows)
+
+    cdef index[uint64_t] extend(const handle_t& handle,        
+              const index[uint64_t]& orig_index, 
+              const int8_t* new_vectors,          
+              const uint64_t* new_indices,       
+              uint64_t n_rows)    
+
+    cdef index[uint64_t] extend(const handle_t& handle,        
+              const index[uint64_t]& orig_index, 
+              const uint8_t* new_vectors,          
+              const uint64_t* new_indices,       
+              uint64_t n_rows)                  
 
     cdef void search(const handle_t& handle,
                    const search_params& params,
@@ -275,6 +287,11 @@ class IvfPq:
         """
         Builds an IVF-PQ index that can be later used for nearest neighbor search.
 
+        Parameters
+        ----------
+        dataset : CUDA array interface compliant matrix shape (n_samples, dim)
+            Supported dtype [float, int8, uint8] 
+
         """
         # TODO(tfeher): ensure that this works with managed memory as well
         dataset_cai = dataset.__cuda_array_interface__
@@ -336,6 +353,65 @@ class IvfPq:
         self._index = <uintptr_t>idx 
 
         self.handle.sync()      
+
+    def extend(self, new_vectors, new_indices):
+        """
+        Extend an existing index with new vectors.
+        
+        
+        Parameters
+        ----------
+        new_vectors : CUDA array interface compliant matrix shape (n_samples, dim)
+            Supported dtype [float, int8, uint8] 
+        new_indices : CUDA array interface compliant matrix shape (n_samples, dim)
+            Supported dtype [uint64t] 
+        """
+        if self._index is None:
+            raise ValueError("Index need to be built before calling extend.")
+
+        vecs_cai = new_vectors.__cuda_array_interface__
+        vecs_dt = np.dtype(vecs_cai["typestr"])
+        cdef uint32_t n_rows = vecs_cai["shape"][0]
+        cdef uint32_t dim = vecs_cai["shape"][1]
+
+        assert(vecs_dt in [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte') ])
+        assert(dim == self._dim)
+
+        idx_cai = new_indices.__cuda_array_interface__
+        assert(n_rows == idx_cai["shape"][0])
+        assert(dim == idx_cai["shape"][1])
+        idx_dt = np.dtype(vecs_cai["typestr"])
+        assert(idx_dt in [np.dtype('uint64')])
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef index[uint64_t] *idx = <index[uint64_t]*><uintptr_t>self._index
+        cdef uintptr_t vecs_ptr = vecs_cai["data"][0]
+        cdef uintptr_t idx_ptr = idx_cai["data"][0]
+
+        if vecs_dt == np.float32:
+            idx[0] = extend(deref(handle_),
+                            deref(idx),
+                            <float*>vecs_ptr,
+                            <uint64_t*> idx_ptr,
+                            <uint64_t> n_rows)
+        elif vecs_dt == np.int8:
+            idx[0] = extend(deref(handle_),
+                            deref(idx),
+                            <int8_t*>vecs_ptr,
+                            <uint64_t*> idx_ptr,
+                            <uint64_t> n_rows)
+        elif vecs_dt == np.uint8:
+            idx[0] = extend(deref(handle_),
+                            deref(idx),
+                            <uint8_t*>vecs_ptr,
+                            <uint64_t*> idx_ptr,
+                            <uint64_t> n_rows)       
+        else:
+            raise ValueError("query dtype %s not supported" % vecs_dt)
+
+        self.handle.sync()  
+
+
 
     def search(self, 
                queries,
@@ -401,7 +477,7 @@ class IvfPq:
         assert(queries_dt in [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte') ])
 
         
-        # #assert(dim_queries == self._index_params['dimDataset'])
+        assert(dim_queries == self._dim)
 
         neighbors_cai = neighbors.__cuda_array_interface__
         neighbors_dt = np.dtype(neighbors_cai["typestr"])
