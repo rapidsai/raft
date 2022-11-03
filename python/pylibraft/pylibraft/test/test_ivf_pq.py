@@ -86,12 +86,9 @@ def run_ivf_pq_build_search_test(
     dataset = generate_data((n_rows, n_cols), dtype)
     dataset_device = TestDeviceBuffer(dataset, order="C")
 
-    nn = IvfPq()
-
-    nn.build(
-        dataset_device,
-        n_lists,
-        metric,
+    nn = IvfPq(
+        n_lists=n_lists,
+        metric=metric,
         kmeans_n_iters=20,
         kmeans_trainset_fraction=0.5,
         pq_bits=pq_bits,
@@ -100,6 +97,8 @@ def run_ivf_pq_build_search_test(
         force_random_rotation=force_random_rotation,
         add_data_on_build=add_data_on_build,
     )
+
+    nn.build(dataset_device)
 
     if not add_data_on_build:
         assert False  # Extend interface not yet implemented

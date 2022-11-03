@@ -171,41 +171,22 @@ class IvfPq:
     CUDA_R_16F = cudaDataType_t.CUDA_R_16F
     CUDA_R_8U = cudaDataType_t.CUDA_R_8U
 
-    def __init__(self, handle=None):
-        self.handle = pylibraft.common.handle.Handle() if handle is None \
-            else handle
-        self._index = None
-
-    def __del__(self):
-        self._dealloc()
-
-    def _dealloc(self):
-        # deallocate the index
-        cdef index[uint64_t] *idx
-        if self._index is not None:
-            idx = <index[uint64_t]*><uintptr_t>self._index
-            del idx
-
-    def build(self, 
-              dataset, 
-              n_lists = 1024, 
-              metric="euclidean",
-              kmeans_n_iters=20, 
-              kmeans_trainset_fraction=0.5,
-              pq_bits=8,
-              pq_dim=0,
-              codebook_kind="per_subspace",
-              force_random_rotation=False,
-              add_data_on_build=True):
-
-        """
-        Builds an IVF-PQ index that can be later used for nearest neighbor search.
+    def __init__(self, *, 
+                 handle=None, 
+                 n_lists = 1024, 
+                 metric="euclidean",
+                 kmeans_n_iters=20, 
+                 kmeans_trainset_fraction=0.5,
+                 pq_bits=8,
+                 pq_dim=0,
+                 codebook_kind="per_subspace",
+                 force_random_rotation=False,
+                 add_data_on_build=True):
+        """"
+        Approximate nearest neighbor search using IVF-PQ method.
     
         Parameters
         ----------
-
-        dateset : CUDA array interface compliant matrix shape (n_samples, dim)
-            Supported dtype [float, int8, uint8]
         n_list : int, default = 1024
             The number of clusters used in the coarse quantizer.
         metric : string denoting the metric type, default="euclidean"
@@ -265,6 +246,36 @@ class IvfPq:
             nn.build(dataset)
             [out_idx, out_dist] = nn.search(queries)
         """
+        self.handle = pylibraft.common.handle.Handle() if handle is None \
+            else handle
+
+        self._n_lists = n_lists
+        self._metric = metric
+        self._kmeans_n_iters = kmeans_n_iters
+        self._kmeans_trainset_fraction = kmeans_trainset_fraction
+        self._pq_bits = pq_bits
+        self._pq_dim = pq_dim
+        self._codebook_kind = codebook_kind
+        self._force_random_rotation = force_random_rotation
+        self._add_data_on_build = add_data_on_build
+
+        self._index = None
+
+    def __del__(self):
+        self._dealloc()
+
+    def _dealloc(self):
+        # deallocate the index
+        cdef index[uint64_t] *idx
+        if self._index is not None:
+            idx = <index[uint64_t]*><uintptr_t>self._index
+            del idx
+
+    def build(self, dataset):
+        """
+        Builds an IVF-PQ index that can be later used for nearest neighbor search.
+
+        """
         # TODO(tfeher): ensure that this works with managed memory as well
         dataset_cai = dataset.__cuda_array_interface__
         dataset_dt = np.dtype(dataset_cai["typestr"])
@@ -272,33 +283,33 @@ class IvfPq:
             raise ValueError("Row major input is expected")
         
         cdef index_params params
-        params.n_lists = n_lists
-        params.metric = _get_metric(metric)
+        params.n_lists = self._n_lists
+        params.metric = _get_metric(self._metric)
         params.metric_arg = 0
-        params.kmeans_n_iters = kmeans_n_iters
-        params.kmeans_trainset_fraction = kmeans_trainset_fraction
-        params.pq_bits = pq_bits
-        params.pq_dim = pq_dim
-        #params.codebook_kind = _get_codebook_kind(codebook_kind)
-        params.force_random_rotation = force_random_rotation
-        params.add_data_on_build = add_data_on_build
+        params.kmeans_n_iters = self._kmeans_n_iters
+        params.kmeans_trainset_fraction = self._kmeans_trainset_fraction
+        params.pq_bits = self._pq_bits
+        params.pq_dim = self._pq_dim
+        #params.codebook_kind = _get_codebook_kind(self._codebook_kind)
+        params.force_random_rotation = self._force_random_rotation
+        params.add_data_on_build = self._add_data_on_build
 
 
         # cdef index[uint64_t] *index_ptr
         cdef uint64_t n_rows = dataset_cai["shape"][0] # make it uint32_t
-        cdef uint32_t dim = dataset_cai["shape"][1]
+        self._dim = dataset_cai["shape"][1]
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t dataset_ptr = dataset_cai["data"][0]
         
         self._dealloc()
 
         cdef index[uint64_t] *idx = new index[uint64_t](deref(handle_), 
-                                 _get_metric(metric), 
-                                 codebook_gen.PER_SUBSPACE , 
-                                 <uint32_t>n_lists,
-                                 <uint32_t>dim, 
-                                 <uint32_t>pq_bits,
-                                 <uint32_t>pq_dim,
+                                 _get_metric(self._metric), 
+                                 codebook_gen.PER_SUBSPACE, 
+                                 <uint32_t>self._n_lists,
+                                 <uint32_t>self._dim, 
+                                 <uint32_t>self._pq_bits,
+                                 <uint32_t>self._pq_dim,
                                  <uint32_t>0)
         
         if dataset_dt == np.float32:
@@ -306,19 +317,19 @@ class IvfPq:
                            params,     
                            <float*> dataset_ptr,               
                            n_rows,
-                           dim)
+                           <uint32_t> self._dim)
         elif dataset_dt == np.byte:
             idx[0] = build(deref(handle_),      
                            params,     
                            <int8_t*> dataset_ptr,               
                            n_rows,
-                           dim)
+                           <uint32_t> self._dim)
         elif dataset_dt == np.ubyte:
             idx[0] = build(deref(handle_),      
                            params,     
                            <uint8_t*> dataset_ptr,               
                            n_rows,
-                           dim)  
+                           <uint32_t> self._dim)  
         else:
             raise ValueError("dtype %s not supported" % dataset_dt)
 
