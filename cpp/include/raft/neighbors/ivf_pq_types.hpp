@@ -108,12 +108,21 @@ struct search_params : ann::search_params {
    */
   cudaDataType_t internal_distance_dtype = CUDA_R_32F;
   /**
-   * Thread block size of the distance calculation kernel at search time.
-   * When zero, an optimal block size is selected using a heuristic.
+   * Preferred fraction of SM's unified memory / L1 cache to be used as shared memory.
    *
-   * Possible values: [0, 256, 512, 1024]
+   * Possible values: [0.0 - 1.0] as a fraction of the `sharedMemPerMultiprocessor`.
+   *
+   * One wants to increase the carveout to make sure a good GPU occupancy for the main search
+   * kernel, but not to keep it too high to leave some memory to be used as L1 cache. Note, this
+   * value is interpreted only as a hint. Moreover, a GPU usually allows only a fixed set of cache
+   * configurations, so the provided value is rounded up to the nearest configuration. Refer to the
+   * NVIDIA tuning guide for the target GPU architecture.
+   * The default value of `0.64` seems to be a good compromise for the majority of the current GPUs.
+   *
+   * Note, this is a low-level tuning parameter that can have drastic negative effects on the search
+   * performance if tweaked incorrectly.
    */
-  uint32_t preferred_thread_block_size = 0;
+  double preferred_shmem_carveout = 0.64;
 };
 
 static_assert(std::is_aggregate_v<index_params>);

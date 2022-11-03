@@ -102,7 +102,6 @@ inline auto operator<<(std::ostream& os, const ivf_pq_inputs& p) -> std::ostream
   PRINT_DIFF_V(.search_params.lut_dtype, print_dtype{p.search_params.lut_dtype});
   PRINT_DIFF_V(.search_params.internal_distance_dtype,
                print_dtype{p.search_params.internal_distance_dtype});
-  PRINT_DIFF(.search_params.preferred_thread_block_size);
   os << "}";
   return os;
 }
@@ -364,10 +363,6 @@ inline auto enum_variety() -> test_cases_t
 
   ADD_CASE({ x.search_params.internal_distance_dtype = CUDA_R_32F; });
   ADD_CASE({ x.search_params.internal_distance_dtype = CUDA_R_16F; });
-
-  ADD_CASE({ x.search_params.preferred_thread_block_size = 256; });
-  ADD_CASE({ x.search_params.preferred_thread_block_size = 512; });
-  ADD_CASE({ x.search_params.preferred_thread_block_size = 1024; });
 
   return xs;
 }
