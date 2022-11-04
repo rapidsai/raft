@@ -57,7 +57,7 @@ cusparseStatus_t cusparsegthr(
   auto dense_vector_descr  = cusparseDnVecDescr_t{};
   auto sparse_vector_descr = cusparseSpVecDescr_t{};
   CUSPARSE_CHECK(cusparseCreateDnVec(
-    &dense_vector_descr, nnz, static_cast<void*>(const_cast<double*>(vals)), float_type));
+    &dense_vector_descr, nnz, static_cast<void*>(const_cast<T*>(vals)), float_type));
   CUSPARSE_CHECK(cusparseCreateSpVec(&sparse_vector_descr,
                                      nnz,
                                      nnz,
@@ -531,8 +531,17 @@ inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
                                      cudaStream_t stream)
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-  return cusparseSpMM(
-    handle, opA, opB, static_cast<void const*>(alpha), matA, matB, static_cast<void const*>(beta), matC, CUDA_R_32F, alg, static_cast<void*>(externalBuffer));
+  return cusparseSpMM(handle,
+                      opA,
+                      opB,
+                      static_cast<void const*>(alpha),
+                      matA,
+                      matB,
+                      static_cast<void const*>(beta),
+                      matC,
+                      CUDA_R_32F,
+                      alg,
+                      static_cast<void*>(externalBuffer));
 }
 template <>
 inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
@@ -548,8 +557,17 @@ inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
                                      cudaStream_t stream)
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-  return cusparseSpMM(
-    handle, opA, opB, static_cast<void const*>(alpha), matA, matB, static_cast<void const*>(beta), matC, CUDA_R_64F, alg, static_cast<void*>(externalBuffer));
+  return cusparseSpMM(handle,
+                      opA,
+                      opB,
+                      static_cast<void const*>(alpha),
+                      matA,
+                      matB,
+                      static_cast<void const*>(beta),
+                      matC,
+                      CUDA_R_64F,
+                      alg,
+                      static_cast<void*>(externalBuffer));
 }
 /** @} */
 #else
