@@ -62,9 +62,6 @@ function(ConfigureTest)
             PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
             )
 
-    target_compile_definitions(${TEST_NAME}
-            INTERFACE "CUTLASS_NAMESPACE=${RAFT_CUTLASS_NAMESPACE}")
-
     install(
             TARGETS ${TEST_NAME}
             COMPONENT testing
