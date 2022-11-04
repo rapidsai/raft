@@ -36,28 +36,25 @@ inline cusparseStatus_t cusparsegather(
   return cusparseGather(handle, vecY, vecX);
 }
 
-template <typename T>
+template <
+  typename T,
+  typename std::enable_if_t<std::is_same_v<T, float> || std::is_same_v<T, double>>* = nullptr
+>
 cusparseStatus_t cusparsegthr(
-  cusparseHandle_t handle, int nnz, const T* dY, T* dX_values, int* dX_indices, cudaStream_t stream)
-{
-  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>, "Unsupported data type");
-
+  cusparseHandle_t handle, int nnz, const T* vals, T* vals_sorted, int* d_P, cudaStream_t stream){
+  auto constexpr float_type = []() constexpr {
+    if constexpr (std::is_same_v<T, float>) {
+      return CUDA_R_32F;
+    } else if constexpr (std::is_same_v<T, double>) {
+      return CUDA_R_64F;
+    }
+  }();
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-  auto size = nnz;
-  auto math_type = std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
-  cusparseSpVecDescr_t vecX;
-  cusparseDnVecDescr_t vecY;
-  // Create sparse vector X
-  CUSPARSE_CHECK(cusparseCreateSpVec(&vecX, size, nnz, dX_indices, dX_values,
-                                     CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, math_type));
-  // Create dense vector y
-  CUSPARSE_CHECK(cusparseCreateDnVec(&vecY, size, dY, math_type));
-  auto returnValue = cusparsegather(handle, vecY, vecX, stream);
-
-  // destroy matrix/vector descriptors
-  CUSPARSE_CHECK(cusparseDestroySpVec(vecX));
-  CUSPARSE_CHECK(cusparseDestroyDnVec(vecY));
-  return returnValue;
+  auto dense_vector_descr = cusparseDnVecDescr_t{};
+  auto sparse_vector_descr = cusparseSpVecDescr_t{};
+  CUSPARSE_CHECK(cusparseCreateDnVec(&dense_vector_descr, nnz, static_cast<void*>(const_cast<double*>(vals)), float_type));
+  CUSPARSE_CHECK(cusparseCreateSpVec(&sparse_vector_descr, nnz, nnz, static_cast<void*>(d_P), static_cast<void*>(vals_sorted), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, float_type));
+  return cusparseGather(handle, dense_vector_descr, sparse_vector_descr);
 }
 /** @} */
 
