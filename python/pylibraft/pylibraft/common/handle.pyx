@@ -95,7 +95,7 @@ def auto_sync_handle(f):
     it isn't passed to a function.
 
     When a handle=None is passed to the wrapped function, this decorator
-    will automatically create a default handle for the function, and 
+    will automatically create a default handle for the function, and
     call sync on that handle when the function exits.
     """
 
