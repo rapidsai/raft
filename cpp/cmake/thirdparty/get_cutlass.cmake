@@ -19,7 +19,7 @@ function(find_and_configure_cutlass)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    if(RAFT_ENABLE_DIST_DEPENDENCIES OR RAFT_COMPILE_LIBRARIES)
+    #if(RAFT_ENABLE_DIST_DEPENDENCIES OR RAFT_COMPILE_LIBRARIES)
       set(CUTLASS_ENABLE_HEADERS_ONLY ON CACHE BOOL "Enable only the header library")
       set(CUTLASS_NAMESPACE "raft_cutlass" CACHE STRING "Top level namespace of CUTLASS")
 
@@ -42,7 +42,7 @@ function(find_and_configure_cutlass)
             GLOBAL_TARGETS nvidia::cutlass::CUTLASS
             NAMESPACE nvidia::cutlass::)
       endif()
-    endif()
+    #endif()
 
     # We generate the cutlass-config files when we built cutlass locally, so always do `find_dependency`
     rapids_export_package(BUILD cutlass raft-distance-exports GLOBAL_TARGETS nvidia::cutlass::CUTLASS)
