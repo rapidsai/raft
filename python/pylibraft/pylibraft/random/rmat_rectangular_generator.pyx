@@ -90,7 +90,7 @@ def rmat(out, theta, r_scale, c_scale, seed=12345, handle=None):
     r_scale: log2 of number of source nodes
     c_scale: log2 of number of destination nodes
     seed: random seed used for reproducibility
-    handle : Optional RAFT handle for reusing expensive CUDA resources
+    {handle_docstring}
 
     Examples
     --------

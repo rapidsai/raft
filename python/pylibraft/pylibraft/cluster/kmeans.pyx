@@ -99,7 +99,7 @@ def compute_new_centroids(X,
                     distances in batches. default: m
     batch_centroids : Optional integer specifying the batch size for centroids
                       to compute distances in batches. default: n_clusters
-    handle : Optional RAFT handle for reusing expensive CUDA resources
+    {handle_docstring}
 
     Examples
     --------

@@ -71,7 +71,7 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
     X : CUDA array interface compliant matrix shape (m, k)
     Y : CUDA array interface compliant matrix shape (n, k)
     output : Writable CUDA array interface matrix shape (m, 1)
-    handle : Optional RAFT handle for reusing expensive CUDA resources
+    {handle_docstring}
 
     Examples
     --------

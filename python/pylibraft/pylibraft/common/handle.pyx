@@ -90,6 +90,15 @@ cdef class Handle:
                                       self.stream_pool))
 
 
+_HANDLE_PARAM_DOCSTRING = """
+     handle : Optional RAFT handle for reusing expensive CUDA resources
+        If a handle isn't supplied, CUDA resources will be allocated
+        inside this function and synchronized before the function exits.
+        If a handle is supplied, you will need to explicitly synchronize
+        yourself by calling `handle.sync()` before accessing the output.
+""".strip()
+
+
 def auto_sync_handle(f):
     """Decorator to automatically call sync on a raft handle when
     it isn't passed to a function.
@@ -97,6 +106,8 @@ def auto_sync_handle(f):
     When a handle=None is passed to the wrapped function, this decorator
     will automatically create a default handle for the function, and
     call sync on that handle when the function exits.
+
+    This will also insert the appropriate docstring for the handle parameter
     """
 
     @functools.wraps(f)
@@ -111,4 +122,5 @@ def auto_sync_handle(f):
 
         return ret_value
 
+    wrapper.__doc__ = wrapper.__doc__.format(handle_docstring=_HANDLE_PARAM_DOCSTRING)
     return wrapper

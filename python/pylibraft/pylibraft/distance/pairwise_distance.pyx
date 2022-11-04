@@ -110,7 +110,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
     dists : Writable CUDA array interface matrix shape (m, n)
     metric : string denoting the metric type (default="euclidean")
     p : metric parameter (currently used only for "minkowski")
-    handle : Optional RAFT handle for reusing expensive CUDA resources
+    {handle_docstring}
 
     Examples
     --------
