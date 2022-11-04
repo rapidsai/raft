@@ -179,8 +179,7 @@ add_library(raft::raft ALIAS raft)
 
 target_include_directories(raft INTERFACE
         "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:include>"
-        "$<BUILD_INTERFACE:${CUTLASS_INCLUDE_DIR}>")
+        "$<INSTALL_INTERFACE:include>")
 
 # Keep RAFT as lightweight as possible.
 # Only CUDA libs and rmm should
@@ -192,6 +191,7 @@ target_link_libraries(raft INTERFACE
         CUDA::cusolver${_ctk_static_suffix}
         CUDA::cusparse${_ctk_static_suffix}
         $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
+        nvidia::cutlass::cutlass
 )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -322,8 +322,6 @@ if(RAFT_COMPILE_DIST_LIBRARY)
           )
   target_compile_definitions(raft_distance_lib
           INTERFACE "RAFT_DISTANCE_COMPILED")
-  target_compile_definitions(raft_distance_lib
-          INTERFACE "CUTLASS_NAMESPACE=${RAFT_CUTLASS_NAMESPACE}")
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_distance_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
