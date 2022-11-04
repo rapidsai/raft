@@ -57,6 +57,7 @@ option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and librari
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
+option(DISABLE_CUDA "Disable CUDA in supported RAFT code" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
@@ -225,6 +226,13 @@ target_link_libraries(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:CUDA::nvToolsE
 target_compile_definitions(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:NVTX_ENABLED>)
 
   ]=])
+endif()
+
+##############################################################################
+# - CUDA-free build support --------------------------------------------------
+
+if (NOT DISABLE_CUDA)
+  target_compile_definitions(raft INTERFACE RAFT_ENABLE_GPU)
 endif()
 
 ##############################################################################
