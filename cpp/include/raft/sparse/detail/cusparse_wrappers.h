@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cusparse.h>
-#include <raft/core/error.hpp>
 #include <raft/core/cusparse_macros.hpp>
+#include <raft/core/error.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -29,8 +29,10 @@ namespace detail {
  * @defgroup gather cusparse gather methods
  * @{
  */
-inline cusparseStatus_t cusparsegather(
-  cusparseHandle_t handle, cusparseDnVecDescr_t vecY, cusparseSpVecDescr_t vecX, cudaStream_t stream)
+inline cusparseStatus_t cusparsegather(cusparseHandle_t handle,
+                                       cusparseDnVecDescr_t vecY,
+                                       cusparseSpVecDescr_t vecX,
+                                       cudaStream_t stream)
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseGather(handle, vecY, vecX);
@@ -38,22 +40,32 @@ inline cusparseStatus_t cusparsegather(
 
 template <
   typename T,
-  typename std::enable_if_t<std::is_same_v<T, float> || std::is_same_v<T, double>>* = nullptr
->
+  typename std::enable_if_t<std::is_same_v<T, float> || std::is_same_v<T, double>>* = nullptr>
 cusparseStatus_t cusparsegthr(
-  cusparseHandle_t handle, int nnz, const T* vals, T* vals_sorted, int* d_P, cudaStream_t stream){
-  auto constexpr float_type = []() constexpr {
+  cusparseHandle_t handle, int nnz, const T* vals, T* vals_sorted, int* d_P, cudaStream_t stream)
+{
+  auto constexpr float_type = []() constexpr
+  {
     if constexpr (std::is_same_v<T, float>) {
       return CUDA_R_32F;
     } else if constexpr (std::is_same_v<T, double>) {
       return CUDA_R_64F;
     }
-  }();
+  }
+  ();
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
-  auto dense_vector_descr = cusparseDnVecDescr_t{};
+  auto dense_vector_descr  = cusparseDnVecDescr_t{};
   auto sparse_vector_descr = cusparseSpVecDescr_t{};
-  CUSPARSE_CHECK(cusparseCreateDnVec(&dense_vector_descr, nnz, static_cast<void*>(const_cast<double*>(vals)), float_type));
-  CUSPARSE_CHECK(cusparseCreateSpVec(&sparse_vector_descr, nnz, nnz, static_cast<void*>(d_P), static_cast<void*>(vals_sorted), CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, float_type));
+  CUSPARSE_CHECK(cusparseCreateDnVec(
+    &dense_vector_descr, nnz, static_cast<void*>(const_cast<double*>(vals)), float_type));
+  CUSPARSE_CHECK(cusparseCreateSpVec(&sparse_vector_descr,
+                                     nnz,
+                                     nnz,
+                                     static_cast<void*>(d_P),
+                                     static_cast<void*>(vals_sorted),
+                                     CUSPARSE_INDEX_32I,
+                                     CUSPARSE_INDEX_BASE_ZERO,
+                                     float_type));
   return cusparseGather(handle, dense_vector_descr, sparse_vector_descr);
 }
 /** @} */
@@ -644,29 +656,30 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
   auto math_type = std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
   // Create sparse matrix B
   CUSPARSE_CHECK(cusparseCreateCsc(&matB,
-                  k,
-                  n,
-                  nnz,
-                  cscColPtrB,
-                  cscRowIndB,
-                  cscValB,
-                  CUSPARSE_INDEX_32I,
-                  CUSPARSE_INDEX_32I,
-                  CUSPARSE_INDEX_BASE_ZERO,
-                  math_type));
+                                   k,
+                                   n,
+                                   nnz,
+                                   cscColPtrB,
+                                   cscRowIndB,
+                                   cscValB,
+                                   CUSPARSE_INDEX_32I,
+                                   CUSPARSE_INDEX_32I,
+                                   CUSPARSE_INDEX_BASE_ZERO,
+                                   math_type));
   // Create dense matrices
   CUSPARSE_CHECK(cusparseCreateDnMat(&matA, m, k, lda, A, math_type, CUSPARSE_ORDER_ROW));
   CUSPARSE_CHECK(cusparseCreateDnMat(&matC, m, n, ldc, C, math_type, CUSPARSE_ORDER_ROW));
 
-
   cusparseOperation_t opA = CUSPARSE_OPERATION_TRANSPOSE;
   cusparseOperation_t opB = CUSPARSE_OPERATION_TRANSPOSE;
-  cusparseSpMMAlg_t alg = CUSPARSE_SPMM_CSR_ALG2;
-  size_t buffer_size = 0;
+  cusparseSpMMAlg_t alg   = CUSPARSE_SPMM_CSR_ALG2;
+  size_t buffer_size      = 0;
 
-  CUSPARSE_CHECK(cusparsespmm_bufferSize(handle, opA, opB, alpha, matB, matA, beta, matC, alg, &buffer_size, stream));
+  CUSPARSE_CHECK(cusparsespmm_bufferSize(
+    handle, opA, opB, alpha, matB, matA, beta, matC, alg, &buffer_size, stream));
   rmm::device_uvector<char> external_buffer(buffer_size, stream);
-  auto return_value = cusparsespmm(handle, opA, opB, alpha, matB, matA, beta, matC, alg, external_buffer.data(), stream);
+  auto return_value = cusparsespmm(
+    handle, opA, opB, alpha, matB, matA, beta, matC, alg, external_buffer.data(), stream);
 
   // destroy matrix/vector descriptors
   CUSPARSE_CHECK(cusparseDestroyDnMat(matA));
