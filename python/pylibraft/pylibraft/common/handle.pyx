@@ -122,5 +122,7 @@ def auto_sync_handle(f):
 
         return ret_value
 
-    wrapper.__doc__ = wrapper.__doc__.format(handle_docstring=_HANDLE_PARAM_DOCSTRING)
+    wrapper.__doc__ = wrapper.__doc__.format(
+        handle_docstring=_HANDLE_PARAM_DOCSTRING
+    )
     return wrapper
