@@ -532,7 +532,7 @@ inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseSpMM(
-    handle, opA, opB, alpha, matA, matB, beta, matC, CUDA_R_32F, alg, externalBuffer);
+    handle, opA, opB, static_cast<void const*>(alpha), matA, matB, static_cast<void const*>(beta), matC, CUDA_R_32F, alg, static_cast<void*>(externalBuffer));
 }
 template <>
 inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
@@ -549,7 +549,7 @@ inline cusparseStatus_t cusparsespmm(cusparseHandle_t handle,
 {
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   return cusparseSpMM(
-    handle, opA, opB, alpha, matA, matB, beta, matC, CUDA_R_64F, alg, externalBuffer);
+    handle, opA, opB, static_cast<void const*>(alpha), matA, matB, static_cast<void const*>(beta), matC, CUDA_R_64F, alg, static_cast<void*>(externalBuffer));
 }
 /** @} */
 #else
