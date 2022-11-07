@@ -20,10 +20,11 @@ While not exhaustive, the following general categories help summarize the accele
 | **Statistics** | sampling, moments and summary statistics, metrics |
 | **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure |
 
-RAFT provides a header-only C++ library and pre-compiled shared libraries that can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
+
+All of RAFT's C++ APIs can be accessed header-only and optional pre-compiled shared libraries can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
 
 In addition to the C++ library, RAFT also provides 2 Python libraries:
-- `pylibraft` - lightweight low-level Python wrappers around RAFT algorithms and primitives.
+- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessable APIs.
 - `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
 
 ## Getting started
@@ -78,7 +79,7 @@ raft::distance::pairwise_distance(handle, input.view(), input.view(), output.vie
 
 ### Python Example
 
-The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The package is currently limited to pairwise distances and RMAT graph generation, but we will continue adding more in future releases.
+The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The number of RAFT algorithms exposed in this package is continuing to grow from release to release.
 
 The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. `pylibraft` is a low-level API that prioritizes efficiency and simplicity over being pythonic, which is shown here by pre-allocating the output memory before invoking the `pairwise_distance` function. Note that CuPy is not a required dependency for `pylibraft`.
 
