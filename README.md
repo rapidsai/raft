@@ -128,7 +128,7 @@ After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids
 
 ```cmake
 
-set(RAFT_VERSION "22.04")
+set(RAFT_VERSION "22.12")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
