@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/util/cudart_utils.hpp>
 #include <raft/core/detail/device_id_base.hpp>
 #include <raft/core/device_type.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_device.hpp>
 
 namespace raft {
 namespace detail {
-template<>
+template <>
 struct device_id<device_type::gpu> {
   using value_type = typename rmm::cuda_device_id::value_type;
-  device_id() noexcept(false) : id_{[](){
-    auto raw_id = value_type{};
-    RAFT_CUDA_TRY(cudaGetDevice(&raw_id));
-    return raw_id;
-  }()} {};
+  device_id() noexcept(false)
+    : id_{[]() {
+        auto raw_id = value_type{};
+        RAFT_CUDA_TRY(cudaGetDevice(&raw_id));
+        return raw_id;
+      }()} {};
   /* We do not mark this constructor as explicit to allow public API
    * functions to accept `device_id` arguments without requiring
    * downstream consumers to explicitly construct a device_id. Thus,
@@ -41,9 +42,9 @@ struct device_id<device_type::gpu> {
 
   auto value() const noexcept { return id_.value(); }
   auto rmm_id() const noexcept { return id_; }
+
  private:
   rmm::cuda_device_id id_;
 };
 }  // namespace detail
 }  // namespace raft
-

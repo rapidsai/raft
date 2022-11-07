@@ -22,12 +22,11 @@ namespace detail {
 template <>
 struct device_id<device_type::cpu> {
   using value_type = int;
-  device_id(value_type dev_id=value_type{}) noexcept : id_{dev_id} {}
+  device_id(value_type dev_id = value_type{}) noexcept : id_{dev_id} {}
 
   auto value() const noexcept { return id_; }
-  auto rmm_id() const noexcept(false) {
-    throw bad_device_type{"CPU devices have no RMM ID"};
-  }
+  auto rmm_id() const noexcept(false) { throw bad_device_type{"CPU devices have no RMM ID"}; }
+
  private:
   value_type id_;
 };

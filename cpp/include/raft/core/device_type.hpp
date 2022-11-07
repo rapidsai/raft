@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-#include <string>
 #include <raft/core/error.hpp>
 #include <raft/core/memory_type.hpp>
+#include <string>
 
 namespace raft {
 enum class device_type { cpu, gpu };

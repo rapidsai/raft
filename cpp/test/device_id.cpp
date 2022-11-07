@@ -15,8 +15,8 @@
  */
 #include <gtest/gtest.h>
 #include <raft/core/device_id.hpp>
-#include <raft/core/device_type.hpp>
 #include <raft/core/device_support.hpp>
+#include <raft/core/device_type.hpp>
 
 namespace raft {
 TEST(DeviceID, CPU)

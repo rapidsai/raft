@@ -19,15 +19,17 @@
 
 namespace raft {
 namespace detail {
-template<device_type D>
+template <device_type D>
 struct device_id {
   using value_type = int;
 
-  device_id(value_type device_index=value_type{}) noexcept {}
-  auto value() const noexcept(false) {
+  device_id(value_type device_index = value_type{}) noexcept {}
+  auto value() const noexcept(false)
+  {
     throw cuda_unsupported{"Attempting to use a GPU device in a non-CUDA build"};
   }
-  auto rmm_id() const noexcept(false) {
+  auto rmm_id() const noexcept(false)
+  {
     throw cuda_unsupported{"Attempting to use a GPU device in a non-CUDA build"};
   }
 };

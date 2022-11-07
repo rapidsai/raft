@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #pragma once
-#include <string>
 #include <raft/core/error.hpp>
+#include <string>
 
 namespace raft {
 #ifdef RAFT_DISABLE_CUDA
