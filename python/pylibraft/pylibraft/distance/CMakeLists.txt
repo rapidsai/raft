@@ -18,8 +18,7 @@ set(linked_libraries raft::raft raft::distance)
 
 # Build all of the Cython targets
 rapids_cython_create_modules(
-    CXX
-    SOURCE_FILES "${cython_sources}"
-    LINKED_LIBRARIES "${linked_libraries}"
-    ASSOCIATED_TARGETS raft
-    MODULE_PREFIX distance_)
+  CXX
+  SOURCE_FILES "${cython_sources}"
+  LINKED_LIBRARIES "${linked_libraries}" ASSOCIATED_TARGETS raft MODULE_PREFIX distance_
+)
