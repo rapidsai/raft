@@ -85,6 +85,7 @@ if(BUILD_BENCH)
             bench/distance/distance_exp_l2.cu
             bench/distance/distance_l1.cu
             bench/distance/distance_unexp_l2.cu
+            bench/distance/fused_l2_nn.cu
             bench/distance/kernels.cu
             bench/main.cpp
             OPTIONAL DIST
@@ -116,7 +117,6 @@ if(BUILD_BENCH)
 
     ConfigureBench(NAME NEIGHBORS_BENCH
             PATH
-            bench/neighbors/fused_l2_nn.cu
             bench/neighbors/knn/brute_force_float_int64_t.cu
             bench/neighbors/knn/brute_force_float_uint32_t.cu
             bench/neighbors/knn/ivf_flat_float_int64_t.cu

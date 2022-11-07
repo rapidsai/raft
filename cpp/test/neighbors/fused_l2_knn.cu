@@ -19,10 +19,11 @@
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/StandardGpuResources.h>
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/brute_force.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/detail/common_faiss.h>
-#include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/knn.cuh>
 
 #if defined RAFT_NN_COMPILED
@@ -131,18 +132,17 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
   void testBruteForce()
   {
     launchFaissBfknn();
-    detail::fusedL2Knn(dim,
-                       raft_indices_.data(),
-                       raft_distances_.data(),
-                       database.data(),
-                       search_queries.data(),
-                       num_db_vecs,
-                       num_queries,
-                       k_,
-                       true,
-                       true,
-                       stream_,
-                       metric);
+
+    auto index_view =
+      raft::make_device_matrix_view<const T, int64_t>(database.data(), num_db_vecs, dim);
+    auto query_view =
+      raft::make_device_matrix_view<const T, int64_t>(search_queries.data(), num_queries, dim);
+    auto out_indices_view =
+      raft::make_device_matrix_view<int64_t, int64_t>(raft_indices_.data(), num_queries, k_);
+    auto out_dists_view =
+      raft::make_device_matrix_view<T, int64_t>(raft_distances_.data(), num_queries, k_);
+    raft::neighbors::brute_force::fused_l2_knn(
+      handle_, index_view, query_view, out_indices_view, out_dists_view, metric);
 
     // verify.
     devArrMatchKnnPair(faiss_indices_.data(),

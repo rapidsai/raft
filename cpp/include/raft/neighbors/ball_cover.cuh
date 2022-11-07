@@ -30,6 +30,23 @@ namespace raft::neighbors::ball_cover {
 
 /**
  * Builds and populates a previously unbuilt BallCoverIndex
+ *
+ * Usage example:
+ * @code{.cpp}
+ *
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/neighbors/ball_cover.cuh>
+ *  #include <raft/distance/distance_types.hpp>
+ *  using namespace raft::neighbors;
+ *
+ *  raft::handle_t handle;
+ *  ...
+ *  auto metric = raft::distance::DistanceType::L2Expanded;
+ *  BallCoverIndex index(handle, X, metric);
+ *
+ *  ball_cover::build_index(handle, index);
+ * @endcode
+ *
  * @tparam idx_t knn index type
  * @tparam value_t knn value type
  * @tparam int_t integral type for knn params
@@ -130,10 +147,31 @@ void all_knn_query(const raft::handle_t& handle,
  * the index and query are the same array. This function will
  * build the index and assumes rbc_build_index() has not already
  * been called.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/neighbors/ball_cover.cuh>
+ *  #include <raft/distance/distance_types.hpp>
+ *  using namespace raft::neighbors;
+ *
+ *  raft::handle_t handle;
+ *  ...
+ *  auto metric = raft::distance::DistanceType::L2Expanded;
+ *
+ *  // Construct a ball cover index
+ *  BallCoverIndex index(handle, X, metric);
+ *
+ *  // Perform all neighbors knn query
+ *  ball_cover::all_knn_query(handle, index, inds, dists, k);
+ * @endcode
+ *
  * @tparam idx_t knn index type
  * @tparam value_t knn distance type
  * @tparam int_t type for integers, such as number of rows/cols
  * @tparam matrix_idx_t matrix indexing type
+ *
  * @param[in] handle raft handle for resource management
  * @param[in] index ball cover index which has not yet been built
  * @param[out] inds output knn indices
@@ -250,6 +288,28 @@ void knn_query(const raft::handle_t& handle,
  * function does not build the index and assumes rbc_build_index() has
  * already been called. Use this function when the index and
  * query arrays are different, otherwise use rbc_all_knn_query().
+ *
+ * Usage example:
+ * @code{.cpp}
+ *
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/neighbors/ball_cover.cuh>
+ *  #include <raft/distance/distance_types.hpp>
+ *  using namespace raft::neighbors;
+ *
+ *  raft::handle_t handle;
+ *  ...
+ *  auto metric = raft::distance::DistanceType::L2Expanded;
+ *
+ *  // Build a ball cover index
+ *  BallCoverIndex index(handle, X, metric);
+ *  ball_cover::build_index(handle, index);
+ *
+ *  // Perform all neighbors knn query
+ *  ball_cover::knn_query(handle, index, inds, dists, k);
+ * @endcode
+
+ *
  * @tparam idx_t index type
  * @tparam value_t distances type
  * @tparam int_t integer type for size info

@@ -32,6 +32,14 @@ namespace raft {
 namespace stats {
 
 /**
+ * Default mapper which just returns the value of the data itself
+ */
+template <typename DataT, typename IdxT>
+struct IdentityBinner : public detail::IdentityBinner<DataT, IdxT> {
+  IdentityBinner() : detail::IdentityBinner<DataT, IdxT>() {}
+};
+
+/**
  * @brief Perform histogram on the input data. It chooses the right load size
  * based on the input data vector length. It also supports large-bin cases
  * using a specialized smem-based hashing technique.

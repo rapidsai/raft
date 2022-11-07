@@ -169,7 +169,8 @@ if(BUILD_TESTS)
 endif()
 
 if(BUILD_BENCH)
-  include(cmake/thirdparty/get_gbench.cmake)
+  include(${rapids-cmake-dir}/cpm/gbench.cmake)
+  rapids_cpm_gbench()
 endif()
 
 ##############################################################################
@@ -248,6 +249,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
   add_library(raft_distance_lib
     src/distance/pairwise_distance.cu
     src/distance/fused_l2_min_arg.cu
+    src/distance/update_centroids_float.cu
+    src/distance/update_centroids_double.cu
     src/distance/specializations/detail/canberra.cu
     src/distance/specializations/detail/chebyshev.cu
     src/distance/specializations/detail/correlation.cu

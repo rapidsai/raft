@@ -17,6 +17,7 @@
 #include "../test_utils.h"
 #include "matrix_vector_op.cuh"
 #include <gtest/gtest.h>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 

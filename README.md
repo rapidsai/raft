@@ -99,7 +99,7 @@ pairwise_distance(in1, in2, output, metric="euclidean")
 
 ## Installing
 
-RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), or by building the repository from source. Please refer to the [build instructions](BUILD.md) for more a comprehensive guide on building RAFT and using it in downstream projects.
+RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), or by building the repository from source. Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on building RAFT and using it in downstream projects.
 
 ### Conda
 
@@ -119,7 +119,7 @@ You can also install the `libraft-*` conda packages individually using the `mamb
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
 
-### CPM
+### Cmake & CPM
 
 RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS CMake provides a convenience layer around CPM. 
 
@@ -186,7 +186,7 @@ mamba activate raft_dev_env
 ./build.sh raft-dask pylibraft libraft tests bench --compile-libs
 ```
 
-The [build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) section of the build instructions.
+The [build](docs/source/build.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](docs/source/build.md#building-raft-c-from-source-in-cmake) section of the build instructions.
 
 ## Folder Structure and Contents
 
@@ -220,7 +220,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
   - `scripts`: Helpful scripts for development
   - `src`: Compiled APIs and template specializations for the shared libraries
   - `test`: Googletests source code
-- `docs`: Source code and scripts for building library documentation (doxygen + pydocs)
+- `docs`: Source code and scripts for building library documentation (Uses breath, doxygen, & pydocs)
 - `python`: Source code for Python libraries.
   - `pylibraft`: Python build and source code for pylibraft library
   - `raft-dask`: Python build and source code for raft-dask library

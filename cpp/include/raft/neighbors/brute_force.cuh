@@ -17,34 +17,62 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
 #include <raft/spatial/knn/detail/selection_faiss.cuh>
 
 namespace raft::neighbors::brute_force {
 
 /**
- * @brief Performs a k-select across row partitioned index/distance
+ * @brief Performs a k-select across several (contiguous) row-partitioned index/distance
  * matrices formatted like the following:
- * row1: k0, k1, k2
- * row2: k0, k1, k2
- * row3: k0, k1, k2
- * row1: k0, k1, k2
- * row2: k0, k1, k2
- * row3: k0, k1, k2
  *
+ * part1row1: k0, k1, k2, k3
+ * part1row2: k0, k1, k2, k3
+ * part1row3: k0, k1, k2, k3
+ * part2row1: k0, k1, k2, k3
+ * part2row2: k0, k1, k2, k3
+ * part2row3: k0, k1, k2, k3
  * etc...
+ *
+ * The example above shows what an aggregated index/distance matrix
+ * would look like with two partitions when n_samples=3 and k=4.
+ *
+ * When working with extremely large data sets that have been broken
+ * over multiple indexes, such as when computing over multiple GPUs,
+ * the ids will often start at 0 for each local knn index but the
+ * global ids need to be used when merging them together. An optional
+ * translations vector can be supplied to map the starting id of
+ * each partition to its global id so that the final merged knn
+ * is based on the global ids.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/neighbors/brute_force.cuh>
+ *  using namespace raft::neighbors;
+ *
+ *  raft::handle_t handle;
+ *  ...
+ *  compute multiple knn graphs and aggregate row-wise
+ *  (see detailed description above)
+ *  ...
+ *  brute_force::knn_merge_parts(handle, in_keys, in_values, out_keys, out_values, n_samples);
+ * @endcode
  *
  * @tparam idx_t
  * @tparam value_t
+ *
  * @param[in] handle
  * @param[in] in_keys matrix of input keys (size n_samples * n_parts * k)
  * @param[in] in_values matrix of input values (size n_samples * n_parts * k)
  * @param[out] out_keys matrix of output keys (size n_samples * k)
  * @param[out] out_values matrix of output values (size n_samples * k)
- * @param[in] n_samples number of rows in each part
- * @param[in] translations optional vector of starting index mappings for each partition
+ * @param[in] n_samples number of rows in each partition
+ * @param[in] translations optional vector of starting global id mappings for each local partition
  */
-template <typename idx_t, typename value_t>
+template <typename value_t, typename idx_t>
 inline void knn_merge_parts(
   const raft::handle_t& handle,
   raft::device_matrix_view<const value_t, idx_t, row_major> in_keys,
@@ -81,17 +109,31 @@ inline void knn_merge_parts(
  * row- or column-major but the output matrices will always be in
  * row-major format.
  *
- * @param[in] handle the cuml handle to use
- * @param[in] index vector of device matrices (each size m_i*d) to be used as the knn index
- * @param[in] search matrix (size n*d) to be used for searching the index
- * @param[out] indices matrix (size n*k) to store output knn indices
- * @param[out] distances matrix (size n*k) to store the output knn distance
- * @param[in] k the number of nearest neighbors to return
- * @param[in] metric distance metric to use. Euclidean (L2) is used by default
- * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/neighbors/brute_force.cuh>
+ *  #include <raft/distance/distance_types.hpp>
+ *  using namespace raft::neighbors;
+ *
+ *  raft::handle_t handle;
+ *  ...
+ *  int k = 10;
+ *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
+ *  brute_force::knn(handle, index, search, indices, distances, k, metric);
+ * @endcode
+ *
+ * @param[in] handle: the cuml handle to use
+ * @param[in] index: vector of device matrices (each size m_i*d) to be used as the knn index
+ * @param[in] search: matrix (size n*d) to be used for searching the index
+ * @param[out] indices: matrix (size n*k) to store output knn indices
+ * @param[out] distances: matrix (size n*k) to store the output knn distance
+ * @param[in] k: the number of nearest neighbors to return
+ * @param[in] metric: distance metric to use. Euclidean (L2) is used by default
+ * @param[in] metric_arg: the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
- * @param[in] translations starting offsets for partitions. should be the same size
- *            as input vector.
+ * @param[in] global_id_offset: optional starting global id mapping for the local partition
+ *                              (assumes the index contains contiguous ids in the global id space)
  */
 template <typename idx_t,
           typename value_t,
@@ -105,9 +147,9 @@ void knn(raft::handle_t const& handle,
          raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
          raft::device_matrix_view<value_t, matrix_idx, row_major> distances,
          value_int k,
-         distance::DistanceType metric                  = distance::DistanceType::L2Unexpanded,
-         std::optional<float> metric_arg                = std::make_optional<float>(2.0f),
-         std::optional<std::vector<idx_t>> translations = std::nullopt)
+         distance::DistanceType metric         = distance::DistanceType::L2Unexpanded,
+         std::optional<float> metric_arg       = std::make_optional<float>(2.0f),
+         std::optional<idx_t> global_id_offset = std::nullopt)
 {
   RAFT_EXPECTS(index[0].extent(1) == search.extent(1),
                "Number of dimensions for both index and search matrices must be equal");
@@ -129,7 +171,10 @@ void knn(raft::handle_t const& handle,
     sizes.push_back(index[i].extent(0));
   }
 
-  std::vector<idx_t>* trans = translations.has_value() ? &(*translations) : nullptr;
+  std::vector<idx_t> trans;
+  if (global_id_offset.has_value()) { trans.push_back(global_id_offset.value()); }
+
+  std::vector<idx_t>* trans_arg = global_id_offset.has_value() ? &trans : nullptr;
 
   raft::spatial::knn::detail::brute_force_knn_impl(handle,
                                                    inputs,
@@ -143,9 +188,85 @@ void knn(raft::handle_t const& handle,
                                                    k,
                                                    rowMajorIndex,
                                                    rowMajorQuery,
-                                                   trans,
+                                                   trans_arg,
                                                    metric,
                                                    metric_arg.value_or(2.0f));
+}
+
+/**
+ * @brief Compute the k-nearest neighbors using L2 expanded/unexpanded distance.
+ *
+ * This is a specialized function for fusing the k-selection with the distance
+ * computation when k < 64. The value of k will be inferred from the number
+ * of columns in the output matrices.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/neighbors/brute_force.cuh>
+ *  #include <raft/distance/distance_types.hpp>
+ *  using namespace raft::neighbors;
+ *
+ *  raft::handle_t handle;
+ *  ...
+ *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
+ *  brute_force::fused_l2_knn(handle, index, search, indices, distances, metric);
+ * @endcode
+
+ * @tparam value_t type of values
+ * @tparam idx_t type of indices
+ * @tparam idx_layout layout type of index matrix
+ * @tparam query_layout layout type of query matrix
+ * @param[in] handle raft handle for sharing expensive resources
+ * @param[in] index input index array on device (size m * d)
+ * @param[in] query input query array on device (size n * d)
+ * @param[out] out_inds output indices array on device (size n * k)
+ * @param[out] out_dists output dists array on device (size n * k)
+ * @param[in] metric type of distance computation to perform (must be a variant of L2)
+ */
+template <typename value_t, typename idx_t, typename idx_layout, typename query_layout>
+void fused_l2_knn(const raft::handle_t& handle,
+                  raft::device_matrix_view<const value_t, idx_t, idx_layout> index,
+                  raft::device_matrix_view<const value_t, idx_t, query_layout> query,
+                  raft::device_matrix_view<idx_t, idx_t, row_major> out_inds,
+                  raft::device_matrix_view<value_t, idx_t, row_major> out_dists,
+                  raft::distance::DistanceType metric)
+{
+  int k = static_cast<int>(out_inds.extent(1));
+
+  RAFT_EXPECTS(k <= 64, "For fused k-selection, k must be < 64");
+  RAFT_EXPECTS(out_inds.extent(1) == out_dists.extent(1), "Value of k must match for outputs");
+  RAFT_EXPECTS(index.extent(1) == query.extent(1),
+               "Number of columns in input matrices must be the same.");
+
+  RAFT_EXPECTS(metric == distance::DistanceType::L2Expanded ||
+                 metric == distance::DistanceType::L2Unexpanded ||
+                 metric == distance::DistanceType::L2SqrtUnexpanded ||
+                 metric == distance::DistanceType::L2SqrtExpanded,
+               "Distance metric must be L2");
+
+  size_t n_index_rows = index.extent(0);
+  size_t n_query_rows = query.extent(0);
+  size_t D            = index.extent(1);
+
+  RAFT_EXPECTS(raft::is_row_or_column_major(index), "Index must be row or column major layout");
+  RAFT_EXPECTS(raft::is_row_or_column_major(query), "Query must be row or column major layout");
+
+  const bool rowMajorIndex = raft::is_row_major(index);
+  const bool rowMajorQuery = raft::is_row_major(query);
+
+  raft::spatial::knn::detail::fusedL2Knn(D,
+                                         out_inds.data_handle(),
+                                         out_dists.data_handle(),
+                                         index.data_handle(),
+                                         query.data_handle(),
+                                         n_index_rows,
+                                         n_query_rows,
+                                         k,
+                                         rowMajorIndex,
+                                         rowMajorQuery,
+                                         handle.get_stream(),
+                                         metric);
 }
 
 }  // namespace raft::neighbors::brute_force

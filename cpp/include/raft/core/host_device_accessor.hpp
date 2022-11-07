@@ -16,10 +16,12 @@
 
 #pragma once
 
-namespace raft::detail {
+namespace raft {
 
 /**
- * @brief A mixin to distinguish host and device memory.
+ * @brief A mixin to distinguish host and device memory. This is the primary
+ * accessor used throught RAFT's APIs to denote whether an underlying pointer
+ * is accessible from device, host, or both.
  */
 template <typename AccessorPolicy, bool is_host, bool is_device>
 struct host_device_accessor : public AccessorPolicy {
@@ -36,4 +38,4 @@ struct host_device_accessor : public AccessorPolicy {
   host_device_accessor(AccessorPolicy const& that) : AccessorPolicy{that} {}  // NOLINT
 };
 
-}  // namespace raft::detail
+}  // namespace raft

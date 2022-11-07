@@ -25,6 +25,8 @@ from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from .distance_type cimport DistanceType
+
+from pylibraft.common import Handle
 from pylibraft.common.handle cimport handle_t
 
 
@@ -88,7 +90,7 @@ SUPPORTED_DISTANCES = ["euclidean", "l1", "cityblock", "l2", "inner_product",
                        "hamming", "jensenshannon", "cosine", "sqeuclidean"]
 
 
-def distance(X, Y, dists, metric="euclidean", p=2.0):
+def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
     """
     Compute pairwise distances between X and Y
 
@@ -106,6 +108,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
     dists : Writable CUDA array interface matrix shape (m, n)
     metric : string denoting the metric type (default="euclidean")
     p : metric parameter (currently used only for "minkowski")
+    handle : Optional RAFT handle for reusing expensive CUDA resources
 
     Examples
     --------
@@ -114,6 +117,7 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
 
         import cupy as cp
 
+        from pylibraft.common import Handle
         from pylibraft.distance import pairwise_distance
 
         n_samples = 5000
@@ -125,7 +129,15 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
                                       dtype=cp.float32)
         output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
-        pairwise_distance(in1, in2, output, metric="euclidean")
+        # A single RAFT handle can optionally be reused across
+        # pylibraft functions.
+        handle = Handle()
+        ...
+        pairwise_distance(in1, in2, output, metric="euclidean", handle=handle)
+        ...
+        # pylibraft functions are often asynchronous so the
+        # handle needs to be explicitly synchronized
+        handle.sync()
    """
 
     x_cai = X.__cuda_array_interface__
@@ -146,7 +158,8 @@ def distance(X, Y, dists, metric="euclidean", p=2.0):
     y_ptr = <uintptr_t>y_cai["data"][0]
     d_ptr = <uintptr_t>dists_cai["data"][0]
 
-    cdef handle_t *h = new handle_t()
+    handle = handle if handle is not None else Handle()
+    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
     x_dt = np.dtype(x_cai["typestr"])
     y_dt = np.dtype(y_cai["typestr"])
