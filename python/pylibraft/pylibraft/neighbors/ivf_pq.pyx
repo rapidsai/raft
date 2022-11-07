@@ -45,9 +45,10 @@ cdef extern from "raft/neighbors/ann_types.hpp" \
     cdef cppclass ann_search_params "raft::spatial::knn::search_params":
         pass
 
+
 cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         namespace "raft::neighbors::ivf_pq":
-
+    
     ctypedef enum codebook_gen:
         PER_SUBSPACE "raft::neighbors::ivf_pq::codebook_gen::PER_SUBSPACE",        
         PER_CLUSTER "raft::neighbors::ivf_pq::codebook_gen::PER_CLUSTER"        
@@ -153,13 +154,6 @@ def is_c_cont(cai):
         cai["strides"] is None or \
         cai["strides"][1] == dt.itemsize
 
-    
-def _get_codebook_kind(kind):
-    return {
-        'per_subspace': 0, # codebook_gen.PER_SUBSPACE
-        'per_cluster': 1 # codebook_gen.PER_CLUSTER
-        }[kind]
-
 
 def _get_metric(metric):
     SUPPORTED_DISTANCES = {
@@ -218,9 +212,12 @@ class IvfPq:
         n_list : int, default = 1024
             The number of clusters used in the coarse quantizer.
         metric : string denoting the metric type, default="l2_expanded"
-            Valid values for metric: ["l2_expanded", "inner_product"],
-            where l2_expanded is the equclidean distance without the square root operation, 
-            i.e.: distance(a,b) = \sum_i (a_i - b_i)^2. 
+            Valid values for metric: ["l2_expanded", "inner_product"], where
+            - l2_expanded is the equclidean distance without the square root operation, 
+              i.e.: distance(a,b) = \sum_i (a_i - b_i)^2,
+            - inner product distance is defined as distance(a, b) = \sum_i a_i * b_i.
+        kmeans_n_iters : int, default = 20
+            The number of iterations searching for kmeans centers during index building. 
         kmeans_trainset_fraction : int, default = 0.5
             If kmeans_trainset_fraction is less than 1, then the dataset is subsampled,
             and only n_samples * kmeans_trainset_fraction rows are used for training.
@@ -323,7 +320,12 @@ class IvfPq:
         params.kmeans_trainset_fraction = self._kmeans_trainset_fraction
         params.pq_bits = self._pq_bits
         params.pq_dim = self._pq_dim
-        #params.codebook_kind = _get_codebook_kind(self._codebook_kind)
+        if self._codebook_kind == "per_subspace":
+            params.codebook_kind = codebook_gen.PER_SUBSPACE
+        elif self._codebook_kind == "per_cluster":
+            params.codebook_kind = codebook_gen.PER_SUBSPACE
+        else:
+            raise ValueError("Incorrect codebook kind %s" % self._codebook_kind)
         params.force_random_rotation = self._force_random_rotation
         params.add_data_on_build = self._add_data_on_build
 

@@ -17,6 +17,7 @@ import pytest
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from sklearn.metrics import pairwise_distances
+from sklearn.preprocessing import normalize
 
 from pylibraft.neighbors import IvfPq
 
@@ -43,7 +44,7 @@ def calc_recall(ann_idx, true_nn_idx):
     return recall
 
 
-def check_distances(dataset, queries, skl_metric, out_idx, out_dist):
+def check_distances(dataset, queries, metric, out_idx, out_dist):
     """
     Calculate the real distance between queries and dataset[out_idx], and compare it to out_dist.
     """
@@ -51,16 +52,25 @@ def check_distances(dataset, queries, skl_metric, out_idx, out_dist):
     for i in range(queries.shape[0]):
         X = queries[np.newaxis, i, :]
         Y = dataset[out_idx[i, :], :]
-        dist[i, :] = pairwise_distances(X, Y, skl_metric)
+        if metric == "l2_expanded":
+            dist[i, :] = pairwise_distances(X, Y, "euclidean")
+        elif metric == "inner_product":
+            dist[i, :] = np.matmul(X, Y.T)
+        else:
+            raise ValueError("Invali metric")
 
-    if skl_metric == "euclidean":
-        # Correct for differences in metric definition
+    # Note: raft l2 metric does not include the square root operation like sklearn's euclidean.
+    if metric == "l2_expanded":
         dist = np.power(dist, 2)
 
     dist_eps = abs(dist)
     dist_eps[dist < 1e-3] = 1e-3
     diff = abs(out_dist - dist) / dist_eps
 
+    import scipy.stats
+
+    print(scipy.stats.describe(dist.ravel()))
+    print(scipy.stats.describe(out_dist.ravel()))
     # Quantization leads to errors in the distance calculation.
     # The aim of this test is not to test precision, but to catch obvious errors.
     assert np.mean(diff) < 0.1
@@ -74,23 +84,27 @@ def run_ivf_pq_build_search_test(
     n_lists,
     metric,
     dtype,
-    pq_bits,
-    pq_dim,
-    codebook_kind,
-    force_random_rotation,
-    add_data_on_build,
-    n_probes,
-    lut_dtype,
-    internal_distance_dtype,
+    pq_bits=8,
+    pq_dim=0,
+    codebook_kind="per_cluster",
+    add_data_on_build="True",
+    n_probes=100,
+    lut_dtype=IvfPq.CUDA_R_32F,
+    internal_distance_dtype=IvfPq.CUDA_R_32F,
+    force_random_rotation=False,
+    kmeans_trainset_fraction=1,
+    kmeans_n_iters=20,
 ):
     dataset = generate_data((n_rows, n_cols), dtype)
+    if metric == "inner_product":
+        dataset = normalize(dataset, norm="l2", axis=1)
     dataset_device = TestDeviceBuffer(dataset, order="C")
 
     nn = IvfPq(
         n_lists=n_lists,
         metric=metric,
-        kmeans_n_iters=20,
-        kmeans_trainset_fraction=0.5,
+        kmeans_n_iters=kmeans_n_iters,
+        kmeans_trainset_fraction=kmeans_trainset_fraction,
         pq_bits=pq_bits,
         pq_dim=pq_dim,
         codebook_kind=codebook_kind,
@@ -135,42 +149,90 @@ def run_ivf_pq_build_search_test(
 
     # Calculate reference values with sklearn
     skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[metric]
-    # Note: raft l2 metric does not include the square root operation like sklearn's euclidean.
-    # TODO(tfeher): document normalization diff between inner_product and cosine distance
     nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=skl_metric)
     nn_skl.fit(dataset)
     skl_idx = nn_skl.kneighbors(queries, return_distance=False)
 
     recall = calc_recall(out_idx, skl_idx)
-    assert recall > 0.8
+    assert recall > 0.7
+    print(recall)
+    check_distances(dataset, queries, metric, out_idx, out_dist)
 
-    check_distances(dataset, queries, skl_metric, out_idx, out_dist)
 
-
-# TODO(tfeher): Test over more parameters
 @pytest.mark.parametrize("n_rows", [10000])
 @pytest.mark.parametrize("n_cols", [10])
 @pytest.mark.parametrize("n_queries", [100])
 @pytest.mark.parametrize("n_lists", [100])
-@pytest.mark.parametrize("metric", ["l2_expanded"])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
-def test_ivf_pq_build(n_rows, n_cols, n_queries, n_lists, metric, dtype):
+def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype):
+    # Note that inner_product tests use normalized input which we cannot represent in int8,
+    # therefore we test only l2_expanded metric here.
     run_ivf_pq_build_search_test(
         n_rows=n_rows,
         n_cols=n_cols,
         n_queries=n_queries,
         k=10,
         n_lists=n_lists,
-        metric=metric,
+        metric="l2_expanded",
         dtype=dtype,
         pq_bits=8,
         pq_dim=0,
         codebook_kind="per_subspace",
-        force_random_rotation=False,
         add_data_on_build=True,
         n_probes=100,
-        lut_dtype=IvfPq.CUDA_R_32F,
-        internal_distance_dtype=IvfPq.CUDA_R_32F,
+    )
+
+
+@pytest.mark.parametrize("metric", ["l2_expanded", "inner_product"])
+@pytest.mark.parametrize("dtype", [np.float32])
+@pytest.mark.parametrize("codebook_kind", ["per_subspace", "per_cluster"])
+@pytest.mark.parametrize("rotation", [True, False])
+def test_ivf_pq_build_params(metric, dtype, codebook_kind, rotation):
+    run_ivf_pq_build_search_test(
+        n_rows=10000,
+        n_cols=10,
+        n_queries=1000,
+        k=10,
+        n_lists=100,
+        metric=metric,
+        dtype=dtype,
+        pq_bits=8,
+        pq_dim=0,
+        codebook_kind=codebook_kind,
+        add_data_on_build=True,
+        n_probes=100,
+        force_random_rotation=rotation,
+    )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"pq_dims": 10, "pq_bits": 8, "n_lists": 100},
+        {"pq_dims": 16, "pq_bits": 7, "n_lists": 100},
+        {"pq_dims": 0, "pq_bits": 8, "n_lists": 90},
+        {
+            "pq_dims": 0,
+            "pq_bits": 8,
+            "n_lists": 100,
+            "trainset_fraction": 0.9,
+            "n_iters": 30,
+        },
+    ],
+)
+def test_ivf_pq_params(params):
+    run_ivf_pq_build_search_test(
+        n_rows=10000,
+        n_cols=16,
+        n_queries=1000,
+        k=10,
+        n_lists=params["n_lists"],
+        metric="l2_expanded",
+        dtype=np.float32,
+        pq_bits=params["pq_bits"],
+        pq_dim=params["pq_dims"],
+        kmeans_trainset_fraction=params.get("trainset_fraction", 1.0),
+        kmeans_n_iters=params.get("n_iters", 20),
     )
 
 
@@ -184,14 +246,7 @@ def test_extend(dtype):
         n_lists=100,
         metric="l2_expanded",
         dtype=dtype,
-        pq_bits=8,
-        pq_dim=0,
-        codebook_kind="per_subspace",
-        force_random_rotation=False,
         add_data_on_build=False,
-        n_probes=100,
-        lut_dtype=IvfPq.CUDA_R_32F,
-        internal_distance_dtype=IvfPq.CUDA_R_32F,
     )
 
 
@@ -205,14 +260,6 @@ def test_build_assertions():
             n_lists=100,
             metric="l2_expanded",
             dtype=np.float64,
-            pq_bits=8,
-            pq_dim=0,
-            codebook_kind="per_subspace",
-            force_random_rotation=False,
-            add_data_on_build=True,
-            n_probes=100,
-            lut_dtype=IvfPq.CUDA_R_32F,
-            internal_distance_dtype=IvfPq.CUDA_R_32F,
         )
 
     n_rows = 1000
@@ -227,10 +274,6 @@ def test_build_assertions():
         metric="l2_expanded",
         kmeans_n_iters=20,
         kmeans_trainset_fraction=1,
-        pq_bits=8,
-        pq_dim=10,
-        codebook_kind="per_subspace",
-        force_random_rotation=False,
         add_data_on_build=False,
     )
 
@@ -244,15 +287,7 @@ def test_build_assertions():
 
     with pytest.raises(ValueError):
         # Index must be built before search
-        nn.search(
-            queries_device,
-            k,
-            out_idx_device,
-            out_dist_device,
-            n_probes=50,
-            lut_dtype=IvfPq.CUDA_R_32F,
-            internal_distance_dtype=IvfPq.CUDA_R_32F,
-        )
+        nn.search(queries_device, k, out_idx_device, out_dist_device, n_probes=50)
 
     nn.build(dataset_device)
     assert nn._index is not None
@@ -318,17 +353,7 @@ def test_search_inputs(params):
     )
     out_dist_device = TestDeviceBuffer(out_dist, order=dist_order)
 
-    nn = IvfPq(
-        n_lists=50,
-        metric="l2_expanded",
-        kmeans_n_iters=20,
-        kmeans_trainset_fraction=0.5,
-        pq_bits=8,
-        pq_dim=10,
-        codebook_kind="per_subspace",
-        force_random_rotation=False,
-        add_data_on_build=True,
-    )
+    nn = IvfPq(n_lists=50, metric="l2_expanded", add_data_on_build=True)
 
     dataset = generate_data((n_rows, n_cols), dtype)
     dataset_device = TestDeviceBuffer(dataset, order="C")
@@ -336,12 +361,4 @@ def test_search_inputs(params):
     assert nn._index is not None
 
     with pytest.raises(Exception):
-        nn.search(
-            queries_device,
-            k,
-            out_idx_device,
-            out_dist_device,
-            n_probes=50,
-            lut_dtype=IvfPq.CUDA_R_32F,
-            internal_distance_dtype=IvfPq.CUDA_R_32F,
-        )
+        nn.search(queries_device, k, out_idx_device, out_dist_device, n_probes=50)
