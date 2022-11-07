@@ -109,7 +109,7 @@ def compute_new_centroids(X,
         import cupy as cp
 
         from pylibraft.common import Handle
-        from pylibaft.cluster.kmeans import update_centroids
+        from pylibraft.cluster.kmeans import compute_new_centroids
         from pylibraft.distance import fused_l2_nn_argmin
 
         # A single RAFT handle can optionally be reused across
@@ -131,7 +131,9 @@ def compute_new_centroids(X,
 
         new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
 
-        compute_new_centroids(X, centroids, new_centroids, handle=handle)
+        compute_new_centroids(
+            X, centroids, labels, new_centroids, handle=handle
+        )
 
         # pylibraft functions are often asynchronous so the
         # handle needs to be explicitly synchronized
