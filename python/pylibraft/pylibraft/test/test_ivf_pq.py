@@ -24,12 +24,13 @@ from pylibraft.testing.utils import TestDeviceBuffer
 
 
 def generate_data(shape, dtype):
-    if dtype in [np.float32]:
-        x = np.random.random_sample(shape).astype(dtype)
-    elif dtype == np.byte:
+    if dtype == np.byte:
         x = np.random.randint(-127, 128, size=shape, dtype=np.byte)
     elif dtype == np.ubyte:
         x = np.random.randint(0, 255, size=shape, dtype=np.ubyte)
+    else:
+        x = np.random.random_sample(shape).astype(dtype)
+
     return x
 
 
@@ -102,8 +103,14 @@ def run_ivf_pq_build_search_test(
     assert nn._index is not None
 
     if not add_data_on_build:
-        IvfPQ.extend(dataset[: n_rows // 2, :])
-        IvfPQ.extend(dataset[n_rows // 2 :, :])
+        dataset_1_device = TestDeviceBuffer(dataset[: n_rows // 2, :], order="C")
+        dataset_2_device = TestDeviceBuffer(dataset[n_rows // 2 :, :], order="C")
+        indices_1 = np.arange(n_rows // 2, dtype=np.uint64)
+        indices_1_device = TestDeviceBuffer(indices_1, order="C")
+        indices_2 = np.arange(n_rows // 2, n_rows, dtype=np.uint64)
+        indices_2_device = TestDeviceBuffer(indices_2, order="C")
+        nn.extend(dataset_1_device, indices_1_device)
+        nn.extend(dataset_2_device, indices_2_device)
 
     queries = generate_data((n_queries, n_cols), dtype)
     out_idx = np.zeros((n_queries, k), dtype=np.uint64)
@@ -181,8 +188,160 @@ def test_extend(dtype):
         pq_dim=0,
         codebook_kind="per_subspace",
         force_random_rotation=False,
-        add_data_on_build=True,
+        add_data_on_build=False,
         n_probes=100,
         lut_dtype=IvfPq.CUDA_R_32F,
         internal_distance_dtype=IvfPq.CUDA_R_32F,
     )
+
+
+def test_build_assertions():
+    with pytest.raises(TypeError):
+        run_ivf_pq_build_search_test(
+            n_rows=1000,
+            n_cols=10,
+            n_queries=100,
+            k=10,
+            n_lists=100,
+            metric="l2_expanded",
+            dtype=np.float64,
+            pq_bits=8,
+            pq_dim=0,
+            codebook_kind="per_subspace",
+            force_random_rotation=False,
+            add_data_on_build=True,
+            n_probes=100,
+            lut_dtype=IvfPq.CUDA_R_32F,
+            internal_distance_dtype=IvfPq.CUDA_R_32F,
+        )
+
+    n_rows = 1000
+    n_cols = 100
+    n_queries = 212
+    k = 10
+    dataset = generate_data((n_rows, n_cols), np.float32)
+    dataset_device = TestDeviceBuffer(dataset, order="C")
+
+    nn = IvfPq(
+        n_lists=50,
+        metric="l2_expanded",
+        kmeans_n_iters=20,
+        kmeans_trainset_fraction=1,
+        pq_bits=8,
+        pq_dim=10,
+        codebook_kind="per_subspace",
+        force_random_rotation=False,
+        add_data_on_build=False,
+    )
+
+    queries = generate_data((n_queries, n_cols), np.float32)
+    out_idx = np.zeros((n_queries, k), dtype=np.uint64)
+    out_dist = np.zeros((n_queries, k), dtype=np.float32)
+
+    queries_device = TestDeviceBuffer(queries, order="C")
+    out_idx_device = TestDeviceBuffer(out_idx, order="C")
+    out_dist_device = TestDeviceBuffer(out_dist, order="C")
+
+    with pytest.raises(ValueError):
+        # Index must be built before search
+        nn.search(
+            queries_device,
+            k,
+            out_idx_device,
+            out_dist_device,
+            n_probes=50,
+            lut_dtype=IvfPq.CUDA_R_32F,
+            internal_distance_dtype=IvfPq.CUDA_R_32F,
+        )
+
+    nn.build(dataset_device)
+    assert nn._index is not None
+
+    indices = np.arange(n_rows + 1, dtype=np.uint64)
+    indices_device = TestDeviceBuffer(indices, order="C")
+
+    with pytest.raises(ValueError):
+        # Dataset dimension mismatch
+        nn.extend(queries_device, indices_device)
+
+    with pytest.raises(ValueError):
+        # indices dimension mismatch
+        nn.extend(dataset_device, indices_device)
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"q_dt": np.float64},
+        {"q_order": "F"},
+        {"q_cols": 101},
+        {"idx_dt": np.uint32},
+        {"idx_order": "F"},
+        {"idx_rows": 42},
+        {"idx_cols": 137},
+        {"dist_dt": np.float64},
+        {"dist_order": "F"},
+        {"dist_rows": 42},
+        {"dist_cols": 137},
+    ],
+)
+def test_search_inputs(params):
+    """Test with invalid input dtype, order, or dimension."""
+    n_rows = 1000
+    n_cols = 100
+    n_queries = 256
+    k = 10
+    dtype = np.float32
+
+    q_dt = params.get("q_dt", np.float32)
+    q_order = params.get("q_order", "C")
+    queries = generate_data((n_queries, params.get("q_cols", n_cols)), q_dt).astype(
+        q_dt, order=q_order
+    )
+    queries_device = TestDeviceBuffer(queries, order=q_order)
+
+    idx_dt = params.get("idx_dt", np.uint64)
+    idx_order = params.get("idx_order", "C")
+    out_idx = np.zeros(
+        (params.get("idx_rows", n_queries), params.get("idx_cols", k)),
+        dtype=idx_dt,
+        order=idx_order,
+    )
+    out_idx_device = TestDeviceBuffer(out_idx, order=idx_order)
+
+    dist_dt = params.get("dist_dt", np.float32)
+    dist_order = params.get("dist_order", "C")
+    out_dist = np.zeros(
+        (params.get("dist_rows", n_queries), params.get("dist_cols", k)),
+        dtype=dist_dt,
+        order=dist_order,
+    )
+    out_dist_device = TestDeviceBuffer(out_dist, order=dist_order)
+
+    nn = IvfPq(
+        n_lists=50,
+        metric="l2_expanded",
+        kmeans_n_iters=20,
+        kmeans_trainset_fraction=0.5,
+        pq_bits=8,
+        pq_dim=10,
+        codebook_kind="per_subspace",
+        force_random_rotation=False,
+        add_data_on_build=True,
+    )
+
+    dataset = generate_data((n_rows, n_cols), dtype)
+    dataset_device = TestDeviceBuffer(dataset, order="C")
+    nn.build(dataset_device)
+    assert nn._index is not None
+
+    with pytest.raises(Exception):
+        nn.search(
+            queries_device,
+            k,
+            out_idx_device,
+            out_dist_device,
+            n_probes=50,
+            lut_dtype=IvfPq.CUDA_R_32F,
+            internal_distance_dtype=IvfPq.CUDA_R_32F,
+        )

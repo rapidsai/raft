@@ -147,7 +147,8 @@ cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
                    device_memory_resource* mr)
 
 
-def is_c_cont(cai, dt):
+def is_c_cont(cai):
+    dt = np.dtype(cai["typestr"])
     return "strides" not in cai or \
         cai["strides"] is None or \
         cai["strides"][1] == dt.itemsize
@@ -172,6 +173,22 @@ def _get_metric(metric):
     return SUPPORTED_DISTANCES[metric]
 
 
+def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):
+        if cai["typestr"] not in exp_dt:
+            raise TypeError("dtype %s not supported" % cai["typestr"])
+
+        if not is_c_cont(cai):
+            raise ValueError("Row major input is expected")
+
+        if exp_cols is not None and cai["shape"][1] != exp_cols:
+            raise ValueError("Incorrect number of columns, expected {} got {}" \
+                                 .format(exp_cols, cai["shape"][1]))
+
+        if exp_rows is not None and cai["shape"][0] != exp_rows:
+            raise ValueError("Incorrect number of rows, expected {} , got {}" \
+                                .format(exp_rows, cai["shape"][0]))
+        
+
 class IvfPq:
     """
     Nearest neighbors search using IVF-PQ method.
@@ -185,7 +202,7 @@ class IvfPq:
     def __init__(self, *, 
                  handle=None, 
                  n_lists = 1024, 
-                 metric="euclidean",
+                 metric="l2_expanded",
                  kmeans_n_iters=20, 
                  kmeans_trainset_fraction=0.5,
                  pq_bits=8,
@@ -200,9 +217,10 @@ class IvfPq:
         ----------
         n_list : int, default = 1024
             The number of clusters used in the coarse quantizer.
-        metric : string denoting the metric type, default="euclidean"
+        metric : string denoting the metric type, default="l2_expanded"
             Valid values for metric: ["l2_expanded", "inner_product"],
-            where sqeuclidean is the equclidean distance without the square root operation.
+            where l2_expanded is the equclidean distance without the square root operation, 
+            i.e.: distance(a,b) = \sum_i (a_i - b_i)^2. 
         kmeans_trainset_fraction : int, default = 0.5
             If kmeans_trainset_fraction is less than 1, then the dataset is subsampled,
             and only n_samples * kmeans_trainset_fraction rows are used for training.
@@ -295,8 +313,7 @@ class IvfPq:
         # TODO(tfeher): ensure that this works with managed memory as well
         dataset_cai = dataset.__cuda_array_interface__
         dataset_dt = np.dtype(dataset_cai["typestr"])
-        if not is_c_cont(dataset_cai, dataset_dt):
-            raise ValueError("Row major input is expected")
+        _check_input_array(dataset_cai,  [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte')])
         
         cdef index_params params
         params.n_lists = self._n_lists
@@ -347,7 +364,7 @@ class IvfPq:
                            n_rows,
                            <uint32_t> self._dim)  
         else:
-            raise ValueError("dtype %s not supported" % dataset_dt)
+            raise TypeError("dtype %s not supported" % dataset_dt)
 
         self._index = <uintptr_t>idx 
 
@@ -363,7 +380,7 @@ class IvfPq:
         new_vectors : CUDA array interface compliant matrix shape (n_samples, dim)
             Supported dtype [float, int8, uint8] 
         new_indices : CUDA array interface compliant matrix shape (n_samples, dim)
-            Supported dtype [uint64t] 
+            Supported dtype [uint64] 
         """
         if self._index is None:
             raise ValueError("Index need to be built before calling extend.")
@@ -373,14 +390,14 @@ class IvfPq:
         cdef uint32_t n_rows = vecs_cai["shape"][0]
         cdef uint32_t dim = vecs_cai["shape"][1]
 
-        assert(vecs_dt in [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte') ])
-        assert(dim == self._dim)
+        _check_input_array(vecs_cai, [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte')], 
+                           exp_cols=self._dim)
 
         idx_cai = new_indices.__cuda_array_interface__
-        assert(n_rows == idx_cai["shape"][0])
-        assert(dim == idx_cai["shape"][1])
-        idx_dt = np.dtype(vecs_cai["typestr"])
-        assert(idx_dt in [np.dtype('uint64')])
+        _check_input_array(idx_cai, [np.dtype('uint64')], exp_rows=n_rows)
+        if len(idx_cai["shape"])!=1:
+            raise ValueError("Indices array is expected to be 1D")
+
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef index[uint64_t] *idx = <index[uint64_t]*><uintptr_t>self._index
@@ -406,7 +423,7 @@ class IvfPq:
                             <uint64_t*> idx_ptr,
                             <uint64_t> n_rows)       
         else:
-            raise ValueError("query dtype %s not supported" % vecs_dt)
+            raise TypeError("query dtype %s not supported" % vecs_dt)
 
         self.handle.sync()  
 
@@ -460,30 +477,20 @@ class IvfPq:
 
         if self._index is None:
             raise ValueError("Index need to be built before calling search.")
-
-        assert(n_probes > 0)
-        assert(k > 0)
-
+        
         queries_cai = queries.__cuda_array_interface__
         queries_dt = np.dtype(queries_cai["typestr"])
         cdef uint32_t n_queries = queries_cai["shape"][0]
-        cdef uint32_t dim_queries = queries_cai["shape"][1]
-        assert(n_queries > 0)
-        assert(queries_dt in [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte') ])
 
-        assert(dim_queries == self._dim)
+        #assert(n_queries > 0)
+        _check_input_array(queries_cai, [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte')], 
+                           exp_cols=self._dim)
 
         neighbors_cai = neighbors.__cuda_array_interface__
-        neighbors_dt = np.dtype(neighbors_cai["typestr"])
-        assert(neighbors_cai["shape"][0] == n_queries)
-        assert(neighbors_cai["shape"][1] == k)
-        assert(neighbors_dt is np.dtype('uint64'))
+        _check_input_array(neighbors_cai, [np.dtype('uint64')], exp_rows=n_queries, exp_cols=k)
 
         distances_cai = distances.__cuda_array_interface__
-        distances_dt = np.dtype(distances_cai["typestr"])
-        assert(distances_cai["shape"][0] == n_queries)
-        assert(distances_cai["shape"][1] == k)
-        assert(distances_dt is np.dtype('float32'))
+        _check_input_array(distances_cai, [np.dtype('float32')], exp_rows=n_queries, exp_cols=k)
 
         cdef search_params params
         params.n_probes = n_probes
