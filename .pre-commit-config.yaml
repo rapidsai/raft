@@ -22,7 +22,7 @@ repos:
         rev: 5.0.4
         hooks:
               - id: flake8
-                args: ["--config=python/.flake8.cython"]
+                args: ["--config=setup.cfg"]
                 files: python/.*$
                 types: [file]
                 types_or: [python, cython]
