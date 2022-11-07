@@ -25,8 +25,6 @@ from libc.stdint cimport int64_t, uintptr_t
 
 from pylibraft.common import Handle
 from pylibraft.common.handle import auto_sync_handle
-from pylibraft.common.handle cimport handle_t
-from .rng_state cimport RngState
 
 from libcpp cimport bool
 
