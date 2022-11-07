@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <string>
 #include <raft/core/error.hpp>
 #include <raft/core/memory_type.hpp>
 
@@ -27,7 +28,8 @@ auto constexpr is_compatible(device_type dev_type, memory_type mem_type)
 }
 
 struct bad_device_type : raft::exception {
-  bad_device_type() : bad_device_type("Incorrect device type for this operation") {}
+  bad_device_type(std::string const& msg) : raft::exception{msg} {}
+  bad_device_type() : bad_device_type{"Incorrect device type for this operation"} {}
 };
 
 }  // end namespace raft

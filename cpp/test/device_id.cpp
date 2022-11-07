@@ -13,19 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
-
-#include <raft/core/detail/device_id_base.hpp>
-#include <raft/core/detail/device_id_cpu.hpp>
-#ifndef RAFT_DISABLE_CUDA
-#include <raft/core/detail/device_id_gpu.hpp>
-#endif
+#include <gtest/gtest.h>
+#include <raft/core/device_id.hpp>
 #include <raft/core/device_type.hpp>
-#include <variant>
+#include <raft/core/device_support.hpp>
 
 namespace raft {
-template <device_type D>
-using device_id = detail::device_id<D>;
-
-using device_id_variant = std::variant<device_id<device_type::cpu>, device_id<device_type::gpu>>;
+TEST(DeviceID, CPU)
+{
+  auto dev_id = device_id<device_type::cpu>{};
+  ASSERT_EQ(dev_id.value(), 0);
+  ASSERT_THROW(dev_id.rmm_id(), bad_device_type);
 }
+
+TEST(DeviceID, GPU)
+{
+  auto dev_id = device_id<device_type::gpu>{};
+#ifdef RAFT_DISABLE_CUDA
+  ASSERT_THROW(dev_id.rmm_id(), cuda_unsupported);
+  ASSERT_THROW(dev_id.value(), cuda_unsupported);
+#else
+  ASSERT_EQ(dev_id.value(), dev_id.rmm_id().value());
+#endif
+}
+}  // namespace raft

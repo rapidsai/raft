@@ -93,6 +93,7 @@ if(BUILD_TESTS)
     ConfigureTest(NAME CORE_TEST
             PATH
             test/common/logger.cpp
+            test/device_id.cpp
             test/device_type.cpp
             test/handle.cpp
             test/interruptible.cu
