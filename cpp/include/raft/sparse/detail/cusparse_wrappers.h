@@ -66,7 +66,10 @@ cusparseStatus_t cusparsegthr(
                                      CUSPARSE_INDEX_32I,
                                      CUSPARSE_INDEX_BASE_ZERO,
                                      float_type));
-  return cusparseGather(handle, dense_vector_descr, sparse_vector_descr);
+  auto return_value = cusparseGather(handle, dense_vector_descr, sparse_vector_descr);
+  CUSPARSE_CHECK(cusparseDestroyDnVec(dense_vector_descr));
+  CUSPARSE_CHECK(cusparseDestroySpVec(sparse_vector_descr));
+  return return_value;
 }
 /** @} */
 
@@ -677,16 +680,18 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
                                    k,
                                    n,
                                    nnz,
-                                   cscColPtrB,
-                                   cscRowIndB,
-                                   cscValB,
+                                   static_cast<void*>(const_cast<int*>(cscColPtrB)),
+                                   static_cast<void*>(const_cast<int*>(cscRowIndB)),
+                                   static_cast<void*>(const_cast<T*>(cscValB)),
                                    CUSPARSE_INDEX_32I,
                                    CUSPARSE_INDEX_32I,
                                    CUSPARSE_INDEX_BASE_ZERO,
                                    math_type));
   // Create dense matrices
-  CUSPARSE_CHECK(cusparseCreateDnMat(&matA, m, k, lda, A, math_type, CUSPARSE_ORDER_ROW));
-  CUSPARSE_CHECK(cusparseCreateDnMat(&matC, m, n, ldc, C, math_type, CUSPARSE_ORDER_ROW));
+  CUSPARSE_CHECK(cusparseCreateDnMat(
+    &matA, m, k, lda, static_cast<void*>(const_cast<T*>(A)), math_type, CUSPARSE_ORDER_ROW));
+  CUSPARSE_CHECK(cusparseCreateDnMat(
+    &matC, m, n, ldc, static_cast<void*>(const_cast<T*>(C)), math_type, CUSPARSE_ORDER_ROW));
 
   cusparseOperation_t opA = CUSPARSE_OPERATION_TRANSPOSE;
   cusparseOperation_t opB = CUSPARSE_OPERATION_TRANSPOSE;
@@ -695,7 +700,8 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
 
   CUSPARSE_CHECK(cusparsespmm_bufferSize(
     handle, opA, opB, alpha, matB, matA, beta, matC, alg, &buffer_size, stream));
-  rmm::device_uvector<char> external_buffer(buffer_size, stream);
+  buffer_size = buffer_size / sizeof(T);
+  rmm::device_uvector<T> external_buffer(buffer_size, stream);
   auto return_value = cusparsespmm(
     handle, opA, opB, alpha, matB, matA, beta, matC, alg, external_buffer.data(), stream);
 
