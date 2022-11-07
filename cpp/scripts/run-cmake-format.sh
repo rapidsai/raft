@@ -26,26 +26,25 @@
 # bash run-cmake-format.sh {cmake-format,cmake-lint} infile [infile ...]
 
 status=0
-if [ -z ${CUDF_ROOT:+PLACEHOLDER} ]; then
-    CUDF_BUILD_DIR=$(git rev-parse --show-toplevel 2>&1)/cpp/build
+if [ -z ${RAFT_ROOT:+PLACEHOLDER} ]; then
+    RAFT_BUILD_DIR=$(git rev-parse --show-toplevel 2>&1)/cpp/build
     status=$?
 else
-    CUDF_BUILD_DIR=${CUDF_ROOT}
+    RAFT_BUILD_DIR=${RAFT_ROOT}
 fi
 
 if ! [ ${status} -eq 0 ]; then
-    if [[ ${CUDF_BUILD_DIR} == *"not a git repository"* ]]; then
-        echo "This script must be run inside the cudf repository, or the CUDF_ROOT environment variable must be set."
+    if [[ ${RAFT_BUILD_DIR} == *"not a git repository"* ]]; then
+        echo "This script must be run inside the raft repository, or the RAFT_ROOT environment variable must be set."
     else
         echo "Script failed with unknown error attempting to determine project root:"
-        echo ${CUDF_BUILD_DIR}
+        echo ${RAFT_BUILD_DIR}
     fi
     exit 1
 fi
 
 DEFAULT_FORMAT_FILE_LOCATIONS=(
-  "${CUDF_BUILD_DIR:-${HOME}}/_deps/rapids-cmake-src/cmake-format-rapids-cmake.json"
-  "cpp/libcudf_kafka/build/_deps/rapids-cmake-src/cmake-format-rapids-cmake.json"
+  "${RAFT_BUILD_DIR:-${HOME}}/_deps/rapids-cmake-src/cmake-format-rapids-cmake.json"
 )
 
 if [ -z ${RAPIDS_CMAKE_FORMAT_FILE:+PLACEHOLDER} ]; then
