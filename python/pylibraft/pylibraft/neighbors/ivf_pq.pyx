@@ -24,12 +24,17 @@ import pylibraft.common.handle
 from libc.stdint cimport uintptr_t
 from libc.stdint cimport uint32_t, uint8_t, int8_t, int64_t, uint64_t
 from cython.operator cimport dereference as deref
-from cuda.ccudart cimport cudaDataType_t
 
 from libcpp cimport bool, nullptr
 from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.common.handle cimport handle_t
 from rmm._lib.memory_resource cimport device_memory_resource
+
+cdef extern from "library_types.h":
+    ctypedef enum cudaDataType_t:
+      CUDA_R_32F "CUDA_R_32F"  # float
+      CUDA_R_16F "CUDA_R_16F"  # half
+      CUDA_R_8U "CUDA_R_8U"  # uint8
 
 cdef extern from "raft/neighbors/ann_types.hpp" \
         namespace "raft::neighbors::ann":
@@ -85,37 +90,37 @@ cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
              const index_params& params,     
              const float* dataset,               
              uint64_t n_rows,                    
-             uint32_t dim)  
+             uint32_t dim) # except +
 
     cdef index[uint64_t] build(const handle_t& handle,      
              const index_params& params,     
              const int8_t* dataset,               
              uint64_t n_rows,                    
-             uint32_t dim)
+             uint32_t dim) # except +
 
     cdef index[uint64_t] build(const handle_t& handle,      
              const index_params& params,     
              const uint8_t* dataset,               
              uint64_t n_rows,                    
-             uint32_t dim)   
+             uint32_t dim) # except +
 
     cdef index[uint64_t] extend(const handle_t& handle,        
               const index[uint64_t]& orig_index, 
               const float* new_vectors,          
               const uint64_t* new_indices,       
-              uint64_t n_rows)
+              uint64_t n_rows) # except +
 
     cdef index[uint64_t] extend(const handle_t& handle,        
               const index[uint64_t]& orig_index, 
               const int8_t* new_vectors,          
               const uint64_t* new_indices,       
-              uint64_t n_rows)    
+              uint64_t n_rows) #except +
 
     cdef index[uint64_t] extend(const handle_t& handle,        
               const index[uint64_t]& orig_index, 
               const uint8_t* new_vectors,          
               const uint64_t* new_indices,       
-              uint64_t n_rows)                  
+              uint64_t n_rows) #except +
 
     cdef void search(const handle_t& handle,
                    const search_params& params,
@@ -125,8 +130,8 @@ cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
                    uint32_t k,
                    uint64_t* neighbors,
                    float* distances,
-                   device_memory_resource* mr)
-    
+                   device_memory_resource* mr) except +
+
     cdef void search(const handle_t& handle,
                    const search_params& params,
                    const index[uint64_t]& index,
@@ -135,8 +140,8 @@ cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
                    uint32_t k,
                    uint64_t* neighbors,
                    float* distances,
-                   device_memory_resource* mr)
-    
+                   device_memory_resource* mr) except +
+
     cdef void search(const handle_t& handle,
                    const search_params& params,
                    const index[uint64_t]& index,
@@ -145,7 +150,7 @@ cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
                    uint32_t k,
                    uint64_t* neighbors,
                    float* distances,
-                   device_memory_resource* mr)
+                   device_memory_resource* mr) except +
 
 
 def is_c_cont(cai):
@@ -437,8 +442,8 @@ class IvfPq:
                neighbors, 
                distances,
                n_probes=20, 
-               lut_dtype=cudaDataType_t.CUDA_R_32F, 
-               internal_distance_dtype=cudaDataType_t.CUDA_R_32F, 
+               lut_dtype=CUDA_R_32F, 
+               internal_distance_dtype=CUDA_R_32F, 
                preferred_thread_block_size=0):
         """
         Find the k nearest neighbors for each query.
@@ -457,13 +462,13 @@ class IvfPq:
             Otherwise a new array is created.
         n_probes: int, default = 1024
             The number of course clusters to select for the fine search.
-        lut_dtype: default = CUDA_R_16F (half)
+        lut_dtype: default = IvfPq.CUDA_R_32F (float)
             Data type of look up table to be created dynamically at search time. The use of 
             low-precision types reduces the amount of shared memory required at search time, so
             fast shared memory kernels can be used even for datasets with large dimansionality.
             Note that the recall is slightly degraded when low-precision type is selected.
             Possible values [CUDA_R_32F, CUDA_R_16F, CUDA_R_8U]
-        internal_distance_dtype: default = CUDA_R_32F (float)
+        internal_distance_dtype: default = IvfPq.CUDA_R_32F (float)
             Storage data type for distance/similarity computation.
             Possible values [CUDA_R_32F, CUDA_R_16F]
 
@@ -471,10 +476,6 @@ class IvfPq:
         -------
         A pair of [neighbors, distances] arrays as defined above.
 
-        # cudaDataType_t
-        CUDA_R_32F = 0  # float
-        CUDA_R_16F = 2  # half
-        CUDA_R_8U = 8  # uint8
         """
 
         if self._index is None:
@@ -484,7 +485,6 @@ class IvfPq:
         queries_dt = np.dtype(queries_cai["typestr"])
         cdef uint32_t n_queries = queries_cai["shape"][0]
 
-        #assert(n_queries > 0)
         _check_input_array(queries_cai, [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte')], 
                            exp_cols=self._dim)
 
@@ -496,8 +496,8 @@ class IvfPq:
 
         cdef search_params params
         params.n_probes = n_probes
-        # params.lut_dtype = lut_dtype
-        # params.internal_distance_dtype = internal_distance_dtype
+        params.lut_dtype = lut_dtype
+        params.internal_distance_dtype = internal_distance_dtype
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef index[uint64_t] *idx = <index[uint64_t]*><uintptr_t>self._index
@@ -541,4 +541,3 @@ class IvfPq:
 
         self.handle.sync()      
 
-        

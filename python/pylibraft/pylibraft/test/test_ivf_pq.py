@@ -67,10 +67,6 @@ def check_distances(dataset, queries, metric, out_idx, out_dist):
     dist_eps[dist < 1e-3] = 1e-3
     diff = abs(out_dist - dist) / dist_eps
 
-    import scipy.stats
-
-    print(scipy.stats.describe(dist.ravel()))
-    print(scipy.stats.describe(out_dist.ravel()))
     # Quantization leads to errors in the distance calculation.
     # The aim of this test is not to test precision, but to catch obvious errors.
     assert np.mean(diff) < 0.1
@@ -94,6 +90,7 @@ def run_ivf_pq_build_search_test(
     force_random_rotation=False,
     kmeans_trainset_fraction=1,
     kmeans_n_iters=20,
+    compare=True,
 ):
     dataset = generate_data((n_rows, n_cols), dtype)
     if metric == "inner_product":
@@ -144,6 +141,9 @@ def run_ivf_pq_build_search_test(
         internal_distance_dtype=internal_distance_dtype,
     )
 
+    if not compare:
+        return
+
     out_idx = out_idx_device.copy_to_host()
     out_dist = out_dist_device.copy_to_host()
 
@@ -155,7 +155,7 @@ def run_ivf_pq_build_search_test(
 
     recall = calc_recall(out_idx, skl_idx)
     assert recall > 0.7
-    print(recall)
+
     check_distances(dataset, queries, metric, out_idx, out_dist)
 
 
@@ -175,11 +175,28 @@ def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype):
         n_lists=n_lists,
         metric="l2_expanded",
         dtype=dtype,
-        pq_bits=8,
-        pq_dim=0,
-        codebook_kind="per_subspace",
-        add_data_on_build=True,
-        n_probes=100,
+    )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"n_rows": 1, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 10},
+        {"n_rows": 10, "n_cols": 1, "n_queries": 10, "k": 10, "n_lists": 10},
+        {"n_rows": 999, "n_cols": 42, "n_queries": 4953, "k": 137, "n_lists": 53},
+    ],
+)
+def test_ivf_pq_n(params):
+    # We do not test recall, just confirm that we can handle edge cases for certain parameters
+    run_ivf_pq_build_search_test(
+        n_rows=params["n_rows"],
+        n_cols=params["n_cols"],
+        n_queries=params["n_queries"],
+        k=params["k"],
+        n_lists=params["n_lists"],
+        metric="l2_expanded",
+        dtype=np.float32,
+        compare=False,
     )
 
 
@@ -233,6 +250,30 @@ def test_ivf_pq_params(params):
         pq_dim=params["pq_dims"],
         kmeans_trainset_fraction=params.get("trainset_fraction", 1.0),
         kmeans_n_iters=params.get("n_iters", 20),
+    )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"k": 10, "n_probes": 100, "lut": IvfPq.CUDA_R_16F, "idd": IvfPq.CUDA_R_32F},
+        {"k": 10, "n_probes": 99, "lut": IvfPq.CUDA_R_8U, "idd": IvfPq.CUDA_R_32F},
+        {"k": 10, "n_probes": 100, "lut": IvfPq.CUDA_R_32F, "idd": IvfPq.CUDA_R_16F},
+        {"k": 129, "n_probes": 100, "lut": IvfPq.CUDA_R_32F, "idd": IvfPq.CUDA_R_32F},
+    ],
+)
+def test_ivf_pq_search_params(params):
+    run_ivf_pq_build_search_test(
+        n_rows=10000,
+        n_cols=16,
+        n_queries=1000,
+        k=params["k"],
+        n_lists=100,
+        n_probes=params["n_probes"],
+        metric="l2_expanded",
+        dtype=np.float32,
+        lut_dtype=params["lut"],
+        internal_distance_dtype=params["idd"],
     )
 
 
