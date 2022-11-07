@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <string>
 #include <raft/core/error.hpp>
 
 namespace raft {
@@ -24,7 +25,7 @@ auto constexpr static const CUDA_ENABLED = true;
 #endif
 
 struct cuda_unsupported : raft::exception {
-  cuda_unsupported(std::string const& msg) : raft::exception{msg} {}
+  explicit cuda_unsupported(std::string const& msg) : raft::exception{msg} {}
   cuda_unsupported() : cuda_unsupported{"CUDA functionality invoked in non-CUDA build"} {}
 };
 
