@@ -27,7 +27,7 @@ from libcpp cimport bool
 from .distance_type cimport DistanceType
 
 from pylibraft.common import Handle
-
+from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.handle cimport handle_t
 
 
@@ -61,6 +61,7 @@ cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
         bool sqrt)
 
 
+@auto_sync_handle
 def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
     """
     Compute the 1-nearest neighbors between X and Y using the L2 distance
@@ -71,7 +72,7 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
     X : CUDA array interface compliant matrix shape (m, k)
     Y : CUDA array interface compliant matrix shape (n, k)
     output : Writable CUDA array interface matrix shape (m, 1)
-    handle : Optional RAFT handle for reusing expensive CUDA resources
+    {handle_docstring}
 
     Examples
     --------
@@ -81,7 +82,7 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
         import cupy as cp
 
         from pylibraft.common import Handle
-        from pylibraft.distance import fused_l2_nn
+        from pylibraft.distance import fused_l2_nn_argmin
 
         n_samples = 5000
         n_clusters = 5

@@ -24,6 +24,9 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uintptr_t
 
 from pylibraft.common import Handle
+from pylibraft.common.handle import auto_sync_handle
+from pylibraft.common.handle cimport handle_t
+from .rng_state cimport RngState
 
 from libcpp cimport bool
 
@@ -76,6 +79,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    RngState& r)
 
 
+@auto_sync_handle
 def rmat(out, theta, r_scale, c_scale, seed=12345, handle=None):
     """
     Generate RMAT adjacency list based on the input distribution.
@@ -91,7 +95,7 @@ def rmat(out, theta, r_scale, c_scale, seed=12345, handle=None):
     r_scale: log2 of number of source nodes
     c_scale: log2 of number of destination nodes
     seed: random seed used for reproducibility
-    handle : Optional RAFT handle for reusing expensive CUDA resources
+    {handle_docstring}
 
     Examples
     --------
