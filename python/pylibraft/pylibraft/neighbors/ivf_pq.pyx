@@ -76,7 +76,6 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         uint32_t n_probes
         cudaDataType_t lut_dtype
         cudaDataType_t internal_distance_dtype
-        uint32_t preferred_thread_block_size
 
 cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
         namespace "raft::neighbors::ivf_pq":
@@ -448,10 +447,6 @@ class IvfPq:
         internal_distance_dtype: default = CUDA_R_32F (float)
             Storage data type for distance/similarity computation.
             Possible values [CUDA_R_32F, CUDA_R_16F]
-        preferred_thread_block_size : int, default = 0
-            Thread block size of the distance calculation kernel at search time.
-            When zero, an optimal block size is selected using a heuristic.
-            Possible values: [0, 256, 512, 1024]
 
         Returns
         -------
@@ -476,7 +471,6 @@ class IvfPq:
         assert(n_queries > 0)
         assert(queries_dt in [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte') ])
 
-        
         assert(dim_queries == self._dim)
 
         neighbors_cai = neighbors.__cuda_array_interface__
@@ -495,7 +489,6 @@ class IvfPq:
         params.n_probes = n_probes
         # params.lut_dtype = lut_dtype
         # params.internal_distance_dtype = internal_distance_dtype
-        params.preferred_thread_block_size = preferred_thread_block_size
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef index[uint64_t] *idx = <index[uint64_t]*><uintptr_t>self._index
