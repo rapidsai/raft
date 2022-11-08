@@ -68,10 +68,10 @@ void axpy(const raft::handle_t& handle,
  * @param [inout] y Output vector
  */
 template <typename ElementType,
-          typename IndexType       = std::uint32_t,
-          typename InLayoutPolicy  = layout_c_contiguous,
-          typename OutLayoutPolicy = layout_c_contiguous,
-          typename ScalarIdxType   = std::uint32_t>
+          typename IndexType,
+          typename InLayoutPolicy,
+          typename OutLayoutPolicy,
+          typename ScalarIdxType>
 void axpy(const raft::handle_t& handle,
           raft::device_scalar_view<const ElementType, ScalarIdxType> alpha,
           raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
@@ -98,10 +98,10 @@ void axpy(const raft::handle_t& handle,
  * @param [inout] y Output vector
  */
 template <typename ElementType,
-          typename IndexType       = std::uint32_t,
-          typename InLayoutPolicy  = layout_c_contiguous,
-          typename OutLayoutPolicy = layout_c_contiguous,
-          typename ScalarIdxType   = std::uint32_t>
+          typename IndexType,
+          typename InLayoutPolicy,
+          typename OutLayoutPolicy,
+          typename ScalarIdxType>
 void axpy(const raft::handle_t& handle,
           raft::host_scalar_view<const ElementType, ScalarIdxType> alpha,
           raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,

@@ -22,7 +22,6 @@
 
 namespace raft {
 namespace linalg {
-
 // Reference axpy implementation.
 template <typename T>
 __global__ void naiveAxpy(const int n, const T alpha, const T* x, T* y, int incx, int incy)
@@ -90,20 +89,21 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
       axpy(handle,
            make_host_scalar_view<const T>(&params.alpha),
            make_device_vector_view<const T, IndexType, layout_stride>(
-             x.data(), params.len, params.incx),
-           make_device_vector_view<T, IndexType, layout_stride>(y.data(), params.len, params.incy));
-
+             x.data(), make_vector_strided_layout<IndexType>(params.len, params.incx)),
+           make_device_vector_view<T, IndexType, layout_stride>(
+             y.data(), make_vector_strided_layout(params.len, params.incy)));
     } else if (params.incx > 1) {
       axpy(handle,
            make_host_scalar_view<const T>(&params.alpha),
            make_device_vector_view<const T, IndexType, layout_stride>(
-             x.data(), params.len, params.incx),
-           make_device_vector_view<T>(y.data(), params.len));
+             x.data(), make_vector_strided_layout(params.len, params.incx)),
+           make_device_vector_view<T, IndexType>(y.data(), params.len));
     } else if (params.incy > 1) {
       axpy(handle,
            make_host_scalar_view<const T>(&params.alpha),
            make_device_vector_view<const T>(x.data(), params.len),
-           make_device_vector_view<T, IndexType, layout_stride>(y.data(), params.len, params.incy));
+           make_device_vector_view<T, IndexType, layout_stride>(
+             y.data(), make_vector_strided_layout(params.len, params.incy)));
     } else {
       axpy(handle,
            make_host_scalar_view<const T>(&params.alpha),

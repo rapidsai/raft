@@ -85,21 +85,21 @@ class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
     if ((params.incx > 1) && (params.incy > 1)) {
       dot(handle,
           make_device_vector_view<const T, IndexType, layout_stride>(
-            x.data(), params.len, params.incx),
+            x.data(), make_vector_strided_layout(params.len, params.incx)),
           make_device_vector_view<const T, IndexType, layout_stride>(
-            y.data(), params.len, params.incy),
+            y.data(), make_vector_strided_layout(params.len, params.incy)),
           out_view);
     } else if (params.incx > 1) {
       dot(handle,
           make_device_vector_view<const T, IndexType, layout_stride>(
-            x.data(), params.len, params.incx),
+            x.data(), make_vector_strided_layout(params.len, params.incx)),
           make_device_vector_view<const T>(y.data(), params.len),
           out_view);
     } else if (params.incy > 1) {
       dot(handle,
           make_device_vector_view<const T>(x.data(), params.len),
           make_device_vector_view<const T, IndexType, layout_stride>(
-            y.data(), params.len, params.incy),
+            y.data(), make_vector_strided_layout(params.len, params.incy)),
           out_view);
     } else {
       dot(handle,
