@@ -80,7 +80,7 @@ void single_linkage(const raft::handle_t& handle,
    * 2. Construct MST, sorted by weights
    */
   rmm::device_uvector<value_idx> color(m, stream);
-  raft::sparse::spatial::FixConnectivitiesRedOp<value_idx, value_t> op(color.data(), m);
+  raft::sparse::neighbors::FixConnectivitiesRedOp<value_idx, value_t> op(color.data(), m);
   detail::build_sorted_mst<value_idx, value_t>(handle,
                                                X,
                                                indptr.data(),

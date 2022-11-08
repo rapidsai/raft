@@ -144,7 +144,8 @@ inline auto extend(const handle_t& handle,
   raft::copy(
     list_sizes_ptr, orig_index.list_sizes().data_handle(), ext_index.list_sizes().size(), stream);
 
-  kmeans::calc_centers_and_sizes(centers_ptr,
+  kmeans::calc_centers_and_sizes(handle,
+                                 centers_ptr,
                                  list_sizes_ptr,
                                  n_lists,
                                  dim,

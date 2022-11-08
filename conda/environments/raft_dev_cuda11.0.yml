@@ -3,6 +3,7 @@ channels:
 - rapidsai
 - nvidia
 - rapidsai-nightly
+- dask/label/dev
 - conda-forge
 dependencies:
 - c-compiler
@@ -13,6 +14,8 @@ dependencies:
 - clang-tools=11.1.0
 - cython>=0.29,<0.30
 - cmake>=3.23.1
+- dask>=2022.9.2
+- distributed>=2022.9.2
 - scikit-build>=0.13.1
 - rapids-build-env=22.12.*
 - rapids-notebook-env=22.12.*
@@ -30,8 +33,6 @@ dependencies:
 - pip:
     - sphinx_markdown_tables
     - breathe
-    - git+https://github.com/dask/dask.git@2022.9.2
-    - git+https://github.com/dask/distributed.git@2022.9.2
 
 # rapids-build-env, notebook-env and doc-env are defined in
 # https://docs.rapids.ai/maintainers/depmgmt/

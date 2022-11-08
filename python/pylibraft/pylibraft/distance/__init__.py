@@ -13,4 +13,6 @@
 # limitations under the License.
 #
 
+from .fused_l2_nn import fused_l2_nn_argmin
 from .pairwise_distance import distance as pairwise_distance
+from .pairwise_distance import DISTANCE_TYPES

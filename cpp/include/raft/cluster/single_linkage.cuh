@@ -21,7 +21,11 @@
 
 namespace raft::cluster {
 
-constexpr int DEFAULT_CONST_C = 15;
+/**
+ * Note: All of the functions below in the raft::cluster namespace are deprecated
+ * and will be removed in a future release. Please use raft::cluster::hierarchy
+ * instead.
+ */
 
 /**
  * Single-linkage clustering, capable of constructing a KNN graph to
@@ -58,6 +62,11 @@ void single_linkage(const raft::handle_t& handle,
   detail::single_linkage<value_idx, value_t, dist_type>(
     handle, X, m, n, metric, out, c, n_clusters);
 }
+};  // namespace raft::cluster
+
+namespace raft::cluster::hierarchy {
+
+constexpr int DEFAULT_CONST_C = 15;
 
 /**
  * Single-linkage clustering, capable of constructing a KNN graph to
@@ -90,14 +99,14 @@ void single_linkage(const raft::handle_t& handle,
   out_arrs.children = dendrogram.data_handle();
   out_arrs.labels   = labels.data_handle();
 
-  single_linkage<idx_t, value_t, dist_type>(handle,
-                                            X.data_handle(),
-                                            static_cast<std::size_t>(X.extent(0)),
-                                            static_cast<std::size_t>(X.extent(1)),
-                                            metric,
-                                            &out_arrs,
-                                            c.has_value() ? c.value() : DEFAULT_CONST_C,
-                                            n_clusters);
+  raft::cluster::single_linkage<idx_t, value_t, dist_type>(
+    handle,
+    X.data_handle(),
+    static_cast<std::size_t>(X.extent(0)),
+    static_cast<std::size_t>(X.extent(1)),
+    metric,
+    &out_arrs,
+    c.has_value() ? c.value() : DEFAULT_CONST_C,
+    n_clusters);
 }
-
-};  // namespace raft::cluster
+};  // namespace raft::cluster::hierarchy

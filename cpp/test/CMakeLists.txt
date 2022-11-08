@@ -51,6 +51,10 @@ function(ConfigureTest)
             PROPERTIES
             # set target compile options
             INSTALL_RPATH "\$ORIGIN/../../../lib"
+            CXX_STANDARD                        17
+            CXX_STANDARD_REQUIRED               ON
+            CUDA_STANDARD                       17
+            CUDA_STANDARD_REQUIRED              ON
             )
 
     target_compile_options(${TEST_NAME}
@@ -82,7 +86,7 @@ if(BUILD_TESTS)
             PATH
             test/cluster/kmeans.cu
             test/cluster_solvers.cu
-            test/sparse/linkage.cu
+            test/cluster/linkage.cu
             OPTIONAL DIST NN
     )
 
@@ -116,6 +120,7 @@ if(BUILD_TESTS)
             test/distance/dist_minkowski.cu
             test/distance/dist_russell_rao.cu
             test/distance/fused_l2_nn.cu
+            test/distance/gram.cu
             OPTIONAL DIST
     )
 
@@ -128,6 +133,7 @@ if(BUILD_TESTS)
     ConfigureTest(NAME LINALG_TEST
             PATH
             test/linalg/add.cu
+            test/linalg/axpy.cu
             test/linalg/binary_op.cu
             test/linalg/cholesky_r1.cu
             test/linalg/coalesced_reduction.cu
@@ -138,7 +144,9 @@ if(BUILD_TESTS)
             test/linalg/gemv.cu
             test/linalg/map.cu
             test/linalg/map_then_reduce.cu
+            test/linalg/matrix_vector.cu
             test/linalg/matrix_vector_op.cu
+            test/linalg/mean_squared_error.cu
             test/linalg/multiply.cu
             test/linalg/norm.cu
             test/linalg/power.cu
@@ -158,11 +166,17 @@ if(BUILD_TESTS)
 
     ConfigureTest(NAME MATRIX_TEST
             PATH
+            test/matrix/argmax.cu
+            test/matrix/columnSort.cu
+            test/matrix/diagonal.cu
             test/matrix/gather.cu
+            test/matrix/linewise_op.cu
             test/matrix/math.cu
             test/matrix/matrix.cu
-            test/matrix/columnSort.cu
-            test/matrix/linewise_op.cu
+            test/matrix/norm.cu
+            test/matrix/reverse.cu
+            test/matrix/slice.cu
+            test/matrix/triangular.cu
             test/spectral_matrix.cu
     )
 
@@ -210,34 +224,35 @@ if(BUILD_TESTS)
             OPTIONAL DIST NN
     )
 
-    ConfigureTest(NAME SPARSE_NN_TEST
+    ConfigureTest(NAME SPARSE_NEIGHBORS_TEST
             PATH
-            test/sparse/connect_components.cu
-            test/sparse/knn.cu
-            test/sparse/knn_graph.cu
+            test/sparse/neighbors/connect_components.cu
+            test/sparse/neighbors/brute_force.cu
+            test/sparse/neighbors/knn_graph.cu
             OPTIONAL DIST NN
     )
 
-    ConfigureTest(NAME SPATIAL_TEST
+    ConfigureTest(NAME NEIGHBORS_TEST
             PATH
-            test/spatial/ann_ivf_flat.cu
-            test/spatial/ann_ivf_pq/test_float_int64_t.cu
-            test/spatial/ann_ivf_pq/test_float_uint32_t.cu
-            test/spatial/ann_ivf_pq/test_float_uint64_t.cu
-            test/spatial/ann_ivf_pq/test_int8_t_uint64_t.cu
-            test/spatial/ann_ivf_pq/test_uint8_t_uint64_t.cu
-            test/spatial/knn.cu
-            test/spatial/fused_l2_knn.cu
-            test/spatial/haversine.cu
-            test/spatial/ball_cover.cu
-            test/spatial/epsilon_neighborhood.cu
-            test/spatial/faiss_mr.cu
-            test/spatial/selection.cu
+            test/neighbors/ann_ivf_flat.cu
+            test/neighbors/ann_ivf_pq/test_float_int64_t.cu
+            test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
+            test/neighbors/ann_ivf_pq/test_float_uint64_t.cu
+            test/neighbors/ann_ivf_pq/test_int8_t_uint64_t.cu
+            test/neighbors/ann_ivf_pq/test_uint8_t_uint64_t.cu
+            test/neighbors/knn.cu
+            test/neighbors/fused_l2_knn.cu
+            test/neighbors/haversine.cu
+            test/neighbors/ball_cover.cu
+            test/neighbors/epsilon_neighborhood.cu
+            test/neighbors/faiss_mr.cu
+            test/neighbors/selection.cu
             OPTIONAL DIST NN
     )
 
     ConfigureTest(NAME STATS_TEST
             PATH
+            test/stats/accuracy.cu
             test/stats/adjusted_rand_index.cu
             test/stats/completeness_score.cu
             test/stats/contingencyMatrix.cu
@@ -253,7 +268,9 @@ if(BUILD_TESTS)
             test/stats/mean_center.cu
             test/stats/minmax.cu
             test/stats/mutual_info_score.cu
+            test/stats/r2_score.cu
             test/stats/rand_index.cu
+            test/stats/regression_metrics.cu
             test/stats/silhouette_score.cu
             test/stats/stddev.cu
             test/stats/sum.cu

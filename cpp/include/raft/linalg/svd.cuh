@@ -192,32 +192,30 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
  * @param[in] handle raft::handle_t
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] sing_vals singular values raft::device_vector_view of shape (K)
- * @param[out] left_sing_vecs optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
  * raft::col_major and dimensions (m, n)
- * @param[out] right_sing_vecs optional right singular values of raft::device_matrix_view with
+ * @param[out] V_in optional right singular values of raft::device_matrix_view with
  * layout raft::col_major and dimensions (n, n)
  */
-template <typename ValueType, typename IndexType>
-void svd_qr(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
-  raft::device_vector_view<ValueType, IndexType> sing_vals,
-  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> left_sing_vecs =
-    std::nullopt,
-  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> right_sing_vecs =
-    std::nullopt)
+template <typename ValueType, typename IndexType, typename UType, typename VType>
+void svd_qr(const raft::handle_t& handle,
+            raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
+            raft::device_vector_view<ValueType, IndexType> sing_vals,
+            UType&& U_in,
+            VType&& V_in)
 {
-  ValueType* left_sing_vecs_ptr = nullptr;
-  ValueType* right_sing_vecs_ptr = nullptr;
-  if (left_sing_vecs) {
-    RAFT_EXPECTS(in.extent(0) == left_sing_vecs.value().extent(0) &&
-                 in.extent(1) == left_sing_vecs.value().extent(1),
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U =
+    std::forward<UType>(U_in);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V =
+    std::forward<VType>(V_in);
+
+  if (U) {
+    RAFT_EXPECTS(in.extent(0) == U.value().extent(0) && in.extent(1) == U.value().extent(1),
                  "U should have dimensions m * n");
     left_sing_vecs_ptr = left_sing_vecs.value().data_handle();
   }
-  if (right_sing_vecs) {
-    RAFT_EXPECTS(in.extent(1) == right_sing_vecs.value().extent(0) &&
-                 in.extent(1) == right_sing_vecs.value().extent(1),
+  if (V) {
+    RAFT_EXPECTS(in.extent(1) == V.value().extent(0) && in.extent(1) == V.value().extent(1),
                  "V should have dimensions n * n");
     right_sing_vecs_ptr = right_sing_vecs.value().data_handle();
   }
@@ -226,11 +224,11 @@ void svd_qr(
         in.extent(0),
         in.extent(1),
         sing_vals.data_handle(),
-        left_sing_vecs_ptr,
-        right_sing_vecs_ptr,
+        U.value().data_handle(),
+        V.value().data_handle(),
         false,
-        left_sing_vecs.has_value(),
-        right_sing_vecs.has_value(),
+        U.has_value(),
+        V.has_value(),
         handle.get_stream());
 }
 
@@ -241,19 +239,10 @@ void svd_qr(
  *
  * Please see above for documentation of `svd_qr`.
  */
-template <typename ValueType, typename IndexType, typename UType, typename VType>
-void svd_qr(const raft::handle_t& handle,
-            raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
-            raft::device_vector_view<ValueType, IndexType> sing_vals,
-            UType&& U,
-            VType&& V)
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 2>>
+void svd_qr(Args... args)
 {
-  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
-    std::forward<UType>(U);
-  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
-    std::forward<VType>(V);
-
-  svd_qr(handle, in, sing_vals, U_optional, V_optional);
+  svd_qr(std::forward<Args>(args)..., std::nullopt, std::nullopt);
 }
 
 /**
@@ -262,32 +251,31 @@ void svd_qr(const raft::handle_t& handle,
  * @param[in] handle raft::handle_t
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] sing_vals singular values raft::device_vector_view of shape (K)
- * @param[out] left_sing_vecs optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
  * raft::col_major and dimensions (m, n)
- * @param[out] right_sing_vecs optional right singular values of raft::device_matrix_view with
+ * @param[out] V_in optional right singular values of raft::device_matrix_view with
  * layout raft::col_major and dimensions (n, n)
  */
-template <typename ValueType, typename IndexType>
+template <typename ValueType, typename IndexType, typename UType, typename VType>
 void svd_qr_transpose_right_vec(
   const raft::handle_t& handle,
   raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
   raft::device_vector_view<ValueType, IndexType> sing_vals,
-  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> left_sing_vecs =
-    std::nullopt,
-  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> right_sing_vecs =
-    std::nullopt)
+  UType&& U_in,
+  VType&& V_in)
 {
-  ValueType* left_sing_vecs_ptr = nullptr;
-  ValueType* right_sing_vecs_ptr = nullptr;
-  if (left_sing_vecs) {
-    RAFT_EXPECTS(in.extent(0) == left_sing_vecs.value().extent(0) &&
-                   in.extent(1) == left_sing_vecs.value().extent(1),
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U =
+    std::forward<UType>(U_in);
+  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V =
+    std::forward<VType>(V_in);
+
+  if (U) {
+    RAFT_EXPECTS(in.extent(0) == U.value().extent(0) && in.extent(1) == U.value().extent(1),
                  "U should have dimensions m * n");
     left_sing_vecs_ptr = left_sing_vecs.value().data_handle();
   }
-  if (right_sing_vecs) {
-    RAFT_EXPECTS(in.extent(1) == right_sing_vecs.value().extent(0) &&
-                   in.extent(1) == right_sing_vecs.value().extent(1),
+  if (V) {
+    RAFT_EXPECTS(in.extent(1) == V.value().extent(0) && in.extent(1) == V.value().extent(1),
                  "V should have dimensions n * n");
     right_sing_vecs_ptr = right_sing_vecs.value().data_handle();
   }
@@ -296,11 +284,11 @@ void svd_qr_transpose_right_vec(
         in.extent(0),
         in.extent(1),
         sing_vals.data_handle(),
-        left_sing_vecs_ptr,
-        right_sing_vecs_ptr,
+        U.value().data_handle(),
+        V.value().data_handle(),
         true,
-        left_sing_vecs.has_value(),
-        right_sing_vecs.has_value(),
+        U.has_value(),
+        V.has_value(),
         handle.get_stream());
 }
 
@@ -311,20 +299,10 @@ void svd_qr_transpose_right_vec(
  *
  * Please see above for documentation of `svd_qr_transpose_right_vec`.
  */
-template <typename ValueType, typename IndexType, typename UType, typename VType>
-void svd_qr_transpose_right_vec(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
-  raft::device_vector_view<ValueType, IndexType> sing_vals,
-  UType&& U,
-  VType&& V)
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 2>>
+void svd_qr_transpose_right_vec(Args... args)
 {
-  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> U_optional =
-    std::forward<UType>(U);
-  std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V_optional =
-    std::forward<VType>(V);
-
-  svd_qr_transpose_right_vec(handle, in, sing_vals, U_optional, V_optional);
+  svd_qr_transpose_right_vec(std::forward<Args>(args)..., std::nullopt, std::nullopt);
 }
 
 /**

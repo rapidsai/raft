@@ -21,6 +21,7 @@ import rmm
 class TestDeviceBuffer:
 
     def __init__(self, ndarray, order):
+
         self.ndarray_ = ndarray
         self.device_buffer_ = \
             rmm.DeviceBuffer.to_device(ndarray.ravel(order=order).tobytes())
