@@ -490,7 +490,7 @@ void rsvd_perc(const raft::handle_t& handle,
  *
  * Please see above for documentation of `rsvd_perc`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 4>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 5>>
 void rsvd_perc(Args... args)
 {
   rsvd_perc(std::forward<Args>(args)..., std::nullopt, std::nullopt);
@@ -560,7 +560,7 @@ void rsvd_perc_symmetric(const raft::handle_t& handle,
  *
  * Please see above for documentation of `rsvd_perc_symmetric`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 4>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 5>>
 void rsvd_perc_symmetric(Args... args)
 {
   rsvd_perc_symmetric(std::forward<Args>(args)..., std::nullopt, std::nullopt);
@@ -634,7 +634,7 @@ void rsvd_perc_jacobi(const raft::handle_t& handle,
  *
  * Please see above for documentation of `rsvd_perc_jacobi`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 6>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 7>>
 void rsvd_perc_jacobi(Args... args)
 {
   rsvd_perc_jacobi(std::forward<Args>(args)..., std::nullopt, std::nullopt);
@@ -709,7 +709,7 @@ void rsvd_perc_symmetric_jacobi(
  *
  * Please see above for documentation of `rsvd_perc_symmetric_jacobi`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 6>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 7>>
 void rsvd_perc_symmetric_jacobi(Args... args)
 {
   rsvd_perc_symmetric_jacobi(std::forward<Args>(args)..., std::nullopt, std::nullopt);

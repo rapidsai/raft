@@ -237,7 +237,7 @@ void svd_qr(const raft::handle_t& handle,
  *
  * Please see above for documentation of `svd_qr`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 2>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 3>>
 void svd_qr(Args... args)
 {
   svd_qr(std::forward<Args>(args)..., std::nullopt, std::nullopt);
@@ -295,7 +295,7 @@ void svd_qr_transpose_right_vec(
  *
  * Please see above for documentation of `svd_qr_transpose_right_vec`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 2>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 3>>
 void svd_qr_transpose_right_vec(Args... args)
 {
   svd_qr_transpose_right_vec(std::forward<Args>(args)..., std::nullopt, std::nullopt);

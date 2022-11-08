@@ -142,17 +142,25 @@ void contingencyMatrix(const T* groundTruth,
  * @param[in]  ground_truth: device 1-d array for ground truth (num of rows)
  * @param[in]  predicted_label: device 1-d array for prediction (num of columns)
  * @param[out] out_mat: output buffer for contingency matrix
- * @param[in]  min_label: Optional, min value in input ground truth array
- * @param[in]  max_label: Optional, max value in input ground truth array
+ * @param[in]  opt_min_label: Optional, min value in input ground truth array
+ * @param[in]  opt_max_label: Optional, max value in input ground truth array
  */
-template <typename value_t, typename out_t, typename idx_t, typename layout_t>
+template <typename value_t,
+          typename out_t,
+          typename idx_t,
+          typename layout_t,
+          typename opt_min_label_t,
+          typename opt_max_label_t>
 void contingency_matrix(const raft::handle_t& handle,
                         raft::device_vector_view<const value_t, idx_t> ground_truth,
                         raft::device_vector_view<const value_t, idx_t> predicted_label,
                         raft::device_matrix_view<out_t, idx_t, layout_t> out_mat,
-                        std::optional<value_t> min_label = std::nullopt,
-                        std::optional<value_t> max_label = std::nullopt)
+                        opt_min_label_t&& opt_min_label,
+                        opt_max_label_t&& opt_max_label)
 {
+  std::optional<value_t> min_label = std::forward<opt_min_label_t>(opt_min_label);
+  std::optional<value_t> max_label = std::forward<opt_max_label_t>(opt_max_label);
+
   RAFT_EXPECTS(ground_truth.size() == predicted_label.size(), "Size mismatch");
   RAFT_EXPECTS(ground_truth.is_exhaustive(), "ground_truth must be contiguous");
   RAFT_EXPECTS(predicted_label.is_exhaustive(), "predicted_label must be contiguous");
@@ -188,22 +196,10 @@ void contingency_matrix(const raft::handle_t& handle,
  *
  * Please see above for documentation of `contingency_matrix`.
  */
-template <typename value_t,
-          typename out_t,
-          typename idx_t,
-          typename layout_t,
-          typename opt_min_label_t,
-          typename opt_max_label_t>
-void contingency_matrix(const raft::handle_t& handle,
-                        raft::device_vector_view<const value_t, idx_t> ground_truth,
-                        raft::device_vector_view<const value_t, idx_t> predicted_label,
-                        raft::device_matrix_view<out_t, idx_t, layout_t> out_mat,
-                        opt_min_label_t&& min_label = std::nullopt,
-                        opt_max_label_t&& max_label = std::nullopt)
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 4>>
+void contingency_matrix(Args... args)
 {
-  std::optional<value_t> opt_min_label = std::forward<opt_min_label_t>(min_label);
-  std::optional<value_t> opt_max_label = std::forward<opt_max_label_t>(max_label);
-  contingency_matrix(handle, ground_truth, predicted_label, out_mat, opt_min_label, opt_max_label);
+  contingency_matrix(std::forward<Args>(args)..., std::nullopt, std::nullopt);
 }
 };  // namespace stats
 };  // namespace raft
