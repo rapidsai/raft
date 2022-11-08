@@ -61,7 +61,7 @@ void sort_cols_per_row(const InType* in,
  * @param[in] handle: raft handle
  * @param[in] in: input matrix
  * @param[out] out: output value(index) matrix
- * @param[out] sorted_keys_opt: Optional, output matrix for sorted keys (input)
+ * @param[out] sorted_keys_opt: std::optional, output matrix for sorted keys (input)
  */
 template <typename in_t, typename out_t, typename matrix_idx_t, typename sorted_keys_t>
 void sort_cols_per_row(const raft::handle_t& handle,

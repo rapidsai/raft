@@ -749,10 +749,10 @@ using weight_t = typename weight_alias<T>::type;
  *   the CUDA stream on which to run.
  * @param[inout] rng_state Pseudorandom number generator state.
  * @param[in] in Input vector to be sampled.
- * @param[in] weights_opt Optional weights vector.
+ * @param[in] weights_opt std::optional weights vector.
  *        If not provided, uniform sampling will be used.
  * @param[out] out Vector of samples from the input vector.
- * @param[out] outIdx_opt If provided, vector of the indices
+ * @param[out] outIdx_opt std::optional vector of the indices
  *   sampled from the input array.
  *
  * @pre The number of samples `out.extent(0)`

@@ -192,9 +192,9 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
  * @param[in] handle raft::handle_t
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] sing_vals singular values raft::device_vector_view of shape (K)
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major and dimensions (m, n)
- * @param[out] V_in optional right singular values of raft::device_matrix_view with
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with
  * layout raft::col_major and dimensions (n, n)
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -249,9 +249,9 @@ void svd_qr(Args... args)
  * @param[in] handle raft::handle_t
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] sing_vals singular values raft::device_vector_view of shape (K)
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major and dimensions (m, n)
- * @param[out] V_in optional right singular values of raft::device_matrix_view with
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with
  * layout raft::col_major and dimensions (n, n)
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>

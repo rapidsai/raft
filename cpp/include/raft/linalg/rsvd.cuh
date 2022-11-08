@@ -152,9 +152,9 @@ void rsvdPerc(const raft::handle_t& handle,
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] p no. of upsamples
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -220,9 +220,9 @@ void rsvd_fixed_rank(Args... args)
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] p no. of upsamples
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -291,9 +291,9 @@ void rsvd_fixed_rank_symmetric(Args... args)
  * @param[in] p no. of upsamples
  * @param[in] tol tolerance for Jacobi-based solvers
  * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -363,9 +363,9 @@ void rsvd_fixed_rank_jacobi(Args... args)
  * @param[in] p no. of upsamples
  * @param[in] tol tolerance for Jacobi-based solvers
  * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -435,9 +435,9 @@ void rsvd_fixed_rank_symmetric_jacobi(Args... args)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] PC_perc percentage of singular values to be computed
  * @param[in] UpS_perc upsampling percentage
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -505,9 +505,9 @@ void rsvd_perc(Args... args)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] PC_perc percentage of singular values to be computed
  * @param[in] UpS_perc upsampling percentage
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -577,9 +577,9 @@ void rsvd_perc_symmetric(Args... args)
  * @param[in] UpS_perc upsampling percentage
  * @param[in] tol tolerance for Jacobi-based solvers
  * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -651,9 +651,9 @@ void rsvd_perc_jacobi(Args... args)
  * @param[in] UpS_perc upsampling percentage
  * @param[in] tol tolerance for Jacobi-based solvers
  * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>

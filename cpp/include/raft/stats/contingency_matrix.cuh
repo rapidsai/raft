@@ -142,8 +142,8 @@ void contingencyMatrix(const T* groundTruth,
  * @param[in]  ground_truth: device 1-d array for ground truth (num of rows)
  * @param[in]  predicted_label: device 1-d array for prediction (num of columns)
  * @param[out] out_mat: output buffer for contingency matrix
- * @param[in]  opt_min_label: Optional, min value in input ground truth array
- * @param[in]  opt_max_label: Optional, max value in input ground truth array
+ * @param[in]  opt_min_label: std::optional, min value in input ground truth array
+ * @param[in]  opt_max_label: std::optional, max value in input ground truth array
  */
 template <typename value_t,
           typename out_t,
