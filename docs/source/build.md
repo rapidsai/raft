@@ -4,10 +4,10 @@
 
 ### CUDA/GPU Requirements
 - cmake 3.23.1+
-- GCC 9.0+ (9.5.0+ recommended)
-- CUDA Toolkit 11.0+
+- GCC 9.3+ (9.5.0+ recommended)
+- CUDA Toolkit 11.2+
 - NVIDIA driver 450.80.02+
-- Pascal architecture of better (compute capability >= 6.0)
+- Pascal architecture or better (compute capability >= 6.0)
 
 ### Build Dependencies
 
