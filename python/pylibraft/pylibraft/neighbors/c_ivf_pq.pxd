@@ -59,7 +59,7 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         PER_CLUSTER "raft::neighbors::ivf_pq::codebook_gen::PER_CLUSTER"        
 
 
-    cdef cppclass index_params(ann_index_params):
+    cpdef cppclass index_params(ann_index_params):
         uint32_t n_lists
         uint32_t kmeans_n_iters
         double kmeans_trainset_fraction
@@ -78,7 +78,7 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
               uint32_t pq_dim,
               uint32_t n_nonempty_lists)
 
-    cdef cppclass search_params(ann_search_params):
+    cpdef cppclass search_params(ann_search_params):
         uint32_t n_probes
         cudaDataType_t lut_dtype
         cudaDataType_t internal_distance_dtype

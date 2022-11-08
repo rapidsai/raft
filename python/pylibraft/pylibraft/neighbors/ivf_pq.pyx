@@ -32,6 +32,9 @@ from rmm._lib.memory_resource cimport device_memory_resource
 
 cimport pylibraft.neighbors.c_ivf_pq as c_ivf_pq
 
+from pylibraft.neighbors.c_ivf_pq cimport index_params
+from pylibraft.neighbors.c_ivf_pq cimport search_params
+
 def is_c_cont(cai):
     dt = np.dtype(cai["typestr"])
     return "strides" not in cai or \

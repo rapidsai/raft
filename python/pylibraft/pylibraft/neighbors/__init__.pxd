@@ -12,3 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+from c_ivf_pq cimport cudaDataType_t.CUDA_R_32F as CUDA_R_32F
+from c_ivf_pq cimport cudaDataType_t.CUDA_R_16F as CUDA_R_16F
+from c_ivf_pq cimport cudaDataType_t.CUDA_R_8U as CUDA_R_8U
+
+from c_ivf_pq cimport codebook_gen.PER_SUBSPACE as PER_SUBSPACE
+from c_ivf_pq cimport codebook_gen.PER_CLUSTER as PER_CLUSTER
+
+from c_ivf_pq cimport index_params
+from c_ivf_pq cimport search_params

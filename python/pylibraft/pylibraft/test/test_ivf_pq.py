@@ -403,3 +403,8 @@ def test_search_inputs(params):
 
     with pytest.raises(Exception):
         nn.search(queries_device, k, out_idx_device, out_dist_device, n_probes=50)
+
+
+def test_new_api():
+    params = IvfPq.index_params
+    assert params.n_litst > 0
