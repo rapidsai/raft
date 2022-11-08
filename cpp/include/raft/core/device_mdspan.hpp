@@ -291,8 +291,25 @@ auto make_device_vector_view(
   return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, mapping};
 }
 
+template <typename ExtentType, typename StrideType>
+auto make_strided_layout(ExtentType extents, StrideType strides)
+{
+  return layout_stride::mapping<ExtentType>{extents, strides};
+}
+
 /**
  * @brief Construct a strided vector layout mapping
+ *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/device_mdspan.hpp>
+ *
+ *  int n_elements = 10;
+ *  int stride = 10;
+ *  auto vector = raft::make_device_vector_view(vector_ptr,
+ * raft::make_vector_strided_layout(n_elements, stride));
+ * @endcode
+ *
  * @tparam IndexType the index type of the extents
  * @params[in] n the number of elements in the vector
  * @params[in] stride the stride between elements in the vector
@@ -300,8 +317,6 @@ auto make_device_vector_view(
 template <typename IndexType>
 auto make_vector_strided_layout(IndexType n, IndexType stride)
 {
-  vector_extent<IndexType> exts{n};
-  std::array<IndexType, 1> strides{stride};
-  return layout_stride::mapping<vector_extent<IndexType>>{exts, strides};
+  return make_strided_layout(vector_extent<IndexType>{n}, std::array<IndexType, 1>{stride});
 }
 }  // end namespace raft
