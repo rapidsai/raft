@@ -309,12 +309,44 @@ void sample_centroids(const raft::handle_t& handle,
 template <typename DataT, typename IndexT, typename ReductionOpT>
 void cluster_cost(const raft::handle_t& handle,
                   raft::device_vector_view<DataT, IndexT> minClusterDistance,
-                  rmm::device_uvector<char> workspace,
+                  rmm::device_uvector<char>& workspace,
                   raft::device_scalar_view<DataT> clusterCost,
                   ReductionOpT reduction_op)
 {
-  detail::computeClusterCost<DataT, ReductionOpT, IndexT>(
-    handle, minClusterDistance, workspace, clusterCost, reduction_op);
+  detail::computeClusterCost(handle, minClusterDistance, workspace, clusterCost, reduction_op);
+}
+
+/**
+ * @brief Update centroids given current centroids and number of points assigned to each centroid.
+ *  This function also produces a vector of RAFT key/value pairs containing the cluster assignment
+ *  for each point and its distance.
+ *
+ * @tparam DataT
+ * @tparam IndexT
+ * @param[in] handle: Raft handle to use for managing library resources
+ * @param[in] X: input matrix (size n_samples, n_features)
+ * @param[in] sample_weights: number of samples currently assigned to each centroid (size n_samples)
+ * @param[in] centroids: matrix of current centroids (size n_clusters, n_features)
+ * @param[in] labels: Iterator of labels (can also be a raw pointer)
+ * @param[out] weight_per_cluster: sum of sample weights per cluster (size n_clusters)
+ * @param[out] new_centroids: output matrix of updated centroids (size n_clusters, n_features)
+ */
+template <typename DataT, typename IndexT, typename LabelsIterator>
+void update_centroids(const raft::handle_t& handle,
+                      raft::device_matrix_view<const DataT, IndexT, row_major> X,
+                      raft::device_vector_view<const DataT, IndexT> sample_weights,
+                      raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
+                      LabelsIterator labels,
+                      raft::device_vector_view<DataT, IndexT> weight_per_cluster,
+                      raft::device_matrix_view<DataT, IndexT, row_major> new_centroids)
+{
+  // TODO: Passing these into the algorithm doesn't really present much of a benefit
+  // because they are being resized anyways.
+  // ref https://github.com/rapidsai/raft/issues/930
+  rmm::device_uvector<char> workspace(0, handle.get_stream());
+
+  detail::update_centroids<DataT, IndexT>(
+    handle, X, sample_weights, centroids, labels, weight_per_cluster, new_centroids, workspace);
 }
 
 /**
@@ -324,7 +356,6 @@ void cluster_cost(const raft::handle_t& handle,
  * @tparam IndexT the type of data used for indexing.
  *
  * @param[in]  handle               The raft handle
- * @param[in]  params               The parameters for KMeans
  * @param[in]  X                    The data in row-major format
  *                                  [dim = n_samples x n_features]
  * @param[in]  centroids            Centroids data
@@ -335,21 +366,34 @@ void cluster_cost(const raft::handle_t& handle,
  *                                  [dim = n_samples]
  * @param[out] L2NormBuf_OR_DistBuf Resizable buffer to store L2 norm of centroids or distance
  *                                  matrix
+ * @param[in]  metric               Distance metric to use
+ * @param[in]  batch_samples        batch size for input data samples
+ * @param[in]  batch_centroids      batch size for input centroids
  * @param[in]  workspace            Temporary workspace buffer which can get resized
  *
  */
 template <typename DataT, typename IndexT>
 void min_cluster_distance(const raft::handle_t& handle,
-                          const KMeansParams& params,
                           raft::device_matrix_view<const DataT, IndexT> X,
                           raft::device_matrix_view<DataT, IndexT> centroids,
                           raft::device_vector_view<DataT, IndexT> minClusterDistance,
                           raft::device_vector_view<DataT, IndexT> L2NormX,
                           rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
+                          raft::distance::DistanceType metric,
+                          int batch_samples,
+                          int batch_centroids,
                           rmm::device_uvector<char>& workspace)
 {
-  detail::minClusterDistanceCompute<DataT, IndexT>(
-    handle, params, X, centroids, minClusterDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
+  detail::minClusterDistanceCompute<DataT, IndexT>(handle,
+                                                   X,
+                                                   centroids,
+                                                   minClusterDistance,
+                                                   L2NormX,
+                                                   L2NormBuf_OR_DistBuf,
+                                                   metric,
+                                                   batch_samples,
+                                                   batch_centroids,
+                                                   workspace);
 }
 
 /**
@@ -361,7 +405,6 @@ void min_cluster_distance(const raft::handle_t& handle,
  * @tparam IndexT the type of data used for indexing.
  *
  * @param[in]  handle                The raft handle
- * @param[in]  params                The parameters for KMeans
  * @param[in]  X                     The data in row-major format
  *                                   [dim = n_samples x n_features]
  * @param[in]  centroids             Centroids data
@@ -373,22 +416,35 @@ void min_cluster_distance(const raft::handle_t& handle,
  *                                   [dim = n_samples]
  * @param[out] L2NormBuf_OR_DistBuf  Resizable buffer to store L2 norm of centroids or distance
  *                                   matrix
- * @param[in]  workspace             Temporary workspace buffer which can get resized
+ * @param[in] metric                 distance metric
+ * @param[in] batch_samples          batch size of data samples
+ * @param[in] batch_centroids        batch size of centroids
+ * @param[in] workspace              Temporary workspace buffer which can get resized
  *
  */
 template <typename DataT, typename IndexT>
 void min_cluster_and_distance(
   const raft::handle_t& handle,
-  const KMeansParams& params,
   raft::device_matrix_view<const DataT, IndexT> X,
   raft::device_matrix_view<const DataT, IndexT> centroids,
   raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> minClusterAndDistance,
   raft::device_vector_view<DataT, IndexT> L2NormX,
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
+  raft::distance::DistanceType metric,
+  int batch_samples,
+  int batch_centroids,
   rmm::device_uvector<char>& workspace)
 {
-  detail::minClusterAndDistanceCompute<DataT, IndexT>(
-    handle, params, X, centroids, minClusterAndDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
+  detail::minClusterAndDistanceCompute<DataT, IndexT>(handle,
+                                                      X,
+                                                      centroids,
+                                                      minClusterAndDistance,
+                                                      L2NormX,
+                                                      L2NormBuf_OR_DistBuf,
+                                                      metric,
+                                                      batch_samples,
+                                                      batch_centroids,
+                                                      workspace);
 }
 
 /**
@@ -503,14 +559,14 @@ template <typename DataT, typename IndexT>
 void fit_main(const raft::handle_t& handle,
               const KMeansParams& params,
               raft::device_matrix_view<const DataT, IndexT> X,
-              raft::device_vector_view<const DataT, IndexT> weight,
+              raft::device_vector_view<const DataT, IndexT> sample_weights,
               raft::device_matrix_view<DataT, IndexT> centroids,
               raft::host_scalar_view<DataT> inertia,
               raft::host_scalar_view<IndexT> n_iter,
               rmm::device_uvector<char>& workspace)
 {
   detail::kmeans_fit_main<DataT, IndexT>(
-    handle, params, X, weight, centroids, inertia, n_iter, workspace);
+    handle, params, X, sample_weights, centroids, inertia, n_iter, workspace);
 }
 
 };  // end namespace raft::cluster::kmeans
@@ -784,8 +840,7 @@ void computeClusterCost(const raft::handle_t& handle,
                         raft::device_scalar_view<DataT> clusterCost,
                         ReductionOpT reduction_op)
 {
-  kmeans::cluster_cost<DataT, ReductionOpT, IndexT>(
-    handle, minClusterDistance, workspace, clusterCost, reduction_op);
+  kmeans::cluster_cost(handle, minClusterDistance, workspace, clusterCost, reduction_op);
 }
 
 /**
@@ -819,8 +874,16 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
                                rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
                                rmm::device_uvector<char>& workspace)
 {
-  kmeans::min_cluster_distance<DataT, IndexT>(
-    handle, params, X, centroids, minClusterDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
+  kmeans::min_cluster_distance<DataT, IndexT>(handle,
+                                              X,
+                                              centroids,
+                                              minClusterDistance,
+                                              L2NormX,
+                                              L2NormBuf_OR_DistBuf,
+                                              params.metric,
+                                              params.batch_samples,
+                                              params.batch_centroids,
+                                              workspace);
 }
 
 /**
@@ -858,8 +921,16 @@ void minClusterAndDistanceCompute(
   rmm::device_uvector<DataT>& L2NormBuf_OR_DistBuf,
   rmm::device_uvector<char>& workspace)
 {
-  kmeans::min_cluster_and_distance<DataT, IndexT>(
-    handle, params, X, centroids, minClusterAndDistance, L2NormX, L2NormBuf_OR_DistBuf, workspace);
+  kmeans::min_cluster_and_distance<DataT, IndexT>(handle,
+                                                  X,
+                                                  centroids,
+                                                  minClusterAndDistance,
+                                                  L2NormX,
+                                                  L2NormBuf_OR_DistBuf,
+                                                  params.metric,
+                                                  params.batch_samples,
+                                                  params.batch_centroids,
+                                                  workspace);
 }
 
 /**
