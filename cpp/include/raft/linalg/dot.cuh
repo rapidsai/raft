@@ -84,35 +84,5 @@ void dot(const raft::handle_t& handle,
                                     out.data_handle(),
                                     handle.get_stream()));
 }
-
-/**
- * @brief Computes the dot product of two vectors.
- * @param[in] handle   raft::handle_t
- * @param[in] x        First input vector
- * @param[in] y        Second input vector
- * @param[out] out     The output dot product between the x and y vectors.
- */
-template <typename ElementType,
-          typename IndexType,
-          typename ScalarIndexType,
-          typename LayoutPolicy1,
-          typename LayoutPolicy2>
-void dot(const raft::handle_t& handle,
-         raft::device_vector_view<const ElementType, IndexType, LayoutPolicy1> x,
-         raft::device_vector_view<const ElementType, IndexType, LayoutPolicy2> y,
-         ElementType* out)
-{
-  RAFT_EXPECTS(x.size() == y.size(),
-               "Size mismatch between x and y input vectors in raft::linalg::dot");
-
-  RAFT_CUBLAS_TRY(detail::cublasdot(handle.get_cublas_handle(),
-                                    x.size(),
-                                    x.data_handle(),
-                                    x.stride(0),
-                                    y.data_handle(),
-                                    y.stride(0),
-                                    out,
-                                    handle.get_stream()));
-}
 }  // namespace raft::linalg
 #endif
