@@ -3,7 +3,8 @@
 ## Building and installing RAFT
 
 ### CUDA/GPU Requirements
-- GCC 9.0+ (9.5.0+ recommended)
+- cmake 3.23.1+
+- GCC 9.3+ (9.5.0+ recommended)
 - CUDA Toolkit 11.2+
 - NVIDIA driver 450.80.02+
 - Pascal architecture or better (compute capability >= 6.0)
@@ -183,12 +184,33 @@ The following will build the docs along with the C++ and Python packages:
 ```
 
 
-
 ## Using RAFT in downstream projects
 
-There are two different strategies for including RAFT in downstream projects, depending on whether or not the required dependencies are already installed and available on the `lib` and `include` paths.
+There are a few different strategies for including RAFT in downstream projects, depending on whether the [required build dependencies](#build-dependencies) have already been installed and are available on the `lib` and `include` paths.
 
-### C++ header-only integration using cmake
+Using cmake, you can enable CUDA support right in your project's declaration:
+```cmake
+project(YOUR_PROJECT VERSION 0.1 LANGUAGES CXX CUDA)
+```
+
+Please note that some additional compiler flags might need to be added when building against RAFT. For example, if you see an error like this `The experimental flag '--expt-relaxed-constexpr' can be used to allow this.`. The necessary flags can be set with cmake:
+```cmake
+target_compile_options(your_target_name PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda --expt-relaxed-constexpr>)
+```
+
+Further, it's important that the language level be set to at least C++ 17. This can be done with cmake:
+```cmake
+set_target_properties(your_target_name
+PROPERTIES CXX_STANDARD                        17
+           CXX_STANDARD_REQUIRED               ON
+           CUDA_STANDARD                       17
+           CUDA_STANDARD_REQUIRED              ON
+           POSITION_INDEPENDENT_CODE           ON
+           INTERFACE_POSITION_INDEPENDENT_CODE ON)
+```
+
+
+### C++ header-only integration
 
 When the needed [build dependencies](#build-dependencies) are already satisfied, RAFT can be trivially integrated into downstream projects by cloning the repository and adding `cpp/include` from RAFT to the include path:
 ```cmake
@@ -203,9 +225,9 @@ ExternalProject_Add(raft
 set(RAFT_INCLUDE_DIR ${RAFT_GIT_DIR}/raft/cpp/include CACHE STRING "RAFT include variable")
 ```
 
-If RAFT has already been installed, such as by using the `build.sh` script, use `find_package(raft)` and the `raft::raft` target if using RAFT to interact only with the public APIs of consuming projects.
+If RAFT has already been installed, such as by using the `build.sh` script, use `find_package(raft)` and the `raft::raft` target.
 
-### Using pre-compiled shared libraries
+### Using C++ pre-compiled shared libraries
 
 Use `find_package(raft COMPONENTS nn distance)` to enable the shared libraries and transitively pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
 
