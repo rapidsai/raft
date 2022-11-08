@@ -30,128 +30,7 @@ from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.common.handle cimport handle_t
 from rmm._lib.memory_resource cimport device_memory_resource
 
-cdef extern from "library_types.h":
-    ctypedef enum cudaDataType_t:
-      CUDA_R_32F "CUDA_R_32F"  # float
-      CUDA_R_16F "CUDA_R_16F"  # half
-      CUDA_R_8U "CUDA_R_8U"  # uint8
-
-cdef extern from "raft/neighbors/ann_types.hpp" \
-        namespace "raft::neighbors::ann":
-
-    cdef cppclass ann_index "raft::neighbors::index":
-        pass
-
-    cdef cppclass ann_index_params "raft::spatial::knn::index_params":
-        DistanceType metric
-        float metric_arg
-        bool add_data_on_build
-
-    cdef cppclass ann_search_params "raft::spatial::knn::search_params":
-        pass
-
-
-cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
-        namespace "raft::neighbors::ivf_pq":
-    
-    ctypedef enum codebook_gen:
-        PER_SUBSPACE "raft::neighbors::ivf_pq::codebook_gen::PER_SUBSPACE",        
-        PER_CLUSTER "raft::neighbors::ivf_pq::codebook_gen::PER_CLUSTER"        
-
-
-    cdef cppclass index_params(ann_index_params):
-        uint32_t n_lists
-        uint32_t kmeans_n_iters
-        double kmeans_trainset_fraction
-        uint32_t pq_bits
-        uint32_t pq_dim 
-        codebook_gen codebook_kind
-        bool force_random_rotation
-
-    cdef cppclass index[IdxT](ann_index):
-        index(const handle_t& handle,
-              DistanceType metric,
-              codebook_gen codebook_kind,
-              uint32_t n_lists,
-              uint32_t dim,
-              uint32_t pq_bits,
-              uint32_t pq_dim,
-              uint32_t n_nonempty_lists)
-
-    cdef cppclass search_params(ann_search_params):
-        uint32_t n_probes
-        cudaDataType_t lut_dtype
-        cudaDataType_t internal_distance_dtype
-
-cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
-        namespace "raft::neighbors::ivf_pq":
-
-    cdef index[uint64_t] build(const handle_t& handle,      
-             const index_params& params,     
-             const float* dataset,               
-             uint64_t n_rows,                    
-             uint32_t dim) # except +
-
-    cdef index[uint64_t] build(const handle_t& handle,      
-             const index_params& params,     
-             const int8_t* dataset,               
-             uint64_t n_rows,                    
-             uint32_t dim) # except +
-
-    cdef index[uint64_t] build(const handle_t& handle,      
-             const index_params& params,     
-             const uint8_t* dataset,               
-             uint64_t n_rows,                    
-             uint32_t dim) # except +
-
-    cdef index[uint64_t] extend(const handle_t& handle,        
-              const index[uint64_t]& orig_index, 
-              const float* new_vectors,          
-              const uint64_t* new_indices,       
-              uint64_t n_rows) # except +
-
-    cdef index[uint64_t] extend(const handle_t& handle,        
-              const index[uint64_t]& orig_index, 
-              const int8_t* new_vectors,          
-              const uint64_t* new_indices,       
-              uint64_t n_rows) #except +
-
-    cdef index[uint64_t] extend(const handle_t& handle,        
-              const index[uint64_t]& orig_index, 
-              const uint8_t* new_vectors,          
-              const uint64_t* new_indices,       
-              uint64_t n_rows) #except +
-
-    cdef void search(const handle_t& handle,
-                   const search_params& params,
-                   const index[uint64_t]& index,
-                   const float* queries,
-                   uint32_t n_queries,
-                   uint32_t k,
-                   uint64_t* neighbors,
-                   float* distances,
-                   device_memory_resource* mr) except +
-
-    cdef void search(const handle_t& handle,
-                   const search_params& params,
-                   const index[uint64_t]& index,
-                   const int8_t* queries,
-                   uint32_t n_queries,
-                   uint32_t k,
-                   uint64_t* neighbors,
-                   float* distances,
-                   device_memory_resource* mr) except +
-
-    cdef void search(const handle_t& handle,
-                   const search_params& params,
-                   const index[uint64_t]& index,
-                   const uint8_t* queries,
-                   uint32_t n_queries,
-                   uint32_t k,
-                   uint64_t* neighbors,
-                   float* distances,
-                   device_memory_resource* mr) except +
-
+cimport pylibraft.neighbors.c_ivf_pq as c_ivf_pq
 
 def is_c_cont(cai):
     dt = np.dtype(cai["typestr"])
@@ -194,9 +73,9 @@ class IvfPq:
     """
 
     # Class variables to provide easier access for data type parameters for the search function.
-    CUDA_R_32F = cudaDataType_t.CUDA_R_32F
-    CUDA_R_16F = cudaDataType_t.CUDA_R_16F
-    CUDA_R_8U = cudaDataType_t.CUDA_R_8U
+    CUDA_R_32F = c_ivf_pq.cudaDataType_t.CUDA_R_32F
+    CUDA_R_16F = c_ivf_pq.cudaDataType_t.CUDA_R_16F
+    CUDA_R_8U = c_ivf_pq.cudaDataType_t.CUDA_R_8U
 
     def __init__(self, *, 
                  handle=None, 
@@ -297,9 +176,9 @@ class IvfPq:
 
     def _dealloc(self):
         # deallocate the index
-        cdef index[uint64_t] *idx
+        cdef c_ivf_pq.index[uint64_t] *idx
         if self._index is not None:
-            idx = <index[uint64_t]*><uintptr_t>self._index
+            idx = <c_ivf_pq.index[uint64_t]*><uintptr_t>self._index
             del idx
 
     def build(self, dataset):
@@ -317,7 +196,7 @@ class IvfPq:
         dataset_dt = np.dtype(dataset_cai["typestr"])
         _check_input_array(dataset_cai,  [np.dtype('float32'), np.dtype('byte'), np.dtype('ubyte')])
         
-        cdef index_params params
+        cdef c_ivf_pq.index_params params
         params.n_lists = self._n_lists
         params.metric = _get_metric(self._metric)
         params.metric_arg = 0
@@ -326,9 +205,9 @@ class IvfPq:
         params.pq_bits = self._pq_bits
         params.pq_dim = self._pq_dim
         if self._codebook_kind == "per_subspace":
-            params.codebook_kind = codebook_gen.PER_SUBSPACE
+            params.codebook_kind = c_ivf_pq.codebook_gen.PER_SUBSPACE
         elif self._codebook_kind == "per_cluster":
-            params.codebook_kind = codebook_gen.PER_SUBSPACE
+            params.codebook_kind = c_ivf_pq.codebook_gen.PER_SUBSPACE
         else:
             raise ValueError("Incorrect codebook kind %s" % self._codebook_kind)
         params.force_random_rotation = self._force_random_rotation
@@ -343,9 +222,9 @@ class IvfPq:
         
         self._dealloc()
 
-        cdef index[uint64_t] *idx = new index[uint64_t](deref(handle_), 
+        cdef c_ivf_pq.index[uint64_t] *idx = new c_ivf_pq.index[uint64_t](deref(handle_), 
                                  _get_metric(self._metric), 
-                                 codebook_gen.PER_SUBSPACE, 
+                                 c_ivf_pq.codebook_gen.PER_SUBSPACE, 
                                  <uint32_t>self._n_lists,
                                  <uint32_t>self._dim, 
                                  <uint32_t>self._pq_bits,
@@ -353,19 +232,19 @@ class IvfPq:
                                  <uint32_t>0)
         
         if dataset_dt == np.float32:
-            idx[0] = build(deref(handle_),      
+            idx[0] = c_ivf_pq.build(deref(handle_),      
                            params,     
                            <float*> dataset_ptr,               
                            n_rows,
                            <uint32_t> self._dim)
         elif dataset_dt == np.byte:
-            idx[0] = build(deref(handle_),      
+            idx[0] = c_ivf_pq.build(deref(handle_),      
                            params,     
                            <int8_t*> dataset_ptr,               
                            n_rows,
                            <uint32_t> self._dim)
         elif dataset_dt == np.ubyte:
-            idx[0] = build(deref(handle_),      
+            idx[0] = c_ivf_pq.build(deref(handle_),      
                            params,     
                            <uint8_t*> dataset_ptr,               
                            n_rows,
@@ -407,24 +286,24 @@ class IvfPq:
 
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef index[uint64_t] *idx = <index[uint64_t]*><uintptr_t>self._index
+        cdef c_ivf_pq.index[uint64_t] *idx = <c_ivf_pq.index[uint64_t]*><uintptr_t>self._index
         cdef uintptr_t vecs_ptr = vecs_cai["data"][0]
         cdef uintptr_t idx_ptr = idx_cai["data"][0]
 
         if vecs_dt == np.float32:
-            idx[0] = extend(deref(handle_),
+            idx[0] = c_ivf_pq.extend(deref(handle_),
                             deref(idx),
                             <float*>vecs_ptr,
                             <uint64_t*> idx_ptr,
                             <uint64_t> n_rows)
         elif vecs_dt == np.int8:
-            idx[0] = extend(deref(handle_),
+            idx[0] = c_ivf_pq.extend(deref(handle_),
                             deref(idx),
                             <int8_t*>vecs_ptr,
                             <uint64_t*> idx_ptr,
                             <uint64_t> n_rows)
         elif vecs_dt == np.uint8:
-            idx[0] = extend(deref(handle_),
+            idx[0] = c_ivf_pq.extend(deref(handle_),
                             deref(idx),
                             <uint8_t*>vecs_ptr,
                             <uint64_t*> idx_ptr,
@@ -494,20 +373,20 @@ class IvfPq:
         distances_cai = distances.__cuda_array_interface__
         _check_input_array(distances_cai, [np.dtype('float32')], exp_rows=n_queries, exp_cols=k)
 
-        cdef search_params params
+        cdef c_ivf_pq.search_params params
         params.n_probes = n_probes
         params.lut_dtype = lut_dtype
         params.internal_distance_dtype = internal_distance_dtype
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef index[uint64_t] *idx = <index[uint64_t]*><uintptr_t>self._index
+        cdef c_ivf_pq.index[uint64_t] *idx = <c_ivf_pq.index[uint64_t]*><uintptr_t>self._index
         cdef uintptr_t queries_ptr = queries_cai["data"][0]
         cdef uintptr_t neighbors_ptr = neighbors_cai["data"][0]
         cdef uintptr_t distances_ptr = distances_cai["data"][0]
         cdef device_memory_resource* mr_ptr = <device_memory_resource*> nullptr
 
         if queries_dt == np.float32:
-            search(deref(handle_),
+            c_ivf_pq.search(deref(handle_),
                 params,
                 deref(idx),
                 <float*>queries_ptr,
@@ -517,7 +396,7 @@ class IvfPq:
                 <float*> distances_ptr,
                 mr_ptr)
         elif queries_dt == np.byte:
-            search(deref(handle_),
+            c_ivf_pq.search(deref(handle_),
                 params,
                 deref(idx),
                 <int8_t*>queries_ptr,
@@ -527,7 +406,7 @@ class IvfPq:
                 <float*> distances_ptr,
                 mr_ptr)
         elif queries_dt == np.ubyte:
-            search(deref(handle_),
+            c_ivf_pq.search(deref(handle_),
                 params,
                 deref(idx),
                 <uint8_t*>queries_ptr,
