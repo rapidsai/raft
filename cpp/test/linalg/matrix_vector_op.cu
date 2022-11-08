@@ -21,6 +21,7 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/itertools.hpp>
+#include <type_traits>
 
 namespace raft {
 namespace linalg {
@@ -167,14 +168,21 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
   rmm::device_uvector<Vec2T> vec2;
 };
 
-#define MVTEST(TestClass, inputs, tolerance)                        \
-  TEST_P(TestClass, Result)                                         \
-  {                                                                 \
-    ASSERT_TRUE(devArrMatch(out_ref.data() + params.outAlignOffset, \
-                            out.data() + params.outAlignOffset,     \
-                            params.rows * params.cols,              \
-                            CompareApprox<float>(tolerance)));      \
-  }                                                                 \
+#define MVTEST(TestClass, OutType, inputs, tolerance)                 \
+  TEST_P(TestClass, Result)                                           \
+  {                                                                   \
+    if constexpr (std::is_floating_point_v<OutType>) {                \
+      ASSERT_TRUE(devArrMatch(out_ref.data() + params.outAlignOffset, \
+                              out.data() + params.outAlignOffset,     \
+                              params.rows * params.cols,              \
+                              CompareApprox<OutType>(tolerance)));    \
+    } else {                                                          \
+      ASSERT_TRUE(devArrMatch(out_ref.data() + params.outAlignOffset, \
+                              out.data() + params.outAlignOffset,     \
+                              params.rows * params.cols,              \
+                              Compare<OutType>()));                   \
+    }                                                                 \
+  }                                                                   \
   INSTANTIATE_TEST_SUITE_P(MatVecOpTests, TestClass, ::testing::ValuesIn(inputs))
 
 #define MV_EPS_F 0.00001f
@@ -211,14 +219,14 @@ typedef MatVecOpTest<Add2Vec<double>, double, int> MatVecOpTestD_i32_add2vec;
 typedef MatVecOpTest<Add1Vec<double>, double, int64_t> MatVecOpTestD_i64_add1vec;
 typedef MatVecOpTest<Add2Vec<double>, double, int64_t> MatVecOpTestD_i64_add2vec;
 
-MVTEST(MatVecOpTestF_i32_add1vec, inputs_i32, MV_EPS_F);
-MVTEST(MatVecOpTestF_i32_add2vec, inputs_i32, MV_EPS_F);
-MVTEST(MatVecOpTestF_i64_add1vec, inputs_i64, MV_EPS_F);
-MVTEST(MatVecOpTestF_i64_add2vec, inputs_i64, MV_EPS_F);
-MVTEST(MatVecOpTestD_i32_add1vec, inputs_i32, MV_EPS_D);
-MVTEST(MatVecOpTestD_i32_add2vec, inputs_i32, MV_EPS_D);
-MVTEST(MatVecOpTestD_i64_add1vec, inputs_i64, MV_EPS_D);
-MVTEST(MatVecOpTestD_i64_add2vec, inputs_i64, MV_EPS_D);
+MVTEST(MatVecOpTestF_i32_add1vec, float, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_add2vec, float, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i64_add1vec, float, inputs_i64, MV_EPS_F);
+MVTEST(MatVecOpTestF_i64_add2vec, float, inputs_i64, MV_EPS_F);
+MVTEST(MatVecOpTestD_i32_add1vec, double, inputs_i32, MV_EPS_D);
+MVTEST(MatVecOpTestD_i32_add2vec, double, inputs_i32, MV_EPS_D);
+MVTEST(MatVecOpTestD_i64_add1vec, double, inputs_i64, MV_EPS_D);
+MVTEST(MatVecOpTestD_i64_add2vec, double, inputs_i64, MV_EPS_D);
 
 /*
  * This set of tests covers cases with different types.
@@ -239,10 +247,22 @@ typedef MatVecOpTest<MulAndAdd<float, int64_t, float>, float, int, int64_t, floa
 typedef MatVecOpTest<MulAndAdd<double, int32_t, float>, double, int, int32_t, float>
   MatVecOpTestD_i32_MulAndAdd_i32_f;
 
-MVTEST(MatVecOpTestF_i32_MulAndAdd_i32_f, inputs_i32, MV_EPS_F);
-MVTEST(MatVecOpTestF_i32_MulAndAdd_i32_d, inputs_i32, MV_EPS_F);
-MVTEST(MatVecOpTestF_i32_MulAndAdd_i64_f, inputs_i32, MV_EPS_F);
-MVTEST(MatVecOpTestD_i32_MulAndAdd_i32_f, inputs_i32, (double)MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_MulAndAdd_i32_f, float, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_MulAndAdd_i32_d, float, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestF_i32_MulAndAdd_i64_f, float, inputs_i32, MV_EPS_F);
+MVTEST(MatVecOpTestD_i32_MulAndAdd_i32_f, double, inputs_i32, (double)MV_EPS_F);
+
+struct DQMultiply {
+  static constexpr bool useTwoVectors = true;
+  HDI int8_t operator()(int8_t a, float b, float c) const
+  {
+    return static_cast<int8_t>((static_cast<float>(a) / 100.0f * (b + c) / 20.0f) * 100.0f);
+  };
+};
+
+typedef MatVecOpTest<DQMultiply, int8_t, int, float, float> MatVecOpTestI8_i32_DQMultiply_f_f;
+
+MVTEST(MatVecOpTestI8_i32_DQMultiply_f_f, int8_t, inputs_i32, 0);
 
 }  // end namespace linalg
 }  // end namespace raft
