@@ -15,6 +15,8 @@
  */
 
 #pragma once
+#include <type_traits>
+#include <raft/core/memory_type.hpp>
 
 namespace raft {
 
@@ -23,15 +25,16 @@ namespace raft {
  * accessor used throught RAFT's APIs to denote whether an underlying pointer
  * is accessible from device, host, or both.
  */
-template <typename AccessorPolicy, bool is_host, bool is_device>
+template <typename AccessorPolicy, memory_type MemType>
 struct host_device_accessor : public AccessorPolicy {
   using accessor_type   = AccessorPolicy;
-  using is_host_type    = std::conditional_t<is_host, std::true_type, std::false_type>;
-  using is_device_type  = std::conditional_t<is_device, std::true_type, std::false_type>;
-  using is_managed_type = std::conditional_t<is_device && is_host, std::true_type, std::false_type>;
-  static constexpr bool is_host_accessible    = is_host;
-  static constexpr bool is_device_accessible  = is_device;
-  static constexpr bool is_managed_accessible = is_device && is_host;
+  auto static constexpr const mem_type = MemType;
+  using is_host_type    = std::conditional_t<raft::is_host_accessible(mem_type), std::true_type, std::false_type>;
+  using is_device_type  = std::conditional_t<raft::is_device_accessible(mem_type), std::true_type, std::false_type>;
+  using is_managed_type = std::conditional_t<raft::is_host_device_accessible(mem_type), std::true_type, std::false_type>;
+  static constexpr bool is_host_accessible    = raft::is_host_accessible(mem_type);
+  static constexpr bool is_device_accessible  = raft::is_device_accessible(mem_type);
+  static constexpr bool is_managed_accessible = raft::is_host_device_accessible(mem_type);
   // make sure the explicit ctor can fall through
   using AccessorPolicy::AccessorPolicy;
   using offset_policy = host_device_accessor;

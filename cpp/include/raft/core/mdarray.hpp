@@ -28,6 +28,7 @@
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/memory_type.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft {
@@ -158,8 +159,7 @@ class mdarray
                                 extents_type,
                                 layout_type,
                                 host_device_accessor<ViewAccessorPolicy,
-                                                     container_policy_type::is_host_accessible,
-                                                     container_policy_type::is_device_accessible>>;
+                                                     container_policy_type::mem_type>>;
 
  public:
   /**

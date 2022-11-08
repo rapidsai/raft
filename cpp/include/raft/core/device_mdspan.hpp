@@ -19,14 +19,15 @@
 #include <cstdint>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/memory_type.hpp>
 
 namespace raft {
 
 template <typename AccessorPolicy>
-using device_accessor = host_device_accessor<AccessorPolicy, false, true>;
+using device_accessor = host_device_accessor<AccessorPolicy, memory_type::device>;
 
 template <typename AccessorPolicy>
-using managed_accessor = host_device_accessor<AccessorPolicy, true, true>;
+using managed_accessor = host_device_accessor<AccessorPolicy, memory_type::managed>;
 
 /**
  * @brief std::experimental::mdspan with device tag to avoid accessing incorrect memory location.

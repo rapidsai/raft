@@ -17,6 +17,7 @@
 
 #include <raft/core/error.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/memory_type.hpp>
 
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
@@ -183,9 +184,32 @@ template <typename ElementType,
           size_t... Extents>
 auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
+  using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>, detail::memory_type_from_access<is_host_accessible, is_device_accessible>()>;
+  /*using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
+                                             mem_type>; */
+
+  return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
+}
+
+/**
+ * @brief Create a raft::mdspan
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @tparam MemType the raft::memory_type for where the data are stored
+ * @param ptr Pointer to the data
+ * @param exts dimensionality of the array (series of integers)
+ * @return raft::mdspan
+ */
+template <typename ElementType,
+          typename IndexType        = std::uint32_t,
+          typename LayoutPolicy     = layout_c_contiguous,
+          memory_type MemType       = memory_type::device,
+          size_t... Extents>
+auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
+{
   using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
-                                             is_host_accessible,
-                                             is_device_accessible>;
+                                             MemType>;
 
   return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
 }
