@@ -407,7 +407,7 @@ void min_cluster_distance(const raft::handle_t& handle,
  * @param[in]  handle                The raft handle
  * @param[in]  X                     The data in row-major format
  *                                   [dim = n_samples x n_features]
--c * @param[in]  centroids             Centroids data
+ * @param[in]  centroids             Centroids data
  *                                   [dim = n_cluster x n_features]
  * @param[out] minClusterAndDistance Distance vector that contains for every sample, the nearest
  *                                   centroid and it's distance
@@ -461,7 +461,6 @@ void min_cluster_and_distance(
  *                                 [dim = n_samples_to_gather x n_features]
  * @param[in]  n_samples_to_gather Number of sample to gather
  * @param[in]  seed                Seed for the shuffle
- * @param[in]  workspace           Temporary workspace buffer which can get resized
  *
  */
 template <typename DataT, typename IndexT>
@@ -469,10 +468,9 @@ void shuffle_and_gather(const raft::handle_t& handle,
                         raft::device_matrix_view<const DataT, IndexT> in,
                         raft::device_matrix_view<DataT, IndexT> out,
                         uint32_t n_samples_to_gather,
-                        uint64_t seed,
-                        rmm::device_uvector<char>* workspace = nullptr)
+                        uint64_t seed)
 {
-  detail::shuffleAndGather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed, workspace);
+  detail::shuffleAndGather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed);
 }
 
 /**
@@ -949,7 +947,6 @@ void minClusterAndDistanceCompute(
  *                                 [dim = n_samples_to_gather x n_features]
  * @param[in]  n_samples_to_gather Number of sample to gather
  * @param[in]  seed                Seed for the shuffle
- * @param[in]  workspace           Temporary workspace buffer which can get resized
  *
  */
 template <typename DataT, typename IndexT>
@@ -957,10 +954,9 @@ void shuffleAndGather(const raft::handle_t& handle,
                       raft::device_matrix_view<const DataT, IndexT> in,
                       raft::device_matrix_view<DataT, IndexT> out,
                       uint32_t n_samples_to_gather,
-                      uint64_t seed,
-                      rmm::device_uvector<char>* workspace = nullptr)
+                      uint64_t seed)
 {
-  kmeans::shuffle_and_gather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed, workspace);
+  kmeans::shuffle_and_gather<DataT, IndexT>(handle, in, out, n_samples_to_gather, seed);
 }
 
 /**
