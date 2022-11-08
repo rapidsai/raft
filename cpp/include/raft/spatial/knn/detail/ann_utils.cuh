@@ -302,45 +302,6 @@ inline void normalize_rows(IdxT n_rows, IdxT n_cols, float* a, rmm::cuda_stream_
   normalize_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
 }
 
-template <typename IdxT, typename Lambda>
-__global__ void map_along_rows_kernel(
-  IdxT n_rows, uint32_t n_cols, float* a, const uint32_t* d, Lambda map)
-{
-  IdxT gid = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);
-  IdxT i   = gid / n_cols;
-  if (i >= n_rows) return;
-  float& x = a[gid];
-  x        = map(x, d[i]);
-}
-
-/**
- * @brief Map a binary function over a matrix and a vector element-wise, broadcasting the vector
- * values along rows: `m[i, j] = op(m[i,j], v[i])`
- *
- * NB: device-only function
- *
- * @tparam IdxT   index type
- * @tparam Lambda
- *
- * @param n_rows
- * @param n_cols
- * @param[inout] m device pointer to a row-major matrix [n_rows, n_cols]
- * @param[in] v device pointer to a vector [n_rows]
- * @param op the binary operation to apply on every element of matrix rows and of the vector
- */
-template <typename IdxT, typename Lambda>
-inline void map_along_rows(IdxT n_rows,
-                           uint32_t n_cols,
-                           float* m,
-                           const uint32_t* v,
-                           Lambda op,
-                           rmm::cuda_stream_view stream)
-{
-  dim3 threads(128, 1, 1);
-  dim3 blocks(ceildiv<IdxT>(n_rows * n_cols, threads.x), 1, 1);
-  map_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, m, v, op);
-}
-
 template <typename T, typename IdxT>
 __global__ void outer_add_kernel(const T* a, IdxT len_a, const T* b, IdxT len_b, T* c)
 {
