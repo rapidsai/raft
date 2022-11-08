@@ -34,8 +34,9 @@ auto constexpr is_host_device_accessible(memory_type mem_type)
 
 namespace detail {
 
-template<bool is_host_accessible, bool is_device_accessible>
-auto constexpr memory_type_from_access() {
+template <bool is_host_accessible, bool is_device_accessible>
+auto constexpr memory_type_from_access()
+{
   if constexpr (is_host_accessible && is_device_accessible) {
     return memory_type::managed;
   } else if constexpr (is_host_accessible) {
@@ -43,7 +44,8 @@ auto constexpr memory_type_from_access() {
   } else if constexpr (is_device_accessible) {
     return memory_type::device;
   }
-  static_assert(is_host_accessible || is_device_accessible);
+  static_assert(is_host_accessible || is_device_accessible,
+                "Must be either host or device accessible to return a valid memory type");
 }
 
 }  // end namespace detail

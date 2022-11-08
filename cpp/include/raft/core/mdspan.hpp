@@ -184,7 +184,9 @@ template <typename ElementType,
           size_t... Extents>
 auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
-  using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>, detail::memory_type_from_access<is_host_accessible, is_device_accessible>()>;
+  using accessor_type = host_device_accessor<
+    std::experimental::default_accessor<ElementType>,
+    detail::memory_type_from_access<is_host_accessible, is_device_accessible>()>;
   /*using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
                                              mem_type>; */
 
@@ -202,14 +204,14 @@ auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
  * @return raft::mdspan
  */
 template <typename ElementType,
-          typename IndexType        = std::uint32_t,
-          typename LayoutPolicy     = layout_c_contiguous,
-          memory_type MemType       = memory_type::device,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_c_contiguous,
+          memory_type MemType   = memory_type::device,
           size_t... Extents>
 auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
-  using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
-                                             MemType>;
+  using accessor_type =
+    host_device_accessor<std::experimental::default_accessor<ElementType>, MemType>;
 
   return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
 }
