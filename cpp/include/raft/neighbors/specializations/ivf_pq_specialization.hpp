@@ -37,6 +37,9 @@ RAFT_INST_SEARCH(uint8_t, uint64_t);
 
 #undef RAFT_INST_SEARCH
 
+// We define overloads for build and extend with void return type. This is used in the Cython
+// wrappers, where exception handling is not compatible with return type that has nontrivial
+// constructor.
 #define RAFT_INST_BUILD_EXTEND(T, IdxT)      \
   auto build(const handle_t& handle,         \
              const index_params& params,     \
@@ -50,7 +53,20 @@ RAFT_INST_SEARCH(uint8_t, uint64_t);
               const T* new_vectors,          \
               const IdxT* new_indices,       \
               IdxT n_rows)                   \
-    ->index<IdxT>;
+    ->index<IdxT>;                           \
+                                             \
+  void build(const handle_t& handle,         \
+             const index_params& params,     \
+             const T* dataset,               \
+             IdxT n_rows,                    \
+             uint32_t dim,                   \
+             index<IdxT>* idx);              \
+                                             \
+  void extend(const handle_t& handle,        \
+              index<IdxT>* idx,              \
+              const T* new_vectors,          \
+              const IdxT* new_indices,       \
+              IdxT n_rows);
 
 RAFT_INST_BUILD_EXTEND(float, uint64_t)
 RAFT_INST_BUILD_EXTEND(int8_t, uint64_t)

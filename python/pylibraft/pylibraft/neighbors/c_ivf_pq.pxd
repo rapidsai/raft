@@ -58,7 +58,6 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         PER_SUBSPACE "raft::neighbors::ivf_pq::codebook_gen::PER_SUBSPACE",        
         PER_CLUSTER "raft::neighbors::ivf_pq::codebook_gen::PER_CLUSTER"        
 
-
     cpdef cppclass index_params(ann_index_params):
         uint32_t n_lists
         uint32_t kmeans_n_iters
@@ -87,52 +86,53 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         uint32_t n_lists()
         uint32_t rot_dim()
 
-
-
-
     cpdef cppclass search_params(ann_search_params):
         uint32_t n_probes
         cudaDataType_t lut_dtype
         cudaDataType_t internal_distance_dtype
 
+
 cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
         namespace "raft::neighbors::ivf_pq":
 
-    cdef index[uint64_t] build(const handle_t& handle,      
+    cdef void build(const handle_t& handle,      
              const index_params& params,     
              const float* dataset,               
              uint64_t n_rows,                    
-             uint32_t dim) #except +
+             uint32_t dim,
+             index[uint64_t]* index) except +
 
-    cdef index[uint64_t] build(const handle_t& handle,      
+    cdef void build(const handle_t& handle,      
              const index_params& params,     
              const int8_t* dataset,               
              uint64_t n_rows,                    
-             uint32_t dim) #except +
+             uint32_t dim,
+             index[uint64_t]* index) except +
 
-    cdef index[uint64_t] build(const handle_t& handle,      
+    cdef void build(const handle_t& handle,      
              const index_params& params,     
              const uint8_t* dataset,               
              uint64_t n_rows,                    
-             uint32_t dim) #except +
+             uint32_t dim,
+             index[uint64_t]* index) except +
 
-    cdef index[uint64_t] extend(const handle_t& handle,        
-              const index[uint64_t]& orig_index, 
+    cdef void extend(const handle_t& handle,        
+              index[uint64_t]* index, 
               const float* new_vectors,          
               const uint64_t* new_indices,       
-              uint64_t n_rows) # except +
+              uint64_t n_rows) except +
 
-    cdef index[uint64_t] extend(const handle_t& handle,        
-              const index[uint64_t]& orig_index, 
+    cdef void extend(const handle_t& handle,        
+              index[uint64_t]* index, 
               const int8_t* new_vectors,          
               const uint64_t* new_indices,       
-              uint64_t n_rows) #except +
+              uint64_t n_rows) except +
 
-    cdef index[uint64_t] extend(const handle_t& handle,        
-              const index[uint64_t]& orig_index, 
+    cdef void extend(const handle_t& handle,        
+              index[uint64_t]* index, 
               const uint8_t* new_vectors,          
               const uint64_t* new_indices,       
-              uint64_t n_rows) #except +
+              uint64_t n_rows) except +
 
     cdef void search(const handle_t& handle,
                    const search_params& params,

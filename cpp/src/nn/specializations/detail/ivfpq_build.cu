@@ -37,6 +37,24 @@ namespace raft::neighbors::ivf_pq {
     ->index<IdxT>                                                                 \
   {                                                                               \
     return extend<T, IdxT>(handle, orig_index, new_vectors, new_indices, n_rows); \
+  }                                                                               \
+                                                                                  \
+  void build(const handle_t& handle,                                              \
+             const index_params& params,                                          \
+             const T* dataset,                                                    \
+             IdxT n_rows,                                                         \
+             uint32_t dim,                                                        \
+             index<IdxT>* idx)                                                    \
+  {                                                                               \
+    *idx = build<T, IdxT>(handle, params, dataset, n_rows, dim);                  \
+  }                                                                               \
+  void extend(const handle_t& handle,                                             \
+              index<IdxT>* idx,                                                   \
+              const T* new_vectors,                                               \
+              const IdxT* new_indices,                                            \
+              IdxT n_rows)                                                        \
+  {                                                                               \
+    extend<T, IdxT>(handle, *idx, new_vectors, new_indices, n_rows);              \
   }
 
 RAFT_INST_BUILD_EXTEND(float, uint64_t);

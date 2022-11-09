@@ -261,6 +261,10 @@ def build(IndexParams index_params, dataset, handle=None):
     dataset : CUDA array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8] 
 
+    Returns
+    -------
+    inde x: ivf_pq.Index
+
     Examples
     --------
 
@@ -308,25 +312,28 @@ def build(IndexParams index_params, dataset, handle=None):
     idx = Index()
         
     if dataset_dt == np.float32:
-        idx.index[0] = c_ivf_pq.build(deref(handle_),      
-                           index_params.params,     
-                           <float*> dataset_ptr,               
-                           n_rows,
-                           dim)
+        c_ivf_pq.build(deref(handle_),      
+                       index_params.params,     
+                       <float*> dataset_ptr,               
+                       n_rows,
+                       dim,
+                       idx.index)
         idx.trained = True
     elif dataset_dt == np.byte:
-        idx.index[0] = c_ivf_pq.build(deref(handle_),      
-                           index_params.params,     
-                           <int8_t*> dataset_ptr,               
-                           n_rows,
-                           dim)
+        c_ivf_pq.build(deref(handle_),      
+                       index_params.params,     
+                       <int8_t*> dataset_ptr,               
+                       n_rows,
+                       dim,
+                       idx.index)
         idx.trained = True
     elif dataset_dt == np.ubyte:
-        idx.index[0] = c_ivf_pq.build(deref(handle_),      
-                           index_params.params,     
-                           <uint8_t*> dataset_ptr,               
-                           n_rows,
-                           dim) 
+        c_ivf_pq.build(deref(handle_),      
+                       index_params.params,     
+                       <uint8_t*> dataset_ptr,               
+                       n_rows,
+                       dim,
+                       idx.index) 
         idx.trained = True
     else:
         raise TypeError("dtype %s not supported" % dataset_dt)
@@ -376,29 +383,28 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     cdef uintptr_t idx_ptr = idx_cai["data"][0]
 
     if vecs_dt == np.float32:
-        index.index[0] = c_ivf_pq.extend(deref(handle_),
-                            deref(index.index),
-                            <float*>vecs_ptr,
-                            <uint64_t*> idx_ptr,
-                            <uint64_t> n_rows)
+        c_ivf_pq.extend(deref(handle_),
+                        index.index,
+                        <float*>vecs_ptr,
+                        <uint64_t*> idx_ptr,
+                        <uint64_t> n_rows)
     elif vecs_dt == np.int8:
-        index.index[0] = c_ivf_pq.extend(deref(handle_),
-                            deref(index.index),
-                            <int8_t*>vecs_ptr,
-                            <uint64_t*> idx_ptr,
-                            <uint64_t> n_rows)
+        c_ivf_pq.extend(deref(handle_),
+                        index.index,
+                        <int8_t*>vecs_ptr,
+                        <uint64_t*> idx_ptr,
+                        <uint64_t> n_rows)
     elif vecs_dt == np.uint8:
-        index.index[0] = c_ivf_pq.extend(deref(handle_),
-                            deref(index.index),
-                            <uint8_t*>vecs_ptr,
-                            <uint64_t*> idx_ptr,
-                            <uint64_t> n_rows)       
+        c_ivf_pq.extend(deref(handle_),
+                        index.index,
+                        <uint8_t*>vecs_ptr,
+                        <uint64_t*> idx_ptr,
+                        <uint64_t> n_rows)       
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
-    handle.sync()  
-
-    return index
+    handle.sync() 
+    return index 
 
 
 cdef class SearchParams:
@@ -449,8 +455,7 @@ def search(SearchParams search_params,
            k,
            neighbors, 
            distances,
-           handle=None
-           ):
+           handle=None):
         """
         Find the k nearest neighbors for each query.
 
@@ -469,6 +474,7 @@ def search(SearchParams search_params,
         distances : CUDA array interface compliant matrix shape (n_queries, k)
             If this parameter is specified, then the distances to the neighbors will be returned here.
             Otherwise a new array is created.
+        mr_ptr : pointer to a raft device_memory_resource
 
         Returns
         -------
@@ -501,6 +507,7 @@ def search(SearchParams search_params,
         cdef uintptr_t queries_ptr = queries_cai["data"][0]
         cdef uintptr_t neighbors_ptr = neighbors_cai["data"][0]
         cdef uintptr_t distances_ptr = distances_cai["data"][0]
+        # TODO(tfeher) pass mr_ptr arg
         cdef device_memory_resource* mr_ptr = <device_memory_resource*> nullptr
 
         if queries_dt == np.float32:
@@ -537,6 +544,4 @@ def search(SearchParams search_params,
             raise ValueError("query dtype %s not supported" % queries_dt)
 
         handle.sync()      
-
-        return (neighbors, distances)
 

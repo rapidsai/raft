@@ -128,6 +128,8 @@ def run_ivf_pq_build_search_test(
         index = ivf_pq.extend(index, dataset_1_device, indices_1_device)
         index = ivf_pq.extend(index, dataset_2_device, indices_2_device)
 
+    assert index.size == n_rows
+
     queries = generate_data((n_queries, n_cols), dtype)
     out_idx = np.zeros((n_queries, k), dtype=np.uint64)
     out_dist = np.zeros((n_queries, k), dtype=np.float32)
@@ -188,26 +190,30 @@ def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype):
     )
 
 
-# @pytest.mark.parametrize(
-#     "params",
-#     [
-#         {"n_rows": 1, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 10},
-#         {"n_rows": 10, "n_cols": 1, "n_queries": 10, "k": 10, "n_lists": 10},
-#         {"n_rows": 999, "n_cols": 42, "n_queries": 4953, "k": 137, "n_lists": 53},
-#     ],
-# )
-# def test_ivf_pq_n(params):
-#     # We do not test recall, just confirm that we can handle edge cases for certain parameters
-#     run_ivf_pq_build_search_test(
-#         n_rows=params["n_rows"],
-#         n_cols=params["n_cols"],
-#         n_queries=params["n_queries"],
-#         k=params["k"],
-#         n_lists=params["n_lists"],
-#         metric="l2_expanded",
-#         dtype=np.float32,
-#         compare=False,
-#     )
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param(
+            {"n_rows": 0, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 10},
+            marks=pytest.mark.xfail(reason="empty dataset"),
+        ),
+        {"n_rows": 1, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 10},
+        {"n_rows": 10, "n_cols": 1, "n_queries": 10, "k": 10, "n_lists": 10},
+        # {"n_rows": 999, "n_cols": 42, "n_queries": 453, "k": 137, "n_lists": 53},
+    ],
+)
+def test_ivf_pq_n(params):
+    # We do not test recall, just confirm that we can handle edge cases for certain parameters
+    run_ivf_pq_build_search_test(
+        n_rows=params["n_rows"],
+        n_cols=params["n_cols"],
+        n_queries=params["n_queries"],
+        k=params["k"],
+        n_lists=params["n_lists"],
+        metric="l2_expanded",
+        dtype=np.float32,
+        compare=False,
+    )
 
 
 @pytest.mark.parametrize("metric", ["l2_expanded", "inner_product"])
