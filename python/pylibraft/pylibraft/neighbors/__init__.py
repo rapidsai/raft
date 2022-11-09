@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .ivf_pq import IvfPq
+# from .ivf_pq import IvfPq

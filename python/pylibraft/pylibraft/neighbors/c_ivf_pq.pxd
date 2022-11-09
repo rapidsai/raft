@@ -78,6 +78,18 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
               uint32_t pq_dim,
               uint32_t n_nonempty_lists)
 
+        IdxT size()
+        uint32_t dim()
+        uint32_t pq_dim()
+        uint32_t pq_len()
+        uint32_t pq_bits()
+        DistanceType metric()
+        uint32_t n_lists()
+        uint32_t rot_dim()
+
+
+
+
     cpdef cppclass search_params(ann_search_params):
         uint32_t n_probes
         cudaDataType_t lut_dtype
@@ -90,19 +102,19 @@ cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
              const index_params& params,     
              const float* dataset,               
              uint64_t n_rows,                    
-             uint32_t dim) # except +
+             uint32_t dim) #except +
 
     cdef index[uint64_t] build(const handle_t& handle,      
              const index_params& params,     
              const int8_t* dataset,               
              uint64_t n_rows,                    
-             uint32_t dim) # except +
+             uint32_t dim) #except +
 
     cdef index[uint64_t] build(const handle_t& handle,      
              const index_params& params,     
              const uint8_t* dataset,               
              uint64_t n_rows,                    
-             uint32_t dim) # except +
+             uint32_t dim) #except +
 
     cdef index[uint64_t] extend(const handle_t& handle,        
               const index[uint64_t]& orig_index, 
