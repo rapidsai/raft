@@ -117,12 +117,11 @@ struct search_params : ann::search_params {
    * value is interpreted only as a hint. Moreover, a GPU usually allows only a fixed set of cache
    * configurations, so the provided value is rounded up to the nearest configuration. Refer to the
    * NVIDIA tuning guide for the target GPU architecture.
-   * The default value of `0.64` seems to be a good compromise for the majority of the current GPUs.
    *
    * Note, this is a low-level tuning parameter that can have drastic negative effects on the search
    * performance if tweaked incorrectly.
    */
-  double preferred_shmem_carveout = 0.64;
+  double preferred_shmem_carveout = 1.0;
 };
 
 static_assert(std::is_aggregate_v<index_params>);
