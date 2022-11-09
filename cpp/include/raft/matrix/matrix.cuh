@@ -289,7 +289,7 @@ void linewiseOp(m_t* out,
                 const bool alongLines,
                 Lambda op,
                 cudaStream_t stream,
-                Vecs... vecs)
+                const Vecs*... vecs)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("linewiseOp-%c-%zu (%zu, %zu)",
                                                             alongLines ? 'l' : 'x',

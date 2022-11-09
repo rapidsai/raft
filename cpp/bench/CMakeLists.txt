@@ -67,63 +67,70 @@ function(ConfigureBench)
 endfunction()
 
 if(BUILD_BENCH)
-  ConfigureBench(
-    NAME CLUSTER_BENCH PATH bench/cluster/kmeans_balanced.cu bench/cluster/kmeans.cu bench/main.cpp
-    OPTIONAL DIST NN
-  )
+    ConfigureBench(NAME CLUSTER_BENCH
+            PATH
+            bench/cluster/kmeans_balanced.cu
+            bench/cluster/kmeans.cu
+            bench/main.cpp
+            OPTIONAL DIST NN
+            )
 
-  ConfigureBench(
-    NAME
-    DISTANCE_BENCH
-    PATH
-    bench/distance/distance_cosine.cu
-    bench/distance/distance_exp_l2.cu
-    bench/distance/distance_l1.cu
-    bench/distance/distance_unexp_l2.cu
-    bench/distance/fused_l2_nn.cu
-    bench/distance/kernels.cu
-    bench/main.cpp
-    OPTIONAL
-    DIST
-  )
+    ConfigureBench(NAME DISTANCE_BENCH
+            PATH
+            bench/distance/distance_cosine.cu
+            bench/distance/distance_exp_l2.cu
+            bench/distance/distance_l1.cu
+            bench/distance/distance_unexp_l2.cu
+            bench/distance/fused_l2_nn.cu
+            bench/distance/kernels.cu
+            bench/main.cpp
+            OPTIONAL DIST
+            )
 
-  ConfigureBench(
-    NAME
-    LINALG_BENCH
-    PATH
-    bench/linalg/add.cu
-    bench/linalg/map_then_reduce.cu
-    bench/linalg/matrix_vector_op.cu
-    bench/linalg/reduce_rows_by_key.cu
-    bench/linalg/reduce.cu
-    bench/main.cpp
-  )
+    ConfigureBench(NAME LINALG_BENCH
+            PATH
+            bench/linalg/add.cu
+            bench/linalg/map_then_reduce.cu
+            bench/linalg/matrix_vector_op.cu
+            bench/linalg/reduce_rows_by_key.cu
+            bench/linalg/reduce.cu
+            bench/main.cpp
+            )
 
-  ConfigureBench(
-    NAME RANDOM_BENCH PATH bench/random/make_blobs.cu bench/random/permute.cu bench/random/rng.cu
-    bench/main.cpp
-  )
+    ConfigureBench(NAME MATRIX_BENCH
+            PATH
+            bench/matrix/argmin.cu
+            bench/main.cpp
+            )
 
-  ConfigureBench(NAME SPARSE_BENCH PATH bench/sparse/convert_csr.cu bench/main.cpp)
+    ConfigureBench(NAME RANDOM_BENCH
+            PATH
+            bench/random/make_blobs.cu
+            bench/random/permute.cu
+            bench/random/rng.cu
+            bench/main.cpp
+            )
 
-  ConfigureBench(
-    NAME
-    NEIGHBORS_BENCH
-    PATH
-    bench/neighbors/knn/brute_force_float_int64_t.cu
-    bench/neighbors/knn/brute_force_float_uint32_t.cu
-    bench/neighbors/knn/ivf_flat_float_int64_t.cu
-    bench/neighbors/knn/ivf_flat_float_uint32_t.cu
-    bench/neighbors/knn/ivf_flat_int8_t_int64_t.cu
-    bench/neighbors/knn/ivf_flat_uint8_t_uint32_t.cu
-    bench/neighbors/knn/ivf_pq_float_int64_t.cu
-    bench/neighbors/knn/ivf_pq_float_uint32_t.cu
-    bench/neighbors/knn/ivf_pq_int8_t_int64_t.cu
-    bench/neighbors/knn/ivf_pq_uint8_t_uint32_t.cu
-    bench/neighbors/selection.cu
-    bench/main.cpp
-    OPTIONAL
-    DIST
-    NN
-  )
+    ConfigureBench(NAME SPARSE_BENCH
+            PATH
+            bench/sparse/convert_csr.cu
+            bench/main.cpp
+            )
+
+    ConfigureBench(NAME NEIGHBORS_BENCH
+            PATH
+            bench/neighbors/knn/brute_force_float_int64_t.cu
+            bench/neighbors/knn/brute_force_float_uint32_t.cu
+            bench/neighbors/knn/ivf_flat_float_int64_t.cu
+            bench/neighbors/knn/ivf_flat_float_uint32_t.cu
+            bench/neighbors/knn/ivf_flat_int8_t_int64_t.cu
+            bench/neighbors/knn/ivf_flat_uint8_t_uint32_t.cu
+            bench/neighbors/knn/ivf_pq_float_int64_t.cu
+            bench/neighbors/knn/ivf_pq_float_uint32_t.cu
+            bench/neighbors/knn/ivf_pq_int8_t_int64_t.cu
+            bench/neighbors/knn/ivf_pq_uint8_t_uint32_t.cu
+            bench/neighbors/selection.cu
+            bench/main.cpp
+            OPTIONAL DIST NN
+            )
 endif()

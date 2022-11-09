@@ -35,10 +35,10 @@ namespace linalg {
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
- * @tparam Type the matrix/vector type
+ * @tparam MatT the matrix type
  * @tparam Lambda a device function which represents a binary operator
+ * @tparam VecT the input vector type
  * @tparam IdxType Integer type used to for addressing
- * @tparam TPB threads per block of the cuda kernel launched
  * @param out the output matrix (passing out = matrix makes it in-place)
  * @param matrix the input matrix
  * @param vec the vector
@@ -50,10 +50,10 @@ namespace linalg {
  * @param op the mathematical operation
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type* out,
-                    const Type* matrix,
-                    const Type* vec,
+template <typename MatT, typename Lambda, typename VecT, typename IdxType = int>
+void matrixVectorOp(MatT* out,
+                    const MatT* matrix,
+                    const VecT* vec,
                     IdxType D,
                     IdxType N,
                     bool rowMajor,
@@ -72,10 +72,11 @@ void matrixVectorOp(Type* out,
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
- * @tparam Type the matrix/vector type
+ * @tparam MatT the matrix type
  * @tparam Lambda a device function which represents a binary operator
+ * @tparam Vec1T the first input vector type
+ * @tparam Vec2T the second input vector type
  * @tparam IdxType Integer type used to for addressing
- * @tparam TPB threads per block of the cuda kernel launched
  * @param out the output matrix (passing out = matrix makes it in-place)
  * @param matrix the input matrix
  * @param vec1 the first vector
@@ -88,11 +89,11 @@ void matrixVectorOp(Type* out,
  * @param op the mathematical operation
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type* out,
-                    const Type* matrix,
-                    const Type* vec1,
-                    const Type* vec2,
+template <typename MatT, typename Lambda, typename Vec1T, typename Vec2T, typename IdxType = int>
+void matrixVectorOp(MatT* out,
+                    const MatT* matrix,
+                    const Vec1T* vec1,
+                    const Vec2T* vec2,
                     IdxType D,
                     IdxType N,
                     bool rowMajor,
@@ -116,12 +117,11 @@ void matrixVectorOp(Type* out,
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
- * @tparam InValueType the data-type of the input matrices and vectors
+ * @tparam MatValueType the data-type of the input matrix
+ * @tparam VecValueType the data-type of the input vector
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
- * @tparam OutElementType the data-type of the output raft::matrix_view
  * @tparam IndexType Integer used for addressing
- * @tparam TPB threads per block of the cuda kernel launched
  * @param[in] handle raft::handle_t
  * @param[in] matrix input raft::matrix_view
  * @param[in] vec vector raft::vector_view
@@ -130,16 +130,15 @@ void matrixVectorOp(Type* out,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param[in] op the mathematical operation
  */
-template <typename InValueType,
+template <typename MatValueType,
+          typename VecValueType,
           typename LayoutPolicy,
           typename Lambda,
-          typename OutValueType,
-          typename IndexType,
-          int TPB = 256>
+          typename IndexType>
 void matrix_vector_op(const raft::handle_t& handle,
-                      raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> matrix,
-                      raft::device_vector_view<const InValueType, IndexType> vec,
-                      raft::device_matrix_view<OutValueType, IndexType, LayoutPolicy> out,
+                      raft::device_matrix_view<const MatValueType, IndexType, LayoutPolicy> matrix,
+                      raft::device_vector_view<const VecValueType, IndexType> vec,
+                      raft::device_matrix_view<MatValueType, IndexType, LayoutPolicy> out,
                       Apply apply,
                       Lambda op)
 {
@@ -177,12 +176,12 @@ void matrix_vector_op(const raft::handle_t& handle,
  * Note : the function will also check that the size of the window of accesses
  * is a multiple of the number of elements processed by a thread in order to
  * enable faster processing
- * @tparam InValueType the data-type of the input matrices and vectors
+ * @tparam MatValueType the data-type of the input and output matrices
+ * @tparam Vec1ValueType the data-type of the first input vector
+ * @tparam Vec2ValueType the data-type of the second input vector
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
- * @tparam OutElementType the data-type of the output raft::matrix_view
  * @tparam IndexType Integer used for addressing
- * @tparam TPB threads per block of the cuda kernel launched
  * @param handle raft::handle_t
  * @param matrix input raft::matrix_view
  * @param vec1 the first vector raft::vector_view
@@ -192,17 +191,17 @@ void matrix_vector_op(const raft::handle_t& handle,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  * @param op the mathematical operation
  */
-template <typename InValueType,
+template <typename MatValueType,
+          typename Vec1ValueType,
+          typename Vec2ValueType,
           typename LayoutPolicy,
           typename Lambda,
-          typename OutValueType,
-          typename IndexType,
-          int TPB = 256>
+          typename IndexType>
 void matrix_vector_op(const raft::handle_t& handle,
-                      raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> matrix,
-                      raft::device_vector_view<const InValueType, IndexType> vec1,
-                      raft::device_vector_view<const InValueType, IndexType> vec2,
-                      raft::device_matrix_view<OutValueType, IndexType, LayoutPolicy> out,
+                      raft::device_matrix_view<const MatValueType, IndexType, LayoutPolicy> matrix,
+                      raft::device_vector_view<const Vec1ValueType, IndexType> vec1,
+                      raft::device_vector_view<const Vec2ValueType, IndexType> vec2,
+                      raft::device_matrix_view<MatValueType, IndexType, LayoutPolicy> out,
                       Apply apply,
                       Lambda op)
 {

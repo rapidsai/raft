@@ -81,10 +81,19 @@ if(BUILD_TESTS)
     OPTIONAL DIST NN
   )
 
-  ConfigureTest(
-    NAME CORE_TEST PATH test/common/logger.cpp test/handle.cpp test/interruptible.cu test/nvtx.cpp
-    test/mdarray.cu test/mdspan_utils.cu test/span.cpp test/span.cu test/test.cpp
-  )
+    ConfigureTest(NAME CORE_TEST
+            PATH
+            test/common/logger.cpp
+            test/handle.cpp
+            test/interruptible.cu
+            test/nvtx.cpp
+            test/mdarray.cu
+            test/mdspan_utils.cu
+            test/memory_type.cpp
+            test/span.cpp
+            test/span.cu
+            test/test.cpp
+    )
 
   ConfigureTest(
     NAME
@@ -147,23 +156,22 @@ if(BUILD_TESTS)
     test/linalg/unary_op.cu
   )
 
-  ConfigureTest(
-    NAME
-    MATRIX_TEST
-    PATH
-    test/matrix/argmax.cu
-    test/matrix/columnSort.cu
-    test/matrix/diagonal.cu
-    test/matrix/gather.cu
-    test/matrix/linewise_op.cu
-    test/matrix/math.cu
-    test/matrix/matrix.cu
-    test/matrix/norm.cu
-    test/matrix/reverse.cu
-    test/matrix/slice.cu
-    test/matrix/triangular.cu
-    test/spectral_matrix.cu
-  )
+    ConfigureTest(NAME MATRIX_TEST
+            PATH
+            test/matrix/argmax.cu
+            test/matrix/argmin.cu
+            test/matrix/columnSort.cu
+            test/matrix/diagonal.cu
+            test/matrix/gather.cu
+            test/matrix/linewise_op.cu
+            test/matrix/math.cu
+            test/matrix/matrix.cu
+            test/matrix/norm.cu
+            test/matrix/reverse.cu
+            test/matrix/slice.cu
+            test/matrix/triangular.cu
+            test/spectral_matrix.cu
+    )
 
   ConfigureTest(
     NAME
