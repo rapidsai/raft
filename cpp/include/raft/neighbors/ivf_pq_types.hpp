@@ -323,8 +323,8 @@ struct index : ann::index {
   using pq_dataset_extents = std::experimental::
     extents<IdxT, dynamic_extent, dynamic_extent, kIndexGroupSize, kIndexGroupVecLen>;
   /** PQ-encoded data
-   *    [ceildiv(size, kIndexGroupSize)
-   *    , ceildiv(pq_dim * pq_bits / 8, kIndexGroupVecLen)
+   *    [ ceildiv(size, kIndexGroupSize)
+   *    , ceildiv(pq_dim, (kIndexGroupVecLen * 8u) / pq_bits)
    *    , kIndexGroupSize
    *    , kIndexGroupVecLen
    *    ].
@@ -412,9 +412,10 @@ struct index : ann::index {
    */
   auto make_pq_dataset_extents(IdxT n_rows) -> pq_dataset_extents
   {
-    auto l = pq_dim() * pq_bits() / 8;
+    // how many elems of pq_dim fit into one kIndexGroupVecLen-byte chunk
+    auto pq_chunk = (kIndexGroupVecLen * 8u) / pq_bits();
     return make_extents<IdxT>(raft::div_rounding_up_safe<IdxT>(n_rows, kIndexGroupSize),
-                              raft::div_rounding_up_safe<IdxT>(l, kIndexGroupVecLen),
+                              raft::div_rounding_up_safe<IdxT>(pq_dim(), pq_chunk),
                               kIndexGroupSize,
                               kIndexGroupVecLen);
   }

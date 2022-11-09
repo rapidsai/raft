@@ -55,6 +55,9 @@ using raft::neighbors::ivf_pq::codebook_gen;
 using raft::neighbors::ivf_pq::index;
 using raft::neighbors::ivf_pq::index_params;
 using raft::neighbors::ivf_pq::kIndexGroupSize;
+using raft::neighbors::ivf_pq::kIndexGroupVecLen;
+
+using pq_codes_exts = extents<size_t, dynamic_extent, dynamic_extent, kIndexGroupVecLen>;
 
 namespace {
 
@@ -114,55 +117,68 @@ struct bitfield_view_t {
   NB: label type is uint32_t although it can only contain values up to `1 << pq_bits`.
       We keep it this way to not force one more overload for kmeans::predict.
  */
-template <uint32_t PqBits>
-HDI void ivfpq_encode_core(uint32_t n_rows, uint32_t pq_dim, const uint32_t* label, uint8_t* output)
+template <uint32_t PqBits, size_t VecLen>
+__device__ void ivfpq_encode_core(uint32_t n_rows,
+                                  uint32_t pq_dim,
+                                  const uint32_t* label,
+                                  uint8_t* output)
 {
-  bitfield_view_t<PqBits> out{output};
-  for (uint32_t j = 0; j < pq_dim; j++, label += n_rows) {
-    out[j] = static_cast<uint8_t>(*label);
+  constexpr uint32_t kChunkSize = (VecLen * 8u) / PqBits;
+  TxN_t<uint8_t, VecLen> vec;
+  for (uint32_t j = 0; j < pq_dim;) {
+    vec.fill(0);
+    bitfield_view_t<PqBits> out{vec.val.data};
+#pragma unroll
+    for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++, label += n_rows) {
+      out[k] = static_cast<uint8_t>(*label);
+    }
+    vec.store(output, 0);
+    output += VecLen;
   }
 }
 
 template <uint32_t BlockDim, uint32_t PqBits>
-__launch_bounds__(BlockDim) __global__
-  void ivfpq_encode_kernel(uint32_t n_rows,
-                           uint32_t pq_dim,
-                           const uint32_t* label,  // [pq_dim, n_rows]
-                           uint8_t* output         // [n_rows, pq_dim]
-  )
+__launch_bounds__(BlockDim) __global__ void ivfpq_encode_kernel(
+  uint32_t pq_dim,
+  const uint32_t* label,                                   // [pq_dim, n_rows]
+  device_mdspan<uint8_t, pq_codes_exts, row_major> output  // [n_rows, pq_dim]
+)
 {
   uint32_t i = threadIdx.x + BlockDim * blockIdx.x;
-  if (i >= n_rows) return;
-  ivfpq_encode_core<PqBits>(n_rows, pq_dim, label + i, output + (pq_dim * PqBits / 8) * i);
+  if (i >= output.extent(0)) return;
+  ivfpq_encode_core<PqBits, output.static_extent(2)>(
+    output.extent(0),
+    pq_dim,
+    label + i,
+    output.data_handle() + output.extent(1) * output.extent(2) * i);
 }
 }  // namespace
 
-inline void ivfpq_encode(uint32_t n_rows,
-                         uint32_t pq_dim,
+inline void ivfpq_encode(uint32_t pq_dim,
                          uint32_t pq_bits,       // 4 <= pq_bits <= 8
                          const uint32_t* label,  // [pq_dim, n_rows]
-                         uint8_t* output,        // [n_rows, pq_dim]
+                         device_mdspan<uint8_t, pq_codes_exts, row_major> output,  // [n_rows, ..]
                          rmm::cuda_stream_view stream)
 {
   constexpr uint32_t kBlockDim = 128;
   dim3 threads(kBlockDim, 1, 1);
-  dim3 blocks(raft::ceildiv<uint32_t>(n_rows, kBlockDim), 1, 1);
+  dim3 blocks(raft::ceildiv<uint32_t>(output.extent(0), kBlockDim), 1, 1);
   switch (pq_bits) {
     case 4:
       return ivfpq_encode_kernel<kBlockDim, 4>
-        <<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+        <<<blocks, threads, 0, stream>>>(pq_dim, label, output);
     case 5:
       return ivfpq_encode_kernel<kBlockDim, 5>
-        <<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+        <<<blocks, threads, 0, stream>>>(pq_dim, label, output);
     case 6:
       return ivfpq_encode_kernel<kBlockDim, 6>
-        <<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+        <<<blocks, threads, 0, stream>>>(pq_dim, label, output);
     case 7:
       return ivfpq_encode_kernel<kBlockDim, 7>
-        <<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+        <<<blocks, threads, 0, stream>>>(pq_dim, label, output);
     case 8:
       return ivfpq_encode_kernel<kBlockDim, 8>
-        <<<blocks, threads, 0, stream>>>(n_rows, pq_dim, label, output);
+        <<<blocks, threads, 0, stream>>>(pq_dim, label, output);
     default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
   }
 }
@@ -284,8 +300,8 @@ void select_residuals(const handle_t& handle,
  *    it should be partitioned by the clusters by now.
  * @param cluster_sizes    // [n_clusters]
  * @param cluster_offsets  // [n_clusters + 1]
- * @param pq_centers                 // [...]
- * @param pq_dataset  // [n_rows, pq_dim * pq_bits / 8]
+ * @param pq_centers  // [...]
+ * @param pq_dataset  // [n_rows, ...]
  * @param device_memory
  */
 template <typename T, typename IdxT>
@@ -307,7 +323,7 @@ void compute_pq_codes(
   const uint32_t* cluster_sizes,
   const IdxT* cluster_offsets,
   device_mdspan<const float, typename index<IdxT>::pq_centers_extents, row_major> pq_centers,
-  uint8_t* pq_dataset,
+  device_mdspan<uint8_t, pq_codes_exts, row_major> pq_dataset,
   rmm::mr::device_memory_resource* device_memory)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
@@ -333,10 +349,6 @@ void compute_pq_codes(
     size_t(max_cluster_size) * size_t(pq_dim * pq_len), stream, device_memory);
   rmm::device_uvector<uint32_t> sub_vector_labels(
     size_t(max_cluster_size) * size_t(pq_dim), stream, device_memory);
-  rmm::device_uvector<uint8_t> my_pq_dataset(
-    size_t(max_cluster_size) * size_t(pq_dim * pq_bits / 8) /* NB: pq_dim * bitPQ % 8 == 0 */,
-    stream,
-    device_memory);
 
   for (uint32_t l = 0; l < n_clusters; l++) {
     auto cluster_size = cluster_sizes[l];
@@ -416,11 +428,14 @@ void compute_pq_codes(
     // PQ encoding
     //
     ivfpq_encode(
-      cluster_size, pq_dim, pq_bits, sub_vector_labels.data(), my_pq_dataset.data(), stream);
-    copy(pq_dataset + size_t(cluster_offsets[l]) * size_t(pq_dim * pq_bits / 8),
-         my_pq_dataset.data(),
-         size_t(cluster_size) * size_t(pq_dim * pq_bits / 8),
-         stream);
+      pq_dim,
+      pq_bits,
+      sub_vector_labels.data(),
+      make_mdspan(
+        pq_dataset.data_handle() +
+          size_t(cluster_offsets[l]) * pq_dataset.extent(1) * pq_dataset.extent(2),
+        make_extents<IdxT>(cluster_size, pq_dataset.extent(1), pq_dataset.static_extent(2))),
+      stream);
   }
 }
 
@@ -751,8 +766,9 @@ inline auto extend(const handle_t& handle,
   //
   // Compute PQ code for new vectors
   //
-  rmm::device_uvector<uint8_t> new_pq_codes(
-    size_t(n_rows) * size_t(orig_index.pq_dim() * orig_index.pq_bits() / 8), stream, device_memory);
+  pq_codes_exts new_pq_exts = make_extents<size_t>(
+    n_rows, orig_index.pq_dataset().extent(1), orig_index.pq_dataset().static_extent(3));
+  auto new_pq_codes = make_device_mdarray<uint8_t>(handle, device_memory, new_pq_exts);
   compute_pq_codes<T>(handle,
                       n_rows,
                       orig_index.dim(),
@@ -770,7 +786,7 @@ inline auto extend(const handle_t& handle,
                       new_cluster_sizes,
                       new_cluster_offsets.data(),
                       orig_index.pq_centers(),
-                      new_pq_codes.data(),
+                      new_pq_codes.view(),
                       device_memory);
 
   // Get the combined cluster sizes and sort the clusters in decreasing order
@@ -949,39 +965,45 @@ inline auto extend(const handle_t& handle,
   }
 
   /* Extend the pq_dataset */
-  auto ext_pq_dataset = ext_index.pq_dataset().data_handle();
-  auto pq_dataset_unit =
-    size_t(ext_index.pq_dataset().extent(1)) * size_t(ext_index.pq_dataset().extent(3));
-  auto raw_data_unit = size_t(ext_index.pq_dim() * ext_index.pq_bits() / 8);
+  using vec_t = TxN_t<uint8_t, kIndexGroupVecLen>::io_t;
+
+  auto data_unit = ext_index.pq_dataset().extent(1);
+  auto ext_pq_dataset =
+    make_mdspan(reinterpret_cast<vec_t*>(ext_index.pq_dataset().data_handle()),
+                make_extents<size_t>(
+                  ext_index.pq_dataset().extent(0), data_unit, ext_index.pq_dataset().extent(2)));
+
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
     auto k                = cluster_ordering[l];
     auto old_cluster_size = old_cluster_sizes[k];
     auto old_pq_dataset =
-      make_mdspan(orig_index.pq_dataset().data_handle() + pq_dataset_unit * old_cluster_offsets[k],
-                  ext_index.make_pq_dataset_extents(old_cluster_size));
-    auto new_pq_data =
-      make_mdspan(new_pq_codes.data() + raw_data_unit * new_cluster_offsets.data()[k],
-                  make_extents<size_t>(new_cluster_sizes[k], raw_data_unit));
+      make_mdspan(reinterpret_cast<const vec_t*>(orig_index.pq_dataset().data_handle()) +
+                    data_unit * old_cluster_offsets[k],
+                  make_extents<size_t>(div_rounding_up_safe(old_cluster_size, kIndexGroupSize),
+                                       data_unit,
+                                       ext_pq_dataset.extent(2)));
+    auto new_pq_data = make_mdspan(reinterpret_cast<vec_t*>(new_pq_codes.data_handle()) +
+                                     data_unit * new_cluster_offsets.data()[k],
+                                   make_extents<size_t>(new_cluster_sizes[k], data_unit));
     linalg::writeOnlyUnaryOp(
-      ext_pq_dataset + pq_dataset_unit * ext_cluster_offsets[l],
-      pq_dataset_unit * size_t(ext_cluster_offsets[l + 1] - ext_cluster_offsets[l]),
-      [old_pq_dataset, new_pq_data, old_cluster_size] __device__(uint8_t * out, size_t i_flat) {
-        size_t i[4];
-        for (int r = 3; r > 0; r--) {
+      ext_pq_dataset.data_handle() + data_unit * ext_cluster_offsets[l],
+      data_unit * size_t(ext_cluster_offsets[l + 1] - ext_cluster_offsets[l]),
+      [old_pq_dataset, new_pq_data, old_cluster_size] __device__(vec_t * out, size_t i_flat) {
+        size_t i[3];
+        for (int r = 2; r > 0; r--) {
           i[r] = i_flat % old_pq_dataset.extent(r);
           i_flat /= old_pq_dataset.extent(r);
         }
         i[0]        = i_flat;
         auto row_ix = i[0] * old_pq_dataset.extent(2) + i[2];
         if (row_ix < old_cluster_size) {
-          *out = old_pq_dataset(i[0], i[1], i[2], i[3]);
+          *out = old_pq_dataset(i[0], i[1], i[2]);
         } else {
           row_ix -= old_cluster_size;
-          auto col_ix = i[1] * old_pq_dataset.extent(3) + i[3];
-          if (row_ix < new_pq_data.extent(0) && col_ix < new_pq_data.extent(1)) {
-            *out = new_pq_data(row_ix, col_ix);
+          if (row_ix < new_pq_data.extent(0)) {
+            *out = new_pq_data(row_ix, i[1]);
           } else {
-            *out = 0;
+            *out = vec_t{};
           }
         }
       },
