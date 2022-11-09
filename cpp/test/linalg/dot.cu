@@ -46,25 +46,18 @@ struct DotInputs {
 template <typename T, typename IndexType = int>
 class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
  protected:
-  raft::handle_t handle;
   DotInputs<T, IndexType> params;
-  rmm::device_scalar<T> output;
-  rmm::device_scalar<T> refoutput;
+  T host_output, device_output, ref_output;
 
  public:
-  DotTest()
-    : testing::TestWithParam<DotInputs<T>>(),
-      output(0, handle.get_stream()),
-      refoutput(0, handle.get_stream())
-  {
-    handle.sync_stream();
-  }
+  DotTest() : testing::TestWithParam<DotInputs<T>>() {}
 
  protected:
   void SetUp() override
   {
     params = ::testing::TestWithParam<DotInputs<T>>::GetParam();
 
+    raft::handle_t handle;
     cudaStream_t stream = handle.get_stream();
 
     raft::random::RngState r(params.seed);
@@ -77,36 +70,42 @@ class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
     uniform(handle, r, x.data(), x_len, T(-1.0), T(1.0));
     uniform(handle, r, y.data(), y_len, T(-1.0), T(1.0));
 
+    rmm::device_scalar<T> ref(0, handle.get_stream());
     naiveDot<<<256, 256, 0, stream>>>(
-      params.len, x.data(), params.incx, y.data(), params.incy, refoutput.data());
+      params.len, x.data(), params.incx, y.data(), params.incy, ref.data());
+    raft::update_host(&ref_output, ref.data(), 1, stream);
 
-    auto out_view = make_device_scalar_view<T, IndexType>(output.data());
+    // Test out both the device and host api's
+    rmm::device_scalar<T> out(0, handle.get_stream());
+    auto device_out_view = make_device_scalar_view<T, IndexType>(out.data());
+    auto host_out_view   = make_host_scalar_view<T, IndexType>(&host_output);
 
     if ((params.incx > 1) && (params.incy > 1)) {
-      dot(handle,
-          make_device_vector_view<const T, IndexType, layout_stride>(
-            x.data(), make_vector_strided_layout(params.len, params.incx)),
-          make_device_vector_view<const T, IndexType, layout_stride>(
-            y.data(), make_vector_strided_layout(params.len, params.incy)),
-          out_view);
+      auto x_view = make_device_vector_view<const T, IndexType, layout_stride>(
+        x.data(), make_vector_strided_layout(params.len, params.incx));
+      auto y_view = make_device_vector_view<const T, IndexType, layout_stride>(
+        y.data(), make_vector_strided_layout(params.len, params.incy));
+      dot(handle, x_view, y_view, device_out_view);
+      dot(handle, x_view, y_view, host_out_view);
     } else if (params.incx > 1) {
-      dot(handle,
-          make_device_vector_view<const T, IndexType, layout_stride>(
-            x.data(), make_vector_strided_layout(params.len, params.incx)),
-          make_device_vector_view<const T>(y.data(), params.len),
-          out_view);
+      auto x_view = make_device_vector_view<const T, IndexType, layout_stride>(
+        x.data(), make_vector_strided_layout(params.len, params.incx));
+      auto y_view = make_device_vector_view<const T>(y.data(), params.len);
+      dot(handle, x_view, y_view, device_out_view);
+      dot(handle, x_view, y_view, host_out_view);
     } else if (params.incy > 1) {
-      dot(handle,
-          make_device_vector_view<const T>(x.data(), params.len),
-          make_device_vector_view<const T, IndexType, layout_stride>(
-            y.data(), make_vector_strided_layout(params.len, params.incy)),
-          out_view);
+      auto x_view = make_device_vector_view<const T>(x.data(), params.len);
+      auto y_view = make_device_vector_view<const T, IndexType, layout_stride>(
+        y.data(), make_vector_strided_layout(params.len, params.incy));
+      dot(handle, x_view, y_view, device_out_view);
+      dot(handle, x_view, y_view, host_out_view);
     } else {
-      dot(handle,
-          make_device_vector_view<const T>(x.data(), params.len),
-          make_device_vector_view<const T>(y.data(), params.len),
-          out_view);
+      auto x_view = make_device_vector_view<const T>(x.data(), params.len);
+      auto y_view = make_device_vector_view<const T>(y.data(), params.len);
+      dot(handle, x_view, y_view, device_out_view);
+      dot(handle, x_view, y_view, host_out_view);
     }
+    raft::update_host(&device_output, out.data(), 1, stream);
     handle.sync_stream();
   }
 
@@ -136,15 +135,17 @@ const std::vector<DotInputs<double>> inputsd = {
 typedef DotTest<float> DotTestF;
 TEST_P(DotTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    refoutput.data(), output.data(), 1, raft::CompareApprox<float>(params.tolerance)));
+  auto compare = raft::CompareApprox<float>(params.tolerance);
+  ASSERT_TRUE(compare(ref_output, host_output));
+  ASSERT_TRUE(compare(ref_output, device_output));
 }
 
 typedef DotTest<double> DotTestD;
 TEST_P(DotTestD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    refoutput.data(), output.data(), 1, raft::CompareApprox<double>(params.tolerance)));
+  auto compare = raft::CompareApprox<float>(params.tolerance);
+  ASSERT_TRUE(compare(ref_output, host_output));
+  ASSERT_TRUE(compare(ref_output, device_output));
 }
 
 INSTANTIATE_TEST_SUITE_P(DotTests, DotTestF, ::testing::ValuesIn(inputsf));
