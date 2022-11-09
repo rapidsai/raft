@@ -33,6 +33,7 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/argmin.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -147,8 +148,11 @@ inline void predict_float_core(const handle_t& handle,
                    distances.data(),
                    n_clusters,
                    stream);
-      utils::argmin_along_rows(
-        n_rows, static_cast<IdxT>(n_clusters), distances.data(), labels, stream);
+
+      auto distances_const_view = raft::make_device_matrix_view<const float, IdxT, row_major>(
+        distances.data(), n_rows, static_cast<IdxT>(n_clusters));
+      auto labels_view = raft::make_device_vector_view<LabelT, IdxT>(labels, n_rows);
+      raft::matrix::argmin(handle, distances_const_view, labels_view);
       break;
     }
     default: {
