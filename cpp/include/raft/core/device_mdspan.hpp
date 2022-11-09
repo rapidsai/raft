@@ -300,7 +300,7 @@ auto make_device_vector_view(
 template <typename Extents, typename Strides>
 auto make_strided_layout(Extents extents, Strides strides)
 {
-  return layout_stride::mapping<ExtentType>{extents, strides};
+  return layout_stride::mapping<Extents>{extents, strides};
 }
 
 /**
