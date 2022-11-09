@@ -43,16 +43,16 @@ void randomized_svd(const raft::handle_t& handle,
                     math_t* S,
                     math_t* U,
                     math_t* V,
-                    bool trans_V,
                     bool gen_U,
-                    bool gen_V,
-                    bool row_major=false)
+                    bool gen_V)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "raft::linalg::randomized_svd(%d, %d)", n_rows, n_cols);
+    "raft::linalg::randomized_svd(%d, %d, %d)", n_rows, n_cols, k);
 
-  ASSERT(k < std::min(n_rows, n_cols), "k must be < min(n_rows, n_cols)");
-  ASSERT((k + p) < std::min(n_rows, n_cols), "k + p must be < min(n_rows, n_cols)");
+  RAFT_EXPECTS(k < std::min(n_rows, n_cols), "k must be < min(n_rows, n_cols)");
+  RAFT_EXPECTS((k + p) < std::min(n_rows, n_cols), "k + p must be < min(n_rows, n_cols)");
+  RAFT_EXPECTS(!gen_U || (U != nullptr), "computation of U vector requested but found nullptr");
+  RAFT_EXPECTS(!gen_V || (V != nullptr), "computation of V vector requested but found nullptr");
   cudaStream_t stream          = handle.get_stream();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cusolverDnParams_t dn_params = nullptr;
@@ -60,19 +60,36 @@ void randomized_svd(const raft::handle_t& handle,
 
   char jobu = gen_U ? 'S' : 'N';
   char jobv = gen_V ? 'S' : 'N';
-  // TODO: add row_major
+
   auto lda = n_rows;
   auto ldu = n_rows;
   auto ldv = n_cols;
 
   size_t workspaceDevice = 0;
   size_t workspaceHost   = 0;
-  RAFT_CUSOLVER_TRY(cusolverDnxgesvdr_bufferSize<math_t>(cusolverH, dn_params, jobu, jobv, n_rows, n_cols, k, p, niters, 
-    in, lda, S, U, ldu, V, ldv, &workspaceDevice, &workspaceHost, stream));
-  
+  RAFT_CUSOLVER_TRY(cusolverDnxgesvdr_bufferSize(cusolverH,
+                                                 dn_params,
+                                                 jobu,
+                                                 jobv,
+                                                 n_rows,
+                                                 n_cols,
+                                                 k,
+                                                 p,
+                                                 niters,
+                                                 in,
+                                                 lda,
+                                                 S,
+                                                 U,
+                                                 ldu,
+                                                 V,
+                                                 ldv,
+                                                 &workspaceDevice,
+                                                 &workspaceHost,
+                                                 stream));
+
   auto d_workspace = raft::make_device_vector<char>(handle, workspaceDevice);
   auto h_workspace = raft::make_host_vector<char>(workspaceHost);
-  auto devInfo = raft::make_device_scalar<int>(handle, 0);
+  auto devInfo     = raft::make_device_scalar<int>(handle, 0);
 
   RAFT_CUSOLVER_TRY(cusolverDnxgesvdr(cusolverH,
                                       dn_params,
@@ -99,9 +116,6 @@ void randomized_svd(const raft::handle_t& handle,
 
   RAFT_CUDA_TRY(cudaGetLastError());
   RAFT_CUSOLVER_TRY(cusolverDnDestroyParams(dn_params));
-
-  // Transpose the right singular vector back
-  if (trans_V) raft::linalg::transpose(V, n_cols, stream);
 
   int dev_info;
   raft::update_host(&dev_info, devInfo.data_handle(), 1, stream);

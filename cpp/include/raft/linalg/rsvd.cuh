@@ -26,95 +26,84 @@ namespace linalg {
 
 /**
  * @brief randomized singular value decomposition (RSVD)
- * @param handle:   raft handle
- * @param in:       input matrix. On exit this matrix is destroyed
- *                  [dim = n_rows * n_cols] 
- * @param n_rows:   number rows of input matrix
- * @param n_cols:   number columns of input matrix
- * @param k:        Rank of the k-SVD decomposition of matrix in. Number of singular values to be computed.
- *                  The rank is less than min(m,n). 
- * @param p:        Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n).
- *                  (Recommended to be at least 2*k)
- * @param niters:   Number of iteration of power method.
- * @param S:        array of singular values of input matrix.
- *                  [dim = min(n_rows, n_cols)] 
- * @param U:        left singular values of input matrix.
- *                  [dim = n_rows * n_rows] if gen_U
- *                  [dim = min(n_rows,n_cols) * n_rows] else
- * @param V:        right singular values of input matrix.
- *                  [dim = n_cols * n_cols] if gen_V
- *                  [dim = min(n_rows,n_cols) * n_cols] else
- * @param trans_V:  Transpose V back ?
- * @param gen_U:    left vector needs to be generated or not?
- * @param gen_V:    right vector needs to be generated or not?
- * @param row_major: Is the data row major?
- */
-template <typename math_t>
-void randomized_svd(const raft::handle_t& handle,
-                   math_t* in,
-                   std::size_t n_rows,
-                   std::size_t n_cols,
-                   std::size_t k,
-                   std::size_t p,
-                   std::size_t niters,
-                   math_t* S,
-                   math_t* U,
-                   math_t* V,
-                   bool trans_V,
-                   bool gen_U,
-                   bool gen_V,
-                   bool row_major=false)
-{
-  detail::randomized_svd<math_t>(handle, in, n_rows, n_cols, k, p, niters, S, U,
-    V, trans_V, gen_U, gen_V, row_major);
-}
-
-
-/**
- * @brief randomized singular value decomposition (RSVD)
  * @tparam math_t the data type
  * @tparam idx_t index type
- * @tparam layout_t Layout type of the input matrix.
- * @param handle:  raft handle
- * @param in:      input matrix. On exit this matrix is destroyed
- *                 [dim = n_rows * n_cols] 
- * @param S:       array of singular values of input matrix.
- *                 [dim = min(n_rows, n_cols)] 
- * @param U:       left singular values of input matrix.
- *                 [dim = n_rows * n_rows] if gen_U
- *                 [dim = min(n_rows,n_cols) * n_rows] else
- * @param V:       right singular values of input matrix.
- *                 [dim = n_cols * n_cols] if gen_V
- *                 [dim = min(n_rows,n_cols) * n_cols] else
- * @param k:       Rank of the k-SVD decomposition of matrix in. Number of singular values to be computed.
- *                 The rank is less than min(m,n). 
- * @param p:       Oversampling. The size of the subspace will be (k + p). (k+p) is less than min(m,n).
- *                 (Recommended to be at least 2*k)
- * @param niters:  Number of iteration of power method. (2 is recommended)
- * @param trans_V: Transpose V back ?
- * @param gen_U:   left vector needs to be generated or not?
- * @param gen_V:   right vector needs to be generated or not?
+ * @param[in]  handle:  raft handle
+ * @param[in]  in:      input matrix in col-major format. On exit this matrix is destroyed
+ *                      [dim = n_rows * n_cols]
+ * @param[out] S:       array of singular values of input matrix.
+ *                      [dim = k]
+ * @param[out] U:       optional left singular values of input matrix. Use std::nullopt to not
+ * generate it. [dim = n_rows * k]
+ * @param[out] V:       optional right singular values of input matrix. Use std::nullopt to not
+ * generate it. [dim = k * n_cols]
+ * @param[in]  k:       Rank of the k-SVD decomposition of matrix in. Number of singular values to
+ * be computed. The rank is less than min(m,n).
+ * @param[in]  p:       Oversampling. The size of the subspace will be (k + p). (k+p) is less than
+ * min(m,n). (Recommended to be at least 2*k)
+ * @param[in]  niters:  Number of iteration of power method. (2 is recommended)
  */
-template <typename math_t, typename idx_t, typename layout_t>
+template <typename math_t, typename idx_t>
 void randomized_svd(const raft::handle_t& handle,
-                    raft::device_matrix_view<math_t, idx_t, layout_t> in,
+                    raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
                     raft::device_vector_view<math_t, idx_t> S,
-                    raft::device_matrix_view<math_t, idx_t, layout_t> U,
-                    raft::device_matrix_view<math_t, idx_t, layout_t> V,
+                    std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> U,
+                    std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> V,
                     std::size_t k,
                     std::size_t p,
-                    std::size_t niters,
-                    bool trans_V,
-                    bool gen_U,
-                    bool gen_V)
+                    std::size_t niters)
 {
-  constexpr bool is_row_major = std::is_same_v<layout_t, raft::row_major>;
-  constexpr bool is_col_major = std::is_same_v<layout_t, raft::col_major>;
-  static_assert(is_row_major || is_col_major,
-                "randomized_svd: Layout must be either "
-                "raft::row_major or raft::col_major (or one of their aliases)");
-  detail::randomized_svd(handle, in.data_handle(), in.extent(0), in.extent(1), k, p, niters, S.data_handle(), U.data_handle(),
-    V.data_handle(), trans_V, gen_U, gen_V, is_row_major);
+  RAFT_EXPECTS(S.size() == k, "S should have dimensions k");
+  math_t* left_sing_vecs_ptr  = nullptr;
+  math_t* right_sing_vecs_ptr = nullptr;
+  auto gen_U                  = U.has_value();
+  auto gen_V                  = V.has_value();
+  if (gen_U) {
+    RAFT_EXPECTS(in.extent(0) == U.value().extent(0) && k == U.value().extent(1),
+                 "U should have dimensions n_rows * k");
+    left_sing_vecs_ptr = U.value().data_handle();
+  }
+  if (gen_V) {
+    RAFT_EXPECTS(k == V.value().extent(0) && in.extent(1) == V.value().extent(1),
+                 "V should have dimensions k * n_cols");
+    right_sing_vecs_ptr = V.value().data_handle();
+  }
+  detail::randomized_svd(handle,
+                         in.data_handle(),
+                         in.extent(0),
+                         in.extent(1),
+                         k,
+                         p,
+                         niters,
+                         S.data_handle(),
+                         left_sing_vecs_ptr,
+                         right_sing_vecs_ptr,
+                         gen_U,
+                         gen_V);
+}
+
+/**
+ * @brief Overload of `randomized_svd` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for the optional arguments.
+ *
+ * Please see above for documentation of `randomized_svd`.
+ */
+template <typename math_t, typename idx_t, typename opt_u_vec_t, typename opt_v_vec_t>
+void randomized_svd(const raft::handle_t& handle,
+                    raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
+                    raft::device_vector_view<math_t, idx_t> S,
+                    opt_u_vec_t&& U,
+                    opt_v_vec_t&& V,
+                    std::size_t k,
+                    std::size_t p,
+                    std::size_t niters)
+{
+  std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> opt_u =
+    std::forward<opt_u_vec_t>(U);
+  std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> opt_v =
+    std::forward<opt_v_vec_t>(V);
+  randomized_svd(handle, in, S, opt_u, opt_v, k, p, niters);
 }
 
 /**
