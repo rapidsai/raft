@@ -20,6 +20,8 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 
+#include <rmm/device_scalar.hpp>
+
 namespace raft {
 namespace linalg {
 // Reference axpy implementation.
@@ -46,13 +48,15 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
   raft::handle_t handle;
   AxpyInputs<T, IndexType> params;
   rmm::device_uvector<T> refy;
-  rmm::device_uvector<T> y;
+  rmm::device_uvector<T> y_device_alpha;
+  rmm::device_uvector<T> y_host_alpha;
 
  public:
   AxpyTest()
     : testing::TestWithParam<AxpyInputs<T>>(),
       refy(0, handle.get_stream()),
-      y(0, handle.get_stream())
+      y_host_alpha(0, handle.get_stream()),
+      y_device_alpha(0, handle.get_stream())
   {
     handle.sync_stream();
   }
@@ -69,15 +73,17 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
     IndexType x_len = params.len * params.incx;
     IndexType y_len = params.len * params.incy;
     rmm::device_uvector<T> x(x_len, stream);
-    y.resize(y_len, stream);
+    y_host_alpha.resize(y_len, stream);
+    y_device_alpha.resize(y_len, stream);
     refy.resize(y_len, stream);
 
     uniform(handle, r, x.data(), x_len, T(-1.0), T(1.0));
-    uniform(handle, r, y.data(), y_len, T(-1.0), T(1.0));
+    uniform(handle, r, refy.data(), y_len, T(-1.0), T(1.0));
 
-    // Take a copy of the random generated values in y for the naive reference implementation
+    // Take a copy of the random generated values in refy
     // this is necessary since axpy uses y for both input and output
-    raft::copy(refy.data(), y.data(), y_len, stream);
+    raft::copy(y_host_alpha.data(), refy.data(), y_len, stream);
+    raft::copy(y_device_alpha.data(), refy.data(), y_len, stream);
 
     int threads = 64;
     int blocks  = raft::ceildiv<int>(params.len, threads);
@@ -85,30 +91,58 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
     naiveAxpy<T><<<blocks, threads, 0, stream>>>(
       params.len, params.alpha, x.data(), refy.data(), params.incx, params.incy);
 
+    auto host_alpha_view = make_host_scalar_view<const T>(&params.alpha);
+
+    // test out both axpy overloads - taking either a host scalar or device scalar view
+    rmm::device_scalar<T> device_alpha(params.alpha, stream);
+    auto device_alpha_view = make_device_scalar_view<const T>(device_alpha.data());
+
     if ((params.incx > 1) && (params.incy > 1)) {
+      auto x_view = make_device_vector_view<const T, IndexType, layout_stride>(
+        x.data(), make_vector_strided_layout<IndexType>(params.len, params.incx));
       axpy(handle,
-           make_host_scalar_view<const T>(&params.alpha),
-           make_device_vector_view<const T, IndexType, layout_stride>(
-             x.data(), make_vector_strided_layout<IndexType>(params.len, params.incx)),
+           host_alpha_view,
+           x_view,
            make_device_vector_view<T, IndexType, layout_stride>(
-             y.data(), make_vector_strided_layout(params.len, params.incy)));
+             y_host_alpha.data(), make_vector_strided_layout(params.len, params.incy)));
+      axpy(handle,
+           device_alpha_view,
+           x_view,
+           make_device_vector_view<T, IndexType, layout_stride>(
+             y_device_alpha.data(), make_vector_strided_layout(params.len, params.incy)));
     } else if (params.incx > 1) {
+      auto x_view = make_device_vector_view<const T, IndexType, layout_stride>(
+        x.data(), make_vector_strided_layout<IndexType>(params.len, params.incx));
       axpy(handle,
-           make_host_scalar_view<const T>(&params.alpha),
-           make_device_vector_view<const T, IndexType, layout_stride>(
-             x.data(), make_vector_strided_layout(params.len, params.incx)),
-           make_device_vector_view<T, IndexType>(y.data(), params.len));
+           host_alpha_view,
+           x_view,
+           make_device_vector_view<T>(y_host_alpha.data(), params.len));
+      axpy(handle,
+           device_alpha_view,
+           x_view,
+           make_device_vector_view<T>(y_device_alpha.data(), params.len));
     } else if (params.incy > 1) {
+      auto x_view = make_device_vector_view<const T>(x.data(), params.len);
       axpy(handle,
-           make_host_scalar_view<const T>(&params.alpha),
-           make_device_vector_view<const T>(x.data(), params.len),
+           host_alpha_view,
+           x_view,
            make_device_vector_view<T, IndexType, layout_stride>(
-             y.data(), make_vector_strided_layout(params.len, params.incy)));
-    } else {
+             y_host_alpha.data(), make_vector_strided_layout(params.len, params.incy)));
       axpy(handle,
-           make_host_scalar_view<const T>(&params.alpha),
-           make_device_vector_view<const T>(x.data(), params.len),
-           make_device_vector_view<T>(y.data(), params.len));
+           device_alpha_view,
+           x_view,
+           make_device_vector_view<T, IndexType, layout_stride>(
+             y_device_alpha.data(), make_vector_strided_layout(params.len, params.incy)));
+    } else {
+      auto x_view = make_device_vector_view<const T>(x.data(), params.len);
+      axpy(handle,
+           host_alpha_view,
+           x_view,
+           make_device_vector_view<T>(y_host_alpha.data(), params.len));
+      axpy(handle,
+           device_alpha_view,
+           x_view,
+           make_device_vector_view<T>(y_device_alpha.data(), params.len));
     }
 
     handle.sync_stream();
@@ -140,15 +174,25 @@ const std::vector<AxpyInputs<double>> inputsd = {
 typedef AxpyTest<float> AxpyTestF;
 TEST_P(AxpyTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    refy.data(), y.data(), params.len * params.incy, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(refy.data(),
+                                y_host_alpha.data(),
+                                params.len * params.incy,
+                                raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(refy.data(),
+                                y_device_alpha.data(),
+                                params.len * params.incy,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef AxpyTest<double> AxpyTestD;
 TEST_P(AxpyTestD, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(refy.data(),
-                                y.data(),
+                                y_host_alpha.data(),
+                                params.len * params.incy,
+                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(refy.data(),
+                                y_device_alpha.data(),
                                 params.len * params.incy,
                                 raft::CompareApprox<double>(params.tolerance)));
 }
