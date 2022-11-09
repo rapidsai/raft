@@ -291,8 +291,14 @@ auto make_device_vector_view(
   return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, mapping};
 }
 
-template <typename ExtentType, typename StrideType>
-auto make_strided_layout(ExtentType extents, StrideType strides)
+/**
+ * @brief Create a layout_stride mapping from extents and strides
+ * @param[in] The Extents
+ * @param[in] mapping The layout mapping to use for this vector
+ * @return raft::layout_stride::mapping<Extents>
+ */
+template <typename Extents, typename Strides>
+auto make_strided_layout(Extents extents, Strides strides)
 {
   return layout_stride::mapping<ExtentType>{extents, strides};
 }
@@ -311,8 +317,8 @@ auto make_strided_layout(ExtentType extents, StrideType strides)
  * @endcode
  *
  * @tparam IndexType the index type of the extents
- * @params[in] n the number of elements in the vector
- * @params[in] stride the stride between elements in the vector
+ * @param[in] n the number of elements in the vector
+ * @param[in] stride the stride between elements in the vector
  */
 template <typename IndexType>
 auto make_vector_strided_layout(IndexType n, IndexType stride)
