@@ -98,6 +98,7 @@ if(BUILD_TESTS)
             test/nvtx.cpp
             test/mdarray.cu
             test/mdspan_utils.cu
+            test/memory_type.cpp
             test/span.cpp
             test/span.cu
             test/test.cpp
