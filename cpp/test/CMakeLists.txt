@@ -98,6 +98,7 @@ if(BUILD_TESTS)
             test/nvtx.cpp
             test/mdarray.cu
             test/mdspan_utils.cu
+            test/memory_type.cpp
             test/span.cpp
             test/span.cu
             test/test.cpp
@@ -167,6 +168,7 @@ if(BUILD_TESTS)
     ConfigureTest(NAME MATRIX_TEST
             PATH
             test/matrix/argmax.cu
+            test/matrix/argmin.cu
             test/matrix/columnSort.cu
             test/matrix/diagonal.cu
             test/matrix/gather.cu

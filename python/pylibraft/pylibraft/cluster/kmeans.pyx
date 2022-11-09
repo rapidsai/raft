@@ -27,6 +27,7 @@ from libcpp cimport bool
 from libcpp cimport nullptr
 
 from pylibraft.common import Handle
+from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
@@ -66,6 +67,7 @@ cdef extern from "raft_distance/kmeans.hpp" \
         float *weight_per_cluster)
 
 
+@auto_sync_handle
 def compute_new_centroids(X,
                           centroids,
                           labels,
@@ -97,7 +99,7 @@ def compute_new_centroids(X,
                     distances in batches. default: m
     batch_centroids : Optional integer specifying the batch size for centroids
                       to compute distances in batches. default: n_clusters
-    handle : Optional RAFT handle for reusing expensive CUDA resources
+    {handle_docstring}
 
     Examples
     --------
@@ -107,7 +109,7 @@ def compute_new_centroids(X,
         import cupy as cp
 
         from pylibraft.common import Handle
-        from pylibaft.cluster.kmeans import update_centroids
+        from pylibraft.cluster.kmeans import compute_new_centroids
         from pylibraft.distance import fused_l2_nn_argmin
 
         # A single RAFT handle can optionally be reused across
@@ -129,7 +131,9 @@ def compute_new_centroids(X,
 
         new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
 
-        compute_new_centroids(X, centroids, new_centroids, handle=handle)
+        compute_new_centroids(
+            X, centroids, labels, new_centroids, handle=handle
+        )
 
         # pylibraft functions are often asynchronous so the
         # handle needs to be explicitly synchronized
