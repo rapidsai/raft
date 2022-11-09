@@ -86,6 +86,7 @@ struct fp_8bit {
     return *this;
   }
   HDI explicit operator float() const { return fp_8bit2float(*this); }
+  HDI explicit operator half() const { return half(fp_8bit2float(*this)); }
 
  private:
   static constexpr float kMin = 1.0f / float(1u << ExpMask);
@@ -470,13 +471,14 @@ template <int Capacity, typename T, typename IdxT>
 using block_sort_t = typename pq_block_sort<Capacity, T, IdxT>::type;
 
 /* Manually unrolled loop over a chunk of pq_dataset that fits into one VecT. */
-template <typename LutT,
+template <typename OutT,
+          typename LutT,
           typename VecT,
           bool CheckBounds,
           uint32_t PqBits,
           uint32_t BitsLeft = 0,
           uint32_t Ix       = 0>
-__device__ __forceinline__ void ivfpq_compute_chunk(float& score /* NOLINT */,
+__device__ __forceinline__ void ivfpq_compute_chunk(OutT& score /* NOLINT */,
                                                     typename VecT::math_t& pq_code,
                                                     const VecT& pq_codes,
                                                     const LutT*& lut_head,
@@ -491,9 +493,9 @@ __device__ __forceinline__ void ivfpq_compute_chunk(float& score /* NOLINT */,
   if constexpr (BitsLeft >= PqBits) {
     uint8_t code = pq_code & kPqMask;
     pq_code >>= PqBits;
-    score += float(lut_head[code]);
+    score += OutT(lut_head[code]);
     lut_head += kPqShift;
-    return ivfpq_compute_chunk<LutT, VecT, CheckBounds, PqBits, BitsLeft - PqBits, Ix>(
+    return ivfpq_compute_chunk<OutT, LutT, VecT, CheckBounds, PqBits, BitsLeft - PqBits, Ix>(
       score, pq_code, pq_codes, lut_head, lut_end);
   } else if constexpr (Ix < VecT::Ratio) {
     constexpr uint32_t kRemBits = PqBits - BitsLeft;
@@ -502,9 +504,10 @@ __device__ __forceinline__ void ivfpq_compute_chunk(float& score /* NOLINT */,
     pq_code                     = pq_codes.val.data[Ix];
     code |= pq_code & kRemMask;
     pq_code >>= kRemBits;
-    score += float(lut_head[code]);
+    score += OutT(lut_head[code]);
     lut_head += kPqShift;
-    return ivfpq_compute_chunk<LutT,
+    return ivfpq_compute_chunk<OutT,
+                               LutT,
                                VecT,
                                CheckBounds,
                                PqBits,
@@ -514,27 +517,29 @@ __device__ __forceinline__ void ivfpq_compute_chunk(float& score /* NOLINT */,
 }
 
 /* Compute the similarity for one vector in the pq_dataset */
-template <typename LutT, typename VecT, uint32_t PqBits>
+template <typename OutT, typename LutT, typename VecT, uint32_t PqBits>
 __device__ auto ivfpq_compute_score(uint32_t pq_dim,
                                     const typename VecT::io_t* pq_head,
-                                    const LutT* lut_scores) -> float
+                                    const LutT* lut_scores) -> OutT
 {
   constexpr uint32_t kChunks = sizeof(VecT) * 8 / PqBits;
   auto lut_head              = lut_scores;
   auto lut_end               = lut_scores + (pq_dim << PqBits);
   VecT pq_codes;
-  float score        = 0;
+  OutT score{0};
   uint32_t dims_left = pq_dim;
   for (; dims_left >= kChunks; dims_left -= kChunks) {
     *pq_codes.vectorized_data() = *pq_head;
     pq_head += kIndexGroupSize;
     typename VecT::math_t pq_code = 0;
-    ivfpq_compute_chunk<LutT, VecT, false, PqBits>(score, pq_code, pq_codes, lut_head, lut_end);
+    ivfpq_compute_chunk<OutT, LutT, VecT, false, PqBits>(
+      score, pq_code, pq_codes, lut_head, lut_end);
   }
   if (dims_left > 0) {
     *pq_codes.vectorized_data()   = *pq_head;
     typename VecT::math_t pq_code = 0;
-    ivfpq_compute_chunk<LutT, VecT, true, PqBits>(score, pq_code, pq_codes, lut_head, lut_end);
+    ivfpq_compute_chunk<OutT, LutT, VecT, true, PqBits>(
+      score, pq_code, pq_codes, lut_head, lut_end);
   }
   return score;
 }
@@ -798,17 +803,16 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     // Compute a distance for each sample
     for (uint32_t i = threadIdx.x; i < n_samples_aligned;
          i += blockDim.x, pq_thread_data += pq_line_width) {
-      float score = 0;
-      bool valid  = i < n_samples;
+      OutT score = kDummy;
+      bool valid = i < n_samples;
       if (valid) {
-        score = ivfpq_compute_score<LutT, vec_t, PqBits>(
+        score = ivfpq_compute_score<OutT, LutT, vec_t, PqBits>(
           pq_dim, reinterpret_cast<const vec_t::io_t*>(pq_thread_data), lut_scores);
       }
-      if (!valid || score >= float(kDummy)) { score = float(kDummy); }
       if constexpr (kManageLocalTopK) {
-        block_topk.add(OutT(score), cluster_offset + i);
+        block_topk.add(score, cluster_offset + i);
       } else {
-        if (valid) { out_scores[i + sample_offset] = OutT(score); }
+        if (valid) { out_scores[i + sample_offset] = score; }
       }
     }
     if constexpr (kManageLocalTopK) {
