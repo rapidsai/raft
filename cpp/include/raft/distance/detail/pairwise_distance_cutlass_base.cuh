@@ -22,9 +22,8 @@
 // We define CUTLASS_NAMESPACE in case
 // RAFT cmake is not used
 #ifndef CUTLASS_NAMESPACE
-#define cutlass raft_cutlass 
+#define cutlass raft_cutlass
 #endif
-
 
 #include <rmm/device_uvector.hpp>
 

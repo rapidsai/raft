@@ -20,8 +20,9 @@
 This is adapted from DefaultEpilogueWithBroadcastTensorOp from CUTLASS 2.9.0
 (https://github.com/NVIDIA/cutlass/blob/master/include/cutlass/epilogue/threadblock/default_epilogue_with_broadcast.h#L75)
 
-This epilogue allows us to load norm buffers using PredicatedTileIteratorNormVec 
-and EpilogueWithBroadcast used for distances L2/cosine as well as applies user-define elementwise operation.
+This epilogue allows us to load norm buffers using PredicatedTileIteratorNormVec
+and EpilogueWithBroadcast used for distances L2/cosine as well as applies user-define elementwise
+operation.
 -- A norm load is provided PredicatedTileIteratorNormVec
 -- B norm load is provided by EpilogueWithBroadcast
 -- elementwise operation is provided by OutputOp

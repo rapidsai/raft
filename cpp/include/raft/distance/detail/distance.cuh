@@ -649,7 +649,7 @@ void distance(const InType* x,
   final_op_type fin_op;
 
   // raft distance support inputs as float/double and output as uint8_t/float/double.
-  static_assert(! ((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
+  static_assert(!((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
                 "OutType can be uint8_t, float, double,"
                 "if sizeof(OutType) > 1 then sizeof(AccType) == sizeof(OutType).");
   distance<distanceType, InType, AccType, OutType, final_op_type, Index_>(

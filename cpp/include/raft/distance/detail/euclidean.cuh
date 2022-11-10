@@ -246,7 +246,7 @@ void euclideanAlgo1(Index_ m,
   auto norm_op = [] __device__(InType in) { return in; };
 
   // raft distance support inputs as float/double and output as uint8_t/float/double.
-  static_assert(! ((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
+  static_assert(!((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
                 "OutType can be uint8_t, float, double,"
                 "if sizeof(OutType) > 1 then sizeof(AccType) == sizeof(OutType).");
   typedef typename std::conditional<sizeof(OutType) == 1, OutType, AccType>::type ExpOutType;
