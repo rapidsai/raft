@@ -193,7 +193,6 @@ auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
   return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
 }
 
-
 /**
  * @brief Create raft::extents to specify dimensionality
  *
