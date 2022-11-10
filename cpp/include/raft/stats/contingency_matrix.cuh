@@ -138,6 +138,8 @@ void contingencyMatrix(const T* groundTruth,
  * @tparam out_t output matrix type
  * @tparam idx_t Index type of matrix extent.
  * @tparam layout_t Layout type of the input data.
+ * @tparam opt_min_label_t std::optional<value_t> @c opt_min_label
+ * @tparam opt_max_label_t std::optional<value_t> @c opt_max_label
  * @param[in]  handle: the raft handle.
  * @param[in]  ground_truth: device 1-d array for ground truth (num of rows)
  * @param[in]  predicted_label: device 1-d array for prediction (num of columns)

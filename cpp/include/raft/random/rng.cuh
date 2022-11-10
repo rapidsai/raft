@@ -740,7 +740,10 @@ using weight_t = typename weight_alias<T>::type;
  *
  * @tparam DataT type of each element of the input array @c in
  * @tparam IdxT type of the dimensions of the arrays; output index type
- * @tparam WeightsT type of each elements of the weights array @c wts
+ * @tparam WeightsVectorType std::optional<raft::device_vector_view<const weight_type, IdxT>> of
+ * each elements of the weights array @c weights_opt
+ * @tparam OutIndexVectorType std::optional<raft::device_vector_view<IdxT, IdxT>> of output indices
+ * @c outIdx_opt
  *
  * @note Please do not specify template parameters explicitly,
  *   as the compiler can deduce them from the arguments.

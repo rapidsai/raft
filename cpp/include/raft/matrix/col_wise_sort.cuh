@@ -58,6 +58,8 @@ void sort_cols_per_row(const InType* in,
  * @tparam in_t: element type of input matrix
  * @tparam out_t: element type of output matrix
  * @tparam matrix_idx_t: integer type for matrix indexing
+ * @tparam sorted_keys_t: std::optional<raft::device_matrix_view<in_t, matrix_idx_t,
+ * raft::row_major>> @c sorted_keys_opt
  * @param[in] handle: raft handle
  * @param[in] in: input matrix
  * @param[out] out: output value(index) matrix

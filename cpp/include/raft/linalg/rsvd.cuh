@@ -148,6 +148,12 @@ void rsvdPerc(const raft::handle_t& handle,
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using QR decomposition, by specifying no. of PCs and
  * upsamples directly
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
@@ -216,6 +222,12 @@ void rsvd_fixed_rank(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using symmetric Eigen decomposition, by specifying no. of PCs and
  * upsamples directly. The rectangular input matrix is made square and symmetric using B @ B^T
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
@@ -285,6 +297,12 @@ void rsvd_fixed_rank_symmetric(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using Jacobi method, by specifying no. of PCs and
  * upsamples directly
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
@@ -357,6 +375,12 @@ void rsvd_fixed_rank_jacobi(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using Jacobi method, by specifying no. of PCs and
  * upsamples directly. The rectangular input matrix is made square and symmetric using B @ B^T
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
@@ -430,6 +454,12 @@ void rsvd_fixed_rank_symmetric_jacobi(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using QR decomposition, by specifying the PC and upsampling
  * ratio
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
@@ -500,6 +530,12 @@ void rsvd_perc(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using symmetric Eigen decomposition, by specifying the PC and upsampling
  * ratio. The rectangular input matrix is made square and symmetric using B @ B^T
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
@@ -570,6 +606,12 @@ void rsvd_perc_symmetric(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using Jacobi method, by specifying the PC and upsampling
  * ratio
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
@@ -644,6 +686,12 @@ void rsvd_perc_jacobi(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using Jacobi method, by specifying the PC and upsampling
  * ratio. The rectangular input matrix is made square and symmetric using B @ B^T
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)

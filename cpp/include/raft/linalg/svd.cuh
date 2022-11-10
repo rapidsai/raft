@@ -189,6 +189,12 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
 /**
  * @brief singular value decomposition (SVD) on a column major
  * matrix using QR decomposition
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] sing_vals singular values raft::device_vector_view of shape (K)
@@ -246,6 +252,12 @@ void svd_qr(Args... args)
 /**
  * @brief singular value decomposition (SVD) on a column major
  * matrix using QR decomposition. Right singular vector matrix is transposed before returning
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] sing_vals singular values raft::device_vector_view of shape (K)
