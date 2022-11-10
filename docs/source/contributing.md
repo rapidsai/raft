@@ -1,4 +1,4 @@
-# Contributing to RAFT
+# Contributing
 
 If you are interested in contributing to RAFT, your contributions will fall
 into three categories:
