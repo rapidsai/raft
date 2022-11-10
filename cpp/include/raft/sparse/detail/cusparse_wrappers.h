@@ -689,13 +689,13 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
                                    math_type));
   // Create dense matrices
   CUSPARSE_CHECK(cusparseCreateDnMat(
-    &matA, m, k, lda, static_cast<void*>(const_cast<T*>(A)), math_type, CUSPARSE_ORDER_ROW));
+    &matA, m, k, lda, static_cast<void*>(const_cast<T*>(A)), math_type, CUSPARSE_ORDER_COL));
   CUSPARSE_CHECK(cusparseCreateDnMat(
-    &matC, m, n, ldc, static_cast<void*>(const_cast<T*>(C)), math_type, CUSPARSE_ORDER_ROW));
+    &matC, m, n, ldc, static_cast<void*>(C), math_type, CUSPARSE_ORDER_COL));
 
   cusparseOperation_t opA = CUSPARSE_OPERATION_TRANSPOSE;
   cusparseOperation_t opB = CUSPARSE_OPERATION_TRANSPOSE;
-  cusparseSpMMAlg_t alg   = CUSPARSE_SPMM_CSR_ALG2;
+  cusparseSpMMAlg_t alg   = CUSPARSE_SPMM_CSR_ALG1;
   size_t buffer_size      = 0;
 
   CUSPARSE_CHECK(cusparsespmm_bufferSize(
