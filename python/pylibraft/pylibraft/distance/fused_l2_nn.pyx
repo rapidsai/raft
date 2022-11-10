@@ -47,7 +47,7 @@ cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
         int m,
         int n,
         int k,
-        bool sqrt)
+        bool sqrt) except +
 
     void fused_l2_nn_min_arg(
         const handle_t &handle,
@@ -57,7 +57,7 @@ cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
         int m,
         int n,
         int k,
-        bool sqrt)
+        bool sqrt) except +
 
 
 @auto_sync_handle
