@@ -19,7 +19,7 @@ from scipy.spatial.distance import cdist
 
 from pylibraft.common import Handle
 from pylibraft.distance import fused_l2_nn_argmin
-from pylibraft.testing.utils import TestDeviceBuffer
+from pylibraft.common import device_ndarray
 
 
 @pytest.mark.parametrize("n_rows", [10, 100])
@@ -38,9 +38,9 @@ def test_fused_l2_nn_minarg(n_rows, n_cols, n_clusters, dtype):
 
     expected = expected.argmin(axis=1)
 
-    input1_device = TestDeviceBuffer(input1, "C")
-    input2_device = TestDeviceBuffer(input2, "C")
-    output_device = TestDeviceBuffer(output, "C")
+    input1_device = device_ndarray(input1)
+    input2_device = device_ndarray(input2)
+    output_device = device_ndarray(output)
 
     handle = Handle()
     fused_l2_nn_argmin(

@@ -19,7 +19,7 @@ from scipy.spatial.distance import cdist
 
 from pylibraft.common import Handle
 from pylibraft.distance import pairwise_distance
-from pylibraft.testing.utils import TestDeviceBuffer
+from pylibraft.common import device_ndarray
 
 
 @pytest.mark.parametrize("n_rows", [100])
@@ -61,8 +61,8 @@ def test_distance(n_rows, n_cols, metric, order, dtype):
 
     expected[expected <= 1e-5] = 0.0
 
-    input1_device = TestDeviceBuffer(input1, order)
-    output_device = TestDeviceBuffer(output, order)
+    input1_device = device_ndarray(input1)
+    output_device = device_ndarray(output)
 
     handle = Handle()
     pairwise_distance(input1_device, input1_device, output_device, metric)
