@@ -28,7 +28,10 @@ from .distance_type cimport DistanceType
 
 from pylibraft.common import Handle
 from pylibraft.common.handle import auto_sync_handle
+
 from pylibraft.common.handle cimport handle_t
+
+from pylibraft.common import device_ndarray
 
 
 def is_c_cont(cai, dt):
@@ -92,7 +95,7 @@ SUPPORTED_DISTANCES = ["euclidean", "l1", "cityblock", "l2", "inner_product",
 
 
 @auto_sync_handle
-def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
+def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
     """
     Compute pairwise distances between X and Y
 
@@ -107,10 +110,15 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
 
     X : CUDA array interface compliant matrix shape (m, k)
     Y : CUDA array interface compliant matrix shape (n, k)
-    dists : Writable CUDA array interface matrix shape (m, n)
+    out : Optional writable CUDA array interface matrix shape (m, n)
     metric : string denoting the metric type (default="euclidean")
     p : metric parameter (currently used only for "minkowski")
     {handle_docstring}
+
+    Returns
+    -------
+
+    raft.device_ndarray containing pairwise distances
 
     Examples
     --------
@@ -144,13 +152,23 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
 
     x_cai = X.__cuda_array_interface__
     y_cai = Y.__cuda_array_interface__
-    dists_cai = dists.__cuda_array_interface__
 
     m = x_cai["shape"][0]
     n = y_cai["shape"][0]
 
+    x_dt = np.dtype(x_cai["typestr"])
+    y_dt = np.dtype(y_cai["typestr"])
+
+    if out is None:
+        out_host = np.empty((m, n), dtype=y_dt)
+        dists = device_ndarray(out_host)
+    else:
+        dists = out
+
     x_k = x_cai["shape"][1]
     y_k = y_cai["shape"][1]
+
+    dists_cai = dists.__cuda_array_interface__
 
     if x_k != y_k:
         raise ValueError("Inputs must have same number of columns. "
@@ -163,8 +181,6 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
     handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
-    x_dt = np.dtype(x_cai["typestr"])
-    y_dt = np.dtype(y_cai["typestr"])
     d_dt = np.dtype(dists_cai["typestr"])
 
     x_c_contiguous = is_c_cont(x_cai, x_dt)
@@ -205,3 +221,5 @@ def distance(X, Y, dists, metric="euclidean", p=2.0, handle=None):
                           <float>p)
     else:
         raise ValueError("dtype %s not supported" % x_dt)
+
+    return dists

@@ -17,9 +17,8 @@ import numpy as np
 import pytest
 from scipy.spatial.distance import cdist
 
-from pylibraft.common import Handle
+from pylibraft.common import Handle, device_ndarray
 from pylibraft.distance import pairwise_distance
-from pylibraft.common import device_ndarray
 
 
 @pytest.mark.parametrize("n_rows", [100])
@@ -39,9 +38,10 @@ from pylibraft.common import device_ndarray
         "sqeuclidean",
     ],
 )
+@pytest.mark.parametrize("inplace", [True, False])
 @pytest.mark.parametrize("order", ["F", "C"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_distance(n_rows, n_cols, metric, order, dtype):
+def test_distance(n_rows, n_cols, inplace, metric, order, dtype):
     input1 = np.random.random_sample((n_rows, n_cols))
     input1 = np.asarray(input1, order=order).astype(dtype)
 
@@ -62,11 +62,15 @@ def test_distance(n_rows, n_cols, metric, order, dtype):
     expected[expected <= 1e-5] = 0.0
 
     input1_device = device_ndarray(input1)
-    output_device = device_ndarray(output)
+    output_device = device_ndarray(output) if inplace else None
 
     handle = Handle()
-    pairwise_distance(input1_device, input1_device, output_device, metric)
+    ret_output = pairwise_distance(
+        input1_device, input1_device, output_device, metric
+    )
     handle.sync()
+
+    output_device = ret_output if not inplace else output_device
 
     actual = output_device.copy_to_host()
 
