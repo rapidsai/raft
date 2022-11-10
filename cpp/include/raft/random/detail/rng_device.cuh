@@ -667,7 +667,7 @@ __global__ void rngKernel(DeviceState<GenType> rng_state,
                           LenType len,
                           ParamType params)
 {
-  LenType tid = threadIdx.x + blockIdx.x * blockDim.x;
+  LenType tid = threadIdx.x + static_cast<LenType>(blockIdx.x) * blockDim.x;
   GenType gen(rng_state, (uint64_t)tid);
   const LenType stride = gridDim.x * blockDim.x;
   for (LenType idx = tid; idx < len; idx += stride * ITEMS_PER_CALL) {
@@ -692,7 +692,7 @@ template <typename OutType,
 __global__ void fillKernel(
   uint64_t seed, uint64_t adv_subs, uint64_t offset, OutType* ptr, LenType len, ParamType params)
 {
-  LenType tid = threadIdx.x + blockIdx.x * blockDim.x;
+  LenType tid = threadIdx.x + static_cast<LenType>(blockIdx.x) * blockDim.x;
   GenType gen(seed, adv_subs + (uint64_t)tid, offset);
   const LenType stride = gridDim.x * blockDim.x;
   for (LenType idx = tid; idx < len; idx += stride * ITEMS_PER_CALL) {

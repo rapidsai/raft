@@ -22,6 +22,8 @@ import numpy as np
 
 from libc.stdint cimport uintptr_t, int64_t
 from cython.operator cimport dereference as deref
+from pylibraft.common import Handle
+from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.handle cimport handle_t
 from .rng_state cimport RngState
 
@@ -39,7 +41,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int r_scale,
                                    int c_scale,
                                    int n_edges,
-                                   RngState& r)
+                                   RngState& r) except +
 
     cdef void rmat_rectangular_gen(const handle_t &handle,
                                    int64_t* out,
@@ -49,7 +51,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int64_t r_scale,
                                    int64_t c_scale,
                                    int64_t n_edges,
-                                   RngState& r)
+                                   RngState& r) except +
 
     cdef void rmat_rectangular_gen(const handle_t &handle,
                                    int* out,
@@ -59,7 +61,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int r_scale,
                                    int c_scale,
                                    int n_edges,
-                                   RngState& r)
+                                   RngState& r) except +
 
     cdef void rmat_rectangular_gen(const handle_t &handle,
                                    int64_t* out,
@@ -69,10 +71,11 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int64_t r_scale,
                                    int64_t c_scale,
                                    int64_t n_edges,
-                                   RngState& r)
+                                   RngState& r) except +
 
 
-def rmat(out, theta, r_scale, c_scale, seed=12345):
+@auto_sync_handle
+def rmat(out, theta, r_scale, c_scale, seed=12345, handle=None):
     """
     Generate RMAT adjacency list based on the input distribution.
 
@@ -87,6 +90,7 @@ def rmat(out, theta, r_scale, c_scale, seed=12345):
     r_scale: log2 of number of source nodes
     c_scale: log2 of number of destination nodes
     seed: random seed used for reproducibility
+    {handle_docstring}
 
     Examples
     --------
@@ -95,6 +99,7 @@ def rmat(out, theta, r_scale, c_scale, seed=12345):
 
         import cupy as cp
 
+        from pylibraft.common import Handle
         from pylibraft.random import rmat
 
         n_edges = 5000
@@ -105,7 +110,15 @@ def rmat(out, theta, r_scale, c_scale, seed=12345):
         out = cp.empty((n_edges, 2), dtype=cp.int32)
         theta = cp.random.random_sample(theta_len, dtype=cp.float32)
 
-        rmat(out, theta, r_scale, c_scale)
+        # A single RAFT handle can optionally be reused across
+        # pylibraft functions.
+        handle = Handle()
+        ...
+        rmat(out, theta, r_scale, c_scale, handle=handle)
+        ...
+        # pylibraft functions are often asynchronous so the
+        # handle needs to be explicitly synchronized
+        handle.sync()
    """
 
     if theta is None:
@@ -123,7 +136,9 @@ def rmat(out, theta, r_scale, c_scale, seed=12345):
     theta_dt = np.dtype(theta_cai["typestr"])
 
     cdef RngState *rng = new RngState(seed)
-    cdef handle_t *h = new handle_t()
+
+    handle = handle if handle is not None else Handle()
+    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
     if out_dt == np.int32 and theta_dt == np.float32:
         rmat_rectangular_gen(deref(h),

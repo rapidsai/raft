@@ -18,17 +18,36 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/random/rng_state.hpp>
 
-namespace raft {
-namespace cluster {
+namespace raft::cluster::kmeans {
 
+/**
+ * Simple object to specify hyper-parameters to the kmeans algorithm.
+ */
 struct KMeansParams {
-  enum InitMethod { KMeansPlusPlus, Random, Array };
+  enum InitMethod {
 
-  // The number of clusters to form as well as the number of centroids to
-  // generate (default:8).
+    /**
+     * Sample the centroids using the kmeans++ strategy
+     */
+    KMeansPlusPlus,
+
+    /**
+     * Sample the centroids uniformly at random
+     */
+    Random,
+
+    /**
+     * User provides the array of initial centroids
+     */
+    Array
+  };
+
+  /**
+   * The number of clusters to form as well as the number of centroids to generate (default:8).
+   */
   int n_clusters = 8;
 
-  /*
+  /**
    * Method for initialization, defaults to k-means++:
    *  - InitMethod::KMeansPlusPlus (k-means++): Use scalable k-means++ algorithm
    * to select the initial cluster centers.
@@ -38,36 +57,60 @@ struct KMeansParams {
    */
   InitMethod init = KMeansPlusPlus;
 
-  // Maximum number of iterations of the k-means algorithm for a single run.
+  /**
+   * Maximum number of iterations of the k-means algorithm for a single run.
+   */
   int max_iter = 300;
 
-  // Relative tolerance with regards to inertia to declare convergence.
+  /**
+   * Relative tolerance with regards to inertia to declare convergence.
+   */
   double tol = 1e-4;
 
-  // verbosity level.
+  /**
+   * verbosity level.
+   */
   int verbosity = RAFT_LEVEL_INFO;
 
-  // Seed to the random number generator.
+  /**
+   * Seed to the random number generator.
+   */
   raft::random::RngState rng_state =
     raft::random::RngState(0, raft::random::GeneratorType::GenPhilox);
 
-  // Metric to use for distance computation.
+  /**
+   * Metric to use for distance computation.
+   */
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded;
 
-  // Number of instance k-means algorithm will be run with different seeds.
+  /**
+   * Number of instance k-means algorithm will be run with different seeds.
+   */
   int n_init = 1;
 
-  // Oversampling factor for use in the k-means|| algorithm.
+  /**
+   * Oversampling factor for use in the k-means|| algorithm
+   */
   double oversampling_factor = 2.0;
 
   // batch_samples and batch_centroids are used to tile 1NN computation which is
   // useful to optimize/control the memory footprint
   // Default tile is [batch_samples x n_clusters] i.e. when batch_centroids is 0
   // then don't tile the centroids
-  int batch_samples   = 1 << 15;
-  int batch_centroids = 0;  // if 0 then batch_centroids = n_clusters
+  int batch_samples = 1 << 15;
+
+  /**
+   * if 0 then batch_centroids = n_clusters
+   */
+  int batch_centroids = 0;  //
 
   bool inertia_check = false;
 };
-}  // namespace cluster
-}  // namespace raft
+
+}  // namespace raft::cluster::kmeans
+
+namespace raft::cluster {
+
+using kmeans::KMeansParams;
+
+}  // namespace raft::cluster

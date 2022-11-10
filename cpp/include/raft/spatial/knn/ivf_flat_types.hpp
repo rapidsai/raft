@@ -37,4 +37,4 @@ using raft::neighbors::ivf_flat::index_params;
 using raft::neighbors::ivf_flat::kIndexGroupSize;
 using raft::neighbors::ivf_flat::search_params;
 
-}  // namespace raft::spatial::knn::ivf_flat
+};  // namespace raft::spatial::knn::ivf_flat

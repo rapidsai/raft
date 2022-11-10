@@ -42,9 +42,12 @@ namespace raft::matrix {
  * @param [in] alongLines whether vectors are indices along or across lines.
  * @param [in] op the operation applied on each line:
  *    for i in [0..lineLen) and j in [0..nLines):
+ *      out[j, i] = op(in[j, i], vec1[i], vec2[i], ... veck[i])   if alongLines = true
+ *      out[j, i] = op(in[j, i], vec1[j], vec2[j], ... veck[j])   if alongLines = false
+ *    where matrix indexing is row-major ([j, i] = [i + lineLen * j]).
  *      out[i, j] = op(in[i, j], vec1[i], vec2[i], ... veck[i])   if alongLines = true
  *      out[i, j] = op(in[i, j], vec1[j], vec2[j], ... veck[j])   if alongLines = false
- *    where matrix indexing is row-major ([i, j] = [i + lineLen * j]).
+ *    where matrix indexing is col-major ([i, j] = [i + lineLen * j]).
  * @param [in] vecs zero or more vectors to be passed as arguments,
  *    size of each vector is `alongLines ? lineLen : nLines`.
  */
@@ -67,8 +70,8 @@ void linewise_op(const raft::handle_t& handle,
   static_assert(is_rowmajor || is_colmajor,
                 "layout for in and out must be either row or col major");
 
-  const idx_t lineLen = is_rowmajor ? in.extent(0) : in.extent(1);
-  const idx_t nLines  = is_rowmajor ? in.extent(1) : in.extent(0);
+  const idx_t nLines  = is_rowmajor ? in.extent(0) : in.extent(1);
+  const idx_t lineLen = is_rowmajor ? in.extent(1) : in.extent(0);
 
   RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
                "Input and output must have the same shape.");
@@ -82,4 +85,34 @@ void linewise_op(const raft::handle_t& handle,
                                                      handle.get_stream(),
                                                      vecs.data_handle()...);
 }
+
+template <typename m_t,
+          typename idx_t,
+          typename layout,
+          typename Lambda,
+          typename... vec_t,
+          typename = raft::enable_if_device_mdspan<vec_t...>>
+void linewise_op(const raft::handle_t& handle,
+                 raft::device_aligned_matrix_view<const m_t, idx_t, layout> in,
+                 raft::device_aligned_matrix_view<m_t, idx_t, layout> out,
+                 const bool alongLines,
+                 Lambda op,
+                 vec_t... vecs)
+{
+  constexpr auto is_rowmajor = std::is_same_v<layout, raft::layout_right_padded<m_t>>;
+  constexpr auto is_colmajor = std::is_same_v<layout, raft::layout_left_padded<m_t>>;
+
+  static_assert(is_rowmajor || is_colmajor,
+                "layout for in and out must be either padded row or col major");
+
+  const idx_t nLines  = is_rowmajor ? in.extent(0) : in.extent(1);
+  const idx_t lineLen = is_rowmajor ? in.extent(1) : in.extent(0);
+
+  RAFT_EXPECTS(out.extent(0) == in.extent(0) && out.extent(1) == in.extent(1),
+               "Input and output must have the same shape.");
+
+  detail::MatrixLinewiseOp<16, 256>::runPadded<m_t, idx_t>(
+    out, in, lineLen, nLines, alongLines, op, handle.get_stream(), vecs.data_handle()...);
+}
+
 }  // namespace raft::matrix

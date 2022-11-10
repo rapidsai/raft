@@ -51,6 +51,10 @@ function(ConfigureTest)
             PROPERTIES
             # set target compile options
             INSTALL_RPATH "\$ORIGIN/../../../lib"
+            CXX_STANDARD                        17
+            CXX_STANDARD_REQUIRED               ON
+            CUDA_STANDARD                       17
+            CUDA_STANDARD_REQUIRED              ON
             )
 
     target_compile_options(${TEST_NAME}
@@ -82,7 +86,7 @@ if(BUILD_TESTS)
             PATH
             test/cluster/kmeans.cu
             test/cluster_solvers.cu
-            test/sparse/linkage.cu
+            test/cluster/linkage.cu
             OPTIONAL DIST NN
     )
 
@@ -94,6 +98,7 @@ if(BUILD_TESTS)
             test/nvtx.cpp
             test/mdarray.cu
             test/mdspan_utils.cu
+            test/memory_type.cpp
             test/span.cpp
             test/span.cu
             test/test.cpp
@@ -129,17 +134,21 @@ if(BUILD_TESTS)
     ConfigureTest(NAME LINALG_TEST
             PATH
             test/linalg/add.cu
+            test/linalg/axpy.cu
             test/linalg/binary_op.cu
             test/linalg/cholesky_r1.cu
             test/linalg/coalesced_reduction.cu
             test/linalg/divide.cu
+            test/linalg/dot.cu
             test/linalg/eig.cu
             test/linalg/eig_sel.cu
             test/linalg/gemm_layout.cu
             test/linalg/gemv.cu
             test/linalg/map.cu
             test/linalg/map_then_reduce.cu
+            test/linalg/matrix_vector.cu
             test/linalg/matrix_vector_op.cu
+            test/linalg/mean_squared_error.cu
             test/linalg/multiply.cu
             test/linalg/norm.cu
             test/linalg/power.cu
@@ -158,11 +167,18 @@ if(BUILD_TESTS)
 
     ConfigureTest(NAME MATRIX_TEST
             PATH
+            test/matrix/argmax.cu
+            test/matrix/argmin.cu
+            test/matrix/columnSort.cu
+            test/matrix/diagonal.cu
             test/matrix/gather.cu
+            test/matrix/linewise_op.cu
             test/matrix/math.cu
             test/matrix/matrix.cu
-            test/matrix/columnSort.cu
-            test/matrix/linewise_op.cu
+            test/matrix/norm.cu
+            test/matrix/reverse.cu
+            test/matrix/slice.cu
+            test/matrix/triangular.cu
             test/spectral_matrix.cu
     )
 

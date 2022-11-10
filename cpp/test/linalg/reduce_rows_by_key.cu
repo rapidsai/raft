@@ -103,7 +103,7 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
     raft::random::RngState r(params.seed);
     raft::random::RngState r_int(params.seed);
 
-    int nobs       = params.nobs;
+    uint32_t nobs  = params.nobs;
     uint32_t cols  = params.cols;
     uint32_t nkeys = params.nkeys;
     uniform(handle, r, in.data(), nobs * cols, T(0.0), T(2.0 / nobs));

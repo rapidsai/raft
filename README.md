@@ -20,10 +20,11 @@ While not exhaustive, the following general categories help summarize the accele
 | **Statistics** | sampling, moments and summary statistics, metrics |
 | **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure |
 
-RAFT provides a header-only C++ library and pre-compiled shared libraries that can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
+
+All of RAFT's C++ APIs can be accessed header-only and optional pre-compiled shared libraries can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
 
 In addition to the C++ library, RAFT also provides 2 Python libraries:
-- `pylibraft` - lightweight low-level Python wrappers around RAFT algorithms and primitives.
+- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessable APIs.
 - `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
 
 ## Getting started
@@ -78,7 +79,7 @@ raft::distance::pairwise_distance(handle, input.view(), input.view(), output.vie
 
 ### Python Example
 
-The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The package is currently limited to pairwise distances and RMAT graph generation, but we will continue adding more in future releases.
+The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The number of RAFT algorithms exposed in this package is continuing to grow from release to release.
 
 The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. `pylibraft` is a low-level API that prioritizes efficiency and simplicity over being pythonic, which is shown here by pre-allocating the output memory before invoking the `pairwise_distance` function. Note that CuPy is not a required dependency for `pylibraft`.
 
@@ -99,7 +100,7 @@ pairwise_distance(in1, in2, output, metric="euclidean")
 
 ## Installing
 
-RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), or by building the repository from source. Please refer to the [build instructions](BUILD.md) for more a comprehensive guide on building RAFT and using it in downstream projects.
+RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), or by building the repository from source. Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on building RAFT and using it in downstream projects.
 
 ### Conda
 
@@ -119,7 +120,7 @@ You can also install the `libraft-*` conda packages individually using the `mamb
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
 
-### CPM
+### Cmake & CPM
 
 RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS CMake provides a convenience layer around CPM. 
 
@@ -127,7 +128,7 @@ After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids
 
 ```cmake
 
-set(RAFT_VERSION "22.04")
+set(RAFT_VERSION "22.12")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
@@ -186,7 +187,7 @@ mamba activate raft_dev_env
 ./build.sh raft-dask pylibraft libraft tests bench --compile-libs
 ```
 
-The [build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) section of the build instructions.
+The [build](docs/source/build.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](docs/source/build.md#building-raft-c-from-source-in-cmake) section of the build instructions.
 
 ## Folder Structure and Contents
 
@@ -220,7 +221,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
   - `scripts`: Helpful scripts for development
   - `src`: Compiled APIs and template specializations for the shared libraries
   - `test`: Googletests source code
-- `docs`: Source code and scripts for building library documentation (doxygen + pydocs)
+- `docs`: Source code and scripts for building library documentation (Uses breath, doxygen, & pydocs)
 - `python`: Source code for Python libraries.
   - `pylibraft`: Python build and source code for pylibraft library
   - `raft-dask`: Python build and source code for raft-dask library

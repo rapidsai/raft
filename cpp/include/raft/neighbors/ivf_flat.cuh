@@ -38,7 +38,7 @@ namespace raft::neighbors::ivf_flat {
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   // use default index parameters
  *   ivf_flat::index_params index_params;
  *   // create and fill the index from a [N, D] dataset
@@ -61,7 +61,7 @@ namespace raft::neighbors::ivf_flat {
  * @return the constructed ivf-flat index
  */
 template <typename T, typename IdxT>
-inline auto build(
+auto build(
   const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
   -> index<T, IdxT>
 {
@@ -78,15 +78,15 @@ inline auto build(
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   // use default index parameters
  *   ivf_flat::index_params index_params;
  *   // create and fill the index from a [N, D] dataset
- *   auto index = ivf_flat::build(handle, index_params, dataset, N, D);
+ *   auto index = ivf_flat::build(handle, dataset, index_params);
  *   // use default search parameters
  *   ivf_flat::search_params search_params;
  *   // search K nearest neighbours for each of the N queries
- *   ivf_flat::search(handle, search_params, index, queries, N, K, out_inds, out_dists);
+ *   ivf_flat::search(handle, index, queries, out_inds, out_dists, search_params, k);
  * @endcode
  *
  * @tparam value_t data element type
@@ -101,9 +101,9 @@ inline auto build(
  * @return the constructed ivf-flat index
  */
 template <typename value_t, typename idx_t>
-auto build_index(const handle_t& handle,
-                 raft::device_matrix_view<const value_t, idx_t, row_major> dataset,
-                 const index_params& params) -> index<value_t, idx_t>
+auto build(const handle_t& handle,
+           raft::device_matrix_view<const value_t, idx_t, row_major> dataset,
+           const index_params& params) -> index<value_t, idx_t>
 {
   return raft::spatial::knn::ivf_flat::detail::build(handle,
                                                      params,
@@ -121,7 +121,7 @@ auto build_index(const handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_flat::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
@@ -145,11 +145,11 @@ auto build_index(const handle_t& handle,
  * @return the constructed extended ivf-flat index
  */
 template <typename T, typename IdxT>
-inline auto extend(const handle_t& handle,
-                   const index<T, IdxT>& orig_index,
-                   const T* new_vectors,
-                   const IdxT* new_indices,
-                   IdxT n_rows) -> index<T, IdxT>
+auto extend(const handle_t& handle,
+            const index<T, IdxT>& orig_index,
+            const T* new_vectors,
+            const IdxT* new_indices,
+            IdxT n_rows) -> index<T, IdxT>
 {
   return raft::spatial::knn::ivf_flat::detail::extend(
     handle, orig_index, new_vectors, new_indices, n_rows);
@@ -164,14 +164,14 @@ inline auto extend(const handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- *   using namespace raft::spatial::knn;
+ *   using namespace raft::neighbors;
  *   ivf_flat::index_params index_params;
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
  *   // train the index from a [N, D] dataset
- *   auto index_empty = ivf_flat::build(handle, index_params, dataset, N, D);
+ *   auto index_empty = ivf_flat::build(handle, dataset, index_params, dataset);
  *   // fill the index with the data
- *   auto index = ivf_flat::extend(handle, index_empty, dataset, nullptr, N);
+ *   auto index = ivf_flat::extend(handle, index_empty, dataset);
  * @endcode
  *
  * @tparam value_t data element type
@@ -195,7 +195,7 @@ auto extend(const handle_t& handle,
             std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
   -> index<value_t, idx_t>
 {
-  return raft::spatial::knn::ivf_flat::detail::extend<value_t, idx_t>(
+  return extend<value_t, idx_t>(
     handle,
     orig_index,
     new_vectors.data_handle(),
@@ -204,8 +204,20 @@ auto extend(const handle_t& handle,
 }
 
 /**
- * @brief Extend the index with the new data.
- * *
+ * @brief Extend the index in-place with the new data.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   ivf_flat::index_params index_params;
+ *   index_params.add_data_on_build = false;      // don't populate index on build
+ *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
+ *   // train the index from a [N, D] dataset
+ *   auto index_empty = ivf_flat::build(handle, index_params, dataset, N, D);
+ *   // fill the index with the data
+ *   ivf_flat::extend(handle, index_empty, dataset, nullptr, N);
+ * @endcode
+ *
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
@@ -218,18 +230,30 @@ auto extend(const handle_t& handle,
  * @param[in] n_rows the number of samples
  */
 template <typename T, typename IdxT>
-inline void extend(const handle_t& handle,
-                   index<T, IdxT>* index,
-                   const T* new_vectors,
-                   const IdxT* new_indices,
-                   IdxT n_rows)
+void extend(const handle_t& handle,
+            index<T, IdxT>* index,
+            const T* new_vectors,
+            const IdxT* new_indices,
+            IdxT n_rows)
 {
   *index = extend(handle, *index, new_vectors, new_indices, n_rows);
 }
 
 /**
- * @brief Extend the index with the new data.
- * *
+ * @brief Extend the index in-place with the new data.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   ivf_flat::index_params index_params;
+ *   index_params.add_data_on_build = false;      // don't populate index on build
+ *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
+ *   // train the index from a [N, D] dataset
+ *   auto index_empty = ivf_flat::build(handle, dataset, index_params, dataset);
+ *   // fill the index with the data
+ *   ivf_flat::extend(handle, index_empty, dataset);
+ * @endcode
+ *
  * @tparam value_t data element type
  * @tparam idx_t type of the indices in the source dataset
  * @tparam int_t precision / type of integral arguments
@@ -298,15 +322,15 @@ void extend(const handle_t& handle,
  * enough memory pool here to avoid memory allocations within search).
  */
 template <typename T, typename IdxT>
-inline void search(const handle_t& handle,
-                   const search_params& params,
-                   const index<T, IdxT>& index,
-                   const T* queries,
-                   uint32_t n_queries,
-                   uint32_t k,
-                   IdxT* neighbors,
-                   float* distances,
-                   rmm::mr::device_memory_resource* mr = nullptr)
+void search(const handle_t& handle,
+            const search_params& params,
+            const index<T, IdxT>& index,
+            const T* queries,
+            uint32_t n_queries,
+            uint32_t k,
+            IdxT* neighbors,
+            float* distances,
+            rmm::mr::device_memory_resource* mr = nullptr)
 {
   return raft::spatial::knn::ivf_flat::detail::search(
     handle, params, index, queries, n_queries, k, neighbors, distances, mr);
@@ -323,21 +347,15 @@ inline void search(const handle_t& handle,
  * eliminate entirely allocations happening within `search`:
  * @code{.cpp}
  *   ...
- *   // Create a pooling memory resource with a pre-defined initial size.
- *   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr(
- *     rmm::mr::get_current_device_resource(), 1024 * 1024);
  *   // use default search parameters
  *   ivf_flat::search_params search_params;
  *   // Use the same allocator across multiple searches to reduce the number of
  *   // cuda memory allocations
- *   ivf_flat::search(handle, search_params, index, queries1, N1, K, out_inds1, out_dists1, &mr);
- *   ivf_flat::search(handle, search_params, index, queries2, N2, K, out_inds2, out_dists2, &mr);
- *   ivf_flat::search(handle, search_params, index, queries3, N3, K, out_inds3, out_dists3, &mr);
+ *   ivf_flat::search(handle, index, queries1, out_inds1, out_dists1, search_params, K);
+ *   ivf_flat::search(handle, index, queries2, out_inds2, out_dists2, search_params, K);
+ *   ivf_flat::search(handle, index, queries3, out_inds3, out_dists3, search_params, K);
  *   ...
  * @endcode
- * The exact size of the temporary buffer depends on multiple factors and is an implementation
- * detail. However, you can safely specify a small initial size for the memory pool, so that only a
- * few allocations happen to grow it during the first invocations of the `search`.
  *
  * @tparam value_t data element type
  * @tparam idx_t type of the indices
@@ -358,7 +376,7 @@ void search(const handle_t& handle,
             const index<value_t, idx_t>& index,
             raft::device_matrix_view<const value_t, idx_t, row_major> queries,
             raft::device_matrix_view<idx_t, idx_t, row_major> neighbors,
-            raft::device_matrix_view<idx_t, idx_t, float> distances,
+            raft::device_matrix_view<float, idx_t, row_major> distances,
             const search_params& params,
             int_t k)
 {
@@ -373,15 +391,15 @@ void search(const handle_t& handle,
   RAFT_EXPECTS(queries.extent(1) == index.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
 
-  return raft::spatial::knn::ivf_flat::detail::search(handle,
-                                                      params,
-                                                      index,
-                                                      queries.data_handle(),
-                                                      queries.extent(0),
-                                                      k,
-                                                      neighbors.data_handle(),
-                                                      distances.data_handle(),
-                                                      nullptr);
+  return search(handle,
+                params,
+                index,
+                queries.data_handle(),
+                static_cast<std::uint32_t>(queries.extent(0)),
+                static_cast<std::uint32_t>(k),
+                neighbors.data_handle(),
+                distances.data_handle(),
+                nullptr);
 }
 
 }  // namespace raft::neighbors::ivf_flat

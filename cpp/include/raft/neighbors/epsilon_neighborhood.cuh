@@ -60,7 +60,22 @@ void epsUnexpL2SqNeighborhood(bool* adj,
 }
 
 /**
- * @brief Computes epsilon neighborhood for the L2-Squared distance metric
+ * @brief Computes epsilon neighborhood for the L2-Squared distance metric and given ball size.
+ * The epsilon neighbors is represented by a dense boolean adjacency matrix of size m * n and
+ * an array of degrees for each vertex, which can be used as a compressed sparse row (CSR)
+ * indptr array.
+ *
+ * @code{.cpp}
+ *  #include <raft/neighbors/epsilon_neighborhood.cuh>
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/device_mdarray.hpp>
+ *  using namespace raft::neighbors;
+ *  raft::handle_t handle;
+ *  ...
+ *  auto adj = raft::make_device_matrix<bool>(handle, m * n);
+ *  auto vd = raft::make_device_vector<int>(handle, m+1);
+ *  epsilon_neighborhood::eps_neighbors_l2sq(handle, x, y, adj.view(), vd.view(), eps);
+ * @endcode
  *
  * @tparam value_t   IO and math type
  * @tparam idx_t    Index type

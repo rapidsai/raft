@@ -44,6 +44,7 @@
 #pragma once
 
 #include "__p0009_bits/default_accessor.hpp"
+#include "__p0009_bits/aligned_accessor.hpp"
 #include "__p0009_bits/full_extent_t.hpp"
 #include "__p0009_bits/mdspan.hpp"
 #include "__p0009_bits/dynamic_extent.hpp"
@@ -51,6 +52,7 @@
 #include "__p0009_bits/layout_stride.hpp"
 #include "__p0009_bits/layout_left.hpp"
 #include "__p0009_bits/layout_right.hpp"
+#include "__p0009_bits/layout_padded.hpp"
 #include "__p0009_bits/macros.hpp"
 #include "__p0009_bits/static_array.hpp"
 #include "__p0009_bits/submdspan.hpp"

@@ -152,7 +152,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
 
-        auto index = ivf_flat::build_index(handle_, database_view, index_params);
+        auto index = ivf_flat::build(handle_, database_view, index_params);
 
         rmm::device_uvector<IdxT> vector_indices(ps.num_db_vecs, stream_);
         thrust::sequence(handle_.get_thrust_policy(),
@@ -167,20 +167,31 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
         auto index_2 = ivf_flat::extend(handle_, index, half_of_data_view);
 
+        auto new_half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
+          database.data() + half_of_data * ps.dim, IdxT(ps.num_db_vecs) - half_of_data, ps.dim);
+
+        auto new_half_of_data_indices_view = raft::make_device_vector_view<const IdxT, IdxT>(
+          vector_indices.data() + half_of_data, IdxT(ps.num_db_vecs) - half_of_data);
+
         ivf_flat::extend(handle_,
                          &index_2,
-                         database.data() + half_of_data * ps.dim,
-                         vector_indices.data() + half_of_data,
-                         IdxT(ps.num_db_vecs) - half_of_data);
+                         new_half_of_data_view,
+                         std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(
+                           new_half_of_data_indices_view));
 
+        auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
+          search_queries.data(), ps.num_queries, ps.dim);
+        auto indices_out_view = raft::make_device_matrix_view<IdxT, IdxT>(
+          indices_ivfflat_dev.data(), ps.num_queries, ps.k);
+        auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
+          distances_ivfflat_dev.data(), ps.num_queries, ps.k);
         ivf_flat::search(handle_,
-                         search_params,
                          index_2,
-                         search_queries.data(),
-                         ps.num_queries,
-                         ps.k,
-                         indices_ivfflat_dev.data(),
-                         distances_ivfflat_dev.data());
+                         search_queries_view,
+                         indices_out_view,
+                         dists_out_view,
+                         search_params,
+                         ps.k);
 
         update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
         update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
