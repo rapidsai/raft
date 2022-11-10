@@ -432,7 +432,7 @@ void compute_pq_codes(
       pq_dim,
       pq_bits,
       sub_vector_labels.data(),
-      make_mdspan(
+      make_mdspan<uint8_t, IdxT, row_major, memory_type::device>(
         pq_dataset.data_handle() +
           size_t(cluster_offsets[l]) * pq_dataset.extent(1) * pq_dataset.extent(2),
         make_extents<IdxT>(cluster_size, pq_dataset.extent(1), pq_dataset.static_extent(2))),
@@ -960,24 +960,25 @@ inline auto extend(const handle_t& handle,
   /* Extend the pq_dataset */
   using vec_t = TxN_t<uint8_t, kIndexGroupVecLen>::io_t;
 
-  auto data_unit = ext_index.pq_dataset().extent(1);
-  auto ext_pq_dataset =
-    make_mdspan(reinterpret_cast<vec_t*>(ext_index.pq_dataset().data_handle()),
-                make_extents<size_t>(
-                  ext_index.pq_dataset().extent(0), data_unit, ext_index.pq_dataset().extent(2)));
+  auto data_unit      = ext_index.pq_dataset().extent(1);
+  auto ext_pq_dataset = make_mdspan<vec_t, size_t, row_major, memory_type::device>(
+    reinterpret_cast<vec_t*>(ext_index.pq_dataset().data_handle()),
+    make_extents<size_t>(
+      ext_index.pq_dataset().extent(0), data_unit, ext_index.pq_dataset().extent(2)));
 
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
     auto k                = cluster_ordering[l];
     auto old_cluster_size = old_cluster_sizes[k];
-    auto old_pq_dataset =
-      make_mdspan(reinterpret_cast<const vec_t*>(orig_index.pq_dataset().data_handle()) +
-                    data_unit * old_cluster_offsets[k],
-                  make_extents<size_t>(div_rounding_up_safe(old_cluster_size, kIndexGroupSize),
-                                       data_unit,
-                                       ext_pq_dataset.extent(2)));
-    auto new_pq_data = make_mdspan(reinterpret_cast<vec_t*>(new_pq_codes.data_handle()) +
-                                     data_unit * new_cluster_offsets.data()[k],
-                                   make_extents<size_t>(new_cluster_sizes[k], data_unit));
+    auto old_pq_dataset   = make_mdspan<const vec_t, size_t, row_major, memory_type::device>(
+      reinterpret_cast<const vec_t*>(orig_index.pq_dataset().data_handle()) +
+        data_unit * old_cluster_offsets[k],
+      make_extents<size_t>(div_rounding_up_safe(old_cluster_size, kIndexGroupSize),
+                           data_unit,
+                           ext_pq_dataset.extent(2)));
+    auto new_pq_data = make_mdspan<vec_t, size_t, row_major, memory_type::device>(
+      reinterpret_cast<vec_t*>(new_pq_codes.data_handle()) +
+        data_unit * new_cluster_offsets.data()[k],
+      make_extents<size_t>(new_cluster_sizes[k], data_unit));
     linalg::writeOnlyUnaryOp(
       ext_pq_dataset.data_handle() + data_unit * ext_cluster_offsets[l],
       data_unit * size_t(ext_cluster_offsets[l + 1] - ext_cluster_offsets[l]),
