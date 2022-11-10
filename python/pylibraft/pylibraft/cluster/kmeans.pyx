@@ -20,15 +20,14 @@
 
 import numpy as np
 
-from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
-
-from libcpp cimport bool
-from libcpp cimport nullptr
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool, nullptr
 
 from pylibraft.common import Handle
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.handle cimport handle_t
+
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
 

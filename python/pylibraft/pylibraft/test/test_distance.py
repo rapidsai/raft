@@ -13,22 +13,32 @@
 # limitations under the License.
 #
 
-from scipy.spatial.distance import cdist
-import pytest
 import numpy as np
+import pytest
+from scipy.spatial.distance import cdist
 
 from pylibraft.common import Handle
 from pylibraft.distance import pairwise_distance
-
 from pylibraft.testing.utils import TestDeviceBuffer
 
 
 @pytest.mark.parametrize("n_rows", [100])
 @pytest.mark.parametrize("n_cols", [100])
-@pytest.mark.parametrize("metric", ["euclidean", "cityblock", "chebyshev",
-                                    "canberra", "correlation", "hamming",
-                                    "jensenshannon", "russellrao", "cosine",
-                                    "sqeuclidean"])
+@pytest.mark.parametrize(
+    "metric",
+    [
+        "euclidean",
+        "cityblock",
+        "chebyshev",
+        "canberra",
+        "correlation",
+        "hamming",
+        "jensenshannon",
+        "russellrao",
+        "cosine",
+        "sqeuclidean",
+    ],
+)
 @pytest.mark.parametrize("order", ["F", "C"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_distance(n_rows, n_cols, metric, order, dtype):

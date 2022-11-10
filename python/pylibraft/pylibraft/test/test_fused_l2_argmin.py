@@ -13,9 +13,9 @@
 # limitations under the License.
 #
 
-from scipy.spatial.distance import cdist
-import pytest
 import numpy as np
+import pytest
+from scipy.spatial.distance import cdist
 
 from pylibraft.common import Handle
 from pylibraft.distance import fused_l2_nn_argmin
@@ -43,8 +43,9 @@ def test_fused_l2_nn_minarg(n_rows, n_cols, n_clusters, dtype):
     output_device = TestDeviceBuffer(output, "C")
 
     handle = Handle()
-    fused_l2_nn_argmin(input1_device, input2_device, output_device,
-                       True, handle=handle)
+    fused_l2_nn_argmin(
+        input1_device, input2_device, output_device, True, handle=handle
+    )
     handle.sync()
     actual = output_device.copy_to_host()
 

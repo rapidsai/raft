@@ -20,10 +20,10 @@
 
 import numpy as np
 
-from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
-
+from libc.stdint cimport uintptr_t
 from libcpp cimport bool
+
 from .distance_type cimport DistanceType
 
 from pylibraft.common import Handle
