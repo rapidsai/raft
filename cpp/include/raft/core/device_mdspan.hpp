@@ -294,8 +294,8 @@ auto make_device_vector_view(
 
 /**
  * @brief Create a layout_stride mapping from extents and strides
- * @param[in] The Extents
- * @param[in] mapping The layout mapping to use for this vector
+ * @param[in] extents the dimensionality of the layout
+ * @param[in] strides the strides between elements in the layout
  * @return raft::layout_stride::mapping<Extents>
  */
 template <typename Extents, typename Strides>
