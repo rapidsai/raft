@@ -80,7 +80,7 @@ struct PairwiseDistanceGemm {
 
   // This code section describes how threadblocks are scheduled on GPU
   /// Threadblock-level swizzling operator
-  using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;  // <- ??
+  using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;
 
   /// data layout for final output matrix.
   // we keep this same layout even for column major inputs
@@ -179,7 +179,7 @@ struct PairwiseDistanceGemm<double,
 
   // This code section describes how threadblocks are scheduled on GPU
   /// Threadblock-level swizzling operator
-  using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;  // <- ??
+  using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;
 
   /// data layout for final output matrix.
   // we keep this same layout even for column major inputs

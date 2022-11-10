@@ -82,7 +82,7 @@ void cosineImpl(const DataT* x,
                 FinalLambda fin_op,
                 cudaStream_t stream)
 {
-  const auto deviceVersion = getMajorMinorVersion();
+  const auto deviceVersion = getComputeCapability();
   if (deviceVersion.first >= 8) {
     using CosineOp_ = CosineOp<DataT, AccT>;
     CosineOp_ cosine_dist_op;
@@ -228,6 +228,10 @@ void cosineAlgo1(Index_ m,
 {
   auto norm_op = [] __device__(AccType in) { return raft::mySqrt(in); };
 
+  // raft distance support inputs as float/double and output as uint8_t/float/double.
+  static_assert(!((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
+                "OutType can be uint8_t, float, double,"
+                "if sizeof(OutType) > 1 then sizeof(AccType) == sizeof(OutType).");
   typedef typename std::conditional<sizeof(OutType) == 1, OutType, AccType>::type CosOutType;
   CosOutType* pDcast = reinterpret_cast<CosOutType*>(pD);
 

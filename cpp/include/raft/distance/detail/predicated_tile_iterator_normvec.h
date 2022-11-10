@@ -17,8 +17,13 @@
 /*! \file
   \brief Epilogue for threadblock scoped GEMMs using Tensor Ops.
 
-  The epilogue rearranges the result of a matrix product through shared memory to match canonical
-  tensor layouts in global memory. Epilogues support conversion and reduction operations.
+This file contains a customized version of PredicatedTileIterator from CUTLASS 2.9.0
+(https://github.com/NVIDIA/cutlass/blob/v2.9.0/include/cutlass/epilogue/threadblock/predicated_tile_iterator.h#L75)
+
+Changes:
+- added `Layout_` template param
+- Only the row index is used to load the data in load_with_byte_offset().
+  This way the same normalization data is used across all columns in a row.
 
 */
 

@@ -17,9 +17,14 @@
 /*! \file
   \brief Epilogue for threadblock scoped GEMMs using Tensor Ops.
 
-  The epilogue rearranges the result of a matrix product through shared memory to match canonical
-  tensor layouts in global memory. Epilogues support conversion and reduction operations.
+This is adapted from DefaultEpilogueWithBroadcastTensorOp from CUTLASS 2.9.0
+(https://github.com/NVIDIA/cutlass/blob/master/include/cutlass/epilogue/threadblock/default_epilogue_with_broadcast.h#L75)
 
+This epilogue allows us to load norm buffers using PredicatedTileIteratorNormVec 
+and EpilogueWithBroadcast used for distances L2/cosine as well as applies user-define elementwise operation.
+-- A norm load is provided PredicatedTileIteratorNormVec
+-- B norm load is provided by EpilogueWithBroadcast
+-- elementwise operation is provided by OutputOp
 */
 
 #pragma once

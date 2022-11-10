@@ -150,6 +150,10 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
 
  protected:
   DistanceAdjInputs<DataType> params;
+  // We use uint8_t even if the output in this test is a bool because
+  // cutlass doesn't support bool as output buffer yet. In cuda
+  // sizeof(bool) is 1 byte hence it doesn't increase
+  // memory consumption if we use uint8_t instead of bool.
   rmm::device_uvector<uint8_t> dist_ref;
   rmm::device_uvector<uint8_t> dist;
   raft::handle_t handle;

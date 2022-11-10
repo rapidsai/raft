@@ -19,6 +19,13 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 
+// We define CUTLASS_NAMESPACE in case
+// RAFT cmake is not used
+#ifndef CUTLASS_NAMESPACE
+#define cutlass raft_cutlass 
+#endif
+
+
 #include <rmm/device_uvector.hpp>
 
 #include <cutlass/cutlass.h>

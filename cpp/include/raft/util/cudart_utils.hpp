@@ -356,7 +356,7 @@ inline int getMultiProcessorCount()
 }
 
 /** helper method to get major minor compute capability version */
-inline std::pair<int, int> getMajorMinorVersion()
+inline std::pair<int, int> getComputeCapability()
 {
   int devId;
   RAFT_CUDA_TRY(cudaGetDevice(&devId));

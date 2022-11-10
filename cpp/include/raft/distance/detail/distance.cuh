@@ -648,6 +648,10 @@ void distance(const InType* x,
   using final_op_type = default_fin_op<AccType, OutType, Index_>;
   final_op_type fin_op;
 
+  // raft distance support inputs as float/double and output as uint8_t/float/double.
+  static_assert(! ((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
+                "OutType can be uint8_t, float, double,"
+                "if sizeof(OutType) > 1 then sizeof(AccType) == sizeof(OutType).");
   distance<distanceType, InType, AccType, OutType, final_op_type, Index_>(
     x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor, metric_arg);
   RAFT_CUDA_TRY(cudaPeekAtLastError());

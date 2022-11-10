@@ -25,11 +25,12 @@ function(find_and_configure_cutlass)
       set(CUTLASS_ENABLE_CUBLAS OFF CACHE BOOL "Disable CUTLASS to build with cuBLAS library.")
 
       rapids_cpm_find(NvidiaCutlass ${PKG_VERSION}
-          GLOBAL_TARGETS     nvidia::cutlass::cutlass
+          GLOBAL_TARGETS  nvidia::cutlass::cutlass
           CPM_ARGS
-            GIT_REPOSITORY   ${PKG_REPOSITORY}
-            GIT_TAG          ${PKG_PINNED_TAG}
-            OPTIONS
+          GIT_REPOSITORY  ${PKG_REPOSITORY}
+          GIT_TAG         ${PKG_PINNED_TAG}
+          GIT_SHALLOW     TRUE
+          OPTIONS
               "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
       )
 
@@ -51,7 +52,8 @@ function(find_and_configure_cutlass)
 
     # Tell cmake where it can find the generated NvidiaCutlass-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
-    rapids_export_find_package_root(INSTALL NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-distance-exports)
+    rapids_export_find_package_root(INSTALL NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}/../]=] raft-distance-exports)
+    rapids_export_find_package_root(BUILD NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-distance-exports)
 endfunction()
 
 if(NOT RAFT_CUTLASS_GIT_TAG)

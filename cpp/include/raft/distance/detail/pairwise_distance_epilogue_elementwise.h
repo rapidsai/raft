@@ -18,6 +18,9 @@
 /*! \file
   \brief Functor performing distance operations used by epilogues of pairwise distance
   * kernels.
+* This is adapted from LinearCombinationBiasElementwise from CUTLASS 2.9.0
+* customized for applying elementwise distance formula on accumulated GEMM value
+* and applying user-defined final custom operation on the distance value.
 */
 
 #pragma once
