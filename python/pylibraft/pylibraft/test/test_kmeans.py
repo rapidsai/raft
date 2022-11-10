@@ -17,9 +17,8 @@ import numpy as np
 import pytest
 
 from pylibraft.cluster.kmeans import compute_new_centroids
-from pylibraft.common import Handle
+from pylibraft.common import Handle, device_ndarray
 from pylibraft.distance import pairwise_distance
-from pylibraft.common import device_ndarray
 
 
 @pytest.mark.parametrize("n_rows", [100])
@@ -31,8 +30,6 @@ from pylibraft.common import device_ndarray
 def test_compute_new_centroids(
     n_rows, n_cols, metric, n_clusters, dtype, additional_args
 ):
-
-    order = "C"
 
     # A single RAFT handle can optionally be reused across
     # pylibraft functions.
@@ -46,9 +43,7 @@ def test_compute_new_centroids(
 
     weight_per_cluster = np.zeros((n_clusters,), dtype=dtype)
     weight_per_cluster_device = (
-        device_ndarray(weight_per_cluster)
-        if additional_args
-        else None
+        device_ndarray(weight_per_cluster) if additional_args else None
     )
 
     new_centroids = np.zeros((n_clusters, n_cols), dtype=dtype)

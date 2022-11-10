@@ -17,9 +17,8 @@ import numpy as np
 import pytest
 from scipy.spatial.distance import cdist
 
-from pylibraft.common import Handle
+from pylibraft.common import Handle, device_ndarray
 from pylibraft.distance import fused_l2_nn_argmin
-from pylibraft.common import device_ndarray
 
 
 @pytest.mark.parametrize("n_rows", [10, 100])

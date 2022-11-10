@@ -16,9 +16,8 @@
 import numpy as np
 import pytest
 
-from pylibraft.common import Handle
+from pylibraft.common import Handle, device_ndarray
 from pylibraft.random import rmat
-from pylibraft.common import device_ndarray
 
 
 def generate_theta(r_scale, c_scale):
