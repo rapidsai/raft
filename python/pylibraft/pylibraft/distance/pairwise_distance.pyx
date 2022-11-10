@@ -49,7 +49,7 @@ cdef extern from "raft_distance/pairwise_distance.hpp" \
                                 int k,
                                 DistanceType metric,
                                 bool isRowMajor,
-                                float metric_arg)
+                                float metric_arg) except +
 
     cdef void pairwise_distance(const handle_t &handle,
                                 double *x,
@@ -60,7 +60,7 @@ cdef extern from "raft_distance/pairwise_distance.hpp" \
                                 int k,
                                 DistanceType metric,
                                 bool isRowMajor,
-                                float metric_arg)
+                                float metric_arg) except +
 
 DISTANCE_TYPES = {
     "l2": DistanceType.L2SqrtUnexpanded,

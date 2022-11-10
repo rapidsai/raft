@@ -44,7 +44,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int r_scale,
                                    int c_scale,
                                    int n_edges,
-                                   RngState& r)
+                                   RngState& r) except +
 
     cdef void rmat_rectangular_gen(const handle_t &handle,
                                    int64_t* out,
@@ -54,7 +54,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int64_t r_scale,
                                    int64_t c_scale,
                                    int64_t n_edges,
-                                   RngState& r)
+                                   RngState& r) except +
 
     cdef void rmat_rectangular_gen(const handle_t &handle,
                                    int* out,
@@ -64,7 +64,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int r_scale,
                                    int c_scale,
                                    int n_edges,
-                                   RngState& r)
+                                   RngState& r) except +
 
     cdef void rmat_rectangular_gen(const handle_t &handle,
                                    int64_t* out,
@@ -74,7 +74,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int64_t r_scale,
                                    int64_t c_scale,
                                    int64_t n_edges,
-                                   RngState& r)
+                                   RngState& r) except +
 
 
 @auto_sync_handle

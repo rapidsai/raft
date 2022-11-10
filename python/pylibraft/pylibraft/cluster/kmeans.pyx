@@ -51,7 +51,7 @@ cdef extern from "raft_distance/kmeans.hpp" \
         const double *centroids,
         const int* labels,
         double *new_centroids,
-        double *weight_per_cluster)
+        double *weight_per_cluster) except +
 
     cdef void update_centroids(
         const handle_t& handle,
@@ -63,7 +63,7 @@ cdef extern from "raft_distance/kmeans.hpp" \
         const float *centroids,
         const int* labels,
         float *new_centroids,
-        float *weight_per_cluster)
+        float *weight_per_cluster) except +
 
 
 @auto_sync_handle
