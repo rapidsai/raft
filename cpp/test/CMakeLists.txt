@@ -139,6 +139,7 @@ if(BUILD_TESTS)
             test/linalg/cholesky_r1.cu
             test/linalg/coalesced_reduction.cu
             test/linalg/divide.cu
+            test/linalg/dot.cu
             test/linalg/eig.cu
             test/linalg/eig_sel.cu
             test/linalg/gemm_layout.cu
