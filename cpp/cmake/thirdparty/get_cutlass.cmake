@@ -22,9 +22,10 @@ function(find_and_configure_cutlass)
     #if(RAFT_ENABLE_DIST_DEPENDENCIES OR RAFT_COMPILE_LIBRARIES)
       set(CUTLASS_ENABLE_HEADERS_ONLY ON CACHE BOOL "Enable only the header library")
       set(CUTLASS_NAMESPACE "raft_cutlass" CACHE STRING "Top level namespace of CUTLASS")
+      set(CUTLASS_ENABLE_CUBLAS OFF CACHE BOOL "Disable CUTLASS to build with cuBLAS library.")
 
-      rapids_cpm_find(cutlass ${PKG_VERSION}
-          GLOBAL_TARGETS     nvidia::cutlass::CUTLASS
+      rapids_cpm_find(NvidiaCutlass ${PKG_VERSION}
+          GLOBAL_TARGETS     nvidia::cutlass::cutlass
           CPM_ARGS
             GIT_REPOSITORY   ${PKG_REPOSITORY}
             GIT_TAG          ${PKG_PINNED_TAG}
@@ -32,25 +33,25 @@ function(find_and_configure_cutlass)
               "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
       )
 
-      if(TARGET cutlass AND NOT TARGET nvidia::cutlass::cutlass)
+      if(TARGET CUTLASS AND NOT TARGET nvidia::cutlass::cutlass)
           add_library(nvidia::cutlass::cutlass ALIAS CUTLASS)
       endif()
 
-      if(cutlass_ADDED)
-        rapids_export(BUILD cutlass
+      if(NvidiaCutlass_ADDED)
+        rapids_export(BUILD NvidiaCutlass
             EXPORT_SET NvidiaCutlass
-            GLOBAL_TARGETS nvidia::cutlass::CUTLASS
+            GLOBAL_TARGETS nvidia::cutlass::cutlass
             NAMESPACE nvidia::cutlass::)
       endif()
     #endif()
 
     # We generate the cutlass-config files when we built cutlass locally, so always do `find_dependency`
-    rapids_export_package(BUILD cutlass raft-distance-exports GLOBAL_TARGETS nvidia::cutlass::CUTLASS)
-    rapids_export_package(INSTALL cutlass raft-distance-exports GLOBAL_TARGETS nvidia::cutlass::CUTLASS)
+    rapids_export_package(BUILD NvidiaCutlass raft-distance-exports GLOBAL_TARGETS nvidia::cutlass::cutlass)
+    rapids_export_package(INSTALL NvidiaCutlass raft-distance-exports GLOBAL_TARGETS nvidia::cutlass::cutlass)
 
-    # Tell cmake where it can find the generated cutlass-config.cmake we wrote.
+    # Tell cmake where it can find the generated NvidiaCutlass-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
-    rapids_export_find_package_root(INSTALL cutlass [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-distance-exports)
+    rapids_export_find_package_root(INSTALL NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-distance-exports)
 endfunction()
 
 if(NOT RAFT_CUTLASS_GIT_TAG)
