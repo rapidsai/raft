@@ -20,11 +20,11 @@
 # cython: language_level = 3
 
 
-from libcpp.memory cimport shared_ptr
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from libcpp.memory cimport shared_ptr, unique_ptr
+
 from rmm._lib.cuda_stream_pool cimport cuda_stream_pool
-from libcpp.memory cimport shared_ptr
-from libcpp.memory cimport unique_ptr
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+
 
 cdef extern from "raft/core/handle.hpp" namespace "raft" nogil:
     cdef cppclass handle_t:

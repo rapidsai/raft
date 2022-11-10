@@ -18,6 +18,5 @@ find_package(ucx REQUIRED)
 set(cython_sources comms_utils.pyx nccl.pyx)
 set(linked_libraries raft::raft NCCL::NCCL ucx::ucp)
 rapids_cython_create_modules(
-    SOURCE_FILES "${cython_sources}"
-    LINKED_LIBRARIES "${linked_libraries}"
-    CXX)
+  SOURCE_FILES "${cython_sources}" LINKED_LIBRARIES "${linked_libraries}" CXX
+)

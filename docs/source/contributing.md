@@ -37,6 +37,43 @@ into three categories:
 Remember, if you are unsure about anything, don't hesitate to comment on issues
 and ask for clarifications!
 
+
+### Python / Pre-commit hooks
+
+RAFT uses [pre-commit](https://pre-commit.com/) to execute code linters and formatters such as
+[Black](https://black.readthedocs.io/en/stable/), [isort](https://pycqa.github.io/isort/), and
+[flake8](https://flake8.pycqa.org/en/latest/). These tools ensure a consistent code format
+throughout the project. Using pre-commit ensures that linter versions and options are aligned for
+all developers. Additionally, there is a CI check in place to enforce that committed code follows
+our standards.
+
+To use `pre-commit`, install via `conda` or `pip`:
+
+```bash
+conda install -c conda-forge pre-commit
+```
+
+```bash
+pip install pre-commit
+```
+
+Then run pre-commit hooks before committing code:
+
+```bash
+pre-commit run
+```
+
+Optionally, you may set up the pre-commit hooks to run automatically when you make a git commit. This can be done by running:
+
+```bash
+pre-commit install
+```
+
+Now code linters and formatters will be run each time you commit changes.
+
+You can skip these checks with `git commit --no-verify` or with the short version `git commit -n`.
+
+
 ### Seasoned developers
 
 Once you have gotten your feet wet and are more comfortable with the code, you
