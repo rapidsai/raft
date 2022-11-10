@@ -123,39 +123,41 @@ if(BUILD_TESTS)
 
   ConfigureTest(NAME LABEL_TEST PATH test/label/label.cu test/label/merge_labels.cu)
 
-    ConfigureTest(NAME LINALG_TEST
-            PATH
-            test/linalg/add.cu
-            test/linalg/axpy.cu
-            test/linalg/binary_op.cu
-            test/linalg/cholesky_r1.cu
-            test/linalg/coalesced_reduction.cu
-            test/linalg/divide.cu
-            test/linalg/dot.cu
-            test/linalg/eig.cu
-            test/linalg/eig_sel.cu
-            test/linalg/gemm_layout.cu
-            test/linalg/gemv.cu
-            test/linalg/map.cu
-            test/linalg/map_then_reduce.cu
-            test/linalg/matrix_vector.cu
-            test/linalg/matrix_vector_op.cu
-            test/linalg/mean_squared_error.cu
-            test/linalg/multiply.cu
-            test/linalg/norm.cu
-            test/linalg/power.cu
-            test/linalg/reduce.cu
-            test/linalg/reduce_cols_by_key.cu
-            test/linalg/reduce_rows_by_key.cu
-            test/linalg/rsvd.cu
-            test/linalg/sqrt.cu
-            test/linalg/strided_reduction.cu
-            test/linalg/subtract.cu
-            test/linalg/svd.cu
-            test/linalg/ternary_op.cu
-            test/linalg/transpose.cu
-            test/linalg/unary_op.cu
-    )
+  ConfigureTest(
+    NAME
+    LINALG_TEST
+    PATH
+    test/linalg/add.cu
+    test/linalg/axpy.cu
+    test/linalg/binary_op.cu
+    test/linalg/cholesky_r1.cu
+    test/linalg/coalesced_reduction.cu
+    test/linalg/divide.cu
+    test/linalg/dot.cu
+    test/linalg/eig.cu
+    test/linalg/eig_sel.cu
+    test/linalg/gemm_layout.cu
+    test/linalg/gemv.cu
+    test/linalg/map.cu
+    test/linalg/map_then_reduce.cu
+    test/linalg/matrix_vector.cu
+    test/linalg/matrix_vector_op.cu
+    test/linalg/mean_squared_error.cu
+    test/linalg/multiply.cu
+    test/linalg/norm.cu
+    test/linalg/power.cu
+    test/linalg/reduce.cu
+    test/linalg/reduce_cols_by_key.cu
+    test/linalg/reduce_rows_by_key.cu
+    test/linalg/rsvd.cu
+    test/linalg/sqrt.cu
+    test/linalg/strided_reduction.cu
+    test/linalg/subtract.cu
+    test/linalg/svd.cu
+    test/linalg/ternary_op.cu
+    test/linalg/transpose.cu
+    test/linalg/unary_op.cu
+  )
 
   ConfigureTest(
     NAME
