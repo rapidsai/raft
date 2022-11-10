@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+
 from .cuda import Stream
-from .handle import Handle
 from .device_ndarray import device_ndarray
+from .handle import Handle
