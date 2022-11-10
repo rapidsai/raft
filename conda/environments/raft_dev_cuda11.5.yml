@@ -1,10 +1,10 @@
 name: raft_dev
 channels:
 - rapidsai
+- rapidsai-nightly
 - dask/label/dev
 - conda-forge
 - nvidia
-- rapidsai-nightly
 dependencies:
 - c-compiler
 - cxx-compiler

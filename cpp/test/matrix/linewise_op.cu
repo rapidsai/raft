@@ -347,7 +347,6 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     std::vector<std::tuple<I, I>> dims;
     for (auto m : sizes) {
       for (auto n : sizes) {
-        dims.push_back(std::make_tuple(n, m));
         dims.push_back(std::make_tuple(m, n));
       }
     }

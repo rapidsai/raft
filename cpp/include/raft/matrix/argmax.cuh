@@ -22,10 +22,10 @@
 namespace raft::matrix {
 
 /**
- * @brief Argmax: find the row idx with maximum value for each column
+ * @brief Argmax: find the col idx with maximum value for each row
  * @param[in] handle: raft handle
  * @param[in] in: input matrix of size (n_rows, n_cols)
- * @param[out] out: output vector of size n_cols
+ * @param[out] out: output vector of size n_rows
  */
 template <typename math_t, typename idx_t, typename matrix_idx_t>
 void argmax(const raft::handle_t& handle,
@@ -35,6 +35,6 @@ void argmax(const raft::handle_t& handle,
   RAFT_EXPECTS(out.extent(0) == in.extent(0),
                "Size of output vector must equal number of rows in input matrix.");
   detail::argmax(
-    in.data_handle(), in.extent(0), in.extent(1), out.data_handle(), handle.get_stream());
+    in.data_handle(), in.extent(1), in.extent(0), out.data_handle(), handle.get_stream());
 }
 }  // namespace raft::matrix
