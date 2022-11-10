@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cusparse.h>
 #include <raft/core/cusparse_macros.hpp>
 #include <raft/core/error.hpp>
@@ -674,7 +675,7 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
   cusparseSpMatDescr_t matB;
   cusparseDnMatDescr_t matC;
 
-  auto math_type = std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
+  auto constexpr math_type = std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
   // Create sparse matrix B
   CUSPARSE_CHECK(cusparseCreateCsc(&matB,
                                    k,
@@ -693,10 +694,10 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
   CUSPARSE_CHECK(cusparseCreateDnMat(
     &matC, m, n, ldc, static_cast<void*>(C), math_type, CUSPARSE_ORDER_COL));
 
-  cusparseOperation_t opA = CUSPARSE_OPERATION_TRANSPOSE;
-  cusparseOperation_t opB = CUSPARSE_OPERATION_TRANSPOSE;
-  cusparseSpMMAlg_t alg   = CUSPARSE_SPMM_CSR_ALG1;
-  size_t buffer_size      = 0;
+  auto opA = CUSPARSE_OPERATION_TRANSPOSE;
+  auto opB = CUSPARSE_OPERATION_NON_TRANSPOSE;
+  auto alg   = CUSPARSE_SPMM_CSR_ALG1;
+  auto buffer_size      = std::size_t{};
 
   CUSPARSE_CHECK(cusparsespmm_bufferSize(
     handle, opA, opB, alpha, matB, matA, beta, matC, alg, &buffer_size, stream));
