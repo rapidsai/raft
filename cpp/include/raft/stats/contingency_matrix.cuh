@@ -91,7 +91,7 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
 }
 
 /**
- * @brief contruct contingency matrix given input ground truth and prediction
+ * @brief construct contingency matrix given input ground truth and prediction
  *        labels. Users should call function getInputClassCardinality to find
  *        and allocate memory for output. Similarly workspace requirements
  *        should be checked using function getContingencyMatrixWorkspaceSize
@@ -130,7 +130,7 @@ void contingencyMatrix(const T* groundTruth,
 }
 
 /**
- * @brief contruct contingency matrix given input ground truth and prediction
+ * @brief construct contingency matrix given input ground truth and prediction
  *        labels. Users should call function getInputClassCardinality to find
  *        and allocate memory for output. Similarly workspace requirements
  *        should be checked using function getContingencyMatrixWorkspaceSize

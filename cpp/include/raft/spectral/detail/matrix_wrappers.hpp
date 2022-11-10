@@ -65,7 +65,7 @@ enum struct sparse_mv_alg_t : int {
   SPARSE_MV_UNDEFINED = -1,
   SPARSE_MV_ALG_DEFAULT,  // generic, for any sparse matrix
   SPARSE_MV_ALG1,         // typical for CSR
-  SPARSE_MV_ALG2          // may provide better performamce for irregular sparse matrices
+  SPARSE_MV_ALG2          // may provide better performance for irregular sparse matrices
 };
 
 // Vector "view"-like aggregate for linear algebra purposes

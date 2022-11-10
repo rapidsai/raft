@@ -40,7 +40,7 @@ namespace linalg {
  * @param out the output reduced matrix along columns (dim = nrows x nkeys).
  * This will be assumed to be in row-major layout
  * @param nrows number of rows in the input data
- * @param ncols number of colums in the input data
+ * @param ncols number of columns in the input data
  * @param nkeys number of unique keys in the keys array
  * @param stream cuda stream to launch the kernel onto
  */
