@@ -33,7 +33,7 @@
   Three APIs of different scopes are provided:
     1. host function: warp_sort_topk()
     2. block-wide API: class block_sort
-    3. warp-wide API: class warp_sort_filtered and class warp_sort_immediate
+    3. warp-wide API: several implementations of warp_sort_*
 
 
   1. warp_sort_topk()
@@ -42,7 +42,7 @@
   2. class block_sort
     It can be regarded as a fixed size priority queue for a thread block,
     although the API is not typical.
-    class warp_sort_filtered and warp_sort_immediate can be used to instantiate block_sort.
+    one of the classes `warp_sort_*` can be used to instantiate block_sort.
 
     It uses dynamic shared memory as an intermediate buffer.
     So the required shared memory size should be calculated using
@@ -70,7 +70,7 @@
      kernel<<<grid_dim, block_dim, smem_size>>>();
 
 
-  3. class warp_sort_filtered and class warp_sort_immediate
+  3. class warp_sort_*
     These two classes can be regarded as fixed size priority queue for a warp.
     Usage is similar to class block_sort. No shared memory is needed.
 

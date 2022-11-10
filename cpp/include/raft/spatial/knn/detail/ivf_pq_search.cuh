@@ -873,8 +873,8 @@ constexpr inline auto expected_probe_coresidency(uint32_t n_clusters,
       m = n_queries
       r = # of times a specific block appears in the batched sample.
 
-    Then:
-      P(r) = C(n,k) * k^r * (n - k)^r / n^m
+    Then, r has the Binomial distribution (p = k / n):
+      P(r) = C(m,r) * k^r * (n - k)^(m - r) / n^m
       E[r] = m * k / n
       E[r | r > 0] = m * k / n / (1 - (1 - k/n)^m)
 
@@ -885,8 +885,14 @@ constexpr inline auto expected_probe_coresidency(uint32_t n_clusters,
 }
 
 /**
- * Estimate a carveout value as expected by `cudaFuncAttributePreferredSharedMemoryCarveout`,
+ * Estimate a carveout value as expected by `cudaFuncAttributePreferredSharedMemoryCarveout`
+ * (which does not take into account `reservedSharedMemPerBlock`),
  * given by a desired schmem-L1 split and a per-block memory requirement in bytes.
+ *
+ * NB: As per the programming guide, the memory carveout setting is just a hint for the driver; it's
+ * free to choose any shmem-L1 configuration it deems appropriate. For example, if you set the
+ * carveout to zero, it will choose a non-zero config that will allow to run at least one active
+ * block per SM.
  *
  * @param shmem_fraction
  *   a fraction representing a desired split (shmem / (shmem + L1)) [0, 1].
@@ -902,25 +908,9 @@ constexpr inline auto estimate_carveout(double shmem_fraction,
                                         const cudaDeviceProp& dev_props) -> int
 {
   using shmem_unit = Pow2<128>;
-  /*
-    Memory carveout setting is just a hint for the driver; it's free to choose any shmem-L1
-    configuration it deems appropriate. Nevertheless, we can guide it a little to choose a more
-    optimal setting in non-edge cases. Entirely undocumented, the driver seems to perform the
-    following steps to calculate the final split:
-    1. Calculate the hinted memory usage:
-       mem_use_hint = (carveout_hint * sharedMemPerMultiprocessor / 100)
-    2. Get the maximum occupancy (possibly including other kernel limits):
-       blocks_per_sm = min(other_block_limits, mem_use_hint / shmem_unit::roundUp(shmem_per_block)).
-    3. Add up the hinted memory and the system per-block memory:
-       requested_mem = mem_use_hint + blocks_per_sm * reservedSharedMemPerBlock
-    4. Round up to the nearest possible config
-       (e.g. one of 0,8,16,32,64,100 KB for compute capability 8.6).
-
-    The algorithm below performs the reverse of steps 1-3.
-   */
-  size_t m = shmem_unit::roundUp(shmem_per_block);
-  size_t r = dev_props.reservedSharedMemPerBlock;
-  size_t s = dev_props.sharedMemPerMultiprocessor;
+  size_t m         = shmem_unit::roundUp(shmem_per_block);
+  size_t r         = dev_props.reservedSharedMemPerBlock;
+  size_t s         = dev_props.sharedMemPerMultiprocessor;
   return (size_t(100 * s * m * shmem_fraction) - (m - 1) * r) / (s * (m + r));
 }
 

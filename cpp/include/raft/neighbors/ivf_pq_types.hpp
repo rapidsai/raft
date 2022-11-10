@@ -321,7 +321,8 @@ struct index : ann::index {
 
   using pq_dataset_extents = std::experimental::
     extents<IdxT, dynamic_extent, dynamic_extent, kIndexGroupSize, kIndexGroupVecLen>;
-  /** PQ-encoded data
+  /** PQ-encoded data stored in the interleaved format:
+   *
    *    [ ceildiv(size, kIndexGroupSize)
    *    , ceildiv(pq_dim, (kIndexGroupVecLen * 8u) / pq_bits)
    *    , kIndexGroupSize
