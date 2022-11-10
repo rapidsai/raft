@@ -520,7 +520,8 @@ __device__ __forceinline__ void ivfpq_compute_chunk(OutT& score /* NOLINT */,
 template <typename OutT, typename LutT, typename VecT, uint32_t PqBits>
 __device__ auto ivfpq_compute_score(uint32_t pq_dim,
                                     const typename VecT::io_t* pq_head,
-                                    const LutT* lut_scores) -> OutT
+                                    const LutT* lut_scores,
+                                    OutT early_stop_limit) -> OutT
 {
   constexpr uint32_t kChunks = sizeof(VecT) * 8 / PqBits;
   auto lut_head              = lut_scores;
@@ -534,6 +535,10 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
     typename VecT::math_t pq_code = 0;
     ivfpq_compute_chunk<OutT, LutT, VecT, false, PqBits>(
       score, pq_code, pq_codes, lut_head, lut_end);
+    // Early stop when it makes sense (otherwise early_stop_limit is kDummy/infinity).
+    if constexpr (kChunks > 1) {
+      if (score >= early_stop_limit) { return score; }
+    }
   }
   if (dims_left > 0) {
     *pq_codes.vectorized_data()   = *pq_head;
@@ -795,6 +800,15 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     OutT query_kth        = kDummy;
     if constexpr (kManageLocalTopK) { query_kth = OutT(query_kths[query_ix]); }
     local_topk_t block_topk(topk, smem_buf, query_kth);
+    OutT early_stop_limit = kDummy;
+    switch (metric) {
+      // If the metric is non-negative, we can use the query_kth approximation as an early stop
+      // threshold to skip some iterations when computing the score. Add such metrics here.
+      case distance::DistanceType::L2Expanded: {
+        early_stop_limit = query_kth;
+      } break;
+      default: break;
+    }
 
     // Ensure lut_scores is written by all threads before using it in ivfpq-compute-score
     __threadfence_block();
@@ -807,7 +821,10 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
       bool valid = i < n_samples;
       if (valid) {
         score = ivfpq_compute_score<OutT, LutT, vec_t, PqBits>(
-          pq_dim, reinterpret_cast<const vec_t::io_t*>(pq_thread_data), lut_scores);
+          pq_dim,
+          reinterpret_cast<const vec_t::io_t*>(pq_thread_data),
+          lut_scores,
+          early_stop_limit);
       }
       if constexpr (kManageLocalTopK) {
         block_topk.add(score, cluster_offset + i);
