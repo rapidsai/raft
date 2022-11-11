@@ -13,13 +13,12 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
+import pytest
 
-from pylibraft.common import Handle
 from pylibraft.cluster.kmeans import compute_new_centroids
+from pylibraft.common import Handle
 from pylibraft.distance import pairwise_distance
-
 from pylibraft.testing.utils import TestDeviceBuffer
 
 
@@ -29,8 +28,9 @@ from pylibraft.testing.utils import TestDeviceBuffer
 @pytest.mark.parametrize("metric", ["euclidean", "sqeuclidean"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("additional_args", [True, False])
-def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
-                               additional_args):
+def test_compute_new_centroids(
+    n_rows, n_cols, metric, n_clusters, dtype, additional_args
+):
 
     order = "C"
 
@@ -44,16 +44,20 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
     centroids = X[:n_clusters]
     centroids_device = TestDeviceBuffer(centroids, order)
 
-    weight_per_cluster = np.zeros((n_clusters, ), dtype=dtype)
-    weight_per_cluster_device = TestDeviceBuffer(weight_per_cluster, order) \
-        if additional_args else None
+    weight_per_cluster = np.zeros((n_clusters,), dtype=dtype)
+    weight_per_cluster_device = (
+        TestDeviceBuffer(weight_per_cluster, order)
+        if additional_args
+        else None
+    )
 
     new_centroids = np.zeros((n_clusters, n_cols), dtype=dtype)
     new_centroids_device = TestDeviceBuffer(new_centroids, order)
 
     sample_weights = np.ones((n_rows,)).astype(dtype) / n_rows
-    sample_weights_device = TestDeviceBuffer(sample_weights, order) \
-        if additional_args else None
+    sample_weights_device = (
+        TestDeviceBuffer(sample_weights, order) if additional_args else None
+    )
 
     # Compute new centroids naively
     dists = np.zeros((n_rows, n_clusters), dtype=dtype)
@@ -72,13 +76,15 @@ def test_compute_new_centroids(n_rows, n_cols, metric, n_clusters, dtype,
         g = sample_weights[labels == i].sum()
         expected_centers[i, :] = j / g
 
-    compute_new_centroids(X_device,
-                          centroids_device,
-                          labels_device,
-                          new_centroids_device,
-                          sample_weights=sample_weights_device,
-                          weight_per_cluster=weight_per_cluster_device,
-                          handle=handle)
+    compute_new_centroids(
+        X_device,
+        centroids_device,
+        labels_device,
+        new_centroids_device,
+        sample_weights=sample_weights_device,
+        weight_per_cluster=weight_per_cluster_device,
+        handle=handle,
+    )
 
     # pylibraft functions are often asynchronous so the
     # handle needs to be explicitly synchronized

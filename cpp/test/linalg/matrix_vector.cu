@@ -130,16 +130,17 @@ void naive_matrix_vector_op_launch(const raft::handle_t& handle,
   };
 
   if (operation_type == 0) {
-    naiveMatVecOp(
-      in, vec1, D, N, row_major, bcast_along_rows, operation_bin_mult_skip_zero, stream);
+    naiveMatVec(
+      in, in, vec1, D, N, row_major, bcast_along_rows, operation_bin_mult_skip_zero, stream);
   } else if (operation_type == 1) {
-    naiveMatVecOp(in, vec1, D, N, row_major, bcast_along_rows, operation_div, stream);
+    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, operation_div, stream);
   } else if (operation_type == 2) {
-    naiveMatVecOp(in, vec1, D, N, row_major, bcast_along_rows, operation_bin_div_skip_zero, stream);
+    naiveMatVec(
+      in, in, vec1, D, N, row_major, bcast_along_rows, operation_bin_div_skip_zero, stream);
   } else if (operation_type == 3) {
-    naiveMatVecOp(in, vec1, D, N, row_major, bcast_along_rows, operation_bin_add, stream);
+    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, operation_bin_add, stream);
   } else if (operation_type == 4) {
-    naiveMatVecOp(in, vec1, D, N, row_major, bcast_along_rows, operation_bin_sub, stream);
+    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, operation_bin_sub, stream);
   } else {
     THROW("Unknown operation type '%d'!", (int)operation_type);
   }

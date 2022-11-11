@@ -22,80 +22,10 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
-namespace {
-template <size_t VecBytes>
-struct AlignedAccess {
-  template <typename T>
-  static inline bool test(const T* matrix, size_t strideBytes)
-  {
-    return Pow2<VecBytes>::isAligned(matrix) && Pow2<VecBytes>::isAligned(strideBytes) &&
-           Pow2<sizeof(T)>::isAligned(VecBytes);
-  }
-};
-};  // namespace
-
-template <typename Type, int veclen_, typename Lambda, typename IdxType>
-__global__ void matrixVectorOpKernel(Type* out,
-                                     const Type* matrix,
-                                     const Type* vector,
-                                     IdxType D,
-                                     IdxType N,
-                                     bool rowMajor,
-                                     bool bcastAlongRows,
-                                     Lambda op)
-{
-  typedef TxN_t<Type, veclen_> VecType;
-  IdxType len = N * D;
-  IdxType idx = threadIdx.x;
-  idx += (IdxType)blockIdx.x * (IdxType)blockDim.x;
-  idx *= VecType::Ratio;
-  if (idx >= len) return;
-  IdxType vIdx;
-  VecType mat, vec;
-  ///@todo: yikes! use fast-int-div here.
-  ///@todo: shared mem for vector could help with perf
-  if (rowMajor && bcastAlongRows) {
-    vIdx = idx % D;
-    vec.load(vector, vIdx);
-  } else if (!rowMajor && !bcastAlongRows) {
-    vIdx = idx % N;
-    vec.load(vector, vIdx);
-  } else if (rowMajor && !bcastAlongRows) {
-    vIdx = idx / D;
-    vec.fill(vector[vIdx]);
-  } else {
-    vIdx = idx / N;
-    vec.fill(vector[vIdx]);
-  }
-  mat.load(matrix, idx);
-#pragma unroll
-  for (int i = 0; i < VecType::Ratio; ++i)
-    mat.val.data[i] = op(mat.val.data[i], vec.val.data[i]);
-  mat.store(out, idx);
-}
-
-template <typename Type, int veclen_, typename Lambda, typename IdxType, int TPB>
-void matrixVectorOpImpl(Type* out,
-                        const Type* matrix,
-                        const Type* vec,
-                        IdxType D,
-                        IdxType N,
-                        bool rowMajor,
-                        bool bcastAlongRows,
-                        Lambda op,
-                        cudaStream_t stream)
-{
-  IdxType len   = N * D;
-  IdxType nblks = raft::ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
-  matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
-    <<<nblks, TPB, 0, stream>>>(out, matrix, vec, D, N, rowMajor, bcastAlongRows, op);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
-}
-
-template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type* out,
-                    const Type* matrix,
-                    const Type* vec,
+template <typename MatT, typename Lambda, typename VecT, typename IdxType = int, int TPB = 256>
+void matrixVectorOp(MatT* out,
+                    const MatT* matrix,
+                    const VecT* vec,
                     IdxType D,
                     IdxType N,
                     bool rowMajor,
@@ -109,11 +39,16 @@ void matrixVectorOp(Type* out,
     out, matrix, stride, nLines, rowMajor == bcastAlongRows, op, stream, vec);
 }
 
-template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
-void matrixVectorOp(Type* out,
-                    const Type* matrix,
-                    const Type* vec1,
-                    const Type* vec2,
+template <typename MatT,
+          typename Lambda,
+          typename Vec1T,
+          typename Vec2T,
+          typename IdxType = int,
+          int TPB          = 256>
+void matrixVectorOp(MatT* out,
+                    const MatT* matrix,
+                    const Vec1T* vec1,
+                    const Vec2T* vec2,
                     IdxType D,
                     IdxType N,
                     bool rowMajor,

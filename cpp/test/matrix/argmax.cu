@@ -29,8 +29,8 @@ template <typename T, typename IdxT>
 struct ArgMaxInputs {
   std::vector<T> input_matrix;
   std::vector<IdxT> output_matrix;
-  std::size_t n_cols;
   std::size_t n_rows;
+  std::size_t n_cols;
 };
 
 template <typename T, typename IdxT>
