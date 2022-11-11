@@ -155,6 +155,10 @@ __launch_bounds__(BlockDim) __global__ void ivfpq_encode_kernel(
 }
 }  // namespace
 
+/**
+ * Compress the cluster labels into an encoding with pq_bits bits, and transform it into a form to
+ * facilitate vectorized loads
+ */
 inline void ivfpq_encode(uint32_t pq_dim,
                          uint32_t pq_bits,       // 4 <= pq_bits <= 8
                          const uint32_t* label,  // [pq_dim, n_rows]
@@ -283,6 +287,7 @@ void select_residuals(const handle_t& handle,
 }
 
 /**
+ *
  * @param handle,
  * @param n_rows
  * @param data_dim
@@ -301,8 +306,12 @@ void select_residuals(const handle_t& handle,
  *    it should be partitioned by the clusters by now.
  * @param cluster_sizes    // [n_clusters]
  * @param cluster_offsets  // [n_clusters + 1]
- * @param pq_centers  // [...]
- * @param pq_dataset  // [n_rows, ...]
+ * @param pq_centers  // [...] (see ivf_pq::index::pq_centers() layout)
+ * @param pq_dataset
+ *   // [n_rows, ceildiv(pq_dim, (kIndexGroupVecLen * 8u) / pq_bits), kIndexGroupVecLen]
+ *   NB: in contrast to the final interleaved layout in ivf_pq::index::pq_dataset(), this function
+ *       produces a non-interleaved data; it gets interleaved later when adding the data to the
+ *       index.
  * @param device_memory
  */
 template <typename T, typename IdxT>
@@ -958,6 +967,8 @@ inline auto extend(const handle_t& handle,
   }
 
   /* Extend the pq_dataset */
+  // For simplicity and performance, we reinterpret the last dimension of the dataset
+  // as a single vector element.
   using vec_t = TxN_t<uint8_t, kIndexGroupVecLen>::io_t;
 
   auto data_unit      = ext_index.pq_dataset().extent(1);
@@ -967,6 +978,9 @@ inline auto extend(const handle_t& handle,
       ext_index.pq_dataset().extent(0), data_unit, ext_index.pq_dataset().extent(2)));
 
   for (uint32_t l = 0; l < ext_index.n_lists(); l++) {
+    // Extend the data cluster-by-cluster;
+    // The original/old index stores the data interleaved;
+    // the new data produced by `compute_pq_codes` is not interleaved.
     auto k                = cluster_ordering[l];
     auto old_cluster_size = old_cluster_sizes[k];
     auto old_pq_dataset   = make_mdspan<const vec_t, size_t, row_major, false, true>(
@@ -979,10 +993,12 @@ inline auto extend(const handle_t& handle,
       reinterpret_cast<vec_t*>(new_pq_codes.data_handle()) +
         data_unit * new_cluster_offsets.data()[k],
       make_extents<size_t>(new_cluster_sizes[k], data_unit));
+    // Write all cluster data, vec-by-vec
     linalg::writeOnlyUnaryOp(
       ext_pq_dataset.data_handle() + data_unit * ext_cluster_offsets[l],
       data_unit * size_t(ext_cluster_offsets[l + 1] - ext_cluster_offsets[l]),
       [old_pq_dataset, new_pq_data, old_cluster_size] __device__(vec_t * out, size_t i_flat) {
+        // find the proper 3D index from the flat offset
         size_t i[3];
         for (int r = 2; r > 0; r--) {
           i[r] = i_flat % old_pq_dataset.extent(r);
@@ -991,8 +1007,10 @@ inline auto extend(const handle_t& handle,
         i[0]        = i_flat;
         auto row_ix = i[0] * old_pq_dataset.extent(2) + i[2];
         if (row_ix < old_cluster_size) {
+          // First, pack the original/old data
           *out = old_pq_dataset(i[0], i[1], i[2]);
         } else {
+          // Then add the new data
           row_ix -= old_cluster_size;
           if (row_ix < new_pq_data.extent(0)) {
             *out = new_pq_data(row_ix, i[1]);
