@@ -670,7 +670,8 @@ void balancing_em_iters(const handle_t& handle,
             cluster_centers, n_clusters, dim);
         auto clusters_out_view = raft::make_device_matrix_view<float, uint32_t, raft::row_major>(
           cluster_centers, n_clusters, dim);
-        raft::linalg::rowNormalize(handle, clusters_in_view, clusters_out_view);
+        raft::linalg::row_normalize(
+          handle, clusters_in_view, clusters_out_view, raft::linalg::L2Norm);
         break;
       }
       default: break;

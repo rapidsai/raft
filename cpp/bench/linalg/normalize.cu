@@ -55,7 +55,7 @@ struct rowNormalize : public fixture {
         in.data(), params.rows, params.cols);
       auto output_view = raft::make_device_matrix_view<T, IdxT, raft::row_major>(
         out.data(), params.rows, params.cols);
-      raft::linalg::rowNormalize(handle, input_view, output_view);
+      raft::linalg::row_normalize(handle, input_view, output_view, L2Norm);
     });
   }
 

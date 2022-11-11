@@ -23,54 +23,92 @@ namespace linalg {
 namespace detail {
 
 template <int warpSize, int rpb>
-struct NormalizeWarpPolicy {
+struct NormalizeThinPolicy {
   static constexpr int LogicalWarpSize = warpSize;
   static constexpr int RowsPerBlock    = rpb;
   static constexpr int ThreadsPerBlock = LogicalWarpSize * RowsPerBlock;
 };
 
-template <typename Policy, typename Type, typename IdxType>
+template <typename Policy,
+          typename Type,
+          typename IdxType,
+          typename MainLambda,
+          typename ReduceLambda,
+          typename FinalLambda>
 __global__ void __launch_bounds__(Policy::ThreadsPerBlock)
-  coalescedNormalizeWarpKernel(Type* out, const Type* in, IdxType D, IdxType N)
+  coalesced_normalize_thin_kernel(Type* out,
+                                  const Type* in,
+                                  IdxType D,
+                                  IdxType N,
+                                  MainLambda main_op,
+                                  ReduceLambda reduce_op,
+                                  FinalLambda fin_op)
 {
-  IdxType i = threadIdx.y + (blockDim.y * static_cast<IdxType>(blockIdx.x));
+  IdxType i = threadIdx.y + (Policy::RowsPerBlock * static_cast<IdxType>(blockIdx.x));
   if (i >= N) return;
 
-  Type sqsum = 0.0;
-  for (IdxType j = threadIdx.x; j < D; j += blockDim.x) {
+  Type acc = 0.0;
+  for (IdxType j = threadIdx.x; j < D; j += Policy::LogicalWarpSize) {
     Type val = in[j + D * i];
-    sqsum += val * val;
+    acc      = reduce_op(acc, main_op(val));
   }
-  sqsum = raft::logicalWarpReduce<Policy::LogicalWarpSize>(sqsum);
-  if (sqsum <= 1e-8) return;
-  sqsum = rsqrt(sqsum);
-  for (IdxType j = threadIdx.x; j < D; j += blockDim.x) {
-    out[j + D * i] = in[j + D * i] * sqsum;
+  acc = raft::logicalWarpReduce<Policy::LogicalWarpSize>(acc, reduce_op);
+  if (acc <= 1e-8) return;
+  for (IdxType j = threadIdx.x; j < D; j += Policy::LogicalWarpSize) {
+    out[j + D * i] = in[j + D * i] / fin_op(acc);
   }
 }
 
-template <typename Policy, typename Type, typename IdxType>
-inline void coalescedNormalizeLauncher(
-  Type* out, const Type* in, IdxType D, IdxType N, cudaStream_t stream)
+template <typename Policy,
+          typename Type,
+          typename IdxType,
+          typename MainLambda,
+          typename ReduceLambda,
+          typename FinalLambda>
+inline void coalesced_normalize_thin(Type* out,
+                                     const Type* in,
+                                     IdxType D,
+                                     IdxType N,
+                                     cudaStream_t stream,
+                                     MainLambda main_op,
+                                     ReduceLambda reduce_op,
+                                     FinalLambda fin_op)
 {
   dim3 grid(ceildiv(N, (IdxType)Policy::RowsPerBlock), 1, 1);
   dim3 block(Policy::LogicalWarpSize, Policy::RowsPerBlock, 1);
-  coalescedNormalizeWarpKernel<Policy><<<grid, block, 0, stream>>>(out, in, D, N);
+  coalesced_normalize_thin_kernel<Policy>
+    <<<grid, block, 0, stream>>>(out, in, D, N, main_op, reduce_op, fin_op);
 }
 
-template <typename Type, typename IdxType>
-void coalescedNormalize(Type* out, const Type* in, IdxType D, IdxType N, cudaStream_t stream)
+template <typename Type,
+          typename IdxType,
+          typename MainLambda,
+          typename ReduceLambda,
+          typename FinalLambda>
+void coalesced_normalize(Type* out,
+                         const Type* in,
+                         IdxType D,
+                         IdxType N,
+                         cudaStream_t stream,
+                         MainLambda main_op,
+                         ReduceLambda reduce_op,
+                         FinalLambda fin_op)
 {
   if (D <= 2) {
-    coalescedNormalizeLauncher<NormalizeWarpPolicy<2, 64>>(out, in, D, N, stream);
+    coalesced_normalize_thin<NormalizeThinPolicy<2, 64>>(
+      out, in, D, N, stream, main_op, reduce_op, fin_op);
   } else if (D <= 4) {
-    coalescedNormalizeLauncher<NormalizeWarpPolicy<4, 32>>(out, in, D, N, stream);
+    coalesced_normalize_thin<NormalizeThinPolicy<4, 32>>(
+      out, in, D, N, stream, main_op, reduce_op, fin_op);
   } else if (D <= 8) {
-    coalescedNormalizeLauncher<NormalizeWarpPolicy<8, 16>>(out, in, D, N, stream);
+    coalesced_normalize_thin<NormalizeThinPolicy<8, 16>>(
+      out, in, D, N, stream, main_op, reduce_op, fin_op);
   } else if (D <= 16) {
-    coalescedNormalizeLauncher<NormalizeWarpPolicy<16, 8>>(out, in, D, N, stream);
+    coalesced_normalize_thin<NormalizeThinPolicy<16, 8>>(
+      out, in, D, N, stream, main_op, reduce_op, fin_op);
   } else {
-    coalescedNormalizeLauncher<NormalizeWarpPolicy<32, 4>>(out, in, D, N, stream);
+    coalesced_normalize_thin<NormalizeThinPolicy<32, 4>>(
+      out, in, D, N, stream, main_op, reduce_op, fin_op);
   }
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

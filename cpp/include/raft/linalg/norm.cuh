@@ -22,15 +22,11 @@
 #include "linalg_types.hpp"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/linalg/norm_types.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
-
-/** different types of norms supported on the input buffers */
-using detail::L1Norm;
-using detail::L2Norm;
-using detail::NormType;
 
 /**
  * @brief Compute row-wise norm of the input matrix and perform fin_op lambda
