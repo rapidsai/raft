@@ -20,6 +20,7 @@
 
 from libc.stdint cimport uint64_t
 
+
 cdef extern from "raft/random/rng_state.hpp" namespace "raft::random" nogil:
 
     ctypedef enum GeneratorType:
