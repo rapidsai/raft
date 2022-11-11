@@ -55,7 +55,7 @@ struct rowNormalize : public fixture {
         in.data(), params.rows, params.cols);
       auto output_view = raft::make_device_matrix_view<T, IdxT, raft::row_major>(
         out.data(), params.rows, params.cols);
-      raft::linalg::row_normalize(handle, input_view, output_view, L2Norm);
+      raft::linalg::row_normalize(handle, input_view, output_view, raft::linalg::L2Norm);
     });
   }
 
@@ -65,11 +65,11 @@ struct rowNormalize : public fixture {
 };  // struct rowNormalize
 
 const std::vector<normalize_input<int>> normalize_inputs_i32 =
-  raft::util::itertools::product<normalize_input<int>>({1000, 10000, 100000, 1000000},
-                                                       {2, 4, 8, 16, 32, 64, 128, 256});
+  raft::util::itertools::product<normalize_input<int>>(
+    {10, 100, 1000, 10000, 100000}, {8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384});
 const std::vector<normalize_input<int64_t>> normalize_inputs_i64 =
-  raft::util::itertools::product<normalize_input<int64_t>>({1000, 10000, 100000, 1000000},
-                                                           {2, 4, 8, 16, 32, 64, 128, 256});
+  raft::util::itertools::product<normalize_input<int64_t>>(
+    {10, 100, 1000, 10000, 100000}, {8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384});
 
 RAFT_BENCH_REGISTER((rowNormalize<float, int>), "", normalize_inputs_i32);
 RAFT_BENCH_REGISTER((rowNormalize<double, int>), "", normalize_inputs_i32);

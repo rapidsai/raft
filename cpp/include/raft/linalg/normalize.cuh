@@ -18,6 +18,8 @@
 
 #include "detail/normalize.cuh"
 
+#include <raft/linalg/norm_types.hpp>
+
 namespace raft {
 namespace linalg {
 
@@ -32,6 +34,7 @@ namespace linalg {
  * @param[in] handle raft::handle_t
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_matrix_view
+ * @param[in] init Initialization value, i.e identity element for the reduction operation
  * @param[in] main_op Operation to apply to the elements before reducing them (e.g square for L2)
  * @param[in] reduce_op Operation to reduce a pair of elements (e.g sum for L2)
  * @param[in] fin_op Operation to apply once to the reduction result to finalize the norm
@@ -45,6 +48,7 @@ template <typename ElementType,
 void row_normalize(const raft::handle_t& handle,
                    raft::device_matrix_view<const ElementType, IndexType, row_major> in,
                    raft::device_matrix_view<ElementType, IndexType, row_major> out,
+                   ElementType init,
                    MainLambda main_op,
                    ReduceLambda reduce_op,
                    FinalLambda fin_op)
@@ -60,6 +64,7 @@ void row_normalize(const raft::handle_t& handle,
                               in.data_handle(),
                               in.extent(1),
                               in.extent(0),
+                              init,
                               handle.get_stream(),
                               main_op,
                               reduce_op,
@@ -87,6 +92,7 @@ void row_normalize(const raft::handle_t& handle,
       row_normalize(handle,
                     in,
                     out,
+                    ElementType(0),
                     raft::L1Op<ElementType>(),
                     raft::Sum<ElementType>(),
                     raft::Nop<ElementType>());
@@ -95,6 +101,7 @@ void row_normalize(const raft::handle_t& handle,
       row_normalize(handle,
                     in,
                     out,
+                    ElementType(0),
                     raft::L2Op<ElementType>(),
                     raft::Sum<ElementType>(),
                     raft::SqrtOp<ElementType>());
@@ -103,6 +110,7 @@ void row_normalize(const raft::handle_t& handle,
       row_normalize(handle,
                     in,
                     out,
+                    ElementType(0),
                     raft::L1Op<ElementType>(),
                     raft::Max<ElementType>(),
                     raft::Nop<ElementType>());
