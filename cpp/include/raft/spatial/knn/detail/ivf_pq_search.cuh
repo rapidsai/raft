@@ -778,6 +778,16 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
       }
     }
 
+    // Define helper types for efficient access to the pq_dataset, which is stored in an interleaved
+    // format. The chunks of PQ data are stored in kIndexGroupVecLen-bytes-long chunks, interleaved
+    // in groups of kIndexGroupSize elems (which is normally equal to the warp size) for the fastest
+    // possible access by thread warps.
+    //
+    // Consider one record in the pq_dataset is `pq_dim * pq_bits`-bit-long.
+    // Assuming `kIndexGroupVecLen = 16`, one chunk of data read by a thread at once is 128-bits.
+    // Then, such a chunk contains `chunk_size = 128 / pq_bits` record elements, and the record
+    // consists of `ceildiv(pq_dim, chunk_size)` chunks. The chunks are interleaved in groups of 32,
+    // so that the warp can achieve the best coalesced read throughput.
     using group_align  = Pow2<kIndexGroupSize>;
     using vec_align    = Pow2<kIndexGroupVecLen>;
     using local_topk_t = block_sort_t<Capacity, OutT, IdxT>;
@@ -961,6 +971,28 @@ struct ivfpq_compute_similarity {
     }
   };
 
+  /** Estimate the occupancy for the given kernel on the given device. */
+  struct occupancy_t {
+    using shmem_unit = Pow2<128>;
+
+    int blocks_per_sm = 0;
+    double occupancy  = 0.0;
+    double shmem_use  = 1.0;
+
+    inline occupancy_t() = default;
+    inline occupancy_t(size_t smem,
+                       uint32_t n_threads,
+                       kernel_t kernel,
+                       const cudaDeviceProp& dev_props)
+    {
+      RAFT_CUDA_TRY(
+        cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, kernel, n_threads, smem));
+      occupancy = double(blocks_per_sm * n_threads) / double(dev_props.maxThreadsPerMultiProcessor);
+      shmem_use = double(shmem_unit::roundUp(smem) * blocks_per_sm) /
+                  double(dev_props.sharedMemPerMultiprocessor);
+    }
+  };
+
   struct selected {
     kernel_t kernel;
     dim3 grid_dim;
@@ -1083,13 +1115,10 @@ struct ivfpq_compute_similarity {
       std::make_tuple(conf_no_basediff::kernel(pq_bits, topk_or_zero), lut_mem, true),
       std::make_tuple(conf_no_smem_lut::kernel(pq_bits, topk_or_zero), bdf_mem, false)};
 
-    // allocation unit size (for rounding up)
-    using shmem_unit = Pow2<128>;
     // we may allow slightly lower than 100% occupancy;
     constexpr double kTargetOccupancy = 0.75;
-    // these two parameters are used to select the better candidate
-    double selected_occupancy = 0.0;
-    double selected_shmem_use = 1.0;
+    // This struct is used to select the better candidate
+    occupancy_t selected_perf{};
     selected selected_config;
     for (auto [kernel, smem_size_const, lut_is_in_shmem] : candidates) {
       if (smem_size_const > dev_props.sharedMemPerBlockOptin) {
@@ -1127,18 +1156,11 @@ struct ivfpq_compute_similarity {
         continue;
       }
 
-      int blocks_per_sm;
-      RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &blocks_per_sm, kernel, n_threads, smem_size));
-      if (blocks_per_sm <= 0) {
+      occupancy_t cur(smem_size, n_threads, kernel, dev_props);
+      if (cur.blocks_per_sm <= 0) {
         // For some reason, we still cannot make this kernel run. Skip the candidate.
         continue;
       }
-
-      auto occupancy =
-        double(blocks_per_sm * n_threads) / double(dev_props.maxThreadsPerMultiProcessor);
-      auto shmem_use = double(shmem_unit::roundUp(smem_size) * blocks_per_sm) /
-                       double(dev_props.sharedMemPerMultiprocessor);
 
       {
         // Try to reduce the number of threads to increase occupancy and data locality
@@ -1148,36 +1170,28 @@ struct ivfpq_compute_similarity {
         }
         if (n_threads_tmp < n_threads) {
           while (n_threads_tmp >= n_threads_min) {
-            int blocks_per_sm_tmp;
             auto smem_size_tmp = max(smem_size_const, ltk_mem(n_threads_tmp));
-            RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-              &blocks_per_sm_tmp, kernel, n_threads_tmp, smem_size_tmp));
-            auto occupancy_tmp = double(blocks_per_sm_tmp * n_threads_tmp) /
-                                 double(dev_props.maxThreadsPerMultiProcessor);
-            auto shmem_use_tmp = double(shmem_unit::roundUp(smem_size) * blocks_per_sm_tmp) /
-                                 double(dev_props.sharedMemPerMultiprocessor);
+            occupancy_t tmp(smem_size_tmp, n_threads_tmp, kernel, dev_props);
             bool select_it = false;
-            if (lut_is_in_shmem && locality_hint >= blocks_per_sm_tmp) {
+            if (lut_is_in_shmem && locality_hint >= tmp.blocks_per_sm) {
               // Normally, the smaller the block the better for L1 cache hit rate.
               // Hence, the occupancy should be "just good enough"
-              select_it = occupancy_tmp >= min(kTargetOccupancy, occupancy);
+              select_it = tmp.occupancy >= min(kTargetOccupancy, cur.occupancy);
             } else if (lut_is_in_shmem) {
-              // If we don't have enough repeating probes (locality_hint < blocks_per_sm_tmp),
+              // If we don't have enough repeating probes (locality_hint < tmp.blocks_per_sm),
               // the locality is not going to improve with increasing the number of blocks per SM.
               // Hence, the only metric here is the occupancy.
-              select_it = occupancy_tmp > occupancy;
+              select_it = tmp.occupancy > cur.occupancy;
             } else {
               // If we don't use shared memory for the lookup table, increasing the number of blocks
               // is very taxing on the global memory usage.
               // In this case, the occupancy must increase a lot to make it worth the cost.
-              select_it = occupancy_tmp >= min(1.0, occupancy / kTargetOccupancy);
+              select_it = tmp.occupancy >= min(1.0, cur.occupancy / kTargetOccupancy);
             }
             if (select_it) {
-              n_threads     = n_threads_tmp;
-              smem_size     = smem_size_tmp;
-              blocks_per_sm = blocks_per_sm_tmp;
-              occupancy     = occupancy_tmp;
-              shmem_use     = shmem_use_tmp;
+              n_threads = n_threads_tmp;
+              smem_size = smem_size_tmp;
+              cur       = tmp;
             }
             n_threads_tmp /= 2;
           }
@@ -1185,12 +1199,11 @@ struct ivfpq_compute_similarity {
       }
 
       {
-        if (selected_occupancy <= 0.0  // no candidate yet
-            || (selected_occupancy < occupancy * kTargetOccupancy &&
-                selected_shmem_use >= shmem_use)  // much improved occupancy
+        if (selected_perf.occupancy <= 0.0  // no candidate yet
+            || (selected_perf.occupancy < cur.occupancy * kTargetOccupancy &&
+                selected_perf.shmem_use >= cur.shmem_use)  // much improved occupancy
         ) {
-          selected_occupancy = occupancy;
-          selected_shmem_use = shmem_use;
+          selected_perf = cur;
           if (lut_is_in_shmem) {
             selected_config = {
               kernel, dim3(n_blocks, 1, 1), dim3(n_threads, 1, 1), smem_size, size_t(0)};
@@ -1198,7 +1211,7 @@ struct ivfpq_compute_similarity {
             // When the global memory is used for the lookup table, we need to minimize the grid
             // size; otherwise, the kernel may quickly run out of memory.
             auto n_blocks_min =
-              std::min<uint32_t>(n_blocks, blocks_per_sm * dev_props.multiProcessorCount);
+              std::min<uint32_t>(n_blocks, cur.blocks_per_sm * dev_props.multiProcessorCount);
             selected_config = {kernel,
                                dim3(n_blocks_min, 1, 1),
                                dim3(n_threads, 1, 1),
@@ -1208,11 +1221,11 @@ struct ivfpq_compute_similarity {
           // Actual shmem/L1 split wildly rounds up the specified preferred carveout, so we set here
           // a rather conservative bar; most likely, the kernel gets more shared memory than this,
           // and the occupancy doesn't get hurt.
-          auto carveout = std::min<int>(max_carveout, std::ceil(100.0 * selected_shmem_use));
+          auto carveout = std::min<int>(max_carveout, std::ceil(100.0 * cur.shmem_use));
           RAFT_CUDA_TRY(
             cudaFuncSetAttribute(kernel, cudaFuncAttributePreferredSharedMemoryCarveout, carveout));
-          if (occupancy >= kTargetOccupancy) { break; }
-        } else if (selected_occupancy > 0.0) {
+          if (cur.occupancy >= kTargetOccupancy) { break; }
+        } else if (selected_perf.occupancy > 0.0) {
           // If we found a reasonable candidate on a previous iteration, and this one is not better,
           // then don't try any more candidates because they are much slower anyway.
           break;
@@ -1220,7 +1233,7 @@ struct ivfpq_compute_similarity {
       }
     }
 
-    RAFT_EXPECTS(selected_occupancy > 0.0,
+    RAFT_EXPECTS(selected_perf.occupancy > 0.0,
                  "Couldn't determine a working kernel launch configuration.");
 
     return selected_config;
