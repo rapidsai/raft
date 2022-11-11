@@ -44,3 +44,18 @@ class TestDeviceBuffer:
             .astype(self.ndarray_.dtype)
             .reshape(self.ndarray_.shape)
         )
+
+
+def is_c_cont(cai):
+    """
+    Checks whether an array is C contiguous.
+
+    Parameters
+    ----------
+    cai : CUDA array interface
+    
+    """
+    dt = np.dtype(cai["typestr"])
+    return "strides" not in cai or \
+        cai["strides"] is None or \
+        cai["strides"][1] == dt.itemsize

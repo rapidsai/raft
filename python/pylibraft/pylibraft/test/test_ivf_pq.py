@@ -82,7 +82,7 @@ def run_ivf_pq_build_search_test(
     dtype,
     pq_bits=8,
     pq_dim=0,
-    codebook_kind="per_cluster",
+    codebook_kind="subspace",
     add_data_on_build="True",
     n_probes=100,
     lut_dtype=ivf_pq.CUDA_R_32F,
@@ -218,7 +218,7 @@ def test_ivf_pq_n(params):
 
 @pytest.mark.parametrize("metric", ["l2_expanded", "inner_product"])
 @pytest.mark.parametrize("dtype", [np.float32])
-@pytest.mark.parametrize("codebook_kind", ["per_subspace", "per_cluster"])
+@pytest.mark.parametrize("codebook_kind", ["subspace", "cluster"])
 @pytest.mark.parametrize("rotation", [True, False])
 def test_ivf_pq_build_params(metric, dtype, codebook_kind, rotation):
     run_ivf_pq_build_search_test(

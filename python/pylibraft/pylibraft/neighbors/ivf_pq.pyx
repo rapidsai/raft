@@ -29,18 +29,14 @@ from libcpp cimport bool, nullptr
 from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.common import Handle
 from pylibraft.common.handle cimport handle_t
+from pylibraft.testing.utils import is_c_cont
+
 from rmm._lib.memory_resource cimport device_memory_resource
 
 cimport pylibraft.neighbors.c_ivf_pq as c_ivf_pq
 
 from pylibraft.neighbors.c_ivf_pq cimport index_params
 from pylibraft.neighbors.c_ivf_pq cimport search_params
-
-def is_c_cont(cai):
-    dt = np.dtype(cai["typestr"])
-    return "strides" not in cai or \
-        cai["strides"] is None or \
-        cai["strides"][1] == dt.itemsize
 
 
 def _get_metric(metric):
@@ -90,7 +86,7 @@ cdef class IndexParams:
                  kmeans_trainset_fraction=0.5,
                  pq_bits=8,
                  pq_dim=0,
-                 codebook_kind="per_subspace",
+                 codebook_kind="subspace",
                  force_random_rotation=False,
                  add_data_on_build=True):
         """"
@@ -120,8 +116,8 @@ cdef class IndexParams:
             desirable for good performance. If 'pq_bits' is not 8, 'pq_dim' should be a multiple of 8.
             For good performance, it is desirable that 'pq_dim' is a multiple of 32. Ideally, 'pq_dim'
             should be also a divisor of the dataset dim.
-        codebook_kind : string, default = "per_subspace"
-            Valid values ["per_subspace", "per_cluster"]
+        codebook_kind : string, default = "subspace"
+            Valid values ["subspace", "cluster"]
         force_random_rotation : bool, default = False
             Apply a random rotation matrix on the input data and queries even if `dim % pq_dim == 0`.
             Note: if `dim` is not multiple of `pq_dim`, a random rotation is always applied to the input
@@ -145,9 +141,9 @@ cdef class IndexParams:
         self.params.kmeans_trainset_fraction = kmeans_trainset_fraction
         self.params.pq_bits = pq_bits
         self.params.pq_dim = pq_dim
-        if codebook_kind == "per_subspace":
+        if codebook_kind == "subspace":
             self.params.codebook_kind = c_ivf_pq.codebook_gen.PER_SUBSPACE
-        elif codebook_kind == "per_cluster":
+        elif codebook_kind == "cluster":
             self.params.codebook_kind = c_ivf_pq.codebook_gen.PER_SUBSPACE
         else:
             raise ValueError("Incorrect codebook kind %s" % codebook_kind)
