@@ -41,9 +41,11 @@ While not exhaustive, the following general categories help summarize the accele
 
    quick_start.md
    build.md
+   developer_guide.md
    cpp_api.rst
    pylibraft_api.rst
    raft_dask_api.rst
+   contributing.md
 
 
 Indices and tables
