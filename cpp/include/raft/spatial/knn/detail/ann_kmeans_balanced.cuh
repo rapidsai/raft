@@ -34,6 +34,7 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/normalize.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/argmin.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -148,8 +149,11 @@ inline void predict_float_core(const handle_t& handle,
                    distances.data(),
                    n_clusters,
                    stream);
-      utils::argmin_along_rows(
-        n_rows, static_cast<IdxT>(n_clusters), distances.data(), labels, stream);
+
+      auto distances_const_view = raft::make_device_matrix_view<const float, IdxT, row_major>(
+        distances.data(), n_rows, static_cast<IdxT>(n_clusters));
+      auto labels_view = raft::make_device_vector_view<LabelT, IdxT>(labels, n_rows);
+      raft::matrix::argmin(handle, distances_const_view, labels_view);
       break;
     }
     default: {
@@ -246,18 +250,19 @@ void calc_centers_and_sizes(const handle_t& handle,
   if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
 
   if (!reset_counters) {
-    utils::map_along_rows(
-      n_clusters,
-      dim,
+    raft::linalg::matrixVectorOp(
+      centers,
       centers,
       cluster_sizes,
-      [] __device__(float c, uint32_t s) -> float { return c * s; },
+      (int64_t)dim,
+      (int64_t)n_clusters,
+      true,
+      false,
+      [=] __device__(float c, uint32_t s) -> float { return c * s; },
       stream);
   }
 
   rmm::device_uvector<char> workspace(0, stream, mr);
-  rmm::device_uvector<float> cluster_sizes_f(n_clusters, stream, mr);
-  float* sizes_f = cluster_sizes_f.data();
 
   // If we reset the counters, we can compute directly the new sizes in cluster_sizes.
   // If we don't reset, we compute in a temporary buffer and add in a separate step.
@@ -292,28 +297,21 @@ void calc_centers_and_sizes(const handle_t& handle,
                                      static_cast<int64_t>(n_clusters),
                                      workspace);
 
-  // Add previous sizes if necessary and cast to float
-  auto counting = thrust::make_counting_iterator<int>(0);
-  thrust::for_each(
-    handle.get_thrust_policy(), counting, counting + n_clusters, [=] __device__(int idx) {
-      uint32_t temp_size = temp_sizes[idx];
-      if (!reset_counters) {
-        temp_size += cluster_sizes[idx];
-        cluster_sizes[idx] = temp_size;
-      }
-      sizes_f[idx] = static_cast<float>(temp_size);
-    });
+  // Add previous sizes if necessary
+  if (!reset_counters) {
+    raft::linalg::add(cluster_sizes, cluster_sizes, temp_sizes, n_clusters, stream);
+  }
 
   raft::linalg::matrixVectorOp(
     centers,
     centers,
-    sizes_f,
+    cluster_sizes,
     static_cast<int64_t>(dim),
     static_cast<int64_t>(n_clusters),
     true,
     false,
-    [=] __device__(float mat, float vec) {
-      if (vec == 0.0f)
+    [=] __device__(float mat, uint32_t vec) {
+      if (vec == 0u)
         return 0.0f;
       else
         return mat / vec;
@@ -467,7 +465,7 @@ __global__ void __launch_bounds__((WarpSize * BlockDimY))
   // a sample from the selected larger cluster.
   const IdxT li = static_cast<IdxT>(labels[i]);
   // Weight of the current center for the weighted average.
-  // We dump it for anomalously small clusters, but keep constant overwise.
+  // We dump it for anomalously small clusters, but keep constant otherwise.
   const float wc = csize > kAdjustCentersWeight ? kAdjustCentersWeight : float(csize);
   // Weight for the datapoint used to shift the center.
   const float wd = 1.0;
@@ -571,7 +569,7 @@ auto adjust_centers(float* centers,
         // a sample from the selected larger cluster.
         const IdxT li = static_cast<IdxT>(labels[i]);
         // Weight of the current center for the weighted average.
-        // We dump it for anomalously small clusters, but keep constant overwise.
+        // We dump it for anomalously small clusters, but keep constant otherwise.
         const float wc = std::min<float>(csize, kAdjustCentersWeight);
         // Weight for the datapoint used to shift the center.
         const float wd = 1.0;

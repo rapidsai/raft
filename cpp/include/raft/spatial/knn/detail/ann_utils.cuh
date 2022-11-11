@@ -151,66 +151,6 @@ inline void memzero(T* ptr, IdxT n_elems, rmm::cuda_stream_view stream)
   }
 }
 
-template <typename IdxT, typename OutT>
-__global__ void argmin_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const float* a, OutT* out)
-{
-  __shared__ OutT shm_ids[1024];    // NOLINT
-  __shared__ float shm_vals[1024];  // NOLINT
-  IdxT i = blockIdx.x;
-  if (i >= n_rows) return;
-  OutT min_idx  = n_cols;
-  float min_val = raft::upper_bound<float>();
-  for (OutT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    if (min_val > a[j + n_cols * i]) {
-      min_val = a[j + n_cols * i];
-      min_idx = j;
-    }
-  }
-  shm_vals[threadIdx.x] = min_val;
-  shm_ids[threadIdx.x]  = min_idx;
-  __syncthreads();
-  for (IdxT offset = blockDim.x / 2; offset > 0; offset >>= 1) {
-    if (threadIdx.x < offset) {
-      if (shm_vals[threadIdx.x] < shm_vals[threadIdx.x + offset]) {
-      } else if (shm_vals[threadIdx.x] > shm_vals[threadIdx.x + offset]) {
-        shm_vals[threadIdx.x] = shm_vals[threadIdx.x + offset];
-        shm_ids[threadIdx.x]  = shm_ids[threadIdx.x + offset];
-      } else if (shm_ids[threadIdx.x] > shm_ids[threadIdx.x + offset]) {
-        shm_ids[threadIdx.x] = shm_ids[threadIdx.x + offset];
-      }
-    }
-    __syncthreads();
-  }
-  if (threadIdx.x == 0) { out[i] = shm_ids[0]; }
-}
-
-/**
- * @brief Find index of the smallest element in each row.
- *
- * NB: device-only function
- * TODO: specialize select_k for the case of `k == 1` and use that one instead.
- *
- * @tparam IdxT index type
- * @tparam OutT output type
- *
- * @param n_rows
- * @param n_cols
- * @param[in] a device pointer to the row-major matrix [n_rows, n_cols]
- * @param[out] out device pointer to the vector of selected indices [n_rows]
- * @param stream
- */
-template <typename IdxT, typename OutT>
-inline void argmin_along_rows(
-  IdxT n_rows, IdxT n_cols, const float* a, OutT* out, rmm::cuda_stream_view stream)
-{
-  IdxT block_dim = 1024;
-  while (block_dim > n_cols) {
-    block_dim /= 2;
-  }
-  block_dim = max(block_dim, (IdxT)128);
-  argmin_along_rows_kernel<IdxT, OutT><<<n_rows, block_dim, 0, stream>>>(n_rows, n_cols, a, out);
-}
-
 template <typename IdxT>
 __global__ void dots_along_rows_kernel(IdxT n_rows, IdxT n_cols, const float* a, float* out)
 {
@@ -257,45 +197,6 @@ inline void dots_along_rows(
    *
    * raft::linalg::rowNorm(out, a, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
    */
-}
-
-template <typename IdxT, typename Lambda>
-__global__ void map_along_rows_kernel(
-  IdxT n_rows, uint32_t n_cols, float* a, const uint32_t* d, Lambda map)
-{
-  IdxT gid = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);
-  IdxT i   = gid / n_cols;
-  if (i >= n_rows) return;
-  float& x = a[gid];
-  x        = map(x, d[i]);
-}
-
-/**
- * @brief Map a binary function over a matrix and a vector element-wise, broadcasting the vector
- * values along rows: `m[i, j] = op(m[i,j], v[i])`
- *
- * NB: device-only function
- *
- * @tparam IdxT   index type
- * @tparam Lambda
- *
- * @param n_rows
- * @param n_cols
- * @param[inout] m device pointer to a row-major matrix [n_rows, n_cols]
- * @param[in] v device pointer to a vector [n_rows]
- * @param op the binary operation to apply on every element of matrix rows and of the vector
- */
-template <typename IdxT, typename Lambda>
-inline void map_along_rows(IdxT n_rows,
-                           uint32_t n_cols,
-                           float* m,
-                           const uint32_t* v,
-                           Lambda op,
-                           rmm::cuda_stream_view stream)
-{
-  dim3 threads(128, 1, 1);
-  dim3 blocks(ceildiv<IdxT>(n_rows * n_cols, threads.x), 1, 1);
-  map_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, m, v, op);
 }
 
 template <typename T, typename IdxT>

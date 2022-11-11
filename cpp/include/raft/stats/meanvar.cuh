@@ -84,8 +84,8 @@ void meanvar(const raft::handle_t& handle,
   static_assert(
     std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
     "Data layout not supported");
-  RAFT_EXPECTS(data.extent(1) == var.extent(0), "Size mismatch betwen data and var");
-  RAFT_EXPECTS(mean.size() == var.size(), "Size mismatch betwen mean and var");
+  RAFT_EXPECTS(data.extent(1) == var.extent(0), "Size mismatch between data and var");
+  RAFT_EXPECTS(mean.size() == var.size(), "Size mismatch between mean and var");
   RAFT_EXPECTS(mean.is_exhaustive(), "mean must be contiguous");
   RAFT_EXPECTS(var.is_exhaustive(), "var must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");

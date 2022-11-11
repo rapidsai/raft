@@ -77,6 +77,18 @@ int n_cols = 10;
 auto matrix = raft::make_managed_mdspan(managed_ptr, raft::make_matrix_extents(n_rows, n_cols));
 ```
 
+You can also create strided mdspans:
+
+```c++
+
+#include <raft/core/device_mdspan.hpp>
+
+int n_elements = 10;
+int stride = 10;
+
+auto vector = raft::make_device_vector_view(vector_ptr, raft::make_vector_strided_layout(n_elements, stride));
+```
+
 
 ## C++ Example
 

@@ -16,16 +16,18 @@
 
 #pragma once
 
+#include <cstdint>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/memory_type.hpp>
 
 namespace raft {
 
 template <typename AccessorPolicy>
-using device_accessor = host_device_accessor<AccessorPolicy, false, true>;
+using device_accessor = host_device_accessor<AccessorPolicy, memory_type::device>;
 
 template <typename AccessorPolicy>
-using managed_accessor = host_device_accessor<AccessorPolicy, true, true>;
+using managed_accessor = host_device_accessor<AccessorPolicy, memory_type::managed>;
 
 /**
  * @brief std::experimental::mdspan with device tag to avoid accessing incorrect memory location.
@@ -267,12 +269,61 @@ auto make_device_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_col
  * @param[in] n number of elements in pointer
  * @return raft::device_vector_view
  */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
+template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
 auto make_device_vector_view(ElementType* ptr, IndexType n)
 {
   return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, n};
 }
 
+/**
+ * @brief Create a 1-dim mdspan instance for device pointer.
+ * @tparam ElementType the data type of the vector elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param[in] ptr on device to wrap
+ * @param[in] mapping The layout mapping to use for this vector
+ * @return raft::device_vector_view
+ */
+template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
+auto make_device_vector_view(
+  ElementType* ptr,
+  const typename LayoutPolicy::template mapping<vector_extent<IndexType>>& mapping)
+{
+  return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, mapping};
+}
+
+/**
+ * @brief Create a layout_stride mapping from extents and strides
+ * @param[in] extents the dimensionality of the layout
+ * @param[in] strides the strides between elements in the layout
+ * @return raft::layout_stride::mapping<Extents>
+ */
+template <typename Extents, typename Strides>
+auto make_strided_layout(Extents extents, Strides strides)
+{
+  return layout_stride::mapping<Extents>{extents, strides};
+}
+
+/**
+ * @brief Construct a strided vector layout mapping
+ *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/device_mdspan.hpp>
+ *
+ *  int n_elements = 10;
+ *  int stride = 10;
+ *  auto vector = raft::make_device_vector_view(vector_ptr,
+ * raft::make_vector_strided_layout(n_elements, stride));
+ * @endcode
+ *
+ * @tparam IndexType the index type of the extents
+ * @param[in] n the number of elements in the vector
+ * @param[in] stride the stride between elements in the vector
+ */
+template <typename IndexType>
+auto make_vector_strided_layout(IndexType n, IndexType stride)
+{
+  return make_strided_layout(vector_extent<IndexType>{n}, std::array<IndexType, 1>{stride});
+}
 }  // end namespace raft

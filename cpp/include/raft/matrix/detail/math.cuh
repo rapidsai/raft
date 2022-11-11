@@ -362,43 +362,67 @@ void matrixVectorBinarySub(Type* data,
     stream);
 }
 
-// Computes the argmax(d_in) column-wise in a DxN matrix
-template <typename T, typename IdxT, int TPB>
-__global__ void argmaxKernel(const T* d_in, int D, int N, IdxT* argmax)
+// Computes an argmin/argmax column-wise in a DxN matrix
+template <typename RedOp, int TPB, typename T, typename OutT, typename IdxT>
+__global__ void argReduceKernel(const T* d_in, IdxT D, IdxT N, OutT* out)
 {
-  typedef cub::BlockReduce<cub::KeyValuePair<int, T>, TPB> BlockReduce;
+  typedef cub::
+    BlockReduce<cub::KeyValuePair<IdxT, T>, TPB, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>
+      BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
-  // compute maxIndex=argMax  index for column
-  using KVP    = cub::KeyValuePair<int, T>;
-  int rowStart = blockIdx.x * D;
-  KVP thread_data(-1, -raft::myInf<T>());
+  using KVP     = cub::KeyValuePair<IdxT, T>;
+  IdxT rowStart = static_cast<IdxT>(blockIdx.x) * D;
+  KVP thread_data(0, std::is_same_v<RedOp, cub::ArgMax> ? -raft::myInf<T>() : raft::myInf<T>());
 
-  for (int i = threadIdx.x; i < D; i += TPB) {
-    int idx     = rowStart + i;
-    thread_data = cub::ArgMax()(thread_data, KVP(i, d_in[idx]));
+  for (IdxT i = threadIdx.x; i < D; i += TPB) {
+    IdxT idx    = rowStart + i;
+    thread_data = RedOp()(thread_data, KVP(i, d_in[idx]));
   }
 
-  auto maxKV = BlockReduce(temp_storage).Reduce(thread_data, cub::ArgMax());
+  auto maxKV = BlockReduce(temp_storage).Reduce(thread_data, RedOp());
 
-  if (threadIdx.x == 0) { argmax[blockIdx.x] = maxKV.key; }
+  if (threadIdx.x == 0) { out[blockIdx.x] = maxKV.key; }
 }
 
-template <typename math_t, typename idx_t>
-void argmax(const math_t* in, int n_rows, int n_cols, idx_t* out, cudaStream_t stream)
+/**
+ * @brief Computes an argmin/argmax coalesced reduction
+ *
+ * @tparam RedOp Reduction operation (cub::ArgMin or cub::ArgMax)
+ * @tparam math_t Value type
+ * @tparam out_t Output key type
+ * @tparam idx_t Matrix index type
+ * @param[in]  in     Input matrix (DxN column-major or NxD row-major)
+ * @param[in]  D      Dimension of the axis to reduce along
+ * @param[in]  N      Number of reductions
+ * @param[out] out    Output keys (N)
+ * @param[in]  stream CUDA stream
+ */
+template <typename RedOp, typename math_t, typename out_t, typename idx_t>
+inline void argReduce(const math_t* in, idx_t D, idx_t N, out_t* out, cudaStream_t stream)
 {
-  int D = n_rows;
-  int N = n_cols;
   if (D <= 32) {
-    argmaxKernel<math_t, idx_t, 32><<<N, 32, 0, stream>>>(in, D, N, out);
+    argReduceKernel<RedOp, 32><<<N, 32, 0, stream>>>(in, D, N, out);
   } else if (D <= 64) {
-    argmaxKernel<math_t, idx_t, 64><<<N, 64, 0, stream>>>(in, D, N, out);
+    argReduceKernel<RedOp, 64><<<N, 64, 0, stream>>>(in, D, N, out);
   } else if (D <= 128) {
-    argmaxKernel<math_t, idx_t, 128><<<N, 128, 0, stream>>>(in, D, N, out);
+    argReduceKernel<RedOp, 128><<<N, 128, 0, stream>>>(in, D, N, out);
   } else {
-    argmaxKernel<math_t, idx_t, 256><<<N, 256, 0, stream>>>(in, D, N, out);
+    argReduceKernel<RedOp, 256><<<N, 256, 0, stream>>>(in, D, N, out);
   }
   RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename math_t, typename out_t, typename idx_t>
+void argmin(const math_t* in, idx_t D, idx_t N, out_t* out, cudaStream_t stream)
+{
+  argReduce<cub::ArgMin>(in, D, N, out, stream);
+}
+
+template <typename math_t, typename out_t, typename idx_t>
+void argmax(const math_t* in, idx_t D, idx_t N, out_t* out, cudaStream_t stream)
+{
+  argReduce<cub::ArgMax>(in, D, N, out, stream);
 }
 
 // Utility kernel needed for signFlip.

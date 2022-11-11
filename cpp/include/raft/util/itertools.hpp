@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include <tuple>
-#include <vector>
+#include <raft/util/detail/itertools.hpp>
 
 /**
  * Helpers inspired by the Python itertools library
@@ -26,27 +25,23 @@
 
 namespace raft::util::itertools {
 
-template <class S, typename... Args, size_t... Is>
-inline std::vector<S> product(std::index_sequence<Is...> index, const std::vector<Args>&... vecs)
-{
-  size_t len = 1;
-  ((len *= vecs.size()), ...);
-  std::vector<S> out;
-  out.reserve(len);
-  for (size_t i = 0; i < len; i++) {
-    std::tuple<Args...> tup;
-    size_t mod = len, new_mod;
-    ((new_mod = mod / vecs.size(), std::get<Is>(tup) = vecs[(i % mod) / new_mod], mod = new_mod),
-     ...);
-    out.push_back({std::get<Is>(tup)...});
-  }
-  return out;
-}
-
+/**
+ * @brief Cartesian product of the given initializer lists.
+ *
+ * This helper can be used to easily define input parameters in tests/benchmarks.
+ * Note that it's not optimized for use with large lists / many lists in performance-critical code!
+ *
+ * @tparam S    Type of the output structures.
+ * @tparam Args Types of the elements of the initilizer lists, matching the types of the first
+ *              fields of the structure (if the structure has more fields, some might be initialized
+ *              with their default value).
+ * @param lists One or more initializer lists.
+ * @return std::vector<S> A vector of structures containing the cartesian product.
+ */
 template <typename S, typename... Args>
 std::vector<S> product(std::initializer_list<Args>... lists)
 {
-  return product<S>(std::index_sequence_for<Args...>(), (std::vector<Args>(lists))...);
+  return detail::product<S>(std::index_sequence_for<Args...>(), (std::vector<Args>(lists))...);
 }
 
 }  // namespace raft::util::itertools

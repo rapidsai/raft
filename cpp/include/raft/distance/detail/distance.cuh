@@ -651,7 +651,7 @@ void distance(const InType* x,
  * @param n number of points in y
  * @param k dimensionality
  *
- * @note If the specifed distanceType doesn't need the workspace at all, it
+ * @note If the specified distanceType doesn't need the workspace at all, it
  * returns 0.
  */
 template <raft::distance::DistanceType distanceType,

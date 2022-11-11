@@ -73,7 +73,7 @@ class multi_variable_gaussian : public detail::multi_variable_gaussian_impl<T> {
  *   for small and medium size matrices than the QR option below.
  *
  * - `QR`: Uses the SVD computed with cuSOLVER's gesvd algorithm,
- *   which is based on the QR algortihm.
+ *   which is based on the QR algorithm.
  */
 using detail::multi_variable_gaussian_decomposition_method;
 
