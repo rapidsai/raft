@@ -21,7 +21,7 @@
 namespace raft::sparse::solver {
 
 /**
- * Compute the minimium spanning tree (MST) or minimum spanning forest (MSF) depending on
+ * Compute the minimum spanning tree (MST) or minimum spanning forest (MSF) depending on
  * the connected components of the given graph.
  *
  * @tparam vertex_t integral type for precision of vertex indexing

@@ -93,6 +93,10 @@ repos:
                 pass_filenames: false
                 language: python
                 additional_dependencies: [gitpython]
+      - repo: https://github.com/codespell-project/codespell
+        rev: v2.1.0
+        hooks:
+              - id: codespell
 
 default_language_version:
       python: python3

@@ -464,7 +464,7 @@ __global__ void __launch_bounds__((WarpSize * BlockDimY))
   // a sample from the selected larger cluster.
   const IdxT li = static_cast<IdxT>(labels[i]);
   // Weight of the current center for the weighted average.
-  // We dump it for anomalously small clusters, but keep constant overwise.
+  // We dump it for anomalously small clusters, but keep constant otherwise.
   const float wc = csize > kAdjustCentersWeight ? kAdjustCentersWeight : float(csize);
   // Weight for the datapoint used to shift the center.
   const float wd = 1.0;
@@ -568,7 +568,7 @@ auto adjust_centers(float* centers,
         // a sample from the selected larger cluster.
         const IdxT li = static_cast<IdxT>(labels[i]);
         // Weight of the current center for the weighted average.
-        // We dump it for anomalously small clusters, but keep constant overwise.
+        // We dump it for anomalously small clusters, but keep constant otherwise.
         const float wc = std::min<float>(csize, kAdjustCentersWeight);
         // Weight for the datapoint used to shift the center.
         const float wd = 1.0;

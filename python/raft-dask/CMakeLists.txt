@@ -41,7 +41,7 @@ endif()
 
 if(NOT raft_FOUND)
   # TODO: This will not be necessary once we upgrade to CMake 3.22, which will pull in the required
-  # languages for the C++ project even if this project does not require those languges.
+  # languages for the C++ project even if this project does not require those languages.
   include(rapids-cuda)
   rapids_cuda_init_architectures(raft-dask)
   enable_language(CUDA)

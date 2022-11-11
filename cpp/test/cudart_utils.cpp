@@ -60,7 +60,7 @@ TEST(Raft, Utils)
     std::string msg_full{e.what()};
     // only use first line
     std::string msg = msg_full.substr(0, msg_full.find('\n'));
-    std::string re_exp{"^exception occured! file="};
+    std::string re_exp{"^exception occurred! file="};
     re_exp += reg_file;
     // test code must be at line >10 (copyright), assume line is never >9999
     re_exp += " line=\\d{2,4}: ";
