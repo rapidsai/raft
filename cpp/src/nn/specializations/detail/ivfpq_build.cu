@@ -54,7 +54,7 @@ namespace raft::neighbors::ivf_pq {
               const IdxT* new_indices,                                            \
               IdxT n_rows)                                                        \
   {                                                                               \
-    extend<T, IdxT>(handle, *idx, new_vectors, new_indices, n_rows);              \
+    extend<T, IdxT>(handle, idx, new_vectors, new_indices, n_rows);               \
   }
 
 RAFT_INST_BUILD_EXTEND(float, uint64_t);
