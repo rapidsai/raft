@@ -85,6 +85,7 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         DistanceType metric()
         uint32_t n_lists()
         uint32_t rot_dim()
+        codebook_gen codebook_kind()
 
     cpdef cppclass search_params(ann_search_params):
         uint32_t n_probes

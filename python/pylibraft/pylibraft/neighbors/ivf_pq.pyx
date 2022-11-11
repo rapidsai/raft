@@ -53,6 +53,16 @@ def _get_metric(metric):
     return SUPPORTED_DISTANCES[metric]
 
 
+cdef _get_metric_string(DistanceType metric):
+    return {DistanceType.L2Expanded : "l2_expanded",
+            DistanceType.InnerProduct: "inner_product"}[metric]
+
+
+cdef _get_codebook_string(c_ivf_pq.codebook_gen codebook):
+    return {PER_SUBSPACE: "subspace", 
+            PER_CLUSTER: "cluster"}[codebook]
+
+
 def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):
         if cai["typestr"] not in exp_dt:
             raise TypeError("dtype %s not supported" % cai["typestr"])
@@ -216,6 +226,14 @@ cdef class Index:
         if self.index is not NULL:
             del self.index
 
+    def __repr__(self):
+        m_str = "metric=" + _get_metric_string(self.index.metric())
+        code_str = "codebook=" + _get_codebook_string(self.index.codebook_kind())
+        attr_str = [attr + "=" + str(getattr(self, attr)) \
+                        for attr in ["size", "dim", "pq_dim", "pq_bits", "n_lists", "rot_dim"]]
+        attr_str = [m_str, code_str] + attr_str
+        return "Index(type=IVF-PQ, " + (", ".join(attr_str)) + ")"
+
     @property
     def dim(self):
         return self.index[0].dim()
@@ -247,6 +265,12 @@ cdef class Index:
     @property
     def rot_dim(self):
         return self.index[0].rot_dim()
+
+    @property 
+    def codebook_kind(self):
+        return self.index[0].codebook_kind()
+
+
 
 @auto_sync_handle
 def build(IndexParams index_params, dataset, handle=None):
@@ -382,7 +406,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
 
         n_rows = 100
         more_data = cp.random.random_sample((n_rows, n_features), dtype=cp.float32)
-        indices = index.size + cp.arange(n_rows, dtype=np.uint64)
+        indices = index.size + cp.arange(n_rows, dtype=cp.uint64)
         index = ivf_pq.extend(index, more_data, indices)
 
         # Search using the built index
@@ -556,7 +580,6 @@ def search(SearchParams search_params,
             initial_pool_size=2**29,
             maximum_pool_size=2**31
         )
-        ivf
         ivf_pq.search(search_params, index, queries, k, neighbors, distances, mr, handle=handle)
 
         # pylibraft functions are often asynchronous so the
