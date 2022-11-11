@@ -730,6 +730,26 @@ DI auto dp4a(unsigned int a, unsigned int b, unsigned int c) -> unsigned int
 }
 
 /**
+ * @brief Logical-warp-level reduction
+ * @tparam logicalWarpSize Logical warp size (2, 4, 8, 16 or 32)
+ * @tparam T Value type to be reduced
+ * @tparam ReduceLambda Reduction operation type
+ * @param val input value
+ * @return Reduction result. All lanes will have the valid result.
+ * @todo Expand this to support arbitrary reduction ops
+ */
+template <int logicalWarpSize, typename T, typename ReduceLambda>
+DI T logicalWarpReduce(T val, ReduceLambda reduce_op)
+{
+#pragma unroll
+  for (int i = logicalWarpSize / 2; i > 0; i >>= 1) {
+    T tmp = shfl_xor(val, i);
+    val = reduce_op(val, tmp);
+  }
+  return val;
+}
+
+/**
  * @brief Warp-level sum reduction
  * @param val input value
  * @tparam T Value type to be reduced

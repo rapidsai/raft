@@ -28,30 +28,34 @@
 namespace raft {
 namespace linalg {
 
-template <typename InType, typename OutType>
-__global__ void naiveCoalescedReductionKernel(OutType* dots, const InType* data, int D, int N)
+template <typename InType, typename OutType, typename IdxType>
+__global__ void naiveCoalescedReductionKernel(OutType* dots,
+                                              const InType* data,
+                                              IdxType D,
+                                              IdxType N)
 {
-  OutType acc  = (OutType)0;
-  int rowStart = threadIdx.x + blockIdx.x * blockDim.x;
+  OutType acc      = (OutType)0;
+  IdxType rowStart = threadIdx.x + static_cast<IdxType>(blockIdx.x) * blockDim.x;
   if (rowStart < N) {
-    for (int i = 0; i < D; ++i) {
+    for (IdxType i = 0; i < D; ++i) {
       acc += static_cast<OutType>(data[rowStart * D + i] * data[rowStart * D + i]);
     }
     dots[rowStart] = 2 * acc;
   }
 }
 
-template <typename InType, typename OutType>
-void naiveCoalescedReduction(OutType* dots, const InType* data, int D, int N, cudaStream_t stream)
+template <typename InType, typename OutType, typename IdxType>
+void naiveCoalescedReduction(
+  OutType* dots, const InType* data, IdxType D, IdxType N, cudaStream_t stream)
 {
-  static const int TPB = 64;
-  int nblks            = raft::ceildiv(N, TPB);
+  static const IdxType TPB = 64;
+  IdxType nblks            = raft::ceildiv(N, TPB);
   naiveCoalescedReductionKernel<InType, OutType><<<nblks, TPB, 0, stream>>>(dots, data, D, N);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename InType, typename OutType>
-void unaryAndGemv(OutType* dots, const InType* data, int D, int N, cudaStream_t stream)
+template <typename InType, typename OutType, typename IdxType>
+void unaryAndGemv(OutType* dots, const InType* data, IdxType D, IdxType N, cudaStream_t stream)
 {
   // computes a MLCommon unary op on data (squares it), then computes Ax
   //(A input matrix and x column vector) to sum columns
@@ -75,11 +79,11 @@ void unaryAndGemv(OutType* dots, const InType* data, int D, int N, cudaStream_t 
   RAFT_CUBLAS_TRY(cublasDestroy(handle));
 }
 
-template <typename InType, typename OutType>
+template <typename InType, typename OutType, typename IdxType>
 void naiveReduction(OutType* dots,
                     const InType* data,
-                    int D,
-                    int N,
+                    IdxType D,
+                    IdxType N,
                     bool rowMajor,
                     bool alongRows,
                     cudaStream_t stream)
