@@ -34,7 +34,7 @@ cdef extern from "library_types.h":
     ctypedef enum cudaDataType_t:
       CUDA_R_32F "CUDA_R_32F"  # float
       CUDA_R_16F "CUDA_R_16F"  # half
-      CUDA_R_8U "CUDA_R_8U"  # uint8
+      CUDA_R_8U "CUDA_R_8U"    # uint8 - used to refer to IVF-PQ's fp8 storage type
 
 cdef extern from "raft/neighbors/ann_types.hpp" \
         namespace "raft::neighbors::ann":
