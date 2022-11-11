@@ -24,6 +24,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/linalg/norm.cuh>
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -210,12 +211,14 @@ inline auto extend(const handle_t& handle,
 
   // Precompute the centers vector norms for L2Expanded distance
   if (ext_index.center_norms().has_value()) {
-    // todo(lsugy): use other prim and remove this one
-    utils::dots_along_rows(n_lists,
-                           dim,
-                           ext_index.centers().data_handle(),
-                           ext_index.center_norms()->data_handle(),
-                           stream);
+    raft::linalg::rowNorm(ext_index.center_norms()->data_handle(),
+                          ext_index.centers().data_handle(),
+                          dim,
+                          n_lists,
+                          raft::linalg::L2Norm,
+                          true,
+                          stream,
+                          raft::SqrtOp<float>());
     RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
   }
 

@@ -517,6 +517,11 @@ struct Nop {
 };
 
 template <typename Type, typename IdxType = int>
+struct SqrtOp {
+  HDI Type operator()(Type in, IdxType i = 0) { return mySqrt(in); }
+};
+
+template <typename Type, typename IdxType = int>
 struct L1Op {
   HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
 };
@@ -744,7 +749,7 @@ DI T logicalWarpReduce(T val, ReduceLambda reduce_op)
 #pragma unroll
   for (int i = logicalWarpSize / 2; i > 0; i >>= 1) {
     T tmp = shfl_xor(val, i);
-    val = reduce_op(val, tmp);
+    val   = reduce_op(val, tmp);
   }
   return val;
 }
