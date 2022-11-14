@@ -498,11 +498,11 @@ __device__ __forceinline__ void ivfpq_compute_chunk(OutT& score /* NOLINT */,
     return ivfpq_compute_chunk<OutT, LutT, VecT, CheckBounds, PqBits, BitsLeft - PqBits, Ix>(
       score, pq_code, pq_codes, lut_head, lut_end);
   } else if constexpr (Ix < VecT::Ratio) {
+    uint8_t code                = pq_code;
+    pq_code                     = pq_codes.val.data[Ix];
     constexpr uint32_t kRemBits = PqBits - BitsLeft;
     constexpr uint32_t kRemMask = (1u << kRemBits) - 1u;
-    uint8_t code                = pq_code << kRemBits;
-    pq_code                     = pq_codes.val.data[Ix];
-    code |= pq_code & kRemMask;
+    code |= (pq_code & kRemMask) << BitsLeft;
     pq_code >>= kRemBits;
     score += OutT(lut_head[code]);
     lut_head += kPqShift;
