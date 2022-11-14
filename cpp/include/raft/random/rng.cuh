@@ -703,6 +703,25 @@ void laplace(const raft::handle_t& handle,
   detail::laplace(rng_state, ptr, len, mu, scale, handle.get_stream());
 }
 
+namespace sample_without_replacement_impl {
+template <typename T>
+struct weight_alias {
+};
+
+template <>
+struct weight_alias<std::nullopt_t> {
+  using type = double;
+};
+
+template <typename ElementType, typename IndexType>
+struct weight_alias<std::optional<raft::device_vector_view<ElementType, IndexType>>> {
+  using type = typename raft::device_vector_view<ElementType, IndexType>::value_type;
+};
+
+template <typename T>
+using weight_t = typename weight_alias<T>::type;
+}  // namespace sample_without_replacement_impl
+
 /**
  * @brief Sample the input vector without replacement, optionally based on the
  * input weight vector for each element in the array.
@@ -721,7 +740,10 @@ void laplace(const raft::handle_t& handle,
  *
  * @tparam DataT type of each element of the input array @c in
  * @tparam IdxT type of the dimensions of the arrays; output index type
- * @tparam WeightsT type of each elements of the weights array @c wts
+ * @tparam WeightsVectorType std::optional<raft::device_vector_view<const weight_type, IdxT>> of
+ * each elements of the weights array @c weights_opt
+ * @tparam OutIndexVectorType std::optional<raft::device_vector_view<IdxT, IdxT>> of output indices
+ * @c outIdx_opt
  *
  * @note Please do not specify template parameters explicitly,
  *   as the compiler can deduce them from the arguments.
@@ -730,10 +752,10 @@ void laplace(const raft::handle_t& handle,
  *   the CUDA stream on which to run.
  * @param[inout] rng_state Pseudorandom number generator state.
  * @param[in] in Input vector to be sampled.
- * @param[in] wts Optional weights vector.
+ * @param[in] weights_opt std::optional weights vector.
  *        If not provided, uniform sampling will be used.
  * @param[out] out Vector of samples from the input vector.
- * @param[out] outIdx If provided, vector of the indices
+ * @param[out] outIdx_opt std::optional vector of the indices
  *   sampled from the input array.
  *
  * @pre The number of samples `out.extent(0)`
@@ -742,14 +764,22 @@ void laplace(const raft::handle_t& handle,
  * @pre The number of weights `wts.extent(0)`
  *   equals the number of inputs `in.extent(0)`.
  */
-template <typename DataT, typename IdxT, typename WeightsT>
+template <typename DataT, typename IdxT, typename WeightsVectorType, class OutIndexVectorType>
 void sample_without_replacement(const raft::handle_t& handle,
                                 RngState& rng_state,
                                 raft::device_vector_view<const DataT, IdxT> in,
-                                std::optional<raft::device_vector_view<const WeightsT, IdxT>> wts,
+                                WeightsVectorType&& weights_opt,
                                 raft::device_vector_view<DataT, IdxT> out,
-                                std::optional<raft::device_vector_view<IdxT, IdxT>> outIdx)
+                                OutIndexVectorType&& outIdx_opt)
 {
+  using weight_type = sample_without_replacement_impl::weight_t<
+    std::remove_const_t<std::remove_reference_t<WeightsVectorType>>>;
+
+  std::optional<raft::device_vector_view<const weight_type, IdxT>> wts =
+    std::forward<WeightsVectorType>(weights_opt);
+  std::optional<raft::device_vector_view<IdxT, IdxT>> outIdx =
+    std::forward<OutIndexVectorType>(outIdx_opt);
+
   static_assert(std::is_integral<IdxT>::value, "IdxT must be an integral type.");
   const IdxT sampledLen = out.extent(0);
   const IdxT len        = in.extent(0);
@@ -777,7 +807,7 @@ void sample_without_replacement(const raft::handle_t& handle,
                  "sampleWithoutReplacement: "
                  "If wts is provided, its extent(0) must equal in.extent(0)");
   }
-  const WeightsT* wts_ptr = wts_has_value ? (*wts).data_handle() : nullptr;
+  const weight_type* wts_ptr = wts_has_value ? (*wts).data_handle() : nullptr;
 
   detail::sampleWithoutReplacement(rng_state,
                                    out.data_handle(),
@@ -789,25 +819,6 @@ void sample_without_replacement(const raft::handle_t& handle,
                                    handle.get_stream());
 }
 
-namespace sample_without_replacement_impl {
-template <typename T>
-struct weight_alias {
-};
-
-template <>
-struct weight_alias<std::nullopt_t> {
-  using type = double;
-};
-
-template <typename ElementType, typename IndexType>
-struct weight_alias<std::optional<raft::device_vector_view<ElementType, IndexType>>> {
-  using type = typename raft::device_vector_view<ElementType, IndexType>::value_type;
-};
-
-template <typename T>
-using weight_t = typename weight_alias<T>::type;
-}  // namespace sample_without_replacement_impl
-
 /**
  * @brief Overload of `sample_without_replacement` to help the
  *   compiler find the above overload, in case users pass in
@@ -815,22 +826,10 @@ using weight_t = typename weight_alias<T>::type;
  *
  * Please see above for documentation of `sample_without_replacement`.
  */
-template <typename DataT, typename IdxT, typename WeightsVectorType, class OutIndexVectorType>
-void sample_without_replacement(const raft::handle_t& handle,
-                                RngState& rng_state,
-                                raft::device_vector_view<const DataT, IdxT> in,
-                                WeightsVectorType&& wts,
-                                raft::device_vector_view<DataT, IdxT> out,
-                                OutIndexVectorType&& outIdx)
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 5>>
+void sample_without_replacement(Args... args)
 {
-  using weight_type = sample_without_replacement_impl::weight_t<
-    std::remove_const_t<std::remove_reference_t<WeightsVectorType>>>;
-  std::optional<raft::device_vector_view<const weight_type, IdxT>> weights =
-    std::forward<WeightsVectorType>(wts);
-  std::optional<raft::device_vector_view<IdxT, IdxT>> output_indices =
-    std::forward<OutIndexVectorType>(outIdx);
-
-  sample_without_replacement(handle, rng_state, in, weights, out, output_indices);
+  sample_without_replacement(std::forward<Args>(args)..., std::nullopt);
 }
 
 /**

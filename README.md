@@ -24,7 +24,7 @@ While not exhaustive, the following general categories help summarize the accele
 All of RAFT's C++ APIs can be accessed header-only and optional pre-compiled shared libraries can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
 
 In addition to the C++ library, RAFT also provides 2 Python libraries:
-- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessable APIs.
+- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessible APIs.
 - `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
 
 ## Getting started

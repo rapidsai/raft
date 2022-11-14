@@ -220,7 +220,7 @@ class layout_right::mapping {
     }
 #endif
 
-    // Not really public, but currently needed to implement fully constexpr useable submdspan:
+    // Not really public, but currently needed to implement fully constexpr usable submdspan:
     template<size_t N, class SizeType, size_t ... E, size_t ... Idx>
     constexpr index_type __get_stride(std::experimental::extents<SizeType, E...>,integer_sequence<size_t, Idx...>) const {
       return _MDSPAN_FOLD_TIMES_RIGHT((Idx>N? __extents.template __extent<Idx>():1),1);
