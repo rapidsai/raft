@@ -13,21 +13,16 @@
 # limitations under the License.
 #
 
-import numpy as np
-
-
-def is_c_cont(cai):
-    """
-    Checks whether an array is C contiguous.
-
-    Parameters
-    ----------
-    cai : CUDA array interface
-
-    """
-    dt = np.dtype(cai["typestr"])
-    return (
-        "strides" not in cai
-        or cai["strides"] is None
-        or cai["strides"][1] == dt.itemsize
-    )
+from .ivf_pq import (
+    CUDA_R_8U,
+    CUDA_R_16F,
+    CUDA_R_32F,
+    PER_CLUSTER,
+    PER_SUBSPACE,
+    Index,
+    IndexParams,
+    SearchParams,
+    build,
+    extend,
+    search,
+)

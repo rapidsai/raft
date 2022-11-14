@@ -38,15 +38,15 @@ from pylibraft.common import Handle, device_ndarray
 from pylibraft.common.handle cimport handle_t
 
 from pylibraft.common.handle import auto_sync_handle
-from pylibraft.testing.utils import is_c_cont
+from pylibraft.common.input_validation import is_c_contiguous
 
 from rmm._lib.memory_resource cimport (
     DeviceMemoryResource,
     device_memory_resource,
 )
 
-cimport pylibraft.neighbors.c_ivf_pq as c_ivf_pq
-from pylibraft.neighbors.c_ivf_pq cimport index_params, search_params
+cimport pylibraft.neighbors.ivf_pq.c_ivf_pq as c_ivf_pq
+from pylibraft.neighbors.ivf_pq.c_ivf_pq cimport index_params, search_params
 
 
 def _get_metric(metric):
@@ -76,7 +76,7 @@ def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):
     if cai["typestr"] not in exp_dt:
         raise TypeError("dtype %s not supported" % cai["typestr"])
 
-    if not is_c_cont(cai):
+    if not is_c_contiguous(cai):
         raise ValueError("Row major input is expected")
 
     if exp_cols is not None and cai["shape"][1] != exp_cols:
@@ -641,14 +641,14 @@ def search(SearchParams search_params,
                        exp_cols=index.dim)
 
     if neighbors is None:
-        neighbors = device_ndarray.empty((n_queries), dtype='uint64')
+        neighbors = device_ndarray.empty((n_queries, k), dtype='uint64')
 
     neighbors_cai = neighbors.__cuda_array_interface__
     _check_input_array(neighbors_cai, [np.dtype('uint64')],
                        exp_rows=n_queries, exp_cols=k)
 
     if distances is None:
-        ditances = device_ndarray.empty((n_queries), dtype='float32')
+        distances = device_ndarray.empty((n_queries, k), dtype='float32')
 
     distances_cai = distances.__cuda_array_interface__
     _check_input_array(distances_cai, [np.dtype('float32')],
