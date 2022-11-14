@@ -34,13 +34,13 @@ extras_require = {
 }
 
 
-def exclude_libcxx_symlink(cmake_manifest):
-    return list(
-        filter(
-            lambda name: not ("include/rapids/libcxx/include" in name),
-            cmake_manifest,
-        )
-    )
+# def exclude_libcxx_symlink(cmake_manifest):
+#     return list(
+#         filter(
+#             lambda name: not ("include/rapids/libcxx/include" in name),
+#             cmake_manifest,
+#         )
+#     )
 
 
 setup(
@@ -75,7 +75,7 @@ setup(
     install_requires=install_requires,
     extras_require=extras_require,
     # Don't want libcxx getting pulled into wheel builds.
-    cmake_process_manifest_hook=exclude_libcxx_symlink,
+    # cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=find_packages(include=["pylibraft", "pylibraft.*"]),
     license="Apache 2.0",
     cmdclass=versioneer.get_cmdclass(),
