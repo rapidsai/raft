@@ -22,7 +22,6 @@ from skbuild import setup
 
 install_requires = [
     "numpy",
-    f"rmm{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
 ]
 
 extras_require = {
