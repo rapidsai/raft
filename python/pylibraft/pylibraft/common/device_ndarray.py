@@ -53,8 +53,8 @@ class device_ndarray:
             self.ndarray_.tobytes(order=order)
         )
 
-    @staticmethod
-    def empty(shape, dtype=np.float32, order="C"):
+    @classmethod
+    def empty(cls, shape, dtype=np.float32, order="C"):
         """
         Return a new device_ndarray of given shape and type, without
         initializing entries.
@@ -71,7 +71,7 @@ class device_ndarray:
                 or column-major (Fortran-style) order in memory
         """
         arr = np.empty(shape, dtype=dtype, order=order)
-        return device_ndarray(arr)
+        return cls(arr)
 
     @property
     def c_contiguous(self):
