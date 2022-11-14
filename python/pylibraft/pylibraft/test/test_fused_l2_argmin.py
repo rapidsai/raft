@@ -21,11 +21,12 @@ from pylibraft.common import Handle, device_ndarray
 from pylibraft.distance import fused_l2_nn_argmin
 
 
+@pytest.mark.parametrize("inplace", [True, False])
 @pytest.mark.parametrize("n_rows", [10, 100])
 @pytest.mark.parametrize("n_clusters", [5, 10])
 @pytest.mark.parametrize("n_cols", [3, 5])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_fused_l2_nn_minarg(n_rows, n_cols, n_clusters, dtype):
+def test_fused_l2_nn_minarg(n_rows, n_cols, n_clusters, dtype, inplace):
     input1 = np.random.random_sample((n_rows, n_cols))
     input1 = np.asarray(input1, order="C").astype(dtype)
 
@@ -39,13 +40,14 @@ def test_fused_l2_nn_minarg(n_rows, n_cols, n_clusters, dtype):
 
     input1_device = device_ndarray(input1)
     input2_device = device_ndarray(input2)
-    output_device = device_ndarray(output)
+    output_device = device_ndarray(output) if inplace else None
 
     handle = Handle()
-    fused_l2_nn_argmin(
+    ret_output = fused_l2_nn_argmin(
         input1_device, input2_device, output_device, True, handle=handle
     )
     handle.sync()
+    output_device = ret_output if not inplace else output_device
     actual = output_device.copy_to_host()
 
     assert np.allclose(expected, actual, rtol=1e-4)

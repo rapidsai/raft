@@ -20,13 +20,14 @@ import rmm
 
 class device_ndarray:
     """
-    pylibraft.device_ndarray is meant to be a very lightweight
+    pylibraft.common.device_ndarray is meant to be a very lightweight
     __cuda_array_interface__ wrapper around a numpy.ndarray.
     """
 
     def __init__(self, np_ndarray):
         """
-        Construct a pylibraft.device_ndarray wrapper around a numpy.ndarray
+        Construct a pylibraft.common.device_ndarray wrapper around a
+        numpy.ndarray
 
         Parameters
         ----------
@@ -39,20 +40,20 @@ class device_ndarray:
         CuPy and PyTorch.
 
         The following usage example demonstrates
-        converting a pylibraft.device_ndarray to a cupy.ndarray:
+        converting a pylibraft.common.device_ndarray to a cupy.ndarray:
         .. code-block:: python
 
             import cupy as cp
-            from pylibraft import device_ndarray
+            from pylibraft.common import device_ndarray
 
             raft_array = device_ndarray.empty((100, 50))
             cupy_array = cp.asarray(raft_array)
 
-        And the converting pylibraft.device_ndarray to a PyTorch tensor:
+        And the converting pylibraft.common.device_ndarray to a PyTorch tensor:
         .. code-block:: python
 
             import torch
-            from pylibraft import device_ndarray
+            from pylibraft.common import device_ndarray
 
             raft_array = device_ndarray.empty((100, 50))
             torch_tensor = torch.as_tensor(raft_array, device='cuda')
