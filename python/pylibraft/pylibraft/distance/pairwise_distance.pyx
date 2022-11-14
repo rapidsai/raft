@@ -160,8 +160,7 @@ def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
     y_dt = np.dtype(y_cai["typestr"])
 
     if out is None:
-        out_host = np.empty((m, n), dtype=y_dt)
-        dists = device_ndarray(out_host)
+        dists = device_ndarray.empty((m, n), dtype=y_dt)
     else:
         dists = out
 

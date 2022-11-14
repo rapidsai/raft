@@ -20,17 +20,32 @@ import rmm
 
 class device_ndarray:
     """
-    raft.device_ndarray is meant to be a very lightweight
+    pylibraft.device_ndarray is meant to be a very lightweight
     __cuda_array_interface__ wrapper around a numpy.ndarray.
     """
 
     def __init__(self, np_ndarray):
         """
-        Construct a raft.device_ndarray wrapper around a numpy.ndarray
+        Construct a pylibraft.device_ndarray wrapper around a numpy.ndarray
 
         Parameters
         ----------
         ndarray : A numpy.ndarray which will be copied and moved to the device
+
+        Examples
+        --------
+        The device_ndarray is __cuda_array_interface__ compliant so it is
+        interoperable with other libraries that also support it, such as
+        CuPy and PyTorch. The following usage example demonstrates
+        converting a pylibraft.device_ndarray to a cupy.ndarray:
+
+        .. code-block:: python
+
+            import cupy as cp
+            from pylibraft import device_ndarray
+
+            raft_array = device_ndarray.empty((100, 50))
+            cupy_array = cp.asarray(raft_array)
         """
         self.ndarray_ = np_ndarray
         order = "C" if self.c_contiguous else "F"
