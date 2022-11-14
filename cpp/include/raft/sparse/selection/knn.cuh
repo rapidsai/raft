@@ -28,8 +28,8 @@
                 " is deprecated and will be removed in a future release." \
                 " Please use the sparse/spatial version instead.")
 
-#include <raft/sparse/spatial/knn.cuh>
+#include <raft/sparse/neighbors/knn.cuh>
 
 namespace raft::sparse::selection {
-using raft::sparse::spatial::brute_force_knn;
+using raft::sparse::neighbors::brute_force_knn;
 }

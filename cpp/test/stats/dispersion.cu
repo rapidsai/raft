@@ -16,6 +16,7 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
+#include <optional>
 #include <raft/interruptible.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/dispersion.cuh>
@@ -44,14 +45,13 @@ template <typename T>
 template <typename T>
 class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
  protected:
-  DispersionTest() : exp_mean(0, stream), act_mean(0, stream) {}
+  DispersionTest() : stream(handle.get_stream()), exp_mean(0, stream), act_mean(0, stream) {}
 
   void SetUp() override
   {
     params = ::testing::TestWithParam<DispersionInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
     int len = params.clusters * params.dim;
-    stream  = handle.get_stream();
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<int> counts(params.clusters, stream);
     exp_mean.resize(params.dim, stream);
@@ -64,8 +64,12 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     for (const auto& val : h_counts) {
       npoints += val;
     }
-    actualVal = dispersion(
-      data.data(), counts.data(), act_mean.data(), params.clusters, npoints, params.dim, stream);
+    actualVal = cluster_dispersion(
+      handle,
+      raft::make_device_matrix_view<const T, int>(data.data(), params.clusters, params.dim),
+      raft::make_device_vector_view<const int, int>(counts.data(), params.clusters),
+      std::make_optional(raft::make_device_vector_view<T, int>(act_mean.data(), params.dim)),
+      npoints);
     expectedVal = T(0);
     std::vector<T> h_data(len, T(0));
     raft::update_host(&(h_data[0]), data.data(), len, stream);

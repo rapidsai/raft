@@ -14,42 +14,50 @@
 # limitations under the License.
 #
 
+import os
+
+import versioneer
 from setuptools import find_packages
 from skbuild import setup
 
-import versioneer
-import os
-
 
 def exclude_libcxx_symlink(cmake_manifest):
-    return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
+    return list(
+        filter(
+            lambda name: not ("include/rapids/libcxx/include" in name),
+            cmake_manifest,
+        )
+    )
 
 
-setup(name=f"raft-dask{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
-      description="Reusable Accelerated Functions & Tools Dask Infrastructure",
-      version=os.getenv('RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE', default=versioneer.get_version()),
-      classifiers=[
+setup(
+    name=f"raft-dask{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
+    description="Reusable Accelerated Functions & Tools Dask Infrastructure",
+    version=os.getenv(
+        "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE", default=versioneer.get_version()
+    ),
+    classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9"
-      ],
-      author="NVIDIA Corporation",
-      include_package_data=True,
-      package_data={
-          # Note: A dict comprehension with an explicit copy is necessary
-          # (rather than something simpler like a dict.fromkeys) because
-          # otherwise every package will refer to the same list and skbuild
-          # modifies it in place.
-          key: ["*.hpp", "*.pxd"]
-          for key in find_packages(
-              include=[
-                  "raft_dask.common",
-                  "raft_dask.common.includes",
-              ]
-          )
-      },
-      install_requires=[
+        "Programming Language :: Python :: 3.9",
+    ],
+    author="NVIDIA Corporation",
+    include_package_data=True,
+    package_data={
+        # Note: A dict comprehension with an explicit copy is necessary
+        # (rather than something simpler like a dict.fromkeys) because
+        # otherwise every package will refer to the same list and skbuild
+        # modifies it in place.
+        key: ["*.hpp", "*.pxd"]
+        for key in find_packages(
+            include=[
+                "raft_dask.common",
+                "raft_dask.common.includes",
+            ]
+        )
+    },
+    install_requires=[
         "numpy",
         "numba>=0.49",
         "joblib>=0.11",
@@ -58,10 +66,10 @@ setup(name=f"raft-dask{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
         f"ucx-py{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
         "distributed>=2022.9.1",
         f"pylibraft{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
-      ],
-      cmake_process_manifest_hook=exclude_libcxx_symlink,
-      packages=find_packages(include=['raft_dask', 'raft_dask.*']),
-      license="Apache 2.0",
-      cmdclass=versioneer.get_cmdclass(),
-      zip_safe=False
-      )
+    ],
+    cmake_process_manifest_hook=exclude_libcxx_symlink,
+    packages=find_packages(include=["raft_dask", "raft_dask.*"]),
+    license="Apache 2.0",
+    cmdclass=versioneer.get_cmdclass(),
+    zip_safe=False,
+)

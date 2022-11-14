@@ -28,10 +28,10 @@
                 " is deprecated and will be removed in a future release." \
                 " Please use the sparse/spatial version instead.")
 
-#include <raft/sparse/spatial/connect_components.cuh>
+#include <raft/sparse/neighbors/connect_components.cuh>
 
 namespace raft::linkage {
-using raft::sparse::spatial::connect_components;
-using raft::sparse::spatial::FixConnectivitiesRedOp;
-using raft::sparse::spatial::get_n_components;
+using raft::sparse::neighbors::connect_components;
+using raft::sparse::neighbors::FixConnectivitiesRedOp;
+using raft::sparse::neighbors::get_n_components;
 }  // namespace raft::linkage

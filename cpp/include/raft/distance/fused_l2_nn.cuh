@@ -168,7 +168,8 @@ void fusedL2NN(OutT* min,
  *
  * @tparam DataT     data type
  * @tparam OutT      output type to either store 1-NN indices and their minimum
- *                   distances (e.g. cub::KeyValuePair<int, float>) or store only the min distances.
+ *                   distances (e.g. raft::KeyValuePair<int, float>) or store only the min
+ * distances.
  * @tparam IdxT      indexing arithmetic type
  * @param[out] min           will contain the reduced output (Length = `m`)
  *                           (on device)

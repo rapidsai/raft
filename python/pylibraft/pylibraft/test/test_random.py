@@ -13,11 +13,11 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
+import pytest
 
+from pylibraft.common import Handle
 from pylibraft.random import rmat
-
 from pylibraft.testing.utils import TestDeviceBuffer
 
 
@@ -46,14 +46,18 @@ def test_rmat(n_edges, r_scale, c_scale, dtype):
     theta, theta_device = generate_theta(r_scale, c_scale)
     out_buff = np.empty((n_edges, 2), dtype=dtype)
     output_device = TestDeviceBuffer(out_buff, "C")
-    rmat(output_device, theta_device, r_scale, c_scale, 12345)
+
+    handle = Handle()
+    rmat(output_device, theta_device, r_scale, c_scale, 12345, handle=handle)
+    handle.sync()
     output = output_device.copy_to_host()
     # a more rigorous tests have been done at the c++ level
     assert np.all(output[:, 0] >= 0)
     assert np.all(output[:, 0] < 2**r_scale)
     assert np.all(output[:, 1] >= 0)
     assert np.all(output[:, 1] < 2**c_scale)
-    rmat(output_device, theta_device, r_scale, c_scale, 12345)
+    rmat(output_device, theta_device, r_scale, c_scale, 12345, handle=handle)
+    handle.sync()
     output1 = output_device.copy_to_host()
     assert np.all(np.equal(output, output1))
 

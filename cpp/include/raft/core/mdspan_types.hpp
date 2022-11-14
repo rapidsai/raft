@@ -47,7 +47,7 @@ using vector_extent = std::experimental::extents<IndexType, dynamic_extent>;
 template <typename IndexType>
 using matrix_extent = std::experimental::extents<IndexType, dynamic_extent, dynamic_extent>;
 
-template <typename IndexType = std::uint32_t>
+template <typename IndexType>
 using scalar_extent = std::experimental::extents<IndexType, 1>;
 
 /**

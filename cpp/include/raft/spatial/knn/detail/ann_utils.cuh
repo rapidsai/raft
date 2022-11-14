@@ -112,13 +112,13 @@ struct mapping {
    * @{
    */
   template <typename S>
-  HDI auto operator()(const S& x) -> std::enable_if_t<std::is_same_v<S, T>, T>
+  HDI auto operator()(const S& x) const -> std::enable_if_t<std::is_same_v<S, T>, T>
   {
     return x;
   };
 
   template <typename S>
-  HDI auto operator()(const S& x) -> std::enable_if_t<!std::is_same_v<S, T>, T>
+  HDI auto operator()(const S& x) const -> std::enable_if_t<!std::is_same_v<S, T>, T>
   {
     constexpr double kMult = config<T>::kDivisor / config<S>::kDivisor;
     if constexpr (std::is_floating_point_v<S>) { return static_cast<T>(x * static_cast<S>(kMult)); }
@@ -149,66 +149,6 @@ inline void memzero(T* ptr, IdxT n_elems, rmm::cuda_stream_view stream)
     } break;
     default: RAFT_FAIL("memset: unreachable code");
   }
-}
-
-template <typename IdxT, typename OutT>
-__global__ void argmin_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const float* a, OutT* out)
-{
-  __shared__ OutT shm_ids[1024];    // NOLINT
-  __shared__ float shm_vals[1024];  // NOLINT
-  IdxT i = blockIdx.x;
-  if (i >= n_rows) return;
-  OutT min_idx  = n_cols;
-  float min_val = raft::upper_bound<float>();
-  for (OutT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    if (min_val > a[j + n_cols * i]) {
-      min_val = a[j + n_cols * i];
-      min_idx = j;
-    }
-  }
-  shm_vals[threadIdx.x] = min_val;
-  shm_ids[threadIdx.x]  = min_idx;
-  __syncthreads();
-  for (IdxT offset = blockDim.x / 2; offset > 0; offset >>= 1) {
-    if (threadIdx.x < offset) {
-      if (shm_vals[threadIdx.x] < shm_vals[threadIdx.x + offset]) {
-      } else if (shm_vals[threadIdx.x] > shm_vals[threadIdx.x + offset]) {
-        shm_vals[threadIdx.x] = shm_vals[threadIdx.x + offset];
-        shm_ids[threadIdx.x]  = shm_ids[threadIdx.x + offset];
-      } else if (shm_ids[threadIdx.x] > shm_ids[threadIdx.x + offset]) {
-        shm_ids[threadIdx.x] = shm_ids[threadIdx.x + offset];
-      }
-    }
-    __syncthreads();
-  }
-  if (threadIdx.x == 0) { out[i] = shm_ids[0]; }
-}
-
-/**
- * @brief Find index of the smallest element in each row.
- *
- * NB: device-only function
- * TODO: specialize select_k for the case of `k == 1` and use that one instead.
- *
- * @tparam IdxT index type
- * @tparam OutT output type
- *
- * @param n_rows
- * @param n_cols
- * @param[in] a device pointer to the row-major matrix [n_rows, n_cols]
- * @param[out] out device pointer to the vector of selected indices [n_rows]
- * @param stream
- */
-template <typename IdxT, typename OutT>
-inline void argmin_along_rows(
-  IdxT n_rows, IdxT n_cols, const float* a, OutT* out, rmm::cuda_stream_view stream)
-{
-  IdxT block_dim = 1024;
-  while (block_dim > n_cols) {
-    block_dim /= 2;
-  }
-  block_dim = max(block_dim, (IdxT)128);
-  argmin_along_rows_kernel<IdxT, OutT><<<n_rows, block_dim, 0, stream>>>(n_rows, n_cols, a, out);
 }
 
 template <typename IdxT>
@@ -259,72 +199,6 @@ inline void dots_along_rows(
    */
 }
 
-template <typename T, typename IdxT, typename LabelT>
-__global__ void accumulate_into_selected_kernel(IdxT n_rows,
-                                                uint32_t n_cols,
-                                                float* output,
-                                                uint32_t* selection_counters,
-                                                const T* input,
-                                                const LabelT* row_ids)
-{
-  IdxT gid = threadIdx.x + (blockDim.x * static_cast<IdxT>(blockIdx.x));
-  IdxT j   = gid % n_cols;
-  IdxT i   = gid / n_cols;
-  if (i >= n_rows) return;
-  IdxT l = static_cast<IdxT>(row_ids[i]);
-  if (j == 0) { atomicAdd(&(selection_counters[l]), 1); }
-  atomicAdd(&(output[j + n_cols * l]), mapping<float>{}(input[gid]));
-}
-
-/**
- * @brief Add all rows of input matrix into a selection of rows in the output matrix
- * (cast and possibly scale the data input type). Count the number of times every output
- * row was selected along the way.
- *
- * @tparam T      element type
- * @tparam IdxT   index type
- * @tparam LabelT label type
- *
- * @param n_cols number of columns in all matrices
- * @param[out] output output matrix [..., n_cols]
- * @param[inout] selection_counters number of occurrences of each row id in row_ids [..., n_cols]
- * @param n_rows number of rows in the input
- * @param[in] input row-major input matrix [n_rows, n_cols]
- * @param[in] row_ids row indices in the output matrix [n_rows]
- */
-template <typename T, typename IdxT, typename LabelT>
-void accumulate_into_selected(IdxT n_rows,
-                              uint32_t n_cols,
-                              float* output,
-                              uint32_t* selection_counters,
-                              const T* input,
-                              const LabelT* row_ids,
-                              rmm::cuda_stream_view stream)
-{
-  switch (check_pointer_residency(output, input, selection_counters, row_ids)) {
-    case pointer_residency::host_and_device:
-    case pointer_residency::device_only: {
-      uint32_t block_dim = 128;
-      auto grid_dim =
-        static_cast<uint32_t>(ceildiv<IdxT>(n_rows * static_cast<IdxT>(n_cols), block_dim));
-      accumulate_into_selected_kernel<T><<<grid_dim, block_dim, 0, stream>>>(
-        n_rows, n_cols, output, selection_counters, input, row_ids);
-    } break;
-    case pointer_residency::host_only: {
-      stream.synchronize();
-      for (IdxT i = 0; i < n_rows; i++) {
-        IdxT l = static_cast<IdxT>(row_ids[i]);
-        selection_counters[l]++;
-        for (IdxT j = 0; j < n_cols; j++) {
-          output[j + n_cols * l] += mapping<float>{}(input[j + n_cols * i]);
-        }
-      }
-      stream.synchronize();
-    } break;
-    default: RAFT_FAIL("All pointers must reside on the same side, host or device.");
-  }
-}
-
 template <typename IdxT>
 __global__ void normalize_rows_kernel(IdxT n_rows, IdxT n_cols, float* a)
 {
@@ -366,45 +240,6 @@ inline void normalize_rows(IdxT n_rows, IdxT n_cols, float* a, rmm::cuda_stream_
   dim3 threads(32, 4, 1);  // DO NOT CHANGE
   dim3 blocks(ceildiv(n_rows, threads.y), 1, 1);
   normalize_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
-}
-
-template <typename IdxT, typename Lambda>
-__global__ void map_along_rows_kernel(
-  IdxT n_rows, uint32_t n_cols, float* a, const uint32_t* d, Lambda map)
-{
-  IdxT gid = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);
-  IdxT i   = gid / n_cols;
-  if (i >= n_rows) return;
-  float& x = a[gid];
-  x        = map(x, d[i]);
-}
-
-/**
- * @brief Map a binary function over a matrix and a vector element-wise, broadcasting the vector
- * values along rows: `m[i, j] = op(m[i,j], v[i])`
- *
- * NB: device-only function
- *
- * @tparam IdxT   index type
- * @tparam Lambda
- *
- * @param n_rows
- * @param n_cols
- * @param[inout] m device pointer to a row-major matrix [n_rows, n_cols]
- * @param[in] v device pointer to a vector [n_rows]
- * @param op the binary operation to apply on every element of matrix rows and of the vector
- */
-template <typename IdxT, typename Lambda>
-inline void map_along_rows(IdxT n_rows,
-                           uint32_t n_cols,
-                           float* m,
-                           const uint32_t* v,
-                           Lambda op,
-                           rmm::cuda_stream_view stream)
-{
-  dim3 threads(128, 1, 1);
-  dim3 blocks(ceildiv<IdxT>(n_rows * n_cols, threads.x), 1, 1);
-  map_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, m, v, op);
 }
 
 template <typename T, typename IdxT>

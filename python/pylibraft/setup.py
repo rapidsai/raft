@@ -14,56 +14,71 @@
 # limitations under the License.
 #
 
+import os
+
+import versioneer
 from setuptools import find_packages
 from skbuild import setup
 
-import versioneer
-import os
-
 
 def exclude_libcxx_symlink(cmake_manifest):
-    return list(filter(lambda name: not ('include/rapids/libcxx/include' in name), cmake_manifest))
+    return list(
+        filter(
+            lambda name: not ("include/rapids/libcxx/include" in name),
+            cmake_manifest,
+        )
+    )
 
 
-setup(name='pylibraft'+os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default=""),
-      description="RAFT: Reusable Algorithms Functions and other Tools",
-      version=os.getenv('RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE', default=versioneer.get_version()),
-      classifiers=[
+setup(
+    name="pylibraft" + os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default=""),
+    description="RAFT: Reusable Algorithms Functions and other Tools",
+    version=versioneer.get_version(),
+    classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9"
-      ],
-      author="NVIDIA Corporation",
-      include_package_data=True,
-      package_data={
-          # Note: A dict comprehension with an explicit copy is necessary
-          # (rather than something simpler like a dict.fromkeys) because
-          # otherwise every package will refer to the same list and skbuild
-          # modifies it in place.
-          key: ["*.hpp", "*.pxd"]
-          for key in find_packages(
-              include=[
-                  "pylibraft.distance",
-                  "pylibraft.distance.includes",
-                  "pylibraft.common",
-                  "pylibraft.common.includes",
-                  "pylibraft.random",
-                  "pylibraft.random.includes"
-              ]
-          )
-      },
-      setup_requires=[
+        "Programming Language :: Python :: 3.9",
+    ],
+    author="NVIDIA Corporation",
+    include_package_data=True,
+    package_data={
+        # Note: A dict comprehension with an explicit copy is necessary
+        # (rather than something simpler like a dict.fromkeys) because
+        # otherwise every package will refer to the same list and skbuild
+        # modifies it in place.
+        key: ["*.hpp", "*.pxd"]
+        for key in find_packages(
+            include=[
+                "pylibraft.distance",
+                "pylibraft.distance.includes",
+                "pylibraft.common",
+                "pylibraft.common.includes",
+                "pylibraft.random",
+                "pylibraft.random.includes",
+            ]
+        )
+    },
+    # TODO: This is problematic. We shouldn't be using `setup_requires`, but we
+    # need to be able to specify the wheel cuda suffix and there's no way to do
+    # that dynamically in pyproject.toml. It may be possible to leverage the
+    # dynamic metadata feature of pyproject.toml
+    # (https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html#dynamic-metadata)
+    # but support for dependencies is still experimental and it's not clear if
+    # there's any way to leverage something like an environment variable there
+    # anyway.
+    setup_requires=[
         f"rmm{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
-      ],
-      install_requires=[
+    ],
+    install_requires=[
         "numpy",
         "cuda-python>=11.5,<11.7.1",
         f"rmm{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
-      ],
-      cmake_process_manifest_hook=exclude_libcxx_symlink,
-      packages=find_packages(include=['pylibraft', 'pylibraft.*']),
-      license="Apache 2.0",
-      cmdclass=versioneer.get_cmdclass(),
-      zip_safe=False
-      )
+    ],
+    # Don't want libcxx getting pulled into wheel builds.
+    cmake_process_manifest_hook=exclude_libcxx_symlink,
+    packages=find_packages(include=["pylibraft", "pylibraft.*"]),
+    license="Apache",
+    cmdclass=versioneer.get_cmdclass(),
+    zip_safe=False,
+)

@@ -65,7 +65,9 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
     }
 
     raft::update_device(data.data(), data_h, len, stream);
-    sum(sum_act.data(), data.data(), cols, rows, false, stream);
+    sum(handle,
+        raft::make_device_matrix_view<const T>(data.data(), rows, cols),
+        raft::make_device_vector_view(sum_act.data(), cols));
     handle.sync_stream(stream);
   }
 

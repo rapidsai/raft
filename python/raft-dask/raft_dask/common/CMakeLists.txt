@@ -21,10 +21,5 @@ endif()
 set(cython_sources comms_utils.pyx nccl.pyx)
 set(linked_libraries raft::raft NCCL::NCCL ucx::ucp)
 rapids_cython_create_modules(
-    SOURCE_FILES "${cython_sources}"
-    LINKED_LIBRARIES "${linked_libraries}"
-    CXX)
-
-foreach(cython_module IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
-    set_target_properties(${cython_module} PROPERTIES INSTALL_RPATH "\$ORIGIN;\$ORIGIN/../")
-endforeach()
+  SOURCE_FILES "${cython_sources}" LINKED_LIBRARIES "${linked_libraries}" CXX
+)

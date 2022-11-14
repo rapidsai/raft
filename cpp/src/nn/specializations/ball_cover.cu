@@ -14,28 +14,29 @@
  * limitations under the License.
  */
 
-#include <raft/spatial/knn/ball_cover.cuh>
-#include <raft/spatial/knn/ball_cover_types.hpp>
+#include <raft/neighbors/ball_cover.cuh>
+#include <raft/neighbors/ball_cover_types.hpp>
 
 // Ignore upstream specializations to avoid unnecessary recompiling
+#ifdef RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
-#include <raft/spatial/knn/specializations/detail/ball_cover_lowdim.hpp>
-#include <raft/spatial/knn/specializations/fused_l2_knn.cuh>
-#include <raft/spatial/knn/specializations/knn.cuh>
+#endif
+
+#include <raft/neighbors/specializations/detail/ball_cover_lowdim.hpp>
+#include <raft/neighbors/specializations/fused_l2_knn.cuh>
+#include <raft/neighbors/specializations/knn.cuh>
 
 #include <cstdint>
 
-namespace raft {
-namespace spatial {
-namespace knn {
+namespace raft::neighbors::ball_cover {
 template class BallCoverIndex<int, float, std::uint32_t, std::uint32_t>;
 template class BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>;
 
-template void rbc_build_index<std::int64_t, float, std::uint32_t, std::uint32_t>(
+template void build_index<std::int64_t, float, std::uint32_t, std::uint32_t>(
   const raft::handle_t& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index);
 
-template void rbc_knn_query<std::int64_t, float, std::uint32_t>(
+template void knn_query<std::int64_t, float, std::uint32_t>(
   const raft::handle_t& handle,
   const BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
   std::uint32_t k,
@@ -46,7 +47,7 @@ template void rbc_knn_query<std::int64_t, float, std::uint32_t>(
   bool perform_post_filtering,
   float weight);
 
-template void rbc_all_knn_query<std::int64_t, float, std::uint32_t>(
+template void all_knn_query<std::int64_t, float, std::uint32_t>(
   const raft::handle_t& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
   std::uint32_t k,
@@ -55,6 +56,4 @@ template void rbc_all_knn_query<std::int64_t, float, std::uint32_t>(
   bool perform_post_filtering,
   float weight);
 
-};  // namespace knn
-};  // namespace spatial
-};  // namespace raft
+};  // namespace raft::neighbors::ball_cover

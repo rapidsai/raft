@@ -32,7 +32,7 @@ enum class op_t { SUM, PROD, MIN, MAX };
  */
 enum class status_t {
   SUCCESS,  // Synchronization successful
-  ERROR,    // An error occured querying sync status
+  ERROR,    // An error occurred querying sync status
   ABORT     // A failure occurred in sync, queued operations aborted
 };
 

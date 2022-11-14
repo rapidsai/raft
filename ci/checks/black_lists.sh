@@ -4,7 +4,7 @@
 # RAFT black listed function call Tester #
 ##########################################
 
-# PR_TARGET_BRANCH is set by the CI enviroment
+# PR_TARGET_BRANCH is set by the CI environment
 
 git checkout --quiet $PR_TARGET_BRANCH
 

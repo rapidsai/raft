@@ -1,6 +1,82 @@
-# raft 22.10.00 (Date TBD)
+# raft 22.12.00 (Date TBD)
 
-Please see https://github.com/rapidsai/raft/releases/tag/v22.10.00a for the latest changes to this development branch.
+Please see https://github.com/rapidsai/raft/releases/tag/v22.12.00a for the latest changes to this development branch.
+
+# raft 22.10.00 (12 Oct 2022)
+
+## 🚨 Breaking Changes
+
+- Separating mdspan/mdarray infra into host_* and device_* variants ([#810](https://github.com/rapidsai/raft/pull/810)) [@cjnolet](https://github.com/cjnolet)
+- Remove type punning from TxN_t ([#781](https://github.com/rapidsai/raft/pull/781)) [@wphicks](https://github.com/wphicks)
+- ivf_flat::index: hide implementation details ([#747](https://github.com/rapidsai/raft/pull/747)) [@achirkin](https://github.com/achirkin)
+
+## 🐛 Bug Fixes
+
+- ivf-pq integration: hotfixes ([#891](https://github.com/rapidsai/raft/pull/891)) [@achirkin](https://github.com/achirkin)
+- Removing cub symbol from libraft-distance instantiation. ([#887](https://github.com/rapidsai/raft/pull/887)) [@cjnolet](https://github.com/cjnolet)
+- ivf-pq post integration hotfixes ([#878](https://github.com/rapidsai/raft/pull/878)) [@achirkin](https://github.com/achirkin)
+- Fixing a few compile errors in new APIs ([#874](https://github.com/rapidsai/raft/pull/874)) [@cjnolet](https://github.com/cjnolet)
+- Include knn.cuh in knn.cu benchmark source for finding brute_force_knn ([#855](https://github.com/rapidsai/raft/pull/855)) [@teju85](https://github.com/teju85)
+- Do not use strcpy to copy 2 char ([#848](https://github.com/rapidsai/raft/pull/848)) [@mhoemmen](https://github.com/mhoemmen)
+- rng_state not including necessary cstdint ([#839](https://github.com/rapidsai/raft/pull/839)) [@MatthiasKohl](https://github.com/MatthiasKohl)
+- Fix integer overflow in ANN kmeans ([#835](https://github.com/rapidsai/raft/pull/835)) [@Nyrio](https://github.com/Nyrio)
+- Add alignment to the TxN_t vectorized type ([#792](https://github.com/rapidsai/raft/pull/792)) [@achirkin](https://github.com/achirkin)
+- Fix adj_to_csr_kernel ([#785](https://github.com/rapidsai/raft/pull/785)) [@ahendriksen](https://github.com/ahendriksen)
+- Use rapids-cmake 22.10 best practice for RAPIDS.cmake location ([#784](https://github.com/rapidsai/raft/pull/784)) [@robertmaynard](https://github.com/robertmaynard)
+- Remove type punning from TxN_t ([#781](https://github.com/rapidsai/raft/pull/781)) [@wphicks](https://github.com/wphicks)
+- Various fixes for build.sh ([#771](https://github.com/rapidsai/raft/pull/771)) [@vyasr](https://github.com/vyasr)
+
+## 📖 Documentation
+
+- Fix target names in build.sh help text ([#879](https://github.com/rapidsai/raft/pull/879)) [@Nyrio](https://github.com/Nyrio)
+- Document that minimum required CMake version is now 3.23.1 ([#841](https://github.com/rapidsai/raft/pull/841)) [@robertmaynard](https://github.com/robertmaynard)
+
+## 🚀 New Features
+
+- mdspanify raft::random functions uniformInt, normalTable, fill, bernoulli, and scaled_bernoulli ([#897](https://github.com/rapidsai/raft/pull/897)) [@mhoemmen](https://github.com/mhoemmen)
+- mdspan-ify several raft::random rng functions ([#857](https://github.com/rapidsai/raft/pull/857)) [@mhoemmen](https://github.com/mhoemmen)
+- Develop new mdspan-ified multi_variable_gaussian interface ([#845](https://github.com/rapidsai/raft/pull/845)) [@mhoemmen](https://github.com/mhoemmen)
+- Mdspanify permute ([#834](https://github.com/rapidsai/raft/pull/834)) [@mhoemmen](https://github.com/mhoemmen)
+- mdspan-ify rmat_rectangular_gen ([#833](https://github.com/rapidsai/raft/pull/833)) [@mhoemmen](https://github.com/mhoemmen)
+- mdspanify sampleWithoutReplacement ([#830](https://github.com/rapidsai/raft/pull/830)) [@mhoemmen](https://github.com/mhoemmen)
+- mdspan-ify make_regression ([#811](https://github.com/rapidsai/raft/pull/811)) [@mhoemmen](https://github.com/mhoemmen)
+- Updating `raft::linalg` APIs to use `mdspan` ([#809](https://github.com/rapidsai/raft/pull/809)) [@divyegala](https://github.com/divyegala)
+- Integrate KNN implementation: ivf-pq ([#789](https://github.com/rapidsai/raft/pull/789)) [@achirkin](https://github.com/achirkin)
+
+## 🛠️ Improvements
+
+- Some fixes for build.sh ([#901](https://github.com/rapidsai/raft/pull/901)) [@cjnolet](https://github.com/cjnolet)
+- Revert recent fused l2 nn instantiations ([#899](https://github.com/rapidsai/raft/pull/899)) [@cjnolet](https://github.com/cjnolet)
+- Update Python build instructions ([#898](https://github.com/rapidsai/raft/pull/898)) [@betatim](https://github.com/betatim)
+- Adding ninja and cxx compilers to conda dev dependencies ([#893](https://github.com/rapidsai/raft/pull/893)) [@cjnolet](https://github.com/cjnolet)
+- Output non-normalized distances in IVF-PQ and brute-force KNN ([#892](https://github.com/rapidsai/raft/pull/892)) [@Nyrio](https://github.com/Nyrio)
+- Readme updates for 22.10 ([#884](https://github.com/rapidsai/raft/pull/884)) [@cjnolet](https://github.com/cjnolet)
+- Breaking apart benchmarks into individual binaries ([#883](https://github.com/rapidsai/raft/pull/883)) [@cjnolet](https://github.com/cjnolet)
+- Pin `dask` and `distributed` for release ([#858](https://github.com/rapidsai/raft/pull/858)) [@galipremsagar](https://github.com/galipremsagar)
+- Mdspanifying (currently tested) `raft::matrix` ([#846](https://github.com/rapidsai/raft/pull/846)) [@cjnolet](https://github.com/cjnolet)
+- Separating _RAFT_HOST and _RAFT_DEVICE macros ([#836](https://github.com/rapidsai/raft/pull/836)) [@cjnolet](https://github.com/cjnolet)
+- Updating cpu job in hopes it speeds up python cpu builds ([#828](https://github.com/rapidsai/raft/pull/828)) [@cjnolet](https://github.com/cjnolet)
+- Mdspan-ifying `raft::spatial` ([#827](https://github.com/rapidsai/raft/pull/827)) [@cjnolet](https://github.com/cjnolet)
+- Fixing __init__.py for handle and stream ([#826](https://github.com/rapidsai/raft/pull/826)) [@cjnolet](https://github.com/cjnolet)
+- Moving a few more things around ([#822](https://github.com/rapidsai/raft/pull/822)) [@cjnolet](https://github.com/cjnolet)
+- Use fusedL2NN in ANN kmeans ([#821](https://github.com/rapidsai/raft/pull/821)) [@Nyrio](https://github.com/Nyrio)
+- Separating test executables ([#820](https://github.com/rapidsai/raft/pull/820)) [@cjnolet](https://github.com/cjnolet)
+- Separating mdspan/mdarray infra into host_* and device_* variants ([#810](https://github.com/rapidsai/raft/pull/810)) [@cjnolet](https://github.com/cjnolet)
+- Fix malloc/delete mismatch ([#808](https://github.com/rapidsai/raft/pull/808)) [@mhoemmen](https://github.com/mhoemmen)
+- Renaming `pyraft` -&gt; `raft-dask` ([#801](https://github.com/rapidsai/raft/pull/801)) [@cjnolet](https://github.com/cjnolet)
+- Branch 22.10 merge 22.08 ([#800](https://github.com/rapidsai/raft/pull/800)) [@cjnolet](https://github.com/cjnolet)
+- Statically link all CUDA toolkit libraries ([#797](https://github.com/rapidsai/raft/pull/797)) [@trxcllnt](https://github.com/trxcllnt)
+- Minor follow-up fixes for ivf-flat ([#796](https://github.com/rapidsai/raft/pull/796)) [@achirkin](https://github.com/achirkin)
+- KMeans benchmarks (cuML + ANN implementations) and fix for IndexT=int64_t ([#795](https://github.com/rapidsai/raft/pull/795)) [@Nyrio](https://github.com/Nyrio)
+- Optimize fusedL2NN when data is skinny ([#794](https://github.com/rapidsai/raft/pull/794)) [@ahendriksen](https://github.com/ahendriksen)
+- Complete the deprecation of duplicated hpp headers ([#793](https://github.com/rapidsai/raft/pull/793)) [@ahendriksen](https://github.com/ahendriksen)
+- Prepare parts of the balanced kmeans for ivf-pq ([#788](https://github.com/rapidsai/raft/pull/788)) [@achirkin](https://github.com/achirkin)
+- Unpin `dask` and `distributed` for development ([#783](https://github.com/rapidsai/raft/pull/783)) [@galipremsagar](https://github.com/galipremsagar)
+- Exposing python wrapper for the RMAT generator logic ([#778](https://github.com/rapidsai/raft/pull/778)) [@teju85](https://github.com/teju85)
+- Device, Host, Managed Accessor Types for `mdspan` ([#776](https://github.com/rapidsai/raft/pull/776)) [@divyegala](https://github.com/divyegala)
+- Fix Forward-Merger Conflicts ([#768](https://github.com/rapidsai/raft/pull/768)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Fea 2208 kmeans use specializations ([#760](https://github.com/rapidsai/raft/pull/760)) [@cjnolet](https://github.com/cjnolet)
+- ivf_flat::index: hide implementation details ([#747](https://github.com/rapidsai/raft/pull/747)) [@achirkin](https://github.com/achirkin)
 
 # raft 22.08.00 (17 Aug 2022)
 

@@ -16,14 +16,16 @@
 
 #pragma once
 
+#include <cstdint>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/memory_type.hpp>
 
-#include <raft/core/detail/host_device_accessor.hpp>
+#include <raft/core/host_device_accessor.hpp>
 
 namespace raft {
 
 template <typename AccessorPolicy>
-using host_accessor = detail::host_device_accessor<AccessorPolicy, true, false>;
+using host_accessor = host_device_accessor<AccessorPolicy, memory_type::host>;
 
 /**
  * @brief std::experimental::mdspan with host tag to avoid accessing incorrect memory location.
@@ -109,6 +111,51 @@ template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
 using host_matrix_view = host_mdspan<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
+
+/**
+ * @brief Shorthand for 128 byte aligned host matrix view.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy must be of type layout_{left/right}_padded
+ */
+template <typename ElementType,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_right_padded<ElementType>,
+          typename              = enable_if_layout_padded<ElementType, LayoutPolicy>>
+using host_aligned_matrix_view =
+  host_mdspan<ElementType,
+              matrix_extent<IndexType>,
+              LayoutPolicy,
+              std::experimental::aligned_accessor<ElementType, detail::alignment::value>>;
+
+/**
+ * @brief Create a 2-dim 128 byte aligned mdspan instance for host pointer. It's
+ *        expected that the given layout policy match the layout of the underlying
+ *        pointer.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam LayoutPolicy must be of type layout_{left/right}_padded
+ * @tparam IndexType the index type of the extents
+ * @param[in] ptr on host to wrap
+ * @param[in] n_rows number of rows in pointer
+ * @param[in] n_cols number of columns in pointer
+ */
+template <typename ElementType,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_right_padded<ElementType>>
+auto make_host_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_cols)
+{
+  using data_handle_type =
+    typename std::experimental::aligned_accessor<ElementType,
+                                                 detail::alignment::value>::data_handle_type;
+
+  static_assert(std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
+                std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value);
+  assert(ptr == alignTo(ptr, detail::alignment::value));
+  data_handle_type aligned_pointer = ptr;
+
+  matrix_extent<IndexType> extents{n_rows, n_cols};
+  return host_aligned_matrix_view<ElementType, IndexType, LayoutPolicy>{aligned_pointer, extents};
+}
 
 /**
  * @brief Create a 0-dim (scalar) mdspan instance for host value.

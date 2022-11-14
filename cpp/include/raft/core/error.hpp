@@ -97,23 +97,23 @@ struct logic_error : public raft::exception {
 
 // FIXME: Need to be replaced with RAFT_FAIL
 /** macro to throw a runtime error */
-#define THROW(fmt, ...)                                                                      \
-  do {                                                                                       \
-    int size1 =                                                                              \
-      std::snprintf(nullptr, 0, "exception occured! file=%s line=%d: ", __FILE__, __LINE__); \
-    int size2 = std::snprintf(nullptr, 0, fmt, ##__VA_ARGS__);                               \
-    if (size1 < 0 || size2 < 0)                                                              \
-      throw raft::exception("Error in snprintf, cannot handle raft exception.");             \
-    auto size = size1 + size2 + 1; /* +1 for final '\0' */                                   \
-    auto buf  = std::make_unique<char[]>(size_t(size));                                      \
-    std::snprintf(buf.get(),                                                                 \
-                  size1 + 1 /* +1 for '\0' */,                                               \
-                  "exception occured! file=%s line=%d: ",                                    \
-                  __FILE__,                                                                  \
-                  __LINE__);                                                                 \
-    std::snprintf(buf.get() + size1, size2 + 1 /* +1 for '\0' */, fmt, ##__VA_ARGS__);       \
-    std::string msg(buf.get(), buf.get() + size - 1); /* -1 to remove final '\0' */          \
-    throw raft::exception(msg);                                                              \
+#define THROW(fmt, ...)                                                                       \
+  do {                                                                                        \
+    int size1 =                                                                               \
+      std::snprintf(nullptr, 0, "exception occurred! file=%s line=%d: ", __FILE__, __LINE__); \
+    int size2 = std::snprintf(nullptr, 0, fmt, ##__VA_ARGS__);                                \
+    if (size1 < 0 || size2 < 0)                                                               \
+      throw raft::exception("Error in snprintf, cannot handle raft exception.");              \
+    auto size = size1 + size2 + 1; /* +1 for final '\0' */                                    \
+    auto buf  = std::make_unique<char[]>(size_t(size));                                       \
+    std::snprintf(buf.get(),                                                                  \
+                  size1 + 1 /* +1 for '\0' */,                                                \
+                  "exception occurred! file=%s line=%d: ",                                    \
+                  __FILE__,                                                                   \
+                  __LINE__);                                                                  \
+    std::snprintf(buf.get() + size1, size2 + 1 /* +1 for '\0' */, fmt, ##__VA_ARGS__);        \
+    std::string msg(buf.get(), buf.get() + size - 1); /* -1 to remove final '\0' */           \
+    throw raft::exception(msg);                                                               \
   } while (0)
 
 // FIXME: Need to be replaced with RAFT_EXPECTS
@@ -148,7 +148,7 @@ struct logic_error : public raft::exception {
  *
  * @param[in] cond Expression that evaluates to true or false
  * @param[in] fmt String literal description of the reason that cond is expected to be true with
- * optinal format tagas
+ * optional format tagas
  * @throw raft::logic_error if the condition evaluates to false.
  */
 #define RAFT_EXPECTS(cond, fmt, ...)                              \
@@ -164,7 +164,7 @@ struct logic_error : public raft::exception {
  * @brief Indicates that an erroneous code path has been taken.
  *
  * @param[in] fmt String literal description of the reason that this code path is erroneous with
- * optinal format tagas
+ * optional format tagas
  * @throw always throws raft::logic_error
  */
 #define RAFT_FAIL(fmt, ...)                                     \
