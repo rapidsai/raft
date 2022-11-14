@@ -87,8 +87,8 @@ def run_ivf_pq_build_search_test(
     codebook_kind="subspace",
     add_data_on_build="True",
     n_probes=100,
-    lut_dtype=ivf_pq.CUDA_R_32F,
-    internal_distance_dtype=ivf_pq.CUDA_R_32F,
+    lut_dtype=np.float32,
+    internal_distance_dtype=np.float32,
     force_random_rotation=False,
     kmeans_trainset_fraction=1,
     kmeans_n_iters=20,
@@ -166,12 +166,8 @@ def run_ivf_pq_build_search_test(
     out_dist = out_dist_device.copy_to_host()
 
     # Calculate reference values with sklearn
-    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[
-        metric
-    ]
-    nn_skl = NearestNeighbors(
-        n_neighbors=k, algorithm="brute", metric=skl_metric
-    )
+    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[metric]
+    nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=skl_metric)
     nn_skl.fit(dataset)
     skl_idx = nn_skl.kneighbors(queries, return_distance=False)
 
@@ -295,26 +291,26 @@ def test_ivf_pq_params(params):
         {
             "k": 10,
             "n_probes": 100,
-            "lut": ivf_pq.CUDA_R_16F,
-            "idd": ivf_pq.CUDA_R_32F,
+            "lut": np.float16,
+            "idd": np.float32,
         },
         {
             "k": 10,
             "n_probes": 99,
-            "lut": ivf_pq.CUDA_R_8U,
-            "idd": ivf_pq.CUDA_R_32F,
+            "lut": np.uint8,
+            "idd": np.float32,
         },
         {
             "k": 10,
             "n_probes": 100,
-            "lut": ivf_pq.CUDA_R_32F,
-            "idd": ivf_pq.CUDA_R_16F,
+            "lut": np.float32,
+            "idd": np.float16,
         },
         {
             "k": 129,
             "n_probes": 100,
-            "lut": ivf_pq.CUDA_R_32F,
-            "idd": ivf_pq.CUDA_R_32F,
+            "lut": np.float32,
+            "idd": np.float32,
         },
     ],
 )
@@ -438,9 +434,9 @@ def test_search_inputs(params):
 
     q_dt = params.get("q_dt", np.float32)
     q_order = params.get("q_order", "C")
-    queries = generate_data(
-        (n_queries, params.get("q_cols", n_cols)), q_dt
-    ).astype(q_dt, order=q_order)
+    queries = generate_data((n_queries, params.get("q_cols", n_cols)), q_dt).astype(
+        q_dt, order=q_order
+    )
     queries_device = device_ndarray(queries)
 
     idx_dt = params.get("idx_dt", np.uint64)

@@ -68,8 +68,22 @@ cdef _get_metric_string(DistanceType metric):
 
 
 cdef _get_codebook_string(c_ivf_pq.codebook_gen codebook):
-    return {PER_SUBSPACE: "subspace",
-            PER_CLUSTER: "cluster"}[codebook]
+    return {c_ivf_pq.codebook_gen.PER_SUBSPACE: "subspace",
+            c_ivf_pq.codebook_gen.PER_CLUSTER: "cluster"}[codebook]
+
+
+cdef _map_dtype_np_to_cuda(dtype, supported_dtypes=None):
+    if supported_dtypes is not None and dtype not in supported_dtypes:
+        raise TypeError("Type %s is not supported" % str(dtype))
+    return {np.float32: c_ivf_pq.cudaDataType_t.CUDA_R_32F,
+            np.float16: c_ivf_pq.cudaDataType_t.CUDA_R_16F,
+            np.uint8: c_ivf_pq.cudaDataType_t.CUDA_R_8U}[dtype]
+
+
+cdef _get_dtype_string(dtype):
+    return str({c_ivf_pq.cudaDataType_t.CUDA_R_32F: np.float32,
+                c_ivf_pq.cudaDataType_t.CUDA_R_16F: np.float16,
+                 c_ivf_pq.cudaDataType_t.CUDA_R_8U: np.uint8}[dtype])
 
 
 def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):
@@ -86,15 +100,6 @@ def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):
     if exp_rows is not None and cai["shape"][0] != exp_rows:
         raise ValueError("Incorrect number of rows, expected {} , got {}"
                          .format(exp_rows, cai["shape"][0]))
-
-
-# Variables to provide easier access for parameters
-PER_SUBSPACE = c_ivf_pq.codebook_gen.PER_SUBSPACE
-PER_CLUSTER = c_ivf_pq.codebook_gen.PER_CLUSTER
-
-CUDA_R_32F = c_ivf_pq.cudaDataType_t.CUDA_R_32F
-CUDA_R_16F = c_ivf_pq.cudaDataType_t.CUDA_R_16F
-CUDA_R_8U = c_ivf_pq.cudaDataType_t.CUDA_R_8U
 
 
 cdef class IndexParams:
@@ -174,7 +179,7 @@ cdef class IndexParams:
         if codebook_kind == "subspace":
             self.params.codebook_kind = c_ivf_pq.codebook_gen.PER_SUBSPACE
         elif codebook_kind == "cluster":
-            self.params.codebook_kind = c_ivf_pq.codebook_gen.PER_SUBSPACE
+            self.params.codebook_kind = c_ivf_pq.codebook_gen.PER_CLUSTER
         else:
             raise ValueError("Incorrect codebook kind %s" % codebook_kind)
         self.params.force_random_rotation = force_random_rotation
@@ -503,8 +508,8 @@ cdef class SearchParams:
     cdef c_ivf_pq.search_params params
 
     def __init__(self, *, n_probes=20,
-                 lut_dtype=CUDA_R_32F,
-                 internal_distance_dtype=CUDA_R_32F):
+                 lut_dtype=np.float32,
+                 internal_distance_dtype=np.float32):
         """
         IVF-PQ search parameters
 
@@ -512,23 +517,34 @@ cdef class SearchParams:
         ----------
         n_probes: int, default = 1024
             The number of course clusters to select for the fine search.
-        lut_dtype: default = ivf_pq.CUDA_R_32F (float)
+        lut_dtype: default = np.float32
             Data type of look up table to be created dynamically at search
             time. The use of low-precision types reduces the amount of shared
             memory required at search time, so fast shared memory kernels can
             be used even for datasets with large dimansionality. Note that
             the recall is slightly degraded when low-precision type is
-            selected. Possible values [CUDA_R_32F, CUDA_R_16F, CUDA_R_8U]
-        internal_distance_dtype: default = ivf_q.CUDA_R_32F (float)
+            selected. Possible values [np.float32, np.float16, np.uint8]
+        internal_distance_dtype: default = np.float32
             Storage data type for distance/similarity computation.
-            Possible values [CUDA_R_32F, CUDA_R_16F]
+            Possible values [np.float32, np.float16]
         """
 
         self.params.n_probes = n_probes
-        self.params.lut_dtype = lut_dtype
-        self.params.internal_distance_dtype = internal_distance_dtype
+        self.params.lut_dtype = _map_dtype_np_to_cuda(lut_dtype)
+        self.params.internal_distance_dtype = \
+            _map_dtype_np_to_cuda(internal_distance_dtype)
         # TODO(tfeher): enable if #926 adds this
         # self.params.shmem_carveout = self.shmem_carveout
+
+    def __repr__(self):
+        lut_str = "lut_dtype=" + _get_dtype_string(self.params.lut_dtype)
+        idt_str = "internal_distance_dtype=" + \
+            _get_dtype_string(self.params.internal_distance_dtype)
+        attr_str = [attr + "=" + str(getattr(self, attr)) \
+                        for attr in ["n_probes"]] 
+        # TODO (tfeher) add "shmem_carveout"
+        attr_str = attr_str + [lut_str, idt_str]
+        return "SearchParams(type=IVF-PQ, " + (", ".join(attr_str)) + ")"
 
     @property
     def n_probes(self):
@@ -602,8 +618,8 @@ def search(SearchParams search_params,
         k = 10
         search_params = ivf_pq.SearchParams(
             n_probes=20,
-            lut_dtype=ivf_pq.CUDA_R_16F,
-            internal_distance_dtype=ivf_pq.CUDA_R_32F
+            lut_dtype=ivf_pq.np.float16,
+            internal_distance_dtype=ivf_pq.np.float32
         )
 
         # Using a pooling allocator reduces overhead of temporary array
@@ -615,7 +631,8 @@ def search(SearchParams search_params,
             maximum_pool_size=2**31
         )
         distances, neighbors = ivf_pq.search(search_params, index, queries,
-                                             k, mr, handle=handle)
+                                             k, memory_resource=mr,
+                                             handle=handle)
 
         # pylibraft functions are often asynchronous so the
         # handle needs to be explicitly synchronized

@@ -14,11 +14,6 @@
 #
 
 from .ivf_pq import (
-    CUDA_R_8U,
-    CUDA_R_16F,
-    CUDA_R_32F,
-    PER_CLUSTER,
-    PER_SUBSPACE,
     Index,
     IndexParams,
     SearchParams,
