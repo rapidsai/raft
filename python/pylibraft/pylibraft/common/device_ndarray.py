@@ -38,6 +38,26 @@ class device_ndarray:
             self.ndarray_.tobytes(order=order)
         )
 
+    @staticmethod
+    def empty(shape, dtype=np.float32, order="C"):
+        """
+        Return a new device_ndarray of given shape and type, without
+        initializing entries.
+
+        Parameters
+        ----------
+        shape : int or tuple of int
+                Shape of the empty array, e.g., (2, 3) or 2.
+        dtype : data-type, optional
+                Desired output data-type for the array, e.g, numpy.int8.
+                Default is numpy.float32.
+        order : {'C', 'F'}, optional (default: 'C')
+                Whether to store multi-dimensional dat ain row-major (C-style)
+                or column-major (Fortran-style) order in memory
+        """
+        arr = np.empty(shape, dtype=dtype, order=order)
+        return device_ndarray(arr)
+
     @property
     def c_contiguous(self):
         """
