@@ -13,15 +13,14 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
-from sklearn.neighbors import NearestNeighbors
+import pytest
 from sklearn.metrics import pairwise_distances
+from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
 
+from pylibraft.common import device_ndarray
 from pylibraft.neighbors import ivf_pq
-
-from pylibraft.testing.utils import TestDeviceBuffer
 
 
 def generate_data(shape, dtype):
@@ -46,7 +45,8 @@ def calc_recall(ann_idx, true_nn_idx):
 
 def check_distances(dataset, queries, metric, out_idx, out_dist):
     """
-    Calculate the real distance between queries and dataset[out_idx], and compare it to out_dist.
+    Calculate the real distance between queries and dataset[out_idx],
+    and compare it to out_dist.
     """
     dist = np.empty(out_dist.shape, out_dist.dtype)
     for i in range(queries.shape[0]):
@@ -59,7 +59,8 @@ def check_distances(dataset, queries, metric, out_idx, out_dist):
         else:
             raise ValueError("Invali metric")
 
-    # Note: raft l2 metric does not include the square root operation like sklearn's euclidean.
+    # Note: raft l2 metric does not include the square root operation like
+    # sklearn's euclidean.
     if metric == "l2_expanded":
         dist = np.power(dist, 2)
 
@@ -68,7 +69,8 @@ def check_distances(dataset, queries, metric, out_idx, out_dist):
     diff = abs(out_dist - dist) / dist_eps
 
     # Quantization leads to errors in the distance calculation.
-    # The aim of this test is not to test precision, but to catch obvious errors.
+    # The aim of this test is not to test precision, but to catch obvious
+    # errors.
     assert np.mean(diff) < 0.1
 
 
@@ -91,11 +93,12 @@ def run_ivf_pq_build_search_test(
     kmeans_trainset_fraction=1,
     kmeans_n_iters=20,
     compare=True,
+    inplace=True,
 ):
     dataset = generate_data((n_rows, n_cols), dtype)
     if metric == "inner_product":
         dataset = normalize(dataset, norm="l2", axis=1)
-    dataset_device = TestDeviceBuffer(dataset, order="C")
+    dataset_device = device_ndarray(dataset)
 
     build_params = ivf_pq.IndexParams(
         n_lists=n_lists,
@@ -119,12 +122,12 @@ def run_ivf_pq_build_search_test(
     assert index.n_lists == build_params.n_lists
 
     if not add_data_on_build:
-        dataset_1_device = TestDeviceBuffer(dataset[: n_rows // 2, :], order="C")
-        dataset_2_device = TestDeviceBuffer(dataset[n_rows // 2 :, :], order="C")
+        dataset_1_device = device_ndarray(dataset[: n_rows // 2, :])
+        dataset_2_device = device_ndarray(dataset[n_rows // 2 :, :])
         indices_1 = np.arange(n_rows // 2, dtype=np.uint64)
-        indices_1_device = TestDeviceBuffer(indices_1, order="C")
+        indices_1_device = device_ndarray(indices_1)
         indices_2 = np.arange(n_rows // 2, n_rows, dtype=np.uint64)
-        indices_2_device = TestDeviceBuffer(indices_2, order="C")
+        indices_2_device = device_ndarray(indices_2)
         index = ivf_pq.extend(index, dataset_1_device, indices_1_device)
         index = ivf_pq.extend(index, dataset_2_device, indices_2_device)
 
@@ -134,9 +137,9 @@ def run_ivf_pq_build_search_test(
     out_idx = np.zeros((n_queries, k), dtype=np.uint64)
     out_dist = np.zeros((n_queries, k), dtype=np.float32)
 
-    queries_device = TestDeviceBuffer(queries, order="C")
-    out_idx_device = TestDeviceBuffer(out_idx, order="C")
-    out_dist_device = TestDeviceBuffer(out_dist, order="C")
+    queries_device = device_ndarray(queries)
+    out_idx_device = device_ndarray(out_idx) if inplace else None
+    out_dist_device = device_ndarray(out_dist) if inplace else None
 
     search_params = ivf_pq.SearchParams(
         n_probes=n_probes,
@@ -144,14 +147,17 @@ def run_ivf_pq_build_search_test(
         internal_distance_dtype=internal_distance_dtype,
     )
 
-    ivf_pq.search(
+    ret_output = ivf_pq.search(
         search_params,
         index,
         queries_device,
         k,
-        out_idx_device,
-        out_dist_device,
+        neighbors=out_idx_device,
+        distances=out_dist_device,
     )
+
+    if not inplace:
+        out_dist_device, out_idx_device = ret_output
 
     if not compare:
         return
@@ -160,8 +166,12 @@ def run_ivf_pq_build_search_test(
     out_dist = out_dist_device.copy_to_host()
 
     # Calculate reference values with sklearn
-    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[metric]
-    nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=skl_metric)
+    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[
+        metric
+    ]
+    nn_skl = NearestNeighbors(
+        n_neighbors=k, algorithm="brute", metric=skl_metric
+    )
     nn_skl.fit(dataset)
     skl_idx = nn_skl.kneighbors(queries, return_distance=False)
 
@@ -171,14 +181,15 @@ def run_ivf_pq_build_search_test(
     check_distances(dataset, queries, metric, out_idx, out_dist)
 
 
+@pytest.mark.parametrize("inplace", [True, False])
 @pytest.mark.parametrize("n_rows", [10000])
 @pytest.mark.parametrize("n_cols", [10])
 @pytest.mark.parametrize("n_queries", [100])
 @pytest.mark.parametrize("n_lists", [100])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
-def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype):
-    # Note that inner_product tests use normalized input which we cannot represent in int8,
-    # therefore we test only l2_expanded metric here.
+def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype, inplace):
+    # Note that inner_product tests use normalized input which we cannot
+    # represent in int8, therefore we test only l2_expanded metric here.
     run_ivf_pq_build_search_test(
         n_rows=n_rows,
         n_cols=n_cols,
@@ -187,6 +198,7 @@ def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype):
         n_lists=n_lists,
         metric="l2_expanded",
         dtype=dtype,
+        inplace=inplace,
     )
 
 
@@ -194,16 +206,24 @@ def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype):
     "params",
     [
         pytest.param(
-            {"n_rows": 0, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 10},
+            {
+                "n_rows": 0,
+                "n_cols": 10,
+                "n_queries": 10,
+                "k": 1,
+                "n_lists": 10,
+            },
             marks=pytest.mark.xfail(reason="empty dataset"),
         ),
         {"n_rows": 1, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 10},
         {"n_rows": 10, "n_cols": 1, "n_queries": 10, "k": 10, "n_lists": 10},
-        # {"n_rows": 999, "n_cols": 42, "n_queries": 453, "k": 137, "n_lists": 53},
+        # {"n_rows": 999, "n_cols": 42, "n_queries": 453, "k": 137,
+        #  "n_lists": 53},
     ],
 )
 def test_ivf_pq_n(params):
-    # We do not test recall, just confirm that we can handle edge cases for certain parameters
+    # We do not test recall, just confirm that we can handle edge cases for
+    # certain parameters
     run_ivf_pq_build_search_test(
         n_rows=params["n_rows"],
         n_cols=params["n_cols"],
@@ -272,10 +292,30 @@ def test_ivf_pq_params(params):
 @pytest.mark.parametrize(
     "params",
     [
-        {"k": 10, "n_probes": 100, "lut": ivf_pq.CUDA_R_16F, "idd": ivf_pq.CUDA_R_32F},
-        {"k": 10, "n_probes": 99, "lut": ivf_pq.CUDA_R_8U, "idd": ivf_pq.CUDA_R_32F},
-        {"k": 10, "n_probes": 100, "lut": ivf_pq.CUDA_R_32F, "idd": ivf_pq.CUDA_R_16F},
-        {"k": 129, "n_probes": 100, "lut": ivf_pq.CUDA_R_32F, "idd": ivf_pq.CUDA_R_32F},
+        {
+            "k": 10,
+            "n_probes": 100,
+            "lut": ivf_pq.CUDA_R_16F,
+            "idd": ivf_pq.CUDA_R_32F,
+        },
+        {
+            "k": 10,
+            "n_probes": 99,
+            "lut": ivf_pq.CUDA_R_8U,
+            "idd": ivf_pq.CUDA_R_32F,
+        },
+        {
+            "k": 10,
+            "n_probes": 100,
+            "lut": ivf_pq.CUDA_R_32F,
+            "idd": ivf_pq.CUDA_R_16F,
+        },
+        {
+            "k": 129,
+            "n_probes": 100,
+            "lut": ivf_pq.CUDA_R_32F,
+            "idd": ivf_pq.CUDA_R_32F,
+        },
     ],
 )
 def test_ivf_pq_search_params(params):
@@ -324,7 +364,7 @@ def test_build_assertions():
     n_queries = 212
     k = 10
     dataset = generate_data((n_rows, n_cols), np.float32)
-    dataset_device = TestDeviceBuffer(dataset, order="C")
+    dataset_device = device_ndarray(dataset)
 
     index_params = ivf_pq.IndexParams(
         n_lists=50,
@@ -340,23 +380,28 @@ def test_build_assertions():
     out_idx = np.zeros((n_queries, k), dtype=np.uint64)
     out_dist = np.zeros((n_queries, k), dtype=np.float32)
 
-    queries_device = TestDeviceBuffer(queries, order="C")
-    out_idx_device = TestDeviceBuffer(out_idx, order="C")
-    out_dist_device = TestDeviceBuffer(out_dist, order="C")
+    queries_device = device_ndarray(queries)
+    out_idx_device = device_ndarray(out_idx)
+    out_dist_device = device_ndarray(out_dist)
 
     search_params = ivf_pq.SearchParams(n_probes=50)
 
     with pytest.raises(ValueError):
         # Index must be built before search
         ivf_pq.search(
-            search_params, index, queries_device, k, out_idx_device, out_dist_device
+            search_params,
+            index,
+            queries_device,
+            k,
+            out_idx_device,
+            out_dist_device,
         )
 
     index = ivf_pq.build(index_params, dataset_device)
     assert index.trained
 
     indices = np.arange(n_rows + 1, dtype=np.uint64)
-    indices_device = TestDeviceBuffer(indices, order="C")
+    indices_device = device_ndarray(indices)
 
     with pytest.raises(ValueError):
         # Dataset dimension mismatch
@@ -393,10 +438,10 @@ def test_search_inputs(params):
 
     q_dt = params.get("q_dt", np.float32)
     q_order = params.get("q_order", "C")
-    queries = generate_data((n_queries, params.get("q_cols", n_cols)), q_dt).astype(
-        q_dt, order=q_order
-    )
-    queries_device = TestDeviceBuffer(queries, order=q_order)
+    queries = generate_data(
+        (n_queries, params.get("q_cols", n_cols)), q_dt
+    ).astype(q_dt, order=q_order)
+    queries_device = device_ndarray(queries)
 
     idx_dt = params.get("idx_dt", np.uint64)
     idx_order = params.get("idx_order", "C")
@@ -405,7 +450,7 @@ def test_search_inputs(params):
         dtype=idx_dt,
         order=idx_order,
     )
-    out_idx_device = TestDeviceBuffer(out_idx, order=idx_order)
+    out_idx_device = device_ndarray(out_idx)
 
     dist_dt = params.get("dist_dt", np.float32)
     dist_order = params.get("dist_order", "C")
@@ -414,17 +459,24 @@ def test_search_inputs(params):
         dtype=dist_dt,
         order=dist_order,
     )
-    out_dist_device = TestDeviceBuffer(out_dist, order=dist_order)
+    out_dist_device = device_ndarray(out_dist)
 
     index_params = ivf_pq.IndexParams(
         n_lists=50, metric="l2_expanded", add_data_on_build=True
     )
 
     dataset = generate_data((n_rows, n_cols), dtype)
-    dataset_device = TestDeviceBuffer(dataset, order="C")
+    dataset_device = device_ndarray(dataset)
     index = ivf_pq.build(index_params, dataset_device)
     assert index.trained
 
     with pytest.raises(Exception):
         search_params = ivf_pq.SearchParams(n_probes=50)
-        search(search_params, index, queries_device, k, out_idx_device, out_dist_device)
+        ivf_pq.search(
+            search_params,
+            index,
+            queries_device,
+            k,
+            out_idx_device,
+            out_dist_device,
+        )

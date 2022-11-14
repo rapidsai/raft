@@ -77,11 +77,73 @@ auto metric = raft::distance::DistanceType::L2SqrtExpanded;
 raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
 ```
 
+It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information:
+
+```c++
+#include <raft/core/handle.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/random/make_blobs.cuh>
+#include <raft/distance/distance.cuh>
+
+raft::handle_t handle;
+
+int n_samples = 5000;
+int n_features = 50;
+
+float *input;
+int *labels;
+float *output;
+
+...
+// Allocate input, labels, and output pointers
+...
+
+auto input_view = raft::make_device_matrix_view(input, n_samples, n_features);
+auto labels_view = raft::make_device_vector_view(labels, n_samples);
+auto output_view = raft::make_device_matrix_view(output, n_samples, n_samples);
+
+raft::random::make_blobs(handle, input_view, labels_view);
+
+auto metric = raft::distance::DistanceType::L2SqrtExpanded;
+raft::distance::pairwise_distance(handle, input_view, input_view, output_view, metric);
+```
+
+
 ### Python Example
 
 The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The number of RAFT algorithms exposed in this package is continuing to grow from release to release.
 
-The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. `pylibraft` is a low-level API that prioritizes efficiency and simplicity over being pythonic, which is shown here by pre-allocating the output memory before invoking the `pairwise_distance` function. Note that CuPy is not a required dependency for `pylibraft`.
+The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. Note that CuPy is not a required dependency for `pylibraft`.
+
+```python
+import cupy as cp
+
+from pylibraft.distance import pairwise_distance
+
+n_samples = 5000
+n_features = 50
+
+in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+
+output = pairwise_distance(in1, in2, metric="euclidean")
+```
+
+The `output` array supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) so it is interoperable with other libraries like CuPy, Numba, and PyTorch that also support it. 
+
+Below is an example of converting the output `pylibraft.device_ndarray` to a CuPy array:
+```python
+cupy_array = cp.asarray(output)
+```
+
+And converting to a PyTorch tensor:
+```python
+import torch
+
+torch_tensor = torch.as_tensor(output, device='cuda')
+```
+
+`pylibraft` also supports writing to a pre-allocated output array so any `__cuda_array_interface__` supported array can be written to in-place:
 
 ```python
 import cupy as cp
@@ -95,8 +157,9 @@ in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
-pairwise_distance(in1, in2, output, metric="euclidean")
+pairwise_distance(in1, in2, out=output, metric="euclidean")
 ```
+
 
 ## Installing
 

@@ -15,36 +15,6 @@
 
 import numpy as np
 
-import rmm
-
-
-class TestDeviceBuffer:
-    def __init__(self, ndarray, order):
-
-        self.ndarray_ = ndarray
-        self.device_buffer_ = rmm.DeviceBuffer.to_device(
-            ndarray.ravel(order=order).tobytes()
-        )
-
-    @property
-    def __cuda_array_interface__(self):
-        device_cai = self.device_buffer_.__cuda_array_interface__
-        host_cai = self.ndarray_.__array_interface__.copy()
-        host_cai["data"] = (device_cai["data"][0], device_cai["data"][1])
-
-        return host_cai
-
-    def copy_to_host(self):
-        return (
-            np.frombuffer(
-                self.device_buffer_.tobytes(),
-                dtype=self.ndarray_.dtype,
-                like=self.ndarray_,
-            )
-            .astype(self.ndarray_.dtype)
-            .reshape(self.ndarray_.shape)
-        )
-
 
 def is_c_cont(cai):
     """
@@ -53,9 +23,11 @@ def is_c_cont(cai):
     Parameters
     ----------
     cai : CUDA array interface
-    
+
     """
     dt = np.dtype(cai["typestr"])
-    return "strides" not in cai or \
-        cai["strides"] is None or \
-        cai["strides"][1] == dt.itemsize
+    return (
+        "strides" not in cai
+        or cai["strides"] is None
+        or cai["strides"][1] == dt.itemsize
+    )
