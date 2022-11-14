@@ -20,6 +20,19 @@ import versioneer
 from setuptools import find_packages
 from skbuild import setup
 
+install_requires = [
+    "numpy",
+    "cuda-python>=11.5,<11.7.1",
+    f"rmm{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
+]
+
+extras_require = {
+    "test": [
+        "pytest",
+        "scipy",
+    ]
+}
+
 
 def exclude_libcxx_symlink(cmake_manifest):
     return list(
@@ -59,11 +72,8 @@ setup(
             ]
         )
     },
-    install_requires=[
-        "numpy",
-        "cuda-python>=11.5,<11.7.1",
-        f"rmm{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
-    ],
+    install_requires=install_requires,
+    extras_require=extras_require,
     # Don't want libcxx getting pulled into wheel builds.
     cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=find_packages(include=["pylibraft", "pylibraft.*"]),

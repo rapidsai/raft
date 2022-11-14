@@ -20,6 +20,24 @@ import versioneer
 from setuptools import find_packages
 from skbuild import setup
 
+install_requires = [
+    "numpy",
+    "numba>=0.49",
+    "joblib>=0.11",
+    "dask-cuda>=22.10",
+    "dask>=2022.9.1",
+    f"ucx-py{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
+    "distributed>=2022.9.1",
+    f"pylibraft{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
+]
+
+extras_require = {
+    "test": [
+        "pytest",
+        "dask[distributed,dataframe]",
+    ]
+}
+
 
 def exclude_libcxx_symlink(cmake_manifest):
     return list(
@@ -57,16 +75,8 @@ setup(
             ]
         )
     },
-    install_requires=[
-        "numpy",
-        "numba>=0.49",
-        "joblib>=0.11",
-        "dask-cuda>=22.10",
-        "dask>=2022.9.1",
-        f"ucx-py{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
-        "distributed>=2022.9.1",
-        f"pylibraft{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
-    ],
+    install_requires=install_requires,
+    extras_require=extras_require,
     cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=find_packages(include=["raft_dask", "raft_dask.*"]),
     license="Apache 2.0",
