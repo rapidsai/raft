@@ -55,21 +55,17 @@ if(NOT raft_FOUND)
   # library compilation and we don't need to install anything here.
   set(BUILD_TESTS OFF)
   set(BUILD_BENCH OFF)
+  set(RAFT_COMPILE_DIST_LIBRARY OFF)
   set(RAFT_COMPILE_LIBRARIES OFF)
   set(RAFT_COMPILE_NN_LIBRARY OFF)
-  set(RAFT_COMPILE_DIST_LIBRARY OFF)
 
-  # Statically link dependencies if building wheels
-  set(CUDA_STATIC_RUNTIME ${RAFT_BUILD_WHEELS})
   set(_exclude_from_all "")
   if(RAFT_BUILD_WHEELS)
+    # Statically link dependencies if building wheels
+    set(CUDA_STATIC_RUNTIME ON)
     # Don't install the raft C++ targets into wheels
     set(_exclude_from_all EXCLUDE_FROM_ALL)
   endif()
-
-  # if(RAFT_BUILD_WHEELS) find_package(ucx REQUIRED) include(cmake/Modules/WheelHelpers.cmake) #
-  # Ensure all the UCX shared objects we need at runtime are in the wheel add_target_libs_to_wheel(
-  # LIB_DIR raft_dask TARGETS ucx::ucp ucx::ucs ucx::uct) endif()
 
   add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
 endif()

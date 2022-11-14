@@ -59,17 +59,6 @@ setup(
             ]
         )
     },
-    # TODO: This is problematic. We shouldn't be using `setup_requires`, but we
-    # need to be able to specify the wheel cuda suffix and there's no way to do
-    # that dynamically in pyproject.toml. It may be possible to leverage the
-    # dynamic metadata feature of pyproject.toml
-    # (https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html#dynamic-metadata)
-    # but support for dependencies is still experimental and it's not clear if
-    # there's any way to leverage something like an environment variable there
-    # anyway.
-    setup_requires=[
-        f"rmm{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
-    ],
     install_requires=[
         "numpy",
         "cuda-python>=11.5,<11.7.1",
@@ -78,7 +67,7 @@ setup(
     # Don't want libcxx getting pulled into wheel builds.
     cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=find_packages(include=["pylibraft", "pylibraft.*"]),
-    license="Apache",
+    license="Apache 2.0",
     cmdclass=versioneer.get_cmdclass(),
     zip_safe=False,
 )

@@ -65,11 +65,10 @@ if(NOT raft_FOUND)
   set(RAFT_COMPILE_LIBRARIES OFF)
   set(RAFT_COMPILE_DIST_LIBRARY ON)
 
-  # Statically link dependencies if building wheels
-  set(CUDA_STATIC_RUNTIME ${RAFT_BUILD_WHEELS})
-
   set(_exclude_from_all "")
   if(RAFT_BUILD_WHEELS)
+    # Statically link dependencies if building wheels
+    set(CUDA_STATIC_RUNTIME ON)
     # Don't install the raft C++ targets into wheels
     set(_exclude_from_all EXCLUDE_FROM_ALL)
   endif()
