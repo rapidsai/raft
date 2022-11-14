@@ -22,7 +22,7 @@ from skbuild import setup
 
 install_requires = [
     "numpy",
-    "cuda-python>=11.5,<11.7.1",
+    "cuda-python>=11.7.1,<12.0",
     f"rmm{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
 ]
 
