@@ -4,35 +4,73 @@ on:
   push:
     branches:
       - 'pull-request/[0-9]+'
+  workflow_call:
+    inputs:
+      versioneer-override:
+        type: string
+        default: ''
+      build-tag:
+        type: string
+        default: ''
+      branch:
+        required: true
+        type: string
+      date:
+        required: true
+        type: string
+      sha:
+        required: true
+        type: string
+      build-type:
+        type: string
+        default: nightly
 
 concurrency:
-  group: "${{ github.workflow }}-${{ github.ref }}"
+  group: "${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
   pylibraft-wheel:
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions-2
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@main
     with:
-      package-name: pylibraft
+      repo: rapidsai/raft
+
+      build-type: ${{ inputs.build-type || 'pull-request' }}
+      branch: ${{ inputs.branch }}
+      sha: ${{ inputs.sha }}
+      date: ${{ inputs.date }}
+
       package-dir: python/pylibraft
-      python-package-versioneer-override: "22.10.00"
+      package-name: pylibraft
 
-      skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL -DFIND_RAFT_CPP=OFF"
+      python-package-versioneer-override: ${{ inputs.versioneer-override }}
+      python-package-build-tag: ${{ inputs.build-tag }}
 
-      test-before-amd64: "pip install cupy-cuda115 && pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
-      test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64 && pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
+      skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
+
+      test-before-amd64: "pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
+      test-before-arm64: "pip install rmm-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       test-requires: "pytest scipy"
-      test-unittest: "python -m py.test -v ./python/pylibraft/pylibraft/test"
+      test-unittest: "python -m pytest -v ./python/pylibraft/pylibraft/test"
     secrets: inherit
   raft-dask-wheel:
     needs: pylibraft-wheel
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@feat/wheel-ci-actions-2
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@main
     with:
-      package-name: raft_dask
-      package-dir: python/raft-dask
-      python-package-versioneer-override: "22.10.00"
+      repo: rapidsai/raft
 
-      skbuild-configure-options: "--log-level=DEBUG -DCPM_DOWNLOAD_ALL=ON -DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DCMAKE_CUDA_ARCHITECTURES=ALL"
+      build-type: ${{ inputs.build-type || 'pull-request' }}
+      branch: ${{ inputs.branch }}
+      sha: ${{ inputs.sha }}
+      date: ${{ inputs.date }}
+
+      package-dir: python/raft-dask
+      package-name: raft_dask
+
+      python-package-versioneer-override: ${{ inputs.versioneer-override }}
+      python-package-build-tag: ${{ inputs.build-tag }}
+
+      skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
 
       test-before-amd64: "pip install pylibraft-cu11 ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       test-before-arm64: "pip install pylibraft-cu11 ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
