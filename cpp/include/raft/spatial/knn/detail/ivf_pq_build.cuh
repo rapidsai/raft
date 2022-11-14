@@ -508,24 +508,23 @@ void transpose_pq_centers(index<IdxT>& index,
                           const float* pq_centers_source,
                           rmm::cuda_stream_view stream)
 {
-  auto extents  = index.pq_centers().extents();
-  auto pq_len   = index.pq_len();
-  auto pq_width = index.pq_book_size();
+  auto extents = index.pq_centers().extents();
+  static_assert(extents.rank() == 3);
+  auto extents_source =
+    make_extents<uint32_t>(extents.extent(0), extents.extent(2), extents.extent(1));
+  auto span_source =
+    make_mdspan<const float, uint32_t, row_major, false, true>(pq_centers_source, extents_source);
   linalg::writeOnlyUnaryOp(
     index.pq_centers().data_handle(),
     index.pq_centers().size(),
-    [pq_centers_source, extents, pq_len, pq_width] __device__(float* out, size_t i) {
+    [span_source, extents] __device__(float* out, size_t i) {
       uint32_t ii[3];
       for (int r = 2; r > 0; r--) {
         ii[r] = i % extents.extent(r);
         i /= extents.extent(r);
       }
-      ii[0]   = i;
-      auto j2 = ii[1];
-      auto j1 = ii[2];
-      auto j0 = ii[0];
-      auto j  = ((j0 * pq_width) + j1) * pq_len + j2;
-      *out    = j2 < pq_len ? pq_centers_source[j] : 0.0f;
+      ii[0] = i;
+      *out  = span_source(ii[0], ii[2], ii[1]);
     },
     stream);
 }
