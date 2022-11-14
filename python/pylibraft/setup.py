@@ -22,7 +22,6 @@ from skbuild import setup
 
 install_requires = [
     "numpy",
-    "cuda-python>=11.7.1,<12.0",
     f"rmm{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
 ]
 
@@ -34,13 +33,13 @@ extras_require = {
 }
 
 
-# def exclude_libcxx_symlink(cmake_manifest):
-#     return list(
-#         filter(
-#             lambda name: not ("include/rapids/libcxx/include" in name),
-#             cmake_manifest,
-#         )
-#     )
+def exclude_libcxx_symlink(cmake_manifest):
+    return list(
+        filter(
+            lambda name: not ("include/rapids/libcxx/include" in name),
+            cmake_manifest,
+        )
+    )
 
 
 setup(
@@ -72,10 +71,17 @@ setup(
             ]
         )
     },
+    # TODO: We need this to be dynamic, so it doesn't work to put it into
+    # pyproject.toml, but setup_requires is deprecated so we need to find a
+    # better solution for this.
+    setup_requires=[
+        "cuda-python>=11.7.1,<12.0",
+        f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+    ],
     install_requires=install_requires,
     extras_require=extras_require,
     # Don't want libcxx getting pulled into wheel builds.
-    # cmake_process_manifest_hook=exclude_libcxx_symlink,
+    cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=find_packages(include=["pylibraft", "pylibraft.*"]),
     license="Apache 2.0",
     cmdclass=versioneer.get_cmdclass(),
