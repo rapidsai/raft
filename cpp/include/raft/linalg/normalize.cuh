@@ -79,7 +79,7 @@ void row_normalize(const raft::handle_t& handle,
  * @param[in] handle raft::handle_t
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_matrix_view
- * @param[in] type the type of norm to be applied
+ * @param[in] norm_type the type of norm to be applied
  */
 template <typename ElementType, typename IndexType>
 void row_normalize(const raft::handle_t& handle,
