@@ -55,8 +55,8 @@ if(NOT raft_FOUND)
   # library compilation and we don't need to install anything here.
   set(BUILD_TESTS OFF)
   set(BUILD_BENCH OFF)
-  set(RAFT_COMPILE_DIST_LIBRARY OFF)
   set(RAFT_COMPILE_LIBRARIES OFF)
+  set(RAFT_COMPILE_DIST_LIBRARY OFF)
   set(RAFT_COMPILE_NN_LIBRARY OFF)
 
   set(_exclude_from_all "")

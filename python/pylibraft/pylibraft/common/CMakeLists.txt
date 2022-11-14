@@ -14,7 +14,7 @@
 
 # Set the list of Cython files to build
 set(cython_sources cuda.pyx handle.pyx interruptible.pyx)
-set(linked_libraries raft::distance)
+set(linked_libraries raft::raft)
 
 # Build all of the Cython targets
 rapids_cython_create_modules(
