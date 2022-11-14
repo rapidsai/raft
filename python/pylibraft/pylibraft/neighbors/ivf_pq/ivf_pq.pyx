@@ -571,7 +571,7 @@ def search(SearchParams search_params,
                 (n_queries, k) If supplied, the distances to the
                 neighbors will be written here in-place. (default None)
     memory_resource : RMM DeviceMemoryResource object, optional
-        This can be used to explecitly manage the temporary memory
+        This can be used to explicitly manage the temporary memory
         allocation during search. Passing a pooling allocator can reduce
         memory allocation overhead. If not specified, then the memory
         resource from the raft handle is used.
