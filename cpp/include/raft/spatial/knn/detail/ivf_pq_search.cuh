@@ -511,7 +511,7 @@ __device__ __forceinline__ void ivfpq_compute_chunk(OutT& score /* NOLINT */,
                                VecT,
                                CheckBounds,
                                PqBits,
-                               kTotalBits + BitsLeft - PqBits,
+                               kTotalBits - kRemBits,
                                Ix + 1>(score, pq_code, pq_codes, lut_head, lut_end);
   }
 }
@@ -523,24 +523,21 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
                                     const LutT* lut_scores,
                                     OutT early_stop_limit) -> OutT
 {
-  constexpr uint32_t kChunks = sizeof(VecT) * 8 / PqBits;
-  auto lut_head              = lut_scores;
-  auto lut_end               = lut_scores + (pq_dim << PqBits);
+  constexpr uint32_t kChunkSize = sizeof(VecT) * 8u / PqBits;
+  auto lut_head                 = lut_scores;
+  auto lut_end                  = lut_scores + (pq_dim << PqBits);
   VecT pq_codes;
   OutT score{0};
-  uint32_t dims_left = pq_dim;
-  for (; dims_left >= kChunks; dims_left -= kChunks) {
+  for (; pq_dim >= kChunkSize; pq_dim -= kChunkSize) {
     *pq_codes.vectorized_data() = *pq_head;
     pq_head += kIndexGroupSize;
     typename VecT::math_t pq_code = 0;
     ivfpq_compute_chunk<OutT, LutT, VecT, false, PqBits>(
       score, pq_code, pq_codes, lut_head, lut_end);
     // Early stop when it makes sense (otherwise early_stop_limit is kDummy/infinity).
-    if constexpr (kChunks > 1) {
-      if (score >= early_stop_limit) { return score; }
-    }
+    if (score >= early_stop_limit) { return score; }
   }
-  if (dims_left > 0) {
+  if (pq_dim > 0) {
     *pq_codes.vectorized_data()   = *pq_head;
     typename VecT::math_t pq_code = 0;
     ivfpq_compute_chunk<OutT, LutT, VecT, true, PqBits>(
@@ -796,11 +793,11 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
 
     uint32_t sample_offset = 0;
     if (probe_ix > 0) { sample_offset = chunk_indices[probe_ix - 1]; }
-    uint32_t n_samples         = chunk_indices[probe_ix] - sample_offset;
-    uint32_t n_samples_aligned = group_align::roundUp(n_samples);
-    IdxT cluster_offset        = cluster_offsets[label];
-    const uint32_t pq_chunk    = (kIndexGroupVecLen * 8u) / PqBits;
-    uint32_t pq_line_width     = div_rounding_up_unsafe(pq_dim, pq_chunk) * vec_align::Value;
+    uint32_t n_samples            = chunk_indices[probe_ix] - sample_offset;
+    uint32_t n_samples_aligned    = group_align::roundUp(n_samples);
+    IdxT cluster_offset           = cluster_offsets[label];
+    constexpr uint32_t kChunkSize = (kIndexGroupVecLen * 8u) / PqBits;
+    uint32_t pq_line_width        = div_rounding_up_unsafe(pq_dim, kChunkSize) * kIndexGroupVecLen;
     auto pq_thread_data =
       pq_dataset + (size_t(cluster_offset) + group_align::roundDown(threadIdx.x)) * pq_line_width +
       group_align::mod(threadIdx.x) * vec_align::Value;

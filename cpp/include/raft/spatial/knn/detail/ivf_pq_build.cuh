@@ -139,11 +139,11 @@ __device__ void ivfpq_encode_core(uint32_t n_rows,
 }
 
 template <uint32_t BlockDim, uint32_t PqBits>
-__launch_bounds__(BlockDim) __global__ void ivfpq_encode_kernel(
-  uint32_t pq_dim,
-  const uint32_t* label,                                   // [pq_dim, n_rows]
-  device_mdspan<uint8_t, pq_codes_exts, row_major> output  // [n_rows, pq_dim]
-)
+__launch_bounds__(BlockDim) __global__
+  void ivfpq_encode_kernel(uint32_t pq_dim,
+                           const uint32_t* label,  // [pq_dim, n_rows]
+                           device_mdspan<uint8_t, pq_codes_exts, row_major> output  // [n_rows, ..]
+  )
 {
   uint32_t i = threadIdx.x + BlockDim * blockIdx.x;
   if (i >= output.extent(0)) return;
