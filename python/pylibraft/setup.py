@@ -22,6 +22,7 @@ from skbuild import setup
 
 install_requires = [
     "numpy",
+    "cuda-python>=11.7.1,<12.0",
 ]
 
 extras_require = {
