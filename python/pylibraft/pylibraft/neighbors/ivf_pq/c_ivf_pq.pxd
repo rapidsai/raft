@@ -48,7 +48,7 @@ cdef extern from "library_types.h":
         CUDA_R_8U "CUDA_R_8U"
 
 cdef extern from "raft/neighbors/ann_types.hpp" \
-        namespace "raft::neighbors::ann":
+        namespace "raft::neighbors::ann" nogil:
 
     cdef cppclass ann_index "raft::neighbors::index":
         pass
@@ -63,7 +63,7 @@ cdef extern from "raft/neighbors/ann_types.hpp" \
 
 
 cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
-        namespace "raft::neighbors::ivf_pq":
+        namespace "raft::neighbors::ivf_pq" nogil:
 
     ctypedef enum codebook_gen:
         PER_SUBSPACE "raft::neighbors::ivf_pq::codebook_gen::PER_SUBSPACE",
@@ -105,7 +105,7 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
 
 
 cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
-        namespace "raft::neighbors::ivf_pq":
+        namespace "raft::neighbors::ivf_pq" nogil:
 
     cdef void build(const handle_t& handle,
                     const index_params& params,

@@ -34,6 +34,7 @@ from libcpp cimport bool, nullptr
 from pylibraft.distance.distance_type cimport DistanceType
 
 from pylibraft.common import Handle, device_ndarray
+from pylibraft.common.interruptible import cuda_interruptible
 
 from pylibraft.common.handle cimport handle_t
 
@@ -367,7 +368,8 @@ def build(IndexParams index_params, dataset, handle=None):
     idx = Index()
 
     if dataset_dt == np.float32:
-        c_ivf_pq.build(deref(handle_),
+        with cuda_interruptible():
+            c_ivf_pq.build(deref(handle_),
                        index_params.params,
                        <float*> dataset_ptr,
                        n_rows,
@@ -375,7 +377,8 @@ def build(IndexParams index_params, dataset, handle=None):
                        idx.index)
         idx.trained = True
     elif dataset_dt == np.byte:
-        c_ivf_pq.build(deref(handle_),
+        with cuda_interruptible():
+            c_ivf_pq.build(deref(handle_),
                        index_params.params,
                        <int8_t*> dataset_ptr,
                        n_rows,
@@ -383,7 +386,8 @@ def build(IndexParams index_params, dataset, handle=None):
                        idx.index)
         idx.trained = True
     elif dataset_dt == np.ubyte:
-        c_ivf_pq.build(deref(handle_),
+        with cuda_interruptible():
+            c_ivf_pq.build(deref(handle_),
                        index_params.params,
                        <uint8_t*> dataset_ptr,
                        n_rows,
@@ -481,19 +485,22 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     cdef uintptr_t idx_ptr = idx_cai["data"][0]
 
     if vecs_dt == np.float32:
-        c_ivf_pq.extend(deref(handle_),
+        with cuda_interruptible():
+            c_ivf_pq.extend(deref(handle_),
                         index.index,
                         <float*>vecs_ptr,
                         <uint64_t*> idx_ptr,
                         <uint64_t> n_rows)
     elif vecs_dt == np.int8:
-        c_ivf_pq.extend(deref(handle_),
+        with cuda_interruptible():
+            c_ivf_pq.extend(deref(handle_),
                         index.index,
                         <int8_t*>vecs_ptr,
                         <uint64_t*> idx_ptr,
                         <uint64_t> n_rows)
     elif vecs_dt == np.uint8:
-        c_ivf_pq.extend(deref(handle_),
+        with cuda_interruptible():
+            c_ivf_pq.extend(deref(handle_),
                         index.index,
                         <uint8_t*>vecs_ptr,
                         <uint64_t*> idx_ptr,
@@ -681,8 +688,10 @@ def search(SearchParams search_params,
     if memory_resource is not None:
         mr_ptr = memory_resource.get_mr()
 
+
     if queries_dt == np.float32:
-        c_ivf_pq.search(deref(handle_),
+        with cuda_interruptible():
+            c_ivf_pq.search(deref(handle_),
                         params,
                         deref(index.index),
                         <float*>queries_ptr,
@@ -692,7 +701,8 @@ def search(SearchParams search_params,
                         <float*> distances_ptr,
                         mr_ptr)
     elif queries_dt == np.byte:
-        c_ivf_pq.search(deref(handle_),
+        with cuda_interruptible():
+            c_ivf_pq.search(deref(handle_),
                         params,
                         deref(index.index),
                         <int8_t*>queries_ptr,
@@ -702,7 +712,8 @@ def search(SearchParams search_params,
                         <float*> distances_ptr,
                         mr_ptr)
     elif queries_dt == np.ubyte:
-        c_ivf_pq.search(deref(handle_),
+        with cuda_interruptible():
+            c_ivf_pq.search(deref(handle_),
                         params,
                         deref(index.index),
                         <uint8_t*>queries_ptr,
