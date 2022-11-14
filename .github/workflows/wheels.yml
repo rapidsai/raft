@@ -71,7 +71,6 @@ jobs:
       python-package-build-tag: ${{ inputs.build-tag }}
 
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
-
       #test-before-amd64: "pip install pylibraft-cu11 ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       #test-before-arm64: "pip install pylibraft-cu11 ucx-py-cu11 --index-url https://pypi.k8s.rapids.ai/simple"
       test-extras:  test
