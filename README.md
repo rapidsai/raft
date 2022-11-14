@@ -129,7 +129,7 @@ in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 output = pairwise_distance(in1, in2, metric="euclidean")
 ```
 
-The `output` array supports `__cuda_array_interface__` so it is interoperable with other libraries like CuPy and PyTorch that also support it. 
+The `output` array supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) so it is interoperable with other libraries like CuPy, Numba, and PyTorch that also support it. 
 
 Below is an example of converting the output `pylibraft.device_ndarray` to a CuPy array:
 ```python
