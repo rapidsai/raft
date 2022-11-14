@@ -36,9 +36,10 @@ class device_ndarray:
         --------
         The device_ndarray is __cuda_array_interface__ compliant so it is
         interoperable with other libraries that also support it, such as
-        CuPy and PyTorch. The following usage example demonstrates
-        converting a pylibraft.device_ndarray to a cupy.ndarray:
+        CuPy and PyTorch.
 
+        The following usage example demonstrates
+        converting a pylibraft.device_ndarray to a cupy.ndarray:
         .. code-block:: python
 
             import cupy as cp
@@ -46,6 +47,15 @@ class device_ndarray:
 
             raft_array = device_ndarray.empty((100, 50))
             cupy_array = cp.asarray(raft_array)
+
+        And the converting pylibraft.device_ndarray to a PyTorch tensor:
+        .. code-block:: python
+
+            import torch
+            from pylibraft import device_ndarray
+
+            raft_array = device_ndarray.empty((100, 50))
+            torch_tensor = torch.as_tensor(raft_array, device='cuda')
         """
         self.ndarray_ = np_ndarray
         order = "C" if self.c_contiguous else "F"
