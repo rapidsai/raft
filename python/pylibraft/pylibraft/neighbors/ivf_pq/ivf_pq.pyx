@@ -84,7 +84,7 @@ cdef _map_dtype_np_to_cuda(dtype, supported_dtypes=None):
 cdef _get_dtype_string(dtype):
     return str({c_ivf_pq.cudaDataType_t.CUDA_R_32F: np.float32,
                 c_ivf_pq.cudaDataType_t.CUDA_R_16F: np.float16,
-                 c_ivf_pq.cudaDataType_t.CUDA_R_8U: np.uint8}[dtype])
+                c_ivf_pq.cudaDataType_t.CUDA_R_8U: np.uint8}[dtype])
 
 
 def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):
@@ -370,29 +370,29 @@ def build(IndexParams index_params, dataset, handle=None):
     if dataset_dt == np.float32:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
-                       index_params.params,
-                       <float*> dataset_ptr,
-                       n_rows,
-                       dim,
-                       idx.index)
+                           index_params.params,
+                           <float*> dataset_ptr,
+                           n_rows,
+                           dim,
+                           idx.index)
         idx.trained = True
     elif dataset_dt == np.byte:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
-                       index_params.params,
-                       <int8_t*> dataset_ptr,
-                       n_rows,
-                       dim,
-                       idx.index)
+                           index_params.params,
+                           <int8_t*> dataset_ptr,
+                           n_rows,
+                           dim,
+                           idx.index)
         idx.trained = True
     elif dataset_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
-                       index_params.params,
-                       <uint8_t*> dataset_ptr,
-                       n_rows,
-                       dim,
-                       idx.index)
+                           index_params.params,
+                           <uint8_t*> dataset_ptr,
+                           n_rows,
+                           dim,
+                           idx.index)
         idx.trained = True
     else:
         raise TypeError("dtype %s not supported" % dataset_dt)
@@ -487,24 +487,24 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     if vecs_dt == np.float32:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
-                        index.index,
-                        <float*>vecs_ptr,
-                        <uint64_t*> idx_ptr,
-                        <uint64_t> n_rows)
+                            index.index,
+                            <float*>vecs_ptr,
+                            <uint64_t*> idx_ptr,
+                            <uint64_t> n_rows)
     elif vecs_dt == np.int8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
-                        index.index,
-                        <int8_t*>vecs_ptr,
-                        <uint64_t*> idx_ptr,
-                        <uint64_t> n_rows)
+                            index.index,
+                            <int8_t*>vecs_ptr,
+                            <uint64_t*> idx_ptr,
+                            <uint64_t> n_rows)
     elif vecs_dt == np.uint8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
-                        index.index,
-                        <uint8_t*>vecs_ptr,
-                        <uint64_t*> idx_ptr,
-                        <uint64_t> n_rows)
+                            index.index,
+                            <uint8_t*>vecs_ptr,
+                            <uint64_t*> idx_ptr,
+                            <uint64_t> n_rows)
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
@@ -547,8 +547,8 @@ cdef class SearchParams:
         lut_str = "lut_dtype=" + _get_dtype_string(self.params.lut_dtype)
         idt_str = "internal_distance_dtype=" + \
             _get_dtype_string(self.params.internal_distance_dtype)
-        attr_str = [attr + "=" + str(getattr(self, attr)) \
-                        for attr in ["n_probes"]] 
+        attr_str = [attr + "=" + str(getattr(self, attr))
+                    for attr in ["n_probes"]]
         # TODO (tfeher) add "shmem_carveout"
         attr_str = attr_str + [lut_str, idt_str]
         return "SearchParams(type=IVF-PQ, " + (", ".join(attr_str)) + ")"
@@ -688,40 +688,39 @@ def search(SearchParams search_params,
     if memory_resource is not None:
         mr_ptr = memory_resource.get_mr()
 
-
     if queries_dt == np.float32:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
-                        params,
-                        deref(index.index),
-                        <float*>queries_ptr,
-                        <uint32_t> n_queries,
-                        <uint32_t> k,
-                        <uint64_t*> neighbors_ptr,
-                        <float*> distances_ptr,
-                        mr_ptr)
+                            params,
+                            deref(index.index),
+                            <float*>queries_ptr,
+                            <uint32_t> n_queries,
+                            <uint32_t> k,
+                            <uint64_t*> neighbors_ptr,
+                            <float*> distances_ptr,
+                            mr_ptr)
     elif queries_dt == np.byte:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
-                        params,
-                        deref(index.index),
-                        <int8_t*>queries_ptr,
-                        <uint32_t> n_queries,
-                        <uint32_t> k,
-                        <uint64_t*> neighbors_ptr,
-                        <float*> distances_ptr,
-                        mr_ptr)
+                            params,
+                            deref(index.index),
+                            <int8_t*>queries_ptr,
+                            <uint32_t> n_queries,
+                            <uint32_t> k,
+                            <uint64_t*> neighbors_ptr,
+                            <float*> distances_ptr,
+                            mr_ptr)
     elif queries_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
-                        params,
-                        deref(index.index),
-                        <uint8_t*>queries_ptr,
-                        <uint32_t> n_queries,
-                        <uint32_t> k,
-                        <uint64_t*> neighbors_ptr,
-                        <float*> distances_ptr,
-                        mr_ptr)
+                            params,
+                            deref(index.index),
+                            <uint8_t*>queries_ptr,
+                            <uint32_t> n_queries,
+                            <uint32_t> k,
+                            <uint64_t*> neighbors_ptr,
+                            <float*> distances_ptr,
+                            mr_ptr)
     else:
         raise ValueError("query dtype %s not supported" % queries_dt)
 
