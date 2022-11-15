@@ -766,8 +766,6 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
   CUSPARSE_CHECK(cusparseCreateDnMat(
     &matC, n, m, n, static_cast<void*>(CT.data()), math_type, CUSPARSE_ORDER_COL));
 
-  printf("m=%d, n=%d, k=%d\n", m, n, k);
-
   auto opA         = CUSPARSE_OPERATION_TRANSPOSE;
   auto opB         = CUSPARSE_OPERATION_TRANSPOSE;
   auto alg         = CUSPARSE_SPMM_CSR_ALG1;
@@ -787,7 +785,6 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
   CUSPARSE_CHECK(cusparseDestroyDnMat(matA));
   CUSPARSE_CHECK(cusparseDestroySpMat(matB));
   CUSPARSE_CHECK(cusparseDestroyDnMat(matC));
-
   return return_value;
 }
 #endif
