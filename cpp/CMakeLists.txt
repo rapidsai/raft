@@ -285,6 +285,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/fused_l2_min_arg.cu
     src/distance/update_centroids_float.cu
     src/distance/update_centroids_double.cu
+    src/distance/kmeans_fit_float.cu
+    src/distance/kmeans_fit_double.cu
     src/distance/specializations/detail/canberra.cu
     src/distance/specializations/detail/chebyshev.cu
     src/distance/specializations/detail/correlation.cu

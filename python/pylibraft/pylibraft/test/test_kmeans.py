@@ -16,9 +16,25 @@
 import numpy as np
 import pytest
 
-from pylibraft.cluster.kmeans import compute_new_centroids
+from pylibraft.cluster.kmeans import KMeansParams, compute_new_centroids, fit
 from pylibraft.common import Handle, device_ndarray
 from pylibraft.distance import pairwise_distance
+
+
+@pytest.mark.parametrize("n_rows", [100])
+@pytest.mark.parametrize("n_cols", [5, 25])
+@pytest.mark.parametrize("n_clusters", [5, 15])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_kmeans_fit(n_rows, n_cols, n_clusters, dtype):
+    X = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+
+    # TODO: test out some different options on this
+    # TODO: use a fixed RNG state on params
+    params = KMeansParams(n_clusters=n_clusters)
+
+    centroids, inertia, n_iter = fit(params, device_ndarray(X))
+
+    # TODO: validate that centroids are reasonable ... somehow
 
 
 @pytest.mark.parametrize("n_rows", [100])

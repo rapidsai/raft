@@ -17,16 +17,23 @@
 # distutils: language = c++
 # cython: embedsignature = True
 # cython: language_level = 3
+from collections import namedtuple
 
 import numpy as np
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
-from libcpp cimport bool, nullptr
+from libcpp cimport nullptr
 
-from pylibraft.common import Handle
+from enum import IntEnum
+
+from pylibraft.common import Handle, device_ndarray
 from pylibraft.common.handle import auto_sync_handle
+
+from pylibraft.cluster cimport cpp_kmeans, kmeans_types
 from pylibraft.common.handle cimport handle_t
+from pylibraft.common.mdspan cimport *
+from pylibraft.common.optional cimport optional
 
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
@@ -220,3 +227,158 @@ def compute_new_centroids(X,
                          <double*> weight_per_cluster_ptr)
     else:
         raise ValueError("dtype %s not supported" % x_dt)
+
+
+class InitMethod(IntEnum):
+    KMeansPlusPlus = <int> kmeans_types.InitMethod.KMeansPlusPlus
+    Random = <int> kmeans_types.InitMethod.Random
+    Array = <int> kmeans_types.InitMethod.Array
+
+
+cdef class KMeansParams:
+    cdef kmeans_types.KMeansParams c_obj
+
+    def __init__(self,
+                 n_clusters: Optional[int] = None,
+                 max_iter: Optional[int] = None,
+                 tol: Optional[float] = None,
+                 init: Optional[InitMethod] = None,
+                 n_init: Optional[int] = None,
+                 oversampling_factor: Optional[float] = None,
+                 batch_samples: Optional[int] = None,
+                 batch_centroids: Optional[int] = None,
+                 inertia_check: Optional[bool] = None):
+        if n_clusters is not None:
+            self.c_obj.n_clusters = n_clusters
+        if max_iter is not None:
+            self.c_obj.max_iter = max_iter
+        if tol is not None:
+            self.c_obj.tol = tol
+        if init is not None:
+            self.c_obj.init = init
+        if n_init is not None:
+            self.c_obj.n_init = n_init
+        if oversampling_factor is not None:
+            self.c_obj.oversampling_factor = oversampling_factor
+        if batch_samples is not None:
+            self.c_obj.batch_samples = batch_samples
+        if batch_centroids is not None:
+            self.c_obj.batch_centroids = batch_centroids
+        if inertia_check is not None:
+            self.c_obj.inertia_check = inertia_check
+
+        # TODO: distance metric/ verbosity level (?) / rng state
+
+    @property
+    def n_clusters(self):
+        return self.c_obj.n_clusters
+
+    @property
+    def max_iter(self):
+        return self.c_obj.max_iter
+
+    @property
+    def tol(self):
+        return self.c_obj.tol
+
+    @property
+    def init(self):
+        return InitMethod(self.c_obj.init)
+
+    @property
+    def oversampling_factor(self):
+        return self.c_obj.oversampling_factor
+
+    @property
+    def batch_samples(self):
+        return self.c_obj.batch_samples
+
+    @property
+    def batch_centroids(self):
+        return self.c_obj.batch_centroids
+
+    @property
+    def inertia_check(self):
+        return self.c_obj.inertia_check
+
+KMeansOutput = namedtuple("FitOutput", "centroids inertia n_iter")
+
+
+@auto_sync_handle
+def fit(
+    KMeansParams params, X, centroids=None, sample_weights=None, handle=None
+):
+
+    """
+    Fit kmeans
+
+    Parameters
+    ----------
+
+    X : Input CUDA array interface compliant matrix shape (m, k)
+    centroids : Optional writable CUDA array interface compliant matrix
+                shape (n_clusters, k)
+    sample_weights : Optional input CUDA array interface compliant matrix shape
+                     (n_clusters, 1) default: None
+    {handle_docstring}
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cupy as cp
+
+        from pylibraft.cluster.kmeans import fit, KMeansParams
+
+        n_samples = 5000
+        n_features = 50
+        n_clusters = 3
+
+        X = cp.random.random_sample((n_samples, n_features),
+                                      dtype=cp.float32)
+
+        params = KMeansParams(n_clusters=n_clusters)
+        centroids, inertia, n_iter = fit(params, X)
+    """
+    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+
+    x_cai = X.__cuda_array_interface__
+    dtype = np.dtype(x_cai["typestr"])
+
+    cdef float f_inertia = 0.0
+    cdef double d_inertia = 0.0
+    cdef int n_iter = 0
+
+    # TODO: convert sampleweights (when != None) to device_vector_view
+    cdef optional[device_vector_view[const double, int]] d_sample_weights
+    cdef optional[device_vector_view[const float, int]] f_sample_weights
+
+    if centroids is None:
+        centroids_shape = (params.n_clusters, x_cai["shape"][1])
+        centroids = device_ndarray.empty(centroids_shape, dtype=dtype)
+
+    if dtype == np.float64:
+        cpp_kmeans.fit(
+            deref(h),
+            params.c_obj,
+            const_device_matrix_view_from_array[double](X, <double*>NULL),
+            d_sample_weights,
+            device_matrix_view_from_array[double](centroids, <double*>NULL),
+            make_host_scalar_view[double, int](&d_inertia),
+            make_host_scalar_view[int, int](&n_iter))
+        return KMeansOutput(centroids, d_inertia, n_iter)
+
+    elif dtype == np.float32:
+        cpp_kmeans.fit(
+            deref(h),
+            params.c_obj,
+            const_device_matrix_view_from_array[float](X, <float*>NULL),
+            f_sample_weights,
+            device_matrix_view_from_array[float](centroids, <float*>NULL),
+            make_host_scalar_view[float, int](&f_inertia),
+            make_host_scalar_view[int, int](&n_iter))
+        return KMeansOutput(centroids, f_inertia, n_iter)
+
+    else:
+        raise ValueError(f"unhandled dtype {dtype}")
