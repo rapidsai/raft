@@ -590,9 +590,6 @@ string(
   [=[
 if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
-  if(TARGET CUTLASS AND NOT TARGET nvidia::cutlass::cutlass)
-    add_library(nvidia::cutlass::cutlass ALIAS CUTLASS)
-  endif()
 endif()
 
 if(nn IN_LIST raft_FIND_COMPONENTS)
