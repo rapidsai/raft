@@ -38,6 +38,8 @@ from pylibraft.common.optional cimport optional
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
 
+ctypedef const float const_float
+
 
 def is_c_cont(cai, dt):
     return "strides" not in cai or \
@@ -350,7 +352,6 @@ def fit(
     cdef double d_inertia = 0.0
     cdef int n_iter = 0
 
-    # TODO: convert sampleweights (when != None) to device_vector_view
     cdef optional[device_vector_view[const double, int]] d_sample_weights
     cdef optional[device_vector_view[const float, int]] f_sample_weights
 
@@ -359,6 +360,10 @@ def fit(
         centroids = device_ndarray.empty(centroids_shape, dtype=dtype)
 
     if dtype == np.float64:
+        if sample_weights is not None:
+            d_sample_weights = const_device_vector_view_from_array[double](
+                sample_weights, <double*>NULL)
+
         cpp_kmeans.fit(
             deref(h),
             params.c_obj,
@@ -370,6 +375,10 @@ def fit(
         return KMeansOutput(centroids, d_inertia, n_iter)
 
     elif dtype == np.float32:
+        if sample_weights is not None:
+            f_sample_weights = const_device_vector_view_from_array[float](
+                sample_weights, <float*>NULL)
+
         cpp_kmeans.fit(
             deref(h),
             params.c_obj,

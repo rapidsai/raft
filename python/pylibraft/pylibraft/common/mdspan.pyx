@@ -70,3 +70,24 @@ cdef device_matrix_view[const ElementType, int] \
     ptr = <uintptr_t>cai["data"][0]
     return make_device_matrix_view(<const ElementType*>ptr,
                                    <int>rows, <int>cols)
+
+
+cdef device_vector_view[ElementType, int] \
+        device_vector_view_from_array(arr, ElementType * p) except +:
+    """ Transform a CAI array to a device_vector_view """
+    cai = arr.__cuda_array_interface__
+    _validate_array_interface(cai, 1, p)
+    elements, = cai["shape"]
+    ptr = <uintptr_t>cai["data"][0]
+    return make_device_vector_view(<ElementType*>ptr, <int> cai["shape"][0])
+
+
+cdef device_vector_view[const ElementType, int] \
+        const_device_vector_view_from_array(arr, ElementType * p) except +:
+    """ Transform a CAI array to a device_vector_view with a const element"""
+    cai = arr.__cuda_array_interface__
+    _validate_array_interface(cai, 1, p)
+    elements, = cai["shape"]
+    ptr = <uintptr_t>cai["data"][0]
+    return make_device_vector_view(<const ElementType*>ptr,
+                                   <int> cai["shape"][0])

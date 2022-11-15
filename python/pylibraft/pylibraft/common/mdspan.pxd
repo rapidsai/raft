@@ -51,3 +51,9 @@ cdef device_matrix_view[ElementType, int] \
 
 cdef device_matrix_view[const ElementType, int] \
     const_device_matrix_view_from_array(arr, ElementType * p) except +
+
+cdef device_vector_view[ElementType, int] \
+    device_vector_view_from_array(arr, ElementType * p) except +
+
+cdef device_vector_view[const ElementType, int] \
+    const_device_vector_view_from_array(arr, ElementType * p) except +

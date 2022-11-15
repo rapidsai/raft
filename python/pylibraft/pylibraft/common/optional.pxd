@@ -13,26 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# polyfill for libcpp.optional
+
 #
 # We're still using cython v0.29.x - which doesn't have std::optional
-# support. Include this definition here as suggested by
+# support. Include the minimal definition here as suggested by
 # https://github.com/cython/cython/issues/3293#issuecomment-1223058101
 
-from libcpp cimport bool
-
-
 cdef extern from "<optional>" namespace "std" nogil:
-    cdef cppclass nullopt_t:
-        nullopt_t()
-
-    cdef nullopt_t nullopt
-
     cdef cppclass optional[T]:
-        ctypedef T value_type
         optional()
-        optional(nullopt_t)
-        optional(optional&) except +
-        optional(T&) except +
-
-    optional[T] make_optional[T](...) except +
+        optional& operator=[U](U&)
