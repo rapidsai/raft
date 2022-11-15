@@ -138,7 +138,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     raft::update_device(P_d.data(), P.data(), dim * dim, stream);
     raft::update_device(x_d.data(), x.data(), dim, stream);
 
-    // initilizing the mvg
+    // initializing the mvg
     mvg           = new multi_variable_gaussian<T>(handle, dim, method);
     std::size_t o = mvg->get_workspace_size();
 

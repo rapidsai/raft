@@ -18,6 +18,8 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import numpy as np
+
 
 def do_dtypes_match(*cais):
     last_dtype = cais[0].__cuda_array_interface__["typestr"]
@@ -57,3 +59,20 @@ def do_shapes_match(*cais):
             return False
         last_shape = shape
     return True
+
+
+def is_c_contiguous(cai):
+    """
+    Checks whether an array is C contiguous.
+
+    Parameters
+    ----------
+    cai : CUDA array interface
+
+    """
+    dt = np.dtype(cai["typestr"])
+    return (
+        "strides" not in cai
+        or cai["strides"] is None
+        or cai["strides"][1] == dt.itemsize
+    )

@@ -140,7 +140,7 @@ void countLabels(const LabelT* labels,
 }
 
 /**
- * @brief stucture that defines the division Lambda for elementwise op
+ * @brief structure that defines the division Lambda for elementwise op
  */
 template <typename DataT>
 struct DivOp {
@@ -154,8 +154,8 @@ struct DivOp {
 };
 
 /**
- * @brief stucture that defines the elementwise operation to calculate silhouette score using params
- * 'a' and 'b'
+ * @brief structure that defines the elementwise operation to calculate silhouette score using
+ * params 'a' and 'b'
  */
 template <typename DataT>
 struct SilOp {
@@ -173,7 +173,7 @@ struct SilOp {
 };
 
 /**
- * @brief stucture that defines the reduction Lambda to find minimum between elements
+ * @brief structure that defines the reduction Lambda to find minimum between elements
  */
 template <typename DataT>
 struct MinOp {

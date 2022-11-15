@@ -20,12 +20,13 @@
 
 import numpy as np
 
-from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
-
+from libc.stdint cimport uintptr_t
 from libcpp cimport bool
+
 from .distance_type cimport DistanceType
-from pylibraft.common import Handle
+
+from pylibraft.common import Handle, device_ndarray
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.handle cimport handle_t
 
@@ -61,7 +62,7 @@ cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
 
 
 @auto_sync_handle
-def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
+def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
     """
     Compute the 1-nearest neighbors between X and Y using the L2 distance
 
@@ -76,6 +77,35 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
     Examples
     --------
 
+    To compute the 1-nearest neighbors argmin:
+    .. code-block:: python
+
+        import cupy as cp
+
+        from pylibraft.common import Handle
+        from pylibraft.distance import fused_l2_nn_argmin
+
+        n_samples = 5000
+        n_clusters = 5
+        n_features = 50
+
+        in1 = cp.random.random_sample((n_samples, n_features),
+                                      dtype=cp.float32)
+        in2 = cp.random.random_sample((n_clusters, n_features),
+                                      dtype=cp.float32)
+
+        # A single RAFT handle can optionally be reused across
+        # pylibraft functions.
+        handle = Handle()
+        ...
+        output = fused_l2_nn_argmin(in1, in2, output, handle=handle)
+        ...
+        # pylibraft functions are often asynchronous so the
+        # handle needs to be explicitly synchronized
+        handle.sync()
+
+    The output can also be computed in-place on a preallocated
+    array:
     .. code-block:: python
 
         import cupy as cp
@@ -97,19 +127,29 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
         # pylibraft functions.
         handle = Handle()
         ...
-        fused_l2_nn_argmin(in1, in2, output, handle=handle)
+        fused_l2_nn_argmin(in1, in2, out=output, handle=handle)
         ...
         # pylibraft functions are often asynchronous so the
         # handle needs to be explicitly synchronized
         handle.sync()
+
    """
 
     x_cai = X.__cuda_array_interface__
     y_cai = Y.__cuda_array_interface__
-    output_cai = output.__cuda_array_interface__
+
+    x_dt = np.dtype(x_cai["typestr"])
+    y_dt = np.dtype(y_cai["typestr"])
 
     m = x_cai["shape"][0]
     n = y_cai["shape"][0]
+
+    if out is None:
+        output = device_ndarray.empty((m,), dtype="int32")
+    else:
+        output = out
+
+    output_cai = output.__cuda_array_interface__
 
     x_k = x_cai["shape"][1]
     y_k = y_cai["shape"][1]
@@ -126,8 +166,6 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
     handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
-    x_dt = np.dtype(x_cai["typestr"])
-    y_dt = np.dtype(y_cai["typestr"])
     d_dt = np.dtype(output_cai["typestr"])
 
     x_c_contiguous = is_c_cont(x_cai, x_dt)
@@ -161,3 +199,5 @@ def fused_l2_nn_argmin(X, Y, output, sqrt=True, handle=None):
                             <bool>sqrt)
     else:
         raise ValueError("dtype %s not supported" % x_dt)
+
+    return output

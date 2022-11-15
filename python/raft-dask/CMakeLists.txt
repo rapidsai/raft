@@ -25,23 +25,23 @@ project(
             # language to be enabled here. The test project that is built in scikit-build to verify
             # various linking options for the python library is hardcoded to build with C, so until
             # that is fixed we need to keep C.
-            C
-            CXX)
+            C CXX
+)
 
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
-       OFF)
+       OFF
+)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-    find_package(raft ${raft_dask_version} REQUIRED)
+  find_package(raft ${raft_dask_version} REQUIRED)
 else()
   set(raft_FOUND OFF)
 endif()
 
 if(NOT raft_FOUND)
-  # TODO: This will not be necessary once we upgrade to CMake 3.22, which will
-  # pull in the required languages for the C++ project even if this project
-  # does not require those languges.
+  # TODO: This will not be necessary once we upgrade to CMake 3.22, which will pull in the required
+  # languages for the C++ project even if this project does not require those languages.
   include(rapids-cuda)
   rapids_cuda_init_architectures(raft-dask)
   enable_language(CUDA)
@@ -49,9 +49,8 @@ if(NOT raft_FOUND)
   # rapids_cuda_init_architectures relies on `project` including.
   include("${CMAKE_PROJECT_raft_dask_INCLUDE}")
 
-  # raft-dask doesn't actually use raft libraries, it just needs the headers, so
-  # we can turn off all library compilation and we don't need to install
-  # anything here.
+  # raft-dask doesn't actually use raft libraries, it just needs the headers, so we can turn off all
+  # library compilation and we don't need to install anything here.
   set(BUILD_TESTS OFF)
   set(BUILD_BENCH OFF)
   set(RAFT_COMPILE_LIBRARIES OFF)

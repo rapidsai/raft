@@ -13,28 +13,29 @@
 # limitations under the License.
 #
 
-import pytest
-
 from collections import OrderedDict
 
-from dask.distributed import Client
-from dask.distributed import wait
+import pytest
+
+from dask.distributed import Client, wait
 
 try:
-    from raft_dask import Comms
-    from raft_dask.common import local_handle
-    from raft_dask.common import perform_test_comms_send_recv
-    from raft_dask.common import perform_test_comms_device_send_or_recv
-    from raft_dask.common import perform_test_comms_device_sendrecv
-    from raft_dask.common import perform_test_comms_device_multicast_sendrecv
-    from raft_dask.common import perform_test_comms_allreduce
-    from raft_dask.common import perform_test_comms_bcast
-    from raft_dask.common import perform_test_comms_reduce
-    from raft_dask.common import perform_test_comms_allgather
-    from raft_dask.common import perform_test_comms_gather
-    from raft_dask.common import perform_test_comms_gatherv
-    from raft_dask.common import perform_test_comms_reducescatter
-    from raft_dask.common import perform_test_comm_split
+    from raft_dask.common import (
+        Comms,
+        local_handle,
+        perform_test_comm_split,
+        perform_test_comms_allgather,
+        perform_test_comms_allreduce,
+        perform_test_comms_bcast,
+        perform_test_comms_device_multicast_sendrecv,
+        perform_test_comms_device_send_or_recv,
+        perform_test_comms_device_sendrecv,
+        perform_test_comms_gather,
+        perform_test_comms_gatherv,
+        perform_test_comms_reduce,
+        perform_test_comms_reducescatter,
+        perform_test_comms_send_recv,
+    )
 
     pytestmark = pytest.mark.mg
 except ImportError:

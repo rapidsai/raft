@@ -21,10 +21,12 @@
 
 import contextlib
 import signal
+
+from cuda.ccudart cimport cudaStream_t
 from cython.operator cimport dereference
 
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
-from cuda.ccudart cimport cudaStream_t
+
 from .cuda cimport Stream
 
 
