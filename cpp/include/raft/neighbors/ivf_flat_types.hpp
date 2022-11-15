@@ -24,6 +24,7 @@
 #include <raft/util/integer_utils.hpp>
 
 #include <optional>
+#include <type_traits>
 
 namespace raft::neighbors::ivf_flat {
 
@@ -37,6 +38,19 @@ struct index_params : ann::index_params {
   uint32_t kmeans_n_iters = 20;
   /** The fraction of data to use during iterative kmeans building. */
   double kmeans_trainset_fraction = 0.5;
+  /**
+   * By default (adaptive_centers = false), the cluster centers are trained in `ivf_flat::build`,
+   * and never modified in `ivf_flat::extend`. As a result, you may need to retrain the index
+   * from scratch after adding (`ivf_flat::extend`) a few times new data, distribution of which
+   * is not well-represented by the original training set.
+   *
+   * The alternative behavior (adaptive_centers = true) is to update cluster centers every time
+   * the new data is added. In this case, `index.centers()` are always exactly the centroids of
+   * the data in the corresponding clusters. The drawback of this behavior is that the centroids
+   * depend on the order of adding new data (through the classification of the added data); that is,
+   * `index.centers()` "drift" together with the changing distribution of the newly added data.
+   */
+  bool adaptive_centers = false;
 };
 
 struct search_params : ann::search_params {
@@ -71,6 +85,11 @@ struct index : ann::index {
   [[nodiscard]] constexpr inline auto metric() const noexcept -> raft::distance::DistanceType
   {
     return metric_;
+  }
+  /** Whethe `centers()` change upon extending the index (ivf_pq::extend). */
+  [[nodiscard]] constexpr inline auto adaptive_centers() const noexcept -> bool
+  {
+    return adaptive_centers_;
   }
   /**
    * Inverted list data [size, dim].
@@ -200,10 +219,15 @@ struct index : ann::index {
   ~index()                          = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle, raft::distance::DistanceType metric, uint32_t n_lists, uint32_t dim)
+  index(const handle_t& handle,
+        raft::distance::DistanceType metric,
+        uint32_t n_lists,
+        bool adaptive_centers,
+        uint32_t dim)
     : ann::index(),
       veclen_(calculate_veclen(dim)),
       metric_(metric),
+      adaptive_centers_(adaptive_centers),
       data_(make_device_mdarray<T>(handle, make_extents<IdxT>(0, dim))),
       indices_(make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0))),
       list_sizes_(make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(n_lists))),
@@ -216,7 +240,7 @@ struct index : ann::index {
 
   /** Construct an empty index. It needs to be trained and then populated. */
   index(const handle_t& handle, const index_params& params, uint32_t dim)
-    : index(handle, params.metric, params.n_lists, dim)
+    : index(handle, params.metric, params.n_lists, params.adaptive_centers, dim)
   {
   }
 
@@ -242,6 +266,7 @@ struct index : ann::index {
    */
   uint32_t veclen_;
   raft::distance::DistanceType metric_;
+  bool adaptive_centers_;
   device_mdarray<T, extent_2d<IdxT>, row_major> data_;
   device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
   device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
