@@ -24,11 +24,10 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool, nullptr
 
-from pylibraft.common.handle cimport handle_t
-from pylibraft.common.optional cimport optional
-from pylibraft.common.mdspan cimport *
-
 cimport pylibraft.cluster.kmeans_types as kmeans_types
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.mdspan cimport *
+from pylibraft.common.optional cimport optional
 
 
 cdef extern from "raft_distance/kmeans.hpp" \
