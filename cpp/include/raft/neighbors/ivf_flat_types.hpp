@@ -86,7 +86,7 @@ struct index : ann::index {
   {
     return metric_;
   }
-  /** Whethe `centers()` change upon extending the index (ivf_pq::extend). */
+  /** Whether `centers()` change upon extending the index (ivf_pq::extend). */
   [[nodiscard]] constexpr inline auto adaptive_centers() const noexcept -> bool
   {
     return adaptive_centers_;
