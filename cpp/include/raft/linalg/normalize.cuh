@@ -39,6 +39,7 @@ namespace linalg {
  * @param[in] reduce_op Operation to reduce a pair of elements (e.g sum for L2)
  * @param[in] fin_op Operation to apply once to the reduction result to finalize the norm
  *                   computation (e.g sqrt for L2)
+ * @param[in] eps If the norm is below eps, the row is considered zero and no division is applied
  */
 template <typename ElementType,
           typename IndexType,
@@ -51,7 +52,8 @@ void row_normalize(const raft::handle_t& handle,
                    ElementType init,
                    MainLambda main_op,
                    ReduceLambda reduce_op,
-                   FinalLambda fin_op)
+                   FinalLambda fin_op,
+                   ElementType eps = ElementType(1e-8))
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
@@ -68,7 +70,8 @@ void row_normalize(const raft::handle_t& handle,
                               handle.get_stream(),
                               main_op,
                               reduce_op,
-                              fin_op);
+                              fin_op,
+                              eps);
 }
 
 /**
@@ -80,12 +83,14 @@ void row_normalize(const raft::handle_t& handle,
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_matrix_view
  * @param[in] norm_type the type of norm to be applied
+ * @param[in] eps If the norm is below eps, the row is considered zero and no division is applied
  */
 template <typename ElementType, typename IndexType>
 void row_normalize(const raft::handle_t& handle,
                    raft::device_matrix_view<const ElementType, IndexType, row_major> in,
                    raft::device_matrix_view<ElementType, IndexType, row_major> out,
-                   NormType norm_type)
+                   NormType norm_type,
+                   ElementType eps = ElementType(1e-8))
 {
   switch (norm_type) {
     case L1Norm:
@@ -95,7 +100,8 @@ void row_normalize(const raft::handle_t& handle,
                     ElementType(0),
                     raft::L1Op<ElementType>(),
                     raft::Sum<ElementType>(),
-                    raft::Nop<ElementType>());
+                    raft::Nop<ElementType>(),
+                    eps);
       break;
     case L2Norm:
       row_normalize(handle,
@@ -104,7 +110,8 @@ void row_normalize(const raft::handle_t& handle,
                     ElementType(0),
                     raft::L2Op<ElementType>(),
                     raft::Sum<ElementType>(),
-                    raft::SqrtOp<ElementType>());
+                    raft::SqrtOp<ElementType>(),
+                    eps);
       break;
     case LinfNorm:
       row_normalize(handle,
@@ -113,7 +120,8 @@ void row_normalize(const raft::handle_t& handle,
                     ElementType(0),
                     raft::L1Op<ElementType>(),
                     raft::Max<ElementType>(),
-                    raft::Nop<ElementType>());
+                    raft::Nop<ElementType>(),
+                    eps);
       break;
     default: THROW("Unsupported norm type: %d", norm_type);
   }

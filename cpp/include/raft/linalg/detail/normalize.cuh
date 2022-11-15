@@ -43,7 +43,8 @@ __global__ void __launch_bounds__(Policy::ThreadsPerBlock)
                                   Type init,
                                   MainLambda main_op,
                                   ReduceLambda reduce_op,
-                                  FinalLambda fin_op)
+                                  FinalLambda fin_op,
+                                  Type eps)
 {
   IdxType i = threadIdx.y + (Policy::RowsPerBlock * static_cast<IdxType>(blockIdx.x));
   if (i >= N) return;
@@ -51,12 +52,13 @@ __global__ void __launch_bounds__(Policy::ThreadsPerBlock)
   Type acc = init;
   for (IdxType j = threadIdx.x; j < D; j += Policy::LogicalWarpSize) {
     Type val = in[j + D * i];
-    acc      = reduce_op(acc, main_op(val));
+    acc      = reduce_op(acc, main_op(val, j));
   }
   acc = raft::logicalWarpReduce<Policy::LogicalWarpSize>(acc, reduce_op);
-  if (acc <= 1e-8) return;
+  acc = fin_op(acc);
+  if (acc <= eps) return;
   for (IdxType j = threadIdx.x; j < D; j += Policy::LogicalWarpSize) {
-    out[j + D * i] = in[j + D * i] / fin_op(acc);
+    out[j + D * i] = in[j + D * i] / acc;
   }
 }
 
@@ -74,12 +76,13 @@ inline void coalesced_normalize_thin(Type* out,
                                      cudaStream_t stream,
                                      MainLambda main_op,
                                      ReduceLambda reduce_op,
-                                     FinalLambda fin_op)
+                                     FinalLambda fin_op,
+                                     Type eps)
 {
   dim3 grid(ceildiv(N, (IdxType)Policy::RowsPerBlock), 1, 1);
   dim3 block(Policy::LogicalWarpSize, Policy::RowsPerBlock, 1);
   coalesced_normalize_thin_kernel<Policy>
-    <<<grid, block, 0, stream>>>(out, in, D, N, init, main_op, reduce_op, fin_op);
+    <<<grid, block, 0, stream>>>(out, in, D, N, init, main_op, reduce_op, fin_op, eps);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -96,7 +99,8 @@ __global__ void __launch_bounds__(TPB) coalesced_normalize_medium_kernel(Type* o
                                                                          Type init,
                                                                          MainLambda main_op,
                                                                          ReduceLambda reduce_op,
-                                                                         FinalLambda fin_op)
+                                                                         FinalLambda fin_op,
+                                                                         Type eps)
 {
   typedef cub::BlockReduce<Type, TPB, cub::BLOCK_REDUCE_RAKING> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
@@ -110,6 +114,7 @@ __global__ void __launch_bounds__(TPB) coalesced_normalize_medium_kernel(Type* o
   Type acc = BlockReduce(temp_storage).Reduce(thread_data, reduce_op);
   if (threadIdx.x == 0) { bcast_acc = fin_op(acc); }
   __syncthreads();
+  if (bcast_acc <= eps) return;
   for (IdxType i = threadIdx.x; i < D; i += TPB) {
     IdxType idx = rowStart + i;
     out[idx]    = in[idx] / bcast_acc;
@@ -130,10 +135,11 @@ inline void coalesced_normalize_medium(Type* out,
                                        cudaStream_t stream,
                                        MainLambda main_op,
                                        ReduceLambda reduce_op,
-                                       FinalLambda fin_op)
+                                       FinalLambda fin_op,
+                                       Type eps)
 {
   coalesced_normalize_medium_kernel<TPB>
-    <<<N, TPB, 0, stream>>>(out, in, D, N, init, main_op, reduce_op, fin_op);
+    <<<N, TPB, 0, stream>>>(out, in, D, N, init, main_op, reduce_op, fin_op, eps);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -150,28 +156,29 @@ void coalesced_normalize(Type* out,
                          cudaStream_t stream,
                          MainLambda main_op,
                          ReduceLambda reduce_op,
-                         FinalLambda fin_op)
+                         FinalLambda fin_op,
+                         Type eps)
 {
   const IdxType numSMs = raft::getMultiProcessorCount();
   if (D <= IdxType(256) || (D <= IdxType(512) && N >= 4 * numSMs)) {
     if (D <= IdxType(2)) {
       coalesced_normalize_thin<NormalizeThinPolicy<2, 64>>(
-        out, in, D, N, init, stream, main_op, reduce_op, fin_op);
+        out, in, D, N, init, stream, main_op, reduce_op, fin_op, eps);
     } else if (D <= IdxType(4)) {
       coalesced_normalize_thin<NormalizeThinPolicy<4, 32>>(
-        out, in, D, N, init, stream, main_op, reduce_op, fin_op);
+        out, in, D, N, init, stream, main_op, reduce_op, fin_op, eps);
     } else if (D <= IdxType(8)) {
       coalesced_normalize_thin<NormalizeThinPolicy<8, 16>>(
-        out, in, D, N, init, stream, main_op, reduce_op, fin_op);
+        out, in, D, N, init, stream, main_op, reduce_op, fin_op, eps);
     } else if (D <= IdxType(16)) {
       coalesced_normalize_thin<NormalizeThinPolicy<16, 8>>(
-        out, in, D, N, init, stream, main_op, reduce_op, fin_op);
+        out, in, D, N, init, stream, main_op, reduce_op, fin_op, eps);
     } else {
       coalesced_normalize_thin<NormalizeThinPolicy<32, 4>>(
-        out, in, D, N, init, stream, main_op, reduce_op, fin_op);
+        out, in, D, N, init, stream, main_op, reduce_op, fin_op, eps);
     }
   } else {
-    coalesced_normalize_medium<256>(out, in, D, N, init, stream, main_op, reduce_op, fin_op);
+    coalesced_normalize_medium<256>(out, in, D, N, init, stream, main_op, reduce_op, fin_op, eps);
   }
 }
 
