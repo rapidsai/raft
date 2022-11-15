@@ -23,6 +23,7 @@ from skbuild import setup
 install_requires = [
     "numpy",
     "cuda-python>=11.7.1,<12.0",
+    f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
 ]
 
 extras_require = {
