@@ -18,6 +18,7 @@
 
 #include <math_constants.h>
 #include <stdint.h>
+#include <type_traits>
 
 #include <raft/core/cudart_utils.hpp>
 
@@ -616,6 +617,39 @@ DI bool all(bool inFlag, uint32_t mask = 0xffffffffu)
   return inFlag;
 }
 
+/** True CUDA alignment of a type (adapted from CUB) */
+template <typename T>
+struct cuda_alignment {
+  struct Pad {
+    T val;
+    char byte;
+  };
+
+  static constexpr int bytes = sizeof(Pad) - sizeof(T);
+};
+
+template <typename LargeT, typename UnitT>
+struct is_multiple {
+  static constexpr int large_align_bytes = cuda_alignment<LargeT>::bytes;
+  static constexpr int unit_align_bytes  = cuda_alignment<UnitT>::bytes;
+  static constexpr bool value =
+    (sizeof(LargeT) % sizeof(UnitT) == 0) && (large_align_bytes % unit_align_bytes == 0);
+};
+
+template <typename LargeT, typename UnitT>
+inline constexpr bool is_multiple_v = is_multiple<LargeT, UnitT>::value;
+
+template <typename T>
+struct is_shuffleable {
+  static constexpr bool value =
+    std::is_same_v<T, int> || std::is_same_v<T, unsigned int> || std::is_same_v<T, long> ||
+    std::is_same_v<T, unsigned long> || std::is_same_v<T, long long> ||
+    std::is_same_v<T, unsigned long long> || std::is_same_v<T, float> || std::is_same_v<T, double>;
+};
+
+template <typename T>
+inline constexpr bool is_shuffleable_v = is_shuffleable<T>::value;
+
 /**
  * @brief Shuffle the data inside a warp
  * @tparam T the data type (currently assumed to be 4B)
@@ -626,13 +660,46 @@ DI bool all(bool inFlag, uint32_t mask = 0xffffffffu)
  * @return the shuffled data
  */
 template <typename T>
-DI T shfl(T val, int srcLane, int width = WarpSize, uint32_t mask = 0xffffffffu)
+DI std::enable_if_t<is_shuffleable_v<T>, T> shfl(T val,
+                                                 int srcLane,
+                                                 int width     = WarpSize,
+                                                 uint32_t mask = 0xffffffffu)
 {
 #if CUDART_VERSION >= 9000
   return __shfl_sync(mask, val, srcLane, width);
 #else
   return __shfl(val, srcLane, width);
 #endif
+}
+
+template <typename T>
+DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl(T val,
+                                                  int srcLane,
+                                                  int width     = WarpSize,
+                                                  uint32_t mask = 0xffffffffu)
+{
+  using UnitT =
+    std::conditional_t<is_multiple_v<T, int>,
+                       unsigned int,
+                       std::conditional_t<is_multiple_v<T, short>, unsigned short, unsigned char>>;
+
+  constexpr int n_words = sizeof(T) / sizeof(UnitT);
+
+  T output;
+  UnitT* output_alias = reinterpret_cast<UnitT*>(&output);
+  UnitT* input_alias  = reinterpret_cast<UnitT*>(&val);
+
+  unsigned int shuffle_word;
+  shuffle_word    = shfl((unsigned int)input_alias[0], srcLane, width, mask);
+  output_alias[0] = shuffle_word;
+
+#pragma unroll
+  for (int i = 1; i < n_words; ++i) {
+    shuffle_word    = shfl((unsigned int)input_alias[i], srcLane, width, mask);
+    output_alias[i] = shuffle_word;
+  }
+
+  return output;
 }
 
 /**
@@ -645,13 +712,46 @@ DI T shfl(T val, int srcLane, int width = WarpSize, uint32_t mask = 0xffffffffu)
  * @return the shuffled data
  */
 template <typename T>
-DI T shfl_up(T val, int delta, int width = WarpSize, uint32_t mask = 0xffffffffu)
+DI std::enable_if_t<is_shuffleable_v<T>, T> shfl_up(T val,
+                                                    int delta,
+                                                    int width     = WarpSize,
+                                                    uint32_t mask = 0xffffffffu)
 {
 #if CUDART_VERSION >= 9000
   return __shfl_up_sync(mask, val, delta, width);
 #else
   return __shfl_up(val, delta, width);
 #endif
+}
+
+template <typename T>
+DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl_up(T val,
+                                                     int delta,
+                                                     int width     = WarpSize,
+                                                     uint32_t mask = 0xffffffffu)
+{
+  using UnitT =
+    std::conditional_t<is_multiple_v<T, int>,
+                       unsigned int,
+                       std::conditional_t<is_multiple_v<T, short>, unsigned short, unsigned char>>;
+
+  constexpr int n_words = sizeof(T) / sizeof(UnitT);
+
+  T output;
+  UnitT* output_alias = reinterpret_cast<UnitT*>(&output);
+  UnitT* input_alias  = reinterpret_cast<UnitT*>(&val);
+
+  unsigned int shuffle_word;
+  shuffle_word    = shfl_up((unsigned int)input_alias[0], delta, width, mask);
+  output_alias[0] = shuffle_word;
+
+#pragma unroll
+  for (int i = 1; i < n_words; ++i) {
+    shuffle_word    = shfl_up((unsigned int)input_alias[i], delta, width, mask);
+    output_alias[i] = shuffle_word;
+  }
+
+  return output;
 }
 
 /**
@@ -664,13 +764,46 @@ DI T shfl_up(T val, int delta, int width = WarpSize, uint32_t mask = 0xffffffffu
  * @return the shuffled data
  */
 template <typename T>
-DI T shfl_xor(T val, int laneMask, int width = WarpSize, uint32_t mask = 0xffffffffu)
+DI std::enable_if_t<is_shuffleable_v<T>, T> shfl_xor(T val,
+                                                     int laneMask,
+                                                     int width     = WarpSize,
+                                                     uint32_t mask = 0xffffffffu)
 {
 #if CUDART_VERSION >= 9000
   return __shfl_xor_sync(mask, val, laneMask, width);
 #else
   return __shfl_xor(val, laneMask, width);
 #endif
+}
+
+template <typename T>
+DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl_xor(T val,
+                                                      int laneMask,
+                                                      int width     = WarpSize,
+                                                      uint32_t mask = 0xffffffffu)
+{
+  using UnitT =
+    std::conditional_t<is_multiple_v<T, int>,
+                       unsigned int,
+                       std::conditional_t<is_multiple_v<T, short>, unsigned short, unsigned char>>;
+
+  constexpr int n_words = sizeof(T) / sizeof(UnitT);
+
+  T output;
+  UnitT* output_alias = reinterpret_cast<UnitT*>(&output);
+  UnitT* input_alias  = reinterpret_cast<UnitT*>(&val);
+
+  unsigned int shuffle_word;
+  shuffle_word    = shfl_xor((unsigned int)input_alias[0], laneMask, width, mask);
+  output_alias[0] = shuffle_word;
+
+#pragma unroll
+  for (int i = 1; i < n_words; ++i) {
+    shuffle_word    = shfl_xor((unsigned int)input_alias[i], laneMask, width, mask);
+    output_alias[i] = shuffle_word;
+  }
+
+  return output;
 }
 
 /**

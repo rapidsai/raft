@@ -55,7 +55,7 @@ __global__ void __launch_bounds__(Policy::ThreadsPerBlock)
 
   OutType acc = init;
   for (IdxType j = threadIdx.x; j < D; j += Policy::LogicalWarpSize) {
-    acc = reduce_op(acc, main_op(data[j + (D * i)], i));
+    acc = reduce_op(acc, main_op(data[j + (D * i)], j));
   }
   acc = raft::logicalWarpReduce<Policy::LogicalWarpSize>(acc, reduce_op);
   if (threadIdx.x == 0) {
@@ -284,7 +284,7 @@ void coalescedReductionThick(OutType* dots,
                                      init,
                                      stream,
                                      inplace,
-                                     raft::Nop<InType, IdxType>(),
+                                     raft::Nop<OutType, IdxType>(),
                                      reduce_op,
                                      final_op);
 }
