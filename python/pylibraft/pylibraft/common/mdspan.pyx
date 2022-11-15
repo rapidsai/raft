@@ -58,8 +58,8 @@ cdef device_matrix_view[ElementType, int] device_matrix_view_from_array(
     return make_device_matrix_view(<ElementType*>ptr, <int>rows, <int>cols)
 
 
-cdef device_matrix_view[const ElementType, int]
-const_device_matrix_view_from_array(arr, ElementType * p) except +:
+cdef device_matrix_view[const ElementType, int] \
+        const_device_matrix_view_from_array(arr, ElementType * p) except +:
     """ Transform a CAI array to a device_matrix_view with a const element"""
     # I couldn't make cython accept a FusedType that distiguishes between a
     # const/non-const ElementType - meaning that we have some duplicated

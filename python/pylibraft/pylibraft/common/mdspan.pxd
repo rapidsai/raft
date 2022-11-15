@@ -21,34 +21,33 @@
 
 
 cdef extern from "raft/core/device_mdspan.hpp" namespace "raft" nogil:
-    cdef cppclass device_vector_view[ElementType, IndexType]:
+    cdef cppclass device_vector_view[T, IndexType]:
         pass
 
-    cdef cppclass device_matrix_view[ElementType, IndexType]:
+    cdef cppclass device_matrix_view[T, IndexType]:
         pass
 
-    cdef cppclass host_scalar_view[ElementType, IndexType]:
+    cdef cppclass host_scalar_view[T, IndexType]:
         pass
 
-    cdef device_vector_view[ElementType, IndexType]
-    make_device_vector_view[ElementType, IndexType](
-        ElementType * ptr, IndexType n
-    ) except +
+    cdef device_vector_view[T, IndexType] \
+        make_device_vector_view[T, IndexType](T * ptr,
+                                              IndexType n) except +
 
-    cdef device_matrix_view[ElementType, IndexType]
-    make_device_matrix_view[ElementType, IndexType](
-        ElementType * ptr, IndexType rows, IndexType cols
-    ) except +
+    cdef device_matrix_view[T, IndexType] \
+        make_device_matrix_view[T, IndexType](T * ptr,
+                                              IndexType rows,
+                                              IndexType cols) except +
 
-    cdef host_scalar_view[ElementType, IndexType]
-    make_host_scalar_view[ElementType, IndexType](ElementType * ptr) except +
+    cdef host_scalar_view[T, IndexType] \
+        make_host_scalar_view[T, IndexType](T * ptr) except +
 
 ctypedef fused ElementType:
     float
     double
 
-cdef device_matrix_view[ElementType, int]
-device_matrix_view_from_array(arr, ElementType * p) except +
+cdef device_matrix_view[ElementType, int] \
+    device_matrix_view_from_array(arr, ElementType * p) except +
 
-cdef device_matrix_view[const ElementType, int]
-const_device_matrix_view_from_array(arr, ElementType * p) except +
+cdef device_matrix_view[const ElementType, int] \
+    const_device_matrix_view_from_array(arr, ElementType * p) except +
