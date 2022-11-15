@@ -676,13 +676,17 @@ void train_per_cluster(const handle_t& handle,
   transpose_pq_centers(index, pq_centers_tmp.data(), stream);
 }
 
-/** See raft::spatial::knn::ivf_pq::extend docs */
+/**
+ * See raft::spatial::knn::ivf_pq::extend docs.
+ *
+ * This version requires `new_vectors` and `new_indices` (if non-null) to be on-device.
+ */
 template <typename T, typename IdxT>
-inline auto extend(const handle_t& handle,
-                   const index<IdxT>& orig_index,
-                   const T* new_vectors,
-                   const IdxT* new_indices,
-                   IdxT n_rows) -> index<IdxT>
+inline auto extend_device(const handle_t& handle,
+                          const index<IdxT>& orig_index,
+                          const T* new_vectors,
+                          const IdxT* new_indices,
+                          IdxT n_rows) -> index<IdxT>
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::extend(%zu, %u)", size_t(n_rows), orig_index.dim());
@@ -693,6 +697,13 @@ inline auto extend(const handle_t& handle,
 
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported data type");
+
+  switch (new_indices != nullptr ? utils::check_pointer_residency(new_vectors, new_indices)
+                                 : utils::check_pointer_residency(new_vectors)) {
+    case utils::pointer_residency::device_only:
+    case utils::pointer_residency::host_and_device: break;
+    default: RAFT_FAIL("[ivf_pq::extend_device] The added data must be available on device.");
+  }
 
   rmm::mr::device_memory_resource* device_memory = nullptr;
   auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
@@ -1024,9 +1035,33 @@ inline auto extend(const handle_t& handle,
   return ext_index;
 }
 
-/** See raft::spatial::knn::ivf_pq::build docs */
+/** See raft::spatial::knn::ivf_pq::extend docs */
 template <typename T, typename IdxT>
-inline auto build(
+inline auto extend(const handle_t& handle,
+                   const index<IdxT>& orig_index,
+                   const T* new_vectors,
+                   const IdxT* new_indices,
+                   IdxT n_rows) -> index<IdxT>
+{
+  size_t vec_size = sizeof(T) * size_t(n_rows) * size_t(orig_index.dim());
+  size_t ind_size = sizeof(IdxT) * size_t(n_rows);
+  return utils::with_mapped_memory_t{
+    new_vectors, vec_size, [&](const T* new_vectors_dev) {
+      return utils::with_mapped_memory_t{
+        new_indices, ind_size, [&](const IdxT* new_indices_dev) {
+          return extend_device<T, IdxT>(
+            handle, orig_index, new_vectors_dev, new_indices_dev, n_rows);
+        }}();
+    }}();
+}
+
+/**
+ * See raft::spatial::knn::ivf_pq::build docs.
+ *
+ * This version requires `dataset` to be on-device.
+ */
+template <typename T, typename IdxT>
+inline auto build_device(
   const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
   -> index<IdxT>
 {
@@ -1036,6 +1071,12 @@ inline auto build(
                 "Unsupported data type");
 
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
+
+  switch (utils::check_pointer_residency(dataset)) {
+    case utils::pointer_residency::device_only:
+    case utils::pointer_residency::host_and_device: break;
+    default: RAFT_FAIL("[ivf_pq::build_device] The dataset pointer must be available on device.");
+  }
 
   auto stream = handle.get_stream();
 
@@ -1059,9 +1100,21 @@ inline auto build(
   rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
     &managed_memory_upstream, 1024 * 1024);
 
+  // If the trainset is small enough to comfortably fit into device memory, put it there.
+  // Otherwise, use the managed memory.
+  rmm::mr::device_memory_resource* big_memory_resource = &managed_memory;
+  {
+    size_t free_mem, total_mem;
+    constexpr size_t kTolerableRatio = 4;
+    RAFT_CUDA_TRY(cudaMemGetInfo(&free_mem, &total_mem));
+    if (sizeof(float) * n_rows_train * index.dim() * kTolerableRatio < free_mem) {
+      big_memory_resource = device_memory;
+    }
+  }
+
   // Besides just sampling, we transform the input dataset into floats to make it easier
   // to use gemm operations from cublas.
-  rmm::device_uvector<float> trainset(n_rows_train * index.dim(), stream, device_memory);
+  rmm::device_uvector<float> trainset(n_rows_train * index.dim(), stream, big_memory_resource);
   // TODO: a proper sampling
   if constexpr (std::is_same_v<T, float>) {
     RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
@@ -1101,7 +1154,7 @@ inline auto build(
                              stream);
 
   // Trainset labels are needed for training PQ codebooks
-  rmm::device_uvector<uint32_t> labels(n_rows_train, stream, device_memory);
+  rmm::device_uvector<uint32_t> labels(n_rows_train, stream, big_memory_resource);
   kmeans::predict(handle,
                   cluster_centers,
                   index.n_lists(),
@@ -1190,10 +1243,23 @@ inline auto build(
 
   // add the data if necessary
   if (params.add_data_on_build) {
-    return detail::extend<T, IdxT>(handle, index, dataset, nullptr, n_rows);
+    return detail::extend_device<T, IdxT>(handle, index, dataset, nullptr, n_rows);
   } else {
     return index;
   }
+}
+
+/** See raft::spatial::knn::ivf_pq::build docs */
+template <typename T, typename IdxT>
+inline auto build(
+  const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
+  -> index<IdxT>
+{
+  size_t data_size = sizeof(T) * size_t(n_rows) * size_t(dim);
+  return utils::with_mapped_memory_t{dataset, data_size, [&](const T* dataset_dev) {
+                                       return build_device<T, IdxT>(
+                                         handle, params, dataset_dev, n_rows, dim);
+                                     }}();
 }
 
 }  // namespace raft::spatial::knn::ivf_pq::detail
