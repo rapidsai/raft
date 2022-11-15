@@ -216,6 +216,7 @@ if(BUILD_TESTS)
             test/sparse/reduce.cu
             test/sparse/row_op.cu
             test/sparse/sort.cu
+            test/sparse/spgemmi.cu
             test/sparse/symmetrize.cu
     )
 

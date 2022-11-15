@@ -651,6 +651,73 @@ inline cusparseStatus_t cusparsecsrmm(cusparseHandle_t handle,
  * @defgroup Gemmi cusparse gemmi operations
  * @{
  */
+#if CUDART_VERSION < 12000
+template <typename T>
+cusparseStatus_t cusparsegemmi(  // NOLINT
+  cusparseHandle_t handle,
+  int m,
+  int n,
+  int k,
+  int nnz,
+  const T* alpha,
+  const T* A,
+  int lda,
+  const T* cscValB,
+  const int* cscColPtrB,
+  const int* cscRowIndB,
+  const T* beta,
+  T* C,
+  int ldc,
+  cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle,
+                                      int m,
+                                      int n,
+                                      int k,
+                                      int nnz,
+                                      const float* alpha,
+                                      const float* A,
+                                      int lda,
+                                      const float* cscValB,
+                                      const int* cscColPtrB,
+                                      const int* cscRowIndB,
+                                      const float* beta,
+                                      float* C,
+                                      int ldc,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return cusparseSgemmi(
+    handle, m, n, k, nnz, alpha, A, lda, cscValB, cscColPtrB, cscRowIndB, beta, C, ldc);
+#pragma GCC diagnostic pop
+}
+template <>
+inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle,
+                                      int m,
+                                      int n,
+                                      int k,
+                                      int nnz,
+                                      const double* alpha,
+                                      const double* A,
+                                      int lda,
+                                      const double* cscValB,
+                                      const int* cscColPtrB,
+                                      const int* cscRowIndB,
+                                      const double* beta,
+                                      double* C,
+                                      int ldc,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return cusparseDgemmi(
+    handle, m, n, k, nnz, alpha, A, lda, cscValB, cscColPtrB, cscRowIndB, beta, C, ldc);
+#pragma GCC diagnostic pop
+}
+#else  // CUDART >= 12.0
 template <typename T>
 cusparseStatus_t cusparsegemmi(  // NOLINT
   cusparseHandle_t handle,
@@ -723,6 +790,7 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
 
   return return_value;
 }
+#endif
 /** @} */
 
 /**
