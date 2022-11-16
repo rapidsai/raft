@@ -30,7 +30,6 @@ namespace sparse {
 
 using namespace raft;
 
-
 template <typename value_idx, typename value_t>
 struct CSRTransposeInputs {
   value_idx nrows;
