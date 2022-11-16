@@ -372,9 +372,8 @@ if(TARGET raft_distance_lib AND (NOT TARGET raft::raft_distance_lib))
 endif()
 
 target_link_libraries(
-  raft_distance
-  INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
-  PRIVATE nvidia::cutlass::cutlass
+  raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
+                          nvidia::cutlass::cutlass
 )
 
 # ##################################################################################################
@@ -449,9 +448,7 @@ if(TARGET raft_nn_lib AND (NOT TARGET raft::raft_nn_lib))
 endif()
 
 target_link_libraries(
-  raft_nn
-  INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>
-  PRIVATE nvidia::cutlass::cutlass
+  raft_nn INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib> nvidia::cutlass::cutlass
 )
 
 # ##################################################################################################
