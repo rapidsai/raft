@@ -19,6 +19,8 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 
+#if (__CUDACC_VER_MAJOR__ < 12)
+
 // We define CUTLASS_NAMESPACE in case
 // RAFT cmake is not used
 #ifndef CUTLASS_NAMESPACE
@@ -169,7 +171,8 @@ void cutlassDistanceKernel(const DataT* x,
   CUTLASS_CHECK(status);
 }
 
-};  // namespace detail
-};  // namespace distance
-};  // namespace raft
+};      // namespace detail
+};      // namespace distance
+};      // namespace raft
+#endif  //  (__CUDACC_VER_MAJOR__ < 12)
 #pragma GCC diagnostic pop

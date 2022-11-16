@@ -425,7 +425,9 @@ __global__ __launch_bounds__(Policy::Nthreads, 2)
                                               EpilogueLambda epilog_op,
                                               FinalLambda fin_op)
 {
-#if __CUDA_ARCH__ < 800
+  //#if __CUDA_ARCH__ < 800
+  // TODO: re-enable the CUDA_ARCH guard for below Ampere once cutlass based
+  //  kernels are enabled for CUDA 12.0
   extern __shared__ char smem[];
   auto rowEpilog = [] __device__(IdxT starty) { return; };
 
@@ -444,7 +446,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2)
     obj(
       x, y, m, n, k, lda, ldb, ldd, _xn, _yn, dOutput, smem, core_op, epilog_op, fin_op, rowEpilog);
   obj.run();
-#endif
+  //#endif
 }
 
 template <typename P, typename IdxT, typename T>

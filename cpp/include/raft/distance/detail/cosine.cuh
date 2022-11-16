@@ -82,6 +82,7 @@ void cosineImpl(const DataT* x,
                 FinalLambda fin_op,
                 cudaStream_t stream)
 {
+#if (__CUDACC_VER_MAJOR__ < 12)
   const auto deviceVersion = getComputeCapability();
   if (deviceVersion.first >= 8) {
     using CosineOp_ = CosineOp<DataT, AccT>;
@@ -90,7 +91,9 @@ void cosineImpl(const DataT* x,
     cutlassDistanceKernel<DataT, AccT, OutT, IdxT, VecLen, FinalLambda, CosineOp_, isRowMajor>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, cosine_dist_op, stream);
 
-  } else {
+  } else
+#endif
+  {
     typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
     typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 

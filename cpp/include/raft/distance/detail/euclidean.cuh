@@ -88,6 +88,7 @@ void euclideanExpImpl(const DataT* x,
                       FinalLambda fin_op,
                       cudaStream_t stream)
 {
+#if (__CUDACC_VER_MAJOR__ < 12)
   const auto deviceVersion = getComputeCapability();
   if (deviceVersion.first >= 8) {
     using L2Op = L2ExpandedOp<DataT, AccT>;
@@ -96,7 +97,10 @@ void euclideanExpImpl(const DataT* x,
     cutlassDistanceKernel<DataT, AccT, OutT, IdxT, VecLen, FinalLambda, L2Op, isRowMajor>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, L2_dist_op, stream);
 
-  } else {
+  } else
+#endif
+  {
+
     typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
     typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
