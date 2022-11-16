@@ -351,11 +351,7 @@ if(RAFT_COMPILE_DIST_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(
-    raft_distance_lib
-    PUBLIC raft::raft cuco::cuco
-    PRIVATE nvidia::cutlass::cutlass
-  )
+  target_link_libraries(raft_distance_lib PUBLIC raft::raft cuco::cuco)
   target_compile_options(
     raft_distance_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                               "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -428,11 +424,7 @@ if(RAFT_COMPILE_NN_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(
-    raft_nn_lib
-    PUBLIC faiss::faiss raft::raft
-    PRIVATE nvidia::cutlass::cutlass
-  )
+  target_link_libraries(raft_nn_lib PUBLIC faiss::faiss raft::raft)
   target_compile_options(
     raft_nn_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                         "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"

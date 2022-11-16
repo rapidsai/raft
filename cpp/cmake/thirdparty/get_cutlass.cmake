@@ -57,19 +57,32 @@ function(find_and_configure_cutlass)
   # We generate the cutlass-config files when we built cutlass locally, so always do
   # `find_dependency`
   rapids_export_package(
-    BUILD NvidiaCutlass raft-distance-exports GLOBAL_TARGETS nvidia::cutlass::cutlass
+          BUILD NvidiaCutlass raft-distance-exports GLOBAL_TARGETS nvidia::cutlass::cutlass
   )
   rapids_export_package(
-    INSTALL NvidiaCutlass raft-nn-exports GLOBAL_TARGETS nvidia::cutlass::cutlass
+          INSTALL NvidiaCutlass raft-distance-exports GLOBAL_TARGETS nvidia::cutlass::cutlass
+  )
+  rapids_export_package(
+          BUILD NvidiaCutlass raft-nn-exports GLOBAL_TARGETS nvidia::cutlass::cutlass
+  )
+  rapids_export_package(
+          INSTALL NvidiaCutlass raft-nn-exports GLOBAL_TARGETS nvidia::cutlass::cutlass
   )
 
   # Tell cmake where it can find the generated NvidiaCutlass-config.cmake we wrote.
   include("${rapids-cmake-dir}/export/find_package_root.cmake")
   rapids_export_find_package_root(
-    INSTALL NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}/../]=] raft-distance-exports
+          INSTALL NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}/../]=] raft-distance-exports
   )
   rapids_export_find_package_root(
-    BUILD NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-nn-exports
+          BUILD NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-distance-exports
+  )
+  include("${rapids-cmake-dir}/export/find_package_root.cmake")
+  rapids_export_find_package_root(
+          INSTALL NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}/../]=] raft-nn-exports
+  )
+  rapids_export_find_package_root(
+          BUILD NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-nn-exports
   )
 endfunction()
 
