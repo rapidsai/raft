@@ -15,5 +15,5 @@
 
 
 def raft_include_test():
-    print("RAFT Setup succesfully")
+    print("RAFT Setup successfully")
     return True

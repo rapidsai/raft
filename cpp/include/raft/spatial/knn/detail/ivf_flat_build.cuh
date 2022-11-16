@@ -50,8 +50,8 @@ using namespace raft::spatial::knn::detail;  // NOLINT
  *
  * @param[in] labels device pointer to the cluster ids for each row [n_rows]
  * @param[in] list_offsets device pointer to the cluster offsets in the output (index) [n_lists]
- * @param[in] source_vecs device poitner to the input data [n_rows, dim]
- * @param[in] source_ixs device poitner to the input indices [n_rows]
+ * @param[in] source_vecs device pointer to the input data [n_rows, dim]
+ * @param[in] source_ixs device pointer to the input indices [n_rows]
  * @param[out] list_data device pointer to the output [index_size, dim]
  * @param[out] list_index device pointer to the source ids corr. to the output [index_size]
  * @param[out] list_sizes_ptr device pointer to the cluster sizes [n_lists];

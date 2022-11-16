@@ -373,7 +373,7 @@ __launch_bounds__(BlockDim) __global__
  * (as stored in index.indices()).
  *
  * When the main kernel runs with a fused top-k (`manage_local_topk == true`), this function simply
- * fetches the index values  by the returned row ids. Otherwise, the found neighors require extra
+ * fetches the index values  by the returned row ids. Otherwise, the found neighbors require extra
  * pre-processing (performed by `find_db_row`).
  */
 template <typename IdxT>
@@ -925,7 +925,7 @@ constexpr inline auto estimate_carveout(double shmem_fraction,
  * This structure selects configurable template parameters (instance) based on
  * the search/index parameters at runtime.
  *
- * This is done by means of recusively iterating through a small set of possible
+ * This is done by means of recursively iterating through a small set of possible
  * values for every parameter.
  */
 template <typename IdxT, typename OutT, typename LutT>

@@ -139,7 +139,7 @@ class warp_sort {
 
  public:
   /**
-   *  The `empty` value for the choosen binary operation,
+   *  The `empty` value for the chosen binary operation,
    *  i.e. `Ascending ? upper_bound<T>() : lower_bound<T>()`.
    */
   static constexpr T kDummy = Ascending ? upper_bound<T>() : lower_bound<T>();
@@ -168,7 +168,7 @@ class warp_sort {
    *
    * When it actually loads the values, it always performs some collective warp operations in the
    * end, thus enforcing warp sync. This means, it's safe to call `store` with the same arguments
-   * after `load_sorted` without extra sync. Note, however, that this is not neccesarily true for
+   * after `load_sorted` without extra sync. Note, however, that this is not necessarily true for
    * the reverse order, because the access patterns of `store` and `load_sorted` are different.
    *
    * @param[in] in

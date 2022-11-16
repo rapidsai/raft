@@ -100,13 +100,13 @@ value_t silhouette_score(
   idx_t n_unique_labels,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
 {
-  RAFT_EXPECTS(labels.extent(0) == X_in.extent(0), "Size mismatch betwen labels and data");
+  RAFT_EXPECTS(labels.extent(0) == X_in.extent(0), "Size mismatch between labels and data");
 
   value_t* silhouette_score_per_sample_ptr = nullptr;
   if (silhouette_score_per_sample.has_value()) {
     silhouette_score_per_sample_ptr = silhouette_score_per_sample.value().data_handle();
     RAFT_EXPECTS(silhouette_score_per_sample.value().extent(0) == X_in.extent(0),
-                 "Size mismatch betwen silhouette_score_per_sample and data");
+                 "Size mismatch between silhouette_score_per_sample and data");
   }
   return detail::silhouette_score(handle,
                                   X_in.data_handle(),
@@ -172,13 +172,13 @@ value_t silhouette_score_batched(
                 "of each mdspan argument must be an integral type.");
   static_assert(std::is_integral_v<label_t>,
                 "silhouette_score_batched: The label type must be an integral type.");
-  RAFT_EXPECTS(labels.extent(0) == X.extent(0), "Size mismatch betwen labels and data");
+  RAFT_EXPECTS(labels.extent(0) == X.extent(0), "Size mismatch between labels and data");
 
   value_t* scores_ptr = nullptr;
   if (silhouette_score_per_sample.has_value()) {
     scores_ptr = silhouette_score_per_sample.value().data_handle();
     RAFT_EXPECTS(silhouette_score_per_sample.value().extent(0) == X.extent(0),
-                 "Size mismatch betwen silhouette_score_per_sample and data");
+                 "Size mismatch between silhouette_score_per_sample and data");
   }
   return batched::detail::silhouette_score(handle,
                                            X.data_handle(),

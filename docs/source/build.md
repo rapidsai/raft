@@ -27,7 +27,7 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 - [Googlebench](https://github.com/google/benchmark) - Needed to build benchmarks
 - [Doxygen](https://github.com/doxygen/doxygen) - Needed to build docs
 
-All of RAFT's C++ APIs can be used header-only but pre-compiled shared libraries also contain some host-accessable APIs and template instantiations to accelerate compile times.
+All of RAFT's C++ APIs can be used header-only but pre-compiled shared libraries also contain some host-accessible APIs and template instantiations to accelerate compile times.
 
 The recommended way to build and install RAFT is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python artifacts and provides options for building and installing the headers, tests, benchmarks, and individual shared libraries.
 
