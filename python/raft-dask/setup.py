@@ -20,15 +20,17 @@ import versioneer
 from setuptools import find_packages
 from skbuild import setup
 
+cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
+
 install_requires = [
     "numpy",
     "numba>=0.49",
     "joblib>=0.11",
     "dask-cuda>=22.10",
     "dask>=2022.9.1",
-    f"ucx-py{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
+    f"ucx-py{cuda_suffix}",
     "distributed>=2022.9.1",
-    f"pylibraft{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
+    f"pylibraft{cuda_suffix}",
 ]
 
 extras_require = {
@@ -49,7 +51,7 @@ def exclude_libcxx_symlink(cmake_manifest):
 
 
 setup(
-    name=f"raft-dask{os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')}",
+    name=f"raft-dask{cuda_suffix}",
     description="Reusable Accelerated Functions & Tools Dask Infrastructure",
     version=os.getenv(
         "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE", default=versioneer.get_version()

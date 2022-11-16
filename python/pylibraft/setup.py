@@ -20,10 +20,12 @@ import versioneer
 from setuptools import find_packages
 from skbuild import setup
 
+cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
+
 install_requires = [
     "numpy",
     "cuda-python>=11.7.1,<12.0",
-    f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+    f"rmm{cuda_suffix}",
 ]
 
 extras_require = {
@@ -44,7 +46,7 @@ def exclude_libcxx_symlink(cmake_manifest):
 
 
 setup(
-    name="pylibraft" + os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default=""),
+    name=f"pylibraft{cuda_suffix}",
     description="RAFT: Reusable Algorithms Functions and other Tools",
     version=versioneer.get_version(),
     classifiers=[
@@ -77,7 +79,7 @@ setup(
     # better solution for this.
     setup_requires=[
         "cuda-python>=11.7.1,<12.0",
-        f"rmm{os.getenv('PYTHON_PACKAGE_CUDA_SUFFIX', default='')}",
+        f"rmm{cuda_suffix}",
     ],
     install_requires=install_requires,
     extras_require=extras_require,
