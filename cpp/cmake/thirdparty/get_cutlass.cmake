@@ -60,7 +60,7 @@ function(find_and_configure_cutlass)
     BUILD NvidiaCutlass raft-distance-exports GLOBAL_TARGETS nvidia::cutlass::cutlass
   )
   rapids_export_package(
-    INSTALL NvidiaCutlass raft-distance-exports GLOBAL_TARGETS nvidia::cutlass::cutlass
+    INSTALL NvidiaCutlass raft-nn-exports GLOBAL_TARGETS nvidia::cutlass::cutlass
   )
 
   # Tell cmake where it can find the generated NvidiaCutlass-config.cmake we wrote.
@@ -69,7 +69,7 @@ function(find_and_configure_cutlass)
     INSTALL NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}/../]=] raft-distance-exports
   )
   rapids_export_find_package_root(
-    BUILD NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-distance-exports
+    BUILD NvidiaCutlass [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-nn-exports
   )
 endfunction()
 
