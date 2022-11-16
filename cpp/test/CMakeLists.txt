@@ -195,9 +195,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SOLVERS_TEST PATH test/cluster_solvers_deprecated.cu test/eigen_solvers.cu test/lap/lap.cu
-    test/mst.cu
-    OPTIONAL
-    DIST
+    test/mst.cu OPTIONAL DIST
   )
 
   ConfigureTest(

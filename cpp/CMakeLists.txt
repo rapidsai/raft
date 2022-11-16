@@ -218,7 +218,6 @@ target_link_libraries(
             CUDA::cusolver${_ctk_static_suffix}
             CUDA::cusparse${_ctk_static_suffix}
             $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
-            #nvidia::cutlass::cutlass
 )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -369,9 +368,9 @@ if(TARGET raft_distance_lib AND (NOT TARGET raft::raft_distance_lib))
 endif()
 
 target_link_libraries(
-  raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib> nvidia::cutlass::cutlass
+  raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
+                          nvidia::cutlass::cutlass
 )
-
 
 # ##################################################################################################
 # * raft_nn ------------------------------------------------------------------
