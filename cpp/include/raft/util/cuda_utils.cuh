@@ -873,8 +873,8 @@ DI auto dp4a(unsigned int a, unsigned int b, unsigned int c) -> unsigned int
  * @tparam T Value type to be reduced
  * @tparam ReduceLambda Reduction operation type
  * @param val input value
+ * @param reduce_op Reduction operation
  * @return Reduction result. All lanes will have the valid result.
- * @todo Expand this to support arbitrary reduction ops
  */
 template <int logicalWarpSize, typename T, typename ReduceLambda>
 DI T logicalWarpReduce(T val, ReduceLambda reduce_op)
