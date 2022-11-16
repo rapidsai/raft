@@ -182,6 +182,7 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
+include(cmake/thirdparty/get_cutlass.cmake)
 
 if(RAFT_ENABLE_cuco_DEPENDENCY)
   include(${rapids-cmake-dir}/cpm/cuco.cmake)
@@ -365,7 +366,11 @@ if(RAFT_COMPILE_DIST_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(raft_distance_lib PUBLIC raft::raft cuco::cuco)
+  target_link_libraries(
+    raft_distance_lib
+    PUBLIC raft::raft cuco::cuco
+    PRIVATE nvidia::cutlass::cutlass
+  )
   target_compile_options(
     raft_distance_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                               "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -383,6 +388,7 @@ endif()
 
 target_link_libraries(
   raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
+                          nvidia::cutlass::cutlass
 )
 
 # ##################################################################################################
@@ -439,7 +445,11 @@ if(RAFT_COMPILE_NN_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(raft_nn_lib PUBLIC faiss::faiss raft::raft)
+  target_link_libraries(
+    raft_nn_lib
+    PUBLIC faiss::faiss raft::raft
+    PRIVATE nvidia::cutlass::cutlass
+  )
   target_compile_options(
     raft_nn_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                         "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -454,7 +464,9 @@ if(TARGET raft_nn_lib AND (NOT TARGET raft::raft_nn_lib))
   add_library(raft::raft_nn_lib ALIAS raft_nn_lib)
 endif()
 
-target_link_libraries(raft_nn INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
+target_link_libraries(
+  raft_nn INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib> nvidia::cutlass::cutlass
+)
 
 # ##################################################################################################
 # * install targets-----------------------------------------------------------

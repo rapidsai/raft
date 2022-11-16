@@ -615,6 +615,19 @@ void distance(const InType* x,
  * @note if workspace is passed as nullptr, this will return in
  *  worksize, the number of bytes of workspace required
  */
+
+// Default final op functor which facilitates elementwise operation on
+// final distance value if any.
+template <typename AccType, typename OutType, typename Index>
+struct default_fin_op {
+  __host__ __device__ default_fin_op() noexcept {};
+  // functor signature.
+  __host__ __device__ OutType operator()(AccType d_val, Index g_d_idx) const noexcept
+  {
+    return d_val;
+  }
+};
+
 template <raft::distance::DistanceType distanceType,
           typename InType,
           typename AccType,
@@ -632,9 +645,15 @@ void distance(const InType* x,
               bool isRowMajor   = true,
               InType metric_arg = 2.0f)
 {
-  auto default_fin_op = [] __device__(AccType d_val, Index_ g_d_idx) { return d_val; };
-  distance<distanceType, InType, AccType, OutType, decltype(default_fin_op), Index_>(
-    x, y, dist, m, n, k, workspace, worksize, default_fin_op, stream, isRowMajor, metric_arg);
+  using final_op_type = default_fin_op<AccType, OutType, Index_>;
+  final_op_type fin_op;
+
+  // raft distance support inputs as float/double and output as uint8_t/float/double.
+  static_assert(!((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
+                "OutType can be uint8_t, float, double,"
+                "if sizeof(OutType) > 1 then sizeof(AccType) == sizeof(OutType).");
+  distance<distanceType, InType, AccType, OutType, final_op_type, Index_>(
+    x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor, metric_arg);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 

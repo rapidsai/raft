@@ -108,6 +108,7 @@ if(BUILD_TESTS)
     test/distance/dist_cos.cu
     test/distance/dist_euc_exp.cu
     test/distance/dist_euc_unexp.cu
+    test/distance/dist_eucsqrt_exp.cu
     test/distance/dist_hamming.cu
     test/distance/dist_hellinger.cu
     test/distance/dist_jensen_shannon.cu
@@ -194,7 +195,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SOLVERS_TEST PATH test/cluster_solvers_deprecated.cu test/eigen_solvers.cu test/lap/lap.cu
-    test/mst.cu
+    test/mst.cu OPTIONAL DIST
   )
 
   ConfigureTest(

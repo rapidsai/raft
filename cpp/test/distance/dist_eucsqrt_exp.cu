@@ -21,7 +21,8 @@ namespace raft {
 namespace distance {
 
 template <typename DataType>
-class DistanceEucExpTest : public DistanceTest<raft::distance::DistanceType::L2Expanded, DataType> {
+class DistanceEucSqrtExpTest
+  : public DistanceTest<raft::distance::DistanceType::L2SqrtExpanded, DataType> {
 };
 
 const std::vector<DistanceInputs<float>> inputsf = {
@@ -37,15 +38,15 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.003f, 1024, 1024, 1024, false, 1234ULL},
   {0.003f, 1021, 1021, 1021, false, 1234ULL},
 };
-typedef DistanceEucExpTest<float> DistanceEucExpTestF;
-TEST_P(DistanceEucExpTestF, Result)
+typedef DistanceEucSqrtExpTest<float> DistanceEucSqrtExpTestF;
+TEST_P(DistanceEucSqrtExpTestF, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
   ASSERT_TRUE(devArrMatch(
     dist_ref.data(), dist.data(), m, n, raft::CompareApprox<float>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucExpTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucSqrtExpTestF, ::testing::ValuesIn(inputsf));
 
 const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, true, 1234ULL},
@@ -57,18 +58,19 @@ const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 32, 1024, 1024, false, 1234ULL},
   {0.003, 1024, 1024, 1024, false, 1234ULL},
 };
-typedef DistanceEucExpTest<double> DistanceEucExpTestD;
-TEST_P(DistanceEucExpTestD, Result)
+typedef DistanceEucSqrtExpTest<double> DistanceEucSqrtExpTestD;
+TEST_P(DistanceEucSqrtExpTestD, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
   ASSERT_TRUE(devArrMatch(
     dist_ref.data(), dist.data(), m, n, raft::CompareApprox<double>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucExpTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucSqrtExpTestD, ::testing::ValuesIn(inputsd));
 
-class BigMatrixEucExp : public BigMatrixDistanceTest<raft::distance::DistanceType::L2Expanded> {
+class BigMatrixEucSqrtExp
+  : public BigMatrixDistanceTest<raft::distance::DistanceType::L2SqrtExpanded> {
 };
-TEST_F(BigMatrixEucExp, Result) {}
+TEST_F(BigMatrixEucSqrtExp, Result) {}
 }  // end namespace distance
 }  // end namespace raft
