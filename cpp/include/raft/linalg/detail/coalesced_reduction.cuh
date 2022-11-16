@@ -273,6 +273,13 @@ void coalescedReductionThick(OutType* dots,
 
   rmm::device_uvector<OutType> buffer(N * ThickPolicy::BlocksPerRow, stream);
 
+  /* We apply a two-step reduction:
+   *  1. coalescedReductionThickKernel reduces the [N x D] input data to [N x BlocksPerRow]. It
+   *     applies the main_op but not the final op.
+   *  2. coalescedReductionThinKernel reduces [N x BlocksPerRow] to [N x 1]. It doesn't apply any
+   *     main_op but applies final_op. If in-place, the existing and new values are reduced.
+   */
+
   coalescedReductionThickKernel<ThickPolicy>
     <<<blocks, threads, 0, stream>>>(buffer.data(), data, D, N, init, main_op, reduce_op);
   RAFT_CUDA_TRY(cudaPeekAtLastError());

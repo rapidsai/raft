@@ -888,24 +888,35 @@ DI T logicalWarpReduce(T val, ReduceLambda reduce_op)
 }
 
 /**
- * @brief Warp-level sum reduction
- * @param val input value
+ * @brief Warp-level reduction
  * @tparam T Value type to be reduced
+ * @tparam ReduceLambda Reduction operation type
+ * @param val input value
+ * @param reduce_op Reduction operation
  * @return Reduction result. All lanes will have the valid result.
  * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
  *       number of warps in a block. All threads in the warp must enter this
  *       function together
- * @todo Expand this to support arbitrary reduction ops
+ */
+template <typename T, typename ReduceLambda>
+DI T warpReduce(T val, ReduceLambda reduce_op)
+{
+  return logicalWarpReduce<WarpSize>(val, reduce_op);
+}
+
+/**
+ * @brief Warp-level sum reduction
+ * @tparam T Value type to be reduced
+ * @param val input value
+ * @return Reduction result. All lanes will have the valid result.
+ * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
+ *       number of warps in a block. All threads in the warp must enter this
+ *       function together
  */
 template <typename T>
 DI T warpReduce(T val)
 {
-#pragma unroll
-  for (int i = WarpSize / 2; i > 0; i >>= 1) {
-    T tmp = shfl_xor(val, i);
-    val += tmp;
-  }
-  return val;
+  return warpReduce(val, raft::Sum<T>{});
 }
 
 /**
