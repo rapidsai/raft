@@ -41,13 +41,13 @@ struct index_params : ann::index_params {
   /**
    * By default (adaptive_centers = false), the cluster centers are trained in `ivf_flat::build`,
    * and never modified in `ivf_flat::extend`. As a result, you may need to retrain the index
-   * from scratch after invoking (`ivf_flat::extend`) a few times with new data, the distribution of which
-   * is no longer representative of the original training set.
+   * from scratch after invoking (`ivf_flat::extend`) a few times with new data, the distribution of
+   * which is no longer representative of the original training set.
    *
-   * The alternative behavior (adaptive_centers = true) is to update the cluster centers for new data when
-   * it is added. In this case, `index.centers()` are always exactly the centroids of
-   * the data in the corresponding clusters. The drawback of this behavior is that the centroids
-   * depend on the order of adding new data (through the classification of the added data); that is,
+   * The alternative behavior (adaptive_centers = true) is to update the cluster centers for new
+   * data when it is added. In this case, `index.centers()` are always exactly the centroids of the
+   * data in the corresponding clusters. The drawback of this behavior is that the centroids depend
+   * on the order of adding new data (through the classification of the added data); that is,
    * `index.centers()` "drift" together with the changing distribution of the newly added data.
    */
   bool adaptive_centers = false;
