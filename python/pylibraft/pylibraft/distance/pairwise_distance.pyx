@@ -31,13 +31,7 @@ from pylibraft.common.handle import auto_sync_handle
 
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common import device_ndarray
-
-
-def is_c_cont(cai, dt):
-    return "strides" not in cai or \
-        cai["strides"] is None or \
-        cai["strides"][1] == dt.itemsize
+from pylibraft.common import cai_wrapper, device_ndarray
 
 
 cdef extern from "raft_distance/pairwise_distance.hpp" \
@@ -179,40 +173,40 @@ def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
 
    """
 
-    x_cai = X.__cuda_array_interface__
-    y_cai = Y.__cuda_array_interface__
+    x_cai = cai_wrapper(X)
+    y_cai = cai_wrapper(Y)
 
-    m = x_cai["shape"][0]
-    n = y_cai["shape"][0]
+    m = x_cai.shape[0]
+    n = y_cai.shape[0]
 
-    x_dt = np.dtype(x_cai["typestr"])
-    y_dt = np.dtype(y_cai["typestr"])
+    x_dt = x_cai.dtype
+    y_dt = y_cai.dtype
 
     if out is None:
         dists = device_ndarray.empty((m, n), dtype=y_dt)
     else:
         dists = out
 
-    x_k = x_cai["shape"][1]
-    y_k = y_cai["shape"][1]
+    x_k = x_cai.shape[1]
+    y_k = y_cai.shape[1]
 
-    dists_cai = dists.__cuda_array_interface__
+    dists_cai = cai_wrapper(dists)
 
     if x_k != y_k:
         raise ValueError("Inputs must have same number of columns. "
                          "a=%s, b=%s" % (x_k, y_k))
 
-    x_ptr = <uintptr_t>x_cai["data"][0]
-    y_ptr = <uintptr_t>y_cai["data"][0]
-    d_ptr = <uintptr_t>dists_cai["data"][0]
+    x_ptr = <uintptr_t>x_cai.data
+    y_ptr = <uintptr_t>y_cai.data
+    d_ptr = <uintptr_t>dists_cai.data
 
     handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
-    d_dt = np.dtype(dists_cai["typestr"])
+    d_dt = dists_cai.dtype
 
-    x_c_contiguous = is_c_cont(x_cai, x_dt)
-    y_c_contiguous = is_c_cont(y_cai, y_dt)
+    x_c_contiguous = x_cai.c_contiguous
+    y_c_contiguous = y_cai.c_contiguous
 
     if x_c_contiguous != y_c_contiguous:
         raise ValueError("Inputs must have matching strides")
