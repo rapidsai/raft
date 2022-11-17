@@ -523,6 +523,11 @@ struct SqrtOp {
 };
 
 template <typename Type, typename IdxType = int>
+struct L0Op {
+  HDI Type operator()(Type in, IdxType i = 0) { return in != Type(0) ? Type(1) : Type(0); }
+};
+
+template <typename Type, typename IdxType = int>
 struct L1Op {
   HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
 };
@@ -535,6 +540,11 @@ struct L2Op {
 template <typename Type>
 struct Sum {
   HDI Type operator()(Type a, Type b) { return a + b; }
+};
+
+template <typename Type>
+struct Max {
+  HDI Type operator()(Type a, Type b) { return myMax(a, b); }
 };
 /** @} */
 

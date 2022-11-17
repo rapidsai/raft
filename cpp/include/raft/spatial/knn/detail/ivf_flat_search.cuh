@@ -981,7 +981,7 @@ struct select_interleaved_scan_kernel {
           capacity, veclen, select_min, std::forward<Args>(args)...);
       }
     }
-    // NB: this is the limitation of the topk::block_topk stuctures that use a huge number of
+    // NB: this is the limitation of the topk::block_topk structures that use a huge number of
     //     registers (used in the main kernel here).
     RAFT_EXPECTS(capacity == Capacity,
                  "Capacity must be power-of-two not bigger than the maximum allowed size "
@@ -1236,7 +1236,7 @@ inline void search(const handle_t& handle,
     case raft::distance::DistanceType::InnerProduct:
     case raft::distance::DistanceType::CosineExpanded:
     case raft::distance::DistanceType::CorrelationExpanded:
-      // Similarity metrics have the opposite meaning, i.e. nearest neigbours are those with larger
+      // Similarity metrics have the opposite meaning, i.e. nearest neighbors are those with larger
       // similarity (See the same logic at cpp/include/raft/sparse/spatial/detail/knn.cuh:362
       // {perform_k_selection})
       select_min = false;

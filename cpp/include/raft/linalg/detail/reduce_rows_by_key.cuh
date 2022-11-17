@@ -182,7 +182,7 @@ void sum_rows_by_key_small_nkeys(const DataIteratorT d_A,
 
 //
 // Reduce by keys - large number of keys
-// Computing a "weigthed histogram" with local histograms in smem
+// Computing a "weighted histogram" with local histograms in smem
 // Keeping it simple - not optimized
 //
 

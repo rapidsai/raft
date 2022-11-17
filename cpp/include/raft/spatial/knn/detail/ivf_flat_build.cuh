@@ -24,7 +24,9 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/linalg/add.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/stats/histogram.cuh>
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -51,8 +53,8 @@ using namespace raft::spatial::knn::detail;  // NOLINT
  *
  * @param[in] labels device pointer to the cluster ids for each row [n_rows]
  * @param[in] list_offsets device pointer to the cluster offsets in the output (index) [n_lists]
- * @param[in] source_vecs device poitner to the input data [n_rows, dim]
- * @param[in] source_ixs device poitner to the input indices [n_rows]
+ * @param[in] source_vecs device pointer to the input data [n_rows, dim]
+ * @param[in] source_ixs device pointer to the input indices [n_rows]
  * @param[out] list_data device pointer to the output [index_size, dim]
  * @param[out] list_index device pointer to the source ids corr. to the output [index_size]
  * @param[out] list_sizes_ptr device pointer to the cluster sizes [n_lists];
@@ -134,7 +136,8 @@ inline auto extend(const handle_t& handle,
                                    orig_index.metric(),
                                    stream);
 
-  index<T, IdxT> ext_index(handle, orig_index.metric(), n_lists, dim);
+  index<T, IdxT> ext_index(
+    handle, orig_index.metric(), n_lists, orig_index.adaptive_centers(), dim);
 
   auto list_sizes_ptr   = ext_index.list_sizes().data_handle();
   auto list_offsets_ptr = ext_index.list_offsets().data_handle();
@@ -142,19 +145,31 @@ inline auto extend(const handle_t& handle,
 
   // Calculate the centers and sizes on the new data, starting from the original values
   raft::copy(centers_ptr, orig_index.centers().data_handle(), ext_index.centers().size(), stream);
-  raft::copy(
-    list_sizes_ptr, orig_index.list_sizes().data_handle(), ext_index.list_sizes().size(), stream);
 
-  kmeans::calc_centers_and_sizes(handle,
-                                 centers_ptr,
-                                 list_sizes_ptr,
-                                 n_lists,
-                                 dim,
-                                 new_vectors,
-                                 n_rows,
-                                 new_labels.data(),
-                                 false,
-                                 stream);
+  if (ext_index.adaptive_centers()) {
+    raft::copy(
+      list_sizes_ptr, orig_index.list_sizes().data_handle(), ext_index.list_sizes().size(), stream);
+    kmeans::calc_centers_and_sizes(handle,
+                                   centers_ptr,
+                                   list_sizes_ptr,
+                                   n_lists,
+                                   dim,
+                                   new_vectors,
+                                   n_rows,
+                                   new_labels.data(),
+                                   false,
+                                   stream);
+  } else {
+    raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
+                                           reinterpret_cast<int32_t*>(list_sizes_ptr),
+                                           IdxT(n_lists),
+                                           new_labels.data(),
+                                           n_rows,
+                                           1,
+                                           stream);
+    raft::linalg::add(
+      list_sizes_ptr, list_sizes_ptr, orig_index.list_sizes().data_handle(), n_lists, stream);
+  }
 
   // Calculate new offsets
   IdxT index_size = 0;
@@ -211,15 +226,22 @@ inline auto extend(const handle_t& handle,
 
   // Precompute the centers vector norms for L2Expanded distance
   if (ext_index.center_norms().has_value()) {
-    raft::linalg::rowNorm(ext_index.center_norms()->data_handle(),
-                          ext_index.centers().data_handle(),
-                          dim,
-                          n_lists,
-                          raft::linalg::L2Norm,
-                          true,
-                          stream,
-                          raft::SqrtOp<float>());
-    RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
+    if (!ext_index.adaptive_centers() && orig_index.center_norms().has_value()) {
+      raft::copy(ext_index.center_norms()->data_handle(),
+                 orig_index.center_norms()->data_handle(),
+                 orig_index.center_norms()->size(),
+                 stream);
+    } else {
+      raft::linalg::rowNorm(ext_index.center_norms()->data_handle(),
+                            ext_index.centers().data_handle(),
+                            dim,
+                            n_lists,
+                            raft::linalg::L2Norm,
+                            true,
+                            stream,
+                            raft::SqrtOp<float>());
+      RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
+    }
   }
 
   // assemble the index
