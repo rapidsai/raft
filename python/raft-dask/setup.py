@@ -50,12 +50,24 @@ def exclude_libcxx_symlink(cmake_manifest):
     )
 
 
+# Make versioneer produce PyPI-compatible nightly versions for wheels.
+if "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE" in os.environ:
+    orig_get_versions = versioneer.get_versions
+
+    version_override = os.environ["RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE"]
+
+    def get_versions():
+        data = orig_get_versions()
+        data["version"] = version_override
+        return data
+
+    versioneer.get_versions = get_versions
+
+
 setup(
     name=f"raft-dask{cuda_suffix}",
     description="Reusable Accelerated Functions & Tools Dask Infrastructure",
-    version=os.getenv(
-        "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE", default=versioneer.get_version()
-    ),
+    version=versioneer.get_version(),
     classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python",
