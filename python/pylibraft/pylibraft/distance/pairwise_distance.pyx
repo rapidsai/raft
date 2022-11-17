@@ -139,7 +139,7 @@ def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
 
     >>> handle = Handle()
     >>> output = pairwise_distance(in1, in2, metric="euclidean", handle=handle)
-    
+
     pylibraft functions are often asynchronous so the
     handle needs to be explicitly synchronized
 
@@ -164,7 +164,7 @@ def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
     >>> handle = Handle()
     >>> pairwise_distance(in1, in2, out=output,
                          metric="euclidean", handle=handle)
-    
+
     pylibraft functions are often asynchronous so the
     handle needs to be explicitly synchronized
 
