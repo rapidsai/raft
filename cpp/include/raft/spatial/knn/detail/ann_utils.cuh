@@ -199,49 +199,6 @@ inline void dots_along_rows(
    */
 }
 
-template <typename IdxT>
-__global__ void normalize_rows_kernel(IdxT n_rows, IdxT n_cols, float* a)
-{
-  IdxT i = threadIdx.y + (blockDim.y * static_cast<IdxT>(blockIdx.x));
-  if (i >= n_rows) return;
-
-  float sqsum = 0.0;
-  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    float val = a[j + (n_cols * i)];
-    sqsum += val * val;
-  }
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 1);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 2);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 4);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 8);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
-  if (sqsum <= 1e-8) return;
-  sqsum = rsqrtf(sqsum);  // reciprocal of the square root
-  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    a[j + n_cols * i] *= sqsum;
-  }
-}
-
-/**
- * @brief Divide rows by their L2 norm (square root of sum of squares).
- *
- * NB: device-only function
- *
- * @tparam IdxT index type
- *
- * @param[in] n_rows
- * @param[in] n_cols
- * @param[inout] a device pointer to a row-major matrix [n_rows, n_cols]
- * @param stream
- */
-template <typename IdxT>
-inline void normalize_rows(IdxT n_rows, IdxT n_cols, float* a, rmm::cuda_stream_view stream)
-{
-  dim3 threads(32, 4, 1);  // DO NOT CHANGE
-  dim3 blocks(ceildiv(n_rows, threads.y), 1, 1);
-  normalize_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
-}
-
 template <typename T, typename IdxT>
 __global__ void outer_add_kernel(const T* a, IdxT len_a, const T* b, IdxT len_b, T* c)
 {

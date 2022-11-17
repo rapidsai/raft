@@ -22,15 +22,11 @@
 #include "linalg_types.hpp"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/linalg/norm_types.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
-
-/** different types of norms supported on the input buffers */
-using detail::L1Norm;
-using detail::L2Norm;
-using detail::NormType;
 
 /**
  * @brief Compute row-wise norm of the input matrix and perform fin_op lambda
@@ -44,7 +40,7 @@ using detail::NormType;
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of row-wise dot products
- * @param data the input matrix (currently assumed to be row-major)
+ * @param data the input matrix
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
@@ -71,7 +67,7 @@ void rowNorm(Type* dots,
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of column-wise dot products
- * @param data the input matrix (currently assumed to be row-major)
+ * @param data the input matrix
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied

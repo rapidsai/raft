@@ -146,6 +146,7 @@ if(BUILD_TESTS)
     test/linalg/mean_squared_error.cu
     test/linalg/multiply.cu
     test/linalg/norm.cu
+    test/linalg/normalize.cu
     test/linalg/power.cu
     test/linalg/reduce.cu
     test/linalg/reduce_cols_by_key.cu
