@@ -32,7 +32,7 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
        OFF
 )
 
-option(RAFT_BUILD_WHEELS "Whether we're building a wheel for pypi" OFF)
+option(RAFT_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
