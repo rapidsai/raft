@@ -652,7 +652,7 @@ inline constexpr bool is_shuffleable_v = is_shuffleable<T>::value;
 
 /**
  * @brief Shuffle the data inside a warp
- * @tparam T the data type (currently assumed to be 4B)
+ * @tparam T the data type
  * @param val value to be shuffled
  * @param srcLane lane from where to shuffle
  * @param width lane width
@@ -672,6 +672,7 @@ DI std::enable_if_t<is_shuffleable_v<T>, T> shfl(T val,
 #endif
 }
 
+/// Overload of shfl for data types not supported by the CUDA intrinsics
 template <typename T>
 DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl(T val,
                                                   int srcLane,
@@ -704,7 +705,7 @@ DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl(T val,
 
 /**
  * @brief Shuffle the data inside a warp from lower lane IDs
- * @tparam T the data type (currently assumed to be 4B)
+ * @tparam T the data type
  * @param val value to be shuffled
  * @param delta lower lane ID delta from where to shuffle
  * @param width lane width
@@ -724,6 +725,7 @@ DI std::enable_if_t<is_shuffleable_v<T>, T> shfl_up(T val,
 #endif
 }
 
+/// Overload of shfl_up for data types not supported by the CUDA intrinsics
 template <typename T>
 DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl_up(T val,
                                                      int delta,
@@ -756,7 +758,7 @@ DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl_up(T val,
 
 /**
  * @brief Shuffle the data inside a warp
- * @tparam T the data type (currently assumed to be 4B)
+ * @tparam T the data type
  * @param val value to be shuffled
  * @param laneMask mask to be applied in order to perform xor shuffle
  * @param width lane width
@@ -776,6 +778,7 @@ DI std::enable_if_t<is_shuffleable_v<T>, T> shfl_xor(T val,
 #endif
 }
 
+/// Overload of shfl_xor for data types not supported by the CUDA intrinsics
 template <typename T>
 DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl_xor(T val,
                                                       int laneMask,
