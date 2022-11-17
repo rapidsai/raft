@@ -18,7 +18,10 @@ requires = [
     "wheel",
     "setuptools",
     "cython>=0.29,<0.30",
+    "cuda-python>=11.7.1,<12.0",
     "scikit-build>=0.13.1",
     "cmake>=3.23.1",
     "ninja"
 ]
+build-backend = "backend"
+backend-path = ["_custom_build"]

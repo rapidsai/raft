@@ -76,13 +76,6 @@ setup(
             ]
         )
     },
-    # TODO: We need this to be dynamic, so it doesn't work to put it into
-    # pyproject.toml, but setup_requires is deprecated so we need to find a
-    # better solution for this.
-    setup_requires=[
-        "cuda-python>=11.7.1,<12.0",
-        f"rmm{cuda_suffix}",
-    ],
     install_requires=install_requires,
     extras_require=extras_require,
     # Don't want libcxx getting pulled into wheel builds.
