@@ -19,8 +19,9 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 
 #### Optional
 - [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
-- [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0
-- [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::neighbors` API..
+- [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0 - Used by cuCollections
+- [CUTLASS](https://github.com/NVIDIA/cutlass)  v2.9.1 - Used in `raft::distance` API.
+- [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::neighbors` API.
 - [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `raft-dask`.
 - [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `raft-dask`.
 - [Googletest](https://github.com/google/googletest) - Needed to build tests

@@ -182,6 +182,7 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
+include(cmake/thirdparty/get_cutlass.cmake)
 
 if(RAFT_ENABLE_cuco_DEPENDENCY)
   include(${rapids-cmake-dir}/cpm/cuco.cmake)
@@ -332,6 +333,21 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/specializations/fused_l2_nn_float_int64.cu
+    src/nn/specializations/detail/ivfpq_build.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_float_fast.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_fast.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_no_basediff.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_no_smem_lut.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_fast.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_no_basediff.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_no_smem_lut.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_half_fast.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
+    src/nn/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
+    src/nn/specializations/detail/ivfpq_search.cu
+    src/nn/specializations/detail/ivfpq_search_float_uint64_t.cu
     src/random/specializations/rmat_rectangular_generator_int_double.cu
     src/random/specializations/rmat_rectangular_generator_int64_double.cu
     src/random/specializations/rmat_rectangular_generator_int_float.cu
@@ -350,7 +366,11 @@ if(RAFT_COMPILE_DIST_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(raft_distance_lib PUBLIC raft::raft cuco::cuco)
+  target_link_libraries(
+    raft_distance_lib
+    PUBLIC raft::raft cuco::cuco
+    PRIVATE nvidia::cutlass::cutlass
+  )
   target_compile_options(
     raft_distance_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                               "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -368,6 +388,7 @@ endif()
 
 target_link_libraries(
   raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
+                          nvidia::cutlass::cutlass
 )
 
 # ##################################################################################################
@@ -400,6 +421,8 @@ if(RAFT_COMPILE_NN_LIBRARY)
     src/nn/specializations/detail/ivfpq_compute_similarity_half_fast.cu
     src/nn/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
     src/nn/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
+    src/nn/specializations/detail/ivfpq_build.cu
+    src/nn/specializations/detail/ivfpq_search.cu
     src/nn/specializations/detail/ivfpq_search_float_int64_t.cu
     src/nn/specializations/detail/ivfpq_search_float_uint32_t.cu
     src/nn/specializations/detail/ivfpq_search_float_uint64_t.cu
@@ -422,7 +445,11 @@ if(RAFT_COMPILE_NN_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(raft_nn_lib PUBLIC faiss::faiss raft::raft)
+  target_link_libraries(
+    raft_nn_lib
+    PUBLIC faiss::faiss raft::raft
+    PRIVATE nvidia::cutlass::cutlass
+  )
   target_compile_options(
     raft_nn_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                         "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -437,7 +464,9 @@ if(TARGET raft_nn_lib AND (NOT TARGET raft::raft_nn_lib))
   add_library(raft::raft_nn_lib ALIAS raft_nn_lib)
 endif()
 
-target_link_libraries(raft_nn INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
+target_link_libraries(
+  raft_nn INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib> nvidia::cutlass::cutlass
+)
 
 # ##################################################################################################
 # * install targets-----------------------------------------------------------

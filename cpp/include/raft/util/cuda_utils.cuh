@@ -517,6 +517,16 @@ struct Nop {
 };
 
 template <typename Type, typename IdxType = int>
+struct SqrtOp {
+  HDI Type operator()(Type in, IdxType i = 0) { return mySqrt(in); }
+};
+
+template <typename Type, typename IdxType = int>
+struct L0Op {
+  HDI Type operator()(Type in, IdxType i = 0) { return in != Type(0) ? Type(1) : Type(0); }
+};
+
+template <typename Type, typename IdxType = int>
 struct L1Op {
   HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
 };
@@ -529,6 +539,11 @@ struct L2Op {
 template <typename Type>
 struct Sum {
   HDI Type operator()(Type a, Type b) { return a + b; }
+};
+
+template <typename Type>
+struct Max {
+  HDI Type operator()(Type a, Type b) { return myMax(a, b); }
 };
 /** @} */
 
@@ -609,6 +624,16 @@ DI bool all(bool inFlag, uint32_t mask = 0xffffffffu)
   inFlag = __all(inFlag);
 #endif
   return inFlag;
+}
+
+/** For every thread in the warp, set the corresponding bit to the thread's flag value.  */
+DI uint32_t ballot(bool inFlag, uint32_t mask = 0xffffffffu)
+{
+#if CUDART_VERSION >= 9000
+  return __ballot_sync(mask, inFlag);
+#else
+  return __ballot(inFlag);
+#endif
 }
 
 /**
@@ -730,6 +755,26 @@ DI auto dp4a(unsigned int a, unsigned int b, unsigned int c) -> unsigned int
 }
 
 /**
+ * @brief Logical-warp-level reduction
+ * @tparam logicalWarpSize Logical warp size (2, 4, 8, 16 or 32)
+ * @tparam T Value type to be reduced
+ * @tparam ReduceLambda Reduction operation type
+ * @param val input value
+ * @param reduce_op Reduction operation
+ * @return Reduction result. All lanes will have the valid result.
+ */
+template <int logicalWarpSize, typename T, typename ReduceLambda>
+DI T logicalWarpReduce(T val, ReduceLambda reduce_op)
+{
+#pragma unroll
+  for (int i = logicalWarpSize / 2; i > 0; i >>= 1) {
+    T tmp = shfl_xor(val, i);
+    val   = reduce_op(val, tmp);
+  }
+  return val;
+}
+
+/**
  * @brief Warp-level sum reduction
  * @param val input value
  * @tparam T Value type to be reduced
@@ -742,12 +787,7 @@ DI auto dp4a(unsigned int a, unsigned int b, unsigned int c) -> unsigned int
 template <typename T>
 DI T warpReduce(T val)
 {
-#pragma unroll
-  for (int i = WarpSize / 2; i > 0; i >>= 1) {
-    T tmp = shfl_xor(val, i);
-    val += tmp;
-  }
-  return val;
+  return logicalWarpReduce<WarpSize>(val, raft::Sum<T>());
 }
 
 /**

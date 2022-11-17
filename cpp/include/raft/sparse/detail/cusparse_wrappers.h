@@ -19,6 +19,7 @@
 #include <cusparse.h>
 #include <raft/core/cusparse_macros.hpp>
 #include <raft/core/error.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -650,6 +651,73 @@ inline cusparseStatus_t cusparsecsrmm(cusparseHandle_t handle,
  * @defgroup Gemmi cusparse gemmi operations
  * @{
  */
+#if CUDART_VERSION < 12000
+template <typename T>
+cusparseStatus_t cusparsegemmi(  // NOLINT
+  cusparseHandle_t handle,
+  int m,
+  int n,
+  int k,
+  int nnz,
+  const T* alpha,
+  const T* A,
+  int lda,
+  const T* cscValB,
+  const int* cscColPtrB,
+  const int* cscRowIndB,
+  const T* beta,
+  T* C,
+  int ldc,
+  cudaStream_t stream);
+template <>
+inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle,
+                                      int m,
+                                      int n,
+                                      int k,
+                                      int nnz,
+                                      const float* alpha,
+                                      const float* A,
+                                      int lda,
+                                      const float* cscValB,
+                                      const int* cscColPtrB,
+                                      const int* cscRowIndB,
+                                      const float* beta,
+                                      float* C,
+                                      int ldc,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return cusparseSgemmi(
+    handle, m, n, k, nnz, alpha, A, lda, cscValB, cscColPtrB, cscRowIndB, beta, C, ldc);
+#pragma GCC diagnostic pop
+}
+template <>
+inline cusparseStatus_t cusparsegemmi(cusparseHandle_t handle,
+                                      int m,
+                                      int n,
+                                      int k,
+                                      int nnz,
+                                      const double* alpha,
+                                      const double* A,
+                                      int lda,
+                                      const double* cscValB,
+                                      const int* cscColPtrB,
+                                      const int* cscRowIndB,
+                                      const double* beta,
+                                      double* C,
+                                      int ldc,
+                                      cudaStream_t stream)
+{
+  CUSPARSE_CHECK(cusparseSetStream(handle, stream));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  return cusparseDgemmi(
+    handle, m, n, k, nnz, alpha, A, lda, cscValB, cscColPtrB, cscRowIndB, beta, C, ldc);
+#pragma GCC diagnostic pop
+}
+#else  // CUDART >= 12.0
 template <typename T>
 cusparseStatus_t cusparsegemmi(  // NOLINT
   cusparseHandle_t handle,
@@ -673,8 +741,9 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
   cusparseDnMatDescr_t matA;
   cusparseSpMatDescr_t matB;
   cusparseDnMatDescr_t matC;
+  rmm::device_uvector<T> CT(m * n, stream);
 
-  auto math_type = std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
+  auto constexpr math_type = std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
   // Create sparse matrix B
   CUSPARSE_CHECK(cusparseCreateCsc(&matB,
                                    k,
@@ -687,30 +756,38 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
                                    CUSPARSE_INDEX_32I,
                                    CUSPARSE_INDEX_BASE_ZERO,
                                    math_type));
-  // Create dense matrices
+  /**
+   *  Create dense matrices.
+   *  Note: Since this is replacing `cusparse_gemmi`, it assumes dense inputs are
+   *  column-ordered
+   */
   CUSPARSE_CHECK(cusparseCreateDnMat(
-    &matA, m, k, lda, static_cast<void*>(const_cast<T*>(A)), math_type, CUSPARSE_ORDER_ROW));
+    &matA, m, k, lda, static_cast<void*>(const_cast<T*>(A)), math_type, CUSPARSE_ORDER_COL));
   CUSPARSE_CHECK(cusparseCreateDnMat(
-    &matC, m, n, ldc, static_cast<void*>(const_cast<T*>(C)), math_type, CUSPARSE_ORDER_ROW));
+    &matC, n, m, n, static_cast<void*>(CT.data()), math_type, CUSPARSE_ORDER_COL));
 
-  cusparseOperation_t opA = CUSPARSE_OPERATION_TRANSPOSE;
-  cusparseOperation_t opB = CUSPARSE_OPERATION_TRANSPOSE;
-  cusparseSpMMAlg_t alg   = CUSPARSE_SPMM_CSR_ALG2;
-  size_t buffer_size      = 0;
+  auto opA         = CUSPARSE_OPERATION_TRANSPOSE;
+  auto opB         = CUSPARSE_OPERATION_TRANSPOSE;
+  auto alg         = CUSPARSE_SPMM_CSR_ALG1;
+  auto buffer_size = std::size_t{};
 
   CUSPARSE_CHECK(cusparsespmm_bufferSize(
-    handle, opA, opB, alpha, matB, matA, beta, matC, alg, &buffer_size, stream));
+    handle, opB, opA, alpha, matB, matA, beta, matC, alg, &buffer_size, stream));
   buffer_size = buffer_size / sizeof(T);
   rmm::device_uvector<T> external_buffer(buffer_size, stream);
-  auto return_value = cusparsespmm(
-    handle, opA, opB, alpha, matB, matA, beta, matC, alg, external_buffer.data(), stream);
+  auto ext_buf = static_cast<T*>(static_cast<void*>(external_buffer.data()));
+  auto return_value =
+    cusparsespmm(handle, opB, opA, alpha, matB, matA, beta, matC, alg, ext_buf, stream);
 
+  raft::handle_t rhandle;
+  raft::linalg::transpose(rhandle, CT.data(), C, n, m, stream);
   // destroy matrix/vector descriptors
   CUSPARSE_CHECK(cusparseDestroyDnMat(matA));
   CUSPARSE_CHECK(cusparseDestroySpMat(matB));
   CUSPARSE_CHECK(cusparseDestroyDnMat(matC));
   return return_value;
 }
+#endif
 /** @} */
 
 /**
