@@ -327,7 +327,7 @@ __device__ auto find_db_row(IdxT& x,  // NOLINT
   uint32_t ix_max = n_probes;
   do {
     uint32_t i = (ix_min + ix_max) / 2;
-    if (IdxT(chunk_indices[i]) < x) {
+    if (IdxT(chunk_indices[i]) <= x) {
       ix_min = i + 1;
     } else {
       ix_max = i;
@@ -365,7 +365,7 @@ __launch_bounds__(BlockDim) __global__
                         clusters_to_probe + n_probes * query_ix,
                         chunk_indices + n_probes * query_ix);
   }
-  neighbors[k] = valid ? db_indices[data_ix] : std::numeric_limits<IdxT>::max();
+  neighbors[k] = valid ? db_indices[data_ix] : index<IdxT>::kOutOfBoundsRecord;
 }
 
 /**

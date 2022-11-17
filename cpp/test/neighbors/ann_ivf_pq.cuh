@@ -459,6 +459,30 @@ inline auto special_cases() -> test_cases_t
     x.search_params.n_probes     = 50;
   });
 
+  ADD_CASE({
+    x.num_db_vecs                = 10000;
+    x.dim                        = 16;
+    x.num_queries                = 500;
+    x.k                          = 128;
+    x.index_params.metric        = distance::DistanceType::L2Expanded;
+    x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_SUBSPACE;
+    x.index_params.pq_bits       = 8;
+    x.index_params.n_lists       = 100;
+    x.search_params.n_probes     = 100;
+  });
+
+  ADD_CASE({
+    x.num_db_vecs                = 10000;
+    x.dim                        = 16;
+    x.num_queries                = 500;
+    x.k                          = 129;
+    x.index_params.metric        = distance::DistanceType::L2Expanded;
+    x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_SUBSPACE;
+    x.index_params.pq_bits       = 8;
+    x.index_params.n_lists       = 100;
+    x.search_params.n_probes     = 100;
+  });
+
   return xs;
 }
 

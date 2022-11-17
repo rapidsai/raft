@@ -23,6 +23,8 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
+#include <thrust/fill.h>
+
 #include <type_traits>
 
 namespace raft::neighbors::ivf_pq {
@@ -183,6 +185,19 @@ struct index : ann::index {
                 "IdxT must be able to represent all values of uint32_t");
 
  public:
+  /**
+   * Default value filled in the `indices()` array.
+   * One may encounter it trying to access a record within a cluster that is outside of the
+   * `list_sizes()` bound (due to the record alignment `kIndexGroupSize`).
+   */
+  constexpr static IdxT kInvalidRecord = std::numeric_limits<IdxT>::max() - 1;
+  /**
+   * Default value returned by `search` when the `n_probes` is too small and top-k is too large.
+   * One may encounter it if the combined size of probed clusters is smaller than the requested
+   * number of results per query.
+   */
+  constexpr static IdxT kOutOfBoundsRecord = std::numeric_limits<IdxT>::max();
+
   /** Total length of the index. */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return indices_.extent(0); }
   /** Dimensionality of the input data. */
@@ -298,6 +313,10 @@ struct index : ann::index {
   {
     pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));
     indices_    = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    if (index_size > 0) {
+      thrust::fill_n(
+        handle.get_thrust_policy(), indices_.data_handle(), index_size, kInvalidRecord);
+    }
     check_consistency();
   }
 
