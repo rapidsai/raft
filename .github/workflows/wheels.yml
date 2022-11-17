@@ -48,7 +48,7 @@ jobs:
 
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
 
-      test-extras:  test
+      test-extras: test
       test-unittest: "python -m pytest -v ./python/pylibraft/pylibraft/test"
     secrets: inherit
   raft-dask-wheel:
@@ -70,6 +70,6 @@ jobs:
 
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
 
-      test-extras:  test
+      test-extras: test
       test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"
     secrets: inherit
