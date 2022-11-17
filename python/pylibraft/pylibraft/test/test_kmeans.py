@@ -16,7 +16,7 @@
 import numpy as np
 import pytest
 
-from pylibraft.cluster.kmeans import compute_new_centroids
+from pylibraft.cluster.kmeans import cluster_cost, compute_new_centroids
 from pylibraft.common import Handle, device_ndarray
 from pylibraft.distance import pairwise_distance
 
@@ -88,3 +88,19 @@ def test_compute_new_centroids(
     actual_centers = new_centroids_device.copy_to_host()
 
     assert np.allclose(expected_centers, actual_centers, rtol=1e-6)
+
+
+@pytest.mark.parametrize("n_rows", [100])
+@pytest.mark.parametrize("n_cols", [5, 25])
+@pytest.mark.parametrize("n_clusters", [5, 15])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_cluster_cost(n_rows, n_cols, n_clusters, dtype):
+
+    X = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+    X_device = device_ndarray(X)
+
+    centroids = X[:n_clusters]
+    centroids_device = device_ndarray(centroids)
+
+    # TODO: compute inertia naively, make sure is close
+    inertia = cluster_cost(X_device, centroids_device)  # noqa
