@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/device_utils.cuh>
 #include <raft/linalg/contractions.cuh>
+#include <raft/util/device_utils.cuh>
 
 namespace raft {
 namespace spatial {

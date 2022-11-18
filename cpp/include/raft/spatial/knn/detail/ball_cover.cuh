@@ -18,7 +18,7 @@
 
 #include <raft/core/handle.hpp>
 
-#include "../ball_cover_common.h"
+#include "../ball_cover_types.hpp"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
 #include "block_select_faiss.cuh"
