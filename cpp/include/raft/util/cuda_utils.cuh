@@ -626,6 +626,16 @@ DI bool all(bool inFlag, uint32_t mask = 0xffffffffu)
   return inFlag;
 }
 
+/** For every thread in the warp, set the corresponding bit to the thread's flag value.  */
+DI uint32_t ballot(bool inFlag, uint32_t mask = 0xffffffffu)
+{
+#if CUDART_VERSION >= 9000
+  return __ballot_sync(mask, inFlag);
+#else
+  return __ballot(inFlag);
+#endif
+}
+
 /**
  * @brief Shuffle the data inside a warp
  * @tparam T the data type (currently assumed to be 4B)
