@@ -94,75 +94,7 @@ static void recv_callback(void* request, ucs_status_t status, ucp_tag_recv_info_
  * interacting with ucp.
  */
 class comms_ucp_handler {
- public:
-  comms_ucp_handler()
-  {
-    load_ucp_handle();
-    load_send_func();
-    load_recv_func();
-    load_free_req_func();
-    load_print_info_func();
-    load_worker_progress_func();
-  }
-
-  ~comms_ucp_handler() { dlclose(ucp_handle); }
-
  private:
-  void* ucp_handle;
-
-  dlsym_print_info print_info_func;
-  dlsym_rec_free req_free_func;
-  dlsym_worker_progress worker_progress_func;
-  dlsym_send send_func;
-  dlsym_recv recv_func;
-
-  void load_ucp_handle()
-  {
-    ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
-    if (!ucp_handle) {
-      ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NODELETE);
-      ASSERT(ucp_handle, "Cannot open UCX library: %s\n", dlerror());
-    }
-    // Reset any potential error
-    dlerror();
-  }
-
-  void assert_dlerror()
-  {
-    char* error = dlerror();
-    ASSERT(error == NULL, "Error loading function symbol: %s\n", error);
-  }
-
-  void load_send_func()
-  {
-    send_func = (dlsym_send)dlsym(ucp_handle, "ucp_tag_send_nb");
-    assert_dlerror();
-  }
-
-  void load_free_req_func()
-  {
-    req_free_func = (dlsym_rec_free)dlsym(ucp_handle, "ucp_request_free");
-    assert_dlerror();
-  }
-
-  void load_print_info_func()
-  {
-    print_info_func = (dlsym_print_info)dlsym(ucp_handle, "ucp_ep_print_info");
-    assert_dlerror();
-  }
-
-  void load_worker_progress_func()
-  {
-    worker_progress_func = (dlsym_worker_progress)dlsym(ucp_handle, "ucp_worker_progress");
-    assert_dlerror();
-  }
-
-  void load_recv_func()
-  {
-    recv_func = (dlsym_recv)dlsym(ucp_handle, "ucp_tag_recv_nb");
-    assert_dlerror();
-  }
-
   ucp_tag_t build_message_tag(int rank, int tag) const
   {
     // keeping the rank in the lower bits enables debugging.
