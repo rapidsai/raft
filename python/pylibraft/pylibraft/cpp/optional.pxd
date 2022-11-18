@@ -14,7 +14,6 @@
 # limitations under the License.
 
 
-#
 # We're still using cython v0.29.x - which doesn't have std::optional
 # support. Include the minimal definition here as suggested by
 # https://github.com/cython/cython/issues/3293#issuecomment-1223058101

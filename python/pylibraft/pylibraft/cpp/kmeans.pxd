@@ -24,7 +24,8 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool, nullptr
 
-cimport pylibraft.cluster.kmeans_types as kmeans_types
+from pylibraft.cpp.kmeans_types cimport KMeansParams
+
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.mdspan cimport *
 from pylibraft.common.optional cimport optional
@@ -35,7 +36,7 @@ cdef extern from "raft_distance/kmeans.hpp" \
 
     cdef void fit(
         const handle_t & handle,
-        const kmeans_types.KMeansParams& params,
+        const KMeansParams& params,
         device_matrix_view[const float, int] X,
         optional[device_vector_view[const float, int]] sample_weight,
         device_matrix_view[float, int] inertia,
@@ -44,7 +45,7 @@ cdef extern from "raft_distance/kmeans.hpp" \
 
     cdef void fit(
         const handle_t & handle,
-        const kmeans_types.KMeansParams& params,
+        const KMeansParams& params,
         device_matrix_view[const double, int] X,
         optional[device_vector_view[const double, int]] sample_weight,
         device_matrix_view[double, int] inertia,

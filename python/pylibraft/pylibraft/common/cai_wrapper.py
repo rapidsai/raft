@@ -71,3 +71,18 @@ class cai_wrapper:
         Returns the data pointer of the underlying CUDA array interface
         """
         return self.cai_["data"][0]
+
+    def validate(self, expected_dims=None, expected_dtype=None):
+        """checks to see if the shape, dtype, and strides match expectations"""
+        if expected_dims is not None and len(self.shape) != expected_dims:
+            raise ValueError(
+                f"unexpected shape {self.shape} - " f"expected {expected_dims} dimensions"
+            )
+
+        if expected_dtype is not None and self.dtype != expected_dtype:
+            raise ValueError(
+                f"invalid dtype {self.dtype}: expected " f"{expected_dtype}"
+            )
+
+        if not self.c_contiguous:
+            raise ValueError("input must be c-contiguous")

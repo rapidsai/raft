@@ -27,10 +27,10 @@ from libcpp cimport nullptr
 
 from enum import IntEnum
 
-from pylibraft.common import Handle, device_ndarray
+from pylibraft.common import Handle, cai_wrapper, device_ndarray
 from pylibraft.common.handle import auto_sync_handle
 
-from pylibraft.cluster cimport cpp_kmeans, kmeans_types
+from pylibraft.cpp cimport kmeans as cpp_kmeans, kmeans_types
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.mdspan cimport *
 from pylibraft.common.optional cimport optional
@@ -345,9 +345,6 @@ def fit(
     """
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
-    x_cai = X.__cuda_array_interface__
-    dtype = np.dtype(x_cai["typestr"])
-
     cdef float f_inertia = 0.0
     cdef double d_inertia = 0.0
     cdef int n_iter = 0
@@ -355,36 +352,58 @@ def fit(
     cdef optional[device_vector_view[const double, int]] d_sample_weights
     cdef optional[device_vector_view[const float, int]] f_sample_weights
 
+    X_cai = cai_wrapper(X)
+    dtype = X_cai.dtype
+
     if centroids is None:
-        centroids_shape = (params.n_clusters, x_cai["shape"][1])
+        centroids_shape = (params.n_clusters, X_cai.shape[1])
         centroids = device_ndarray.empty(centroids_shape, dtype=dtype)
+    centroids_cai = cai_wrapper(centroids)
+
+    # validate inputs have are all c-contiguious, and have a consistent dtype
+    # and expected shape
+    X_cai.validate(2)
+    centroids_cai.validate(2, dtype)
+    if sample_weights is not None:
+        sample_weights_cai = cai_wrapper(sample_weights)
+        sample_weights_cai.validate(1, dtype)
 
     if dtype == np.float64:
         if sample_weights is not None:
-            d_sample_weights = const_device_vector_view_from_array[double](
-                sample_weights, <double*>NULL)
+            d_sample_weights = make_device_vector_view(
+                <const double *><uintptr_t>sample_weights_cai.data,
+                <int>sample_weights_cai.shape[0])
 
         cpp_kmeans.fit(
             deref(h),
             params.c_obj,
-            const_device_matrix_view_from_array[double](X, <double*>NULL),
+            make_device_matrix_view(
+                <const double *><uintptr_t>X_cai.data,
+                <int>X_cai.shape[0], <int>X_cai.shape[1]),
             d_sample_weights,
-            device_matrix_view_from_array[double](centroids, <double*>NULL),
+            make_device_matrix_view(
+                <double *><uintptr_t>centroids_cai.data,
+                <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
             make_host_scalar_view[double, int](&d_inertia),
             make_host_scalar_view[int, int](&n_iter))
         return KMeansOutput(centroids, d_inertia, n_iter)
 
     elif dtype == np.float32:
         if sample_weights is not None:
-            f_sample_weights = const_device_vector_view_from_array[float](
-                sample_weights, <float*>NULL)
+            f_sample_weights = make_device_vector_view(
+                <const float *><uintptr_t>sample_weights_cai.data,
+                <int>sample_weights_cai.shape[0])
 
         cpp_kmeans.fit(
             deref(h),
             params.c_obj,
-            const_device_matrix_view_from_array[float](X, <float*>NULL),
+            make_device_matrix_view(
+                <const float *><uintptr_t>X_cai.data,
+                <int>X_cai.shape[0], <int>X_cai.shape[1]),
             f_sample_weights,
-            device_matrix_view_from_array[float](centroids, <float*>NULL),
+            make_device_matrix_view(
+                <float *><uintptr_t>centroids_cai.data,
+                <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
             make_host_scalar_view[float, int](&f_inertia),
             make_host_scalar_view[int, int](&n_iter))
         return KMeansOutput(centroids, f_inertia, n_iter)

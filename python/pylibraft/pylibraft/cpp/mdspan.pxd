@@ -41,19 +41,3 @@ cdef extern from "raft/core/device_mdspan.hpp" namespace "raft" nogil:
 
     cdef host_scalar_view[T, IndexType] \
         make_host_scalar_view[T, IndexType](T * ptr) except +
-
-ctypedef fused ElementType:
-    float
-    double
-
-cdef device_matrix_view[ElementType, int] \
-    device_matrix_view_from_array(arr, ElementType * p) except +
-
-cdef device_matrix_view[const ElementType, int] \
-    const_device_matrix_view_from_array(arr, ElementType * p) except +
-
-cdef device_vector_view[ElementType, int] \
-    device_vector_view_from_array(arr, ElementType * p) except +
-
-cdef device_vector_view[const ElementType, int] \
-    const_device_vector_view_from_array(arr, ElementType * p) except +
