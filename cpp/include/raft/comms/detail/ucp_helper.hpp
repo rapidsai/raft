@@ -102,8 +102,6 @@ class comms_ucp_handler {
   }
 
  public:
-  int ucp_progress(ucp_worker_h worker) const { return ucp_worker_progress(worker); }
-
   /**
    * @brief Frees any memory underlying the given ucp request object
    */
