@@ -34,11 +34,11 @@ void cluster_cost(const raft::handle_t& handle,
   rmm::device_uvector<ElementType> x_norms(n_samples, handle.get_stream());
   rmm::device_uvector<ElementType> centroid_norms(n_clusters, handle.get_stream());
   raft::linalg::rowNorm(
-    x_norms.data(), X, n_samples, n_features, raft::linalg::L2Norm, true, handle.get_stream());
+    x_norms.data(), X, n_features, n_samples, raft::linalg::L2Norm, true, handle.get_stream());
   raft::linalg::rowNorm(centroid_norms.data(),
                         centroids,
-                        n_clusters,
                         n_features,
+                        n_clusters,
                         raft::linalg::L2Norm,
                         true,
                         handle.get_stream());
@@ -51,8 +51,8 @@ void cluster_cost(const raft::handle_t& handle,
                                      x_norms.data(),
                                      centroid_norms.data(),
                                      n_samples,
-                                     n_features,
                                      n_clusters,
+                                     n_features,
                                      (void*)workspace.data(),
                                      true,
                                      true,
