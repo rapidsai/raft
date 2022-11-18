@@ -1019,7 +1019,8 @@ struct ivfpq_compute_similarity {
    *    beyond this limit do not consider increasing the number of active blocks per SM
    *    would improve locality anymore.
    */
-  static inline auto select(bool manage_local_topk,
+  static inline auto select(const cudaDeviceProp& dev_props,
+                            bool manage_local_topk,
                             int locality_hint,
                             double preferred_shmem_carveout,
                             uint32_t pq_bits,
@@ -1029,12 +1030,6 @@ struct ivfpq_compute_similarity {
                             uint32_t n_probes,
                             uint32_t topk) -> selected
   {
-    cudaDeviceProp dev_props;
-    {
-      int cur_dev;
-      RAFT_CUDA_TRY(cudaGetDevice(&cur_dev));
-      RAFT_CUDA_TRY(cudaGetDeviceProperties(&dev_props, cur_dev));
-    }
     // Shared memory for storing the lookup table
     size_t lut_mem = sizeof(LutT) * (pq_dim << pq_bits);
     // Shared memory for storing pre-computed pieces to speedup the lookup table construction
@@ -1364,7 +1359,8 @@ void ivfpq_search_worker(const handle_t& handle,
   }
 
   auto search_instance =
-    ivfpq_compute_similarity<IdxT, ScoreT, LutT>::select(manage_local_topk,
+    ivfpq_compute_similarity<IdxT, ScoreT, LutT>::select(handle.get_device_properties(),
+                                                         manage_local_topk,
                                                          coresidency,
                                                          preferred_shmem_carveout,
                                                          index.pq_bits(),
