@@ -258,6 +258,18 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
   obj.run();
 }
 
+// final op functor for FusedL2NN used in its cutlass version
+// to convert the distance value & key(loc id) into key-value pair
+template <typename AccType, typename OutType, typename Index>
+struct kvp_fin_op {
+  __host__ __device__ kvp_fin_op() noexcept {};
+  // functor signature.
+  __host__ __device__ OutType operator()(AccType d_val, Index idx) const noexcept
+  {
+    return OutType(d_val, idx);
+  }
+};
+
 template <typename DataT,
           typename OutT,
           typename IdxT,
