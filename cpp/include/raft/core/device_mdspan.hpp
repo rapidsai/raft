@@ -115,11 +115,11 @@ inline constexpr bool is_managed_mdspan_v = std::conjunction_v<is_managed_mdspan
 
 template <typename... Tn>
 inline constexpr bool is_input_managed_mdspan_v =
-  std::conjunction_v<detail::is_input_managed_mdspan_t<Tn>...>;
+  std::conjunction_v<is_input_managed_mdspan_t<Tn>...>;
 
 template <typename... Tn>
 inline constexpr bool is_output_managed_mdspan_v =
-  std::conjunction_v<detail::is_output_managed_mdspan_t<Tn>...>;
+  std::conjunction_v<is_output_managed_mdspan_t<Tn>...>;
 
 template <typename... Tn>
 using enable_if_managed_mdspan = std::enable_if_t<is_managed_mdspan_v<Tn...>>;
