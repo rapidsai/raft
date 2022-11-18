@@ -73,8 +73,7 @@ static void recv_callback(void* request, ucs_status_t status, ucp_tag_recv_info_
 }
 
 /**
- * Helper class for managing `dlopen` state and
- * interacting with ucp.
+ * Helper class for interacting with ucp.
  */
 class comms_ucp_handler {
  private:
