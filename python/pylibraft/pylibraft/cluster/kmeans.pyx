@@ -30,15 +30,13 @@ from enum import IntEnum
 from pylibraft.common import Handle, cai_wrapper, device_ndarray
 from pylibraft.common.handle import auto_sync_handle
 
-from pylibraft.cpp cimport kmeans as cpp_kmeans, kmeans_types
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.mdspan cimport *
 from pylibraft.common.optional cimport optional
+from pylibraft.cpp cimport kmeans as cpp_kmeans, kmeans_types
 
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
-
-ctypedef const float const_float
 
 
 def is_c_cont(cai, dt):
@@ -360,7 +358,7 @@ def fit(
         centroids = device_ndarray.empty(centroids_shape, dtype=dtype)
     centroids_cai = cai_wrapper(centroids)
 
-    # validate inputs have are all c-contiguious, and have a consistent dtype
+    # validate inputs have are all c-contiguous, and have a consistent dtype
     # and expected shape
     X_cai.validate(2)
     centroids_cai.validate(2, dtype)
