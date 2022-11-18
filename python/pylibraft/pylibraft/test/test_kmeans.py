@@ -101,7 +101,7 @@ def test_cluster_cost(n_rows, n_cols, n_clusters, dtype):
     centroids = X[:n_clusters]
     centroids_device = device_ndarray(centroids)
 
-    inertia = cluster_cost(X_device, centroids_device)  # noqa
+    inertia = cluster_cost(X_device, centroids_device)
 
     # compute the nearest centroid to each sample
     distances = pairwise_distance(X_device, centroids_device).copy_to_host()
