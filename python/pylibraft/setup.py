@@ -32,6 +32,7 @@ extras_require = {
     "test": [
         "pytest",
         "scipy",
+        "scikit-learn",
     ]
 }
 
