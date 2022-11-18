@@ -94,6 +94,7 @@ if(BUILD_BENCH)
     bench/linalg/add.cu
     bench/linalg/map_then_reduce.cu
     bench/linalg/matrix_vector_op.cu
+    bench/linalg/normalize.cu
     bench/linalg/reduce_rows_by_key.cu
     bench/linalg/reduce.cu
     bench/main.cpp

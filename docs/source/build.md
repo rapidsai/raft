@@ -19,8 +19,9 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 
 #### Optional
 - [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
-- [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0
-- [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::neighbors` API..
+- [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0 - Used by cuCollections
+- [CUTLASS](https://github.com/NVIDIA/cutlass)  v2.9.1 - Used in `raft::distance` API.
+- [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::neighbors` API.
 - [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `raft-dask`.
 - [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `raft-dask`.
 - [Googletest](https://github.com/google/googletest) - Needed to build tests
@@ -35,9 +36,14 @@ The recommended way to build and install RAFT is to use the `build.sh` script in
 
 `build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `FAISS`, which will need to be explicitly enabled in `build.sh`.
 
-The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. The `--install` flag can be omitted to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
+The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. 
 ```bash
-./build.sh libraft --install
+./build.sh libraft
+
+```
+The `-n` flag can be passed to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
+```bash
+./build.sh libraft -n
 ```
 
 ### C++ Shared Libraries (optional)
@@ -52,7 +58,7 @@ Individual shared libraries have their own flags and multiple can be used (thoug
 ./build.sh libraft --compile-nn --compile-dist
 ```
 
-Add the `--install` flag to the above example to also install the shared libraries into `$INSTALL_PREFIX/lib`.
+In above example the shared libraries are installed by default into `$INSTALL_PREFIX/lib`. To disable this, pass `-n` flag.
 
 ### ccache and sccache
 
@@ -147,9 +153,9 @@ The Python APIs can be built and installed using the `build.sh` script:
 
 ```bash
 # to build pylibraft
-./build.sh libraft pylibraft --install --compile-libs
+./build.sh libraft pylibraft --compile-libs
 # to build raft-dask
-./build.sh libraft raft-dask --install --compile-libs
+./build.sh libraft raft-dask --compile-libs
 ```
 
 `setup.py` can also be used to build the Python APIs manually:
@@ -180,7 +186,7 @@ The documentation requires that the C++ headers and python packages have been bu
 The following will build the docs along with the C++ and Python packages:
 
 ```
-./build.sh libraft pylibraft raft-dask docs --compile-libs --install
+./build.sh libraft pylibraft raft-dask docs --compile-libs
 ```
 
 
@@ -231,7 +237,7 @@ If RAFT has already been installed, such as by using the `build.sh` script, use 
 
 Use `find_package(raft COMPONENTS nn distance)` to enable the shared libraries and transitively pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
 
-The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.hpp` and located in the base directory for the packages that contain specializations.
+The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.cuh` and located in the base directory for the packages that contain specializations.
 
 The following example tells the compiler to ignore the pre-compiled templates for the `libraft-distance` API so any symbols already compiled into pre-compiled shared library will be used instead:
 ```c++
