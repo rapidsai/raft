@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/common/seive.hpp>
-#include <raft/stats/common.hpp>
+#include <raft/stats/stats_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/util/seive.hpp>
 #include <raft/util/vectorized.cuh>
 #include <stdint.h>
 

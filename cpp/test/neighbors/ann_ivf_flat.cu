@@ -20,10 +20,11 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ivf_flat.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
-#include <raft/spatial/knn/ivf_flat.cuh>
 #include <raft/spatial/knn/knn.cuh>
+#include <raft/stats/mean.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
@@ -40,9 +41,7 @@
 #include <iostream>
 #include <vector>
 
-namespace raft {
-namespace spatial {
-namespace knn {
+namespace raft::neighbors::ivf_flat {
 
 template <typename IdxT>
 struct AnnIvfFlatInputs {
@@ -53,6 +52,7 @@ struct AnnIvfFlatInputs {
   IdxT nprobe;
   IdxT nlist;
   raft::distance::DistanceType metric;
+  bool adaptive_centers;
 };
 
 template <typename T, typename DataT, typename IdxT>
@@ -198,6 +198,45 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
         update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
         handle_.sync_stream(stream_);
+
+        // Test the centroid invariants
+        if (index_2.adaptive_centers()) {
+          // The centers must be up-to-date with the corresponding data
+          std::vector<uint32_t> list_sizes(index_2.n_lists());
+          std::vector<IdxT> list_offsets(index_2.n_lists());
+          rmm::device_uvector<float> centroid(ps.dim, stream_);
+          raft::copy(
+            list_sizes.data(), index_2.list_sizes().data_handle(), index_2.n_lists(), stream_);
+          raft::copy(
+            list_offsets.data(), index_2.list_offsets().data_handle(), index_2.n_lists(), stream_);
+          handle_.sync_stream(stream_);
+          for (uint32_t l = 0; l < index_2.n_lists(); l++) {
+            rmm::device_uvector<float> cluster_data(list_sizes[l] * ps.dim, stream_);
+            raft::spatial::knn::detail::utils::copy_selected<float>(
+              (IdxT)list_sizes[l],
+              (IdxT)ps.dim,
+              database.data(),
+              index_2.indices().data_handle() + list_offsets[l],
+              (IdxT)ps.dim,
+              cluster_data.data(),
+              (IdxT)ps.dim,
+              stream_);
+            raft::stats::mean<float, uint32_t>(
+              centroid.data(), cluster_data.data(), ps.dim, list_sizes[l], false, true, stream_);
+            ASSERT_TRUE(raft::devArrMatch(index_2.centers().data_handle() + ps.dim * l,
+                                          centroid.data(),
+                                          ps.dim,
+                                          raft::CompareApprox<float>(0.001),
+                                          stream_));
+          }
+        } else {
+          // The centers must be immutable
+          ASSERT_TRUE(raft::devArrMatch(index_2.centers().data_handle(),
+                                        index.centers().data_handle(),
+                                        index_2.centers().size(),
+                                        raft::Compare<float>(),
+                                        stream_));
+        }
       }
       ASSERT_TRUE(eval_neighbours(indices_naive,
                                   indices_ivfflat,
@@ -243,44 +282,44 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
 const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
   // test various dims (aligned and not aligned to vector sizes)
-  {1000, 10000, 1, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 2, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 3, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 4, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::InnerProduct},
-  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::InnerProduct},
+  {1000, 10000, 1, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {1000, 10000, 2, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 3, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {1000, 10000, 4, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
 
   // test dims that do not fit into kernel shared memory limits
-  {1000, 10000, 2048, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 2049, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 2050, 16, 40, 1024, raft::distance::DistanceType::InnerProduct},
-  {1000, 10000, 2051, 16, 40, 1024, raft::distance::DistanceType::InnerProduct},
-  {1000, 10000, 2052, 16, 40, 1024, raft::distance::DistanceType::InnerProduct},
-  {1000, 10000, 2053, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 2056, 16, 40, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 2048, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 2049, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 2050, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {1000, 10000, 2051, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 10000, 2052, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {1000, 10000, 2053, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {1000, 10000, 2056, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
 
   // various random combinations
-  {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::L2Expanded},
-  {100, 10000, 16, 10, 20, 512, raft::distance::DistanceType::L2Expanded},
-  {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded},
-  {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded},
-  {10000, 131072, 8, 10, 20, 1024, raft::distance::DistanceType::L2Expanded},
+  {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {100, 10000, 16, 10, 20, 512, raft::distance::DistanceType::L2Expanded, false},
+  {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {10000, 131072, 8, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false},
 
-  {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::InnerProduct},
-  {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::InnerProduct},
-  {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::InnerProduct},
-  {100, 10000, 16, 10, 20, 512, raft::distance::DistanceType::InnerProduct},
-  {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct},
-  {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct},
-  {10000, 131072, 8, 10, 50, 1024, raft::distance::DistanceType::InnerProduct},
+  {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {100, 10000, 16, 10, 20, 512, raft::distance::DistanceType::InnerProduct, true},
+  {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {10000, 131072, 8, 10, 50, 1024, raft::distance::DistanceType::InnerProduct, true},
 
-  {1000, 10000, 4096, 20, 50, 1024, raft::distance::DistanceType::InnerProduct},
+  {1000, 10000, 4096, 20, 50, 1024, raft::distance::DistanceType::InnerProduct, false},
 
   // test splitting the big query batches  (> max gridDim.y) into smaller batches
-  {100000, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct},
-  {98306, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct},
+  {100000, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct, false},
+  {98306, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct, true},
 
   // test radix_sort for getting the cluster selection
   {1000,
@@ -289,14 +328,16 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
    10,
    raft::spatial::knn::detail::topk::kMaxCapacity * 2,
    raft::spatial::knn::detail::topk::kMaxCapacity * 4,
-   raft::distance::DistanceType::L2Expanded},
+   raft::distance::DistanceType::L2Expanded,
+   false},
   {1000,
    10000,
    16,
    10,
    raft::spatial::knn::detail::topk::kMaxCapacity * 4,
    raft::spatial::knn::detail::topk::kMaxCapacity * 4,
-   raft::distance::DistanceType::InnerProduct}};
+   raft::distance::DistanceType::InnerProduct,
+   false}};
 
 typedef AnnIVFFlatTest<float, float, std::int64_t> AnnIVFFlatTestF;
 TEST_P(AnnIVFFlatTestF, AnnIVFFlat) { this->testIVFFlat(); }
@@ -313,6 +354,4 @@ TEST_P(AnnIVFFlatTestF_int8, AnnIVFFlat) { this->testIVFFlat(); }
 
 INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF_int8, ::testing::ValuesIn(inputs));
 
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+}  // namespace raft::neighbors::ivf_flat
