@@ -23,7 +23,7 @@ import numpy as np
 from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uintptr_t
 
-from pylibraft.common import Handle
+from pylibraft.common import Handle, cai_wrapper
 from pylibraft.common.handle import auto_sync_handle
 
 from libcpp cimport bool
@@ -129,14 +129,14 @@ def rmat(out, theta, r_scale, c_scale, seed=12345, handle=None):
     if out is None:
         raise Exception("'out' cannot be None!")
 
-    out_cai = out.__cuda_array_interface__
-    theta_cai = theta.__cuda_array_interface__
+    out_cai = cai_wrapper(out)
+    theta_cai = cai_wrapper(theta)
 
-    n_edges = out_cai["shape"][0]
-    out_ptr = <uintptr_t>out_cai["data"][0]
-    theta_ptr = <uintptr_t>theta_cai["data"][0]
-    out_dt = np.dtype(out_cai["typestr"])
-    theta_dt = np.dtype(theta_cai["typestr"])
+    n_edges = out_cai.shape[0]
+    out_ptr = <uintptr_t>out_cai.data
+    theta_ptr = <uintptr_t>theta_cai.data
+    out_dt = out_cai.dtype
+    theta_dt = theta_cai.dtype
 
     cdef RngState *rng = new RngState(seed)
 
