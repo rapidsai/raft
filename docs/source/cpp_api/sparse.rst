@@ -32,8 +32,8 @@ Matrix Operations
     :project: RAFT
     :members:
 
-Nearest Neighbors
-#################
+Neighbors
+#########
 
 .. doxygennamespace:: raft::sparse::neighbors
     :project: RAFT

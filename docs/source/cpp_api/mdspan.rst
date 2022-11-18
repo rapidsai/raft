@@ -43,19 +43,17 @@ Representation
 .. doxygentypedef:: raft::extent_5d
     :project: RAFT
 
-.. doxygentypedef:: raft::dynamic_extent
+.. doxygenfunction:: raft::flatten(mdspan_type mds)
     :project: RAFT
 
-.. doxygentypedef:: raft::extents
+.. doxygenfunction:: raft:: flatten(const array_interface_type& mda)
     :project: RAFT
 
-.. doxygenfunction:: raft::flatten
+.. doxygenfunction:: raft::reshape(mdspan_type mds, extents<IndexType, Extents...> new_shape)
     :project: RAFT
 
-
-.. doxygenfunction:: raft::reshape
+.. doxygenfunction:: raft::reshape(const array_interface_type& mda, extents<IndexType, Extents...> new_shape)
     :project: RAFT
-
 
 mdarray
 #######
@@ -172,6 +170,9 @@ mdspan
 .. doxygenfunction:: raft::make_extents
     :project: RAFT
 
+.. doxygenfunction:: raft::make_strided_layout(Extents extents, Strides strides)
+    :project: RAFT
+
 .. doxygenfunction:: raft::unravel_index
     :project: RAFT
 
@@ -185,13 +186,13 @@ Device Vocabulary
 .. doxygenstruct:: raft::is_device_mdspan
    :project: RAFT
 
-.. doxygenstruct:: raft::is_device_mdspan_t
+.. doxygentypedef:: raft::is_device_mdspan_t
    :project: RAFT
 
-.. doxygenstruct:: raft::is_input_device_mdspan_t
+.. doxygentypedef:: raft::is_input_device_mdspan_t
    :project: RAFT
 
-.. doxygenstruct:: raft::is_output_device_mdspan_t
+.. doxygentypedef:: raft::is_output_device_mdspan_t
    :project: RAFT
 
 .. doxygentypedef:: raft::enable_if_device_mdspan
@@ -216,13 +217,10 @@ Device Vocabulary
 Device Factories
 ----------------
 
-.. doxygenfunction:: raft::make_device_mdspan
-    :project: RAFT
-
 .. doxygenfunction:: raft::make_device_matrix_view
     :project: RAFT
 
-.. doxygenfunction:: raft::make_device_vector_view
+.. doxygenfunction:: raft::make_device_vector_view(ElementType* ptr, IndexType n)
     :project: RAFT
 
 .. doxygenfunction:: raft::make_device_scalar_view
@@ -238,13 +236,13 @@ Managed Vocabulary
 .. doxygenstruct:: raft::is_managed_mdspan
    :project: RAFT
 
-.. doxygenstruct:: raft::is_managed_mdspan_t
+.. doxygentypedef:: raft::is_managed_mdspan_t
    :project: RAFT
 
-.. doxygenstruct:: raft::is_input_managed_mdspan_t
+.. doxygentypedef:: raft::is_input_managed_mdspan_t
    :project: RAFT
 
-.. doxygenstruct:: raft::is_output_managed_mdspan_t
+.. doxygentypedef:: raft::is_output_managed_mdspan_t
    :project: RAFT
 
 .. doxygentypedef:: raft::enable_if_managed_mdspan
@@ -256,30 +254,11 @@ Managed Vocabulary
 .. doxygentypedef:: raft::enable_if_output_managed_mdspan
     :project: RAFT
 
-.. doxygentypedef:: raft::managed_matrix_view
-   :project: RAFT
-
-.. doxygentypedef:: raft::managed_vector_view
-   :project: RAFT
-
-.. doxygentypedef:: raft::managed_scalar_view
-   :project: RAFT
-
 
 Managed Factories
 -----------------
 
-.. doxygenfunction:: raft::make_managed_mdspan
-    :project: RAFT
-
-.. doxygenfunction:: raft::make_managed_matrix_view
-    :project: RAFT
-
-.. doxygenfunction:: raft::make_managed_vector_view
-    :project: RAFT
-
-.. doxygenfunction:: raft::make_managed_scalar_view
-   :project: RAFT
+.. doxygenfunction:: make_managed_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 
 
 Host Vocabulary
@@ -291,13 +270,13 @@ Host Vocabulary
 .. doxygenstruct:: raft::is_host_mdspan
    :project: RAFT
 
-.. doxygenstruct:: raft::is_host_mdspan_t
+.. doxygentypedef:: raft::is_host_mdspan_t
    :project: RAFT
 
-.. doxygenstruct:: raft::is_input_host_mdspan_t
+.. doxygentypedef:: raft::is_input_host_mdspan_t
    :project: RAFT
 
-.. doxygenstruct:: raft::is_output_host_mdspan_t
+.. doxygentypedef:: raft::is_output_host_mdspan_t
    :project: RAFT
 
 .. doxygentypedef:: raft::enable_if_host_mdspan
