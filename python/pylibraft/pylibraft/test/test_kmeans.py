@@ -18,7 +18,7 @@ import pytest
 
 from pylibraft.cluster.kmeans import cluster_cost, compute_new_centroids
 from pylibraft.common import Handle, device_ndarray
-from pylibraft.distance import fused_l2_nn_argmin, pairwise_distance
+from pylibraft.distance import pairwise_distance
 
 
 @pytest.mark.parametrize("n_rows", [100])
@@ -104,21 +104,15 @@ def test_cluster_cost(n_rows, n_cols, n_clusters, dtype):
     inertia = cluster_cost(X_device, centroids_device)
 
     # compute the nearest centroid to each sample
-    distances = pairwise_distance(X_device, centroids_device).copy_to_host()
-    cluster_ids = np.argmin(distances, axis=1)
-
-    # TODO: the cluster_ids above don't match whats being computed in
-    # cluster_cost: https://github.com/rapidsai/raft/issues/1036
-    # use the same fused_l2_nn_argmin implementation as used internally
-    # so we get the same inertia result here
-    cluster_ids = fused_l2_nn_argmin(
-        X_device, centroids_device, sqrt=True
+    distances = pairwise_distance(
+        X_device, centroids_device, metric="sqeuclidean"
     ).copy_to_host()
+    cluster_ids = np.argmin(distances, axis=1)
 
     cluster_distances = np.take_along_axis(
         distances, cluster_ids[:, None], axis=1
     )
 
     # need reduced tolerance for float32
-    rtol = 1e-3 if dtype == np.float32 else 1e-6
-    assert np.allclose(inertia, sum(cluster_distances), rtol=rtol)
+    tol = 1e-3 if dtype == np.float32 else 1e-6
+    assert np.allclose(inertia, sum(cluster_distances), rtol=tol, atol=tol)

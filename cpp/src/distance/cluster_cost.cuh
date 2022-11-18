@@ -54,7 +54,7 @@ void cluster_cost(const raft::handle_t& handle,
                                      n_clusters,
                                      n_features,
                                      (void*)workspace.data(),
-                                     true,
+                                     false,
                                      true,
                                      handle.get_stream());
 
