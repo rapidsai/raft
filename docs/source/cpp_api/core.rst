@@ -6,6 +6,11 @@ require minimal dependencies, can be compiled without `nvcc`, and thus are safe 
 the headers in the `raft/core` include directory, any headers in the codebase with the suffix `_types.hpp` are also safe to
 expose in public APIs.
 
+.. role:: py(code)
+   :language: c++
+   :class: highlight
+
+
 handle_t
 ########
 
