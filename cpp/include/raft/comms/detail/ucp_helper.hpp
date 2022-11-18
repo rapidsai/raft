@@ -170,7 +170,7 @@ class comms_ucp_handler {
   }
 
  public:
-  int ucp_progress(ucp_worker_h worker) const { return (*(worker_progress_func))(worker); }
+  int ucp_progress(ucp_worker_h worker) const { return ucp_worker_progress(worker); }
 
   /**
    * @brief Frees any memory underlying the given ucp request object
@@ -179,7 +179,7 @@ class comms_ucp_handler {
   {
     if (request->needs_release) {
       request->req->completed = 0;
-      (*(req_free_func))(request->req);
+      ucp_request_free(request->req);
     }
     free(request);
   }
@@ -198,7 +198,7 @@ class comms_ucp_handler {
     ucp_tag_t ucp_tag = build_message_tag(rank, tag);
 
     ucs_status_ptr_t send_result =
-      (*(send_func))(ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_callback);
+      ucp_tag_send_nb(ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_callback);
     struct ucx_context* ucp_req = (struct ucx_context*)send_result;
 
     if (UCS_PTR_IS_ERR(send_result)) {
@@ -240,7 +240,7 @@ class comms_ucp_handler {
     ucp_tag_t ucp_tag = build_message_tag(sender_rank, tag);
 
     ucs_status_ptr_t recv_result =
-      (*(recv_func))(worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_callback);
+      ucp_tag_recv_nb(worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_callback);
 
     struct ucx_context* ucp_req = (struct ucx_context*)recv_result;
 
