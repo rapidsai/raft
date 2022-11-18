@@ -205,6 +205,12 @@ endif()
 add_library(raft INTERFACE)
 add_library(raft::raft ALIAS raft)
 
+rapids_find_package(
+  ucx REQUIRED
+  BUILD_EXPORT_SET raft-exports
+  INSTALL_EXPORT_SET raft-exports
+)
+
 target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
@@ -213,6 +219,7 @@ target_include_directories(
 target_link_libraries(
   raft
   INTERFACE rmm::rmm
+            ucx::ucp
             CUDA::cublas${_ctk_static_suffix}
             CUDA::curand${_ctk_static_suffix}
             CUDA::cusolver${_ctk_static_suffix}
