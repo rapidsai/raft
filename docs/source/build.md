@@ -36,9 +36,14 @@ The recommended way to build and install RAFT is to use the `build.sh` script in
 
 `build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `FAISS`, which will need to be explicitly enabled in `build.sh`.
 
-The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. The `--install` flag can be omitted to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
+The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. 
 ```bash
-./build.sh libraft --install
+./build.sh libraft
+
+```
+The `-n` flag can be passed to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
+```bash
+./build.sh libraft -n
 ```
 
 ### C++ Shared Libraries (optional)
@@ -53,7 +58,7 @@ Individual shared libraries have their own flags and multiple can be used (thoug
 ./build.sh libraft --compile-nn --compile-dist
 ```
 
-Add the `--install` flag to the above example to also install the shared libraries into `$INSTALL_PREFIX/lib`.
+In above example the shared libraries are installed by default into `$INSTALL_PREFIX/lib`. To disable this, pass `-n` flag.
 
 ### ccache and sccache
 
@@ -148,9 +153,9 @@ The Python APIs can be built and installed using the `build.sh` script:
 
 ```bash
 # to build pylibraft
-./build.sh libraft pylibraft --install --compile-libs
+./build.sh libraft pylibraft --compile-libs
 # to build raft-dask
-./build.sh libraft raft-dask --install --compile-libs
+./build.sh libraft raft-dask --compile-libs
 ```
 
 `setup.py` can also be used to build the Python APIs manually:
@@ -181,7 +186,7 @@ The documentation requires that the C++ headers and python packages have been bu
 The following will build the docs along with the C++ and Python packages:
 
 ```
-./build.sh libraft pylibraft raft-dask docs --compile-libs --install
+./build.sh libraft pylibraft raft-dask docs --compile-libs
 ```
 
 

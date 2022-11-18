@@ -54,8 +54,9 @@ struct pointer_residency_count<Type, Types...> {
     cudaPointerAttributes attr;
     RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
     switch (attr.type) {
-      case cudaMemoryTypeUnregistered:
-      case cudaMemoryTypeHost: return std::make_tuple(on_device, on_host + 1);
+      case cudaMemoryTypeUnregistered: return std::make_tuple(on_device, on_host + 1);
+      case cudaMemoryTypeHost:
+        return std::make_tuple(on_device + int(attr.devicePointer == ptr), on_host + 1);
       case cudaMemoryTypeDevice: return std::make_tuple(on_device + 1, on_host);
       case cudaMemoryTypeManaged: return std::make_tuple(on_device + 1, on_host + 1);
       default: return std::make_tuple(on_device, on_host);
@@ -74,6 +75,58 @@ auto check_pointer_residency(const Types*... ptrs) -> pointer_residency
   if (on_host == n_args) { return pointer_residency::host_only; }
   return pointer_residency::mixed;
 }
+
+/** RAII helper to access the host data from gpu when necessary. */
+template <typename PtrT, typename Action>
+struct with_mapped_memory_t {
+  with_mapped_memory_t(PtrT ptr, size_t size, Action action) : action_(action)
+  {
+    if (ptr == nullptr) { return; }
+    switch (utils::check_pointer_residency(ptr)) {
+      case utils::pointer_residency::device_only:
+      case utils::pointer_residency::host_and_device: {
+        dev_ptr_ = (void*)ptr;  // NOLINT
+      } break;
+      default: {
+        host_ptr_ = (void*)ptr;  // NOLINT
+        RAFT_CUDA_TRY(cudaHostRegister(host_ptr_, size, choose_flags(ptr)));
+        RAFT_CUDA_TRY(cudaHostGetDevicePointer(&dev_ptr_, host_ptr_, 0));
+      } break;
+    }
+  }
+
+  ~with_mapped_memory_t()
+  {
+    if (host_ptr_ != nullptr) { cudaHostUnregister(host_ptr_); }
+  }
+
+  auto operator()() { return action_((PtrT)dev_ptr_); }  // NOLINT
+
+ private:
+  Action action_;
+  void* host_ptr_ = nullptr;
+  void* dev_ptr_  = nullptr;
+
+  template <typename T>
+  static auto choose_flags(const T*) -> unsigned int
+  {
+    int dev_id, readonly_supported;
+    RAFT_CUDA_TRY(cudaGetDevice(&dev_id));
+    RAFT_CUDA_TRY(cudaDeviceGetAttribute(
+      &readonly_supported, cudaDevAttrHostRegisterReadOnlySupported, dev_id));
+    if (readonly_supported) {
+      return cudaHostRegisterMapped | cudaHostRegisterReadOnly;
+    } else {
+      return cudaHostRegisterMapped;
+    }
+  }
+
+  template <typename T>
+  static auto choose_flags(T*) -> unsigned int
+  {
+    return cudaHostRegisterMapped;
+  }
+};
 
 template <typename T>
 struct config {

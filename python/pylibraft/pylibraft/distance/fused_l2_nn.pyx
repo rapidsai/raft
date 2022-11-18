@@ -26,15 +26,10 @@ from libcpp cimport bool
 
 from .distance_type cimport DistanceType
 
-from pylibraft.common import Handle, device_ndarray
+from pylibraft.common import Handle, cai_wrapper, device_ndarray
 from pylibraft.common.handle import auto_sync_handle
+
 from pylibraft.common.handle cimport handle_t
-
-
-def is_c_cont(cai, dt):
-    return "strides" not in cai or \
-        cai["strides"] is None or \
-        cai["strides"][1] == dt.itemsize
 
 
 cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
@@ -135,41 +130,41 @@ def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
 
    """
 
-    x_cai = X.__cuda_array_interface__
-    y_cai = Y.__cuda_array_interface__
+    x_cai = cai_wrapper(X)
+    y_cai = cai_wrapper(Y)
 
-    x_dt = np.dtype(x_cai["typestr"])
-    y_dt = np.dtype(y_cai["typestr"])
+    x_dt = x_cai.dtype
+    y_dt = y_cai.dtype
 
-    m = x_cai["shape"][0]
-    n = y_cai["shape"][0]
+    m = x_cai.shape[0]
+    n = y_cai.shape[0]
 
     if out is None:
         output = device_ndarray.empty((m,), dtype="int32")
     else:
         output = out
 
-    output_cai = output.__cuda_array_interface__
+    output_cai = cai_wrapper(output)
 
-    x_k = x_cai["shape"][1]
-    y_k = y_cai["shape"][1]
+    x_k = x_cai.shape[1]
+    y_k = y_cai.shape[1]
 
     if x_k != y_k:
         raise ValueError("Inputs must have same number of columns. "
                          "a=%s, b=%s" % (x_k, y_k))
 
-    x_ptr = <uintptr_t>x_cai["data"][0]
-    y_ptr = <uintptr_t>y_cai["data"][0]
+    x_ptr = <uintptr_t>x_cai.data
+    y_ptr = <uintptr_t>y_cai.data
 
-    d_ptr = <uintptr_t>output_cai["data"][0]
+    d_ptr = <uintptr_t>output_cai.data
 
     handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
-    d_dt = np.dtype(output_cai["typestr"])
+    d_dt = output_cai.dtype
 
-    x_c_contiguous = is_c_cont(x_cai, x_dt)
-    y_c_contiguous = is_c_cont(y_cai, y_dt)
+    x_c_contiguous = x_cai.c_contiguous
+    y_c_contiguous = y_cai.c_contiguous
 
     if x_c_contiguous != y_c_contiguous:
         raise ValueError("Inputs must have matching strides")
