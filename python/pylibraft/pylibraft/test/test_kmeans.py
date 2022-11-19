@@ -90,7 +90,7 @@ def test_compute_new_centroids(
     assert np.allclose(expected_centers, actual_centers, rtol=1e-6)
 
 
-@pytest.mark.parametrize("n_rows", [8])
+@pytest.mark.parametrize("n_rows", [100])
 @pytest.mark.parametrize("n_cols", [5, 25])
 @pytest.mark.parametrize("n_clusters", [4, 15])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
