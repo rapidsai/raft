@@ -187,6 +187,7 @@ if(BUILD_TESTS)
     test/random/multi_variable_gaussian.cu
     test/random/permute.cu
     test/random/rng.cu
+    test/random/rng_discrete.cu
     test/random/rng_int.cu
     test/random/rmat_rectangular_generator.cu
     test/random/sample_without_replacement.cu

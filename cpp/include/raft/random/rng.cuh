@@ -703,6 +703,33 @@ void laplace(const raft::handle_t& handle,
   detail::laplace(rng_state, ptr, len, mu, scale, handle.get_stream());
 }
 
+/**
+ * @brief Generate random integers, where the probability of i is weights[i]/sum(weights)
+ *
+ * @tparam OutType integer output type
+ * @tparam WeightType weight type
+ * @tparam IndexType data type used to represent length of the arrays
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] rng_state random number generator state
+ * @param[out] out output array
+ * @param[in] weights weight array
+ */
+template <typename OutType, typename WeightType, typename IndexType>
+std::enable_if_t<std::is_integral_v<OutType>> discrete(
+  const raft::handle_t& handle,
+  RngState& rng_state,
+  raft::device_vector_view<OutType, IndexType> out,
+  raft::device_vector_view<const WeightType, IndexType> weights)
+{
+  detail::discrete(rng_state,
+                   out.data_handle(),
+                   weights.data_handle(),
+                   out.extent(0),
+                   weights.extent(0),
+                   handle.get_stream());
+}
+
 namespace sample_without_replacement_impl {
 template <typename T>
 struct weight_alias {

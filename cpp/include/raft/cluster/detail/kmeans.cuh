@@ -169,6 +169,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
     // <<< Step-3 >>> : Sample x in X with probability p_x = d^2(x, C) / phi_X (C)
     // Choose 'n_trials' centroid candidates from X with probability proportional to the squared
     // distance to the nearest existing cluster
+    // todo(lsugy): don't copy, move distribution to GPU
     raft::copy(h_wt.data(), minClusterDistance.data_handle(), minClusterDistance.size(), stream);
     handle.sync_stream(stream);
 
