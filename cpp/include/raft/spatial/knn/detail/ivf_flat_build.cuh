@@ -25,6 +25,7 @@
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/pow2_utils.cuh>
@@ -237,12 +238,14 @@ inline auto extend(const handle_t& handle,
                  orig_index.center_norms()->size(),
                  stream);
     } else {
-      // todo(lsugy): use other prim and remove this one
-      utils::dots_along_rows(n_lists,
-                             dim,
-                             ext_index.centers().data_handle(),
-                             ext_index.center_norms()->data_handle(),
-                             stream);
+      raft::linalg::rowNorm(ext_index.center_norms()->data_handle(),
+                            ext_index.centers().data_handle(),
+                            dim,
+                            n_lists,
+                            raft::linalg::L2Norm,
+                            true,
+                            stream,
+                            raft::SqrtOp<float>());
       RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
     }
   }

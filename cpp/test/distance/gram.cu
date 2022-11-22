@@ -15,7 +15,7 @@
  */
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/specializations.cuh>
 #endif
 
 #include "../test_utils.h"

@@ -33,7 +33,7 @@ from libcpp cimport bool, nullptr
 
 from pylibraft.distance.distance_type cimport DistanceType
 
-from pylibraft.common import Handle, device_ndarray
+from pylibraft.common import Handle, cai_wrapper, device_ndarray
 from pylibraft.common.interruptible import cuda_interruptible
 
 from pylibraft.common.handle cimport handle_t
@@ -88,19 +88,19 @@ cdef _get_dtype_string(dtype):
 
 
 def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):
-    if cai["typestr"] not in exp_dt:
+    if cai.dtype not in exp_dt:
         raise TypeError("dtype %s not supported" % cai["typestr"])
 
-    if not is_c_contiguous(cai):
+    if not cai.c_contiguous:
         raise ValueError("Row major input is expected")
 
-    if exp_cols is not None and cai["shape"][1] != exp_cols:
+    if exp_cols is not None and cai.shape[1] != exp_cols:
         raise ValueError("Incorrect number of columns, expected {} got {}"
-                         .format(exp_cols, cai["shape"][1]))
+                         .format(exp_cols, cai.shape[1]))
 
-    if exp_rows is not None and cai["shape"][0] != exp_rows:
+    if exp_rows is not None and cai.shape[0] != exp_rows:
         raise ValueError("Incorrect number of rows, expected {} , got {}"
-                         .format(exp_rows, cai["shape"][0]))
+                         .format(exp_rows, cai.shape[0]))
 
 
 cdef class IndexParams:
@@ -352,14 +352,14 @@ def build(IndexParams index_params, dataset, handle=None):
         handle.sync()
 
     """
-    dataset_cai = dataset.__cuda_array_interface__
-    dataset_dt = np.dtype(dataset_cai["typestr"])
+    dataset_cai = cai_wrapper(dataset)
+    dataset_dt = dataset_cai.dtype
     _check_input_array(dataset_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')])
-    cdef uintptr_t dataset_ptr = dataset_cai["data"][0]
+    cdef uintptr_t dataset_ptr = dataset_cai.data
 
-    cdef uint64_t n_rows = dataset_cai["shape"][0]
-    cdef uint32_t dim = dataset_cai["shape"][1]
+    cdef uint64_t n_rows = dataset_cai.shape[0]
+    cdef uint32_t dim = dataset_cai.shape[1]
 
     if handle is None:
         handle = Handle()
@@ -467,22 +467,22 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    vecs_cai = new_vectors.__cuda_array_interface__
-    vecs_dt = np.dtype(vecs_cai["typestr"])
-    cdef uint64_t n_rows = vecs_cai["shape"][0]
-    cdef uint32_t dim = vecs_cai["shape"][1]
+    vecs_cai = cai_wrapper(new_vectors)
+    vecs_dt = vecs_cai.dtype
+    cdef uint64_t n_rows = vecs_cai.shape[0]
+    cdef uint32_t dim = vecs_cai.shape[1]
 
     _check_input_array(vecs_cai, [np.dtype('float32'), np.dtype('byte'),
                                   np.dtype('ubyte')],
                        exp_cols=index.dim)
 
-    idx_cai = new_indices.__cuda_array_interface__
+    idx_cai = cai_wrapper(new_indices)
     _check_input_array(idx_cai, [np.dtype('uint64')], exp_rows=n_rows)
-    if len(idx_cai["shape"])!=1:
+    if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
 
-    cdef uintptr_t vecs_ptr = vecs_cai["data"][0]
-    cdef uintptr_t idx_ptr = idx_cai["data"][0]
+    cdef uintptr_t vecs_ptr = vecs_cai.data
+    cdef uintptr_t idx_ptr = idx_cai.data
 
     if vecs_dt == np.float32:
         with cuda_interruptible():
@@ -656,9 +656,9 @@ def search(SearchParams search_params,
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    queries_cai = queries.__cuda_array_interface__
-    queries_dt = np.dtype(queries_cai["typestr"])
-    cdef uint32_t n_queries = queries_cai["shape"][0]
+    queries_cai = cai_wrapper(queries)
+    queries_dt = queries_cai.dtype
+    cdef uint32_t n_queries = queries_cai.shape[0]
 
     _check_input_array(queries_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')],
@@ -667,22 +667,22 @@ def search(SearchParams search_params,
     if neighbors is None:
         neighbors = device_ndarray.empty((n_queries, k), dtype='uint64')
 
-    neighbors_cai = neighbors.__cuda_array_interface__
+    neighbors_cai = cai_wrapper(neighbors)
     _check_input_array(neighbors_cai, [np.dtype('uint64')],
                        exp_rows=n_queries, exp_cols=k)
 
     if distances is None:
         distances = device_ndarray.empty((n_queries, k), dtype='float32')
 
-    distances_cai = distances.__cuda_array_interface__
+    distances_cai = cai_wrapper(distances)
     _check_input_array(distances_cai, [np.dtype('float32')],
                        exp_rows=n_queries, exp_cols=k)
 
     cdef c_ivf_pq.search_params params = search_params.params
 
-    cdef uintptr_t queries_ptr = queries_cai["data"][0]
-    cdef uintptr_t neighbors_ptr = neighbors_cai["data"][0]
-    cdef uintptr_t distances_ptr = distances_cai["data"][0]
+    cdef uintptr_t queries_ptr = queries_cai.data
+    cdef uintptr_t neighbors_ptr = neighbors_cai.data
+    cdef uintptr_t distances_ptr = distances_cai.data
     # TODO(tfeher) pass mr_ptr arg
     cdef device_memory_resource* mr_ptr = <device_memory_resource*> nullptr
     if memory_resource is not None:

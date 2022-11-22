@@ -20,8 +20,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/stats/common.hpp>
 #include <raft/stats/detail/histogram.cuh>
+#include <raft/stats/stats_types.hpp>
 
 // This file is a shameless amalgamation of independent works done by
 // Lars Nyland and Andy Adinets

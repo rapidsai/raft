@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-
+from .cai_wrapper import cai_wrapper
 from .cuda import Stream
 from .device_ndarray import device_ndarray
 from .handle import Handle
