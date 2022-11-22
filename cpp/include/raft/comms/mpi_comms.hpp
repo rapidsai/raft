@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
 #include <raft/comms/detail/mpi_comms.hpp>
+#include <raft/core/comms.hpp>
 
 namespace raft {
 namespace comms {

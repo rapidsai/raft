@@ -19,7 +19,7 @@
 #include <math_constants.h>
 #include <stdint.h>
 
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #ifndef ENABLE_MEMCPY_ASYNC
 // enable memcpy_async interface by default for newer GPUs

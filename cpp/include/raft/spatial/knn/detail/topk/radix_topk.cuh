@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>

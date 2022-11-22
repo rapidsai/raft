@@ -22,9 +22,8 @@
 #include <thrust/transform.h>
 
 #include <raft/cluster/detail/kmeans_common.cuh>
-#include <raft/common/nvtx.hpp>
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
@@ -37,6 +36,7 @@
 #include <raft/matrix/argmin.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>

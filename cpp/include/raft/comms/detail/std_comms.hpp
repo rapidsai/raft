@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
 #include <raft/comms/detail/ucp_helper.hpp>
 #include <raft/comms/detail/util.hpp>
+#include <raft/core/comms.hpp>
 
 #include <raft/core/handle.hpp>
 #include <rmm/device_scalar.hpp>

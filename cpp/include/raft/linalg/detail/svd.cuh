@@ -22,8 +22,8 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/transpose.cuh>
 
-#include <raft/common/nvtx.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>

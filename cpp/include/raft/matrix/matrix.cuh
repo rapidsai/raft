@@ -32,7 +32,7 @@
 #include "detail/matrix.cuh"
 #include <raft/core/device_mdspan.hpp>
 
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 
 namespace raft {
 namespace matrix {

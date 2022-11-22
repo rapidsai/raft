@@ -16,9 +16,9 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/mdarray.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/distance/distance.cuh>
-#include <raft/mdarray.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #if defined RAFT_DISTANCE_COMPILED

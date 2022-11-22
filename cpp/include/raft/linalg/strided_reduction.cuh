@@ -22,7 +22,7 @@
 #include "detail/strided_reduction.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace raft {
 namespace linalg {

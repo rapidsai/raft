@@ -23,7 +23,7 @@
 #include <vector>
 
 #include <raft/core/handle.hpp>
-#include <raft/sparse/mst/mst.cuh>
+#include <raft/sparse/solver/mst.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_buffer.hpp>
@@ -59,8 +59,7 @@ struct CSRDevice {
   rmm::device_buffer weights;
 };
 
-namespace raft {
-namespace mst {
+namespace raft::sparse::solver {
 
 // Sequential prims function
 // Returns total weight of MST
@@ -126,9 +125,7 @@ weight_t prims(CSRHost<vertex_t, edge_t, weight_t>& csr_h)
 template <typename vertex_t, typename edge_t, typename weight_t>
 class MSTTest : public ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, weight_t>> {
  protected:
-  std::pair<raft::Graph_COO<vertex_t, edge_t, weight_t>,
-            raft::Graph_COO<vertex_t, edge_t, weight_t>>
-  mst_gpu()
+  std::pair<Graph_COO<vertex_t, edge_t, weight_t>, Graph_COO<vertex_t, edge_t, weight_t>> mst_gpu()
   {
     edge_t* offsets   = static_cast<edge_t*>(csr_d.offsets.data());
     vertex_t* indices = static_cast<vertex_t*>(csr_d.indices.data());
@@ -344,5 +341,4 @@ TEST_P(MSTTestSequential, Sequential)
 
 INSTANTIATE_TEST_SUITE_P(MSTTests, MSTTestSequential, ::testing::ValuesIn(csr_in_h));
 
-}  // namespace mst
-}  // namespace raft
+}  // namespace raft::sparse::solver

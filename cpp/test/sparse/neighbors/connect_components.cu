@@ -23,15 +23,15 @@
 #include <vector>
 
 #include <raft/sparse/linalg/symmetrize.cuh>
-#include <raft/sparse/mst/mst.cuh>
+#include <raft/sparse/neighbors/connect_components.cuh>
 #include <raft/sparse/neighbors/knn_graph.cuh>
-#include <raft/sparse/selection/connect_components.cuh>
+#include <raft/sparse/solver/mst.cuh>
 
+#include <raft/cluster/single_linkage.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/hierarchy/single_linkage.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include "../../test_utils.h"
@@ -91,22 +91,24 @@ class ConnectComponentsTest
      */
     rmm::device_uvector<value_idx> colors(params.n_row, stream);
 
-    auto mst_coo = raft::mst::mst<value_idx, value_idx, value_t, double>(handle,
-                                                                         indptr.data(),
-                                                                         knn_graph_coo.cols(),
-                                                                         knn_graph_coo.vals(),
-                                                                         params.n_row,
-                                                                         knn_graph_coo.nnz,
-                                                                         colors.data(),
-                                                                         stream,
-                                                                         false,
-                                                                         true);
+    auto mst_coo =
+      raft::sparse::solver::mst<value_idx, value_idx, value_t, double>(handle,
+                                                                       indptr.data(),
+                                                                       knn_graph_coo.cols(),
+                                                                       knn_graph_coo.vals(),
+                                                                       params.n_row,
+                                                                       knn_graph_coo.nnz,
+                                                                       colors.data(),
+                                                                       stream,
+                                                                       false,
+                                                                       true);
 
     /**
      * 3. connect_components to fix connectivities
      */
-    raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(colors.data(), params.n_row);
-    raft::linkage::connect_components<value_idx, value_t>(
+    raft::sparse::neighbors::FixConnectivitiesRedOp<value_idx, value_t> red_op(colors.data(),
+                                                                               params.n_row);
+    raft::sparse::neighbors::connect_components<value_idx, value_t>(
       handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col, red_op);
 
     /**
@@ -117,16 +119,16 @@ class ConnectComponentsTest
     raft::sparse::convert::sorted_coo_to_csr(
       out_edges.rows(), out_edges.nnz, indptr2.data(), params.n_row + 1, stream);
 
-    auto output_mst = raft::mst::mst<value_idx, value_idx, value_t>(handle,
-                                                                    indptr2.data(),
-                                                                    out_edges.cols(),
-                                                                    out_edges.vals(),
-                                                                    params.n_row,
-                                                                    out_edges.nnz,
-                                                                    colors.data(),
-                                                                    stream,
-                                                                    false,
-                                                                    false);
+    auto output_mst = raft::sparse::solver::mst<value_idx, value_idx, value_t>(handle,
+                                                                               indptr2.data(),
+                                                                               out_edges.cols(),
+                                                                               out_edges.vals(),
+                                                                               params.n_row,
+                                                                               out_edges.nnz,
+                                                                               colors.data(),
+                                                                               stream,
+                                                                               false,
+                                                                               false);
 
     handle.sync_stream(stream);
 

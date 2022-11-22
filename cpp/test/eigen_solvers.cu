@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/common/nvtx.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/partition.cuh>
 

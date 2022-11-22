@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <optional>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/regression_metrics.cuh>
 #include <raft/util/cuda_utils.cuh>

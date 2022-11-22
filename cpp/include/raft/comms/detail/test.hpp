@@ -16,13 +16,10 @@
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
+#include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-
-#include <iostream>
-#include <numeric>
 
 #include <iostream>
 #include <numeric>

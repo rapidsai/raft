@@ -18,13 +18,13 @@
 
 #include <raft/core/handle.hpp>
 
-#include "../ball_cover_types.hpp"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
 #include "block_select_faiss.cuh"
 #include "haversine_distance.cuh"
 #include "knn_brute_force_faiss.cuh"
 #include "selection_faiss.cuh"
+#include <raft/neighbors/ball_cover_types.hpp>
 
 #include <cstdint>
 #include <limits.h>

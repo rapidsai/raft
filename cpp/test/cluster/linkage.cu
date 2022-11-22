@@ -24,8 +24,8 @@
 #include <raft/spatial/knn/specializations.cuh>
 #endif
 
+#include <raft/cluster/single_linkage.cuh>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/sparse/hierarchy/single_linkage.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>

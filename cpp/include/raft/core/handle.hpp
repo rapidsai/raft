@@ -35,7 +35,7 @@
 ///@todo: enable once we have migrated cuml-comms layer too
 //#include <common/cuml_comms_int.hpp>
 
-#include <raft/core/cudart_utils.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/core/comms.hpp>
 #include <raft/core/cublas_macros.hpp>

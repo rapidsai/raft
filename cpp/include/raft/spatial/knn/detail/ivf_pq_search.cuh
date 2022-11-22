@@ -22,7 +22,6 @@
 
 #include <raft/neighbors/ivf_pq_types.hpp>
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
@@ -30,6 +29,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/device_loads_stores.cuh>
 #include <raft/util/pow2_utils.cuh>

@@ -18,7 +18,6 @@
 
 #include "common.cuh"
 
-#include "../../ball_cover_types.hpp"
 #include "../block_select_faiss.cuh"
 #include "../haversine_distance.cuh"
 #include "../selection_faiss.cuh"
@@ -26,6 +25,7 @@
 #include <cstdint>
 #include <limits.h>
 
+#include <raft/neighbors/ball_cover_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <faiss/gpu/utils/Limits.cuh>
@@ -38,6 +38,8 @@ namespace raft {
 namespace spatial {
 namespace knn {
 namespace detail {
+
+using raft::neighbors::ball_cover::BallCoverIndex;
 
 /**
  * To find exact neighbors, we perform a post-processing stage

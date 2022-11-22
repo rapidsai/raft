@@ -18,8 +18,8 @@
 
 #include <raft/core/handle.hpp>
 
-#include <raft/comms/comms.hpp>
 #include <raft/comms/detail/std_comms.hpp>
+#include <raft/core/comms.hpp>
 
 #include <iostream>
 #include <nccl.h>

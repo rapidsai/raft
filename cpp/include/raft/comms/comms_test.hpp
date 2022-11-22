@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/comms/comms.hpp>
 #include <raft/comms/detail/test.hpp>
+#include <raft/core/comms.hpp>
 
 #include <raft/core/handle.hpp>
 

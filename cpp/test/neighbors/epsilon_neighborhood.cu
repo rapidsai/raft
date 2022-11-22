@@ -18,14 +18,12 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/neighbors/epsilon_neighborhood.cuh>
 #include <raft/random/make_blobs.cuh>
-#include <raft/spatial/knn/epsilon_neighborhood.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
-namespace raft {
-namespace spatial {
-namespace knn {
+namespace raft::neighbors::epsilon_neighborhood {
 template <typename T, typename IdxT>
 struct EpsInputs {
   IdxT n_row, n_col, n_centers, n_batches;
@@ -115,6 +113,4 @@ TEST_P(EpsNeighTestFI, Result)
 }
 INSTANTIATE_TEST_CASE_P(EpsNeighTests, EpsNeighTestFI, ::testing::ValuesIn(inputsfi));
 
-};  // namespace knn
-};  // namespace spatial
-};  // namespace raft
+};  // namespace raft::neighbors::epsilon_neighborhood
