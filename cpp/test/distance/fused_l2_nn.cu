@@ -25,7 +25,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/specializations.cuh>
 #endif
 
 namespace raft {

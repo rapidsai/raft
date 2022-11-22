@@ -27,6 +27,7 @@
 #include <raft/core/mdarray.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/norm.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_loads_stores.cuh>
 #include <raft/util/pow2_utils.cuh>
@@ -1102,8 +1103,14 @@ void search_impl(const handle_t& handle,
   if (index.metric() == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
-    utils::dots_along_rows(
-      n_queries, index.dim(), converted_queries_ptr, query_norm_dev.data(), stream);
+    raft::linalg::rowNorm(query_norm_dev.data(),
+                          converted_queries_ptr,
+                          static_cast<IdxT>(index.dim()),
+                          static_cast<IdxT>(n_queries),
+                          raft::linalg::L2Norm,
+                          true,
+                          stream,
+                          raft::SqrtOp<float>());
     utils::outer_add(query_norm_dev.data(),
                      (IdxT)n_queries,
                      index.center_norms()->data_handle(),

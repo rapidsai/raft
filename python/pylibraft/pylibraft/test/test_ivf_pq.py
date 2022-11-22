@@ -131,7 +131,7 @@ def run_ivf_pq_build_search_test(
         index = ivf_pq.extend(index, dataset_1_device, indices_1_device)
         index = ivf_pq.extend(index, dataset_2_device, indices_2_device)
 
-    assert index.size == n_rows
+    assert index.size >= n_rows
 
     queries = generate_data((n_queries, n_cols), dtype)
     out_idx = np.zeros((n_queries, k), dtype=np.uint64)

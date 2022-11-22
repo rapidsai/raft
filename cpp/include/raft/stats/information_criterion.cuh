@@ -31,8 +31,8 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/stats/common.hpp>
 #include <raft/stats/detail/batched/information_criterion.cuh>
+#include <raft/stats/stats_types.hpp>
 
 namespace raft {
 namespace stats {

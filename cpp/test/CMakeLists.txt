@@ -108,6 +108,7 @@ if(BUILD_TESTS)
     test/distance/dist_cos.cu
     test/distance/dist_euc_exp.cu
     test/distance/dist_euc_unexp.cu
+    test/distance/dist_eucsqrt_exp.cu
     test/distance/dist_hamming.cu
     test/distance/dist_hellinger.cu
     test/distance/dist_jensen_shannon.cu
@@ -145,6 +146,7 @@ if(BUILD_TESTS)
     test/linalg/mean_squared_error.cu
     test/linalg/multiply.cu
     test/linalg/norm.cu
+    test/linalg/normalize.cu
     test/linalg/power.cu
     test/linalg/reduce.cu
     test/linalg/reduce_cols_by_key.cu
@@ -195,7 +197,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SOLVERS_TEST PATH test/cluster_solvers_deprecated.cu test/eigen_solvers.cu test/lap/lap.cu
-    test/mst.cu
+    test/mst.cu OPTIONAL DIST
   )
 
   ConfigureTest(
@@ -214,6 +216,7 @@ if(BUILD_TESTS)
     test/sparse/reduce.cu
     test/sparse/row_op.cu
     test/sparse/sort.cu
+    test/sparse/spgemmi.cu
     test/sparse/symmetrize.cu
   )
 

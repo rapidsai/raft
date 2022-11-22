@@ -182,6 +182,7 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
+include(cmake/thirdparty/get_cutlass.cmake)
 
 if(RAFT_ENABLE_cuco_DEPENDENCY)
   include(${rapids-cmake-dir}/cpm/cuco.cmake)
@@ -285,6 +286,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/fused_l2_min_arg.cu
     src/distance/update_centroids_float.cu
     src/distance/update_centroids_double.cu
+    src/distance/cluster_cost_float.cu
+    src/distance/cluster_cost_double.cu
     src/distance/specializations/detail/canberra.cu
     src/distance/specializations/detail/chebyshev.cu
     src/distance/specializations/detail/correlation.cu
@@ -365,7 +368,11 @@ if(RAFT_COMPILE_DIST_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(raft_distance_lib PUBLIC raft::raft cuco::cuco)
+  target_link_libraries(
+    raft_distance_lib
+    PUBLIC raft::raft cuco::cuco
+    PRIVATE nvidia::cutlass::cutlass
+  )
   target_compile_options(
     raft_distance_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                               "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -383,6 +390,7 @@ endif()
 
 target_link_libraries(
   raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
+                          nvidia::cutlass::cutlass
 )
 
 # ##################################################################################################
@@ -439,7 +447,11 @@ if(RAFT_COMPILE_NN_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(raft_nn_lib PUBLIC faiss::faiss raft::raft)
+  target_link_libraries(
+    raft_nn_lib
+    PUBLIC faiss::faiss raft::raft
+    PRIVATE nvidia::cutlass::cutlass
+  )
   target_compile_options(
     raft_nn_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                         "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -454,7 +466,24 @@ if(TARGET raft_nn_lib AND (NOT TARGET raft::raft_nn_lib))
   add_library(raft::raft_nn_lib ALIAS raft_nn_lib)
 endif()
 
-target_link_libraries(raft_nn INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib>)
+target_link_libraries(
+  raft_nn INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib> nvidia::cutlass::cutlass
+)
+
+# ##################################################################################################
+# * raft_distributed -------------------------------------------------------------------------------
+add_library(raft_distributed INTERFACE)
+
+if(TARGET raft_distributed AND (NOT TARGET raft::distributed))
+  add_library(raft::distributed ALIAS raft_distributed)
+endif()
+
+set_target_properties(raft_distributed PROPERTIES EXPORT_NAME distributed)
+
+rapids_export_package(BUILD ucx raft-distributed-exports)
+rapids_export_package(INSTALL ucx raft-distributed-exports)
+
+target_link_libraries(raft_distributed INTERFACE ucx::ucp)
 
 # ##################################################################################################
 # * install targets-----------------------------------------------------------
@@ -507,6 +536,13 @@ if(TARGET raft_nn_lib)
 endif()
 
 install(
+  TARGETS raft_distributed
+  DESTINATION ${lib_dir}
+  COMPONENT distributed
+  EXPORT raft-distributed-exports
+)
+
+install(
   DIRECTORY include/raft
   COMPONENT raft
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
@@ -530,8 +566,8 @@ install(
 
 include("${rapids-cmake-dir}/export/write_dependencies.cmake")
 
-set(raft_components distance nn)
-set(raft_install_comp raft raft)
+set(raft_components distance nn distributed)
+set(raft_install_comp raft raft raft)
 if(TARGET raft_distance_lib)
   list(APPEND raft_components distance-lib)
   list(APPEND raft_install_comp distance)
@@ -576,11 +612,13 @@ for data science and machine learning.
 Optional Components:
   - nn
   - distance
+  - distributed
 
 Imported Targets:
   - raft::raft
   - raft::nn brought in by the `nn` optional component
   - raft::distance brought in by the `distance` optional component
+  - raft::distributed brought in by the `distributed` optional component
 
 ]=]
 )
@@ -622,15 +660,32 @@ endif()
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
 raft_export(
-  INSTALL raft COMPONENTS nn distance EXPORT_SET raft-exports GLOBAL_TARGETS raft nn distance
-  NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
+  INSTALL raft COMPONENTS nn distance distributed EXPORT_SET raft-exports GLOBAL_TARGETS raft nn
+  distance distributed NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
 # * build export -------------------------------------------------------------
 raft_export(
-  BUILD raft EXPORT_SET raft-exports COMPONENTS nn distance GLOBAL_TARGETS raft raft_distance
-  raft_nn DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
+  BUILD
+  raft
+  EXPORT_SET
+  raft-exports
+  COMPONENTS
+  nn
+  distance
+  distributed
+  GLOBAL_TARGETS
+  raft
+  raft_distance
+  distributed
+  raft_nn
+  DOCUMENTATION
+  doc_string
+  NAMESPACE
+  raft::
+  FINAL_CODE_BLOCK
+  code_string
 )
 
 # ##################################################################################################

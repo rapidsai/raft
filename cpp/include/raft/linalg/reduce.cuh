@@ -117,17 +117,17 @@ void reduce(OutType* dots,
 template <typename InElementType,
           typename LayoutPolicy,
           typename OutElementType = InElementType,
-          typename IndexType      = std::uint32_t,
-          typename MainLambda     = raft::Nop<InElementType>,
+          typename IdxType        = std::uint32_t,
+          typename MainLambda     = raft::Nop<InElementType, IdxType>,
           typename ReduceLambda   = raft::Sum<OutElementType>,
           typename FinalLambda    = raft::Nop<OutElementType>>
 void reduce(const raft::handle_t& handle,
-            raft::device_matrix_view<const InElementType, IndexType, LayoutPolicy> data,
-            raft::device_vector_view<OutElementType, IndexType> dots,
+            raft::device_matrix_view<const InElementType, IdxType, LayoutPolicy> data,
+            raft::device_vector_view<OutElementType, IdxType> dots,
             OutElementType init,
             Apply apply,
             bool inplace           = false,
-            MainLambda main_op     = raft::Nop<InElementType>(),
+            MainLambda main_op     = raft::Nop<InElementType, IdxType>(),
             ReduceLambda reduce_op = raft::Sum<OutElementType>(),
             FinalLambda final_op   = raft::Nop<OutElementType>())
 {
@@ -137,10 +137,10 @@ void reduce(const raft::handle_t& handle,
   bool along_rows          = apply == Apply::ALONG_ROWS;
 
   if (along_rows) {
-    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(1),
                  "Output should be equal to number of columns in Input");
   } else {
-    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(0),
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(0),
                  "Output should be equal to number of rows in Input");
   }
 
