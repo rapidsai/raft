@@ -234,16 +234,19 @@ void laplace(
   RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
-template <typename GenType, typename... ArgsT>
+template <typename GenType, typename OutType, typename WeightType, typename IdxType>
 void call_sample_with_replacement_kernel(DeviceState<GenType> const& dev_state,
                                          RngState& rng_state,
                                          cudaStream_t stream,
-                                         ArgsT... args)
+                                         OutType* out,
+                                         const WeightType* weights_csum,
+                                         IdxType sampledLen,
+                                         IdxType len)
 {
-  // todo(lsugy): change launch config
-  auto n_threads = 256;
-  auto n_blocks  = 4 * getMultiProcessorCount();
-  sample_with_replacement_kernel<<<n_blocks, n_threads, 0, stream>>>(dev_state, args...);
+  IdxType n_threads = 256;
+  IdxType n_blocks  = raft::ceildiv(sampledLen, n_threads);
+  sample_with_replacement_kernel<<<n_blocks, n_threads, 0, stream>>>(
+    dev_state, out, weights_csum, sampledLen, len);
   rng_state.advance(uint64_t(n_blocks) * n_threads, 1);
 }
 

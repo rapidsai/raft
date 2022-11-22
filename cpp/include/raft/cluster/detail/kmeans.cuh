@@ -42,6 +42,7 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
+#include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_scalar.hpp>
@@ -109,7 +110,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
   auto dataBatchSize = getDataBatchSize(params.batch_samples, n_samples);
 
   // temporary buffers
-  std::vector<DataT> h_wt(n_samples);
+  auto indices            = raft::make_device_vector<IndexT, IndexT>(handle, n_trials);
   auto centroidCandidates = raft::make_device_matrix<DataT, IndexT>(handle, n_trials, n_features);
   auto costPerCandidate   = raft::make_device_vector<DataT, IndexT>(handle, n_trials);
   auto minClusterDistance = raft::make_device_vector<DataT, IndexT>(handle, n_samples);
@@ -118,6 +119,17 @@ void kmeansPlusPlus(const raft::handle_t& handle,
   rmm::device_uvector<DataT> L2NormBuf_OR_DistBuf(0, stream);
   rmm::device_scalar<DataT> clusterCost(stream);
   rmm::device_scalar<cub::KeyValuePair<int, DataT>> minClusterIndexAndDistance(stream);
+
+  // Device and matrix views
+  raft::device_vector_view<IndexT, IndexT> indices_view(indices.data_handle(), n_trials);
+  auto const_weights_view =
+    raft::make_device_vector_view<const DataT, IndexT>(minClusterDistance.data_handle(), n_samples);
+  auto const_indices_view =
+    raft::make_device_vector_view<const IndexT, IndexT>(indices.data_handle(), n_trials);
+  auto const_X_view =
+    raft::make_device_matrix_view<const DataT, IndexT>(X.data_handle(), n_samples, n_features);
+  raft::device_matrix_view<DataT, IndexT> candidates_view(
+    centroidCandidates.data_handle(), n_trials, n_features);
 
   // L2 norm of X: ||c||^2
   auto L2NormX = raft::make_device_vector<DataT, IndexT>(handle, n_samples);
@@ -133,6 +145,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
                           stream);
   }
 
+  raft::random::RngState rng(params.rng_state.seed, params.rng_state.type);
   std::mt19937 gen(params.rng_state.seed);
   std::uniform_int_distribution<> dis(0, n_samples - 1);
 
@@ -169,21 +182,9 @@ void kmeansPlusPlus(const raft::handle_t& handle,
     // <<< Step-3 >>> : Sample x in X with probability p_x = d^2(x, C) / phi_X (C)
     // Choose 'n_trials' centroid candidates from X with probability proportional to the squared
     // distance to the nearest existing cluster
-    // todo(lsugy): don't copy, move distribution to GPU
-    raft::copy(h_wt.data(), minClusterDistance.data_handle(), minClusterDistance.size(), stream);
-    handle.sync_stream(stream);
 
-    // Note - n_trials is relative small here, we don't need raft::gather call
-    std::discrete_distribution<> d(h_wt.begin(), h_wt.end());
-    for (int cIdx = 0; cIdx < n_trials; ++cIdx) {
-      auto rand_idx     = d(gen);
-      auto randCentroid = raft::make_device_matrix_view<const DataT, IndexT>(
-        X.data_handle() + n_features * rand_idx, 1, n_features);
-      raft::copy(centroidCandidates.data_handle() + cIdx * n_features,
-                 randCentroid.data_handle(),
-                 randCentroid.size(),
-                 stream);
-    }
+    raft::random::discrete(handle, rng, indices_view, const_weights_view);
+    raft::matrix::gather(handle, const_X_view, const_indices_view, candidates_view);
 
     // Calculate pairwise distance between X and the centroid candidates
     // Output - pwd [n_trials x n_samples]
