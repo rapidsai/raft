@@ -52,8 +52,6 @@ class RefineTest : public ::testing::TestWithParam<detail::RefineInputs<IdxT>> {
  public:  // tamas remove
   void testRefine()
   {
-    // print_device_vector(
-    //   "candidates", indices_dev.data(), std::min<int>(indices_dev.size(), 100), std::cout);
     std::vector<IdxT> indices(data.p.n_queries * data.p.k);
     std::vector<DistanceT> distances(data.p.n_queries * data.p.k);
 

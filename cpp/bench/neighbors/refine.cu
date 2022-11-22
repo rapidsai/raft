@@ -108,6 +108,7 @@ std::vector<RefineInputs<int64_t>> getInputs()
     for (int64_t n_queries : {1000, 10000}) {
       for (int64_t dim : {128, 512}) {
         out.push_back(RefineInputs<int64_t>{n_queries, 2000000, dim, 32, 128, metric, host_data});
+        out.push_back(RefineInputs<int64_t>{n_queries, 2000000, dim, 10, 40, metric, host_data});
       }
     }
   }

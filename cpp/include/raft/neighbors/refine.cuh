@@ -29,10 +29,10 @@ namespace raft::neighbors {
 /**
  * @brief Refine nearest neighbor search.
  *
- * Refenment is on operation that follows an approximate NN search. The approximate search has
- * already selected m neighbor candidates for each query. We narrow it down to k queries.
- * For each query, we calculate the exact distance between the query and its m neighbor candidate,
- * and select the k nearest one.
+ * Refinement is an operation that follows an approximate NN search. The approximate search has
+ * already selected n_candidates neighbor candidates for each query. We narrow it down to k
+ * neighbors. For each query, we calculate the exact distance between the query and its
+ * n_candidates neighbor candidate, and select the k nearest ones.
  *
  * The k nearest neighbors and distances are returned.
  *

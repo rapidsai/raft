@@ -100,7 +100,7 @@ __global__ void build_index_kernel(const LabelT* labels,
   if constexpr (gather_src) {
     source_vecs += source_ixs[i] * dim;
   } else {
-  source_vecs += i * dim;
+    source_vecs += i * dim;
   }
   // Interleave dimensions of the source vector while recording it.
   // NB: such `veclen` is selected, that `dim % veclen == 0`
@@ -320,19 +320,19 @@ inline auto build(
  * @param[in] n_candidates  of neighbor_candidates
  */
 template <typename T, typename IdxT>
-inline void build_refinement_index(const handle_t& handle,
-                                   index<T, IdxT>* refinement_index,
-                                   const T* dataset,
-                                   const IdxT* candidate_idx,
-                                   IdxT n_queries,
-                                   uint32_t n_candidates)
+inline void fill_refinement_index(const handle_t& handle,
+                                  index<T, IdxT>* refinement_index,
+                                  const T* dataset,
+                                  const IdxT* candidate_idx,
+                                  IdxT n_queries,
+                                  uint32_t n_candidates)
 {
   using LabelT = uint32_t;
 
   auto stream      = handle.get_stream();
   uint32_t n_lists = n_queries;
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "ivf_flat::build_refinement_index(%zu, %u)", size_t(n_queries));
+    "ivf_flat::fill_refinement_index(%zu, %u)", size_t(n_queries));
 
   rmm::device_uvector<LabelT> new_labels(n_queries * n_candidates, stream);
   linalg::writeOnlyUnaryOp(

@@ -62,12 +62,6 @@ void check_input(extents_t dataset,
                "Number of neighbor candidates must not be smaller than k (%d vs %d)",
                static_cast<int>(candidates.extent(1)),
                static_cast<int>(k));
-
-  // switch (metric) {
-  //   case raft::distance::DistanceType::L2Expanded: break;
-  //   case raft::distance::DistanceType::InnerProduct: break;
-  //   default: throw raft::logic_error("Unsopported metric");
-  // }
 }
 
 /**
@@ -112,12 +106,12 @@ void refine(raft::handle_t const& handle,
   raft::neighbors::ivf_flat::index<data_t, idx_t> refinement_index(
     handle, metric, n_queries, false, dim);
 
-  raft::spatial::knn::ivf_flat::detail::build_refinement_index(handle,
-                                                               &refinement_index,
-                                                               dataset.data_handle(),
-                                                               neighbor_candidates.data_handle(),
-                                                               n_queries,
-                                                               n_candidates);
+  raft::spatial::knn::ivf_flat::detail::fill_refinement_index(handle,
+                                                              &refinement_index,
+                                                              dataset.data_handle(),
+                                                              neighbor_candidates.data_handle(),
+                                                              n_queries,
+                                                              n_candidates);
 
   uint32_t grid_dim_x = 1;
   raft::spatial::knn::ivf_flat::detail::ivfflat_interleaved_scan<
@@ -174,6 +168,12 @@ void refine_host(raft::host_matrix_view<const data_t, matrix_idx, row_major> dat
               indices.extents(),
               distances.extents(),
               metric);
+
+  switch (metric) {
+    case raft::distance::DistanceType::L2Expanded: break;
+    case raft::distance::DistanceType::InnerProduct: break;
+    default: throw raft::logic_error("Unsopported metric");
+  }
 
   size_t numDataset            = dataset.extent(0);
   size_t numQueries            = queries.extent(0);
