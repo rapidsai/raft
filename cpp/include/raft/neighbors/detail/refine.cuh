@@ -68,13 +68,13 @@ void check_input(extents_t dataset,
  * See raft::neighbors::refine for docs.
  */
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
-void refine(raft::handle_t const& handle,
-            raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,
-            raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,
-            raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
-            raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
-            raft::device_matrix_view<distance_t, matrix_idx, row_major> distances,
-            distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
+void refine_device(raft::handle_t const& handle,
+                   raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,
+                   raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,
+                   raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
+                   raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
+                   raft::device_matrix_view<distance_t, matrix_idx, row_major> distances,
+                   distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
 {
   matrix_idx n_candidates = neighbor_candidates.extent(1);
   matrix_idx n_queries    = queries.extent(0);
@@ -204,7 +204,7 @@ void refine_host(raft::host_matrix_view<const data_t, matrix_idx, row_major> dat
           float val_q = (float)(cur_query[k]);
           float val_d = (float)(cur_dataset[k]);
           if (metric == raft::distance::DistanceType::InnerProduct) {
-            distance += val_q * val_d;
+            distance += -val_q * val_d;  // Negate because we use a min search later
           } else {
             distance += (val_q - val_d) * (val_q - val_d);
           }
@@ -218,7 +218,11 @@ void refine_host(raft::host_matrix_view<const data_t, matrix_idx, row_major> dat
       for (size_t j = 0; j < (size_t)refinedTopK; j++) {
         refinedNeighbors[j + (refinedTopK * i)] = sfr[j].id;
         if (refinedDistances == NULL) continue;
-        refinedDistances[j + (refinedTopK * i)] = sfr[j].distance;
+        if (metric == raft::distance::DistanceType::InnerProduct) {
+          refinedDistances[j + (refinedTopK * i)] = -sfr[j].distance;
+        } else {
+          refinedDistances[j + (refinedTopK * i)] = -sfr[j].distance;
+        }
       }
     }
     free(sfr);
