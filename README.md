@@ -1,5 +1,17 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools</div>
 
+[![Build Status](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/raft/job/branches/job/raft-branch-pipeline/badge/icon)](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/raft/job/branches/job/raft-branch-pipeline/)
+
+## Resources
+
+- [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
+- [Getting Started](https://rapids.ai/start.html): Instructions for installing RAFT.
+- [RAPIDS Community](https://rapids.ai/community.html): Get help, contribute, and collaborate.
+- [GitHub repository](https://github.com/rapidsai/raft): Download the RAFT source code.
+- [Issue tracker](https://github.com/rapidsai/raft/issues): Report issues or request features.
+
+## Overview
+
 RAFT contains fundamental widely-used algorithms and primitives for data science and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
 
 By taking a primitives-based approach to algorithm development, RAFT 
@@ -163,7 +175,7 @@ pairwise_distance(in1, in2, out=output, metric="euclidean")
 
 ## Installing
 
-RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), or by building the repository from source. Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on building RAFT and using it in downstream projects.
+RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), pip, or by building the repository from source. Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on building RAFT and using it in downstream projects.
 
 ### Conda
 
@@ -182,6 +194,14 @@ mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft
 You can also install the `libraft-*` conda packages individually using the `mamba` command above.
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
+
+### Pip
+
+pylibraft and raft-dask both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
+```bash
+pip install pylibraft-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+pip install raft-dask-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+```
 
 ### Cmake & CPM
 
