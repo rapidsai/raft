@@ -65,7 +65,7 @@ enum struct sparse_mv_alg_t : int {
   SPARSE_MV_UNDEFINED = -1,
   SPARSE_MV_ALG_DEFAULT,  // generic, for any sparse matrix
   SPARSE_MV_ALG1,         // typical for CSR
-  SPARSE_MV_ALG2          // may provide better performamce for irregular sparse matrices
+  SPARSE_MV_ALG2          // may provide better performance for irregular sparse matrices
 };
 
 // Vector "view"-like aggregate for linear algebra purposes
@@ -282,9 +282,9 @@ struct sparse_matrix_t {
   cusparseSpMVAlg_t translate_algorithm(sparse_mv_alg_t alg) const
   {
     switch (alg) {
-      case sparse_mv_alg_t::SPARSE_MV_ALG1: return CUSPARSE_CSRMV_ALG1;
-      case sparse_mv_alg_t::SPARSE_MV_ALG2: return CUSPARSE_CSRMV_ALG2;
-      default: return CUSPARSE_MV_ALG_DEFAULT;
+      case sparse_mv_alg_t::SPARSE_MV_ALG1: return CUSPARSE_SPMV_CSR_ALG1;
+      case sparse_mv_alg_t::SPARSE_MV_ALG2: return CUSPARSE_SPMV_CSR_ALG2;
+      default: return CUSPARSE_SPMV_ALG_DEFAULT;
     }
   }
 #endif

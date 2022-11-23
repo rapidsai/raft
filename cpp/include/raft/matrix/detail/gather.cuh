@@ -109,7 +109,7 @@ void gatherImpl(const MatrixIteratorT in,
   // stencil value type
   typedef typename std::iterator_traits<StencilIteratorT>::value_type StencilValueT;
 
-  // return type of MapTransformOp, must be convertable to IndexT
+  // return type of MapTransformOp, must be convertible to IndexT
   typedef typename std::result_of<decltype(transform_op)(MapValueT)>::type MapTransformOpReturnT;
   static_assert((std::is_convertible<MapTransformOpReturnT, IndexT>::value),
                 "MapTransformOp's result type must be convertible to signed integer");

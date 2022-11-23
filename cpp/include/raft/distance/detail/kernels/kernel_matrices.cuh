@@ -47,7 +47,7 @@ __global__ void polynomial_kernel_nopad(
  * @param inout device vector in column major format, size [ld * cols]
  * @param ld leading dimension of the inout buffer
  * @param rows number of rows (rows <= ld)
- * @param cols number of colums
+ * @param cols number of columns
  * @param exponent
  * @param gain
  * @param offset
@@ -85,7 +85,7 @@ __global__ void tanh_kernel_nopad(math_t* inout, size_t len, math_t gain, math_t
  * @param inout device vector in column major format, size [ld * cols]
  * @param ld leading dimension of the inout buffer
  * @param rows number of rows (rows <= ld)
- * @param cols number of colums
+ * @param cols number of columns
  * @param gain
  * @param offset
  */

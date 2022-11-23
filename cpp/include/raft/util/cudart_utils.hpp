@@ -246,7 +246,7 @@ class grid_1d_block_t {
  * @tparam Type data type
  * @param dst destination pointer
  * @param src source pointer
- * @param len lenth of the src/dst buffers in terms of number of elements
+ * @param len length of the src/dst buffers in terms of number of elements
  * @param stream cuda stream
  */
 template <typename Type>
@@ -353,6 +353,18 @@ inline int getMultiProcessorCount()
   int mpCount;
   RAFT_CUDA_TRY(cudaDeviceGetAttribute(&mpCount, cudaDevAttrMultiProcessorCount, devId));
   return mpCount;
+}
+
+/** helper method to get major minor compute capability version */
+inline std::pair<int, int> getComputeCapability()
+{
+  int devId;
+  RAFT_CUDA_TRY(cudaGetDevice(&devId));
+  int majorVer, minorVer;
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&majorVer, cudaDevAttrComputeCapabilityMajor, devId));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&minorVer, cudaDevAttrComputeCapabilityMinor, devId));
+
+  return std::make_pair(majorVer, minorVer);
 }
 
 /** helper method to convert an array on device to a string on host */
@@ -503,7 +515,7 @@ constexpr inline auto upper_bound<half>() -> half
  * resource in any case.
  *
  * @param[inout] mr if not null do nothing; otherwise get the current device resource and wrap it
- * into a `pool_memory_resource` if neccessary and return the pointer to the result.
+ * into a `pool_memory_resource` if necessary and return the pointer to the result.
  * @param initial_size if a new memory pool is created, this would be its initial size (rounded up
  * to 256 bytes).
  *

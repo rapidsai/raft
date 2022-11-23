@@ -229,13 +229,19 @@ void rsvdPerc(const raft::handle_t& handle,
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using QR decomposition, by specifying no. of PCs and
  * upsamples directly
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] p no. of upsamples
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -297,13 +303,19 @@ void rsvd_fixed_rank(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using symmetric Eigen decomposition, by specifying no. of PCs and
  * upsamples directly. The rectangular input matrix is made square and symmetric using B @ B^T
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] p no. of upsamples
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -366,15 +378,21 @@ void rsvd_fixed_rank_symmetric(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using Jacobi method, by specifying no. of PCs and
  * upsamples directly
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] p no. of upsamples
  * @param[in] tol tolerance for Jacobi-based solvers
  * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -438,15 +456,21 @@ void rsvd_fixed_rank_jacobi(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using Jacobi method, by specifying no. of PCs and
  * upsamples directly. The rectangular input matrix is made square and symmetric using B @ B^T
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] p no. of upsamples
  * @param[in] tol tolerance for Jacobi-based solvers
  * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -511,14 +535,20 @@ void rsvd_fixed_rank_symmetric_jacobi(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using QR decomposition, by specifying the PC and upsampling
  * ratio
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] PC_perc percentage of singular values to be computed
  * @param[in] UpS_perc upsampling percentage
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -571,7 +601,7 @@ void rsvd_perc(const raft::handle_t& handle,
  *
  * Please see above for documentation of `rsvd_perc`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 4>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 5>>
 void rsvd_perc(Args... args)
 {
   rsvd_perc(std::forward<Args>(args)..., std::nullopt, std::nullopt);
@@ -581,14 +611,20 @@ void rsvd_perc(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using symmetric Eigen decomposition, by specifying the PC and upsampling
  * ratio. The rectangular input matrix is made square and symmetric using B @ B^T
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
  * @param[in] PC_perc percentage of singular values to be computed
  * @param[in] UpS_perc upsampling percentage
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -641,7 +677,7 @@ void rsvd_perc_symmetric(const raft::handle_t& handle,
  *
  * Please see above for documentation of `rsvd_perc_symmetric`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 4>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 5>>
 void rsvd_perc_symmetric(Args... args)
 {
   rsvd_perc_symmetric(std::forward<Args>(args)..., std::nullopt, std::nullopt);
@@ -651,6 +687,12 @@ void rsvd_perc_symmetric(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using Jacobi method, by specifying the PC and upsampling
  * ratio
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
@@ -658,9 +700,9 @@ void rsvd_perc_symmetric(Args... args)
  * @param[in] UpS_perc upsampling percentage
  * @param[in] tol tolerance for Jacobi-based solvers
  * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -715,7 +757,7 @@ void rsvd_perc_jacobi(const raft::handle_t& handle,
  *
  * Please see above for documentation of `rsvd_perc_jacobi`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 6>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 7>>
 void rsvd_perc_jacobi(Args... args)
 {
   rsvd_perc_jacobi(std::forward<Args>(args)..., std::nullopt, std::nullopt);
@@ -725,6 +767,12 @@ void rsvd_perc_jacobi(Args... args)
  * @brief randomized singular value decomposition (RSVD) on a column major
  * rectangular matrix using Jacobi method, by specifying the PC and upsampling
  * ratio. The rectangular input matrix is made square and symmetric using B @ B^T
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] M input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S_vec singular values raft::device_vector_view of shape (K)
@@ -732,9 +780,9 @@ void rsvd_perc_jacobi(Args... args)
  * @param[in] UpS_perc upsampling percentage
  * @param[in] tol tolerance for Jacobi-based solvers
  * @param[in] max_sweeps maximum number of sweeps for Jacobi-based solvers
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major
- * @param[out] V_in optional right singular values of raft::device_matrix_view with layout
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with layout
  * raft::col_major
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -790,7 +838,7 @@ void rsvd_perc_symmetric_jacobi(
  *
  * Please see above for documentation of `rsvd_perc_symmetric_jacobi`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 6>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 7>>
 void rsvd_perc_symmetric_jacobi(Args... args)
 {
   rsvd_perc_symmetric_jacobi(std::forward<Args>(args)..., std::nullopt, std::nullopt);

@@ -18,13 +18,14 @@
 
 #include <cstdint>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/memory_type.hpp>
 
 #include <raft/core/host_device_accessor.hpp>
 
 namespace raft {
 
 template <typename AccessorPolicy>
-using host_accessor = host_device_accessor<AccessorPolicy, true, false>;
+using host_accessor = host_device_accessor<AccessorPolicy, memory_type::host>;
 
 /**
  * @brief std::experimental::mdspan with host tag to avoid accessing incorrect memory location.

@@ -54,8 +54,9 @@ struct pointer_residency_count<Type, Types...> {
     cudaPointerAttributes attr;
     RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
     switch (attr.type) {
-      case cudaMemoryTypeUnregistered:
-      case cudaMemoryTypeHost: return std::make_tuple(on_device, on_host + 1);
+      case cudaMemoryTypeUnregistered: return std::make_tuple(on_device, on_host + 1);
+      case cudaMemoryTypeHost:
+        return std::make_tuple(on_device + int(attr.devicePointer == ptr), on_host + 1);
       case cudaMemoryTypeDevice: return std::make_tuple(on_device + 1, on_host);
       case cudaMemoryTypeManaged: return std::make_tuple(on_device + 1, on_host + 1);
       default: return std::make_tuple(on_device, on_host);
@@ -74,6 +75,58 @@ auto check_pointer_residency(const Types*... ptrs) -> pointer_residency
   if (on_host == n_args) { return pointer_residency::host_only; }
   return pointer_residency::mixed;
 }
+
+/** RAII helper to access the host data from gpu when necessary. */
+template <typename PtrT, typename Action>
+struct with_mapped_memory_t {
+  with_mapped_memory_t(PtrT ptr, size_t size, Action action) : action_(action)
+  {
+    if (ptr == nullptr) { return; }
+    switch (utils::check_pointer_residency(ptr)) {
+      case utils::pointer_residency::device_only:
+      case utils::pointer_residency::host_and_device: {
+        dev_ptr_ = (void*)ptr;  // NOLINT
+      } break;
+      default: {
+        host_ptr_ = (void*)ptr;  // NOLINT
+        RAFT_CUDA_TRY(cudaHostRegister(host_ptr_, size, choose_flags(ptr)));
+        RAFT_CUDA_TRY(cudaHostGetDevicePointer(&dev_ptr_, host_ptr_, 0));
+      } break;
+    }
+  }
+
+  ~with_mapped_memory_t()
+  {
+    if (host_ptr_ != nullptr) { cudaHostUnregister(host_ptr_); }
+  }
+
+  auto operator()() { return action_((PtrT)dev_ptr_); }  // NOLINT
+
+ private:
+  Action action_;
+  void* host_ptr_ = nullptr;
+  void* dev_ptr_  = nullptr;
+
+  template <typename T>
+  static auto choose_flags(const T*) -> unsigned int
+  {
+    int dev_id, readonly_supported;
+    RAFT_CUDA_TRY(cudaGetDevice(&dev_id));
+    RAFT_CUDA_TRY(cudaDeviceGetAttribute(
+      &readonly_supported, cudaDevAttrHostRegisterReadOnlySupported, dev_id));
+    if (readonly_supported) {
+      return cudaHostRegisterMapped | cudaHostRegisterReadOnly;
+    } else {
+      return cudaHostRegisterMapped;
+    }
+  }
+
+  template <typename T>
+  static auto choose_flags(T*) -> unsigned int
+  {
+    return cudaHostRegisterMapped;
+  }
+};
 
 template <typename T>
 struct config {
@@ -149,196 +202,6 @@ inline void memzero(T* ptr, IdxT n_elems, rmm::cuda_stream_view stream)
     } break;
     default: RAFT_FAIL("memset: unreachable code");
   }
-}
-
-template <typename IdxT, typename OutT>
-__global__ void argmin_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const float* a, OutT* out)
-{
-  __shared__ OutT shm_ids[1024];    // NOLINT
-  __shared__ float shm_vals[1024];  // NOLINT
-  IdxT i = blockIdx.x;
-  if (i >= n_rows) return;
-  OutT min_idx  = n_cols;
-  float min_val = raft::upper_bound<float>();
-  for (OutT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    if (min_val > a[j + n_cols * i]) {
-      min_val = a[j + n_cols * i];
-      min_idx = j;
-    }
-  }
-  shm_vals[threadIdx.x] = min_val;
-  shm_ids[threadIdx.x]  = min_idx;
-  __syncthreads();
-  for (IdxT offset = blockDim.x / 2; offset > 0; offset >>= 1) {
-    if (threadIdx.x < offset) {
-      if (shm_vals[threadIdx.x] < shm_vals[threadIdx.x + offset]) {
-      } else if (shm_vals[threadIdx.x] > shm_vals[threadIdx.x + offset]) {
-        shm_vals[threadIdx.x] = shm_vals[threadIdx.x + offset];
-        shm_ids[threadIdx.x]  = shm_ids[threadIdx.x + offset];
-      } else if (shm_ids[threadIdx.x] > shm_ids[threadIdx.x + offset]) {
-        shm_ids[threadIdx.x] = shm_ids[threadIdx.x + offset];
-      }
-    }
-    __syncthreads();
-  }
-  if (threadIdx.x == 0) { out[i] = shm_ids[0]; }
-}
-
-/**
- * @brief Find index of the smallest element in each row.
- *
- * NB: device-only function
- * TODO: specialize select_k for the case of `k == 1` and use that one instead.
- *
- * @tparam IdxT index type
- * @tparam OutT output type
- *
- * @param n_rows
- * @param n_cols
- * @param[in] a device pointer to the row-major matrix [n_rows, n_cols]
- * @param[out] out device pointer to the vector of selected indices [n_rows]
- * @param stream
- */
-template <typename IdxT, typename OutT>
-inline void argmin_along_rows(
-  IdxT n_rows, IdxT n_cols, const float* a, OutT* out, rmm::cuda_stream_view stream)
-{
-  IdxT block_dim = 1024;
-  while (block_dim > n_cols) {
-    block_dim /= 2;
-  }
-  block_dim = max(block_dim, (IdxT)128);
-  argmin_along_rows_kernel<IdxT, OutT><<<n_rows, block_dim, 0, stream>>>(n_rows, n_cols, a, out);
-}
-
-template <typename IdxT>
-__global__ void dots_along_rows_kernel(IdxT n_rows, IdxT n_cols, const float* a, float* out)
-{
-  IdxT i = threadIdx.y + (blockDim.y * static_cast<IdxT>(blockIdx.x));
-  if (i >= n_rows) return;
-
-  float sqsum = 0.0;
-  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    float val = a[j + (n_cols * i)];
-    sqsum += val * val;
-  }
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 1);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 2);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 4);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 8);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
-  if (threadIdx.x == 0) { out[i] = sqsum; }
-}
-
-/**
- * @brief Square sum of values in each row (row-major matrix).
- *
- * NB: device-only function
- *
- * @tparam IdxT index type
- *
- * @param n_rows
- * @param n_cols
- * @param[in] a device pointer to the row-major matrix [n_rows, n_cols]
- * @param[out] out device pointer to the vector of dot-products [n_rows]
- * @param stream
- */
-template <typename IdxT>
-inline void dots_along_rows(
-  IdxT n_rows, IdxT n_cols, const float* a, float* out, rmm::cuda_stream_view stream)
-{
-  dim3 threads(32, 4, 1);
-  dim3 blocks(ceildiv<IdxT>(n_rows, threads.y), 1, 1);
-  dots_along_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a, out);
-  /**
-   * TODO: this can be replaced with the rowNorm helper as shown below.
-   * However, the rowNorm helper seems to incur a significant performance penalty
-   * (example case ann-search slowed down from 150ms to 186ms).
-   *
-   * raft::linalg::rowNorm(out, a, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
-   */
-}
-
-template <typename IdxT>
-__global__ void normalize_rows_kernel(IdxT n_rows, IdxT n_cols, float* a)
-{
-  IdxT i = threadIdx.y + (blockDim.y * static_cast<IdxT>(blockIdx.x));
-  if (i >= n_rows) return;
-
-  float sqsum = 0.0;
-  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    float val = a[j + (n_cols * i)];
-    sqsum += val * val;
-  }
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 1);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 2);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 4);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 8);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
-  if (sqsum <= 1e-8) return;
-  sqsum = rsqrtf(sqsum);  // reciprocal of the square root
-  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    a[j + n_cols * i] *= sqsum;
-  }
-}
-
-/**
- * @brief Divide rows by their L2 norm (square root of sum of squares).
- *
- * NB: device-only function
- *
- * @tparam IdxT index type
- *
- * @param[in] n_rows
- * @param[in] n_cols
- * @param[inout] a device pointer to a row-major matrix [n_rows, n_cols]
- * @param stream
- */
-template <typename IdxT>
-inline void normalize_rows(IdxT n_rows, IdxT n_cols, float* a, rmm::cuda_stream_view stream)
-{
-  dim3 threads(32, 4, 1);  // DO NOT CHANGE
-  dim3 blocks(ceildiv(n_rows, threads.y), 1, 1);
-  normalize_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
-}
-
-template <typename IdxT, typename Lambda>
-__global__ void map_along_rows_kernel(
-  IdxT n_rows, uint32_t n_cols, float* a, const uint32_t* d, Lambda map)
-{
-  IdxT gid = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);
-  IdxT i   = gid / n_cols;
-  if (i >= n_rows) return;
-  float& x = a[gid];
-  x        = map(x, d[i]);
-}
-
-/**
- * @brief Map a binary function over a matrix and a vector element-wise, broadcasting the vector
- * values along rows: `m[i, j] = op(m[i,j], v[i])`
- *
- * NB: device-only function
- *
- * @tparam IdxT   index type
- * @tparam Lambda
- *
- * @param n_rows
- * @param n_cols
- * @param[inout] m device pointer to a row-major matrix [n_rows, n_cols]
- * @param[in] v device pointer to a vector [n_rows]
- * @param op the binary operation to apply on every element of matrix rows and of the vector
- */
-template <typename IdxT, typename Lambda>
-inline void map_along_rows(IdxT n_rows,
-                           uint32_t n_cols,
-                           float* m,
-                           const uint32_t* v,
-                           Lambda op,
-                           rmm::cuda_stream_view stream)
-{
-  dim3 threads(128, 1, 1);
-  dim3 blocks(ceildiv<IdxT>(n_rows * n_cols, threads.x), 1, 1);
-  map_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, m, v, op);
 }
 
 template <typename T, typename IdxT>

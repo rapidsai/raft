@@ -19,16 +19,16 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from cuda.ccudart cimport(
-    cudaStream_t,
+from cuda.ccudart cimport (
     cudaError_t,
-    cudaSuccess,
+    cudaGetErrorName,
+    cudaGetErrorString,
+    cudaGetLastError,
+    cudaStream_t,
     cudaStreamCreate,
     cudaStreamDestroy,
     cudaStreamSynchronize,
-    cudaGetLastError,
-    cudaGetErrorString,
-    cudaGetErrorName
+    cudaSuccess,
 )
 
 
