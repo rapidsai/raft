@@ -32,6 +32,8 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
        OFF
 )
 
+option(RAFT_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
+
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
   find_package(raft ${raft_dask_version} REQUIRED COMPONENTS distributed)
@@ -57,7 +59,16 @@ if(NOT raft_FOUND)
   set(RAFT_COMPILE_LIBRARIES OFF)
   set(RAFT_COMPILE_DIST_LIBRARY OFF)
   set(RAFT_COMPILE_NN_LIBRARY OFF)
-  add_subdirectory(../../cpp raft-cpp)
+
+  set(_exclude_from_all "")
+  if(RAFT_BUILD_WHEELS)
+    # Statically link dependencies if building wheels
+    set(CUDA_STATIC_RUNTIME ON)
+    # Don't install the raft C++ targets into wheels
+    set(_exclude_from_all EXCLUDE_FROM_ALL)
+  endif()
+
+  add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
 endif()
 
 include(rapids-cython)
