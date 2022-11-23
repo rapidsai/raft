@@ -722,7 +722,10 @@ template <typename T>
 using weight_t = typename weight_alias<T>::type;
 }  // namespace sample_without_replacement_impl
 
-//@{
+/**
+ * \defgroup sample_without_replacement Sampling without Replacement
+ * @{
+ */
 
 /**
  * @brief Sample the input vector without replacement, optionally based on the
@@ -835,7 +838,7 @@ void sample_without_replacement(Args... args)
   sample_without_replacement(std::forward<Args>(args)..., std::nullopt);
 }
 
-//@}
+/** @} */
 
 /**
  * @brief Legacy version of @c sample_without_replacement (see above)

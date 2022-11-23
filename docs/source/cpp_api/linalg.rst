@@ -14,3 +14,4 @@ hide the complexities of lower-level C-based libraries provided in the CUDA tool
 .. doxygennamespace:: raft::linalg
     :project: RAFT
     :members:
+    :content-only:

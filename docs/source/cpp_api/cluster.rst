@@ -9,24 +9,33 @@ fundamental clustering algorithms which are, themselves, considered reusable bui
    :class: highlight
 
 K-Means
--------
+#######
+
+Header: `raft/cluster/kmeans.cuh`
 
 .. doxygennamespace:: raft::cluster::kmeans
     :project: RAFT
     :members:
+    :content-only:
 
 
 Hierarchical Clustering
------------------------
+#######################
+
+Header: `raft/cluster/single_linkage.cuh`
 
 .. doxygennamespace:: raft::cluster::hierarchy
     :project: RAFT
     :members:
+    :content-only:
 
 
 Spectral Clustering
--------------------
+###################
+
+Header: `raft/spectral/partition.cuh`
 
 .. doxygennamespace:: raft::spectral
     :project: RAFT
     :members:
+    :content-only:

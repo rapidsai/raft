@@ -11,12 +11,16 @@ This page provides C++ class references for the publicly-exposed elements of the
 Linear Assignment Problem
 #########################
 
+Header: `raft/solver/linear_assignment.cuh`
+
 .. doxygenclass:: raft::solver::LinearAssignmentProblem
     :project: RAFT
     :members:
 
 Minimum Spanning Tree
 #####################
+
+Header: `raft/sparse/solver/mst.cuh`
 
 .. doxygenfunction:: raft::sparse::solver::mst
     :project: RAFT

@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide is meant to provide a quick-start tutorial for interacting with RAFT's C++ APIs.
+This guide is meant to provide a quick-start tutorial for interacting with RAFT's C++ & Python APIs.
 
 ## RAPIDS Memory Manager (RMM)
 

@@ -12,3 +12,4 @@ headers cover many operations on matrices that are otherwise not covered by `raf
 .. doxygennamespace:: raft::matrix
     :project: RAFT
     :members:
+    :content-only:

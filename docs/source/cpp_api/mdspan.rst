@@ -1,5 +1,5 @@
-Multi-dimensional Span / Array
-==============================
+Multi-dimensional Data
+======================
 
 This page provides C++ class references for the RAFT's 1d span and multi-dimension owning (mdarray) and non-owning (mdspan) APIs. These headers can be found in the `raft/core` directory.
 
@@ -11,24 +11,19 @@ This page provides C++ class references for the RAFT's 1d span and multi-dimensi
 Representation
 ##############
 
-.. doxygenstruct:: raft::host_device_accessor
-    :project: RAFT
-    :members:
 
-.. doxygentypedef:: raft::host_accessor
-    :project: RAFT
-
-.. doxygentypedef:: raft::device_accessor
-    :project: RAFT
-
-.. doxygentypedef:: raft::managed_accessor
-    :project: RAFT
+Layouts
+-------
 
 .. doxygentypedef:: raft::row_major
     :project: RAFT
 
 .. doxygentypedef:: raft::col_major
     :project: RAFT
+
+
+Shapes
+------
 
 .. doxygentypedef:: raft::matrix_extent
     :project: RAFT
@@ -60,6 +55,26 @@ Representation
 .. doxygenfunction:: raft::reshape(const array_interface_type& mda, extents<IndexType, Extents...> new_shape)
     :project: RAFT
 
+
+Accessors
+---------
+
+.. doxygenstruct:: raft::host_device_accessor
+    :project: RAFT
+    :members:
+
+.. doxygentypedef:: raft::host_accessor
+    :project: RAFT
+
+.. doxygentypedef:: raft::device_accessor
+    :project: RAFT
+
+.. doxygentypedef:: raft::managed_accessor
+    :project: RAFT
+
+
+
+
 mdarray
 #######
 
@@ -83,7 +98,6 @@ Device Vocabulary
 
 .. doxygentypedef:: raft::device_mdarray
     :project: RAFT
-
 
 .. doxygentypedef:: raft::device_matrix
     :project: RAFT
@@ -137,36 +151,6 @@ mdspan
 ######
 
 .. doxygentypedef:: raft::mdspan
-    :project: RAFT
-
-.. doxygenstruct:: raft::is_mdspan
-    :project: RAFT
-    :members:
-
-.. doxygentypedef:: raft::is_mdspan_t
-    :project: RAFT
-
-.. doxygenstruct:: raft::is_input_mdspan
-    :project: RAFT
-    :members:
-
-.. doxygentypedef:: raft::is_input_mdspan_t
-    :project: RAFT
-
-.. doxygenstruct:: raft::is_output_mdspan
-    :project: RAFT
-    :members:
-
-.. doxygentypedef:: raft::is_output_mdspan_t
-    :project: RAFT
-
-.. doxygentypedef:: raft::enable_if_mdspan
-    :project: RAFT
-
-.. doxygentypedef:: raft::enable_if_input_mdspan
-    :project: RAFT
-
-.. doxygentypedef:: raft::enable_if_output_mdspan
     :project: RAFT
 
 .. doxygenfunction:: raft::make_mdspan
@@ -312,6 +296,40 @@ Host Factories
     :project: RAFT
 
 .. doxygenfunction:: raft::make_device_scalar_view
+    :project: RAFT
+
+
+Validation Routines
+-------------------
+
+.. doxygenstruct:: raft::is_mdspan
+    :project: RAFT
+    :members:
+
+.. doxygentypedef:: raft::is_mdspan_t
+    :project: RAFT
+
+.. doxygenstruct:: raft::is_input_mdspan
+    :project: RAFT
+    :members:
+
+.. doxygentypedef:: raft::is_input_mdspan_t
+    :project: RAFT
+
+.. doxygenstruct:: raft::is_output_mdspan
+    :project: RAFT
+    :members:
+
+.. doxygentypedef:: raft::is_output_mdspan_t
+    :project: RAFT
+
+.. doxygentypedef:: raft::enable_if_mdspan
+    :project: RAFT
+
+.. doxygentypedef:: raft::enable_if_input_mdspan
+    :project: RAFT
+
+.. doxygentypedef:: raft::enable_if_output_mdspan
     :project: RAFT
 
 span
