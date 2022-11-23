@@ -15,9 +15,9 @@
  */
 
 #include <raft/cluster/kmeans.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
-#include <raft/handle.hpp>
 
 namespace raft::cluster::kmeans::runtime {
 template <typename ElementType, typename IndexType>
