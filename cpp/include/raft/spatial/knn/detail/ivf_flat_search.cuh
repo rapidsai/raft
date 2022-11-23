@@ -26,6 +26,7 @@
 #include <raft/core/mdarray.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/norm.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_loads_stores.cuh>
@@ -1102,8 +1103,14 @@ void search_impl(const handle_t& handle,
   if (index.metric() == raft::distance::DistanceType::L2Expanded) {
     alpha = -2.0f;
     beta  = 1.0f;
-    utils::dots_along_rows(
-      n_queries, index.dim(), converted_queries_ptr, query_norm_dev.data(), stream);
+    raft::linalg::rowNorm(query_norm_dev.data(),
+                          converted_queries_ptr,
+                          static_cast<IdxT>(index.dim()),
+                          static_cast<IdxT>(n_queries),
+                          raft::linalg::L2Norm,
+                          true,
+                          stream,
+                          raft::SqrtOp<float>());
     utils::outer_add(query_norm_dev.data(),
                      (IdxT)n_queries,
                      index.center_norms()->data_handle(),
@@ -1205,6 +1212,26 @@ void search_impl(const handle_t& handle,
   }
 }
 
+/**
+ * Whether minimal distance corresponds to similar elements (using the given metric).
+ */
+inline bool is_min_close(distance::DistanceType metric)
+{
+  bool select_min;
+  switch (metric) {
+    case raft::distance::DistanceType::InnerProduct:
+    case raft::distance::DistanceType::CosineExpanded:
+    case raft::distance::DistanceType::CorrelationExpanded:
+      // Similarity metrics have the opposite meaning, i.e. nearest neighbors are those with larger
+      // similarity (See the same logic at cpp/include/raft/sparse/spatial/detail/knn.cuh:362
+      // {perform_k_selection})
+      select_min = false;
+      break;
+    default: select_min = true;
+  }
+  return select_min;
+}
+
 /** See raft::spatial::knn::ivf_flat::search docs */
 template <typename T, typename IdxT>
 inline void search(const handle_t& handle,
@@ -1224,27 +1251,22 @@ inline void search(const handle_t& handle,
                "n_probes (number of clusters to probe in the search) must be positive.");
   auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
 
-  bool select_min;
-  switch (index.metric()) {
-    case raft::distance::DistanceType::InnerProduct:
-    case raft::distance::DistanceType::CosineExpanded:
-    case raft::distance::DistanceType::CorrelationExpanded:
-      // Similarity metrics have the opposite meaning, i.e. nearest neighbors are those with larger
-      // similarity (See the same logic at cpp/include/raft/sparse/spatial/detail/knn.cuh:362
-      // {perform_k_selection})
-      select_min = false;
-      break;
-    default: select_min = true;
-  }
-
   auto pool_guard = raft::get_pool_memory_resource(mr, n_queries * n_probes * k * 16);
   if (pool_guard) {
     RAFT_LOG_DEBUG("ivf_flat::search: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
   }
 
-  return search_impl<T, float, IdxT>(
-    handle, index, queries, n_queries, k, n_probes, select_min, neighbors, distances, mr);
+  return search_impl<T, float, IdxT>(handle,
+                                     index,
+                                     queries,
+                                     n_queries,
+                                     k,
+                                     n_probes,
+                                     is_min_close(index.metric()),
+                                     neighbors,
+                                     distances,
+                                     mr);
 }
 
 }  // namespace raft::spatial::knn::ivf_flat::detail

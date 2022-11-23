@@ -94,6 +94,7 @@ if(BUILD_BENCH)
     bench/linalg/add.cu
     bench/linalg/map_then_reduce.cu
     bench/linalg/matrix_vector_op.cu
+    bench/linalg/norm.cu
     bench/linalg/normalize.cu
     bench/linalg/reduce_rows_by_key.cu
     bench/linalg/reduce.cu
@@ -123,6 +124,7 @@ if(BUILD_BENCH)
     bench/neighbors/knn/ivf_pq_float_uint32_t.cu
     bench/neighbors/knn/ivf_pq_int8_t_int64_t.cu
     bench/neighbors/knn/ivf_pq_uint8_t_uint32_t.cu
+    bench/neighbors/refine.cu
     bench/neighbors/selection.cu
     bench/main.cpp
     OPTIONAL

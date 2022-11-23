@@ -24,6 +24,8 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 
+#include <type_traits>
+
 namespace raft {
 namespace linalg {
 
@@ -71,8 +73,16 @@ void stridedReduction(OutType* dots,
                       ReduceLambda reduce_op = raft::Sum<OutType>(),
                       FinalLambda final_op   = raft::Nop<OutType>())
 {
-  detail::stridedReduction<InType, OutType, IdxType>(
-    dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
+  // Only compile for types supported by myAtomicReduce, but don't make the compilation fail in
+  // other cases, because coalescedReduction supports arbitrary types.
+  if constexpr (std::is_same_v<OutType, float> || std::is_same_v<OutType, double> ||
+                std::is_same_v<OutType, int> || std::is_same_v<OutType, long long> ||
+                std::is_same_v<OutType, unsigned long long>) {
+    detail::stridedReduction<InType, OutType, IdxType>(
+      dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
+  } else {
+    THROW("Unsupported type for stridedReduction: %s", typeid(OutType).name());
+  }
 }
 
 /**
