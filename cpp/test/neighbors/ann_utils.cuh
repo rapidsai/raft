@@ -25,6 +25,9 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
+#include "../test_utils.h"
+#include <gtest/gtest.h>
+
 namespace raft::neighbors {
 
 struct print_dtype {
