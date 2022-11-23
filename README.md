@@ -5,7 +5,8 @@
 ## Resources
 
 - [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
-- [Getting Started](https://rapids.ai/start.html): Instructions for installing RAFT.
+- [Build and Install RAFT](https://github.com/rapidsai/raft#installing): Instructions for installing RAFT.
+- [RAPIDS Getting Started](https://rapids.ai/start.html): Instructions for installing Rapids.
 - [RAPIDS Community](https://rapids.ai/community.html): Get help, contribute, and collaborate.
 - [GitHub repository](https://github.com/rapidsai/raft): Download the RAFT source code.
 - [Issue tracker](https://github.com/rapidsai/raft/issues): Report issues or request features.
