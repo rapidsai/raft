@@ -319,7 +319,7 @@ inline auto build(
  * @param[inout] refinement_index
  * @param[in] dataset device pointer to dataset vectors, size [n_rows, dim]. Note that n_rows is
  *   not known to this function, but each candidate_idx has to be smaller than n_rows.
- * @param[in] candidate_idx device poniter to neighbor candidates, size [n_queries, n_candidates]
+ * @param[in] candidate_idx device pointer to neighbor candidates, size [n_queries, n_candidates]
  * @param[in] n_candidates  of neighbor_candidates
  */
 template <typename T, typename IdxT>

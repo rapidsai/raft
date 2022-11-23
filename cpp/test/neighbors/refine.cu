@@ -56,13 +56,13 @@ class RefineTest : public ::testing::TestWithParam<detail::RefineInputs<IdxT>> {
     std::vector<DistanceT> distances(data.p.n_queries * data.p.k);
 
     if (data.p.host_data) {
-      raft::neighbors::refine_host<IdxT, DataT, DistanceT, IdxT>(handle_,
-                                                                 data.dataset_host.view(),
-                                                                 data.queries_host.view(),
-                                                                 data.candidates_host.view(),
-                                                                 data.refined_indices_host.view(),
-                                                                 data.refined_distances_host.view(),
-                                                                 data.p.metric);
+      raft::neighbors::refine<IdxT, DataT, DistanceT, IdxT>(handle_,
+                                                            data.dataset_host.view(),
+                                                            data.queries_host.view(),
+                                                            data.candidates_host.view(),
+                                                            data.refined_indices_host.view(),
+                                                            data.refined_distances_host.view(),
+                                                            data.p.metric);
       raft::copy(indices.data(),
                  data.refined_indices_host.data_handle(),
                  data.refined_indices_host.size(),
@@ -114,7 +114,7 @@ const std::vector<detail::RefineInputs<int64_t>> inputs =
     {16},
     {1, 10, 33},
     {33},
-    {raft::distance::DistanceType::L2Expanded},
+    {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false, true});
 
 typedef RefineTest<float, float, std::int64_t> RefineTestF;

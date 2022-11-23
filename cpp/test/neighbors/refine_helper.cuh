@@ -40,7 +40,7 @@ struct RefineInputs {
   bool host_data;
 };
 
-/** Helper class to allocate arrays and generate input data for refinment test and benchmark. */
+/** Helper class to allocate arrays and generate input data for refinement test and benchmark. */
 template <typename DataT, typename DistanceT, typename IdxT>
 class RefineHelper {
  public:

@@ -72,14 +72,13 @@ class RefineAnn : public fixture {
 
     if (data.p.host_data) {
       loop_on_state(state, [this]() {
-        raft::neighbors::refine_host<IdxT, DataT, DistanceT, IdxT>(
-          handle_,
-          data.dataset_host.view(),
-          data.queries_host.view(),
-          data.candidates_host.view(),
-          data.refined_indices_host.view(),
-          data.refined_distances_host.view(),
-          data.p.metric);
+        raft::neighbors::refine<IdxT, DataT, DistanceT, IdxT>(handle_,
+                                                              data.dataset_host.view(),
+                                                              data.queries_host.view(),
+                                                              data.candidates_host.view(),
+                                                              data.refined_indices_host.view(),
+                                                              data.refined_distances_host.view(),
+                                                              data.p.metric);
       });
     } else {
       loop_on_state(state, [&]() {

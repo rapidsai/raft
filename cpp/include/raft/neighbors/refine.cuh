@@ -16,13 +16,12 @@
 
 #pragma once
 
-#include "raft/spatial/knn/detail/ann_utils.cuh"
-
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/matrix/matrix.cuh>
 #include <raft/neighbors/detail/refine.cuh>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 
 namespace raft::neighbors {
 
@@ -72,7 +71,7 @@ void refine(raft::handle_t const& handle,
             raft::device_matrix_view<distance_t, matrix_idx, row_major> distances,
             distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
 {
-  detail::refine(handle, dataset, queries, neighbor_candidates, indices, distances, metric);
+  detail::refine_device(handle, dataset, queries, neighbor_candidates, indices, distances, metric);
 }
 
 /** Same as above, but all input and out data is in host memory.
@@ -86,13 +85,13 @@ void refine(raft::handle_t const& handle,
  * @param[in] metric distance metric to use. Euclidean (L2) is used by default
  */
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
-void refine_host(raft::handle_t const& handle,
-                 raft::host_matrix_view<const data_t, matrix_idx, row_major> dataset,
-                 raft::host_matrix_view<const data_t, matrix_idx, row_major> queries,
-                 raft::host_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
-                 raft::host_matrix_view<idx_t, matrix_idx, row_major> indices,
-                 raft::host_matrix_view<distance_t, matrix_idx, row_major> distances,
-                 distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
+void refine(raft::handle_t const& handle,
+            raft::host_matrix_view<const data_t, matrix_idx, row_major> dataset,
+            raft::host_matrix_view<const data_t, matrix_idx, row_major> queries,
+            raft::host_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
+            raft::host_matrix_view<idx_t, matrix_idx, row_major> indices,
+            raft::host_matrix_view<distance_t, matrix_idx, row_major> distances,
+            distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
 {
   detail::refine_host(dataset, queries, neighbor_candidates, indices, distances, metric);
 }

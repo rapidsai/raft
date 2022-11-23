@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include "raft/spatial/knn/detail/ann_utils.cuh"
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/spatial/knn/detail/ivf_flat_build.cuh>
 #include <raft/spatial/knn/detail/ivf_flat_search.cuh>
 
@@ -131,7 +131,7 @@ void refine_device(raft::handle_t const& handle,
            handle.get_stream());
 }
 
-/** Helper struture for naive CPU implementation of refine. */
+/** Helper structure for naive CPU implementation of refine. */
 typedef struct {
   uint64_t id;
   float distance;
@@ -139,7 +139,7 @@ typedef struct {
 
 int _postprocessing_qsort_compare(const void* v1, const void* v2)
 {
-  // sort in acending order
+  // sort in ascending order
   if (((struct_for_refinement*)v1)->distance > ((struct_for_refinement*)v2)->distance) {
     return 1;
   } else if (((struct_for_refinement*)v1)->distance < ((struct_for_refinement*)v2)->distance) {
@@ -204,7 +204,7 @@ void refine_host(raft::host_matrix_view<const data_t, matrix_idx, row_major> dat
           float val_q = (float)(cur_query[k]);
           float val_d = (float)(cur_dataset[k]);
           if (metric == raft::distance::DistanceType::InnerProduct) {
-            distance += -val_q * val_d;  // Negate because we use a min search later
+            distance += -val_q * val_d;  // Negate because we sort in scending order.
           } else {
             distance += (val_q - val_d) * (val_q - val_d);
           }
