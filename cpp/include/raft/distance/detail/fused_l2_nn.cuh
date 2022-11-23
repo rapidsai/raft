@@ -174,7 +174,8 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < P::AccColsPerTh; ++j) {
-          acc[i][j] = raft::mySqrt(acc[i][j]);
+          auto acc_ij = acc[i][j];
+          acc[i][j]   = acc_ij > DataT{0} ? raft::mySqrt(acc_ij) : DataT{0};
         }
       }
     }
