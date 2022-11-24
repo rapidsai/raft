@@ -706,6 +706,19 @@ void laplace(const raft::handle_t& handle,
 /**
  * @brief Generate random integers, where the probability of i is weights[i]/sum(weights)
  *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/device_mdarray.hpp>
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/random/rng.cuh>
+ *
+ *  raft::handle_t handle;
+ *  ...
+ *  raft::random::RngState rng(seed);
+ *  auto indices = raft::make_device_vector<int>(handle, n_samples);
+ *  raft::random::discrete(handle, rng, indices.view(), weights);
+ * @endcode
+ *
  * @tparam OutType integer output type
  * @tparam WeightType weight type
  * @tparam IndexType data type used to represent length of the arrays
