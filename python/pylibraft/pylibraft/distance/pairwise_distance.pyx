@@ -118,51 +118,63 @@ def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
     --------
     To compute pairwise distances on cupy arrays:
 
-    >>> import cupy as cp
-    >>> from pylibraft.common import Handle
-    >>> from pylibraft.distance import pairwise_distance
-    >>> n_samples = 5000
-    >>> n_features = 50
-    >>> in1 = cp.random.random_sample((n_samples, n_features),
+    .. code-block:: python
+
+        import cupy as cp
+        from pylibraft.common import Handle
+        from pylibraft.distance import pairwise_distance
+        n_samples = 5000
+        n_features = 50
+        in1 = cp.random.random_sample((n_samples, n_features),
                                       dtype=cp.float32)
-    >>> in2 = cp.random.random_sample((n_samples, n_features),
+        in2 = cp.random.random_sample((n_samples, n_features),
                                       dtype=cp.float32)
 
     A single RAFT handle can optionally be reused across
     pylibraft functions.
 
-    >>> handle = Handle()
-    >>> output = pairwise_distance(in1, in2, metric="euclidean", handle=handle)
+    .. code-block:: python
+
+        handle = Handle()
+        output = pairwise_distance(in1, in2, metric="euclidean", handle=handle)
 
     pylibraft functions are often asynchronous so the
     handle needs to be explicitly synchronized
 
-    >>> handle.sync()
+    .. code-block:: python
+
+        handle.sync()
 
     It's also possible to write to a pre-allocated output array:
 
-    >>> import cupy as cp
-    >>> from pylibraft.common import Handle
-    >>> from pylibraft.distance import pairwise_distance
-    >>> n_samples = 5000
-    >>> n_features = 50
-    >>> in1 = cp.random.random_sample((n_samples, n_features),
+    .. code-block:: python
+
+        import cupy as cp
+        from pylibraft.common import Handle
+        from pylibraft.distance import pairwise_distance
+        n_samples = 5000
+        n_features = 50
+        in1 = cp.random.random_sample((n_samples, n_features),
                                      dtype=cp.float32)
-    >>> in2 = cp.random.random_sample((n_samples, n_features),
+        in2 = cp.random.random_sample((n_samples, n_features),
                                      dtype=cp.float32)
-    >>> output = cp.empty((n_samples, n_samples), dtype=cp.float32)
+        output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
     A single RAFT handle can optionally be reused across
     pylibraft functions.
 
-    >>> handle = Handle()
-    >>> pairwise_distance(in1, in2, out=output,
+    .. code-block:: python
+
+        handle = Handle()
+        pairwise_distance(in1, in2, out=output,
                          metric="euclidean", handle=handle)
 
     pylibraft functions are often asynchronous so the
     handle needs to be explicitly synchronized
 
-    >>> handle.sync()
+    .. code-block:: python
+
+        handle.sync()
     """
 
     x_cai = cai_wrapper(X)
