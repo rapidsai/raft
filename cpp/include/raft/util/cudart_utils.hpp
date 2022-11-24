@@ -40,6 +40,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <type_traits>
 
 ///@todo: enable once logging has been enabled in raft
 //#include "logger.hpp"
@@ -536,6 +537,83 @@ inline auto get_pool_memory_resource(rmm::mr::device_memory_resource*& mr, size_
   }
   return pool_res;
 }
+
+/**
+ * RAII helper to access the host data from GPU.
+ * If a valid host pointer is passed to the constructor of this struct, it registers
+ * and maps the host memory region to be accessible from the current device for the
+ * lifetime of this struct.
+ *
+ * This structure is especially useful when the host memory is not allocated within the logic
+ * of the algorithm, e.g. the pointer comes from the OS `mmap` call. In such cases, it helps to
+ * avoid an extra host<->host memory copy.
+ *
+ * Note, the host memory in question must fit within the GPU memory
+ * (the mapping logic cannot produce a UVM/managed memory).
+ */
+template <typename PtrT>
+struct using_mapped_memory_t {
+  static_assert(std::is_pointer_v<PtrT>, "PtrT must be a pointer type");
+
+  /**
+   * When necessary, register the input pointer and make it accessible from GPU.
+   * If the input pointer is a `nullptr` or already accessible from a current device,
+   * the struct does nothing to it.
+   *
+   * Note, when the memory needs to be mapped and the `size` is larger than the available device
+   * memory, the call fails with a raft exception due to `cudaErrorMemoryAllocation` error.
+   *
+   * @param ptr host or device pointer.
+   * @param size amount of the data to be mapped in bytes.
+   */
+  using_mapped_memory_t(PtrT ptr, size_t size)
+  {
+    if (ptr == nullptr) { return; }
+    cudaPointerAttributes attr;
+    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
+    if (attr.devicePointer != nullptr) {
+      dev_ptr_ = attr.devicePointer;
+    } else {
+      host_ptr_ = reinterpret_cast<void*>(const_cast<uncv_ptr_t>(ptr));
+      RAFT_CUDA_TRY(cudaHostRegister(host_ptr_, size, choose_flags()));
+      RAFT_CUDA_TRY(cudaHostGetDevicePointer(&dev_ptr_, host_ptr_, 0));
+    }
+  }
+
+  ~using_mapped_memory_t()
+  {
+    if (host_ptr_ != nullptr) {
+      if (cudaHostUnregister(host_ptr_) != cudaSuccess) { cudaGetLastError(); };
+    }
+  }
+
+  /** Get a valid pointer accessible from the current device (or `nullptr`). */
+  [[nodiscard]] auto dev_ptr() const -> PtrT
+  {
+    return const_cast<PtrT>(reinterpret_cast<uncv_ptr_t>(dev_ptr_));
+  }
+
+ private:
+  using value_t    = std::remove_pointer_t<PtrT>;
+  using uncv_val_t = std::remove_cv_t<value_t>;
+  using uncv_ptr_t = uncv_val_t*;
+
+  void* host_ptr_ = nullptr;
+  void* dev_ptr_  = nullptr;
+
+  static constexpr unsigned int kDefaultFlags = cudaHostRegisterMapped;
+  static auto choose_flags() -> unsigned int
+  {
+    if constexpr (std::is_const_v<value_t>) {
+      int dev_id, readonly_supported;
+      RAFT_CUDA_TRY(cudaGetDevice(&dev_id));
+      RAFT_CUDA_TRY(cudaDeviceGetAttribute(
+        &readonly_supported, cudaDevAttrHostRegisterReadOnlySupported, dev_id));
+      if (readonly_supported) { return kDefaultFlags | cudaHostRegisterReadOnly; }
+    }
+    return kDefaultFlags;
+  }
+};
 
 }  // namespace raft
 

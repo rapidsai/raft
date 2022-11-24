@@ -1044,16 +1044,9 @@ inline auto extend(const handle_t& handle,
                    const IdxT* new_indices,
                    IdxT n_rows) -> index<IdxT>
 {
-  size_t vec_size = sizeof(T) * size_t(n_rows) * size_t(orig_index.dim());
-  size_t ind_size = sizeof(IdxT) * size_t(n_rows);
-  return utils::with_mapped_memory_t{
-    new_vectors, vec_size, [&](const T* new_vectors_dev) {
-      return utils::with_mapped_memory_t{
-        new_indices, ind_size, [&](const IdxT* new_indices_dev) {
-          return extend_device<T, IdxT>(
-            handle, orig_index, new_vectors_dev, new_indices_dev, n_rows);
-        }}();
-    }}();
+  using_mapped_memory_t vectors{new_vectors, sizeof(T) * size_t(n_rows) * size_t(orig_index.dim())};
+  using_mapped_memory_t indices{new_indices, sizeof(IdxT) * size_t(n_rows)};
+  return extend_device<T, IdxT>(handle, orig_index, vectors.dev_ptr(), indices.dev_ptr(), n_rows);
 }
 
 /**
@@ -1262,11 +1255,8 @@ inline auto build(
   const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
   -> index<IdxT>
 {
-  size_t data_size = sizeof(T) * size_t(n_rows) * size_t(dim);
-  return utils::with_mapped_memory_t{dataset, data_size, [&](const T* dataset_dev) {
-                                       return build_device<T, IdxT>(
-                                         handle, params, dataset_dev, n_rows, dim);
-                                     }}();
+  using_mapped_memory_t vectors{dataset, sizeof(T) * size_t(n_rows) * size_t(dim)};
+  return build_device<T, IdxT>(handle, params, vectors.dev_ptr(), n_rows, dim);
 }
 
 }  // namespace raft::spatial::knn::ivf_pq::detail
