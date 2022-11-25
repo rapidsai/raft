@@ -38,8 +38,7 @@ namespace linalg {
 template <typename in_t, typename out_t = in_t, typename IdxType = int>
 void sqrt(out_t* out, const in_t* in, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(
-    out, in, len, [] __device__(in_t in) { return raft::mySqrt(in); }, stream);
+  raft::linalg::unaryOp(out, in, len, SqrtOp<in_t>{}, stream);
 }
 /** @} */
 

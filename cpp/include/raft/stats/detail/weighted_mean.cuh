@@ -66,8 +66,8 @@ void weightedMean(Type* mu,
     stream,
     false,
     [weights] __device__(Type v, IdxType i) { return v * weights[i]; },
-    [] __device__(Type a, Type b) { return a + b; },
-    [WS] __device__(Type v) { return v / WS; });
+    raft::Sum<Type>{},
+    raft::ScalarDiv<Type>(WS));
 }
 };  // end namespace detail
 };  // end namespace stats

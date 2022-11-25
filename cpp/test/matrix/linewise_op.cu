@@ -58,7 +58,6 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   template <typename layout>
   void runLinewiseSum(T* out, const T* in, const I lineLen, const I nLines, const T* vec)
   {
-    auto f                  = [] __device__(T a, T b) -> T { return a + b; };
     constexpr auto rowmajor = std::is_same_v<layout, row_major>;
 
     I m = rowmajor ? lineLen : nLines;
@@ -68,7 +67,8 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     auto out_view = raft::make_device_matrix_view<T, I, layout>(out, n, m);
 
     auto vec_view = raft::make_device_vector_view<const T>(vec, lineLen);
-    matrix::linewise_op(handle, in_view, out_view, raft::is_row_major(in_view), f, vec_view);
+    matrix::linewise_op(
+      handle, in_view, out_view, raft::is_row_major(in_view), raft::Sum<T>{}, vec_view);
   }
 
   template <typename layout>
@@ -107,9 +107,8 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
                             const bool alongLines,
                             const T* vec)
   {
-    auto f        = [] __device__(T a, T b) -> T { return a + b; };
     auto vec_view = raft::make_device_vector_view<const T, I>(vec, alongLines ? lineLen : nLines);
-    matrix::linewise_op(handle, in, out, alongLines, f, vec_view);
+    matrix::linewise_op(handle, in, out, alongLines, raft::Sum<T>{}, vec_view);
   }
 
   /**

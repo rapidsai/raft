@@ -173,20 +173,6 @@ struct SilOp {
 };
 
 /**
- * @brief structure that defines the reduction Lambda to find minimum between elements
- */
-template <typename DataT>
-struct MinOp {
-  HDI DataT operator()(DataT a, DataT b)
-  {
-    if (a > b)
-      return b;
-    else
-      return a;
-  }
-};
-
-/**
  * @brief main function that returns the average silhouette score for a given set of data and its
  * clusterings
  * @tparam DataT: type of the data samples
@@ -300,8 +286,8 @@ DataT silhouette_score(
     true,
     stream,
     false,
-    raft::Nop<DataT>(),
-    MinOp<DataT>());
+    raft::Nop<DataT>{},
+    raft::Min<DataT>{});
 
   // calculating the silhouette score per sample using the d_aArray and d_bArray
   raft::linalg::binaryOp<DataT, SilOp<DataT>>(

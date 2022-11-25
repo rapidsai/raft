@@ -259,14 +259,7 @@ void select_residuals(const handle_t& handle,
     n_rows, (IdxT)dim, dataset, row_ids, (IdxT)dim, tmp.data(), (IdxT)dim, stream);
 
   raft::matrix::linewiseOp(
-    tmp.data(),
-    tmp.data(),
-    IdxT(dim),
-    n_rows,
-    true,
-    [] __device__(float a, float b) { return a - b; },
-    stream,
-    center);
+    tmp.data(), tmp.data(), IdxT(dim), n_rows, true, raft::Subtract<float>{}, stream, center);
 
   float alpha = 1.0;
   float beta  = 0.0;

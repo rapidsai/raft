@@ -229,8 +229,6 @@ void cosineAlgo1(Index_ m,
                  cudaStream_t stream,
                  bool isRowMajor)
 {
-  auto norm_op = [] __device__(AccType in) { return raft::mySqrt(in); };
-
   // raft distance support inputs as float/double and output as uint8_t/float/double.
   static_assert(!((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
                 "OutType can be uint8_t, float, double,"
@@ -248,10 +246,13 @@ void cosineAlgo1(Index_ m,
   InType* row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
-    raft::linalg::rowNorm(row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+    raft::linalg::rowNorm(
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::SqrtOp<AccType>{});
+    raft::linalg::rowNorm(
+      row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::SqrtOp<AccType>{});
   } else {
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+    raft::linalg::rowNorm(
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::SqrtOp<AccType>{});
   }
 
   if (isRowMajor) {

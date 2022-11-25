@@ -95,11 +95,12 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
     auto input_col_major = raft::make_device_matrix_view<const T, IdxT, raft::col_major>(
       data.data(), params.rows, params.cols);
     if (params.do_sqrt) {
-      auto fin_op = [] __device__(const T in) { return raft::mySqrt(in); };
       if (params.rowMajor) {
-        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_ROWS, fin_op);
+        norm(
+          handle, input_row_major, output_view, params.type, Apply::ALONG_ROWS, raft::SqrtOp<T>{});
       } else {
-        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS, fin_op);
+        norm(
+          handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS, raft::SqrtOp<T>{});
       }
     } else {
       if (params.rowMajor) {
@@ -171,11 +172,20 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
     auto input_col_major = raft::make_device_matrix_view<const T, IdxT, raft::col_major>(
       data.data(), params.rows, params.cols);
     if (params.do_sqrt) {
-      auto fin_op = [] __device__(const T in) { return raft::mySqrt(in); };
       if (params.rowMajor) {
-        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_COLUMNS, fin_op);
+        norm(handle,
+             input_row_major,
+             output_view,
+             params.type,
+             Apply::ALONG_COLUMNS,
+             raft::SqrtOp<T>{});
       } else {
-        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_COLUMNS, fin_op);
+        norm(handle,
+             input_col_major,
+             output_view,
+             params.type,
+             Apply::ALONG_COLUMNS,
+             raft::SqrtOp<T>{});
       }
     } else {
       if (params.rowMajor) {

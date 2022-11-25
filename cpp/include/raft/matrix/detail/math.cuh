@@ -188,8 +188,7 @@ void reciprocal(math_t* in, math_t* out, IdxType len, cudaStream_t stream)
 template <typename math_t>
 void setValue(math_t* out, const math_t* in, math_t scalar, int len, cudaStream_t stream = 0)
 {
-  raft::linalg::unaryOp(
-    out, in, len, [scalar] __device__(math_t in) { return scalar; }, stream);
+  raft::linalg::unaryOp(out, in, len, raft::ConstOp(scalar), stream);
 }
 
 template <typename math_t, typename IdxType = int>
@@ -201,8 +200,7 @@ void ratio(
 
   rmm::device_scalar<math_t> d_sum(stream);
   auto* d_sum_ptr = d_sum.data();
-  auto no_op      = [] __device__(math_t in) { return in; };
-  raft::linalg::mapThenSumReduce(d_sum_ptr, len, no_op, stream, src);
+  raft::linalg::mapThenSumReduce(d_sum_ptr, len, raft::Nop<math_t>{}, stream, src);
   raft::linalg::unaryOp(
     d_dest, d_src, len, [=] __device__(math_t a) { return a / (*d_sum_ptr); }, stream);
 }
@@ -217,15 +215,7 @@ void matrixVectorBinaryMult(Type* data,
                             cudaStream_t stream)
 {
   raft::linalg::matrixVectorOp(
-    data,
-    data,
-    vec,
-    n_col,
-    n_row,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a * b; },
-    stream);
+    data, data, vec, n_col, n_row, rowMajor, bcastAlongRows, raft::Multiply<Type>(), stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
@@ -264,15 +254,7 @@ void matrixVectorBinaryDiv(Type* data,
                            cudaStream_t stream)
 {
   raft::linalg::matrixVectorOp(
-    data,
-    data,
-    vec,
-    n_col,
-    n_row,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a / b; },
-    stream);
+    data, data, vec, n_col, n_row, rowMajor, bcastAlongRows, raft::Divide<Type>(), stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
@@ -330,15 +312,7 @@ void matrixVectorBinaryAdd(Type* data,
                            cudaStream_t stream)
 {
   raft::linalg::matrixVectorOp(
-    data,
-    data,
-    vec,
-    n_col,
-    n_row,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a + b; },
-    stream);
+    data, data, vec, n_col, n_row, rowMajor, bcastAlongRows, raft::Sum<Type>(), stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
@@ -351,15 +325,7 @@ void matrixVectorBinarySub(Type* data,
                            cudaStream_t stream)
 {
   raft::linalg::matrixVectorOp(
-    data,
-    data,
-    vec,
-    n_col,
-    n_row,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a - b; },
-    stream);
+    data, data, vec, n_col, n_row, rowMajor, bcastAlongRows, raft::Subtract<Type>(), stream);
 }
 
 // Computes an argmin/argmax column-wise in a DxN matrix

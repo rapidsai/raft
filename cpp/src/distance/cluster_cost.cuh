@@ -59,20 +59,18 @@ void cluster_cost(const raft::handle_t& handle,
                                      handle.get_stream());
 
   auto distances = raft::make_device_vector<ElementType, IndexType>(handle, n_samples);
-  thrust::transform(
-    handle.get_thrust_policy(),
-    min_cluster_distance.data_handle(),
-    min_cluster_distance.data_handle() + n_samples,
-    distances.data_handle(),
-    [] __device__(const raft::KeyValuePair<IndexType, ElementType>& a) { return a.value; });
+  thrust::transform(handle.get_thrust_policy(),
+                    min_cluster_distance.data_handle(),
+                    min_cluster_distance.data_handle() + n_samples,
+                    distances.data_handle(),
+                    raft::ValueOp{});
 
   rmm::device_scalar<ElementType> device_cost(0, handle.get_stream());
-  raft::cluster::kmeans::cluster_cost(
-    handle,
-    distances.view(),
-    workspace,
-    make_device_scalar_view<ElementType>(device_cost.data()),
-    [] __device__(const ElementType& a, const ElementType& b) { return a + b; });
+  raft::cluster::kmeans::cluster_cost(handle,
+                                      distances.view(),
+                                      workspace,
+                                      make_device_scalar_view<ElementType>(device_cost.data()),
+                                      raft::Sum<ElementType>{});
 
   raft::update_host(cost, device_cost.data(), 1, handle.get_stream());
 }

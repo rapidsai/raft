@@ -158,13 +158,12 @@ class SparseDistanceCOOSPMVTest
       case raft::distance::DistanceType::LpUnexpanded: {
         compute_dist(
           detail::PDiff(params.input_configuration.metric_arg), detail::Sum(), detail::AtomicAdd());
-        float p = 1.0f / params.input_configuration.metric_arg;
-        raft::linalg::unaryOp<value_t>(
-          out_dists.data(),
-          out_dists.data(),
-          dist_config.a_nrows * dist_config.b_nrows,
-          [=] __device__(value_t input) { return powf(input, p); },
-          dist_config.handle.get_stream());
+        value_t p = value_t{1} / params.input_configuration.metric_arg;
+        raft::linalg::unaryOp<value_t>(out_dists.data(),
+                                       out_dists.data(),
+                                       dist_config.a_nrows * dist_config.b_nrows,
+                                       raft::ScalarPow<value_t>{p},
+                                       dist_config.handle.get_stream());
 
       } break;
       default: throw raft::exception("Unknown distance");

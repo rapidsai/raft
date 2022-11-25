@@ -70,12 +70,11 @@ void csr_row_slice_indptr(value_idx start_row,
   // we add another 1 to stop row.
   raft::copy_async(indptr_out, indptr + start_row, (stop_row + 2) - start_row, stream);
 
-  raft::linalg::unaryOp<value_idx>(
-    indptr_out,
-    indptr_out,
-    (stop_row + 2) - start_row,
-    [s_offset] __device__(value_idx input) { return input - s_offset; },
-    stream);
+  raft::linalg::unaryOp<value_idx>(indptr_out,
+                                   indptr_out,
+                                   (stop_row + 2) - start_row,
+                                   raft::ScalarSub<value_idx>(s_offset),
+                                   stream);
 }
 
 /**

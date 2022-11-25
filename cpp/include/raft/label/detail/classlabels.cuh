@@ -194,8 +194,7 @@ void make_monotonic(
 template <typename Type>
 void make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, bool zero_based = false)
 {
-  make_monotonic<Type>(
-    out, in, N, stream, [] __device__(Type val) { return false; }, zero_based);
+  make_monotonic<Type>(out, in, N, stream, raft::ConstOp(false), zero_based);
 }
 
 };  // namespace detail

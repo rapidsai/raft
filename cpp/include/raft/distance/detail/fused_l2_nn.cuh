@@ -298,8 +298,6 @@ void fusedL2NNImpl(OutT* min,
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 
-  auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
-
   constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
   if (sqrt) {
     auto fusedL2NNSqrt = fusedL2NNkernel<DataT,
@@ -310,11 +308,11 @@ void fusedL2NNImpl(OutT* min,
                                          ReduceOpT,
                                          KVPReduceOpT,
                                          decltype(core_lambda),
-                                         decltype(fin_op)>;
+                                         raft::Nop<DataT>>;
     dim3 grid          = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NNSqrt);
 
     fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(
-      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
+      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, raft::Nop<DataT>{});
   } else {
     auto fusedL2NN = fusedL2NNkernel<DataT,
                                      OutT,
@@ -324,10 +322,10 @@ void fusedL2NNImpl(OutT* min,
                                      ReduceOpT,
                                      KVPReduceOpT,
                                      decltype(core_lambda),
-                                     decltype(fin_op)>;
+                                     raft::Nop<DataT>>;
     dim3 grid      = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NN);
     fusedL2NN<<<grid, blk, shmemSize, stream>>>(
-      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
+      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, raft::Nop<DataT>{});
   }
 
   RAFT_CUDA_TRY(cudaGetLastError());

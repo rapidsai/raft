@@ -157,11 +157,7 @@ void checkWeight(const raft::handle_t& handle,
 
     auto scale = static_cast<DataT>(n_samples) / wt_sum;
     raft::linalg::unaryOp(
-      weight.data_handle(),
-      weight.data_handle(),
-      n_samples,
-      [=] __device__(const DataT& wt) { return wt * scale; },
-      stream);
+      weight.data_handle(), weight.data_handle(), n_samples, raft::ScalarMul<DataT>{scale}, stream);
   }
 }
 
@@ -179,33 +175,42 @@ IndexT getCentroidsBatchSize(int batch_centroids, IndexT n_local_clusters)
   return (minVal == 0) ? n_local_clusters : minVal;
 }
 
-template <typename DataT, typename ReductionOpT, typename IndexT = int>
+template <typename InputT,
+          typename OutputT,
+          typename MainOpT,
+          typename ReductionOpT,
+          typename IndexT = int>
 void computeClusterCost(const raft::handle_t& handle,
-                        raft::device_vector_view<DataT, IndexT> minClusterDistance,
+                        raft::device_vector_view<InputT, IndexT> minClusterDistance,
                         rmm::device_uvector<char>& workspace,
-                        raft::device_scalar_view<DataT> clusterCost,
+                        raft::device_scalar_view<OutputT> clusterCost,
+                        MainOpT main_op,
                         ReductionOpT reduction_op)
 {
-  cudaStream_t stream       = handle.get_stream();
+  cudaStream_t stream = handle.get_stream();
+
+  cub::TransformInputIterator<OutputT, MainOpT, InputT*> itr(minClusterDistance.data_handle(),
+                                                             main_op);
+
   size_t temp_storage_bytes = 0;
   RAFT_CUDA_TRY(cub::DeviceReduce::Reduce(nullptr,
                                           temp_storage_bytes,
-                                          minClusterDistance.data_handle(),
+                                          itr,
                                           clusterCost.data_handle(),
                                           minClusterDistance.size(),
                                           reduction_op,
-                                          DataT(),
+                                          OutputT(),
                                           stream));
 
   workspace.resize(temp_storage_bytes, stream);
 
   RAFT_CUDA_TRY(cub::DeviceReduce::Reduce(workspace.data(),
                                           temp_storage_bytes,
-                                          minClusterDistance.data_handle(),
+                                          itr,
                                           clusterCost.data_handle(),
                                           minClusterDistance.size(),
                                           reduction_op,
-                                          DataT(),
+                                          OutputT(),
                                           stream));
 }
 
@@ -267,9 +272,7 @@ void sampleCentroids(const raft::handle_t& handle,
                        sampledMinClusterDistance.data_handle(),
                        nPtsSampledInRank,
                        inRankCp.data(),
-                       [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> val) {  // MapTransformOp
-                         return val.key;
-                       },
+                       raft::KeyOp{},
                        stream);
 }
 
@@ -464,10 +467,8 @@ void minClusterAndDistanceCompute(
             pair.value = val;
             return pair;
           },
-          [=] __device__(raft::KeyValuePair<IndexT, DataT> a, raft::KeyValuePair<IndexT, DataT> b) {
-            return (b.value < a.value) ? b : a;
-          },
-          [=] __device__(raft::KeyValuePair<IndexT, DataT> pair) { return pair; });
+          raft::ArgMin{},
+          raft::Nop<raft::KeyValuePair<IndexT, DataT>, IndexT>{});
       }
     }
   }
@@ -542,7 +543,6 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
     if (is_fused) {
       workspace.resize((sizeof(IndexT)) * ns, stream);
 
-      // todo(lsugy): remove cIdx
       raft::distance::fusedL2NNMinReduce<DataT, DataT, IndexT>(
         minClusterDistanceView.data_handle(),
         datasetView.data_handle(),
@@ -577,23 +577,16 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
         pairwise_distance_kmeans<DataT, IndexT>(
           handle, datasetView, centroidsView, pairwiseDistanceView, workspace, metric);
 
-        raft::linalg::coalescedReduction(
-          minClusterDistanceView.data_handle(),
-          pairwiseDistanceView.data_handle(),
-          pairwiseDistanceView.extent(1),
-          pairwiseDistanceView.extent(0),
-          std::numeric_limits<DataT>::max(),
-          stream,
-          true,
-          [=] __device__(DataT val, IndexT i) {  // MainLambda
-            return val;
-          },
-          [=] __device__(DataT a, DataT b) {  // ReduceLambda
-            return (b < a) ? b : a;
-          },
-          [=] __device__(DataT val) {  // FinalLambda
-            return val;
-          });
+        raft::linalg::coalescedReduction(minClusterDistanceView.data_handle(),
+                                         pairwiseDistanceView.data_handle(),
+                                         pairwiseDistanceView.extent(1),
+                                         pairwiseDistanceView.extent(0),
+                                         std::numeric_limits<DataT>::max(),
+                                         stream,
+                                         true,
+                                         raft::Nop<DataT, IndexT>{},
+                                         raft::Min<DataT>{},
+                                         raft::Nop<DataT, IndexT>{});
       }
     }
   }

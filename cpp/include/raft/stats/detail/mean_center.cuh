@@ -49,15 +49,7 @@ void meanCenter(Type* out,
                 cudaStream_t stream)
 {
   raft::linalg::matrixVectorOp(
-    out,
-    data,
-    mu,
-    D,
-    N,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a - b; },
-    stream);
+    out, data, mu, D, N, rowMajor, bcastAlongRows, raft::Subtract<Type>{}, stream);
 }
 
 /**
@@ -85,15 +77,7 @@ void meanAdd(Type* out,
              cudaStream_t stream)
 {
   raft::linalg::matrixVectorOp(
-    out,
-    data,
-    mu,
-    D,
-    N,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a + b; },
-    stream);
+    out, data, mu, D, N, rowMajor, bcastAlongRows, raft::Sum<Type>{}, stream);
 }
 
 };  // end namespace detail

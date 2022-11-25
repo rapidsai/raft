@@ -508,44 +508,170 @@ HDI double myATanh(double x)
 /** @} */
 
 /**
- * @defgroup LambdaOps Lambda operations in reduction kernels
+ * @defgroup LambdaOps Commonly used lambda operations
  * @{
  */
-// IdxType mostly to be used for MainLambda in *Reduction kernels
+// The optional index argument is mostly to be used for MainLambda in reduction kernels
 template <typename Type, typename IdxType = int>
 struct Nop {
-  HDI Type operator()(Type in, IdxType i = 0) { return in; }
+  HDI Type operator()(Type in, IdxType i = 0) const { return in; }
+};
+
+struct KeyOp {
+  template <typename KVP, typename IdxType = int>
+  HDI typename KVP::Key operator()(const KVP& p, IdxType i = 0) const
+  {
+    return p.key;
+  }
+};
+
+struct ValueOp {
+  template <typename KVP, typename IdxType = int>
+  HDI typename KVP::Value operator()(const KVP& p, IdxType i = 0) const
+  {
+    return p.value;
+  }
 };
 
 template <typename Type, typename IdxType = int>
 struct SqrtOp {
-  HDI Type operator()(Type in, IdxType i = 0) { return mySqrt(in); }
+  HDI Type operator()(Type in, IdxType i = 0) const { return mySqrt(in); }
 };
 
 template <typename Type, typename IdxType = int>
 struct L0Op {
-  HDI Type operator()(Type in, IdxType i = 0) { return in != Type(0) ? Type(1) : Type(0); }
+  HDI Type operator()(Type in, IdxType i = 0) const { return in != Type(0) ? Type(1) : Type(0); }
 };
 
 template <typename Type, typename IdxType = int>
 struct L1Op {
-  HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
+  HDI Type operator()(Type in, IdxType i = 0) const { return myAbs(in); }
 };
 
 template <typename Type, typename IdxType = int>
 struct L2Op {
-  HDI Type operator()(Type in, IdxType i = 0) { return in * in; }
+  HDI Type operator()(Type in, IdxType i = 0) const { return in * in; }
+};
+
+template <typename InT, typename OutT = InT>
+struct Sum {
+  HDI OutT operator()(InT a, InT b) const { return a + b; }
+};
+
+template <typename InT, typename OutT = InT>
+struct Subtract {
+  HDI OutT operator()(InT a, InT b) const { return a - b; }
+};
+
+template <typename InT, typename OutT = InT>
+struct Multiply {
+  HDI OutT operator()(InT a, InT b) const { return a * b; }
+};
+
+template <typename InT, typename OutT = InT>
+struct Divide {
+  HDI OutT operator()(InT a, InT b) const { return a / b; }
+};
+
+template <typename InT, typename OutT = InT>
+struct DivideCheckZero {
+  HDI OutT operator()(InT a, InT b) const
+  {
+    if (b == InT{0}) { return InT{0}; }
+    return a / b;
+  }
+};
+
+template <typename InT, typename OutT = InT>
+struct Pow {
+  HDI OutT operator()(InT a, InT b) const { return raft::myPow(a, b); }
 };
 
 template <typename Type>
-struct Sum {
-  HDI Type operator()(Type a, Type b) { return a + b; }
+struct Min {
+  HDI Type operator()(Type a, Type b) const
+  {
+    if (a > b) { return b; }
+    return a;
+  }
 };
 
 template <typename Type>
 struct Max {
-  HDI Type operator()(Type a, Type b) { return myMax(a, b); }
+  HDI Type operator()(Type a, Type b) const
+  {
+    if (b > a) { return b; }
+    return a;
+  }
 };
+
+template <typename Type>
+struct SqDiff {
+  HDI Type operator()(Type a, Type b) const
+  {
+    Type diff = a - b;
+    return diff * diff;
+  }
+};
+
+struct ArgMin {
+  template <typename KVP>
+  HDI KVP operator()(const KVP& a, const KVP& b) const
+  {
+    if ((b.value < a.value) || ((a.value == b.value) && (b.key < a.key))) { return b; }
+    return a;
+  }
+};
+
+struct ArgMax {
+  template <typename KVP>
+  HDI KVP operator()(const KVP& a, const KVP& b) const
+  {
+    if ((b.value > a.value) || ((a.value == b.value) && (b.key < a.key))) { return b; }
+    return a;
+  }
+};
+
+template <typename OutT>
+struct ConstOp {
+  const OutT scalar;
+
+  ConstOp(OutT s) : scalar{s} {}
+
+  template <typename InT>
+  HDI OutT operator()(InT unused) const
+  {
+    return scalar;
+  }
+};
+
+template <typename ComposedOpT, typename InT, typename OutT = InT>
+struct ScalarOp {
+  ComposedOpT composed_op;
+  const InT scalar;
+
+  ScalarOp(InT s) : scalar{s} {}
+
+  HDI OutT operator()(InT a) const { return composed_op(a, scalar); }
+};
+
+template <typename InT, typename OutT = InT>
+using ScalarAdd = ScalarOp<Sum<InT>, InT, OutT>;
+
+template <typename InT, typename OutT = InT>
+using ScalarSub = ScalarOp<Subtract<InT>, InT, OutT>;
+
+template <typename InT, typename OutT = InT>
+using ScalarMul = ScalarOp<Multiply<InT>, InT, OutT>;
+
+template <typename InT, typename OutT = InT>
+using ScalarDiv = ScalarOp<Divide<InT>, InT, OutT>;
+
+template <typename InT, typename OutT = InT>
+using ScalarDivCheckZero = ScalarOp<DivideCheckZero<InT>, InT, OutT>;
+
+template <typename InT, typename OutT = InT>
+using ScalarPow = ScalarOp<Pow<InT>, InT, OutT>;
 /** @} */
 
 /**

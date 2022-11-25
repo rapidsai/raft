@@ -313,7 +313,8 @@ void cluster_cost(const raft::handle_t& handle,
                   raft::device_scalar_view<DataT> clusterCost,
                   ReductionOpT reduction_op)
 {
-  detail::computeClusterCost(handle, minClusterDistance, workspace, clusterCost, reduction_op);
+  detail::computeClusterCost(
+    handle, minClusterDistance, workspace, clusterCost, raft::Nop<DataT>{}, reduction_op);
 }
 
 /**

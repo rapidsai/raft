@@ -16,10 +16,9 @@
 
 #pragma once
 
-#include "functional.cuh"
-
 #include <raft/core/host_mdspan.hpp>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace linalg {
@@ -28,7 +27,7 @@ namespace detail {
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void divideScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, divides_scalar<InT, OutT>(scalar), stream);
+  raft::linalg::unaryOp(out, in, len, raft::ScalarDiv<InT, OutT>(scalar), stream);
 }
 
 };  // end namespace detail

@@ -53,15 +53,7 @@ void rowNormalizeRef(
     raft::linalg::rowNorm(norm.data(), in, cols, rows, norm_type, true, stream, raft::Nop<T>());
   }
   raft::linalg::matrixVectorOp(
-    out,
-    in,
-    norm.data(),
-    cols,
-    rows,
-    true,
-    false,
-    [] __device__(T a, T b) { return a / b; },
-    stream);
+    out, in, norm.data(), cols, rows, true, false, raft::Divide<T>{}, stream);
 }
 
 template <typename T, typename IdxT>

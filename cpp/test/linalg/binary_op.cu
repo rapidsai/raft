@@ -36,8 +36,7 @@ void binaryOpLaunch(
   auto in1_view = raft::make_device_vector_view(in1, len);
   auto in2_view = raft::make_device_vector_view(in2, len);
 
-  binary_op(
-    handle, in1_view, in2_view, out_view, [] __device__(InType a, InType b) { return a + b; });
+  binary_op(handle, in1_view, in2_view, out_view, raft::Sum<InType>{});
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
@@ -139,12 +138,7 @@ class BinaryOpAlignment : public ::testing::Test {
     RAFT_CUDA_TRY(cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), stream));
     raft::linalg::binaryOp(
-      z.data() + 9,
-      x.data() + 137,
-      y.data() + 19,
-      256,
-      [] __device__(math_t x, math_t y) { return x + y; },
-      handle.get_stream());
+      z.data() + 9, x.data() + 137, y.data() + 19, 256, raft::Sum<math_t>{}, handle.get_stream());
   }
 
   raft::handle_t handle;

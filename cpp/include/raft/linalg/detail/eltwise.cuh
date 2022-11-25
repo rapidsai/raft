@@ -20,8 +20,7 @@
 
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-
-#include <thrust/functional.h>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace linalg {
@@ -30,48 +29,48 @@ namespace detail {
 template <typename InType, typename IdxType, typename OutType = InType>
 void scalarAdd(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, adds_scalar<InType, OutType>(scalar), stream);
+  raft::linalg::unaryOp(out, in, len, raft::ScalarAdd<InType, OutType>(scalar), stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
 void scalarMultiply(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, multiplies_scalar<InType, OutType>(scalar), stream);
+  raft::linalg::unaryOp(out, in, len, raft::ScalarMul<InType, OutType>(scalar), stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
 void eltwiseAdd(
   OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::binaryOp(out, in1, in2, len, thrust::plus<InType>(), stream);
+  raft::linalg::binaryOp(out, in1, in2, len, raft::Sum<InType>(), stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
 void eltwiseSub(
   OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::binaryOp(out, in1, in2, len, thrust::minus<InType>(), stream);
+  raft::linalg::binaryOp(out, in1, in2, len, raft::Subtract<InType>(), stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
 void eltwiseMultiply(
   OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::binaryOp(out, in1, in2, len, thrust::multiplies<InType>(), stream);
+  raft::linalg::binaryOp(out, in1, in2, len, raft::Multiply<InType>(), stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
 void eltwiseDivide(
   OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::binaryOp(out, in1, in2, len, thrust::divides<InType>(), stream);
+  raft::linalg::binaryOp(out, in1, in2, len, raft::Divide<InType>(), stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
 void eltwiseDivideCheckZero(
   OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::binaryOp(out, in1, in2, len, divides_check_zero<InType, OutType>(), stream);
+  raft::linalg::binaryOp(out, in1, in2, len, raft::ScalarDivCheckZero<InType, OutType>(), stream);
 }
 
 };  // end namespace detail
