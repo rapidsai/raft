@@ -311,8 +311,20 @@ void fusedL2NNImpl(OutT* min,
                                          raft::Nop<DataT>>;
     dim3 grid          = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NNSqrt);
 
-    fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(
-      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, raft::Nop<DataT>{});
+    fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(min,
+                                                    x,
+                                                    y,
+                                                    xn,
+                                                    yn,
+                                                    m,
+                                                    n,
+                                                    k,
+                                                    maxVal,
+                                                    workspace,
+                                                    redOp,
+                                                    pairRedOp,
+                                                    core_lambda,
+                                                    raft::Nop<DataT>{});
   } else {
     auto fusedL2NN = fusedL2NNkernel<DataT,
                                      OutT,
@@ -324,8 +336,20 @@ void fusedL2NNImpl(OutT* min,
                                      decltype(core_lambda),
                                      raft::Nop<DataT>>;
     dim3 grid      = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NN);
-    fusedL2NN<<<grid, blk, shmemSize, stream>>>(
-      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, raft::Nop<DataT>{});
+    fusedL2NN<<<grid, blk, shmemSize, stream>>>(min,
+                                                x,
+                                                y,
+                                                xn,
+                                                yn,
+                                                m,
+                                                n,
+                                                k,
+                                                maxVal,
+                                                workspace,
+                                                redOp,
+                                                pairRedOp,
+                                                core_lambda,
+                                                raft::Nop<DataT>{});
   }
 
   RAFT_CUDA_TRY(cudaGetLastError());
