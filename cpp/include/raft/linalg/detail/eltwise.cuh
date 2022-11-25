@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include "functional.cuh"
-
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
