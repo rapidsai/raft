@@ -343,25 +343,25 @@ const std::vector<KmeansInputs<float>> inputsf2 = {{1000, 32, 5, 0.0001f, true},
                                                    {10000, 500, 100, 0.0001f, true},
                                                    {10000, 500, 100, 0.0001f, false}};
 
-// const std::vector<KmeansInputs<double>> inputsd2 = {{1000, 32, 5, 0.0001, true},
-//                                                     {1000, 32, 5, 0.0001, false},
-//                                                     {1000, 100, 20, 0.0001, true},
-//                                                     {1000, 100, 20, 0.0001, false},
-//                                                     {10000, 32, 10, 0.0001, true},
-//                                                     {10000, 32, 10, 0.0001, false},
-//                                                     {10000, 100, 50, 0.0001, true},
-//                                                     {10000, 100, 50, 0.0001, false},
-//                                                     {10000, 500, 100, 0.0001, true},
-//                                                     {10000, 500, 100, 0.0001, false}};
+const std::vector<KmeansInputs<double>> inputsd2 = {{1000, 32, 5, 0.0001, true},
+                                                    {1000, 32, 5, 0.0001, false},
+                                                    {1000, 100, 20, 0.0001, true},
+                                                    {1000, 100, 20, 0.0001, false},
+                                                    {10000, 32, 10, 0.0001, true},
+                                                    {10000, 32, 10, 0.0001, false},
+                                                    {10000, 100, 50, 0.0001, true},
+                                                    {10000, 100, 50, 0.0001, false},
+                                                    {10000, 500, 100, 0.0001, true},
+                                                    {10000, 500, 100, 0.0001, false}};
 
 typedef KmeansTest<float> KmeansTestF;
 TEST_P(KmeansTestF, Result) { ASSERT_TRUE(score == 1.0); }
 
-// typedef KmeansTest<double> KmeansTestD;
-// TEST_P(KmeansTestD, Result) { ASSERT_TRUE(score == 1.0); }
+typedef KmeansTest<double> KmeansTestD;
+TEST_P(KmeansTestD, Result) { ASSERT_TRUE(score == 1.0); }
 
 INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestF, ::testing::ValuesIn(inputsf2));
 
-// INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestD, ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestD, ::testing::ValuesIn(inputsd2));
 
 }  // namespace raft
