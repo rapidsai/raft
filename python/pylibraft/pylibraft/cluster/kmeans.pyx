@@ -363,7 +363,7 @@ cdef class KMeansParams:
     def inertia_check(self):
         return self.c_obj.inertia_check
 
-KMeansOutput = namedtuple("FitOutput", "centroids inertia n_iter")
+FitOutput = namedtuple("FitOutput", "centroids inertia n_iter")
 
 
 @auto_sync_handle
@@ -372,17 +372,28 @@ def fit(
 ):
 
     """
-    Fit kmeans
+    Find clusters with the k-means algorithm
 
     Parameters
     ----------
 
+    params : KMeansParams
+        Parameters to use to fit KMeans model
     X : Input CUDA array interface compliant matrix shape (m, k)
     centroids : Optional writable CUDA array interface compliant matrix
                 shape (n_clusters, k)
     sample_weights : Optional input CUDA array interface compliant matrix shape
                      (n_clusters, 1) default: None
     {handle_docstring}
+
+    Returns
+    -------
+    centroids : raft.device_ndarray
+        The computed centroids for each cluster
+    inertia : float
+       Sum of squared distances of samples to their closest cluster center
+    n_iter : int
+        The number of iterations used to fit the model
 
     Examples
     --------
@@ -446,7 +457,7 @@ def fit(
                 <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
             make_host_scalar_view[double, int](&d_inertia),
             make_host_scalar_view[int, int](&n_iter))
-        return KMeansOutput(centroids, d_inertia, n_iter)
+        return FitOutput(centroids, d_inertia, n_iter)
 
     elif dtype == np.float32:
         if sample_weights is not None:
@@ -466,7 +477,7 @@ def fit(
                 <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
             make_host_scalar_view[float, int](&f_inertia),
             make_host_scalar_view[int, int](&n_iter))
-        return KMeansOutput(centroids, f_inertia, n_iter)
+        return FitOutput(centroids, f_inertia, n_iter)
 
     else:
         raise ValueError(f"unhandled dtype {dtype}")
