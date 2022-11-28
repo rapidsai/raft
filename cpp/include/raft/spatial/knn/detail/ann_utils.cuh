@@ -204,54 +204,6 @@ inline void memzero(T* ptr, IdxT n_elems, rmm::cuda_stream_view stream)
   }
 }
 
-template <typename IdxT>
-__global__ void dots_along_rows_kernel(IdxT n_rows, IdxT n_cols, const float* a, float* out)
-{
-  IdxT i = threadIdx.y + (blockDim.y * static_cast<IdxT>(blockIdx.x));
-  if (i >= n_rows) return;
-
-  float sqsum = 0.0;
-  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    float val = a[j + (n_cols * i)];
-    sqsum += val * val;
-  }
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 1);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 2);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 4);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 8);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
-  if (threadIdx.x == 0) { out[i] = sqsum; }
-}
-
-/**
- * @brief Square sum of values in each row (row-major matrix).
- *
- * NB: device-only function
- *
- * @tparam IdxT index type
- *
- * @param n_rows
- * @param n_cols
- * @param[in] a device pointer to the row-major matrix [n_rows, n_cols]
- * @param[out] out device pointer to the vector of dot-products [n_rows]
- * @param stream
- */
-template <typename IdxT>
-inline void dots_along_rows(
-  IdxT n_rows, IdxT n_cols, const float* a, float* out, rmm::cuda_stream_view stream)
-{
-  dim3 threads(32, 4, 1);
-  dim3 blocks(ceildiv<IdxT>(n_rows, threads.y), 1, 1);
-  dots_along_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a, out);
-  /**
-   * TODO: this can be replaced with the rowNorm helper as shown below.
-   * However, the rowNorm helper seems to incur a significant performance penalty
-   * (example case ann-search slowed down from 150ms to 186ms).
-   *
-   * raft::linalg::rowNorm(out, a, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
-   */
-}
-
 template <typename T, typename IdxT>
 __global__ void outer_add_kernel(const T* a, IdxT len_a, const T* b, IdxT len_b, T* c)
 {

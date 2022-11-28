@@ -60,4 +60,20 @@ void fit(handle_t const& handle,
          raft::device_matrix_view<double, int> centroids,
          raft::host_scalar_view<double, int> inertia,
          raft::host_scalar_view<int, int> n_iter);
+
+void cluster_cost(raft::handle_t const& handle,
+                  const float* X,
+                  int n_samples,
+                  int n_features,
+                  int n_clusters,
+                  const float* centroids,
+                  float* cost);
+
+void cluster_cost(raft::handle_t const& handle,
+                  const double* X,
+                  int n_samples,
+                  int n_features,
+                  int n_clusters,
+                  const double* centroids,
+                  double* cost);
 }  // namespace raft::cluster::kmeans::runtime

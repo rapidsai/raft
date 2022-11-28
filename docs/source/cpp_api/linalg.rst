@@ -6,6 +6,12 @@ In addition to providing highly optimized arithmetic and matrix/vector operation
 by providing common BLAS routines, standard linear system solvers, factorization and eigenvalue solvers. Some of these routines
 hide the complexities of lower-level C-based libraries provided in the CUDA toolkit 
 
+.. role:: py(code)
+   :language: c++
+   :class: highlight
+
+
 .. doxygennamespace:: raft::linalg
     :project: RAFT
     :members:
+    :content-only:

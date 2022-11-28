@@ -32,6 +32,8 @@ option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulti
        ON
 )
 
+option(RAFT_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
+
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
   find_package(raft ${pylibraft_version} REQUIRED COMPONENTS distance)
@@ -62,7 +64,16 @@ if(NOT raft_FOUND)
   set(BUILD_BENCH OFF)
   set(RAFT_COMPILE_LIBRARIES OFF)
   set(RAFT_COMPILE_DIST_LIBRARY ON)
-  add_subdirectory(../../cpp raft-cpp)
+
+  set(_exclude_from_all "")
+  if(RAFT_BUILD_WHEELS)
+    # Statically link dependencies if building wheels
+    set(CUDA_STATIC_RUNTIME ON)
+    # Don't install the raft C++ targets into wheels
+    set(_exclude_from_all EXCLUDE_FROM_ALL)
+  endif()
+
+  add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
 
   # When building the C++ libraries from source we must copy libraft_distance.so alongside the
   # pairwise_distance and random Cython libraries TODO: when we have a single 'compiled' raft

@@ -25,6 +25,8 @@
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/pow2_utils.cuh>
 
@@ -49,6 +51,8 @@ using namespace raft::spatial::knn::detail;  // NOLINT
  * @tparam T      element type.
  * @tparam IdxT   type of the indices in the source source_vecs
  * @tparam LabelT label type
+ * @tparam gather_src if false, then we build the index from vectors source_vecs[i,:], otherwise
+ *     we use source_vecs[source_ixs[i],:]. In both cases i=0..n_rows-1.
  *
  * @param[in] labels device pointer to the cluster ids for each row [n_rows]
  * @param[in] list_offsets device pointer to the cluster offsets in the output (index) [n_lists]
@@ -63,7 +67,7 @@ using namespace raft::spatial::knn::detail;  // NOLINT
  * @param veclen size of vectorized loads/stores; must satisfy `dim % veclen == 0`.
  *
  */
-template <typename T, typename IdxT, typename LabelT>
+template <typename T, typename IdxT, typename LabelT, bool gather_src = false>
 __global__ void build_index_kernel(const LabelT* labels,
                                    const IdxT* list_offsets,
                                    const T* source_vecs,
@@ -94,8 +98,11 @@ __global__ void build_index_kernel(const LabelT* labels,
   list_data += (list_offset + group_offset) * dim;
 
   // Point to the source vector
-  source_vecs += i * dim;
-
+  if constexpr (gather_src) {
+    source_vecs += source_ixs[i] * dim;
+  } else {
+    source_vecs += i * dim;
+  }
   // Interleave dimensions of the source vector while recording it.
   // NB: such `veclen` is selected, that `dim % veclen == 0`
   for (uint32_t l = 0; l < dim; l += veclen) {
@@ -231,12 +238,14 @@ inline auto extend(const handle_t& handle,
                  orig_index.center_norms()->size(),
                  stream);
     } else {
-      // todo(lsugy): use other prim and remove this one
-      utils::dots_along_rows(n_lists,
-                             dim,
-                             ext_index.centers().data_handle(),
-                             ext_index.center_norms()->data_handle(),
-                             stream);
+      raft::linalg::rowNorm(ext_index.center_norms()->data_handle(),
+                            ext_index.centers().data_handle(),
+                            dim,
+                            n_lists,
+                            raft::linalg::L2Norm,
+                            true,
+                            stream,
+                            raft::SqrtOp<float>());
       RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
     }
   }
@@ -296,4 +305,76 @@ inline auto build(
   }
 }
 
+/**
+ * Build an index that can be used in refinement operation.
+ *
+ * See raft::neighbors::refine for details on the refinement operation.
+ *
+ * The returned index cannot be used for a regular ivf_flat::search. The index misses information
+ * about coarse clusters. Instead, the neighbor candidates are assumed to form clusters, one for
+ * each query. The candidate vectors are gathered into the index dataset, that can be later used
+ * in ivfflat_interleaved_scan.
+ *
+ * @param[in] handle the raft handle
+ * @param[inout] refinement_index
+ * @param[in] dataset device pointer to dataset vectors, size [n_rows, dim]. Note that n_rows is
+ *   not known to this function, but each candidate_idx has to be smaller than n_rows.
+ * @param[in] candidate_idx device pointer to neighbor candidates, size [n_queries, n_candidates]
+ * @param[in] n_candidates  of neighbor_candidates
+ */
+template <typename T, typename IdxT>
+inline void fill_refinement_index(const handle_t& handle,
+                                  index<T, IdxT>* refinement_index,
+                                  const T* dataset,
+                                  const IdxT* candidate_idx,
+                                  IdxT n_queries,
+                                  uint32_t n_candidates)
+{
+  using LabelT = uint32_t;
+
+  auto stream      = handle.get_stream();
+  uint32_t n_lists = n_queries;
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "ivf_flat::fill_refinement_index(%zu, %u)", size_t(n_queries));
+
+  rmm::device_uvector<LabelT> new_labels(n_queries * n_candidates, stream);
+  linalg::writeOnlyUnaryOp(
+    new_labels.data(),
+    n_queries * n_candidates,
+    [n_candidates] __device__(LabelT * out, uint32_t i) { *out = i / n_candidates; },
+    stream);
+
+  auto list_sizes_ptr   = refinement_index->list_sizes().data_handle();
+  auto list_offsets_ptr = refinement_index->list_offsets().data_handle();
+  // We do not fill centers and center norms, since we will not run coarse search.
+
+  // Calculate new offsets
+  uint32_t n_roundup = Pow2<kIndexGroupSize>::roundUp(n_candidates);
+  linalg::writeOnlyUnaryOp(
+    refinement_index->list_offsets().data_handle(),
+    refinement_index->list_offsets().size(),
+    [n_roundup] __device__(IdxT * out, uint32_t i) { *out = i * n_roundup; },
+    stream);
+
+  IdxT index_size = n_roundup * n_lists;
+  refinement_index->allocate(
+    handle, index_size, refinement_index->metric() == raft::distance::DistanceType::L2Expanded);
+
+  RAFT_CUDA_TRY(cudaMemsetAsync(list_sizes_ptr, 0, n_lists * sizeof(uint32_t), stream));
+
+  const dim3 block_dim(256);
+  const dim3 grid_dim(raft::ceildiv<IdxT>(n_queries * n_candidates, block_dim.x));
+  build_index_kernel<T, IdxT, LabelT, true>
+    <<<grid_dim, block_dim, 0, stream>>>(new_labels.data(),
+                                         list_offsets_ptr,
+                                         dataset,
+                                         candidate_idx,
+                                         refinement_index->data().data_handle(),
+                                         refinement_index->indices().data_handle(),
+                                         list_sizes_ptr,
+                                         n_queries * n_candidates,
+                                         refinement_index->dim(),
+                                         refinement_index->veclen());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
 }  // namespace raft::spatial::knn::ivf_flat::detail

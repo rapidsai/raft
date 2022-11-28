@@ -31,7 +31,49 @@ from pylibraft.cpp.kmeans_types cimport KMeansParams
 
 
 cdef extern from "raft_distance/kmeans.hpp" \
-        namespace "raft::cluster::kmeans::runtime" nogil:
+        namespace "raft::cluster::kmeans::runtime":
+
+    cdef void update_centroids(
+        const handle_t& handle,
+        const double *X,
+        int n_samples,
+        int n_features,
+        int n_clusters,
+        const double *sample_weights,
+        const double *centroids,
+        const int* labels,
+        double *new_centroids,
+        double *weight_per_cluster) except +
+
+    cdef void update_centroids(
+        const handle_t& handle,
+        const float *X,
+        int n_samples,
+        int n_features,
+        int n_clusters,
+        const float *sample_weights,
+        const float *centroids,
+        const int* labels,
+        float *new_centroids,
+        float *weight_per_cluster) except +
+
+    cdef void cluster_cost(
+        const handle_t& handle,
+        const float* X,
+        int n_samples,
+        int n_features,
+        int n_clusters,
+        const float * centroids,
+        float * cost) except +
+
+    cdef void cluster_cost(
+        const handle_t& handle,
+        const double* X,
+        int n_samples,
+        int n_features,
+        int n_clusters,
+        const double * centroids,
+        double * cost) except +
 
     cdef void fit(
         const handle_t & handle,

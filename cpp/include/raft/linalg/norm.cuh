@@ -33,8 +33,7 @@ namespace linalg {
  *
  * Row-wise norm is useful while computing pairwise distance matrix, for
  * example.
- * This is used in many clustering algos like knn, kmeans, dbscan, etc... The
- * current implementation is optimized only for bigger values of 'D'.
+ * This is used in many clustering algos like knn, kmeans, dbscan, etc...
  *
  * @tparam Type the data type
  * @tparam Lambda device final lambda
