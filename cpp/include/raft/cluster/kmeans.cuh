@@ -271,7 +271,7 @@ void transform(const raft::handle_t& handle,
  *                                [dim = n_samples x n_features]
  * @param[in]  minClusterDistance Distance for every sample to it's nearest centroid
  *                                [dim = n_samples]
- * @param[in]  isSampleCentroid   Flag the sample choosen as initial centroid
+ * @param[in]  isSampleCentroid   Flag the sample chosen as initial centroid
  *                                [dim = n_samples]
  * @param[in]  select_op          The sampling operation used to select the centroids
  * @param[out] inRankCp           The sampled centroids
@@ -798,7 +798,7 @@ using KeyValueIndexOp = kmeans::KeyValueIndexOp<IndexT, DataT>;
  *                                [dim = n_samples x n_features]
  * @param[in]  minClusterDistance Distance for every sample to it's nearest centroid
  *                                [dim = n_samples]
- * @param[in]  isSampleCentroid   Flag the sample choosen as initial centroid
+ * @param[in]  isSampleCentroid   Flag the sample chosen as initial centroid
  *                                [dim = n_samples]
  * @param[in]  select_op          The sampling operation used to select the centroids
  * @param[out] inRankCp           The sampled centroids

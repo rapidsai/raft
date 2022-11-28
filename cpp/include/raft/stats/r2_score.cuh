@@ -68,7 +68,7 @@ value_t r2_score(const raft::handle_t& handle,
                  raft::device_vector_view<const value_t, idx_t> y,
                  raft::device_vector_view<const value_t, idx_t> y_hat)
 {
-  RAFT_EXPECTS(y.extent(0) == y_hat.extent(0), "Size mismatch betwen y and y_hat");
+  RAFT_EXPECTS(y.extent(0) == y_hat.extent(0), "Size mismatch between y and y_hat");
   RAFT_EXPECTS(y.is_exhaustive(), "y must be contiguous");
   RAFT_EXPECTS(y_hat.is_exhaustive(), "y_hat must be contiguous");
 

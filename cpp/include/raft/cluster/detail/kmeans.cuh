@@ -939,7 +939,7 @@ void kmeans_fit(handle_t const& handle,
       RAFT_LOG_DEBUG(
         "KMeans.fit (Iteration-%d/%d): initialize cluster centers from "
         "the ndarray array input "
-        "passed to init arguement.",
+        "passed to init argument.",
         seed_iter + 1,
         n_init);
       raft::copy(
@@ -1026,7 +1026,7 @@ void kmeans_predict(handle_t const& handle,
   auto metric = params.metric;
 
   // Allocate memory
-  // Device-accessible allocation of expandable storage used as temorary buffers
+  // Device-accessible allocation of expandable storage used as temporary buffers
   rmm::device_uvector<char> workspace(0, stream);
   auto weight = raft::make_device_vector<DataT, IndexT>(handle, n_samples);
   if (sample_weight.has_value())
@@ -1223,7 +1223,7 @@ void kmeans_transform(const raft::handle_t& handle,
   auto n_clusters     = params.n_clusters;
   auto metric         = params.metric;
 
-  // Device-accessible allocation of expandable storage used as temorary buffers
+  // Device-accessible allocation of expandable storage used as temporary buffers
   rmm::device_uvector<char> workspace(0, stream);
   auto dataBatchSize = getDataBatchSize(params.batch_samples, n_samples);
 

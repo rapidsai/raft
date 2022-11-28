@@ -63,7 +63,7 @@ struct Linewise {
    *
    * Block work arrangement: blocked;
    *     one warp works on a contiguous chunk of a matrix. Since the matrix is represented
-   *     as a flat array, such an arangement minimizes the number of times when a single
+   *     as a flat array, such an arrangement minimizes the number of times when a single
    *     thread needs to reload the vector value at an index corresponding to the current
    *     matrix row. Ideally, a thread would load a value from a vector only once, but that
    *     is not possible if the vector size (= number of matrix rows) is too small or not
@@ -483,7 +483,7 @@ __global__ void __launch_bounds__(MaxOffset, 2)
                    L::loadVec((Vecs*)(shm + workOffset), vecs, 0, rowLen))...);
   } else {
     // second block: offset = arrTail, length = len - arrTail
-    // NB: I substract MaxOffset (= blockDim.x) to get the correct indexing for block 1
+    // NB: I subtract MaxOffset (= blockDim.x) to get the correct indexing for block 1
     L::vectorRows(reinterpret_cast<typename L::Vec::io_t*>(out + arrTail - MaxOffset),
                   reinterpret_cast<const typename L::Vec::io_t*>(in + arrTail - MaxOffset),
                   len - arrTail + MaxOffset,

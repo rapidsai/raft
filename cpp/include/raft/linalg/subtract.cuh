@@ -67,7 +67,7 @@ void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream
   detail::subtract(out, in1, in2, len, stream);
 }
 
-/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
+/** Subtract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
  * write result to outDev[i]
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam IdxType Integer type used to for addressing

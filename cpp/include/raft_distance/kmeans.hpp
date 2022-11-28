@@ -41,4 +41,19 @@ void update_centroids(raft::handle_t const& handle,
                       double* new_centroids,
                       double* weight_per_cluster);
 
+void cluster_cost(raft::handle_t const& handle,
+                  const float* X,
+                  int n_samples,
+                  int n_features,
+                  int n_clusters,
+                  const float* centroids,
+                  float* cost);
+
+void cluster_cost(raft::handle_t const& handle,
+                  const double* X,
+                  int n_samples,
+                  int n_features,
+                  int n_clusters,
+                  const double* centroids,
+                  double* cost);
 }  // namespace raft::cluster::kmeans::runtime

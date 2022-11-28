@@ -76,7 +76,7 @@ void regression_metrics(const raft::handle_t& handle,
                         raft::host_scalar_view<double> median_abs_error)
 {
   RAFT_EXPECTS(predictions.extent(0) == ref_predictions.extent(0),
-               "Size mismatch betwen predictions and ref_predictions");
+               "Size mismatch between predictions and ref_predictions");
   RAFT_EXPECTS(predictions.is_exhaustive(), "predictions must be contiguous");
   RAFT_EXPECTS(ref_predictions.is_exhaustive(), "ref_predictions must be contiguous");
   RAFT_EXPECTS(mean_abs_error.data_handle() != nullptr, "mean_abs_error view must not be empty");
