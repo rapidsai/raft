@@ -25,9 +25,9 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool, nullptr
 
 from pylibraft.common.handle cimport handle_t
-from pylibraft.common.mdspan cimport *
-from pylibraft.common.optional cimport optional
 from pylibraft.cpp.kmeans_types cimport KMeansParams
+from pylibraft.cpp.mdspan cimport *
+from pylibraft.cpp.optional cimport optional
 
 
 cdef extern from "raft_distance/kmeans.hpp" \
