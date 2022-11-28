@@ -272,11 +272,11 @@ DataT silhouette_score(
                                                     nRows,
                                                     true,
                                                     true,
-                                                    DivOp<DataT>(),
+                                                    raft::DivOp<DataT>(),
                                                     stream);
 
   // calculating row-wise minimum
-  raft::linalg::reduce<DataT, DataT, int, raft::Nop<DataT>, MinOp<DataT>>(
+  raft::linalg::reduce<DataT, DataT, int, raft::Nop<DataT>, raft::MinOp<DataT>>(
     d_bArray.data(),
     averageDistanceBetweenSampleAndCluster.data(),
     nLabels,

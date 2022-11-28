@@ -79,9 +79,11 @@ static void hellingerImpl(const DataT* x,
   dim3 blk(KPolicy::Nthreads);
 
   // First sqrt x and y
-  raft::linalg::unaryOp<DataT, SqrtOp<DataT>, IdxT>((DataT*)x, x, m * k, SqrtOp<DataT>{}, stream);
+  raft::linalg::unaryOp<DataT, raft::SqrtOp<DataT>, IdxT>(
+    (DataT*)x, x, m * k, raft::SqrtOp<DataT>{}, stream);
   if (x != y) {
-    raft::linalg::unaryOp<DataT, SqrtOp<DataT>, IdxT>((DataT*)y, y, n * k, SqrtOp<DataT>{}, stream);
+    raft::linalg::unaryOp<DataT, raft::SqrtOp<DataT>, IdxT>(
+      (DataT*)y, y, n * k, raft::SqrtOp<DataT>{}, stream);
   }
 
   // Accumulation operation lambda
@@ -141,9 +143,11 @@ static void hellingerImpl(const DataT* x,
   }
 
   // Revert sqrt of x and y
-  raft::linalg::unaryOp<DataT, SqrtOp<DataT>, IdxT>((DataT*)x, x, m * k, SqrtOp<DataT>{}, stream);
+  raft::linalg::unaryOp<DataT, raft::SqrtOp<DataT>, IdxT>(
+    (DataT*)x, x, m * k, raft::SqrtOp<DataT>{}, stream);
   if (x != y) {
-    raft::linalg::unaryOp<DataT, SqrtOp<DataT>, IdxT>((DataT*)y, y, n * k, SqrtOp<DataT>{}, stream);
+    raft::linalg::unaryOp<DataT, raft::SqrtOp<DataT>, IdxT>(
+      (DataT*)y, y, n * k, raft::SqrtOp<DataT>{}, stream);
   }
 
   RAFT_CUDA_TRY(cudaGetLastError());
