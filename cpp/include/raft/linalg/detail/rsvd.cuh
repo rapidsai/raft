@@ -34,7 +34,7 @@ namespace detail {
 
 template <typename math_t>
 void randomized_svd(const raft::handle_t& handle,
-                    math_t* in,
+                    const math_t* in,
                     std::size_t n_rows,
                     std::size_t n_cols,
                     std::size_t k,
@@ -55,20 +55,18 @@ void randomized_svd(const raft::handle_t& handle,
   RAFT_EXPECTS(!gen_V || (V != nullptr), "computation of V vector requested but found nullptr");
   cudaStream_t stream          = handle.get_stream();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
-  cusolverDnParams_t dn_params = nullptr;
-  RAFT_CUSOLVER_TRY(cusolverDnCreateParams(&dn_params));
 
   char jobu = gen_U ? 'S' : 'N';
   char jobv = gen_V ? 'S' : 'N';
 
-  auto lda = n_rows;
-  auto ldu = n_rows;
-  auto ldv = n_cols;
+  auto lda     = n_rows;
+  auto ldu     = n_rows;
+  auto ldv     = n_cols;
+  auto* in_ptr = const_cast<math_t*>(in);
 
   size_t workspaceDevice = 0;
   size_t workspaceHost   = 0;
   RAFT_CUSOLVER_TRY(cusolverDnxgesvdr_bufferSize(cusolverH,
-                                                 dn_params,
                                                  jobu,
                                                  jobv,
                                                  n_rows,
@@ -76,7 +74,7 @@ void randomized_svd(const raft::handle_t& handle,
                                                  k,
                                                  p,
                                                  niters,
-                                                 in,
+                                                 in_ptr,
                                                  lda,
                                                  S,
                                                  U,
@@ -92,7 +90,6 @@ void randomized_svd(const raft::handle_t& handle,
   auto devInfo     = raft::make_device_scalar<int>(handle, 0);
 
   RAFT_CUSOLVER_TRY(cusolverDnxgesvdr(cusolverH,
-                                      dn_params,
                                       jobu,
                                       jobv,
                                       n_rows,
@@ -100,7 +97,7 @@ void randomized_svd(const raft::handle_t& handle,
                                       k,
                                       p,
                                       niters,
-                                      in,
+                                      in_ptr,
                                       lda,
                                       S,
                                       U,
@@ -115,7 +112,6 @@ void randomized_svd(const raft::handle_t& handle,
                                       stream));
 
   RAFT_CUDA_TRY(cudaGetLastError());
-  RAFT_CUSOLVER_TRY(cusolverDnDestroyParams(dn_params));
 
   int dev_info;
   raft::update_host(&dev_info, devInfo.data_handle(), 1, stream);

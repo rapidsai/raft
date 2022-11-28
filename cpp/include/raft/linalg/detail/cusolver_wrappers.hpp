@@ -698,7 +698,6 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(  // NOLINT
 template <typename T>
 cusolverStatus_t cusolverDnxgesvdr_bufferSize(  // NOLINT
   cusolverDnHandle_t handle,
-  cusolverDnParams_t params,
   signed char jobu,
   signed char jobv,
   int64_t m,
@@ -720,34 +719,37 @@ cusolverStatus_t cusolverDnxgesvdr_bufferSize(  // NOLINT
   RAFT_EXPECTS(std::is_floating_point_v<T>, "Unsupported data type");
   cudaDataType dataType = std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
   RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
-  return cusolverDnXgesvdr_bufferSize(handle,
-                                      params,
-                                      jobu,
-                                      jobv,
-                                      m,
-                                      n,
-                                      k,
-                                      p,
-                                      niters,
-                                      dataType,
-                                      a,
-                                      lda,
-                                      dataType,
-                                      Srand,
-                                      dataType,
-                                      Urand,
-                                      ldUrand,
-                                      dataType,
-                                      Vrand,
-                                      ldVrand,
-                                      dataType,
-                                      workspaceInBytesOnDevice,
-                                      workspaceInBytesOnHost);
+  cusolverDnParams_t dn_params = nullptr;
+  RAFT_CUSOLVER_TRY(cusolverDnCreateParams(&dn_params));
+  auto result = cusolverDnXgesvdr_bufferSize(handle,
+                                             dn_params,
+                                             jobu,
+                                             jobv,
+                                             m,
+                                             n,
+                                             k,
+                                             p,
+                                             niters,
+                                             dataType,
+                                             a,
+                                             lda,
+                                             dataType,
+                                             Srand,
+                                             dataType,
+                                             Urand,
+                                             ldUrand,
+                                             dataType,
+                                             Vrand,
+                                             ldVrand,
+                                             dataType,
+                                             workspaceInBytesOnDevice,
+                                             workspaceInBytesOnHost);
+  RAFT_CUSOLVER_TRY(cusolverDnDestroyParams(dn_params));
+  return result;
 }
 template <typename T>
 cusolverStatus_t cusolverDnxgesvdr(  // NOLINT
   cusolverDnHandle_t handle,
-  cusolverDnParams_t params,
   signed char jobu,
   signed char jobv,
   int64_t m,
@@ -771,32 +773,36 @@ cusolverStatus_t cusolverDnxgesvdr(  // NOLINT
 {
   cudaDataType dataType = std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
   RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
-  return cusolverDnXgesvdr(handle,
-                           params,
-                           jobu,
-                           jobv,
-                           m,
-                           n,
-                           k,
-                           p,
-                           niters,
-                           dataType,
-                           a,
-                           lda,
-                           dataType,
-                           Srand,
-                           dataType,
-                           Urand,
-                           ldUrand,
-                           dataType,
-                           Vrand,
-                           ldVrand,
-                           dataType,
-                           bufferOnDevice,
-                           workspaceInBytesOnDevice,
-                           bufferOnHost,
-                           workspaceInBytesOnHost,
-                           d_info);
+  cusolverDnParams_t dn_params = nullptr;
+  RAFT_CUSOLVER_TRY(cusolverDnCreateParams(&dn_params));
+  auto result = cusolverDnXgesvdr(handle,
+                                  dn_params,
+                                  jobu,
+                                  jobv,
+                                  m,
+                                  n,
+                                  k,
+                                  p,
+                                  niters,
+                                  dataType,
+                                  a,
+                                  lda,
+                                  dataType,
+                                  Srand,
+                                  dataType,
+                                  Urand,
+                                  ldUrand,
+                                  dataType,
+                                  Vrand,
+                                  ldVrand,
+                                  dataType,
+                                  bufferOnDevice,
+                                  workspaceInBytesOnDevice,
+                                  bufferOnHost,
+                                  workspaceInBytesOnHost,
+                                  d_info);
+  RAFT_CUSOLVER_TRY(cusolverDnDestroyParams(dn_params));
+  return result;
 }
 #endif  // CUDART_VERSION >= 11010
 

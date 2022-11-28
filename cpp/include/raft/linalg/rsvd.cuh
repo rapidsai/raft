@@ -29,7 +29,7 @@ namespace linalg {
  * @tparam math_t the data type
  * @tparam idx_t index type
  * @param[in]  handle:  raft handle
- * @param[in]  in:      input matrix in col-major format. On exit this matrix is destroyed
+ * @param[in]  in:      input matrix in col-major format.
  *                      [dim = n_rows * n_cols]
  * @param[out] S:       array of singular values of input matrix.
  *                      [dim = k]
@@ -38,14 +38,14 @@ namespace linalg {
  * @param[out] V:       optional right singular values of input matrix. Use std::nullopt to not
  * generate it. [dim = k * n_cols]
  * @param[in]  k:       Rank of the k-SVD decomposition of matrix in. Number of singular values to
- * be computed. The rank is less than min(m,n).
+ * be computed. The rank must be less than min(m,n).
  * @param[in]  p:       Oversampling. The size of the subspace will be (k + p). (k+p) is less than
  * min(m,n). (Recommended to be at least 2*k)
  * @param[in]  niters:  Number of iteration of power method. (2 is recommended)
  */
 template <typename math_t, typename idx_t>
 void randomized_svd(const raft::handle_t& handle,
-                    raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
+                    raft::device_matrix_view<const math_t, idx_t, raft::col_major> in,
                     raft::device_vector_view<math_t, idx_t> S,
                     std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> U,
                     std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> V,
@@ -91,7 +91,7 @@ void randomized_svd(const raft::handle_t& handle,
  */
 template <typename math_t, typename idx_t, typename opt_u_vec_t, typename opt_v_vec_t>
 void randomized_svd(const raft::handle_t& handle,
-                    raft::device_matrix_view<math_t, idx_t, raft::col_major> in,
+                    raft::device_matrix_view<const math_t, idx_t, raft::col_major> in,
                     raft::device_vector_view<math_t, idx_t> S,
                     opt_u_vec_t&& U,
                     opt_v_vec_t&& V,

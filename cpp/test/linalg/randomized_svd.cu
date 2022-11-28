@@ -102,13 +102,85 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
     raft::update_device(sing_vals_ref.data(), sing_vals_ref_h, params.k, stream);
 
     randomized_svd(handle,
-                   raft::make_device_matrix_view<T, uint32_t, raft::col_major>(
+                   raft::make_device_matrix_view<const T, uint32_t, raft::col_major>(
                      data.data(), params.n_row, params.n_col),
                    raft::make_device_vector_view<T, uint32_t>(sing_vals_act.data(), params.k),
                    std::make_optional(raft::make_device_matrix_view<T, uint32_t, raft::col_major>(
                      left_eig_vectors_act.data(), params.n_row, params.k)),
                    std::make_optional(raft::make_device_matrix_view<T, uint32_t, raft::col_major>(
                      right_eig_vectors_act.data(), params.k, params.n_col)),
+                   params.k,
+                   2,
+                   2);
+    handle.sync_stream(stream);
+  }
+
+  void apiTest()
+  {
+    int len = params.n_row * params.n_col;
+    ASSERT(params.n_row == 5 && params.n_col == 5, "This test only supports nrows=5 && ncols=5!");
+    T data_h[] = {0.76420743, 0.61411544, 0.81724151, 0.42040879, 0.03446089,
+                  0.03697287, 0.85962444, 0.67584086, 0.45594666, 0.02074835,
+                  0.42018265, 0.39204509, 0.12657948, 0.90250559, 0.23076218,
+                  0.50339844, 0.92974961, 0.21213988, 0.63962457, 0.58124562,
+                  0.58325673, 0.11589871, 0.39831112, 0.21492685, 0.00540355};
+    raft::update_device(data.data(), data_h, len, stream);
+
+    T left_eig_vectors_ref_h[] = {0.42823088,
+                                  0.59131151,
+                                  0.4220887,
+                                  0.50441194,
+                                  0.18541506,
+                                  0.27047497,
+                                  -0.17195579,
+                                  0.69362791,
+                                  -0.43253894,
+                                  -0.47860724};
+
+    T right_eig_vectors_ref_h[] = {0.53005494,
+                                   0.44104121,
+                                   0.40720732,
+                                   0.54337293,
+                                   0.25189773,
+                                   0.5789401,
+                                   0.15264214,
+                                   -0.45215699,
+                                   -0.53184873,
+                                   0.3927082};
+
+    T sing_vals_ref_h[] = {2.36539241, 0.81117785, 0.68562255, 0.41390509, 0.01519322};
+
+    raft::update_device(
+      left_eig_vectors_ref.data(), left_eig_vectors_ref_h, params.n_row * params.k, stream);
+    raft::update_device(
+      right_eig_vectors_ref.data(), right_eig_vectors_ref_h, params.k * params.n_col, stream);
+    raft::update_device(sing_vals_ref.data(), sing_vals_ref_h, params.k, stream);
+    randomized_svd(handle,
+                   raft::make_device_matrix_view<const T, uint32_t, raft::col_major>(
+                     data.data(), params.n_row, params.n_col),
+                   raft::make_device_vector_view<T, uint32_t>(sing_vals_act.data(), params.k),
+                   std::nullopt,
+                   std::make_optional(raft::make_device_matrix_view<T, uint32_t, raft::col_major>(
+                     right_eig_vectors_act.data(), params.k, params.n_col)),
+                   params.k,
+                   2,
+                   2);
+    randomized_svd(handle,
+                   raft::make_device_matrix_view<const T, uint32_t, raft::col_major>(
+                     data.data(), params.n_row, params.n_col),
+                   raft::make_device_vector_view<T, uint32_t>(sing_vals_act.data(), params.k),
+                   std::make_optional(raft::make_device_matrix_view<T, uint32_t, raft::col_major>(
+                     left_eig_vectors_act.data(), params.n_row, params.k)),
+                   std::nullopt,
+                   params.k,
+                   2,
+                   2);
+    randomized_svd(handle,
+                   raft::make_device_matrix_view<const T, uint32_t, raft::col_major>(
+                     data.data(), params.n_row, params.n_col),
+                   raft::make_device_vector_view<T, uint32_t>(sing_vals_act.data(), params.k),
+                   std::nullopt,
+                   std::nullopt,
                    params.k,
                    2,
                    2);
@@ -122,7 +194,7 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
     uniform(handle, r, data.data(), len, T(-1.0), T(2.0));
 
     randomized_svd(handle,
-                   raft::make_device_matrix_view<T, uint64_t, raft::col_major>(
+                   raft::make_device_matrix_view<const T, uint64_t, raft::col_major>(
                      data.data(), params.n_row, params.n_col),
                    raft::make_device_vector_view<T, uint64_t>(sing_vals_act.data(), params.k),
                    std::make_optional(raft::make_device_matrix_view<T, uint64_t, raft::col_major>(
@@ -154,6 +226,7 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
   void SetUp() override
   {
     if (params.n_row == 5 && params.n_col == 5) {
+      apiTest();
       basicTest();
     } else {
       advancedTest();
