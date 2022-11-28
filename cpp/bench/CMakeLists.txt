@@ -96,6 +96,7 @@ if(BUILD_BENCH)
     bench/linalg/matrix_vector_op.cu
     bench/linalg/norm.cu
     bench/linalg/normalize.cu
+    bench/linalg/reduce_cols_by_key.cu
     bench/linalg/reduce_rows_by_key.cu
     bench/linalg/reduce.cu
     bench/main.cpp

@@ -29,18 +29,51 @@ namespace detail {
 ///@todo: specialize this to support shared-mem based atomics
 
 template <typename T, typename KeyIteratorT, typename IdxType>
-__global__ void reduce_cols_by_key_kernel(
+__global__ void reduce_cols_by_key_direct_kernel(
   const T* data, const KeyIteratorT keys, T* out, IdxType nrows, IdxType ncols, IdxType nkeys)
 {
   typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
 
-  IdxType idx = blockIdx.x * blockDim.x + threadIdx.x;
+  IdxType idx = static_cast<IdxType>(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= (nrows * ncols)) return;
   ///@todo: yikes! use fast-int-div
   IdxType colId = idx % ncols;
   IdxType rowId = idx / ncols;
   KeyType key   = keys[colId];
   raft::myAtomicAdd(out + rowId * nkeys + key, data[idx]);
+}
+
+template <typename T, typename KeyIteratorT, typename IdxType>
+__global__ void reduce_cols_by_key_cached_kernel(
+  const T* data, const KeyIteratorT keys, T* out, IdxType nrows, IdxType ncols, IdxType nkeys)
+{
+  typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
+  extern __shared__ char smem[];
+  T* out_cache = reinterpret_cast<T*>(smem);
+
+  // Initialize the shared memory accumulators to 0.
+  for (IdxType idx = threadIdx.x; idx < nrows * nkeys; idx += blockDim.x) {
+    out_cache[idx] = T{0};
+  }
+  __syncthreads();
+
+  // Accumulate in shared memory
+  for (IdxType idx = static_cast<IdxType>(blockIdx.x) * blockDim.x + threadIdx.x;
+       idx < nrows * ncols;
+       idx += blockDim.x * static_cast<IdxType>(gridDim.x)) {
+    if (idx >= (nrows * ncols)) return;
+    IdxType colId = idx % ncols;
+    IdxType rowId = idx / ncols;
+    KeyType key   = keys[colId];
+    raft::myAtomicAdd(out_cache + rowId * nkeys + key, data[idx]);
+  }
+
+  // Add the shared-memory accumulators to the global results.
+  __syncthreads();
+  for (IdxType idx = threadIdx.x; idx < nrows * nkeys; idx += blockDim.x) {
+    T val = out_cache[idx];
+    if (val != T{0}) { raft::myAtomicAdd(out + idx, val); }
+  }
 }
 
 /**
@@ -60,6 +93,7 @@ __global__ void reduce_cols_by_key_kernel(
  * @param ncols number of columns in the input data
  * @param nkeys number of unique keys in the keys array
  * @param stream cuda stream to launch the kernel onto
+ * @param reset_sums Whether to reset the output sums to zero before reducing
  */
 template <typename T, typename KeyIteratorT, typename IdxType = int>
 void reduce_cols_by_key(const T* data,
@@ -68,16 +102,35 @@ void reduce_cols_by_key(const T* data,
                         IdxType nrows,
                         IdxType ncols,
                         IdxType nkeys,
-                        cudaStream_t stream)
+                        cudaStream_t stream,
+                        bool reset_sums)
 {
   typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
 
-  RAFT_CUDA_TRY(cudaMemsetAsync(out, 0, sizeof(T) * nrows * nkeys, stream));
-  constexpr int TPB = 256;
-  int nblks         = (int)raft::ceildiv<IdxType>(nrows * ncols, TPB);
-  reduce_cols_by_key_kernel<<<nblks, TPB, 0, stream>>>(data, keys, out, nrows, ncols, nkeys);
+  // Memset the output to zero bto use atomics-based reduction.
+  if (reset_sums) { RAFT_CUDA_TRY(cudaMemsetAsync(out, 0, sizeof(T) * nrows * nkeys, stream)); }
+
+  // The cached version is used when the cache fits in shared memory and the number of input
+  // elements is above a threshold (the cached version is slightly slower for small input arrays,
+  // and orders of magnitude faster for large input arrays).
+  size_t cache_size = static_cast<size_t>(nrows * nkeys) * sizeof(T);
+  if (cache_size <= 48000ull && nrows * ncols >= IdxType{8192}) {
+    constexpr int TPB = 256;
+    int n_sm          = raft::getMultiProcessorCount();
+    int target_nblks  = 4 * n_sm;
+    int max_nblks     = raft::ceildiv<IdxType>(nrows * ncols, TPB);
+    int nblks         = std::min(target_nblks, max_nblks);
+    reduce_cols_by_key_cached_kernel<<<nblks, TPB, cache_size, stream>>>(
+      data, keys, out, nrows, ncols, nkeys);
+  } else {
+    constexpr int TPB = 256;
+    int nblks         = raft::ceildiv<IdxType>(nrows * ncols, TPB);
+    reduce_cols_by_key_direct_kernel<<<nblks, TPB, 0, stream>>>(
+      data, keys, out, nrows, ncols, nkeys);
+  }
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
+
 };  // end namespace detail
 };  // end namespace linalg
 };  // end namespace raft

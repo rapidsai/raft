@@ -43,6 +43,7 @@ namespace linalg {
  * @param ncols number of columns in the input data
  * @param nkeys number of unique keys in the keys array
  * @param stream cuda stream to launch the kernel onto
+ * @param reset_sums  Whether to reset the output sums to zero before reducing
  */
 template <typename T, typename KeyIteratorT, typename IdxType = int>
 void reduce_cols_by_key(const T* data,
@@ -51,9 +52,10 @@ void reduce_cols_by_key(const T* data,
                         IdxType nrows,
                         IdxType ncols,
                         IdxType nkeys,
-                        cudaStream_t stream)
+                        cudaStream_t stream,
+                        bool reset_sums = true)
 {
-  detail::reduce_cols_by_key(data, keys, out, nrows, ncols, nkeys, stream);
+  detail::reduce_cols_by_key(data, keys, out, nrows, ncols, nkeys, stream, reset_sums);
 }
 
 /**
@@ -77,6 +79,7 @@ void reduce_cols_by_key(const T* data,
  * @param[out] out the output reduced raft::device_matrix_view along columns (dim = nrows x nkeys).
  * This will be assumed to be in row-major layout
  * @param[in] nkeys number of unique keys in the keys array
+ * @param[in] reset_sums  Whether to reset the output sums to zero before reducing
  */
 template <typename ElementType, typename KeyType = ElementType, typename IndexType = std::uint32_t>
 void reduce_cols_by_key(
@@ -84,7 +87,8 @@ void reduce_cols_by_key(
   raft::device_matrix_view<const ElementType, IndexType, raft::row_major> data,
   raft::device_vector_view<const KeyType, IndexType> keys,
   raft::device_matrix_view<ElementType, IndexType, raft::row_major> out,
-  IndexType nkeys)
+  IndexType nkeys,
+  bool reset_sums = true)
 {
   RAFT_EXPECTS(out.extent(0) == data.extent(0) && out.extent(1) == nkeys,
                "Output is not of size nrows * nkeys");
@@ -96,7 +100,8 @@ void reduce_cols_by_key(
                      data.extent(0),
                      data.extent(1),
                      nkeys,
-                     handle.get_stream());
+                     handle.get_stream(),
+                     reset_sums);
 }
 
 /** @} */  // end of group reduce_cols_by_key
