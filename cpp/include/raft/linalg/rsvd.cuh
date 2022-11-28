@@ -30,6 +30,7 @@ namespace linalg {
  * @tparam idx_t index type
  * @param[in]  handle:  raft handle
  * @param[in]  in:      input matrix in col-major format.
+ *                      Warning: the content of this matrix is modified by the cuSOLVER routines.
  *                      [dim = n_rows * n_cols]
  * @param[out] S:       array of singular values of input matrix.
  *                      [dim = k]
