@@ -23,8 +23,10 @@ import numpy as np
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport nullptr
+from collections import namedtuple
+from enum import IntEnum
 
-from pylibraft.common import Handle
+from pylibraft.common import Handle, cai_wrapper
 from pylibraft.common.handle import auto_sync_handle
 
 from pylibraft.common.handle cimport handle_t
@@ -370,7 +372,6 @@ FitOutput = namedtuple("FitOutput", "centroids inertia n_iter")
 def fit(
     KMeansParams params, X, centroids=None, sample_weights=None, handle=None
 ):
-
     """
     Find clusters with the k-means algorithm
 

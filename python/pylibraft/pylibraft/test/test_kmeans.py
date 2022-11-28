@@ -31,15 +31,23 @@ from pylibraft.distance import pairwise_distance
 @pytest.mark.parametrize("n_clusters", [5, 15])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_kmeans_fit(n_rows, n_cols, n_clusters, dtype):
-    X = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+    # generate some random input points / centroids
+    X_host = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+    centroids = device_ndarray(X_host[:n_clusters])
+    X = device_ndarray(X_host)
+
+    # compute the inertia, before fitting centroids
+    original_inertia = cluster_cost(X, centroids)
 
     # TODO: test out some different options on this
     # TODO: use a fixed RNG state on params
     params = KMeansParams(n_clusters=n_clusters)
 
-    centroids, inertia, n_iter = fit(params, device_ndarray(X))
-
-    # TODO: validate that centroids are reasonable ... somehow
+    # fit the centroids, make sure inertia has gone down
+    centroids, inertia, n_iter = fit(params, X, centroids)
+    assert inertia < original_inertia
+    assert n_iter >= 1
+    assert np.allclose(cluster_cost(X, centroids), inertia, rtol=1e-6)
 
 
 @pytest.mark.parametrize("n_rows", [100])
