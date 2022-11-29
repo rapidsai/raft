@@ -48,7 +48,7 @@ namespace detail {
  * cluster array
  * @param numUniqueClasses: number of unique classes
  * @param size: the size of array a and b (size of the contingency matrix is (size x size))
- * @param d_MI: pointer to the device memory that stores the aggreggate mutual information
+ * @param d_MI: pointer to the device memory that stores the aggregate mutual information
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void mutual_info_kernel(const int* dContingencyMatrix,

@@ -32,6 +32,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/normalize.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/argmin.cuh>
 #include <raft/matrix/matrix.cuh>
@@ -464,7 +465,7 @@ __global__ void __launch_bounds__((WarpSize * BlockDimY))
   // a sample from the selected larger cluster.
   const IdxT li = static_cast<IdxT>(labels[i]);
   // Weight of the current center for the weighted average.
-  // We dump it for anomalously small clusters, but keep constant overwise.
+  // We dump it for anomalously small clusters, but keep constant otherwise.
   const float wc = csize > kAdjustCentersWeight ? kAdjustCentersWeight : float(csize);
   // Weight for the datapoint used to shift the center.
   const float wd = 1.0;
@@ -568,7 +569,7 @@ auto adjust_centers(float* centers,
         // a sample from the selected larger cluster.
         const IdxT li = static_cast<IdxT>(labels[i]);
         // Weight of the current center for the weighted average.
-        // We dump it for anomalously small clusters, but keep constant overwise.
+        // We dump it for anomalously small clusters, but keep constant otherwise.
         const float wc = std::min<float>(csize, kAdjustCentersWeight);
         // Weight for the datapoint used to shift the center.
         const float wd = 1.0;
@@ -663,8 +664,16 @@ void balancing_em_iters(const handle_t& handle,
       // To avoid converging to zero, we normalize the center vectors on every iteration.
       case raft::distance::DistanceType::InnerProduct:
       case raft::distance::DistanceType::CosineExpanded:
-      case raft::distance::DistanceType::CorrelationExpanded:
-        utils::normalize_rows<uint32_t>(n_clusters, dim, cluster_centers, stream);
+      case raft::distance::DistanceType::CorrelationExpanded: {
+        auto clusters_in_view =
+          raft::make_device_matrix_view<const float, uint32_t, raft::row_major>(
+            cluster_centers, n_clusters, dim);
+        auto clusters_out_view = raft::make_device_matrix_view<float, uint32_t, raft::row_major>(
+          cluster_centers, n_clusters, dim);
+        raft::linalg::row_normalize(
+          handle, clusters_in_view, clusters_out_view, raft::linalg::L2Norm);
+        break;
+      }
       default: break;
     }
     // E: Expectation step - predict labels

@@ -243,7 +243,7 @@ struct genericAtomicOperationImpl<T, Op, 8> {
 // -------------------------------------------------------------------------------------------------
 // specialized functions for operators
 // `atomicAdd` supports int, unsigned int, unsigend long long int, float, double (long long int is
-// not supproted.) `atomicMin`, `atomicMax` support int, unsigned int, unsigned long long int
+// not supported.) `atomicMin`, `atomicMax` support int, unsigned int, unsigned long long int
 // `atomicAnd`, `atomicOr`, `atomicXor` support int, unsigned int, unsigned long long int
 
 // CUDA natively supports `unsigned long long int` for `atomicAdd`,

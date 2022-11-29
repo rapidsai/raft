@@ -20,6 +20,7 @@
 #pragma once
 
 #include "detail/multi_variable_gaussian.cuh"
+#include <raft/random/random_types.hpp>
 
 namespace raft::random {
 
@@ -58,24 +59,6 @@ class multi_variable_gaussian : public detail::multi_variable_gaussian_impl<T> {
 
   ~multi_variable_gaussian() { deinit(); }
 };  // end of multi_variable_gaussian
-
-/**
- * @brief Matrix decomposition method for `compute_multi_variable_gaussian` to use.
- *
- * `compute_multi_variable_gaussian` can use any of the following methods.
- *
- * - `CHOLESKY`: Uses Cholesky decomposition on the normal equations.
- *   This may be faster than the other two methods, but less accurate.
- *
- * - `JACOBI`: Uses the singular value decomposition (SVD) computed with
- *   cuSOLVER's gesvdj algorithm, which is based on the Jacobi method
- *   (sweeps of plane rotations).  This exposes more parallelism
- *   for small and medium size matrices than the QR option below.
- *
- * - `QR`: Uses the SVD computed with cuSOLVER's gesvd algorithm,
- *   which is based on the QR algortihm.
- */
-using detail::multi_variable_gaussian_decomposition_method;
 
 template <typename ValueType>
 void compute_multi_variable_gaussian(

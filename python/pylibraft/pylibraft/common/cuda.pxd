@@ -16,6 +16,7 @@
 
 from cuda.ccudart cimport cudaStream_t
 
+
 cdef class Stream:
     cdef cudaStream_t s
 

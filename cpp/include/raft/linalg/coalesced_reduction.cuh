@@ -112,21 +112,21 @@ void coalescedReduction(OutType* dots,
 template <typename InValueType,
           typename LayoutPolicy,
           typename OutValueType,
-          typename IndexType,
-          typename MainLambda   = raft::Nop<InValueType>,
+          typename IdxType,
+          typename MainLambda   = raft::Nop<InValueType, IdxType>,
           typename ReduceLambda = raft::Sum<OutValueType>,
           typename FinalLambda  = raft::Nop<OutValueType>>
 void coalesced_reduction(const raft::handle_t& handle,
-                         raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> data,
-                         raft::device_vector_view<OutValueType, IndexType> dots,
+                         raft::device_matrix_view<const InValueType, IdxType, LayoutPolicy> data,
+                         raft::device_vector_view<OutValueType, IdxType> dots,
                          OutValueType init,
                          bool inplace           = false,
-                         MainLambda main_op     = raft::Nop<InValueType>(),
+                         MainLambda main_op     = raft::Nop<InValueType, IdxType>(),
                          ReduceLambda reduce_op = raft::Sum<OutValueType>(),
                          FinalLambda final_op   = raft::Nop<OutValueType>())
 {
   if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
-    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(0),
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(0),
                  "Output should be equal to number of rows in Input");
 
     coalescedReduction(dots.data_handle(),
@@ -140,7 +140,7 @@ void coalesced_reduction(const raft::handle_t& handle,
                        reduce_op,
                        final_op);
   } else if constexpr (std::is_same_v<LayoutPolicy, raft::col_major>) {
-    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(1),
                  "Output should be equal to number of columns in Input");
 
     coalescedReduction(dots.data_handle(),

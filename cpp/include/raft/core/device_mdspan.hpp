@@ -44,7 +44,6 @@ template <typename ElementType,
           typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using managed_mdspan = mdspan<ElementType, Extents, LayoutPolicy, managed_accessor<AccessorPolicy>>;
 
-namespace detail {
 template <typename T, bool B>
 struct is_device_mdspan : std::false_type {
 };
@@ -83,22 +82,20 @@ using is_input_managed_mdspan_t = is_managed_mdspan<T, is_input_mdspan_v<T>>;
 template <typename T>
 using is_output_managed_mdspan_t = is_managed_mdspan<T, is_output_mdspan_v<T>>;
 
-}  // end namespace detail
-
 /**
  * @\brief Boolean to determine if variadic template types Tn are either raft::device_mdspan or a
  * derived type
  */
 template <typename... Tn>
-inline constexpr bool is_device_mdspan_v = std::conjunction_v<detail::is_device_mdspan_t<Tn>...>;
+inline constexpr bool is_device_mdspan_v = std::conjunction_v<is_device_mdspan_t<Tn>...>;
 
 template <typename... Tn>
 inline constexpr bool is_input_device_mdspan_v =
-  std::conjunction_v<detail::is_input_device_mdspan_t<Tn>...>;
+  std::conjunction_v<is_input_device_mdspan_t<Tn>...>;
 
 template <typename... Tn>
 inline constexpr bool is_output_device_mdspan_v =
-  std::conjunction_v<detail::is_output_device_mdspan_t<Tn>...>;
+  std::conjunction_v<is_output_device_mdspan_t<Tn>...>;
 
 template <typename... Tn>
 using enable_if_device_mdspan = std::enable_if_t<is_device_mdspan_v<Tn...>>;
@@ -114,15 +111,15 @@ using enable_if_output_device_mdspan = std::enable_if_t<is_output_device_mdspan_
  * derived type
  */
 template <typename... Tn>
-inline constexpr bool is_managed_mdspan_v = std::conjunction_v<detail::is_managed_mdspan_t<Tn>...>;
+inline constexpr bool is_managed_mdspan_v = std::conjunction_v<is_managed_mdspan_t<Tn>...>;
 
 template <typename... Tn>
 inline constexpr bool is_input_managed_mdspan_v =
-  std::conjunction_v<detail::is_input_managed_mdspan_t<Tn>...>;
+  std::conjunction_v<is_input_managed_mdspan_t<Tn>...>;
 
 template <typename... Tn>
 inline constexpr bool is_output_managed_mdspan_v =
-  std::conjunction_v<detail::is_output_managed_mdspan_t<Tn>...>;
+  std::conjunction_v<is_output_managed_mdspan_t<Tn>...>;
 
 template <typename... Tn>
 using enable_if_managed_mdspan = std::enable_if_t<is_managed_mdspan_v<Tn...>>;
@@ -290,18 +287,6 @@ auto make_device_vector_view(
   const typename LayoutPolicy::template mapping<vector_extent<IndexType>>& mapping)
 {
   return device_vector_view<ElementType, IndexType, LayoutPolicy>{ptr, mapping};
-}
-
-/**
- * @brief Create a layout_stride mapping from extents and strides
- * @param[in] extents the dimensionality of the layout
- * @param[in] strides the strides between elements in the layout
- * @return raft::layout_stride::mapping<Extents>
- */
-template <typename Extents, typename Strides>
-auto make_strided_layout(Extents extents, Strides strides)
-{
-  return layout_stride::mapping<Extents>{extents, strides};
 }
 
 /**

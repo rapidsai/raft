@@ -2,8 +2,6 @@
 C++ API Reference
 ~~~~~~~~~~~~~~~~~
 
-
-
 .. _api:
 
 .. toctree::
