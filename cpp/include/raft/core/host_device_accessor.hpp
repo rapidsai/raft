@@ -22,7 +22,7 @@ namespace raft {
 
 /**
  * @brief A mixin to distinguish host and device memory. This is the primary
- * accessor used throught RAFT's APIs to denote whether an underlying pointer
+ * accessor used throughout RAFT's APIs to denote whether an underlying pointer
  * is accessible from device, host, or both.
  */
 template <typename AccessorPolicy, memory_type MemType>

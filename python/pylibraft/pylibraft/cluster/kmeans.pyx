@@ -20,51 +20,28 @@
 
 import numpy as np
 
-from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
-
-from libcpp cimport bool
-from libcpp cimport nullptr
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool, nullptr
 
 from pylibraft.common import Handle
 from pylibraft.common.handle import auto_sync_handle
+
 from pylibraft.common.handle cimport handle_t
+
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
+
+from pylibraft.cpp.kmeans cimport (
+    cluster_cost as cpp_cluster_cost,
+    update_centroids,
+)
 
 
 def is_c_cont(cai, dt):
     return "strides" not in cai or \
         cai["strides"] is None or \
         cai["strides"][1] == dt.itemsize
-
-
-cdef extern from "raft_distance/kmeans.hpp" \
-        namespace "raft::cluster::kmeans::runtime":
-
-    cdef void update_centroids(
-        const handle_t& handle,
-        const double *X,
-        int n_samples,
-        int n_features,
-        int n_clusters,
-        const double *sample_weights,
-        const double *centroids,
-        const int* labels,
-        double *new_centroids,
-        double *weight_per_cluster) except +
-
-    cdef void update_centroids(
-        const handle_t& handle,
-        const float *X,
-        int n_samples,
-        int n_features,
-        int n_clusters,
-        const float *sample_weights,
-        const float *centroids,
-        const int* labels,
-        float *new_centroids,
-        float *weight_per_cluster) except +
 
 
 @auto_sync_handle
@@ -110,7 +87,6 @@ def compute_new_centroids(X,
 
         from pylibraft.common import Handle
         from pylibraft.cluster.kmeans import compute_new_centroids
-        from pylibraft.distance import fused_l2_nn_argmin
 
         # A single RAFT handle can optionally be reused across
         # pylibraft functions.
@@ -219,5 +195,93 @@ def compute_new_centroids(X,
                          <int*> labels_ptr,
                          <double*> new_centroids_ptr,
                          <double*> weight_per_cluster_ptr)
+    else:
+        raise ValueError("dtype %s not supported" % x_dt)
+
+
+@auto_sync_handle
+def cluster_cost(X, centroids, handle=None):
+    """
+    Compute cluster cost given an input matrix and existing centroids
+
+    Parameters
+    ----------
+    X : Input CUDA array interface compliant matrix shape (m, k)
+    centroids : Input CUDA array interface compliant matrix shape
+                    (n_clusters, k)
+    {handle_docstring}
+
+    Examples
+    --------
+
+    .. code-block:: python
+        import cupy as cp
+
+        from pylibraft.cluster.kmeans import cluster_cost
+
+        n_samples = 5000
+        n_features = 50
+        n_clusters = 3
+
+        X = cp.random.random_sample((n_samples, n_features),
+                                      dtype=cp.float32)
+
+        centroids = cp.random.random_sample((n_clusters, n_features),
+                                                dtype=cp.float32)
+
+        inertia = cluster_cost(X, centroids)
+    """
+    x_cai = X.__cuda_array_interface__
+    centroids_cai = centroids.__cuda_array_interface__
+
+    m = x_cai["shape"][0]
+    x_k = x_cai["shape"][1]
+    n_clusters = centroids_cai["shape"][0]
+
+    centroids_k = centroids_cai["shape"][1]
+
+    x_dt = np.dtype(x_cai["typestr"])
+    centroids_dt = np.dtype(centroids_cai["typestr"])
+
+    if not do_cols_match(X, centroids):
+        raise ValueError("X and centroids must have same number of columns.")
+
+    x_ptr = <uintptr_t>x_cai["data"][0]
+    centroids_ptr = <uintptr_t>centroids_cai["data"][0]
+
+    handle = handle if handle is not None else Handle()
+    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+
+    x_c_contiguous = is_c_cont(x_cai, x_dt)
+    centroids_c_contiguous = is_c_cont(centroids_cai, centroids_dt)
+
+    if not x_c_contiguous or not centroids_c_contiguous:
+        raise ValueError("Inputs must all be c contiguous")
+
+    if not do_dtypes_match(X, centroids):
+        raise ValueError("Inputs must all have the same dtypes "
+                         "(float32 or float64)")
+
+    cdef float f_cost = 0
+    cdef double d_cost = 0
+
+    if x_dt == np.float32:
+        cpp_cluster_cost(deref(h),
+                         <float*> x_ptr,
+                         <int> m,
+                         <int> x_k,
+                         <int> n_clusters,
+                         <float*> centroids_ptr,
+                         <float*> &f_cost)
+        return f_cost
+    elif x_dt == np.float64:
+        cpp_cluster_cost(deref(h),
+                         <double*> x_ptr,
+                         <int> m,
+                         <int> x_k,
+                         <int> n_clusters,
+                         <double*> centroids_ptr,
+                         <double*> &d_cost)
+        return d_cost
     else:
         raise ValueError("dtype %s not supported" % x_dt)

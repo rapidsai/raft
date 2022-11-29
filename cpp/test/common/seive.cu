@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/common/seive.hpp>
+#include <raft/util/seive.hpp>
 
 namespace raft {
 namespace common {

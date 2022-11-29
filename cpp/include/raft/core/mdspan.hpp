@@ -194,26 +194,15 @@ auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 }
 
 /**
- * @brief Create a raft::mdspan
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @tparam MemType the raft::memory_type for where the data are stored
- * @param ptr Pointer to the data
- * @param exts dimensionality of the array (series of integers)
- * @return raft::mdspan
+ * @brief Create a layout_stride mapping from extents and strides
+ * @param[in] extents the dimensionality of the layout
+ * @param[in] strides the strides between elements in the layout
+ * @return raft::layout_stride::mapping<Extents>
  */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous,
-          memory_type MemType   = memory_type::device,
-          size_t... Extents>
-auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
+template <typename Extents, typename Strides>
+auto make_strided_layout(Extents extents, Strides strides)
 {
-  using accessor_type =
-    host_device_accessor<std::experimental::default_accessor<ElementType>, MemType>;
-
-  return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
+  return layout_stride::mapping<Extents>{extents, strides};
 }
 
 /**

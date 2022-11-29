@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/integer_utils.h>
+#include <raft/util/integer_utils.hpp>
 
 namespace raft {
 

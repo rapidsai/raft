@@ -131,7 +131,7 @@ struct TestEqual {
 
 TEST(GPUSpan, WithTrust)
 {
-  // Not adviced to initialize span with host_vector, since h_vec.data() is
+  // Not advised to initialize span with host_vector, since h_vec.data() is
   // a host function.
   thrust::host_vector<float> h_vec(16);
   std::iota(h_vec.begin(), h_vec.end(), 0);

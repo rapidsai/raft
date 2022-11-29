@@ -21,10 +21,10 @@
 
 import functools
 
-from rmm._lib.cuda_stream_view cimport cuda_stream_per_thread
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from rmm._lib.cuda_stream_view cimport cuda_stream_per_thread, cuda_stream_view
 
 from .cuda cimport Stream
+
 from .cuda import CudaRuntimeError
 
 

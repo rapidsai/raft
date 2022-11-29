@@ -107,7 +107,9 @@ void fusedL2NN(OutT* min,
   bool is_skinny = k < 32;
 
   size_t bytes = sizeof(DataT) * k;
-  if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
+  auto px      = reinterpret_cast<uintptr_t>(x);
+  auto py      = reinterpret_cast<uintptr_t>(y);
+  if (16 % sizeof(DataT) == 0 && bytes % 16 == 0 && px % 16 == 0 && py % 16 == 0) {
     if (is_skinny) {
       detail::fusedL2NNImpl<DataT,
                             OutT,
@@ -123,7 +125,7 @@ void fusedL2NN(OutT* min,
                             ReduceOpT>(
         min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
     }
-  } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
+  } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0 && px % 8 == 0 && py % 8 == 0) {
     if (is_skinny) {
       detail::fusedL2NNImpl<DataT,
                             OutT,

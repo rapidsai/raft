@@ -168,7 +168,7 @@ MDSPAN_STATIC_TEST(
   >::value
 );
 
-// TODO: Remove this test alltogether?
+// TODO: Remove this test altogether?
 // CT: Fails with GCC too after I removed the template parameter
 // I guess there is padding added after foo?
 #if 0
