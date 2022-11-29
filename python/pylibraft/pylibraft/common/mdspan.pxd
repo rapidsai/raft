@@ -22,8 +22,9 @@ import pylibraft.common.handle
 
 from cython.operator cimport dereference as deref
 
+
 cdef extern from "raft/thirdparty/mdspan/include/experimental/__p0009_bits/layout_stride.hpp" \
-    namespace "std::experimental":
+        namespace "std::experimental":
     cdef cppclass layout_right:
         pass
 
@@ -39,5 +40,6 @@ cdef extern from "raft/core/device_mdspan.hpp" \
     cdef cppclass device_matrix_view[ElementType, IndexType, LayoutPolicy]:
         pass
 
-    cdef device_matrix_view[ElementType, IndexType, LayoutPolicy] make_device_matrix_view[ElementType, IndexType, LayoutPolicy](
-        ElementType* ptr, IndexType n_rows, IndexType n_cols)
+    cdef device_matrix_view[ElementType, IndexType, LayoutPolicy] \
+        make_device_matrix_view[ElementType, IndexType, LayoutPolicy](
+            ElementType* ptr, IndexType n_rows, IndexType n_cols)

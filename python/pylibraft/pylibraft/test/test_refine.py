@@ -17,10 +17,10 @@ import numpy as np
 import pytest
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
+from test_ivf_pq import calc_recall, check_distances, generate_data
 
 from pylibraft.common import device_ndarray
 from pylibraft.neighbors import refine
-from test_ivf_pq import generate_data, calc_recall, check_distances
 
 
 def run_refine(
@@ -46,10 +46,16 @@ def run_refine(
     queries_device = device_ndarray(queries)
 
     # Calculate reference values with sklearn
-    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[metric]
-    nn_skl = NearestNeighbors(n_neighbors=k0, algorithm="brute", metric=skl_metric)
+    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[
+        metric
+    ]
+    nn_skl = NearestNeighbors(
+        n_neighbors=k0, algorithm="brute", metric=skl_metric
+    )
     nn_skl.fit(dataset)
-    candidates = nn_skl.kneighbors(queries, return_distance=False).astype(np.uint64)
+    candidates = nn_skl.kneighbors(queries, return_distance=False).astype(
+        np.uint64
+    )
     candidates_device = device_ndarray(candidates)
 
     out_idx = np.zeros((n_queries, k), dtype=np.uint64)
@@ -74,12 +80,6 @@ def run_refine(
     out_dist = out_dist_device.copy_to_host()
 
     skl_idx = candidates[:, :k]
-    # nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=skl_metric)
-    # nn_skl.fit(dataset)
-    # skl_idx = nn_skl.kneighbors(queries, return_distance=False)
-
-    # print(skl_idx)
-    # print(out_idx)
     recall = calc_recall(out_idx, skl_idx)
     print(recall)
     assert recall > 0.999
@@ -87,9 +87,6 @@ def run_refine(
     check_distances(dataset, queries, metric, out_idx, out_dist)
 
 
-# @pytest.mark.parametrize("n_rows", [10000])
-# @pytest.mark.parametrize("n_cols", [10])
-# @pytest.mark.parametrize("n_queries", [100])
 @pytest.mark.parametrize("inplace", [True, False])
 @pytest.mark.parametrize("metric", ["l2_expanded", "inner_product"])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
@@ -153,7 +150,6 @@ def test_input_assertions(params):
     n_cols = 5
     n_queries = 100
     k0 = 40
-    k = 10
     dtype = np.float32
     dataset = generate_data((500, n_cols), dtype)
     dataset_device = device_ndarray(dataset)
@@ -161,10 +157,9 @@ def test_input_assertions(params):
     queries = generate_data((n_queries, n_cols), dtype)
     queries_device = device_ndarray(queries)
 
-    # nn_skl = NearestNeighbors(n_neighbors=k0, algorithm="brute", metric="euclidean")
-    # nn_skl.fit(dataset)
-    candidates = np.random.randint(0, 500, size=(n_queries, k0), dtype=np.uint64)
-    # candidates = nn_skl.kneighbors(queries, return_distance=False).astype(np.uint64)
+    candidates = np.random.randint(
+        0, 500, size=(n_queries, k0), dtype=np.uint64
+    )
     candidates_device = device_ndarray(candidates)
 
     if params["idx_shape"] is not None:
