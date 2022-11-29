@@ -49,8 +49,12 @@ void check_input(extents_t dataset,
 
   RAFT_EXPECTS(indices.extent(0) == n_queries && distances.extent(0) == n_queries &&
                  candidates.extent(0) == n_queries,
-               "Number of rows in output indices and distances matrices must equal number of rows "
-               "in search matrix.");
+               "Number of rows in output indices, distances and candidates matrices must be equal"
+               " with the number of rows in search matrix. Expected %d, got %d, %d, and %d",
+               static_cast<int>(n_queries),
+               static_cast<int>(indices.extent(0)),
+               static_cast<int>(distances.extent(0)),
+               static_cast<int>(candidates.extent(0)));
 
   RAFT_EXPECTS(indices.extent(1) == k,
                "Number of columns in output indices and distances matrices must be equal to k");
