@@ -171,8 +171,12 @@ def run_ivf_pq_build_search_test(
     out_dist = out_dist_device.copy_to_host()
 
     # Calculate reference values with sklearn
-    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[metric]
-    nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=skl_metric)
+    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[
+        metric
+    ]
+    nn_skl = NearestNeighbors(
+        n_neighbors=k, algorithm="brute", metric=skl_metric
+    )
     nn_skl.fit(dataset)
     skl_idx = nn_skl.kneighbors(queries, return_distance=False)
 
@@ -439,9 +443,9 @@ def test_search_inputs(params):
 
     q_dt = params.get("q_dt", np.float32)
     q_order = params.get("q_order", "C")
-    queries = generate_data((n_queries, params.get("q_cols", n_cols)), q_dt).astype(
-        q_dt, order=q_order
-    )
+    queries = generate_data(
+        (n_queries, params.get("q_cols", n_cols)), q_dt
+    ).astype(q_dt, order=q_order)
     queries_device = device_ndarray(queries)
 
     idx_dt = params.get("idx_dt", np.uint64)
