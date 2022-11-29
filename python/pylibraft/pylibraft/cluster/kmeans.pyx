@@ -23,6 +23,7 @@ import numpy as np
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport nullptr
+
 from collections import namedtuple
 from enum import IntEnum
 
@@ -35,13 +36,13 @@ from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
 
 from pylibraft.common.handle cimport handle_t
-from pylibraft.common.mdspan cimport *
-from pylibraft.common.optional cimport optional
 from pylibraft.cpp cimport kmeans as cpp_kmeans, kmeans_types
 from pylibraft.cpp.kmeans cimport (
     cluster_cost as cpp_cluster_cost,
     update_centroids,
 )
+from pylibraft.cpp.mdspan cimport *
+from pylibraft.cpp.optional cimport optional
 
 
 def is_c_cont(cai, dt):
