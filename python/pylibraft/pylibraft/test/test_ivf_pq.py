@@ -92,6 +92,7 @@ def run_ivf_pq_build_search_test(
     force_random_rotation=False,
     kmeans_trainset_fraction=1,
     kmeans_n_iters=20,
+    shmem_carveout=1.0,
     compare=True,
     inplace=True,
 ):
@@ -145,6 +146,7 @@ def run_ivf_pq_build_search_test(
         n_probes=n_probes,
         lut_dtype=lut_dtype,
         internal_distance_dtype=internal_distance_dtype,
+        shmem_carveout=shmem_carveout,
     )
 
     ret_output = ivf_pq.search(

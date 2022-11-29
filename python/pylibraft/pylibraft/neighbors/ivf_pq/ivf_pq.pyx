@@ -516,7 +516,8 @@ cdef class SearchParams:
 
     def __init__(self, *, n_probes=20,
                  lut_dtype=np.float32,
-                 internal_distance_dtype=np.float32):
+                 internal_distance_dtype=np.float32,
+                 shmem_carveout=1.0):
         """
         IVF-PQ search parameters
 
@@ -534,22 +535,25 @@ cdef class SearchParams:
         internal_distance_dtype: default = np.float32
             Storage data type for distance/similarity computation.
             Possible values [np.float32, np.float16]
+        shmem_carveout: float, default = 1.0
+            Possible values: [0.0 - 1.0]. Note, this is a low-level tuning
+            parameter that can have drastic negative effects on the search
+            performance if tweaked incorrectly.
+
         """
 
         self.params.n_probes = n_probes
         self.params.lut_dtype = _map_dtype_np_to_cuda(lut_dtype)
         self.params.internal_distance_dtype = \
             _map_dtype_np_to_cuda(internal_distance_dtype)
-        # TODO(tfeher): enable if #926 adds this
-        # self.params.shmem_carveout = self.shmem_carveout
+        self.params.preferred_shmem_carveout = shmem_carveout
 
     def __repr__(self):
         lut_str = "lut_dtype=" + _get_dtype_string(self.params.lut_dtype)
         idt_str = "internal_distance_dtype=" + \
             _get_dtype_string(self.params.internal_distance_dtype)
         attr_str = [attr + "=" + str(getattr(self, attr))
-                    for attr in ["n_probes"]]
-        # TODO (tfeher) add "shmem_carveout"
+                    for attr in ["n_probes", "shmem_carveout"]]
         attr_str = attr_str + [lut_str, idt_str]
         return "SearchParams(type=IVF-PQ, " + (", ".join(attr_str)) + ")"
 
@@ -564,6 +568,10 @@ cdef class SearchParams:
     @property
     def internal_distance_dtype(self):
         return self.params.internal_distance_dtype
+
+    @property
+    def shmem_carveout(self):
+        return self.params.preferred_shmem_carveout
 
 
 @auto_sync_handle

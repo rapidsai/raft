@@ -102,6 +102,7 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         uint32_t n_probes
         cudaDataType_t lut_dtype
         cudaDataType_t internal_distance_dtype
+        double preferred_shmem_carveout
 
 
 cdef extern from "raft/neighbors/specializations/ivf_pq_specialization.hpp" \
