@@ -208,7 +208,7 @@ void refine_host(raft::host_matrix_view<const data_t, matrix_idx, row_major> dat
           float val_q = (float)(cur_query[k]);
           float val_d = (float)(cur_dataset[k]);
           if (metric == raft::distance::DistanceType::InnerProduct) {
-            distance += -val_q * val_d;  // Negate because we sort in scending order.
+            distance += -val_q * val_d;  // Negate because we sort in ascending order.
           } else {
             distance += (val_q - val_d) * (val_q - val_d);
           }
@@ -225,7 +225,7 @@ void refine_host(raft::host_matrix_view<const data_t, matrix_idx, row_major> dat
         if (metric == raft::distance::DistanceType::InnerProduct) {
           refinedDistances[j + (refinedTopK * i)] = -sfr[j].distance;
         } else {
-          refinedDistances[j + (refinedTopK * i)] = -sfr[j].distance;
+          refinedDistances[j + (refinedTopK * i)] = sfr[j].distance;
         }
       }
     }

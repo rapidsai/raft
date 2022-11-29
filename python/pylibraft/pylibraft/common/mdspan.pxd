@@ -43,3 +43,14 @@ cdef extern from "raft/core/device_mdspan.hpp" \
     cdef device_matrix_view[ElementType, IndexType, LayoutPolicy] \
         make_device_matrix_view[ElementType, IndexType, LayoutPolicy](
             ElementType* ptr, IndexType n_rows, IndexType n_cols)
+
+
+cdef extern from "raft/core/host_mdspan.hpp" \
+        namespace "raft" nogil:
+
+    cdef cppclass host_matrix_view[ElementType, IndexType, LayoutPolicy]:
+        pass
+
+    cdef host_matrix_view[ElementType, IndexType, LayoutPolicy] \
+        make_host_matrix_view[ElementType, IndexType, LayoutPolicy](
+            ElementType* ptr, IndexType n_rows, IndexType n_cols)

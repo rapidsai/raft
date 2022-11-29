@@ -49,7 +49,9 @@ from pylibraft.neighbors.ivf_pq.ivf_pq import _get_metric
 cimport pylibraft.neighbors.ivf_pq.c_ivf_pq as c_ivf_pq
 from pylibraft.common.mdspan cimport (
     device_matrix_view,
+    host_matrix_view,
     make_device_matrix_view,
+    make_host_matrix_view,
     row_major,
 )
 from pylibraft.neighbors.ivf_pq.c_ivf_pq cimport index_params, search_params
@@ -85,6 +87,33 @@ cdef extern from "raft/neighbors/specializations/refine.hpp" \
         device_matrix_view[uint64_t, uint64_t, row_major] candidates,
         device_matrix_view[uint64_t, uint64_t, row_major] indices,
         device_matrix_view[float, uint64_t, row_major] distances,
+        DistanceType metric) except +
+
+    cdef void c_refine "raft::neighbors::refine" (
+        const handle_t& handle,
+        host_matrix_view[float, uint64_t, row_major] dataset,
+        host_matrix_view[float, uint64_t, row_major] queries,
+        host_matrix_view[uint64_t, uint64_t, row_major] candidates,
+        host_matrix_view[uint64_t, uint64_t, row_major] indices,
+        host_matrix_view[float, uint64_t, row_major] distances,
+        DistanceType metric) except +
+
+    cdef void c_refine "raft::neighbors::refine" (
+        const handle_t& handle,
+        host_matrix_view[uint8_t, uint64_t, row_major] dataset,
+        host_matrix_view[uint8_t, uint64_t, row_major] queries,
+        host_matrix_view[uint64_t, uint64_t, row_major] candidates,
+        host_matrix_view[uint64_t, uint64_t, row_major] indices,
+        host_matrix_view[float, uint64_t, row_major] distances,
+        DistanceType metric) except +
+
+    cdef void c_refine "raft::neighbors::refine" (
+        const handle_t& handle,
+        host_matrix_view[int8_t, uint64_t, row_major] dataset,
+        host_matrix_view[int8_t, uint64_t, row_major] queries,
+        host_matrix_view[uint64_t, uint64_t, row_major] candidates,
+        host_matrix_view[uint64_t, uint64_t, row_major] indices,
+        host_matrix_view[float, uint64_t, row_major] distances,
         DistanceType metric) except +
 
 
@@ -130,6 +159,49 @@ cdef device_matrix_view[int8_t, uint64_t, row_major] \
         raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
     return make_device_matrix_view[int8_t, uint64_t, row_major](
         <int8_t*><uintptr_t>cai.data, cai.shape[0], cai.shape[1])
+
+
+def _get_array_params(array_interface, check_dtype=None):
+    dtype = np.dtype(array_interface["typestr"])
+    if check_dtype is None and dtype != check_dtype:
+        raise TypeError("dtype %s not supported" % dtype)
+    shape = array_interface["shape"]
+    if len(shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(shape))
+    data = array_interface["data"][0]
+    return (shape, dtype, data)
+
+
+cdef host_matrix_view[float, uint64_t, row_major] \
+        get_host_matrix_view_float(array) except *:
+    shape, dtype, data = _get_array_params(
+        array.__array_interface__, check_dtype=np.float32)
+    return make_host_matrix_view[float, uint64_t, row_major](
+        <float*><uintptr_t>data, shape[0], shape[1])
+
+
+cdef host_matrix_view[uint64_t, uint64_t, row_major] \
+        get_host_matrix_view_uint64(array) except *:
+    shape, dtype, data = _get_array_params(
+        array.__array_interface__, check_dtype=np.uint64)
+    return make_host_matrix_view[uint64_t, uint64_t, row_major](
+        <uint64_t*><uintptr_t>data, shape[0], shape[1])
+
+
+cdef host_matrix_view[uint8_t, uint64_t, row_major] \
+        get_host_matrix_view_uint8(array) except *:
+    shape, dtype, data = _get_array_params(
+        array.__array_interface__, check_dtype=np.uint8)
+    return make_host_matrix_view[uint8_t, uint64_t, row_major](
+        <uint8_t*><uintptr_t>data, shape[0], shape[1])
+
+
+cdef host_matrix_view[int8_t, uint64_t, row_major] \
+        get_host_matrix_view_int8(array) except *:
+    shape, dtype, data = _get_array_params(
+        array.__array_interface__, check_dtype=np.int8)
+    return make_host_matrix_view[int8_t, uint64_t, row_major](
+        <int8_t*><uintptr_t>data, shape[0], shape[1])
 
 
 @auto_sync_handle
@@ -220,6 +292,17 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
 
     if handle is None:
         handle = Handle()
+
+    if hasattr(dataset, "__cuda_array_interface__"):
+        return _refine_device(dataset, queries, candidates, k, indices,
+                              distances, metric, handle)
+    else:
+        return _refine_host(dataset, queries, candidates, k, indices,
+                            distances, metric, handle)
+
+
+def _refine_device(dataset, queries, candidates, k, indices, distances,
+                   metric, handle):
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     cdef device_matrix_view[float, uint64_t, row_major] dataset_view_fp32
@@ -294,5 +377,85 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
                      c_metric)
     else:
         raise TypeError("dtype %s not supported" % dataset_cai.dtype)
+
+    return (distances, indices)
+
+
+def _refine_host(dataset, queries, candidates, k, indices, distances,
+                 metric, handle):
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+
+    cdef host_matrix_view[float, uint64_t, row_major] dataset_view_fp32
+    cdef host_matrix_view[uint8_t, uint64_t, row_major] dataset_view_uint8
+    cdef host_matrix_view[int8_t, uint64_t, row_major] dataset_view_int8
+    cdef host_matrix_view[float, uint64_t, row_major] queries_view_fp32
+    cdef host_matrix_view[uint8_t, uint64_t, row_major] queries_view_uint8
+    cdef host_matrix_view[int8_t, uint64_t, row_major] queries_view_int8
+
+    cdef host_matrix_view[uint64_t, uint64_t, row_major] candidates_view = \
+        get_host_matrix_view_uint64(candidates)
+
+    if k is None:
+        if indices is not None:
+            k = indices.__array_interface__["shape"][1]
+        elif distances is not None:
+            k = distances.__array_interface__["shape"][1]
+        else:
+            raise ValueError("Argument k must be specified if both indices "
+                             "and distances arg is None")
+
+    n_queries = queries.__array_interface__["shape"][0]
+
+    if indices is None:
+        indices = np.empty((n_queries, k), dtype='uint64')
+
+    if distances is None:
+        distances = np.empty((n_queries, k), dtype='float32')
+
+    cdef host_matrix_view[uint64_t, uint64_t, row_major] indices_view = \
+        get_host_matrix_view_uint64(indices)
+
+    cdef host_matrix_view[float, uint64_t, row_major] distances_view = \
+        get_host_matrix_view_float(distances)
+
+    cdef DistanceType c_metric = _get_metric(metric)
+
+    dtype = np.dtype(dataset.__array_interface__["typestr"])
+
+    if dtype == np.float32:
+        dataset_view_fp32 = get_host_matrix_view_float(dataset)
+        queries_view_fp32 = get_host_matrix_view_float(queries)
+        with cuda_interruptible():
+            c_refine(deref(handle_),
+                     dataset_view_fp32,
+                     queries_view_fp32,
+                     candidates_view,
+                     indices_view,
+                     distances_view,
+                     c_metric)
+    elif dtype == np.int8:
+        dataset_view_int8 = get_host_matrix_view_int8(dataset)
+        queries_view_int8 = get_host_matrix_view_int8(queries)
+        with cuda_interruptible():
+            c_refine(deref(handle_),
+                     dataset_view_int8,
+                     queries_view_int8,
+                     candidates_view,
+                     indices_view,
+                     distances_view,
+                     c_metric)
+    elif dtype == np.uint8:
+        dataset_view_uint8 = get_host_matrix_view_uint8(dataset)
+        queries_view_uint8 = get_host_matrix_view_uint8(queries)
+        with cuda_interruptible():
+            c_refine(deref(handle_),
+                     dataset_view_uint8,
+                     queries_view_uint8,
+                     candidates_view,
+                     indices_view,
+                     distances_view,
+                     c_metric)
+    else:
+        raise TypeError("dtype %s not supported" % dtype)
 
     return (distances, indices)

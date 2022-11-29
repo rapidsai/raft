@@ -43,11 +43,17 @@ def calc_recall(ann_idx, true_nn_idx):
     return recall
 
 
-def check_distances(dataset, queries, metric, out_idx, out_dist):
+def check_distances(dataset, queries, metric, out_idx, out_dist, eps=None):
     """
     Calculate the real distance between queries and dataset[out_idx],
     and compare it to out_dist.
     """
+    if eps is None:
+        # Quantization leads to errors in the distance calculation.
+        # The aim of this test is not to test precision, but to catch obvious
+        # errors.
+        eps = 0.1
+
     dist = np.empty(out_dist.shape, out_dist.dtype)
     for i in range(queries.shape[0]):
         X = queries[np.newaxis, i, :]
@@ -57,7 +63,7 @@ def check_distances(dataset, queries, metric, out_idx, out_dist):
         elif metric == "inner_product":
             dist[i, :] = np.matmul(X, Y.T)
         else:
-            raise ValueError("Invali metric")
+            raise ValueError("Invalid metric")
 
     # Note: raft l2 metric does not include the square root operation like
     # sklearn's euclidean.
@@ -68,10 +74,7 @@ def check_distances(dataset, queries, metric, out_idx, out_dist):
     dist_eps[dist < 1e-3] = 1e-3
     diff = abs(out_dist - dist) / dist_eps
 
-    # Quantization leads to errors in the distance calculation.
-    # The aim of this test is not to test precision, but to catch obvious
-    # errors.
-    assert np.mean(diff) < 0.1
+    assert np.mean(diff) < eps
 
 
 def run_ivf_pq_build_search_test(
@@ -168,12 +171,8 @@ def run_ivf_pq_build_search_test(
     out_dist = out_dist_device.copy_to_host()
 
     # Calculate reference values with sklearn
-    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[
-        metric
-    ]
-    nn_skl = NearestNeighbors(
-        n_neighbors=k, algorithm="brute", metric=skl_metric
-    )
+    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[metric]
+    nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=skl_metric)
     nn_skl.fit(dataset)
     skl_idx = nn_skl.kneighbors(queries, return_distance=False)
 
@@ -440,9 +439,9 @@ def test_search_inputs(params):
 
     q_dt = params.get("q_dt", np.float32)
     q_order = params.get("q_order", "C")
-    queries = generate_data(
-        (n_queries, params.get("q_cols", n_cols)), q_dt
-    ).astype(q_dt, order=q_order)
+    queries = generate_data((n_queries, params.get("q_cols", n_cols)), q_dt).astype(
+        q_dt, order=q_order
+    )
     queries_device = device_ndarray(queries)
 
     idx_dt = params.get("idx_dt", np.uint64)
