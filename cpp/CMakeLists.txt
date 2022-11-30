@@ -10,9 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-# =============================================================================
-set(RAPIDS_VERSION "22.12")
-set(RAFT_VERSION "22.12.00")
+set(RAPIDS_VERSION "23.02")
+set(RAFT_VERSION "23.02.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -29,11 +28,6 @@ project(
   VERSION ${RAFT_VERSION}
   LANGUAGES CXX CUDA
 )
-
-# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
-# have different values for the `Threads::Threads` target. Setting this flag ensures
-# `Threads::Threads` is the same value in first run and subsequent runs.
-set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 # Write the version header
 rapids_cmake_write_version_file(include/raft/version_config.hpp)
@@ -76,6 +70,13 @@ option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss"
 )
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
+
+if(BUILD_TESTS OR BUILD_BENCH)
+  # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
+  # to have different values for the `Threads::Threads` target. Setting this flag ensures
+  # `Threads::Threads` is the same value in first run and subsequent runs.
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+endif()
 
 if(BUILD_TESTS AND NOT RAFT_ENABLE_thrust_DEPENDENCY)
   message(VERBOSE "RAFT: BUILD_TESTS is enabled, overriding RAFT_ENABLE_thrust_DEPENDENCY")
@@ -134,12 +135,7 @@ endif()
 
 set(_ctk_static_suffix "")
 if(CUDA_STATIC_RUNTIME)
-  # If we're statically linking CTK cuBLAS, we also want to statically link BLAS
-  set(BLA_STATIC ON)
   set(_ctk_static_suffix "_static")
-  # Control legacy FindCUDA.cmake behavior too Remove this after we push it into rapids-cmake:
-  # https://github.com/rapidsai/rapids-cmake/pull/259
-  set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
 endif()
 
 # CUDA runtime

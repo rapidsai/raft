@@ -246,6 +246,7 @@ if(BUILD_TESTS)
     test/neighbors/ball_cover.cu
     test/neighbors/epsilon_neighborhood.cu
     test/neighbors/faiss_mr.cu
+    test/neighbors/refine.cu
     test/neighbors/selection.cu
     OPTIONAL
     DIST

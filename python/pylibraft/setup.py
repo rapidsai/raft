@@ -14,12 +14,54 @@
 # limitations under the License.
 #
 
+import os
+
 import versioneer
 from setuptools import find_packages
 from skbuild import setup
 
+cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
+
+install_requires = [
+    "numpy",
+    "cuda-python>=11.7.1,<12.0",
+    f"rmm{cuda_suffix}",
+]
+
+extras_require = {
+    "test": [
+        "pytest",
+        "scipy",
+        "scikit-learn",
+    ]
+}
+
+
+def exclude_libcxx_symlink(cmake_manifest):
+    return list(
+        filter(
+            lambda name: not ("include/rapids/libcxx/include" in name),
+            cmake_manifest,
+        )
+    )
+
+
+# Make versioneer produce PyPI-compatible nightly versions for wheels.
+if "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE" in os.environ:
+    orig_get_versions = versioneer.get_versions
+
+    version_override = os.environ["RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE"]
+
+    def get_versions():
+        data = orig_get_versions()
+        data["version"] = version_override
+        return data
+
+    versioneer.get_versions = get_versions
+
+
 setup(
-    name="pylibraft",
+    name=f"pylibraft{cuda_suffix}",
     description="RAFT: Reusable Algorithms Functions and other Tools",
     version=versioneer.get_version(),
     classifiers=[
@@ -29,6 +71,7 @@ setup(
         "Programming Language :: Python :: 3.9",
     ],
     author="NVIDIA Corporation",
+    include_package_data=True,
     package_data={
         # Note: A dict comprehension with an explicit copy is necessary
         # (rather than something simpler like a dict.fromkeys) because
@@ -46,8 +89,12 @@ setup(
             ]
         )
     },
+    install_requires=install_requires,
+    extras_require=extras_require,
+    # Don't want libcxx getting pulled into wheel builds.
+    cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=find_packages(include=["pylibraft", "pylibraft.*"]),
-    license="Apache",
+    license="Apache 2.0",
     cmdclass=versioneer.get_cmdclass(),
     zip_safe=False,
 )

@@ -2,12 +2,13 @@
 PyLibRAFT API Reference
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-.. role:: py(code)
-   :language: python
-   :class: highlight
+.. _api:
 
+.. toctree::
+   :maxdepth: 4
 
-Pairwise Distances
-==================
-
-.. autofunction:: pylibraft.distance.pairwise_distance
+   pylibraft_api/common.rst
+   pylibraft_api/cluster.rst
+   pylibraft_api/distance.rst
+   pylibraft_api/neighbors.rst
+   pylibraft_api/random.rst

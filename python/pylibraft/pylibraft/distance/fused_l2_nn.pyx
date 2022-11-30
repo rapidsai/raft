@@ -71,24 +71,20 @@ def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
 
     Examples
     --------
-
     To compute the 1-nearest neighbors argmin:
+
     .. code-block:: python
 
         import cupy as cp
-
         from pylibraft.common import Handle
         from pylibraft.distance import fused_l2_nn_argmin
-
         n_samples = 5000
         n_clusters = 5
         n_features = 50
-
         in1 = cp.random.random_sample((n_samples, n_features),
                                       dtype=cp.float32)
         in2 = cp.random.random_sample((n_clusters, n_features),
                                       dtype=cp.float32)
-
         # A single RAFT handle can optionally be reused across
         # pylibraft functions.
         handle = Handle()
@@ -101,23 +97,20 @@ def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
 
     The output can also be computed in-place on a preallocated
     array:
+
     .. code-block:: python
 
         import cupy as cp
-
         from pylibraft.common import Handle
         from pylibraft.distance import fused_l2_nn_argmin
-
         n_samples = 5000
         n_clusters = 5
         n_features = 50
-
         in1 = cp.random.random_sample((n_samples, n_features),
                                       dtype=cp.float32)
         in2 = cp.random.random_sample((n_clusters, n_features),
                                       dtype=cp.float32)
         output = cp.empty((n_samples, 1), dtype=cp.int32)
-
         # A single RAFT handle can optionally be reused across
         # pylibraft functions.
         handle = Handle()
