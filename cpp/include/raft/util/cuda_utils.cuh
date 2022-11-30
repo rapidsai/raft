@@ -588,6 +588,15 @@ struct identity_op {
   }
 };
 
+template <typename OutT>
+struct cast_op {
+  template <typename InT, typename IdxType = int>
+  HDI OutT operator()(InT in, IdxType i = 0) const
+  {
+    return static_cast<OutT>(in);
+  }
+};
+
 struct key_op {
   template <typename KVP, typename IdxType = int>
   HDI typename KVP::Key operator()(const KVP& p, IdxType i = 0) const
@@ -774,6 +783,32 @@ using scalar_div_checkzero_op = scalar_op<div_checkzero_op, Type>;
 
 template <typename Type>
 using scalar_pow_op = scalar_op<pow_op, Type>;
+
+template <typename OuterOpT, typename InnerOpT>
+struct unary_compose_op {
+  OuterOpT outer_op;
+  InnerOpT inner_op;
+
+  template <typename Type>
+  HDI auto operator()(Type a) const
+  {
+    return outer_op(inner_op(a));
+  }
+};
+
+template <typename OuterOpT, typename InnerOpT1, typename InnerOpT2 = raft::identity_op>
+struct binary_compose_op {
+  OuterOpT outer_op;
+  InnerOpT1 inner_op1;
+  InnerOpT2 inner_op2;
+
+  template <typename T1, typename T2>
+  HDI auto operator()(T1 a, T2 b) const
+  {
+    return outer_op(inner_op1(a), inner_op2(b));
+  }
+};
+
 /** @} */
 
 /**

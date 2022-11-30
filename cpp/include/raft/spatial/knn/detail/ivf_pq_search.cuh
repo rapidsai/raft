@@ -419,7 +419,12 @@ void postprocess_distances(float* out,        // [n_queries, topk]
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
       linalg::unaryOp(
-        out, in, len, raft::scalar_mul_op<float>(scaling_factor * scaling_factor), stream);
+        out,
+        in,
+        len,
+        raft::scalar_op<raft::binary_compose_op<raft::mul_op, raft::cast_op<float>>, float>(
+          scaling_factor * scaling_factor),
+        stream);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
@@ -427,12 +432,20 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [scaling_factor] __device__(ScoreT x) -> float { return scaling_factor * sqrtf(float(x)); },
+        raft::scalar_op<
+          raft::binary_compose_op<raft::mul_op,
+                                  raft::unary_compose_op<raft::sqrt_op, raft::cast_op<float>>>,
+          float>(scaling_factor),
         stream);
     } break;
     case distance::DistanceType::InnerProduct: {
       linalg::unaryOp(
-        out, in, len, raft::scalar_mul_op<float>(-scaling_factor * scaling_factor), stream);
+        out,
+        in,
+        len,
+        raft::scalar_op<raft::binary_compose_op<raft::mul_op, raft::cast_op<float>>, float>(
+          -scaling_factor * scaling_factor),
+        stream);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }
