@@ -22,20 +22,28 @@ import numpy as np
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
-from libcpp cimport bool, nullptr
+from libcpp cimport nullptr
 
-from pylibraft.common import Handle
+from collections import namedtuple
+from enum import IntEnum
+
+from pylibraft.common import Handle, cai_wrapper
 from pylibraft.common.handle import auto_sync_handle
 
 from pylibraft.common.handle cimport handle_t
+from pylibraft.random.rng_state cimport RngState
 
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
 
+from pylibraft.common.handle cimport handle_t
+from pylibraft.cpp cimport kmeans as cpp_kmeans, kmeans_types
 from pylibraft.cpp.kmeans cimport (
     cluster_cost as cpp_cluster_cost,
     update_centroids,
 )
+from pylibraft.cpp.mdspan cimport *
+from pylibraft.cpp.optional cimport optional
 
 
 def is_c_cont(cai, dt):
@@ -285,3 +293,238 @@ def cluster_cost(X, centroids, handle=None):
         return d_cost
     else:
         raise ValueError("dtype %s not supported" % x_dt)
+
+
+class InitMethod(IntEnum):
+    """ Method for initializing kmeans """
+    KMeansPlusPlus = <int> kmeans_types.InitMethod.KMeansPlusPlus
+    Random = <int> kmeans_types.InitMethod.Random
+    Array = <int> kmeans_types.InitMethod.Array
+
+
+cdef class KMeansParams:
+    """ Specifies hyper-parameters for the kmeans algorithm.
+
+    Parameters
+    ----------
+    n_clusters : int, optional
+        The number of clusters to form as well as the number of centroids
+        to generate
+    max_iter : int, optional
+        Maximum number of iterations of the k-means algorithm for a single run
+    tol : float, optional
+        Relative tolerance with regards to inertia to declare convergence
+    verbosity : int, optional
+    seed: int, optional
+        Seed to the random number generator.
+    metric : str, optional
+        Metric names to use for distance computation, see
+        :func:`pylibraft.distance.pairwise_distance` for valid values.
+    init : InitMethod, optional
+    n_init : int, optional
+        Number of instance k-means algorithm will be run with different seeds.
+    oversampling_factor : float, optional
+        Oversampling factor for use in the k-means algorithm
+    """
+    cdef kmeans_types.KMeansParams c_obj
+
+    def __init__(self,
+                 n_clusters: Optional[int] = None,
+                 max_iter: Optional[int] = None,
+                 tol: Optional[float] = None,
+                 verbosity: Optional[int] = None,
+                 seed: Optional[int] = None,
+                 metric: Optional[str] = None,
+                 init: Optional[InitMethod] = None,
+                 n_init: Optional[int] = None,
+                 oversampling_factor: Optional[float] = None,
+                 batch_samples: Optional[int] = None,
+                 batch_centroids: Optional[int] = None,
+                 inertia_check: Optional[bool] = None):
+        if n_clusters is not None:
+            self.c_obj.n_clusters = n_clusters
+        if max_iter is not None:
+            self.c_obj.max_iter = max_iter
+        if tol is not None:
+            self.c_obj.tol = tol
+        if verbosity is not None:
+            self.c_obj.verbosity = verbosity
+        if seed is not None:
+            self.c_obj.rng_state.seed = seed
+        if metric is not None:
+            distance = DISTANCE_TYPES.get(metric)
+            if distance is None:
+                valid_metrics = list(DISTANCE_TYPES.keys())
+                raise ValueError(f"Unknown metric '{metric}'. Valid values "
+                                 f"are: {valid_metrics}")
+            self.c_obj.metric = distance
+        if init is not None:
+            self.c_obj.init = init
+        if n_init is not None:
+            self.c_obj.n_init = n_init
+        if oversampling_factor is not None:
+            self.c_obj.oversampling_factor = oversampling_factor
+        if batch_samples is not None:
+            self.c_obj.batch_samples = batch_samples
+        if batch_centroids is not None:
+            self.c_obj.batch_centroids = batch_centroids
+        if inertia_check is not None:
+            self.c_obj.inertia_check = inertia_check
+
+    @property
+    def n_clusters(self):
+        return self.c_obj.n_clusters
+
+    @property
+    def max_iter(self):
+        return self.c_obj.max_iter
+
+    @property
+    def tol(self):
+        return self.c_obj.tol
+
+    @property
+    def verbosity(self):
+        return self.c_obj.verbosity
+
+    @property
+    def seed(self):
+        return self.c_obj.rng_state.seed
+
+    @property
+    def init(self):
+        return InitMethod(self.c_obj.init)
+
+    @property
+    def oversampling_factor(self):
+        return self.c_obj.oversampling_factor
+
+    @property
+    def batch_samples(self):
+        return self.c_obj.batch_samples
+
+    @property
+    def batch_centroids(self):
+        return self.c_obj.batch_centroids
+
+    @property
+    def inertia_check(self):
+        return self.c_obj.inertia_check
+
+FitOutput = namedtuple("FitOutput", "centroids inertia n_iter")
+
+
+@auto_sync_handle
+def fit(
+    KMeansParams params, X, centroids=None, sample_weights=None, handle=None
+):
+    """
+    Find clusters with the k-means algorithm
+
+    Parameters
+    ----------
+
+    params : KMeansParams
+        Parameters to use to fit KMeans model
+    X : Input CUDA array interface compliant matrix shape (m, k)
+    centroids : Optional writable CUDA array interface compliant matrix
+                shape (n_clusters, k)
+    sample_weights : Optional input CUDA array interface compliant matrix shape
+                     (n_clusters, 1) default: None
+    {handle_docstring}
+
+    Returns
+    -------
+    centroids : raft.device_ndarray
+        The computed centroids for each cluster
+    inertia : float
+       Sum of squared distances of samples to their closest cluster center
+    n_iter : int
+        The number of iterations used to fit the model
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cupy as cp
+
+        from pylibraft.cluster.kmeans import fit, KMeansParams
+
+        n_samples = 5000
+        n_features = 50
+        n_clusters = 3
+
+        X = cp.random.random_sample((n_samples, n_features),
+                                      dtype=cp.float32)
+
+        params = KMeansParams(n_clusters=n_clusters)
+        centroids, inertia, n_iter = fit(params, X)
+    """
+    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+
+    cdef float f_inertia = 0.0
+    cdef double d_inertia = 0.0
+    cdef int n_iter = 0
+
+    cdef optional[device_vector_view[const double, int]] d_sample_weights
+    cdef optional[device_vector_view[const float, int]] f_sample_weights
+
+    X_cai = cai_wrapper(X)
+    dtype = X_cai.dtype
+
+    if centroids is None:
+        centroids_shape = (params.n_clusters, X_cai.shape[1])
+        centroids = device_ndarray.empty(centroids_shape, dtype=dtype)
+    centroids_cai = cai_wrapper(centroids)
+
+    # validate inputs have are all c-contiguous, and have a consistent dtype
+    # and expected shape
+    X_cai.validate_shape_dtype(2)
+    centroids_cai.validate_shape_dtype(2, dtype)
+    if sample_weights is not None:
+        sample_weights_cai = cai_wrapper(sample_weights)
+        sample_weights_cai.validate_shape_dtype(1, dtype)
+
+    if dtype == np.float64:
+        if sample_weights is not None:
+            d_sample_weights = make_device_vector_view(
+                <const double *><uintptr_t>sample_weights_cai.data,
+                <int>sample_weights_cai.shape[0])
+
+        cpp_kmeans.fit(
+            deref(h),
+            params.c_obj,
+            make_device_matrix_view(
+                <const double *><uintptr_t>X_cai.data,
+                <int>X_cai.shape[0], <int>X_cai.shape[1]),
+            d_sample_weights,
+            make_device_matrix_view(
+                <double *><uintptr_t>centroids_cai.data,
+                <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
+            make_host_scalar_view[double, int](&d_inertia),
+            make_host_scalar_view[int, int](&n_iter))
+        return FitOutput(centroids, d_inertia, n_iter)
+
+    elif dtype == np.float32:
+        if sample_weights is not None:
+            f_sample_weights = make_device_vector_view(
+                <const float *><uintptr_t>sample_weights_cai.data,
+                <int>sample_weights_cai.shape[0])
+
+        cpp_kmeans.fit(
+            deref(h),
+            params.c_obj,
+            make_device_matrix_view(
+                <const float *><uintptr_t>X_cai.data,
+                <int>X_cai.shape[0], <int>X_cai.shape[1]),
+            f_sample_weights,
+            make_device_matrix_view(
+                <float *><uintptr_t>centroids_cai.data,
+                <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
+            make_host_scalar_view[float, int](&f_inertia),
+            make_host_scalar_view[int, int](&n_iter))
+        return FitOutput(centroids, f_inertia, n_iter)
+
+    else:
+        raise ValueError(f"unhandled dtype {dtype}")
