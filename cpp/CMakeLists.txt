@@ -10,9 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-# =============================================================================
-set(RAPIDS_VERSION "22.12")
-set(RAFT_VERSION "22.12.00")
+set(RAPIDS_VERSION "23.02")
+set(RAFT_VERSION "23.02.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -664,25 +663,8 @@ raft_export(
 # ##################################################################################################
 # * build export -------------------------------------------------------------
 raft_export(
-  BUILD
-  raft
-  EXPORT_SET
-  raft-exports
-  COMPONENTS
-  nn
-  distance
-  distributed
-  GLOBAL_TARGETS
-  raft
-  raft_distance
-  distributed
-  raft_nn
-  DOCUMENTATION
-  doc_string
-  NAMESPACE
-  raft::
-  FINAL_CODE_BLOCK
-  code_string
+  BUILD raft EXPORT_SET raft-exports COMPONENTS nn distance distributed GLOBAL_TARGETS raft
+  distance distributed nn DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
