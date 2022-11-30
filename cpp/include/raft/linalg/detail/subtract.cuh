@@ -27,13 +27,13 @@ namespace detail {
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void subtractScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, raft::ScalarSub<InT, OutT>(scalar), stream);
+  raft::linalg::unaryOp(out, in, len, raft::scalar_sub_op<InT>(scalar), stream);
 }
 
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::binaryOp(out, in1, in2, len, raft::Subtract<InT, OutT>(), stream);
+  raft::linalg::binaryOp(out, in1, in2, len, raft::sub_op(), stream);
 }
 
 template <class math_t, typename IdxType>

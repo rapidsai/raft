@@ -19,6 +19,7 @@
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace distance {
@@ -265,12 +266,12 @@ void euclideanAlgo1(Index_ m,
   if (pA != pB) {
     row_vec += m;
     raft::linalg::rowNorm(
-      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::Nop<InType>{});
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
     raft::linalg::rowNorm(
-      row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::Nop<InType>{});
+      row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
   } else {
     raft::linalg::rowNorm(
-      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::Nop<InType>{});
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
   }
 
   if (isRowMajor) {

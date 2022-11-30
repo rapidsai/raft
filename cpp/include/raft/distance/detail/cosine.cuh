@@ -19,6 +19,7 @@
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace distance {
@@ -247,12 +248,12 @@ void cosineAlgo1(Index_ m,
   if (pA != pB) {
     row_vec += m;
     raft::linalg::rowNorm(
-      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::SqrtOp<AccType>{});
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::sqrt_op{});
     raft::linalg::rowNorm(
-      row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::SqrtOp<AccType>{});
+      row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::sqrt_op{});
   } else {
     raft::linalg::rowNorm(
-      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::SqrtOp<AccType>{});
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::sqrt_op{});
   }
 
   if (isRowMajor) {

@@ -419,7 +419,7 @@ void postprocess_distances(float* out,        // [n_queries, topk]
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
       linalg::unaryOp(
-        out, in, len, raft::ScalarMul<float, float>(scaling_factor * scaling_factor), stream);
+        out, in, len, raft::scalar_mul_op<float>(scaling_factor * scaling_factor), stream);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
@@ -432,7 +432,7 @@ void postprocess_distances(float* out,        // [n_queries, topk]
     } break;
     case distance::DistanceType::InnerProduct: {
       linalg::unaryOp(
-        out, in, len, raft::ScalarMul<float, float>(-scaling_factor * scaling_factor), stream);
+        out, in, len, raft::scalar_mul_op<float>(-scaling_factor * scaling_factor), stream);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }

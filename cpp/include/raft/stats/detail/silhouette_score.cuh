@@ -272,11 +272,11 @@ DataT silhouette_score(
                                                     nRows,
                                                     true,
                                                     true,
-                                                    raft::DivOp<DataT>(),
+                                                    raft::div_op(),
                                                     stream);
 
   // calculating row-wise minimum
-  raft::linalg::reduce<DataT, DataT, int, raft::Nop<DataT>, raft::MinOp<DataT>>(
+  raft::linalg::reduce<DataT, DataT, int, raft::identity_op, raft::min_op>(
     d_bArray.data(),
     averageDistanceBetweenSampleAndCluster.data(),
     nLabels,
@@ -286,8 +286,8 @@ DataT silhouette_score(
     true,
     stream,
     false,
-    raft::Nop<DataT>{},
-    raft::Min<DataT>{});
+    raft::identity_op{},
+    raft::min_op{});
 
   // calculating the silhouette score per sample using the d_aArray and d_bArray
   raft::linalg::binaryOp<DataT, SilOp<DataT>>(
@@ -297,12 +297,12 @@ DataT silhouette_score(
   rmm::device_scalar<DataT> d_avgSilhouetteScore(stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(d_avgSilhouetteScore.data(), 0, sizeof(DataT), stream));
 
-  raft::linalg::mapThenSumReduce<double, raft::Nop<DataT>>(d_avgSilhouetteScore.data(),
-                                                           nRows,
-                                                           raft::Nop<DataT>(),
-                                                           stream,
-                                                           perSampleSilScore,
-                                                           perSampleSilScore);
+  raft::linalg::mapThenSumReduce<double, raft::identity_op>(d_avgSilhouetteScore.data(),
+                                                            nRows,
+                                                            raft::identity_op(),
+                                                            stream,
+                                                            perSampleSilScore,
+                                                            perSampleSilScore);
 
   DataT avgSilhouetteScore = d_avgSilhouetteScore.value(stream);
 

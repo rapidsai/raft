@@ -162,7 +162,7 @@ class SparseDistanceCOOSPMVTest
         raft::linalg::unaryOp<value_t>(out_dists.data(),
                                        out_dists.data(),
                                        dist_config.a_nrows * dist_config.b_nrows,
-                                       raft::ScalarPow<value_t>{p},
+                                       raft::scalar_pow_op<value_t>{p},
                                        dist_config.handle.get_stream());
 
       } break;

@@ -20,6 +20,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/linalg/matrix_vector.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 namespace raft {
@@ -124,14 +125,14 @@ void naive_matrix_vector_op_launch(const raft::handle_t& handle,
     naiveMatVec(
       in, in, vec1, D, N, row_major, bcast_along_rows, operation_bin_mult_skip_zero, stream);
   } else if (operation_type == 1) {
-    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::Divide<T>{}, stream);
+    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::div_op{}, stream);
   } else if (operation_type == 2) {
     naiveMatVec(
       in, in, vec1, D, N, row_major, bcast_along_rows, operation_bin_div_skip_zero, stream);
   } else if (operation_type == 3) {
-    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::Sum<T>{}, stream);
+    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::add_op{}, stream);
   } else if (operation_type == 4) {
-    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::Subtract<T>{}, stream);
+    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::sub_op{}, stream);
   } else {
     THROW("Unknown operation type '%d'!", (int)operation_type);
   }

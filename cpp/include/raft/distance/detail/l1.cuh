@@ -71,7 +71,7 @@ static void l1Impl(const DataT* x,
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::L1Op<AccT, IdxT>()(x - y);
+    const auto diff = raft::myAbs(x - y);
     acc += diff;
   };
 

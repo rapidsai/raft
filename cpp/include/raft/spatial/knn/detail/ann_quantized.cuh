@@ -202,7 +202,7 @@ void approx_knn_search(const handle_t& handle,
     float p = 0.5;  // standard l2
     if (index->metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
     raft::linalg::unaryOp<float>(
-      distances, distances, n * k, raft::ScalarPow<float>(p), handle.get_stream());
+      distances, distances, n * k, raft::scalar_pow_op<float>(p), handle.get_stream());
   }
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->postprocess(distances); }
 }

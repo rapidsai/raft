@@ -156,8 +156,11 @@ void checkWeight(const raft::handle_t& handle,
       n_samples);
 
     auto scale = static_cast<DataT>(n_samples) / wt_sum;
-    raft::linalg::unaryOp(
-      weight.data_handle(), weight.data_handle(), n_samples, raft::ScalarMul<DataT>{scale}, stream);
+    raft::linalg::unaryOp(weight.data_handle(),
+                          weight.data_handle(),
+                          n_samples,
+                          raft::scalar_mul_op<DataT>{scale},
+                          stream);
   }
 }
 
@@ -272,7 +275,7 @@ void sampleCentroids(const raft::handle_t& handle,
                        sampledMinClusterDistance.data_handle(),
                        nPtsSampledInRank,
                        inRankCp.data(),
-                       raft::KeyOp{},
+                       raft::key_op{},
                        stream);
 }
 
@@ -467,8 +470,8 @@ void minClusterAndDistanceCompute(
             pair.value = val;
             return pair;
           },
-          raft::ArgMin{},
-          raft::Nop<raft::KeyValuePair<IndexT, DataT>, IndexT>{});
+          raft::argmin_op{},
+          raft::identity_op{});
       }
     }
   }
@@ -584,9 +587,9 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
                                          std::numeric_limits<DataT>::max(),
                                          stream,
                                          true,
-                                         raft::Nop<DataT, IndexT>{},
-                                         raft::Min<DataT>{},
-                                         raft::Nop<DataT, IndexT>{});
+                                         raft::identity_op{},
+                                         raft::min_op{},
+                                         raft::identity_op{});
       }
     }
   }

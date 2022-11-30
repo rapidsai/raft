@@ -308,7 +308,7 @@ void fusedL2NNImpl(OutT* min,
                                          ReduceOpT,
                                          KVPReduceOpT,
                                          decltype(core_lambda),
-                                         raft::Nop<DataT>>;
+                                         raft::identity_op>;
     dim3 grid          = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NNSqrt);
 
     fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(min,
@@ -324,7 +324,7 @@ void fusedL2NNImpl(OutT* min,
                                                     redOp,
                                                     pairRedOp,
                                                     core_lambda,
-                                                    raft::Nop<DataT>{});
+                                                    raft::identity_op{});
   } else {
     auto fusedL2NN = fusedL2NNkernel<DataT,
                                      OutT,
@@ -334,7 +334,7 @@ void fusedL2NNImpl(OutT* min,
                                      ReduceOpT,
                                      KVPReduceOpT,
                                      decltype(core_lambda),
-                                     raft::Nop<DataT>>;
+                                     raft::identity_op>;
     dim3 grid      = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NN);
     fusedL2NN<<<grid, blk, shmemSize, stream>>>(min,
                                                 x,
@@ -349,7 +349,7 @@ void fusedL2NNImpl(OutT* min,
                                                 redOp,
                                                 pairRedOp,
                                                 core_lambda,
-                                                raft::Nop<DataT>{});
+                                                raft::identity_op{});
   }
 
   RAFT_CUDA_TRY(cudaGetLastError());

@@ -73,7 +73,7 @@ static void canberraImpl(const DataT* x,
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::L1Op<AccT, IdxT>()(x - y);
+    const auto diff = raft::myAbs(x - y);
     const auto add  = raft::myAbs(x) + raft::myAbs(y);
     // deal with potential for 0 in denominator by
     // forcing 1/0 instead

@@ -508,16 +508,87 @@ HDI double myATanh(double x)
 /** @} */
 
 /**
- * @defgroup LambdaOps Commonly used lambda operations
+ * @defgroup LambdaOps Legacy lambda operations, to be deprecated
  * @{
  */
-// The optional index argument is mostly to be used for MainLambda in reduction kernels
 template <typename Type, typename IdxType = int>
 struct Nop {
-  HDI Type operator()(Type in, IdxType i = 0) const { return in; }
+  [[deprecated("Nop is deprecated. Use identity_op instead.")]] HDI Type
+  operator()(Type in, IdxType i = 0) const
+  {
+    return in;
+  }
 };
 
-struct KeyOp {
+template <typename Type, typename IdxType = int>
+struct SqrtOp {
+  [[deprecated("SqrtOp is deprecated. Use sqrt_op instead.")]] HDI Type
+  operator()(Type in, IdxType i = 0) const
+  {
+    return mySqrt(in);
+  }
+};
+
+template <typename Type, typename IdxType = int>
+struct L0Op {
+  [[deprecated("L0Op is deprecated. Use nz_op instead.")]] HDI Type operator()(Type in,
+                                                                               IdxType i = 0) const
+  {
+    return in != Type(0) ? Type(1) : Type(0);
+  }
+};
+
+template <typename Type, typename IdxType = int>
+struct L1Op {
+  [[deprecated("L1Op is deprecated. Use abs_op instead.")]] HDI Type operator()(Type in,
+                                                                                IdxType i = 0) const
+  {
+    return myAbs(in);
+  }
+};
+
+template <typename Type, typename IdxType = int>
+struct L2Op {
+  [[deprecated("L2Op is deprecated. Use sq_op instead.")]] HDI Type operator()(Type in,
+                                                                               IdxType i = 0) const
+  {
+    return in * in;
+  }
+};
+
+template <typename InT, typename OutT = InT>
+struct Sum {
+  [[deprecated("Sum is deprecated. Use add_op instead.")]] HDI OutT operator()(InT a, InT b) const
+  {
+    return a + b;
+  }
+};
+
+template <typename Type>
+struct Max {
+  [[deprecated("Max is deprecated. Use max_op instead.")]] HDI Type operator()(Type a, Type b) const
+  {
+    if (b > a) { return b; }
+    return a;
+  }
+};
+/** @} */
+
+/**
+ * @defgroup Functors Commonly used functors.
+ * The optional index argument is mostly to be used for MainLambda in reduction kernels
+ * @{
+ */
+
+struct identity_op {
+  template <typename Type, typename IdxType = int>
+  HDI Type operator()(Type in, IdxType i = 0) const
+  {
+    return in;
+  }
+};
+
+struct key_op {
   template <typename KVP, typename IdxType = int>
   HDI typename KVP::Key operator()(const KVP& p, IdxType i = 0) const
   {
@@ -525,7 +596,7 @@ struct KeyOp {
   }
 };
 
-struct ValueOp {
+struct value_op {
   template <typename KVP, typename IdxType = int>
   HDI typename KVP::Value operator()(const KVP& p, IdxType i = 0) const
   {
@@ -533,62 +604,89 @@ struct ValueOp {
   }
 };
 
-template <typename Type, typename IdxType = int>
-struct SqrtOp {
-  HDI Type operator()(Type in, IdxType i = 0) const { return mySqrt(in); }
-};
-
-template <typename Type, typename IdxType = int>
-struct L0Op {
-  HDI Type operator()(Type in, IdxType i = 0) const { return in != Type(0) ? Type(1) : Type(0); }
-};
-
-template <typename Type, typename IdxType = int>
-struct L1Op {
-  HDI Type operator()(Type in, IdxType i = 0) const { return myAbs(in); }
-};
-
-template <typename Type, typename IdxType = int>
-struct L2Op {
-  HDI Type operator()(Type in, IdxType i = 0) const { return in * in; }
-};
-
-template <typename InT, typename OutT = InT>
-struct Sum {
-  HDI OutT operator()(InT a, InT b) const { return a + b; }
-};
-
-template <typename InT, typename OutT = InT>
-struct Subtract {
-  HDI OutT operator()(InT a, InT b) const { return a - b; }
-};
-
-template <typename InT, typename OutT = InT>
-struct Multiply {
-  HDI OutT operator()(InT a, InT b) const { return a * b; }
-};
-
-template <typename InT, typename OutT = InT>
-struct Divide {
-  HDI OutT operator()(InT a, InT b) const { return a / b; }
-};
-
-template <typename InT, typename OutT = InT>
-struct DivideCheckZero {
-  HDI OutT operator()(InT a, InT b) const
+struct sqrt_op {
+  template <typename Type, typename IdxType = int>
+  HDI Type operator()(Type in, IdxType i = 0) const
   {
-    if (b == InT{0}) { return InT{0}; }
+    return mySqrt(in);
+  }
+};
+
+struct nz_op {
+  template <typename Type, typename IdxType = int>
+  HDI Type operator()(Type in, IdxType i = 0) const
+  {
+    return in != Type(0) ? Type(1) : Type(0);
+  }
+};
+
+struct abs_op {
+  template <typename Type, typename IdxType = int>
+  HDI Type operator()(Type in, IdxType i = 0) const
+  {
+    return myAbs(in);
+  }
+};
+
+struct sq_op {
+  template <typename Type, typename IdxType = int>
+  HDI Type operator()(Type in, IdxType i = 0) const
+  {
+    return in * in;
+  }
+};
+
+struct add_op {
+  template <typename T1, typename T2>
+  HDI auto operator()(T1 a, T2 b) const
+  {
+    return a + b;
+  }
+};
+
+struct sub_op {
+  template <typename T1, typename T2>
+  HDI auto operator()(T1 a, T2 b) const
+  {
+    return a - b;
+  }
+};
+
+struct mul_op {
+  template <typename T1, typename T2>
+  HDI auto operator()(T1 a, T2 b) const
+  {
+    return a * b;
+  }
+};
+
+struct div_op {
+  template <typename T1, typename T2>
+  HDI auto operator()(T1 a, T2 b) const
+  {
     return a / b;
   }
 };
 
-template <typename InT, typename OutT = InT>
-struct Pow {
-  HDI OutT operator()(InT a, InT b) const { return raft::myPow(a, b); }
+struct div_checkzero_op {
+  template <typename Type>
+  HDI Type operator()(Type a, Type b) const
+  {
+    if (b == Type{0}) { return Type{0}; }
+    return a / b;
+  }
 };
 
-template <typename Type>
-struct Min {
+struct pow_op {
+  template <typename Type>
+  HDI Type operator()(Type a, Type b) const
+  {
+    return raft::myPow(a, b);
+  }
+};
+
+struct min_op {
+  template <typename Type>
   HDI Type operator()(Type a, Type b) const
   {
     if (a > b) { return b; }
@@ -596,8 +694,8 @@ struct Min {
   }
 };
 
-template <typename Type>
-struct Max {
+struct max_op {
+  template <typename Type>
   HDI Type operator()(Type a, Type b) const
   {
     if (b > a) { return b; }
@@ -605,8 +703,8 @@ struct Max {
   }
 };
 
-template <typename Type>
-struct SqDiff {
+struct sqdiff_op {
+  template <typename Type>
   HDI Type operator()(Type a, Type b) const
   {
     Type diff = a - b;
@@ -614,7 +712,7 @@ struct SqDiff {
   }
 };
 
-struct ArgMin {
+struct argmin_op {
   template <typename KVP>
   HDI KVP operator()(const KVP& a, const KVP& b) const
   {
@@ -623,7 +721,7 @@ struct ArgMin {
   }
 };
 
-struct ArgMax {
+struct argmax_op {
   template <typename KVP>
   HDI KVP operator()(const KVP& a, const KVP& b) const
   {
@@ -632,46 +730,50 @@ struct ArgMax {
   }
 };
 
-template <typename OutT>
-struct ConstOp {
-  const OutT scalar;
+template <typename ScalarT>
+struct const_op {
+  const ScalarT scalar;
 
-  ConstOp(OutT s) : scalar{s} {}
+  const_op(ScalarT s) : scalar{s} {}
 
   template <typename InT>
-  HDI OutT operator()(InT unused) const
+  HDI ScalarT operator()(InT unused) const
   {
     return scalar;
   }
 };
 
-template <typename ComposedOpT, typename InT, typename OutT = InT>
-struct ScalarOp {
+template <typename ComposedOpT, typename ScalarT>
+struct scalar_op {
   ComposedOpT composed_op;
-  const InT scalar;
+  const ScalarT scalar;
 
-  ScalarOp(InT s) : scalar{s} {}
+  scalar_op(ScalarT s) : scalar{s} {}
 
-  HDI OutT operator()(InT a) const { return composed_op(a, scalar); }
+  template <typename InT>
+  HDI auto operator()(InT a) const
+  {
+    return composed_op(a, scalar);
+  }
 };
 
-template <typename InT, typename OutT = InT>
-using ScalarAdd = ScalarOp<Sum<InT>, InT, OutT>;
+template <typename Type>
+using scalar_add_op = scalar_op<add_op, Type>;
 
-template <typename InT, typename OutT = InT>
-using ScalarSub = ScalarOp<Subtract<InT>, InT, OutT>;
+template <typename Type>
+using scalar_sub_op = scalar_op<sub_op, Type>;
 
-template <typename InT, typename OutT = InT>
-using ScalarMul = ScalarOp<Multiply<InT>, InT, OutT>;
+template <typename Type>
+using scalar_mul_op = scalar_op<mul_op, Type>;
 
-template <typename InT, typename OutT = InT>
-using ScalarDiv = ScalarOp<Divide<InT>, InT, OutT>;
+template <typename Type>
+using scalar_div_op = scalar_op<div_op, Type>;
 
-template <typename InT, typename OutT = InT>
-using ScalarDivCheckZero = ScalarOp<DivideCheckZero<InT>, InT, OutT>;
+template <typename Type>
+using scalar_div_checkzero_op = scalar_op<div_checkzero_op, Type>;
 
-template <typename InT, typename OutT = InT>
-using ScalarPow = ScalarOp<Pow<InT>, InT, OutT>;
+template <typename Type>
+using scalar_pow_op = scalar_op<pow_op, Type>;
 /** @} */
 
 /**
@@ -1065,7 +1167,7 @@ DI T warpReduce(T val, ReduceLambda reduce_op)
 template <typename T>
 DI T warpReduce(T val)
 {
-  return warpReduce(val, raft::Sum<T>{});
+  return warpReduce(val, raft::add_op{});
 }
 
 /**

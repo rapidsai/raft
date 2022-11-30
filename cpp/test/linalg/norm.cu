@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/itertools.hpp>
 
@@ -96,11 +97,9 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
       data.data(), params.rows, params.cols);
     if (params.do_sqrt) {
       if (params.rowMajor) {
-        norm(
-          handle, input_row_major, output_view, params.type, Apply::ALONG_ROWS, raft::SqrtOp<T>{});
+        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_ROWS, raft::sqrt_op{});
       } else {
-        norm(
-          handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS, raft::SqrtOp<T>{});
+        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS, raft::sqrt_op{});
       }
     } else {
       if (params.rowMajor) {
@@ -173,19 +172,11 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
       data.data(), params.rows, params.cols);
     if (params.do_sqrt) {
       if (params.rowMajor) {
-        norm(handle,
-             input_row_major,
-             output_view,
-             params.type,
-             Apply::ALONG_COLUMNS,
-             raft::SqrtOp<T>{});
+        norm(
+          handle, input_row_major, output_view, params.type, Apply::ALONG_COLUMNS, raft::sqrt_op{});
       } else {
-        norm(handle,
-             input_col_major,
-             output_view,
-             params.type,
-             Apply::ALONG_COLUMNS,
-             raft::SqrtOp<T>{});
+        norm(
+          handle, input_col_major, output_view, params.type, Apply::ALONG_COLUMNS, raft::sqrt_op{});
       }
     } else {
       if (params.rowMajor) {

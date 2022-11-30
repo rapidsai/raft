@@ -74,7 +74,7 @@ void minkowskiUnExpImpl(const DataT* x,
 
   // Accumulation operation lambda
   auto core_lambda = [p] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::L1Op<DataT>()(x - y);
+    const auto diff = raft::myAbs(x - y);
     acc += raft::myPow(diff, p);
   };
 

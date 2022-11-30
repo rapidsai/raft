@@ -47,7 +47,7 @@ void coalescedReductionLaunch(
 {
   auto dots_view = raft::make_device_vector_view(dots, rows);
   auto data_view = raft::make_device_matrix_view(data, rows, cols);
-  coalesced_reduction(handle, data_view, dots_view, (T)0, inplace, raft::L2Op<T>{});
+  coalesced_reduction(handle, data_view, dots_view, (T)0, inplace, raft::sq_op{});
 }
 
 template <typename T>
@@ -79,9 +79,9 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
                             stream,
                             T(0),
                             false,
-                            raft::L2Op<T, int>{},
-                            raft::Sum<T>{},
-                            raft::Nop<T>{});
+                            raft::sq_op{},
+                            raft::add_op{},
+                            raft::identity_op{});
     naiveCoalescedReduction(dots_exp.data(),
                             data.data(),
                             cols,
@@ -89,9 +89,9 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
                             stream,
                             T(0),
                             true,
-                            raft::L2Op<T, int>{},
-                            raft::Sum<T>{},
-                            raft::Nop<T>{});
+                            raft::sq_op{},
+                            raft::add_op{},
+                            raft::identity_op{});
 
     coalescedReductionLaunch(handle, dots_act.data(), data.data(), cols, rows);
     coalescedReductionLaunch(handle, dots_act.data(), data.data(), cols, rows, true);

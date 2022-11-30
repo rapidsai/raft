@@ -18,6 +18,7 @@
 
 #include <raft/linalg/reduce.cuh>
 #include <raft/stats/sum.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 namespace raft {
@@ -66,8 +67,8 @@ void weightedMean(Type* mu,
     stream,
     false,
     [weights] __device__(Type v, IdxType i) { return v * weights[i]; },
-    raft::Sum<Type>{},
-    raft::ScalarDiv<Type>(WS));
+    raft::add_op{},
+    raft::scalar_div_op<Type>(WS));
 }
 };  // end namespace detail
 };  // end namespace stats

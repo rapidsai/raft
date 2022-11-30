@@ -202,7 +202,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
                                  pwd.extent(0),
                                  true,
                                  true,
-                                 raft::Min<DataT>{},
+                                 raft::min_op{},
                                  stream);
 
     // Calculate costPerCandidate[n_trials] where costPerCandidate[i] is the cluster cost when using
@@ -330,7 +330,7 @@ void update_centroids(const raft::handle_t& handle,
                                new_centroids.extent(0),
                                true,
                                false,
-                               raft::DivideCheckZero<DataT>{},
+                               raft::div_checkzero_op{},
                                handle.get_stream());
 
   // copy centroids[i] to new_centroids[i] when weight_per_cluster[i] is 0
@@ -347,7 +347,7 @@ void update_centroids(const raft::handle_t& handle,
       // copy when the sum of weights in the cluster is 0
       return map.value == 0;
     },
-    raft::KeyOp{},
+    raft::key_op{},
     handle.get_stream());
 }
 
@@ -461,7 +461,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
     auto sqrdNorm = raft::make_device_scalar(handle, DataT(0));
     raft::linalg::mapThenSumReduce(sqrdNorm.data_handle(),
                                    newCentroids.size(),
-                                   raft::SqDiff<DataT>{},
+                                   raft::sqdiff_op{},
                                    stream,
                                    centroids.data_handle(),
                                    newCentroids.data_handle());
@@ -479,8 +479,8 @@ void kmeans_fit_main(const raft::handle_t& handle,
                                  minClusterAndDistance.view(),
                                  workspace,
                                  raft::make_device_scalar_view(clusterCostD.data()),
-                                 raft::ValueOp{},
-                                 raft::Sum<DataT>{});
+                                 raft::value_op{},
+                                 raft::add_op{});
 
       DataT curClusteringCost = clusterCostD.value(stream);
 
@@ -536,8 +536,8 @@ void kmeans_fit_main(const raft::handle_t& handle,
                              minClusterAndDistance.view(),
                              workspace,
                              raft::make_device_scalar_view(clusterCostD.data()),
-                             raft::ValueOp{},
-                             raft::Sum<DataT>{});
+                             raft::value_op{},
+                             raft::add_op{});
 
   inertia[0] = clusterCostD.value(stream);
 
@@ -651,8 +651,8 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
                              minClusterDistanceVec.view(),
                              workspace,
                              raft::make_device_scalar_view(clusterCost.data()),
-                             raft::Nop<DataT>{},
-                             raft::Sum<DataT>{});
+                             raft::identity_op{},
+                             raft::add_op{});
 
   auto psi = clusterCost.value(stream);
 
@@ -684,8 +684,8 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
                                minClusterDistanceVec.view(),
                                workspace,
                                raft::make_device_scalar_view<DataT>(clusterCost.data()),
-                               raft::Nop<DataT>{},
-                               raft::Sum<DataT>{});
+                               raft::identity_op{},
+                               raft::add_op{});
 
     psi = clusterCost.value(stream);
 
@@ -1072,14 +1072,14 @@ void kmeans_predict(handle_t const& handle,
                              minClusterAndDistance.view(),
                              workspace,
                              raft::make_device_scalar_view(clusterCostD.data()),
-                             raft::ValueOp{},
-                             raft::Sum<DataT>{});
+                             raft::value_op{},
+                             raft::add_op{});
 
   thrust::transform(handle.get_thrust_policy(),
                     minClusterAndDistance.data_handle(),
                     minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
                     labels.data_handle(),
-                    raft::KeyOp{});
+                    raft::key_op{});
 
   inertia[0] = clusterCostD.value(stream);
 }

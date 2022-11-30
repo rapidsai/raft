@@ -27,9 +27,9 @@ namespace detail {
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void reduce(OutType* dots,
             const InType* data,
             IdxType D,
@@ -39,9 +39,9 @@ void reduce(OutType* dots,
             bool alongRows,
             cudaStream_t stream,
             bool inplace           = false,
-            MainLambda main_op     = raft::Nop<InType, IdxType>(),
-            ReduceLambda reduce_op = raft::Sum<OutType>(),
-            FinalLambda final_op   = raft::Nop<OutType>())
+            MainLambda main_op     = raft::identity_op(),
+            ReduceLambda reduce_op = raft::add_op(),
+            FinalLambda final_op   = raft::identity_op())
 {
   if (rowMajor && alongRows) {
     raft::linalg::coalescedReduction<InType, OutType, IdxType>(

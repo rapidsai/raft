@@ -22,6 +22,7 @@
 #include "processing.cuh"
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace spatial {
@@ -576,7 +577,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
                                                           IdxT,
                                                           KPolicy,
                                                           decltype(core_lambda),
-                                                          raft::Nop<AccT>,
+                                                          raft::identity_op,
                                                           32,
                                                           2,
                                                           usePrevTopKs,
@@ -588,7 +589,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
                                                           IdxT,
                                                           KPolicy,
                                                           decltype(core_lambda),
-                                                          raft::Nop<AccT>,
+                                                          raft::identity_op,
                                                           64,
                                                           3,
                                                           usePrevTopKs,
@@ -628,7 +629,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
                                                                   ldb,
                                                                   ldd,
                                                                   core_lambda,
-                                                                  raft::Nop<AccT>{},
+                                                                  raft::identity_op{},
                                                                   sqrt,
                                                                   (uint32_t)numOfNN,
                                                                   (int*)workspace,
@@ -765,7 +766,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
                                                         IdxT,
                                                         KPolicy,
                                                         decltype(core_lambda),
-                                                        raft::Nop<AccT>,
+                                                        raft::identity_op,
                                                         32,
                                                         2,
                                                         usePrevTopKs,
@@ -777,7 +778,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
                                                         IdxT,
                                                         KPolicy,
                                                         decltype(core_lambda),
-                                                        raft::Nop<AccT>,
+                                                        raft::identity_op,
                                                         64,
                                                         3,
                                                         usePrevTopKs,
@@ -817,12 +818,12 @@ void fusedL2ExpKnnImpl(const DataT* x,
     if (x != y) {
       yn += m;
       raft::linalg::rowNorm(
-        xn, x, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::Nop<DataT>{});
+        xn, x, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
       raft::linalg::rowNorm(
-        yn, y, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::Nop<DataT>{});
+        yn, y, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
     } else {
       raft::linalg::rowNorm(
-        xn, x, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::Nop<DataT>{});
+        xn, x, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
     }
     fusedL2ExpKnnRowMajor<<<grid, blk, sharedMemSize, stream>>>(x,
                                                                 y,
@@ -835,7 +836,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
                                                                 ldb,
                                                                 ldd,
                                                                 core_lambda,
-                                                                raft::Nop<AccT>{},
+                                                                raft::identity_op{},
                                                                 sqrt,
                                                                 (uint32_t)numOfNN,
                                                                 mutexes,

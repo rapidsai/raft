@@ -23,6 +23,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -59,30 +60,16 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
                           raft::linalg::NormType::L2Norm,
                           row_major_,
                           stream_,
-                          raft::SqrtOp<math_t>{});
+                          raft::sqrt_op{});
 
-    raft::linalg::matrixVectorOp(data,
-                                 data,
-                                 colsums_.data(),
-                                 n_cols_,
-                                 n_rows_,
-                                 row_major_,
-                                 false,
-                                 raft::Divide<math_t>{},
-                                 stream_);
+    raft::linalg::matrixVectorOp(
+      data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false, raft::div_op{}, stream_);
   }
 
   void revert(math_t* data)
   {
-    raft::linalg::matrixVectorOp(data,
-                                 data,
-                                 colsums_.data(),
-                                 n_cols_,
-                                 n_rows_,
-                                 row_major_,
-                                 false,
-                                 raft::Multiply<math_t>{},
-                                 stream_);
+    raft::linalg::matrixVectorOp(
+      data, data, colsums_.data(), n_cols_, n_rows_, row_major_, false, raft::mul_op{}, stream_);
   }
 
   void postprocess(math_t* data)
@@ -123,7 +110,7 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
     raft::linalg::unaryOp(means_.data(),
                           means_.data(),
                           cosine::n_rows_,
-                          raft::ScalarMul<math_t>(normalizer_const),
+                          raft::scalar_mul_op<math_t>(normalizer_const),
                           cosine::stream_);
 
     raft::stats::meanCenter(data,

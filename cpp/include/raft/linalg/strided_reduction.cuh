@@ -23,6 +23,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
 
 #include <type_traits>
 
@@ -59,9 +60,9 @@ namespace linalg {
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void stridedReduction(OutType* dots,
                       const InType* data,
                       IdxType D,
@@ -69,9 +70,9 @@ void stridedReduction(OutType* dots,
                       OutType init,
                       cudaStream_t stream,
                       bool inplace           = false,
-                      MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                      ReduceLambda reduce_op = raft::Sum<OutType>(),
-                      FinalLambda final_op   = raft::Nop<OutType>())
+                      MainLambda main_op     = raft::identity_op(),
+                      ReduceLambda reduce_op = raft::add_op(),
+                      FinalLambda final_op   = raft::identity_op())
 {
   // Only compile for types supported by myAtomicReduce, but don't make the compilation fail in
   // other cases, because coalescedReduction supports arbitrary types.
@@ -124,17 +125,17 @@ template <typename InValueType,
           typename LayoutPolicy,
           typename OutValueType,
           typename IndexType,
-          typename MainLambda   = raft::Nop<InValueType>,
-          typename ReduceLambda = raft::Sum<OutValueType>,
-          typename FinalLambda  = raft::Nop<OutValueType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void strided_reduction(const raft::handle_t& handle,
                        raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> data,
                        raft::device_vector_view<OutValueType, IndexType> dots,
                        OutValueType init,
                        bool inplace           = false,
-                       MainLambda main_op     = raft::Nop<InValueType>(),
-                       ReduceLambda reduce_op = raft::Sum<OutValueType>(),
-                       FinalLambda final_op   = raft::Nop<OutValueType>())
+                       MainLambda main_op     = raft::identity_op(),
+                       ReduceLambda reduce_op = raft::add_op(),
+                       FinalLambda final_op   = raft::identity_op())
 {
   if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
     RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),

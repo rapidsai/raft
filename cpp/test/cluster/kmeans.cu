@@ -50,7 +50,7 @@ void run_cluster_cost(const raft::handle_t& handle,
                       raft::device_scalar_view<DataT> clusterCost)
 {
   raft::cluster::kmeans::cluster_cost(
-    handle, minClusterDistance, workspace, clusterCost, raft::Sum<DataT>{});
+    handle, minClusterDistance, workspace, clusterCost, raft::add_op{});
 }
 
 template <typename T>

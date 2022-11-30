@@ -28,6 +28,7 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/stats/histogram.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -245,7 +246,7 @@ inline auto extend(const handle_t& handle,
                             raft::linalg::L2Norm,
                             true,
                             stream,
-                            raft::SqrtOp<float>());
+                            raft::sqrt_op());
       RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
     }
   }

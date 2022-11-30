@@ -18,6 +18,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft::cluster::kmeans::runtime {
 template <typename ElementType, typename IndexType>
@@ -63,14 +64,14 @@ void cluster_cost(const raft::handle_t& handle,
                     min_cluster_distance.data_handle(),
                     min_cluster_distance.data_handle() + n_samples,
                     distances.data_handle(),
-                    raft::ValueOp{});
+                    raft::value_op{});
 
   rmm::device_scalar<ElementType> device_cost(0, handle.get_stream());
   raft::cluster::kmeans::cluster_cost(handle,
                                       distances.view(),
                                       workspace,
                                       make_device_scalar_view<ElementType>(device_cost.data()),
-                                      raft::Sum<ElementType>{});
+                                      raft::add_op{});
 
   raft::update_host(cost, device_cost.data(), 1, handle.get_stream());
 }

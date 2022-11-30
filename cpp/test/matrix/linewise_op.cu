@@ -68,7 +68,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
 
     auto vec_view = raft::make_device_vector_view<const T>(vec, lineLen);
     matrix::linewise_op(
-      handle, in_view, out_view, raft::is_row_major(in_view), raft::Sum<T>{}, vec_view);
+      handle, in_view, out_view, raft::is_row_major(in_view), raft::add_op{}, vec_view);
   }
 
   template <typename layout>
@@ -108,7 +108,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
                             const T* vec)
   {
     auto vec_view = raft::make_device_vector_view<const T, I>(vec, alongLines ? lineLen : nLines);
-    matrix::linewise_op(handle, in, out, alongLines, raft::Sum<T>{}, vec_view);
+    matrix::linewise_op(handle, in, out, alongLines, raft::add_op{}, vec_view);
   }
 
   /**

@@ -18,6 +18,7 @@
 
 #include <raft/linalg/norm_types.hpp>
 #include <raft/linalg/reduce.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace linalg {
@@ -44,8 +45,8 @@ void rowNormCaller(Type* dots,
                                                 true,
                                                 stream,
                                                 false,
-                                                raft::L1Op<Type, IdxType>(),
-                                                raft::Sum<Type>(),
+                                                raft::abs_op(),
+                                                raft::add_op(),
                                                 fin_op);
       break;
     case L2Norm:
@@ -58,8 +59,8 @@ void rowNormCaller(Type* dots,
                                                 true,
                                                 stream,
                                                 false,
-                                                raft::L2Op<Type>(),
-                                                raft::Sum<Type>(),
+                                                raft::sq_op(),
+                                                raft::add_op(),
                                                 fin_op);
       break;
     case LinfNorm:
@@ -72,8 +73,8 @@ void rowNormCaller(Type* dots,
                                                 true,
                                                 stream,
                                                 false,
-                                                raft::L1Op<Type>(),
-                                                raft::Max<Type>(),
+                                                raft::abs_op(),
+                                                raft::max_op(),
                                                 fin_op);
       break;
     default: THROW("Unsupported norm type: %d", type);
@@ -101,8 +102,8 @@ void colNormCaller(Type* dots,
                                                 false,
                                                 stream,
                                                 false,
-                                                raft::L1Op<Type>(),
-                                                raft::Sum<Type>(),
+                                                raft::abs_op(),
+                                                raft::add_op(),
                                                 fin_op);
       break;
     case L2Norm:
@@ -115,8 +116,8 @@ void colNormCaller(Type* dots,
                                                 false,
                                                 stream,
                                                 false,
-                                                raft::L2Op<Type>(),
-                                                raft::Sum<Type>(),
+                                                raft::sq_op(),
+                                                raft::add_op(),
                                                 fin_op);
       break;
     case LinfNorm:
@@ -129,8 +130,8 @@ void colNormCaller(Type* dots,
                                                 false,
                                                 stream,
                                                 false,
-                                                raft::L1Op<Type>(),
-                                                raft::Max<Type>(),
+                                                raft::abs_op(),
+                                                raft::max_op(),
                                                 fin_op);
       break;
     default: THROW("Unsupported norm type: %d", type);

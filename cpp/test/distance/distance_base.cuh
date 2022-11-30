@@ -166,7 +166,7 @@ __global__ void naiveLpUnexpDistanceKernel(DataType* dist,
     int yidx  = isRowMajor ? i + nidx * k : i * n + nidx;
     auto a    = x[xidx];
     auto b    = y[yidx];
-    auto diff = raft::L1Op<DataType>()(a - b);
+    auto diff = raft::myAbs(a - b);
     acc += raft::myPow(diff, p);
   }
   auto one_over_p = 1 / p;

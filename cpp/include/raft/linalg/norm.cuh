@@ -23,6 +23,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/linalg/norm_types.hpp>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
@@ -47,7 +48,7 @@ namespace linalg {
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
 void rowNorm(Type* dots,
              const Type* data,
              IdxType D,
@@ -55,7 +56,7 @@ void rowNorm(Type* dots,
              NormType type,
              bool rowMajor,
              cudaStream_t stream,
-             Lambda fin_op = raft::Nop<Type, IdxType>())
+             Lambda fin_op = raft::identity_op())
 {
   detail::rowNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
 }
@@ -74,7 +75,7 @@ void rowNorm(Type* dots,
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
 void colNorm(Type* dots,
              const Type* data,
              IdxType D,
@@ -82,7 +83,7 @@ void colNorm(Type* dots,
              NormType type,
              bool rowMajor,
              cudaStream_t stream,
-             Lambda fin_op = raft::Nop<Type, IdxType>())
+             Lambda fin_op = raft::identity_op())
 {
   detail::colNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
 }
@@ -104,13 +105,13 @@ void colNorm(Type* dots,
 template <typename ElementType,
           typename LayoutPolicy,
           typename IndexType,
-          typename Lambda = raft::Nop<ElementType, IndexType>>
+          typename Lambda = raft::identity_op>
 void norm(const raft::handle_t& handle,
           raft::device_matrix_view<const ElementType, IndexType, LayoutPolicy> in,
           raft::device_vector_view<ElementType, IndexType> out,
           NormType type,
           Apply apply,
-          Lambda fin_op = raft::Nop<ElementType, IndexType>())
+          Lambda fin_op = raft::identity_op())
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
 
