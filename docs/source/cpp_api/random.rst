@@ -92,17 +92,19 @@ Distributions
 .. doxygenfunction:: raft::random::laplace(const raft::handle_t& handle, RngState& rng_state, raft::device_vector_view<OutputValueType, IndexType> out, OutputValueType mu, OutputValueType scale)
     :project: RAFT
 
+.. doxygenfunction:: raft::random::discrete
+    :project: RAFT
+
 
 Sampling Without Replacement
 ----------------------------
 
-`#include <raft/random/rng.cuh>`
+`#include <raft/random/sample_without_replacement.cuh>`
 
 .. doxygengroup:: sample_without_replacement
     :project: RAFT
     :members:
     :content-only:
-
 
 `#include <raft/random/permute.cuh>`
 
