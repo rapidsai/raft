@@ -49,3 +49,6 @@ _skbuild
 
 ## doxygen build check inside ci/checks/style.sh
 doxygen_check/
+
+## cibuildwheel
+/wheelhouse

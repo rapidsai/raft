@@ -189,6 +189,7 @@ if(BUILD_TESTS)
     test/random/multi_variable_gaussian.cu
     test/random/permute.cu
     test/random/rng.cu
+    test/random/rng_discrete.cu
     test/random/rng_int.cu
     test/random/rmat_rectangular_generator.cu
     test/random/sample_without_replacement.cu
@@ -245,6 +246,7 @@ if(BUILD_TESTS)
     test/neighbors/ball_cover.cu
     test/neighbors/epsilon_neighborhood.cu
     test/neighbors/faiss_mr.cu
+    test/neighbors/refine.cu
     test/neighbors/selection.cu
     OPTIONAL
     DIST

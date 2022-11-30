@@ -15,6 +15,10 @@ Layouts
 -------
 
 `#include <raft/core/mdspan.hpp>`
+=======
+
+Layouts
+-------
 
 .. doxygentypedef:: raft::row_major
     :project: RAFT

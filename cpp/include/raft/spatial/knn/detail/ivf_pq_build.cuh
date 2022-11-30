@@ -29,6 +29,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/qr.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/norm.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/histogram.cuh>
@@ -1178,8 +1179,14 @@ inline auto build_device(
                                     stream));
 
     rmm::device_uvector<float> center_norms(index.n_lists(), stream, device_memory);
-    utils::dots_along_rows(
-      index.n_lists(), index.dim(), cluster_centers, center_norms.data(), stream);
+    raft::linalg::rowNorm(center_norms.data(),
+                          cluster_centers,
+                          index.dim(),
+                          index.n_lists(),
+                          raft::linalg::L2Norm,
+                          true,
+                          stream,
+                          raft::SqrtOp<float>());
     RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle() + index.dim(),
                                     sizeof(float) * index.dim_ext(),
                                     center_norms.data(),

@@ -234,6 +234,49 @@ void laplace(
   RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
 }
 
+template <typename GenType, typename OutType, typename WeightType, typename IdxType>
+void call_sample_with_replacement_kernel(DeviceState<GenType> const& dev_state,
+                                         RngState& rng_state,
+                                         cudaStream_t stream,
+                                         OutType* out,
+                                         const WeightType* weights_csum,
+                                         IdxType sampledLen,
+                                         IdxType len)
+{
+  IdxType n_threads = 256;
+  IdxType n_blocks  = raft::ceildiv(sampledLen, n_threads);
+  sample_with_replacement_kernel<<<n_blocks, n_threads, 0, stream>>>(
+    dev_state, out, weights_csum, sampledLen, len);
+  rng_state.advance(uint64_t(n_blocks) * n_threads, 1);
+}
+
+template <typename OutType, typename WeightType, typename IndexType = OutType>
+std::enable_if_t<std::is_integral_v<OutType>> discrete(RngState& rng_state,
+                                                       OutType* ptr,
+                                                       const WeightType* weights,
+                                                       IndexType sampledLen,
+                                                       IndexType len,
+                                                       cudaStream_t stream)
+{
+  // Compute the cumulative sums of the weights
+  size_t temp_storage_bytes = 0;
+  rmm::device_uvector<WeightType> weights_csum(len, stream);
+  cub::DeviceScan::InclusiveSum(nullptr, temp_storage_bytes, weights, weights_csum.data(), len);
+  rmm::device_uvector<uint8_t> temp_storage(temp_storage_bytes, stream);
+  cub::DeviceScan::InclusiveSum(
+    temp_storage.data(), temp_storage_bytes, weights, weights_csum.data(), len);
+
+  // Sample indices with replacement
+  RAFT_CALL_RNG_FUNC(rng_state,
+                     call_sample_with_replacement_kernel,
+                     rng_state,
+                     stream,
+                     ptr,
+                     weights_csum.data(),
+                     sampledLen,
+                     len);
+}
+
 template <typename DataT, typename WeightsT, typename IdxT = int>
 void sampleWithoutReplacement(RngState& rng_state,
                               DataT* out,
