@@ -23,8 +23,7 @@ import pylibraft.common.handle
 from cython.operator cimport dereference as deref
 
 
-cdef extern from "raft/thirdparty/mdspan/include/experimental/__p0009_bits/layout_stride.hpp" \
-        namespace "std::experimental":
+cdef extern from "raft/thirdparty/mdspan/include/experimental/__p0009_bits/layout_stride.hpp" namespace "std::experimental":  # noqa: E501
     cdef cppclass layout_right:
         pass
 
