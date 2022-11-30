@@ -16,6 +16,7 @@
 
 from libcpp cimport bool
 
+from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.random.rng_state cimport RngState
 
 
@@ -35,6 +36,7 @@ cdef extern from "raft/cluster/kmeans_types.hpp" \
         double tol
         int verbosity
         RngState rng_state
+        DistanceType metric
         int n_init
         double oversampling_factor
         int batch_samples

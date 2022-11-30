@@ -39,11 +39,13 @@ def test_kmeans_fit(n_rows, n_cols, n_clusters, dtype):
     # compute the inertia, before fitting centroids
     original_inertia = cluster_cost(X, centroids)
 
-    # TODO: test out some different options on this
-    # TODO: use a fixed RNG state on params
-    params = KMeansParams(n_clusters=n_clusters)
+    params = KMeansParams(n_clusters=n_clusters, seed=42)
 
     # fit the centroids, make sure inertia has gone down
+    # TODO: once we have make_blobs exposed to python
+    # (https://github.com/rapidsai/raft/issues/1059)
+    # we should use that to test out the kmeans fit, like the C++
+    # tests do right now
     centroids, inertia, n_iter = fit(params, X, centroids)
     assert inertia < original_inertia
     assert n_iter >= 1

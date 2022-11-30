@@ -72,7 +72,7 @@ class cai_wrapper:
         """
         return self.cai_["data"][0]
 
-    def validate(self, expected_dims=None, expected_dtype=None):
+    def validate_shape_dtype(self, expected_dims=None, expected_dtype=None):
         """Checks to see if the shape, dtype, and strides match expectations"""
         if expected_dims is not None and len(self.shape) != expected_dims:
             raise ValueError(

@@ -31,6 +31,7 @@ from pylibraft.common import Handle, cai_wrapper
 from pylibraft.common.handle import auto_sync_handle
 
 from pylibraft.common.handle cimport handle_t
+from pylibraft.random.rng_state cimport RngState
 
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
@@ -295,18 +296,45 @@ def cluster_cost(X, centroids, handle=None):
 
 
 class InitMethod(IntEnum):
+    """ Method for initializing kmeans """
     KMeansPlusPlus = <int> kmeans_types.InitMethod.KMeansPlusPlus
     Random = <int> kmeans_types.InitMethod.Random
     Array = <int> kmeans_types.InitMethod.Array
 
 
 cdef class KMeansParams:
+    """ Specifies hyper-parameters for the kmeans algorithm.
+
+    Parameters
+    ----------
+    n_clusters : int, optional
+        The number of clusters to form as well as the number of centroids
+        to generate
+    max_iter : int, optional
+        Maximum number of iterations of the k-means algorithm for a single run
+    tol : float, optional
+        Relative tolerance with regards to inertia to declare convergence
+    verbosity : int, optional
+    seed: int, optional
+        Seed to the random number generator.
+    metric : str, optional
+        Metric names to use for distance computation, see
+        :func:`pylibraft.distance.pairwise_distance` for valid values.
+    init : InitMethod, optional
+    n_init : int, optional
+        Number of instance k-means algorithm will be run with different seeds.
+    oversampling_factor : float, optional
+        Oversampling factor for use in the k-means algorithm
+    """
     cdef kmeans_types.KMeansParams c_obj
 
     def __init__(self,
                  n_clusters: Optional[int] = None,
                  max_iter: Optional[int] = None,
                  tol: Optional[float] = None,
+                 verbosity: Optional[int] = None,
+                 seed: Optional[int] = None,
+                 metric: Optional[str] = None,
                  init: Optional[InitMethod] = None,
                  n_init: Optional[int] = None,
                  oversampling_factor: Optional[float] = None,
@@ -319,6 +347,17 @@ cdef class KMeansParams:
             self.c_obj.max_iter = max_iter
         if tol is not None:
             self.c_obj.tol = tol
+        if verbosity is not None:
+            self.c_obj.verbosity = verbosity
+        if seed is not None:
+            self.c_obj.rng_state.seed = seed
+        if metric is not None:
+            distance = DISTANCE_TYPES.get(metric)
+            if distance is None:
+                valid_metrics = list(DISTANCE_TYPES.keys())
+                raise ValueError(f"Unknown metric '{metric}'. Valid values "
+                                 f"are: {valid_metrics}")
+            self.c_obj.metric = distance
         if init is not None:
             self.c_obj.init = init
         if n_init is not None:
@@ -332,8 +371,6 @@ cdef class KMeansParams:
         if inertia_check is not None:
             self.c_obj.inertia_check = inertia_check
 
-        # TODO: distance metric/ verbosity level (?) / rng state
-
     @property
     def n_clusters(self):
         return self.c_obj.n_clusters
@@ -345,6 +382,14 @@ cdef class KMeansParams:
     @property
     def tol(self):
         return self.c_obj.tol
+
+    @property
+    def verbosity(self):
+        return self.c_obj.verbosity
+
+    @property
+    def seed(self):
+        return self.c_obj.rng_state.seed
 
     @property
     def init(self):
@@ -435,11 +480,11 @@ def fit(
 
     # validate inputs have are all c-contiguous, and have a consistent dtype
     # and expected shape
-    X_cai.validate(2)
-    centroids_cai.validate(2, dtype)
+    X_cai.validate_shape_dtype(2)
+    centroids_cai.validate_shape_dtype(2, dtype)
     if sample_weights is not None:
         sample_weights_cai = cai_wrapper(sample_weights)
-        sample_weights_cai.validate(1, dtype)
+        sample_weights_cai.validate_shape_dtype(1, dtype)
 
     if dtype == np.float64:
         if sample_weights is not None:
