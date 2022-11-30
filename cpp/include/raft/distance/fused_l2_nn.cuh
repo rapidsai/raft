@@ -28,6 +28,11 @@
 #include <stdint.h>
 #include <type_traits>
 
+/**
+ * \defgroup fused_l2_nn Fused 1-nearest neighbors
+ * @{
+ */
+
 namespace raft {
 namespace distance {
 
@@ -213,5 +218,7 @@ void fusedL2NNMinReduce(OutT* min,
 
 }  // namespace distance
 }  // namespace raft
+
+/** @} */
 
 #endif
