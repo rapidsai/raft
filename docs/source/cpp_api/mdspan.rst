@@ -11,9 +11,10 @@ This page provides C++ class references for the RAFT's 1d span and multi-dimensi
 Representation
 ##############
 
-
 Layouts
 -------
+
+`#include <raft/core/mdspan.hpp>`
 
 .. doxygentypedef:: raft::row_major
     :project: RAFT
@@ -24,6 +25,8 @@ Layouts
 
 Shapes
 ------
+
+`#include <raft/core/mdspan.hpp>`
 
 .. doxygentypedef:: raft::matrix_extent
     :project: RAFT
@@ -59,6 +62,8 @@ Shapes
 Accessors
 ---------
 
+`#include <raft/core/host_device_accessor.hpp>`
+
 .. doxygenstruct:: raft::host_device_accessor
     :project: RAFT
     :members:
@@ -78,6 +83,8 @@ Accessors
 mdarray
 #######
 
+`#include <raft/core/mdarray.hpp>`
+
 .. doxygenclass:: raft::mdarray
     :project: RAFT
     :members:
@@ -96,6 +103,8 @@ mdarray
 Device Vocabulary
 -----------------
 
+`#include <raft/core/device_mdarray.hpp>`
+
 .. doxygentypedef:: raft::device_mdarray
     :project: RAFT
 
@@ -112,6 +121,8 @@ Device Vocabulary
 Device Factories
 ----------------
 
+`#include <raft/core/device_mdarray.hpp>`
+
 .. doxygenfunction:: raft::make_device_matrix
     :project: RAFT
 
@@ -124,6 +135,8 @@ Device Factories
 
 Host Vocabulary
 ---------------
+
+`#include <raft/core/host_mdarray.hpp>`
 
 .. doxygentypedef:: raft::host_matrix
     :project: RAFT
@@ -138,6 +151,8 @@ Host Vocabulary
 Host Factories
 --------------
 
+`#include <raft/core/host_mdarray.hpp>`
+
 .. doxygenfunction:: raft::make_host_matrix
     :project: RAFT
 
@@ -149,6 +164,8 @@ Host Factories
 
 mdspan
 ######
+
+`#include <raft/core/mdspan.hpp>`
 
 .. doxygentypedef:: raft::mdspan
     :project: RAFT
@@ -168,6 +185,8 @@ mdspan
 
 Device Vocabulary
 -----------------
+
+`#include <raft/core/device_mdspan.hpp>`
 
 .. doxygentypedef:: raft::device_mdspan
    :project: RAFT
@@ -206,6 +225,8 @@ Device Vocabulary
 Device Factories
 ----------------
 
+`#include <raft/core/device_mdspan.hpp>`
+
 .. doxygenfunction:: raft::make_device_matrix_view
     :project: RAFT
 
@@ -218,6 +239,8 @@ Device Factories
 
 Managed Vocabulary
 ------------------
+
+`#include <raft/core/device_mdspan.hpp>`
 
 ..doxygentypedef:: raft::managed_mdspan
   :project: RAFT
@@ -247,11 +270,16 @@ Managed Vocabulary
 Managed Factories
 -----------------
 
+`#include <raft/core/device_mdspan.hpp>`
+
 .. doxygenfunction:: make_managed_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
+    :project: RAFT
 
 
 Host Vocabulary
 ---------------
+
+`#include <raft/core/host_mdspan.hpp>`
 
 .. doxygentypedef:: raft::host_mdspan
    :project: RAFT
@@ -289,6 +317,8 @@ Host Vocabulary
 Host Factories
 --------------
 
+`#include <raft/core/host_mdspan.hpp>`
+
 .. doxygenfunction:: raft::make_host_matrix_view
     :project: RAFT
 
@@ -301,6 +331,8 @@ Host Factories
 
 Validation Routines
 -------------------
+
+`#include <raft/core/mdspan.hpp>`
 
 .. doxygenstruct:: raft::is_mdspan
     :project: RAFT
@@ -335,12 +367,19 @@ Validation Routines
 span
 ####
 
-.. doxygentypedef:: raft::device_span
-   :project: RAFT
-
-.. doxygentypedef:: raft::host_span
-   :project: RAFT
+`#include <raft/core/span.hpp>`
 
 .. doxygenclass:: raft::span
     :project: RAFT
     :members:
+
+`#include <raft/core/device_span.hpp>`
+
+.. doxygentypedef:: raft::device_span
+   :project: RAFT
+
+`#include <raft/core/host_span.hpp>`
+
+.. doxygentypedef:: raft::host_span
+   :project: RAFT
+

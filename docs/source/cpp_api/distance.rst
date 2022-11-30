@@ -12,7 +12,7 @@ distances have been highly optimized and support a wide assortment of different 
 Distance
 ########
 
-Header: `raft/distance/distance.cuh`
+`#include <raft/distance/distance.cuh>`
 
 .. doxygennamespace:: raft::distance
     :project: RAFT

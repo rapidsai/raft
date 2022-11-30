@@ -25,8 +25,13 @@ Interruptible
 #############
 
 .. autofunction:: pylibraft.common.interruptible.cuda_interruptible
+    :project: RAFT
+
 .. autofunction:: pylibraft.common.interruptible.synchronize
+    :project: RAFT
+
 .. autofunction:: pylibraft.common.interruptible.cuda_yield
+    :project: RAFT
 
 
 CUDA Array Interface Helpers

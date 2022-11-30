@@ -22,7 +22,7 @@ Header: `raft/neighbors/brute_force.cuh`
 IVF-Flat
 --------
 
-Header: `raft/neighbors/ivf_flat.cuh`
+`#include <raft/neighbors/ivf_flat.cuh>`
 
 .. doxygennamespace:: raft::neighbors::ivf_flat
     :project: RAFT
@@ -33,7 +33,7 @@ Header: `raft/neighbors/ivf_flat.cuh`
 IVF-PQ
 --------
 
-Header: `raft/neighbors/ivf_pq.cuh`
+`#include <raft/neighbors/ivf_pq.cuh>`
 
 .. doxygennamespace:: raft::neighbors::ivf_pq
     :project: RAFT
@@ -44,7 +44,7 @@ Header: `raft/neighbors/ivf_pq.cuh`
 Epsilon Neighborhood
 --------------------
 
-Header: `raft/neighbors/epsilon_neighborhood.cuh`
+`#include <raft/neighbors/epsilon_neighborhood.cuh>`
 
 .. doxygennamespace:: raft::neighbors::epsilon_neighborhood
     :project: RAFT
@@ -55,7 +55,7 @@ Header: `raft/neighbors/epsilon_neighborhood.cuh`
 Random Ball Cover
 -----------------
 
-Header: `raft/neighbors/ball_cover.cuh`
+`#include <raft/neighbors/ball_cover.cuh>`
 
 .. doxygennamespace:: raft::neighbors::ball_cover
     :project: RAFT
