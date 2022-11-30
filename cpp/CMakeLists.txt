@@ -663,25 +663,8 @@ raft_export(
 # ##################################################################################################
 # * build export -------------------------------------------------------------
 raft_export(
-  BUILD
-  raft
-  EXPORT_SET
-  raft-exports
-  COMPONENTS
-  nn
-  distance
-  distributed
-  GLOBAL_TARGETS
-  raft
-  raft_distance
-  distributed
-  raft_nn
-  DOCUMENTATION
-  doc_string
-  NAMESPACE
-  raft::
-  FINAL_CODE_BLOCK
-  code_string
+  BUILD raft EXPORT_SET raft-exports COMPONENTS nn distance distributed GLOBAL_TARGETS raft
+  distance distributed nn DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
