@@ -429,7 +429,7 @@ struct index : ann::index {
 
   /** A helper function to determine the extents of an array enough to hold a given amount of data.
    */
-  auto make_pq_dataset_extents(IdxT n_rows) -> pq_dataset_extents
+  auto make_pq_dataset_extents(IdxT n_rows) const -> pq_dataset_extents
   {
     // how many elems of pq_dim fit into one kIndexGroupVecLen-byte chunk
     auto pq_chunk = (kIndexGroupVecLen * 8u) / pq_bits();
