@@ -62,7 +62,8 @@ template <typename DataT,
           int VecLen,
           typename FinalLambda,
           typename DistanceFn,
-          bool isRowMajor>
+          typename ReduceOpT,
+          typename KVPReduceOpT>
 void cutlassFusedL2NNKernel(const DataT* x,
                            const DataT* y,
                            const DataT* xn,
@@ -77,6 +78,8 @@ void cutlassFusedL2NNKernel(const DataT* x,
                            int* mutexes,
                            FinalLambda fin_op,
                            DistanceFn dist_op,
+                           ReduceOpT redOp,
+                           KVPReduceOpT pairRedOp,
                            cudaStream_t stream)
 {
   static_assert(!(std::is_same<OutT, bool>::value),
@@ -109,14 +112,18 @@ void cutlassFusedL2NNKernel(const DataT* x,
   // default initialize problem size with row major inputs
   auto problem_size = cutlass::gemm::GemmCoord(n, m, k);
 
+  constexpr bool isRowMajor = true;
+
   using cutlassDistKernel =
-    typename cutlass::gemm::kernel::PairwiseDistanceGemm<DataT,
+    typename cutlass::gemm::kernel::FusedL2NNGemm<DataT,
                                                          Alignment,
                                                          DataT,
                                                          Alignment,
                                                          AccT,
                                                          AccT,
                                                          EpilogueOutputOp,
+                                                         ReduceOpT,
+                                                         KVPReduceOpT,
                                                          NumStages,  // Number of pipeline stages
                                                          isRowMajor>::GemmKernel;
 

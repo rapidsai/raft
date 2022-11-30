@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,126 +14,158 @@
  * limitations under the License.
  */
 
+//
+/*! \file
+  \brief Functor performing distance operations used by epilogues of pairwise distance
+  * kernels.
+* This is adapted from LinearCombinationBiasElementwise from CUTLASS 2.9.0
+* customized for applying elementwise distance formula on accumulated GEMM value
+* and applying user-defined final custom operation on the distance value.
+*/
+
 #pragma once
 
-#include <limits>
-#include <raft/core/kvp.hpp>
-#include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <stdint.h>
-#include <raft/distance/detail/fused_l2_nn.cuh>
+#include <cutlass/array.h>
+#include <cutlass/cutlass.h>
+#include <cutlass/functional.h>
+#include <cutlass/numeric_conversion.h>
+#include <cutlass/numeric_types.h>
 
-namespace raft {
-namespace distance {
+#include <cutlass/epilogue/thread/activation.h>
 
-namespace detail {
+/////////////////////////////////////////////////////////////////////////////////////////////////
 
+namespace cutlass {
+namespace epilogue {
+namespace thread {
 
-// TODO: specialize this function for MinAndDistanceReduceOp<int, float>
-// with atomicCAS of 64 bit which will eliminate mutex and shfls
-template <typename P, typename OutT, typename IdxT, typename KVPair, typename ReduceOpT>
-DI void updateReducedVal(
-  int* mutex, OutT* min, KVPair* val, ReduceOpT red_op, IdxT m, IdxT gridStrideY)
-{
-  const auto lid      = threadIdx.x % raft::WarpSize;
-  const auto accrowid = threadIdx.x / P::AccThCols;
+/////////////////////////////////////////////////////////////////////////////////////////////////
 
-  // Update each output row in order within a warp. This will resolve hang
-  // issues with pre-Volta architectures
-#pragma unroll
-  for (int j = 0; j < (raft::WarpSize / P::AccThCols); j++) {
-    if (lid == j * P::AccThCols) {
-#pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        auto rid = gridStrideY + accrowid + i * P::AccThRows;
-        if (rid < m) {
-          auto value = val[i];
-          while (atomicCAS(mutex + rid, 0, 1) == 1)
-            ;
-          __threadfence();
-          red_op(rid, min + rid, value);
-          __threadfence();
-          atomicCAS(mutex + rid, 1, 0);
-        }
-      }
+/// This base class is meant to define the concept required of the
+/// EpilogueWithBroadcast::OutputOp
+template <typename ElementC_,
+          typename ElementAccumulator_,
+          typename ElementCompute_,
+          typename ElementZ_,
+          typename ElementT_,
+          int ElementsPerAccess,
+          typename DistanceOp_,
+          typename FinalOp_>
+class FusedL2NNEpilogueElementwise {
+ public:
+  using ElementOutput                 = ElementC_;
+  using ElementC                      = ElementC_;
+  using ElementAccumulator            = ElementAccumulator_;
+  using ElementCompute                = ElementCompute_;
+  using ElementZ                      = ElementZ_;
+  using ElementT                      = ElementT_;
+  static int const kElementsPerAccess = ElementsPerAccess;
+  static int const kCount             = kElementsPerAccess;
+
+  using DistanceOp = DistanceOp_;
+  using FinalOp    = FinalOp_;
+
+  using FragmentAccumulator = Array<ElementAccumulator, kElementsPerAccess>;
+  using FragmentCompute     = Array<ElementCompute, kElementsPerAccess>;
+  using FragmentC           = Array<ElementOutput, kElementsPerAccess>;
+  using FragmentZ           = Array<ElementZ, kElementsPerAccess>;
+  using FragmentT           = Array<ElementT, kElementsPerAccess>;
+
+  using FragmentOutput = FragmentZ;
+
+  static bool const kIsHeavy = false;  // ElementwiseOp::kIsHeavy;
+
+  /// If true, the 'Z' tensor is stored
+  static bool const kStoreZ = false;  // We don't store anything in Z,
+
+  /// If true, the 'T' tensor is stored
+  static bool const kStoreT = true;  // this is our final output storage.
+
+  /// Host-constructable parameters structure
+  struct Params {
+    FinalOp_ final_op_;
+    DistanceOp_ dist_op_;
+
+    //
+    // Methods
+    //
+    CUTLASS_HOST_DEVICE
+    Params(DistanceOp_ dist_op, FinalOp final_op) : final_op_(final_op), dist_op_(dist_op) {}
+
+    CUTLASS_HOST_DEVICE
+    Params() {}
+  };
+
+ private:
+  //
+  // Data members
+  //
+  FinalOp_ final_op;
+  DistanceOp_ elementwise_op;
+
+ public:
+  //
+  // Methods
+  //
+
+  /// Constructor from Params
+  CUTLASS_HOST_DEVICE
+  FusedL2NNEpilogueElementwise(Params const& params)
+    : final_op(params.final_op_), elementwise_op(params.dist_op_)
+  {
+  }
+
+  /// Returns true if source is needed
+  CUTLASS_HOST_DEVICE
+  bool is_source_needed() const
+  {
+    // we use for making sure C matrix path is used for A mat norm.
+    return true;
+  }
+
+  /// Functionally required for serial reduction in the epilogue
+  CUTLASS_HOST_DEVICE
+  void set_k_partition(int k_partition, int k_partition_count) {}
+
+  /// Applies the operation when is_source_needed() is true
+  CUTLASS_HOST_DEVICE
+  void operator()(FragmentZ& frag_Z,
+                  FragmentT& frag_T,
+                  FragmentAccumulator const& AB,
+                  FragmentC const& frag_C,
+                  FragmentCompute const& V) const
+  {
+    FragmentCompute tmp_Accum =
+      NumericArrayConverter<ElementCompute, ElementAccumulator, kElementsPerAccess>()(AB);
+    FragmentCompute tmp_C =
+      NumericArrayConverter<ElementCompute, ElementC, kElementsPerAccess>()(frag_C);
+    FragmentCompute result_Z;
+    FragmentCompute result_T;
+
+    CUTLASS_PRAGMA_UNROLL
+    for (int i = 0; i < kElementsPerAccess; ++i) {
+      result_Z[i] = elementwise_op(tmp_C[i], V[i], tmp_Accum[i]);
+      result_T[i] = final_op(result_Z[i], 0);
     }
-  }
-}
 
-template <typename DataT,
-          typename OutT,
-          typename IdxT,
-          typename Policy,
-          typename ReduceOpT,
-          typename KVPReduceOpT>
-void fusedL2NNImpl(OutT* min,
-                   const DataT* x,
-                   const DataT* y,
-                   const DataT* xn,
-                   const DataT* yn,
-                   IdxT m,
-                   IdxT n,
-                   IdxT k,
-                   int* workspace,
-                   ReduceOpT redOp,
-                   KVPReduceOpT pairRedOp,
-                   bool sqrt,
-                   bool initOutBuffer,
-                   cudaStream_t stream)
-{
-  // The kernel policy is determined by fusedL2NN.
-  typedef Policy P;
-
-  dim3 blk(P::Nthreads);
-  auto nblks            = raft::ceildiv<int>(m, P::Nthreads);
-  constexpr auto maxVal = std::numeric_limits<DataT>::max();
-  typedef KeyValuePair<IdxT, DataT> KVPair;
-
-  // Accumulation operation lambda
-  auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
-
-  RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
-  if (initOutBuffer) {
-    initKernel<DataT, OutT, IdxT, ReduceOpT>
-      <<<nblks, P::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
-    RAFT_CUDA_TRY(cudaGetLastError());
+    NumericArrayConverter<ElementT, ElementCompute, kElementsPerAccess> convert_t;
+    frag_T = convert_t(result_T);
   }
 
-  auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
-
-  constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
-  if (sqrt) {
-    auto fusedL2NNSqrt = fusedL2NNkernel<DataT,
-                                         OutT,
-                                         IdxT,
-                                         true,
-                                         P,
-                                         ReduceOpT,
-                                         KVPReduceOpT,
-                                         decltype(core_lambda),
-                                         decltype(fin_op)>;
-    dim3 grid          = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NNSqrt);
-
-    fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(
-      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
-  } else {
-    auto fusedL2NN = fusedL2NNkernel<DataT,
-                                     OutT,
-                                     IdxT,
-                                     false,
-                                     P,
-                                     ReduceOpT,
-                                     KVPReduceOpT,
-                                     decltype(core_lambda),
-                                     decltype(fin_op)>;
-    dim3 grid      = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NN);
-    fusedL2NN<<<grid, blk, shmemSize, stream>>>(
-      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
+  /// Applies the operation when is_source_needed() is false
+  CUTLASS_HOST_DEVICE
+  void operator()(FragmentZ& frag_Z,
+                  FragmentT& frag_T,
+                  FragmentAccumulator const& AB,
+                  FragmentCompute const& V) const
+  {
   }
+};
 
-  RAFT_CUDA_TRY(cudaGetLastError());
-}
+/////////////////////////////////////////////////////////////////////////////////////////////////
 
-}  // namespace detail
-}  // namespace distance
-}  // namespace raft
+}  // namespace thread
+}  // namespace epilogue
+}  // namespace cutlass
+
+/////////////////////////////////////////////////////////////////////////////////////////////////

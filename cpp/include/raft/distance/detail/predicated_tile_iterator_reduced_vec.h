@@ -60,6 +60,7 @@ namespace threadblock {
 template <typename ThreadMap_,  ///< Thread map (conept: OutputTileThreadMap)
           typename Element_,    ///< Element data type
           typename Layout_,
+          typename EpilogueOpParams_,
           bool ScatterD     = false,  ///< Scatter D operand or not
           bool UseCUDAStore = false>
 class PredicatedTileIteratorReducedVec {
@@ -76,6 +77,7 @@ class PredicatedTileIteratorReducedVec {
   using Index       = typename Layout::Index;
   using LongIndex   = typename Layout::LongIndex;
   using TensorCoord = MatrixCoord;
+  using  EpilogueOpParams = EpilogueOpParams_
 
   static int const kElementsPerAccess = ThreadMap::kElementsPerAccess;
   static int const kThreads           = ThreadMap::kThreads;
@@ -103,6 +105,7 @@ class PredicatedTileIteratorReducedVec {
   struct Params : PredicatedTileIteratorParams {
     using Base = PredicatedTileIteratorParams;
 
+    EpilogueOpParams user_param;
     CUTLASS_HOST_DEVICE
     Params() {}
 
@@ -156,7 +159,7 @@ class PredicatedTileIteratorReducedVec {
   //
 
   /// Parameters structure containing reference and precomputed state.
-  PredicatedTileIteratorParams params_;
+  Params params_;
 
   /// Byte-level pointer
   uint8_t* byte_pointer_;
@@ -188,7 +191,7 @@ class PredicatedTileIteratorReducedVec {
 
   static_assert(sizeof(extent_row_) == 4, "Expected 32b extents");
   static_assert(sizeof(thread_start_row_) == 4, "Expected 32b extents");
-  static_assert(sizeof(PredicatedTileIteratorParams::stride) == 8, "Expected 64b strides");
+  static_assert(sizeof(Params::stride) == 8, "Expected 64b strides");
 
  private:
   //
@@ -202,7 +205,7 @@ class PredicatedTileIteratorReducedVec {
 
   /// Constructor
   CUTLASS_DEVICE
-  PredicatedTileIteratorReducedVec(PredicatedTileIteratorParams const& params,
+  PredicatedTileIteratorReducedVec(Params const& params,
                                 Element* pointer,
                                 TensorCoord extent,
                                 int thread_idx,

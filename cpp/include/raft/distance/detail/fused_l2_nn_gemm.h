@@ -50,6 +50,8 @@ template <
   // typename ElementOutT,
   /// Epilogue output operator      - must satisfy concept of 'EpilogueWithBroadcastOp'
   typename EpilogueOutputOp,
+  typename ReduceOpT,
+  typename KVPReduceOpT,
   /// Number of stages used in the pipelined mainloop
   int Stages,
   /// data layout row/column major of inputs
@@ -66,7 +68,7 @@ struct FusedL2NNGemm {
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes the size of MMA op
   using InstructionShape =
-    cutlass::gemm::GemmShape<16, 8, 8>;  // <- MMA Op tile M = 16, N = 8, K = 8
+    cutlass::gemm::GemmShape<16, 8, 4>;  // <- MMA Op tile M = 16, N = 8, K = 8
 
   /// Operation performed by GEMM
   using Operator = cutlass::arch::OpMultiplyAddFastF32;
