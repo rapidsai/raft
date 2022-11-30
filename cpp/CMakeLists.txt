@@ -673,9 +673,9 @@ raft_export(
   distributed
   GLOBAL_TARGETS
   raft
-  raft_distance
+  distance
   distributed
-  raft_nn
+  nn
   DOCUMENTATION
   doc_string
   NAMESPACE
