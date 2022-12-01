@@ -238,10 +238,10 @@ struct unary_compose_op {
   OuterOpT outer_op;
   InnerOpT inner_op;
 
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(Type a) const
+  template <typename... Args>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(Args... args) const
   {
-    return outer_op(inner_op(a));
+    return outer_op(inner_op(args...));
   }
 };
 
