@@ -8,7 +8,6 @@ This page provides pylibraft class references for the publicly-exposed elements 
    :class: highlight
 
 .. autofunction:: pylibraft.cluster.compute_new_centroids
-    :project: RAFT
 
 
 

@@ -14,7 +14,7 @@ expose in public APIs.
 handle_t
 ########
 
-`#include <raft/core/handle.hpp>`
+#include <raft/core/handle.hpp>
 
 .. doxygenclass:: raft::handle_t
     :project: RAFT
@@ -24,7 +24,7 @@ handle_t
 Interruptible
 #############
 
-`#include <raft/core/interupptible.hpp>`
+#include <raft/core/interupptible.hpp>
 
 .. doxygenclass:: raft::interruptible
     :project: RAFT
@@ -34,7 +34,7 @@ Interruptible
 NVTX
 ####
 
-`#include <raft/core/nvtx.hpp>`
+#include <raft/core/nvtx.hpp>
 
 .. doxygennamespace:: raft::common::nvtx
     :project: RAFT
@@ -45,7 +45,7 @@ NVTX
 Key-Value Pair
 ##############
 
-`#include <raft/core/kvp.hpp>`
+#include <raft/core/kvp.hpp>
 
 .. doxygenstruct:: raft::KeyValuePair
     :project: RAFT

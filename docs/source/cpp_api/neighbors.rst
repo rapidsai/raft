@@ -11,7 +11,7 @@ This page provides C++ class references for the publicly-exposed elements of the
 Brute-force
 -----------
 
-Header: `raft/neighbors/brute_force.cuh`
+#include <raft/neighbors/brute_force.cuh>
 
 .. doxygennamespace:: raft::neighbors::brute_force
     :project: RAFT
@@ -22,7 +22,7 @@ Header: `raft/neighbors/brute_force.cuh`
 IVF-Flat
 --------
 
-`#include <raft/neighbors/ivf_flat.cuh>`
+#include <raft/neighbors/ivf_flat.cuh>
 
 .. doxygennamespace:: raft::neighbors::ivf_flat
     :project: RAFT
@@ -33,7 +33,7 @@ IVF-Flat
 IVF-PQ
 --------
 
-`#include <raft/neighbors/ivf_pq.cuh>`
+#include <raft/neighbors/ivf_pq.cuh>
 
 .. doxygennamespace:: raft::neighbors::ivf_pq
     :project: RAFT
@@ -44,7 +44,7 @@ IVF-PQ
 Epsilon Neighborhood
 --------------------
 
-`#include <raft/neighbors/epsilon_neighborhood.cuh>`
+#include <raft/neighbors/epsilon_neighborhood.cuh>
 
 .. doxygennamespace:: raft::neighbors::epsilon_neighborhood
     :project: RAFT
@@ -55,7 +55,7 @@ Epsilon Neighborhood
 Random Ball Cover
 -----------------
 
-`#include <raft/neighbors/ball_cover.cuh>`
+#include <raft/neighbors/ball_cover.cuh>
 
 .. doxygennamespace:: raft::neighbors::ball_cover
     :project: RAFT

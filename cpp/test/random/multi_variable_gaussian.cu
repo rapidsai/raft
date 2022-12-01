@@ -280,7 +280,7 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
 
     rmm::mr::device_memory_resource* mem_resource_ptr = rmm::mr::get_current_device_resource();
     ASSERT_TRUE(mem_resource_ptr != nullptr);
-    raft::random::compute_multi_variable_gaussian(
+    raft::random::multi_variable_gaussian(
       handle, *mem_resource_ptr, x_view, P_view, X_view, method);
 
     // saving the mean of the randoms in Rand_mean

@@ -129,6 +129,11 @@ using perms_out_view_t = typename perms_out_view<T, InputOutputValueType, IdxTyp
 }  // namespace permute_impl
 
 /**
+ * \defgroup permute Permutation
+ * @{
+ */
+
+/**
  * @brief Overload of `permute` that compiles if users pass in `std::nullopt`
  *   for either or both of `permsOut` and `out`.
  */
@@ -159,6 +164,8 @@ void permute(const raft::handle_t& handle,
   std::optional<out_view_type> out_arg            = std::forward<OutType>(out);
   permute(handle, in, permsOut_arg, out_arg);
 }
+
+/** @} */
 
 /**
  * @brief Legacy overload of `permute` that takes raw arrays instead of mdspan.

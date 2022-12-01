@@ -10,8 +10,6 @@ distances have been highly optimized and support a wide assortment of different 
    :class: highlight
 
 .. autofunction:: pylibraft.distance.pairwise_distance
-    :project: RAFT
 
 .. autofunction:: pylibraft.distance.fused_l2_nn_argmin
-    :project: RAFT
 
