@@ -18,7 +18,16 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import numpy as np
+
+from cython.operator cimport dereference as deref
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool, nullptr
+
 from pylibraft.common.handle cimport handle_t
+from pylibraft.cpp.kmeans_types cimport KMeansParams
+from pylibraft.cpp.mdspan cimport *
+from pylibraft.cpp.optional cimport optional
 
 
 cdef extern from "raft_distance/cluster/kmeans.hpp" \
@@ -65,3 +74,21 @@ cdef extern from "raft_distance/cluster/kmeans.hpp" \
         int n_clusters,
         const double * centroids,
         double * cost) except +
+
+    cdef void fit(
+        const handle_t & handle,
+        const KMeansParams& params,
+        device_matrix_view[const float, int] X,
+        optional[device_vector_view[const float, int]] sample_weight,
+        device_matrix_view[float, int] inertia,
+        host_scalar_view[float, int] inertia,
+        host_scalar_view[int, int] n_iter) except +
+
+    cdef void fit(
+        const handle_t & handle,
+        const KMeansParams& params,
+        device_matrix_view[const double, int] X,
+        optional[device_vector_view[const double, int]] sample_weight,
+        device_matrix_view[double, int] inertia,
+        host_scalar_view[double, int] inertia,
+        host_scalar_view[int, int] n_iter) except +
