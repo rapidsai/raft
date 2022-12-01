@@ -266,7 +266,7 @@ class std_comms : public comms_iface {
         bool restart = false;  // resets the timeout when any progress was made
 
         // Causes UCP to progress through the send/recv message queue
-        while (ucp_handler_.ucp_progress(ucp_worker_) != 0) {
+        while (ucp_worker_progress(ucp_worker_) != 0) {
           restart = true;
         }
 

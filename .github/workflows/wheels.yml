@@ -1,0 +1,72 @@
+name: RAFT wheels
+
+on:
+  workflow_call:
+    inputs:
+      versioneer-override:
+        type: string
+        default: ''
+      build-tag:
+        type: string
+        default: ''
+      branch:
+        required: true
+        type: string
+      date:
+        required: true
+        type: string
+      sha:
+        required: true
+        type: string
+      build-type:
+        type: string
+        default: nightly
+
+concurrency:
+  group: "raft-${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  pylibraft-wheel:
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@main
+    with:
+      repo: rapidsai/raft
+
+      build-type: ${{ inputs.build-type }}
+      branch: ${{ inputs.branch }}
+      sha: ${{ inputs.sha }}
+      date: ${{ inputs.date }}
+
+      package-dir: python/pylibraft
+      package-name: pylibraft
+
+      python-package-versioneer-override: ${{ inputs.versioneer-override }}
+      python-package-build-tag: ${{ inputs.build-tag }}
+
+      skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
+
+      test-extras: test
+      test-unittest: "python -m pytest -v ./python/pylibraft/pylibraft/test"
+    secrets: inherit
+  raft-dask-wheel:
+    needs: pylibraft-wheel
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux.yml@main
+    with:
+      repo: rapidsai/raft
+
+      build-type: ${{ inputs.build-type }}
+      branch: ${{ inputs.branch }}
+      sha: ${{ inputs.sha }}
+      date: ${{ inputs.date }}
+
+      package-dir: python/raft-dask
+      package-name: raft_dask
+
+      python-package-versioneer-override: ${{ inputs.versioneer-override }}
+      python-package-build-tag: ${{ inputs.build-tag }}
+
+      skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
+
+      test-extras: test
+      test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"
+    secrets: inherit

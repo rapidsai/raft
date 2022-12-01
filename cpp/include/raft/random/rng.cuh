@@ -723,6 +723,11 @@ using weight_t = typename weight_alias<T>::type;
 }  // namespace sample_without_replacement_impl
 
 /**
+ * \defgroup sample_without_replacement Sampling without Replacement
+ * @{
+ */
+
+/**
  * @brief Sample the input vector without replacement, optionally based on the
  * input weight vector for each element in the array.
  *
@@ -824,6 +829,7 @@ void sample_without_replacement(const raft::handle_t& handle,
  *   compiler find the above overload, in case users pass in
  *   `std::nullopt` for one or both of the optional arguments.
  *
+ *
  * Please see above for documentation of `sample_without_replacement`.
  */
 template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 5>>
@@ -831,6 +837,8 @@ void sample_without_replacement(Args... args)
 {
   sample_without_replacement(std::forward<Args>(args)..., std::nullopt);
 }
+
+/** @} */
 
 /**
  * @brief Legacy version of @c sample_without_replacement (see above)

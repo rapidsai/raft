@@ -16,7 +16,6 @@
 
 #pragma once
 #include "curand_wrappers.hpp"
-#include "random_types.hpp"
 #include <cmath>
 #include <memory>
 #include <optional>
@@ -26,6 +25,7 @@
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/random/random_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>

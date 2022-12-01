@@ -123,5 +123,5 @@ pytest --cache-clear --junitxml="$WORKSPACE/junit-raft-dask.xml" -v -s
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"
   gpuci_mamba_retry install "rapids-doc-env=${MINOR_VERSION}.*"
-  "$WORKSPACE/build.sh" docs -v
+  "$WORKSPACE/build.sh" docs -v -n
 fi
