@@ -228,16 +228,16 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
     queries : array interface compliant matrix, shape (n_queries, dim)
         Supported dtype [float, int8, uint8]
     candidates : array interface compliant matrix, shape (n_queries, k0)
-        dtype [float, int8, uint64_t]
+        dtype uint64
     k : int
         Number of neighbors to search (k <= k0). Optional if indices or
         distances arrays are given (in which case their second dimension
         is k).
-    indices :  Optional CUDA array interface compliant matrix shape
-                (n_queries, k), dtype uint64_t. If supplied, neighbor
+    indices :  Optional array interface compliant matrix shape
+                (n_queries, k), dtype uint64. If supplied, neighbor
                 indices will be written here in-place. (default None)
-        Supported dtype [float, int8, uint8]
-    distances :  Optional CUDA array interface compliant matrix shape
+        Supported dtype uint64
+    distances :  Optional array interface compliant matrix shape
                 (n_queries, k), dtype float. If supplied, neighbor
                 indices will be written here in-place. (default None)
 
@@ -305,13 +305,6 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
                    metric, handle):
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    cdef device_matrix_view[float, uint64_t, row_major] dataset_view_fp32
-    cdef device_matrix_view[uint8_t, uint64_t, row_major] dataset_view_uint8
-    cdef device_matrix_view[int8_t, uint64_t, row_major] dataset_view_int8
-    cdef device_matrix_view[float, uint64_t, row_major] queries_view_fp32
-    cdef device_matrix_view[uint8_t, uint64_t, row_major] queries_view_uint8
-    cdef device_matrix_view[int8_t, uint64_t, row_major] queries_view_int8
-
     cdef device_matrix_view[uint64_t, uint64_t, row_major] candidates_view = \
         get_device_matrix_view_uint64(candidates)
 
@@ -332,48 +325,36 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
     if distances is None:
         distances = device_ndarray.empty((n_queries, k), dtype='float32')
 
-    cdef device_matrix_view[uint64_t, uint64_t, row_major] indices_view = \
-        get_device_matrix_view_uint64(indices)
-
-    cdef device_matrix_view[float, uint64_t, row_major] distances_view = \
-        get_device_matrix_view_float(distances)
-
     cdef DistanceType c_metric = _get_metric(metric)
 
     dataset_cai = cai_wrapper(dataset)
 
     if dataset_cai.dtype == np.float32:
-        dataset_view_fp32 = get_device_matrix_view_float(dataset)
-        queries_view_fp32 = get_device_matrix_view_float(queries)
         with cuda_interruptible():
             c_refine(deref(handle_),
-                     dataset_view_fp32,
-                     queries_view_fp32,
-                     candidates_view,
-                     indices_view,
-                     distances_view,
+                     get_device_matrix_view_float(dataset),
+                     get_device_matrix_view_float(queries),
+                     get_device_matrix_view_uint64(candidates),
+                     get_device_matrix_view_uint64(indices),
+                     get_device_matrix_view_float(distances),
                      c_metric)
     elif dataset_cai.dtype == np.int8:
-        dataset_view_int8 = get_device_matrix_view_int8(dataset)
-        queries_view_int8 = get_device_matrix_view_int8(queries)
         with cuda_interruptible():
             c_refine(deref(handle_),
-                     dataset_view_int8,
-                     queries_view_int8,
-                     candidates_view,
-                     indices_view,
-                     distances_view,
+                     get_device_matrix_view_int8(dataset),
+                     get_device_matrix_view_int8(queries),
+                     get_device_matrix_view_uint64(candidates),
+                     get_device_matrix_view_uint64(indices),
+                     get_device_matrix_view_float(distances),
                      c_metric)
     elif dataset_cai.dtype == np.uint8:
-        dataset_view_uint8 = get_device_matrix_view_uint8(dataset)
-        queries_view_uint8 = get_device_matrix_view_uint8(queries)
         with cuda_interruptible():
             c_refine(deref(handle_),
-                     dataset_view_uint8,
-                     queries_view_uint8,
-                     candidates_view,
-                     indices_view,
-                     distances_view,
+                     get_device_matrix_view_uint8(dataset),
+                     get_device_matrix_view_uint8(queries),
+                     get_device_matrix_view_uint64(candidates),
+                     get_device_matrix_view_uint64(indices),
+                     get_device_matrix_view_float(distances),
                      c_metric)
     else:
         raise TypeError("dtype %s not supported" % dataset_cai.dtype)
@@ -384,16 +365,6 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
 def _refine_host(dataset, queries, candidates, k, indices, distances,
                  metric, handle):
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-
-    cdef host_matrix_view[float, uint64_t, row_major] dataset_view_fp32
-    cdef host_matrix_view[uint8_t, uint64_t, row_major] dataset_view_uint8
-    cdef host_matrix_view[int8_t, uint64_t, row_major] dataset_view_int8
-    cdef host_matrix_view[float, uint64_t, row_major] queries_view_fp32
-    cdef host_matrix_view[uint8_t, uint64_t, row_major] queries_view_uint8
-    cdef host_matrix_view[int8_t, uint64_t, row_major] queries_view_int8
-
-    cdef host_matrix_view[uint64_t, uint64_t, row_major] candidates_view = \
-        get_host_matrix_view_uint64(candidates)
 
     if k is None:
         if indices is not None:
@@ -412,48 +383,36 @@ def _refine_host(dataset, queries, candidates, k, indices, distances,
     if distances is None:
         distances = np.empty((n_queries, k), dtype='float32')
 
-    cdef host_matrix_view[uint64_t, uint64_t, row_major] indices_view = \
-        get_host_matrix_view_uint64(indices)
-
-    cdef host_matrix_view[float, uint64_t, row_major] distances_view = \
-        get_host_matrix_view_float(distances)
-
     cdef DistanceType c_metric = _get_metric(metric)
 
     dtype = np.dtype(dataset.__array_interface__["typestr"])
 
     if dtype == np.float32:
-        dataset_view_fp32 = get_host_matrix_view_float(dataset)
-        queries_view_fp32 = get_host_matrix_view_float(queries)
         with cuda_interruptible():
             c_refine(deref(handle_),
-                     dataset_view_fp32,
-                     queries_view_fp32,
-                     candidates_view,
-                     indices_view,
-                     distances_view,
+                     get_host_matrix_view_float(dataset),
+                     get_host_matrix_view_float(queries),
+                     get_host_matrix_view_uint64(candidates),
+                     get_host_matrix_view_uint64(indices),
+                     get_host_matrix_view_float(distances),
                      c_metric)
     elif dtype == np.int8:
-        dataset_view_int8 = get_host_matrix_view_int8(dataset)
-        queries_view_int8 = get_host_matrix_view_int8(queries)
         with cuda_interruptible():
             c_refine(deref(handle_),
-                     dataset_view_int8,
-                     queries_view_int8,
-                     candidates_view,
-                     indices_view,
-                     distances_view,
+                     get_host_matrix_view_int8(dataset),
+                     get_host_matrix_view_int8(queries),
+                     get_host_matrix_view_uint64(candidates),
+                     get_host_matrix_view_uint64(indices),
+                     get_host_matrix_view_float(distances),
                      c_metric)
     elif dtype == np.uint8:
-        dataset_view_uint8 = get_host_matrix_view_uint8(dataset)
-        queries_view_uint8 = get_host_matrix_view_uint8(queries)
         with cuda_interruptible():
             c_refine(deref(handle_),
-                     dataset_view_uint8,
-                     queries_view_uint8,
-                     candidates_view,
-                     indices_view,
-                     distances_view,
+                     get_host_matrix_view_uint8(dataset),
+                     get_host_matrix_view_uint8(queries),
+                     get_host_matrix_view_uint64(candidates),
+                     get_host_matrix_view_uint64(indices),
+                     get_host_matrix_view_float(distances),
                      c_metric)
     else:
         raise TypeError("dtype %s not supported" % dtype)
