@@ -264,16 +264,16 @@ DataT silhouette_score(
   RAFT_CUDA_TRY(cudaMemsetAsync(
     averageDistanceBetweenSampleAndCluster.data(), 0, nRows * nLabels * sizeof(DataT), stream));
 
-  raft::linalg::matrixVectorOp<DataT, DivOp<DataT>>(averageDistanceBetweenSampleAndCluster.data(),
-                                                    sampleToClusterSumOfDistances.data(),
-                                                    binCountArray.data(),
-                                                    binCountArray.data(),
-                                                    nLabels,
-                                                    nRows,
-                                                    true,
-                                                    true,
-                                                    raft::div_op(),
-                                                    stream);
+  raft::linalg::matrixVectorOp(averageDistanceBetweenSampleAndCluster.data(),
+                               sampleToClusterSumOfDistances.data(),
+                               binCountArray.data(),
+                               binCountArray.data(),
+                               nLabels,
+                               nRows,
+                               true,
+                               true,
+                               raft::div_op(),
+                               stream);
 
   // calculating row-wise minimum
   raft::linalg::reduce<DataT, DataT, int, raft::identity_op, raft::min_op>(
