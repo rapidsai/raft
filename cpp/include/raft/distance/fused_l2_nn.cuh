@@ -28,13 +28,12 @@
 #include <stdint.h>
 #include <type_traits>
 
+namespace raft {
+namespace distance {
 /**
  * \defgroup fused_l2_nn Fused 1-nearest neighbors
  * @{
  */
-
-namespace raft {
-namespace distance {
 
 template <typename LabelT, typename DataT>
 using KVPMinReduce = detail::KVPMinReduceImpl<LabelT, DataT>;
@@ -45,6 +44,8 @@ using MinAndDistanceReduceOp = detail::MinAndDistanceReduceOpImpl<LabelT, DataT>
 template <typename LabelT, typename DataT>
 using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
 
+/** @} */
+
 /**
  * Initialize array using init value from reduction op
  */
@@ -54,6 +55,10 @@ void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal, R
   detail::initialize<DataT, OutT, IdxT, ReduceOpT>(min, m, maxVal, redOp, handle.get_stream());
 }
 
+/**
+ * \ingroup fused_l2_nn
+ * @{
+ */
 /**
  * @brief Fused L2 distance and 1-nearest-neighbor computation in a single call.
  *
@@ -216,9 +221,9 @@ void fusedL2NNMinReduce(OutT* min,
     min, x, y, xn, yn, m, n, k, workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
 }
 
+/** @} */
+
 }  // namespace distance
 }  // namespace raft
-
-/** @} */
 
 #endif

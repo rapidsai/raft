@@ -11,7 +11,9 @@ distances have been highly optimized and support a wide assortment of different 
 Distance Types
 ##############
 
-#include <raft/distance/distance_types.hpp>
+``#include <raft/distance/distance_types.hpp>``
+
+namespace *raft::distance*
 
 .. doxygenenum:: raft::distance::DistanceType
    :project: RAFT
@@ -20,7 +22,9 @@ Distance Types
 Pairwise Distance
 #################
 
-#include <raft/distance/distance.cuh>
+``#include <raft/distance/distance.cuh>``
+
+namespace *raft::distance*
 
 .. doxygengroup:: distance_mdspan
     :project: RAFT
@@ -31,7 +35,9 @@ Pairwise Distance
 Fused 1-Nearest Neighbors
 #########################
 
-#include <raft/distance/fused_l2_nn.cuh>
+``#include <raft/distance/fused_l2_nn.cuh>``
+
+namespace *raft::distance*
 
 .. doxygengroup:: fused_l2_nn
     :project: RAFT

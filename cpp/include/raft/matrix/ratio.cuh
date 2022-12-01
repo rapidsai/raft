@@ -22,6 +22,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_ratio Matrix ratio operations
+ * @{
+ */
+
+/**
  * @brief ratio of every element over sum of input vector is calculated
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
@@ -53,4 +58,7 @@ void ratio(const raft::handle_t& handle, raft::device_matrix_view<math_t, idx_t,
   detail::ratio(
     handle, inout.data_handle(), inout.data_handle(), inout.size(), handle.get_stream());
 }
+
+/** @} */  // end group matrix_ratio
+
 }  // namespace raft::matrix

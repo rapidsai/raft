@@ -17,6 +17,12 @@
 #include <raft/distance/distance_types.hpp>
 
 namespace raft::distance::runtime {
+
+/**
+ * @defgroup pairwise_distance_runtime Pairwise Distances Runtime API
+ * @{
+ */
+
 void pairwise_distance(raft::handle_t const& handle,
                        float* x,
                        float* y,
@@ -38,4 +44,7 @@ void pairwise_distance(raft::handle_t const& handle,
                        raft::distance::DistanceType metric,
                        bool isRowMajor,
                        float metric_arg);
+
+/** @} */  // end group pairwise_distance_runtime
+
 }  // namespace raft::distance::runtime

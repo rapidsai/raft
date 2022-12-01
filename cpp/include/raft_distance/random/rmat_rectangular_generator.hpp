@@ -21,6 +21,11 @@
 
 namespace raft::random::runtime {
 
+/**
+ * @defgroup rmat_runtime RMAT Runtime API
+ * @{
+ */
+
 #define FUNC_DECL(IdxT, ProbT)                            \
   void rmat_rectangular_gen(raft::handle_t const& handle, \
                             IdxT* out,                    \
@@ -38,5 +43,7 @@ FUNC_DECL(int, double);
 FUNC_DECL(int64_t, double);
 
 #undef FUNC_DECL
+
+/** @} */  // end group rmat_runtime
 
 }  // namespace raft::random::runtime

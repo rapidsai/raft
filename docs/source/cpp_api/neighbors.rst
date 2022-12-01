@@ -11,9 +11,11 @@ This page provides C++ class references for the publicly-exposed elements of the
 Brute-force
 -----------
 
-#include <raft/neighbors/brute_force.cuh>
+``#include <raft/neighbors/brute_force.cuh>``
 
-.. doxygennamespace:: raft::neighbors::brute_force
+namespace *raft::neighbors::brute_force*
+
+.. doxygengroup:: brute_force_knn
     :project: RAFT
     :members:
     :content-only:
@@ -22,9 +24,11 @@ Brute-force
 IVF-Flat
 --------
 
-#include <raft/neighbors/ivf_flat.cuh>
+``#include <raft/neighbors/ivf_flat.cuh>``
 
-.. doxygennamespace:: raft::neighbors::ivf_flat
+namespace *raft::neighbors::ivf_flat*
+
+.. doxygengroup:: ivf_flat
     :project: RAFT
     :members:
     :content-only:
@@ -33,20 +37,23 @@ IVF-Flat
 IVF-PQ
 --------
 
-#include <raft/neighbors/ivf_pq.cuh>
+``#include <raft/neighbors/ivf_pq.cuh>``
 
-.. doxygennamespace:: raft::neighbors::ivf_pq
+namespace *raft::neighbors::ivf_pq*
+
+.. doxygengroup:: ivf_pq
     :project: RAFT
     :members:
     :content-only:
 
-
 Epsilon Neighborhood
 --------------------
 
-#include <raft/neighbors/epsilon_neighborhood.cuh>
+``#include <raft/neighbors/epsilon_neighborhood.cuh>``
 
-.. doxygennamespace:: raft::neighbors::epsilon_neighborhood
+namespace *raft::neighbors::epsilon_neighborhood*
+
+.. doxygengroup:: epsilon_neighbors
     :project: RAFT
     :members:
     :content-only:
@@ -55,9 +62,13 @@ Epsilon Neighborhood
 Random Ball Cover
 -----------------
 
-#include <raft/neighbors/ball_cover.cuh>
+``#include <raft/neighbors/ball_cover.cuh>``
 
-.. doxygennamespace:: raft::neighbors::ball_cover
+namespace *raft::neighbors::ball_cover*
+
+.. doxygengroup:: random_ball_cover
     :project: RAFT
     :members:
     :content-only:
+
+

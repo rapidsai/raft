@@ -20,6 +20,11 @@
 namespace raft::distance::runtime {
 
 /**
+ * @defgroup fused_l2_nn_min_arg_runtime Fused L2 1NN Runtime API
+ * @{
+ */
+
+/**
  * @brief Wrapper around fusedL2NN with minimum reduction operators.
  *
  * fusedL2NN cannot be compiled in the distance library due to the lambda
@@ -54,5 +59,7 @@ void fused_l2_nn_min_arg(raft::handle_t const& handle,
                          int n,
                          int k,
                          bool sqrt);
+
+/** @} */  // end group fused_l2_nn_min_arg_runtime
 
 }  // end namespace raft::distance::runtime

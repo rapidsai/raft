@@ -19,6 +19,11 @@
 
 namespace raft::cluster::kmeans::runtime {
 
+/**
+ * @defgroup kmeans_runtime Kmeans Runtime API
+ * @{
+ */
+
 void update_centroids(raft::handle_t const& handle,
                       const float* X,
                       int n_samples,
@@ -56,4 +61,7 @@ void cluster_cost(raft::handle_t const& handle,
                   int n_clusters,
                   const double* centroids,
                   double* cost);
+
+/** @} */  // end group kmeans_runtime
+
 }  // namespace raft::cluster::kmeans::runtime

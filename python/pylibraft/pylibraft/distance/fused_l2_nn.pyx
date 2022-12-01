@@ -32,7 +32,7 @@ from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
+cdef extern from "raft_distance/distance/fused_l2_min_arg.hpp" \
         namespace "raft::distance::runtime":
 
     void fused_l2_nn_min_arg(

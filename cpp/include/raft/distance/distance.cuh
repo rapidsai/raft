@@ -361,6 +361,26 @@ void pairwise_distance(const raft::handle_t& handle,
  *
  * Note: Only contiguous row- or column-major layouts supported currently.
  *
+ * Usage example:
+ * @code{.cpp}
+ * #include <raft/core/handle.hpp>
+ * #include <raft/core/device_mdarray.hpp>
+ * #include <raft/random/make_blobs.cuh>
+ * #include <raft/distance/distance.cuh>
+ *
+ * raft::handle_t handle;
+ * int n_samples = 5000;
+ * int n_features = 50;
+ *
+ * auto input = raft::make_device_matrix<float>(handle, n_samples, n_features);
+ * auto labels = raft::make_device_vector<int>(handle, n_samples);
+ * auto output = raft::make_device_matrix<float>(handle, n_samples, n_samples);
+ *
+ * raft::random::make_blobs(handle, input.view(), labels.view());
+ * auto metric = raft::distance::DistanceType::L2SqrtExpanded;
+ * raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
+ * @endcode
+ *
  * @tparam DistanceType which distance to evaluate
  * @tparam InType input argument type
  * @tparam AccType accumulation type

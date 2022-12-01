@@ -24,7 +24,7 @@ handle_t
 Interruptible
 #############
 
-#include <raft/core/interupptible.hpp>
+``#include <raft/core/interupptible.hpp>``
 
 .. doxygenclass:: raft::interruptible
     :project: RAFT
@@ -34,7 +34,7 @@ Interruptible
 NVTX
 ####
 
-#include <raft/core/nvtx.hpp>
+``#include <raft/core/nvtx.hpp>``
 
 .. doxygennamespace:: raft::common::nvtx
     :project: RAFT
@@ -45,7 +45,7 @@ NVTX
 Key-Value Pair
 ##############
 
-#include <raft/core/kvp.hpp>
+``#include <raft/core/kvp.hpp>``
 
 .. doxygenstruct:: raft::KeyValuePair
     :project: RAFT
@@ -55,7 +55,7 @@ Key-Value Pair
 logger
 ######
 
-`#include <raft/core/logger.hpp>`
+``#include <raft/core/logger.hpp>``
 
 .. doxygenclass:: raft::logger
     :project: RAFT
@@ -65,7 +65,7 @@ logger
 Multi-node Multi-GPU
 ####################
 
-`#include <raft/core/comms.hpp>`
+``#include <raft/core/comms.hpp>``
 
 .. doxygennamespace:: raft::comms
     :project: RAFT

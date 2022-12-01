@@ -34,7 +34,7 @@ from pylibraft.common.handle cimport handle_t
 from pylibraft.common import cai_wrapper, device_ndarray
 
 
-cdef extern from "raft_distance/pairwise_distance.hpp" \
+cdef extern from "raft_distance/distance/pairwise_distance.hpp" \
         namespace "raft::distance::runtime":
 
     cdef void pairwise_distance(const handle_t &handle,

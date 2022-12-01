@@ -22,6 +22,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_norm Matrix Norm Operations
+ * @{
+ */
+
+/**
  * @brief Get the L2/F-norm of a matrix
  * @param[in] handle: raft handle
  * @param[in] in: input matrix/vector with totally size elements
@@ -32,4 +37,7 @@ m_t l2_norm(const raft::handle_t& handle, raft::device_mdspan<const m_t, idx_t> 
 {
   return detail::getL2Norm(handle, in.data_handle(), in.size(), handle.get_stream());
 }
+
+/** @} */  // end of group matrix_norm
+
 }  // namespace raft::matrix

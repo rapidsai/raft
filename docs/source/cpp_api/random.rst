@@ -7,7 +7,12 @@ This page provides C++ class references for the publicly-exposed elements of the
    :language: c++
    :class: highlight
 
-#include <raft/random/rng_state.hpp>
+Random State
+############
+
+``#include <raft/random/rng_state.hpp>``
+
+namespace *raft::random*
 
 .. doxygenstruct:: raft::random::RngState
     :project: RAFT
@@ -20,32 +25,42 @@ Data Generation
 make_blobs
 ----------
 
-#include *<raft/random/make_blobs.cuh>*
+``#include <raft/random/make_blobs.cuh>``
 
-namespace raft::random
+namespace *raft::random*
 
-.. doxygenfunction:: raft::random::make_blobs(raft::handle_t const& handle, raft::device_matrix_view<DataT, IdxT, layout> out, raft::device_vector_view<IdxT, IdxT> labels, IdxT n_clusters, std::optional<raft::device_matrix_view<DataT, IdxT, layout>> centers, std::optional<raft::device_vector_view<DataT, IdxT>> const cluster_std, const DataT cluster_std_scalar, bool shuffle, DataT center_box_min, DataT center_box_max, uint64_t seed, GeneratorType type)
+.. doxygengroup:: make_blobs
     :project: RAFT
+    :members:
+    :content-only:
+
+
 
 make_regression
 ---------------
 
-#include *<raft/random/make_regression.cuh>*
+``#include <raft/random/make_regression.cuh>``
 
 namespace *raft::random*
 
-.. doxygenfunction:: raft::random::make_regression(const raft::handle_t& handle, raft::device_matrix_view<DataT, IdxT, raft::row_major> out, raft::device_matrix_view<DataT, IdxT, raft::row_major> values, IdxT n_informative, std::optional<raft::device_matrix_view<DataT, IdxT, raft::row_major>> coef, DataT bias, IdxT effective_rank, DataT tail_strength, DataT noise, bool shuffle, uint64_t seed, GeneratorType type)
+.. doxygengroup:: make_regression
     :project: RAFT
+    :members:
+    :content-only:
+
 
 rmat
 ----
 
-#include *<raft/random/rmat_rectangular_generator.cuh*
+``#include <raft/random/rmat_rectangular_generator.cuh>``
 
 namespace *raft::random*
 
-.. doxygenfunction:: raft::random::rmat_rectangular_gen(const raft::handle_t& handle, raft::random::RngState& r, raft::device_vector_view<const ProbT, IdxT> theta, raft::device_mdspan<IdxT, raft::extents<IdxT, raft::dynamic_extent, 2>, raft::row_major> out, raft::device_vector_view<IdxT, IdxT> out_src, raft::device_vector_view<IdxT, IdxT> out_dst, IdxT r_scale, IdxT c_scale)
+.. doxygengroup:: rmat
     :project: RAFT
+    :members:
+    :content-only:
+
 
 
 Random Sampling
@@ -54,7 +69,7 @@ Random Sampling
 Univariate
 ----------
 
-#include *<raft/random/rng.cuh>*
+``#include <raft/random/rng.cuh>``
 
 namespace *raft::random*
 
@@ -107,7 +122,7 @@ namespace *raft::random*
 Multi-Variable Gaussian
 -----------------------
 
-#include *<raft/random/multi_variable_gaussian.hpp>*
+``#include <raft/random/multi_variable_gaussian.hpp>``
 
 namespace *raft::random*
 
@@ -120,7 +135,7 @@ namespace *raft::random*
 Sample Without Replacement
 --------------------------
 
-#include *<raft/random/sample_without_replacement.cuh>*
+``#include <raft/random/sample_without_replacement.cuh>``
 
 namespace *raft::random*
 
@@ -129,7 +144,10 @@ namespace *raft::random*
     :members:
     :content-only:
 
-#include *<raft/random/permute.cuh>*
+Permutations
+------------
+
+``#include <raft/random/permute.cuh>``
 
 namespace *raft::random*
 

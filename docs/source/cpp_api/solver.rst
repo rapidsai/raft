@@ -11,7 +11,7 @@ This page provides C++ class references for the publicly-exposed elements of the
 Linear Assignment Problem
 #########################
 
-#include <raft/solver/linear_assignment.cuh>
+``#include <raft/solver/linear_assignment.cuh>``
 
 .. doxygenclass:: raft::solver::LinearAssignmentProblem
     :project: RAFT
@@ -20,7 +20,7 @@ Linear Assignment Problem
 Minimum Spanning Tree
 #####################
 
-#include <raft/sparse/solver/mst.cuh>
+``#include <raft/sparse/solver/mst.cuh>``
 
 .. doxygenfunction:: raft::sparse::solver::mst
     :project: RAFT
