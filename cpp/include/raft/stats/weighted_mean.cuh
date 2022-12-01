@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/stats/detail/weighted_mean.cuh>
 
 namespace raft {

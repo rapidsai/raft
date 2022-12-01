@@ -17,13 +17,13 @@
 
 #include "processing.hpp"
 
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
-#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {

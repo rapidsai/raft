@@ -18,6 +18,7 @@
 
 #include <cub/cub.cuh>
 #include <raft/common/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 

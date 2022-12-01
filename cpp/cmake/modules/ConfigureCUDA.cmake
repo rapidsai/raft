@@ -18,7 +18,7 @@ if(DISABLE_DEPRECATION_WARNINGS)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-  list(APPEND RAFT_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
+  list(APPEND RAFT_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations -ftemplate-backtrace-limit=100)
 endif()
 
 list(APPEND RAFT_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)

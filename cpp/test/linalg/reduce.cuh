@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cublas_v2.h>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>

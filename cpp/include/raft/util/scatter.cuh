@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/operators.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/detail/scatter.cuh>
 

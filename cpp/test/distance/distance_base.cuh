@@ -17,6 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <raft/common/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/mdarray.hpp>
 #include <raft/util/cuda_utils.cuh>

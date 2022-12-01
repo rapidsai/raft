@@ -19,8 +19,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace linalg {

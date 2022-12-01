@@ -21,6 +21,7 @@
 #include <iostream>
 #include <math.h>
 #include <numeric>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>

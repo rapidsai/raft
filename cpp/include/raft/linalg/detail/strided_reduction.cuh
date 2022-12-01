@@ -18,6 +18,7 @@
 
 #include "unary_op.cuh"
 #include <cub/cub.cuh>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <type_traits>

@@ -22,6 +22,7 @@
 
 #include "common_faiss.h"
 #include "processing.cuh"
+#include <raft/core/operators.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 

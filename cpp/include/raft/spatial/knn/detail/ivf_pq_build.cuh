@@ -25,6 +25,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/qr.cuh>

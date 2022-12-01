@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/util/cuda_utils.cuh>
+#include <raft/core/operators.hpp>
 
 namespace raft {
 namespace matrix {

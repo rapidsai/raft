@@ -19,6 +19,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/stats/detail/batched/silhouette_score.cuh>
 #include <raft/stats/detail/silhouette_score.cuh>
 

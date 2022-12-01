@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <raft/core/operators.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/strided_reduction.cuh>
-#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace linalg {

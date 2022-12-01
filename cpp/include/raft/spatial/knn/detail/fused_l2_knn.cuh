@@ -20,6 +20,7 @@
 #include <raft/linalg/norm.cuh>
 // TODO: Need to hide the PairwiseDistance class impl and expose to public API
 #include "processing.cuh"
+#include <raft/core/operators.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/util/cuda_utils.cuh>

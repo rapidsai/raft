@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/linewise_op.cuh>
 #include <raft/random/rng.cuh>

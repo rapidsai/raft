@@ -16,6 +16,7 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>

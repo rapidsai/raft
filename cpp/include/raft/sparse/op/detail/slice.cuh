@@ -18,6 +18,7 @@
 
 #include <cusparse_v2.h>
 
+#include <raft/core/operators.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cuda_utils.cuh>

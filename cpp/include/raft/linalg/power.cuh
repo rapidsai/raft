@@ -19,9 +19,9 @@
 #pragma once
 
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {

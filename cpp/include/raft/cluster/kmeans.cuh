@@ -20,7 +20,7 @@
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/mdarray.hpp>
-#include <raft/util/cuda_utils.cuh>
+#include <raft/core/operators.hpp>
 
 namespace raft::cluster::kmeans {
 

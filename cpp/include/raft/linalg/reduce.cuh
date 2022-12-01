@@ -22,7 +22,7 @@
 #include "linalg_types.hpp"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/util/cuda_utils.cuh>
+#include <raft/core/operators.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {

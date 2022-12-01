@@ -16,6 +16,7 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/normalize.cuh>

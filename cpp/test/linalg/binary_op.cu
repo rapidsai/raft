@@ -17,6 +17,7 @@
 #include "../test_utils.h"
 #include "binary_op.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>

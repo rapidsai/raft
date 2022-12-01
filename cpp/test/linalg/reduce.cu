@@ -18,6 +18,7 @@
 #include "reduce.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>

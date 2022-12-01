@@ -17,6 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <limits>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/map_reduce.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>

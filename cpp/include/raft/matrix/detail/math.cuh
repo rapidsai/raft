@@ -19,6 +19,7 @@
 #include <raft/core/handle.hpp>
 
 #include <cub/cub.cuh>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
