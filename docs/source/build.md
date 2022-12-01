@@ -145,7 +145,7 @@ Currently, shared libraries are provided for the `libraft-nn` and `libraft-dista
 Conda environment scripts are provided for installing the necessary dependencies for building and using the Python APIs. It is preferred to use `mamba`, as it provides significant speedup over `conda`. In addition you will have to manually install `nvcc` as it will not be installed as part of the conda environment. The following example will install create and install dependencies for a CUDA 11.5 conda environment:
 
 ```bash
-mamba env create --name raft_env_name -f conda/environments/raft_dev_cuda11.5.yml
+mamba env create --name raft_env_name -f conda/environments/all_cuda-115_arch-x86_64.yaml
 mamba activate raft_env_name
 ```
 
