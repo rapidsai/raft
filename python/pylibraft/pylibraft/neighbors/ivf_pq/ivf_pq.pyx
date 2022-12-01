@@ -317,39 +317,37 @@ def build(IndexParams index_params, dataset, handle=None):
     Examples
     --------
 
-    .. code-block:: python
-
-        import cupy as cp
-
-        from pylibraft.common import Handle
-        from pylibraft.neighbors import ivf_pq
-
-        n_samples = 50000
-        n_features = 50
-        n_queries = 1000
-
-        dataset = cp.random.random_sample((n_samples, n_features),
-            dtype=cp.float32)
-        handle = Handle()
-        index_params = ivf_pq.IndexParams(
-            n_lists=1024,
-            metric="l2_expanded",
-            pq_dim=10)
-        index = ivf_pq.build(index_params, dataset, handle=handle)
-
-        # Search using the built index
-        queries = cp.random.random_sample((n_queries, n_features),
-                                          dtype=cp.float32)
-        k = 10
-        distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(), index,
-                                             queries, k, handle=handle)
-
-        distances = cp.asarray(distances)
-        neighbors = cp.asarray(neighbors)
-
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
+    >>> import cupy as cp
+    >>>
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.neighbors import ivf_pq
+    >>>
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>>
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    >>>     dtype=cp.float32)
+    >>> handle = Handle()
+    >>> index_params = ivf_pq.IndexParams(
+    >>>     n_lists=1024,
+    >>>     metric="l2_expanded",
+    >>>     pq_dim=10)
+    >>> index = ivf_pq.build(index_params, dataset, handle=handle)
+    >>>
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    >>>                                   dtype=cp.float32)
+    >>> k = 10
+    >>> distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(), index,
+    >>>                                      queries, k, handle=handle)
+    >>>
+    >>> distances = cp.asarray(distances)
+    >>> neighbors = cp.asarray(neighbors)
+    >>>
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
 
     """
     dataset_cai = cai_wrapper(dataset)
@@ -423,42 +421,40 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     Examples
     --------
 
-    .. code-block:: python
-
-        import cupy as cp
-
-        from pylibraft.common import Handle
-        from pylibraft.neighbors import ivf_pq
-
-        n_samples = 50000
-        n_features = 50
-        n_queries = 1000
-
-        dataset = cp.random.random_sample((n_samples, n_features),
-                                          dtype=cp.float32)
-        handle = Handle()
-        index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
-
-        n_rows = 100
-        more_data = cp.random.random_sample((n_rows, n_features),
-                                            dtype=cp.float32)
-        indices = index.size + cp.arange(n_rows, dtype=cp.uint64)
-        index = ivf_pq.extend(index, more_data, indices)
-
-        # Search using the built index
-        queries = cp.random.random_sample((n_queries, n_features),
-                                          dtype=cp.float32)
-        k = 10
-        distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(),
-                                             index, queries,
-                                             k, handle=handle)
-
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
-
-        distances = cp.asarray(distances)
-        neighbors = cp.asarray(neighbors)
+    >>> import cupy as cp
+    >>>
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.neighbors import ivf_pq
+    >>>
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>>
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    >>>                                   dtype=cp.float32)
+    >>> handle = Handle()
+    >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
+    >>>
+    >>> n_rows = 100
+    >>> more_data = cp.random.random_sample((n_rows, n_features),
+    >>>                                     dtype=cp.float32)
+    >>> indices = index.size + cp.arange(n_rows, dtype=cp.uint64)
+    >>> index = ivf_pq.extend(index, more_data, indices)
+    >>>
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    >>>                                   dtype=cp.float32)
+    >>> k = 10
+    >>> distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(),
+    >>>                                      index, queries,
+    >>>                                      k, handle=handle)
+    >>>
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
+    >>>
+    >>> distances = cp.asarray(distances)
+    >>> neighbors = cp.asarray(neighbors)
     """
     if not index.trained:
         raise ValueError("Index need to be built before calling extend.")
@@ -602,51 +598,49 @@ def search(SearchParams search_params,
 
     Examples
     --------
-    .. code-block:: python
-
-        import cupy as cp
-
-        from pylibraft.common import Handle
-        from pylibraft.neighbors import ivf_pq
-
-        n_samples = 50000
-        n_features = 50
-        n_queries = 1000
-        dataset = cp.random.random_sample((n_samples, n_features),
-                                          dtype=cp.float32)
-
-        # Build index
-        handle = Handle()
-        index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
-
-        # Search using the built index
-        queries = cp.random.random_sample((n_queries, n_features),
-                                          dtype=cp.float32)
-        k = 10
-        search_params = ivf_pq.SearchParams(
-            n_probes=20,
-            lut_dtype=ivf_pq.np.float16,
-            internal_distance_dtype=ivf_pq.np.float32
-        )
-
-        # Using a pooling allocator reduces overhead of temporary array
-        # creation during search. This is useful if multiple searches
-        # are performad with same query size.
-        mr = rmm.mr.PoolMemoryResource(
-            rmm.mr.CudaMemoryResource(),
-            initial_pool_size=2**29,
-            maximum_pool_size=2**31
-        )
-        distances, neighbors = ivf_pq.search(search_params, index, queries,
-                                             k, memory_resource=mr,
-                                             handle=handle)
-
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
-
-        neighbors = cp.asarray(neighbors)
-        distances = cp.asarray(distances)
+    >>> import cupy as cp
+    >>>
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.neighbors import ivf_pq
+    >>>
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    >>>                                   dtype=cp.float32)
+    >>>
+    >>> # Build index
+    >>> handle = Handle()
+    >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
+    >>>
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    >>>                                   dtype=cp.float32)
+    >>> k = 10
+    >>> search_params = ivf_pq.SearchParams(
+    >>>     n_probes=20,
+    >>>     lut_dtype=ivf_pq.np.float16,
+    >>>     internal_distance_dtype=ivf_pq.np.float32
+    >>> )
+    >>>
+    >>> # Using a pooling allocator reduces overhead of temporary array
+    >>> # creation during search. This is useful if multiple searches
+    >>> # are performad with same query size.
+    >>> mr = rmm.mr.PoolMemoryResource(
+    >>>     rmm.mr.CudaMemoryResource(),
+    >>>     initial_pool_size=2**29,
+    >>>     maximum_pool_size=2**31
+    >>> )
+    >>> distances, neighbors = ivf_pq.search(search_params, index, queries,
+    >>>                                      k, memory_resource=mr,
+    >>>                                      handle=handle)
+    >>>
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
+    >>>
+    >>> neighbors = cp.asarray(neighbors)
+    >>> distances = cp.asarray(distances)
     """
 
     if not index.trained:
