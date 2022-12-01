@@ -348,6 +348,7 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/nn/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
     src/nn/specializations/detail/ivfpq_search.cu
     src/nn/specializations/detail/ivfpq_search_float_uint64_t.cu
+    src/nn/specializations/refine.cu
     src/random/specializations/rmat_rectangular_generator_int_double.cu
     src/random/specializations/rmat_rectangular_generator_int64_double.cu
     src/random/specializations/rmat_rectangular_generator_int_float.cu
@@ -369,7 +370,7 @@ if(RAFT_COMPILE_DIST_LIBRARY)
   target_link_libraries(
     raft_distance_lib
     PUBLIC raft::raft cuco::cuco
-    PRIVATE nvidia::cutlass::cutlass
+    PRIVATE nvidia::cutlass::cutlass $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   )
   target_compile_options(
     raft_distance_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
