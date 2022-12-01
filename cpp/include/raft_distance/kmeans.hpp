@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
+
+#include <raft/cluster/kmeans_types.hpp>
 
 namespace raft::cluster::kmeans::runtime {
 
@@ -40,6 +44,22 @@ void update_centroids(raft::handle_t const& handle,
                       const int* labels,
                       double* new_centroids,
                       double* weight_per_cluster);
+
+void fit(handle_t const& handle,
+         const KMeansParams& params,
+         raft::device_matrix_view<const float, int> X,
+         std::optional<raft::device_vector_view<const float, int>> sample_weight,
+         raft::device_matrix_view<float, int> centroids,
+         raft::host_scalar_view<float, int> inertia,
+         raft::host_scalar_view<int, int> n_iter);
+
+void fit(handle_t const& handle,
+         const KMeansParams& params,
+         raft::device_matrix_view<const double, int> X,
+         std::optional<raft::device_vector_view<const double, int>> sample_weight,
+         raft::device_matrix_view<double, int> centroids,
+         raft::host_scalar_view<double, int> inertia,
+         raft::host_scalar_view<int, int> n_iter);
 
 void cluster_cost(raft::handle_t const& handle,
                   const float* X,

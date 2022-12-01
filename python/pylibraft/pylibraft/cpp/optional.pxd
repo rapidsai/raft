@@ -1,3 +1,4 @@
+#
 # Copyright (c) 2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,5 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-from .refine import refine
+
+
+# We're still using cython v0.29.x - which doesn't have std::optional
+# support. Include the minimal definition here as suggested by
+# https://github.com/cython/cython/issues/3293#issuecomment-1223058101
+
+cdef extern from "<optional>" namespace "std" nogil:
+    cdef cppclass optional[T]:
+        optional()
+        optional& operator=[U](U&)
