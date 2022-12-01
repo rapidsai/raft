@@ -49,8 +49,12 @@ void check_input(extents_t dataset,
 
   RAFT_EXPECTS(indices.extent(0) == n_queries && distances.extent(0) == n_queries &&
                  candidates.extent(0) == n_queries,
-               "Number of rows in output indices and distances matrices must equal number of rows "
-               "in search matrix.");
+               "Number of rows in output indices, distances and candidates matrices must be equal"
+               " with the number of rows in search matrix. Expected %d, got %d, %d, and %d",
+               static_cast<int>(n_queries),
+               static_cast<int>(indices.extent(0)),
+               static_cast<int>(distances.extent(0)),
+               static_cast<int>(candidates.extent(0)));
 
   RAFT_EXPECTS(indices.extent(1) == k,
                "Number of columns in output indices and distances matrices must be equal to k");
@@ -204,7 +208,7 @@ void refine_host(raft::host_matrix_view<const data_t, matrix_idx, row_major> dat
           float val_q = (float)(cur_query[k]);
           float val_d = (float)(cur_dataset[k]);
           if (metric == raft::distance::DistanceType::InnerProduct) {
-            distance += -val_q * val_d;  // Negate because we sort in scending order.
+            distance += -val_q * val_d;  // Negate because we sort in ascending order.
           } else {
             distance += (val_q - val_d) * (val_q - val_d);
           }
@@ -221,7 +225,7 @@ void refine_host(raft::host_matrix_view<const data_t, matrix_idx, row_major> dat
         if (metric == raft::distance::DistanceType::InnerProduct) {
           refinedDistances[j + (refinedTopK * i)] = -sfr[j].distance;
         } else {
-          refinedDistances[j + (refinedTopK * i)] = -sfr[j].distance;
+          refinedDistances[j + (refinedTopK * i)] = sfr[j].distance;
         }
       }
     }
