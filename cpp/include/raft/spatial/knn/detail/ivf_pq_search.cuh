@@ -419,34 +419,29 @@ void postprocess_distances(float* out,        // [n_queries, topk]
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        raft::scalar_op<raft::binary_compose_op<raft::mul_op, raft::cast_op<float>>, float>(
-          scaling_factor * scaling_factor),
-        stream);
+      linalg::unaryOp(out,
+                      in,
+                      len,
+                      raft::compose_op(raft::scalar_mul_op<float>{scaling_factor * scaling_factor},
+                                       raft::cast_op<float>{}),
+                      stream);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        raft::scalar_op<
-          raft::binary_compose_op<raft::mul_op,
-                                  raft::unary_compose_op<raft::sqrt_op, raft::cast_op<float>>>,
-          float>(scaling_factor),
-        stream);
+      linalg::unaryOp(out,
+                      in,
+                      len,
+                      raft::compose_op(raft::scalar_mul_op<float>{scaling_factor},
+                                       raft::compose_op<raft::sqrt_op, raft::cast_op<float>>{}),
+                      stream);
     } break;
     case distance::DistanceType::InnerProduct: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        raft::scalar_op<raft::binary_compose_op<raft::mul_op, raft::cast_op<float>>, float>(
-          -scaling_factor * scaling_factor),
-        stream);
+      linalg::unaryOp(out,
+                      in,
+                      len,
+                      raft::compose_op(raft::scalar_mul_op<float>{-scaling_factor * scaling_factor},
+                                       raft::cast_op<float>{}),
+                      stream);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }
