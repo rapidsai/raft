@@ -49,6 +49,7 @@ double completeness_score(const T* truthClusterArray,
 
 /**
  * @defgroup stats_completeness Completeness Score
+ * @{
  */
 
 /**

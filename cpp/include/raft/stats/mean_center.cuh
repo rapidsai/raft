@@ -81,6 +81,7 @@ void meanAdd(Type* out,
 
 /**
  * @defgroup stats_mean_center Mean Center
+ * @{
  */
 
 /**

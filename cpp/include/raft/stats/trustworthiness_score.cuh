@@ -52,7 +52,7 @@ double trustworthiness_score(const raft::handle_t& h,
 }
 
 /**
- * @defgroup stats_trustworthiness
+ * @defgroup stats_trustworthiness Trustworthiness
  * @{
  */
 

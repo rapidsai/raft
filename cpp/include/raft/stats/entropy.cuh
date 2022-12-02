@@ -47,7 +47,7 @@ double entropy(const T* clusterArray,
 }
 
 /**
- * @defgroup stats_entropy
+ * @defgroup stats_entropy Entropy
  * @{
  */
 
