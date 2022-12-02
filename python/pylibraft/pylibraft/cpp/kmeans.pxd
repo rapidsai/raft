@@ -81,17 +81,17 @@ cdef extern from "raft_distance/kmeans.hpp" \
     cdef void fit(
         const handle_t & handle,
         const KMeansParams& params,
-        device_matrix_view[float, int, layout_right] X,
+        device_matrix_view[float, int, row_major] X,
         optional[device_vector_view[float, int]] sample_weight,
-        device_matrix_view[float, int, layout_right] inertia,
+        device_matrix_view[float, int, row_major] inertia,
         host_scalar_view[float, int] inertia,
         host_scalar_view[int, int] n_iter) except +
 
     cdef void fit(
         const handle_t & handle,
         const KMeansParams& params,
-        device_matrix_view[double, int, layout_right] X,
+        device_matrix_view[double, int, row_major] X,
         optional[device_vector_view[double, int]] sample_weight,
-        device_matrix_view[double, int, layout_right] inertia,
+        device_matrix_view[double, int, row_major] inertia,
         host_scalar_view[double, int] inertia,
         host_scalar_view[int, int] n_iter) except +

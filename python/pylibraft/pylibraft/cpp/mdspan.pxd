@@ -35,8 +35,6 @@ cdef extern from "raft/core/mdspan_types.hpp" \
         namespace "raft":
     ctypedef layout_right row_major
     ctypedef layout_left col_major
-    ctypedef layout_right layout_c_contiguous
-    ctypedef layout_left layout_f_contiguous
 
 
 cdef extern from "raft/core/device_mdspan.hpp" namespace "raft" nogil:
