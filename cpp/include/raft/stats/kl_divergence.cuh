@@ -43,7 +43,7 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
 }
 
 /**
- * @defgroup kl_divergence Kulback-Leibler Divergence
+ * @defgroup kl_divergence Kullback-Leibler Divergence
  * @{
  */
 
