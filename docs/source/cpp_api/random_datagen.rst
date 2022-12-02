@@ -13,7 +13,7 @@ make_blobs
 ``#include <raft/random/make_blobs.cuh>``
 
 namespace *raft::random*
-
+2
 .. doxygengroup:: make_blobs
     :project: RAFT
     :members:
