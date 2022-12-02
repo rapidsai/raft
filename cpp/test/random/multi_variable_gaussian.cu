@@ -139,7 +139,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     raft::update_device(x_d.data(), x.data(), dim, stream);
 
     // initializing the mvg
-    mvg           = new multi_variable_gaussian<T>(handle, dim, method);
+    mvg           = new detail::multi_variable_gaussian<T>(handle, dim, method);
     std::size_t o = mvg->get_workspace_size();
 
     // give the workspace area to mvg
@@ -211,9 +211,9 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
  private:
   static auto old_enum_to_new_enum(typename detail::multi_variable_gaussian<T>::Decomposer method)
   {
-    if (method == multi_variable_gaussian<T>::chol_decomp) {
+    if (method == detail::multi_variable_gaussian<T>::chol_decomp) {
       return multi_variable_gaussian_decomposition_method::CHOLESKY;
-    } else if (method == multi_variable_gaussian<T>::jacobi) {
+    } else if (method == detail::multi_variable_gaussian<T>::jacobi) {
       return multi_variable_gaussian_decomposition_method::JACOBI;
     } else {
       return multi_variable_gaussian_decomposition_method::QR;
