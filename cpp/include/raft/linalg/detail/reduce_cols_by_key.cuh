@@ -61,7 +61,6 @@ __global__ void reduce_cols_by_key_cached_kernel(
   for (IdxType idx = static_cast<IdxType>(blockIdx.x) * blockDim.x + threadIdx.x;
        idx < nrows * ncols;
        idx += blockDim.x * static_cast<IdxType>(gridDim.x)) {
-    if (idx >= (nrows * ncols)) return;
     IdxType colId = idx % ncols;
     IdxType rowId = idx / ncols;
     KeyType key   = keys[colId];
@@ -107,14 +106,21 @@ void reduce_cols_by_key(const T* data,
 {
   typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
 
-  // Memset the output to zero bto use atomics-based reduction.
+  RAFT_EXPECTS(static_cast<size_t>(nrows) * static_cast<size_t>(ncols) <=
+                 static_cast<size_t>(std::numeric_limits<IdxType>::max()),
+               "Index type too small to represent indices in the input array.");
+  RAFT_EXPECTS(static_cast<size_t>(nrows) * static_cast<size_t>(nkeys) <=
+                 static_cast<size_t>(std::numeric_limits<IdxType>::max()),
+               "Index type too small to represent indices in the output array.");
+
+  // Memset the output to zero to use atomics-based reduction.
   if (reset_sums) { RAFT_CUDA_TRY(cudaMemsetAsync(out, 0, sizeof(T) * nrows * nkeys, stream)); }
 
   // The cached version is used when the cache fits in shared memory and the number of input
   // elements is above a threshold (the cached version is slightly slower for small input arrays,
   // and orders of magnitude faster for large input arrays).
   size_t cache_size = static_cast<size_t>(nrows * nkeys) * sizeof(T);
-  if (cache_size <= 48000ull && nrows * ncols >= IdxType{8192}) {
+  if (cache_size <= 49152ull && nrows * ncols >= IdxType{8192}) {
     constexpr int TPB = 256;
     int n_sm          = raft::getMultiProcessorCount();
     int target_nblks  = 4 * n_sm;
