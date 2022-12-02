@@ -16,29 +16,23 @@
 
 #include <raft/distance/distance_types.hpp>
 
-< < < < < < < <
-  HEAD : cpp / include / raft_distance / distance /
-         pairwise_distance.hpp namespace raft::distance::runtime{
+namespace raft::runtime::distance {
 
-           /**
-            * @defgroup pairwise_distance_runtime Pairwise Distances Runtime API
-            * @{
-            */
+/**
+ * @defgroup pairwise_distance_runtime Pairwise Distances Runtime API
+ * @{
+ */
 
-           == == == == namespace raft::runtime::distance{
-                >>>>>>>> imp - 2302 -
-                           consolidate_mdspan_pxd : cpp / include / raft_runtime / distance /
-                             pairwise_distance.hpp void pairwise_distance(
-                               raft::handle_t const& handle,
-                               float* x,
-                               float* y,
-                               float* dists,
-                               int m,
-                               int n,
-                               int k,
-                               raft::distance::DistanceType metric,
-                               bool isRowMajor,
-                               float metric_arg);
+void pairwise_distance(raft::handle_t const& handle,
+                       float* x,
+                       float* y,
+                       float* dists,
+                       int m,
+                       int n,
+                       int k,
+                       raft::distance::DistanceType metric,
+                       bool isRowMajor,
+                       float metric_arg);
 
 void pairwise_distance(raft::handle_t const& handle,
                        double* x,
@@ -50,12 +44,7 @@ void pairwise_distance(raft::handle_t const& handle,
                        raft::distance::DistanceType metric,
                        bool isRowMajor,
                        float metric_arg);
-< < < < < < < < HEAD : cpp / include / raft_distance / distance / pairwise_distance.hpp
 
 /** @} */  // end group pairwise_distance_runtime
 
-}  // namespace raft::distance::runtime
-== == == ==
 }  // namespace raft::runtime::distance
->>>>>>>> imp - 2302 -
-           consolidate_mdspan_pxd : cpp / include / raft_runtime / distance / pairwise_distance.hpp

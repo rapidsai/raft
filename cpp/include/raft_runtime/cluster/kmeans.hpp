@@ -21,7 +21,7 @@
 
 #include <raft/cluster/kmeans_types.hpp>
 
-namespace raft::cluster::runtime::kmeans {
+namespace raft::runtime::cluster::kmeans {
 
 /**
  * @defgroup kmeans_runtime Kmeans Runtime API
@@ -81,11 +81,7 @@ void cluster_cost(raft::handle_t const& handle,
                   int n_clusters,
                   const double* centroids,
                   double* cost);
-< < < < < < < < HEAD : cpp / include / raft_distance / cluster / kmeans.hpp
 
 /** @} */  // end group kmeans_runtime
 
-}  // namespace raft::cluster::kmeans::runtime
-== == == ==
-}  // namespace raft::cluster::runtime::kmeans
->>>>>>>> imp - 2302 - consolidate_mdspan_pxd : cpp / include / raft_runtime / cluster / kmeans.hpp
+}  // namespace raft::runtime::cluster::kmeans

@@ -60,11 +60,6 @@ void fused_l2_nn_min_arg(raft::handle_t const& handle,
                          int k,
                          bool sqrt);
 
-< < < < < < < < HEAD : cpp / include / raft_distance / distance / fused_l2_min_arg.hpp
 /** @} */  // end group fused_l2_nn_min_arg_runtime
 
-}  // end namespace raft::distance::runtime
-== == == ==
 }  // end namespace raft::runtime::distance
->>>>>>>>
-  imp - 2302 - consolidate_mdspan_pxd : cpp / include / raft_runtime / distance / fused_l2_nn.hpp
