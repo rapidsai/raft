@@ -301,7 +301,7 @@ V Measure
 
 namespace *raft::stats*
 
-.. doxygengroup:: stats_v_measure
+.. doxygengroup:: stats_vmeasure
     :project: RAFT
     :members:
     :content-only:
