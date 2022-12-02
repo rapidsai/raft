@@ -66,10 +66,19 @@ void information_criterion_batched(ScalarT* d_ic,
 }
 
 /**
+ * @defgroup stats_information_criterion Information Criterion
+ * @{
+ */
+
+/**
  * Compute the given type of information criterion
  *
  * @note: it is safe to do the computation in-place (i.e give same pointer
  *        as input and output)
+ * See:
+ *  - AIC: https://en.wikipedia.org/wiki/Akaike_information_criterion
+ *  - AICc: https://en.wikipedia.org/wiki/Akaike_information_criterion#AICc
+ *  - BIC: https://en.wikipedia.org/wiki/Bayesian_information_criterion
  *
  * @tparam value_t data type
  * @tparam idx_t index type
@@ -100,6 +109,8 @@ void information_criterion_batched(const raft::handle_t& handle,
                                          n_samples,
                                          handle.get_stream());
 }
+
+/** @} */  // end group stats_information_criterion
 
 }  // namespace stats
 }  // namespace raft

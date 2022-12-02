@@ -52,6 +52,11 @@ double trustworthiness_score(const raft::handle_t& h,
 }
 
 /**
+ * @defgroup stats_trustworthiness
+ * @{
+ */
+
+/**
  * @brief Compute the trustworthiness score
  * @tparam value_t the data type
  * @tparam idx_t Integer type used to for addressing
@@ -87,6 +92,9 @@ double trustworthiness_score(
     n_neighbors,
     batch_size);
 }
+
+/** @} */  // end group stats_trustworthiness
+
 }  // namespace stats
 }  // namespace raft
 

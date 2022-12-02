@@ -47,6 +47,11 @@ double entropy(const T* clusterArray,
 }
 
 /**
+ * @defgroup stats_entropy
+ * @{
+ */
+
+/**
  * @brief Function to calculate entropy
  * <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
  *
@@ -71,6 +76,9 @@ double entropy(const raft::handle_t& handle,
                          upper_label_range,
                          handle.get_stream());
 }
+
+/** @} */  // end group stats_entropy
+
 };  // end namespace stats
 };  // end namespace raft
 

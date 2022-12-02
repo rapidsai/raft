@@ -71,6 +71,11 @@ void minmax(const T* data,
 }
 
 /**
+ * @defgroup stats_minmax Min/Max
+ * @{
+ */
+
+/**
  * @brief Computes min/max across every column of the input matrix, as well as
  * optionally allow to subsample based on the given row/col ID mapping vectors
  *
@@ -130,6 +135,8 @@ void minmax(const raft::handle_t& handle,
                           sampledcols_ptr,
                           handle.get_stream());
 }
+
+/** @} */  // end group stats_minmax
 
 };  // namespace stats
 };  // namespace raft

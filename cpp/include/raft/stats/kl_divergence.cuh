@@ -43,6 +43,11 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
 }
 
 /**
+ * @defgroup kl_divergence Kulback-Leibler Divergence
+ * @{
+ */
+
+/**
  * @brief Function to calculate KL Divergence
  * <a href="https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence">more info on KL
  * Divergence</a>
@@ -65,6 +70,8 @@ value_t kl_divergence(const raft::handle_t& handle,
   return detail::kl_divergence(
     modelPDF.data_handle(), candidatePDF.data_handle(), modelPDF.extent(0), handle.get_stream());
 }
+
+/** @} */  // end group kl_divergence
 
 };  // end namespace stats
 };  // end namespace raft
