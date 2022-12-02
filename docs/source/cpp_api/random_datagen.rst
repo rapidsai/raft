@@ -7,17 +7,6 @@ This page provides C++ class references for the publicly-exposed elements of the
    :language: c++
    :class: highlight
 
-Random State
-############
-
-``#include <raft/random/rng_state.hpp>``
-
-namespace *raft::random*
-
-.. doxygenstruct:: raft::random::RngState
-    :project: RAFT
-    :members:
-
 make_blobs
 ----------
 
