@@ -47,17 +47,17 @@ void update_centroids(raft::handle_t const& handle,
 
 void fit(handle_t const& handle,
          const KMeansParams& params,
-         raft::device_matrix_view<const float, int> X,
+         raft::device_matrix_view<const float, int, layout_right> X,
          std::optional<raft::device_vector_view<const float, int>> sample_weight,
-         raft::device_matrix_view<float, int> centroids,
+         raft::device_matrix_view<float, int, layout_right> centroids,
          raft::host_scalar_view<float, int> inertia,
          raft::host_scalar_view<int, int> n_iter);
 
 void fit(handle_t const& handle,
          const KMeansParams& params,
-         raft::device_matrix_view<const double, int> X,
+         raft::device_matrix_view<const double, int, layout_right> X,
          std::optional<raft::device_vector_view<const double, int>> sample_weight,
-         raft::device_matrix_view<double, int> centroids,
+         raft::device_matrix_view<double, int, layout_right> centroids,
          raft::host_scalar_view<double, int> inertia,
          raft::host_scalar_view<int, int> n_iter);
 

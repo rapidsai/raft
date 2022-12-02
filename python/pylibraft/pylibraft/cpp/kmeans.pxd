@@ -33,6 +33,9 @@ from pylibraft.cpp.optional cimport optional
 cdef extern from "raft_distance/kmeans.hpp" \
         namespace "raft::cluster::kmeans::runtime":
 
+    ctypedef const float const_float
+    ctypedef const double const_double
+
     cdef void update_centroids(
         const handle_t& handle,
         const double *X,
@@ -78,17 +81,17 @@ cdef extern from "raft_distance/kmeans.hpp" \
     cdef void fit(
         const handle_t & handle,
         const KMeansParams& params,
-        device_matrix_view[const float, int] X,
-        optional[device_vector_view[const float, int]] sample_weight,
-        device_matrix_view[float, int] inertia,
+        device_matrix_view[float, int, layout_right] X,
+        optional[device_vector_view[float, int]] sample_weight,
+        device_matrix_view[float, int, layout_right] inertia,
         host_scalar_view[float, int] inertia,
         host_scalar_view[int, int] n_iter) except +
 
     cdef void fit(
         const handle_t & handle,
         const KMeansParams& params,
-        device_matrix_view[const double, int] X,
-        optional[device_vector_view[const double, int]] sample_weight,
-        device_matrix_view[double, int] inertia,
+        device_matrix_view[double, int, layout_right] X,
+        optional[device_vector_view[double, int]] sample_weight,
+        device_matrix_view[double, int, layout_right] inertia,
         host_scalar_view[double, int] inertia,
         host_scalar_view[int, int] n_iter) except +

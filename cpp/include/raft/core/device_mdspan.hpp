@@ -258,6 +258,35 @@ auto make_device_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_col
 }
 
 /**
+ * @brief Create a 2-dim c-contiguous mdspan instance for device pointer. It's
+ *        expected that the given layout policy match the layout of the underlying
+ *        pointer.
+ *
+ *        Note: This specific overload is just to enable the compiler to infer th
+ *              layout policy template given the actual policy to use as a function
+ *              argument. This is helpful when otherwise specifying templates
+ *              explicitly is not wanted or possible
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @tparam IndexType the index type of the extents
+ * @param[in] ptr on device to wrap
+ * @param[in] n_rows number of rows in pointer
+ * @param[in] n_cols number of columns in pointer
+ * @param[in] layout LayoutPolicy to use
+ */
+template <typename ElementType,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_c_contiguous>
+auto make_device_matrix_view(ElementType* ptr,
+                             IndexType n_rows,
+                             IndexType n_cols,
+                             LayoutPolicy layout)
+{
+  matrix_extent<IndexType> extents{n_rows, n_cols};
+  return device_matrix_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
+}
+
+/**
  * @brief Create a 1-dim mdspan instance for device pointer.
  * @tparam ElementType the data type of the vector elements
  * @tparam IndexType the index type of the extents
