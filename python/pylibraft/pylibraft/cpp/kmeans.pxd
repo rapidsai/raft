@@ -33,9 +33,6 @@ from pylibraft.cpp.optional cimport optional
 cdef extern from "raft_distance/kmeans.hpp" \
         namespace "raft::cluster::kmeans::runtime":
 
-    ctypedef const float const_float
-    ctypedef const double const_double
-
     cdef void update_centroids(
         const handle_t& handle,
         const double *X,
