@@ -46,8 +46,11 @@ from rmm._lib.memory_resource cimport (
     device_memory_resource,
 )
 
-cimport pylibraft.neighbors.ivf_pq.c_ivf_pq as c_ivf_pq
-from pylibraft.neighbors.ivf_pq.c_ivf_pq cimport index_params, search_params
+cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
+from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
+    index_params,
+    search_params,
+)
 
 
 def _get_metric(metric):
