@@ -65,7 +65,7 @@ enum Correlation : unsigned char {
 template <typename T>
 struct MVGInputs {
   T tolerance;
-  typename multi_variable_gaussian<T>::Decomposer method;
+  typename detail::multi_variable_gaussian<T>::Decomposer method;
   Correlation corr;
   int dim, nPoints;
   unsigned long long int seed;
@@ -199,9 +199,9 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
   std::vector<T> P, x, X;
   rmm::device_uvector<T> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
   int dim, nPoints;
-  typename multi_variable_gaussian<T>::Decomposer method;
+  typename detail::multi_variable_gaussian<T>::Decomposer method;
   Correlation corr;
-  multi_variable_gaussian<T>* mvg = NULL;
+  detail::multi_variable_gaussian<T>* mvg = NULL;
   T tolerance;
   raft::handle_t handle;
 };  // end of MVGTest class
@@ -209,7 +209,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
 template <typename T>
 class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
  private:
-  static auto old_enum_to_new_enum(typename multi_variable_gaussian<T>::Decomposer method)
+  static auto old_enum_to_new_enum(typename detail::multi_variable_gaussian<T>::Decomposer method)
   {
     if (method == multi_variable_gaussian<T>::chol_decomp) {
       return multi_variable_gaussian_decomposition_method::CHOLESKY;
@@ -336,60 +336,65 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
 // Declare your inputs
 const std::vector<MVGInputs<float>> inputsf = {
   {0.3f,
-   multi_variable_gaussian<float>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<float>::Decomposer::chol_decomp,
    Correlation::CORRELATED,
    5,
    30000,
    6ULL},
   {0.1f,
-   multi_variable_gaussian<float>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<float>::Decomposer::chol_decomp,
    Correlation::UNCORRELATED,
    5,
    30000,
    6ULL},
   {0.25f,
-   multi_variable_gaussian<float>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<float>::Decomposer::jacobi,
    Correlation::CORRELATED,
    5,
    30000,
    6ULL},
   {0.1f,
-   multi_variable_gaussian<float>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<float>::Decomposer::jacobi,
    Correlation::UNCORRELATED,
    5,
    30000,
    6ULL},
-  {0.2f, multi_variable_gaussian<float>::Decomposer::qr, Correlation::CORRELATED, 5, 30000, 6ULL},
+  {0.2f,
+   detail::multi_variable_gaussian<float>::Decomposer::qr,
+   Correlation::CORRELATED,
+   5,
+   30000,
+   6ULL},
   // { 0.2f,          multi_variable_gaussian<float>::Decomposer::qr,
   // Correlation::UNCORRELATED, 5, 30000, 6ULL}
 };
 const std::vector<MVGInputs<double>> inputsd = {
   {0.25,
-   multi_variable_gaussian<double>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<double>::Decomposer::chol_decomp,
    Correlation::CORRELATED,
    10,
    3000000,
    6ULL},
   {0.1,
-   multi_variable_gaussian<double>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<double>::Decomposer::chol_decomp,
    Correlation::UNCORRELATED,
    10,
    3000000,
    6ULL},
   {0.25,
-   multi_variable_gaussian<double>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<double>::Decomposer::jacobi,
    Correlation::CORRELATED,
    10,
    3000000,
    6ULL},
   {0.1,
-   multi_variable_gaussian<double>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<double>::Decomposer::jacobi,
    Correlation::UNCORRELATED,
    10,
    3000000,
    6ULL},
   {0.2,
-   multi_variable_gaussian<double>::Decomposer::qr,
+   detail::multi_variable_gaussian<double>::Decomposer::qr,
    Correlation::CORRELATED,
    10,
    3000000,
