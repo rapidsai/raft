@@ -21,7 +21,7 @@
 
 #include <raft/cluster/kmeans_types.hpp>
 
-namespace raft::cluster::runtime::kmeans {
+namespace raft::runtime::cluster::kmeans {
 
 void update_centroids(raft::handle_t const& handle,
                       const float* X,
@@ -76,4 +76,4 @@ void cluster_cost(raft::handle_t const& handle,
                   int n_clusters,
                   const double* centroids,
                   double* cost);
-}  // namespace raft::cluster::runtime::kmeans
+}  // namespace raft::runtime::cluster::kmeans
