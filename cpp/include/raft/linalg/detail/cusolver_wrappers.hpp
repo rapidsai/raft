@@ -775,6 +775,66 @@ inline cusolverStatus_t cusolverDnpotrf(cusolverDnHandle_t handle,  // NOLINT
 /** @} */
 
 /**
+ * @defgroup potri cusolver potri operations: inverse of a matrix A using Cholesky
+ * @{
+ */
+template <typename T>
+cusolverStatus_t cusolverDnpotri_bufferSize(
+  cusolverDnHandle_t handle, cublasFillMode_t uplo, int n, T* A, int lda, int* Lwork);
+template <>
+inline cusolverStatus_t cusolverDnpotri_bufferSize(
+  cusolverDnHandle_t handle, cublasFillMode_t uplo, int n, float* A, int lda, int* Lwork)
+{
+  return cusolverDnSpotri_bufferSize(handle, uplo, n, A, lda, Lwork);
+}
+template <>
+inline cusolverStatus_t cusolverDnpotri_bufferSize(
+  cusolverDnHandle_t handle, cublasFillMode_t uplo, int n, double* A, int lda, int* Lwork)
+{
+  return cusolverDnDpotri_bufferSize(handle, uplo, n, A, lda, Lwork);
+}
+
+template <typename T>
+cusolverStatus_t cusolverDnpotri(cusolverDnHandle_t handle,
+                                 cublasFillMode_t uplo,
+                                 int n,
+                                 T* A,
+                                 int lda,
+                                 T* Workspace,
+                                 int Lwork,
+                                 int* devInfo,
+                                 cudaStream_t stream);
+template <>
+inline cusolverStatus_t cusolverDnpotri(cusolverDnHandle_t handle,
+                                        cublasFillMode_t uplo,
+                                        int n,
+                                        float* A,
+                                        int lda,
+                                        float* Workspace,
+                                        int Lwork,
+                                        int* devInfo,
+                                        cudaStream_t stream)
+{
+  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
+  return cusolverDnSpotri(handle, uplo, n, A, lda, Workspace, Lwork, devInfo);
+}
+template <>
+inline cusolverStatus_t cusolverDnpotri(cusolverDnHandle_t handle,
+                                        cublasFillMode_t uplo,
+                                        int n,
+                                        double* A,
+                                        int lda,
+                                        double* Workspace,
+                                        int Lwork,
+                                        int* devInfo,
+                                        cudaStream_t stream)
+{
+  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
+  return cusolverDnDpotri(handle, uplo, n, A, lda, Workspace, Lwork, devInfo);
+}
+/** @} */
+
+/**
  * @defgroup potrs cusolver potrs operations
  * @{
  */

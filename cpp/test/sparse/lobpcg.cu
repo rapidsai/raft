@@ -14,164 +14,173 @@
  * limitations under the License.
  */
 
- #include <gtest/gtest.h>
+#include <gtest/gtest.h>
 
- #include <raft/core/handle.hpp>
- #include <raft/sparse/csr.hpp>
- #include <raft/sparse/linalg/add.cuh>
- 
- #include "../test_utils.h"
- #include <raft/util/cudart_utils.hpp>
- 
- #include <iostream>
- #include <limits>
- 
- namespace raft {
- namespace sparse {
- 
- template <typename Type_f, typename Index_>
- struct CSRMatrixVal {
-   std::vector<Index_> row_ind;
-   std::vector<Index_> row_ind_ptr;
-   std::vector<Type_f> values;
- };
- 
- template <typename Type_f, typename Index_>
- struct CSRAddInputs {
-   CSRMatrixVal<Type_f, Index_> matrix_a;
-   CSRMatrixVal<Type_f, Index_> matrix_b;
-   CSRMatrixVal<Type_f, Index_> matrix_verify;
- };
- 
- template <typename Type_f, typename Index_>
- class CSRAddTest : public ::testing::TestWithParam<CSRAddInputs<Type_f, Index_>> {
-  public:
-   CSRAddTest()
-     : params(::testing::TestWithParam<CSRAddInputs<Type_f, Index_>>::GetParam()),
-       stream(handle.get_stream()),
-       ind_a(params.matrix_a.row_ind.size(), stream),
-       ind_ptr_a(params.matrix_a.row_ind_ptr.size(), stream),
-       values_a(params.matrix_a.row_ind_ptr.size(), stream),
-       ind_b(params.matrix_a.row_ind.size(), stream),
-       ind_ptr_b(params.matrix_b.row_ind_ptr.size(), stream),
-       values_b(params.matrix_b.row_ind_ptr.size(), stream),
-       ind_verify(params.matrix_a.row_ind.size(), stream),
-       ind_ptr_verify(params.matrix_verify.row_ind_ptr.size(), stream),
-       values_verify(params.matrix_verify.row_ind_ptr.size(), stream),
-       ind_result(params.matrix_a.row_ind.size(), stream),
-       ind_ptr_result(params.matrix_verify.row_ind_ptr.size(), stream),
-       values_result(params.matrix_verify.row_ind_ptr.size(), stream)
-   {
-   }
- 
-  protected:
-   void SetUp() override
-   {
-     n_rows     = params.matrix_a.row_ind.size();
-     nnz_a      = params.matrix_a.row_ind_ptr.size();
-     nnz_b      = params.matrix_b.row_ind_ptr.size();
-     nnz_result = params.matrix_verify.row_ind_ptr.size();
-   }
- 
-   void Run()
-   {
-     raft::update_device(ind_a.data(), params.matrix_a.row_ind.data(), n_rows, stream);
-     raft::update_device(ind_ptr_a.data(), params.matrix_a.row_ind_ptr.data(), nnz_a, stream);
-     raft::update_device(values_a.data(), params.matrix_a.values.data(), nnz_a, stream);
- 
-     raft::update_device(ind_b.data(), params.matrix_b.row_ind.data(), n_rows, stream);
-     raft::update_device(ind_ptr_b.data(), params.matrix_b.row_ind_ptr.data(), nnz_b, stream);
-     raft::update_device(values_b.data(), params.matrix_b.values.data(), nnz_b, stream);
- 
-     raft::update_device(ind_verify.data(), params.matrix_verify.row_ind.data(), n_rows, stream);
-     raft::update_device(
-       ind_ptr_verify.data(), params.matrix_verify.row_ind_ptr.data(), nnz_result, stream);
-     raft::update_device(
-       values_verify.data(), params.matrix_verify.values.data(), nnz_result, stream);
- 
-     Index_ nnz = linalg::csr_add_calc_inds<Type_f>(ind_a.data(),
-                                                    ind_ptr_a.data(),
-                                                    values_a.data(),
-                                                    nnz_a,
-                                                    ind_b.data(),
-                                                    ind_ptr_b.data(),
-                                                    values_b.data(),
-                                                    nnz_b,
-                                                    n_rows,
-                                                    ind_result.data(),
-                                                    stream);
- 
-     ASSERT_TRUE(nnz == nnz_result);
-     ASSERT_TRUE(raft::devArrMatch<Index_>(
-       ind_verify.data(), ind_result.data(), n_rows, raft::Compare<Index_>(), stream));
- 
-     linalg::csr_add_finalize<Type_f>(ind_a.data(),
-                                      ind_ptr_a.data(),
-                                      values_a.data(),
-                                      nnz_a,
-                                      ind_b.data(),
-                                      ind_ptr_b.data(),
-                                      values_b.data(),
-                                      nnz_b,
-                                      n_rows,
-                                      ind_result.data(),
-                                      ind_ptr_result.data(),
-                                      values_result.data(),
-                                      stream);
- 
-     ASSERT_TRUE(raft::devArrMatch<Index_>(
-       ind_ptr_verify.data(), ind_ptr_result.data(), nnz, raft::Compare<Index_>(), stream));
-     ASSERT_TRUE(raft::devArrMatch<Type_f>(
-       values_verify.data(), values_result.data(), nnz, raft::Compare<Type_f>(), stream));
-   }
- 
-  protected:
-   raft::handle_t handle;
-   cudaStream_t stream;
- 
-   CSRAddInputs<Type_f, Index_> params;
-   Index_ n_rows, nnz_a, nnz_b, nnz_result;
-   rmm::device_uvector<Index_> ind_a, ind_b, ind_verify, ind_result, ind_ptr_a, ind_ptr_b,
-     ind_ptr_verify, ind_ptr_result;
-   rmm::device_uvector<Type_f> values_a, values_b, values_verify, values_result;
- };
- 
- using CSRAddTestF = CSRAddTest<float, int>;
- TEST_P(CSRAddTestF, Result) { Run(); }
- 
- using CSRAddTestD = CSRAddTest<double, int>;
- TEST_P(CSRAddTestD, Result) { Run(); }
- 
- const std::vector<CSRAddInputs<float, int>> csradd_inputs_f = {
-   {{{0, 4, 8, 9},
-     {1, 2, 3, 4, 1, 2, 3, 5, 0, 1},
-     {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0}},
-    {{0, 4, 8, 9},
-     {1, 2, 5, 4, 0, 2, 3, 5, 1, 0},
-     {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0}},
-    {{0, 5, 10, 12},
-     {1, 2, 3, 4, 5, 1, 2, 3, 5, 0, 0, 1, 1, 0},
-     {2.0, 2.0, 0.5, 1.0, 0.5, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}}},
- };
- const std::vector<CSRAddInputs<double, int>> csradd_inputs_d = {
-   {{{0, 4, 8, 9},
-     {1, 2, 3, 4, 1, 2, 3, 5, 0, 1},
-     {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0}},
-    {{0, 4, 8, 9},
-     {1, 2, 5, 4, 0, 2, 3, 5, 1, 0},
-     {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0}},
-    {{0, 5, 10, 12},
-     {1, 2, 3, 4, 5, 1, 2, 3, 5, 0, 0, 1, 1, 0},
-     {2.0, 2.0, 0.5, 1.0, 0.5, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0}}},
- };
- 
- INSTANTIATE_TEST_CASE_P(SparseAddTest, CSRAddTestF, ::testing::ValuesIn(csradd_inputs_f));
- INSTANTIATE_TEST_CASE_P(SparseAddTest, CSRAddTestD, ::testing::ValuesIn(csradd_inputs_d));
- 
- }  // namespace sparse
- }  // namespace raft
- 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/sparse/linalg/add.cuh>
+#include <raft/sparse/solver/lobpcg.cuh>
+#include <raft/spectral/matrix_wrappers.hpp>
 
+#include "../test_utils.h"
+#include <raft/util/cudart_utils.hpp>
+
+#include <iostream>
+#include <limits>
+
+namespace raft {
+namespace sparse {
+
+template <typename math_t, typename idx_t>
+struct CSRMatrixVal {
+  std::vector<idx_t> row_ind;
+  std::vector<idx_t> row_ind_ptr;
+  std::vector<math_t> values;
+};
+
+template <typename math_t, typename idx_t>
+struct LOBPCGInputs {
+  CSRMatrixVal<math_t, idx_t> matrix_a;
+  std::vector<math_t> init_eigvecs;
+  std::vector<math_t> exp_eigvals;
+  std::vector<math_t> exp_eigvecs;
+  idx_t n_components;
+};
+
+template <typename math_t, typename idx_t>
+class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> {
+ public:
+  LOBPCGTest()
+    : params(::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>>::GetParam()),
+      stream(handle.get_stream()),
+      ind_a(params.matrix_a.row_ind.size(), stream),
+      ind_ptr_a(params.matrix_a.row_ind_ptr.size(), stream),
+      values_a(params.matrix_a.row_ind_ptr.size(), stream),
+      exp_eigvals(params.exp_eigvals.size(), stream),
+      exp_eigvecs(params.exp_eigvecs.size(), stream),
+      act_eigvals(params.exp_eigvals.size(), stream),
+      act_eigvecs(params.exp_eigvecs.size(), stream)
+  {
+  }
+
+ protected:
+  void SetUp() override
+  {
+    n_rows_a = params.matrix_a.row_ind.size();
+    nnz_a    = params.matrix_a.row_ind_ptr.size();
+  }
+
+  void Run()
+  {
+    raft::update_device(ind_a.data(), params.matrix_a.row_ind.data(), n_rows_a, stream);
+    raft::update_device(ind_ptr_a.data(), params.matrix_a.row_ind_ptr.data(), nnz_a, stream);
+    raft::update_device(values_a.data(), params.matrix_a.values.data(), nnz_a, stream);
+
+    raft::update_device(act_eigvecs.data(), params.init_eigvecs.data(), act_eigvecs.size(), stream);
+
+    auto matA = raft::spectral::matrix::sparse_matrix_t(
+      handle, ind_ptr_a.data(), ind_a.data(), values_a.data(), n_rows_a, n_rows_a, nnz_a);
+    raft::sparse::solver::lobpcg(
+      handle,
+      matA,
+      raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+        act_eigvecs.data(), n_rows_a, params.n_components),
+      raft::make_device_vector_view<math_t, idx_t>(act_eigvals.data(), n_rows_a));
+
+    ASSERT_TRUE(raft::devArrMatch<math_t>(
+      exp_eigvecs.data(), act_eigvecs.data(), exp_eigvecs.size(), raft::Compare<idx_t>(), stream));
+    ASSERT_TRUE(raft::devArrMatch<math_t>(
+      exp_eigvals.data(), act_eigvals.data(), exp_eigvals.size(), raft::Compare<idx_t>(), stream));
+  }
+
+ protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
+
+  LOBPCGInputs<math_t, idx_t> params;
+  idx_t n_rows_a, nnz_a;
+  rmm::device_uvector<idx_t> ind_a, ind_ptr_a;
+  rmm::device_uvector<math_t> values_a, exp_eigvals, exp_eigvecs, act_eigvals, act_eigvecs;
+};
+
+using LOBPCGTestF = LOBPCGTest<float, int>;
+TEST_P(LOBPCGTestF, Result) { Run(); }
+
+using LOBPCGTestD = LOBPCGTest<double, int>;
+TEST_P(LOBPCGTestD, Result) { Run(); }
+
+const std::vector<LOBPCGInputs<float, int>> lobpcg_inputs_f = {
+  {{{0, 4, 10, 14, 19, 24, 28},
+    {0, 2, 3, 5, 0, 1, 2, 3, 4, 5, 0, 2, 3, 5, 1, 2, 3, 4, 5, 0, 2, 3, 4, 5, 0, 2, 3, 4},
+    {0.37911922, 0.11567201, 0.5135106,  0.08968836, 0.73450965, 0.26432646, 0.21985123,
+     0.74888277, 0.34753734, 0.11204864, 0.82902676, 0.53023521, 0.24047095, 0.37913592,
+     0.60975031, 0.60746519, 0.96833343, 0.30845102, 0.88653955, 0.43530847, 0.32938903,
+     0.82477561, 0.20858375, 0.24755519, 0.23677223, 0.73957246, 0.09050876, 0.86530489}},
+   {0.08319983,
+    0.17758466,
+    0.93301819,
+    0.67171826,
+    0.19967821,
+    0.30873092,
+    0.35005079,
+    0.56035486,
+    0.64176631,
+    0.93904784,
+    0.38935935,
+    0.97182089},
+   {2.61153278, 0.85782948},
+   {-0.38272064,
+    -0.25160901,
+    -0.48684676,
+    -0.50752949,
+    -0.43005954,
+    -0.33265696,
+    -0.39778489,
+    0.2539629,
+    -0.37506003,
+    0.72637041,
+    0.02727131,
+    -0.32900198},
+   2}};
+const std::vector<LOBPCGInputs<double, int>> lobpcg_inputs_d = {
+  {{{0, 4, 10, 14, 19, 24, 28},
+    {0, 2, 3, 5, 0, 1, 2, 3, 4, 5, 0, 2, 3, 5, 1, 2, 3, 4, 5, 0, 2, 3, 4, 5, 0, 2, 3, 4},
+    {0.37911922, 0.11567201, 0.5135106,  0.08968836, 0.73450965, 0.26432646, 0.21985123,
+     0.74888277, 0.34753734, 0.11204864, 0.82902676, 0.53023521, 0.24047095, 0.37913592,
+     0.60975031, 0.60746519, 0.96833343, 0.30845102, 0.88653955, 0.43530847, 0.32938903,
+     0.82477561, 0.20858375, 0.24755519, 0.23677223, 0.73957246, 0.09050876, 0.86530489}},
+   {0.08319983,
+    0.17758466,
+    0.93301819,
+    0.67171826,
+    0.19967821,
+    0.30873092,
+    0.35005079,
+    0.56035486,
+    0.64176631,
+    0.93904784,
+    0.38935935,
+    0.97182089},
+   {2.61153278, 0.85782948},
+   {-0.38272064,
+    -0.25160901,
+    -0.48684676,
+    -0.50752949,
+    -0.43005954,
+    -0.33265696,
+    -0.39778489,
+    0.2539629,
+    -0.37506003,
+    0.72637041,
+    0.02727131,
+    -0.32900198},
+   2}};
+
+INSTANTIATE_TEST_CASE_P(SparseAddTest, LOBPCGTestF, ::testing::ValuesIn(lobpcg_inputs_f));
+INSTANTIATE_TEST_CASE_P(SparseAddTest, LOBPCGTestD, ::testing::ValuesIn(lobpcg_inputs_d));
+
+}  // namespace sparse
+}  // namespace raft
 
 /*
 
@@ -190,11 +199,11 @@ a.data = array([0.37911922, 0.11567201, 0.5135106 , 0.08968836, 0.73450965,
 
 x = np.random.rand(6,2)
 x = array([[0.08319983, 0.35005079],
-       [0.17758466, 0.56035486],
-       [0.93301819, 0.64176631],
-       [0.67171826, 0.93904784],
-       [0.19967821, 0.38935935],
-       [0.30873092, 0.97182089]])
+           [0.17758466, 0.56035486],
+           [0.93301819, 0.64176631],
+           [0.67171826, 0.93904784],
+           [0.19967821, 0.38935935],
+           [0.30873092, 0.97182089]])
 
 lobpcg(a, x) =  (array([2.61153278, 0.85782948]),
                 array([[-0.38272064, -0.39778489],
