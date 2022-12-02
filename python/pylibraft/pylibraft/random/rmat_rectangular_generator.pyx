@@ -29,12 +29,11 @@ from pylibraft.common.handle import auto_sync_handle
 from libcpp cimport bool
 
 from pylibraft.common.handle cimport handle_t
+from pylibraft.random.cpp.rng_state cimport RngState
 
-from .rng_state cimport RngState
 
-
-cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
-        namespace "raft::random::runtime":
+cdef extern from "raft_runtime/random/rmat_rectangular_generator.hpp" \
+        namespace "raft::runtime::random":
 
     cdef void rmat_rectangular_gen(const handle_t &handle,
                                    int* out,

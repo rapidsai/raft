@@ -493,11 +493,11 @@ def fit(
         cpp_kmeans.fit(
             deref(h),
             params.c_obj,
-            make_device_matrix_view(
-                <const double *><uintptr_t>X_cai.data,
+            make_device_matrix_view[double, int, row_major](
+                <double *><uintptr_t>X_cai.data,
                 <int>X_cai.shape[0], <int>X_cai.shape[1]),
             d_sample_weights,
-            make_device_matrix_view(
+            make_device_matrix_view[double, int, row_major](
                 <double *><uintptr_t>centroids_cai.data,
                 <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
             make_host_scalar_view[double, int](&d_inertia),
@@ -513,11 +513,11 @@ def fit(
         cpp_kmeans.fit(
             deref(h),
             params.c_obj,
-            make_device_matrix_view(
-                <const float *><uintptr_t>X_cai.data,
+            make_device_matrix_view[float, int, row_major](
+                <float *><uintptr_t>X_cai.data,
                 <int>X_cai.shape[0], <int>X_cai.shape[1]),
             f_sample_weights,
-            make_device_matrix_view(
+            make_device_matrix_view[float, int, row_major](
                 <float *><uintptr_t>centroids_cai.data,
                 <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
             make_host_scalar_view[float, int](&f_inertia),
