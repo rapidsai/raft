@@ -273,7 +273,7 @@ DataT silhouette_score(
                                nRows,
                                true,
                                true,
-                               raft::div_op(),
+                               DivOp<DataT>(),
                                stream);
 
   // calculating row-wise minimum
