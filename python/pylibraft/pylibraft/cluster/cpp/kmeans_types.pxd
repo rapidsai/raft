@@ -17,7 +17,7 @@
 from libcpp cimport bool
 
 from pylibraft.distance.distance_type cimport DistanceType
-from pylibraft.random.rng_state cimport RngState
+from pylibraft.random.cpp.rng_state cimport RngState
 
 
 cdef extern from "raft/cluster/kmeans_types.hpp" \
