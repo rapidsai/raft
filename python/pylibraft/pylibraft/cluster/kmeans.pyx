@@ -31,7 +31,7 @@ from pylibraft.common import Handle, cai_wrapper
 from pylibraft.common.handle import auto_sync_handle
 
 from pylibraft.common.handle cimport handle_t
-from pylibraft.random.rng_state cimport RngState
+from pylibraft.random.cpp.rng_state cimport RngState
 
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
