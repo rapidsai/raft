@@ -1,4 +1,4 @@
-name: pr
+name: dependency-files
 
 on:
   pull_request:
