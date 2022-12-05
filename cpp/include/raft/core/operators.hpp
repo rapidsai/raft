@@ -203,6 +203,20 @@ struct const_op {
   }
 };
 
+/**
+ * @brief Wraps around a binary operator, passing a given scalar on the right-hand side.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/operators.hpp>
+ *
+ *  raft::scalar_op<float, raft::mul_op> op(2.0f);
+ *  std::cout << op(2.1f) << std::endl;  // 4.2
+ * @endcode
+ *
+ * @tparam ScalarT
+ * @tparam BinaryOpT
+ */
 template <typename ScalarT, typename BinaryOpT>
 struct scalar_op {
   const ScalarT scalar;
@@ -240,51 +254,96 @@ using scalar_div_checkzero_op = scalar_op<Type, div_checkzero_op>;
 template <typename Type>
 using scalar_pow_op = scalar_op<Type, pow_op>;
 
-template <typename OuterOpT, typename InnerOpT>
+/**
+ * @brief Constructs an operator by composing a chain of operators.
+ *
+ * Note that all arguments are passed to the innermost operator.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/operators.hpp>
+ *
+ *  auto op = raft::compose_op(raft::sqrt_op(), raft::abs_op(), raft::cast_op<float>(),
+ *                             raft::scalar_add_op<int>(8));
+ *  std::cout << op(-50) << std::endl;  // 6.48074
+ * @endcode
+ *
+ * @tparam OpsT Any number of operation types.
+ */
+template <typename... OpsT>
 struct compose_op {
-  const OuterOpT outer_op;
-  const InnerOpT inner_op;
+  const std::tuple<OpsT...> ops;
 
-  template <typename OOpT    = OuterOpT,
-            typename IOpT    = InnerOpT,
-            typename UnusedT = std::enable_if_t<std::is_default_constructible_v<OOpT> &&
-                                                std::is_default_constructible_v<IOpT>>>
-  constexpr compose_op() : outer_op{}, inner_op{}
+  template <typename TupleT = std::tuple<OpsT...>,
+            typename CondT  = std::enable_if_t<std::is_default_constructible_v<TupleT>>>
+  constexpr compose_op() : ops{}
   {
   }
-  constexpr compose_op(OuterOpT out_op, InnerOpT in_op) : outer_op{out_op}, inner_op{in_op} {}
+  constexpr explicit compose_op(OpsT... ops) : ops{ops...} {}
 
   template <typename... Args>
   constexpr RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
   {
-    return outer_op(inner_op(std::forward<Args>(args)...));
+    return compose<sizeof...(OpsT)>(std::forward<Args>(args)...);
+  }
+
+ private:
+  template <size_t RemOps, typename... Args>
+  constexpr RAFT_INLINE_FUNCTION auto compose(Args&&... args) const
+  {
+    if constexpr (RemOps > 0) {
+      return compose<RemOps - 1>(std::get<RemOps - 1>(ops)(std::forward<Args>(args)...));
+    } else {
+      return identity_op{}(std::forward<Args>(args)...);
+    }
   }
 };
 
-template <typename OuterOpT, typename InnerOpT1, typename InnerOpT2 = raft::identity_op>
-struct binary_compose_op {
+/**
+ * @brief Constructs an operator by composing an outer op with one inner op for each of its inputs.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/operators.hpp>
+ *
+ *  raft::map_args_op<raft::add_op, raft::sqrt_op, raft::cast_op<float>> op;
+ *  std::cout << op(42.0f, 10) << std::endl;  // 16.4807
+ * @endcode
+ *
+ * @tparam OuterOpT Outer operation type
+ * @tparam ArgOpsT Operation types for each input of the outer operation
+ */
+template <typename OuterOpT, typename... ArgOpsT>
+struct map_args_op {
   const OuterOpT outer_op;
-  const InnerOpT1 inner_op1;
-  const InnerOpT2 inner_op2;
+  const std::tuple<ArgOpsT...> arg_ops;
 
-  template <typename OOpT    = OuterOpT,
-            typename IOpT1   = InnerOpT1,
-            typename IOpT2   = InnerOpT2,
-            typename UnusedT = std::enable_if_t<std::is_default_constructible_v<OOpT> &&
-                                                std::is_default_constructible_v<IOpT1> &&
-                                                std::is_default_constructible_v<IOpT2>>>
-  constexpr binary_compose_op() : outer_op{}, inner_op1{}, inner_op2{}
+  template <typename T1    = OuterOpT,
+            typename T2    = std::tuple<ArgOpsT...>,
+            typename CondT = std::enable_if_t<std::is_default_constructible_v<T1> &&
+                                              std::is_default_constructible_v<T2>>>
+  constexpr map_args_op() : outer_op{}, arg_ops{}
   {
   }
-  constexpr binary_compose_op(OuterOpT out_op, InnerOpT1 in_op1, InnerOpT2 in_op2)
-    : outer_op{out_op}, inner_op1{in_op1}, inner_op2{in_op2}
+  constexpr explicit map_args_op(OuterOpT outer_op, ArgOpsT... arg_ops)
+    : outer_op{outer_op}, arg_ops{arg_ops...}
   {
   }
 
-  template <typename T1, typename T2>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
+  template <typename... Args>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
   {
-    return outer_op(inner_op1(a), inner_op2(b));
+    constexpr size_t kNumOps = sizeof...(ArgOpsT);
+    static_assert(kNumOps == sizeof...(Args),
+                  "The number of arguments does not match the number of mapping operators");
+    return map_args(std::make_index_sequence<kNumOps>{}, std::forward<Args>(args)...);
+  }
+
+ private:
+  template <size_t... I, typename... Args>
+  constexpr RAFT_INLINE_FUNCTION auto map_args(std::index_sequence<I...>, Args&&... args) const
+  {
+    return outer_op(std::get<I>(arg_ops)(std::forward<Args>(args))...);
   }
 };
 
