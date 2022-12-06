@@ -34,7 +34,7 @@ void kmeans_find_clusters(const raft::handle_t& handle,
                           raft::host_scalar_view<value_t> residual,
                           raft::host_scalar_view<idx_t> maxiter,
                           idx_t kmax,
-                          idx_t kmin  = 0,
+                          idx_t kmin  = 1,
                           value_t tol = 1e-3)
 {
   idx_t n = X.extent(0);
