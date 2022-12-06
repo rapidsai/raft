@@ -277,7 +277,7 @@ struct compose_op {
 
   template <typename TupleT = std::tuple<OpsT...>,
             typename CondT  = std::enable_if_t<std::is_default_constructible_v<TupleT>>>
-  constexpr compose_op() : ops{}
+  constexpr compose_op()
   {
   }
   constexpr explicit compose_op(OpsT... ops) : ops{ops...} {}
@@ -323,7 +323,7 @@ struct map_args_op {
             typename T2    = std::tuple<ArgOpsT...>,
             typename CondT = std::enable_if_t<std::is_default_constructible_v<T1> &&
                                               std::is_default_constructible_v<T2>>>
-  constexpr map_args_op() : outer_op{}, arg_ops{}
+  constexpr map_args_op()
   {
   }
   constexpr explicit map_args_op(OuterOpT outer_op, ArgOpsT... arg_ops)
