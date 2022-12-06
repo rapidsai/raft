@@ -25,17 +25,18 @@
 #include <raft/stats/dispersion.cuh>
 
 namespace raft::cluster::kmeans::detail {
+
 template <typename idx_t, typename value_t>
-void kmeans_find_clusters(const raft::handle_t& handle,
-                          raft::device_matrix_view<const value_t, idx_t> X,
-                          raft::device_matrix_view<value_t, idx_t> centroids,
-                          raft::device_vector_view<idx_t, idx_t> labels,
-                          raft::host_scalar_view<int> k_star,
-                          raft::host_scalar_view<value_t> residual,
-                          raft::host_scalar_view<idx_t> maxiter,
-                          idx_t kmax,
-                          idx_t kmin  = 1,
-                          value_t tol = 1e-3)
+void find_k(const raft::handle_t& handle,
+            raft::device_matrix_view<const value_t, idx_t> X,
+            raft::device_matrix_view<value_t, idx_t> centroids,
+            raft::device_vector_view<idx_t, idx_t> labels,
+            raft::host_scalar_view<int> k_star,
+            raft::host_scalar_view<value_t> residual,
+            raft::host_scalar_view<idx_t> maxiter,
+            idx_t kmax,
+            idx_t kmin  = 1,
+            value_t tol = 1e-3)
 {
   idx_t n = X.extent(0);
   idx_t d = X.extent(1);
