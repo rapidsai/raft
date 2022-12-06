@@ -78,7 +78,8 @@ void reduce_cols_by_key(const T* data,
  * monotonically increasing keys array.
  * @param[out] out the output reduced raft::device_matrix_view along columns (dim = nrows x nkeys).
  * This will be assumed to be in row-major layout
- * @param[in] nkeys number of unique keys in the keys array
+ * @param[in] nkeys Number of unique keys in the keys array. By default, infered from the number of
+ * columns of out
  * @param[in] reset_sums  Whether to reset the output sums to zero before reducing
  */
 template <typename ElementType, typename KeyType = ElementType, typename IndexType = std::uint32_t>
@@ -87,11 +88,16 @@ void reduce_cols_by_key(
   raft::device_matrix_view<const ElementType, IndexType, raft::row_major> data,
   raft::device_vector_view<const KeyType, IndexType> keys,
   raft::device_matrix_view<ElementType, IndexType, raft::row_major> out,
-  IndexType nkeys,
+  IndexType nkeys = 0,
   bool reset_sums = true)
 {
-  RAFT_EXPECTS(out.extent(0) == data.extent(0) && out.extent(1) == nkeys,
-               "Output is not of size nrows * nkeys");
+  if (nkeys > 0) {
+    RAFT_EXPECTS(out.extent(1) == nkeys, "Output doesn't have nkeys columns");
+  } else {
+    nkeys = out.extent(1);
+  }
+  RAFT_EXPECTS(out.extent(0) == data.extent(0),
+               "Output doesn't have the same number of rows as input");
   RAFT_EXPECTS(keys.extent(0) == data.extent(1), "Keys is not of size ncols");
 
   reduce_cols_by_key(data.data_handle(),
