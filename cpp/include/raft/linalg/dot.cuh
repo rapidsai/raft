@@ -25,6 +25,12 @@
 #include <raft/core/host_mdspan.hpp>
 
 namespace raft::linalg {
+
+/**
+ * @defgroup dot BLAS dot routine
+ * @{
+ */
+
 /**
  * @brief Computes the dot product of two vectors.
  * @param[in] handle   raft::handle_t
@@ -84,5 +90,8 @@ void dot(const raft::handle_t& handle,
                                     out.data_handle(),
                                     handle.get_stream()));
 }
+
+/** @} */  // end of group dot
+
 }  // namespace raft::linalg
 #endif

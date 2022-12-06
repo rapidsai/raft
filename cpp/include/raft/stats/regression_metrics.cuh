@@ -54,6 +54,11 @@ void regression_metrics(const T* predictions,
 }
 
 /**
+ * @defgroup stats_regression_metrics Regression Metrics
+ * @{
+ */
+
+/**
  * @brief Compute regression metrics mean absolute error, mean squared error, median absolute error
  * @tparam value_t the data type for predictions (e.g., float or double for regression).
  * @tparam idx_t index type
@@ -92,6 +97,9 @@ void regression_metrics(const raft::handle_t& handle,
                              *mean_squared_error.data_handle(),
                              *median_abs_error.data_handle());
 }
+
+/** @} */  // end group stats_regression_metrics
+
 }  // namespace stats
 }  // namespace raft
 

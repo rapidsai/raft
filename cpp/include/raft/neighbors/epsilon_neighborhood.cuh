@@ -60,6 +60,11 @@ void epsUnexpL2SqNeighborhood(bool* adj,
 }
 
 /**
+ * @defgroup epsilon_neighbors Epislon Neighborhood Operations
+ * @{
+ */
+
+/**
  * @brief Computes epsilon neighborhood for the L2-Squared distance metric and given ball size.
  * The epsilon neighbors is represented by a dense boolean adjacency matrix of size m * n and
  * an array of degrees for each vertex, which can be used as a compressed sparse row (CSR)
@@ -109,6 +114,8 @@ void eps_neighbors_l2sq(const raft::handle_t& handle,
                                            eps,
                                            handle.get_stream());
 }
+
+/** @} */  // end group epsilon_neighbors
 
 }  // namespace raft::neighbors::epsilon_neighborhood
 

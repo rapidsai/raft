@@ -31,19 +31,19 @@ from pylibraft.common import Handle, cai_wrapper
 from pylibraft.common.handle import auto_sync_handle
 
 from pylibraft.common.handle cimport handle_t
-from pylibraft.random.rng_state cimport RngState
+from pylibraft.random.cpp.rng_state cimport RngState
 
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
 
-from pylibraft.common.handle cimport handle_t
-from pylibraft.cpp cimport kmeans as cpp_kmeans, kmeans_types
-from pylibraft.cpp.kmeans cimport (
+from pylibraft.cluster.cpp cimport kmeans as cpp_kmeans, kmeans_types
+from pylibraft.cluster.cpp.kmeans cimport (
     cluster_cost as cpp_cluster_cost,
     update_centroids,
 )
-from pylibraft.cpp.mdspan cimport *
-from pylibraft.cpp.optional cimport optional
+from pylibraft.common.cpp.mdspan cimport *
+from pylibraft.common.cpp.optional cimport optional
+from pylibraft.common.handle cimport handle_t
 
 
 def is_c_cont(cai, dt):
@@ -89,39 +89,37 @@ def compute_new_centroids(X,
     Examples
     --------
 
-    .. code-block:: python
-
-        import cupy as cp
-
-        from pylibraft.common import Handle
-        from pylibraft.cluster.kmeans import compute_new_centroids
-
-        # A single RAFT handle can optionally be reused across
-        # pylibraft functions.
-        handle = Handle()
-
-        n_samples = 5000
-        n_features = 50
-        n_clusters = 3
-
-        X = cp.random.random_sample((n_samples, n_features),
-                                      dtype=cp.float32)
-
-        centroids = cp.random.random_sample((n_clusters, n_features),
-                                                dtype=cp.float32)
-
-        labels = cp.random.randint(0, high=n_clusters, size=n_samples,
-                                   dtype=cp.int32)
-
-        new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
-
-        compute_new_centroids(
-            X, centroids, labels, new_centroids, handle=handle
-        )
-
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
+    >>> import cupy as cp
+    >>>
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.cluster.kmeans import compute_new_centroids
+    >>>
+    >>> # A single RAFT handle can optionally be reused across
+    >>> # pylibraft functions.
+    >>> handle = Handle()
+    >>>
+    >>> n_samples = 5000
+    >>> n_features = 50
+    >>> n_clusters = 3
+    >>>
+    >>> X = cp.random.random_sample((n_samples, n_features),
+    >>>                               dtype=cp.float32)
+    >>>
+    >>> centroids = cp.random.random_sample((n_clusters, n_features),
+    >>>                                         dtype=cp.float32)
+    >>>
+    >>> labels = cp.random.randint(0, high=n_clusters, size=n_samples,
+    >>>                            dtype=cp.int32)
+    >>>
+    >>> new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
+    >>>
+    >>> compute_new_centroids(
+    >>>     X, centroids, labels, new_centroids, handle=handle
+    >>> )
+    >>>
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
    """
 
     x_cai = X.__cuda_array_interface__
@@ -495,11 +493,11 @@ def fit(
         cpp_kmeans.fit(
             deref(h),
             params.c_obj,
-            make_device_matrix_view(
-                <const double *><uintptr_t>X_cai.data,
+            make_device_matrix_view[double, int, row_major](
+                <double *><uintptr_t>X_cai.data,
                 <int>X_cai.shape[0], <int>X_cai.shape[1]),
             d_sample_weights,
-            make_device_matrix_view(
+            make_device_matrix_view[double, int, row_major](
                 <double *><uintptr_t>centroids_cai.data,
                 <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
             make_host_scalar_view[double, int](&d_inertia),
@@ -515,11 +513,11 @@ def fit(
         cpp_kmeans.fit(
             deref(h),
             params.c_obj,
-            make_device_matrix_view(
-                <const float *><uintptr_t>X_cai.data,
+            make_device_matrix_view[float, int, row_major](
+                <float *><uintptr_t>X_cai.data,
                 <int>X_cai.shape[0], <int>X_cai.shape[1]),
             f_sample_weights,
-            make_device_matrix_view(
+            make_device_matrix_view[float, int, row_major](
                 <float *><uintptr_t>centroids_cai.data,
                 <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
             make_host_scalar_view[float, int](&f_inertia),

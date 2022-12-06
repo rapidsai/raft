@@ -24,6 +24,11 @@
 namespace raft::linalg {
 
 /**
+ * @defgroup matrix_vector Matrix-Vector Operations
+ * @{
+ */
+
+/**
  * @brief multiply each row or column of matrix with vector, skipping zeros in vector
  * @param [in] handle: raft handle for managing library resources
  * @param[inout] data: input matrix, results are in-place
@@ -191,4 +196,7 @@ void binary_sub(const raft::handle_t& handle,
                                         bcast_along_rows,
                                         handle.get_stream());
 }
+
+/** @} */  // end of matrix_vector
+
 }  // namespace raft::linalg

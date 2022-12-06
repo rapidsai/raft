@@ -16,11 +16,6 @@
 #ifndef __ADD_H
 #define __ADD_H
 
-/**
- * @defgroup arithmetic Dense matrix arithmetic
- * @{
- */
-
 #pragma once
 
 #include "detail/add.cuh"
@@ -94,7 +89,7 @@ void addDevScalar(
 }
 
 /**
- * @defgroup add Addition Arithmetic
+ * @defgroup add_dense Addition Arithmetic
  * @{
  */
 
@@ -225,7 +220,5 @@ void add_scalar(const raft::handle_t& handle,
 
 };  // end namespace linalg
 };  // end namespace raft
-
-/** @} */
 
 #endif

@@ -24,6 +24,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_sqrt Matrix Square Root
+ * @{
+ */
+
+/**
  * @brief Square root of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
@@ -101,5 +106,7 @@ void weighted_sqrt(const raft::handle_t& handle,
   detail::seqRoot(
     inout.data_handle(), *(scalar.data_handle()), inout.size(), handle.get_stream(), set_neg_zero);
 }
+
+/** @} */  // end group matrix_sqrt
 
 }  // namespace raft::matrix
