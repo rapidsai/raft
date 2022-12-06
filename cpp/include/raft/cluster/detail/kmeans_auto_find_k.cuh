@@ -102,8 +102,6 @@ void find_k(const raft::handle_t& handle,
 
   objective[0] = (n - left) / (left - 1) * clusterDispersion[left] / results[left];
   objective[1] = (n - right) / (right - 1) * clusterDispersion[right] / results[right];
-  // printf(" L=%g,%g,R=%g,%g : resid,objectives\n", results[left], objective[0], results[right],
-  // objective[1]); binary search
   while (left < right - 1) {
     results[mid] = 1e20;
     tests        = 0;
@@ -128,24 +126,14 @@ void find_k(const raft::handle_t& handle,
       }
       tests += 1;
     }
-    // objective[0] =abs(results[left]-results[mid])  /(results[left]-minres);
-    // objective[0] /= mid-left;
-    // objective[1] =abs(results[mid] -results[right])/(results[mid]-minres);
-    // objective[1] /= right-mid;
 
     // maximize Calinski-Harabasz Index, minimize resid/ cluster
     objective[0] = (n - left) / (left - 1) * clusterDispersion[left] / results[left];
     objective[1] = (n - right) / (right - 1) * clusterDispersion[right] / results[right];
     objective[2] = (n - mid) / (mid - 1) * clusterDispersion[mid] / results[mid];
-    // yes, overwriting the above temporary results is what I want
-    // printf(" L=%g M=%g R=%g : objectives\n", objective[0], objective[2], objective[1]);
     objective[0] = (objective[2] - objective[0]) / (mid - left);
     objective[1] = (objective[1] - objective[2]) / (right - mid);
 
-    // printf(" L=%g,R=%g : d obj/ d k \n", objective[0], objective[1]);
-    // printf(" left, mid, right, res_left, res_mid, res_right\n");
-    // printf(" %d, %d, %d, %g, %g, %g\n", left, mid, right, results[left], results[mid],
-    // results[right]);
     if (objective[0] > 0 && objective[1] < 0) {
       // our point is in the left-of-mid side
       right = mid;
@@ -158,10 +146,7 @@ void find_k(const raft::handle_t& handle,
   *k_star      = right;
   objective[0] = (n - left) / (left - 1) * clusterDispersion[left] / results[left];
   objective[1] = (n - oldmid) / (oldmid - 1) * clusterDispersion[oldmid] / results[oldmid];
-  // objective[0] =abs(results[left]-results[mid])  /(results[left]-minres);
-  // objective[0] /= mid-left;
-  // objective[1] =abs(results[mid] -results[right])/(results[mid]-minres);
-  // objective[1] /= right-mid;
+
   if (objective[1] < objective[0]) { *k_star = left; }
 
   // if k_star isn't what we just ran, re-run to get correct centroids and dist data on return->
