@@ -17,6 +17,7 @@
 
 #include <optional>
 #include <raft/cluster/detail/kmeans.cuh>
+#include <raft/cluster/detail/kmeans_auto_find_k.cuh>
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/mdarray.hpp>
@@ -258,6 +259,38 @@ void transform(const raft::handle_t& handle,
 {
   detail::kmeans_transform<DataT, IndexT>(
     handle, params, X, centroids, n_samples, n_features, X_new);
+}
+
+/**
+ * Automatically find the optimal value of k using a binary search.
+ * This method maximizes the Calinski-Harabasz Index while minimizing the per-cluster residuals.
+ * @tparam idx_t
+ * @tparam value_t
+ * @param handle raft handle
+ * @param X input observations (shape n_samples, n_dims)
+ * @param best_centroids Best centroids returned from auto-find
+ * @param best_labels
+ * @param best_k
+ * @param residual
+ * @param maxiter
+ * @param kmax
+ * @param kmin
+ * @param tol
+ */
+template <typename idx_t, typename value_t>
+void find_k(const raft::handle_t& handle,
+            raft::device_matrix_view<const value_t, idx_t> X,
+            raft::device_matrix_view<value_t, idx_t> best_centroids,
+            raft::device_vector_view<idx_t, idx_t> best_labels,
+            raft::host_scalar_view<int> best_k,
+            raft::host_scalar_view<value_t> residual,
+            raft::host_scalar_view<idx_t> maxiter,
+            idx_t kmax,
+            idx_t kmin  = 1,
+            value_t tol = 1e-3)
+{
+  detail::find_k(
+    handle, X, best_centroids, best_labels, best_k, residual, maxiter, kmax, kmin, tol);
 }
 
 /**
