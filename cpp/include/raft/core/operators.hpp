@@ -34,7 +34,7 @@ namespace raft {
 
 struct identity_op {
   template <typename Type, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION Type operator()(const Type& in, UnusedArgs...) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
     return in;
   }
@@ -43,7 +43,7 @@ struct identity_op {
 template <typename OutT>
 struct cast_op {
   template <typename InT, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION OutT operator()(InT in, UnusedArgs...) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(InT in, UnusedArgs...) const
   {
     return static_cast<OutT>(in);
   }
@@ -51,7 +51,7 @@ struct cast_op {
 
 struct key_op {
   template <typename KVP, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION typename KVP::Key operator()(const KVP& p, UnusedArgs...) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const KVP& p, UnusedArgs...) const
   {
     return p.key;
   }
@@ -59,7 +59,7 @@ struct key_op {
 
 struct value_op {
   template <typename KVP, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION typename KVP::Value operator()(const KVP& p, UnusedArgs...) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const KVP& p, UnusedArgs...) const
   {
     return p.value;
   }
@@ -67,7 +67,7 @@ struct value_op {
 
 struct sqrt_op {
   template <typename Type, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION Type operator()(const Type& in, UnusedArgs...) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
     return std::sqrt(in);
   }
@@ -75,7 +75,7 @@ struct sqrt_op {
 
 struct nz_op {
   template <typename Type, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION Type operator()(const Type& in, UnusedArgs...) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
     return in != Type(0) ? Type(1) : Type(0);
   }
@@ -83,7 +83,7 @@ struct nz_op {
 
 struct abs_op {
   template <typename Type, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION Type operator()(const Type& in, UnusedArgs...) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
     return std::abs(in);
   }
@@ -91,7 +91,7 @@ struct abs_op {
 
 struct sq_op {
   template <typename Type, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION Type operator()(const Type& in, UnusedArgs...) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
     return in * in;
   }
@@ -131,7 +131,7 @@ struct div_op {
 
 struct div_checkzero_op {
   template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION Type operator()(const Type& a, const Type& b) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
   {
     if (b == Type{0}) { return Type{0}; }
     return a / b;
@@ -140,7 +140,7 @@ struct div_checkzero_op {
 
 struct pow_op {
   template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION Type operator()(const Type& a, const Type& b) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
   {
     return std::pow(a, b);
   }
@@ -148,7 +148,7 @@ struct pow_op {
 
 struct min_op {
   template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION Type operator()(const Type& a, const Type& b) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
   {
     if (a > b) { return b; }
     return a;
@@ -157,7 +157,7 @@ struct min_op {
 
 struct max_op {
   template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION Type operator()(const Type& a, const Type& b) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
   {
     if (b > a) { return b; }
     return a;
@@ -166,7 +166,7 @@ struct max_op {
 
 struct sqdiff_op {
   template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION Type operator()(const Type& a, const Type& b) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
   {
     Type diff = a - b;
     return diff * diff;
@@ -175,7 +175,7 @@ struct sqdiff_op {
 
 struct argmin_op {
   template <typename KVP>
-  constexpr RAFT_INLINE_FUNCTION KVP operator()(const KVP& a, const KVP& b) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const KVP& a, const KVP& b) const
   {
     if ((b.value < a.value) || ((a.value == b.value) && (b.key < a.key))) { return b; }
     return a;
@@ -184,7 +184,7 @@ struct argmin_op {
 
 struct argmax_op {
   template <typename KVP>
-  constexpr RAFT_INLINE_FUNCTION KVP operator()(const KVP& a, const KVP& b) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const KVP& a, const KVP& b) const
   {
     if ((b.value > a.value) || ((a.value == b.value) && (b.key < a.key))) { return b; }
     return a;
@@ -195,10 +195,10 @@ template <typename ScalarT>
 struct const_op {
   const ScalarT scalar;
 
-  constexpr const_op(const ScalarT& s) : scalar{s} {}
+  constexpr explicit const_op(const ScalarT& s) : scalar{s} {}
 
   template <typename... Args>
-  constexpr RAFT_INLINE_FUNCTION ScalarT operator()(Args...) const
+  constexpr RAFT_INLINE_FUNCTION auto operator()(Args...) const
   {
     return scalar;
   }
@@ -225,7 +225,7 @@ struct scalar_op {
 
   template <typename OpT     = BinaryOpT,
             typename UnusedT = std::enable_if_t<std::is_default_constructible_v<OpT>>>
-  constexpr scalar_op(const ScalarT& s) : scalar{s}, composed_op{}
+  constexpr explicit scalar_op(const ScalarT& s) : scalar{s}, composed_op{}
   {
   }
   constexpr scalar_op(const ScalarT& s, BinaryOpT o) : scalar{s}, composed_op{o} {}
