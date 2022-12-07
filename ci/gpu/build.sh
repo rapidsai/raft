@@ -21,6 +21,13 @@ export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 export CUDA_REL=${CUDA_VERSION%.*}
 CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/raft/cpu/.conda-bld/ # notice there is no `linux-64` here
 
+# Workaround to keep Jenkins builds working
+# until we migrate fully to GitHub Actions
+export RAPIDS_CUDA_VERSION="${CUDA}"
+export SCCACHE_BUCKET=rapids-sccache
+export SCCACHE_REGION=us-west-2
+export SCCACHE_IDLE_TIMEOUT=32768
+
 # Set home to the job's workspace
 export HOME=$WORKSPACE
 
