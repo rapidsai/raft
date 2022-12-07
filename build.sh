@@ -197,30 +197,55 @@ if hasArg --uninstall; then
 
     if hasArg pylibraft || hasArg libraft || (( ${NUMARGS} == 1 )); then
 
-      echo "Removing libraft..."
+      echo "Removing libraft files..."
       if [ -e ${LIBRAFT_BUILD_DIR}/install_manifest.txt ]; then
           xargs rm -fv < ${LIBRAFT_BUILD_DIR}/install_manifest.txt > /dev/null 2>&1
       fi
-
     fi
 
     if hasArg pylibraft || (( ${NUMARGS} == 1 )); then
-
-      echo "Removing pylibraft..."
+      echo "Uninstalling pylibraft package..."
       if [ -e ${PYLIBRAFT_BUILD_DIR}/install_manifest.txt ]; then
           xargs rm -fv < ${PYLIBRAFT_BUILD_DIR}/install_manifest.txt > /dev/null 2>&1
+      fi
+
+      # Try to uninstall via pip if it is installed
+      if [ -x "$(command -v pip)" ]; then
+        echo "Using pip to uninstall pylibraft"
+        pip uninstall -y pylibraft
+
+      # Otherwise, try to uninstall through conda if that's where things are installed
+      elif [ -x "$(command -v conda)" ] && [ "$INSTALL_PREFIX" eq "$CONDA_PREFIX" ]; then
+        echo "Using conda to uninstall pylibraft"
+        conda uninstall -y pylibraft
+
+      # Otherwise, fail
+      else
+        echo "Could not uninstall pylibraft from pip or conda. pylibraft package will need to be manually uninstalled"
       fi
     fi
 
     if hasArg raft-dask; then
-
-      echo "Removing raft-dask..."
+      echo "Uninstalling raft-dask package..."
       if [ -e ${RAFT_DASK_BUILD_DIR}/install_manifest.txt ]; then
           xargs rm -fv < ${RAFT_DASK_BUILD_DIR}/install_manifest.txt > /dev/null 2>&1
       fi
-    fi
 
-    echo "Done."
+      # Try to uninstall via pip if it is installed
+      if [ -x "$(command -v pip)" ]; then
+        echo "Using pip to uninstall raft-dask"
+        pip uninstall -y raft-dask
+
+      # Otherwise, try to uninstall through conda if that's where things are installed
+      elif [ -x "$(command -v conda)" ] && [ "$INSTALL_PREFIX" == "$CONDA_PREFIX" ]; then
+        echo "Using conda to uninstall raft-dask"
+        conda uninstall -y raft-dask
+
+      # Otherwise, fail
+      else
+        echo "Could not uninstall raft-dask from pip or conda. raft-dask package will need to be manually uninstalled."
+      fi
+    fi
     exit 0
 fi
 
