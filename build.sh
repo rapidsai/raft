@@ -215,7 +215,7 @@ if hasArg --uninstall; then
         pip uninstall -y pylibraft
 
       # Otherwise, try to uninstall through conda if that's where things are installed
-      elif [ -x "$(command -v conda)" ] && [ "$INSTALL_PREFIX" eq "$CONDA_PREFIX" ]; then
+      elif [ -x "$(command -v conda)" ] && [ "$INSTALL_PREFIX" == "$CONDA_PREFIX" ]; then
         echo "Using conda to uninstall pylibraft"
         conda uninstall -y pylibraft
 
