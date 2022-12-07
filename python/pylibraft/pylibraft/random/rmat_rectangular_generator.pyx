@@ -33,7 +33,7 @@ from pylibraft.random.cpp.rng_state cimport RngState
 
 
 cdef extern from "raft_runtime/random/rmat_rectangular_generator.hpp" \
-        namespace "raft::runtime::random":
+        namespace "raft::runtime::random" nogil:
 
     cdef void rmat_rectangular_gen(const handle_t &handle,
                                    int* out,

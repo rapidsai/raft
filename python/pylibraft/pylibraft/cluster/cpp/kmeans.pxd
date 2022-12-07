@@ -31,7 +31,7 @@ from pylibraft.common.handle cimport handle_t
 
 
 cdef extern from "raft_runtime/cluster/kmeans.hpp" \
-        namespace "raft::runtime::cluster::kmeans":
+        namespace "raft::runtime::cluster::kmeans" nogil:
 
     cdef void update_centroids(
         const handle_t& handle,
