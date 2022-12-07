@@ -20,6 +20,11 @@
 
 namespace raft::neighbors::ann {
 
+/**
+ * @defgroup ann_types Approximate Nearest Neighbors Types
+ * @{
+ */
+
 /** The base for approximate KNN index structures. */
 struct index {
 };
@@ -43,5 +48,7 @@ struct index_params {
 
 struct search_params {
 };
+
+/** @} */  // end group ann_types
 
 };  // namespace raft::neighbors::ann

@@ -14,7 +14,7 @@ expose in public APIs.
 handle_t
 ########
 
-Header: `raft/core/handle.hpp`
+#include <raft/core/handle.hpp>
 
 .. doxygenclass:: raft::handle_t
     :project: RAFT
@@ -24,16 +24,17 @@ Header: `raft/core/handle.hpp`
 Interruptible
 #############
 
-Header: `raft/core/interupptible.hpp`
+``#include <raft/core/interupptible.hpp>``
 
 .. doxygenclass:: raft::interruptible
     :project: RAFT
     :members:
 
+
 NVTX
 ####
 
-Header: `raft/core/nvtx.hpp`
+``#include <raft/core/nvtx.hpp>``
 
 .. doxygennamespace:: raft::common::nvtx
     :project: RAFT
@@ -44,7 +45,7 @@ Header: `raft/core/nvtx.hpp`
 Key-Value Pair
 ##############
 
-Header: `raft/core/kvp.hpp`
+``#include <raft/core/kvp.hpp>``
 
 .. doxygenstruct:: raft::KeyValuePair
     :project: RAFT
@@ -54,7 +55,7 @@ Header: `raft/core/kvp.hpp`
 logger
 ######
 
-Header: `raft/core/logger.hpp`
+``#include <raft/core/logger.hpp>``
 
 .. doxygenclass:: raft::logger
     :project: RAFT
@@ -64,7 +65,7 @@ Header: `raft/core/logger.hpp`
 Multi-node Multi-GPU
 ####################
 
-Header: `raft/core/comms.hpp`
+``#include <raft/core/comms.hpp>``
 
 .. doxygennamespace:: raft::comms
     :project: RAFT

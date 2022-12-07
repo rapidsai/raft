@@ -57,6 +57,11 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
 }
 
 /**
+ * @defgroup transpose Matrix transpose
+ * @{
+ */
+
+/**
  * @brief Transpose a matrix. The output has same layout policy as the input.
  *
  * @tparam T Data type of input matrix element.
@@ -94,6 +99,9 @@ auto transpose(handle_t const& handle,
     }
   }
 }
+
+/** @} */  // end of group transpose
+
 };  // end namespace linalg
 };  // end namespace raft
 

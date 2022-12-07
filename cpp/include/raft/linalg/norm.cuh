@@ -89,6 +89,11 @@ void colNorm(Type* dots,
 }
 
 /**
+ * @defgroup norm Row- or Col-norm computation
+ * @{
+ */
+
+/**
  * @brief Compute norm of the input matrix and perform fin_op
  * @tparam ElementType Input/Output data type
  * @tparam LayoutPolicy the layout of input (raft::row_major or raft::col_major)
@@ -142,6 +147,8 @@ void norm(const raft::handle_t& handle,
             fin_op);
   }
 }
+
+/** @} */
 
 };  // end namespace linalg
 };  // end namespace raft

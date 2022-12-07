@@ -21,6 +21,11 @@
 namespace raft::stats {
 
 /**
+ * @ingroup stats_histogram
+ * @{
+ */
+
+/**
  * @brief Types of support histogram implementations
  */
 enum HistType {
@@ -54,9 +59,18 @@ enum HistType {
   HistTypeAuto
 };
 
+/** @} */
+
+/**
+ * @ingroup stats_information_criterion
+ * @{
+ */
+
 /**
  * @brief Supported types of information criteria
  */
 enum IC_Type { AIC, AICc, BIC };
+
+/** @} */
 
 };  // end namespace raft::stats

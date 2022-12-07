@@ -21,6 +21,11 @@
 namespace raft::random {
 
 /**
+ * @defgroup rmat RMAT Rectangular Generator
+ * @{
+ */
+
+/**
  * @brief Generate a bipartite RMAT graph for a rectangular adjacency matrix.
  *
  * This is the most general of several overloads of `rmat_rectangular_gen`
@@ -211,6 +216,8 @@ void rmat_rectangular_gen(
   detail::rmat_rectangular_gen_output<IdxT> output(out);
   detail::rmat_rectangular_gen_impl(handle, r, output, a, b, c, r_scale, c_scale);
 }
+
+/** @} */  // end group rmat
 
 /**
  * @brief Legacy overload of `rmat_rectangular_gen`

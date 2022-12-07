@@ -49,6 +49,11 @@ double homogeneity_score(const T* truthClusterArray,
 }
 
 /**
+ * @defgroup stats_homogeneity_score Homogeneity Score
+ * @{
+ */
+
+/**
  * @brief Function to calculate the homogeneity score between two clusters
  * <a href="https://en.wikipedia.org/wiki/Homogeneity_(statistics)">more info on mutual
  * information</a>
@@ -79,6 +84,9 @@ double homogeneity_score(const raft::handle_t& handle,
                                    upper_label_range,
                                    handle.get_stream());
 }
+
+/** @} */  // end group stats_homogeneity_score
+
 };  // end namespace stats
 };  // end namespace raft
 

@@ -25,6 +25,11 @@ namespace raft {
 namespace linalg {
 
 /**
+ * @defgroup norm Row- or Col-norm computation
+ * @{
+ */
+
+/**
  * @brief Divide rows by their norm defined by main_op, reduce_op and fin_op
  *
  * @tparam ElementType Input/Output data type
@@ -109,6 +114,8 @@ void row_normalize(const raft::handle_t& handle,
     default: THROW("Unsupported norm type: %d", norm_type);
   }
 }
+
+/** @} */
 
 }  // namespace linalg
 }  // namespace raft

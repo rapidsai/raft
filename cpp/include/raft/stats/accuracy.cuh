@@ -41,6 +41,11 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
 }
 
 /**
+ * @defgroup stats_accuracy Accuracy Score
+ * @{
+ */
+
+/**
  * @brief Compute accuracy of predictions. Useful for classification.
  * @tparam value_t: data type for predictions (e.g., int for classification)
  * @tparam idx_t Index type of matrix extent.
@@ -63,6 +68,9 @@ float accuracy(const raft::handle_t& handle,
                                 predictions.extent(0),
                                 handle.get_stream());
 }
+
+/** @} */  // end group stats_accuracy
+
 }  // namespace stats
 }  // namespace raft
 
