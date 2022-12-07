@@ -3,11 +3,11 @@
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
-{% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
-{% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
-{% set cuda_major=cuda_version.split('.')[0] %}
-{% set py_version=environ.get('CONDA_PY', 36) %}
-{% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
+{% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
+{% set cuda_version = '.'.join(environ.get('RAPIDS_CUDA_VERSION', '11.5.2').split('.')[:2]) %}
+{% set cuda_major = cuda_version.split('.')[0] %}
+{% set py_version = environ.get('CONDA_PY', 38) %}
+{% set ucx_py_version = environ.get('UCX_PY_VERSION') %}
 
 package:
   name: raft-dask
@@ -24,10 +24,11 @@ build:
 
 requirements:
   build:
-    - cmake {{ cmake_version }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ compiler('cuda') }} {{ cuda_version }}
+    - cmake {{ cmake_version }}
+    - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - python x.x
@@ -64,7 +65,7 @@ tests:                                 # [linux64]
     - raft_dask                        # [linux64]
 
 about:
-  home: http://rapids.ai/
+  home: https://rapids.ai/
   license: Apache-2.0
   # license_file: LICENSE
   summary: raft-dask library

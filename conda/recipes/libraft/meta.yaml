@@ -23,7 +23,6 @@ outputs:
       script_env: &script_env
         - PARALLEL_LEVEL
         - VERSION_SUFFIX
-        - PROJECT_FLASH
         - CMAKE_GENERATOR
         - CMAKE_C_COMPILER_LAUNCHER
         - CMAKE_CXX_COMPILER_LAUNCHER
@@ -33,6 +32,8 @@ outputs:
         - SCCACHE_BUCKET
         - SCCACHE_REGION
         - SCCACHE_IDLE_TIMEOUT
+        - AWS_ACCESS_KEY_ID
+        - AWS_SECRET_ACCESS_KEY
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
@@ -42,8 +43,9 @@ outputs:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         - {{ compiler('cuda') }} {{ cuda_version }}
-        - sysroot_{{ target_platform }} {{ sysroot_version }}
         - cmake {{ cmake_version }}
+        - ninja
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
         - libcusolver {{ libcusolver_version }}
@@ -61,7 +63,7 @@ outputs:
         - ucx-proc=*=gpu
         - ucx-py {{ ucx_py_version }}
     about:
-      home: http://rapids.ai/
+      home: https://rapids.ai/
       license: Apache-2.0
       summary: libraft-headers library
   - name: libraft-distance
@@ -97,7 +99,7 @@ outputs:
         - libcusparse {{ libcusparse_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
-      home: http://rapids.ai/
+      home: https://rapids.ai/
       license: Apache-2.0
       summary: libraft-distance library
   - name: libraft-nn
@@ -132,7 +134,7 @@ outputs:
         - librmm {{ minor_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
-      home: http://rapids.ai/
+      home: https://rapids.ai/
       license: Apache-2.0
       summary: libraft-nn library
   - name: libraft-tests
@@ -168,6 +170,6 @@ outputs:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_subpackage('libraft-nn', exact=True) }}
     about:
-      home: http://rapids.ai/
+      home: https://rapids.ai/
       license: Apache-2.0
       summary: libraft tests
