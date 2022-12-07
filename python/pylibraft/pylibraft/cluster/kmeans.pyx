@@ -46,12 +46,6 @@ from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport handle_t
 
 
-def is_c_cont(cai, dt):
-    return "strides" not in cai or \
-        cai["strides"] is None or \
-        cai["strides"][1] == dt.itemsize
-
-
 @auto_sync_handle
 def compute_new_centroids(X,
                           centroids,
@@ -62,9 +56,6 @@ def compute_new_centroids(X,
                           handle=None):
     """
     Compute new centroids given an input matrix and existing centroids
-
-    Valid values for metric:
-        ["euclidean", "sqeuclidean"]
 
     Parameters
     ----------
@@ -167,9 +158,9 @@ def compute_new_centroids(X,
     handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
-    x_c_contiguous = is_c_cont(x_cai, x_dt)
-    centroids_c_contiguous = is_c_cont(centroids_cai, centroids_dt)
-    new_centroids_c_contiguous = is_c_cont(new_centroids_cai, new_centroids_dt)
+    x_c_contiguous = is_c_contiguous(x_cai)
+    centroids_c_contiguous = is_c_contiguous(centroids_cai)
+    new_centroids_c_contiguous = is_c_contiguous(new_centroids_cai)
 
     if not x_c_contiguous or not centroids_c_contiguous \
             or not new_centroids_c_contiguous:
@@ -258,8 +249,8 @@ def cluster_cost(X, centroids, handle=None):
     handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
-    x_c_contiguous = is_c_cont(x_cai, x_dt)
-    centroids_c_contiguous = is_c_cont(centroids_cai, centroids_dt)
+    x_c_contiguous = is_c_contiguous(x_cai)
+    centroids_c_contiguous = is_c_contiguous(centroids_cai)
 
     if not x_c_contiguous or not centroids_c_contiguous:
         raise ValueError("Inputs must all be c contiguous")
