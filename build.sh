@@ -29,6 +29,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    docs             - build the documentation
    tests            - build the tests
    bench            - build the benchmarks
+   uninstall        - uninstall any files from a previous installation
 
  and <flag> is:
    -v                          - verbose build mode
@@ -288,7 +289,28 @@ if hasArg clean; then
 fi
 if hasArg uninstall; then
     UNINSTALL=1
+
+    # If clean or uninstall targets given, run them prior to any other steps
+    if [[ "$INSTALL_PREFIX" != "" ]]; then
+        rm -rf ${INSTALL_PREFIX}/include/raft
+        rm -rf ${INSTALL_PREFIX}/include/raft_runtime
+        rm -f ${INSTALL_PREFIX}/lib/libraft_distance.so
+        rm -f ${INSTALL_PREFIX}/lib/libraft_nn.so
+        rm -rf ${INSTALL_PREFIX}/lib/cmake/raft
+    fi
+    # This may be redundant given the above, but can also be used in case
+    # there are other installed files outside of the locations above.
+    if [ -e ${LIBRAFT_BUILD_DIR}/install_manifest.txt ]; then
+        xargs rm -f < ${LIBRAFT_BUILD_DIR}/install_manifest.txt > /dev/null 2>&1
+    fi
+    # uninstall raft-dask and pylibraft installed from a prior "setup.py install"
+    # FIXME: if multiple versions of these packages are installed, this only
+    # removes the latest one and leaves the others installed. build.sh uninstall
+    # can be run multiple times to remove all of them, but that is not obvious.
+    pip uninstall -y raft-dask pylibraft
 fi
+
+
 
 if [[ ${CMAKE_TARGET} == "" ]]; then
     CMAKE_TARGET="all"
