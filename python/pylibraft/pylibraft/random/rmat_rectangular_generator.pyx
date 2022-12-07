@@ -98,24 +98,24 @@ def rmat(out, theta, r_scale, c_scale, seed=12345, handle=None):
     --------
 
     >>> import cupy as cp
-    >>>
+
     >>> from pylibraft.common import Handle
     >>> from pylibraft.random import rmat
-    >>>
+
     >>> n_edges = 5000
     >>> r_scale = 16
     >>> c_scale = 14
     >>> theta_len = max(r_scale, c_scale) * 4
-    >>>
+
     >>> out = cp.empty((n_edges, 2), dtype=cp.int32)
     >>> theta = cp.random.random_sample(theta_len, dtype=cp.float32)
-    >>>
+
     >>> # A single RAFT handle can optionally be reused across
     >>> # pylibraft functions.
     >>> handle = Handle()
-    >>> ...
+
     >>> rmat(out, theta, r_scale, c_scale, handle=handle)
-    >>> ...
+
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
