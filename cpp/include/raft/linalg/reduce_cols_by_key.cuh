@@ -78,7 +78,7 @@ void reduce_cols_by_key(const T* data,
  * monotonically increasing keys array.
  * @param[out] out the output reduced raft::device_matrix_view along columns (dim = nrows x nkeys).
  * This will be assumed to be in row-major layout
- * @param[in] nkeys Number of unique keys in the keys array. By default, infered from the number of
+ * @param[in] nkeys Number of unique keys in the keys array. By default, inferred from the number of
  * columns of out
  * @param[in] reset_sums  Whether to reset the output sums to zero before reducing
  */
