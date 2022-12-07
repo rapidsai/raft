@@ -601,7 +601,6 @@ def search(SearchParams search_params,
     Examples
     --------
     >>> import cupy as cp
-    >>> import numpy as np
 
     >>> from pylibraft.common import Handle
     >>> from pylibraft.neighbors import ivf_pq
@@ -622,8 +621,8 @@ def search(SearchParams search_params,
     >>> k = 10
     >>> search_params = ivf_pq.SearchParams(
     ...     n_probes=20,
-    ...     lut_dtype=np.float16,
-    ...     internal_distance_dtype=np.float32
+    ...     lut_dtype=cp.float16,
+    ...     internal_distance_dtype=cp.float32
     ... )
 
     >>> # Using a pooling allocator reduces overhead of temporary array
