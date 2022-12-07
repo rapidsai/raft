@@ -27,7 +27,7 @@ from libcpp cimport nullptr
 from collections import namedtuple
 from enum import IntEnum
 
-from pylibraft.common import Handle, cai_wrapper
+from pylibraft.common import Handle, cai_wrapper, device_ndarray
 from pylibraft.common.handle import auto_sync_handle
 
 from pylibraft.common.handle cimport handle_t
@@ -81,33 +81,33 @@ def compute_new_centroids(X,
     --------
 
     >>> import cupy as cp
-    >>>
+
     >>> from pylibraft.common import Handle
     >>> from pylibraft.cluster.kmeans import compute_new_centroids
-    >>>
+
     >>> # A single RAFT handle can optionally be reused across
     >>> # pylibraft functions.
     >>> handle = Handle()
-    >>>
+
     >>> n_samples = 5000
     >>> n_features = 50
     >>> n_clusters = 3
-    >>>
+
     >>> X = cp.random.random_sample((n_samples, n_features),
-    >>>                               dtype=cp.float32)
-    >>>
+    ...                               dtype=cp.float32)
+
     >>> centroids = cp.random.random_sample((n_clusters, n_features),
-    >>>                                         dtype=cp.float32)
-    >>>
+    ...                                         dtype=cp.float32)
+    ...
     >>> labels = cp.random.randint(0, high=n_clusters, size=n_samples,
-    >>>                            dtype=cp.int32)
-    >>>
+    ...                            dtype=cp.int32)
+
     >>> new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
-    >>>
+
     >>> compute_new_centroids(
-    >>>     X, centroids, labels, new_centroids, handle=handle
-    >>> )
-    >>>
+    ...     X, centroids, labels, new_centroids, handle=handle
+    ... )
+
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
@@ -211,22 +211,21 @@ def cluster_cost(X, centroids, handle=None):
     Examples
     --------
 
-    .. code-block:: python
-        import cupy as cp
+    >>> import cupy as cp
+    >>>
+    >>> from pylibraft.cluster.kmeans import cluster_cost
+    >>>
+    >>> n_samples = 5000
+    >>> n_features = 50
+    >>> n_clusters = 3
+    >>>
+    >>> X = cp.random.random_sample((n_samples, n_features),
+    ...                             dtype=cp.float32)
 
-        from pylibraft.cluster.kmeans import cluster_cost
+    >>> centroids = cp.random.random_sample((n_clusters, n_features),
+    ...                                      dtype=cp.float32)
 
-        n_samples = 5000
-        n_features = 50
-        n_clusters = 3
-
-        X = cp.random.random_sample((n_samples, n_features),
-                                      dtype=cp.float32)
-
-        centroids = cp.random.random_sample((n_clusters, n_features),
-                                                dtype=cp.float32)
-
-        inertia = cluster_cost(X, centroids)
+    >>> inertia = cluster_cost(X, centroids)
     """
     x_cai = X.__cuda_array_interface__
     centroids_cai = centroids.__cuda_array_interface__
@@ -434,21 +433,19 @@ def fit(
     Examples
     --------
 
-    .. code-block:: python
+    >>> import cupy as cp
+    >>>
+    >>> from pylibraft.cluster.kmeans import fit, KMeansParams
+    >>>
+    >>> n_samples = 5000
+    >>> n_features = 50
+    >>> n_clusters = 3
+    >>>
+    >>> X = cp.random.random_sample((n_samples, n_features),
+    ...                             dtype=cp.float32)
 
-        import cupy as cp
-
-        from pylibraft.cluster.kmeans import fit, KMeansParams
-
-        n_samples = 5000
-        n_features = 50
-        n_clusters = 3
-
-        X = cp.random.random_sample((n_samples, n_features),
-                                      dtype=cp.float32)
-
-        params = KMeansParams(n_clusters=n_clusters)
-        centroids, inertia, n_iter = fit(params, X)
+    >>> params = KMeansParams(n_clusters=n_clusters)
+    >>> centroids, inertia, n_iter = fit(params, X)
     """
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 

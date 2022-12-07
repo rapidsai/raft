@@ -124,9 +124,9 @@ def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
     >>> n_samples = 5000
     >>> n_features = 50
     >>> in1 = cp.random.random_sample((n_samples, n_features),
-    >>>                               dtype=cp.float32)
+    ...                               dtype=cp.float32)
     >>> in2 = cp.random.random_sample((n_samples, n_features),
-    >>>                               dtype=cp.float32)
+    ...                               dtype=cp.float32)
 
     A single RAFT handle can optionally be reused across
     pylibraft functions.
@@ -147,9 +147,9 @@ def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
     >>> n_samples = 5000
     >>> n_features = 50
     >>> in1 = cp.random.random_sample((n_samples, n_features),
-    >>>                              dtype=cp.float32)
+    ...                              dtype=cp.float32)
     >>> in2 = cp.random.random_sample((n_samples, n_features),
-    >>>                              dtype=cp.float32)
+    ...                              dtype=cp.float32)
     >>> output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
     A single RAFT handle can optionally be reused across
@@ -158,7 +158,8 @@ def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
     >>>
     >>> handle = Handle()
     >>> pairwise_distance(in1, in2, out=output,
-    >>>                  metric="euclidean", handle=handle)
+    ...                  metric="euclidean", handle=handle)
+    array(...)
 
     pylibraft functions are often asynchronous so the
     handle needs to be explicitly synchronized

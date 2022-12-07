@@ -80,15 +80,15 @@ def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
     >>> n_clusters = 5
     >>> n_features = 50
     >>> in1 = cp.random.random_sample((n_samples, n_features),
-    >>>                               dtype=cp.float32)
+    ...                               dtype=cp.float32)
     >>> in2 = cp.random.random_sample((n_clusters, n_features),
-    >>>                               dtype=cp.float32)
+    ...                               dtype=cp.float32)
     >>> # A single RAFT handle can optionally be reused across
     >>> # pylibraft functions.
     >>> handle = Handle()
-    >>> ...
-    >>> output = fused_l2_nn_argmin(in1, in2, output, handle=handle)
-    >>> ...
+
+    >>> output = fused_l2_nn_argmin(in1, in2, handle=handle)
+
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
@@ -103,20 +103,20 @@ def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
     >>> n_clusters = 5
     >>> n_features = 50
     >>> in1 = cp.random.random_sample((n_samples, n_features),
-    >>>                               dtype=cp.float32)
+    ...                               dtype=cp.float32)
     >>> in2 = cp.random.random_sample((n_clusters, n_features),
-    >>>                               dtype=cp.float32)
+    ...                               dtype=cp.float32)
     >>> output = cp.empty((n_samples, 1), dtype=cp.int32)
     >>> # A single RAFT handle can optionally be reused across
     >>> # pylibraft functions.
     >>> handle = Handle()
-    >>> ...
+
     >>> fused_l2_nn_argmin(in1, in2, out=output, handle=handle)
-    >>> ...
+    array(...)
+
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
-
    """
 
     x_cai = cai_wrapper(X)
