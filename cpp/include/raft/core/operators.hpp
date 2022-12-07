@@ -205,55 +205,55 @@ struct const_op {
 };
 
 /**
- * @brief Wraps around a binary operator, passing a given scalar on the right-hand side.
+ * @brief Wraps around a binary operator, passing a constant on the right-hand side.
  *
  * Usage example:
  * @code{.cpp}
  *  #include <raft/core/operators.hpp>
  *
- *  raft::scalar_op<float, raft::mul_op> op(2.0f);
+ *  raft::plug_const_op<float, raft::mul_op> op(2.0f);
  *  std::cout << op(2.1f) << std::endl;  // 4.2
  * @endcode
  *
- * @tparam ScalarT
+ * @tparam ConstT
  * @tparam BinaryOpT
  */
-template <typename ScalarT, typename BinaryOpT>
-struct scalar_op {
-  const ScalarT scalar;
+template <typename ConstT, typename BinaryOpT>
+struct plug_const_op {
+  const ConstT c;
   const BinaryOpT composed_op;
 
   template <typename OpT     = BinaryOpT,
             typename UnusedT = std::enable_if_t<std::is_default_constructible_v<OpT>>>
-  constexpr explicit scalar_op(const ScalarT& s) : scalar{s}, composed_op{}
+  constexpr explicit plug_const_op(const ConstT& s) : c{s}, composed_op{}
   {
   }
-  constexpr scalar_op(const ScalarT& s, BinaryOpT o) : scalar{s}, composed_op{o} {}
+  constexpr plug_const_op(const ConstT& s, BinaryOpT o) : c{s}, composed_op{o} {}
 
   template <typename InT>
   constexpr RAFT_INLINE_FUNCTION auto operator()(InT a) const
   {
-    return composed_op(a, scalar);
+    return composed_op(a, c);
   }
 };
 
 template <typename Type>
-using scalar_add_op = scalar_op<Type, add_op>;
+using add_const_op = plug_const_op<Type, add_op>;
 
 template <typename Type>
-using scalar_sub_op = scalar_op<Type, sub_op>;
+using sub_const_op = plug_const_op<Type, sub_op>;
 
 template <typename Type>
-using scalar_mul_op = scalar_op<Type, mul_op>;
+using mul_const_op = plug_const_op<Type, mul_op>;
 
 template <typename Type>
-using scalar_div_op = scalar_op<Type, div_op>;
+using div_const_op = plug_const_op<Type, div_op>;
 
 template <typename Type>
-using scalar_div_checkzero_op = scalar_op<Type, div_checkzero_op>;
+using div_checkzero_const_op = plug_const_op<Type, div_checkzero_op>;
 
 template <typename Type>
-using scalar_pow_op = scalar_op<Type, pow_op>;
+using pow_const_op = plug_const_op<Type, pow_op>;
 
 /**
  * @brief Constructs an operator by composing a chain of operators.
@@ -265,7 +265,7 @@ using scalar_pow_op = scalar_op<Type, pow_op>;
  *  #include <raft/core/operators.hpp>
  *
  *  auto op = raft::compose_op(raft::sqrt_op(), raft::abs_op(), raft::cast_op<float>(),
- *                             raft::scalar_add_op<int>(8));
+ *                             raft::add_const_op<int>(8));
  *  std::cout << op(-50) << std::endl;  // 6.48074
  * @endcode
  *

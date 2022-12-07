@@ -74,7 +74,7 @@ void csr_row_slice_indptr(value_idx start_row,
   raft::linalg::unaryOp<value_idx>(indptr_out,
                                    indptr_out,
                                    (stop_row + 2) - start_row,
-                                   raft::scalar_sub_op<value_idx>(s_offset),
+                                   raft::sub_const_op<value_idx>(s_offset),
                                    stream);
 }
 

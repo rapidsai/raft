@@ -198,7 +198,7 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
     raft::linalg::unaryOp<value_t>(out_dists,
                                    out_dists,
                                    config_->a_nrows * config_->b_nrows,
-                                   raft::scalar_pow_op<value_t>(one_over_p),
+                                   raft::pow_const_op<value_t>(one_over_p),
                                    config_->handle.get_stream());
   }
 
@@ -223,7 +223,7 @@ class hamming_unexpanded_distances_t : public distances_t<value_t> {
     raft::linalg::unaryOp<value_t>(out_dists,
                                    out_dists,
                                    config_->a_nrows * config_->b_nrows,
-                                   raft::scalar_mul_op<value_t>(n_cols),
+                                   raft::mul_const_op<value_t>(n_cols),
                                    config_->handle.get_stream());
   }
 
@@ -304,7 +304,7 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
     raft::linalg::unaryOp<value_t>(out_dists,
                                    out_dists,
                                    config_->a_nrows * config_->b_nrows,
-                                   raft::scalar_mul_op<value_t>(0.5),
+                                   raft::mul_const_op<value_t>(0.5),
                                    config_->handle.get_stream());
   }
 

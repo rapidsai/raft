@@ -27,13 +27,13 @@ namespace detail {
 template <typename InType, typename IdxType, typename OutType = InType>
 void scalarAdd(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, raft::scalar_add_op<InType>(scalar), stream);
+  raft::linalg::unaryOp(out, in, len, raft::add_const_op<InType>(scalar), stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
 void scalarMultiply(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, raft::scalar_mul_op<InType>(scalar), stream);
+  raft::linalg::unaryOp(out, in, len, raft::mul_const_op<InType>(scalar), stream);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>

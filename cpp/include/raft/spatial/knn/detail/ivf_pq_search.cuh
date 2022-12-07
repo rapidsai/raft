@@ -422,7 +422,7 @@ void postprocess_distances(float* out,        // [n_queries, topk]
       linalg::unaryOp(out,
                       in,
                       len,
-                      raft::compose_op(raft::scalar_mul_op<float>{scaling_factor * scaling_factor},
+                      raft::compose_op(raft::mul_const_op<float>{scaling_factor * scaling_factor},
                                        raft::cast_op<float>{}),
                       stream);
     } break;
@@ -433,14 +433,14 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         in,
         len,
         raft::compose_op{
-          raft::scalar_mul_op<float>{scaling_factor}, raft::sqrt_op{}, raft::cast_op<float>{}},
+          raft::mul_const_op<float>{scaling_factor}, raft::sqrt_op{}, raft::cast_op<float>{}},
         stream);
     } break;
     case distance::DistanceType::InnerProduct: {
       linalg::unaryOp(out,
                       in,
                       len,
-                      raft::compose_op(raft::scalar_mul_op<float>{-scaling_factor * scaling_factor},
+                      raft::compose_op(raft::mul_const_op<float>{-scaling_factor * scaling_factor},
                                        raft::cast_op<float>{}),
                       stream);
     } break;

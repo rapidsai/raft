@@ -41,7 +41,7 @@ namespace linalg {
 template <typename in_t, typename out_t = in_t, typename IdxType = int>
 void powerScalar(out_t* out, const in_t* in, const in_t scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, raft::scalar_pow_op<in_t>(scalar), stream);
+  raft::linalg::unaryOp(out, in, len, raft::pow_const_op<in_t>(scalar), stream);
 }
 /** @} */
 

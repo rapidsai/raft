@@ -160,7 +160,7 @@ void checkWeight(const raft::handle_t& handle,
     raft::linalg::unaryOp(weight.data_handle(),
                           weight.data_handle(),
                           n_samples,
-                          raft::scalar_mul_op<DataT>{scale},
+                          raft::mul_const_op<DataT>{scale},
                           stream);
   }
 }

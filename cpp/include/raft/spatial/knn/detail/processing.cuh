@@ -110,7 +110,7 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
     raft::linalg::unaryOp(means_.data(),
                           means_.data(),
                           cosine::n_rows_,
-                          raft::scalar_mul_op<math_t>(normalizer_const),
+                          raft::mul_const_op<math_t>(normalizer_const),
                           cosine::stream_);
 
     raft::stats::meanCenter(data,

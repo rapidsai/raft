@@ -28,7 +28,7 @@ namespace detail {
 template <typename InT, typename OutT = InT, typename IdxType = int>
 void addScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, raft::scalar_add_op<InT>(scalar), stream);
+  raft::linalg::unaryOp(out, in, len, raft::add_const_op<InT>(scalar), stream);
 }
 
 template <typename InT, typename OutT = InT, typename IdxType = int>
