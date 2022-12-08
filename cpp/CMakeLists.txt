@@ -641,18 +641,24 @@ endif()
 ]=]
 )
 
-# Use `rapids_export` for 22.04 as it will have COMPONENT support
-include(cmake/modules/raft_export.cmake)
-raft_export(
-  INSTALL raft COMPONENTS nn distance distributed EXPORT_SET raft-exports GLOBAL_TARGETS raft nn
-  distance distributed NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
+rapids_export(
+  INSTALL raft COMPONENTS nn distance distributed
+  EXPORT_SET raft-exports
+  GLOBAL_TARGETS raft nn distance distributed
+  NAMESPACE raft::
+  DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
 # * build export -------------------------------------------------------------
-raft_export(
-  BUILD raft EXPORT_SET raft-exports COMPONENTS nn distance distributed GLOBAL_TARGETS raft
-  distance distributed nn DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
+rapids_export(
+  BUILD raft
+  EXPORT_SET raft-exports COMPONENTS nn distance distributed
+  GLOBAL_TARGETS raft distance distributed nn
+  DOCUMENTATION doc_string
+  NAMESPACE raft::
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################

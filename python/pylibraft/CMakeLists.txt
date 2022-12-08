@@ -37,13 +37,10 @@ option(RAFT_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
   find_package(raft ${pylibraft_version} REQUIRED COMPONENTS distance)
-  if(NOT TARGET raft::raft_distance_lib)
-    message(
-      FATAL_ERROR
-        "Building against a preexisting libraft library requires the distance components of that library to have been built!"
-    )
-
-  endif()
+  # if(NOT TARGET raft::raft_distance_lib) message( FATAL_ERROR "Building against a preexisting
+  # libraft library requires the distance components of that library to have been built!" )
+  #
+  # endif()
 else()
   set(raft_FOUND OFF)
 endif()
