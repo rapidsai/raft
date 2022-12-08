@@ -1,5 +1,18 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools</div>
 
+[![Build Status](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/raft/job/branches/job/raft-branch-pipeline/badge/icon)](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/raft/job/branches/job/raft-branch-pipeline/)
+
+## Resources
+
+- [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
+- [RAFT Getting Started](./docs/source/quick_start.md): Getting started with RAFT.
+- [Build and Install RAFT](./docs/source/build.md): Instructions for installing and building RAFT.
+- [RAPIDS Community](https://rapids.ai/community.html): Get help, contribute, and collaborate.
+- [GitHub repository](https://github.com/rapidsai/raft): Download the RAFT source code.
+- [Issue tracker](https://github.com/rapidsai/raft/issues): Report issues or request features.
+
+## Overview
+
 RAFT contains fundamental widely-used algorithms and primitives for data science and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
 
 By taking a primitives-based approach to algorithm development, RAFT 
@@ -12,19 +25,20 @@ While not exhaustive, the following general categories help summarize the accele
 | Category | Examples |
 | --- | --- |
 | **Data Formats** | sparse & dense, conversions, data generation |
-| **Dense Linear Algebra** | matrix arithmetic, norms, factorization, least squares, svd & eigenvalue problems |
+| **Dense Operations** | linear algebra, matrix and vector operations, slicing, norms, factorization, least squares, svd & eigenvalue problems |
+| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, components & labeling |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
-| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, labeling |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
 | **Solvers** | combinatorial optimization, iterative solvers |
 | **Statistics** | sampling, moments and summary statistics, metrics |
-| **Distributed Tools** | multi-node multi-gpu infrastructure |
+| **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure |
 
-RAFT provides a header-only C++ library and pre-compiled shared libraries that can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
 
-RAFT also provides 2 Python libraries:
-- `pylibraft` - low-level Python wrappers around RAFT algorithms and primitives.
-- `raft-dask` - reusable infrastructure for building analytics, including tools for building both single-GPU and multi-node multi-GPU algorithms.
+All of RAFT's C++ APIs can be accessed header-only and optional pre-compiled shared libraries can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
+
+In addition to the C++ library, RAFT also provides 2 Python libraries:
+- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessible APIs.
+- `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
 
 ## Getting started
 
@@ -76,11 +90,73 @@ auto metric = raft::distance::DistanceType::L2SqrtExpanded;
 raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
 ```
 
+It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information:
+
+```c++
+#include <raft/core/handle.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/random/make_blobs.cuh>
+#include <raft/distance/distance.cuh>
+
+raft::handle_t handle;
+
+int n_samples = 5000;
+int n_features = 50;
+
+float *input;
+int *labels;
+float *output;
+
+...
+// Allocate input, labels, and output pointers
+...
+
+auto input_view = raft::make_device_matrix_view(input, n_samples, n_features);
+auto labels_view = raft::make_device_vector_view(labels, n_samples);
+auto output_view = raft::make_device_matrix_view(output, n_samples, n_samples);
+
+raft::random::make_blobs(handle, input_view, labels_view);
+
+auto metric = raft::distance::DistanceType::L2SqrtExpanded;
+raft::distance::pairwise_distance(handle, input_view, input_view, output_view, metric);
+```
+
+
 ### Python Example
 
-The `pylibraft` package contains a Python API for RAFT algorithms and primitives. The package is currently limited to pairwise distances, and we will continue adding more.
+The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The number of RAFT algorithms exposed in this package is continuing to grow from release to release.
 
-The example below demonstrates computing the pairwise Euclidean distances between cupy arrays. `pylibraft` is a low-level API that prioritizes efficiency and simplicity over being pythonic, which is shown here by pre-allocating the output memory before invoking the `pairwise_distance` function.
+The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. Note that CuPy is not a required dependency for `pylibraft`.
+
+```python
+import cupy as cp
+
+from pylibraft.distance import pairwise_distance
+
+n_samples = 5000
+n_features = 50
+
+in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+
+output = pairwise_distance(in1, in2, metric="euclidean")
+```
+
+The `output` array supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) so it is interoperable with other libraries like CuPy, Numba, and PyTorch that also support it. 
+
+Below is an example of converting the output `pylibraft.device_ndarray` to a CuPy array:
+```python
+cupy_array = cp.asarray(output)
+```
+
+And converting to a PyTorch tensor:
+```python
+import torch
+
+torch_tensor = torch.as_tensor(output, device='cuda')
+```
+
+`pylibraft` also supports writing to a pre-allocated output array so any `__cuda_array_interface__` supported array can be written to in-place:
 
 ```python
 import cupy as cp
@@ -94,12 +170,13 @@ in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 output = cp.empty((n_samples, n_samples), dtype=cp.float32)
 
-pairwise_distance(in1, in2, output, metric="euclidean")
+pairwise_distance(in1, in2, out=output, metric="euclidean")
 ```
+
 
 ## Installing
 
-RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), or by building the repository from source. Please refer to the [build instructions](BUILD.md) for more a comprehensive guide on building RAFT and using it in downstream projects.
+RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), pip, or by building the repository from source. Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on building RAFT and using it in downstream projects.
 
 ### Conda
 
@@ -107,7 +184,7 @@ The easiest way to install RAFT is through conda and several packages are provid
 - `libraft-headers` RAFT headers
 - `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
 - `libraft-distance` (optional) contains shared libraries for distance primitives.
-- `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives
+- `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives.
 - `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
 
 Use the following command to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
@@ -119,7 +196,15 @@ You can also install the `libraft-*` conda packages individually using the `mamb
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
 
-### CPM
+### Pip
+
+pylibraft and raft-dask both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
+```bash
+pip install pylibraft-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+pip install raft-dask-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+```
+
+### Cmake & CPM
 
 RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS CMake provides a convenience layer around CPM. 
 
@@ -127,7 +212,7 @@ After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids
 
 ```cmake
 
-set(RAFT_VERSION "22.04")
+set(RAFT_VERSION "22.12")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
@@ -186,7 +271,7 @@ mamba activate raft_dev_env
 ./build.sh raft-dask pylibraft libraft tests bench --compile-libs
 ```
 
-The [build](BUILD.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](BUILD.md#build_cxx_source) section of the build instructions.
+The [build](docs/source/build.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](docs/source/build.md#building-raft-c-from-source-in-cmake) section of the build instructions.
 
 ## Folder Structure and Contents
 
@@ -198,11 +283,29 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
   - `bench`: Benchmarks source code
   - `cmake`: Cmake modules and templates
   - `doxygen`: Doxygen configuration
-  - `include`: The C++ API headers are fully-contained here
+  - `include`: The C++ API headers are fully-contained here (deprecated directories are excluded from the listing below)
+    - `cluster`: Basic clustering primitives and algorithms.
+    - `comms`: A multi-node multi-GPU communications abstraction layer for NCCL+UCX and MPI+NCCL, which can be deployed in Dask clusters using the `raft-dask` Python package.
+    - `core`: Core API headers which require minimal dependencies aside from RMM and Cudatoolkit. These are safe to expose on public APIs and do not require `nvcc` to build. This is the same for any headers in RAFT which have the suffix `*_types.hpp`. 
+    - `distance`: Distance primitives
+    - `linalg`: Dense linear algebra
+    - `matrix`: Dense matrix operations
+    - `neighbors`: Nearest neighbors and knn graph construction
+    - `random`: Random number generation, sampling, and data generation primitives
+    - `solver`: Iterative and combinatorial solvers for optimization and approximation
+    - `sparse`: Sparse matrix operations
+      - `convert`: Sparse conversion functions
+      - `distance`: Sparse distance computations
+      - `linalg`: Sparse linear algebra
+      - `neighbors`: Sparse nearest neighbors and knn graph construction
+      - `op`: Various sparse operations such as slicing and filtering (Note: this will soon be renamed to `sparse/matrix`)
+      - `solver`: Sparse solvers for optimization and approximation
+    - `stats`: Moments, summary statistics, model performance measures
+    - `util`: Various reusable tools and utilities for accelerated algorithm development
   - `scripts`: Helpful scripts for development
   - `src`: Compiled APIs and template specializations for the shared libraries
   - `test`: Googletests source code
-- `docs`: Source code and scripts for building library documentation (doxygen + pydocs)
+- `docs`: Source code and scripts for building library documentation (Uses breath, doxygen, & pydocs)
 - `python`: Source code for Python libraries.
   - `pylibraft`: Python build and source code for pylibraft library
   - `raft-dask`: Python build and source code for raft-dask library
@@ -210,7 +313,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
 
 ## Contributing
 
-If you are interested in contributing to the RAFT project, please read our [Contributing guidelines](CONTRIBUTING.md). Refer to the [Developer Guide](DEVELOPER_GUIDE.md) for details on the developer guidelines, workflows, and principals. 
+If you are interested in contributing to the RAFT project, please read our [Contributing guidelines](docs/source/contributing.md). Refer to the [Developer Guide](docs/source/developer_guide.md) for details on the developer guidelines, workflows, and principals. 
 
 ## References
 

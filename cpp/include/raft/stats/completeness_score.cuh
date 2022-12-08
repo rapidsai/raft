@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/detail/homogeneity_score.cuh>
 
 namespace raft {
@@ -30,20 +31,50 @@ namespace stats {
  * @param truthClusterArray: the array of truth classes of type T
  * @param predClusterArray: the array of predicted classes of type T
  * @param size: the size of the data points of type int
- * @param lowerLabelRange: the lower bound of the range of labels
- * @param upperLabelRange: the upper bound of the range of labels
+ * @param lower_label_range: the lower bound of the range of labels
+ * @param upper_label_range: the upper bound of the range of labels
  * @param stream: the cudaStream object
  */
 template <typename T>
 double completeness_score(const T* truthClusterArray,
                           const T* predClusterArray,
                           int size,
-                          T lowerLabelRange,
-                          T upperLabelRange,
+                          T lower_label_range,
+                          T upper_label_range,
                           cudaStream_t stream)
 {
   return detail::homogeneity_score(
-    predClusterArray, truthClusterArray, size, lowerLabelRange, upperLabelRange, stream);
+    predClusterArray, truthClusterArray, size, lower_label_range, upper_label_range, stream);
+}
+
+/**
+ * @brief Function to calculate the completeness score between two clusters
+ *
+ * @tparam value_t the data type
+ * @tparam idx_t Index type of matrix extent.
+ * @param[in] handle: the raft handle.
+ * @param[in] truth_cluster_array: the array of truth classes of type value_t
+ * @param[in] pred_cluster_array: the array of predicted classes of type value_t
+ * @param[in] lower_label_range: the lower bound of the range of labels
+ * @param[in] upper_label_range: the upper bound of the range of labels
+ * @return the cluster completeness score
+ */
+template <typename value_t, typename idx_t>
+double completeness_score(const raft::handle_t& handle,
+                          raft::device_vector_view<const value_t, idx_t> truth_cluster_array,
+                          raft::device_vector_view<const value_t, idx_t> pred_cluster_array,
+                          value_t lower_label_range,
+                          value_t upper_label_range)
+{
+  RAFT_EXPECTS(truth_cluster_array.size() == pred_cluster_array.size(), "Size mismatch");
+  RAFT_EXPECTS(truth_cluster_array.is_exhaustive(), "truth_cluster_array must be contiguous");
+  RAFT_EXPECTS(pred_cluster_array.is_exhaustive(), "pred_cluster_array must be contiguous");
+  return detail::homogeneity_score(pred_cluster_array.data_handle(),
+                                   truth_cluster_array.data_handle(),
+                                   truth_cluster_array.extent(0),
+                                   lower_label_range,
+                                   upper_label_range,
+                                   handle.get_stream());
 }
 
 };  // end namespace stats

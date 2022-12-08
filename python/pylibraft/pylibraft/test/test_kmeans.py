@@ -1,0 +1,118 @@
+# Copyright (c) 2022, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+import numpy as np
+import pytest
+
+from pylibraft.cluster.kmeans import cluster_cost, compute_new_centroids
+from pylibraft.common import Handle, device_ndarray
+from pylibraft.distance import pairwise_distance
+
+
+@pytest.mark.parametrize("n_rows", [100])
+@pytest.mark.parametrize("n_cols", [5, 25])
+@pytest.mark.parametrize("n_clusters", [5, 15])
+@pytest.mark.parametrize("metric", ["euclidean", "sqeuclidean"])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("additional_args", [True, False])
+def test_compute_new_centroids(
+    n_rows, n_cols, metric, n_clusters, dtype, additional_args
+):
+
+    # A single RAFT handle can optionally be reused across
+    # pylibraft functions.
+    handle = Handle()
+
+    X = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+    X_device = device_ndarray(X)
+
+    centroids = X[:n_clusters]
+    centroids_device = device_ndarray(centroids)
+
+    weight_per_cluster = np.zeros((n_clusters,), dtype=dtype)
+    weight_per_cluster_device = (
+        device_ndarray(weight_per_cluster) if additional_args else None
+    )
+
+    new_centroids = np.zeros((n_clusters, n_cols), dtype=dtype)
+    new_centroids_device = device_ndarray(new_centroids)
+
+    sample_weights = np.ones((n_rows,)).astype(dtype) / n_rows
+    sample_weights_device = (
+        device_ndarray(sample_weights) if additional_args else None
+    )
+
+    # Compute new centroids naively
+    dists = np.zeros((n_rows, n_clusters), dtype=dtype)
+    dists_device = device_ndarray(dists)
+    pairwise_distance(X_device, centroids_device, dists_device, metric=metric)
+    handle.sync()
+
+    labels = np.argmin(dists_device.copy_to_host(), axis=1).astype(np.int32)
+    labels_device = device_ndarray(labels)
+
+    expected_centers = np.empty((n_clusters, n_cols), dtype=dtype)
+    expected_wX = X * sample_weights.reshape((-1, 1))
+    for i in range(n_clusters):
+        j = expected_wX[labels == i]
+        j = j.sum(axis=0)
+        g = sample_weights[labels == i].sum()
+        expected_centers[i, :] = j / g
+
+    compute_new_centroids(
+        X_device,
+        centroids_device,
+        labels_device,
+        new_centroids_device,
+        sample_weights=sample_weights_device,
+        weight_per_cluster=weight_per_cluster_device,
+        handle=handle,
+    )
+
+    # pylibraft functions are often asynchronous so the
+    # handle needs to be explicitly synchronized
+    handle.sync()
+
+    actual_centers = new_centroids_device.copy_to_host()
+
+    assert np.allclose(expected_centers, actual_centers, rtol=1e-6)
+
+
+@pytest.mark.parametrize("n_rows", [100])
+@pytest.mark.parametrize("n_cols", [5, 25])
+@pytest.mark.parametrize("n_clusters", [4, 15])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_cluster_cost(n_rows, n_cols, n_clusters, dtype):
+    X = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+    X_device = device_ndarray(X)
+
+    centroids = X[:n_clusters]
+    centroids_device = device_ndarray(centroids)
+
+    inertia = cluster_cost(X_device, centroids_device)
+
+    # compute the nearest centroid to each sample
+    distances = pairwise_distance(
+        X_device, centroids_device, metric="sqeuclidean"
+    ).copy_to_host()
+    cluster_ids = np.argmin(distances, axis=1)
+
+    cluster_distances = np.take_along_axis(
+        distances, cluster_ids[:, None], axis=1
+    )
+
+    # need reduced tolerance for float32
+    tol = 1e-3 if dtype == np.float32 else 1e-6
+    assert np.allclose(inertia, sum(cluster_distances), rtol=tol, atol=tol)

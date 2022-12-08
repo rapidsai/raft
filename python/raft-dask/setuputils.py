@@ -51,15 +51,15 @@ def clean_folder(path):
     path : String
         Path to the folder to be cleaned.
     """
-    shutil.rmtree(path + '/__pycache__', ignore_errors=True)
+    shutil.rmtree(path + "/__pycache__", ignore_errors=True)
 
-    folders = glob.glob(path + '/*/')
+    folders = glob.glob(path + "/*/")
     for folder in folders:
-        shutil.rmtree(folder + '/__pycache__', ignore_errors=True)
+        shutil.rmtree(folder + "/__pycache__", ignore_errors=True)
 
         clean_folder(folder)
 
-        cython_exts = glob.glob(folder + '/*.cpp')
-        cython_exts.extend(glob.glob(folder + '/*.cpython*'))
+        cython_exts = glob.glob(folder + "/*.cpp")
+        cython_exts.extend(glob.glob(folder + "/*.cpython*"))
         for file in cython_exts:
             os.remove(file)

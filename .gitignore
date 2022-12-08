@@ -17,7 +17,7 @@ build/
 build_prims/
 dist/
 python/**/**/*.cpp
-python/raft/record.txt
+python/raft-dask/record.txt
 python/pylibraft/record.txt
 log
 .ipynb_checkpoints
@@ -49,3 +49,6 @@ _skbuild
 
 ## doxygen build check inside ci/checks/style.sh
 doxygen_check/
+
+## cibuildwheel
+/wheelhouse

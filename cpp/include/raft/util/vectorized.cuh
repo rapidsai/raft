@@ -232,7 +232,7 @@ struct IOType<double, 2> {
  * to type promotion. It is then reinterpreted as a vector elements
  * to perform the kernel's work.
  *
- * Caution : vectorized accesses requires input adresses to be memory aligned
+ * Caution : vectorized accesses requires input addresses to be memory aligned
  * according not to the input type but to the promoted type used for reading.
  *
  * Example demonstrating the use of load operations, performing math on such

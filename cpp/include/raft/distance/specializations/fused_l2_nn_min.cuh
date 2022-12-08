@@ -16,13 +16,14 @@
 
 #pragma once
 
+#include <raft/core/kvp.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 
 namespace raft {
 namespace distance {
 
-extern template void fusedL2NNMinReduce<float, cub::KeyValuePair<int, float>, int>(
-  cub::KeyValuePair<int, float>* min,
+extern template void fusedL2NNMinReduce<float, raft::KeyValuePair<int, float>, int>(
+  raft::KeyValuePair<int, float>* min,
   const float* x,
   const float* y,
   const float* xn,
@@ -34,8 +35,8 @@ extern template void fusedL2NNMinReduce<float, cub::KeyValuePair<int, float>, in
   bool sqrt,
   bool initOutBuffer,
   cudaStream_t stream);
-extern template void fusedL2NNMinReduce<float, cub::KeyValuePair<int64_t, float>, int64_t>(
-  cub::KeyValuePair<int64_t, float>* min,
+extern template void fusedL2NNMinReduce<float, raft::KeyValuePair<int64_t, float>, int64_t>(
+  raft::KeyValuePair<int64_t, float>* min,
   const float* x,
   const float* y,
   const float* xn,
@@ -47,8 +48,8 @@ extern template void fusedL2NNMinReduce<float, cub::KeyValuePair<int64_t, float>
   bool sqrt,
   bool initOutBuffer,
   cudaStream_t stream);
-extern template void fusedL2NNMinReduce<double, cub::KeyValuePair<int, double>, int>(
-  cub::KeyValuePair<int, double>* min,
+extern template void fusedL2NNMinReduce<double, raft::KeyValuePair<int, double>, int>(
+  raft::KeyValuePair<int, double>* min,
   const double* x,
   const double* y,
   const double* xn,
@@ -60,8 +61,8 @@ extern template void fusedL2NNMinReduce<double, cub::KeyValuePair<int, double>, 
   bool sqrt,
   bool initOutBuffer,
   cudaStream_t stream);
-extern template void fusedL2NNMinReduce<double, cub::KeyValuePair<int64_t, double>, int64_t>(
-  cub::KeyValuePair<int64_t, double>* min,
+extern template void fusedL2NNMinReduce<double, raft::KeyValuePair<int64_t, double>, int64_t>(
+  raft::KeyValuePair<int64_t, double>* min,
   const double* x,
   const double* y,
   const double* xn,

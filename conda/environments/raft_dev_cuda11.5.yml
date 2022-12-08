@@ -2,6 +2,7 @@ name: raft_dev
 channels:
 - rapidsai
 - rapidsai-nightly
+- dask/label/dev
 - conda-forge
 - nvidia
 dependencies:
@@ -13,15 +14,17 @@ dependencies:
 - clang=11.1.0
 - clang-tools=11.1.0
 - cython>=0.29,<0.30
-- cmake>=3.23.1
+- cmake>=3.23.1,!=3.25.0
+- dask==2022.11.1
+- distributed==2022.11.1
 - scikit-build>=0.13.1
-- rapids-build-env=22.10.*
-- rapids-notebook-env=22.10.*
-- rapids-doc-env=22.10.*
-- rmm=22.10.*
-- dask-cuda=22.10.*
+- rapids-build-env=22.12.*
+- rapids-notebook-env=22.12.*
+- rapids-doc-env=22.12.*
+- rmm=22.12.*
+- dask-cuda=22.12.*
 - ucx>=1.13.0
-- ucx-py=0.28.*
+- ucx-py=0.29.*
 - ucx-proc=*=gpu
 - doxygen>=1.8.20
 - libfaiss>=1.7.0
@@ -31,8 +34,6 @@ dependencies:
 - pip:
     - sphinx_markdown_tables
     - breathe
-    - git+https://github.com/dask/dask.git@2022.9.2
-    - git+https://github.com/dask/distributed.git@2022.9.2
 
 # rapids-build-env, notebook-env and doc-env are defined in
 # https://docs.rapids.ai/maintainers/depmgmt/

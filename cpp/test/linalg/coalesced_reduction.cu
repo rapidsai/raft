@@ -70,11 +70,31 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     uniform(handle, r, data.data(), len, T(-1.0), T(1.0));
-    naiveCoalescedReduction(dots_exp.data(), data.data(), cols, rows, stream);
 
-    // Perform reduction with default inplace = false first
+    // Perform reduction with default inplace = false first and inplace = true next
+
+    naiveCoalescedReduction(dots_exp.data(),
+                            data.data(),
+                            cols,
+                            rows,
+                            stream,
+                            T(0),
+                            false,
+                            raft::L2Op<T, int>{},
+                            raft::Sum<T>{},
+                            raft::Nop<T>{});
+    naiveCoalescedReduction(dots_exp.data(),
+                            data.data(),
+                            cols,
+                            rows,
+                            stream,
+                            T(0),
+                            true,
+                            raft::L2Op<T, int>{},
+                            raft::Sum<T>{},
+                            raft::Nop<T>{});
+
     coalescedReductionLaunch(handle, dots_act.data(), data.data(), cols, rows);
-    // Add to result with inplace = true next
     coalescedReductionLaunch(handle, dots_act.data(), data.data(), cols, rows, true);
 
     handle.sync_stream(stream);

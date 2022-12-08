@@ -125,8 +125,8 @@ __global__ void computeTheNumerator(
  * @param stream: the cudaStream object
  */
 template <typename T>
-double compute_rand_index(T* firstClusterArray,
-                          T* secondClusterArray,
+double compute_rand_index(const T* firstClusterArray,
+                          const T* secondClusterArray,
                           uint64_t size,
                           cudaStream_t stream)
 {

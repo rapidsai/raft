@@ -17,10 +17,11 @@
 
 #include <raft/core/error.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/memory_type.hpp>
 
-#include <raft/core/detail/host_device_accessor.hpp>
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
+#include <raft/core/host_device_accessor.hpp>
 
 #include <raft/thirdparty/mdspan/include/experimental/mdspan>
 
@@ -31,6 +32,40 @@ template <typename ElementType,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
+
+namespace detail {
+
+// keeping ByteAlignment as optional to allow testing
+template <class ValueType, size_t ByteAlignment = 128>
+struct padding {
+  static_assert(std::is_same<std::remove_cv_t<ValueType>, ValueType>::value,
+                "std::experimental::padding ValueType has to be provided without "
+                "const or volatile specifiers.");
+  static_assert(ByteAlignment % sizeof(ValueType) == 0 || sizeof(ValueType) % ByteAlignment == 0,
+                "std::experimental::padding sizeof(ValueType) has to be multiple or "
+                "divider of ByteAlignment.");
+  static constexpr size_t value = std::max(ByteAlignment / sizeof(ValueType), 1ul);
+};
+
+// alignment fixed to 128 bytes
+struct alignment {
+  static constexpr size_t value = 128;
+};
+
+}  // namespace detail
+
+template <typename ElementType>
+using layout_right_padded = std::experimental::layout_right_padded<
+  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
+
+template <typename ElementType>
+using layout_left_padded = std::experimental::layout_left_padded<
+  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
+
+template <typename ElementType, typename LayoutPolicy>
+using enable_if_layout_padded =
+  std::enable_if_t<std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
+                   std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value>;
 
 /**
  * Ensure all types listed in the parameter pack `Extents` are integral types.
@@ -149,12 +184,25 @@ template <typename ElementType,
           size_t... Extents>
 auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
-  using accessor_type =
-    detail::host_device_accessor<std::experimental::default_accessor<ElementType>,
-                                 is_host_accessible,
-                                 is_device_accessible>;
+  using accessor_type = host_device_accessor<
+    std::experimental::default_accessor<ElementType>,
+    detail::memory_type_from_access<is_host_accessible, is_device_accessible>()>;
+  /*using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
+                                             mem_type>; */
 
   return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
+}
+
+/**
+ * @brief Create a layout_stride mapping from extents and strides
+ * @param[in] extents the dimensionality of the layout
+ * @param[in] strides the strides between elements in the layout
+ * @return raft::layout_stride::mapping<Extents>
+ */
+template <typename Extents, typename Strides>
+auto make_strided_layout(Extents extents, Strides strides)
+{
+  return layout_stride::mapping<Extents>{extents, strides};
 }
 
 /**
@@ -255,4 +303,5 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
     return unravel_index_impl<uint32_t>(static_cast<uint32_t>(idx), shape);
   }
 }
+
 }  // namespace raft

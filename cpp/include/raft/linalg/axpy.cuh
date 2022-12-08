@@ -20,6 +20,9 @@
 
 #include "detail/axpy.cuh"
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdspan.hpp>
+
 namespace raft::linalg {
 
 /**
@@ -59,74 +62,61 @@ void axpy(const raft::handle_t& handle,
  * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
  *
- * @tparam InType  Type raft::device_mdspan
- * @tparam ScalarIdxType Index Type of scalar
  * @param [in] handle raft::handle_t
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [inout] y Output vector
- * @param [in] incx stride between consecutive elements of x
- * @param [in] incy stride between consecutive elements of y
  */
-template <typename InType,
-          typename OutType,
-          typename ScalarIdxType,
-          typename = raft::enable_if_input_device_mdspan<InType>,
-          typename = raft::enable_if_output_device_mdspan<OutType>>
+template <typename ElementType,
+          typename IndexType,
+          typename InLayoutPolicy,
+          typename OutLayoutPolicy,
+          typename ScalarIdxType>
 void axpy(const raft::handle_t& handle,
-          raft::device_scalar_view<const typename InType::value_type, ScalarIdxType> alpha,
-          InType x,
-          OutType y,
-          const int incx,
-          const int incy)
+          raft::device_scalar_view<const ElementType, ScalarIdxType> alpha,
+          raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
+          raft::device_vector_view<ElementType, IndexType, OutLayoutPolicy> y)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input");
 
-  axpy<typename InType::value_type, true>(handle,
-                                          y.size(),
-                                          alpha.data_handle(),
-                                          x.data_handle(),
-                                          incx,
-                                          y.data_handle(),
-                                          incy,
-                                          handle.get_stream());
+  axpy<ElementType, true>(handle,
+                          y.size(),
+                          alpha.data_handle(),
+                          x.data_handle(),
+                          x.stride(0),
+                          y.data_handle(),
+                          y.stride(0),
+                          handle.get_stream());
 }
 
 /**
  * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
- *
- * @tparam MdspanType  Type raft::device_mdspan
- * @tparam ScalarIdxType Index Type of scalar
  * @param [in] handle raft::handle_t
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [inout] y Output vector
- * @param [in] incx stride between consecutive elements of x
- * @param [in] incy stride between consecutive elements of y
  */
-template <typename InType,
-          typename OutType,
-          typename ScalarIdxType,
-          typename = raft::enable_if_input_device_mdspan<InType>,
-          typename = raft::enable_if_output_device_mdspan<OutType>>
+template <typename ElementType,
+          typename IndexType,
+          typename InLayoutPolicy,
+          typename OutLayoutPolicy,
+          typename ScalarIdxType>
 void axpy(const raft::handle_t& handle,
-          raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> alpha,
-          InType x,
-          OutType y,
-          const int incx,
-          const int incy)
+          raft::host_scalar_view<const ElementType, ScalarIdxType> alpha,
+          raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
+          raft::device_vector_view<ElementType, IndexType, OutLayoutPolicy> y)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input");
 
-  axpy<typename InType::value_type, false>(handle,
-                                           y.size(),
-                                           alpha.data_handle(),
-                                           x.data_handle(),
-                                           incx,
-                                           y.data_handle(),
-                                           incy,
-                                           handle.get_stream());
+  axpy<ElementType, false>(handle,
+                           y.size(),
+                           alpha.data_handle(),
+                           x.data_handle(),
+                           x.stride(0),
+                           y.data_handle(),
+                           y.stride(0),
+                           handle.get_stream());
 }
 
 /** @} */  // end of group axpy

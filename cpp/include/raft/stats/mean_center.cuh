@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include "detail/mean_center.cuh"
+#include <raft/core/device_mdspan.hpp>
+#include <raft/stats/detail/mean_center.cuh>
 
 namespace raft {
 namespace stats {
@@ -52,6 +53,42 @@ void meanCenter(Type* out,
 }
 
 /**
+ * @brief Center the input matrix wrt its mean
+ * @tparam value_t the data type
+ * @tparam idx_t index type
+ * @tparam layout_t Layout type of the input matrix.
+ * @param[in]  handle the raft handle
+ * @param[in]  data input matrix of size nrows * ncols
+ * @param[in]  mu the mean vector of size ncols if bcast_along_rows else nrows
+ * @param[out] out the output mean-centered matrix
+ * @param[in]  bcast_along_rows whether to broadcast vector along rows or columns
+ */
+template <typename value_t, typename idx_t, typename layout_t>
+void mean_center(const raft::handle_t& handle,
+                 raft::device_matrix_view<const value_t, idx_t, layout_t> data,
+                 raft::device_vector_view<const value_t, idx_t> mu,
+                 raft::device_matrix_view<value_t, idx_t, layout_t> out,
+                 bool bcast_along_rows)
+{
+  static_assert(
+    std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
+    "Data layout not supported");
+  auto mean_vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
+  RAFT_EXPECTS(out.extents() == data.extents(), "Size mismatch");
+  RAFT_EXPECTS(mean_vec_size == mu.extent(0), "Size mismatch between data and mu");
+  RAFT_EXPECTS(out.is_exhaustive(), "out must be contiguous");
+  RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
+  detail::meanCenter<value_t, idx_t>(out.data_handle(),
+                                     data.data_handle(),
+                                     mu.data_handle(),
+                                     data.extent(1),
+                                     data.extent(0),
+                                     std::is_same_v<layout_t, raft::row_major>,
+                                     bcast_along_rows,
+                                     handle.get_stream());
+}
+
+/**
  * @brief Add the input matrix wrt its mean
  * @tparam Type the data type
  * @tparam IdxType Integer type used to for addressing
@@ -78,6 +115,42 @@ void meanAdd(Type* out,
   detail::meanAdd<Type, IdxType, TPB>(out, data, mu, D, N, rowMajor, bcastAlongRows, stream);
 }
 
+/**
+ * @brief Add the input matrix wrt its mean
+ * @tparam Type the data type
+ * @tparam idx_t index type
+ * @tparam layout_t Layout type of the input matrix.
+ * @tparam TPB threads per block of the cuda kernel launched
+ * @param[in]  handle the raft handle
+ * @param[in]  data input matrix of size nrows * ncols
+ * @param[in]  mu the mean vector of size ncols if bcast_along_rows else nrows
+ * @param[out] out the output mean-centered matrix
+ * @param[in]  bcast_along_rows whether to broadcast vector along rows or columns
+ */
+template <typename value_t, typename idx_t, typename layout_t>
+void mean_add(const raft::handle_t& handle,
+              raft::device_matrix_view<const value_t, idx_t, layout_t> data,
+              raft::device_vector_view<const value_t, idx_t> mu,
+              raft::device_matrix_view<value_t, idx_t, layout_t> out,
+              bool bcast_along_rows)
+{
+  static_assert(
+    std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
+    "Data layout not supported");
+  auto mean_vec_size = bcast_along_rows ? data.extent(1) : data.extent(0);
+  RAFT_EXPECTS(out.extents() == data.extents(), "Size mismatch");
+  RAFT_EXPECTS(mean_vec_size == mu.extent(0), "Size mismatch between data and mu");
+  RAFT_EXPECTS(out.is_exhaustive(), "out must be contiguous");
+  RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
+  detail::meanAdd<value_t, idx_t>(out.data_handle(),
+                                  data.data_handle(),
+                                  mu.data_handle(),
+                                  data.extent(1),
+                                  data.extent(0),
+                                  std::is_same_v<layout_t, raft::row_major>,
+                                  bcast_along_rows,
+                                  handle.get_stream());
+}
 };  // end namespace stats
 };  // end namespace raft
 

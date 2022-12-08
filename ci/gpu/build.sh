@@ -31,7 +31,13 @@ export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 unset GIT_DESCRIBE_TAG
 
 # ucx-py version
-export UCX_PY_VERSION='0.28.*'
+export UCX_PY_VERSION='0.29.*'
+
+# Whether to install dask nightly or stable packages.
+export INSTALL_DASK_MAIN=0
+
+# Dask version to install when `INSTALL_DASK_MAIN=0`
+export DASK_STABLE_VERSION="2022.11.1"
 
 ################################################################################
 # SETUP - Check environment
@@ -80,11 +86,17 @@ if hasArg --skip-tests; then
     exit 0
 fi
 
-# Install the master version of dask, distributed, and dask-ml
-gpuci_logger "Install the master version of dask and distributed"
 set -x
-pip install "git+https://github.com/dask/distributed.git@2022.9.2" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@2022.9.2" --upgrade --no-deps
+# Install latest nightly version for dask and distributed depending on `INSTALL_DASK_MAIN`
+if [[ "${INSTALL_DASK_MAIN}" == 1 ]]; then
+  gpuci_logger "Installing dask and distributed from dask nightly channel"
+  gpuci_mamba_retry install -c dask/label/dev \
+    "dask/label/dev::dask" \
+    "dask/label/dev::distributed"
+else
+  gpuci_logger "gpuci_mamba_retry install conda-forge::dask==${DASK_STABLE_VERSION} conda-forge::distributed==${DASK_STABLE_VERSION} conda-forge::dask-core==${DASK_STABLE_VERSION} --force-reinstall"
+  gpuci_mamba_retry install conda-forge::dask==${DASK_STABLE_VERSION} conda-forge::distributed==${DASK_STABLE_VERSION} conda-forge::dask-core==${DASK_STABLE_VERSION} --force-reinstall
+fi
 set +x
 
 gpuci_logger "Check GPU usage"
@@ -111,5 +123,5 @@ pytest --cache-clear --junitxml="$WORKSPACE/junit-raft-dask.xml" -v -s
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"
   gpuci_mamba_retry install "rapids-doc-env=${MINOR_VERSION}.*"
-  "$WORKSPACE/build.sh" docs -v
+  "$WORKSPACE/build.sh" docs -v -n
 fi

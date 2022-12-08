@@ -53,8 +53,9 @@ struct using_pool_memory_res {
     rmm::mr::set_current_device_resource(&pool_res_);
   }
 
-  using_pool_memory_res() : using_pool_memory_res(size_t(1) << size_t(30), size_t(16) << size_t(30))
+  using_pool_memory_res() : orig_res_(rmm::mr::get_current_device_resource()), pool_res_(&cuda_res_)
   {
+    rmm::mr::set_current_device_resource(&pool_res_);
   }
 
   ~using_pool_memory_res() { rmm::mr::set_current_device_resource(orig_res_); }

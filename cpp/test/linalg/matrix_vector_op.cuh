@@ -21,15 +21,15 @@
 namespace raft {
 namespace linalg {
 
-template <typename Type, typename IdxType = int>
-__global__ void naiveMatVecKernel(Type* out,
-                                  const Type* mat,
-                                  const Type* vec,
+template <typename OutT, typename MatT, typename VecT, typename Lambda, typename IdxType = int>
+__global__ void naiveMatVecKernel(OutT* out,
+                                  const MatT* mat,
+                                  const VecT* vec,
                                   IdxType D,
                                   IdxType N,
                                   bool rowMajor,
                                   bool bcastAlongRows,
-                                  Type scalar)
+                                  Lambda op)
 {
   IdxType idx = threadIdx.x + blockIdx.x * blockDim.x;
   IdxType len = N * D;
@@ -43,38 +43,65 @@ __global__ void naiveMatVecKernel(Type* out,
   } else {
     col = idx / N;
   }
-  if (idx < len) { out[idx] = mat[idx] + scalar * vec[col]; }
+  if (idx < len) { out[idx] = op(mat[idx], vec[col]); }
 }
 
-template <typename Type, typename IdxType = int>
-void naiveMatVec(Type* out,
-                 const Type* mat,
-                 const Type* vec,
+template <typename OutT, typename MatT, typename VecT, typename Lambda, typename IdxType = int>
+void naiveMatVec(OutT* out,
+                 const MatT* mat,
+                 const VecT* vec,
                  IdxType D,
                  IdxType N,
                  bool rowMajor,
                  bool bcastAlongRows,
-                 Type scalar,
+                 Lambda op,
                  cudaStream_t stream)
 {
   static const IdxType TPB = 64;
   IdxType len              = N * D;
   IdxType nblks            = raft::ceildiv(len, TPB);
-  naiveMatVecKernel<Type>
-    <<<nblks, TPB, 0, stream>>>(out, mat, vec, D, N, rowMajor, bcastAlongRows, scalar);
+  naiveMatVecKernel<<<nblks, TPB, 0, stream>>>(out, mat, vec, D, N, rowMajor, bcastAlongRows, op);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename Type, typename IdxType = int>
-__global__ void naiveMatVecKernel(Type* out,
-                                  const Type* mat,
-                                  const Type* vec1,
-                                  const Type* vec2,
+template <typename OutT, typename MatT, typename VecT, typename IdxType = int>
+void naiveMatVec(OutT* out,
+                 const MatT* mat,
+                 const VecT* vec,
+                 IdxType D,
+                 IdxType N,
+                 bool rowMajor,
+                 bool bcastAlongRows,
+                 OutT scalar,
+                 cudaStream_t stream)
+{
+  naiveMatVec(
+    out,
+    mat,
+    vec,
+    D,
+    N,
+    rowMajor,
+    bcastAlongRows,
+    [scalar] __device__(MatT a, VecT b) { return (OutT)(a + scalar * b); },
+    stream);
+}
+
+template <typename OutT,
+          typename MatT,
+          typename Vec1T,
+          typename Vec2T,
+          typename Lambda,
+          typename IdxType = int>
+__global__ void naiveMatVecKernel(OutT* out,
+                                  const MatT* mat,
+                                  const Vec1T* vec1,
+                                  const Vec2T* vec2,
                                   IdxType D,
                                   IdxType N,
                                   bool rowMajor,
                                   bool bcastAlongRows,
-                                  Type scalar)
+                                  Lambda op)
 {
   IdxType idx = threadIdx.x + blockIdx.x * blockDim.x;
   IdxType len = N * D;
@@ -88,27 +115,57 @@ __global__ void naiveMatVecKernel(Type* out,
   } else {
     col = idx / N;
   }
-  if (idx < len) { out[idx] = mat[idx] + scalar * vec1[col] + vec2[col]; }
+  if (idx < len) { out[idx] = op(mat[idx], vec1[col], vec2[col]); }
 }
 
-template <typename Type, typename IdxType = int>
-void naiveMatVec(Type* out,
-                 const Type* mat,
-                 const Type* vec1,
-                 const Type* vec2,
+template <typename OutT,
+          typename MatT,
+          typename Vec1T,
+          typename Vec2T,
+          typename Lambda,
+          typename IdxType = int>
+void naiveMatVec(OutT* out,
+                 const MatT* mat,
+                 const Vec1T* vec1,
+                 const Vec2T* vec2,
                  IdxType D,
                  IdxType N,
                  bool rowMajor,
                  bool bcastAlongRows,
-                 Type scalar,
+                 Lambda op,
                  cudaStream_t stream)
 {
   static const IdxType TPB = 64;
   IdxType len              = N * D;
   IdxType nblks            = raft::ceildiv(len, TPB);
-  naiveMatVecKernel<Type>
-    <<<nblks, TPB, 0, stream>>>(out, mat, vec1, vec2, D, N, rowMajor, bcastAlongRows, scalar);
+  naiveMatVecKernel<<<nblks, TPB, 0, stream>>>(
+    out, mat, vec1, vec2, D, N, rowMajor, bcastAlongRows, op);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename OutT, typename MatT, typename Vec1T, typename Vec2T, typename IdxType = int>
+void naiveMatVec(OutT* out,
+                 const MatT* mat,
+                 const Vec1T* vec1,
+                 const Vec2T* vec2,
+                 IdxType D,
+                 IdxType N,
+                 bool rowMajor,
+                 bool bcastAlongRows,
+                 OutT scalar,
+                 cudaStream_t stream)
+{
+  naiveMatVec(
+    out,
+    mat,
+    vec1,
+    vec2,
+    D,
+    N,
+    rowMajor,
+    bcastAlongRows,
+    [scalar] __device__(MatT a, Vec1T b, Vec2T c) { return (OutT)(a + scalar * b + c); },
+    stream);
 }
 
 }  // end namespace linalg

@@ -18,6 +18,8 @@
 #define __TRUSTWORTHINESS_SCORE_H
 
 #pragma once
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/stats/detail/trustworthiness_score.cuh>
 
 namespace raft {
@@ -47,6 +49,43 @@ double trustworthiness_score(const raft::handle_t& h,
 {
   return detail::trustworthiness_score<math_t, distance_type>(
     h, X, X_embedded, n, m, d, n_neighbors, batchSize);
+}
+
+/**
+ * @brief Compute the trustworthiness score
+ * @tparam value_t the data type
+ * @tparam idx_t Integer type used to for addressing
+ * @param[in] handle the raft handle
+ * @param[in] X: Data in original dimension
+ * @param[in] X_embedded: Data in target dimension (embedding)
+ * @param[in] n_neighbors Number of neighbors considered by trustworthiness score
+ * @param[in] batch_size Batch size
+ * @return Trustworthiness score
+ * @note The constness of the data in X_embedded is currently casted away and the data is slightly
+ * modified.
+ */
+template <raft::distance::DistanceType distance_type, typename value_t, typename idx_t>
+double trustworthiness_score(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<const value_t, idx_t, raft::row_major> X,
+  raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_embedded,
+  int n_neighbors,
+  int batch_size = 512)
+{
+  RAFT_EXPECTS(X.extent(0) == X_embedded.extent(0), "Size mismatch between X and X_embedded");
+  RAFT_EXPECTS(std::is_integral_v<idx_t> && X.extent(0) <= std::numeric_limits<int>::max(),
+               "Index type not supported");
+
+  // TODO: Change the underlying implementation to remove the need to const_cast X_embedded.
+  return detail::trustworthiness_score<value_t, distance_type>(
+    handle,
+    X.data_handle(),
+    const_cast<value_t*>(X_embedded.data_handle()),
+    X.extent(0),
+    X.extent(1),
+    X_embedded.extent(1),
+    n_neighbors,
+    batch_size);
 }
 }  // namespace stats
 }  // namespace raft

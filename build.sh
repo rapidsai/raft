@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean -v -g --install --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean -v -g -n --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -33,6 +33,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
  and <flag> is:
    -v                          - verbose build mode
    -g                          - build for debug
+   -n                          - no install step
    --compile-libs              - compile shared libraries for all components
    --compile-nn                - compile shared library for nn component
    --compile-dist              - compile shared library for distance and current random components
@@ -40,11 +41,10 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
                                   the only option to be supported)
    --minimal-deps              - disables dependencies like thrust so they can be overridden.
                                  can be useful for a pure header-only install
-   --limit-tests               - semicolon-separated list of test executables to compile (e.g. SPATIAL_TEST;CLUSTER_TEST)
-   --limit-bench               - semicolon-separated list of benchmark executables to compute (e.g. SPATIAL_BENCH;CLUSTER_BENCH)
+   --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
+   --limit-bench               - semicolon-separated list of benchmark executables to compute (e.g. NEIGHBORS_BENCH;CLUSTER_BENCH)
    --allgpuarch                - build for all supported GPU architectures
    --buildfaiss                - build faiss statically into raft
-   --install                   - install cmake targets
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
@@ -65,15 +65,17 @@ CMAKE_LOG_LEVEL=""
 VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
 BUILD_TESTS=OFF
+BUILD_TYPE=Release
 BUILD_BENCH=OFF
 BUILD_STATIC_FAISS=OFF
 COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
 ENABLE_NN_DEPENDENCIES=OFF
+INSTALL_TARGET=install
 
-TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NN_TEST;SPATIAL_TEST;STATS_TEST;UTILS_TEST"
-BENCH_TARGETS="CLUSTER_BENCH;SPATIAL_BENCH;DISTANCE_BENCH;LINALG_BENCH;SPARSE_BENCH;RANDOM_BENCH"
+TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
+BENCH_TARGETS="CLUSTER_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;MATRIX_BENCH;SPARSE_BENCH;RANDOM_BENCH"
 ENABLE_thrust_DEPENDENCY=ON
 
 CACHE_ARGS=""
@@ -82,7 +84,6 @@ CLEAN=0
 UNINSTALL=0
 DISABLE_DEPRECATION_WARNINGS=ON
 CMAKE_TARGET=""
-INSTALL_TARGET=""
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -190,8 +191,8 @@ if (( ${NUMARGS} != 0 )); then
 fi
 
 # Process flags
-if hasArg --install; then
-    INSTALL_TARGET="install"
+if hasArg -n; then
+    INSTALL_TARGET=""
 fi
 
 if hasArg --minimal-deps; then
@@ -227,18 +228,50 @@ fi
 
 if hasArg tests || (( ${NUMARGS} == 0 )); then
     BUILD_TESTS=ON
-    COMPILE_DIST_LIBRARY=ON
-    ENABLE_NN_DEPENDENCIES=ON
-    COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};${TEST_TARGETS}"
+
+    # Force compile nn library when needed test targets are specified
+    if [[ $CMAKE_TARGET == *"CLUSTER_TEST"* || \
+          $CMAKE_TARGET == *"SPARSE_DIST_TEST"* || \
+          $CMAKE_TARGET == *"SPARSE_NEIGHBORS_TEST"* || \
+          $CMAKE_TARGET == *"NEIGHBORS_TEST"* || \
+          $CMAKE_TARGET == *"STATS_TEST"* ]]; then
+      echo "-- Enabling nearest neighbors lib for gtests"
+      ENABLE_NN_DEPENDENCIES=ON
+      COMPILE_NN_LIBRARY=ON
+    fi
+
+    # Force compile distance library when needed test targets are specified
+    if [[ $CMAKE_TARGET == *"CLUSTER_TEST"* || \
+          $CMAKE_TARGET == *"DISTANCE_TEST"* || \
+          $CMAKE_TARGET == *"SPARSE_DIST_TEST" || \
+          $CMAKE_TARGET == *"SPARSE_NEIGHBORS_TEST"* || \
+          $CMAKE_TARGET == *"NEIGHBORS_TEST" || \
+          $CMAKE_TARGET == *"STATS_TEST"* ]]; then
+      echo "-- Enabling distance lib for gtests"
+      COMPILE_DIST_LIBRARY=ON
+    fi
 fi
 
 if hasArg bench || (( ${NUMARGS} == 0 )); then
     BUILD_BENCH=ON
-    COMPILE_DIST_LIBRARY=ON
-    ENABLE_NN_DEPENDENCIES=ON
-    COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};${BENCH_TARGETS}"
+
+    # Force compile nn library when needed benchmark targets are specified
+    if [[ $CMAKE_TARGET == *"CLUSTER_BENCH"* || \
+          $CMAKE_TARGET == *"NEIGHBORS_BENCH"*  ]]; then
+      echo "-- Enabling nearest neighbors lib for benchmarks"
+      ENABLE_NN_DEPENDENCIES=ON
+      COMPILE_NN_LIBRARY=ON
+    fi
+
+    # Force compile distance library when needed benchmark targets are specified
+    if [[ $CMAKE_TARGET == *"CLUSTER_BENCH"* || \
+          $CMAKE_TARGET == *"NEIGHBORS_BENCH"* ]]; then
+      echo "-- Enabling distance lib for benchmarks"
+      COMPILE_DIST_LIBRARY=ON
+    fi
+
 fi
 
 if hasArg --buildfaiss; then
@@ -304,6 +337,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
     cmake -S ${REPODIR}/cpp -B ${LIBRAFT_BUILD_DIR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
           -DRAFT_ENABLE_NN_DEPENDENCIES=${ENABLE_NN_DEPENDENCIES} \
           -DRAFT_NVTX=${NVTX} \
@@ -357,7 +391,8 @@ if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
 fi
 
 if hasArg docs; then
-    cmake --build ${LIBRAFT_BUILD_DIR} --target docs_raft
+    set -x
+    cmake --build ${LIBRAFT_BUILD_DIR} -v --target docs_raft
     cd ${SPHINX_BUILD_DIR}
     make html
 fi

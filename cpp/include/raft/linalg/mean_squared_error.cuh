@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/mean_squared_error.cuh"
+#include <raft/core/device_mdspan.hpp>
 
 namespace raft {
 namespace linalg {
@@ -34,9 +35,9 @@ namespace linalg {
  * @param weight weight to apply to every term in the mean squared error calculation
  * @param stream cuda-stream where to launch this kernel
  */
-template <typename in_t, typename out_t, typename idx_t>
+template <typename in_t, typename out_t, typename idx_t = size_t>
 void meanSquaredError(
-  out_t* out, const in_t* A, const in_t* B, size_t len, in_t weight, cudaStream_t stream)
+  out_t* out, const in_t* A, const in_t* B, idx_t len, in_t weight, cudaStream_t stream)
 {
   detail::meanSquaredError(out, A, B, len, weight, stream);
 }
