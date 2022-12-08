@@ -285,7 +285,7 @@ void transform(const raft::handle_t& handle,
  *   auto n_iter = raft::make_host_scalar<int>();
  *   auto inertia = raft::make_host_scalar<int>();
  *
- *   kmeans::find_k(handle, X, best_k, inertia, n_iter, n_clusters+1);
+ *   kmeans::find_k(handle, X, best_k.view(), inertia.view(), n_iter.view(), n_clusters+1);
  *
  * @endcode
  *
