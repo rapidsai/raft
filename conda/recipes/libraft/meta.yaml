@@ -57,9 +57,9 @@ outputs:
         - ucx-py {{ ucx_py_version }}
       run:
         - cudatoolkit {{ cuda_spec }}
-        - libcublas {{ libcublas_version }}
-        - libcusolver {{ libcusolver_version }}
-        - libcusparse {{ libcusparse_version }}
+        - libcublas-dev {{ libcublas_version }}
+        - libcusolver-dev {{ libcusolver_version }}
+        - libcusparse-dev {{ libcusparse_version }}
         - librmm {{ minor_version }}.*
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
@@ -87,7 +87,6 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
-        - libcublas-dev {{ libcublas_version }}
         - librmm {{ minor_version }}.*
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
@@ -95,9 +94,6 @@ outputs:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
       run:
         - cudatoolkit {{ cuda_spec }}
-        - libcublas {{ libcublas_version }}
-        - libcusolver {{ libcusolver_version }}
-        - libcusparse {{ libcusparse_version }}
         - librmm {{ minor_version }}.*
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
@@ -171,8 +167,6 @@ outputs:
         - cudatoolkit {{ cuda_spec }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
-        - libcusolver {{ libcusolver_version }}
-        - libcusparse {{ libcusparse_version }}
         - {{ pin_subpackage('libraft-distance', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_subpackage('libraft-nn', exact=True) }}
