@@ -50,7 +50,7 @@ outputs:
         - cudatoolkit {{ cuda_version }}.*
         - libcusolver {{ libcusolver_version }}
         - libcusparse {{ libcusparse_version }}
-        - librmm {{ minor_version }}
+        - librmm {{ minor_version }}.*
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
         - ucx-py {{ ucx_py_version }}
@@ -58,7 +58,7 @@ outputs:
         - cudatoolkit {{ cuda_spec }}
         - libcusolver {{ libcusolver_version }}
         - libcusparse {{ libcusparse_version }}
-        - librmm {{ minor_version }}
+        - librmm {{ minor_version }}.*
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
         - ucx-py {{ ucx_py_version }}
@@ -77,21 +77,22 @@ outputs:
         - {{ compiler('cuda') }}
     requirements:
       build:
-        - cmake {{ cmake_version }}
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         - {{ compiler('cuda') }} {{ cuda_version }}
+        - cmake {{ cmake_version }}
+        - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
-        - librmm {{ minor_version }}
+        - librmm {{ minor_version }}.*
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
         - ucx-py {{ ucx_py_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
       run:
         - cudatoolkit {{ cuda_spec }}
-        - librmm {{ minor_version }}
+        - librmm {{ minor_version }}.*
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
         - ucx-py {{ ucx_py_version }}
@@ -113,17 +114,18 @@ outputs:
         - {{ compiler('cuda') }}
     requirements:
       build:
-        - cmake {{ cmake_version }}
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         - {{ compiler('cuda') }} {{ cuda_version }}
+        - cmake {{ cmake_version }}
+        - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
         - faiss-proc=*=cuda
         - lapack
         - libfaiss {{ libfaiss_version }}
-        - librmm {{ minor_version }}
+        - librmm {{ minor_version }}.*
         - {{ pin_subpackage('libraft-headers', exact=True) }}
       run:
         - cudatoolkit {{ cuda_spec }}
@@ -131,7 +133,7 @@ outputs:
         - libcusolver {{ libcusolver_version }}
         - libcusparse {{ libcusparse_version }}
         - libfaiss {{ libfaiss_version }}
-        - librmm {{ minor_version }}
+        - librmm {{ minor_version }}.*
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
       home: https://rapids.ai/
@@ -148,10 +150,11 @@ outputs:
         - {{ compiler('cuda') }}
     requirements:
       build:
-        - cmake {{ cmake_version }}
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         - {{ compiler('cuda') }} {{ cuda_version }}
+        - cmake {{ cmake_version }}
+        - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
