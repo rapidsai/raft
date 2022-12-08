@@ -94,6 +94,11 @@ void make_blobs(DataT* out,
 }
 
 /**
+ * @defgroup make_blobs Generate Isotropic Gaussian Clusters
+ * @{
+ */
+
+/**
  * @brief GPU-equivalent of sklearn.datasets.make_blobs
  *
  * @tparam DataT output data type
@@ -173,6 +178,9 @@ void make_blobs(
                             seed,
                             type);
 }
+
+/** @} */  // end group make_blobs
+
 }  // end namespace raft::random
 
 #endif

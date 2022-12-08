@@ -25,6 +25,11 @@
 namespace raft::neighbors::brute_force {
 
 /**
+ * @defgroup brute_force_knn Brute-force K-Nearest Neighbors
+ * @{
+ */
+
+/**
  * @brief Performs a k-select across several (contiguous) row-partitioned index/distance
  * matrices formatted like the following:
  *
@@ -268,5 +273,7 @@ void fused_l2_knn(const raft::handle_t& handle,
                                          handle.get_stream(),
                                          metric);
 }
+
+/** @} */  // end group brute_force_knn
 
 }  // namespace raft::neighbors::brute_force

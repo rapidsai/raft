@@ -25,11 +25,6 @@
 namespace raft::linalg {
 
 /**
- * @defgroup map_reduce Map-Reduce ops
- * @{
- */
-
-/**
  * @brief CUDA version of map and then generic reduction operation
  * @tparam Type data-type upon which the math operation will be performed
  * @tparam MapOp the device-lambda performing the actual map operation
@@ -67,6 +62,10 @@ void mapReduce(OutType* out,
     out, len, neutral, map, op, stream, in, args...);
 }
 
+/**
+ * @defgroup map_reduce Map-Reduce ops
+ * @{
+ */
 /**
  * @brief CUDA version of map and then generic reduction operation
  * @tparam InValueType the data-type of the input

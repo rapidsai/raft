@@ -3,41 +3,72 @@ Neighbors
 
 This page provides C++ class references for the publicly-exposed elements of the neighbors package.
 
+.. role:: py(code)
+   :language: c++
+   :class: highlight
+
 
 Brute-force
 -----------
 
-.. doxygennamespace:: raft::neighbors::brute_force
+``#include <raft/neighbors/brute_force.cuh>``
+
+namespace *raft::neighbors::brute_force*
+
+.. doxygengroup:: brute_force_knn
     :project: RAFT
+    :members:
+    :content-only:
 
 
 IVF-Flat
 --------
 
-.. doxygennamespace:: raft::neighbors::ivf_flat
+``#include <raft/neighbors/ivf_flat.cuh>``
+
+namespace *raft::neighbors::ivf_flat*
+
+.. doxygengroup:: ivf_flat
     :project: RAFT
     :members:
+    :content-only:
 
 
 IVF-PQ
 --------
 
-.. doxygennamespace:: raft::neighbors::ivf_pq
+``#include <raft/neighbors/ivf_pq.cuh>``
+
+namespace *raft::neighbors::ivf_pq*
+
+.. doxygengroup:: ivf_pq
     :project: RAFT
     :members:
-
+    :content-only:
 
 Epsilon Neighborhood
 --------------------
 
-.. doxygennamespace:: raft::neighbors::epsilon_neighborhood
+``#include <raft/neighbors/epsilon_neighborhood.cuh>``
+
+namespace *raft::neighbors::epsilon_neighborhood*
+
+.. doxygengroup:: epsilon_neighbors
     :project: RAFT
     :members:
+    :content-only:
 
 
 Random Ball Cover
 -----------------
 
-.. doxygennamespace:: raft::neighbors::ball_cover
+``#include <raft/neighbors/ball_cover.cuh>``
+
+namespace *raft::neighbors::ball_cover*
+
+.. doxygengroup:: random_ball_cover
     :project: RAFT
     :members:
+    :content-only:
+
+

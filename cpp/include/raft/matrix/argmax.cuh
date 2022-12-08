@@ -22,6 +22,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup argmax Argmax operation
+ * @{
+ */
+
+/**
  * @brief Argmax: find the col idx with maximum value for each row
  * @param[in] handle: raft handle
  * @param[in] in: input matrix of size (n_rows, n_cols)
@@ -37,4 +42,7 @@ void argmax(const raft::handle_t& handle,
   detail::argmax(
     in.data_handle(), in.extent(1), in.extent(0), out.data_handle(), handle.get_stream());
 }
+
+/** @} */  // end of group argmax
+
 }  // namespace raft::matrix

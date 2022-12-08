@@ -38,20 +38,15 @@ def cuda_interruptible():
 
     Use this on a long-running C++ function imported via cython:
 
-    .. code-block:: python
-
-        with cuda_interruptible():
-            my_long_running_function(...)
+    >>> with cuda_interruptible():
+    >>>     my_long_running_function(...)
 
     It's also recommended to release the GIL during the call, to
     make sure the handler has a chance to run:
 
-    .. code-block:: python
-
-        with cuda_interruptible():
-            with nogil:
-                my_long_running_function(...)
-
+    >>> with cuda_interruptible():
+    >>>     with nogil:
+    >>>         my_long_running_function(...)
     '''
     cdef shared_ptr[interruptible] token = get_token()
 
