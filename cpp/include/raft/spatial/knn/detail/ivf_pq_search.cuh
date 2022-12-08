@@ -1175,12 +1175,10 @@ struct ivfpq_compute_similarity {
               // Hence, the only metric here is the occupancy.
               bool improves_occupancy = tmp.occupancy > cur.occupancy;
               // Otherwise, the performance still improves with a smaller block size,
-              // given there are enough resources
+              // given there is enough work to do
               bool improves_parallelism =
-                tmp.occupancy == cur.occupancy         // same occupancy
-                && n_threads_tmp >= 2 * n_threads_min  // surely enough blocks
-                &&                                     // doesn't use too much shmem
-                tmp.shmem_use <= std::min(0.5, double(max_carveout) / 100.0);
+                tmp.occupancy == cur.occupancy &&
+                7 * tmp.blocks_per_sm * dev_props.multiProcessorCount <= n_blocks;
               select_it = improves_occupancy || improves_parallelism;
             } else {
               // If we don't use shared memory for the lookup table, increasing the number of blocks
