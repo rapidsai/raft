@@ -1178,7 +1178,7 @@ struct ivfpq_compute_similarity {
               // given there is enough work to do
               bool improves_parallelism =
                 tmp.occupancy == cur.occupancy &&
-                7 * tmp.blocks_per_sm * dev_props.multiProcessorCount <= n_blocks;
+                7u * tmp.blocks_per_sm * dev_props.multiProcessorCount <= n_blocks;
               select_it = improves_occupancy || improves_parallelism;
             } else {
               // If we don't use shared memory for the lookup table, increasing the number of blocks
