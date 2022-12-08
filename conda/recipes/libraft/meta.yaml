@@ -86,18 +86,8 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
-        - cudatoolkit {{ cuda_version }}.*
-        - librmm {{ minor_version }}.*
-        - nccl {{ nccl_version }}
-        - ucx-proc=*=gpu
-        - ucx-py {{ ucx_py_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
       run:
-        - cudatoolkit {{ cuda_spec }}
-        - librmm {{ minor_version }}.*
-        - nccl {{ nccl_version }}
-        - ucx-proc=*=gpu
-        - ucx-py {{ ucx_py_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
       home: https://rapids.ai/
@@ -121,19 +111,13 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
-        - cudatoolkit {{ cuda_version }}.*
         - faiss-proc=*=cuda
         - lapack
         - libfaiss {{ libfaiss_version }}
-        - librmm {{ minor_version }}.*
         - {{ pin_subpackage('libraft-headers', exact=True) }}
       run:
-        - cudatoolkit {{ cuda_spec }}
         - faiss-proc=*=cuda
-        - libcusolver {{ libcusolver_version }}
-        - libcusparse {{ libcusparse_version }}
         - libfaiss {{ libfaiss_version }}
-        - librmm {{ minor_version }}.*
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
       home: https://rapids.ai/
@@ -157,14 +141,12 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
-        - cudatoolkit {{ cuda_version }}.*
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
         - {{ pin_subpackage('libraft-distance', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_subpackage('libraft-nn', exact=True) }}
       run:
-        - cudatoolkit {{ cuda_spec }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
         - {{ pin_subpackage('libraft-distance', exact=True) }}
