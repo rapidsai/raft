@@ -19,11 +19,14 @@ nccl_version:
 gtest_version:
   - "=1.10.0"
 
+libcublas_version:
+  - ">=11.7.3.1,<12"
+
 libcusolver_version:
-  - ">=11.2.1"
+  - ">=11.2.1,<12"
 
 libcusparse_version:
-  - ">=11.5.0"
+  - ">=11.5.0,<12"
 
 libfaiss_version:
   - "1.7.0 *_cuda"

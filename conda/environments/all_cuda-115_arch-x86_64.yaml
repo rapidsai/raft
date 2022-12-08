@@ -22,6 +22,9 @@ dependencies:
 - doxygen>=1.8.20
 - faiss-proc=*=cuda
 - gcc_linux-64=9.*
+- libcublas-dev=11.7.4.6
+- libcusolver-dev=11.3.2.107
+- libcusparse-dev=11.7.0.107
 - libfaiss>=1.7.0
 - ninja
 - pytest

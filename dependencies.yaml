@@ -73,14 +73,23 @@ dependencies:
               cuda: "11.2"
             packages:
               - cudatoolkit=11.2
+              - libcublas-dev=11.5.2.43   # belongs to cuda-11.4.0 but it's the oldest available
+              - libcusolver-dev=11.2.0.43 # belongs to cuda-11.4.0 but it's the oldest available
+              - libcusparse-dev=11.6.0.43 # belongs to cuda-11.4.0 but it's the oldest available
           - matrix:
               cuda: "11.4"
             packages:
               - cudatoolkit=11.4
+              - libcublas-dev=11.6.5.2
+              - libcusolver-dev=11.2.0.120
+              - libcusparse-dev=11.6.0.120
           - matrix:
               cuda: "11.5"
             packages:
               - cudatoolkit=11.5
+              - libcublas-dev=11.7.4.6
+              - libcusolver-dev=11.3.2.107
+              - libcusparse-dev=11.7.0.107
   doc:
     common:
       - output_types: [conda, requirements]
