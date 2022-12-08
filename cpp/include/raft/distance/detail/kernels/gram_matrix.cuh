@@ -17,6 +17,8 @@
 #pragma once
 
 #include <raft/distance/distance.cuh>
+#include <raft/distance/distance_types.hpp>
+#include <raft/sparse/distance/distance.cuh>
 
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemm.cuh>
@@ -77,6 +79,42 @@ class GramMatrixBase {
     evaluate(x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
   }
 
+  virtual void operator()(const raft::handle_t& handle,
+                          const int* x1_indptr,
+                          const int* x1_indices,
+                          const math_t* x1_data,
+                          int x1_nnz,
+                          int n1,
+                          int n_cols,
+                          const int* x2_indptr,
+                          const int* x2_indices,
+                          const math_t* x2_data,
+                          int x2_nnz,
+                          int n2,
+                          math_t* out,
+                          bool is_row_major,
+                          cudaStream_t stream,
+                          int ld_out = 0)
+  {
+    if (ld_out <= 0) { ld_out = is_row_major ? n2 : n1; }
+    evaluateSparse(handle,
+                   x1_indptr,
+                   x1_indices,
+                   x1_data,
+                   x1_nnz,
+                   n1,
+                   n_cols,
+                   x2_indptr,
+                   x2_indices,
+                   x2_data,
+                   x2_nnz,
+                   n2,
+                   out,
+                   is_row_major,
+                   stream,
+                   ld_out);
+  }
+
   /** Evaluate the Gram matrix for two vector sets using simple dot product.
    *
    * @param [in] x1 device array of vectors, size [n1*n_cols]
@@ -105,6 +143,41 @@ class GramMatrixBase {
                         int ld_out)
   {
     linear(x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
+  }
+
+  virtual void evaluateSparse(const raft::handle_t& handle,
+                              const int* x1_indptr,
+                              const int* x1_indices,
+                              const math_t* x1_data,
+                              int x1_nnz,
+                              int n1,
+                              int n_cols,
+                              const int* x2_indptr,
+                              const int* x2_indices,
+                              const math_t* x2_data,
+                              int x2_nnz,
+                              int n2,
+                              math_t* out,
+                              bool is_row_major,
+                              cudaStream_t stream,
+                              int ld_out)
+  {
+    linearSparse(handle,
+                 x1_indptr,
+                 x1_indices,
+                 x1_data,
+                 x1_nnz,
+                 n1,
+                 n_cols,
+                 x2_indptr,
+                 x2_indices,
+                 x2_data,
+                 x2_nnz,
+                 n2,
+                 out,
+                 is_row_major,
+                 stream,
+                 ld_out);
   }
 
   // private:
@@ -180,6 +253,99 @@ class GramMatrixBase {
                                                        ld_out,
                                                        stream));
     }
+  }
+
+  void linearSparse(const raft::handle_t& handle,
+                    const int* x1_indptr,
+                    const int* x1_indices,
+                    const math_t* x1_data,
+                    int x1_nnz,
+                    int n1,
+                    int n_cols,
+                    const int* x2_indptr,
+                    const int* x2_indices,
+                    const math_t* x2_data,
+                    int x2_nnz,
+                    int n2,
+                    math_t* out,
+                    bool is_row_major,
+                    cudaStream_t stream,
+                    int ld_out)
+  {
+    int minor_out = is_row_major ? n2 : n1;
+    ASSERT(ld_out == minor_out, "Sparse linear Kernel distance does not support ld_out parameter");
+    distanceSparse(handle,
+                   x1_indptr,
+                   x1_indices,
+                   x1_data,
+                   x1_nnz,
+                   n1,
+                   n_cols,
+                   x2_indptr,
+                   x2_indices,
+                   x2_data,
+                   x2_nnz,
+                   n2,
+                   out,
+                   is_row_major,
+                   stream,
+                   raft::distance::DistanceType::InnerProduct);
+  }
+
+  void distanceSparse(const raft::handle_t& handle,
+                      const int* x1_indptr,
+                      const int* x1_indices,
+                      const math_t* x1_data,
+                      int x1_nnz,
+                      int n1,
+                      int n_cols,
+                      const int* x2_indptr,
+                      const int* x2_indices,
+                      const math_t* x2_data,
+                      int x2_nnz,
+                      int n2,
+                      math_t* out,
+                      bool is_row_major,
+                      cudaStream_t stream,
+                      raft::distance::DistanceType metric,
+                      float metricArg = 0.0)
+  {
+    raft::sparse::distance::distances_config_t<int, math_t> dist_config(handle);
+
+    // switch a,b based on is_row_major
+    if (!is_row_major) {
+      dist_config.a_nrows   = n2;
+      dist_config.a_ncols   = n_cols;
+      dist_config.a_nnz     = x2_nnz;
+      dist_config.a_indptr  = const_cast<int*>(x2_indptr);
+      dist_config.a_indices = const_cast<int*>(x2_indices);
+      dist_config.a_data    = const_cast<math_t*>(x2_data);
+      dist_config.b_nrows   = n1;
+      dist_config.b_ncols   = n_cols;
+      dist_config.b_nnz     = x1_nnz;
+      dist_config.b_indptr  = const_cast<int*>(x1_indptr);
+      dist_config.b_indices = const_cast<int*>(x1_indices);
+      dist_config.b_data    = const_cast<math_t*>(x1_data);
+    } else {
+      dist_config.a_nrows   = n1;
+      dist_config.a_ncols   = n_cols;
+      dist_config.a_nnz     = x1_nnz;
+      dist_config.a_indptr  = const_cast<int*>(x1_indptr);
+      dist_config.a_indices = const_cast<int*>(x1_indices);
+      dist_config.a_data    = const_cast<math_t*>(x1_data);
+      dist_config.b_nrows   = n2;
+      dist_config.b_ncols   = n_cols;
+      dist_config.b_nnz     = x2_nnz;
+      dist_config.b_indptr  = const_cast<int*>(x2_indptr);
+      dist_config.b_indices = const_cast<int*>(x2_indices);
+      dist_config.b_data    = const_cast<math_t*>(x2_data);
+    }
+
+    if (raft::sparse::distance::supportedDistance.find(metric) ==
+        raft::sparse::distance::supportedDistance.end())
+      THROW("DistanceType not supported: %d", metric);
+
+    raft::sparse::distance::pairwiseDistance(out, dist_config, metric, metricArg);
   }
 
   /** Calculates the Gram matrix using Euclidean distance.
