@@ -37,7 +37,6 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
-#include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/gather.cuh>
