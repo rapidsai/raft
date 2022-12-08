@@ -655,7 +655,7 @@ rapids_export(
 rapids_export(
   BUILD raft
   EXPORT_SET raft-exports COMPONENTS nn distance distributed
-  GLOBAL_TARGETS raft distance distributed nn
+  GLOBAL_TARGETS raft nn distance distributed
   DOCUMENTATION doc_string
   NAMESPACE raft::
   FINAL_CODE_BLOCK code_string
