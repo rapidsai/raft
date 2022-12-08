@@ -280,17 +280,15 @@ void transform(const raft::handle_t& handle,
 template <typename idx_t, typename value_t>
 void find_k(const raft::handle_t& handle,
             raft::device_matrix_view<const value_t, idx_t> X,
-            raft::device_matrix_view<value_t, idx_t> best_centroids,
-            raft::device_vector_view<idx_t, idx_t> best_labels,
             raft::host_scalar_view<int> best_k,
             raft::host_scalar_view<value_t> residual,
-            raft::host_scalar_view<idx_t> maxiter,
+            raft::host_scalar_view<idx_t> n_iter,
             idx_t kmax,
-            idx_t kmin  = 1,
-            value_t tol = 1e-3)
+            idx_t kmin    = 1,
+            idx_t maxiter = 100,
+            value_t tol   = 1e-3)
 {
-  detail::find_k(
-    handle, X, best_centroids, best_labels, best_k, residual, maxiter, kmax, kmin, tol);
+  detail::find_k(handle, X, best_k, residual, n_iter, kmax, kmin, maxiter, tol);
 }
 
 /**

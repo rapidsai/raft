@@ -19,24 +19,25 @@
 #include <raft/core/host_mdarray.hpp>
 #include <thrust/host_vector.h>
 
+#include <raft/cluster/detail/kmeans.cuh>
+
 #include <raft/core/error.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/stats/dispersion.cuh>
 
-namespace raft::cluster::kmeans::detail {
+namespace raft::cluster::detail {
 
 template <typename idx_t, typename value_t>
 void find_k(const raft::handle_t& handle,
             raft::device_matrix_view<const value_t, idx_t> X,
-            raft::device_matrix_view<value_t, idx_t> centroids,
-            raft::device_vector_view<idx_t, idx_t> labels,
-            raft::host_scalar_view<int> k_star,
+            raft::host_scalar_view<int> best_k,
             raft::host_scalar_view<value_t> residual,
-            raft::host_scalar_view<idx_t> maxiter,
+            raft::host_scalar_view<idx_t> n_iter,
             idx_t kmax,
-            idx_t kmin  = 1,
-            value_t tol = 1e-3)
+            idx_t kmin    = 1,
+            idx_t maxiter = 100,
+            value_t tol   = 1e-3)
 {
   idx_t n = X.extent(0);
   idx_t d = X.extent(1);
@@ -50,6 +51,7 @@ void find_k(const raft::handle_t& handle,
   // Allocate memory
   // Device memory
 
+  auto centroids    = raft::make_device_matrix<value_t, idx_t>(kmax, X.extent(1));
   auto clusterSizes = raft::make_device_vector<idx_t>(kmax);
   auto labels       = raft::make_device_vector<idx_t>(n);
 
@@ -68,14 +70,19 @@ void find_k(const raft::handle_t& handle,
   int mid    = int(floor((right + left) / 2));
   int oldmid = mid;
   int tests  = 0;
-  int iters  = 0;
   value_t objective[3];     // 0= left of mid, 1= right of mid
   if (left == 1) left = 2;  // at least do 2 clusters
 
+  KMeansParams params;
+  params.max_iter = maxiter;
+  params.tol      = tol;
+
   auto centroids_view =
     raft::make_device_matrix_view<const value_t, idx_t>(centroids.view(), left, d);
-  raft::cluster::kmeans_fit_predict(
-    handle, X.view(), std::nullptr, centroids_view, labels.view(), residual, maxiter);
+
+  params.n_clusters = left;
+  kmeans_fit_predict(
+    handle, params, X.view(), std::nullopt, centroids_view, labels.view(), residual, n_iter);
 
   detail::countLabels(handle, labels.view(), clusterSizes.data_handle(), n, left, workspace);
 
@@ -84,17 +91,18 @@ void find_k(const raft::handle_t& handle,
   clusterDispersion[left] =
     raft::stats::dispersion(handle, centroids_view, clusterSizes.view(), std::nullopt, n);
   // eval right edge0
-  iters          = 0;
   results[right] = 1e20;
   while (results[right] > results[left] && tests < 3) {
     centroids_view =
       raft::make_device_matrix_view<const value_t, idx_t>(centroids.view(), right, d);
-    raft::cluster::kmeans_fit_predict(
-      handle, X.view(), std::nullptr, centroids_view, labels.view(), residual, maxiter);
+
+    params.n_clusters = right;
+    kmeans_fit_predict(
+      handle, params, X.view(), std::nullopt, centroids_view, labels.view(), residual, n_iter);
 
     detail::countLabels(handle, labels.view(), clusterSizes.data_handle(), n, right, workspace);
 
-    results[right] = *residual;
+    results[right] = residual[0];
     clusterDispersion[right] =
       raft::stats::dispersion(handle, centroids_view, clusterSizes.view(), std::nullopt, n);
     tests += 1;
@@ -105,11 +113,13 @@ void find_k(const raft::handle_t& handle,
   while (left < right - 1) {
     results[mid] = 1e20;
     tests        = 0;
-    iters        = 0;
     while (results[mid] > results[left] && tests < 3) {
       centroids_view =
         raft::make_device_matrix_view<const value_t, idx_t>(centroids.view(), mid, d);
-      raft::cluster::kmeans_fit(handle, X.view(), std::nullptr, centroids_view, residual, maxiter);
+
+      params.n_clusters = mid;
+      kmeans_fit_predict(
+        handle, params, X.view(), std::nullopt, centroids_view, labels.view(), residual, n_iter);
 
       detail::countLabels(handle, labels.view(), clusterSizes.data_handle(), n, mid, workspace);
 
@@ -143,20 +153,20 @@ void find_k(const raft::handle_t& handle,
     oldmid = mid;
     mid    = int(floor((right + left) / 2));
   }
-  *k_star      = right;
+  best_k[0]    = right;
   objective[0] = (n - left) / (left - 1) * clusterDispersion[left] / results[left];
   objective[1] = (n - oldmid) / (oldmid - 1) * clusterDispersion[oldmid] / results[oldmid];
 
-  if (objective[1] < objective[0]) { *k_star = left; }
+  if (objective[1] < objective[0]) { best_k[0] = left; }
 
-  // if k_star isn't what we just ran, re-run to get correct centroids and dist data on return->
+  // if best_k isn't what we just ran, re-run to get correct centroids and dist data on return->
   // this saves memory
-  if (*k_star != oldmid) {
+  if (best_k[0] != oldmid) {
     centroids_view =
-      raft::make_device_matrix_view<const value_t, idx_t>(centroids.view(), *k_star, d);
-    raft::cluster::kmeans_fit(handle, X.view(), std::nullptr, centroids_view, residual, maxiter);
+      raft::make_device_matrix_view<const value_t, idx_t>(centroids.view(), best_k[0], d);
+    params.n_clusters = best_k[0];
+    kmeans_fit_predict(
+      handle, params, X.view(), std::nullopt, centroids_view, labels.view(), residual, n_iter);
   }
-
-  *maxiter = iters;
 }
-}  // namespace raft::cluster::kmeans::detail
+}  // namespace raft::cluster::detail
