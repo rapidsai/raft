@@ -114,7 +114,7 @@ dependencies:
           - ucx>=1.13.0
           - ucx-py=0.30.*
           - ucx-proc=*=gpu
-          - libfaiss>=1.7.0
+          - libfaiss>=1.7.0=cuda*
           - faiss-proc=*=cuda
           - dask-cuda=23.02.*
   test_python:

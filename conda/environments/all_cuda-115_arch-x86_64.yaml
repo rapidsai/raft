@@ -22,7 +22,7 @@ dependencies:
 - doxygen>=1.8.20
 - faiss-proc=*=cuda
 - gcc_linux-64=9.*
-- libfaiss>=1.7.0
+- libfaiss>=1.7.0=cuda*
 - ninja
 - pytest
 - rapids-build-env=23.02.*
