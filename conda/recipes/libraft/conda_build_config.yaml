@@ -22,8 +22,11 @@ gtest_version:
 libcublas_version:
   - ">=11.7.3.1,<12"
 
+libcurand_version:
+  - ">=10.2.7.107,<10.3.1.50"
+
 libcusolver_version:
-  - ">=11.2.1,<12"
+  - ">=11.2.1,<11.4.2.57"
 
 libcusparse_version:
   - ">=11.5.0,<12"

@@ -49,12 +49,14 @@ outputs:
       host:
         - cudatoolkit {{ cuda_version }}.*
         - libcublas-dev {{ libcublas_version }}
+        - libcurand-dev {{ libcurand_version }}
         - libcusolver-dev {{ libcusolver_version }}
         - libcusparse-dev {{ libcusparse_version }}
         - librmm {{ minor_version }}.*
       run:
         - cudatoolkit {{ cuda_spec }}
         - libcublas-dev {{ libcublas_version }}
+        - libcurand-dev {{ libcurand_version }}
         - libcusolver-dev {{ libcusolver_version }}
         - libcusparse-dev {{ libcusparse_version }}
         - librmm {{ minor_version }}.*
