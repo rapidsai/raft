@@ -225,7 +225,7 @@ if hasArg --uninstall; then
       fi
     fi
 
-    if hasArg raft-dask; then
+    if hasArg raft-dask || (( ${NUMARGS} == 1 )); then
       echo "Uninstalling raft-dask package..."
       if [ -e ${RAFT_DASK_BUILD_DIR}/install_manifest.txt ]; then
           xargs rm -fv < ${RAFT_DASK_BUILD_DIR}/install_manifest.txt > /dev/null 2>&1
