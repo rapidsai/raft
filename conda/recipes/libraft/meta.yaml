@@ -57,6 +57,7 @@ outputs:
         - ucx-py {{ ucx_py_version }}
       run:
         - cudatoolkit {{ cuda_spec }}
+        - libcublas {{ libcublas_version }}
         - libcusolver {{ libcusolver_version }}
         - libcusparse {{ libcusparse_version }}
         - librmm {{ minor_version }}.*
@@ -86,6 +87,7 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
+        - libcublas-dev {{ libcublas_version }}
         - librmm {{ minor_version }}.*
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
@@ -93,12 +95,13 @@ outputs:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
       run:
         - cudatoolkit {{ cuda_spec }}
+        - libcublas {{ libcublas_version }}
+        - libcusolver {{ libcusolver_version }}
+        - libcusparse {{ libcusparse_version }}
         - librmm {{ minor_version }}.*
         - nccl {{ nccl_version }}
         - ucx-proc=*=gpu
         - ucx-py {{ ucx_py_version }}
-        - libcusolver {{ libcusolver_version }}
-        - libcusparse {{ libcusparse_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
       home: https://rapids.ai/
