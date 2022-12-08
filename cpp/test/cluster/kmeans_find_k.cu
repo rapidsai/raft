@@ -23,10 +23,7 @@
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/random/make_blobs.cuh>
-#include <raft/stats/adjusted_rand_index.cuh>
 #include <raft/util/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
-#include <thrust/fill.h>
 
 #if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
 #include <raft/cluster/specializations.cuh>
@@ -54,6 +51,7 @@ class KmeansFindKTest : public ::testing::TestWithParam<KmeansFindKInputs<T>> {
 
     int n_samples  = testparams.n_row;
     int n_features = testparams.n_col;
+    int n_clusters = testparams.n_clusters;
 
     auto X      = raft::make_device_matrix<T, int>(handle, n_samples, n_features);
     auto labels = raft::make_device_vector<int, int>(handle, n_samples);
@@ -62,7 +60,7 @@ class KmeansFindKTest : public ::testing::TestWithParam<KmeansFindKInputs<T>> {
                                      labels.data_handle(),
                                      n_samples,
                                      n_features,
-                                     params.n_clusters,
+                                     n_clusters,
                                      stream,
                                      true,
                                      nullptr,
@@ -88,19 +86,16 @@ class KmeansFindKTest : public ::testing::TestWithParam<KmeansFindKInputs<T>> {
     //                             1);
     //            }
     //
-    auto best_k  = raft::make_host_scalar<int>();
-    auto inertia = raft::make_host_scalar<int>();
-    auto n_iter  = raft::make_host_scalar<int>();
+    auto inertia = raft::make_host_scalar<T>(0);
+    auto n_iter  = raft::make_host_scalar<int>(0);
 
     auto X_view =
       raft::make_device_matrix_view<const T, int>(X.data_handle(), X.extent(0), X.extent(1));
 
     raft::cluster::kmeans::find_k(
-      handle, X_view, best_k.view(), inertia.view(), n_iter.view(), testparams.n_clusters + 2);
+      handle, X_view, best_k.view(), inertia.view(), n_iter.view(), n_clusters + 2);
 
     handle.sync_stream(stream);
-
-    assert(best_k[0] == testparams.n_clusters);
   }
 
   void SetUp() override { basicTest(); }
@@ -109,6 +104,7 @@ class KmeansFindKTest : public ::testing::TestWithParam<KmeansFindKInputs<T>> {
   raft::handle_t handle;
   cudaStream_t stream;
   KmeansFindKInputs<T> testparams;
+  raft::host_scalar<int> best_k;
 };
 
 const std::vector<KmeansFindKInputs<float>> inputsf2 = {{1000, 32, 5, 0.0001f, true},
@@ -134,10 +130,10 @@ const std::vector<KmeansFindKInputs<double>> inputsd2 = {{1000, 32, 5, 0.0001, t
                                                          {10000, 500, 100, 0.0001, false}};
 
 typedef KmeansFindKTest<float> KmeansFindKTestF;
-TEST_P(KmeansFindKTestF, Result) { ASSERT_TRUE(score == 1.0); }
+TEST_P(KmeansFindKTestF, Result) { ASSERT_TRUE(best_k.view()[0] == testparams.n_clusters); }
 
 typedef KmeansFindKTest<double> KmeansFindKTestD;
-TEST_P(KmeansFindKTestD, Result) { ASSERT_TRUE(score == 1.0); }
+TEST_P(KmeansFindKTestD, Result) { ASSERT_TRUE(best_k.view()[0] == testparams.n_clusters); }
 
 INSTANTIATE_TEST_CASE_P(KmeansFindKTests, KmeansFindKTestF, ::testing::ValuesIn(inputsf2));
 

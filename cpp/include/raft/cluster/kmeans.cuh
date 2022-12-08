@@ -281,9 +281,9 @@ void transform(const raft::handle_t& handle,
  *
  *   raft::random::make_blobs(handle, X, labels, n_clusters);
  *
- *   auto best_k = raft::make_host_scalar<int>();
- *   auto n_iter = raft::make_host_scalar<int>();
- *   auto inertia = raft::make_host_scalar<int>();
+ *   auto best_k = raft::make_host_scalar<int>(0);
+ *   auto n_iter = raft::make_host_scalar<int>(0);
+ *   auto inertia = raft::make_host_scalar<int>(0);
  *
  *   kmeans::find_k(handle, X, best_k.view(), inertia.view(), n_iter.view(), n_clusters+1);
  *
@@ -304,7 +304,7 @@ void transform(const raft::handle_t& handle,
 template <typename idx_t, typename value_t>
 void find_k(const raft::handle_t& handle,
             raft::device_matrix_view<const value_t, idx_t> X,
-            raft::host_scalar_view<int> best_k,
+            raft::host_scalar_view<idx_t> best_k,
             raft::host_scalar_view<value_t> inertia,
             raft::host_scalar_view<idx_t> n_iter,
             idx_t kmax,
