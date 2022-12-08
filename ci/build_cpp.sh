@@ -7,6 +7,9 @@ source rapids-env-update
 
 export CMAKE_GENERATOR=Ninja
 
+# ucx-py version
+export UCX_PY_VERSION='0.30.*'
+
 rapids-print-env
 
 rapids-logger "Begin cpp build"
