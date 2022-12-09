@@ -30,7 +30,7 @@
 #include <rmm/device_vector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
-namespace raft::spatial::knn::detail::topk {
+namespace raft::matrix::detail::select::radix {
 
 constexpr int ITEM_PER_THREAD      = 32;
 constexpr int VECTORIZED_READ_SIZE = 16;
@@ -547,21 +547,21 @@ inline dim3 get_optimal_grid_size(size_t req_batch_size, size_t len)
  *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
-void radix_topk(const T* in,
-                const IdxT* in_idx,
-                size_t batch_size,
-                size_t len,
-                int k,
-                T* out,
-                IdxT* out_idx,
-                bool select_min,
-                rmm::cuda_stream_view stream,
-                rmm::mr::device_memory_resource* mr = nullptr)
+void select_k(const T* in,
+              const IdxT* in_idx,
+              size_t batch_size,
+              size_t len,
+              int k,
+              T* out,
+              IdxT* out_idx,
+              bool select_min,
+              rmm::cuda_stream_view stream,
+              rmm::mr::device_memory_resource* mr = nullptr)
 {
   // reduce the block size if the input length is too small.
   if constexpr (BlockSize > calc_min_block_size<BitsPerPass>()) {
     if (BlockSize * ITEM_PER_THREAD > len) {
-      return radix_topk<T, IdxT, BitsPerPass, BlockSize / 2>(
+      return select_k<T, IdxT, BitsPerPass, BlockSize / 2>(
         in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     }
   }
@@ -580,7 +580,7 @@ void radix_topk(const T* in,
                       + sizeof(T) * 2                     // T bufs
                       ));
   if (pool_guard) {
-    RAFT_LOG_DEBUG("radix_topk: using pool memory resource with initial size %zu bytes",
+    RAFT_LOG_DEBUG("radix::select_k: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
   }
 
@@ -646,4 +646,4 @@ void radix_topk(const T* in,
   }
 }
 
-}  // namespace raft::spatial::knn::detail::topk
+}  // namespace raft::matrix::detail::select::radix

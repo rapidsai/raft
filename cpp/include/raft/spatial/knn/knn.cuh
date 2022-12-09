@@ -20,8 +20,8 @@
 #include "detail/selection_faiss.cuh"
 #include <raft/core/device_mdspan.hpp>
 
-#include "detail/topk/radix_topk.cuh"
-#include "detail/topk/warpsort_topk.cuh"
+#include "raft/matrix/detail/select_radix.cuh"
+#include "raft/matrix/detail/select_warpsort.cuh"
 
 #include <raft/core/nvtx.hpp>
 
@@ -122,16 +122,17 @@ enum class SelectKAlgo {
  *   the implementation of the algorithm
  */
 template <typename idx_t = int, typename value_t = float>
-inline void select_k(const value_t* in_keys,
-                     const idx_t* in_values,
-                     size_t n_inputs,
-                     size_t input_len,
-                     value_t* out_keys,
-                     idx_t* out_values,
-                     bool select_min,
-                     int k,
-                     cudaStream_t stream,
-                     SelectKAlgo algo = SelectKAlgo::FAISS)
+[[deprecated("Use function `select_k` from `raft/matrix/select.cuh")]] inline void select_k(
+  const value_t* in_keys,
+  const idx_t* in_values,
+  size_t n_inputs,
+  size_t input_len,
+  value_t* out_keys,
+  idx_t* out_values,
+  bool select_min,
+  int k,
+  cudaStream_t stream,
+  SelectKAlgo algo = SelectKAlgo::FAISS)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("select-%s-%d (%zu, %zu) algo-%d",
                                                             select_min ? "min" : "max",
@@ -151,17 +152,17 @@ inline void select_k(const value_t* in_keys,
       break;
 
     case SelectKAlgo::RADIX_8_BITS:
-      detail::topk::radix_topk<value_t, idx_t, 8, 512>(
+      matrix::detail::select::radix::select_k<value_t, idx_t, 8, 512>(
         in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
       break;
 
     case SelectKAlgo::RADIX_11_BITS:
-      detail::topk::radix_topk<value_t, idx_t, 11, 512>(
+      matrix::detail::select::radix::select_k<value_t, idx_t, 11, 512>(
         in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
       break;
 
     case SelectKAlgo::WARP_SORT:
-      detail::topk::warp_sort_topk<value_t, idx_t>(
+      matrix::detail::select::warpsort::select_k<value_t, idx_t>(
         in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
       break;
 

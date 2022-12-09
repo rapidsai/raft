@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/distance/distance_types.hpp>
+#include <raft/matrix/select.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
-#include <raft/spatial/knn/detail/topk.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -172,17 +172,16 @@ void naiveBfKnn(EvalT* dist_topk,
     naive_distance_kernel<EvalT, DataT, IdxT><<<grid_dim, block_dim, 0, stream>>>(
       dist.data(), x + offset * dim, y, batch_size, input_len, dim, type);
 
-    spatial::knn::detail::select_topk<EvalT, IdxT>(
-      dist.data(),
-      nullptr,
-      batch_size,
-      input_len,
-      static_cast<int>(k),
-      dist_topk + offset * k,
-      indices_topk + offset * k,
-      type != raft::distance::DistanceType::InnerProduct,
-      stream,
-      mr);
+    matrix::select_k<EvalT, IdxT>(dist.data(),
+                                  nullptr,
+                                  batch_size,
+                                  input_len,
+                                  static_cast<int>(k),
+                                  dist_topk + offset * k,
+                                  indices_topk + offset * k,
+                                  type != raft::distance::DistanceType::InnerProduct,
+                                  stream,
+                                  mr);
   }
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }

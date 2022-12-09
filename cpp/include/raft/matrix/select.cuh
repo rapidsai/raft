@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include "topk/radix_topk.cuh"
-#include "topk/warpsort_topk.cuh"
+#include "detail/select_radix.cuh"
+#include "detail/select_warpsort.cuh"
 
 #include <raft/core/nvtx.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
-namespace raft::spatial::knn::detail {
+namespace raft::matrix {
 
 /**
  * Select k smallest or largest key/values from each row in the input data.
@@ -64,28 +64,28 @@ namespace raft::spatial::knn::detail {
  *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT>
-void select_topk(const T* in,
-                 const IdxT* in_idx,
-                 size_t batch_size,
-                 size_t len,
-                 int k,
-                 T* out,
-                 IdxT* out_idx,
-                 bool select_min,
-                 rmm::cuda_stream_view stream,
-                 rmm::mr::device_memory_resource* mr = nullptr)
+void select_k(const T* in,
+              const IdxT* in_idx,
+              size_t batch_size,
+              size_t len,
+              int k,
+              T* out,
+              IdxT* out_idx,
+              bool select_min,
+              rmm::cuda_stream_view stream,
+              rmm::mr::device_memory_resource* mr = nullptr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "matrix::select_topk(batch_size = %zu, len = %zu, k = %d)", batch_size, len, k);
+    "matrix::select_k(batch_size = %zu, len = %zu, k = %d)", batch_size, len, k);
   // TODO (achirkin): investigate the trade-off for a wider variety of inputs.
   const bool radix_faster = batch_size >= 64 && len >= 102400 && k >= 128;
-  if (k <= raft::spatial::knn::detail::topk::kMaxCapacity && !radix_faster) {
-    topk::warp_sort_topk<T, IdxT>(
+  if (k <= detail::select::warpsort::kMaxCapacity && !radix_faster) {
+    detail::select::warpsort::select_k<T, IdxT>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
   } else {
-    topk::radix_topk<T, IdxT, (sizeof(T) >= 4 ? 11 : 8), 512>(
+    detail::select::radix::select_k<T, IdxT, (sizeof(T) >= 4 ? 11 : 8), 512>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
   }
 }
 
-}  // namespace raft::spatial::knn::detail
+}  // namespace raft::matrix
