@@ -225,7 +225,8 @@ struct plug_const_op {
 
   template <typename OpT     = BinaryOpT,
             typename UnusedT = std::enable_if_t<std::is_default_constructible_v<OpT>>>
-  constexpr explicit plug_const_op(const ConstT& s) : c{s}, composed_op{}
+  constexpr explicit plug_const_op(const ConstT& s)
+    : c{s}, composed_op{}  // The compiler complains if composed_op is not initialized explictly
   {
   }
   constexpr plug_const_op(const ConstT& s, BinaryOpT o) : c{s}, composed_op{o} {}
@@ -324,6 +325,7 @@ struct map_args_op {
             typename CondT = std::enable_if_t<std::is_default_constructible_v<T1> &&
                                               std::is_default_constructible_v<T2>>>
   constexpr map_args_op()
+    : outer_op{}  // The compiler complains if outer_op is not initialized explictly
   {
   }
   constexpr explicit map_args_op(OuterOpT outer_op, ArgOpsT... arg_ops)

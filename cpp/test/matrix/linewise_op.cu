@@ -15,7 +15,7 @@
  */
 
 #include "../linalg/matrix_vector_op.cuh"
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
 #include <raft/core/device_mdspan.hpp>

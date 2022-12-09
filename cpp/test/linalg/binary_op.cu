@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "binary_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/operators.hpp>

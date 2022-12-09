@@ -19,7 +19,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/transpose.cuh>

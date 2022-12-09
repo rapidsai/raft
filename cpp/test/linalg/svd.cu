@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/matrix.cuh>

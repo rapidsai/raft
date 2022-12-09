@@ -27,7 +27,7 @@
 #include <raft/sparse/distance/detail/coo_spmv.cuh>
 #include <raft/sparse/distance/detail/operators.cuh>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 #include <type_traits>
 
