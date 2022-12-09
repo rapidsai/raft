@@ -288,14 +288,7 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME
-    UTILS_TEST
-    PATH
-    test/common/seive.cu
-    test/cudart_utils.cpp
-    test/device_atomics.cu
-    test/integer_utils.cpp
-    test/pow2_utils.cu
-    test/util/bitonic_sort.cu
+    NAME UTILS_TEST PATH test/common/seive.cu test/cudart_utils.cpp test/device_atomics.cu
+    test/integer_utils.cpp test/pow2_utils.cu test/util/bitonic_sort.cu
   )
 endif()
