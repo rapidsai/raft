@@ -18,12 +18,11 @@
 
 #include "detail/knn_brute_force_faiss.cuh"
 #include "detail/selection_faiss.cuh"
+
 #include <raft/core/device_mdspan.hpp>
-
-#include "raft/matrix/detail/select_radix.cuh"
-#include "raft/matrix/detail/select_warpsort.cuh"
-
 #include <raft/core/nvtx.hpp>
+#include <raft/matrix/detail/select_radix.cuh>
+#include <raft/matrix/detail/select_warpsort.cuh>
 
 namespace raft::spatial::knn {
 
