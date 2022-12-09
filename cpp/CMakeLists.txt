@@ -464,10 +464,20 @@ endif()
 
 set_target_properties(raft_distributed PROPERTIES EXPORT_NAME distributed)
 
+rapids_find_generate_module(
+  NCCL
+  HEADER_NAMES nccl.h
+  LIBRARY_NAMES nccl
+  BUILD_EXPORT_SET raft-distributed-exports
+  INSTALL_EXPORT_SET raft-distributed-exports
+)
+
 rapids_export_package(BUILD ucx raft-distributed-exports)
 rapids_export_package(INSTALL ucx raft-distributed-exports)
+rapids_export_package(BUILD NCCL raft-distributed-exports)
+rapids_export_package(INSTALL NCCL raft-distributed-exports)
 
-target_link_libraries(raft_distributed INTERFACE ucx::ucp)
+target_link_libraries(raft_distributed INTERFACE ucx::ucp NCCL::NCCL)
 
 # ##################################################################################################
 # * install targets-----------------------------------------------------------
