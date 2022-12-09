@@ -48,6 +48,7 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - cudatoolkit {{ cuda_version }}.*
+        - cuda-profiler-api {{ cuda_profiler_api_version }}
         - libcublas-dev {{ libcublas_version }}
         - libcurand-dev {{ libcurand_version }}
         - libcusolver-dev {{ libcusolver_version }}
@@ -55,6 +56,7 @@ outputs:
         - librmm {{ minor_version }}.*
       run:
         - cudatoolkit {{ cuda_spec }}
+        - cuda-profiler-api {{ cuda_profiler_api_version }}
         - libcublas-dev {{ libcublas_version }}
         - libcurand-dev {{ libcurand_version }}
         - libcusolver-dev {{ libcusolver_version }}
