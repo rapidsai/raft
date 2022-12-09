@@ -71,6 +71,11 @@ void histogram(HistType type,
 }
 
 /**
+ * @defgroup stats_histogram Histogram
+ * @{
+ */
+
+/**
  * @brief Perform histogram on the input data. It chooses the right load size
  * based on the input data vector length. It also supports large-bin cases
  * using a specialized smem-based hashing technique.
@@ -106,6 +111,9 @@ void histogram(const raft::handle_t& handle,
                                                handle.get_stream(),
                                                binner);
 }
+
+/** @} */  // end group stats_histogram
+
 };  // end namespace stats
 };  // end namespace raft
 

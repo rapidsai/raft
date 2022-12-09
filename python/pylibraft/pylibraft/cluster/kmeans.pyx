@@ -27,29 +27,23 @@ from libcpp cimport nullptr
 from collections import namedtuple
 from enum import IntEnum
 
-from pylibraft.common import Handle, cai_wrapper
+from pylibraft.common import Handle, cai_wrapper, device_ndarray
 from pylibraft.common.handle import auto_sync_handle
 
 from pylibraft.common.handle cimport handle_t
-from pylibraft.random.rng_state cimport RngState
+from pylibraft.random.cpp.rng_state cimport RngState
 
 from pylibraft.common.input_validation import *
 from pylibraft.distance import DISTANCE_TYPES
 
-from pylibraft.common.handle cimport handle_t
-from pylibraft.cpp cimport kmeans as cpp_kmeans, kmeans_types
-from pylibraft.cpp.kmeans cimport (
+from pylibraft.cluster.cpp cimport kmeans as cpp_kmeans, kmeans_types
+from pylibraft.cluster.cpp.kmeans cimport (
     cluster_cost as cpp_cluster_cost,
     update_centroids,
 )
-from pylibraft.cpp.mdspan cimport *
-from pylibraft.cpp.optional cimport optional
-
-
-def is_c_cont(cai, dt):
-    return "strides" not in cai or \
-        cai["strides"] is None or \
-        cai["strides"][1] == dt.itemsize
+from pylibraft.common.cpp.mdspan cimport *
+from pylibraft.common.cpp.optional cimport optional
+from pylibraft.common.handle cimport handle_t
 
 
 @auto_sync_handle
@@ -62,9 +56,6 @@ def compute_new_centroids(X,
                           handle=None):
     """
     Compute new centroids given an input matrix and existing centroids
-
-    Valid values for metric:
-        ["euclidean", "sqeuclidean"]
 
     Parameters
     ----------
@@ -89,39 +80,37 @@ def compute_new_centroids(X,
     Examples
     --------
 
-    .. code-block:: python
+    >>> import cupy as cp
 
-        import cupy as cp
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.cluster.kmeans import compute_new_centroids
 
-        from pylibraft.common import Handle
-        from pylibraft.cluster.kmeans import compute_new_centroids
+    >>> # A single RAFT handle can optionally be reused across
+    >>> # pylibraft functions.
+    >>> handle = Handle()
 
-        # A single RAFT handle can optionally be reused across
-        # pylibraft functions.
-        handle = Handle()
+    >>> n_samples = 5000
+    >>> n_features = 50
+    >>> n_clusters = 3
 
-        n_samples = 5000
-        n_features = 50
-        n_clusters = 3
+    >>> X = cp.random.random_sample((n_samples, n_features),
+    ...                               dtype=cp.float32)
 
-        X = cp.random.random_sample((n_samples, n_features),
-                                      dtype=cp.float32)
+    >>> centroids = cp.random.random_sample((n_clusters, n_features),
+    ...                                         dtype=cp.float32)
+    ...
+    >>> labels = cp.random.randint(0, high=n_clusters, size=n_samples,
+    ...                            dtype=cp.int32)
 
-        centroids = cp.random.random_sample((n_clusters, n_features),
-                                                dtype=cp.float32)
+    >>> new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
 
-        labels = cp.random.randint(0, high=n_clusters, size=n_samples,
-                                   dtype=cp.int32)
+    >>> compute_new_centroids(
+    ...     X, centroids, labels, new_centroids, handle=handle
+    ... )
 
-        new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
-
-        compute_new_centroids(
-            X, centroids, labels, new_centroids, handle=handle
-        )
-
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
    """
 
     x_cai = X.__cuda_array_interface__
@@ -169,9 +158,9 @@ def compute_new_centroids(X,
     handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
-    x_c_contiguous = is_c_cont(x_cai, x_dt)
-    centroids_c_contiguous = is_c_cont(centroids_cai, centroids_dt)
-    new_centroids_c_contiguous = is_c_cont(new_centroids_cai, new_centroids_dt)
+    x_c_contiguous = is_c_contiguous(x_cai)
+    centroids_c_contiguous = is_c_contiguous(centroids_cai)
+    new_centroids_c_contiguous = is_c_contiguous(new_centroids_cai)
 
     if not x_c_contiguous or not centroids_c_contiguous \
             or not new_centroids_c_contiguous:
@@ -222,22 +211,21 @@ def cluster_cost(X, centroids, handle=None):
     Examples
     --------
 
-    .. code-block:: python
-        import cupy as cp
+    >>> import cupy as cp
+    >>>
+    >>> from pylibraft.cluster.kmeans import cluster_cost
+    >>>
+    >>> n_samples = 5000
+    >>> n_features = 50
+    >>> n_clusters = 3
+    >>>
+    >>> X = cp.random.random_sample((n_samples, n_features),
+    ...                             dtype=cp.float32)
 
-        from pylibraft.cluster.kmeans import cluster_cost
+    >>> centroids = cp.random.random_sample((n_clusters, n_features),
+    ...                                      dtype=cp.float32)
 
-        n_samples = 5000
-        n_features = 50
-        n_clusters = 3
-
-        X = cp.random.random_sample((n_samples, n_features),
-                                      dtype=cp.float32)
-
-        centroids = cp.random.random_sample((n_clusters, n_features),
-                                                dtype=cp.float32)
-
-        inertia = cluster_cost(X, centroids)
+    >>> inertia = cluster_cost(X, centroids)
     """
     x_cai = X.__cuda_array_interface__
     centroids_cai = centroids.__cuda_array_interface__
@@ -260,8 +248,8 @@ def cluster_cost(X, centroids, handle=None):
     handle = handle if handle is not None else Handle()
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
-    x_c_contiguous = is_c_cont(x_cai, x_dt)
-    centroids_c_contiguous = is_c_cont(centroids_cai, centroids_dt)
+    x_c_contiguous = is_c_contiguous(x_cai)
+    centroids_c_contiguous = is_c_contiguous(centroids_cai)
 
     if not x_c_contiguous or not centroids_c_contiguous:
         raise ValueError("Inputs must all be c contiguous")
@@ -445,21 +433,19 @@ def fit(
     Examples
     --------
 
-    .. code-block:: python
+    >>> import cupy as cp
+    >>>
+    >>> from pylibraft.cluster.kmeans import fit, KMeansParams
+    >>>
+    >>> n_samples = 5000
+    >>> n_features = 50
+    >>> n_clusters = 3
+    >>>
+    >>> X = cp.random.random_sample((n_samples, n_features),
+    ...                             dtype=cp.float32)
 
-        import cupy as cp
-
-        from pylibraft.cluster.kmeans import fit, KMeansParams
-
-        n_samples = 5000
-        n_features = 50
-        n_clusters = 3
-
-        X = cp.random.random_sample((n_samples, n_features),
-                                      dtype=cp.float32)
-
-        params = KMeansParams(n_clusters=n_clusters)
-        centroids, inertia, n_iter = fit(params, X)
+    >>> params = KMeansParams(n_clusters=n_clusters)
+    >>> centroids, inertia, n_iter = fit(params, X)
     """
     cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
 
@@ -495,11 +481,11 @@ def fit(
         cpp_kmeans.fit(
             deref(h),
             params.c_obj,
-            make_device_matrix_view(
-                <const double *><uintptr_t>X_cai.data,
+            make_device_matrix_view[double, int, row_major](
+                <double *><uintptr_t>X_cai.data,
                 <int>X_cai.shape[0], <int>X_cai.shape[1]),
             d_sample_weights,
-            make_device_matrix_view(
+            make_device_matrix_view[double, int, row_major](
                 <double *><uintptr_t>centroids_cai.data,
                 <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
             make_host_scalar_view[double, int](&d_inertia),
@@ -515,11 +501,11 @@ def fit(
         cpp_kmeans.fit(
             deref(h),
             params.c_obj,
-            make_device_matrix_view(
-                <const float *><uintptr_t>X_cai.data,
+            make_device_matrix_view[float, int, row_major](
+                <float *><uintptr_t>X_cai.data,
                 <int>X_cai.shape[0], <int>X_cai.shape[1]),
             f_sample_weights,
-            make_device_matrix_view(
+            make_device_matrix_view[float, int, row_major](
                 <float *><uintptr_t>centroids_cai.data,
                 <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
             make_host_scalar_view[float, int](&f_inertia),

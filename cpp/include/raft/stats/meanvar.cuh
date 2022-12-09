@@ -57,6 +57,11 @@ void meanvar(Type* mean,
 }
 
 /**
+ * @defgroup stats_mean_var Mean and Variance
+ * @{
+ */
+
+/**
  * @brief Compute mean and variance for each column of a given matrix.
  *
  * The operation is performed in a single sweep. Consider using it when you need to compute
@@ -98,6 +103,8 @@ void meanvar(const raft::handle_t& handle,
                   std::is_same_v<layout_t, raft::row_major>,
                   handle.get_stream());
 }
+
+/** @} */  // end group stats_mean_var
 
 };  // namespace raft::stats
 

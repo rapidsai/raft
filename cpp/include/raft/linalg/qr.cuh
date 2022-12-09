@@ -24,11 +24,6 @@ namespace raft {
 namespace linalg {
 
 /**
- * @defgroup QRdecomp QR decomposition
- * @{
- */
-
-/**
  * @brief compute QR decomp and return only Q matrix
  * @param handle: raft handle
  * @param M: input matrix
@@ -69,6 +64,11 @@ void qrGetQR(const raft::handle_t& handle,
 {
   detail::qrGetQR(handle, M, Q, R, n_rows, n_cols, stream);
 }
+
+/**
+ * @defgroup qr QR Decomposition
+ * @{
+ */
 
 /**
  * @brief Compute the QR decomposition of matrix M and return only the Q matrix.

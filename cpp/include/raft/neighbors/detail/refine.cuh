@@ -141,7 +141,7 @@ typedef struct {
   float distance;
 } struct_for_refinement;
 
-int _postprocessing_qsort_compare(const void* v1, const void* v2)
+inline int _postprocessing_qsort_compare(const void* v1, const void* v2)
 {
   // sort in ascending order
   if (((struct_for_refinement*)v1)->distance > ((struct_for_refinement*)v2)->distance) {

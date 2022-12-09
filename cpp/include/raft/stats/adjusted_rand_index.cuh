@@ -50,6 +50,11 @@ double adjusted_rand_index(const T* firstClusterArray,
 }
 
 /**
+ * @defgroup stats_adj_rand_index Adjusted Rand Index
+ * @{
+ */
+
+/**
  * @brief Function to calculate Adjusted RandIndex
  * @see https://en.wikipedia.org/wiki/Rand_index
  * @tparam value_t data-type for input label arrays
@@ -74,6 +79,8 @@ double adjusted_rand_index(const raft::handle_t& handle,
                                                               first_cluster_array.extent(0),
                                                               handle.get_stream());
 }
+
+/** @} */  // end group stats_adj_rand_index
 
 };  // end namespace stats
 };  // end namespace raft

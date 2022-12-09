@@ -32,8 +32,8 @@ from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.handle cimport handle_t
 
 
-cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
-        namespace "raft::distance::runtime":
+cdef extern from "raft_runtime/distance/fused_l2_nn.hpp" \
+        namespace "raft::runtime::distance" nogil:
 
     void fused_l2_nn_min_arg(
         const handle_t &handle,
@@ -73,54 +73,50 @@ def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
     --------
     To compute the 1-nearest neighbors argmin:
 
-    .. code-block:: python
+    >>> import cupy as cp
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.distance import fused_l2_nn_argmin
+    >>> n_samples = 5000
+    >>> n_clusters = 5
+    >>> n_features = 50
+    >>> in1 = cp.random.random_sample((n_samples, n_features),
+    ...                               dtype=cp.float32)
+    >>> in2 = cp.random.random_sample((n_clusters, n_features),
+    ...                               dtype=cp.float32)
+    >>> # A single RAFT handle can optionally be reused across
+    >>> # pylibraft functions.
+    >>> handle = Handle()
 
-        import cupy as cp
-        from pylibraft.common import Handle
-        from pylibraft.distance import fused_l2_nn_argmin
-        n_samples = 5000
-        n_clusters = 5
-        n_features = 50
-        in1 = cp.random.random_sample((n_samples, n_features),
-                                      dtype=cp.float32)
-        in2 = cp.random.random_sample((n_clusters, n_features),
-                                      dtype=cp.float32)
-        # A single RAFT handle can optionally be reused across
-        # pylibraft functions.
-        handle = Handle()
-        ...
-        output = fused_l2_nn_argmin(in1, in2, output, handle=handle)
-        ...
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
+    >>> output = fused_l2_nn_argmin(in1, in2, handle=handle)
+
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
 
     The output can also be computed in-place on a preallocated
     array:
 
-    .. code-block:: python
+    >>> import cupy as cp
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.distance import fused_l2_nn_argmin
+    >>> n_samples = 5000
+    >>> n_clusters = 5
+    >>> n_features = 50
+    >>> in1 = cp.random.random_sample((n_samples, n_features),
+    ...                               dtype=cp.float32)
+    >>> in2 = cp.random.random_sample((n_clusters, n_features),
+    ...                               dtype=cp.float32)
+    >>> output = cp.empty((n_samples, 1), dtype=cp.int32)
+    >>> # A single RAFT handle can optionally be reused across
+    >>> # pylibraft functions.
+    >>> handle = Handle()
 
-        import cupy as cp
-        from pylibraft.common import Handle
-        from pylibraft.distance import fused_l2_nn_argmin
-        n_samples = 5000
-        n_clusters = 5
-        n_features = 50
-        in1 = cp.random.random_sample((n_samples, n_features),
-                                      dtype=cp.float32)
-        in2 = cp.random.random_sample((n_clusters, n_features),
-                                      dtype=cp.float32)
-        output = cp.empty((n_samples, 1), dtype=cp.int32)
-        # A single RAFT handle can optionally be reused across
-        # pylibraft functions.
-        handle = Handle()
-        ...
-        fused_l2_nn_argmin(in1, in2, out=output, handle=handle)
-        ...
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
+    >>> fused_l2_nn_argmin(in1, in2, out=output, handle=handle)
+    array(...)
 
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
    """
 
     x_cai = cai_wrapper(X)

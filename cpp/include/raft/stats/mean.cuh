@@ -51,6 +51,11 @@ void mean(
 }
 
 /**
+ * @defgroup stats_mean Mean
+ * @{
+ */
+
+/**
  * @brief Compute mean of the input matrix
  *
  * Mean operation is assumed to be performed on a given column.
@@ -84,6 +89,8 @@ void mean(const raft::handle_t& handle,
                std::is_same_v<layout_t, raft::row_major>,
                handle.get_stream());
 }
+
+/** @} */  // end group stats_mean
 
 };  // namespace stats
 };  // namespace raft
