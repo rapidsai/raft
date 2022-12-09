@@ -43,7 +43,7 @@ struct KmeansFindKInputs {
 template <typename T>
 class KmeansFindKTest : public ::testing::TestWithParam<KmeansFindKInputs<T>> {
  protected:
-  KmeansFindKTest() : stream(handle.get_stream()) {}
+  KmeansFindKTest() : stream(handle.get_stream()), best_k(raft::make_host_scalar<int>(0)) {}
 
   void basicTest()
   {
@@ -71,21 +71,6 @@ class KmeansFindKTest : public ::testing::TestWithParam<KmeansFindKInputs<T>> {
                                      (T)10.0f,
                                      (uint64_t)1234);
 
-    //            std::optional<raft::device_vector_view<const T>> d_sw = std::nullopt;
-    //            auto d_centroids_view =
-    //                    raft::make_device_matrix_view<T, int>(d_centroids.data(),
-    //                    params.n_clusters, n_features);
-    //            if (testparams.weighted) {
-    //                d_sample_weight.resize(n_samples, stream);
-    //                d_sw = std::make_optional(
-    //                        raft::make_device_vector_view<const T, int>(d_sample_weight.data(),
-    //                        n_samples));
-    //                thrust::fill(thrust::cuda::par.on(stream),
-    //                             d_sample_weight.data(),
-    //                             d_sample_weight.data() + n_samples,
-    //                             1);
-    //            }
-    //
     auto inertia = raft::make_host_scalar<T>(0);
     auto n_iter  = raft::make_host_scalar<int>(0);
 

@@ -82,8 +82,6 @@ void find_k(raft::handle_t const& handle,
   params.max_iter = maxiter;
   params.tol      = tol;
 
-  RAFT_LOG_INFO("Running left.");
-
   auto centroids_const_view =
     raft::make_device_matrix_view<const value_t, idx_t>(centroids.data_handle(), left, d);
 
@@ -104,9 +102,6 @@ void find_k(raft::handle_t const& handle,
                                      n_iter);
 
   detail::countLabels(handle, labels.data_handle(), clusterSizes.data_handle(), n, left, workspace);
-
-  RAFT_LOG_INFO("Done left.");
-
   resultsView[left] = residual[0];
 
   clusterDispertionView[left] = raft::stats::cluster_dispersion(
@@ -114,8 +109,6 @@ void find_k(raft::handle_t const& handle,
   // eval right edge0
   resultsView[right] = 1e20;
   while (resultsView[right] > resultsView[left] && tests < 3) {
-    RAFT_LOG_INFO("Running right.");
-
     centroids_const_view =
       raft::make_device_matrix_view<const value_t, idx_t>(centroids.data_handle(), right, d);
     centroids_view =
@@ -139,7 +132,6 @@ void find_k(raft::handle_t const& handle,
     resultsView[right]           = residual[0];
     clusterDispertionView[right] = raft::stats::cluster_dispersion(
       handle, centroids_const_view, cluster_sizes_view, std::nullopt, n);
-    RAFT_LOG_INFO("Running done.");
 
     tests += 1;
   }
@@ -150,8 +142,6 @@ void find_k(raft::handle_t const& handle,
     resultsView[mid] = 1e20;
     tests            = 0;
     while (resultsView[mid] > resultsView[left] && tests < 3) {
-      RAFT_LOG_INFO("Running mid.");
-
       centroids_const_view =
         raft::make_device_matrix_view<const value_t, idx_t>(centroids.data_handle(), mid, d);
       centroids_view =
@@ -177,8 +167,6 @@ void find_k(raft::handle_t const& handle,
       clusterDispertionView[mid] = raft::stats::cluster_dispersion(
         handle, centroids_const_view, cluster_sizes_view, std::nullopt, n);
 
-      RAFT_LOG_INFO("Done.");
-
       if (resultsView[mid] > resultsView[left] && (mid + 1) < right) {
         mid += 1;
         resultsView[mid] = 1e20;
@@ -189,16 +177,12 @@ void find_k(raft::handle_t const& handle,
       tests += 1;
     }
 
-    RAFT_LOG_INFO("S3etting objective things");
-
     // maximize Calinski-Harabasz Index, minimize resid/ cluster
     objective[0] = (n - left) / (left - 1) * clusterDispertionView[left] / resultsView[left];
     objective[1] = (n - right) / (right - 1) * clusterDispertionView[right] / resultsView[right];
     objective[2] = (n - mid) / (mid - 1) * clusterDispertionView[mid] / resultsView[mid];
     objective[0] = (objective[2] - objective[0]) / (mid - left);
     objective[1] = (objective[1] - objective[2]) / (right - mid);
-
-    RAFT_LOG_INFO("One");
 
     if (objective[0] > 0 && objective[1] < 0) {
       // our point is in the left-of-mid side
@@ -210,24 +194,14 @@ void find_k(raft::handle_t const& handle,
     mid    = int(floor((right + left) / 2));
   }
 
-  RAFT_LOG_INFO("Two");
-
   best_k[0]    = right;
   objective[0] = (n - left) / (left - 1) * clusterDispertionView[left] / resultsView[left];
-
-  RAFT_LOG_INFO("TWO21");
   objective[1] = (n - oldmid) / (oldmid - 1) * clusterDispertionView[oldmid] / resultsView[oldmid];
-
-  RAFT_LOG_INFO("TWO2");
   if (objective[1] < objective[0]) { best_k[0] = left; }
-
-  RAFT_LOG_INFO("Three");
 
   // if best_k isn't what we just ran, re-run to get correct centroids and dist data on return->
   // this saves memory
   if (best_k[0] != oldmid) {
-    RAFT_LOG_INFO("Running final.");
-
     centroids_view =
       raft::make_device_matrix_view<value_t, idx_t>(centroids.data_handle(), best_k[0], d);
 
@@ -240,8 +214,6 @@ void find_k(raft::handle_t const& handle,
                                        labels.view(),
                                        residual,
                                        n_iter);
-
-    RAFT_LOG_INFO("Done.");
   }
 }
 }  // namespace raft::cluster::detail
