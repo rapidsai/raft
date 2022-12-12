@@ -16,13 +16,12 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/rsvd.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.h>
 
 namespace raft {
 namespace linalg {
@@ -189,9 +188,17 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
 
   void advancedTest()
   {
-    int len = params.n_row * params.n_col;
-    raft::random::RngState r(params.seed);
-    uniform(handle, r, data.data(), len, T(-1.0), T(2.0));
+    int len    = params.n_row * params.n_col;
+    T data_h[] = {0.42120356, 0.55346701, 0.58788903, 0.75040157, 0.09853688, 0.49730508,
+                  0.15003893, 0.67740912, 0.12597932, 0.55363214, 0.40739539, 0.04186442,
+                  0.35645475, 0.13316199, 0.10088794, 0.39135527, 0.14173856, 0.11158198,
+                  0.78597058, 0.5228312,  0.1176523,  0.40416425, 0.18799533, 0.73968831,
+                  0.98123824, 0.82342543, 0.51029349, 0.43759839, 0.74817398, 0.82807957,
+                  0.94418196, 0.84631003, 0.88368781, 0.70672518, 0.64339536, 0.26589284,
+                  0.32476141, 0.93004274, 0.23253774, 0.64376609, 0.75940952, 0.79519889,
+                  0.14765252, 0.99161529, 0.82875801, 0.18182914, 0.22672471, 0.38118221,
+                  0.48865348, 0.24939353};
+    raft::update_device(data.data(), data_h, len, stream);
 
     randomized_svd(handle,
                    raft::make_device_matrix_view<const T, uint64_t, raft::col_major>(
@@ -202,8 +209,8 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
                    std::make_optional(raft::make_device_matrix_view<T, uint64_t, raft::col_major>(
                      right_eig_vectors_act.data(), params.k, params.n_col)),
                    params.k,
-                   2 * params.k,
-                   4);
+                   1,
+                   2);
 
     auto diag = raft::make_device_matrix<T, uint64_t, raft::col_major>(handle, params.k, params.k);
     raft::matrix::set_diagonal(
@@ -244,10 +251,10 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
 
 const std::vector<randomized_svdInputs<float>> inputsf1  = {{0.0001f, 5, 5, 2, 1234ULL}};
 const std::vector<randomized_svdInputs<double>> inputsd1 = {{0.0001, 5, 5, 2, 1234ULL}};
-const std::vector<randomized_svdInputs<float>> inputsf2  = {{1, 300, 80, 8, 1234ULL}};
-const std::vector<randomized_svdInputs<double>> inputsd2 = {{1, 300, 80, 8, 1234ULL}};
-const std::vector<randomized_svdInputs<float>> inputsf3  = {{1, 300, 800, 12, 1234ULL}};
-const std::vector<randomized_svdInputs<double>> inputsd3 = {{1, 300, 800, 12, 1234ULL}};
+const std::vector<randomized_svdInputs<float>> inputsf2  = {{0.5f, 10, 5, 3, 1234ULL}};
+const std::vector<randomized_svdInputs<double>> inputsd2 = {{0.5, 10, 5, 3, 1234ULL}};
+const std::vector<randomized_svdInputs<float>> inputsf3  = {{0.5f, 5, 10, 2, 1234ULL}};
+const std::vector<randomized_svdInputs<double>> inputsd3 = {{0.5, 5, 10, 2, 1234ULL}};
 
 typedef randomized_svdTest<float> randomized_svdTestF;
 TEST_P(randomized_svdTestF, Result)
