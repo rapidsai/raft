@@ -28,6 +28,7 @@ dependencies:
 - libfaiss>=1.7.0=cuda*
 - ninja
 - pytest
+- pytest-cov
 - rapids-build-env=23.02.*
 - rapids-doc-env=23.02.*
 - rapids-notebook-env=23.02.*

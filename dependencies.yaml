@@ -13,6 +13,16 @@ files:
       - notebook
       - run
       - test_python
+  test_cpp:
+    output: none
+    includes:
+      - cudatoolkit
+  test_python:
+    output: none
+    includes:
+      - cudatoolkit
+      - py_version
+      - test_python
   checks:
     output: none
     includes:
@@ -73,7 +83,7 @@ dependencies:
               cuda: "11.2"
             packages:
               - cudatoolkit=11.2
-              - libcublas-dev=11.5.2.43   # belongs to cuda-11.4.0 but it's the oldest available
+              - libcublas-dev=11.5.2.43 # belongs to cuda-11.4.0 but it's the oldest available
               - libcusolver-dev=11.2.0.43 # belongs to cuda-11.4.0 but it's the oldest available
               - libcusparse-dev=11.6.0.43 # belongs to cuda-11.4.0 but it's the oldest available
           - matrix:
@@ -141,3 +151,4 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - pytest
+          - pytest-cov
