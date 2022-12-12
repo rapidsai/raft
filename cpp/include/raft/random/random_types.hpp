@@ -19,9 +19,14 @@
 namespace raft::random {
 
 /**
- * @brief Matrix decomposition method for `compute_multi_variable_gaussian` to use.
+ * \ingroup multi_variable_gaussian
+ * @{
+ */
+
+/**
+ * @brief Matrix decomposition method for `multi_variable_gaussian` to use.
  *
- * `compute_multi_variable_gaussian` can use any of the following methods.
+ * `multi_variable_gaussian` can use any of the following methods.
  *
  * - `CHOLESKY`: Uses Cholesky decomposition on the normal equations.
  *   This may be faster than the other two methods, but less accurate.
@@ -35,5 +40,7 @@ namespace raft::random {
  *   which is based on the QR algorithm.
  */
 enum class multi_variable_gaussian_decomposition_method { CHOLESKY, JACOBI, QR };
+
+/** @} */
 
 };  // end of namespace raft::random

@@ -47,6 +47,11 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
 }
 
 /**
+ * @defgroup stats_r2_score Regression R2 Score
+ * @{
+ */
+
+/**
  * Calculates the "Coefficient of Determination" (R-Squared) score
  * normalizing the sum of squared errors by the total sum of squares.
  *
@@ -78,6 +83,8 @@ value_t r2_score(const raft::handle_t& handle,
                           y.extent(0),
                           handle.get_stream());
 }
+
+/** @} */  // end group stats_r2_score
 
 }  // namespace stats
 }  // namespace raft

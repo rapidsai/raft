@@ -21,6 +21,11 @@
 
 namespace raft::matrix {
 
+/**
+ * @defgroup matrix_slice Matrix slicing
+ * @{
+ */
+
 template <typename idx_t>
 struct slice_coordinates {
   idx_t row1;  ///< row coordinate of the top-left point of the wanted area (0-based)
@@ -68,4 +73,7 @@ void slice(const raft::handle_t& handle,
                       coords.col2,
                       handle.get_stream());
 }
+
+/** @} */  // end group matrix_slice
+
 }  // namespace raft::matrix

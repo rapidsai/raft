@@ -75,6 +75,11 @@ value_t silhouette_score_batched(
 }
 
 /**
+ * @defgroup stats_silhouette_score Silhouette Score
+ * @{
+ */
+
+/**
  * @brief main function that returns the average silhouette score for a given set of data and its
  * clusterings
  * @tparam value_t: type of the data samples
@@ -117,26 +122,6 @@ value_t silhouette_score(
                                   silhouette_score_per_sample_ptr,
                                   handle.get_stream(),
                                   metric);
-}
-
-/**
- * @brief Overload of `silhouette_score` to help the
- *   compiler find the above overload, in case users pass in
- *   `std::nullopt` for the optional arguments.
- *
- * Please see above for documentation of `silhouette_score`.
- */
-template <typename value_t, typename label_t, typename idx_t>
-value_t silhouette_score(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_in,
-  raft::device_vector_view<const label_t, idx_t> labels,
-  std::nullopt_t silhouette_score_per_sample,
-  idx_t n_unique_labels,
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
-{
-  std::optional<raft::device_vector_view<value_t, idx_t>> opt_scores = silhouette_score_per_sample;
-  return silhouette_score(handle, X_in, labels, opt_scores, n_unique_labels, metric);
 }
 
 /**
@@ -189,6 +174,28 @@ value_t silhouette_score_batched(
                                            scores_ptr,
                                            batch_size,
                                            metric);
+}
+
+/** @} */  // end group stats_silhouette_score
+
+/**
+ * @brief Overload of `silhouette_score` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for the optional arguments.
+ *
+ * Please see above for documentation of `silhouette_score`.
+ */
+template <typename value_t, typename label_t, typename idx_t>
+value_t silhouette_score(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_in,
+  raft::device_vector_view<const label_t, idx_t> labels,
+  std::nullopt_t silhouette_score_per_sample,
+  idx_t n_unique_labels,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
+{
+  std::optional<raft::device_vector_view<value_t, idx_t>> opt_scores = silhouette_score_per_sample;
+  return silhouette_score(handle, X_in, labels, opt_scores, n_unique_labels, metric);
 }
 
 /**

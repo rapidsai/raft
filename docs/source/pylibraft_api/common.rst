@@ -25,7 +25,9 @@ Interruptible
 #############
 
 .. autofunction:: pylibraft.common.interruptible.cuda_interruptible
+
 .. autofunction:: pylibraft.common.interruptible.synchronize
+
 .. autofunction:: pylibraft.common.interruptible.cuda_yield
 
 

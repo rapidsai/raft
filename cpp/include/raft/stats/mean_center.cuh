@@ -53,6 +53,38 @@ void meanCenter(Type* out,
 }
 
 /**
+ * @brief Add the input matrix wrt its mean
+ * @tparam Type the data type
+ * @tparam IdxType Integer type used to for addressing
+ * @tparam TPB threads per block of the cuda kernel launched
+ * @param out the output mean-added matrix
+ * @param data input matrix
+ * @param mu the mean vector
+ * @param D number of columns of data
+ * @param N number of rows of data
+ * @param rowMajor whether input is row or col major
+ * @param bcastAlongRows whether to broadcast vector along rows or columns
+ * @param stream cuda stream where to launch work
+ */
+template <typename Type, typename IdxType = int, int TPB = 256>
+void meanAdd(Type* out,
+             const Type* data,
+             const Type* mu,
+             IdxType D,
+             IdxType N,
+             bool rowMajor,
+             bool bcastAlongRows,
+             cudaStream_t stream)
+{
+  detail::meanAdd<Type, IdxType, TPB>(out, data, mu, D, N, rowMajor, bcastAlongRows, stream);
+}
+
+/**
+ * @defgroup stats_mean_center Mean Center
+ * @{
+ */
+
+/**
  * @brief Center the input matrix wrt its mean
  * @tparam value_t the data type
  * @tparam idx_t index type
@@ -91,33 +123,6 @@ void mean_center(const raft::handle_t& handle,
 /**
  * @brief Add the input matrix wrt its mean
  * @tparam Type the data type
- * @tparam IdxType Integer type used to for addressing
- * @tparam TPB threads per block of the cuda kernel launched
- * @param out the output mean-added matrix
- * @param data input matrix
- * @param mu the mean vector
- * @param D number of columns of data
- * @param N number of rows of data
- * @param rowMajor whether input is row or col major
- * @param bcastAlongRows whether to broadcast vector along rows or columns
- * @param stream cuda stream where to launch work
- */
-template <typename Type, typename IdxType = int, int TPB = 256>
-void meanAdd(Type* out,
-             const Type* data,
-             const Type* mu,
-             IdxType D,
-             IdxType N,
-             bool rowMajor,
-             bool bcastAlongRows,
-             cudaStream_t stream)
-{
-  detail::meanAdd<Type, IdxType, TPB>(out, data, mu, D, N, rowMajor, bcastAlongRows, stream);
-}
-
-/**
- * @brief Add the input matrix wrt its mean
- * @tparam Type the data type
  * @tparam idx_t index type
  * @tparam layout_t Layout type of the input matrix.
  * @tparam TPB threads per block of the cuda kernel launched
@@ -151,6 +156,9 @@ void mean_add(const raft::handle_t& handle,
                                   bcast_along_rows,
                                   handle.get_stream());
 }
+
+/** @} */  // end group stats_mean_center
+
 };  // end namespace stats
 };  // end namespace raft
 

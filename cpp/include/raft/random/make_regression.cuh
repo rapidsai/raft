@@ -103,6 +103,11 @@ void make_regression(const raft::handle_t& handle,
 }
 
 /**
+ * @defgroup make_regression Generate Dataset for Regression Model
+ * @{
+ */
+
+/**
  * @brief GPU-equivalent of sklearn.datasets.make_regression as documented at:
  * https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
  *
@@ -176,6 +181,8 @@ void make_regression(const raft::handle_t& handle,
                                  seed,
                                  type);
 }
+
+/** @} */  // end group make_regression
 
 }  // namespace raft::random
 

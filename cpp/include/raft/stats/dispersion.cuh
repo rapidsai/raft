@@ -58,6 +58,11 @@ DataT dispersion(const DataT* centroids,
 }
 
 /**
+ * @defgroup stats_cluster_dispersion Cluster Dispersion Metric
+ * @{
+ */
+
+/**
  * @brief Compute cluster dispersion metric. This is very useful for
  * automatically finding the 'k' (in kmeans) that improves this metric.
  * The cluster dispersion metric is defined as the square root of the sum of the
@@ -100,6 +105,8 @@ value_t cluster_dispersion(
                                             centroids.extent(1),
                                             handle.get_stream());
 }
+
+/** @} */  // end group stats_cluster_dispersion
 
 /**
  * @brief Overload of `cluster_dispersion` to help the
