@@ -1,5 +1,5 @@
-Distance
-========
+1-Nearest Neighbors
+===================
 
 This page provides C++ class references for the publicly-exposed elements of the `raft/distance` package. RAFT's
 distances have been highly optimized and support a wide assortment of different distance measures.
@@ -8,20 +8,12 @@ distances have been highly optimized and support a wide assortment of different 
    :language: c++
    :class: highlight
 
-Distance Types
---------------
-
-``#include <raft/distance/distance_types.hpp>``
+``#include <raft/distance/fused_l2_nn.cuh>``
 
 namespace *raft::distance*
 
-.. doxygenenum:: raft::distance::DistanceType
-   :project: RAFT
+.. doxygengroup:: fused_l2_nn
+    :project: RAFT
+    :members:
+    :content-only:
 
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   distance_pairwise.rst
-   distance_1nn.rst

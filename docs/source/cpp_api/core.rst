@@ -61,14 +61,3 @@ logger
     :project: RAFT
     :members:
 
-
-Multi-node Multi-GPU
-####################
-
-``#include <raft/core/comms.hpp>``
-
-.. doxygennamespace:: raft::comms
-    :project: RAFT
-    :members:
-    :content-only:
-
