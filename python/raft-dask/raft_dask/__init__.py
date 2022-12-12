@@ -13,4 +13,9 @@
 # limitations under the License.
 #
 
+from raft_dask._version import get_versions
+
 from .include_test import raft_include_test
+
+__version__ = get_versions()["version"]
+del get_versions
