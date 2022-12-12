@@ -24,12 +24,27 @@ namespace comms {
 
 using mpi_comms = detail::mpi_comms;
 
+/**
+ * @defgroup mpi_comms_factory MPI Comms Factory Functions
+ * @{
+ */
+
+/**
+ * Given a properly initialized MPI_Comm, construct an instance of RAFT's
+ * MPI Communicator and inject it into the given RAFT handle instance
+ * @param handle raft handle for managing expensive resources
+ * @param comm an initialized MPI communicator
+ */
 inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm)
 {
   auto communicator = std::make_shared<comms_t>(
     std::unique_ptr<comms_iface>(new mpi_comms(comm, false, handle->get_stream())));
   handle->set_comms(communicator);
 };
+
+/**
+ * @}
+ */
 
 };  // namespace comms
 };  // end namespace raft

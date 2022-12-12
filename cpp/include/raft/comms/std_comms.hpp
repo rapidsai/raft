@@ -31,8 +31,13 @@ namespace comms {
 using std_comms = detail::std_comms;
 
 /**
- * Function to construct comms_t and inject it on a handle_t. This
- * is used for convenience in the Python layer.
+ * @defgroup std_comms_factory std_comms Factory functions
+ * @{
+ */
+
+/**
+ * Factory function to construct a RAFT NCCL communicator and inject it into a
+ * RAFT handle.
  *
  * @param handle raft::handle_t for injecting the comms
  * @param nccl_comm initialized NCCL communicator to use for collectives
@@ -49,8 +54,8 @@ void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks
 }
 
 /**
- * Function to construct comms_t and inject it on a handle_t. This
- * is used for convenience in the Python layer.
+ * Factory function to construct a RAFT NCCL+UCX and inject it into a RAFT
+ * handle.
  *
  * @param handle raft::handle_t for injecting the comms
  * @param nccl_comm initialized NCCL communicator to use for collectives
@@ -89,6 +94,10 @@ void build_comms_nccl_ucx(
       nccl_comm, (ucp_worker_h)ucp_worker, eps_sp, num_ranks, rank, stream)));
   handle->set_comms(communicator);
 }
+
+/**
+ * @}
+ */
 
 inline void nccl_unique_id_from_char(ncclUniqueId* id, char* uniqueId, int size)
 {
