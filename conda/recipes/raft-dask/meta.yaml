@@ -7,7 +7,6 @@
 {% set cuda_version = '.'.join(environ.get('RAPIDS_CUDA_VERSION', '11.5.2').split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
 {% set py_version = environ.get('CONDA_PY', 38) %}
-{% set ucx_py_version = environ.get('UCX_PY_VERSION') %}
 
 package:
   name: raft-dask
