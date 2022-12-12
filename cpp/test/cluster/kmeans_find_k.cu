@@ -65,7 +65,7 @@ class KmeansFindKTest : public ::testing::TestWithParam<KmeansFindKInputs<T>> {
                                      true,
                                      nullptr,
                                      nullptr,
-                                     T(1.0),
+                                     T(.00001),
                                      false,
                                      (T)-10.0f,
                                      (T)10.0f,
