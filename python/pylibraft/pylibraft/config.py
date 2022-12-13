@@ -21,17 +21,26 @@ class config:
     @classmethod
     def set_output_as(self, output):
         """
-        RAFT functions which normally return outputs with memory on device will
-        instead automatically convert the output to the specified output type,
-        depending on availability of the requested type.
+        Set output format for RAFT functions.
+
+        Calling this function will change the output type of RAFT functions.
+        By default RAFT returns a `pylibraft.common.device_ndarray` for arrays
+        on GPU memory. Calling `set_output_as` allows you to have RAFT return
+        arrays as cupy arrays or pytorch tensors instead. You can also have
+        RAFT convert the output to other frameworks by passing a callable to
+        do the conversion here.
+
+        Notes
+        -----
+        Returning arrays in cupy or torch format requires you to install
+        cupy or torch.
 
         Parameters
         ----------
-        output : str or callable. str can be either
-                 { "raft", "cupy", or "torch" }.
-                 default = "raft". callable should accept
-                 pylibraft.common.device_ndarray
-                 as a single argument and return the converted type.
+        output : { "raft", "cupy", "torch" } or callable
+            The output format to convert to. Can either be a str describing the
+            framework to convert to, or a callable that accepts a
+            device_ndarray and returns the converted type.
         """
         if output not in SUPPORTED_OUTPUT_TYPES and not callable(output):
             raise ValueError("Unsupported output option " % output)
