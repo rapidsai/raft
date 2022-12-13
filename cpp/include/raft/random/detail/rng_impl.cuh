@@ -261,10 +261,11 @@ std::enable_if_t<std::is_integral_v<OutType>> discrete(RngState& rng_state,
   // Compute the cumulative sums of the weights
   size_t temp_storage_bytes = 0;
   rmm::device_uvector<WeightType> weights_csum(len, stream);
-  cub::DeviceScan::InclusiveSum(nullptr, temp_storage_bytes, weights, weights_csum.data(), len);
+  cub::DeviceScan::InclusiveSum(
+    nullptr, temp_storage_bytes, weights, weights_csum.data(), len, stream);
   rmm::device_uvector<uint8_t> temp_storage(temp_storage_bytes, stream);
   cub::DeviceScan::InclusiveSum(
-    temp_storage.data(), temp_storage_bytes, weights, weights_csum.data(), len);
+    temp_storage.data(), temp_storage_bytes, weights, weights_csum.data(), len, stream);
 
   // Sample indices with replacement
   RAFT_CALL_RNG_FUNC(rng_state,
