@@ -32,7 +32,7 @@ libcusolver_version:
   - ">=11.2.1,<11.4.2.57"
 
 libcusparse_version:
-  - ">=11.5.0,<12"
+  - ">=11.6.0.43,<12"
 
 libfaiss_version:
   - "1.7.0 *_cuda"
