@@ -37,9 +37,9 @@ void write_scalar(std::ofstream& of, const T& value)
 {
   of.write((char*)&value, sizeof value);
   if (of.good()) {
-    std::cout << "Written " << (sizeof value) << " bytes" << std::endl;
+    RAFT_LOG_DEBUG("Written %z bytes", (sizeof value));
   } else {
-    std::cerr << "error writing value to file" << std::endl;
+    RAFT_FAIL("error writing value to file");
   }
 }
 
@@ -49,73 +49,69 @@ T read_scalar(std::ifstream& file)
   T value;
   file.read((char*)&value, sizeof value);
   if (file.good()) {
-    std::cout << "Read " << (sizeof value) << " bytes" << std::endl;
+    RAFT_LOG_DEBUG("Read %z bytes", (sizeof value));
   } else {
-    std::cerr << "error reading value from file" << std::endl;
+    RAFT_FAIL("error reading value from file");
   }
   return value;
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 void write_mdspan(
-    const raft::handle_t& handle,
-    std::ofstream& of,
-    const raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj) {
+  const raft::handle_t& handle,
+  std::ofstream& of,
+  const raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
+{
   using obj_t = raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
   write_scalar(of, obj.rank());
-  if (obj.is_exhaustive()) {
+  if (obj.is_exhaustive() && obj.is_unique()) {
     write_scalar(of, obj.size());
   } else {
-    std::cerr << "Cannot serialize non exhaustive mdarray" << std::endl;
-    write_scalar<size_t>(of, 0);
+    RAFT_FAIL("Cannot serialize non exhaustive mdarray");
   }
   if (obj.size() > 0) {
-    for (typename obj_t::rank_type i = 0; i < obj.rank(); i++) write_scalar(of, obj.extent(i));
+    for (typename obj_t::rank_type i = 0; i < obj.rank(); i++)
+      write_scalar(of, obj.extent(i));
     cudaStream_t stream = handle.get_stream();
     std::vector<
-        typename raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>::
-            value_type>
-        tmp(obj.size());
+      typename raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>::value_type>
+      tmp(obj.size());
     raft::update_host(tmp.data(), obj.data_handle(), obj.size(), stream);
     handle.sync_stream(stream);
     of.write(reinterpret_cast<char*>(tmp.data()), tmp.size() * sizeof(ElementType));
     if (of.good()) {
-      std::cout << "Written " << obj.size() * sizeof(obj.data_handle()[0]) << " bytes"
-                << std::endl;
-    }
-    else {
-      std::cerr << "error writing mdarray to file" << std::endl;
+      RAFT_LOG_DEBUG("Written %zu bytes",
+                     static_cast<size_t>(obj.size() * sizeof(obj.data_handle()[0])));
+    } else {
+      RAFT_FAIL("Error writing mdarray to file");
     }
   } else {
-    std::cout << "Skipping mdspand with zero size" << std::endl;
+    RAFT_LOG_DEBUG("Skipping mdspand with zero size");
   }
 }
 
-template<typename ElementType,
-         typename Extents,
-         typename LayoutPolicy,
-         typename AccessorPolicy>
-void read_mdspan(
-    const raft::handle_t& handle,
-    std::ifstream& file,
-    raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj) {
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+void read_mdspan(const raft::handle_t& handle,
+                 std::ifstream& file,
+                 raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
+{
   using obj_t = raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
-  auto rank = read_scalar<typename obj_t::rank_type>(file);
-  if (obj.rank() != rank) {
-    std::cerr << "Incorrect rank while reading mdarray " << rank << " vs. " << obj.rank()
-              << std::endl;
-  }
+  auto rank   = read_scalar<typename obj_t::rank_type>(file);
+  if (obj.rank() != rank) { RAFT_FAIL("Incorrect rank while reading mdarray"); }
   auto size = read_scalar<typename obj_t::size_type>(file);
   if (obj.size() != size) {
-    std::cerr << "Incorrect size while reading mdarray " << size << " vs. " << obj.size()
-              << std::endl;
+    RAFT_FAIL("Incorrect rank while reading mdarray %zu vs %zu",
+              static_cast<size_t>(size),
+              static_cast<size_t>(obj.size()));
   }
   if (obj.size() > 0) {
     for (typename obj_t::rank_type i = 0; i < obj.rank(); i++) {
       auto ex = read_scalar<typename obj_t::index_type>(file);
       if (obj.extent(i) != ex) {
-        std::cerr << "Incorrect extent while reading mdarray " << ex << " vs. "
-                  << obj.extent(i) << " at " << i << std::endl;
+        RAFT_FAIL("Incorrect extent while reading mdarray %d vs %d at %d",
+                  static_cast<int>(ex),
+                  static_cast<int>(obj.extent(i)),
+                  static_cast<int>(i));
       }
     }
     cudaStream_t stream = handle.get_stream();
@@ -124,26 +120,21 @@ void read_mdspan(
     raft::update_device(obj.data_handle(), tmp.data(), tmp.size(), stream);
     handle.sync_stream(stream);
     if (file.good()) {
-      std::cout << "read " << obj.size() * sizeof(obj.data_handle()[0]) << " bytes"
-                << std::endl;
+      RAFT_LOG_DEBUG("Read %zu bytes",
+                     static_cast<size_t>(obj.size() * sizeof(obj.data_handle()[0])));
+    } else {
+      RAFT_FAIL("error reading mdarray from file");
     }
-    else {
-      std::cerr << "error reading mdarray from file" << std::endl;
-    }
-  }
-  else {
-    std::cout << "Skipping mdspand with zero size" << std::endl;
+  } else {
+    RAFT_LOG_DEBUG("Skipping mdspand with zero size");
   }
 }
 
-template<typename ElementType,
-         typename Extents,
-         typename LayoutPolicy,
-         typename AccessorPolicy>
-void read_mdspan(
-    const raft::handle_t& handle,
-    std::ifstream& file,
-    raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj) {
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+void read_mdspan(const raft::handle_t& handle,
+                 std::ifstream& file,
+                 raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
+{
   read_mdspan(handle, file, obj);
 }
-}  // namespace cuann
+}  // namespace raft::spatial::knn::detail

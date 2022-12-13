@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "ivf_flat_types.hpp"
 #include <fstream>
 #include <iostream>
 #include <raft/neighbors/ivf_flat_types.hpp>
