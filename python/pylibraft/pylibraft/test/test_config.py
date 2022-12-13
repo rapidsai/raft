@@ -49,3 +49,6 @@ def test_auto_convert_output(out_type, gen_t):
     else:
         for o in output:
             assert isinstance(o, t)
+
+    # Make sure we set the config back to default
+    pylibraft.config.set_output_as("raft")
