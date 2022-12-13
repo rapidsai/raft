@@ -152,3 +152,5 @@ dependencies:
         packages:
           - pytest
           - pytest-cov
+          - scikit-learn
+          - scipy
