@@ -169,12 +169,8 @@ def run_ivf_pq_build_search_test(
     out_dist = out_dist_device.copy_to_host()
 
     # Calculate reference values with sklearn
-    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[
-        metric
-    ]
-    nn_skl = NearestNeighbors(
-        n_neighbors=k, algorithm="brute", metric=skl_metric
-    )
+    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[metric]
+    nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=skl_metric)
     nn_skl.fit(dataset)
     skl_idx = nn_skl.kneighbors(queries, return_distance=False)
 
@@ -441,9 +437,9 @@ def test_search_inputs(params):
 
     q_dt = params.get("q_dt", np.float32)
     q_order = params.get("q_order", "C")
-    queries = generate_data(
-        (n_queries, params.get("q_cols", n_cols)), q_dt
-    ).astype(q_dt, order=q_order)
+    queries = generate_data((n_queries, params.get("q_cols", n_cols)), q_dt).astype(
+        q_dt, order=q_order
+    )
     queries_device = device_ndarray(queries)
 
     idx_dt = params.get("idx_dt", np.uint64)
@@ -483,3 +479,49 @@ def test_search_inputs(params):
             out_idx_device,
             out_dist_device,
         )
+
+
+def test_save_load():
+    n_rows = 10000
+    n_cols = 50
+    n_queries = 1000
+    dtype = np.float32
+
+    dataset = generate_data((n_rows, n_cols), dtype)
+    dataset_device = device_ndarray(dataset)
+
+    build_params = ivf_pq.IndexParams(n_lists=100, metric="l2_expanded")
+    index = ivf_pq.build(build_params, dataset_device)
+
+    assert index.trained
+    filename = "my_index.bin"
+    ivf_pq.save(filename, index)
+    loaded_index = ivf_pq.load(filename)
+
+    assert index.pq_dim == loaded_index.pq_dim
+    assert index.pq_bits == loaded_index.pq_bits
+    assert index.metric == loaded_index.metric
+    assert index.n_lists == loaded_index.n_lists
+    assert index.size == loaded_index.size
+
+    queries = generate_data((n_queries, n_cols), dtype)
+
+    queries_device = device_ndarray(queries)
+    search_params = ivf_pq.SearchParams(n_probes=100)
+    k = 10
+
+    distance_dev, neighbors_dev = ivf_pq.search(search_params, index, queries_device, k)
+
+    neighbors = neighbors_dev.copy_to_host()
+    dist = distance_dev.copy_to_host()
+    del index
+
+    distance_dev, neighbors_dev = ivf_pq.search(
+        search_params, loaded_index, queries_device, k
+    )
+
+    neighbors2 = neighbors_dev.copy_to_host()
+    dist2 = distance_dev.copy_to_host()
+
+    assert np.all(neighbors == neighbors2)
+    assert np.allclose(dist, dist2, rtol=1e-6)

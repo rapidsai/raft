@@ -74,4 +74,12 @@ RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t)
 
 #undef RAFT_INST_BUILD_EXTEND
 
+void save(const handle_t& handle,
+          const std::string& filename,
+          const raft::neighbors::ivf_pq::index<uint64_t>& index);
+
+void load(const handle_t& handle,
+          const std::string& filename,
+          raft::neighbors::ivf_pq::index<uint64_t>* index);
+
 }  // namespace raft::runtime::neighbors::ivf_pq

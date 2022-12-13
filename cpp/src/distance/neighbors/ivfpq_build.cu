@@ -64,4 +64,18 @@ RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t);
 
 #undef RAFT_INST_BUILD_EXTEND
 
+void save(const handle_t& handle,
+          const std::string& filename,
+          const raft::neighbors::ivf_pq::index<uint64_t>& index)
+{
+  raft::neighbors::ivf_pq::save(handle, filename, index);
+};
+
+void load(const handle_t& handle,
+          const std::string& filename,
+          raft::neighbors::ivf_pq::index<uint64_t>* index)
+{
+  if (!index) { RAFT_FAIL("Invalid index pointer"); }
+  *index = raft::neighbors::ivf_pq::load<uint64_t>(handle, filename);
+};
 }  // namespace raft::runtime::neighbors::ivf_pq
