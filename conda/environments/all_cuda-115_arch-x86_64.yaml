@@ -34,6 +34,8 @@ dependencies:
 - rapids-notebook-env=23.02.*
 - rmm=23.02.*
 - scikit-build>=0.13.1
+- scikit-learn
+- scipy
 - sphinx-markdown-tables
 - sysroot_linux-64==2.17
 - ucx-proc=*=gpu
