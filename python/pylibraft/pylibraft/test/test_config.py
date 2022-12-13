@@ -12,13 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupy
+import numpy as np
 import pytest
+
+try:
+    import cupy
+except ImportError:
+    pytest.skip(reason="cupy not installed.")
 
 import pylibraft.config
 from pylibraft.common import auto_convert_output, device_ndarray
-
-pytest.importorskip("cupy")
 
 
 @auto_convert_output
@@ -33,7 +36,11 @@ def gen_cai(m, n, t=None):
 
 @pytest.mark.parametrize(
     "out_type",
-    [["cupy", cupy.ndarray], ["raft", pylibraft.common.device_ndarray]],
+    [
+        ["cupy", cupy.ndarray],
+        ["raft", pylibraft.common.device_ndarray],
+        [lambda arr: arr.copy_to_host(), np.ndarray],
+    ],
 )
 @pytest.mark.parametrize("gen_t", [None, tuple, list])
 def test_auto_convert_output(out_type, gen_t):

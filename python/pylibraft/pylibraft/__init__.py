@@ -13,8 +13,8 @@
 # limitations under the License.
 #
 
+import pylibraft.config
 from pylibraft._version import get_versions
-from pylibraft.config import config
 
 __version__ = get_versions()["version"]
 del get_versions

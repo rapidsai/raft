@@ -14,25 +14,24 @@
 #
 SUPPORTED_OUTPUT_TYPES = ["torch", "cupy", "raft"]
 
+output_as_ = "raft"  # By default, return device_ndarray from functions
 
-class config:
-    output_as_ = "raft"  # By default, return device_ndarray from functions
 
-    @classmethod
-    def set_output_as(self, output):
-        """
-        RAFT functions which normally return outputs with memory on device will
-        instead automatically convert the output to the specified output type,
-        depending on availability of the requested type.
+def set_output_as(output):
+    """
+    RAFT functions which normally return outputs with memory on device will
+    instead automatically convert the output to the specified output type,
+    depending on availability of the requested type.
 
-        Parameters
-        ----------
-        output : str or callable. str can be either
-                 { "raft", "cupy", or "torch" }.
-                 default = "raft". callable should accept
-                 pylibraft.common.device_ndarray
-                 as a single argument and return the converted type.
-        """
-        if output not in SUPPORTED_OUTPUT_TYPES and not callable(output):
-            raise ValueError("Unsupported output option " % output)
-        config.output_as_ = output
+    Parameters
+    ----------
+    output : str or callable. str can be either
+             { "raft", "cupy", or "torch" }.
+             default = "raft". callable should accept
+             pylibraft.common.device_ndarray
+             as a single argument and return the converted type.
+    """
+    if output not in SUPPORTED_OUTPUT_TYPES and not callable(output):
+        raise ValueError("Unsupported output option " % output)
+    global output_as_
+    output_as_ = output
