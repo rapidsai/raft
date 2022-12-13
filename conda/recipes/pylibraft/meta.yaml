@@ -34,7 +34,7 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - scikit-build>=0.13.1
-    - rmm {{ minor_version }}
+    - rmm {{ minor_version }}.*
     - libraft-headers {{ version }}
     - libraft-distance {{ version }}
     - cudatoolkit {{ cuda_version }}.*
