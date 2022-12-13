@@ -48,17 +48,25 @@ outputs:
         - cudatoolkit {{ cuda_version }}.*
         - cuda-profiler-api {{ cuda_profiler_api_version }}
         - libcublas-dev {{ libcublas_version }}
+        - libcublas {{ libcublas_version }}
         - libcurand-dev {{ libcurand_version }}
+        - libcurand {{ libcurand_version }}
         - libcusolver-dev {{ libcusolver_version }}
+        - libcusolver {{ libcusolver_version }}
         - libcusparse-dev {{ libcusparse_version }}
+        - libcusparse {{ libcusparse_version }}
         - librmm {{ minor_version }}.*
       run:
         - cudatoolkit {{ cuda_spec }}
         - cuda-profiler-api {{ cuda_profiler_api_version }}
         - libcublas-dev {{ libcublas_version }}
+        - libcublas {{ libcublas_version }}
         - libcurand-dev {{ libcurand_version }}
+        - libcurand {{ libcurand_version }}
         - libcusolver-dev {{ libcusolver_version }}
+        - libcusolver {{ libcusolver_version }}
         - libcusparse-dev {{ libcusparse_version }}
+        - libcusparse {{ libcusparse_version }}
         - librmm {{ minor_version }}.*
     about:
       home: https://rapids.ai/
