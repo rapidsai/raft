@@ -66,7 +66,10 @@ def convert_to_cai_type(device_ndarray):
 
 def conv(ret):
     for i in ret:
-        yield convert_to_cai_type(i)
+        if isinstance(i, pylibraft.common.device_ndarray):
+            yield convert_to_cai_type(i)
+        else:
+            yield i
 
 
 def auto_convert_output(f):
@@ -84,5 +87,7 @@ def auto_convert_output(f):
             return tuple(conv(ret_value))
         elif isinstance(ret_value, list):
             return list(conv(ret_value))
+        else:
+            return ret_value
 
     return wrapper

@@ -45,10 +45,6 @@ def test_distance(n_rows, n_cols, inplace, metric, order, dtype):
     input1 = np.random.random_sample((n_rows, n_cols))
     input1 = np.asarray(input1, order=order).astype(dtype)
 
-    import pylibraft.config
-
-    pylibraft.config.set_output_as("cupy")
-
     # RussellRao expects boolean arrays
     if metric == "russellrao":
         input1[input1 < 0.5] = 0
