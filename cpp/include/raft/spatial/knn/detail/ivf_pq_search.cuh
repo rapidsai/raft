@@ -807,7 +807,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     constexpr OutT kDummy = upper_bound<OutT>();
     OutT query_kth        = kDummy;
     if constexpr (kManageLocalTopK) { query_kth = OutT(query_kths[query_ix]); }
-    local_topk_t block_topk(topk, smem_buf, query_kth);
+    local_topk_t block_topk(topk, nullptr, query_kth);
     OutT early_stop_limit = kDummy;
     switch (metric) {
       // If the metric is non-negative, we can use the query_kth approximation as an early stop
@@ -843,7 +843,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     if constexpr (kManageLocalTopK) {
       // sync threads before the topk merging operation, because we reuse smem_buf
       __syncthreads();
-      block_topk.done();
+      block_topk.done(smem_buf);
       block_topk.store(out_scores, out_indices);
       if (threadIdx.x == 0) { atomicMin(query_kths + query_ix, float(out_scores[topk - 1])); }
     } else {

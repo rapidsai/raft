@@ -142,6 +142,9 @@ class warp_sort {
   /** The number of elements to select. */
   const int k;
 
+  /** Extra memory required per-block for keeping the state (shared or global). */
+  constexpr static auto mem_required(uint32_t block_size) -> size_t { return 0; }
+
   /**
    * Construct the warp_sort empty queue.
    *
@@ -269,8 +272,9 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
   using warp_sort<Capacity, Ascending, T, IdxT>::kDummy;
   using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
   using warp_sort<Capacity, Ascending, T, IdxT>::k;
+  using warp_sort<Capacity, Ascending, T, IdxT>::mem_required;
 
-  __device__ warp_sort_filtered(int k, T limit)
+  explicit __device__ warp_sort_filtered(int k, T limit = kDummy)
     : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0), k_th_(limit)
   {
 #pragma unroll
@@ -280,9 +284,9 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
     }
   }
 
-  __device__ __forceinline__ explicit warp_sort_filtered(int k)
-    : warp_sort_filtered<Capacity, Ascending, T, IdxT>(k, kDummy)
+  __device__ __forceinline__ static auto init_blockwide(int k, uint8_t* = nullptr, T limit = kDummy)
   {
+    return warp_sort_filtered<Capacity, Ascending, T, IdxT>{k, limit};
   }
 
   __device__ void add(T val, IdxT idx)
@@ -367,8 +371,9 @@ class warp_sort_distributed : public warp_sort<Capacity, Ascending, T, IdxT> {
   using warp_sort<Capacity, Ascending, T, IdxT>::kDummy;
   using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
   using warp_sort<Capacity, Ascending, T, IdxT>::k;
+  using warp_sort<Capacity, Ascending, T, IdxT>::mem_required;
 
-  __device__ warp_sort_distributed(int k, T limit)
+  explicit __device__ warp_sort_distributed(int k, T limit = kDummy)
     : warp_sort<Capacity, Ascending, T, IdxT>(k),
       buf_val_(kDummy),
       buf_idx_(IdxT{}),
@@ -377,9 +382,9 @@ class warp_sort_distributed : public warp_sort<Capacity, Ascending, T, IdxT> {
   {
   }
 
-  __device__ __forceinline__ explicit warp_sort_distributed(int k)
-    : warp_sort_distributed<Capacity, Ascending, T, IdxT>(k, kDummy)
+  __device__ __forceinline__ static auto init_blockwide(int k, uint8_t* = nullptr, T limit = kDummy)
   {
+    return warp_sort_distributed<Capacity, Ascending, T, IdxT>{k, limit};
   }
 
   __device__ void add(T val, IdxT idx)
@@ -468,7 +473,12 @@ class warp_sort_distributed_ext : public warp_sort<Capacity, Ascending, T, IdxT>
   using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
   using warp_sort<Capacity, Ascending, T, IdxT>::k;
 
-  __device__ warp_sort_distributed_ext(int k, T* val_buf, IdxT* idx_buf, T limit)
+  constexpr static auto mem_required(uint32_t block_size) -> size_t
+  {
+    return (sizeof(T) + sizeof(IdxT)) * block_size;
+  }
+
+  __device__ warp_sort_distributed_ext(int k, T* val_buf, IdxT* idx_buf, T limit = kDummy)
     : warp_sort<Capacity, Ascending, T, IdxT>(k),
       val_buf_(val_buf),
       idx_buf_(idx_buf),
@@ -478,9 +488,21 @@ class warp_sort_distributed_ext : public warp_sort<Capacity, Ascending, T, IdxT>
     val_buf_[laneId()] = kDummy;
   }
 
-  __device__ __forceinline__ warp_sort_distributed_ext(int k, T* val_buf, IdxT* idx_buf)
-    : warp_sort_distributed_ext<Capacity, Ascending, T, IdxT>(k, val_buf, idx_buf, kDummy)
+  __device__ static auto init_blockwide(int k, uint8_t* shmem, T limit = kDummy)
   {
+    T* val_buf    = nullptr;
+    IdxT* idx_buf = nullptr;
+    if constexpr (alignof(T) >= alignof(IdxT)) {
+      val_buf = reinterpret_cast<T*>(shmem);
+      idx_buf = reinterpret_cast<IdxT*>(val_buf + blockDim.x);
+    } else {
+      idx_buf = reinterpret_cast<IdxT*>(shmem);
+      val_buf = reinterpret_cast<T*>(idx_buf + blockDim.x);
+    }
+    auto warp_offset = Pow2<WarpSize>::roundDown(threadIdx.x);
+    val_buf += warp_offset;
+    idx_buf += warp_offset;
+    return warp_sort_distributed_ext<Capacity, Ascending, T, IdxT>{k, val_buf, idx_buf, limit};
   }
 
   __device__ void add(T val, IdxT idx)
@@ -518,6 +540,7 @@ class warp_sort_distributed_ext : public warp_sort<Capacity, Ascending, T, IdxT>
       merge_buf_();
       buf_len_ = 0;
     }
+    __syncthreads();
   }
 
  private:
@@ -562,14 +585,21 @@ class warp_sort_immediate : public warp_sort<Capacity, Ascending, T, IdxT> {
   using warp_sort<Capacity, Ascending, T, IdxT>::kDummy;
   using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
   using warp_sort<Capacity, Ascending, T, IdxT>::k;
+  using warp_sort<Capacity, Ascending, T, IdxT>::mem_required;
 
-  __device__ warp_sort_immediate(int k) : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0)
+  explicit __device__ warp_sort_immediate(int k)
+    : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0)
   {
 #pragma unroll
     for (int i = 0; i < kMaxArrLen; i++) {
       val_buf_[i] = kDummy;
       idx_buf_[i] = IdxT{};
     }
+  }
+
+  __device__ __forceinline__ static auto init_blockwide(int k, uint8_t* = nullptr)
+  {
+    return warp_sort_immediate<Capacity, Ascending, T, IdxT>{k};
   }
 
   __device__ void add(T val, IdxT idx)
@@ -631,12 +661,8 @@ class block_sort {
   using queue_t = WarpSortWarpWide<Capacity, Ascending, T, IdxT>;
 
   template <typename... Args>
-  __device__ block_sort(int k, uint8_t* smem_buf, Args... args) : queue_(k, args...)
+  __device__ block_sort(int k, Args... args) : queue_(queue_t::init_blockwide(k, args...))
   {
-    val_smem_             = reinterpret_cast<T*>(smem_buf);
-    const int num_of_warp = subwarp_align::div(blockDim.x);
-    idx_smem_             = reinterpret_cast<IdxT*>(
-      smem_buf + Pow2<256>::roundUp(ceildiv(num_of_warp, 2) * sizeof(T) * k));
   }
 
   __device__ void add(T val, IdxT idx) { queue_.add(val, idx); }
@@ -647,9 +673,14 @@ class block_sort {
    *
    * Here we tree-merge the results using the shared memory and block sync.
    */
-  __device__ void done()
+  __device__ void done(uint8_t* smem_buf)
   {
     queue_.done();
+
+    int nwarps    = subwarp_align::div(blockDim.x);
+    auto val_smem = reinterpret_cast<T*>(smem_buf);
+    auto idx_smem = reinterpret_cast<IdxT*>(
+      smem_buf + Pow2<256>::roundUp(ceildiv(nwarps, 2) * sizeof(T) * queue_.k));
 
     const int warp_id = subwarp_align::div(threadIdx.x);
     // NB: there is no need for the second __synchthreads between .load_sorted and .store:
@@ -657,12 +688,11 @@ class block_sort {
     //     locations or do not overlap with any of the other warps. The access patterns within warps
     //     are different for the two functions, but .load_sorted implies warp sync at the end, so
     //     there is no need for __syncwarp either.
-    for (int shift_mask = ~0, nwarps = subwarp_align::div(blockDim.x), split = (nwarps + 1) >> 1;
-         nwarps > 1;
+    for (int shift_mask = ~0, split = (nwarps + 1) >> 1; nwarps > 1;
          nwarps = split, split = (nwarps + 1) >> 1) {
       if (warp_id < nwarps && warp_id >= split) {
         int dst_warp_shift = (warp_id - (split & shift_mask)) * queue_.k;
-        queue_.store(val_smem_ + dst_warp_shift, idx_smem_ + dst_warp_shift);
+        queue_.store(val_smem + dst_warp_shift, idx_smem + dst_warp_shift);
       }
       __syncthreads();
 
@@ -672,7 +702,7 @@ class block_sort {
         // The last argument serves as a condition for loading
         //  -- to make sure threads within a full warp do not diverge on `bitonic::merge()`
         queue_.load_sorted(
-          val_smem_ + src_warp_shift, idx_smem_ + src_warp_shift, warp_id < nwarps - split);
+          val_smem + src_warp_shift, idx_smem + src_warp_shift, warp_id < nwarps - split);
       }
     }
   }
@@ -686,8 +716,6 @@ class block_sort {
  private:
   using subwarp_align = Pow2<queue_t::kWarpWidth>;
   queue_t queue_;
-  T* val_smem_;
-  IdxT* idx_smem_;
 };
 
 /**
@@ -705,7 +733,10 @@ __launch_bounds__(256) __global__
   void block_kernel(const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx)
 {
   extern __shared__ __align__(256) uint8_t smem_buf_bytes[];
-  block_sort<WarpSortClass, Capacity, Ascending, T, IdxT> queue(k, smem_buf_bytes);
+  using bq_t         = block_sort<WarpSortClass, Capacity, Ascending, T, IdxT>;
+  uint8_t* warp_smem = bq_t::queue_t::mem_required(blockDim.x) > 0 ? smem_buf_bytes : nullptr;
+  bq_t queue(k, warp_smem);
+
   in += blockIdx.y * len;
   if (in_idx != nullptr) { in_idx += blockIdx.y * len; }
 
@@ -716,7 +747,7 @@ __launch_bounds__(256) __global__
               (i < len && in_idx != nullptr) ? __ldcs(in_idx + i) : i);
   }
 
-  queue.done();
+  queue.done(smem_buf_bytes);
   const int block_id = blockIdx.x + gridDim.x * blockIdx.y;
   queue.store(out + block_id * k, out_idx + block_id * k);
 }
@@ -823,6 +854,18 @@ struct LaunchThreshold {
 
 template <>
 struct LaunchThreshold<warp_sort_filtered> {
+  static constexpr int len_factor_for_multi_block  = 2;
+  static constexpr int len_factor_for_single_block = 32;
+};
+
+template <>
+struct LaunchThreshold<warp_sort_distributed> {
+  static constexpr int len_factor_for_multi_block  = 2;
+  static constexpr int len_factor_for_single_block = 32;
+};
+
+template <>
+struct LaunchThreshold<warp_sort_distributed_ext> {
   static constexpr int len_factor_for_multi_block  = 2;
   static constexpr int len_factor_for_single_block = 32;
 };
@@ -943,6 +986,8 @@ void select_k_(int num_of_block,
   int block_dim    = num_of_warp * warp_width;
   int smem_size    = calc_smem_size_for_block_wide<T, IdxT>(num_of_warp, k);
 
+  smem_size = std::max<int>(smem_size, WarpSortClass<1, true, T, IdxT>::mem_required(block_dim));
+
   launch_setup<WarpSortClass, T, IdxT>::kernel(k,
                                                select_min,
                                                batch_size,
@@ -971,6 +1016,36 @@ void select_k_(int num_of_block,
                                                  out_idx,
                                                  stream);
   }
+}
+
+template <typename T, typename IdxT, template <int, bool, typename, typename> class WarpSortClass>
+void select_k_impl(const T* in,
+                   const IdxT* in_idx,
+                   size_t batch_size,
+                   size_t len,
+                   int k,
+                   T* out,
+                   IdxT* out_idx,
+                   bool select_min,
+                   rmm::cuda_stream_view stream,
+                   rmm::mr::device_memory_resource* mr = nullptr)
+{
+  int num_of_block = 0;
+  int num_of_warp  = 0;
+  calc_launch_parameter<WarpSortClass, T, IdxT>(batch_size, len, k, &num_of_block, &num_of_warp);
+
+  select_k_<WarpSortClass, T, IdxT>(num_of_block,
+                                    num_of_warp,
+                                    in,
+                                    in_idx,
+                                    batch_size,
+                                    len,
+                                    k,
+                                    out,
+                                    out_idx,
+                                    select_min,
+                                    stream,
+                                    mr);
 }
 
 /**

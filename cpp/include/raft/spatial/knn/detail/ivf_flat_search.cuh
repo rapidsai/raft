@@ -704,7 +704,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
     Ascending,
     float,
     IdxT>;
-  block_sort_t queue(k, interleaved_scan_kernel_smem + query_smem_elems * sizeof(T));
+  block_sort_t queue(k);
 
   {
     using align_warp  = Pow2<WarpSize>;
@@ -781,7 +781,8 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
   }
 
   // finalize and store selected neighbours
-  queue.done();
+  __syncthreads();
+  queue.done(interleaved_scan_kernel_smem);
   queue.store(distances, neighbors);
 }
 
@@ -832,8 +833,10 @@ void launch_kernel(Lambda lambda,
     std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(index.dim()));
   int smem_size              = query_smem_elems * sizeof(T);
   constexpr int kSubwarpSize = std::min<int>(Capacity, WarpSize);
-  smem_size += raft::matrix::detail::select::warpsort::calc_smem_size_for_block_wide<AccT, IdxT>(
-    kThreadsPerBlock / kSubwarpSize, k);
+  auto block_merge_mem =
+    raft::matrix::detail::select::warpsort::calc_smem_size_for_block_wide<AccT, IdxT>(
+      kThreadsPerBlock / kSubwarpSize, k);
+  smem_size += std::max<int>(smem_size, block_merge_mem);
 
   // power-of-two less than cuda limit (for better addr alignment)
   constexpr uint32_t kMaxGridY = 32768;
