@@ -16,7 +16,7 @@ Please see https://github.com/rapidsai/raft/releases/tag/v23.02.00a for the late
 - fusedL2NN: Add input alignment checks ([#1045](https://github.com/rapidsai/raft/pull/1045)) [@achirkin](https://github.com/achirkin)
 - Fix fusedL2NN bug that can happen when the same point appears in both x and y ([#1040](https://github.com/rapidsai/raft/pull/1040)) [@Nyrio](https://github.com/Nyrio)
 - Fix trivial deprecated header includes ([#1034](https://github.com/rapidsai/raft/pull/1034)) [@achirkin](https://github.com/achirkin)
-- Suppres ptxas stack size warning in Debug mode ([#1033](https://github.com/rapidsai/raft/pull/1033)) [@tfeher](https://github.com/tfeher)
+- Suppress ptxas stack size warning in Debug mode ([#1033](https://github.com/rapidsai/raft/pull/1033)) [@tfeher](https://github.com/tfeher)
 - Don&#39;t use CMake 3.25.0 as it has a FindCUDAToolkit show stopping bug ([#1029](https://github.com/rapidsai/raft/pull/1029)) [@robertmaynard](https://github.com/robertmaynard)
 - Fix for gemmi deprecation ([#1020](https://github.com/rapidsai/raft/pull/1020)) [@lowener](https://github.com/lowener)
 - Remove make_mdspan template for memory_type enum ([#1005](https://github.com/rapidsai/raft/pull/1005)) [@wphicks](https://github.com/wphicks)
