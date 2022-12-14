@@ -102,8 +102,8 @@ if(BUILD_BENCH)
     bench/main.cpp
   )
 
-  ConfigureBench(NAME MATRIX_BENCH PATH bench/matrix/argmin.cu bench/matrix/select.cu
-    bench/main.cpp
+  ConfigureBench(
+    NAME MATRIX_BENCH PATH bench/matrix/argmin.cu bench/matrix/select.cu bench/main.cpp
   )
 
   ConfigureBench(
