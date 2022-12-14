@@ -573,23 +573,33 @@ void select_k(const T* in,
   dim3 blocks           = get_optimal_grid_size<T, IdxT, BitsPerPass, BlockSize>(batch_size, len);
   size_t max_chunk_size = blocks.y;
 
-  auto pool_guard = raft::get_pool_memory_resource(
-    mr,
-    max_chunk_size * (sizeof(Counter<T, IdxT>)            // counters
-                      + sizeof(IdxT) * (num_buckets + 2)  // histograms and IdxT bufs
-                      + sizeof(T) * 2                     // T bufs
-                      ));
+  size_t req_aux = max_chunk_size * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
+  size_t req_buf = max_chunk_size * len * 2 * (sizeof(T) + sizeof(IdxT));
+  size_t mem_req = req_aux + req_buf;
+  size_t mem_free, mem_total;
+  RAFT_CUDA_TRY(cudaMemGetInfo(&mem_free, &mem_total));
+  std::optional<rmm::mr::managed_memory_resource> managed_memory;
+  rmm::mr::device_memory_resource* mr_buf = nullptr;
+  if (mem_req > mem_free) {
+    // if there's not enough memory for buffers on the device, resort to the managed memory.
+    mem_req = req_aux;
+    managed_memory.emplace();
+    mr_buf = &managed_memory.value();
+  }
+
+  auto pool_guard = raft::get_pool_memory_resource(mr, mem_req);
   if (pool_guard) {
     RAFT_LOG_DEBUG("radix::select_k: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
   }
+  if (mr_buf == nullptr) { mr_buf = mr; }
 
   rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
-  rmm::device_uvector<IdxT> histograms(num_buckets * max_chunk_size, stream, mr);
-  rmm::device_uvector<T> buf1(len * max_chunk_size, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf1(len * max_chunk_size, stream, mr);
-  rmm::device_uvector<T> buf2(len * max_chunk_size, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf2(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> histograms(max_chunk_size * num_buckets, stream, mr);
+  rmm::device_uvector<T> buf1(max_chunk_size * len, stream, mr_buf);
+  rmm::device_uvector<IdxT> idx_buf1(max_chunk_size * len, stream, mr_buf);
+  rmm::device_uvector<T> buf2(max_chunk_size * len, stream, mr_buf);
+  rmm::device_uvector<IdxT> idx_buf2(max_chunk_size * len, stream, mr_buf);
 
   for (size_t offset = 0; offset < batch_size; offset += max_chunk_size) {
     blocks.y = std::min(max_chunk_size, batch_size - offset);
