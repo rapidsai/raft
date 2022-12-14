@@ -156,8 +156,10 @@ void generate_data(DataT* out,
                    const DataT cluster_std_scalar,
                    raft::random::RngState& rng_state)
 {
-  IdxT items   = n_rows * n_cols;
-  IdxT nBlocks = (items + 127) / 128;
+  constexpr IdxT block_size = 128;
+  IdxT items                = n_rows * n_cols;
+  // Choose a grid size so that each thread can write two output values.
+  IdxT nBlocks = ceildiv<IdxT>(items, 2 * block_size);
   // parentheses needed here for kernel, otherwise macro interprets the arguments
   // of triple chevron notation as macro arguments
   RAFT_CALL_RNG_FUNC(rng_state,
