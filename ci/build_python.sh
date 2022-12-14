@@ -25,6 +25,7 @@ rapids-mamba-retry mambabuild \
 rapids-mamba-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
+  --channel "${RAPIDS_CONDA_BLD_OUTPUT_DIR}" \
   conda/recipes/raft-dask
 
 rapids-upload-conda-to-s3 python
