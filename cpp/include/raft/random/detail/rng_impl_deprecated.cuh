@@ -39,7 +39,7 @@ namespace detail {
 
 class RngImpl {
  public:
-  RngImpl(uint64_t seed, GeneratorType _t = GenPhilox)
+  RngImpl(uint64_t seed, GeneratorType _t = GenPC)
     : state{seed, 0, _t},
       type(_t),
       // simple heuristic to make sure all SMs will be occupied properly

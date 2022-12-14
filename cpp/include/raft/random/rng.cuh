@@ -825,7 +825,7 @@ class DEPR Rng : public detail::RngImpl {
    * @param _t backend device RNG generator type
    * @note Refer to the `Rng::seed` method for details about seeding the engine
    */
-  Rng(uint64_t _s, GeneratorType _t = GenPhilox) : detail::RngImpl(_s, _t) {}
+  Rng(uint64_t _s, GeneratorType _t = GenPC) : detail::RngImpl(_s, _t) {}
 
   /**
    * @brief Generates the 'a' and 'b' parameters for a modulo affine
