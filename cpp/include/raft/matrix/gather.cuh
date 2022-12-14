@@ -30,10 +30,13 @@ namespace raft::matrix {
 /**
  * @brief  gather copies rows from a source matrix into a destination matrix according to a map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a
+ * @tparam InputIteratorT       Random-access iterator type, for reading input matrix (may be a
  * simple pointer type).
  * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
  * pointer type).
+ * @tparam OutputIteratorT      Random-access iterator type, for writing output matrix (may be a
+ * simple pointer type).
+ * @tparam IndexT               Index type.
  *
  * @param  in           Pointer to the input matrix (assumed to be row-major)
  * @param  D            Leading dimension of the input matrix 'in', which in-case of row-major
@@ -44,13 +47,13 @@ namespace raft::matrix {
  * @param  out          Pointer to the output matrix (assumed to be row-major)
  * @param  stream       CUDA stream to launch kernels within
  */
-template <typename MatrixIteratorT, typename MapIteratorT>
-void gather(const MatrixIteratorT in,
-            int D,
-            int N,
-            MapIteratorT map,
-            int map_length,
-            MatrixIteratorT out,
+template <typename InputIteratorT, typename MapIteratorT, typename OutputIteratorT, typename IndexT>
+void gather(const InputIteratorT in,
+            IndexT D,
+            IndexT N,
+            const MapIteratorT map,
+            IndexT map_length,
+            OutputIteratorT out,
             cudaStream_t stream)
 {
   detail::gather(in, D, N, map, map_length, out, stream);
@@ -60,12 +63,15 @@ void gather(const MatrixIteratorT in,
  * @brief  gather copies rows from a source matrix into a destination matrix according to a
  * transformed map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a
+ * @tparam InputIteratorT       Random-access iterator type, for reading input matrix (may be a
  * simple pointer type).
  * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
  * pointer type).
  * @tparam MapTransformOp       Unary lambda expression or operator type, MapTransformOp's result
- * type must be convertible to IndexT (= int) type.
+ * type must be convertible to IndexT.
+ * @tparam OutputIteratorT      Random-access iterator type, for writing output matrix (may be a
+ * simple pointer type).
+ * @tparam IndexT               Index type.
  *
  * @param  in           Pointer to the input matrix (assumed to be row-major)
  * @param  D            Leading dimension of the input matrix 'in', which in-case of row-major
@@ -77,13 +83,17 @@ void gather(const MatrixIteratorT in,
  * @param  transform_op The transformation operation, transforms the map values to IndexT
  * @param  stream       CUDA stream to launch kernels within
  */
-template <typename MatrixIteratorT, typename MapIteratorT, typename MapTransformOp>
-void gather(const MatrixIteratorT in,
-            int D,
-            int N,
-            MapIteratorT map,
-            int map_length,
-            MatrixIteratorT out,
+template <typename InputIteratorT,
+          typename MapIteratorT,
+          typename MapTransformOp,
+          typename OutputIteratorT,
+          typename IndexT>
+void gather(const InputIteratorT in,
+            IndexT D,
+            IndexT N,
+            const MapIteratorT map,
+            IndexT map_length,
+            OutputIteratorT out,
             MapTransformOp transform_op,
             cudaStream_t stream)
 {
@@ -94,7 +104,7 @@ void gather(const MatrixIteratorT in,
  * @brief  gather_if conditionally copies rows from a source matrix into a destination matrix
  * according to a map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a
+ * @tparam InputIteratorT      Random-access iterator type, for reading input matrix (may be a
  * simple pointer type).
  * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
  * pointer type).
@@ -102,6 +112,9 @@ void gather(const MatrixIteratorT in,
  * simple pointer type).
  * @tparam UnaryPredicateOp     Unary lambda expression or operator type, UnaryPredicateOp's result
  * type must be convertible to bool type.
+ * @tparam OutputIteratorT      Random-access iterator type, for writing output matrix (may be a
+ * simple pointer type).
+ * @tparam IndexT               Index type.
  *
  * @param  in           Pointer to the input matrix (assumed to be row-major)
  * @param  D            Leading dimension of the input matrix 'in', which in-case of row-major
@@ -114,17 +127,19 @@ void gather(const MatrixIteratorT in,
  * @param  pred_op      Predicate to apply to the stencil values
  * @param  stream       CUDA stream to launch kernels within
  */
-template <typename MatrixIteratorT,
+template <typename InputIteratorT,
           typename MapIteratorT,
           typename StencilIteratorT,
-          typename UnaryPredicateOp>
-void gather_if(const MatrixIteratorT in,
-               int D,
-               int N,
-               MapIteratorT map,
+          typename UnaryPredicateOp,
+          typename OutputIteratorT,
+          typename IndexT>
+void gather_if(const InputIteratorT in,
+               IndexT D,
+               IndexT N,
+               const MapIteratorT map,
                StencilIteratorT stencil,
-               int map_length,
-               MatrixIteratorT out,
+               IndexT map_length,
+               OutputIteratorT out,
                UnaryPredicateOp pred_op,
                cudaStream_t stream)
 {
@@ -135,7 +150,7 @@ void gather_if(const MatrixIteratorT in,
  * @brief  gather_if conditionally copies rows from a source matrix into a destination matrix
  * according to a transformed map.
  *
- * @tparam MatrixIteratorT      Random-access iterator type, for reading input matrix (may be a
+ * @tparam InputIteratorT      Random-access iterator type, for reading input matrix (may be a
  * simple pointer type).
  * @tparam MapIteratorT         Random-access iterator type, for reading input map (may be a simple
  * pointer type).
@@ -144,7 +159,10 @@ void gather_if(const MatrixIteratorT in,
  * @tparam UnaryPredicateOp     Unary lambda expression or operator type, UnaryPredicateOp's result
  * type must be convertible to bool type.
  * @tparam MapTransformOp       Unary lambda expression or operator type, MapTransformOp's result
- * type must be convertible to IndexT (= int) type.
+ * type must be convertible to IndexT.
+ * @tparam OutputIteratorT      Random-access iterator type, for writing output matrix (may be a
+ * simple pointer type).
+ * @tparam IndexT               Index type.
  *
  * @param  in           Pointer to the input matrix (assumed to be row-major)
  * @param  D            Leading dimension of the input matrix 'in', which in-case of row-major
@@ -158,18 +176,20 @@ void gather_if(const MatrixIteratorT in,
  * @param  transform_op The transformation operation, transforms the map values to IndexT
  * @param  stream       CUDA stream to launch kernels within
  */
-template <typename MatrixIteratorT,
+template <typename InputIteratorT,
           typename MapIteratorT,
           typename StencilIteratorT,
           typename UnaryPredicateOp,
-          typename MapTransformOp>
-void gather_if(const MatrixIteratorT in,
-               int D,
-               int N,
-               MapIteratorT map,
+          typename MapTransformOp,
+          typename OutputIteratorT,
+          typename IndexT>
+void gather_if(const InputIteratorT in,
+               IndexT D,
+               IndexT N,
+               const MapIteratorT map,
                StencilIteratorT stencil,
-               int map_length,
-               MatrixIteratorT out,
+               IndexT map_length,
+               OutputIteratorT out,
                UnaryPredicateOp pred_op,
                MapTransformOp transform_op,
                cudaStream_t stream)
@@ -201,10 +221,10 @@ void gather(const raft::handle_t& handle,
 
   raft::matrix::detail::gather(
     const_cast<matrix_t*>(in.data_handle()),  // TODO: There's a better way to handle this
-    static_cast<int>(in.extent(1)),
-    static_cast<int>(in.extent(0)),
+    in.extent(1),
+    in.extent(0),
     map.data_handle(),
-    static_cast<int>(map.extent(0)),
+    map.extent(0),
     out.data_handle(),
     handle.get_stream());
 }
@@ -216,7 +236,7 @@ void gather(const raft::handle_t& handle,
  * @tparam matrix_t     Matrix type
  * @tparam map_t        Map vector type
  * @tparam map_xform_t       Unary lambda expression or operator type, MapTransformOp's result
- * type must be convertible to idx_t (= int) type.
+ * type must be convertible to idx_t.
  * @tparam idx_t integer type for indexing
  * @param[in] handle        raft handle for managing resources
  * @param[in]  in           Input matrix (assumed to be row-major)
@@ -238,10 +258,10 @@ void gather(const raft::handle_t& handle,
 
   detail::gather(
     const_cast<matrix_t*>(in.data_handle()),  // TODO: There's a better way to handle this
-    static_cast<int>(in.extent(1)),
-    static_cast<int>(in.extent(0)),
+    in.extent(1),
+    in.extent(0),
     map,
-    static_cast<int>(map.extent(0)),
+    map.extent(0),
     out.data_handle(),
     transform_op,
     handle.get_stream());
@@ -304,7 +324,7 @@ void gather_if(const raft::handle_t& handle,
  * @tparam unary_pred_t     Unary lambda expression or operator type, unary_pred_t's result
  * type must be convertible to bool type.
  * @tparam map_xform_t       Unary lambda expression or operator type, map_xform_t's result
- * type must be convertible to idx_t (= int) type.
+ * type must be convertible to idx_t.
  * @tparam idx_t integer type for indexing
  * @param[in] handle        raft handle for managing resources
  * @param[in]  in           Input matrix (assumed to be row-major)

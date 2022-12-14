@@ -514,7 +514,7 @@ HDI double myATanh(double x)
 // IdxType mostly to be used for MainLambda in *Reduction kernels
 template <typename Type, typename IdxType = int>
 struct Nop {
-  HDI Type operator()(Type in, IdxType i = 0) { return in; }
+  HDI Type operator()(Type in, IdxType i = 0) const { return in; }
 };
 
 template <typename Type, typename IdxType = int>
