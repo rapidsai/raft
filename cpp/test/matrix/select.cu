@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,7 @@
  */
 
 #include "../test_utils.h"
-
-#include <raft/matrix/detail/select_radix.cuh>
-#include <raft/matrix/detail/select_warpsort.cuh>
-#include <raft/matrix/select.cuh>
+#include "select.cuh"
 
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
@@ -33,94 +30,6 @@
 #include <numeric>
 
 namespace raft::matrix {
-
-struct test_spec {
-  size_t batch_size;
-  size_t len;
-  int k;
-  bool select_min;
-  bool use_index_input = true;
-};
-
-auto operator<<(std::ostream& os, const test_spec& ss) -> std::ostream&
-{
-  os << "spec{batch_size: " << ss.batch_size;
-  os << ", len: " << ss.len;
-  os << ", k: " << ss.k;
-  os << (ss.select_min ? ", asc" : ", dsc");
-  os << (ss.use_index_input ? "}" : ", no-input-index}");
-  return os;
-}
-
-enum class Algo {
-  kPublicApi,
-  kRadix8bits,
-  kRadix11bits,
-  kWarpAuto,
-  kWarpImmediate,
-  kWarpFiltered,
-  kWarpDistributed,
-  kWarpDistributedShm
-};
-
-auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
-{
-  switch (algo) {
-    case Algo::kPublicApi: return os << "kPublicApi";
-    case Algo::kRadix8bits: return os << "kRadix8bits";
-    case Algo::kRadix11bits: return os << "kRadix11bits";
-    case Algo::kWarpAuto: return os << "kWarpAuto";
-    case Algo::kWarpImmediate: return os << "kWarpImmediate";
-    case Algo::kWarpFiltered: return os << "kWarpFiltered";
-    case Algo::kWarpDistributed: return os << "kWarpDistributed";
-    case Algo::kWarpDistributedShm: return os << "kWarpDistributedShm";
-    default: return os << "unknown enum value";
-  }
-}
-
-template <typename T, typename IdxT>
-void select_k_impl(const Algo& algo,
-                   const T* in,
-                   const IdxT* in_idx,
-                   size_t batch_size,
-                   size_t len,
-                   int k,
-                   T* out,
-                   IdxT* out_idx,
-                   bool select_min,
-                   rmm::cuda_stream_view stream,
-                   rmm::mr::device_memory_resource* mr = nullptr)
-{
-  switch (algo) {
-    case Algo::kPublicApi:
-      return matrix::select_k(in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
-    case Algo::kRadix8bits:
-      return detail::select::radix::select_k<T, IdxT, 8, 512>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
-    case Algo::kRadix11bits:
-      return detail::select::radix::select_k<T, IdxT, 11, 512>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
-    case Algo::kWarpAuto:
-      return detail::select::warpsort::select_k<T, IdxT>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
-    case Algo::kWarpImmediate:
-      return detail::select::warpsort::
-        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_immediate>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
-    case Algo::kWarpFiltered:
-      return detail::select::warpsort::
-        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_filtered>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
-    case Algo::kWarpDistributed:
-      return detail::select::warpsort::
-        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
-    case Algo::kWarpDistributedShm:
-      return detail::select::warpsort::
-        select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
-  }
-}
 
 template <typename IdxT>
 auto gen_simple_ids(int batch_size, int len) -> std::vector<IdxT>
@@ -139,7 +48,7 @@ struct io_simple {
  public:
   bool not_supported = false;
 
-  io_simple(const test_spec& spec,
+  io_simple(const select::params& spec,
             const std::vector<KeyT>& in_dists,
             const std::vector<KeyT>& out_dists,
             const std::vector<IdxT>& out_ids)
@@ -167,8 +76,8 @@ struct io_computed {
  public:
   bool not_supported = false;
 
-  io_computed(const test_spec& spec,
-              const Algo& algo,
+  io_computed(const select::params& spec,
+              const select::Algo& algo,
               const std::vector<KeyT>& in_dists,
               const std::optional<std::vector<IdxT>>& in_ids = std::nullopt)
     : in_dists_(in_dists),
@@ -178,11 +87,11 @@ struct io_computed {
   {
     // check if the size is supported by the algorithm
     switch (algo) {
-      case Algo::kWarpAuto:
-      case Algo::kWarpImmediate:
-      case Algo::kWarpFiltered:
-      case Algo::kWarpDistributed:
-      case Algo::kWarpDistributedShm: {
+      case select::Algo::kWarpAuto:
+      case select::Algo::kWarpImmediate:
+      case select::Algo::kWarpFiltered:
+      case select::Algo::kWarpDistributed:
+      case select::Algo::kWarpDistributedShm: {
         if (spec.k > raft::matrix::detail::select::warpsort::kMaxCapacity) {
           not_supported = true;
           return;
@@ -201,16 +110,16 @@ struct io_computed {
     update_device(in_dists_d.data(), in_dists_.data(), in_dists_.size(), stream);
     update_device(in_ids_d.data(), in_ids_.data(), in_ids_.size(), stream);
 
-    select_k_impl<KeyT, IdxT>(algo,
-                              in_dists_d.data(),
-                              spec.use_index_input ? in_ids_d.data() : nullptr,
-                              spec.batch_size,
-                              spec.len,
-                              spec.k,
-                              out_dists_d.data(),
-                              out_ids_d.data(),
-                              spec.select_min,
-                              stream);
+    select::select_k_impl<KeyT, IdxT>(algo,
+                                      in_dists_d.data(),
+                                      spec.use_index_input ? in_ids_d.data() : nullptr,
+                                      spec.batch_size,
+                                      spec.len,
+                                      spec.k,
+                                      out_dists_d.data(),
+                                      out_ids_d.data(),
+                                      spec.select_min,
+                                      stream);
 
     update_host(out_dists_.data(), out_dists_d.data(), out_dists_.size(), stream);
     update_host(out_ids_.data(), out_ids_d.data(), out_ids_.size(), stream);
@@ -277,13 +186,13 @@ struct io_computed {
 };
 
 template <typename InOut>
-using Params = std::tuple<test_spec, Algo, InOut>;
+using Params = std::tuple<select::params, select::Algo, InOut>;
 
 template <typename KeyT, typename IdxT, template <typename, typename> typename ParamsReader>
 struct SelectK  // NOLINT
   : public testing::TestWithParam<typename ParamsReader<KeyT, IdxT>::params_t> {
-  const test_spec spec;
-  const Algo algo;
+  const select::params spec;
+  const select::Algo algo;
   typename ParamsReader<KeyT, IdxT>::io_t ref;
   io_computed<KeyT, IdxT> res;
 
@@ -332,9 +241,10 @@ struct SelectK  // NOLINT
 
 template <typename KeyT, typename IdxT>
 struct params_simple {
-  using io_t     = io_simple<KeyT, IdxT>;
-  using input_t  = std::tuple<test_spec, std::vector<KeyT>, std::vector<KeyT>, std::vector<IdxT>>;
-  using params_t = std::tuple<input_t, Algo>;
+  using io_t = io_simple<KeyT, IdxT>;
+  using input_t =
+    std::tuple<select::params, std::vector<KeyT>, std::vector<KeyT>, std::vector<IdxT>>;
+  using params_t = std::tuple<input_t, select::Algo>;
 
   static auto read(params_t ps) -> Params<io_t>
   {
@@ -412,19 +322,19 @@ INSTANTIATE_TEST_CASE_P(                // NOLINT
   SelectK,
   SimpleFloatInt,
   testing::Combine(inputs_simple_f,
-                   testing::Values(Algo::kPublicApi,
-                                   Algo::kRadix8bits,
-                                   Algo::kRadix11bits,
-                                   Algo::kWarpImmediate,
-                                   Algo::kWarpFiltered,
-                                   Algo::kWarpDistributed)));
+                   testing::Values(select::Algo::kPublicApi,
+                                   select::Algo::kRadix8bits,
+                                   select::Algo::kRadix11bits,
+                                   select::Algo::kWarpImmediate,
+                                   select::Algo::kWarpFiltered,
+                                   select::Algo::kWarpDistributed)));
 
-template <Algo RefAlgo>
+template <select::Algo RefAlgo>
 struct with_ref {
   template <typename KeyT, typename IdxT>
   struct params_random {
     using io_t     = io_computed<KeyT, IdxT>;
-    using params_t = std::tuple<test_spec, Algo>;
+    using params_t = std::tuple<select::params, select::Algo>;
 
     static auto read(params_t ps) -> Params<io_t>
     {
@@ -447,92 +357,94 @@ struct with_ref {
   };
 };
 
-auto inputs_random_longlist = testing::Values(test_spec{1, 130, 15, false},
-                                              test_spec{1, 128, 15, false},
-                                              test_spec{20, 700, 1, true},
-                                              test_spec{20, 700, 2, true},
-                                              test_spec{20, 700, 3, true},
-                                              test_spec{20, 700, 4, true},
-                                              test_spec{20, 700, 5, true},
-                                              test_spec{20, 700, 6, true},
-                                              test_spec{20, 700, 7, true},
-                                              test_spec{20, 700, 8, true},
-                                              test_spec{20, 700, 9, true},
-                                              test_spec{20, 700, 10, true, false},
-                                              test_spec{20, 700, 11, true},
-                                              test_spec{20, 700, 12, true},
-                                              test_spec{20, 700, 16, true},
-                                              test_spec{100, 1700, 17, true},
-                                              test_spec{100, 1700, 31, true, false},
-                                              test_spec{100, 1700, 32, false},
-                                              test_spec{100, 1700, 33, false},
-                                              test_spec{100, 1700, 63, false},
-                                              test_spec{100, 1700, 64, false, false},
-                                              test_spec{100, 1700, 65, false},
-                                              test_spec{100, 1700, 255, true},
-                                              test_spec{100, 1700, 256, true},
-                                              test_spec{100, 1700, 511, false},
-                                              test_spec{100, 1700, 512, true},
-                                              test_spec{100, 1700, 1023, false, false},
-                                              test_spec{100, 1700, 1024, true},
-                                              test_spec{100, 1700, 1700, true});
+auto inputs_random_longlist = testing::Values(select::params{1, 130, 15, false},
+                                              select::params{1, 128, 15, false},
+                                              select::params{20, 700, 1, true},
+                                              select::params{20, 700, 2, true},
+                                              select::params{20, 700, 3, true},
+                                              select::params{20, 700, 4, true},
+                                              select::params{20, 700, 5, true},
+                                              select::params{20, 700, 6, true},
+                                              select::params{20, 700, 7, true},
+                                              select::params{20, 700, 8, true},
+                                              select::params{20, 700, 9, true},
+                                              select::params{20, 700, 10, true, false},
+                                              select::params{20, 700, 11, true},
+                                              select::params{20, 700, 12, true},
+                                              select::params{20, 700, 16, true},
+                                              select::params{100, 1700, 17, true},
+                                              select::params{100, 1700, 31, true, false},
+                                              select::params{100, 1700, 32, false},
+                                              select::params{100, 1700, 33, false},
+                                              select::params{100, 1700, 63, false},
+                                              select::params{100, 1700, 64, false, false},
+                                              select::params{100, 1700, 65, false},
+                                              select::params{100, 1700, 255, true},
+                                              select::params{100, 1700, 256, true},
+                                              select::params{100, 1700, 511, false},
+                                              select::params{100, 1700, 512, true},
+                                              select::params{100, 1700, 1023, false, false},
+                                              select::params{100, 1700, 1024, true},
+                                              select::params{100, 1700, 1700, true});
 
-auto inputs_random_largesize = testing::Values(test_spec{100, 100000, 1, true},
-                                               test_spec{100, 100000, 2, true},
-                                               test_spec{100, 100000, 3, true, false},
-                                               test_spec{100, 100000, 7, true},
-                                               test_spec{100, 100000, 16, true},
-                                               test_spec{100, 100000, 31, true},
-                                               test_spec{100, 100000, 32, true, false},
-                                               test_spec{100, 100000, 60, true},
-                                               test_spec{100, 100000, 100, true, false},
-                                               test_spec{100, 100000, 200, true},
-                                               test_spec{100000, 100, 100, false},
-                                               test_spec{1, 1000000000, 1, true},
-                                               test_spec{1, 1000000000, 16, false, false},
-                                               test_spec{1, 1000000000, 64, false},
-                                               test_spec{1, 1000000000, 128, true, false},
-                                               test_spec{1, 1000000000, 256, false, false});
+auto inputs_random_largesize = testing::Values(select::params{100, 100000, 1, true},
+                                               select::params{100, 100000, 2, true},
+                                               select::params{100, 100000, 3, true, false},
+                                               select::params{100, 100000, 7, true},
+                                               select::params{100, 100000, 16, true},
+                                               select::params{100, 100000, 31, true},
+                                               select::params{100, 100000, 32, true, false},
+                                               select::params{100, 100000, 60, true},
+                                               select::params{100, 100000, 100, true, false},
+                                               select::params{100, 100000, 200, true},
+                                               select::params{100000, 100, 100, false},
+                                               select::params{1, 1000000000, 1, true},
+                                               select::params{1, 1000000000, 16, false, false},
+                                               select::params{1, 1000000000, 64, false},
+                                               select::params{1, 1000000000, 128, true, false},
+                                               select::params{1, 1000000000, 256, false, false});
 
-auto inputs_random_largek = testing::Values(test_spec{100, 100000, 1000, true},
-                                            test_spec{100, 100000, 2000, true},
-                                            test_spec{100, 100000, 100000, true, false},
-                                            test_spec{100, 100000, 2048, false},
-                                            test_spec{100, 100000, 1237, true});
+auto inputs_random_largek = testing::Values(select::params{100, 100000, 1000, true},
+                                            select::params{100, 100000, 2000, true},
+                                            select::params{100, 100000, 100000, true, false},
+                                            select::params{100, 100000, 2048, false},
+                                            select::params{100, 100000, 1237, true});
 
-using ReferencedRandomFloatInt = SelectK<float, int, with_ref<Algo::kPublicApi>::params_random>;
+using ReferencedRandomFloatInt =
+  SelectK<float, int, with_ref<select::Algo::kPublicApi>::params_random>;
 TEST_P(ReferencedRandomFloatInt, Run) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                          // NOLINT
   SelectK,
   ReferencedRandomFloatInt,
   testing::Combine(inputs_random_longlist,
-                   testing::Values(Algo::kRadix8bits,
-                                   Algo::kRadix11bits,
-                                   Algo::kWarpImmediate,
-                                   Algo::kWarpFiltered,
-                                   Algo::kWarpDistributed,
-                                   Algo::kWarpDistributedShm)));
+                   testing::Values(select::Algo::kRadix8bits,
+                                   select::Algo::kRadix11bits,
+                                   select::Algo::kWarpImmediate,
+                                   select::Algo::kWarpFiltered,
+                                   select::Algo::kWarpDistributed,
+                                   select::Algo::kWarpDistributedShm)));
 
 using ReferencedRandomDoubleSizeT =
-  SelectK<double, size_t, with_ref<Algo::kPublicApi>::params_random>;
+  SelectK<double, size_t, with_ref<select::Algo::kPublicApi>::params_random>;
 TEST_P(ReferencedRandomDoubleSizeT, Run) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                             // NOLINT
   SelectK,
   ReferencedRandomDoubleSizeT,
   testing::Combine(inputs_random_longlist,
-                   testing::Values(Algo::kRadix8bits,
-                                   Algo::kRadix11bits,
-                                   Algo::kWarpImmediate,
-                                   Algo::kWarpFiltered,
-                                   Algo::kWarpDistributed,
-                                   Algo::kWarpDistributedShm)));
+                   testing::Values(select::Algo::kRadix8bits,
+                                   select::Algo::kRadix11bits,
+                                   select::Algo::kWarpImmediate,
+                                   select::Algo::kWarpFiltered,
+                                   select::Algo::kWarpDistributed,
+                                   select::Algo::kWarpDistributedShm)));
 
-using ReferencedRandomDoubleInt = SelectK<double, int, with_ref<Algo::kRadix11bits>::params_random>;
+using ReferencedRandomDoubleInt =
+  SelectK<double, int, with_ref<select::Algo::kRadix11bits>::params_random>;
 TEST_P(ReferencedRandomDoubleInt, LargeSize) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                                 // NOLINT
   SelectK,
   ReferencedRandomDoubleInt,
-  testing::Combine(inputs_random_largesize, testing::Values(Algo::kWarpAuto)));
+  testing::Combine(inputs_random_largesize, testing::Values(select::Algo::kWarpAuto)));
 
 /** TODO: Fix test failure in RAFT CI
  *
@@ -540,12 +452,12 @@ INSTANTIATE_TEST_CASE_P(                                 // NOLINT
  *  Indicices do not match! ref[91628] = 131.359 != res[36504] = 158.438
  *  Actual: false (actual=36504 != expected=91628 @38999;
  */
-// typedef SelectK<float, size_t, with_ref<Algo::kRadix8bits>::params_random>
-//   ReferencedRandomFloatSizeT;
-// TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }
-// INSTANTIATE_TEST_CASE_P(SelectK,
-//                         ReferencedRandomFloatSizeT,
-//                         testing::Combine(inputs_random_largek,
-//                                          testing::Values(Algo::kRadix11bits)));
+using ReferencedRandomFloatSizeT =
+  SelectK<float, size_t, with_ref<select::Algo::kRadix8bits>::params_random>;
+TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }  // NOLINT
+INSTANTIATE_TEST_CASE_P(SelectK,                       // NOLINT
+                        ReferencedRandomFloatSizeT,
+                        testing::Combine(inputs_random_largek,
+                                         testing::Values(select::Algo::kRadix11bits)));
 
 }  // namespace raft::matrix
