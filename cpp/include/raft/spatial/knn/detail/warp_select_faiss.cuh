@@ -7,17 +7,17 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
-
 #include <faiss/gpu/utils/DeviceDefs.cuh>
 #include <faiss/gpu/utils/MergeNetworkUtils.cuh>
 #include <faiss/gpu/utils/PtxUtils.cuh>
 #include <faiss/gpu/utils/StaticUtils.h>
 #include <faiss/gpu/utils/WarpShuffles.cuh>
 
+#include <raft/core/kvp.hpp>
+
 namespace faiss {
 namespace gpu {
-using cub::KeyValuePair;
+using raft::KeyValuePair;
 
 //
 // This file contains functions to:
