@@ -32,16 +32,10 @@
 
 #include <rmm/cuda_stream_view.hpp>
 
-#include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuIndexIVFFlat.h>
 #include <faiss/gpu/GpuIndexIVFPQ.h>
 #include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/gpu/utils/Tensor.cuh>
-#include <faiss/utils/Heap.h>
 
 #include <thrust/iterator/transform_iterator.h>
 
