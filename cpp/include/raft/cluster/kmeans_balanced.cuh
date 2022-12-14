@@ -25,6 +25,7 @@ namespace raft::cluster::kmeans_balanced {
 
 // todo: wrap n_iter, metric, etc in parameter structure?
 // todo: proper double support: MathT != DataT
+// todo: remove stream arg when there is a handle arg
 
 template <typename DataT, typename IndexT, typename MappingOpT = raft::Nop<DataT, IndexT>>
 void fit(handle_t const& handle,
@@ -44,6 +45,53 @@ void fit(handle_t const& handle,
                              metric,
                              mapping_op,
                              handle.get_stream());
+}
+
+template <typename DataT,
+          typename MathT,
+          typename IndexT,
+          typename LabelT,
+          typename MappingOpT = raft::Nop<DataT, IndexT>>
+void predict(handle_t const& handle,
+             raft::device_matrix_view<const DataT, IndexT> X,
+             raft::device_matrix_view<const MathT, IndexT> centroids,
+             raft::device_vector_view<LabelT, IndexT> labels,
+             raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
+             MappingOpT mapping_op               = raft::Nop<DataT, IndexT>())
+{
+  ASSERT(X.extent(0) == labels.extent(0), "Number of rows in dataset and labels are different");
+  ASSERT(X.extent(1) == centroids.extent(1),
+         "Number of features in dataset and centroids are different");
+
+  detail::predict(handle,
+                  centroids.data_handle(),
+                  centroids.extent(0),
+                  X.extent(1),
+                  X.data_handle(),
+                  X.extent(0),
+                  labels.data_handle(),
+                  metric,
+                  mapping_op,
+                  handle.get_stream());
+}
+
+template <typename DataT,
+          typename MathT,
+          typename IndexT,
+          typename LabelT,
+          typename MappingOpT = raft::Nop<DataT, IndexT>>
+void fit_predict(handle_t const& handle,
+                 raft::device_matrix_view<const DataT, IndexT> X,
+                 raft::device_matrix_view<MathT, IndexT> centroids,
+                 raft::device_vector_view<LabelT, IndexT> labels,
+                 uint32_t n_iter,
+                 raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
+                 MappingOpT mapping_op               = raft::Nop<DataT, IndexT>())
+{
+  auto centroids_const = raft::make_device_matrix_view<const MathT, int>(
+    centroids.data_handle(), centroids.extent(0), centroids.extent(1));
+  raft::cluster::kmeans_balanced::fit(handle, X, centroids, n_iter, metric, mapping_op);
+  raft::cluster::kmeans_balanced::predict(handle, X, centroids_const, labels, metric, mapping_op);
 }
 
 }  // namespace raft::cluster::kmeans_balanced

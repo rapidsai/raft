@@ -1073,7 +1073,7 @@ void build_hierarchical(const handle_t& handle,
   auto [mesocluster_size_max, fine_clusters_nums_max, fine_clusters_nums, fine_clusters_csum] =
     arrange_fine_clusters(n_clusters, n_mesoclusters, n_rows, mesocluster_sizes);
 
-  if (mesocluster_size_max * n_mesoclusters > 2 * n_rows) {
+  if (mesocluster_size_max * n_mesoclusters > static_cast<uint32_t>(2 * n_rows)) {
     RAFT_LOG_WARN("build_hierarchical: built unbalanced mesoclusters");
     RAFT_LOG_TRACE_VEC(mesocluster_sizes, n_mesoclusters);
     RAFT_LOG_TRACE_VEC(fine_clusters_nums.data(), n_mesoclusters);
