@@ -156,6 +156,18 @@ import torch
 torch_tensor = torch.as_tensor(output, device='cuda')
 ```
 
+When the corresponding library has been installed and available in your environment, this conversion can also be done automatically by all RAFT compute APIs by setting a global configuration option:
+```python
+import pylibraft.config
+pylibraft.config.set_output_as("cupy")  # All compute APIs will return cupy arrays
+pylibraft.config.set_output_as("torch") # All compute APIs will return torch tensors
+```
+
+You can also specify a `callable` that accepts a `pylibraft.common.device_ndarray` and performs a custom conversion. The following example converts all output to `numpy` arrays:
+```python
+pylibraft.config.set_output_as(lambda device_ndarray: return device_ndarray.copy_to_host())
+```
+
 `pylibraft` also supports writing to a pre-allocated output array so any `__cuda_array_interface__` supported array can be written to in-place:
 
 ```python
@@ -257,7 +269,8 @@ Several CMake targets can be made available by adding components in the table be
 | --- | --- | --- | --- |
 | n/a | `raft::raft` | Full RAFT header library | CUDA toolkit library, RMM, Thrust (optional), NVTools (optional) |
 | distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::raft, cuCollections (optional)  |
-| nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::raft, FAISS (optional) |
+| nn | `raft::nn` | Pre-compiled template specializations for raft::neighbors | raft::raft, FAISS (optional) |
+| distributed | `raft::distributed` | No specializations | raft::raft, UCX, NCCL |
 
 ### Source
 

@@ -7,6 +7,10 @@ This page provides pylibraft class references for the publicly-exposed elements 
    :language: python
    :class: highlight
 
+
+IVF-PQ
+######
+
 .. autoclass:: pylibraft.neighbors.ivf_pq.IndexParams
     :members:
 
@@ -18,3 +22,9 @@ This page provides pylibraft class references for the publicly-exposed elements 
     :members:
 
 .. autofunction:: pylibraft.neighbors.ivf_pq.search
+
+
+Candidate Refinement
+####################
+
+.. autofunction:: pylibraft.neighbors.refine
