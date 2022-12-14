@@ -18,6 +18,7 @@
 
 #include <limits.h>
 
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -193,13 +194,12 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
   {
     unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, PDiff(p), Sum(), AtomicAdd());
 
-    float one_over_p = 1.0f / p;
-    raft::linalg::unaryOp<value_t>(
-      out_dists,
-      out_dists,
-      config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return pow(input, one_over_p); },
-      config_->handle.get_stream());
+    value_t one_over_p = value_t{1} / p;
+    raft::linalg::unaryOp<value_t>(out_dists,
+                                   out_dists,
+                                   config_->a_nrows * config_->b_nrows,
+                                   raft::pow_const_op<value_t>(one_over_p),
+                                   config_->handle.get_stream());
   }
 
  private:
@@ -220,12 +220,11 @@ class hamming_unexpanded_distances_t : public distances_t<value_t> {
     unexpanded_lp_distances<value_idx, value_t>(out_dists, config_, NotEqual(), Sum(), AtomicAdd());
 
     value_t n_cols = 1.0 / config_->a_ncols;
-    raft::linalg::unaryOp<value_t>(
-      out_dists,
-      out_dists,
-      config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return input * n_cols; },
-      config_->handle.get_stream());
+    raft::linalg::unaryOp<value_t>(out_dists,
+                                   out_dists,
+                                   config_->a_nrows * config_->b_nrows,
+                                   raft::mul_const_op<value_t>(n_cols),
+                                   config_->handle.get_stream());
   }
 
  private:
@@ -302,12 +301,11 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
       Sum(),
       AtomicAdd());
 
-    raft::linalg::unaryOp<value_t>(
-      out_dists,
-      out_dists,
-      config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return 0.5 * input; },
-      config_->handle.get_stream());
+    raft::linalg::unaryOp<value_t>(out_dists,
+                                   out_dists,
+                                   config_->a_nrows * config_->b_nrows,
+                                   raft::mul_const_op<value_t>(0.5),
+                                   config_->handle.get_stream());
   }
 
  private:

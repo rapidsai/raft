@@ -19,11 +19,8 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
 
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>

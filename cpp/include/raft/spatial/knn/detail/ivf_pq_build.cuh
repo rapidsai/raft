@@ -25,6 +25,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/qr.cuh>
@@ -259,14 +260,7 @@ void select_residuals(const handle_t& handle,
     n_rows, (IdxT)dim, dataset, row_ids, (IdxT)dim, tmp.data(), (IdxT)dim, stream);
 
   raft::matrix::linewiseOp(
-    tmp.data(),
-    tmp.data(),
-    IdxT(dim),
-    n_rows,
-    true,
-    [] __device__(float a, float b) { return a - b; },
-    stream,
-    center);
+    tmp.data(), tmp.data(), IdxT(dim), n_rows, true, raft::sub_op{}, stream, center);
 
   float alpha = 1.0;
   float beta  = 0.0;
@@ -1186,7 +1180,7 @@ inline auto build_device(
                           raft::linalg::L2Norm,
                           true,
                           stream,
-                          raft::SqrtOp<float>());
+                          raft::sqrt_op());
     RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle() + index.dim(),
                                     sizeof(float) * index.dim_ext(),
                                     center_norms.data(),

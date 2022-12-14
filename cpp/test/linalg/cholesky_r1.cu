@@ -22,7 +22,7 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <sstream>
 #include <vector>
 namespace raft {

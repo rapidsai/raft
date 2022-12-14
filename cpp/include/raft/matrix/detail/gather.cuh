@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/core/operators.hpp>
+
 namespace raft {
 namespace matrix {
 namespace detail {
@@ -183,16 +185,7 @@ void gather(const MatrixIteratorT in,
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
   gatherImpl(
-    in,
-    D,
-    N,
-    map,
-    map,
-    map_length,
-    out,
-    [] __device__(MapValueT val) { return true; },
-    [] __device__(MapValueT val) { return val; },
-    stream);
+    in, D, N, map, map, map_length, out, raft::const_op(true), raft::identity_op(), stream);
 }
 
 /**
@@ -227,17 +220,7 @@ void gather(const MatrixIteratorT in,
             cudaStream_t stream)
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
-  gatherImpl(
-    in,
-    D,
-    N,
-    map,
-    map,
-    map_length,
-    out,
-    [] __device__(MapValueT val) { return true; },
-    transform_op,
-    stream);
+  gatherImpl(in, D, N, map, map, map_length, out, raft::const_op(true), transform_op, stream);
 }
 
 /**
@@ -279,17 +262,7 @@ void gather_if(const MatrixIteratorT in,
                cudaStream_t stream)
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
-  gatherImpl(
-    in,
-    D,
-    N,
-    map,
-    stencil,
-    map_length,
-    out,
-    pred_op,
-    [] __device__(MapValueT val) { return val; },
-    stream);
+  gatherImpl(in, D, N, map, stencil, map_length, out, pred_op, raft::identity_op(), stream);
 }
 
 /**

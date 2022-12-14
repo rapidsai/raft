@@ -20,8 +20,10 @@
 #include <raft/linalg/norm.cuh>
 // TODO: Need to hide the PairwiseDistance class impl and expose to public API
 #include "processing.cuh"
+#include <raft/core/operators.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace spatial {
@@ -566,8 +568,6 @@ void fusedL2UnexpKnnImpl(const DataT* x,
     acc += diff * diff;
   };
 
-  auto fin_op = [] __device__(AccT d_val, int g_d_idx) { return d_val; };
-
   typedef cub::KeyValuePair<uint32_t, AccT> Pair;
 
   if (isRowMajor) {
@@ -578,7 +578,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
                                                           IdxT,
                                                           KPolicy,
                                                           decltype(core_lambda),
-                                                          decltype(fin_op),
+                                                          raft::identity_op,
                                                           32,
                                                           2,
                                                           usePrevTopKs,
@@ -590,7 +590,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
                                                           IdxT,
                                                           KPolicy,
                                                           decltype(core_lambda),
-                                                          decltype(fin_op),
+                                                          raft::identity_op,
                                                           64,
                                                           3,
                                                           usePrevTopKs,
@@ -630,7 +630,7 @@ void fusedL2UnexpKnnImpl(const DataT* x,
                                                                   ldb,
                                                                   ldd,
                                                                   core_lambda,
-                                                                  fin_op,
+                                                                  raft::identity_op{},
                                                                   sqrt,
                                                                   (uint32_t)numOfNN,
                                                                   (int*)workspace,
@@ -757,8 +757,6 @@ void fusedL2ExpKnnImpl(const DataT* x,
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) { acc += x * y; };
 
-  auto fin_op = [] __device__(AccT d_val, int g_d_idx) { return d_val; };
-
   typedef cub::KeyValuePair<uint32_t, AccT> Pair;
 
   if (isRowMajor) {
@@ -769,7 +767,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
                                                         IdxT,
                                                         KPolicy,
                                                         decltype(core_lambda),
-                                                        decltype(fin_op),
+                                                        raft::identity_op,
                                                         32,
                                                         2,
                                                         usePrevTopKs,
@@ -781,7 +779,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
                                                         IdxT,
                                                         KPolicy,
                                                         decltype(core_lambda),
-                                                        decltype(fin_op),
+                                                        raft::identity_op,
                                                         64,
                                                         3,
                                                         usePrevTopKs,
@@ -818,14 +816,15 @@ void fusedL2ExpKnnImpl(const DataT* x,
     DataT* xn = (DataT*)workspace;
     DataT* yn = (DataT*)workspace;
 
-    auto norm_op = [] __device__(DataT in) { return in; };
-
     if (x != y) {
       yn += m;
-      raft::linalg::rowNorm(xn, x, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
-      raft::linalg::rowNorm(yn, y, k, n, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+      raft::linalg::rowNorm(
+        xn, x, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
+      raft::linalg::rowNorm(
+        yn, y, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
     } else {
-      raft::linalg::rowNorm(xn, x, k, n, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+      raft::linalg::rowNorm(
+        xn, x, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
     }
     fusedL2ExpKnnRowMajor<<<grid, blk, sharedMemSize, stream>>>(x,
                                                                 y,
@@ -838,7 +837,7 @@ void fusedL2ExpKnnImpl(const DataT* x,
                                                                 ldb,
                                                                 ldd,
                                                                 core_lambda,
-                                                                fin_op,
+                                                                raft::identity_op{},
                                                                 sqrt,
                                                                 (uint32_t)numOfNN,
                                                                 mutexes,
