@@ -25,7 +25,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 
 namespace raft::neighbors {

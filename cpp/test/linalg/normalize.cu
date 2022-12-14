@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/normalize.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/itertools.hpp>
 
@@ -48,20 +50,13 @@ void rowNormalizeRef(
 {
   rmm::device_uvector<T> norm(rows, stream);
   if (norm_type == raft::linalg::L2Norm) {
-    raft::linalg::rowNorm(norm.data(), in, cols, rows, norm_type, true, stream, raft::SqrtOp<T>());
+    raft::linalg::rowNorm(norm.data(), in, cols, rows, norm_type, true, stream, raft::sqrt_op());
   } else {
-    raft::linalg::rowNorm(norm.data(), in, cols, rows, norm_type, true, stream, raft::Nop<T>());
+    raft::linalg::rowNorm(
+      norm.data(), in, cols, rows, norm_type, true, stream, raft::identity_op());
   }
   raft::linalg::matrixVectorOp(
-    out,
-    in,
-    norm.data(),
-    cols,
-    rows,
-    true,
-    false,
-    [] __device__(T a, T b) { return a / b; },
-    stream);
+    out, in, norm.data(), cols, rows, true, false, raft::div_op{}, stream);
 }
 
 template <typename T, typename IdxT>

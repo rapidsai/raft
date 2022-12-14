@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ static void chebyshevImpl(const DataT* x,
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::L1Op<AccT, IdxT>()(x - y);
+    const auto diff = raft::myAbs(x - y);
     acc             = raft::myMax(acc, diff);
   };
 

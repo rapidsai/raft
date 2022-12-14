@@ -17,7 +17,7 @@
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
 
-#include "../../test_utils.h"
+#include "../../test_utils.cuh"
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/neighbors/knn.cuh>
 

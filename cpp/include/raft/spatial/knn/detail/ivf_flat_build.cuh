@@ -24,6 +24,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
@@ -245,7 +246,7 @@ inline auto extend(const handle_t& handle,
                             raft::linalg::L2Norm,
                             true,
                             stream,
-                            raft::SqrtOp<float>());
+                            raft::sqrt_op());
       RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
     }
   }

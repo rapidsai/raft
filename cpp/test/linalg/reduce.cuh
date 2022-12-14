@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cublas_v2.h>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -61,9 +62,9 @@ __global__ void naiveCoalescedReductionKernel(OutType* dots,
 template <typename InType,
           typename OutType,
           typename IdxType,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<InType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void naiveCoalescedReduction(OutType* dots,
                              const InType* data,
                              IdxType D,
@@ -71,9 +72,9 @@ void naiveCoalescedReduction(OutType* dots,
                              cudaStream_t stream,
                              OutType init,
                              bool inplace           = false,
-                             MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                             ReduceLambda reduce_op = raft::Sum<OutType>(),
-                             FinalLambda fin_op     = raft::Nop<InType>())
+                             MainLambda main_op     = raft::identity_op(),
+                             ReduceLambda reduce_op = raft::add_op(),
+                             FinalLambda fin_op     = raft::identity_op())
 {
   static const IdxType TPB = 64;
   IdxType nblks            = raft::ceildiv(N, TPB);
@@ -115,9 +116,9 @@ __global__ void naiveStridedReductionKernel(OutType* dots,
 template <typename InType,
           typename OutType,
           typename IdxType,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<InType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void naiveStridedReduction(OutType* dots,
                            const InType* data,
                            IdxType D,
@@ -125,9 +126,9 @@ void naiveStridedReduction(OutType* dots,
                            cudaStream_t stream,
                            OutType init,
                            bool inplace           = false,
-                           MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                           ReduceLambda reduce_op = raft::Sum<OutType>(),
-                           FinalLambda fin_op     = raft::Nop<InType>())
+                           MainLambda main_op     = raft::identity_op(),
+                           ReduceLambda reduce_op = raft::add_op(),
+                           FinalLambda fin_op     = raft::identity_op())
 {
   static const IdxType TPB = 64;
   IdxType nblks            = raft::ceildiv(D, TPB);
@@ -139,9 +140,9 @@ void naiveStridedReduction(OutType* dots,
 template <typename InType,
           typename OutType,
           typename IdxType,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<InType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void naiveReduction(OutType* dots,
                     const InType* data,
                     IdxType D,
@@ -151,9 +152,9 @@ void naiveReduction(OutType* dots,
                     cudaStream_t stream,
                     OutType init,
                     bool inplace           = false,
-                    MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                    ReduceLambda reduce_op = raft::Sum<OutType>(),
-                    FinalLambda fin_op     = raft::Nop<InType>())
+                    MainLambda main_op     = raft::identity_op(),
+                    ReduceLambda reduce_op = raft::add_op(),
+                    FinalLambda fin_op     = raft::identity_op())
 {
   if (rowMajor && alongRows) {
     naiveCoalescedReduction(dots, data, D, N, stream, init, inplace, main_op, reduce_op, fin_op);

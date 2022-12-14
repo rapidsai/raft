@@ -16,7 +16,7 @@
 
 #include <bits/stdc++.h>
 
-#include "test_utils.h"
+#include "test_utils.cuh"
 #include <gtest/gtest.h>
 #include <iostream>
 #include <rmm/device_uvector.hpp>
