@@ -24,13 +24,11 @@
 namespace raft::cluster::kmeans_balanced {
 
 // todo: wrap n_iter, metric, etc in parameter structure?
-// todo: remove stream arg when there is a handle arg
-// todo: C++-style casts
 // todo: remove old interface and call this one instead
 // todo: if mapping_op has same input and output types, is it assumed to be identity?
 // todo: document this API
-// todo: IdxT everywhere (except labels)
-// todo: check IdxT and LabelT are big enough
+// todo: doxygen consistency
+// todo: merge operators and use here
 
 template <typename DataT,
           typename MathT,
@@ -43,6 +41,12 @@ void fit(handle_t const& handle,
          raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
          MappingOpT mapping_op               = raft::Nop<MathT, IndexT>())
 {
+  RAFT_EXPECTS(X.extent(1) == centroids.extent(1),
+               "Number of features in dataset and centroids are different");
+  RAFT_EXPECTS(static_cast<uint64_t>(X.extent(0)) * static_cast<uint64_t>(X.extent(1)) <=
+                 static_cast<uint64_t>(std::numeric_limits<IndexT>::max()),
+               "The chosen index type cannot represent all indices for the given dataset");
+
   detail::build_hierarchical(handle,
                              n_iter,
                              X.extent(1),
@@ -66,9 +70,16 @@ void predict(handle_t const& handle,
              raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
              MappingOpT mapping_op               = raft::Nop<MathT, IndexT>())
 {
-  ASSERT(X.extent(0) == labels.extent(0), "Number of rows in dataset and labels are different");
-  ASSERT(X.extent(1) == centroids.extent(1),
-         "Number of features in dataset and centroids are different");
+  RAFT_EXPECTS(X.extent(0) == labels.extent(0),
+               "Number of rows in dataset and labels are different");
+  RAFT_EXPECTS(X.extent(1) == centroids.extent(1),
+               "Number of features in dataset and centroids are different");
+  RAFT_EXPECTS(static_cast<uint64_t>(X.extent(0)) * static_cast<uint64_t>(X.extent(1)) <=
+                 static_cast<uint64_t>(std::numeric_limits<IndexT>::max()),
+               "The chosen index type cannot represent all indices for the given dataset");
+  RAFT_EXPECTS(static_cast<uint64_t>(centroids.extent(0)) <=
+                 static_cast<uint64_t>(std::numeric_limits<LabelT>::max()),
+               "The chosen label type cannot represent all cluster labels");
 
   detail::predict(handle,
                   centroids.data_handle(),
