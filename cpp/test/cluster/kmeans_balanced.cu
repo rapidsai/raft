@@ -140,20 +140,20 @@ const std::vector<KmeansBalancedInputs<float>> inputsf2 = {{1000, 32, 5, 20, 0.0
                                                            {10000, 100, 50, 20, 0.0001f},
                                                            {10000, 500, 100, 20, 0.0001f}};
 
-// const std::vector<KmeansBalancedInputs<double>> inputsd2 = {{1000, 32, 5, 20, 0.0001},
-//                                                     {1000, 100, 20, 20, 0.0001},
-//                                                     {10000, 32, 10, 20, 0.0001},
-//                                                     {10000, 100, 50, 20, 0.0001},
-//                                                     {10000, 500, 100, 20, 0.0001}};
+const std::vector<KmeansBalancedInputs<double>> inputsd2 = {{1000, 32, 5, 20, 0.0001},
+                                                            {1000, 100, 20, 20, 0.0001},
+                                                            {10000, 32, 10, 20, 0.0001},
+                                                            {10000, 100, 50, 20, 0.0001},
+                                                            {10000, 500, 100, 20, 0.0001}};
 
 typedef KmeansBalancedTest<float> KmeansBalancedTestF;
 TEST_P(KmeansBalancedTestF, Result) { ASSERT_TRUE(score == 1.0); }
 
-// typedef KmeansBalancedTest<double> KmeansBalancedTestD;
-// TEST_P(KmeansBalancedTestD, Result) { ASSERT_TRUE(score == 1.0); }
+typedef KmeansBalancedTest<double> KmeansBalancedTestD;
+TEST_P(KmeansBalancedTestD, Result) { ASSERT_TRUE(score == 1.0); }
 
 INSTANTIATE_TEST_CASE_P(KmeansBalancedTests, KmeansBalancedTestF, ::testing::ValuesIn(inputsf2));
 
-// INSTANTIATE_TEST_CASE_P(KmeansBalancedTests, KmeansBalancedTestD, ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_CASE_P(KmeansBalancedTests, KmeansBalancedTestD, ::testing::ValuesIn(inputsd2));
 
 }  // namespace raft
