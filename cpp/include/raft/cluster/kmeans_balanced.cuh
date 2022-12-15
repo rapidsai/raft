@@ -24,7 +24,6 @@
 namespace raft::cluster::kmeans_balanced {
 
 // todo: wrap n_iter, metric, etc in parameter structure?
-// todo: proper double support: MathT != DataT
 // todo: remove stream arg when there is a handle arg
 // todo: C++-style casts
 // todo: remove old interface and call this one instead
@@ -52,8 +51,7 @@ void fit(handle_t const& handle,
                              centroids.data_handle(),
                              centroids.extent(0),
                              metric,
-                             mapping_op,
-                             handle.get_stream());
+                             mapping_op);
 }
 
 template <typename DataT,
@@ -80,8 +78,7 @@ void predict(handle_t const& handle,
                   X.extent(0),
                   labels.data_handle(),
                   metric,
-                  mapping_op,
-                  handle.get_stream());
+                  mapping_op);
 }
 
 template <typename DataT,

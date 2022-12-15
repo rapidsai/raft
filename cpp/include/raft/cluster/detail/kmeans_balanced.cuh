@@ -80,9 +80,9 @@ inline void predict_core(const handle_t& handle,
                          IdxT n_rows,
                          LabelT* labels,
                          raft::distance::DistanceType metric,
-                         rmm::cuda_stream_view stream,
                          rmm::mr::device_memory_resource* mr)
 {
+  auto stream = handle.get_stream();
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
     case raft::distance::DistanceType::L2SqrtExpanded: {
@@ -254,9 +254,9 @@ void calc_centers_and_sizes(const handle_t& handle,
                             const LabelT* labels,
                             bool reset_counters,
                             MappingOpT mapping_op,
-                            rmm::cuda_stream_view stream,
                             rmm::mr::device_memory_resource* mr = nullptr)
 {
+  auto stream = handle.get_stream();
   if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
 
   if (!reset_counters) {
@@ -376,7 +376,6 @@ void compute_norm(MathT* dataset_norm,
  * @param[out] labels output predictions [n_rows]
  * @param metric
  * @param mapping_op Mapping operation from T to MathT
- * @param stream
  * @param mr (optional) memory resource to use for temporary allocations
  */
 template <typename T, typename MathT, typename IdxT, typename LabelT, typename MappingOpT>
@@ -389,10 +388,10 @@ void predict(const handle_t& handle,
              LabelT* labels,
              raft::distance::DistanceType metric,
              MappingOpT mapping_op,
-             rmm::cuda_stream_view stream,
              rmm::mr::device_memory_resource* mr = nullptr,
              const MathT* dataset_norm           = nullptr)
 {
+  auto stream = handle.get_stream();
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "predict(%zu, %u)", static_cast<size_t>(n_rows), n_clusters);
   if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
@@ -440,7 +439,6 @@ void predict(const handle_t& handle,
                  (IdxT)minibatch_size,
                  labels + offset,
                  metric,
-                 stream,
                  mr);
   }
 }
@@ -686,9 +684,9 @@ void balancing_em_iters(const handle_t& handle,
                         uint32_t balancing_pullback,
                         MathT balancing_threshold,
                         MappingOpT mapping_op,
-                        rmm::cuda_stream_view stream,
                         rmm::mr::device_memory_resource* device_memory)
 {
+  auto stream                = handle.get_stream();
   uint32_t balancing_counter = balancing_pullback;
   for (uint32_t iter = 0; iter < n_iters; iter++) {
     // Balancing step - move the centers around to equalize cluster sizes
@@ -736,7 +734,6 @@ void balancing_em_iters(const handle_t& handle,
             cluster_labels,
             metric,
             mapping_op,
-            stream,
             device_memory,
             dataset_norm);
     // M: Maximization step - calculate optimal cluster centers
@@ -750,7 +747,6 @@ void balancing_em_iters(const handle_t& handle,
                            cluster_labels,
                            true,
                            mapping_op,
-                           stream,
                            device_memory);
   }
 }
@@ -768,13 +764,14 @@ void build_clusters(const handle_t& handle,
                     uint32_t* cluster_sizes,
                     raft::distance::DistanceType metric,
                     MappingOpT mapping_op,
-                    rmm::cuda_stream_view stream,
                     rmm::mr::device_memory_resource* device_memory,
                     const MathT* dataset_norm = nullptr)
 {
   RAFT_EXPECTS(static_cast<uint64_t>(n_rows) * static_cast<uint64_t>(dim) <=
                  static_cast<uint64_t>(std::numeric_limits<IdxT>::max()),
                "the chosen index type cannot represent all indices for the given dataset");
+
+  auto stream = handle.get_stream();
 
   // "randomly initialize labels"
   auto f = [n_clusters] __device__(LabelT * out, IdxT i) {
@@ -793,7 +790,6 @@ void build_clusters(const handle_t& handle,
                          cluster_labels,
                          true,
                          mapping_op,
-                         stream,
                          device_memory);
 
   // run EM
@@ -811,7 +807,6 @@ void build_clusters(const handle_t& handle,
                      2,
                      MathT{0.25},
                      mapping_op,
-                     stream,
                      device_memory);
 }
 
@@ -906,9 +901,9 @@ auto build_fine_clusters(const handle_t& handle,
                          raft::distance::DistanceType metric,
                          MappingOpT mapping_op,
                          rmm::mr::device_memory_resource* managed_memory,
-                         rmm::mr::device_memory_resource* device_memory,
-                         rmm::cuda_stream_view stream) -> uint32_t
+                         rmm::mr::device_memory_resource* device_memory) -> uint32_t
 {
+  auto stream = handle.get_stream();
   rmm::device_uvector<IdxT> mc_trainset_ids_buf(mesocluster_size_max, stream, managed_memory);
   rmm::device_uvector<MathT> mc_trainset_buf(mesocluster_size_max * dim, stream, device_memory);
   rmm::device_uvector<MathT> mc_trainset_norm_buf(mesocluster_size_max, stream, device_memory);
@@ -973,7 +968,6 @@ auto build_fine_clusters(const handle_t& handle,
                    mc_trainset_csizes_tmp.data(),
                    metric,
                    mapping_op,
-                   stream,
                    device_memory,
                    mc_trainset_norm);
 
@@ -1016,9 +1010,9 @@ void build_hierarchical(const handle_t& handle,
                         MathT* cluster_centers,
                         uint32_t n_clusters,
                         raft::distance::DistanceType metric,
-                        MappingOpT mapping_op,
-                        rmm::cuda_stream_view stream)
+                        MappingOpT mapping_op)
 {
+  auto stream  = handle.get_stream();
   using LabelT = uint32_t;
 
   RAFT_EXPECTS(static_cast<uint64_t>(n_rows) * static_cast<uint64_t>(dim) <=
@@ -1076,7 +1070,6 @@ void build_hierarchical(const handle_t& handle,
                    mesocluster_sizes_buf.data(),
                    metric,
                    mapping_op,
-                   stream,
                    device_memory,
                    dataset_norm);
   }
@@ -1113,8 +1106,7 @@ void build_hierarchical(const handle_t& handle,
                                              metric,
                                              mapping_op,
                                              &managed_memory,
-                                             device_memory,
-                                             stream);
+                                             device_memory);
   RAFT_EXPECTS(n_clusters_done == n_clusters, "Didn't process all clusters.");
 
   rmm::device_uvector<uint32_t> cluster_sizes(n_clusters, stream, device_memory);
@@ -1141,7 +1133,6 @@ void build_hierarchical(const handle_t& handle,
                      5,
                      MathT{0.2},
                      mapping_op,
-                     stream,
                      device_memory);
 }
 
