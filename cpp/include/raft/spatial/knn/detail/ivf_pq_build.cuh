@@ -35,6 +35,7 @@
 #include <raft/stats/histogram.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
+#include <raft/util/integer_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -894,33 +895,6 @@ void process_and_fill_codes(const handle_t& handle,
 }
 
 /**
- * An upper bound on the size of the new index after adding `n_rows` records (in bytes).
- */
-template <typename IdxT>
-auto estimate_new_index_size(const index<IdxT>& index, IdxT n_rows) -> size_t
-{
-  auto new_size =
-    index.size() + n_rows + (kIndexGroupSize - 1) * std::min<IdxT>(index.n_lists(), n_rows);
-  auto new_extents      = index.make_pq_dataset_extents(new_size);
-  auto new_dataset_size = size_t(new_extents.extent(0)) * size_t(new_extents.extent(1)) *
-                          size_t(new_extents.extent(2)) * size_t(new_extents.extent(3));
-  auto new_index_size = sizeof(IdxT) * new_size;
-  auto aux_size  //
-    = sizeof(typename decltype(index.pq_centers())::value_type) *
-        size_t(index.pq_centers().size())  //
-      + sizeof(typename decltype(index.rotation_matrix())::value_type) *
-          size_t(index.rotation_matrix().size())  //
-      + sizeof(typename decltype(index.list_offsets())::value_type) *
-          size_t(index.list_offsets().size())  //
-      + sizeof(typename decltype(index.list_sizes())::value_type) *
-          size_t(index.list_sizes().size())                                                      //
-      + sizeof(typename decltype(index.centers())::value_type) * size_t(index.centers().size())  //
-      + sizeof(typename decltype(index.centers_rot())::value_type) *
-          size_t(index.centers_rot().size());
-  return new_dataset_size + new_index_size + aux_size;
-}
-
-/**
  * Fill the `target` index with the data from the `source`, except `list_offsets`.
  * The `target` index must have the same settings and valid `list_offsets`, and must have been
  * pre-allocated to fit the whole `source` data.
@@ -1066,24 +1040,38 @@ auto extend(const handle_t& handle,
   rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
     &managed_memory_upstream, 1024 * 1024);
 
+  // Try to allocate an index with the same parameters and the projected new size
+  // (which can be slightly larger than index.size() + n_rows, due to padding).
+  // If this fails, the index would be too big to fit in the device anyway.
+  std::optional<index<IdxT>> placeholder_index(std::in_place_t{},
+                                               handle,
+                                               orig_index.metric(),
+                                               orig_index.codebook_kind(),
+                                               n_clusters,
+                                               orig_index.dim(),
+                                               orig_index.pq_bits(),
+                                               orig_index.pq_dim(),
+                                               orig_index.n_nonempty_lists());
+  placeholder_index->allocate(
+    handle,
+    orig_index.size() + n_rows + (kIndexGroupSize - 1) * std::min<IdxT>(n_clusters, n_rows));
+
   // Available device memory
-  size_t free_mem;
-  {
-    size_t total_mem;
-    RAFT_CUDA_TRY(cudaMemGetInfo(&free_mem, &total_mem));
-  }
-  // Reduce it by an approximate size of the extended index
-  free_mem -= std::min(free_mem, estimate_new_index_size(orig_index, n_rows));
+  size_t free_mem, total_mem;
+  RAFT_CUDA_TRY(cudaMemGetInfo(&free_mem, &total_mem));
 
   // Decide on an approximate threshold when we'd better start saving device memory by using managed
   // allocations for large device buffers
-  rmm::mr::device_memory_resource* large_mr = device_memory;
-  if (n_rows * (orig_index.dim() * sizeof(T) + orig_index.pq_dim() + sizeof(IdxT)) > free_mem) {
-    large_mr = &managed_memory;
+  rmm::mr::device_memory_resource* labels_mr  = device_memory;
+  rmm::mr::device_memory_resource* batches_mr = device_memory;
+  if (n_rows *
+        (orig_index.dim() * sizeof(T) + orig_index.pq_dim() + sizeof(IdxT) + sizeof(uint32_t)) >
+      free_mem) {
+    labels_mr = &managed_memory;
   }
   // Allocate a buffer for the new labels (classifying the new data)
-  rmm::device_uvector<uint32_t> new_data_labels(n_rows, stream, large_mr);
-  if (large_mr == device_memory) { free_mem -= sizeof(uint32_t) * n_rows; }
+  rmm::device_uvector<uint32_t> new_data_labels(n_rows, stream, labels_mr);
+  if (labels_mr == device_memory) { free_mem -= sizeof(uint32_t) * n_rows; }
 
   // Calculate the batch size for the input data if it's not accessible directly from the device
   size_t max_batch_size = n_rows;
@@ -1108,15 +1096,35 @@ auto extend(const handle_t& handle,
       }
     }
     if (size_factor * max_batch_size > free_mem) {
-      // make the batch size fit into the remaining memory and leave a more, just in case
+      // make the batch size fit into the remaining memory and leave a bit more, just in case
       max_batch_size = Pow2<1024>::roundUp(1 + (free_mem * 2) / (size_factor * 3));
+      // if the needed memory is still too large due to our rounding, reduce the batch size further
+      while (size_factor * max_batch_size > free_mem) {
+        max_batch_size >>= 1;
+      }
     }
-    free_mem -= size_factor * max_batch_size;
+    if (free_mem * 8 < total_mem && max_batch_size * 5 < n_rows) {
+      // If only a small fraction of the total memory available for temporary buffers,
+      // the performance hit from batching can be very strong.
+      // In such cases, the algorithm is going to be faster with UVM on larger batches.
+      batches_mr = &managed_memory;
+      // ...Though we still may need to batch if the data size is extremely big.
+      // A reasonable batch selection here is roughly equal to the total device memory.
+      max_batch_size = div_rounding_up_safe<size_t>(
+        n_rows, div_rounding_up_safe<size_t>(n_rows, 1 + total_mem / size_factor));
+    } else {
+      // If we're still keeping the batches in device memory, update the available mem tracker.
+      free_mem -= size_factor * max_batch_size;
+    }
   }
 
   // Predict the cluster labels for the new data, in batches if necessary
   utils::batch_load_iterator<T> vec_batches(
-    new_vectors, n_rows, orig_index.dim(), max_batch_size, stream, device_memory);
+    new_vectors, n_rows, orig_index.dim(), max_batch_size, stream, batches_mr);
+  // Release the placeholder memory, because we don't intend to allocate any more long-living
+  // temporary buffers before we allocate the ext_index data.
+  // This memory could potentially speed up UVM accesses, if any.
+  placeholder_index.reset();
   {
     // The cluster centers in the index are stored padded, which is not acceptable by
     // the kmeans::predict. Thus, we need the restructuring copy.
@@ -1216,7 +1224,7 @@ auto extend(const handle_t& handle,
 
   // fill the extended index with the new data (possibly, in batches)
   utils::batch_load_iterator<IdxT> idx_batches(
-    new_indices, n_rows, 1, max_batch_size, stream, device_memory);
+    new_indices, n_rows, 1, max_batch_size, stream, batches_mr);
   for (const auto& vec_batch : vec_batches) {
     const auto& idx_batch = *idx_batches++;
     process_and_fill_codes(handle,
@@ -1227,7 +1235,7 @@ auto extend(const handle_t& handle,
                              : std::variant<IdxT, const IdxT*>(IdxT(idx_batch.offset())),
                            new_data_labels.data() + vec_batch.offset(),
                            IdxT(vec_batch.size()),
-                           device_memory,
+                           batches_mr,
                            &managed_memory);
   }
 
