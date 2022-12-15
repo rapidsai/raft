@@ -57,9 +57,6 @@ outputs:
         - libcusolver {{ libcusolver_version }}
         - libcusparse {{ libcusparse_version }}
         - librmm {{ minor_version }}
-        - nccl {{ nccl_version }}
-        - ucx-proc=*=gpu
-        - ucx-py {{ ucx_py_version }}
     about:
       home: http://rapids.ai/
       license: Apache-2.0
@@ -83,16 +80,10 @@ outputs:
       host:
         - cudatoolkit {{ cuda_version }}.*
         - librmm {{ minor_version }}
-        - nccl {{ nccl_version }}
-        - ucx-proc=*=gpu
-        - ucx-py {{ ucx_py_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
       run:
         - cudatoolkit {{ cuda_spec }}
         - librmm {{ minor_version }}
-        - nccl {{ nccl_version }}
-        - ucx-proc=*=gpu
-        - ucx-py {{ ucx_py_version }}
         - libcusolver {{ libcusolver_version }}
         - libcusparse {{ libcusparse_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}

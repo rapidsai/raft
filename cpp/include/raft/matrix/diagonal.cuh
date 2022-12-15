@@ -23,6 +23,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_diagonal Matrix diagonal operations
+ * @{
+ */
+
+/**
  * @brief Initialize a diagonal matrix with a vector
  * @param[in] handle: raft handle
  * @param[in] vec: vector of length k = min(n_rows, n_cols)
@@ -76,4 +81,7 @@ void invert_diagonal(const raft::handle_t& handle,
   RAFT_EXPECTS(inout.extent(0) == inout.extent(1), "Matrix must be square.");
   detail::getDiagonalInverseMatrix(inout.data_handle(), inout.extent(0), handle.get_stream());
 }
+
+/** @} */  // end of group matrix_diagonal
+
 }  // namespace raft::matrix

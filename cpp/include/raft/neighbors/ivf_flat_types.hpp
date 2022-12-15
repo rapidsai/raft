@@ -27,6 +27,10 @@
 #include <type_traits>
 
 namespace raft::neighbors::ivf_flat {
+/**
+ * @ingroup ivf_flat
+ * @{
+ */
 
 /** Size of the interleaved group (see `index::data` description). */
 constexpr static uint32_t kIndexGroupSize = 32;
@@ -300,5 +304,7 @@ struct index : ann::index {
     return veclen;
   }
 };
+
+/** @} */
 
 }  // namespace raft::neighbors::ivf_flat

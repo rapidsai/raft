@@ -1173,7 +1173,13 @@ struct ivfpq_compute_similarity {
               // If we don't have enough repeating probes (locality_hint < tmp.blocks_per_sm),
               // the locality is not going to improve with increasing the number of blocks per SM.
               // Hence, the only metric here is the occupancy.
-              select_it = tmp.occupancy > cur.occupancy;
+              bool improves_occupancy = tmp.occupancy > cur.occupancy;
+              // Otherwise, the performance still improves with a smaller block size,
+              // given there is enough work to do
+              bool improves_parallelism =
+                tmp.occupancy == cur.occupancy &&
+                7u * tmp.blocks_per_sm * dev_props.multiProcessorCount <= n_blocks;
+              select_it = improves_occupancy || improves_parallelism;
             } else {
               // If we don't use shared memory for the lookup table, increasing the number of blocks
               // is very taxing on the global memory usage.

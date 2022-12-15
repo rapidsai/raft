@@ -23,6 +23,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_reverse Matrix reverse
+ * @{
+ */
+
+/**
  * @brief Reverse the columns of a matrix in place (i.e. first column and
  * last column are swapped)
  * @param[in] handle: raft handle
@@ -55,4 +60,6 @@ void row_reverse(const raft::handle_t& handle, raft::device_matrix_view<m_t, idx
     detail::colReverse(inout.data_handle(), inout.extent(1), inout.extent(0), handle.get_stream());
   }
 }
+/** @} */  // end group matrix_reverse
+
 }  // namespace raft::matrix

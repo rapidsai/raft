@@ -22,6 +22,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_threshold Matrix thesholding
+ * @{
+ */
+
+/**
  * @brief sets the small values to zero based on a defined threshold
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
@@ -58,4 +63,7 @@ void zero_small_values(const raft::handle_t& handle,
 {
   detail::setSmallValuesZero(inout.data_handle(), inout.size(), handle.get_stream(), thres);
 }
+
+/** @} */  // end group matrix_threshold
+
 }  // namespace raft::matrix

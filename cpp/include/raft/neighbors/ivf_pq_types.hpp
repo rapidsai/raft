@@ -29,6 +29,11 @@
 
 namespace raft::neighbors::ivf_pq {
 
+/**
+ * @ingroup ivf_pq
+ * @{
+ */
+
 /** A type for specifying how PQ codebooks are created. */
 enum class codebook_gen {  // NOLINT
   PER_SUBSPACE = 0,        // NOLINT
@@ -496,5 +501,7 @@ struct index : ann::index {
     return r;
   }
 };
+
+/** @} */
 
 }  // namespace raft::neighbors::ivf_pq

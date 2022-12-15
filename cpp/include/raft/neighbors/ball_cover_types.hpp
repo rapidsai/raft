@@ -26,6 +26,11 @@
 namespace raft::neighbors::ball_cover {
 
 /**
+ * @ingroup random_ball_cover
+ * @{
+ */
+
+/**
  * Stores raw index data points, sampled landmarks, the 1-nns of index points
  * to their closest landmarks, and the ball radii of each landmark. This
  * class is intended to be constructed once and reused across subsequent
@@ -158,4 +163,7 @@ class BallCoverIndex {
  protected:
   bool index_trained;
 };
+
+/** @} */
+
 }  // namespace raft::neighbors::ball_cover

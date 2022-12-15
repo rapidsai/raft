@@ -45,31 +45,6 @@ void getInputClassCardinality(
 }
 
 /**
- * @brief use this to allocate output matrix size
- * size of matrix = (maxLabel - minLabel + 1)^2 * sizeof(int)
- * @tparam value_t label type
- * @tparam idx_t Index type of matrix extent.
- * @param[in]  handle: the raft handle.
- * @param[in]  groundTruth: device 1-d array for ground truth (num of rows)
- * @param[out] minLabel: calculated min value in input array
- * @param[out] maxLabel: calculated max value in input array
- */
-template <typename value_t, typename idx_t>
-void get_input_class_cardinality(const raft::handle_t& handle,
-                                 raft::device_vector_view<const value_t, idx_t> groundTruth,
-                                 raft::host_scalar_view<value_t> minLabel,
-                                 raft::host_scalar_view<value_t> maxLabel)
-{
-  RAFT_EXPECTS(minLabel.data_handle() != nullptr, "Invalid minLabel pointer");
-  RAFT_EXPECTS(maxLabel.data_handle() != nullptr, "Invalid maxLabel pointer");
-  detail::getInputClassCardinality(groundTruth.data_handle(),
-                                   groundTruth.extent(0),
-                                   handle.get_stream(),
-                                   *minLabel.data_handle(),
-                                   *maxLabel.data_handle());
-}
-
-/**
  * @brief Calculate workspace size for running contingency matrix calculations
  * @tparam T label type
  * @tparam OutT output matrix type
@@ -127,6 +102,36 @@ void contingencyMatrix(const T* groundTruth,
                                      workspaceSize,
                                      minLabel,
                                      maxLabel);
+}
+
+/**
+ * @defgroup contingency_matrix Contingency Matrix
+ * @{
+ */
+
+/**
+ * @brief use this to allocate output matrix size
+ * size of matrix = (maxLabel - minLabel + 1)^2 * sizeof(int)
+ * @tparam value_t label type
+ * @tparam idx_t Index type of matrix extent.
+ * @param[in]  handle: the raft handle.
+ * @param[in]  groundTruth: device 1-d array for ground truth (num of rows)
+ * @param[out] minLabel: calculated min value in input array
+ * @param[out] maxLabel: calculated max value in input array
+ */
+template <typename value_t, typename idx_t>
+void get_input_class_cardinality(const raft::handle_t& handle,
+                                 raft::device_vector_view<const value_t, idx_t> groundTruth,
+                                 raft::host_scalar_view<value_t> minLabel,
+                                 raft::host_scalar_view<value_t> maxLabel)
+{
+  RAFT_EXPECTS(minLabel.data_handle() != nullptr, "Invalid minLabel pointer");
+  RAFT_EXPECTS(maxLabel.data_handle() != nullptr, "Invalid maxLabel pointer");
+  detail::getInputClassCardinality(groundTruth.data_handle(),
+                                   groundTruth.extent(0),
+                                   handle.get_stream(),
+                                   *minLabel.data_handle(),
+                                   *maxLabel.data_handle());
 }
 
 /**
@@ -190,6 +195,8 @@ void contingency_matrix(const raft::handle_t& handle,
                                             min_label_value,
                                             max_label_value);
 }
+
+/** @} */  // end group contingency_matrix
 
 /**
  * @brief Overload of `contingency_matrix` to help the

@@ -94,6 +94,11 @@ void colWeightedMean(
 }
 
 /**
+ * @defgroup stats_weighted_mean Weighted Mean
+ * @{
+ */
+
+/**
  * @brief Compute the weighted mean of the input matrix with a
  * vector of weights, along rows or along columns
  *
@@ -177,6 +182,9 @@ void col_weighted_mean(const raft::handle_t& handle,
 {
   weighted_mean(handle, data, weights, mu, false);
 }
+
+/** @} */  // end group stats_weighted_mean
+
 };  // end namespace stats
 };  // end namespace raft
 
