@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/common/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/mdarray.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -166,7 +167,7 @@ __global__ void naiveLpUnexpDistanceKernel(DataType* dist,
     int yidx  = isRowMajor ? i + nidx * k : i * n + nidx;
     auto a    = x[xidx];
     auto b    = y[yidx];
-    auto diff = raft::L1Op<DataType>()(a - b);
+    auto diff = raft::myAbs(a - b);
     acc += raft::myPow(diff, p);
   }
   auto one_over_p = 1 / p;

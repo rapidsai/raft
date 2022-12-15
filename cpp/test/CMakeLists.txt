@@ -86,6 +86,8 @@ if(BUILD_TESTS)
     CORE_TEST
     PATH
     test/common/logger.cpp
+    test/core/operators_device.cu
+    test/core/operators_host.cpp
     test/handle.cpp
     test/interruptible.cu
     test/nvtx.cpp

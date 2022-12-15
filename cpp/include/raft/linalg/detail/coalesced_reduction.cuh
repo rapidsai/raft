@@ -18,6 +18,7 @@
 
 #include <cub/cub.cuh>
 #include <raft/common/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
@@ -71,9 +72,9 @@ template <typename Policy,
           typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void coalescedReductionThin(OutType* dots,
                             const InType* data,
                             IdxType D,
@@ -81,9 +82,9 @@ void coalescedReductionThin(OutType* dots,
                             OutType init,
                             cudaStream_t stream,
                             bool inplace           = false,
-                            MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                            ReduceLambda reduce_op = raft::Sum<OutType>(),
-                            FinalLambda final_op   = raft::Nop<OutType>())
+                            MainLambda main_op     = raft::identity_op(),
+                            ReduceLambda reduce_op = raft::add_op(),
+                            FinalLambda final_op   = raft::identity_op())
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "coalescedReductionThin<%d,%d>", Policy::LogicalWarpSize, Policy::RowsPerBlock);
@@ -97,9 +98,9 @@ void coalescedReductionThin(OutType* dots,
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void coalescedReductionThinDispatcher(OutType* dots,
                                       const InType* data,
                                       IdxType D,
@@ -107,9 +108,9 @@ void coalescedReductionThinDispatcher(OutType* dots,
                                       OutType init,
                                       cudaStream_t stream,
                                       bool inplace           = false,
-                                      MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                                      ReduceLambda reduce_op = raft::Sum<OutType>(),
-                                      FinalLambda final_op   = raft::Nop<OutType>())
+                                      MainLambda main_op     = raft::identity_op(),
+                                      ReduceLambda reduce_op = raft::add_op(),
+                                      FinalLambda final_op   = raft::identity_op())
 {
   if (D <= IdxType(2)) {
     coalescedReductionThin<ReductionThinPolicy<2, 64>>(
@@ -168,9 +169,9 @@ template <int TPB,
           typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void coalescedReductionMedium(OutType* dots,
                               const InType* data,
                               IdxType D,
@@ -178,9 +179,9 @@ void coalescedReductionMedium(OutType* dots,
                               OutType init,
                               cudaStream_t stream,
                               bool inplace           = false,
-                              MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                              ReduceLambda reduce_op = raft::Sum<OutType>(),
-                              FinalLambda final_op   = raft::Nop<OutType>())
+                              MainLambda main_op     = raft::identity_op(),
+                              ReduceLambda reduce_op = raft::add_op(),
+                              FinalLambda final_op   = raft::identity_op())
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("coalescedReductionMedium<%d>", TPB);
   coalescedReductionMediumKernel<TPB>
@@ -191,9 +192,9 @@ void coalescedReductionMedium(OutType* dots,
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void coalescedReductionMediumDispatcher(OutType* dots,
                                         const InType* data,
                                         IdxType D,
@@ -201,9 +202,9 @@ void coalescedReductionMediumDispatcher(OutType* dots,
                                         OutType init,
                                         cudaStream_t stream,
                                         bool inplace           = false,
-                                        MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                                        ReduceLambda reduce_op = raft::Sum<OutType>(),
-                                        FinalLambda final_op   = raft::Nop<OutType>())
+                                        MainLambda main_op     = raft::identity_op(),
+                                        ReduceLambda reduce_op = raft::add_op(),
+                                        FinalLambda final_op   = raft::identity_op())
 {
   // Note: for now, this kernel is only used when D > 256. If this changes in the future, use
   // smaller block sizes when relevant.
@@ -251,9 +252,9 @@ template <typename ThickPolicy,
           typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void coalescedReductionThick(OutType* dots,
                              const InType* data,
                              IdxType D,
@@ -261,9 +262,9 @@ void coalescedReductionThick(OutType* dots,
                              OutType init,
                              cudaStream_t stream,
                              bool inplace           = false,
-                             MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                             ReduceLambda reduce_op = raft::Sum<OutType>(),
-                             FinalLambda final_op   = raft::Nop<OutType>())
+                             MainLambda main_op     = raft::identity_op(),
+                             ReduceLambda reduce_op = raft::add_op(),
+                             FinalLambda final_op   = raft::identity_op())
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "coalescedReductionThick<%d,%d>", ThickPolicy::ThreadsPerBlock, ThickPolicy::BlocksPerRow);
@@ -291,7 +292,7 @@ void coalescedReductionThick(OutType* dots,
                                      init,
                                      stream,
                                      inplace,
-                                     raft::Nop<OutType, IdxType>(),
+                                     raft::identity_op(),
                                      reduce_op,
                                      final_op);
 }
@@ -299,9 +300,9 @@ void coalescedReductionThick(OutType* dots,
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void coalescedReductionThickDispatcher(OutType* dots,
                                        const InType* data,
                                        IdxType D,
@@ -309,9 +310,9 @@ void coalescedReductionThickDispatcher(OutType* dots,
                                        OutType init,
                                        cudaStream_t stream,
                                        bool inplace           = false,
-                                       MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                                       ReduceLambda reduce_op = raft::Sum<OutType>(),
-                                       FinalLambda final_op   = raft::Nop<OutType>())
+                                       MainLambda main_op     = raft::identity_op(),
+                                       ReduceLambda reduce_op = raft::add_op(),
+                                       FinalLambda final_op   = raft::identity_op())
 {
   // Note: multiple elements per thread to take advantage of the sequential reduction and loop
   // unrolling
@@ -330,9 +331,9 @@ void coalescedReductionThickDispatcher(OutType* dots,
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void coalescedReduction(OutType* dots,
                         const InType* data,
                         IdxType D,
@@ -340,9 +341,9 @@ void coalescedReduction(OutType* dots,
                         OutType init,
                         cudaStream_t stream,
                         bool inplace           = false,
-                        MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                        ReduceLambda reduce_op = raft::Sum<OutType>(),
-                        FinalLambda final_op   = raft::Nop<OutType>())
+                        MainLambda main_op     = raft::identity_op(),
+                        ReduceLambda reduce_op = raft::add_op(),
+                        FinalLambda final_op   = raft::identity_op())
 {
   /* The primitive selects one of three implementations based on heuristics:
    *  - Thin: very efficient when D is small and/or N is large
