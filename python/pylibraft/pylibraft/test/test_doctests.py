@@ -92,6 +92,7 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
 # __all__) we are explicitly adding all the submodules we want to run
 # doctests for here
 DOC_STRINGS = list(_find_doctests_in_obj(pylibraft.cluster))
+DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.common))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.distance))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.ivf_pq))

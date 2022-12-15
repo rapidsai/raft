@@ -37,7 +37,7 @@ cdef class Handle:
     Examples
     --------
 
-    >>> from raft.common import Stream, Handle
+    >>> from pylibraft.common import Stream, Handle
     >>> stream = Stream()
     >>> handle = Handle(stream)
     >>>
