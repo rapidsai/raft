@@ -80,8 +80,16 @@ void select_k_impl(const Algo& algo,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
   switch (algo) {
-    case Algo::kPublicApi:
-      return matrix::select_k(in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
+    case Algo::kPublicApi: {
+      auto in_extent   = make_extents<size_t>(batch_size, len);
+      auto out_extent  = make_extents<size_t>(batch_size, k);
+      auto in_span     = make_mdspan<const T, size_t, row_major, false, true>(in, in_extent);
+      auto in_idx_span = make_mdspan<const IdxT, size_t, row_major, false, true>(in_idx, in_extent);
+      auto out_span    = make_mdspan<T, size_t, row_major, false, true>(out, out_extent);
+      auto out_idx_span = make_mdspan<IdxT, size_t, row_major, false, true>(out_idx, out_extent);
+      return matrix::select_k<T, IdxT>(
+        in_span, in_idx_span, out_span, out_idx_span, select_min, stream, mr);
+    }
     case Algo::kRadix8bits:
       return detail::select::radix::select_k<T, IdxT, 8, 512>(
         in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);

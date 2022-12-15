@@ -19,31 +19,34 @@
 #include "detail/select_radix.cuh"
 #include "detail/select_warpsort.cuh"
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
+
+#include <optional>
 
 namespace raft::matrix {
 
 /**
  * Select k smallest or largest key/values from each row in the input data.
  *
- * If you think of the input data `in_keys` as a row-major matrix with len columns and
- * batch_size rows, then this function selects k smallest/largest values in each row and fills
- * in the row-major matrix `out` of size (batch_size, k).
+ * If you think of the input data `in_val` as a row-major matrix with `len` columns and
+ * `batch_size` rows, then this function selects `k` smallest/largest values in each row and fills
+ * in the row-major matrix `out_val` of size (batch_size, k).
  *
  * @tparam T
  *   the type of the keys (what is being compared).
  * @tparam IdxT
  *   the index type (what is being selected together with the keys).
  *
- * @param[in] in
+ * @param[in] in_val
  *   contiguous device array of inputs of size (len * batch_size);
  *   these are compared and selected.
  * @param[in] in_idx
  *   contiguous device array of inputs of size (len * batch_size);
- *   typically, these are indices of the corresponding in_keys.
+ *   typically, these are indices of the corresponding in_val.
  * @param batch_size
  *   number of input rows, i.e. the batch size.
  * @param len
@@ -51,12 +54,12 @@ namespace raft::matrix {
  *   Invariant: len >= k.
  * @param k
  *   the number of outputs to select in each input row.
- * @param[out] out
+ * @param[out] out_val
  *   contiguous device array of outputs of size (k * batch_size);
- *   the k smallest/largest values from each row of the `in_keys`.
+ *   the k smallest/largest values from each row of the `in_val`.
  * @param[out] out_idx
  *   contiguous device array of outputs of size (k * batch_size);
- *   the payload selected together with `out`.
+ *   the payload selected together with `out_val`.
  * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
  * @param stream
@@ -64,12 +67,12 @@ namespace raft::matrix {
  *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT>
-void select_k(const T* in,
+void select_k(const T* in_val,
               const IdxT* in_idx,
               size_t batch_size,
               size_t len,
               int k,
-              T* out,
+              T* out_val,
               IdxT* out_idx,
               bool select_min,
               rmm::cuda_stream_view stream,
@@ -81,11 +84,75 @@ void select_k(const T* in,
   const bool radix_faster = batch_size >= 64 && len >= 102400 && k >= 128;
   if (k <= detail::select::warpsort::kMaxCapacity && !radix_faster) {
     detail::select::warpsort::select_k<T, IdxT>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
+      in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream, mr);
   } else {
     detail::select::radix::select_k<T, IdxT, (sizeof(T) >= 4 ? 11 : 8), 512>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
+      in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream, mr);
   }
+}
+
+/**
+ * Select k smallest or largest key/values from each row in the input data.
+ *
+ * If you think of the input data `in_val` as a row-major matrix with `len` columns and
+ * `batch_size` rows, then this function selects `k` smallest/largest values in each row and fills
+ * in the row-major matrix `out_val` of size (batch_size, k).
+ *
+ * @tparam T
+ *   the type of the keys (what is being compared).
+ * @tparam IdxT
+ *   the index type (what is being selected together with the keys).
+ *
+ * @param[in] in_val
+ *   inputs values [batch_size, len];
+ *   these are compared and selected.
+ * @param[in] in_idx
+ *   optional input payload [batch_size, len];
+ *   typically, these are indices of the corresponding `in_val`.
+ *   If `in_idx` is `std::nullopt`, a contiguous array `0...len-1` is implied.
+ * @param[out] out_val
+ *   output values [batch_size, k];
+ *   the k smallest/largest values from each row of the `in_val`.
+ * @param[out] out_idx
+ *   output payload (e.g. indices) [batch_size, len];
+ *   the payload selected together with `out_val`.
+ * @param select_min
+ *   whether to select k smallest (true) or largest (false) keys.
+ * @param stream
+ * @param mr an optional memory resource to use across the calls (you can provide a large enough
+ *           memory pool here to avoid memory allocations within the call).
+ */
+template <typename T, typename IdxT>
+void select_k(raft::device_matrix_view<const T, size_t, row_major> in_val,
+              std::optional<raft::device_matrix_view<const IdxT, size_t, row_major>> in_idx,
+              raft::device_matrix_view<T, size_t, row_major> out_val,
+              raft::device_matrix_view<IdxT, size_t, row_major> out_idx,
+              bool select_min,
+              rmm::cuda_stream_view stream,
+              rmm::mr::device_memory_resource* mr = nullptr)
+{
+  RAFT_EXPECTS(out_val.extent(1) <= size_t(std::numeric_limits<int>::max()),
+               "output k must fit the int type.");
+  auto batch_size = in_val.extent(0);
+  auto len        = in_val.extent(1);
+  auto k          = int(out_val.extent(1));
+  RAFT_EXPECTS(batch_size == out_val.extent(0), "batch sizes must be equal");
+  RAFT_EXPECTS(batch_size == out_idx.extent(0), "batch sizes must be equal");
+  if (in_idx.has_value()) {
+    RAFT_EXPECTS(batch_size == in_idx->extent(0), "batch sizes must be equal");
+    RAFT_EXPECTS(len == in_idx->extent(1), "value and index input lengths must be equal");
+  }
+  RAFT_EXPECTS(size_t(k) == out_idx.extent(1), "value and index output lengths must be equal");
+  return select_k<T, IdxT>(in_val.data_handle(),
+                           in_idx.has_value() ? in_idx->data_handle() : nullptr,
+                           batch_size,
+                           len,
+                           k,
+                           out_val.data_handle(),
+                           out_idx.data_handle(),
+                           select_min,
+                           stream,
+                           mr);
 }
 
 }  // namespace raft::matrix
