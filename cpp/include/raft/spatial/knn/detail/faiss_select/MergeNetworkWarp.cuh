@@ -9,7 +9,6 @@
 
 #include <raft/spatial/knn/detail/faiss_select/MergeNetworkUtils.cuh>
 #include <raft/spatial/knn/detail/faiss_select/StaticUtils.h>
-#include <raft/spatial/knn/detail/faiss_select/WarpShuffles.cuh>
 
 #include <raft/util/cuda_utils.cuh>
 
