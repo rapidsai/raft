@@ -446,12 +446,6 @@ INSTANTIATE_TEST_CASE_P(                                 // NOLINT
   ReferencedRandomDoubleInt,
   testing::Combine(inputs_random_largesize, testing::Values(select::Algo::kWarpAuto)));
 
-/** TODO: Fix test failure in RAFT CI
- *
- *  SelectK/ReferencedRandomFloatSizeT.LargeK/0
- *  Indicices do not match! ref[91628] = 131.359 != res[36504] = 158.438
- *  Actual: false (actual=36504 != expected=91628 @38999;
- */
 using ReferencedRandomFloatSizeT =
   SelectK<float, size_t, with_ref<select::Algo::kRadix8bits>::params_random>;
 TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }  // NOLINT
