@@ -164,15 +164,6 @@ struct max_op {
   }
 };
 
-struct sqdiff_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
-  {
-    Type diff = a - b;
-    return diff * diff;
-  }
-};
-
 struct argmin_op {
   template <typename KVP>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const KVP& a, const KVP& b) const
@@ -188,6 +179,22 @@ struct argmax_op {
   {
     if ((b.value > a.value) || ((a.value == b.value) && (b.key < a.key))) { return b; }
     return a;
+  }
+};
+
+struct equal_op {
+  template <typename Type>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  {
+    return a == b;
+  }
+};
+
+struct notequal_op {
+  template <typename Type>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  {
+    return a != b;
   }
 };
 
@@ -300,6 +307,10 @@ struct compose_op {
     }
   }
 };
+
+using absdiff_op = compose_op<abs_op, sub_op>;
+
+using sqdiff_op = compose_op<sq_op, sub_op>;
 
 /**
  * @brief Constructs an operator by composing an outer op with one inner op for each of its inputs.
