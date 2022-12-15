@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "distance_base.cuh"
 
 namespace raft {

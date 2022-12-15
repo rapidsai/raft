@@ -22,6 +22,7 @@
 #include "linalg_types.hpp"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
@@ -59,9 +60,9 @@ namespace linalg {
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void reduce(OutType* dots,
             const InType* data,
             IdxType D,
@@ -71,9 +72,9 @@ void reduce(OutType* dots,
             bool alongRows,
             cudaStream_t stream,
             bool inplace           = false,
-            MainLambda main_op     = raft::Nop<InType, IdxType>(),
-            ReduceLambda reduce_op = raft::Sum<OutType>(),
-            FinalLambda final_op   = raft::Nop<OutType>())
+            MainLambda main_op     = raft::identity_op(),
+            ReduceLambda reduce_op = raft::add_op(),
+            FinalLambda final_op   = raft::identity_op())
 {
   detail::reduce<InType, OutType, IdxType>(
     dots, data, D, N, init, rowMajor, alongRows, stream, inplace, main_op, reduce_op, final_op);
@@ -118,18 +119,18 @@ template <typename InElementType,
           typename LayoutPolicy,
           typename OutElementType = InElementType,
           typename IdxType        = std::uint32_t,
-          typename MainLambda     = raft::Nop<InElementType, IdxType>,
-          typename ReduceLambda   = raft::Sum<OutElementType>,
-          typename FinalLambda    = raft::Nop<OutElementType>>
+          typename MainLambda     = raft::identity_op,
+          typename ReduceLambda   = raft::add_op,
+          typename FinalLambda    = raft::identity_op>
 void reduce(const raft::handle_t& handle,
             raft::device_matrix_view<const InElementType, IdxType, LayoutPolicy> data,
             raft::device_vector_view<OutElementType, IdxType> dots,
             OutElementType init,
             Apply apply,
             bool inplace           = false,
-            MainLambda main_op     = raft::Nop<InElementType, IdxType>(),
-            ReduceLambda reduce_op = raft::Sum<OutElementType>(),
-            FinalLambda final_op   = raft::Nop<OutElementType>())
+            MainLambda main_op     = raft::identity_op(),
+            ReduceLambda reduce_op = raft::add_op(),
+            FinalLambda final_op   = raft::identity_op())
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(data), "Input must be contiguous");
 

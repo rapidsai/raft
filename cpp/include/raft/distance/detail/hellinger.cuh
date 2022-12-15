@@ -17,6 +17,7 @@
 #pragma once
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace distance {
@@ -78,14 +79,10 @@ static void hellingerImpl(const DataT* x,
 
   dim3 blk(KPolicy::Nthreads);
 
-  auto unaryOp_lambda = [] __device__(DataT input) { return raft::mySqrt(input); };
   // First sqrt x and y
-  raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-    (DataT*)x, x, m * k, unaryOp_lambda, stream);
-
+  raft::linalg::unaryOp<DataT, raft::sqrt_op, IdxT>((DataT*)x, x, m * k, raft::sqrt_op{}, stream);
   if (x != y) {
-    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-      (DataT*)y, y, n * k, unaryOp_lambda, stream);
+    raft::linalg::unaryOp<DataT, raft::sqrt_op, IdxT>((DataT*)y, y, n * k, raft::sqrt_op{}, stream);
   }
 
   // Accumulation operation lambda
@@ -145,11 +142,9 @@ static void hellingerImpl(const DataT* x,
   }
 
   // Revert sqrt of x and y
-  raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-    (DataT*)x, x, m * k, unaryOp_lambda, stream);
+  raft::linalg::unaryOp<DataT, raft::sqrt_op, IdxT>((DataT*)x, x, m * k, raft::sqrt_op{}, stream);
   if (x != y) {
-    raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
-      (DataT*)y, y, n * k, unaryOp_lambda, stream);
+    raft::linalg::unaryOp<DataT, raft::sqrt_op, IdxT>((DataT*)y, y, n * k, raft::sqrt_op{}, stream);
   }
 
   RAFT_CUDA_TRY(cudaGetLastError());

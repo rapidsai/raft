@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <iostream>
 #include <limits>
 #include <raft/core/handle.hpp>

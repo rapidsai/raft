@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <optional>
 #include <vector>
@@ -22,6 +22,7 @@
 #include <raft/cluster/kmeans.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/stats/adjusted_rand_index.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -50,11 +51,7 @@ void run_cluster_cost(const raft::handle_t& handle,
                       raft::device_scalar_view<DataT> clusterCost)
 {
   raft::cluster::kmeans::cluster_cost(
-    handle,
-    minClusterDistance,
-    workspace,
-    clusterCost,
-    [] __device__(const DataT& a, const DataT& b) { return a + b; });
+    handle, minClusterDistance, workspace, clusterCost, raft::add_op{});
 }
 
 template <typename T>

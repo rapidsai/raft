@@ -15,7 +15,7 @@
  */
 
 #include "../linalg/matrix_vector_op.cuh"
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>

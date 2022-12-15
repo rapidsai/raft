@@ -21,6 +21,7 @@
 #include <type_traits>
 
 #include <raft/core/cudart_utils.hpp>
+#include <raft/core/operators.hpp>
 
 #ifndef ENABLE_MEMCPY_ASYNC
 // enable memcpy_async interface by default for newer GPUs
@@ -508,43 +509,69 @@ HDI double myATanh(double x)
 /** @} */
 
 /**
- * @defgroup LambdaOps Lambda operations in reduction kernels
+ * @defgroup LambdaOps Legacy lambda operations, to be deprecated
  * @{
  */
-// IdxType mostly to be used for MainLambda in *Reduction kernels
 template <typename Type, typename IdxType = int>
 struct Nop {
-  HDI Type operator()(Type in, IdxType i = 0) const { return in; }
+  [[deprecated("Nop is deprecated. Use identity_op instead.")]] HDI Type
+  operator()(Type in, IdxType i = 0) const
+  {
+    return in;
+  }
 };
 
 template <typename Type, typename IdxType = int>
 struct SqrtOp {
-  HDI Type operator()(Type in, IdxType i = 0) { return mySqrt(in); }
+  [[deprecated("SqrtOp is deprecated. Use sqrt_op instead.")]] HDI Type
+  operator()(Type in, IdxType i = 0) const
+  {
+    return mySqrt(in);
+  }
 };
 
 template <typename Type, typename IdxType = int>
 struct L0Op {
-  HDI Type operator()(Type in, IdxType i = 0) { return in != Type(0) ? Type(1) : Type(0); }
+  [[deprecated("L0Op is deprecated. Use nz_op instead.")]] HDI Type operator()(Type in,
+                                                                               IdxType i = 0) const
+  {
+    return in != Type(0) ? Type(1) : Type(0);
+  }
 };
 
 template <typename Type, typename IdxType = int>
 struct L1Op {
-  HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
+  [[deprecated("L1Op is deprecated. Use abs_op instead.")]] HDI Type operator()(Type in,
+                                                                                IdxType i = 0) const
+  {
+    return myAbs(in);
+  }
 };
 
 template <typename Type, typename IdxType = int>
 struct L2Op {
-  HDI Type operator()(Type in, IdxType i = 0) { return in * in; }
+  [[deprecated("L2Op is deprecated. Use sq_op instead.")]] HDI Type operator()(Type in,
+                                                                               IdxType i = 0) const
+  {
+    return in * in;
+  }
 };
 
-template <typename Type>
+template <typename InT, typename OutT = InT>
 struct Sum {
-  HDI Type operator()(Type a, Type b) { return a + b; }
+  [[deprecated("Sum is deprecated. Use add_op instead.")]] HDI OutT operator()(InT a, InT b) const
+  {
+    return a + b;
+  }
 };
 
 template <typename Type>
 struct Max {
-  HDI Type operator()(Type a, Type b) { return myMax(a, b); }
+  [[deprecated("Max is deprecated. Use max_op instead.")]] HDI Type operator()(Type a, Type b) const
+  {
+    if (b > a) { return b; }
+    return a;
+  }
 };
 /** @} */
 
@@ -939,7 +966,7 @@ DI T warpReduce(T val, ReduceLambda reduce_op)
 template <typename T>
 DI T warpReduce(T val)
 {
-  return warpReduce(val, raft::Sum<T>{});
+  return warpReduce(val, raft::add_op{});
 }
 
 /**

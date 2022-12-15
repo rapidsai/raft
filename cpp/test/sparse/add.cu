@@ -20,7 +20,7 @@
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/linalg/add.cuh>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <raft/util/cudart_utils.hpp>
 
 #include <iostream>
