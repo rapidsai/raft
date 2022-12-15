@@ -74,7 +74,7 @@ void make_blobs(DataT* out,
                 DataT center_box_min           = (DataT)-10.0,
                 DataT center_box_max           = (DataT)10.0,
                 uint64_t seed                  = 0ULL,
-                GeneratorType type             = GenPhilox)
+                GeneratorType type             = GenPC)
 {
   detail::make_blobs_caller(out,
                             labels,
@@ -140,7 +140,7 @@ void make_blobs(
   DataT center_box_min                                                   = (DataT)-10.0,
   DataT center_box_max                                                   = (DataT)10.0,
   uint64_t seed                                                          = 0ULL,
-  GeneratorType type                                                     = GenPhilox)
+  GeneratorType type                                                     = GenPC)
 {
   if (centers.has_value()) {
     RAFT_EXPECTS(centers.value().extent(0) == (IdxT)n_clusters,
