@@ -146,6 +146,14 @@ struct pow_op {
   }
 };
 
+struct mod_op {
+  template <typename Type>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  {
+    return a % b;
+  }
+};
+
 struct min_op {
   template <typename Type>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
@@ -256,6 +264,9 @@ using div_checkzero_const_op = plug_const_op<Type, div_checkzero_op>;
 template <typename Type>
 using pow_const_op = plug_const_op<Type, pow_op>;
 
+template <typename Type>
+using mod_const_op = plug_const_op<Type, mod_op>;
+
 /**
  * @brief Constructs an operator by composing a chain of operators.
  *
@@ -347,6 +358,25 @@ struct map_args_op {
   constexpr RAFT_INLINE_FUNCTION auto map_args(std::index_sequence<I...>, Args&&... args) const
   {
     return outer_op(std::get<I>(arg_ops)(std::forward<Args>(args))...);
+  }
+};
+
+template <typename ComposedOpT>
+struct write_only_op {
+  const ComposedOpT composed_op;
+
+  template <typename OpT     = ComposedOpT,
+            typename UnusedT = std::enable_if_t<std::is_default_constructible_v<OpT>>>
+  constexpr write_only_op()
+    : composed_op{}  // The compiler complains if composed_op is not initialized explicitly
+  {
+  }
+  constexpr write_only_op(ComposedOpT o) : composed_op{o} {}
+
+  template <typename OutT, typename... Args>
+  constexpr RAFT_INLINE_FUNCTION void operator()(OutT* out, Args&&... args) const
+  {
+    *out = composed_op(std::forward<Args>(args)...);
   }
 };
 

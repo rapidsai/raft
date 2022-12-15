@@ -28,18 +28,14 @@ namespace raft::cluster::kmeans_balanced {
 // todo: if mapping_op has same input and output types, is it assumed to be identity?
 // todo: document this API
 // todo: doxygen consistency
-// todo: merge operators and use here
 
-template <typename DataT,
-          typename MathT,
-          typename IndexT,
-          typename MappingOpT = raft::Nop<MathT, IndexT>>
+template <typename DataT, typename MathT, typename IndexT, typename MappingOpT = raft::identity_op>
 void fit(handle_t const& handle,
          raft::device_matrix_view<const DataT, IndexT> X,
          raft::device_matrix_view<MathT, IndexT> centroids,
          uint32_t n_iter,
          raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-         MappingOpT mapping_op               = raft::Nop<MathT, IndexT>())
+         MappingOpT mapping_op               = raft::identity_op())
 {
   RAFT_EXPECTS(X.extent(1) == centroids.extent(1),
                "Number of features in dataset and centroids are different");
@@ -62,13 +58,13 @@ template <typename DataT,
           typename MathT,
           typename IndexT,
           typename LabelT,
-          typename MappingOpT = raft::Nop<MathT, IndexT>>
+          typename MappingOpT = raft::identity_op>
 void predict(handle_t const& handle,
              raft::device_matrix_view<const DataT, IndexT> X,
              raft::device_matrix_view<const MathT, IndexT> centroids,
              raft::device_vector_view<LabelT, IndexT> labels,
              raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-             MappingOpT mapping_op               = raft::Nop<MathT, IndexT>())
+             MappingOpT mapping_op               = raft::identity_op())
 {
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
                "Number of rows in dataset and labels are different");
@@ -96,14 +92,14 @@ template <typename DataT,
           typename MathT,
           typename IndexT,
           typename LabelT,
-          typename MappingOpT = raft::Nop<MathT, IndexT>>
+          typename MappingOpT = raft::identity_op>
 void fit_predict(handle_t const& handle,
                  raft::device_matrix_view<const DataT, IndexT> X,
                  raft::device_matrix_view<MathT, IndexT> centroids,
                  raft::device_vector_view<LabelT, IndexT> labels,
                  uint32_t n_iter,
                  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-                 MappingOpT mapping_op               = raft::Nop<MathT, IndexT>())
+                 MappingOpT mapping_op               = raft::identity_op())
 {
   auto centroids_const = raft::make_device_matrix_view<const MathT, int>(
     centroids.data_handle(), centroids.extent(0), centroids.extent(1));

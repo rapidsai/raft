@@ -24,6 +24,7 @@
 #include <raft/common/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
@@ -119,14 +120,11 @@ inline void predict_core(const handle_t& handle,
 
       // todo(lsugy): use KVP + iterator in caller.
       // Copy keys to output labels
-      // todo(lsugy): replace with raft prims + custom operators!
       thrust::transform(handle.get_thrust_policy(),
                         minClusterAndDistance.data_handle(),
                         minClusterAndDistance.data_handle() + n_rows,
                         labels,
-                        [=] __device__(raft::KeyValuePair<IdxT, MathT> kvp) {
-                          return static_cast<LabelT>(kvp.key);
-                        });
+                        raft::compose_op<raft::cast_op<LabelT>, raft::key_op>());
       break;
     }
     case raft::distance::DistanceType::InnerProduct: {
@@ -752,12 +750,12 @@ void build_clusters(const handle_t& handle,
 {
   auto stream = handle.get_stream();
 
-  // "randomly initialize labels"
-  // todo: use operators.hpp
-  auto f = [n_clusters] __device__(LabelT * out, IdxT i) {
-    *out = static_cast<LabelT>(i % n_clusters);
-  };
-  linalg::writeOnlyUnaryOp<LabelT, decltype(f), IdxT>(cluster_labels, n_rows, f, stream);
+  // "randomly" initialize labels
+  linalg::writeOnlyUnaryOp(
+    cluster_labels,
+    n_rows,
+    write_only_op(compose_op(cast_op<LabelT>(), mod_const_op<IdxT>(n_clusters))),
+    stream);
 
   // update centers to match the initialized labels.
   calc_centers_and_sizes(handle,
