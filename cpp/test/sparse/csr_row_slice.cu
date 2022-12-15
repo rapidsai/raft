@@ -24,7 +24,7 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 namespace raft {
 namespace sparse {

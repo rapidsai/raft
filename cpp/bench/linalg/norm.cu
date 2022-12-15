@@ -18,6 +18,7 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/itertools.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -60,7 +61,7 @@ struct rowNorm : public fixture {
                          output_view,
                          raft::linalg::L2Norm,
                          raft::linalg::Apply::ALONG_ROWS,
-                         raft::SqrtOp<T>());
+                         raft::sqrt_op());
     });
   }
 

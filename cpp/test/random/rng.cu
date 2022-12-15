@@ -17,7 +17,7 @@
 #include <memory>
 #include <sys/timeb.h>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
 #include <raft/random/rng.cuh>

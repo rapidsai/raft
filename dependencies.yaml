@@ -109,12 +109,12 @@ dependencies:
       - output_types: [conda]
         packages:
           - rmm=23.02.*
-          - dask==2022.11.1
-          - distributed==2022.11.1
+          - dask>=2022.12.0
+          - distributed>=2022.12.0
           - ucx>=1.13.0
           - ucx-py=0.30.*
           - ucx-proc=*=gpu
-          - libfaiss>=1.7.0
+          - libfaiss>=1.7.0=cuda*
           - faiss-proc=*=cuda
           - dask-cuda=23.02.*
   test_python:

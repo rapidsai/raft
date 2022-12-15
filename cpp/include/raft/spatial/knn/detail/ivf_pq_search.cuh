@@ -25,6 +25,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
@@ -418,14 +419,12 @@ void postprocess_distances(float* out,        // [n_queries, topk]
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        [scaling_factor] __device__(ScoreT x) -> float {
-          return scaling_factor * scaling_factor * float(x);
-        },
-        stream);
+      linalg::unaryOp(out,
+                      in,
+                      len,
+                      raft::compose_op(raft::mul_const_op<float>{scaling_factor * scaling_factor},
+                                       raft::cast_op<float>{}),
+                      stream);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
@@ -433,18 +432,17 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [scaling_factor] __device__(ScoreT x) -> float { return scaling_factor * sqrtf(float(x)); },
+        raft::compose_op{
+          raft::mul_const_op<float>{scaling_factor}, raft::sqrt_op{}, raft::cast_op<float>{}},
         stream);
     } break;
     case distance::DistanceType::InnerProduct: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        [scaling_factor] __device__(ScoreT x) -> float {
-          return -scaling_factor * scaling_factor * float(x);
-        },
-        stream);
+      linalg::unaryOp(out,
+                      in,
+                      len,
+                      raft::compose_op(raft::mul_const_op<float>{-scaling_factor * scaling_factor},
+                                       raft::cast_op<float>{}),
+                      stream);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }

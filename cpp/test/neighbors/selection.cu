@@ -20,7 +20,7 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 #include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/knn.cuh>

@@ -19,7 +19,7 @@
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/op/row_op.cuh>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <raft/util/cudart_utils.hpp>
 
 #include <iostream>

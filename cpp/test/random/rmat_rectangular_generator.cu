@@ -19,7 +19,7 @@
 #include <sys/timeb.h>
 #include <vector>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 #include <raft/random/rmat_rectangular_generator.cuh>
 #include <raft/random/rng.cuh>
