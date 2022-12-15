@@ -40,19 +40,4 @@ struct Pair {
   K k;
   V v;
 };
-
-template <typename T, typename U>
-inline __device__ Pair<T, U> shfl_up(const Pair<T, U>& pair,
-                                     unsigned int delta,
-                                     int width = kWarpSize)
-{
-  return Pair<T, U>(shfl_up(pair.k, delta, width), shfl_up(pair.v, delta, width));
-}
-
-template <typename T, typename U>
-inline __device__ Pair<T, U> shfl_xor(const Pair<T, U>& pair, int laneMask, int width = kWarpSize)
-{
-  return Pair<T, U>(shfl_xor(pair.k, laneMask, width), shfl_xor(pair.v, laneMask, width));
-}
-
 }  // namespace raft::spatial::knn::detail::faiss_select

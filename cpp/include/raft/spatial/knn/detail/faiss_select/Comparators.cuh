@@ -8,7 +8,7 @@
 #pragma once
 
 #include <cuda.h>
-#include <raft/spatial/knn/detail/faiss_select/Float16.cuh>
+#include <cuda_fp16.h>
 
 namespace raft::spatial::knn::detail::faiss_select {
 
@@ -21,23 +21,9 @@ struct Comparator {
 
 template <>
 struct Comparator<half> {
-  __device__ static inline bool lt(half a, half b)
-  {
-#if FAISS_USE_FULL_FLOAT16
-    return __hlt(a, b);
-#else
-    return __half2float(a) < __half2float(b);
-#endif  // FAISS_USE_FULL_FLOAT16
-  }
+  __device__ static inline bool lt(half a, half b) { return __hlt(a, b); }
 
-  __device__ static inline bool gt(half a, half b)
-  {
-#if FAISS_USE_FULL_FLOAT16
-    return __hgt(a, b);
-#else
-    return __half2float(a) > __half2float(b);
-#endif  // FAISS_USE_FULL_FLOAT16
-  }
+  __device__ static inline bool gt(half a, half b) { return __hgt(a, b); }
 };
 
 }  // namespace raft::spatial::knn::detail::faiss_select

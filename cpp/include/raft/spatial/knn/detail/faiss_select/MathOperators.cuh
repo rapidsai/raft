@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include <raft/spatial/knn/detail/faiss_select/ConversionOperators.cuh>
 #include <raft/spatial/knn/detail/faiss_select/Float16.cuh>
 
 //
@@ -30,9 +29,6 @@ struct Math {
 
   static inline __device__ T neg(T v) { return -v; }
 
-  /// For a vector type, this is a horizontal add, returning sum(v_i)
-  static inline __device__ float reduceAdd(T v) { return ConvertTo<float>::to(v); }
-
   static inline __device__ bool lt(T a, T b) { return a < b; }
 
   static inline __device__ bool gt(T a, T b) { return a > b; }
@@ -40,174 +36,6 @@ struct Math {
   static inline __device__ bool eq(T a, T b) { return a == b; }
 
   static inline __device__ T zero() { return (T)0; }
-};
-
-template <>
-struct Math<float2> {
-  typedef float ScalarType;
-
-  static inline __device__ float2 add(float2 a, float2 b)
-  {
-    float2 v;
-    v.x = a.x + b.x;
-    v.y = a.y + b.y;
-    return v;
-  }
-
-  static inline __device__ float2 sub(float2 a, float2 b)
-  {
-    float2 v;
-    v.x = a.x - b.x;
-    v.y = a.y - b.y;
-    return v;
-  }
-
-  static inline __device__ float2 add(float2 a, float b)
-  {
-    float2 v;
-    v.x = a.x + b;
-    v.y = a.y + b;
-    return v;
-  }
-
-  static inline __device__ float2 sub(float2 a, float b)
-  {
-    float2 v;
-    v.x = a.x - b;
-    v.y = a.y - b;
-    return v;
-  }
-
-  static inline __device__ float2 mul(float2 a, float2 b)
-  {
-    float2 v;
-    v.x = a.x * b.x;
-    v.y = a.y * b.y;
-    return v;
-  }
-
-  static inline __device__ float2 mul(float2 a, float b)
-  {
-    float2 v;
-    v.x = a.x * b;
-    v.y = a.y * b;
-    return v;
-  }
-
-  static inline __device__ float2 neg(float2 v)
-  {
-    v.x = -v.x;
-    v.y = -v.y;
-    return v;
-  }
-
-  /// For a vector type, this is a horizontal add, returning sum(v_i)
-  static inline __device__ float reduceAdd(float2 v) { return v.x + v.y; }
-
-  // not implemented for vector types
-  // static inline __device__ bool lt(float2 a, float2 b);
-  // static inline __device__ bool gt(float2 a, float2 b);
-  // static inline __device__ bool eq(float2 a, float2 b);
-
-  static inline __device__ float2 zero()
-  {
-    float2 v;
-    v.x = 0.0f;
-    v.y = 0.0f;
-    return v;
-  }
-};
-
-template <>
-struct Math<float4> {
-  typedef float ScalarType;
-
-  static inline __device__ float4 add(float4 a, float4 b)
-  {
-    float4 v;
-    v.x = a.x + b.x;
-    v.y = a.y + b.y;
-    v.z = a.z + b.z;
-    v.w = a.w + b.w;
-    return v;
-  }
-
-  static inline __device__ float4 sub(float4 a, float4 b)
-  {
-    float4 v;
-    v.x = a.x - b.x;
-    v.y = a.y - b.y;
-    v.z = a.z - b.z;
-    v.w = a.w - b.w;
-    return v;
-  }
-
-  static inline __device__ float4 add(float4 a, float b)
-  {
-    float4 v;
-    v.x = a.x + b;
-    v.y = a.y + b;
-    v.z = a.z + b;
-    v.w = a.w + b;
-    return v;
-  }
-
-  static inline __device__ float4 sub(float4 a, float b)
-  {
-    float4 v;
-    v.x = a.x - b;
-    v.y = a.y - b;
-    v.z = a.z - b;
-    v.w = a.w - b;
-    return v;
-  }
-
-  static inline __device__ float4 mul(float4 a, float4 b)
-  {
-    float4 v;
-    v.x = a.x * b.x;
-    v.y = a.y * b.y;
-    v.z = a.z * b.z;
-    v.w = a.w * b.w;
-    return v;
-  }
-
-  static inline __device__ float4 mul(float4 a, float b)
-  {
-    float4 v;
-    v.x = a.x * b;
-    v.y = a.y * b;
-    v.z = a.z * b;
-    v.w = a.w * b;
-    return v;
-  }
-
-  static inline __device__ float4 neg(float4 v)
-  {
-    v.x = -v.x;
-    v.y = -v.y;
-    v.z = -v.z;
-    v.w = -v.w;
-    return v;
-  }
-
-  /// For a vector type, this is a horizontal add, returning sum(v_i)
-  static inline __device__ float reduceAdd(float4 v) { return v.x + v.y + v.z + v.w; }
-
-  // not implemented for vector types
-  // static inline __device__ bool lt(float4 a, float4 b);
-  // static inline __device__ bool gt(float4 a, float4 b);
-  // static inline __device__ bool eq(float4 a, float4 b);
-
-  static inline __device__ float4 zero()
-  {
-    float4 v;
-    v.x = 0.0f;
-    v.y = 0.0f;
-    v.z = 0.0f;
-    v.w = 0.0f;
-    return v;
-  }
 };
 
 template <>
@@ -249,8 +77,6 @@ struct Math<half> {
     return __float2half(-__half2float(v));
 #endif
   }
-
-  static inline __device__ float reduceAdd(half v) { return ConvertTo<float>::to(v); }
 
   static inline __device__ bool lt(half a, half b)
   {
@@ -401,14 +227,6 @@ struct Math<half2> {
 #endif
   }
 
-  static inline __device__ float reduceAdd(half2 v)
-  {
-    float2 vf = __half22float2(v);
-    vf.x += vf.y;
-
-    return vf.x;
-  }
-
   // not implemented for vector types
   // static inline __device__ bool lt(half2 a, half2 b);
   // static inline __device__ bool gt(half2 a, half2 b);
@@ -416,167 +234,4 @@ struct Math<half2> {
 
   static inline __device__ half2 zero() { return __half2half2(Math<half>::zero()); }
 };
-
-template <>
-struct Math<Half4> {
-  typedef half ScalarType;
-
-  static inline __device__ Half4 add(Half4 a, Half4 b)
-  {
-    Half4 h;
-    h.a = Math<half2>::add(a.a, b.a);
-    h.b = Math<half2>::add(a.b, b.b);
-    return h;
-  }
-
-  static inline __device__ Half4 sub(Half4 a, Half4 b)
-  {
-    Half4 h;
-    h.a = Math<half2>::sub(a.a, b.a);
-    h.b = Math<half2>::sub(a.b, b.b);
-    return h;
-  }
-
-  static inline __device__ Half4 add(Half4 a, half b)
-  {
-    Half4 h;
-    h.a = Math<half2>::add(a.a, b);
-    h.b = Math<half2>::add(a.b, b);
-    return h;
-  }
-
-  static inline __device__ Half4 sub(Half4 a, half b)
-  {
-    Half4 h;
-    h.a = Math<half2>::sub(a.a, b);
-    h.b = Math<half2>::sub(a.b, b);
-    return h;
-  }
-
-  static inline __device__ Half4 mul(Half4 a, Half4 b)
-  {
-    Half4 h;
-    h.a = Math<half2>::mul(a.a, b.a);
-    h.b = Math<half2>::mul(a.b, b.b);
-    return h;
-  }
-
-  static inline __device__ Half4 mul(Half4 a, half b)
-  {
-    Half4 h;
-    h.a = Math<half2>::mul(a.a, b);
-    h.b = Math<half2>::mul(a.b, b);
-    return h;
-  }
-
-  static inline __device__ Half4 neg(Half4 v)
-  {
-    Half4 h;
-    h.a = Math<half2>::neg(v.a);
-    h.b = Math<half2>::neg(v.b);
-    return h;
-  }
-
-  static inline __device__ float reduceAdd(Half4 v)
-  {
-    float x = Math<half2>::reduceAdd(v.a);
-    float y = Math<half2>::reduceAdd(v.b);
-    return x + y;
-  }
-
-  // not implemented for vector types
-  // static inline __device__ bool lt(Half4 a, Half4 b);
-  // static inline __device__ bool gt(Half4 a, Half4 b);
-  // static inline __device__ bool eq(Half4 a, Half4 b);
-
-  static inline __device__ Half4 zero()
-  {
-    Half4 h;
-    h.a = Math<half2>::zero();
-    h.b = Math<half2>::zero();
-    return h;
-  }
-};
-
-template <>
-struct Math<Half8> {
-  typedef half ScalarType;
-
-  static inline __device__ Half8 add(Half8 a, Half8 b)
-  {
-    Half8 h;
-    h.a = Math<Half4>::add(a.a, b.a);
-    h.b = Math<Half4>::add(a.b, b.b);
-    return h;
-  }
-
-  static inline __device__ Half8 sub(Half8 a, Half8 b)
-  {
-    Half8 h;
-    h.a = Math<Half4>::sub(a.a, b.a);
-    h.b = Math<Half4>::sub(a.b, b.b);
-    return h;
-  }
-
-  static inline __device__ Half8 add(Half8 a, half b)
-  {
-    Half8 h;
-    h.a = Math<Half4>::add(a.a, b);
-    h.b = Math<Half4>::add(a.b, b);
-    return h;
-  }
-
-  static inline __device__ Half8 sub(Half8 a, half b)
-  {
-    Half8 h;
-    h.a = Math<Half4>::sub(a.a, b);
-    h.b = Math<Half4>::sub(a.b, b);
-    return h;
-  }
-
-  static inline __device__ Half8 mul(Half8 a, Half8 b)
-  {
-    Half8 h;
-    h.a = Math<Half4>::mul(a.a, b.a);
-    h.b = Math<Half4>::mul(a.b, b.b);
-    return h;
-  }
-
-  static inline __device__ Half8 mul(Half8 a, half b)
-  {
-    Half8 h;
-    h.a = Math<Half4>::mul(a.a, b);
-    h.b = Math<Half4>::mul(a.b, b);
-    return h;
-  }
-
-  static inline __device__ Half8 neg(Half8 v)
-  {
-    Half8 h;
-    h.a = Math<Half4>::neg(v.a);
-    h.b = Math<Half4>::neg(v.b);
-    return h;
-  }
-
-  static inline __device__ float reduceAdd(Half8 v)
-  {
-    float x = Math<Half4>::reduceAdd(v.a);
-    float y = Math<Half4>::reduceAdd(v.b);
-    return x + y;
-  }
-
-  // not implemented for vector types
-  // static inline __device__ bool lt(Half8 a, Half8 b);
-  // static inline __device__ bool gt(Half8 a, Half8 b);
-  // static inline __device__ bool eq(Half8 a, Half8 b);
-
-  static inline __device__ Half8 zero()
-  {
-    Half8 h;
-    h.a = Math<Half4>::zero();
-    h.b = Math<Half4>::zero();
-    return h;
-  }
-};
-
 }  // namespace raft::spatial::knn::detail::faiss_select
