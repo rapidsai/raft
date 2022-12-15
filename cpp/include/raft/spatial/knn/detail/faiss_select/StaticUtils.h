@@ -17,54 +17,6 @@
 
 namespace raft::spatial::knn::detail::faiss_select::utils {
 
-template <typename U, typename V>
-constexpr __host__ __device__ auto divDown(U a, V b) -> decltype(a + b)
-{
-  return (a / b);
-}
-
-template <typename U, typename V>
-constexpr __host__ __device__ auto divUp(U a, V b) -> decltype(a + b)
-{
-  return (a + b - 1) / b;
-}
-
-template <typename U, typename V>
-constexpr __host__ __device__ auto roundDown(U a, V b) -> decltype(a + b)
-{
-  return divDown(a, b) * b;
-}
-
-template <typename U, typename V>
-constexpr __host__ __device__ auto roundUp(U a, V b) -> decltype(a + b)
-{
-  return divUp(a, b) * b;
-}
-
-template <class T>
-constexpr __host__ __device__ T pow(T n, T power)
-{
-  return (power > 0 ? n * pow(n, power - 1) : 1);
-}
-
-template <class T>
-constexpr __host__ __device__ T pow2(T n)
-{
-  return pow(2, (T)n);
-}
-
-static_assert(pow2(8) == 256, "pow2");
-
-template <typename T>
-constexpr __host__ __device__ int log2(T n, int p = 0)
-{
-  return (n <= 1) ? p : log2(n / 2, p + 1);
-}
-
-static_assert(log2(2) == 1, "log2");
-static_assert(log2(3) == 1, "log2");
-static_assert(log2(4) == 2, "log2");
-
 template <typename T>
 constexpr __host__ __device__ bool isPowerOf2(T v)
 {

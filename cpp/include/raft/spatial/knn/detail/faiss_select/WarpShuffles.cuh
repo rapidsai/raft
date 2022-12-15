@@ -8,7 +8,7 @@
 #pragma once
 
 #include <cuda.h>
-#include <raft/spatial/knn/detail/faiss_select/DeviceDefs.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft::spatial::knn::detail::faiss_select {
 
@@ -20,7 +20,7 @@ namespace raft::spatial::knn::detail::faiss_select {
 #endif
 
 template <typename T>
-inline __device__ T shfl(const T val, int srcLane, int width = kWarpSize)
+inline __device__ T shfl(const T val, int srcLane, int width = WarpSize)
 {
 #if CUDA_VERSION >= 9000
   return __shfl_sync(0xffffffff, val, srcLane, width);
@@ -31,7 +31,7 @@ inline __device__ T shfl(const T val, int srcLane, int width = kWarpSize)
 
 // CUDA SDK does not provide specializations for T*
 template <typename T>
-inline __device__ T* shfl(T* const val, int srcLane, int width = kWarpSize)
+inline __device__ T* shfl(T* const val, int srcLane, int width = WarpSize)
 {
   static_assert(sizeof(T*) == sizeof(long long), "pointer size");
   long long v = (long long)val;
@@ -40,7 +40,7 @@ inline __device__ T* shfl(T* const val, int srcLane, int width = kWarpSize)
 }
 
 template <typename T>
-inline __device__ T shfl_up(const T val, unsigned int delta, int width = kWarpSize)
+inline __device__ T shfl_up(const T val, unsigned int delta, int width = WarpSize)
 {
 #if CUDA_VERSION >= 9000
   return __shfl_up_sync(0xffffffff, val, delta, width);
@@ -51,7 +51,7 @@ inline __device__ T shfl_up(const T val, unsigned int delta, int width = kWarpSi
 
 // CUDA SDK does not provide specializations for T*
 template <typename T>
-inline __device__ T* shfl_up(T* const val, unsigned int delta, int width = kWarpSize)
+inline __device__ T* shfl_up(T* const val, unsigned int delta, int width = WarpSize)
 {
   static_assert(sizeof(T*) == sizeof(long long), "pointer size");
   long long v = (long long)val;
@@ -60,7 +60,7 @@ inline __device__ T* shfl_up(T* const val, unsigned int delta, int width = kWarp
 }
 
 template <typename T>
-inline __device__ T shfl_down(const T val, unsigned int delta, int width = kWarpSize)
+inline __device__ T shfl_down(const T val, unsigned int delta, int width = WarpSize)
 {
 #if CUDA_VERSION >= 9000
   return __shfl_down_sync(0xffffffff, val, delta, width);
@@ -71,7 +71,7 @@ inline __device__ T shfl_down(const T val, unsigned int delta, int width = kWarp
 
 // CUDA SDK does not provide specializations for T*
 template <typename T>
-inline __device__ T* shfl_down(T* const val, unsigned int delta, int width = kWarpSize)
+inline __device__ T* shfl_down(T* const val, unsigned int delta, int width = WarpSize)
 {
   static_assert(sizeof(T*) == sizeof(long long), "pointer size");
   long long v = (long long)val;
@@ -79,7 +79,7 @@ inline __device__ T* shfl_down(T* const val, unsigned int delta, int width = kWa
 }
 
 template <typename T>
-inline __device__ T shfl_xor(const T val, int laneMask, int width = kWarpSize)
+inline __device__ T shfl_xor(const T val, int laneMask, int width = WarpSize)
 {
 #if CUDA_VERSION >= 9000
   return __shfl_xor_sync(0xffffffff, val, laneMask, width);
@@ -90,7 +90,7 @@ inline __device__ T shfl_xor(const T val, int laneMask, int width = kWarpSize)
 
 // CUDA SDK does not provide specializations for T*
 template <typename T>
-inline __device__ T* shfl_xor(T* const val, int laneMask, int width = kWarpSize)
+inline __device__ T* shfl_xor(T* const val, int laneMask, int width = WarpSize)
 {
   static_assert(sizeof(T*) == sizeof(long long), "pointer size");
   long long v = (long long)val;
@@ -99,7 +99,7 @@ inline __device__ T* shfl_xor(T* const val, int laneMask, int width = kWarpSize)
 
 // CUDA 9.0+ has half shuffle
 #if CUDA_VERSION < 9000
-inline __device__ half shfl(half v, int srcLane, int width = kWarpSize)
+inline __device__ half shfl(half v, int srcLane, int width = WarpSize)
 {
   unsigned int vu = v.x;
   vu              = __shfl(vu, srcLane, width);
@@ -109,7 +109,7 @@ inline __device__ half shfl(half v, int srcLane, int width = kWarpSize)
   return h;
 }
 
-inline __device__ half shfl_xor(half v, int laneMask, int width = kWarpSize)
+inline __device__ half shfl_xor(half v, int laneMask, int width = WarpSize)
 {
   unsigned int vu = v.x;
   vu              = __shfl_xor(vu, laneMask, width);

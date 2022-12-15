@@ -8,11 +8,8 @@
 #pragma once
 
 #include <cuda.h>
-#include <raft/spatial/knn/detail/faiss_select/StaticUtils.h>
-// #include <faiss/impl/FaissAssert.h>
-#include <raft/spatial/knn/detail/faiss_select/DeviceDefs.cuh>
 #include <raft/spatial/knn/detail/faiss_select/MergeNetworkUtils.cuh>
-#include <raft/spatial/knn/detail/faiss_select/PtxUtils.cuh>
+#include <raft/spatial/knn/detail/faiss_select/StaticUtils.h>
 #include <raft/spatial/knn/detail/faiss_select/WarpShuffles.cuh>
 
 namespace raft::spatial::knn::detail::faiss_select {
@@ -113,7 +110,7 @@ template <int NumThreads, typename K, typename V, int L, bool Dir, typename Comp
 inline __device__ void blockMergeLarge(K* listK, V* listV)
 {
   static_assert(utils::isPowerOf2(L), "L must be a power-of-2");
-  static_assert(L >= kWarpSize, "merge list size must be >= 32");
+  static_assert(L >= WarpSize, "merge list size must be >= 32");
   static_assert(utils::isPowerOf2(NumThreads), "NumThreads must be a power-of-2");
   static_assert(L >= NumThreads, "merge list size must be >= NumThreads");
 
