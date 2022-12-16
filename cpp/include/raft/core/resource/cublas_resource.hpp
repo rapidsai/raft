@@ -19,13 +19,9 @@
 
 class cublas_resource_t : public resource_t {
  public:
-  typename res_t = cublasHandle_t
+  cublas_resource_t(cudaStream_t stream) {}
 
-  cublas_resource_t(cudaStream_t stream)
-  {
-  }
-
-  res_t* get_resource() { return &cublas_handle; }
+  void* get_resource() { return &cublas_handle; }
 
  private:
   res_t cublas_handle;
