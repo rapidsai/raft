@@ -9,7 +9,6 @@
 
 #include <raft/spatial/knn/detail/faiss_select/MergeNetworkUtils.cuh>
 #include <raft/spatial/knn/detail/faiss_select/Select.cuh>
-#include <raft/spatial/knn/detail/faiss_select/key_value_warp_select.cuh>
 
 // TODO: Need to think further about the impact (and new boundaries created) on the registers
 // because this will change the max k that can be processed. One solution might be to break
@@ -131,7 +130,7 @@ struct KeyValueBlockSelect {
     int laneId = raft::laneId();
 
     // Sort all of the per-thread queues
-    warpSortAnyRegistersKVP<K, V, NumThreadQ, !Dir, Comp>(threadK, threadV);
+    warpSortAnyRegisters<K, KeyValuePair<K, V>, NumThreadQ, !Dir, Comp>(threadK, threadV);
 
     constexpr int kNumWarpQRegisters = NumWarpQ / WarpSize;
     K warpKRegisters[kNumWarpQRegisters];
@@ -149,7 +148,7 @@ struct KeyValueBlockSelect {
     // The warp queue is already sorted, and now that we've sorted the
     // per-thread queue, merge both sorted lists together, producing
     // one sorted list
-    warpMergeAnyRegistersKVP<K, V, kNumWarpQRegisters, NumThreadQ, !Dir, Comp, false>(
+    warpMergeAnyRegisters<K, KeyValuePair<K, V>, kNumWarpQRegisters, NumThreadQ, !Dir, Comp, false>(
       warpKRegisters, warpVRegisters, threadK, threadV);
 
     // Write back out the warp queue
