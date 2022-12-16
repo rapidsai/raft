@@ -27,7 +27,7 @@
 namespace raft {
 
 /**
- * @defgroup Functors Commonly used functors.
+ * @defgroup operators Commonly used functors.
  * The optional unused arguments are useful for kernels that pass the index along with the value.
  * @{
  */

@@ -1,5 +1,5 @@
-logger
-======
+Key-Value Pair
+==============
 
 This page provides C++ class references for the publicly-exposed elements of the `raft/core` package. The `raft/core` headers
 require minimal dependencies, can be compiled without `nvcc`, and thus are safe to expose on your own public APIs. Aside from
@@ -10,11 +10,11 @@ expose in public APIs.
    :language: c++
    :class: highlight
 
-``#include <raft/core/logger.hpp>``
+``#include <raft/core/kvp.hpp>``
 
 namespace *raft::core*
 
-.. doxygenclass:: raft::logger
+.. doxygenstruct:: raft::KeyValuePair
     :project: RAFT
     :members:
 
