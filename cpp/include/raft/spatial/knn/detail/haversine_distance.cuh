@@ -18,12 +18,11 @@
 
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
+#include <raft/util/pow2_utils.cuh>
 
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
 
 namespace raft {
 namespace spatial {
@@ -61,21 +60,21 @@ __global__ void haversine_knn_kernel(value_idx* out_inds,
                                      size_t n_index_rows,
                                      int k)
 {
-  constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+  constexpr int kNumWarps = tpb / WarpSize;
 
   __shared__ value_t smemK[kNumWarps * warp_q];
   __shared__ value_idx smemV[kNumWarps * warp_q];
 
-  faiss::gpu::
-    BlockSelect<value_t, value_idx, false, faiss::gpu::Comparator<value_t>, warp_q, thread_q, tpb>
-      heap(faiss::gpu::Limits<value_t>::getMax(),
+  faiss_select::
+    BlockSelect<value_t, value_idx, false, faiss_select::Comparator<value_t>, warp_q, thread_q, tpb>
+      heap(std::numeric_limits<value_t>::max(),
            std::numeric_limits<value_idx>::max(),
            smemK,
            smemV,
            k);
 
   // Grid is exactly sized to rows available
-  int limit = faiss::gpu::utils::roundDown(n_index_rows, faiss::gpu::kWarpSize);
+  int limit = Pow2<WarpSize>::roundDown(n_index_rows);
 
   const value_t* query_ptr = query + (blockIdx.x * 2);
   value_t x1               = query_ptr[0];
