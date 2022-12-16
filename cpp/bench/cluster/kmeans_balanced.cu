@@ -26,9 +26,8 @@ namespace raft::bench::cluster {
 
 struct KMeansBalancedBenchParams {
   DatasetParams data;
-  uint32_t max_iter;
   uint32_t n_lists;
-  raft::distance::DistanceType metric;
+  raft::cluster::KMeansBalancedParams kb_params;
 };
 
 template <typename T, typename IndexT = int>
@@ -41,7 +40,7 @@ struct KMeansBalanced : public fixture {
       raft::device_matrix_view<const T, IndexT> X_view   = this->X.view();
       raft::device_matrix_view<T, IndexT> centroids_view = this->centroids.view();
       raft::cluster::kmeans_balanced::fit(
-        this->handle, X_view, centroids_view, this->params.max_iter);
+        this->handle, this->params.kb_params, X_view, centroids_view);
     });
   }
 
@@ -79,8 +78,8 @@ std::vector<KMeansBalancedBenchParams> getKMeansBalancedInputs()
   std::vector<KMeansBalancedBenchParams> out;
   KMeansBalancedBenchParams p;
   p.data.row_major                          = true;
-  p.max_iter                                = 20;
-  p.metric                                  = raft::distance::DistanceType::L2Expanded;
+  p.kb_params.n_iters                       = 20;
+  p.kb_params.metric                        = raft::distance::DistanceType::L2Expanded;
   std::vector<std::pair<int, int>> row_cols = {
     {100000, 128}, {1000000, 128}, {10000000, 128},
     // The following dataset sizes are too large for most GPUs.

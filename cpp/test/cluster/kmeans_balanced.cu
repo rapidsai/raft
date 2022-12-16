@@ -101,9 +101,11 @@ class KmeansBalancedTest : public ::testing::TestWithParam<KmeansBalancedInputs<
       raft::make_device_matrix_view<T, int>(d_centroids.data(), params.n_clusters, n_features);
     auto d_labels_view = raft::make_device_vector_view<int, int>(d_labels.data(), n_samples);
 
-    // todo: pass metric, mapping_op
+    raft::cluster::KMeansBalancedParams kb_params;
+    kb_params.n_iters = params.max_iter;
+    kb_params.metric  = raft::distance::DistanceType::L2Expanded;
     raft::cluster::kmeans_balanced::fit_predict(
-      handle, X_view, d_centroids_view, d_labels_view, params.max_iter);
+      handle, kb_params, X_view, d_centroids_view, d_labels_view);
 
     handle.sync_stream(stream);
 

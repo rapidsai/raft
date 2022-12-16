@@ -18,24 +18,22 @@
 
 #include <raft/cluster/detail/kmeans_balanced.cuh>
 #include <raft/core/mdarray.hpp>
-#include <raft/distance/distance_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 namespace raft::cluster::kmeans_balanced {
 
-// todo: wrap n_iter, metric, etc in parameter structure?
 // todo: remove old interface and call this one instead
 // todo: if mapping_op has same input and output types, is it assumed to be identity?
 // todo: document this API
 // todo: doxygen consistency
+// todo: parameter for balancing pullback etc?
 
 template <typename DataT, typename MathT, typename IndexT, typename MappingOpT = raft::identity_op>
 void fit(handle_t const& handle,
+         KMeansBalancedParams const& params,
          raft::device_matrix_view<const DataT, IndexT> X,
          raft::device_matrix_view<MathT, IndexT> centroids,
-         uint32_t n_iter,
-         raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-         MappingOpT mapping_op               = raft::identity_op())
+         MappingOpT mapping_op = raft::identity_op())
 {
   RAFT_EXPECTS(X.extent(1) == centroids.extent(1),
                "Number of features in dataset and centroids are different");
@@ -44,13 +42,12 @@ void fit(handle_t const& handle,
                "The chosen index type cannot represent all indices for the given dataset");
 
   detail::build_hierarchical(handle,
-                             n_iter,
+                             params,
                              X.extent(1),
                              X.data_handle(),
                              X.extent(0),
                              centroids.data_handle(),
                              centroids.extent(0),
-                             metric,
                              mapping_op);
 }
 
@@ -60,11 +57,11 @@ template <typename DataT,
           typename LabelT,
           typename MappingOpT = raft::identity_op>
 void predict(handle_t const& handle,
+             KMeansBalancedParams const& params,
              raft::device_matrix_view<const DataT, IndexT> X,
              raft::device_matrix_view<const MathT, IndexT> centroids,
              raft::device_vector_view<LabelT, IndexT> labels,
-             raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-             MappingOpT mapping_op               = raft::identity_op())
+             MappingOpT mapping_op = raft::identity_op())
 {
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
                "Number of rows in dataset and labels are different");
@@ -78,13 +75,13 @@ void predict(handle_t const& handle,
                "The chosen label type cannot represent all cluster labels");
 
   detail::predict(handle,
+                  params,
                   centroids.data_handle(),
                   centroids.extent(0),
                   X.extent(1),
                   X.data_handle(),
                   X.extent(0),
                   labels.data_handle(),
-                  metric,
                   mapping_op);
 }
 
@@ -94,17 +91,16 @@ template <typename DataT,
           typename LabelT,
           typename MappingOpT = raft::identity_op>
 void fit_predict(handle_t const& handle,
+                 KMeansBalancedParams const& params,
                  raft::device_matrix_view<const DataT, IndexT> X,
                  raft::device_matrix_view<MathT, IndexT> centroids,
                  raft::device_vector_view<LabelT, IndexT> labels,
-                 uint32_t n_iter,
-                 raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-                 MappingOpT mapping_op               = raft::identity_op())
+                 MappingOpT mapping_op = raft::identity_op())
 {
   auto centroids_const = raft::make_device_matrix_view<const MathT, int>(
     centroids.data_handle(), centroids.extent(0), centroids.extent(1));
-  raft::cluster::kmeans_balanced::fit(handle, X, centroids, n_iter, metric, mapping_op);
-  raft::cluster::kmeans_balanced::predict(handle, X, centroids_const, labels, metric, mapping_op);
+  raft::cluster::kmeans_balanced::fit(handle, params, X, centroids, mapping_op);
+  raft::cluster::kmeans_balanced::predict(handle, params, X, centroids_const, labels, mapping_op);
 }
 
 }  // namespace raft::cluster::kmeans_balanced

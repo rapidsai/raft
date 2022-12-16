@@ -130,10 +130,10 @@ struct div_op {
 };
 
 struct div_checkzero_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
   {
-    if (b == Type{0}) { return Type{0}; }
+    if (b == T2{0}) { return T1{0} / T2{1}; }
     return a / b;
   }
 };
