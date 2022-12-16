@@ -1097,7 +1097,9 @@ auto extend(const handle_t& handle,
         max_batch_size >>= 1;
       }
     }
-    if (free_mem * 8 < total_mem && max_batch_size * 5 < n_rows) {
+    constexpr size_t kLimitedMemoryRatio = 8;
+    if (free_mem * kLimitedMemoryRatio < total_mem &&
+        max_batch_size * kLimitedMemoryRatio < size_t(n_rows)) {
       // If only a small fraction of the total memory available for temporary buffers,
       // the performance hit from batching can be very strong.
       // In such cases, the algorithm is going to be faster with UVM on larger batches.
