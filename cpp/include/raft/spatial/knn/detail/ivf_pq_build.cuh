@@ -1317,6 +1317,8 @@ auto build(
       // data is not available: first copy, then map inplace
       auto trainset_tmp = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(trainset.data()) +
                                                (sizeof(float) - sizeof(T)) * index.dim());
+      // We copy the data in strides, one row at a time, and place the smaller rows of type T
+      // at the end of float rows.
       RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset_tmp,
                                       sizeof(float) * index.dim(),
                                       dataset,
@@ -1325,6 +1327,9 @@ auto build(
                                       n_rows_train,
                                       cudaMemcpyDefault,
                                       stream));
+      // Transform the input `{T -> float}`, one row per warp.
+      // The threads in each warp copy the data synchronously; this and the layout of the data
+      // (content is aligned to the end of the rows) together allow doing the transform in-place.
       copy_warped(trainset.data(),
                   index.dim(),
                   trainset_tmp,
