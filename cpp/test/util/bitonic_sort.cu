@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
+#include "../test_utils.cuh"
+
 #include <raft/util/bitonic_sort.cuh>
 
-#include <algorithm>
-#include <gtest/gtest.h>
-#include <numeric>
 #include <raft/cudart_utils.h>
 #include <raft/random/rng.hpp>
 
-#include "../test_utils.h"
+#include <gtest/gtest.h>
+
+#include <algorithm>
+#include <numeric>
 
 namespace raft::util {
 
