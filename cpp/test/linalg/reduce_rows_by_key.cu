@@ -112,7 +112,7 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
     rmm::device_uvector<T> weight(0, stream);
     if (params.weighted) {
       weight.resize(nobs, stream);
-      raft::random::RngState r(params.seed, raft::random::GeneratorType::GenPhilox);
+      raft::random::RngState r(params.seed);
       uniform(handle, r, weight.data(), nobs, T(1), params.max_weight);
     }
 

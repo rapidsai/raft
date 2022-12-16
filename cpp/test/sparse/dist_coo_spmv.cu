@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <raft/core/operators.cuh>
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
@@ -25,7 +26,6 @@
 
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/distance/detail/coo_spmv.cuh>
-#include <raft/sparse/distance/detail/operators.cuh>
 
 #include "../test_utils.cuh"
 
@@ -139,26 +139,29 @@ class SparseDistanceCOOSPMVTest
   {
     switch (params.input_configuration.metric) {
       case raft::distance::DistanceType::InnerProduct:
-        compute_dist(detail::Product(), detail::Sum(), detail::AtomicAdd(), true);
+        compute_dist(raft::mul_op(), raft::add_op(), raft::atomic_add_op(), true);
         break;
       case raft::distance::DistanceType::L2Unexpanded:
-        compute_dist(detail::SqDiff(), detail::Sum(), detail::AtomicAdd());
+        compute_dist(raft::sqdiff_op(), raft::add_op(), raft::atomic_add_op());
         break;
       case raft::distance::DistanceType::Canberra:
         compute_dist(
           [] __device__(value_t a, value_t b) { return fabsf(a - b) / (fabsf(a) + fabsf(b)); },
-          detail::Sum(),
-          detail::AtomicAdd());
+          raft::add_op(),
+          raft::atomic_add_op());
         break;
       case raft::distance::DistanceType::L1:
-        compute_dist(detail::AbsDiff(), detail::Sum(), detail::AtomicAdd());
+        compute_dist(absdiff_op(), raft::add_op(), raft::atomic_add_op());
         break;
       case raft::distance::DistanceType::Linf:
-        compute_dist(detail::AbsDiff(), detail::Max(), detail::AtomicMax());
+        compute_dist(absdiff_op(), raft::max_op(), raft::atomic_max_op());
         break;
       case raft::distance::DistanceType::LpUnexpanded: {
         compute_dist(
-          detail::PDiff(params.input_configuration.metric_arg), detail::Sum(), detail::AtomicAdd());
+          raft::compose_op(raft::pow_const_op<value_t>(params.input_configuration.metric_arg),
+                           raft::sub_op()),
+          raft::add_op(),
+          raft::atomic_add_op());
         value_t p = value_t{1} / params.input_configuration.metric_arg;
         raft::linalg::unaryOp<value_t>(out_dists.data(),
                                        out_dists.data(),
