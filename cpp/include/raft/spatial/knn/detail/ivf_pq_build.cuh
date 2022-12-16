@@ -814,6 +814,31 @@ inline auto reorder_clusters_by_size_desc(const handle_t& handle,
          cluster_sizes_out;
 }
 
+/**
+ * Assuming the index already has some data and allocated the space for more, write more data in it.
+ * There must be enough free space in `pq_dataset()` and `indices()`, as computed using
+ * `list_offsets()` and `list_sizes()`.
+ *
+ * @tparam T
+ * @tparam IdxT
+ *
+ * @param handle
+ * @param index
+ * @param[in] new_vectors
+ *    a pointer to a row-major device array [index.dim(), n_rows];
+ * @param[in] src_offset_or_indices
+ *    references for the new data:
+ *      either a starting index for the auto-indexing
+ *      or a pointer to a device array of explicit indices [n_rows];
+ * @param[in] new_labels
+ *    cluster ids (first-level quantization) - a device array [n_rows];
+ * @param n_rows
+ *    the number of records to write in.
+ * @param device_memory
+ *    a memory resource to use for device allocations
+ * @param managed_memory
+ *    a memory resource to use for managed allocations
+ */
 template <typename T, typename IdxT>
 void process_and_fill_codes(const handle_t& handle,
                             index<IdxT>& index,
