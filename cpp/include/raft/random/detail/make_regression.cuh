@@ -158,7 +158,7 @@ void make_regression_caller(const raft::handle_t& handle,
                             DataT noise                      = (DataT)0.0,
                             bool shuffle                     = true,
                             uint64_t seed                    = 0ULL,
-                            raft::random::GeneratorType type = raft::random::GenPhilox)
+                            raft::random::GeneratorType type = raft::random::GenPC)
 {
   n_informative = std::min(n_informative, n_cols);
 
