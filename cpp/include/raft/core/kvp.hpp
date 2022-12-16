@@ -58,5 +58,15 @@ struct KeyValuePair {
   {
     return (value != b.value) || (key != b.key);
   }
+
+  RAFT_INLINE_FUNCTION bool operator<(const KeyValuePair<_Key, _Value>& b) const
+  {
+    return (key < b.key) || ((key == b.key) && value < b.value);
+  }
+
+  RAFT_INLINE_FUNCTION bool operator>(const KeyValuePair<_Key, _Value>& b) const
+  {
+    return (key > b.key) || ((key == b.key) && value > b.value);
+  }
 };
 }  // end namespace raft

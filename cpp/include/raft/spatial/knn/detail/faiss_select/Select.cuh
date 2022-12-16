@@ -303,8 +303,8 @@ struct BlockSelect<K, V, Dir, Comp, 1, NumThreadQ, ThreadsPerBlock> {
     int warpId = threadIdx.x / WarpSize;
 
     if (laneId == 0) {
-      sharedK[warpId] = pair.k;
-      sharedV[warpId] = pair.v;
+      sharedK[warpId] = pair.key;
+      sharedV[warpId] = pair.value;
     }
 
     __syncthreads();
@@ -534,8 +534,8 @@ struct WarpSelect<K, V, Dir, Comp, 1, NumThreadQ, ThreadsPerBlock> {
       pair = warpReduce(pair, min_op{});
     }
 
-    threadK = pair.k;
-    threadV = pair.v;
+    threadK = pair.key;
+    threadV = pair.value;
   }
 
   /// Dump final k selected values for this warp out
