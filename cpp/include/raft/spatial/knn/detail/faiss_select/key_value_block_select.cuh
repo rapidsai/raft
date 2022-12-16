@@ -7,21 +7,15 @@
 
 #pragma once
 
-#include <faiss/gpu/utils/DeviceDefs.cuh>
-#include <faiss/gpu/utils/MergeNetworkUtils.cuh>
-#include <faiss/gpu/utils/PtxUtils.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/gpu/utils/StaticUtils.h>
-#include <faiss/gpu/utils/WarpShuffles.cuh>
-
-#include "warp_select_faiss.cuh"
+#include <raft/spatial/knn/detail/faiss_select/MergeNetworkUtils.cuh>
+#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
+#include <raft/spatial/knn/detail/faiss_select/key_value_warp_select.cuh>
 
 // TODO: Need to think further about the impact (and new boundaries created) on the registers
 // because this will change the max k that can be processed. One solution might be to break
 // up k into multiple batches for larger k.
 
-namespace faiss {
-namespace gpu {
+namespace raft::spatial::knn::detail::faiss_select {
 
 // `Dir` true, produce largest values.
 // `Dir` false, produce smallest values.
@@ -33,7 +27,7 @@ template <typename K,
           int NumThreadQ,
           int ThreadsPerBlock>
 struct KeyValueBlockSelect {
-  static constexpr int kNumWarps          = ThreadsPerBlock / kWarpSize;
+  static constexpr int kNumWarps          = ThreadsPerBlock / WarpSize;
   static constexpr int kTotalWarpSortSize = NumWarpQ;
 
   __device__ inline KeyValueBlockSelect(
@@ -59,14 +53,14 @@ struct KeyValueBlockSelect {
       threadV[i].value = initVv;
     }
 
-    int laneId = getLaneId();
-    int warpId = threadIdx.x / kWarpSize;
+    int laneId = raft::laneId();
+    int warpId = threadIdx.x / WarpSize;
     warpK      = sharedK + warpId * kTotalWarpSortSize;
     warpV      = sharedV + warpId * kTotalWarpSortSize;
 
     // Fill warp queue (only the actual queue space is fine, not where
     // we write the per-thread queues for merging)
-    for (int i = laneId; i < NumWarpQ; i += kWarpSize) {
+    for (int i = laneId; i < NumWarpQ; i += WarpSize) {
       warpK[i]       = initK;
       warpV[i].key   = initVk;
       warpV[i].value = initVv;
@@ -134,20 +128,20 @@ struct KeyValueBlockSelect {
   /// list across both
   __device__ inline void mergeWarpQ()
   {
-    int laneId = getLaneId();
+    int laneId = raft::laneId();
 
     // Sort all of the per-thread queues
     warpSortAnyRegistersKVP<K, V, NumThreadQ, !Dir, Comp>(threadK, threadV);
 
-    constexpr int kNumWarpQRegisters = NumWarpQ / kWarpSize;
+    constexpr int kNumWarpQRegisters = NumWarpQ / WarpSize;
     K warpKRegisters[kNumWarpQRegisters];
     KeyValuePair<K, V> warpVRegisters[kNumWarpQRegisters];
 
 #pragma unroll
     for (int i = 0; i < kNumWarpQRegisters; ++i) {
-      warpKRegisters[i]       = warpK[i * kWarpSize + laneId];
-      warpVRegisters[i].key   = warpV[i * kWarpSize + laneId].key;
-      warpVRegisters[i].value = warpV[i * kWarpSize + laneId].value;
+      warpKRegisters[i]       = warpK[i * WarpSize + laneId];
+      warpVRegisters[i].key   = warpV[i * WarpSize + laneId].key;
+      warpVRegisters[i].value = warpV[i * WarpSize + laneId].value;
     }
 
     warpFence();
@@ -161,9 +155,9 @@ struct KeyValueBlockSelect {
     // Write back out the warp queue
 #pragma unroll
     for (int i = 0; i < kNumWarpQRegisters; ++i) {
-      warpK[i * kWarpSize + laneId]       = warpKRegisters[i];
-      warpV[i * kWarpSize + laneId].key   = warpVRegisters[i].key;
-      warpV[i * kWarpSize + laneId].value = warpVRegisters[i].value;
+      warpK[i * WarpSize + laneId]       = warpKRegisters[i];
+      warpV[i * WarpSize + laneId].key   = warpVRegisters[i].key;
+      warpV[i * WarpSize + laneId].value = warpVRegisters[i].value;
     }
 
     warpFence();
@@ -228,5 +222,4 @@ struct KeyValueBlockSelect {
   int kMinus1;
 };
 
-}  // namespace gpu
-}  // namespace faiss
+}  // namespace raft::spatial::knn::detail::faiss_select

@@ -7,31 +7,25 @@
 
 #pragma once
 
-#include <faiss/gpu/utils/DeviceDefs.cuh>
-#include <faiss/gpu/utils/MergeNetworkUtils.cuh>
-#include <faiss/gpu/utils/PtxUtils.cuh>
-#include <faiss/gpu/utils/StaticUtils.h>
-#include <faiss/gpu/utils/WarpShuffles.cuh>
-
 #include <raft/core/kvp.hpp>
+#include <raft/spatial/knn/detail/faiss_select/MergeNetworkUtils.cuh>
+#include <raft/spatial/knn/detail/faiss_select/StaticUtils.h>
 
-namespace faiss {
-namespace gpu {
-using raft::KeyValuePair;
+namespace raft::spatial::knn::detail::faiss_select {
 
 //
 // This file contains functions to:
 //
 // -perform bitonic merges on pairs of sorted lists, held in
-// registers. Each list contains N * kWarpSize (multiple of 32)
+// registers. Each list contains N * WarpSize (multiple of 32)
 // elements for some N.
 // The bitonic merge is implemented for arbitrary sizes;
-// sorted list A of size N1 * kWarpSize registers
-// sorted list B of size N2 * kWarpSize registers =>
-// sorted list C if size (N1 + N2) * kWarpSize registers. N1 and N2
+// sorted list A of size N1 * WarpSize registers
+// sorted list B of size N2 * WarpSize registers =>
+// sorted list C if size (N1 + N2) * WarpSize registers. N1 and N2
 // are >= 1 and don't have to be powers of 2.
 //
-// -perform bitonic sorts on a set of N * kWarpSize key/value pairs
+// -perform bitonic sorts on a set of N * WarpSize key/value pairs
 // held in registers, by using the above bitonic merge as a
 // primitive.
 // N can be an arbitrary N >= 1; i.e., the bitonic sort here supports
@@ -80,7 +74,7 @@ using raft::KeyValuePair;
 // performing both < and > comparisons with the variables, so I just
 // stick with this.
 
-// This function merges kWarpSize / 2L lists in parallel using warp
+// This function merges WarpSize / 2L lists in parallel using warp
 // shuffles.
 // It works on at most size-16 lists, as we need 32 threads for this
 // shuffle merge.
@@ -91,9 +85,9 @@ template <typename K, typename V, int L, bool Dir, typename Comp, bool IsBitonic
 inline __device__ void warpBitonicMergeLE16KVP(K& k, KeyValuePair<K, V>& v)
 {
   static_assert(utils::isPowerOf2(L), "L must be a power-of-2");
-  static_assert(L <= kWarpSize / 2, "merge list size must be <= 16");
+  static_assert(L <= WarpSize / 2, "merge list size must be <= 16");
 
-  int laneId = getLaneId();
+  int laneId = raft::laneId();
 
   if (!IsBitonic) {
     // Reverse the first comparison stage.
@@ -417,8 +411,8 @@ struct BitonicMergeStepKVP<K, V, N, Dir, Comp, false, false> {
 };
 
 /// Merges two sets of registers across the warp of any size;
-/// i.e., merges a sorted k/v list of size kWarpSize * N1 with a
-/// sorted k/v list of size kWarpSize * N2, where N1 and N2 are any
+/// i.e., merges a sorted k/v list of size WarpSize * N1 with a
+/// sorted k/v list of size WarpSize * N2, where N1 and N2 are any
 /// value >= 1
 template <typename K, typename V, int N1, int N2, bool Dir, typename Comp, bool FullMerge = true>
 inline __device__ void warpMergeAnyRegistersKVP(K k1[N1],
@@ -441,15 +435,15 @@ inline __device__ void warpMergeAnyRegistersKVP(K k1[N1],
 
     if (FullMerge) {
       // We need the other values
-      otherKa    = shfl_xor(ka, kWarpSize - 1);
-      K otherVak = shfl_xor(va.key, kWarpSize - 1);
-      V otherVav = shfl_xor(va.value, kWarpSize - 1);
+      otherKa    = shfl_xor(ka, WarpSize - 1);
+      K otherVak = shfl_xor(va.key, WarpSize - 1);
+      V otherVav = shfl_xor(va.value, WarpSize - 1);
       otherVa    = KeyValuePair(otherVak, otherVav);
     }
 
-    K otherKb  = shfl_xor(kb, kWarpSize - 1);
-    K otherVbk = shfl_xor(vb.key, kWarpSize - 1);
-    V otherVbv = shfl_xor(vb.value, kWarpSize - 1);
+    K otherKb  = shfl_xor(kb, WarpSize - 1);
+    K otherVbk = shfl_xor(vb.key, WarpSize - 1);
+    V otherVbv = shfl_xor(vb.value, WarpSize - 1);
 
     // ka is always first in the list, so we needn't use our lane
     // in this comparison
@@ -539,8 +533,8 @@ struct BitonicSortStepKVP<K, V, 1, Dir, Comp> {
   static inline __device__ void sort(K k[1], KeyValuePair<K, V> v[1])
   {
     // Update this code if this changes
-    // should go from 1 -> kWarpSize in multiples of 2
-    static_assert(kWarpSize == 32, "unexpected warp size");
+    // should go from 1 -> WarpSize in multiples of 2
+    static_assert(WarpSize == 32, "unexpected warp size");
 
     warpBitonicMergeLE16KVP<K, V, 1, Dir, Comp, false>(k[0], v[0]);
     warpBitonicMergeLE16KVP<K, V, 2, Dir, Comp, false>(k[0], v[0]);
@@ -550,12 +544,12 @@ struct BitonicSortStepKVP<K, V, 1, Dir, Comp> {
   }
 };
 
-/// Sort a list of kWarpSize * N elements in registers, where N is an
+/// Sort a list of WarpSize * N elements in registers, where N is an
 /// arbitrary >= 1
 template <typename K, typename V, int N, bool Dir, typename Comp>
 inline __device__ void warpSortAnyRegistersKVP(K k[N], KeyValuePair<K, V> v[N])
 {
   BitonicSortStepKVP<K, V, N, Dir, Comp>::sort(k, v);
 }
-}  // namespace gpu
-}  // namespace faiss
+
+}  // namespace raft::spatial::knn::detail::faiss_select
