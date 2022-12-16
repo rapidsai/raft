@@ -34,6 +34,26 @@ using mpi_comms = detail::mpi_comms;
  * MPI Communicator and inject it into the given RAFT handle instance
  * @param handle raft handle for managing expensive resources
  * @param comm an initialized MPI communicator
+ *
+ * @code{.cpp}
+ * #include <raft/comms/mpi_comms.hpp>
+ * #include <raft/core/device_mdarray.hpp>
+ *
+ * MPI_Comm mpi_comm;
+ * raft::handle_t handle;
+ *
+ * initialize_mpi_comms(&handle, mpi_comm);
+ * ...
+ * const auto& comm = handle.get_comms();
+ * auto gather_data = raft::make_device_vector<float>(handle, comm.get_size());
+ * ...
+ * comm.allgather((gather_data.data_handle())[comm.get_rank()],
+ *                gather_data.data_handle(),
+ *                1,
+ *                handle.get_stream());
+ *
+ * comm.sync_stream(handle.get_stream());
+ * @endcode
  */
 inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm)
 {
