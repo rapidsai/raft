@@ -572,7 +572,7 @@ auto calculate_offsets_and_indices(IdxT n_rows,
   IdxT cumsum = 0;
   update_device(cluster_offsets, &cumsum, 1, stream);
   thrust::inclusive_scan(
-    exec_policy, cluster_sizes, cluster_sizes + n_lists, cluster_offsets + 1, thrust::plus<IdxT>{});
+    exec_policy, cluster_sizes, cluster_sizes + n_lists, cluster_offsets + 1, add_op{});
   update_host(&cumsum, cluster_offsets + n_lists, 1, stream);
   uint32_t max_cluster_size =
     *thrust::max_element(exec_policy, cluster_sizes, cluster_sizes + n_lists);
