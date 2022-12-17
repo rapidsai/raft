@@ -38,9 +38,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
 
 #include <thrust/fill.h>
 #include <thrust/for_each.h>

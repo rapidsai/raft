@@ -22,7 +22,7 @@
 
 #include <raft/util/cudart_utils.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 #include <iostream>
 #include <limits>

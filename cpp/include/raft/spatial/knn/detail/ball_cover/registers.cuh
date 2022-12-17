@@ -30,7 +30,6 @@
 
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
 
 #include <thrust/fill.h>
 

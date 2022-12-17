@@ -82,7 +82,7 @@ void make_regression(const raft::handle_t& handle,
                      DataT noise         = (DataT)0.0,
                      bool shuffle        = true,
                      uint64_t seed       = 0ULL,
-                     GeneratorType type  = GenPhilox)
+                     GeneratorType type  = GenPC)
 {
   detail::make_regression_caller(handle,
                                  out,
@@ -149,7 +149,7 @@ void make_regression(const raft::handle_t& handle,
                      DataT noise         = DataT{},
                      bool shuffle        = true,
                      uint64_t seed       = 0ULL,
-                     GeneratorType type  = GenPhilox)
+                     GeneratorType type  = GenPC)
 {
   const auto n_samples = out.extent(0);
   assert(values.extent(0) == n_samples);
