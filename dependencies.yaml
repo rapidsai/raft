@@ -83,6 +83,7 @@ dependencies:
               cuda: "11.2"
             packages:
               - cudatoolkit=11.2
+              - cuda-profiler-api>=11.4.240,<11.8.86 # only cuda-11.4 is available until cuda-11.8
               - libcublas-dev=11.5.2.43 # belongs to cuda-11.4.0 but it's the oldest available
               - libcurand-dev=10.2.5.43 # belongs to cuda-11.4.0 but it's the oldest available
               - libcusolver-dev=11.2.0.43 # belongs to cuda-11.4.0 but it's the oldest available
@@ -91,6 +92,7 @@ dependencies:
               cuda: "11.4"
             packages:
               - cudatoolkit=11.4
+              - cuda-profiler-api>=11.4.240,<11.8.86 # only cuda-11.4 is available until cuda-11.8
               - libcublas-dev=11.6.5.2
               - libcurand-dev=10.2.5.120
               - libcusolver-dev=11.2.0.120
@@ -99,6 +101,7 @@ dependencies:
               cuda: "11.5"
             packages:
               - cudatoolkit=11.5
+              - cuda-profiler-api>=11.4.240,<11.8.86 # only cuda-11.4 is available until cuda-11.8
               - libcublas-dev=11.7.4.6
               - libcurand-dev=10.2.7.107
               - libcusolver-dev=11.3.2.107
