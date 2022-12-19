@@ -23,10 +23,7 @@
 namespace raft::cluster::kmeans_balanced {
 
 // todo: remove old interface and call this one instead
-// todo: if mapping_op has same input and output types, is it assumed to be identity?
 // todo: document this API
-// todo: doxygen consistency
-// todo: parameter for balancing pullback etc?
 
 template <typename DataT, typename MathT, typename IndexT, typename MappingOpT = raft::identity_op>
 void fit(handle_t const& handle,
@@ -97,7 +94,7 @@ void fit_predict(handle_t const& handle,
                  raft::device_vector_view<LabelT, IndexT> labels,
                  MappingOpT mapping_op = raft::identity_op())
 {
-  auto centroids_const = raft::make_device_matrix_view<const MathT, int>(
+  auto centroids_const = raft::make_device_matrix_view<const MathT, IndexT>(
     centroids.data_handle(), centroids.extent(0), centroids.extent(1));
   raft::cluster::kmeans_balanced::fit(handle, params, X, centroids, mapping_op);
   raft::cluster::kmeans_balanced::predict(handle, params, X, centroids_const, labels, mapping_op);

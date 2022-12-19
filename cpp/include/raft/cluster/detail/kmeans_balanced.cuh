@@ -543,58 +543,6 @@ auto adjust_centers(MathT* centers,
     ofst     = kPrimes[i_primes];
   } while (n_rows % ofst == 0);
 
-  // switch (utils::check_pointer_residency(centers, dataset, labels, cluster_sizes)) {
-  //   case utils::pointer_residency::host_and_device:
-  //   case utils::pointer_residency::device_only: {
-  //     constexpr uint32_t kBlockDimY = 4;
-  //     const dim3 block_dim(WarpSize, kBlockDimY, 1);
-  //     const dim3 grid_dim(1, raft::ceildiv(n_clusters, kBlockDimY), 1);
-  //     rmm::device_scalar<uint32_t> update_count(0, stream, device_memory);
-  //     adjust_centers_kernel<kBlockDimY><<<grid_dim, block_dim, 0, stream>>>(centers,
-  //                                                                              n_clusters,
-  //                                                                              dim,
-  //                                                                              dataset,
-  //                                                                              n_rows,
-  //                                                                              labels,
-  //                                                                              cluster_sizes,
-  //                                                                              threshold,
-  //                                                                              average,
-  //                                                                              ofst,
-  //                                                                              update_count.data(),
-  //                                                                              mapping_op);
-  //     adjusted = update_count.value(stream) > 0;  // NB: rmm scalar performs the sync
-  //   } break;
-  //   case utils::pointer_residency::host_only: {
-  //     stream.synchronize();
-  //     for (uint32_t l = 0; l < n_clusters; l++) {
-  //       auto csize = cluster_sizes[l];
-  //       // skip big clusters
-  //       if (csize > static_cast<uint32_t>(average * threshold)) continue;
-  //       // choose a "random" i that belongs to a rather large cluster
-  //       do {
-  //         i = (i + ofst) % n_rows;
-  //       } while (cluster_sizes[labels[i]] < average);
-  //       // Adjust the center of the selected smaller cluster to gravitate towards
-  //       // a sample from the selected larger cluster.
-  //       const IdxT li = static_cast<IdxT>(labels[i]);
-  //       // Weight of the current center for the weighted average.
-  //       // We dump it for anomalously small clusters, but keep constant otherwise.
-  //       const MathT wc = std::min<MathT>(csize, kAdjustCentersWeight);
-  //       // Weight for the datapoint used to shift the center.
-  //       const MathT wd = 1.0;
-  //       for (uint32_t j = 0; j < dim; j++) {
-  //         MathT val = 0;
-  //         val += wc * centers[j + dim * li];
-  //         val += wd * mapping_op(dataset[j + static_cast<IdxT>(dim) * i]);
-  //         val /= wc + wd;
-  //         centers[j + dim * l] = val;
-  //       }
-  //       adjusted = true;
-  //     }
-  //     stream.synchronize();
-  //   } break;
-  //   default: RAFT_FAIL("All pointers must reside on the same side, host or device.");
-  // }
   constexpr uint32_t kBlockDimY = 4;
   const dim3 block_dim(WarpSize, kBlockDimY, 1);
   const dim3 grid_dim(1, raft::ceildiv(n_clusters, static_cast<IdxT>(kBlockDimY)), 1);
