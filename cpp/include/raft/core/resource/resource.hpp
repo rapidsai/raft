@@ -22,8 +22,7 @@ namespace raft::core {
  */
 
 class resource_t {
-  template <typename T>
-  virtual T operator();
+  void* get_resource() { return &cublas_handle; }
 };
 
 /**

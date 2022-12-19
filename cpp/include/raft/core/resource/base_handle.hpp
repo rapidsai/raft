@@ -28,13 +28,14 @@ class base_handle_t {
     }
   }
 
+  template <typename res_t>
   void* get_resource(std::string& key)
   {
     if (resources_.find(key) == resources_.end()) {
-    } else {
-      resource_t res = resources_.at(key).get();
-      return static_cast<decltype(res::res_t)>;
+      resource_factory_t factory = factories_.at(key).get();
+      resources_.insert(std::make_pair(key, factory->make_resource()))
     }
+    reinterpret_cast<res_t>(resources_.at(key).get()->get_resource());
   }
 
  private:

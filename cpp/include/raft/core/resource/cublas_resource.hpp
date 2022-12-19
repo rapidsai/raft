@@ -24,5 +24,5 @@ class cublas_resource_t : public resource_t {
   void* get_resource() { return &cublas_handle; }
 
  private:
-  res_t cublas_handle;
+  cublasHandle_t cublas_handle;
 };
