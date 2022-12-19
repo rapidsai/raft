@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/operators.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/detail/scatter.cuh>
 
@@ -37,13 +38,13 @@ namespace raft {
  * will be applied to every element before scattering it to the right location.
  * The second param in this method will be the destination index.
  */
-template <typename DataT, typename IdxT, typename Lambda = raft::Nop<DataT, IdxT>, int TPB = 256>
+template <typename DataT, typename IdxT, typename Lambda = raft::identity_op, int TPB = 256>
 void scatter(DataT* out,
              const DataT* in,
              const IdxT* idx,
              IdxT len,
              cudaStream_t stream,
-             Lambda op = raft::Nop<DataT, IdxT>())
+             Lambda op = raft::identity_op())
 {
   if (len <= 0) return;
   constexpr size_t DataSize   = sizeof(DataT);

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "matrix_vector_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/linalg/matrix_vector_op.cuh>

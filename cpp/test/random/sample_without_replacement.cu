@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/random/rng.cuh>
 #include <raft/random/sample_without_replacement.cuh>
@@ -214,7 +214,11 @@ const std::vector<SWoRInputs<float>> inputsf = {{1024, 512, -1, 0.f, GenPhilox, 
         << "repeated index @i=" << i << " idx=" << val;                                            \
       occurrence.insert(val);                                                                      \
     }                                                                                              \
-    if (params.largeWeightIndex >= 0) { ASSERT_EQ(h_outIdx[0], params.largeWeightIndex); }         \
+    if (params.largeWeightIndex >= 0) {                                                            \
+      ASSERT_TRUE((h_outIdx[0] == params.largeWeightIndex) ||                                      \
+                  (h_outIdx[1] == params.largeWeightIndex) ||                                      \
+                  (h_outIdx[3] == params.largeWeightIndex));                                       \
+    }                                                                                              \
   } while (false)
 
 using SWoRTestF = SWoRTest<float>;

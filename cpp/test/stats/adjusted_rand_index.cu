@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
