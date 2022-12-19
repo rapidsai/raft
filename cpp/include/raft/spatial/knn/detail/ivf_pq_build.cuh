@@ -143,11 +143,12 @@ __launch_bounds__(BlockDim) __global__ void copy_warped_kernel(
  * Copy the data one warp-per-row:
  *
  *  1. load the data per-warp
- *  2. apply the `mapping`
+ *  2. apply the `utils::mapping<T>{}`
  *  3. sync within warp
  *  4. store the data.
  *
- * With some constraints, this allows to re-structure the data within rows in-place.
+ * Assuming sizeof(T) >= sizeof(S) and the data is properly aligned (see the usage in `build`), this
+ * allows to re-structure the data within rows in-place.
  */
 template <typename T, typename S>
 void copy_warped(T* out,
@@ -673,6 +674,10 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
  * There must be enough free space in `pq_dataset()` and `indices()`, as computed using
  * `list_offsets()` and `list_sizes()`.
  *
+ * NB: Since the pq_dataset is stored in the interleaved blocked format (see ivf_pq_types.hpp), one
+ * cannot just concatenate the old and the new codes; the positions for the codes are determined the
+ * same way as in the ivfpq_compute_similarity_kernel (see ivf_pq_search.cuh).
+ *
  * @tparam T
  * @tparam IdxT
  *
@@ -688,10 +693,8 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
  *    cluster ids (first-level quantization) - a device array [n_rows];
  * @param n_rows
  *    the number of records to write in.
- * @param device_memory
+ * @param mr
  *    a memory resource to use for device allocations
- * @param managed_memory
- *    a memory resource to use for managed allocations
  */
 template <typename T, typename IdxT>
 void process_and_fill_codes(const handle_t& handle,
@@ -713,6 +716,8 @@ void process_and_fill_codes(const handle_t& handle,
     make_device_mdarray<float>(handle, mr, make_extents<IdxT>(n_rows, index.rot_dim()));
 
   {
+    // compute residuals of the new_vectors
+    //  `rotation_matrix %* (new_vectors[:, :] - centers[new_labels[:], :])`
     auto dim             = index.dim();
     auto cluster_centers = index.centers();
     rmm::device_uvector<float> tmp(n_rows * index.dim(), stream, mr);
