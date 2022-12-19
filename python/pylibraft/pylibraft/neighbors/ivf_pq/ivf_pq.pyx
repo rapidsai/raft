@@ -756,7 +756,7 @@ def save(filename, Index index, handle=None):
     >>> # Build index
     >>> handle = Handle()
     >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
-    >>> ivf_pq.save("my_index.bin", index, handle)
+    >>> ivf_pq.save("my_index.bin", index, handle=handle)
     """
     if not index.trained:
         raise ValueError("Index need to be built before saving it.")
@@ -796,12 +796,22 @@ def load(filename, handle=None):
     >>> from pylibraft.common import Handle
     >>> from pylibraft.neighbors import ivf_pq
 
+    >>> n_samples = 50000
     >>> n_features = 50
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+
+    >>> # Build and save index
+    >>> handle = Handle()
+    >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
+    >>> ivf_pq.save("my_index.bin", index, handle=handle)
+    >>> del index
+
     >>> n_queries = 100
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> handle = Handle()
-    >>> index = ivf_pq.load("my_index.bin", handle)
+    >>> index = ivf_pq.load("my_index.bin", handle=handle)
 
     >>> distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(), index,
     ...                                      queries, k=10, handle=handle)
