@@ -23,8 +23,33 @@
 namespace raft::cluster::kmeans_balanced {
 
 // todo: remove old interface and call this one instead
-// todo: document this API
 
+/**
+ * @brief Find clusters of balanced sizes with a hierarchical k-means algorithm.
+ *
+ * @code{.cpp}
+ *   #include <raft/core/handle.hpp>
+ *   #include <raft/cluster/kmeans_balanced.cuh>
+ *   #include <raft/cluster/kmeans_balanced_types.hpp>
+ *   ...
+ *   raft::handle_t handle;
+ *   raft::cluster::KMeansBalancedParams params;
+ *   auto centroids = raft::make_device_matrix<float, int>(handle, n_clusters, n_features);
+ *   raft::cluster::kmeans_balanced::fit(handle, params, X, centroids);
+ * @endcode
+ *
+ * @tparam DataT Type of the input data.
+ * @tparam MathT Type of the centroids and mapped data.
+ * @tparam IndexT Type used for indexing.
+ * @tparam MappingOpT Type of the mapping function.
+ * @param[in]  handle     The raft handle
+ * @param[in]  params     Structure containing the hyper-parameters
+ * @param[in]  X          Training instances to cluster. The data must be in row-major format.
+ *                        [dim = n_samples x n_features]
+ * @param[out] centroids  The generated centroids [dim = n_clusters x n_features]
+ * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
+ *                        datatype. If DataT and MathT are the same, this must be the identity.
+ */
 template <typename DataT, typename MathT, typename IndexT, typename MappingOpT = raft::identity_op>
 void fit(handle_t const& handle,
          KMeansBalancedParams const& params,
@@ -49,6 +74,34 @@ void fit(handle_t const& handle,
                              mapping_op);
 }
 
+/**
+ * @brief Predict the closest cluster each sample in X belongs to.
+ *
+ * @code{.cpp}
+ *   #include <raft/core/handle.hpp>
+ *   #include <raft/cluster/kmeans_balanced.cuh>
+ *   #include <raft/cluster/kmeans_balanced_types.hpp>
+ *   ...
+ *   raft::handle_t handle;
+ *   raft::cluster::KMeansBalancedParams params;
+ *   auto labels = raft::make_device_vector<float, int>(handle, n_rows);
+ *   raft::cluster::kmeans_balanced::fit(handle, params, X, centroids, labels);
+ * @endcode
+ *
+ * @tparam DataT Type of the input data.
+ * @tparam MathT Type of the centroids and mapped data.
+ * @tparam IndexT Type used for indexing.
+ * @tparam LabelT Type of the output labels.
+ * @tparam MappingOpT Type of the mapping function.
+ * @param[in]  handle     The raft handle
+ * @param[in]  params     Structure containing the hyper-parameters
+ * @param[in]  X          Training instances to cluster. The data must be in row-major format.
+ *                        [dim = n_samples x n_features]
+ * @param[in]  centroids  The input centroids [dim = n_clusters x n_features]
+ * @param[out] labels     The output labels [dim = n_rows]
+ * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
+ *                        datatype. If DataT and MathT are the same, this must be the identity.
+ */
 template <typename DataT,
           typename MathT,
           typename IndexT,
@@ -84,6 +137,35 @@ void predict(handle_t const& handle,
                   mapping_op);
 }
 
+/**
+ * @brief Compute k-means clustering and predict cluster index for each sample in the input.
+ *
+ * @code{.cpp}
+ *   #include <raft/core/handle.hpp>
+ *   #include <raft/cluster/kmeans_balanced.cuh>
+ *   #include <raft/cluster/kmeans_balanced_types.hpp>
+ *   ...
+ *   raft::handle_t handle;
+ *   raft::cluster::KMeansBalancedParams params;
+ *   auto centroids = raft::make_device_matrix<float, int>(handle, n_clusters, n_features);
+ *   auto labels = raft::make_device_vector<float, int>(handle, n_rows);
+ *   raft::cluster::kmeans_balanced::fit_predict(handle, params, X, centroids, labels);
+ * @endcode
+ *
+ * @tparam DataT Type of the input data.
+ * @tparam MathT Type of the centroids and mapped data.
+ * @tparam IndexT Type used for indexing.
+ * @tparam LabelT Type of the output labels.
+ * @tparam MappingOpT Type of the mapping function.
+ * @param[in]  handle     The raft handle
+ * @param[in]  params     Structure containing the hyper-parameters
+ * @param[in]  X          Training instances to cluster. The data must be in row-major format.
+ *                        [dim = n_samples x n_features]
+ * @param[in]  centroids  The input centroids [dim = n_clusters x n_features]
+ * @param[out] labels     The output labels [dim = n_rows]
+ * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
+ *                        datatype. If DataT and MathT are the same, this must be the identity.
+ */
 template <typename DataT,
           typename MathT,
           typename IndexT,
