@@ -78,20 +78,18 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              cuda: "11.2"
+              cuda: "11.5"
             packages:
-              - cudatoolkit=11.2
+              - cudatoolkit=11.5
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
-              # The NVIDIA channel doesn't publish pkgs older than 11.4 for these libs,
-              # so 11.2 uses 11.4 packages (the oldest available).
-              - *libcublas_dev114
-              - *libcublas114
-              - *libcurand_dev114
-              - *libcurand114
-              - *libcusolver_dev114
-              - *libcusolver114
-              - *libcusparse_dev114
-              - *libcusparse114
+              - libcublas-dev>=11.7.3.1,<=11.7.4.6
+              - libcublas>=11.7.3.1,<=11.7.4.6
+              - libcurand-dev>=10.2.6.48,<=10.2.7.107
+              - libcurand>=10.2.6.48,<=10.2.7.107
+              - libcusolver-dev>=11.2.1.48,<=11.3.2.107
+              - libcusolver>=11.2.1.48,<=11.3.2.107
+              - libcusparse-dev>=11.7.0.31,<=11.7.0.107
+              - libcusparse>=11.7.0.31,<=11.7.0.107
           - matrix:
               cuda: "11.4"
             packages:
@@ -106,18 +104,20 @@ dependencies:
               - &libcusparse_dev114 libcusparse-dev>=11.6.0.43,<=11.6.0.120
               - &libcusparse114 libcusparse>=11.6.0.43,<=11.6.0.120
           - matrix:
-              cuda: "11.5"
+              cuda: "11.2"
             packages:
-              - cudatoolkit=11.5
+              - cudatoolkit=11.2
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
-              - libcublas-dev>=11.7.3.1,<=11.7.4.6
-              - libcublas>=11.7.3.1,<=11.7.4.6
-              - libcurand-dev>=10.2.6.48,<=10.2.7.107
-              - libcurand>=10.2.6.48,<=10.2.7.107
-              - libcusolver-dev>=11.2.1.48,<=11.3.2.107
-              - libcusolver>=11.2.1.48,<=11.3.2.107
-              - libcusparse-dev>=11.7.0.31,<=11.7.0.107
-              - libcusparse>=11.7.0.31,<=11.7.0.107
+              # The NVIDIA channel doesn't publish pkgs older than 11.4 for these libs,
+              # so 11.2 uses 11.4 packages (the oldest available).
+              - *libcublas_dev114
+              - *libcublas114
+              - *libcurand_dev114
+              - *libcurand114
+              - *libcusolver_dev114
+              - *libcusolver114
+              - *libcusparse_dev114
+              - *libcusparse114
   doc:
     common:
       - output_types: [conda, requirements]
