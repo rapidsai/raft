@@ -14,33 +14,42 @@
  * limitations under the License.
  */
 
-#include "resource.hpp"
+#include "resource_types.hpp"
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
 namespace raft::core {
 
 class base_handle_t {
-  void add_resource_factory(std::string& key, std::shared_ptr<raft::resource_factory_t> factory)
+  bool has_resource_factory(resource_type_t resource_type) const
   {
-    if (!factories_.find(key) == factories_.end()) {
-      factories_.insert(std::make_pair(key, factory));
-    }
+    return factories_.find(resource_type) != factories_.end()
+  }
+
+  /**
+   * This will overwrite any existing resource factories.
+   * @param factory
+   */
+  void add_resource_factory(std::shared_ptr<raft::resource_factory_t> factory) const
+  {
+    factories_.insert(std::make_pair(factory.get()->resource_type(), factory));
   }
 
   template <typename res_t>
-  void* get_resource(std::string& key)
+  void* get_resource(resource_type_t resource_type) const
   {
+    std::lock_guard<std::mutex> _(mutex_);
     if (resources_.find(key) == resources_.end()) {
       resource_factory_t factory = factories_.at(key).get();
-      resources_.insert(std::make_pair(key, factory->make_resource()))
+      resources_.insert(std::make_pair(resource_type, factory->make_resource()));
     }
     reinterpret_cast<res_t>(resources_.at(key).get()->get_resource());
   }
 
  private:
-  // TODO: std::string will be slow!
-  std::unordered_map<std::string, std::shared_ptr<raft::resource_t>> resources_;
-  std::unordered_map<std::string, std::shared_ptr<raft::resource_factory_t>> factories_;
+  mutable std::mutex mutex_;
+  mutable std::unordered_map<resource_type, std::shared_ptr<raft::resource_t>> resources_;
+  mutable std::unordered_map<resource_type, std::shared_ptr<raft::resource_factory_t>> factories_;
 };
 }  // namespace raft::core
