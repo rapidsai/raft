@@ -476,6 +476,11 @@ struct batch_load_iterator {
   /**
    * Create a batch iterator over the data `source`.
    *
+   * For convenience, the data `source` is read in logical units of size `row_width`; batch sizes
+   * and offsets are calculated in logical rows. Hence, can interpret the data as a contiguous
+   * row-major matrix of size [n_rows, row_width], and the batches are the sub-matrices of size
+   * [x<=batch_size, n_rows].
+   *
    * @param source the input data -- host, device, or nullptr.
    * @param n_rows the size of the input in logical rows.
    * @param row_width the size of the logical row in the elements of type `T`.
