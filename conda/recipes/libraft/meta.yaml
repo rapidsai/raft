@@ -91,6 +91,15 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
+        - cuda-profiler-api {{ cuda_profiler_api_host_version }}
+        - libcublas-dev {{ libcublas_host_version }}
+        - libcublas {{ libcublas_host_version }}
+        - libcurand-dev {{ libcurand_host_version }}
+        - libcurand {{ libcurand_host_version }}
+        - libcusolver-dev {{ libcusolver_host_version }}
+        - libcusolver {{ libcusolver_host_version }}
+        - libcusparse-dev {{ libcusparse_host_version }}
+        - libcusparse {{ libcusparse_host_version }}
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
@@ -115,10 +124,19 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
+        - {{ pin_subpackage('libraft-headers', exact=True) }}
+        - cuda-profiler-api {{ cuda_profiler_api_host_version }}
         - faiss-proc=*=cuda
         - lapack
+        - libcublas {{ libcublas_host_version }}
+        - libcublas-dev {{ libcublas_host_version }}
+        - libcurand {{ libcurand_host_version }}
+        - libcurand-dev {{ libcurand_host_version }}
+        - libcusolver {{ libcusolver_host_version }}
+        - libcusolver-dev {{ libcusolver_host_version }}
+        - libcusparse {{ libcusparse_host_version }}
+        - libcusparse-dev {{ libcusparse_host_version }}
         - libfaiss {{ libfaiss_version }}
-        - {{ pin_subpackage('libraft-headers', exact=True) }}
       run:
         - faiss-proc=*=cuda
         - libfaiss {{ libfaiss_version }}
@@ -145,11 +163,20 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
-        - gmock {{ gtest_version }}
-        - gtest {{ gtest_version }}
         - {{ pin_subpackage('libraft-distance', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_subpackage('libraft-nn', exact=True) }}
+        - cuda-profiler-api {{ cuda_profiler_api_host_version }}
+        - gmock {{ gtest_version }}
+        - gtest {{ gtest_version }}
+        - libcublas {{ libcublas_host_version }}
+        - libcublas-dev {{ libcublas_host_version }}
+        - libcurand {{ libcurand_host_version }}
+        - libcurand-dev {{ libcurand_host_version }}
+        - libcusolver {{ libcusolver_host_version }}
+        - libcusolver-dev {{ libcusolver_host_version }}
+        - libcusparse {{ libcusparse_host_version }}
+        - libcusparse-dev {{ libcusparse_host_version }}
       run:
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
