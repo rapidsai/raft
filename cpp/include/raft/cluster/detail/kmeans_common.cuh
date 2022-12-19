@@ -96,9 +96,13 @@ void countLabels(const raft::handle_t& handle,
                  rmm::device_uvector<char>& workspace)
 {
   cudaStream_t stream = handle.get_stream();
-  IndexT num_levels   = n_clusters + 1;
-  IndexT lower_level  = 0;
-  IndexT upper_level  = n_clusters;
+
+  // CUB::DeviceHistogram requires a signed index type
+  typedef typename std::make_signed_t<IndexT> CubIndexT;
+
+  CubIndexT num_levels  = n_clusters + 1;
+  CubIndexT lower_level = 0;
+  CubIndexT upper_level = n_clusters;
 
   size_t temp_storage_bytes = 0;
   RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(nullptr,
@@ -108,7 +112,7 @@ void countLabels(const raft::handle_t& handle,
                                                     num_levels,
                                                     lower_level,
                                                     upper_level,
-                                                    n_samples,
+                                                    static_cast<CubIndexT>(n_samples),
                                                     stream));
 
   workspace.resize(temp_storage_bytes, stream);
@@ -120,7 +124,7 @@ void countLabels(const raft::handle_t& handle,
                                                     num_levels,
                                                     lower_level,
                                                     upper_level,
-                                                    n_samples,
+                                                    static_cast<CubIndexT>(n_samples),
                                                     stream));
 }
 

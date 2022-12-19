@@ -885,13 +885,13 @@ auto build_fine_clusters(const handle_t& handle,
                    "Number of fine clusters must be non-zero for a non-empty mesocluster");
     }
 
-    raft::matrix::gather(dataset_mptr,
+    cub::TransformInputIterator<MathT, MappingOpT, const T*> mapping_itr(dataset_mptr, mapping_op);
+    raft::matrix::gather(mapping_itr,
                          dim,
                          n_rows,
                          mc_trainset_ids,
                          static_cast<IdxT>(mesocluster_sizes[i]),
                          mc_trainset,
-                         mapping_op,
                          stream);
     if (params.metric == raft::distance::DistanceType::L2Expanded ||
         params.metric == raft::distance::DistanceType::L2SqrtExpanded) {

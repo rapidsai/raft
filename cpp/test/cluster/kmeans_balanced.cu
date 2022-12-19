@@ -22,6 +22,7 @@
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/stats/adjusted_rand_index.cuh>
@@ -40,25 +41,25 @@
 
 namespace raft {
 
-template <typename T, typename IdxT>
+template <typename MathT, typename IdxT>
 struct KmeansBalancedInputs {
   IdxT n_rows;
   IdxT n_cols;
   IdxT n_clusters;
   raft::cluster::KMeansBalancedParams kb_params;
-  T tol;
+  MathT tol;
 };
 
-template <typename T, typename IdxT>
-::std::ostream& operator<<(::std::ostream& os, const KmeansBalancedInputs<T, IdxT>& p)
+template <typename MathT, typename IdxT>
+::std::ostream& operator<<(::std::ostream& os, const KmeansBalancedInputs<MathT, IdxT>& p)
 {
   os << "{ " << p.n_rows << ", " << p.n_cols << ", " << p.n_clusters << ", " << p.kb_params.n_iters
      << static_cast<int>(p.kb_params.metric) << '}' << std::endl;
   return os;
 }
 
-template <typename T, typename LabelT, typename IdxT>
-class KmeansBalancedTest : public ::testing::TestWithParam<KmeansBalancedInputs<T, IdxT>> {
+template <typename DataT, typename MathT, typename LabelT, typename IdxT, typename MappingOpT>
+class KmeansBalancedTest : public ::testing::TestWithParam<KmeansBalancedInputs<MathT, IdxT>> {
  protected:
   KmeansBalancedTest()
     : stream(handle.get_stream()),
@@ -70,25 +71,42 @@ class KmeansBalancedTest : public ::testing::TestWithParam<KmeansBalancedInputs<
 
   void basicTest()
   {
-    auto p = ::testing::TestWithParam<KmeansBalancedInputs<T, IdxT>>::GetParam();
+    MappingOpT op{};
 
-    auto X           = raft::make_device_matrix<T, IdxT>(handle, p.n_rows, p.n_cols);
+    auto p = ::testing::TestWithParam<KmeansBalancedInputs<MathT, IdxT>>::GetParam();
+
+    auto X           = raft::make_device_matrix<DataT, IdxT>(handle, p.n_rows, p.n_cols);
     auto blob_labels = raft::make_device_vector<IdxT, IdxT>(handle, p.n_rows);
 
-    raft::random::make_blobs<T, IdxT>(X.data_handle(),
-                                      blob_labels.data_handle(),
-                                      p.n_rows,
-                                      p.n_cols,
-                                      p.n_clusters,
-                                      stream,
-                                      true,
-                                      nullptr,
-                                      nullptr,
-                                      T(1.0),
-                                      true,
-                                      (T)-10.0f,
-                                      (T)10.0f,
-                                      (uint64_t)1234);
+    MathT* blobs_ptr;
+    rmm::device_uvector<MathT> blobs(0, stream);
+    if constexpr (!std::is_same_v<DataT, MathT>) {
+      blobs.resize(p.n_rows * p.n_cols, stream);
+      blobs_ptr = blobs.data();
+    } else {
+      blobs_ptr = X.data_handle();
+    }
+
+    raft::random::make_blobs<MathT, IdxT>(blobs_ptr,
+                                          blob_labels.data_handle(),
+                                          p.n_rows,
+                                          p.n_cols,
+                                          p.n_clusters,
+                                          stream,
+                                          true,
+                                          nullptr,
+                                          nullptr,
+                                          MathT{0.1},
+                                          true,
+                                          MathT{-1},
+                                          MathT{1},
+                                          (uint64_t)1234);
+
+    // Convert blobs dataset to DataT if necessary
+    if constexpr (!std::is_same_v<DataT, MathT>) {
+      raft::linalg::unaryOp(
+        X.data_handle(), blobs.data(), p.n_rows * p.n_cols, op.reverse_op, stream);
+    }
 
     d_labels.resize(p.n_rows, stream);
     d_labels_ref.resize(p.n_rows, stream);
@@ -98,13 +116,13 @@ class KmeansBalancedTest : public ::testing::TestWithParam<KmeansBalancedInputs<
       d_labels_ref.data(), blob_labels.data_handle(), p.n_rows, raft::cast_op<LabelT>(), stream);
 
     auto X_view =
-      raft::make_device_matrix_view<const T, IdxT>(X.data_handle(), X.extent(0), X.extent(1));
+      raft::make_device_matrix_view<const DataT, IdxT>(X.data_handle(), X.extent(0), X.extent(1));
     auto d_centroids_view =
-      raft::make_device_matrix_view<T, IdxT>(d_centroids.data(), p.n_clusters, p.n_cols);
+      raft::make_device_matrix_view<MathT, IdxT>(d_centroids.data(), p.n_clusters, p.n_cols);
     auto d_labels_view = raft::make_device_vector_view<LabelT, IdxT>(d_labels.data(), p.n_rows);
 
     raft::cluster::kmeans_balanced::fit_predict(
-      handle, p.kb_params, X_view, d_centroids_view, d_labels_view);
+      handle, p.kb_params, X_view, d_centroids_view, d_labels_view, op);
 
     handle.sync_stream(stream);
 
@@ -129,18 +147,18 @@ class KmeansBalancedTest : public ::testing::TestWithParam<KmeansBalancedInputs<
   cudaStream_t stream;
   rmm::device_uvector<LabelT> d_labels;
   rmm::device_uvector<LabelT> d_labels_ref;
-  rmm::device_uvector<T> d_centroids;
+  rmm::device_uvector<MathT> d_centroids;
   double score;
 };
 
-template <typename T, typename IdxT>
-std::vector<KmeansBalancedInputs<T, IdxT>> get_kmeans_balanced_inputs()
+template <typename MathT, typename IdxT>
+std::vector<KmeansBalancedInputs<MathT, IdxT>> get_kmeans_balanced_inputs()
 {
-  std::vector<KmeansBalancedInputs<T, IdxT>> out;
-  KmeansBalancedInputs<T, IdxT> p;
+  std::vector<KmeansBalancedInputs<MathT, IdxT>> out;
+  KmeansBalancedInputs<MathT, IdxT> p;
   p.kb_params.n_iters = 20;
   p.kb_params.metric  = raft::distance::DistanceType::L2Expanded;
-  p.tol               = T{0.0001};
+  p.tol               = MathT{0.0001};
   std::vector<std::tuple<size_t, size_t, size_t>> row_cols_k = {
     {1000, 32, 5}, {1000, 100, 20}, {10000, 32, 10}, {10000, 100, 50}, {10000, 500, 100}};
   for (auto& rck : row_cols_k) {
@@ -162,15 +180,56 @@ const auto inputsd_i64 = get_kmeans_balanced_inputs<double, int64_t>();
   TEST_P(test_name, Result) { ASSERT_TRUE(score == 1.0); } \
   INSTANTIATE_TEST_CASE_P(KmeansBalancedTests, test_name, ::testing::ValuesIn(test_inputs))
 
-// todo: remove types which don't have specializations?
-KB_TEST((KmeansBalancedTest<float, uint32_t, int>), KmeansBalancedTestFI32, inputsf_i32);
-KB_TEST((KmeansBalancedTest<double, uint32_t, int>), KmeansBalancedTestDI32, inputsd_i32);
-KB_TEST((KmeansBalancedTest<float, uint32_t, int64_t>), KmeansBalancedTestFI64, inputsf_i64);
-KB_TEST((KmeansBalancedTest<double, uint32_t, int64_t>), KmeansBalancedTestDI64, inputsd_i64);
+/*
+ * First set of tests: no conversion
+ */
 
-// Unsigned index types unsupported by CUB
-// todo: throw error if user attempts to use them
-// KB_TEST((KmeansBalancedTest<float, uint32_t, uint32_t>), KmeansBalancedTestFU32, inputsf_u32);
-// KB_TEST((KmeansBalancedTest<double, uint32_t, uint32_t>), KmeansBalancedTestDU32, inputsd_u32);
+KB_TEST((KmeansBalancedTest<float, float, uint32_t, int, raft::identity_op>),
+        KmeansBalancedTestFFU32I32,
+        inputsf_i32);
+KB_TEST((KmeansBalancedTest<double, double, uint32_t, int, raft::identity_op>),
+        KmeansBalancedTestDDU32I32,
+        inputsd_i32);
+KB_TEST((KmeansBalancedTest<float, float, uint32_t, int64_t, raft::identity_op>),
+        KmeansBalancedTestFFU32I64,
+        inputsf_i64);
+KB_TEST((KmeansBalancedTest<double, double, uint32_t, int64_t, raft::identity_op>),
+        KmeansBalancedTestDDU32I64,
+        inputsd_i64);
+KB_TEST((KmeansBalancedTest<float, float, int, int, raft::identity_op>),
+        KmeansBalancedTestFFI32I32,
+        inputsf_i32);
+KB_TEST((KmeansBalancedTest<float, float, int, int64_t, raft::identity_op>),
+        KmeansBalancedTestFFI32I64,
+        inputsf_i64);
+KB_TEST((KmeansBalancedTest<float, float, int64_t, int, raft::identity_op>),
+        KmeansBalancedTestFFI64I32,
+        inputsf_i32);
+KB_TEST((KmeansBalancedTest<float, float, int64_t, int64_t, raft::identity_op>),
+        KmeansBalancedTestFFI64I64,
+        inputsf_i64);
+
+/*
+ * Second set of tests: integer dataset with conversion
+ */
+
+template <typename DataT, typename MathT>
+struct i2f_scaler {
+  // Note: with a scaling factor of 42, and generating blobs with centers between -1 and 1 with a
+  // standard deviation of 0.1, it's statistically very unlikely that we'd overflow
+  const raft::compose_op<raft::div_const_op<MathT>, raft::cast_op<MathT>> op{
+    raft::div_const_op<MathT>{42}, raft::cast_op<MathT>{}};
+  const raft::compose_op<raft::cast_op<DataT>, raft::mul_const_op<MathT>> reverse_op{
+    raft::cast_op<DataT>{}, raft::mul_const_op<MathT>{42}};
+
+  RAFT_INLINE_FUNCTION auto operator()(const DataT& x) const { return op(x); };
+};
+
+KB_TEST((KmeansBalancedTest<int8_t, float, uint32_t, int, i2f_scaler<int8_t, float>>),
+        KmeansBalancedTestFI8U32I32,
+        inputsf_i32);
+KB_TEST((KmeansBalancedTest<int8_t, double, uint32_t, int, i2f_scaler<int8_t, double>>),
+        KmeansBalancedTestDI8U32I32,
+        inputsd_i32);
 
 }  // namespace raft

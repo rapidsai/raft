@@ -32,6 +32,7 @@ void fit(handle_t const& handle,
          raft::device_matrix_view<MathT, IndexT> centroids,
          MappingOpT mapping_op = raft::identity_op())
 {
+  logger::get(RAFT_NAME).set_level(params.verbosity);
   RAFT_EXPECTS(X.extent(1) == centroids.extent(1),
                "Number of features in dataset and centroids are different");
   RAFT_EXPECTS(static_cast<uint64_t>(X.extent(0)) * static_cast<uint64_t>(X.extent(1)) <=
@@ -60,6 +61,7 @@ void predict(handle_t const& handle,
              raft::device_vector_view<LabelT, IndexT> labels,
              MappingOpT mapping_op = raft::identity_op())
 {
+  logger::get(RAFT_NAME).set_level(params.verbosity);
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
                "Number of rows in dataset and labels are different");
   RAFT_EXPECTS(X.extent(1) == centroids.extent(1),

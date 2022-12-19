@@ -35,6 +35,11 @@ struct KMeansBalancedParams {
    * Metric to use for distance computation.
    */
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded;
+
+  /**
+   * Verbosity level. Note that it will not log any level greater than RAFT_ACTIVE_LEVEL
+   */
+  int verbosity = RAFT_LEVEL_INFO;
 };
 
 }  // namespace raft::cluster::kmeans_balanced
