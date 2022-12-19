@@ -46,7 +46,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
-option(BUILD_BENCH "Build raft C++ benchmark tests" ON)
+option(BUILD_BENCH "Build raft C++ benchmark tests" OFF)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF

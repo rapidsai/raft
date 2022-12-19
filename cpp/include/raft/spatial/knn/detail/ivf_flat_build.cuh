@@ -379,19 +379,26 @@ inline void fill_refinement_index(const handle_t& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-const int serialization_version = 1;
+static const int serialization_version = 1;
 
+/**
+ * Save the index to file.
+ *
+ * Experimental, both the API and the serialization format are subject to change.
+ *
+ * @param[in] handle the raft handle
+ * @param[in] filename the file name for saving the index
+ * @param[in] index_ IVF-Flat index
+ *
+ */
 template <typename T, typename IdxT>
 void save(const handle_t& handle, const std::string& filename, const index<T, IdxT>& index_)
 {
   std::ofstream of(filename, std::ios::out | std::ios::binary);
-  if (!of) {
-    std::cerr << "Cannot open " << filename << std::endl;
-    return;
-  }
+  if (!of) { RAFT_FAIL("Cannot open %s", filename.c_str()); }
 
-  std::cout << "Size " << index_.size() << std::endl;
-  std::cout << "dim " << index_.dim() << std::endl;
+  RAFT_LOG_DEBUG(
+    "Saving IVF-PQ index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
   write_scalar(of, serialization_version);
   write_scalar(of, index_.size());
   write_scalar(of, index_.dim());
@@ -412,25 +419,28 @@ void save(const handle_t& handle, const std::string& filename, const index<T, Id
     write_scalar(of, has_norms);
   }
   of.close();
-  if (!of) { std::cerr << "Error writing output " << filename << std::endl; }
-  return;
+  if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
 }
 
-/** Load an index from file */
+/** Load an index from file.
+ *
+ * Experimental, both the API and the serialization format are subject to change.
+ *
+ * @param[in] handle the raft handle
+ * @param[in] filename the name of the file that stores the index
+ * @param[in] index_ IVF-Flat index
+ *
+ */
 template <typename T, typename IdxT>
 auto load(const handle_t& handle, const std::string& filename) -> index<T, IdxT>
 {
   std::ifstream infile(filename, std::ios::in | std::ios::binary);
 
-  if (!infile) {
-    std::cerr << "Cannot open " << filename << std::endl;
-    return index<T, IdxT>(handle, raft::distance::DistanceType::L2Expanded, 0, 0);
-  }
+  if (!infile) { RAFT_FAIL("Cannot open %s", filename.c_str()); }
 
   auto ver = read_scalar<int>(infile);
   if (ver != serialization_version) {
-    std::cerr << "serialization version mismatch " << ver << " vs. " << serialization_version;
-    return index<T, IdxT>(handle, raft::distance::DistanceType::L2Expanded, 0, 0);
+    RAFT_FAIL("serialization version mismatch, expected %d, got %d ", serialization_version, ver);
   }
   auto n_rows  = read_scalar<IdxT>(infile);
   auto dim     = read_scalar<uint32_t>(infile);
@@ -451,7 +461,7 @@ auto load(const handle_t& handle, const std::string& filename) -> index<T, IdxT>
   bool has_norms = read_scalar<bool>(infile);
   if (has_norms) {
     if (!index_.center_norms()) {
-      std::cerr << "Error inconsistent center norms" << std::endl;
+      RAFT_FAIL("Error inconsistent center norms");
     } else {
       auto center_norms = *index_.center_norms();
       read_mdspan(handle, infile, center_norms);

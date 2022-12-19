@@ -74,10 +74,30 @@ RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t)
 
 #undef RAFT_INST_BUILD_EXTEND
 
+/**
+ * Save the index to file.
+ *
+ * Experimental, both the API and the serialization format are subject to change.
+ *
+ * @param[in] handle the raft handle
+ * @param[in] filename the filename for saving the index
+ * @param[in] index IVF-PQ index
+ *
+ */
 void save(const handle_t& handle,
           const std::string& filename,
           const raft::neighbors::ivf_pq::index<uint64_t>& index);
 
+/**
+ * Load index from file.
+ *
+ * Experimental, both the API and the serialization format are subject to change.
+ *
+ * @param[in] handle the raft handle
+ * @param[in] filename the name of the file that stores the index
+ * @param[in] index IVF-PQ index
+ *
+ */
 void load(const handle_t& handle,
           const std::string& filename,
           raft::neighbors::ivf_pq::index<uint64_t>* index);

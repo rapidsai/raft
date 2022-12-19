@@ -729,6 +729,9 @@ def search(SearchParams search_params,
 def save(filename, Index index, handle=None):
     """
     Saves the index to file.
+
+    Saving / loading the index is experimental. The serialization format is
+    subject to change.
     
     Parameters
     ----------
@@ -771,6 +774,10 @@ def save(filename, Index index, handle=None):
 def load(filename, handle=None):
     """
     Loads index from file.
+
+    Saving / loading the index is experimental. The serialization format is
+    subject to change, therefore loading an index saved with a previous
+    version of raft is not guaranteed to work.
     
     Parameters
     ----------

@@ -1270,8 +1270,18 @@ inline auto build(
                                      }}();
 }
 
-const int serialization_version = 1;
+static const int serialization_version = 1;
 
+/**
+ * Save the index to file.
+ *
+ * Experimental, both the API and the serialization format are subject to change.
+ *
+ * @param[in] handle the raft handle
+ * @param[in] filename the file name for saving the index
+ * @param[in] index_ IVF-PQ index
+ *
+ */
 template <typename IdxT>
 void save(const handle_t& handle_, const std::string& filename, const index<IdxT>& index_)
 {
@@ -1309,20 +1319,26 @@ void save(const handle_t& handle_, const std::string& filename, const index<IdxT
   return;
 }
 
+/**
+ * Load index from file.
+ *
+ * Experimental, both the API and the serialization format are subject to change.
+ *
+ * @param[in] handle the raft handle
+ * @param[in] filename the name of the file that stores the index
+ * @param[in] index_ IVF-PQ index
+ *
+ */
 template <typename IdxT>
 auto load(const handle_t& handle_, const std::string& filename) -> index<IdxT>
 {
   std::ifstream infile(filename, std::ios::in | std::ios::binary);
 
-  if (!infile) {
-    RAFT_FAIL("Cannot open file %s", filename.c_str());
-    return index<IdxT>(handle_, index_params{}, 0);
-  }
+  if (!infile) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
 
   auto ver = read_scalar<int>(infile);
   if (ver != serialization_version) {
     RAFT_FAIL("serialization version mismatch %d vs. %d", ver, serialization_version);
-    return index<IdxT>(handle_, index_params{}, 0);
   }
   auto n_rows  = read_scalar<IdxT>(infile);
   auto dim     = read_scalar<uint32_t>(infile);

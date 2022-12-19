@@ -188,9 +188,10 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           indices_ivfflat_dev.data(), ps.num_queries, ps.k);
         auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
           distances_ivfflat_dev.data(), ps.num_queries, ps.k);
-        raft::neighbors::ivf_flat::save(handle_, "ivf_flat_index", index_2);
+        raft::spatial::knn::ivf_flat::detail::save(handle_, "ivf_flat_index", index_2);
 
-        auto index_loaded = raft::neighbors::ivf_flat::load<DataT, IdxT>(handle_, "ivf_flat_index");
+        auto index_loaded =
+          raft::spatial::knn::ivf_flat::detail::load<DataT, IdxT>(handle_, "ivf_flat_index");
 
         ivf_flat::search(handle_,
                          index_loaded,

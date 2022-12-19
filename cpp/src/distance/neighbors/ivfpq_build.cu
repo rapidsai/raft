@@ -68,7 +68,7 @@ void save(const handle_t& handle,
           const std::string& filename,
           const raft::neighbors::ivf_pq::index<uint64_t>& index)
 {
-  raft::neighbors::ivf_pq::save(handle, filename, index);
+  raft::spatial::knn::ivf_pq::detail::save(handle, filename, index);
 };
 
 void load(const handle_t& handle,
@@ -76,6 +76,6 @@ void load(const handle_t& handle,
           raft::neighbors::ivf_pq::index<uint64_t>* index)
 {
   if (!index) { RAFT_FAIL("Invalid index pointer"); }
-  *index = raft::neighbors::ivf_pq::load<uint64_t>(handle, filename);
+  *index = raft::spatial::knn::ivf_pq::detail::load<uint64_t>(handle, filename);
 };
 }  // namespace raft::runtime::neighbors::ivf_pq
