@@ -316,8 +316,16 @@ struct index : ann::index {
    */
   void allocate(const handle_t& handle, IdxT index_size)
   {
-    pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));
-    indices_    = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    try {
+      pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));
+      indices_    = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    } catch (std::bad_alloc& e) {
+      RAFT_FAIL(
+        "ivf-pq: failed to allocate a big enough index to hold all data (size: %zu). "
+        "Allocator exception: %s",
+        size_t{index_size},
+        e.what());
+    }
     if (index_size > 0) {
       thrust::fill_n(
         handle.get_thrust_policy(), indices_.data_handle(), index_size, kInvalidRecord);
