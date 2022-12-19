@@ -165,137 +165,6 @@ void copy_warped(T* out,
     <<<blocks, threads, 0, stream>>>(out, ld_out, in, ld_in, n_cols, n_rows);
 }
 
-/*
-  NB: label type is uint32_t although it can only contain values up to `1 << pq_bits`.
-      We keep it this way to not force one more overload for kmeans::predict.
- */
-template <uint32_t PqBits, typename CarrierT>
-__device__ void ivfpq_encode_core(uint32_t n_rows,
-                                  uint32_t pq_dim,
-                                  const uint32_t* label,
-                                  CarrierT* output)
-{
-  constexpr uint32_t kChunkSize = (sizeof(CarrierT) * 8u) / PqBits;
-  for (uint32_t j = 0; j < pq_dim; output++) {
-    CarrierT x{};
-    bitfield_view_t<PqBits> out{reinterpret_cast<uint8_t*>(&x)};
-#pragma unroll
-    for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++, label += n_rows) {
-      out[k] = static_cast<uint8_t>(*label);
-    }
-    *output = x;
-  }
-}
-
-template <uint32_t BlockDim, uint32_t PqBits>
-__launch_bounds__(BlockDim) __global__ void ivfpq_encode_kernel(
-  uint32_t pq_dim,
-  const uint32_t* label,                                      // [pq_dim, n_rows]
-  device_mdspan<pq_vec_t, pq_new_vec_exts, row_major> output  // [n_rows, ..]
-)
-{
-  uint32_t i = threadIdx.x + BlockDim * blockIdx.x;
-  if (i >= output.extent(0)) return;
-  ivfpq_encode_core<PqBits>(
-    output.extent(0), pq_dim, label + i, output.data_handle() + output.extent(1) * i);
-}
-
-/**
- * Compress the cluster labels into an encoding with pq_bits bits, and transform it into a form to
- * facilitate vectorized loads
- */
-inline void ivfpq_encode(
-  uint32_t pq_dim,
-  uint32_t pq_bits,                                            // 4 <= pq_bits <= 8
-  const uint32_t* label,                                       // [pq_dim, n_rows]
-  device_mdspan<pq_vec_t, pq_new_vec_exts, row_major> output,  // [n_rows, ..]
-  rmm::cuda_stream_view stream)
-{
-  constexpr uint32_t kBlockDim = 128;
-  dim3 threads(kBlockDim, 1, 1);
-  dim3 blocks(div_rounding_up_safe<uint32_t>(output.extent(0), kBlockDim), 1, 1);
-  switch (pq_bits) {
-    case 4:
-      return ivfpq_encode_kernel<kBlockDim, 4>
-        <<<blocks, threads, 0, stream>>>(pq_dim, label, output);
-    case 5:
-      return ivfpq_encode_kernel<kBlockDim, 5>
-        <<<blocks, threads, 0, stream>>>(pq_dim, label, output);
-    case 6:
-      return ivfpq_encode_kernel<kBlockDim, 6>
-        <<<blocks, threads, 0, stream>>>(pq_dim, label, output);
-    case 7:
-      return ivfpq_encode_kernel<kBlockDim, 7>
-        <<<blocks, threads, 0, stream>>>(pq_dim, label, output);
-    case 8:
-      return ivfpq_encode_kernel<kBlockDim, 8>
-        <<<blocks, threads, 0, stream>>>(pq_dim, label, output);
-    default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
-  }
-}
-
-template <uint32_t BlockDim, typename IdxT>
-__launch_bounds__(BlockDim) __global__ void ivfpq_fill_new_data_kernel(
-  device_mdspan<pq_vec_t, pq_int_vec_exts, row_major> pq_dataset,
-  device_mdspan<IdxT, extent_1d<IdxT>, row_major> pq_indices,
-  device_mdspan<IdxT, extent_1d<uint32_t>, row_major> pq_cluster_offsets,
-  device_mdspan<uint32_t, extent_1d<uint32_t>, row_major> pq_cluster_sizes,
-  device_mdspan<const pq_vec_t, pq_new_vec_exts, row_major> new_codes,
-  const IdxT* new_data_offsets,
-  const IdxT* new_data_indices,
-  const uint32_t* new_data_labels,
-  std::variant<IdxT, const IdxT*> src_offset_or_indices)
-{
-  size_t new_codes_ix = size_t(threadIdx.x) + BlockDim * size_t(blockIdx.x);
-  if (new_codes_ix >= new_codes.extent(0)) return;
-  auto source_ix = new_data_indices[new_codes_ix];
-  auto l         = new_data_labels[source_ix];
-
-  // Get the offset into the extended dataset
-  auto in_cluster_ix = new_codes_ix - new_data_offsets[l];
-  auto db_offset     = pq_cluster_offsets(l) + pq_cluster_sizes(l) + in_cluster_ix;
-
-  // copy db indices
-  pq_indices(db_offset) = std::holds_alternative<IdxT>(src_offset_or_indices)
-                            ? std::get<IdxT>(src_offset_or_indices) + source_ix
-                            : std::get<const IdxT*>(src_offset_or_indices)[source_ix];
-
-  // copy db codes
-  using group    = Pow2<pq_dataset.static_extent(2)>;
-  auto group_ix  = group::div(db_offset);
-  auto member_ix = group::mod(db_offset);
-  for (uint32_t chunk_ix = 0; chunk_ix < new_codes.extent(1); chunk_ix++) {
-    pq_dataset(group_ix, chunk_ix, member_ix) = new_codes(new_codes_ix, chunk_ix);
-  }
-}
-
-template <typename IdxT>
-inline void ivfpq_fill_new_data(
-  device_mdspan<pq_vec_t, pq_int_vec_exts, row_major> pq_dataset,
-  device_mdspan<IdxT, extent_1d<IdxT>, row_major> pq_indices,
-  device_mdspan<IdxT, extent_1d<uint32_t>, row_major> pq_cluster_offsets,
-  device_mdspan<uint32_t, extent_1d<uint32_t>, row_major> pq_cluster_sizes,
-  device_mdspan<const pq_vec_t, pq_new_vec_exts, row_major> new_codes,
-  const IdxT* new_data_offsets,
-  const IdxT* new_data_indices,
-  const uint32_t* new_data_labels,
-  std::variant<IdxT, const IdxT*> src_offset_or_indices,
-  rmm::cuda_stream_view stream)
-{
-  constexpr uint32_t kBlockDim = 128;
-  dim3 threads(kBlockDim, 1, 1);
-  dim3 blocks(div_rounding_up_safe<uint32_t>(new_codes.extent(0), kBlockDim), 1, 1);
-  ivfpq_fill_new_data_kernel<kBlockDim><<<blocks, threads, 0, stream>>>(pq_dataset,
-                                                                        pq_indices,
-                                                                        pq_cluster_offsets,
-                                                                        pq_cluster_sizes,
-                                                                        new_codes,
-                                                                        new_data_offsets,
-                                                                        new_data_indices,
-                                                                        new_data_labels,
-                                                                        src_offset_or_indices);
-}
-
 }  // namespace
 
 /**
@@ -387,152 +256,6 @@ void select_residuals(const handle_t& handle,
                residuals,
                rot_dim,
                stream);
-}
-
-/**
- * @param handle
- * @param index
- * @param n_rows
- * @param max_cluster_size
- * @param dataset [n_rows, dim]
- * @param data_indices
- *    tells which indices to select in the dataset for each cluster [n_rows];
- *    it should be partitioned by the clusters by now.
- * @param cluster_sizes     [n_clusters]
- * @param cluster_offsets  [n_clusters + 1]
- * @param pq_dataset
- *   // [n_rows, ceildiv(pq_dim, (kIndexGroupVecLen * 8u) / pq_bits), kIndexGroupVecLen]
- *   NB: in contrast to the final interleaved layout in ivf_pq::index::pq_dataset(), this function
- *       produces a non-interleaved data; it gets interleaved later when adding the data to the
- *       index.
- * @param device_memory
- */
-template <typename T, typename IdxT>
-void compute_pq_codes(const handle_t& handle,
-                      const index<IdxT>& index,
-                      IdxT n_rows,
-                      uint32_t max_cluster_size,
-                      const T* dataset,
-                      const IdxT* data_indices,
-                      const uint32_t* cluster_sizes,
-                      const IdxT* cluster_offsets,
-                      device_mdspan<pq_vec_t, pq_new_vec_exts, row_major> pq_dataset,
-                      rmm::mr::device_memory_resource* device_memory)
-{
-  auto pq_len     = index.pq_len();
-  auto pq_dim     = index.pq_dim();
-  auto pq_bits    = index.pq_bits();
-  auto pq_width   = index.pq_book_size();
-  auto n_clusters = index.n_lists();
-  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
-    "ivf_pq::compute_pq_codes(n_rows = %zu, data_dim = %u, rot_dim = %u (%u * %u), n_clusters = "
-    "%u)",
-    size_t(n_rows),
-    index.dim(),
-    index.rot_dim(),
-    pq_dim,
-    pq_len,
-    n_clusters);
-  auto stream = handle.get_stream();
-
-  //
-  // Compute PQ code
-  //
-
-  rmm::device_uvector<float> pq_centers_tmp(pq_len * pq_width, stream, device_memory);
-  rmm::device_uvector<float> rot_vectors(
-    size_t(max_cluster_size) * size_t(index.rot_dim()), stream, device_memory);
-  rmm::device_uvector<float> sub_vectors(
-    size_t(max_cluster_size) * size_t(pq_dim * pq_len), stream, device_memory);
-  rmm::device_uvector<uint32_t> sub_vector_labels(
-    size_t(max_cluster_size) * size_t(pq_dim), stream, device_memory);
-
-  for (uint32_t l = 0; l < n_clusters; l++) {
-    auto cluster_size = cluster_sizes[l];
-    common::nvtx::range<common::nvtx::domain::raft> cluster_scope(
-      "ivf_pq::compute_pq_codes::cluster[%u](size = %u)", l, cluster_size);
-    if (cluster_size == 0) continue;
-
-    select_residuals(handle,
-                     rot_vectors.data(),
-                     IdxT(cluster_size),
-                     index.dim(),
-                     index.rot_dim(),
-                     index.rotation_matrix().data_handle(),
-                     index.centers().data_handle() + size_t(l) * index.centers().extent(1),
-                     dataset,
-                     data_indices + cluster_offsets[l],
-                     device_memory);
-
-    //
-    // Change the order of the vector data to facilitate processing in
-    // each vector subspace.
-    //   input:  rot_vectors[cluster_size, rot_dim] = [cluster_size, pq_dim, pq_len]
-    //   output: sub_vectors[pq_dim, cluster_size, pq_len]
-    //
-    for (uint32_t i = 0; i < pq_dim; i++) {
-      RAFT_CUDA_TRY(
-        cudaMemcpy2DAsync(sub_vectors.data() + size_t(i) * size_t(pq_len) * size_t(cluster_size),
-                          sizeof(float) * pq_len,
-                          rot_vectors.data() + i * pq_len,
-                          sizeof(float) * index.rot_dim(),
-                          sizeof(float) * pq_len,
-                          cluster_size,
-                          cudaMemcpyDefault,
-                          stream));
-    }
-
-    auto pq_centers = index.pq_centers();
-    if (index.codebook_kind() == codebook_gen::PER_CLUSTER) {
-      linalg::writeOnlyUnaryOp(
-        pq_centers_tmp.data(),
-        pq_len * pq_width,
-        [pq_centers, pq_width, pq_len, l] __device__(float* out, uint32_t i) {
-          auto i0 = i / pq_len;
-          auto i1 = i % pq_len;
-          *out    = pq_centers(l, i1, i0);
-        },
-        stream);
-    }
-
-    //
-    // Find a label (cluster ID) for each vector subspace.
-    //
-    for (uint32_t j = 0; j < pq_dim; j++) {
-      if (index.codebook_kind() == codebook_gen::PER_SUBSPACE) {
-        linalg::writeOnlyUnaryOp(
-          pq_centers_tmp.data(),
-          pq_len * pq_width,
-          [pq_centers, pq_width, pq_len, j] __device__(float* out, uint32_t i) {
-            auto i0 = i / pq_len;
-            auto i1 = i % pq_len;
-            *out    = pq_centers(j, i1, i0);
-          },
-          stream);
-      }
-      kmeans::predict(handle,
-                      pq_centers_tmp.data(),
-                      pq_width,
-                      pq_len,
-                      sub_vectors.data() + size_t(j) * size_t(cluster_size) * size_t(pq_len),
-                      cluster_size,
-                      sub_vector_labels.data() + size_t(j) * size_t(cluster_size),
-                      raft::distance::DistanceType::L2Expanded,
-                      stream,
-                      device_memory);
-    }
-
-    //
-    // PQ encoding
-    //
-    ivfpq_encode(pq_dim,
-                 pq_bits,
-                 sub_vector_labels.data(),
-                 make_mdspan<pq_vec_t, IdxT, row_major, false, true>(
-                   pq_dataset.data_handle() + size_t(cluster_offsets[l]) * pq_dataset.extent(1),
-                   make_extents<IdxT>(cluster_size, pq_dataset.extent(1))),
-                 stream);
-  }
 }
 
 template <uint32_t BlockDim, typename IdxT>
@@ -815,6 +538,137 @@ inline auto reorder_clusters_by_size_desc(const handle_t& handle,
 }
 
 /**
+ * Compute the code: find the closest cluster in each pq_dim-subspace.
+ *
+ * @tparam SubWarpSize
+ *   how many threads work on a single vector;
+ *   bouded by either WarpSize or pq_book_size.
+ *
+ * @param pq_centers
+ *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_len, pq_book_size]
+ *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_len, pq_book_size]
+ * @param new_vector a single input of length rot_dim, reinterpreted as [pq_dim, pq_len].
+ *   the input must be already transformed to floats, rotated, and the level 1 cluster
+ *   center must be already substructed (i.e. this is the residual of a single input vector).
+ * @param codebook_kind
+ * @param j index along pq_dim "dimension"
+ * @param cluster_ix is used for PER_CLUSTER codebooks.
+ */
+template <uint32_t SubWarpSize>
+__device__ auto compute_pq_code(
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
+  device_mdspan<const float, extent_2d<uint32_t>, row_major> new_vector,
+  codebook_gen codebook_kind,
+  uint32_t j,
+  uint32_t cluster_ix) -> uint8_t
+{
+  using subwarp_align = Pow2<SubWarpSize>;
+  uint32_t lane_id    = subwarp_align::mod(laneId());
+  uint32_t partition_ix;
+  switch (codebook_kind) {
+    case codebook_gen::PER_CLUSTER: {
+      partition_ix = cluster_ix;
+    } break;
+    case codebook_gen::PER_SUBSPACE: {
+      partition_ix = j;
+    } break;
+    default: __builtin_unreachable();
+  }
+
+  const uint32_t pq_book_size = pq_centers.extent(2);
+  const uint32_t pq_len       = pq_centers.extent(1);
+  float min_dist              = std::numeric_limits<float>::infinity();
+  uint8_t code                = 0;
+  // calculate the distance for each PQ cluster, find the minimum for each thread
+  for (uint32_t i = lane_id; i < pq_book_size; i += subwarp_align::Value) {
+    // NB: the L2 quantifiers on residuals are always trained on L2 metric.
+    float d = 0.0f;
+    for (uint32_t k = 0; k < pq_len; k++) {
+      auto t = new_vector(j, k) - pq_centers(partition_ix, k, i);
+      d += t * t;
+    }
+    if (d < min_dist) {
+      min_dist = d;
+      code     = uint8_t(i);
+    }
+  }
+  // reduce among threads
+#pragma unroll
+  for (uint32_t stride = SubWarpSize >> 1; stride > 0; stride >>= 1) {
+    const auto other_dist = shfl_xor(min_dist, stride, SubWarpSize);
+    const auto other_code = shfl_xor(code, stride, SubWarpSize);
+    if (other_dist < min_dist) {
+      min_dist = other_dist;
+      code     = other_code;
+    }
+  }
+  return code;
+}
+
+template <uint32_t BlockSize, uint32_t PqBits, typename IdxT>
+__launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
+  device_mdspan<const float, extent_2d<IdxT>, row_major> new_vectors,
+  std::variant<IdxT, const IdxT*> src_offset_or_indices,
+  const uint32_t* new_labels,
+  device_mdspan<uint32_t, extent_1d<uint32_t>, row_major> list_sizes,
+  device_mdspan<const IdxT, extent_1d<uint32_t>, row_major> list_offsets,
+  device_mdspan<IdxT, extent_1d<IdxT>, row_major> pq_indices,
+  device_mdspan<pq_vec_t, pq_int_vec_exts, row_major> pq_dataset,
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
+  codebook_gen codebook_kind)
+{
+  constexpr uint32_t kSubWarpSize = std::min<uint32_t>(WarpSize, 1u << PqBits);
+  using subwarp_align             = Pow2<kSubWarpSize>;
+  const uint32_t lane_id          = subwarp_align::mod(threadIdx.x);
+  const IdxT row_ix = subwarp_align::div(IdxT{threadIdx.x} + IdxT{blockDim.x} * IdxT{blockIdx.x});
+  if (row_ix >= new_vectors.extent(0)) { return; }
+
+  const uint32_t cluster_ix = new_labels[row_ix];
+  uint32_t out_incluster_ix;
+  if (lane_id == 0) { out_incluster_ix = atomicAdd(&list_sizes(cluster_ix), 1); }
+  out_incluster_ix  = shfl(out_incluster_ix, 0, kSubWarpSize);
+  const IdxT out_ix = list_offsets(cluster_ix) + out_incluster_ix;
+
+  // write the label
+  if (lane_id == 0) {
+    if (std::holds_alternative<IdxT>(src_offset_or_indices)) {
+      pq_indices(out_ix) = std::get<IdxT>(src_offset_or_indices) + row_ix;
+    } else {
+      pq_indices(out_ix) = std::get<const IdxT*>(src_offset_or_indices)[row_ix];
+    }
+  }
+
+  // write the codes
+  using group_align         = Pow2<kIndexGroupSize>;
+  const uint32_t group_ix   = group_align::div(out_ix);
+  const uint32_t ingroup_ix = group_align::mod(out_ix);
+  const uint32_t pq_len     = pq_centers.extent(1);
+  const uint32_t pq_dim     = new_vectors.extent(1) / pq_len;
+
+  __shared__ pq_vec_t codes[subwarp_align::div(BlockSize)];
+  pq_vec_t& code = codes[subwarp_align::div(threadIdx.x)];
+  bitfield_view_t<PqBits> out{reinterpret_cast<uint8_t*>(&code)};
+  constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
+  for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
+    // clear the chunk for writing
+    if (lane_id == 0) { code = pq_vec_t{}; }
+    // fill-in the values, one/pq_dim at a time
+#pragma unroll
+    for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
+      // find the label
+      using layout_t   = typename decltype(new_vectors)::layout_type;
+      using accessor_t = typename decltype(new_vectors)::accessor_type;
+      auto one_vector  = mdspan<const float, extent_2d<uint32_t>, layout_t, accessor_t>(
+        &new_vectors(row_ix, 0), extent_2d<uint32_t>{pq_dim, pq_len});
+      auto l = compute_pq_code<kSubWarpSize>(pq_centers, one_vector, codebook_kind, j, cluster_ix);
+      if (lane_id == 0) { out[k] = l; }
+    }
+    // write the chunk into the dataset
+    if (lane_id == 0) { pq_dataset(group_ix, i, ingroup_ix) = code; }
+  }
+}
+
+/**
  * Assuming the index already has some data and allocated the space for more, write more data in it.
  * There must be enough free space in `pq_dataset()` and `indices()`, as computed using
  * `list_offsets()` and `list_sizes()`.
@@ -846,8 +700,7 @@ void process_and_fill_codes(const handle_t& handle,
                             std::variant<IdxT, const IdxT*> src_offset_or_indices,
                             const uint32_t* new_labels,
                             IdxT n_rows,
-                            rmm::mr::device_memory_resource* device_memory,
-                            rmm::mr::device_memory_resource* managed_memory)
+                            rmm::mr::device_memory_resource* mr)
 {
   pq_int_vec_exts pq_extents = make_extents<size_t>(index.pq_dataset().extent(0),
                                                     index.pq_dataset().extent(1),
@@ -855,62 +708,68 @@ void process_and_fill_codes(const handle_t& handle,
   auto pq_dataset            = make_mdspan<pq_vec_t, size_t, row_major, false, true>(
     reinterpret_cast<pq_vec_t*>(index.pq_dataset().data_handle()), pq_extents);
 
-  rmm::device_uvector<uint32_t> new_cluster_sizes_buf(
-    index.n_lists(), handle.get_stream(), managed_memory);  // host access in compute_pq_codes
-  auto new_cluster_sizes = new_cluster_sizes_buf.data();
-  rmm::device_uvector<IdxT> new_cluster_offsets(
-    index.n_lists() + 1, handle.get_stream(), managed_memory);  // host access in compute_pq_codes
-  raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
-                                         reinterpret_cast<int32_t*>(new_cluster_sizes),
-                                         IdxT(index.n_lists()),
+  auto stream = handle.get_stream();
+  auto new_vectors_residual =
+    make_device_mdarray<float>(handle, mr, make_extents<IdxT>(n_rows, index.rot_dim()));
+
+  {
+    auto dim             = index.dim();
+    auto cluster_centers = index.centers();
+    rmm::device_uvector<float> tmp(n_rows * index.dim(), stream, mr);
+    linalg::writeOnlyUnaryOp(
+      tmp.data(),
+      tmp.size(),
+      [cluster_centers, new_vectors, new_labels, dim] __device__(float* out, size_t i) {
+        auto row_ix = i / dim;
+        auto el_ix  = i % dim;
+        auto label  = new_labels[row_ix];
+        *out        = utils::mapping<float>{}(new_vectors[i]) - cluster_centers(label, el_ix);
+      },
+      stream);
+
+    float alpha = 1.0f;
+    float beta  = 0.0f;
+    linalg::gemm(handle,
+                 true,
+                 false,
+                 index.rot_dim(),
+                 n_rows,
+                 dim,
+                 &alpha,
+                 index.rotation_matrix().data_handle(),
+                 dim,
+                 tmp.data(),
+                 dim,
+                 &beta,
+                 new_vectors_residual.data_handle(),
+                 index.rot_dim(),
+                 stream);
+  }
+
+  constexpr uint32_t kBlockSize  = 256;
+  const uint32_t threads_per_vec = std::min<uint32_t>(WarpSize, index.pq_book_size());
+  dim3 blocks(div_rounding_up_safe<IdxT>(n_rows, kBlockSize / threads_per_vec), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [](uint32_t pq_bits) {
+    switch (pq_bits) {
+      case 4: return process_and_fill_codes_kernel<kBlockSize, 4, IdxT>;
+      case 5: return process_and_fill_codes_kernel<kBlockSize, 5, IdxT>;
+      case 6: return process_and_fill_codes_kernel<kBlockSize, 6, IdxT>;
+      case 7: return process_and_fill_codes_kernel<kBlockSize, 7, IdxT>;
+      case 8: return process_and_fill_codes_kernel<kBlockSize, 8, IdxT>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }(index.pq_bits());
+  kernel<<<blocks, threads, 0, stream>>>(new_vectors_residual.view(),
+                                         src_offset_or_indices,
                                          new_labels,
-                                         n_rows,
-                                         1,
-                                         handle.get_stream());
-
-  rmm::device_uvector<IdxT> new_data_indices(n_rows, handle.get_stream(), device_memory);
-  uint32_t new_max_cluster_size = calculate_offsets_and_indices(n_rows,
-                                                                index.n_lists(),
-                                                                new_labels,
-                                                                new_cluster_sizes,
-                                                                new_cluster_offsets.data(),
-                                                                new_data_indices.data(),
-                                                                handle.get_stream());
-
-  // Compute PQ code for new vectors
-  pq_new_vec_exts new_pq_extents = make_extents<size_t>(n_rows, pq_dataset.extent(1));
-  auto new_pq_codes = make_device_mdarray<pq_vec_t>(handle, device_memory, new_pq_extents);
-
-  handle.sync_stream();  // sync `new_cluster_offsets`, `new_cluster_sizes`
-  compute_pq_codes(handle,
-                   index,
-                   n_rows,
-                   new_max_cluster_size,
-                   new_vectors,
-                   new_data_indices.data(),
-                   new_cluster_sizes,
-                   new_cluster_offsets.data(),
-                   new_pq_codes.view(),
-                   device_memory);
-
-  // Fill the DB with the new codes
-  ivfpq_fill_new_data(pq_dataset,
-                      index.indices(),
-                      index.list_offsets(),
-                      index.list_sizes(),
-                      new_pq_codes.view(),
-                      new_cluster_offsets.data(),
-                      new_data_indices.data(),
-                      new_labels,
-                      src_offset_or_indices,
-                      handle.get_stream());
-
-  // update sizes
-  linalg::add(index.list_sizes().data_handle(),
-              index.list_sizes().data_handle(),
-              new_cluster_sizes,
-              index.n_lists(),
-              handle.get_stream());
+                                         index.list_sizes(),
+                                         index.list_offsets(),
+                                         index.indices(),
+                                         pq_dataset,
+                                         index.pq_centers(),
+                                         index.codebook_kind());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -1079,8 +938,8 @@ auto extend(const handle_t& handle,
   size_t free_mem, total_mem;
   RAFT_CUDA_TRY(cudaMemGetInfo(&free_mem, &total_mem));
 
-  // Decide on an approximate threshold when we'd better start saving device memory by using managed
-  // allocations for large device buffers
+  // Decide on an approximate threshold when we'd better start saving device memory by using
+  // managed allocations for large device buffers
   rmm::mr::device_memory_resource* labels_mr  = device_memory;
   rmm::mr::device_memory_resource* batches_mr = device_memory;
   if (n_rows *
@@ -1093,11 +952,12 @@ auto extend(const handle_t& handle,
   if (labels_mr == device_memory) { free_mem -= sizeof(uint32_t) * n_rows; }
 
   // Calculate the batch size for the input data if it's not accessible directly from the device
-  size_t max_batch_size = n_rows;
+  constexpr size_t kReasonableMaxBatchSize = 65536;
+  size_t max_batch_size                    = std::min<size_t>(n_rows, kReasonableMaxBatchSize);
   {
     size_t size_factor = 0;
-    // we'll use a temporary pq codes buffer when building the index.
-    size_factor += orig_index.pq_dataset().extent(1) * kIndexGroupVecLen;
+    // we'll use two temporary buffers for converted inputs when computing the codes.
+    size_factor += (orig_index.dim() + orig_index.rot_dim()) * sizeof(float);
     // ...and another buffer for indices
     size_factor += sizeof(IdxT);
     // if the input data is not accessible on device, we'd need a buffer for it.
@@ -1114,27 +974,16 @@ auto extend(const handle_t& handle,
         default: size_factor += sizeof(IdxT);
       }
     }
-    if (size_factor * max_batch_size > free_mem) {
-      // make the batch size fit into the remaining memory and leave a bit more, just in case
-      max_batch_size = Pow2<1024>::roundUp(1 + (free_mem * 2) / (size_factor * 3));
-      // if the needed memory is still too large due to our rounding, reduce the batch size further
-      while (size_factor * max_batch_size > free_mem) {
-        max_batch_size >>= 1;
-      }
+    // make the batch size fit into the remaining memory
+    while (size_factor * max_batch_size > free_mem && max_batch_size > 128) {
+      max_batch_size >>= 1;
     }
-    constexpr size_t kLimitedMemoryRatio = 8;
-    if (free_mem * kLimitedMemoryRatio < total_mem &&
-        max_batch_size * kLimitedMemoryRatio < size_t(n_rows)) {
-      // If only a small fraction of the total memory available for temporary buffers,
-      // the performance hit from batching can be very strong.
-      // In such cases, the algorithm is going to be faster with UVM on larger batches.
-      batches_mr = &managed_memory;
-      // ...Though we still may need to batch if the data size is extremely big.
-      // A reasonable batch selection here is roughly equal to the total device memory.
-      max_batch_size = div_rounding_up_safe<size_t>(
-        n_rows, div_rounding_up_safe<size_t>(n_rows, 1 + total_mem / size_factor));
+    if (size_factor * max_batch_size > free_mem) {
+      // if that still doesn't fit, resort to the UVM
+      batches_mr     = &managed_memory;
+      max_batch_size = kReasonableMaxBatchSize;
     } else {
-      // If we're still keeping the batches in device memory, update the available mem tracker.
+      // If we're keeping the batches in device memory, update the available mem tracker.
       free_mem -= size_factor * max_batch_size;
     }
   }
@@ -1256,8 +1105,7 @@ auto extend(const handle_t& handle,
                              : std::variant<IdxT, const IdxT*>(IdxT(idx_batch.offset())),
                            new_data_labels.data() + vec_batch.offset(),
                            IdxT(vec_batch.size()),
-                           batches_mr,
-                           &managed_memory);
+                           batches_mr);
   }
 
   return ext_index;
