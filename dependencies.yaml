@@ -48,7 +48,6 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - rapids-build-env=23.02.*
     specific:
       - output_types: conda
         matrices:
@@ -117,13 +116,11 @@ dependencies:
       - output_types: [conda]
         packages:
           - doxygen>=1.8.20
-          - rapids-doc-env=23.02.*
           - sphinx-markdown-tables
   notebook:
     common:
       - output_types: [conda]
         packages:
-          - rapids-notebook-env=23.02.*
   py_version:
     specific:
       - output_types: conda
