@@ -10,7 +10,6 @@ files:
       - cudatoolkit
       - develop
       - doc
-      - notebook
       - run
       - test_python
   test_cpp:
@@ -117,10 +116,6 @@ dependencies:
         packages:
           - doxygen>=1.8.20
           - sphinx-markdown-tables
-  notebook:
-    common:
-      - output_types: [conda]
-        packages:
   py_version:
     specific:
       - output_types: conda
