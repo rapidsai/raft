@@ -732,7 +732,7 @@ def save(filename, Index index, handle=None):
 
     Saving / loading the index is experimental. The serialization format is
     subject to change.
-    
+
     Parameters
     ----------
     filename : string
@@ -765,7 +765,7 @@ def save(filename, Index index, handle=None):
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    cdef string c_filename = filename.encode('utf-8') 
+    cdef string c_filename = filename.encode('utf-8')
 
     c_ivf_pq.save(deref(handle_), c_filename, deref(index.index))
 
@@ -778,7 +778,7 @@ def load(filename, handle=None):
     Saving / loading the index is experimental. The serialization format is
     subject to change, therefore loading an index saved with a previous
     version of raft is not guaranteed to work.
-    
+
     Parameters
     ----------
     filename : string

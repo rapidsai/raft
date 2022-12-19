@@ -405,6 +405,7 @@ void save(const handle_t& handle, const std::string& filename, const index<T, Id
   write_scalar(of, index_.n_lists());
   write_scalar(of, index_.metric());
   write_scalar(of, index_.veclen());
+  write_scalar(of, index_.adaptive_centers());
   write_mdspan(handle, of, index_.data());
   write_mdspan(handle, of, index_.indices());
   write_mdspan(handle, of, index_.list_sizes());
@@ -442,14 +443,15 @@ auto load(const handle_t& handle, const std::string& filename) -> index<T, IdxT>
   if (ver != serialization_version) {
     RAFT_FAIL("serialization version mismatch, expected %d, got %d ", serialization_version, ver);
   }
-  auto n_rows  = read_scalar<IdxT>(infile);
-  auto dim     = read_scalar<uint32_t>(infile);
-  auto n_lists = read_scalar<uint32_t>(infile);
-  auto metric  = read_scalar<raft::distance::DistanceType>(infile);
-  auto veclen  = read_scalar<uint32_t>(infile);
+  auto n_rows           = read_scalar<IdxT>(infile);
+  auto dim              = read_scalar<uint32_t>(infile);
+  auto n_lists          = read_scalar<uint32_t>(infile);
+  auto metric           = read_scalar<raft::distance::DistanceType>(infile);
+  auto veclen           = read_scalar<uint32_t>(infile);
+  bool adaptive_centers = read_scalar<bool>(infile);
 
   index<T, IdxT> index_ =
-    raft::spatial::knn::ivf_flat::index<T, IdxT>(handle, metric, n_lists, dim);
+    raft::spatial::knn::ivf_flat::index<T, IdxT>(handle, metric, n_lists, adaptive_centers, dim);
 
   index_.allocate(handle, n_rows, metric == raft::distance::DistanceType::L2Expanded);
   auto data = index_.data();

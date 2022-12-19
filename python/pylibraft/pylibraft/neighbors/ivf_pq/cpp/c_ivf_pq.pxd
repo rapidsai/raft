@@ -179,8 +179,8 @@ cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
 
     cdef void save(const handle_t& handle,
                    const string& filename,
-                   const index[uint64_t]& index);
+                   const index[uint64_t]& index)
 
     cdef void load(const handle_t& handle,
                    const string& filename,
-                   index[uint64_t]* index);
+                   index[uint64_t]* index)
