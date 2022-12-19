@@ -23,10 +23,8 @@
 #include <rmm/device_uvector.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuResources.h>
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
 
 #include <cstdint>
 #include <iostream>

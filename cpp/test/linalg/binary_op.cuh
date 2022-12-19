@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <raft/linalg/binary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 
