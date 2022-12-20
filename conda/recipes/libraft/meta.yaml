@@ -45,7 +45,7 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
-        - cudatoolkit {{ cuda_version }}.*
+        - cudatoolkit={{ cuda_version }}
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
         - libcublas-dev {{ libcublas_host_version }}
         - libcublas {{ libcublas_host_version }}
@@ -55,7 +55,7 @@ outputs:
         - libcusolver {{ libcusolver_host_version }}
         - libcusparse-dev {{ libcusparse_host_version }}
         - libcusparse {{ libcusparse_host_version }}
-        - librmm {{ minor_version }}.*
+        - librmm={{ minor_version }}
       run:
         - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
@@ -67,7 +67,7 @@ outputs:
         - libcusolver {{ libcusolver_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
         - libcusparse {{ libcusparse_run_version }}
-        - librmm {{ minor_version }}.*
+        - librmm={{ minor_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
