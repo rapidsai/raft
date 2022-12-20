@@ -40,9 +40,9 @@ enum resource_type_t {
 
 class resource_t {
  public:
-  virtual void* get_resource();
+  virtual void* get_resource() = 0;
 
-  virtual ~resource_t();
+  virtual ~resource_t() {}
 };
 
 /**
@@ -52,9 +52,9 @@ class resource_t {
  */
 class resource_factory_t {
  public:
-  virtual resource_type_t resource_type();
+  virtual resource_type_t resource_type() = 0;
 
-  virtual resource_t* make_resource();
+  virtual resource_t* make_resource() = 0;
 };
 
 }  // end NAMESPACE raft::core

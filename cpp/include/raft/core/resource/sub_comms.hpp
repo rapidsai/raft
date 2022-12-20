@@ -41,7 +41,7 @@ class sub_comms_resource_factory_t : public resource_factory_t {
   resource_t* make_resource() override { return new sub_comms_resource_t(); }
 };
 
-const comms::comms_t& get_subcomm(const base_handle_t& handle, std::string key)
+inline const comms::comms_t& get_subcomm(const base_handle_t& handle, std::string key)
 {
   if (!handle.has_resource_factory(resource_type_t::SUB_COMMUNICATOR)) {
     handle.add_resource_factory(std::make_shared<sub_comms_resource_factory_t>());

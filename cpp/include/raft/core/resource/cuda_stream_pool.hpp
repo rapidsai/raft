@@ -89,7 +89,7 @@ inline bool is_stream_pool_initialized(const base_handle_t& handle)
   return handle.has_resource_factory(resource_type_t::CUDA_STREAM_POOL);
 }
 
-std::size_t get_stream_pool_size(const base_handle_t& handle)
+inline std::size_t get_stream_pool_size(const base_handle_t& handle)
 {
   return is_stream_pool_initialized(handle) ? get_cuda_stream_pool(handle).get_pool_size() : 0;
 }

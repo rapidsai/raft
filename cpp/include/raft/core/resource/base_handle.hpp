@@ -17,6 +17,7 @@
 
 #include "resource_types.hpp"
 #include <mutex>
+#include <raft/core/logger.hpp>
 #include <string>
 #include <unordered_map>
 
@@ -50,6 +51,7 @@ class base_handle_t {
   {
     std::lock_guard<std::mutex> _(mutex_);
     if (resources_.find(resource_type) == resources_.end()) {
+      printf("Loading resource : %d\n", resource_type);
       resource_factory_t* factory = factories_.at(resource_type).get();
       resources_.insert(std::make_pair(resource_type, factory->make_resource()));
     }
