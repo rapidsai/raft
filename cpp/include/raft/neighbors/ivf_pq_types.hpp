@@ -323,7 +323,7 @@ struct index : ann::index {
       RAFT_FAIL(
         "ivf-pq: failed to allocate a big enough index to hold all data (size: %zu). "
         "Allocator exception: %s",
-        size_t{index_size},
+        size_t(index_size),
         e.what());
     }
     if (index_size > 0) {
