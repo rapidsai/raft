@@ -90,8 +90,14 @@ void select_k_impl(const handle_t& handle,
       auto in_idx_span = make_mdspan<const IdxT, size_t, row_major, false, true>(in_idx, in_extent);
       auto out_span    = make_mdspan<T, size_t, row_major, false, true>(out, out_extent);
       auto out_idx_span = make_mdspan<IdxT, size_t, row_major, false, true>(out_idx, out_extent);
-      return matrix::select_k<T, IdxT>(
-        handle, in_span, in_idx_span, out_span, out_idx_span, select_min, mr);
+      if (in_idx == nullptr) {
+        // NB: std::nullopt prevents automatic inference of the template parameters.
+        return matrix::select_k<T, IdxT>(
+          handle, in_span, std::nullopt, out_span, out_idx_span, select_min, mr);
+      } else {
+        return matrix::select_k(
+          handle, in_span, std::make_optional(in_idx_span), out_span, out_idx_span, select_min, mr);
+      }
     }
     case Algo::kRadix8bits:
       return detail::select::radix::select_k<T, IdxT, 8, 512>(
