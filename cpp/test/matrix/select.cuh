@@ -18,6 +18,8 @@
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select.cuh>
 
+#include <raft/core/handle.hpp>
+
 #include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft::matrix::select {
@@ -67,7 +69,8 @@ inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
 }
 
 template <typename T, typename IdxT>
-void select_k_impl(const Algo& algo,
+void select_k_impl(const handle_t& handle,
+                   const Algo& algo,
                    const T* in,
                    const IdxT* in_idx,
                    size_t batch_size,
@@ -76,9 +79,9 @@ void select_k_impl(const Algo& algo,
                    T* out,
                    IdxT* out_idx,
                    bool select_min,
-                   rmm::cuda_stream_view stream,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
+  auto stream = handle.get_stream();
   switch (algo) {
     case Algo::kPublicApi: {
       auto in_extent   = make_extents<size_t>(batch_size, len);
@@ -88,7 +91,7 @@ void select_k_impl(const Algo& algo,
       auto out_span    = make_mdspan<T, size_t, row_major, false, true>(out, out_extent);
       auto out_idx_span = make_mdspan<IdxT, size_t, row_major, false, true>(out_idx, out_extent);
       return matrix::select_k<T, IdxT>(
-        in_span, in_idx_span, out_span, out_idx_span, select_min, stream, mr);
+        handle, in_span, in_idx_span, out_span, out_idx_span, select_min, mr);
     }
     case Algo::kRadix8bits:
       return detail::select::radix::select_k<T, IdxT, 8, 512>(

@@ -20,6 +20,7 @@
 #include "detail/select_warpsort.cuh"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -103,6 +104,7 @@ void select_k(const T* in_val,
  * @tparam IdxT
  *   the index type (what is being selected together with the keys).
  *
+ * @param handle
  * @param[in] in_val
  *   inputs values [batch_size, len];
  *   these are compared and selected.
@@ -118,17 +120,16 @@ void select_k(const T* in_val,
  *   the payload selected together with `out_val`.
  * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
- * @param stream
  * @param mr an optional memory resource to use across the calls (you can provide a large enough
  *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT>
-void select_k(raft::device_matrix_view<const T, size_t, row_major> in_val,
+void select_k(const handle_t& handle,
+              raft::device_matrix_view<const T, size_t, row_major> in_val,
               std::optional<raft::device_matrix_view<const IdxT, size_t, row_major>> in_idx,
               raft::device_matrix_view<T, size_t, row_major> out_val,
               raft::device_matrix_view<IdxT, size_t, row_major> out_idx,
               bool select_min,
-              rmm::cuda_stream_view stream,
               rmm::mr::device_memory_resource* mr = nullptr)
 {
   RAFT_EXPECTS(out_val.extent(1) <= size_t(std::numeric_limits<int>::max()),
@@ -151,7 +152,7 @@ void select_k(raft::device_matrix_view<const T, size_t, row_major> in_val,
                            out_val.data_handle(),
                            out_idx.data_handle(),
                            select_min,
-                           stream,
+                           handle.get_stream(),
                            mr);
 }
 

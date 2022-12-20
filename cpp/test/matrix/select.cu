@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include "select.cuh"
 
+#include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
@@ -100,7 +101,8 @@ struct io_computed {
       default: break;
     }
 
-    auto stream = rmm::cuda_stream_default;
+    handle_t handle{};
+    auto stream = handle.get_stream();
 
     rmm::device_uvector<KeyT> in_dists_d(in_dists_.size(), stream);
     rmm::device_uvector<IdxT> in_ids_d(in_ids_.size(), stream);
@@ -110,7 +112,8 @@ struct io_computed {
     update_device(in_dists_d.data(), in_dists_.data(), in_dists_.size(), stream);
     update_device(in_ids_d.data(), in_ids_.data(), in_ids_.size(), stream);
 
-    select::select_k_impl<KeyT, IdxT>(algo,
+    select::select_k_impl<KeyT, IdxT>(handle,
+                                      algo,
                                       in_dists_d.data(),
                                       spec.use_index_input ? in_ids_d.data() : nullptr,
                                       spec.batch_size,
@@ -118,8 +121,7 @@ struct io_computed {
                                       spec.k,
                                       out_dists_d.data(),
                                       out_ids_d.data(),
-                                      spec.select_min,
-                                      stream);
+                                      spec.select_min);
 
     update_host(out_dists_.data(), out_dists_d.data(), out_dists_.size(), stream);
     update_host(out_ids_.data(), out_ids_d.data(), out_ids_.size(), stream);

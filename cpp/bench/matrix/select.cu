@@ -18,6 +18,7 @@
 
 #include <common/benchmark.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
@@ -50,13 +51,15 @@ struct selection : public fixture {
 
   void run_benchmark(::benchmark::State& state) override  // NOLINT
   {
+    handle_t handle{stream};
     using_pool_memory_res res;
     try {
       std::ostringstream label_stream;
       label_stream << params_.batch_size << "#" << params_.len << "#" << params_.k;
       state.SetLabel(label_stream.str());
-      loop_on_state(state, [this]() {
-        select::select_k_impl<KeyT, IdxT>(Algo,
+      loop_on_state(state, [this, &handle]() {
+        select::select_k_impl<KeyT, IdxT>(handle,
+                                          Algo,
                                           in_dists_.data(),
                                           in_ids_.data(),
                                           params_.batch_size,
@@ -64,8 +67,7 @@ struct selection : public fixture {
                                           params_.k,
                                           out_dists_.data(),
                                           out_ids_.data(),
-                                          params_.select_min,
-                                          stream);
+                                          params_.select_min);
       });
     } catch (raft::exception& e) {
       state.SkipWithError(e.what());
