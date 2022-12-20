@@ -27,8 +27,8 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/norm.cuh>
+#include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
-#include <raft/matrix/select_k.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_loads_stores.cuh>
 #include <raft/util/integer_utils.hpp>
@@ -1151,16 +1151,16 @@ void search_impl(const handle_t& handle,
                stream);
 
   RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), std::min<uint32_t>(20, index.n_lists()));
-  matrix::select_k<AccT, uint32_t>(distance_buffer_dev.data(),
-                                   nullptr,
-                                   n_queries,
-                                   index.n_lists(),
-                                   n_probes,
-                                   coarse_distances_dev.data(),
-                                   coarse_indices_dev.data(),
-                                   select_min,
-                                   stream,
-                                   search_mr);
+  matrix::detail::select_k<AccT, uint32_t>(distance_buffer_dev.data(),
+                                           nullptr,
+                                           n_queries,
+                                           index.n_lists(),
+                                           n_probes,
+                                           coarse_distances_dev.data(),
+                                           coarse_indices_dev.data(),
+                                           select_min,
+                                           stream,
+                                           search_mr);
   RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), n_probes);
   RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), n_probes);
 
@@ -1209,16 +1209,16 @@ void search_impl(const handle_t& handle,
 
   // Merge topk values from different blocks
   if (grid_dim_x > 1) {
-    matrix::select_k<AccT, IdxT>(refined_distances_dev.data(),
-                                 refined_indices_dev.data(),
-                                 n_queries,
-                                 k * grid_dim_x,
-                                 k,
-                                 distances,
-                                 neighbors,
-                                 select_min,
-                                 stream,
-                                 search_mr);
+    matrix::detail::select_k<AccT, IdxT>(refined_distances_dev.data(),
+                                         refined_indices_dev.data(),
+                                         n_queries,
+                                         k * grid_dim_x,
+                                         k,
+                                         distances,
+                                         neighbors,
+                                         select_min,
+                                         stream,
+                                         search_mr);
   }
 }
 

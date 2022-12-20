@@ -28,8 +28,8 @@
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
-#include <raft/matrix/select_k.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/device_loads_stores.cuh>
@@ -219,16 +219,16 @@ void select_clusters(const handle_t& handle,
 
   // Select neighbor clusters for each query.
   rmm::device_uvector<float> cluster_dists(n_queries * n_probes, stream, mr);
-  matrix::select_k<float, uint32_t>(qc_distances.data(),
-                                    nullptr,
-                                    n_queries,
-                                    n_lists,
-                                    n_probes,
-                                    cluster_dists.data(),
-                                    clusters_to_probe,
-                                    true,
-                                    stream,
-                                    mr);
+  matrix::detail::select_k<float, uint32_t>(qc_distances.data(),
+                                            nullptr,
+                                            n_queries,
+                                            n_lists,
+                                            n_probes,
+                                            cluster_dists.data(),
+                                            clusters_to_probe,
+                                            true,
+                                            stream,
+                                            mr);
 }
 
 /**
@@ -1410,16 +1410,16 @@ void ivfpq_search_worker(const handle_t& handle,
 
   // Select topk vectors for each query
   rmm::device_uvector<ScoreT> topk_dists(n_queries * topK, stream, mr);
-  matrix::select_k<ScoreT, IdxT>(distances_buf.data(),
-                                 neighbors_ptr,
-                                 n_queries,
-                                 topk_len,
-                                 topK,
-                                 topk_dists.data(),
-                                 neighbors,
-                                 true,
-                                 stream,
-                                 mr);
+  matrix::detail::select_k<ScoreT, IdxT>(distances_buf.data(),
+                                         neighbors_ptr,
+                                         n_queries,
+                                         topk_len,
+                                         topK,
+                                         topk_dists.data(),
+                                         neighbors,
+                                         true,
+                                         stream,
+                                         mr);
 
   // Postprocessing
   postprocess_distances(
