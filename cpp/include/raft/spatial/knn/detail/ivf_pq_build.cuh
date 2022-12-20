@@ -259,6 +259,58 @@ void select_residuals(const handle_t& handle,
                stream);
 }
 
+/**
+ * @brief Compute residual vectors from the source dataset given by selected indices.
+ *
+ * The residual has the form
+ *  `rotation_matrix %* (dataset[:, :] - centers[labels[:], 0:dim])`
+ *
+ */
+template <typename T, typename IdxT>
+void flat_compute_residuals(
+  const handle_t& handle,
+  float* residuals,  // [n_rows, rot_dim]
+  IdxT n_rows,
+  device_mdspan<const float, extent_2d<uint32_t>, row_major> rotation_matrix,  // [rot_dim, dim]
+  device_mdspan<const float, extent_2d<uint32_t>, row_major> centers,          // [n_lists, dim_ext]
+  const T* dataset,                                                            // [n_rows, dim]
+  const uint32_t* labels,                                                      // [n_rows]
+  rmm::mr::device_memory_resource* device_memory)
+{
+  auto stream  = handle.get_stream();
+  auto dim     = rotation_matrix.extent(1);
+  auto rot_dim = rotation_matrix.extent(0);
+  rmm::device_uvector<float> tmp(n_rows * dim, stream, device_memory);
+  linalg::writeOnlyUnaryOp(
+    tmp.data(),
+    tmp.size(),
+    [centers, dataset, labels, dim] __device__(float* out, size_t i) {
+      auto row_ix = i / dim;
+      auto el_ix  = i % dim;
+      auto label  = labels[row_ix];
+      *out        = utils::mapping<float>{}(dataset[i]) - centers(label, el_ix);
+    },
+    stream);
+
+  float alpha = 1.0f;
+  float beta  = 0.0f;
+  linalg::gemm(handle,
+               true,
+               false,
+               rot_dim,
+               n_rows,
+               dim,
+               &alpha,
+               rotation_matrix.data_handle(),
+               dim,
+               tmp.data(),
+               dim,
+               &beta,
+               residuals,
+               rot_dim,
+               stream);
+}
+
 template <uint32_t BlockDim, typename IdxT>
 __launch_bounds__(BlockDim) __global__ void fill_indices_kernel(IdxT n_rows,
                                                                 IdxT* data_indices,
@@ -711,45 +763,17 @@ void process_and_fill_codes(const handle_t& handle,
   auto pq_dataset            = make_mdspan<pq_vec_t, size_t, row_major, false, true>(
     reinterpret_cast<pq_vec_t*>(index.pq_dataset().data_handle()), pq_extents);
 
-  auto stream = handle.get_stream();
   auto new_vectors_residual =
     make_device_mdarray<float>(handle, mr, make_extents<IdxT>(n_rows, index.rot_dim()));
 
-  {
-    // compute residuals of the new_vectors
-    //  `rotation_matrix %* (new_vectors[:, :] - centers[new_labels[:], :])`
-    auto dim             = index.dim();
-    auto cluster_centers = index.centers();
-    rmm::device_uvector<float> tmp(n_rows * index.dim(), stream, mr);
-    linalg::writeOnlyUnaryOp(
-      tmp.data(),
-      tmp.size(),
-      [cluster_centers, new_vectors, new_labels, dim] __device__(float* out, size_t i) {
-        auto row_ix = i / dim;
-        auto el_ix  = i % dim;
-        auto label  = new_labels[row_ix];
-        *out        = utils::mapping<float>{}(new_vectors[i]) - cluster_centers(label, el_ix);
-      },
-      stream);
-
-    float alpha = 1.0f;
-    float beta  = 0.0f;
-    linalg::gemm(handle,
-                 true,
-                 false,
-                 index.rot_dim(),
-                 n_rows,
-                 dim,
-                 &alpha,
-                 index.rotation_matrix().data_handle(),
-                 dim,
-                 tmp.data(),
-                 dim,
-                 &beta,
-                 new_vectors_residual.data_handle(),
-                 index.rot_dim(),
-                 stream);
-  }
+  flat_compute_residuals(handle,
+                         new_vectors_residual.data_handle(),
+                         n_rows,
+                         index.rotation_matrix(),
+                         index.centers(),
+                         new_vectors,
+                         new_labels,
+                         mr);
 
   constexpr uint32_t kBlockSize  = 256;
   const uint32_t threads_per_vec = std::min<uint32_t>(WarpSize, index.pq_book_size());
@@ -765,15 +789,15 @@ void process_and_fill_codes(const handle_t& handle,
       default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
     }
   }(index.pq_bits());
-  kernel<<<blocks, threads, 0, stream>>>(new_vectors_residual.view(),
-                                         src_offset_or_indices,
-                                         new_labels,
-                                         index.list_sizes(),
-                                         index.list_offsets(),
-                                         index.indices(),
-                                         pq_dataset,
-                                         index.pq_centers(),
-                                         index.codebook_kind());
+  kernel<<<blocks, threads, 0, handle.get_stream()>>>(new_vectors_residual.view(),
+                                                      src_offset_or_indices,
+                                                      new_labels,
+                                                      index.list_sizes(),
+                                                      index.list_offsets(),
+                                                      index.indices(),
+                                                      pq_dataset,
+                                                      index.pq_centers(),
+                                                      index.codebook_kind());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
