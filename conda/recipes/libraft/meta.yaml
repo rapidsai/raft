@@ -20,18 +20,18 @@ outputs:
     script: build_libraft_headers.sh
     build:
       script_env: &script_env
-        - PARALLEL_LEVEL
-        - CMAKE_GENERATOR
-        - CMAKE_C_COMPILER_LAUNCHER
-        - CMAKE_CXX_COMPILER_LAUNCHER
-        - CMAKE_CUDA_COMPILER_LAUNCHER
-        - SCCACHE_S3_KEY_PREFIX=libraft-aarch64 # [aarch64]
-        - SCCACHE_S3_KEY_PREFIX=libraft-linux64 # [linux64]
-        - SCCACHE_BUCKET
-        - SCCACHE_REGION
-        - SCCACHE_IDLE_TIMEOUT
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
+        - CMAKE_C_COMPILER_LAUNCHER
+        - CMAKE_CUDA_COMPILER_LAUNCHER
+        - CMAKE_CXX_COMPILER_LAUNCHER
+        - CMAKE_GENERATOR
+        - PARALLEL_LEVEL
+        - SCCACHE_BUCKET
+        - SCCACHE_IDLE_TIMEOUT
+        - SCCACHE_REGION
+        - SCCACHE_S3_KEY_PREFIX=libraft-aarch64 # [aarch64]
+        - SCCACHE_S3_KEY_PREFIX=libraft-linux64 # [linux64]
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
@@ -45,28 +45,28 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
-        - cudatoolkit ={{ cuda_version }}
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
-        - libcublas-dev {{ libcublas_host_version }}
+        - cudatoolkit ={{ cuda_version }}
         - libcublas {{ libcublas_host_version }}
-        - libcurand-dev {{ libcurand_host_version }}
+        - libcublas-dev {{ libcublas_host_version }}
         - libcurand {{ libcurand_host_version }}
-        - libcusolver-dev {{ libcusolver_host_version }}
+        - libcurand-dev {{ libcurand_host_version }}
         - libcusolver {{ libcusolver_host_version }}
-        - libcusparse-dev {{ libcusparse_host_version }}
+        - libcusolver-dev {{ libcusolver_host_version }}
         - libcusparse {{ libcusparse_host_version }}
+        - libcusparse-dev {{ libcusparse_host_version }}
         - librmm ={{ minor_version }}
       run:
         - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
-        - libcublas-dev {{ libcublas_run_version }}
         - libcublas {{ libcublas_run_version }}
-        - libcurand-dev {{ libcurand_run_version }}
+        - libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
-        - libcusolver-dev {{ libcusolver_run_version }}
+        - libcurand-dev {{ libcurand_run_version }}
         - libcusolver {{ libcusolver_run_version }}
-        - libcusparse-dev {{ libcusparse_run_version }}
+        - libcusolver-dev {{ libcusolver_run_version }}
         - libcusparse {{ libcusparse_run_version }}
+        - libcusparse-dev {{ libcusparse_run_version }}
         - librmm ={{ minor_version }}
     about:
       home: https://rapids.ai/
@@ -84,22 +84,22 @@ outputs:
     requirements:
       build:
         - {{ compiler('c') }}
-        - {{ compiler('cxx') }}
         - {{ compiler('cuda') }} {{ cuda_version }}
+        - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
-        - libcublas-dev {{ libcublas_host_version }}
         - libcublas {{ libcublas_host_version }}
-        - libcurand-dev {{ libcurand_host_version }}
+        - libcublas-dev {{ libcublas_host_version }}
         - libcurand {{ libcurand_host_version }}
-        - libcusolver-dev {{ libcusolver_host_version }}
+        - libcurand-dev {{ libcurand_host_version }}
         - libcusolver {{ libcusolver_host_version }}
-        - libcusparse-dev {{ libcusparse_host_version }}
+        - libcusolver-dev {{ libcusolver_host_version }}
         - libcusparse {{ libcusparse_host_version }}
+        - libcusparse-dev {{ libcusparse_host_version }}
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
@@ -118,8 +118,8 @@ outputs:
     requirements:
       build:
         - {{ compiler('c') }}
-        - {{ compiler('cxx') }}
         - {{ compiler('cuda') }} {{ cuda_version }}
+        - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
@@ -157,8 +157,8 @@ outputs:
     requirements:
       build:
         - {{ compiler('c') }}
-        - {{ compiler('cxx') }}
         - {{ compiler('cuda') }} {{ cuda_version }}
+        - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
@@ -178,11 +178,11 @@ outputs:
         - libcusparse {{ libcusparse_host_version }}
         - libcusparse-dev {{ libcusparse_host_version }}
       run:
-        - gmock {{ gtest_version }}
-        - gtest {{ gtest_version }}
         - {{ pin_subpackage('libraft-distance', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_subpackage('libraft-nn', exact=True) }}
+        - gmock {{ gtest_version }}
+        - gtest {{ gtest_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0

@@ -30,21 +30,21 @@ requirements:
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - python x.x
-    - setuptools
-    - cython >=0.29,<0.30
-    - scikit-build >=0.13.1
-    - rmm ={{ minor_version }}
-    - libraft-headers {{ version }}
-    - libraft-distance {{ version }}
+    - cuda-python >=11.7.1,<12.0
     - cudatoolkit ={{ cuda_version }}
-    - cuda-python >=11.7.1,<12.0
-  run:
-    - python x.x
-    - libraft-headers {{ version }}
+    - cython >=0.29,<0.30
     - libraft-distance {{ version }}
-    - cuda-python >=11.7.1,<12.0
+    - libraft-headers {{ version }}
+    - python x.x
+    - rmm ={{ minor_version }}
+    - scikit-build >=0.13.1
+    - setuptools
+  run:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    - cuda-python >=11.7.1,<12.0
+    - libraft-distance {{ version }}
+    - libraft-headers {{ version }}
+    - python x.x
 
 tests:                                 # [linux64]
   requirements:                        # [linux64]
