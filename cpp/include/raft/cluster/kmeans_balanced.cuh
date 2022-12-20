@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <raft/cluster/detail/kmeans_balanced.cuh>
 #include <raft/core/mdarray.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -48,7 +50,7 @@ namespace raft::cluster::kmeans_balanced {
  *                        [dim = n_samples x n_features]
  * @param[out] centroids  The generated centroids [dim = n_clusters x n_features]
  * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
- *                        datatype. If DataT and MathT are the same, this must be the identity.
+ *                        datatype. If DataT == MathT, this must be the identity.
  */
 template <typename DataT, typename MathT, typename IndexT, typename MappingOpT = raft::identity_op>
 void fit(handle_t const& handle,
@@ -85,7 +87,7 @@ void fit(handle_t const& handle,
  *   raft::handle_t handle;
  *   raft::cluster::KMeansBalancedParams params;
  *   auto labels = raft::make_device_vector<float, int>(handle, n_rows);
- *   raft::cluster::kmeans_balanced::fit(handle, params, X, centroids, labels);
+ *   raft::cluster::kmeans_balanced::predict(handle, params, X, centroids, labels);
  * @endcode
  *
  * @tparam DataT Type of the input data.
@@ -95,12 +97,12 @@ void fit(handle_t const& handle,
  * @tparam MappingOpT Type of the mapping function.
  * @param[in]  handle     The raft handle
  * @param[in]  params     Structure containing the hyper-parameters
- * @param[in]  X          Training instances to cluster. The data must be in row-major format.
+ * @param[in]  X          Dataset for which to infer the closest clusters.
  *                        [dim = n_samples x n_features]
  * @param[in]  centroids  The input centroids [dim = n_clusters x n_features]
- * @param[out] labels     The output labels [dim = n_rows]
+ * @param[out] labels     The output labels [dim = n_samples]
  * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
- *                        datatype. If DataT and MathT are the same, this must be the identity.
+ *                        datatype. If DataT == MathT, this must be the identity.
  */
 template <typename DataT,
           typename MathT,
@@ -138,7 +140,8 @@ void predict(handle_t const& handle,
 }
 
 /**
- * @brief Compute k-means clustering and predict cluster index for each sample in the input.
+ * @brief Compute hierarchical balanced k-means clustering and predict cluster index for each sample
+ * in the input.
  *
  * @code{.cpp}
  *   #include <raft/core/handle.hpp>
@@ -162,7 +165,7 @@ void predict(handle_t const& handle,
  * @param[in]  X          Training instances to cluster. The data must be in row-major format.
  *                        [dim = n_samples x n_features]
  * @param[in]  centroids  The input centroids [dim = n_clusters x n_features]
- * @param[out] labels     The output labels [dim = n_rows]
+ * @param[out] labels     The output labels [dim = n_samples]
  * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
  *                        datatype. If DataT and MathT are the same, this must be the identity.
  */
@@ -182,6 +185,135 @@ void fit_predict(handle_t const& handle,
     centroids.data_handle(), centroids.extent(0), centroids.extent(1));
   raft::cluster::kmeans_balanced::fit(handle, params, X, centroids, mapping_op);
   raft::cluster::kmeans_balanced::predict(handle, params, X, centroids_const, labels, mapping_op);
+}
+
+/**
+ * @brief Randomly initialize centers and apply expectation-maximization-balancing iterations
+ *
+ * This is essentially the non-hierarchical balanced k-means algorithm which is used by the
+ * hierarchical algorithm once to build the mesoclusters and once per mesocluster to build the fine
+ * clusters.
+ *
+ * @tparam DataT Type of the input data.
+ * @tparam MathT Type of the centroids and mapped data.
+ * @tparam IndexT Type used for indexing.
+ * @tparam LabelT Type of the output labels.
+ * @tparam CounterT Counter type supported by CUDA's native atomicAdd.
+ * @tparam MappingOpT Type of the mapping function.
+ * @param[in]  handle        The raft handle
+ * @param[in]  params        Structure containing the hyper-parameters
+ * @param[in]  X             Training instances to cluster. The data must be in row-major format.
+ *                           [dim = n_samples x n_features]
+ * @param[out] centroids     The output centroids [dim = n_clusters x n_features]
+ * @param[out] labels        The output labels [dim = n_samples]
+ * @param[out] cluster_sizes Size of each cluster [dim = n_clusters]
+ * @param[in]  mapping_op    (optional) Functor to convert from the input datatype to the
+ *                           arithmetic datatype. If DataT == MathT, this must be the identity.
+ * @param[in]  mr            (optional) Device memory resource.
+ * @param[in]  X_norm        (optional) Dataset's row norms [dim = n_samples]
+ */
+template <typename DataT,
+          typename MathT,
+          typename IndexT,
+          typename LabelT,
+          typename CounterT,
+          typename MappingOpT>
+void build_clusters(handle_t const& handle,
+                    const KMeansBalancedParams& params,
+                    raft::device_matrix_view<const DataT, IndexT> X,
+                    raft::device_matrix_view<MathT, IndexT> centroids,
+                    raft::device_vector_view<LabelT, IndexT> labels,
+                    raft::device_vector_view<CounterT, IndexT> cluster_sizes,
+                    MappingOpT mapping_op               = raft::identity_op(),
+                    rmm::mr::device_memory_resource* mr = nullptr,
+                    std::optional<raft::device_vector_view<const MathT>> X_norm = std::nullopt)
+{
+  RAFT_EXPECTS(X.extent(0) == labels.extent(0),
+               "Number of rows in dataset and labels are different");
+  RAFT_EXPECTS(X.extent(1) == centroids.extent(1),
+               "Number of features in dataset and centroids are different");
+  RAFT_EXPECTS(centroids.extent(0) == cluster_sizes.extent(0),
+               "Number of rows in centroids and clusyer_sizes are different");
+
+  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+
+  detail::build_clusters(handle,
+                         params,
+                         X.extent(1),
+                         X.data_handle(),
+                         X.extent(0),
+                         centroids.extent(0),
+                         centroids.data_handle(),
+                         labels.data_handle(),
+                         cluster_sizes.data_handle(),
+                         mapping_op,
+                         mr,
+                         X_norm.has_value() ? X_norm.value().data_handle() : nullptr);
+}
+
+/**
+ * @brief Given the data and labels, calculate cluster centers and sizes in one sweep.
+ *
+ * Let `S_i = {x_k | x_k \in X & labels[k] == i}` be the vectors in the dataset with label i.
+ *
+ * On exit,
+ *   `centers_i = (\sum_{x \in S_i} x + w_i * center_i) / (|S_i| + w_i)`,
+ *     where  `w_i = reset_counters ?  0 : cluster_size[i]`.
+ *
+ * In other words, the updated cluster centers are a weighted average of the existing cluster
+ * center, and the coordinates of the points labeled with i. _This allows calling this function
+ * multiple times with different datasets with the same effect as if calling this function once
+ * on the combined dataset_.
+ *
+ * @tparam DataT Type of the input data.
+ * @tparam MathT Type of the centroids and mapped data.
+ * @tparam IndexT Type used for indexing.
+ * @tparam LabelT Type of the output labels.
+ * @tparam CounterT Counter type supported by CUDA's native atomicAdd.
+ * @tparam MappingOpT Type of the mapping function.
+ * @param[in]  handle         The raft handle
+ * @param[in]  X              Dataset for which to calculate cluster centers. The data must be in
+ *                            row-major format. [dim = n_samples x n_features]
+ * @param[out] centroids      The output centroids [dim = n_clusters x n_features]
+ * @param[in]  labels         The input labels [dim = n_samples]
+ * @param[out] cluster_sizes  Size of each cluster [dim = n_clusters]
+ * @param[in]  reset_counters Whether to clear the output arrays before calculating.
+ *                            When set to `false`, this function may be used to update existing
+ *                            centers and sizes using the weighted average principle.
+ * @param[in]  mapping_op     (optional) Functor to convert from the input datatype to the
+ *                            arithmetic datatype. If DataT == MathT, this must be the identity.
+ */
+template <typename DataT,
+          typename MathT,
+          typename IndexT,
+          typename LabelT,
+          typename CounterT,
+          typename MappingOpT = raft::identity_op>
+void calc_centers_and_sizes(handle_t const& handle,
+                            raft::device_matrix_view<const DataT, IndexT> X,
+                            raft::device_matrix_view<MathT, IndexT> centroids,
+                            raft::device_vector_view<const LabelT, IndexT> labels,
+                            raft::device_vector_view<CounterT, IndexT> cluster_sizes,
+                            bool reset_counters   = true,
+                            MappingOpT mapping_op = raft::identity_op())
+{
+  RAFT_EXPECTS(X.extent(0) == labels.extent(0),
+               "Number of rows in dataset and labels are different");
+  RAFT_EXPECTS(X.extent(1) == centroids.extent(1),
+               "Number of features in dataset and centroids are different");
+  RAFT_EXPECTS(centroids.extent(0) == cluster_sizes.extent(0),
+               "Number of rows in centroids and clusyer_sizes are different");
+
+  detail::calc_centers_and_sizes(handle,
+                                 centroids.data_handle(),
+                                 cluster_sizes.data_handle(),
+                                 centroids.extent(0),
+                                 X.extent(1),
+                                 X.data_handle(),
+                                 X.extent(0),
+                                 labels.data_handle(),
+                                 reset_counters,
+                                 mapping_op);
 }
 
 }  // namespace raft::cluster::kmeans_balanced
