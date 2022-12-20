@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/util/bitonic_sort.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -102,7 +103,7 @@ namespace {
 
 /** Whether 'left` should indeed be on the left w.r.t. `right`. */
 template <bool Ascending, typename T>
-__device__ __forceinline__ auto is_ordered(T left, T right) -> bool
+_RAFT_DEVICE _RAFT_FORCEINLINE auto is_ordered(T left, T right) -> bool
 {
   if constexpr (Ascending) { return left < right; }
   if constexpr (!Ascending) { return left > right; }
@@ -151,7 +152,7 @@ class warp_sort {
    * @param k
    *   number of elements to select.
    */
-  __device__ warp_sort(int k) : k(k)
+  _RAFT_DEVICE warp_sort(int k) : k(k)
   {
 #pragma unroll
     for (int i = 0; i < kMaxArrLen; i++) {
@@ -179,7 +180,7 @@ class warp_sort {
    *    It serves as a conditional; when `false` the function does nothing.
    *    We need it to ensure threads within a full warp don't diverge calling `bitonic::merge()`.
    */
-  __device__ void load_sorted(const T* in, const IdxT* in_idx, bool do_merge = true)
+  _RAFT_DEVICE void load_sorted(const T* in, const IdxT* in_idx, bool do_merge = true)
   {
     if (do_merge) {
       int idx = Pow2<kWarpWidth>::mod(laneId()) ^ Pow2<kWarpWidth>::Mask;
@@ -209,7 +210,7 @@ class warp_sort {
    *   device pointer to a contiguous array, unique per-subwarp of size `kWarpWidth`
    *    (length: k <= kWarpWidth * kMaxArrLen).
    */
-  __device__ void store(T* out, IdxT* out_idx) const
+  _RAFT_DEVICE void store(T* out, IdxT* out_idx) const
   {
     int idx = Pow2<kWarpWidth>::mod(laneId());
 #pragma unroll kMaxArrLen
@@ -242,8 +243,8 @@ class warp_sort {
    *   the associated indices of the elements in the same format as `keys_in`.
    */
   template <int PerThreadSizeIn>
-  __device__ __forceinline__ void merge_in(const T* __restrict__ keys_in,
-                                           const IdxT* __restrict__ ids_in)
+  _RAFT_DEVICE _RAFT_FORCEINLINE void merge_in(const T* __restrict__ keys_in,
+                                               const IdxT* __restrict__ ids_in)
   {
 #pragma unroll
     for (int i = std::min(kMaxArrLen, PerThreadSizeIn); i > 0; i--) {
@@ -274,7 +275,7 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
   using warp_sort<Capacity, Ascending, T, IdxT>::k;
   using warp_sort<Capacity, Ascending, T, IdxT>::mem_required;
 
-  explicit __device__ warp_sort_filtered(int k, T limit = kDummy)
+  explicit _RAFT_DEVICE warp_sort_filtered(int k, T limit = kDummy)
     : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0), k_th_(limit)
   {
 #pragma unroll
@@ -284,12 +285,14 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
     }
   }
 
-  __device__ __forceinline__ static auto init_blockwide(int k, uint8_t* = nullptr, T limit = kDummy)
+  _RAFT_DEVICE _RAFT_FORCEINLINE static auto init_blockwide(int k,
+                                                            uint8_t* = nullptr,
+                                                            T limit  = kDummy)
   {
     return warp_sort_filtered<Capacity, Ascending, T, IdxT>{k, limit};
   }
 
-  __device__ void add(T val, IdxT idx)
+  _RAFT_DEVICE void add(T val, IdxT idx)
   {
     // comparing for k_th should reduce the total amount of updates:
     // `false` means the input value is surely not in the top-k values.
@@ -307,20 +310,20 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
     if (do_add) { add_to_buf_(val, idx); }
   }
 
-  __device__ void done()
+  _RAFT_DEVICE void done()
   {
     if (any(buf_len_ != 0)) { merge_buf_(); }
   }
 
  private:
-  __device__ __forceinline__ void set_k_th_()
+  _RAFT_DEVICE _RAFT_FORCEINLINE void set_k_th_()
   {
     // NB on using srcLane: it's ok if it is outside the warp size / width;
     //                      the modulo op will be done inside the __shfl_sync.
     k_th_ = shfl(val_arr_[kMaxArrLen - 1], k - 1, kWarpWidth);
   }
 
-  __device__ __forceinline__ void merge_buf_()
+  _RAFT_DEVICE _RAFT_FORCEINLINE void merge_buf_()
   {
     util::bitonic<kMaxBufLen>(!Ascending, kWarpWidth).sort(val_buf_, idx_buf_);
     this->merge_in<kMaxBufLen>(val_buf_, idx_buf_);
@@ -332,7 +335,7 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
     }
   }
 
-  __device__ __forceinline__ void add_to_buf_(T val, IdxT idx)
+  _RAFT_DEVICE _RAFT_FORCEINLINE void add_to_buf_(T val, IdxT idx)
   {
     // NB: the loop is used here to ensure the constant indexing,
     //     to not force the buffers spill into the local memory.
@@ -373,7 +376,7 @@ class warp_sort_distributed : public warp_sort<Capacity, Ascending, T, IdxT> {
   using warp_sort<Capacity, Ascending, T, IdxT>::k;
   using warp_sort<Capacity, Ascending, T, IdxT>::mem_required;
 
-  explicit __device__ warp_sort_distributed(int k, T limit = kDummy)
+  explicit _RAFT_DEVICE warp_sort_distributed(int k, T limit = kDummy)
     : warp_sort<Capacity, Ascending, T, IdxT>(k),
       buf_val_(kDummy),
       buf_idx_(IdxT{}),
@@ -382,12 +385,14 @@ class warp_sort_distributed : public warp_sort<Capacity, Ascending, T, IdxT> {
   {
   }
 
-  __device__ __forceinline__ static auto init_blockwide(int k, uint8_t* = nullptr, T limit = kDummy)
+  _RAFT_DEVICE _RAFT_FORCEINLINE static auto init_blockwide(int k,
+                                                            uint8_t* = nullptr,
+                                                            T limit  = kDummy)
   {
     return warp_sort_distributed<Capacity, Ascending, T, IdxT>{k, limit};
   }
 
-  __device__ void add(T val, IdxT idx)
+  _RAFT_DEVICE void add(T val, IdxT idx)
   {
     // mask tells which lanes in the warp have valid items to be added
     uint32_t mask = ballot(is_ordered<Ascending>(val, k_th_));
@@ -427,7 +432,7 @@ class warp_sort_distributed : public warp_sort<Capacity, Ascending, T, IdxT> {
     }
   }
 
-  __device__ void done()
+  _RAFT_DEVICE void done()
   {
     if (buf_len_ != 0) {
       merge_buf_();
@@ -436,14 +441,14 @@ class warp_sort_distributed : public warp_sort<Capacity, Ascending, T, IdxT> {
   }
 
  private:
-  __device__ __forceinline__ void set_k_th_()
+  _RAFT_DEVICE _RAFT_FORCEINLINE void set_k_th_()
   {
     // NB on using srcLane: it's ok if it is outside the warp size / width;
     //                      the modulo op will be done inside the __shfl_sync.
     k_th_ = shfl(val_arr_[kMaxArrLen - 1], k - 1, kWarpWidth);
   }
 
-  __device__ __forceinline__ void merge_buf_()
+  _RAFT_DEVICE _RAFT_FORCEINLINE void merge_buf_()
   {
     util::bitonic<1>(!Ascending, kWarpWidth).sort(buf_val_, buf_idx_);
     this->merge_in<1>(&buf_val_, &buf_idx_);
@@ -478,7 +483,7 @@ class warp_sort_distributed_ext : public warp_sort<Capacity, Ascending, T, IdxT>
     return (sizeof(T) + sizeof(IdxT)) * block_size;
   }
 
-  __device__ warp_sort_distributed_ext(int k, T* val_buf, IdxT* idx_buf, T limit = kDummy)
+  _RAFT_DEVICE warp_sort_distributed_ext(int k, T* val_buf, IdxT* idx_buf, T limit = kDummy)
     : warp_sort<Capacity, Ascending, T, IdxT>(k),
       val_buf_(val_buf),
       idx_buf_(idx_buf),
@@ -488,7 +493,7 @@ class warp_sort_distributed_ext : public warp_sort<Capacity, Ascending, T, IdxT>
     val_buf_[laneId()] = kDummy;
   }
 
-  __device__ static auto init_blockwide(int k, uint8_t* shmem, T limit = kDummy)
+  _RAFT_DEVICE static auto init_blockwide(int k, uint8_t* shmem, T limit = kDummy)
   {
     T* val_buf    = nullptr;
     IdxT* idx_buf = nullptr;
@@ -505,7 +510,7 @@ class warp_sort_distributed_ext : public warp_sort<Capacity, Ascending, T, IdxT>
     return warp_sort_distributed_ext<Capacity, Ascending, T, IdxT>{k, val_buf, idx_buf, limit};
   }
 
-  __device__ void add(T val, IdxT idx)
+  _RAFT_DEVICE void add(T val, IdxT idx)
   {
     bool do_add = is_ordered<Ascending>(val, k_th_);
     // mask tells which lanes in the warp have valid items to be added
@@ -534,7 +539,7 @@ class warp_sort_distributed_ext : public warp_sort<Capacity, Ascending, T, IdxT>
     }
   }
 
-  __device__ void done()
+  _RAFT_DEVICE void done()
   {
     if (buf_len_ != 0) {
       merge_buf_();
@@ -544,14 +549,14 @@ class warp_sort_distributed_ext : public warp_sort<Capacity, Ascending, T, IdxT>
   }
 
  private:
-  __device__ __forceinline__ void set_k_th_()
+  _RAFT_DEVICE _RAFT_FORCEINLINE void set_k_th_()
   {
     // NB on using srcLane: it's ok if it is outside the warp size / width;
     //                      the modulo op will be done inside the __shfl_sync.
     k_th_ = shfl(val_arr_[kMaxArrLen - 1], k - 1, kWarpWidth);
   }
 
-  __device__ __forceinline__ void merge_buf_()
+  _RAFT_DEVICE _RAFT_FORCEINLINE void merge_buf_()
   {
     __syncwarp();  // make sure the threads are aware of the data written by others
     T buf_val          = val_buf_[laneId()];
@@ -587,7 +592,7 @@ class warp_sort_immediate : public warp_sort<Capacity, Ascending, T, IdxT> {
   using warp_sort<Capacity, Ascending, T, IdxT>::k;
   using warp_sort<Capacity, Ascending, T, IdxT>::mem_required;
 
-  explicit __device__ warp_sort_immediate(int k)
+  explicit _RAFT_DEVICE warp_sort_immediate(int k)
     : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0)
   {
 #pragma unroll
@@ -597,12 +602,12 @@ class warp_sort_immediate : public warp_sort<Capacity, Ascending, T, IdxT> {
     }
   }
 
-  __device__ __forceinline__ static auto init_blockwide(int k, uint8_t* = nullptr)
+  _RAFT_DEVICE _RAFT_FORCEINLINE static auto init_blockwide(int k, uint8_t* = nullptr)
   {
     return warp_sort_immediate<Capacity, Ascending, T, IdxT>{k};
   }
 
-  __device__ void add(T val, IdxT idx)
+  _RAFT_DEVICE void add(T val, IdxT idx)
   {
     // NB: the loop is used here to ensure the constant indexing,
     //     to not force the buffers spill into the local memory.
@@ -626,7 +631,7 @@ class warp_sort_immediate : public warp_sort<Capacity, Ascending, T, IdxT> {
     }
   }
 
-  __device__ void done()
+  _RAFT_DEVICE void done()
   {
     if (buf_len_ != 0) {
       util::bitonic<kMaxArrLen>(!Ascending, kWarpWidth).sort(val_buf_, idx_buf_);
@@ -661,11 +666,11 @@ class block_sort {
   using queue_t = WarpSortWarpWide<Capacity, Ascending, T, IdxT>;
 
   template <typename... Args>
-  __device__ block_sort(int k, Args... args) : queue_(queue_t::init_blockwide(k, args...))
+  _RAFT_DEVICE block_sort(int k, Args... args) : queue_(queue_t::init_blockwide(k, args...))
   {
   }
 
-  __device__ void add(T val, IdxT idx) { queue_.add(val, idx); }
+  _RAFT_DEVICE void add(T val, IdxT idx) { queue_.add(val, idx); }
 
   /**
    * At the point of calling this function, the warp-level queues consumed all input
@@ -673,7 +678,7 @@ class block_sort {
    *
    * Here we tree-merge the results using the shared memory and block sync.
    */
-  __device__ void done(uint8_t* smem_buf)
+  _RAFT_DEVICE void done(uint8_t* smem_buf)
   {
     queue_.done();
 
@@ -708,7 +713,7 @@ class block_sort {
   }
 
   /** Save the content by the pointer location. */
-  __device__ void store(T* out, IdxT* out_idx) const
+  _RAFT_DEVICE void store(T* out, IdxT* out_idx) const
   {
     if (threadIdx.x < subwarp_align::Value) { queue_.store(out, out_idx); }
   }
