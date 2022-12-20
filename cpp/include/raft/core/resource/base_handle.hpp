@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include "resource_types.hpp"
 #include <mutex>
@@ -22,34 +23,42 @@
 namespace raft::core {
 
 class base_handle_t {
+ public:
+  base_handle_t() {}
+
+  base_handle_t(const base_handle_t&) = delete;
+  base_handle_t& operator=(const base_handle_t&) = delete;
+  base_handle_t(base_handle_t&&)                 = delete;
+  base_handle_t& operator=(base_handle_t&&) = delete;
+
   bool has_resource_factory(resource_type_t resource_type) const
   {
-    return factories_.find(resource_type) != factories_.end()
+    return factories_.find(resource_type) != factories_.end();
   }
 
   /**
    * This will overwrite any existing resource factories.
    * @param factory
    */
-  void add_resource_factory(std::shared_ptr<raft::resource_factory_t> factory) const
+  void add_resource_factory(std::shared_ptr<resource_factory_t> factory) const
   {
     factories_.insert(std::make_pair(factory.get()->resource_type(), factory));
   }
 
   template <typename res_t>
-  void* get_resource(resource_type_t resource_type) const
+  res_t* get_resource(resource_type_t resource_type) const
   {
     std::lock_guard<std::mutex> _(mutex_);
-    if (resources_.find(key) == resources_.end()) {
-      resource_factory_t factory = factories_.at(key).get();
+    if (resources_.find(resource_type) == resources_.end()) {
+      resource_factory_t* factory = factories_.at(resource_type).get();
       resources_.insert(std::make_pair(resource_type, factory->make_resource()));
     }
-    reinterpret_cast<res_t>(resources_.at(key).get()->get_resource());
+    return reinterpret_cast<res_t*>(resources_.at(resource_type).get()->get_resource());
   }
 
  private:
   mutable std::mutex mutex_;
-  mutable std::unordered_map<resource_type, std::shared_ptr<raft::resource_t>> resources_;
-  mutable std::unordered_map<resource_type, std::shared_ptr<raft::resource_factory_t>> factories_;
+  mutable std::unordered_map<resource_type_t, std::shared_ptr<resource_t>> resources_;
+  mutable std::unordered_map<resource_type_t, std::shared_ptr<resource_factory_t>> factories_;
 };
 }  // namespace raft::core

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <cusparse_v2.h>
 #include <raft/core/cusparse_macros.hpp>
@@ -22,13 +23,14 @@
 namespace raft::core {
 class cusparse_resource_t : public resource_t {
  public:
-  cusparse_resource_t(cudaStream_t stream)
+  cusparse_resource_t(rmm::cuda_stream_view stream)
   {
-    RAFT_CUSPARSE_TRY_NO_THROW(cusparseCreate_v2(&cusparse_handle));
-    RAFT_CUSPARSE_TRY_NO_THROW(cusparseSetStream_v2(cusparse_handle, stream));
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseCreate(&cusparse_handle));
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseSetStream(cusparse_handle, stream));
   }
 
-  void* get_resource() { return &cusparse_handle; }
+  ~cusparse_resource_t() { RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroy(cusparse_handle)); }
+  void* get_resource() override { return &cusparse_handle; }
 
  private:
   cusparseHandle_t cusparse_handle;
@@ -40,8 +42,13 @@ class cusparse_resource_t : public resource_t {
  * the handle_t.
  */
 class cusparse_resource_factory_t : public resource_factory_t {
-  resource_type_t resource_type() { return resource_type_t::CUSPARSE_HANDLE; }
-  resource_t* make_resource() { return new cusparse_resource_t(); }
+ public:
+  cusparse_resource_factory_t(rmm::cuda_stream_view stream) : stream_(stream) {}
+  resource_type_t resource_type() override { return resource_type_t::CUSPARSE_HANDLE; }
+  resource_t* make_resource() override { return new cusparse_resource_t(stream_); }
+
+ private:
+  rmm::cuda_stream_view stream_;
 };
 
 /**
@@ -50,10 +57,10 @@ class cusparse_resource_factory_t : public resource_factory_t {
  * @param handle
  * @return
  */
-cusparseeHandle_t get_cusparse_handle(raft::base_handle const& handle)
+cusparseHandle_t get_cusparse_handle(base_handle_t const& handle)
 {
   if (!handle.has_resource_factory(resource_type_t::CUSPARSE_HANDLE)) {
-    cudaStream_t stream = get_cuda_stream(handle);
+    rmm::cuda_stream_view stream = get_cuda_stream(handle);
     handle.add_resource_factory(std::make_shared<cusparse_resource_factory_t>(stream));
   }
   return *handle.get_resource<cusparseHandle_t>(resource_type_t::CUSPARSE_HANDLE);

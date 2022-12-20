@@ -14,7 +14,24 @@
  * limitations under the License.
  */
 
+#pragma once
+
 namespace raft::core {
+
+enum resource_type_t {
+  CUBLAS_HANDLE,
+  CUSOLVER_DN_HANDLE,
+  CUSOLVER_SP_HANDLE,
+  CUSPARSE_HANDLE,
+  CUDA_STREAM_VIEW,
+  CUDA_STREAM_POOL,
+  CUDA_STREAM_SYNC_EVENT,
+  COMMUNICATOR,
+  SUB_COMMUNICATOR,
+  DEVICE_PROPERTIES,
+  DEVICE_ID,
+  THRUST_POLICY
+};
 
 /**
  * A resource_t understands how to instantiate a specific
@@ -22,6 +39,7 @@ namespace raft::core {
  */
 
 class resource_t {
+ public:
   virtual void* get_resource();
 
   virtual ~resource_t();
@@ -33,20 +51,10 @@ class resource_t {
  * the handle_t.
  */
 class resource_factory_t {
+ public:
   virtual resource_type_t resource_type();
 
   virtual resource_t* make_resource();
-};
-
-enum resource_type_t {
-  CUBLAS_HANDLE,
-  CUSOLVER_DN_HANDLE,
-  CUSOLVER_SP_HANDLE,
-  CUSPARSE_HANDLE,
-  CUDA_STREAM_VIEW,
-  CUDA_STREAM_POOL,
-  CUDA_STREAM_SYNC_EVENT,
-  COMMUNICATOR
 };
 
 }  // end NAMESPACE raft::core

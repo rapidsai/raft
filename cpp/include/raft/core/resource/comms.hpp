@@ -13,22 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#include <cuda_runtime.h>
 #include <raft/core/comms.hpp>
-#include <raft/core/interruptible.hpp>
 #include <raft/core/resource/resource_types.hpp>
-#include <raft/util/cudart_utils.hpp>
 
+namespace raft::core {
 class comms_resource_t : public resource_t {
  public:
-  comms_resource_t(std::shared_ptr<raft::comms_t> comnumicator) : communicator_(comnumicator) {}
-  void* get_resource() { return &communicator_; }
+  comms_resource_t(std::shared_ptr<comms::comms_t> comnumicator) : communicator_(comnumicator) {}
 
-  ~comms_resource_t() {}
+  void* get_resource() override { return &communicator_; }
+
+  ~comms_resource_t() override {}
 
  private:
-  raft::comms_t communicator_;
+  std::shared_ptr<comms::comms_t> communicator_;
 };
 
 /**
@@ -37,31 +37,33 @@ class comms_resource_t : public resource_t {
  * the handle_t.
  */
 class comms_resource_factory_t : public resource_factory_t {
-  comms_resource_factory_t(std::shared_ptr<raft::comms_t> communicator)
+ public:
+  comms_resource_factory_t(std::shared_ptr<comms::comms_t> communicator)
     : communicator_(communicator)
   {
   }
 
-  resource_type_t resource_type() { return resource_type_t::COMMUNICATOR; }
-  resource_t* make_resource() { return new comms_resource_t(communicator_); }
+  resource_type_t resource_type() override { return resource_type_t::COMMUNICATOR; }
+
+  resource_t* make_resource() override { return new comms_resource_t(communicator_); }
 
  private:
-  raft::comms_t communicator_;
+  std::shared_ptr<comms::comms_t> communicator_;
 };
 
-bool comms_initialized(const raft::base_handle_t& handle) const
+bool comms_initialized(base_handle_t const& handle)
 {
   return handle.has_resource_factory(resource_type_t::COMMUNICATOR);
 }
 
-const comms::comms_t& get_comms(const raft::base_handle_t& handle) const
+const comms::comms_t& get_comms(const base_handle_t& handle)
 {
   RAFT_EXPECTS(comms_initialized(handle), "ERROR: Communicator was not initialized\n");
-  return *handle.get_resource<raft::comms_t>(resource_type_t::COMMUNICATOR);
+  return *handle.get_resource<comms::comms_t>(resource_type_t::COMMUNICATOR);
 }
 
-void set_comms(raft::base_handle_t& handle, std::shared_ptr<comms::comms_t> communicator)
+void set_comms(base_handle_t& handle, std::shared_ptr<comms::comms_t> communicator)
 {
-  handle.add_resource_factory(resource_type_t::COMMUNICATOR,
-                              std::make_shared<comms_resource_factory_t>(communicator));
+  handle.add_resource_factory(std::make_shared<comms_resource_factory_t>(communicator));
 }
+}  // namespace raft::core

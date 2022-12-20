@@ -45,20 +45,34 @@
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
 
+#include <raft/core/resource/base_handle.hpp>
+#include <raft/core/resource/comms.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_event.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cuda_stream_pool.hpp>
+#include <raft/core/resource/cusolver_dn_handle.hpp>
+#include <raft/core/resource/cusolver_sp_handle.hpp>
+#include <raft/core/resource/cusparse_handle.hpp>
+#include <raft/core/resource/device_id.hpp>
+#include <raft/core/resource/device_properties.hpp>
+#include <raft/core/resource/sub_comms.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+
 namespace raft {
 
 /**
  * @brief Main handle object that stores all necessary context used for calling
  *        necessary cuda kernels and/or libraries
  */
-class handle_t {
+class device_handle_t : public core::base_handle_t {
  public:
   // delete copy/move constructors and assignment operators as
   // copying and moving underlying resources is unsafe
-  handle_t(const handle_t&) = delete;
-  handle_t& operator=(const handle_t&) = delete;
-  handle_t(handle_t&&)                 = delete;
-  handle_t& operator=(handle_t&&) = delete;
+  device_handle_t(const device_handle_t&) = delete;
+  device_handle_t& operator=(const device_handle_t&) = delete;
+  device_handle_t(device_handle_t&&)                 = delete;
+  device_handle_t& operator=(device_handle_t&&) = delete;
 
   /**
    * @brief Construct a handle with a stream view and stream pool
@@ -67,112 +81,67 @@ class handle_t {
    * unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
-  handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
-           std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
-    : dev_id_([]() -> int {
-        int cur_dev = -1;
-        RAFT_CUDA_TRY(cudaGetDevice(&cur_dev));
-        return cur_dev;
-      }()),
-      stream_view_{stream_view},
-      stream_pool_{stream_pool}
+  device_handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
+                  std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
+    : core::base_handle_t()
   {
-    create_resources();
+    core::base_handle_t::add_resource_factory(
+      std::make_shared<core::device_id_resource_factory_t>());
+    core::base_handle_t::add_resource_factory(
+      std::make_shared<core::cuda_stream_resource_factory_t>(stream_view));
+    core::base_handle_t::add_resource_factory(
+      std::make_shared<core::cuda_stream_pool_resource_factory_t>(stream_pool));
   }
 
   /** Destroys all held-up resources */
-  virtual ~handle_t() { destroy_resources(); }
+  virtual ~device_handle_t() {}
 
-  int get_device() const { return dev_id_; }
+  int get_device() const { return core::get_device_id(*this); }
 
-  cublasHandle_t get_cublas_handle() const
-  {
-    std::lock_guard<std::mutex> _(mutex_);
-    if (!cublas_initialized_) {
-      RAFT_CUBLAS_TRY_NO_THROW(cublasCreate(&cublas_handle_));
-      RAFT_CUBLAS_TRY_NO_THROW(cublasSetStream(cublas_handle_, stream_view_));
-      cublas_initialized_ = true;
-    }
-    return cublas_handle_;
-  }
+  cublasHandle_t get_cublas_handle() const { return core::get_cublas_handle(*this); }
 
-  cusolverDnHandle_t get_cusolver_dn_handle() const
-  {
-    std::lock_guard<std::mutex> _(mutex_);
-    if (!cusolver_dn_initialized_) {
-      RAFT_CUSOLVER_TRY_NO_THROW(cusolverDnCreate(&cusolver_dn_handle_));
-      RAFT_CUSOLVER_TRY_NO_THROW(cusolverDnSetStream(cusolver_dn_handle_, stream_view_));
-      cusolver_dn_initialized_ = true;
-    }
-    return cusolver_dn_handle_;
-  }
+  cusolverDnHandle_t get_cusolver_dn_handle() const { return core::get_cusolver_dn_handle(*this); }
 
-  cusolverSpHandle_t get_cusolver_sp_handle() const
-  {
-    std::lock_guard<std::mutex> _(mutex_);
-    if (!cusolver_sp_initialized_) {
-      RAFT_CUSOLVER_TRY_NO_THROW(cusolverSpCreate(&cusolver_sp_handle_));
-      RAFT_CUSOLVER_TRY_NO_THROW(cusolverSpSetStream(cusolver_sp_handle_, stream_view_));
-      cusolver_sp_initialized_ = true;
-    }
-    return cusolver_sp_handle_;
-  }
+  cusolverSpHandle_t get_cusolver_sp_handle() const { return core::get_cusolver_sp_handle(*this); }
 
-  cusparseHandle_t get_cusparse_handle() const
-  {
-    std::lock_guard<std::mutex> _(mutex_);
-    if (!cusparse_initialized_) {
-      RAFT_CUSPARSE_TRY_NO_THROW(cusparseCreate(&cusparse_handle_));
-      RAFT_CUSPARSE_TRY_NO_THROW(cusparseSetStream(cusparse_handle_, stream_view_));
-      cusparse_initialized_ = true;
-    }
-    return cusparse_handle_;
-  }
+  cusparseHandle_t get_cusparse_handle() const { return core::get_cusparse_handle(*this); }
 
-  rmm::exec_policy& get_thrust_policy() const { return *thrust_policy_; }
+  rmm::exec_policy& get_thrust_policy() const { return core::get_thrust_policy(*this); }
 
   /**
    * @brief synchronize a stream on the handle
    */
-  void sync_stream(rmm::cuda_stream_view stream) const { interruptible::synchronize(stream); }
+  void sync_stream(rmm::cuda_stream_view stream) const { core::sync_stream(*this, stream); }
 
   /**
    * @brief synchronize main stream on the handle
    */
-  void sync_stream() const { sync_stream(stream_view_); }
+  void sync_stream() const { core::sync_stream(*this); }
 
   /**
    * @brief returns main stream on the handle
    */
-  rmm::cuda_stream_view get_stream() const { return stream_view_; }
+  rmm::cuda_stream_view get_stream() const { return core::get_cuda_stream(*this); }
 
   /**
    * @brief returns whether stream pool was initialized on the handle
    */
 
-  bool is_stream_pool_initialized() const { return stream_pool_.get() != nullptr; }
+  bool is_stream_pool_initialized() const { return core::is_stream_pool_initialized(*this); }
 
   /**
    * @brief returns stream pool on the handle
    */
-  const rmm::cuda_stream_pool& get_stream_pool() const
-  {
-    RAFT_EXPECTS(stream_pool_, "ERROR: rmm::cuda_stream_pool was not initialized");
-    return *stream_pool_;
-  }
+  const rmm::cuda_stream_pool& get_stream_pool() const { return core::get_cuda_stream_pool(*this); }
 
-  std::size_t get_stream_pool_size() const
-  {
-    return is_stream_pool_initialized() ? stream_pool_->get_pool_size() : 0;
-  }
+  std::size_t get_stream_pool_size() const { return core::get_stream_pool_size(*this); }
 
   /**
    * @brief return stream from pool
    */
   rmm::cuda_stream_view get_stream_from_stream_pool() const
   {
-    RAFT_EXPECTS(stream_pool_, "ERROR: rmm::cuda_stream_pool was not initialized");
-    return stream_pool_->get_stream();
+    return core::get_stream_from_stream_pool(*this);
   }
 
   /**
@@ -180,8 +149,7 @@ class handle_t {
    */
   rmm::cuda_stream_view get_stream_from_stream_pool(std::size_t stream_idx) const
   {
-    RAFT_EXPECTS(stream_pool_, "ERROR: rmm::cuda_stream_pool was not initialized");
-    return stream_pool_->get_stream(stream_idx);
+    return core::get_stream_from_stream_pool(*this, stream_idx);
   }
 
   /**
@@ -189,7 +157,7 @@ class handle_t {
    */
   rmm::cuda_stream_view get_next_usable_stream() const
   {
-    return is_stream_pool_initialized() ? get_stream_from_stream_pool() : stream_view_;
+    return core::get_next_usable_stream(*this);
   }
 
   /**
@@ -199,18 +167,13 @@ class handle_t {
    */
   rmm::cuda_stream_view get_next_usable_stream(std::size_t stream_idx) const
   {
-    return is_stream_pool_initialized() ? get_stream_from_stream_pool(stream_idx) : stream_view_;
+    return core::get_next_usable_stream(*this, stream_idx);
   }
 
   /**
    * @brief synchronize the stream pool on the handle
    */
-  void sync_stream_pool() const
-  {
-    for (std::size_t i = 0; i < get_stream_pool_size(); i++) {
-      sync_stream(stream_pool_->get_stream(i));
-    }
-  }
+  void sync_stream_pool() const { return core::sync_stream_pool(*this); }
 
   /**
    * @brief synchronize subset of stream pool
@@ -219,101 +182,34 @@ class handle_t {
    */
   void sync_stream_pool(const std::vector<std::size_t> stream_indices) const
   {
-    RAFT_EXPECTS(stream_pool_, "ERROR: rmm::cuda_stream_pool was not initialized");
-    for (const auto& stream_index : stream_indices) {
-      sync_stream(stream_pool_->get_stream(stream_index));
-    }
+    return core::sync_stream_pool(*this, stream_indices);
   }
 
   /**
    * @brief ask stream pool to wait on last event in main stream
    */
-  void wait_stream_pool_on_stream() const
+  void wait_stream_pool_on_stream() const { return core::wait_stream_pool_on_stream(*this); }
+
+  void set_comms(std::shared_ptr<comms::comms_t> communicator)
   {
-    RAFT_CUDA_TRY(cudaEventRecord(event_, stream_view_));
-    for (std::size_t i = 0; i < get_stream_pool_size(); i++) {
-      RAFT_CUDA_TRY(cudaStreamWaitEvent(stream_pool_->get_stream(i), event_, 0));
-    }
+    core::set_comms(*this, communicator);
   }
 
-  void set_comms(std::shared_ptr<comms::comms_t> communicator) { communicator_ = communicator; }
-
-  const comms::comms_t& get_comms() const
-  {
-    RAFT_EXPECTS(this->comms_initialized(), "ERROR: Communicator was not initialized\n");
-    return *communicator_;
-  }
+  const comms::comms_t& get_comms() const { return core::get_comms(*this); }
 
   void set_subcomm(std::string key, std::shared_ptr<comms::comms_t> subcomm)
   {
-    subcomms_[key] = subcomm;
+    core::set_subcomm(*this, key, subcomm);
   }
 
-  const comms::comms_t& get_subcomm(std::string key) const
-  {
-    RAFT_EXPECTS(
-      subcomms_.find(key) != subcomms_.end(), "%s was not found in subcommunicators.", key.c_str());
+  const comms::comms_t& get_subcomm(std::string key) const { return core::get_subcomm(*this, key); }
 
-    auto subcomm = subcomms_.at(key);
+  bool comms_initialized() const { return core::comms_initialized(*this); }
 
-    RAFT_EXPECTS(nullptr != subcomm.get(), "ERROR: Subcommunicator was not initialized");
+  const cudaDeviceProp& get_device_properties() const { return core::get_device_properties(*this); }
+};  // class device_handle_t
 
-    return *subcomm;
-  }
-
-  bool comms_initialized() const { return (nullptr != communicator_.get()); }
-
-  const cudaDeviceProp& get_device_properties() const
-  {
-    std::lock_guard<std::mutex> _(mutex_);
-    if (!device_prop_initialized_) {
-      RAFT_CUDA_TRY_NO_THROW(cudaGetDeviceProperties(&prop_, dev_id_));
-      device_prop_initialized_ = true;
-    }
-    return prop_;
-  }
-
- private:
-  std::shared_ptr<comms::comms_t> communicator_;
-  std::unordered_map<std::string, std::shared_ptr<comms::comms_t>> subcomms_;
-
-  const int dev_id_;
-  mutable cublasHandle_t cublas_handle_;
-  mutable bool cublas_initialized_{false};
-  mutable cusolverDnHandle_t cusolver_dn_handle_;
-  mutable bool cusolver_dn_initialized_{false};
-  mutable cusolverSpHandle_t cusolver_sp_handle_;
-  mutable bool cusolver_sp_initialized_{false};
-  mutable cusparseHandle_t cusparse_handle_;
-  mutable bool cusparse_initialized_{false};
-  std::unique_ptr<rmm::exec_policy> thrust_policy_{nullptr};
-  rmm::cuda_stream_view stream_view_{rmm::cuda_stream_per_thread};
-  std::shared_ptr<rmm::cuda_stream_pool> stream_pool_{nullptr};
-  cudaEvent_t event_;
-  mutable cudaDeviceProp prop_;
-  mutable bool device_prop_initialized_{false};
-  mutable std::mutex mutex_;
-
-  void create_resources()
-  {
-    thrust_policy_ = std::make_unique<rmm::exec_policy>(stream_view_);
-
-    RAFT_CUDA_TRY(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
-  }
-
-  void destroy_resources()
-  {
-    if (cusparse_initialized_) { RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroy(cusparse_handle_)); }
-    if (cusolver_dn_initialized_) {
-      RAFT_CUSOLVER_TRY_NO_THROW(cusolverDnDestroy(cusolver_dn_handle_));
-    }
-    if (cusolver_sp_initialized_) {
-      RAFT_CUSOLVER_TRY_NO_THROW(cusolverSpDestroy(cusolver_sp_handle_));
-    }
-    if (cublas_initialized_) { RAFT_CUBLAS_TRY_NO_THROW(cublasDestroy(cublas_handle_)); }
-    RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(event_));
-  }
-};  // class handle_t
+using handle_t = device_handle_t;
 
 /**
  * @brief RAII approach to synchronizing across all streams in the handle

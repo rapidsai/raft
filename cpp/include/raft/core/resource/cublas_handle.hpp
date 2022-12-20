@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <cublas_v2.h>
 #include <raft/core/cublas_macros.hpp>
@@ -22,15 +23,15 @@
 namespace raft::core {
 class cublas_resource_t : public resource_t {
  public:
-  cublas_resource_t(cudaStream_t stream)
+  cublas_resource_t(rmm::cuda_stream_view stream)
   {
-    RAFT_CUBLAS_TRY_NO_THROW(cublasCreate_v2(&cublas_handle));
-    RAFT_CUBLAS_TRY_NO_THROW(cublasSetStream_v2(cublas_handle, stream));
+    RAFT_CUBLAS_TRY_NO_THROW(cublasCreate(&cublas_handle));
+    RAFT_CUBLAS_TRY_NO_THROW(cublasSetStream(cublas_handle, stream));
   }
 
-  ~cublas_resource_t() { RAFT_CUDA_TRY_NO_THROW(cublasDestroy_v2(cublas_handle)); }
+  ~cublas_resource_t() override { RAFT_CUBLAS_TRY_NO_THROW(cublasDestroy(cublas_handle)); }
 
-  void* get_resource() { return &cublas_handle; }
+  void* get_resource() override { return &cublas_handle; }
 
  private:
   cublasHandle_t cublas_handle;
@@ -42,8 +43,13 @@ class cublas_resource_t : public resource_t {
  * the handle_t.
  */
 class cublas_resource_factory_t : public resource_factory_t {
-  resource_type_t resource_type() { return resource_type_t::CUBLAS_HANDLE; }
-  resource_t* make_resource() { return new cublas_resource_t(); }
+ public:
+  cublas_resource_factory_t(rmm::cuda_stream_view stream) : stream_(stream) {}
+  resource_type_t resource_type() override { return resource_type_t::CUBLAS_HANDLE; }
+  resource_t* make_resource() override { return new cublas_resource_t(stream_); }
+
+ private:
+  rmm::cuda_stream_view stream_;
 };
 
 /**
@@ -52,7 +58,7 @@ class cublas_resource_factory_t : public resource_factory_t {
  * @param handle
  * @return
  */
-cublaseHandle_t get_cublas_handle(raft::base_handle const& handle)
+cublasHandle_t get_cublas_handle(base_handle_t const& handle)
 {
   if (!handle.has_resource_factory(resource_type_t::CUBLAS_HANDLE)) {
     cudaStream_t stream = get_cuda_stream(handle);
