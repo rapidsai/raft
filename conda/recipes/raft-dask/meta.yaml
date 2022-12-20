@@ -32,34 +32,34 @@ requirements:
   host:
     - python x.x
     - setuptools
-    - cython>=0.29,<0.30
-    - scikit-build>=0.13.1
-    - rmm={{ minor_version }}
+    - cython >=0.29,<0.30
+    - scikit-build >=0.13.1
+    - rmm ={{ minor_version }}
     - pylibraft {{ version }}
-    - cudatoolkit={{ cuda_version }}
+    - cudatoolkit ={{ cuda_version }}
     - cuda-python >=11.7.1,<12.0
-    - nccl>=2.9.9
+    - nccl >=2.9.9
     - ucx {{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
   run:
     - python x.x
-    - dask-cuda={{ minor_version }}
+    - dask-cuda ={{ minor_version }}
     - pylibraft {{ version }}
-    - nccl>=2.9.9
-    - rmm={{ minor_version }}
+    - nccl >=2.9.9
+    - rmm ={{ minor_version }}
     - ucx >={{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - dask>=2022.12.0
-    - distributed>=2022.12.0
+    - dask >=2022.12.0
+    - distributed >=2022.12.0
     - cuda-python >=11.7.1,<12.0
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
 
 tests:                                 # [linux64]
   requirements:                        # [linux64]
-    - cudatoolkit={{ cuda_version }} # [linux64]
+    - cudatoolkit ={{ cuda_version }} # [linux64]
   imports:                             # [linux64]
     - raft_dask                        # [linux64]
 
