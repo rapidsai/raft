@@ -13,15 +13,13 @@ rapids-logger "Begin py build"
 
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
-# TODO: Remove `--no-test` flag once importing on a CPU
+# TODO: Remove `--no-test` flags once importing on a CPU
 # node works correctly
 rapids-mamba-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/pylibraft
 
-# TODO: Remove `--no-test` flag once importing on a CPU
-# node works correctly
 rapids-mamba-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
