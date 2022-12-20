@@ -16,7 +16,7 @@
 
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
-#include <raft/matrix/select.cuh>
+#include <raft/matrix/select_k.cuh>
 
 #include <raft/core/handle.hpp>
 

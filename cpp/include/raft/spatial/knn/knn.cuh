@@ -121,7 +121,7 @@ enum class SelectKAlgo {
  *   the implementation of the algorithm
  */
 template <typename idx_t = int, typename value_t = float>
-[[deprecated("Use function `select_k` from `raft/matrix/select.cuh")]] inline void select_k(
+[[deprecated("Use function `select_k` from `raft/matrix/select_k.cuh")]] inline void select_k(
   const value_t* in_keys,
   const idx_t* in_values,
   size_t n_inputs,

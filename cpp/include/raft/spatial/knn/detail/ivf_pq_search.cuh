@@ -29,7 +29,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
-#include <raft/matrix/select.cuh>
+#include <raft/matrix/select_k.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/device_loads_stores.cuh>

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../../test/matrix/select.cuh"
+#include "../../test/matrix/select_k.cuh"
 
 #include <common/benchmark.hpp>
 
@@ -25,7 +25,7 @@
 
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
-#include <raft/matrix/select.cuh>
+#include <raft/matrix/select_k.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>

@@ -177,7 +177,7 @@ if(BUILD_TESTS)
     test/matrix/matrix.cu
     test/matrix/norm.cu
     test/matrix/reverse.cu
-    test/matrix/select.cu
+    test/matrix/select_k.cu
     test/matrix/slice.cu
     test/matrix/triangular.cu
     test/spectral_matrix.cu
