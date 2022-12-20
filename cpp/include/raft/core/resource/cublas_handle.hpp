@@ -58,7 +58,7 @@ class cublas_resource_factory_t : public resource_factory_t {
  * @param handle
  * @return
  */
-cublasHandle_t get_cublas_handle(base_handle_t const& handle)
+inline cublasHandle_t get_cublas_handle(base_handle_t const& handle)
 {
   if (!handle.has_resource_factory(resource_type_t::CUBLAS_HANDLE)) {
     cudaStream_t stream = get_cuda_stream(handle);

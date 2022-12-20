@@ -62,7 +62,7 @@ class cuda_stream_pool_resource_factory_t : public resource_factory_t {
  * @param handle raft handle object for managing resources
  * @return
  */
-const rmm::cuda_stream_pool& get_cuda_stream_pool(const base_handle_t& handle)
+inline const rmm::cuda_stream_pool& get_cuda_stream_pool(const base_handle_t& handle)
 {
   RAFT_EXPECTS(handle.has_resource_factory(resource_type_t::CUDA_STREAM_POOL),
                "ERROR: rmm::cuda_stream_pool was not initialized");
@@ -78,13 +78,13 @@ const rmm::cuda_stream_pool& get_cuda_stream_pool(const base_handle_t& handle)
  * @param handle
  * @param stream_pool
  */
-void set_cuda_stream_pool(const base_handle_t& handle,
-                          std::shared_ptr<rmm::cuda_stream_pool> stream_pool)
+inline void set_cuda_stream_pool(const base_handle_t& handle,
+                                 std::shared_ptr<rmm::cuda_stream_pool> stream_pool)
 {
   handle.add_resource_factory(std::make_shared<cuda_stream_pool_resource_factory_t>(stream_pool));
 };
 
-bool is_stream_pool_initialized(const base_handle_t& handle)
+inline bool is_stream_pool_initialized(const base_handle_t& handle)
 {
   return handle.has_resource_factory(resource_type_t::CUDA_STREAM_POOL);
 }
@@ -97,7 +97,7 @@ std::size_t get_stream_pool_size(const base_handle_t& handle)
 /**
  * @brief return stream from pool
  */
-rmm::cuda_stream_view get_stream_from_stream_pool(const base_handle_t& handle)
+inline rmm::cuda_stream_view get_stream_from_stream_pool(const base_handle_t& handle)
 {
   RAFT_EXPECTS(handle.has_resource_factory(resource_type_t::CUDA_STREAM_POOL),
                "ERROR: rmm::cuda_stream_pool was not initialized");
@@ -107,8 +107,8 @@ rmm::cuda_stream_view get_stream_from_stream_pool(const base_handle_t& handle)
 /**
  * @brief return stream from pool at index
  */
-rmm::cuda_stream_view get_stream_from_stream_pool(const base_handle_t& handle,
-                                                  std::size_t stream_idx)
+inline rmm::cuda_stream_view get_stream_from_stream_pool(const base_handle_t& handle,
+                                                         std::size_t stream_idx)
 {
   RAFT_EXPECTS(handle.has_resource_factory(resource_type_t::CUDA_STREAM_POOL),
                "ERROR: rmm::cuda_stream_pool was not initialized");
@@ -118,7 +118,7 @@ rmm::cuda_stream_view get_stream_from_stream_pool(const base_handle_t& handle,
 /**
  * @brief return stream from pool if size > 0, else main stream on handle
  */
-rmm::cuda_stream_view get_next_usable_stream(const base_handle_t& handle)
+inline rmm::cuda_stream_view get_next_usable_stream(const base_handle_t& handle)
 {
   return is_stream_pool_initialized(handle) ? get_stream_from_stream_pool(handle)
                                             : get_cuda_stream(handle);
@@ -129,7 +129,8 @@ rmm::cuda_stream_view get_next_usable_stream(const base_handle_t& handle)
  *
  * @param[in] stream_idx the required index of the stream in the stream pool if available
  */
-rmm::cuda_stream_view get_next_usable_stream(const base_handle_t& handle, std::size_t stream_idx)
+inline rmm::cuda_stream_view get_next_usable_stream(const base_handle_t& handle,
+                                                    std::size_t stream_idx)
 {
   return is_stream_pool_initialized(handle) ? get_stream_from_stream_pool(handle, stream_idx)
                                             : get_cuda_stream(handle);
@@ -138,7 +139,7 @@ rmm::cuda_stream_view get_next_usable_stream(const base_handle_t& handle, std::s
 /**
  * @brief synchronize the stream pool on the handle
  */
-void sync_stream_pool(const base_handle_t& handle)
+inline void sync_stream_pool(const base_handle_t& handle)
 {
   for (std::size_t i = 0; i < get_stream_pool_size(handle); i++) {
     sync_stream(handle, get_cuda_stream_pool(handle).get_stream(i));
@@ -150,7 +151,8 @@ void sync_stream_pool(const base_handle_t& handle)
  *
  * @param[in] stream_indices the indices of the streams in the stream pool to synchronize
  */
-void sync_stream_pool(const base_handle_t& handle, const std::vector<std::size_t> stream_indices)
+inline void sync_stream_pool(const base_handle_t& handle,
+                             const std::vector<std::size_t> stream_indices)
 {
   RAFT_EXPECTS(handle.has_resource_factory(resource_type_t::CUDA_STREAM_POOL),
                "ERROR: rmm::cuda_stream_pool was not initialized");
@@ -162,7 +164,7 @@ void sync_stream_pool(const base_handle_t& handle, const std::vector<std::size_t
 /**
  * @brief ask stream pool to wait on last event in main stream
  */
-void wait_stream_pool_on_stream(const base_handle_t& handle)
+inline void wait_stream_pool_on_stream(const base_handle_t& handle)
 {
   cudaEvent_t event = get_cuda_stream_sync_event(handle);
   RAFT_CUDA_TRY(cudaEventRecord(event, get_cuda_stream(handle)));

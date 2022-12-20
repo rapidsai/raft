@@ -55,7 +55,7 @@ class device_id_resource_factory_t : public resource_factory_t {
  * @param handle raft handle object for managing resources
  * @return
  */
-int get_device_id(base_handle_t const& handle)
+inline int get_device_id(base_handle_t const& handle)
 {
   if (!handle.has_resource_factory(resource_type_t::DEVICE_ID)) {
     handle.add_resource_factory(std::make_shared<device_id_resource_factory_t>());

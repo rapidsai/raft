@@ -51,18 +51,18 @@ class comms_resource_factory_t : public resource_factory_t {
   std::shared_ptr<comms::comms_t> communicator_;
 };
 
-bool comms_initialized(base_handle_t const& handle)
+inline bool comms_initialized(base_handle_t const& handle)
 {
   return handle.has_resource_factory(resource_type_t::COMMUNICATOR);
 }
 
-const comms::comms_t& get_comms(const base_handle_t& handle)
+inline const comms::comms_t& get_comms(const base_handle_t& handle)
 {
   RAFT_EXPECTS(comms_initialized(handle), "ERROR: Communicator was not initialized\n");
   return *handle.get_resource<comms::comms_t>(resource_type_t::COMMUNICATOR);
 }
 
-void set_comms(base_handle_t& handle, std::shared_ptr<comms::comms_t> communicator)
+inline void set_comms(base_handle_t& handle, std::shared_ptr<comms::comms_t> communicator)
 {
   handle.add_resource_factory(std::make_shared<comms_resource_factory_t>(communicator));
 }

@@ -55,7 +55,7 @@ class device_properties_resource_factory_t : public resource_factory_t {
  * @param handle raft handle object for managing resources
  * @return
  */
-cudaDeviceProp& get_device_properties(base_handle_t const& handle)
+inline cudaDeviceProp& get_device_properties(base_handle_t const& handle)
 {
   if (!handle.has_resource_factory(resource_type_t::DEVICE_PROPERTIES)) {
     int dev_id = get_device_id(handle);

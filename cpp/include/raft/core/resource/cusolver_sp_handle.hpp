@@ -65,7 +65,7 @@ class cusolver_sp_resource_factory_t : public resource_factory_t {
  * @param handle
  * @return
  */
-cusolverSpHandle_t get_cusolver_sp_handle(base_handle_t const& handle)
+inline cusolverSpHandle_t get_cusolver_sp_handle(base_handle_t const& handle)
 {
   if (!handle.has_resource_factory(resource_type_t::CUSOLVER_SP_HANDLE)) {
     cudaStream_t stream = get_cuda_stream(handle);

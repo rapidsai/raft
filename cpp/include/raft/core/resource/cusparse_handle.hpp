@@ -57,7 +57,7 @@ class cusparse_resource_factory_t : public resource_factory_t {
  * @param handle
  * @return
  */
-cusparseHandle_t get_cusparse_handle(base_handle_t const& handle)
+inline cusparseHandle_t get_cusparse_handle(base_handle_t const& handle)
 {
   if (!handle.has_resource_factory(resource_type_t::CUSPARSE_HANDLE)) {
     rmm::cuda_stream_view stream = get_cuda_stream(handle);

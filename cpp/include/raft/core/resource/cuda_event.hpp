@@ -52,7 +52,7 @@ class cuda_stream_sync_event_resource_factory_t : public resource_factory_t {
  * @param handle raft handle object for managing resources
  * @return
  */
-cudaEvent_t& get_cuda_stream_sync_event(base_handle_t const& handle)
+inline cudaEvent_t& get_cuda_stream_sync_event(base_handle_t const& handle)
 {
   if (!handle.has_resource_factory(resource_type_t::CUDA_STREAM_SYNC_EVENT)) {
     handle.add_resource_factory(std::make_shared<cuda_stream_sync_event_resource_factory_t>());

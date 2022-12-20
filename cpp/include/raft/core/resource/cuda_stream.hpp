@@ -60,7 +60,7 @@ class cuda_stream_resource_factory_t : public resource_factory_t {
  * @param handle raft handle object for managing resources
  * @return
  */
-rmm::cuda_stream_view get_cuda_stream(base_handle_t const& handle)
+inline rmm::cuda_stream_view get_cuda_stream(base_handle_t const& handle)
 {
   if (!handle.has_resource_factory(resource_type_t::CUDA_STREAM_VIEW)) {
     handle.add_resource_factory(std::make_shared<cuda_stream_resource_factory_t>());
@@ -74,7 +74,7 @@ rmm::cuda_stream_view get_cuda_stream(base_handle_t const& handle)
  * @param handle raft handle object for managing resources
  * @return
  */
-void set_cuda_stream(base_handle_t const& handle, rmm::cuda_stream_view stream_view)
+inline void set_cuda_stream(base_handle_t const& handle, rmm::cuda_stream_view stream_view)
 {
   handle.add_resource_factory(std::make_shared<cuda_stream_resource_factory_t>(stream_view));
 };
@@ -82,7 +82,7 @@ void set_cuda_stream(base_handle_t const& handle, rmm::cuda_stream_view stream_v
 /**
  * @brief synchronize a specific stream
  */
-void sync_stream(const base_handle_t& handle, rmm::cuda_stream_view stream)
+inline void sync_stream(const base_handle_t& handle, rmm::cuda_stream_view stream)
 {
   interruptible::synchronize(stream);
 }
@@ -90,5 +90,8 @@ void sync_stream(const base_handle_t& handle, rmm::cuda_stream_view stream)
 /**
  * @brief synchronize main stream on the handle
  */
-void sync_stream(const base_handle_t& handle) { sync_stream(handle, get_cuda_stream(handle)); }
+inline void sync_stream(const base_handle_t& handle)
+{
+  sync_stream(handle, get_cuda_stream(handle));
+}
 }  // namespace raft::core

@@ -57,7 +57,9 @@ const comms::comms_t& get_subcomm(const base_handle_t& handle, std::string key)
   return *sub_comm;
 }
 
-void set_subcomm(base_handle_t& handle, std::string key, std::shared_ptr<comms::comms_t> subcomm)
+inline void set_subcomm(base_handle_t& handle,
+                        std::string key,
+                        std::shared_ptr<comms::comms_t> subcomm)
 {
   if (!handle.has_resource_factory(resource_type_t::SUB_COMMUNICATOR)) {
     handle.add_resource_factory(std::make_shared<sub_comms_resource_factory_t>());

@@ -52,7 +52,7 @@ class thrust_policy_resource_factory_t : public resource_factory_t {
  * @param handle raft handle object for managing resources
  * @return
  */
-rmm::exec_policy& get_thrust_policy(base_handle_t const& handle)
+inline rmm::exec_policy& get_thrust_policy(base_handle_t const& handle)
 {
   if (!handle.has_resource_factory(resource_type_t::THRUST_POLICY)) {
     rmm::cuda_stream_view stream = get_cuda_stream(handle);
