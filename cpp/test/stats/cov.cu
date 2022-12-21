@@ -103,10 +103,10 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
   }
 
  protected:
-  CovInputs<T> params;
-  rmm::device_uvector<T> data, mean_act, cov_act, cov_cm, cov_cm_ref;
   cublasHandle_t handle;
   cudaStream_t stream = 0;
+  CovInputs<T> params;
+  rmm::device_uvector<T> data, mean_act, cov_act, cov_cm, cov_cm_ref;
 };
 
 ///@todo: add stable=false after it has been implemented

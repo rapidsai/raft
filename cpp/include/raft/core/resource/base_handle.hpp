@@ -25,7 +25,7 @@ namespace raft::core {
 
 class base_handle_t {
  public:
-  base_handle_t() {}
+  base_handle_t() { printf("base_handle_t constructor\n"); }
 
   base_handle_t(const base_handle_t&) = delete;
   base_handle_t& operator=(const base_handle_t&) = delete;
@@ -34,6 +34,8 @@ class base_handle_t {
 
   bool has_resource_factory(resource_type_t resource_type) const
   {
+    printf("Has resource %d\n", resource_type);
+    std::lock_guard<std::mutex> _(mutex_);
     return factories_.find(resource_type) != factories_.end();
   }
 
@@ -43,12 +45,16 @@ class base_handle_t {
    */
   void add_resource_factory(std::shared_ptr<resource_factory_t> factory) const
   {
+    printf("add resource %d\n", factory.get()->resource_type());
+    std::lock_guard<std::mutex> _(mutex_);
     factories_.insert(std::make_pair(factory.get()->resource_type(), factory));
   }
 
   template <typename res_t>
   res_t* get_resource(resource_type_t resource_type) const
   {
+    printf("get resource %d\n", resource_type);
+
     std::lock_guard<std::mutex> _(mutex_);
     if (resources_.find(resource_type) == resources_.end()) {
       resource_factory_t* factory = factories_.at(resource_type).get();
