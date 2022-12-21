@@ -21,15 +21,15 @@ namespace raft::core {
 class thrust_policy_resource_t : public resource_t {
  public:
   thrust_policy_resource_t(rmm::cuda_stream_view stream_view)
-    : thrust_policy_(std::make_unique<rmm::exec_policy>(stream_view))
+    : thrust_policy_(std::make_shared<rmm::exec_policy>(stream_view))
   {
   }
-  void* get_resource() override { return &(*thrust_policy_); }
+  void* get_resource() override { return thrust_policy_.get(); }
 
   ~thrust_policy_resource_t() override {}
 
  private:
-  std::unique_ptr<rmm::exec_policy> thrust_policy_{nullptr};
+  std::shared_ptr<rmm::exec_policy> thrust_policy_;
 };
 
 /**

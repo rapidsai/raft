@@ -51,7 +51,6 @@ class base_handle_t {
   {
     std::lock_guard<std::mutex> _(mutex_);
     if (resources_.find(resource_type) == resources_.end()) {
-      printf("Loading resource : %d\n", resource_type);
       resource_factory_t* factory = factories_.at(resource_type).get();
       resources_.insert(std::make_pair(resource_type, factory->make_resource()));
     }
@@ -60,7 +59,7 @@ class base_handle_t {
 
  private:
   mutable std::mutex mutex_;
-  mutable std::unordered_map<resource_type_t, std::shared_ptr<resource_t>> resources_;
   mutable std::unordered_map<resource_type_t, std::shared_ptr<resource_factory_t>> factories_;
+  mutable std::unordered_map<resource_type_t, std::shared_ptr<resource_t>> resources_;
 };
 }  // namespace raft::core

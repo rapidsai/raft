@@ -19,7 +19,7 @@
 namespace raft::core {
 
 enum resource_type_t {
-  CUBLAS_HANDLE,
+  CUBLAS_HANDLE = 0,
   CUSOLVER_DN_HANDLE,
   CUSOLVER_SP_HANDLE,
   CUSPARSE_HANDLE,

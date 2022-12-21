@@ -81,9 +81,10 @@ class device_handle_t : public core::base_handle_t {
    * unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
+
   device_handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
                   std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
-    : core::base_handle_t()
+    : core::base_handle_t{}
   {
     core::base_handle_t::add_resource_factory(
       std::make_shared<core::device_id_resource_factory_t>());

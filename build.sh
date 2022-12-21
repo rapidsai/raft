@@ -153,6 +153,7 @@ function limitTests {
             # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
             ARGS=${ARGS//--limit-tests=$LIMIT_TEST_TARGETS/}
             TEST_TARGETS=${LIMIT_TEST_TARGETS}
+	    echo "Limiting tests to $TEST_TARGETS"
         fi
     fi
 }

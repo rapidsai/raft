@@ -43,8 +43,8 @@ struct LinewiseTestParams {
 
 template <typename T, typename I, typename ParamsReader>
 struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Params> {
-  const LinewiseTestParams params;
   const raft::handle_t handle;
+  const LinewiseTestParams params;
   rmm::cuda_stream_view stream;
 
   LinewiseTest()

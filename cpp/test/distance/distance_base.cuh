@@ -519,10 +519,10 @@ class BigMatrixDistanceTest : public ::testing::Test {
   }
 
  protected:
+  raft::handle_t handle;
   int m = 48000;
   int n = 48000;
   int k = 1;
-  raft::handle_t handle;
   rmm::device_uvector<float> x, dist;
 };
 }  // end namespace distance

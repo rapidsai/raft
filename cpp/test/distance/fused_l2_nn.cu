@@ -158,6 +158,8 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
   Inputs<DataT> params;
   rmm::device_uvector<DataT> x;
   rmm::device_uvector<DataT> y;
@@ -166,8 +168,6 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   rmm::device_uvector<raft::KeyValuePair<int, DataT>> min;
   rmm::device_uvector<raft::KeyValuePair<int, DataT>> min_ref;
   rmm::device_uvector<char> workspace;
-  raft::handle_t handle;
-  cudaStream_t stream;
 
   virtual void generateGoldenResult()
   {

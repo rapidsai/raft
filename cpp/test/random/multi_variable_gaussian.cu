@@ -79,18 +79,19 @@ template <typename T>
 
 template <typename T>
 class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
- protected:
+ public:
   MVGTest()
-    : workspace_d(0, handle.get_stream()),
+    : params(::testing::TestWithParam<MVGInputs<T>>::GetParam()),
+      workspace_d(0, handle.get_stream()),
       P_d(0, handle.get_stream()),
       x_d(0, handle.get_stream()),
       X_d(0, handle.get_stream()),
       Rand_cov(0, handle.get_stream()),
       Rand_mean(0, handle.get_stream())
   {
-    printf("Creating mvg test\n");
   }
 
+ protected:
   void SetUp() override
   {
     printf("Settingup test\n");
@@ -200,15 +201,15 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
   MVGInputs<T> params;
-  std::vector<T> P, x, X;
   rmm::device_uvector<T> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
+  std::vector<T> P, x, X;
   int dim, nPoints;
   typename detail::multi_variable_gaussian<T>::Decomposer method;
   Correlation corr;
   detail::multi_variable_gaussian<T>* mvg = NULL;
   T tolerance;
-  raft::handle_t handle;
 };  // end of MVGTest class
 
 template <typename T>
@@ -225,7 +226,7 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
     }
   }
 
- protected:
+ public:
   MVGMdspanTest()
     : workspace_d(0, handle.get_stream()),
       P_d(0, handle.get_stream()),
@@ -328,13 +329,14 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
   }
 
  protected:
+  raft::handle_t handle;
+
   MVGInputs<T> params;
   std::vector<T> P, x, X;
   rmm::device_uvector<T> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
   int dim, nPoints;
   Correlation corr;
   T tolerance;
-  raft::handle_t handle;
 };  // end of MVGTest class
 
 ///@todo find out the reason that Un-correlated covs are giving problems (in qr)

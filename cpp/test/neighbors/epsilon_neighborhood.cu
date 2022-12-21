@@ -72,13 +72,13 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
                                 false);
   }
 
+  const raft::handle_t handle;
   EpsInputs<T, IdxT> param;
   cudaStream_t stream = 0;
   rmm::device_uvector<T> data;
   rmm::device_uvector<bool> adj;
   rmm::device_uvector<IdxT> labels, vd;
   IdxT batchSize;
-  const raft::handle_t handle;
 };  // class EpsNeighTest
 
 const std::vector<EpsInputs<float, int>> inputsfi = {

@@ -147,8 +147,8 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   }
 
  protected:
-  MakeBlobsInputs<T> params;
   raft::handle_t handle;
+  MakeBlobsInputs<T> params;
   cudaStream_t stream = 0;
 
   device_vector<T, int> mean_var;
