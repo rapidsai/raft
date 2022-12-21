@@ -35,6 +35,20 @@ namespace raft::matrix {
  * `batch_size` rows, then this function selects `k` smallest/largest values in each row and fills
  * in the row-major matrix `out_val` of size (batch_size, k).
  *
+ * Example usage
+ * @code{.cpp}
+ *   using namespace raft;
+ *   // get a 2D row-major array of values to search through
+ *   auto in_values = {... input device_matrix_view<const float, size_t, row_major> ...}
+ *   // prepare output arrays
+ *   auto out_extents = make_extents<size_t>(in_values.extent(0), k);
+ *   auto out_values  = make_device_mdarray<float>(handle, out_extents);
+ *   auto out_indices = make_device_mdarray<size_t>(handle, out_extents);
+ *   // search `k` smallest values in each row
+ *   matrix::select_k<float, size_t>(
+ *     handle, in_values, std::nullopt, out_values.view(), out_indices.view(), true);
+ * @endcode
+ *
  * @tparam T
  *   the type of the keys (what is being compared).
  * @tparam IdxT
@@ -52,7 +66,7 @@ namespace raft::matrix {
  *   output values [batch_size, k];
  *   the k smallest/largest values from each row of the `in_val`.
  * @param[out] out_idx
- *   output payload (e.g. indices) [batch_size, len];
+ *   output payload (e.g. indices) [batch_size, k];
  *   the payload selected together with `out_val`.
  * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
