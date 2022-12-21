@@ -18,6 +18,7 @@
 
 namespace raft {
 
+// This will eventually be deprecated in a future version.
 using handle_t = raft::device_handle_t;
 
 }  // end NAMESPACE raft
