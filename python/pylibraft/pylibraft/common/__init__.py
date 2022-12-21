@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from .ai_wrapper import ai_wrapper
 from .cai_wrapper import cai_wrapper
 from .cuda import Stream
 from .device_ndarray import device_ndarray
