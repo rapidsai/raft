@@ -78,7 +78,7 @@ struct FusedL2NNEpilogue {
   //
   using OutputTileIterator =
     cutlass::epilogue::threadblock::PredicatedTileIteratorReducedVec<typename Base::OutputTileThreadMap,
-                                                           ElementTensor, LayoutT>;
+                                                           ElementTensor, LayoutT, typename OutputOp::Params>;
 
   /// Define the epilogue
   using Epilogue = EpilogueWithBroadcast<Shape,

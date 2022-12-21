@@ -50,7 +50,9 @@ template <typename ElementC_,
           typename ElementT_,
           int ElementsPerAccess,
           typename DistanceOp_,
-          typename FinalOp_>
+          typename FinalOp_,
+          typename ReduceOpT_,
+          typename KVPReduceOpT_>
 class FusedL2NNEpilogueElementwise {
  public:
   using ElementOutput                 = ElementC_;
@@ -85,12 +87,18 @@ class FusedL2NNEpilogueElementwise {
   struct Params {
     FinalOp_ final_op_;
     DistanceOp_ dist_op_;
-
+    KVPReduceOpT_ pair_redop_;
+    ReduceOpT_ red_op_;
+    int *mutexes_;
     //
     // Methods
     //
     CUTLASS_HOST_DEVICE
-    Params(DistanceOp_ dist_op, FinalOp final_op) : final_op_(final_op), dist_op_(dist_op) {}
+    Params(DistanceOp_ dist_op, FinalOp final_op,
+           ReduceOpT_ red_op, KVPReduceOpT_ pair_redop,
+           int *mutexes) :
+           final_op_(final_op), dist_op_(dist_op), pair_redop_(pair_redop),
+           red_op_(red_op), mutexes_(mutexes) {}
 
     CUTLASS_HOST_DEVICE
     Params() {}
@@ -102,6 +110,8 @@ class FusedL2NNEpilogueElementwise {
   //
   FinalOp_ final_op;
   DistanceOp_ elementwise_op;
+  KVPReduceOpT_ pair_redop;
+  ReduceOpT_ red_op;
 
  public:
   //
@@ -111,7 +121,8 @@ class FusedL2NNEpilogueElementwise {
   /// Constructor from Params
   CUTLASS_HOST_DEVICE
   FusedL2NNEpilogueElementwise(Params const& params)
-    : final_op(params.final_op_), elementwise_op(params.dist_op_)
+    : final_op(params.final_op_), elementwise_op(params.dist_op_),
+      pair_redop(params.pair_redop_), red_op(params.red_op_)
   {
   }
 
@@ -140,16 +151,18 @@ class FusedL2NNEpilogueElementwise {
     FragmentCompute tmp_C =
       NumericArrayConverter<ElementCompute, ElementC, kElementsPerAccess>()(frag_C);
     FragmentCompute result_Z;
-    FragmentCompute result_T;
+    //FragmentT result_T;
 
     CUTLASS_PRAGMA_UNROLL
     for (int i = 0; i < kElementsPerAccess; ++i) {
-      result_Z[i] = elementwise_op(tmp_C[i], V[i], tmp_Accum[i]);
-      result_T[i] = final_op(result_Z[i], 0);
+      //result_Z[i] = elementwise_op(tmp_C[i], V[i], tmp_Accum[i]);
+      ElementCompute res_Z = elementwise_op(tmp_C[i], V[i], tmp_Accum[i]);
+      //frag_T[i] = final_op(result_Z[i], 0);
+      red_op.init(&frag_T[i], res_Z);
     }
 
-    NumericArrayConverter<ElementT, ElementCompute, kElementsPerAccess> convert_t;
-    frag_T = convert_t(result_T);
+    // NumericArrayConverter<ElementT, ElementCompute, kElementsPerAccess> convert_t;
+    // frag_T = convert_t(result_T);
   }
 
   /// Applies the operation when is_source_needed() is false

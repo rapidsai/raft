@@ -77,9 +77,10 @@ class PredicatedTileIteratorReducedVec {
   using Index       = typename Layout::Index;
   using LongIndex   = typename Layout::LongIndex;
   using TensorCoord = MatrixCoord;
-  using  EpilogueOpParams = EpilogueOpParams_
+  using EpilogueOpParams = EpilogueOpParams_;
 
-  static int const kElementsPerAccess = ThreadMap::kElementsPerAccess;
+  //static int const kElementsPerAccess = ThreadMap::kElementsPerAccess;
+  static int const kElementsPerAccess = 1;
   static int const kThreads           = ThreadMap::kThreads;
   static int const kIterations        = ThreadMap::Count::kTile;
 
@@ -89,13 +90,19 @@ class PredicatedTileIteratorReducedVec {
   static_assert(ThreadMap::Iterations::kColumn > 0, "ThreadMap::Iterations::kColumn must be > 0");
 
   /// Fragment object
+  // using Fragment = Array<Element,
+  //                        ThreadMap::Iterations::kColumn * ThreadMap::Iterations::kRow *
+  //                          ThreadMap::Iterations::kGroup * ThreadMap::Iterations::kCluster *
+  //                          ThreadMap::kElementsPerAccess>;
+
   using Fragment = Array<Element,
                          ThreadMap::Iterations::kColumn * ThreadMap::Iterations::kRow *
                            ThreadMap::Iterations::kGroup * ThreadMap::Iterations::kCluster *
-                           ThreadMap::kElementsPerAccess>;
+                           kElementsPerAccess>;
 
   /// Memory access size
-  using AccessType = AlignedArray<Element, ThreadMap::kElementsPerAccess>;
+  //using AccessType = AlignedArray<Element, ThreadMap::kElementsPerAccess>;
+  using AccessType = AlignedArray<Element, kElementsPerAccess>;
 
   //
   // Parameters struct
@@ -114,6 +121,16 @@ class PredicatedTileIteratorReducedVec {
       : PredicatedTileIteratorParams(
           layout.stride(0) * int(sizeof(AccessType)) / kElementsPerAccess,
           make_OutputTileThreadMapDesc<ThreadMap>())
+    {
+    }
+
+    CUTLASS_HOST_DEVICE
+    Params(Layout const& layout, EpilogueOpParams const& user_param_)
+      : PredicatedTileIteratorParams(
+          //layout.stride(0) * int(sizeof(AccessType)) / kElementsPerAccess,
+          int(sizeof(AccessType)) / kElementsPerAccess,
+          make_OutputTileThreadMapDesc<ThreadMap>()),
+          user_param(user_param_)
     {
     }
 
@@ -237,6 +254,9 @@ class PredicatedTileIteratorReducedVec {
     byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
                     LongIndex(thread_offset.row()) * LongIndex(params_.stride);
 
+    // printf("blockId = %d threadId = %d thread_offset_row = %d stride = %d  extent.row() = %d extent.column() = %d\n",
+    //       (int)blockIdx.x, (int)threadIdx.x, (int)thread_offset.row(), (int)params_.stride, (int)extent.row(), (int)extent.column());
+
     if (ScatterD) {
       byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
                       LongIndex(thread_offset.column()) * sizeof(AccessType) / kElementsPerAccess;
@@ -314,10 +334,10 @@ class PredicatedTileIteratorReducedVec {
 
   /// Stores a fragment to memory
   CUTLASS_DEVICE
-  void store_with_byte_offset(Fragment const& frag, int64_t byte_offset) const
+  void store_with_byte_offset(Fragment& frag, int64_t byte_offset) const
   {
     uint8_t* byte_pointer      = byte_pointer_;
-    AccessType const* frag_ptr = reinterpret_cast<AccessType const*>(&frag);
+    AccessType* frag_ptr = reinterpret_cast<AccessType*>(&frag);
 
     CUTLASS_PRAGMA_UNROLL
     for (int cluster = 0; cluster < ThreadMap::Iterations::kCluster; ++cluster) {
@@ -342,7 +362,7 @@ class PredicatedTileIteratorReducedVec {
               byte_pointer + byte_offset +
               LongIndex(indices_[row_offset + thread_start_row_]) * LongIndex(params_.stride));
           }
-
+#if 1
           CUTLASS_PRAGMA_UNROLL
           for (int column = 0; column < ThreadMap::Iterations::kColumn; ++column) {
             bool guard = row_guard && mask_.predicates[column];
@@ -353,19 +373,45 @@ class PredicatedTileIteratorReducedVec {
                   frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column];
               }
             } else {
-              cutlass::arch::global_store<AccessType, sizeof(AccessType)>(
-                frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column],
-                (void*)&memory_pointer[column * ThreadMap::Delta::kColumn / kElementsPerAccess],
-                guard);
+              int frag_idx = frag_row_idx * ThreadMap::Iterations::kColumn;
+
+              if (guard) {
+                //printf("gmem column id = %d  guard = %d \n", (int)(thread_start_column_ + ThreadMap::Delta::kColumn * column), (int) guard);
+                params_.user_param.red_op_.init_key(&(*frag_ptr)[frag_idx + column], thread_start_column_ + ThreadMap::Delta::kColumn * column);
+                params_.user_param.red_op_(thread_start_column_ + ThreadMap::Delta::kColumn * column, &(*frag_ptr)[frag_idx], (*frag_ptr)[frag_idx + column]);
+              }
             }
           }
+#if 1
+          if (row_guard ) {
+            // printf("blockIdx.x = %d threadIdx.x = %d sizeof(Element) = %d params_.increment_row = %d params_.increment_group = %d params_.increment_cluster = %d  frag_row_idx = %d extent_row_ = %d rowid = %d extent.column() = %d\n",
+            //         (int)blockIdx.x, (int)threadIdx.x, (int)sizeof(Element), (int)params_.increment_row, (int)params_.increment_group, (int)params_.increment_cluster,
+            //         (int)frag_row_idx, (int)extent_row_, (int)(row_offset + thread_start_row_), (int)extent_column_);
+
+            while (atomicCAS(params_.user_param.mutexes_ + row_offset + thread_start_row_, 0, 1) == 1)
+              ;
+            __threadfence();
+              params_.user_param.red_op_(row_offset + thread_start_row_, (Element*)&memory_pointer[0], (*frag_ptr)[frag_row_idx * ThreadMap::Iterations::kColumn]);
+              // cutlass::arch::global_store<AccessType, sizeof(AccessType)>(
+              // frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn],
+              // (void*)&memory_pointer[0],
+              // row_guard);
+            __threadfence();
+            atomicCAS(params_.user_param.mutexes_ + row_offset + thread_start_row_, 1, 0);
+          }
+#endif
+#endif
 
           if (row + 1 < ThreadMap::Iterations::kRow) {
-            if (!ScatterD) { byte_pointer += params_.increment_row; }
+            if (!ScatterD) { 
+              byte_pointer += params_.increment_row;
+            }
           }
         }
 
-        if (group + 1 < ThreadMap::Iterations::kGroup) { byte_pointer += params_.increment_group; }
+        if (group + 1 < ThreadMap::Iterations::kGroup) {
+          byte_pointer += params_.increment_group;
+        }
       }
 
       if (cluster + 1 < ThreadMap::Iterations::kCluster) {
@@ -376,7 +422,7 @@ class PredicatedTileIteratorReducedVec {
 
   /// Stores a fragment to memory
   CUTLASS_DEVICE
-  void store(Fragment const& frag) const { store_with_byte_offset(frag, 0); }
+  void store(Fragment& frag) const { store_with_byte_offset(frag, 0); }
 
   /// Loads a fragment from memory
   CUTLASS_DEVICE
@@ -545,6 +591,7 @@ class PredicatedTileIteratorReducedVec {
         (ThreadMap::Shape::kGroup - 1) * ThreadMap::Shape::kRow * ThreadMap::Count::kRow;
 
       if (state_[1] == ThreadMap::Count::kGroup) {
+
         state_[1] = 0;
         ++state_[2];
         byte_pointer_ += params_.advance_cluster;

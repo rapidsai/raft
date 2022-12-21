@@ -22,6 +22,8 @@
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <stdint.h>
+#include <raft/distance/detail/euclidean.cuh>
+#include <raft/distance/detail/fused_l2_nn_cutlass_base.cuh>
 
 namespace raft {
 namespace distance {
@@ -43,7 +45,7 @@ struct KVPMinReduceImpl {
 template <typename LabelT, typename DataT>
 struct MinAndDistanceReduceOpImpl {
   typedef typename raft::KeyValuePair<LabelT, DataT> KVP;
-  DI void operator()(LabelT rid, KVP* out, const KVP& other)
+  DI void operator()(LabelT rid, KVP* out, const KVP& other) const
   {
     if (other.value < out->value) {
       out->key   = other.key;
@@ -51,16 +53,29 @@ struct MinAndDistanceReduceOpImpl {
     }
   }
 
-  DI void operator()(LabelT rid, DataT* out, const KVP& other)
+  DI void operator()(LabelT rid, DataT* out, const KVP& other) const
   {
     if (other.value < *out) { *out = other.value; }
   }
 
-  DI void init(DataT* out, DataT maxVal) { *out = maxVal; }
-  DI void init(KVP* out, DataT maxVal)
+  DI void operator()(LabelT rid, DataT* out, const DataT& other) const
+  {
+    if (other < *out) { *out = other; }
+  }
+
+
+  DI void init(DataT* out, DataT maxVal) const { *out = maxVal; }
+  DI void init(KVP* out, DataT maxVal) const
   {
     out->key   = 0;
     out->value = maxVal;
+  }
+
+  DI void init_key(DataT *out, LabelT idx) const { return; }
+  DI void init_key(KVP *out, LabelT idx) const
+  {
+    out->key   = idx;
+    //out->value = maxVal;
   }
 };
 
@@ -260,13 +275,21 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
 
 // final op functor for FusedL2NN used in its cutlass version
 // to convert the distance value & key(loc id) into key-value pair
-template <typename AccType, typename OutType, typename Index>
+template <typename AccType, typename Index,  typename OutType>
 struct kvp_fin_op {
+  typedef typename raft::KeyValuePair<Index, AccType> KVP;
+
   __host__ __device__ kvp_fin_op() noexcept {};
   // functor signature.
-  __host__ __device__ OutType operator()(AccType d_val, Index idx) const noexcept
+  __host__ __device__ void operator()(KVP &a, AccType d_val, Index idx) const
   {
-    return OutType(d_val, idx);
+    a.value = d_val;
+    a.key = idx;
+    return;
+  }
+  __host__ __device__ void operator()(AccType &a, AccType d_val, Index idx) const
+  {
+    return;
   }
 };
 
@@ -311,34 +334,50 @@ void fusedL2NNImpl(OutT* min,
 
   auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
 
-  constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
-  if (sqrt) {
-    auto fusedL2NNSqrt = fusedL2NNkernel<DataT,
-                                         OutT,
-                                         IdxT,
-                                         true,
-                                         P,
-                                         ReduceOpT,
-                                         KVPReduceOpT,
-                                         decltype(core_lambda),
-                                         decltype(fin_op)>;
-    dim3 grid          = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NNSqrt);
+  const auto deviceVersion = getComputeCapability();
+  if (deviceVersion.first >= 8) {
+    using L2Op = L2ExpandedOp<DataT, DataT>;
+    using final_op_kvp_ = kvp_fin_op<DataT, IdxT, OutT>;
+    final_op_kvp_ fin_op_kvp;
+    L2Op L2_dist_op(sqrt);
 
-    fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(
-      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
+    IdxT lda, ldb, ldd;
+    lda = k, ldb = k, ldd = n;
+
+    cutlassFusedL2NNKernel<DataT, DataT, OutT, IdxT, P::Veclen,
+                          final_op_kvp_, L2Op, ReduceOpT, KVPReduceOpT>(x, y, xn, yn, m, n, k,
+                           lda, ldb, ldd, min, workspace, fin_op_kvp, L2_dist_op,
+                           redOp, pairRedOp, stream);
   } else {
-    auto fusedL2NN = fusedL2NNkernel<DataT,
-                                     OutT,
-                                     IdxT,
-                                     false,
-                                     P,
-                                     ReduceOpT,
-                                     KVPReduceOpT,
-                                     decltype(core_lambda),
-                                     decltype(fin_op)>;
-    dim3 grid      = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NN);
-    fusedL2NN<<<grid, blk, shmemSize, stream>>>(
-      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
+    constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
+    if (sqrt) {
+      auto fusedL2NNSqrt = fusedL2NNkernel<DataT,
+                                          OutT,
+                                          IdxT,
+                                          true,
+                                          P,
+                                          ReduceOpT,
+                                          KVPReduceOpT,
+                                          decltype(core_lambda),
+                                          decltype(fin_op)>;
+      dim3 grid          = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NNSqrt);
+
+      fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(
+        min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
+    } else {
+      auto fusedL2NN = fusedL2NNkernel<DataT,
+                                      OutT,
+                                      IdxT,
+                                      false,
+                                      P,
+                                      ReduceOpT,
+                                      KVPReduceOpT,
+                                      decltype(core_lambda),
+                                      decltype(fin_op)>;
+      dim3 grid      = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NN);
+      fusedL2NN<<<grid, blk, shmemSize, stream>>>(
+        min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
+    }
   }
 
   RAFT_CUDA_TRY(cudaGetLastError());

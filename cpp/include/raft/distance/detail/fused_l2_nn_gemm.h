@@ -19,11 +19,12 @@
 #include <cutlass/cutlass.h>
 
 #include <cutlass/gemm/kernel/default_gemm_universal.h>
-#include <cutlass/gemm/kernel/gemm_with_fused_epilogue.h>
+//#include <cutlass/gemm/kernel/gemm_with_fused_epilogue.h>
 #include <cutlass/layout/matrix.h>
 #include <cutlass/layout/tensor.h>
 
 #include "./fused_l2_nn_epilogue.cuh"
+#include "./fusedL2NN_gemm_with_fused_epilogue.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -50,8 +51,6 @@ template <
   // typename ElementOutT,
   /// Epilogue output operator      - must satisfy concept of 'EpilogueWithBroadcastOp'
   typename EpilogueOutputOp,
-  typename ReduceOpT,
-  typename KVPReduceOpT,
   /// Number of stages used in the pipelined mainloop
   int Stages,
   /// data layout row/column major of inputs
@@ -132,7 +131,8 @@ struct FusedL2NNGemm {
     GemmBase::Epilogue::kElementsPerAccess>::Epilogue;
 
   // Compose the GEMM kernel
-  using GemmKernel = GemmWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
+  //using GemmKernel = GemmWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
+  using GemmKernel = FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
 };
 
 template <
@@ -231,7 +231,8 @@ struct FusedL2NNGemm<double,
     GemmBase::Epilogue::kElementsPerAccess>::Epilogue;
 
   // Compose the GEMM kernel
-  using GemmKernel = GemmWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
+  //using GemmKernel = GemmWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
+  using GemmKernel = FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////////

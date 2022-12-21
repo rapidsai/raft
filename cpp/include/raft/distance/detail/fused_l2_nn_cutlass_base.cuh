@@ -38,8 +38,9 @@
 #include <cutlass/matrix_coord.h>
 #include <cutlass/tensor_view.h>
 
-#include "./pairwise_distance_epilogue_elementwise.h"
-#include "./pairwise_distance_gemm.h"
+#include "./fused_l2_nn_epilogue_elementwise.cuh"
+#include "./fused_l2_nn_gemm.h"
+
 
 #define CUTLASS_CHECK(status)                                                                    \
   {                                                                                              \
@@ -82,23 +83,25 @@ void cutlassFusedL2NNKernel(const DataT* x,
                            KVPReduceOpT pairRedOp,
                            cudaStream_t stream)
 {
-  static_assert(!(std::is_same<OutT, bool>::value),
-                "OutType bool is not supported use uint8_t instead");
+  // static_assert(!(std::is_same<OutT, bool>::value),
+  //               "OutType bool is not supported use uint8_t instead");
 
   using EpilogueOutputOp =
-    cutlass::epilogue::thread::PairwiseDistanceEpilogueElementwise<DataT,  // ElementC_
-                                                                   AccT,   // ElementAccumulator_
-                                                                   DataT,  // ElementCompute_
-                                                                   AccT,   // ElementZ_
-                                                                   OutT,   // ElementT_
-                                                                   1,      // Elements per access 1
-                                                                   DistanceFn,
-                                                                   FinalLambda>;
+    cutlass::epilogue::thread::FusedL2NNEpilogueElementwise<DataT,  // ElementC_
+                                                            AccT,   // ElementAccumulator_
+                                                            DataT,  // ElementCompute_
+                                                            AccT,   // ElementZ_
+                                                            OutT,   // ElementT_
+                                                            1,      // Elements per access 1
+                                                            DistanceFn,
+                                                            FinalLambda,
+                                                            ReduceOpT,
+                                                            KVPReduceOpT>;
   constexpr int batch_count = 1;
 
   constexpr auto mode = cutlass::gemm::GemmUniversalMode::kGemm;
 
-  typename EpilogueOutputOp::Params epilog_op_param(dist_op, fin_op);
+  typename EpilogueOutputOp::Params epilog_op_param(dist_op, fin_op, redOp, pairRedOp, mutexes);
 
   const DataT *a, *b;
 
@@ -122,8 +125,6 @@ void cutlassFusedL2NNKernel(const DataT* x,
                                                          AccT,
                                                          AccT,
                                                          EpilogueOutputOp,
-                                                         ReduceOpT,
-                                                         KVPReduceOpT,
                                                          NumStages,  // Number of pipeline stages
                                                          isRowMajor>::GemmKernel;
 
@@ -154,12 +155,12 @@ void cutlassFusedL2NNKernel(const DataT* x,
     (int64_t)0,
     (int64_t)0,  // batch stride Norm B
     (int64_t)0,  // batch stride Output
-    gemm_lda,    // stride A
-    gemm_ldb,    // stride B
+    (int64_t)gemm_lda,    // stride A
+    (int64_t)gemm_ldb,    // stride B
     1,           // stride A norm
     0,           // this is no-op for Z
     0,           // This must be zero
-    ldd          // stride Output matrix
+    (int64_t)ldd          // stride Output matrix
   };
 
   // Using the arguments, query for extra workspace required for matrix multiplication computation

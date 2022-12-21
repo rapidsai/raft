@@ -59,6 +59,9 @@ struct FixConnectivitiesRedOp {
   value_idx* colors;
   value_idx m;
 
+  // default constructor for cutlass
+  DI FixConnectivitiesRedOp() : colors(0), m(0) { }
+
   FixConnectivitiesRedOp(value_idx* colors_, value_idx m_) : colors(colors_), m(m_){};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
@@ -80,8 +83,8 @@ struct FixConnectivitiesRedOp {
       return b;
   }
 
-  DI void init(value_t* out, value_t maxVal) { *out = maxVal; }
-  DI void init(KVP* out, value_t maxVal)
+  DI void init(value_t* out, value_t maxVal) const { *out = maxVal; }
+  DI void init(KVP* out, value_t maxVal) const
   {
     out->key   = -1;
     out->value = maxVal;
