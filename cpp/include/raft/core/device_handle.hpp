@@ -215,7 +215,7 @@ class device_handle_t : public core::base_handle_t {
  */
 class stream_syncer {
  public:
-  explicit stream_syncer(const handle_t& handle) : handle_(handle) { handle_.sync_stream(); }
+  explicit stream_syncer(const device_handle_t& handle) : handle_(handle) { handle_.sync_stream(); }
   ~stream_syncer()
   {
     handle_.wait_stream_pool_on_stream();
@@ -226,7 +226,7 @@ class stream_syncer {
   stream_syncer& operator=(const stream_syncer& other) = delete;
 
  private:
-  const handle_t& handle_;
+  const device_handle_t& handle_;
 };  // class stream_syncer
 
 }  // namespace raft
