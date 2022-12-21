@@ -59,9 +59,8 @@ class cuda_stream_pool_resource_factory_t : public resource_factory_t {
 
 inline bool is_stream_pool_initialized(const base_handle_t& handle)
 {
-  return !((*handle.get_resource<std::shared_ptr<rmm::cuda_stream_pool>>(
-              resource_type_t::CUDA_STREAM_POOL))
-             .get() == nullptr);
+  return *handle.get_resource<std::shared_ptr<rmm::cuda_stream_pool>>(
+           resource_type_t::CUDA_STREAM_POOL) != nullptr;
 }
 
 /**
@@ -71,12 +70,11 @@ inline bool is_stream_pool_initialized(const base_handle_t& handle)
  */
 inline const rmm::cuda_stream_pool& get_cuda_stream_pool(const base_handle_t& handle)
 {
-  RAFT_EXPECTS(is_stream_pool_initialized(handle),
-               "ERROR: rmm::cuda_stream_pool was not initialized");
-  auto ret = (*handle.get_resource<std::shared_ptr<rmm::cuda_stream_pool>>(
-                resource_type_t::CUDA_STREAM_POOL))
-               .get();
-  return *ret;
+  if (!handle.has_resource_factory(resource_type_t::CUDA_STREAM_POOL)) {
+    handle.add_resource_factory(std::make_shared<cuda_stream_pool_resource_factory_t>());
+  }
+  return *(*handle.get_resource<std::shared_ptr<rmm::cuda_stream_pool>>(
+    resource_type_t::CUDA_STREAM_POOL));
 };
 
 /**
@@ -168,6 +166,8 @@ inline void sync_stream_pool(const base_handle_t& handle,
  */
 inline void wait_stream_pool_on_stream(const base_handle_t& handle)
 {
+  printf("waiting on stream pooll\n");
+  printf("stream pool size: %ld\n", get_stream_pool_size(handle));
   cudaEvent_t event = get_cuda_stream_sync_event(handle);
   RAFT_CUDA_TRY(cudaEventRecord(event, get_cuda_stream(handle)));
   for (std::size_t i = 0; i < get_stream_pool_size(handle); i++) {

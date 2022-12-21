@@ -51,6 +51,24 @@ TEST(Raft, Handle)
   RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
+TEST(Raft, DefaultConstructor)
+{
+  handle_t handle;
+
+  // Make sure waiting on the default stream pool
+  // does not fail.
+  handle.wait_stream_pool_on_stream();
+  handle.sync_stream_pool();
+
+  auto s1 = handle.get_next_usable_stream();
+  auto s2 = handle.get_stream();
+  auto s3 = handle.get_next_usable_stream(5);
+
+  ASSERT_EQ(s1, s2);
+  ASSERT_EQ(s2, s3);
+  ASSERT_EQ(0, handle.get_stream_pool_size());
+}
+
 TEST(Raft, GetHandleFromPool)
 {
   constexpr std::size_t n_streams = 4;
