@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef __RAFT_RT_HANDLE
-#define __RAFT_RT_HANDLE
+#ifndef __RAFT_DEVICE_RESOURCES
+#define __RAFT_DEVICE_RESOURCES
 
 #pragma once
 
