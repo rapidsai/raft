@@ -47,7 +47,7 @@ class cublas_resource : public resource {
 class cublas_resource_factory : public resource_factory {
  public:
   cublas_resource_factory(rmm::cuda_stream_view stream) : stream_(stream) {}
-  resource_type get_resource_type() override { return resource_type::CUBLAS_res; }
+  resource_type get_resource_type() override { return resource_type::CUBLAS_HANDLE; }
   resource* make_resource() override { return new cublas_resource(stream_); }
 
  private:
@@ -62,10 +62,10 @@ class cublas_resource_factory : public resource_factory {
  */
 inline cublasHandle_t get_cublas_handle(resources const& res)
 {
-  if (!res.has_resource_factory(resource_type::CUBLAS_res)) {
+  if (!res.has_resource_factory(resource_type::CUBLAS_HANDLE)) {
     cudaStream_t stream = get_cuda_stream(res);
     res.add_resource_factory(std::make_shared<cublas_resource_factory>(stream));
   }
-  return *res.get_resource<cublasHandle_t>(resource_type::CUBLAS_res);
+  return *res.get_resource<cublasHandle_t>(resource_type::CUBLAS_HANDLE);
 };
 }  // namespace raft::resource

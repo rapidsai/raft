@@ -18,27 +18,30 @@
 
 namespace raft::resource {
 
+/**
+ * @brief Resource types can apply to any resource and don't have to be host- or device-specific.
+ */
 enum resource_type {
   // device-specific resource types
-  CUBLAS_res = 0,
-  CUSOLVER_DN_res,
-  CUSOLVER_SP_res,
-  CUSPARSE_res,
-  CUDA_STREAM_VIEW,
-  CUDA_STREAM_POOL,
-  CUDA_STREAM_SYNC_EVENT,
-  COMMUNICATOR,
-  SUB_COMMUNICATOR,
-  DEVICE_PROPERTIES,
-  DEVICE_ID,
-  THRUST_POLICY
+  CUBLAS_HANDLE = 0,       // cublas handle
+  CUSOLVER_DN_HANDLE,      // cusolver dn handle
+  CUSOLVER_SP_HANDLE,      // cusolver sp handle
+  CUSPARSE_HANDLE,         // cusparse handle
+  CUDA_STREAM_VIEW,        // view of a cuda stream
+  CUDA_STREAM_POOL,        // cuda stream pool
+  CUDA_STREAM_SYNC_EVENT,  // cuda event for syncing streams
+  COMMUNICATOR,            // raft communicator
+  SUB_COMMUNICATOR,        // raft sub communicator
+  DEVICE_PROPERTIES,       // cuda device properties
+  DEVICE_ID,               // cuda device id
+  THRUST_POLICY            // thrust execution policy
 };
 
 /**
- * A resource understands how to instantiate a specific
- * resource.
+ * @brief A resource constructs and contains an instance of
+ * some pre-determined object type and facades that object
+ * behind a common API.
  */
-
 class resource {
  public:
   virtual void* get_resource() = 0;
@@ -47,14 +50,21 @@ class resource {
 };
 
 /**
- * Factory that knows how to construct a
- * specific raft::resource to populate
- * the res_t.
+ * @brief A resource factory knows how to construct an instance of
+ * a specific raft::resource::resource.
  */
 class resource_factory {
  public:
+  /**
+   * @brief Return the resource_type associated with the current factory
+   * @return resource_type corresponding to the current factory
+   */
   virtual resource_type get_resource_type() = 0;
 
+  /**
+   * @brief Construct an instance of the factory's underlying resource.
+   * @return resource instance
+   */
   virtual resource* make_resource() = 0;
 };
 

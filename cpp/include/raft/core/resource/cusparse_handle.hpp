@@ -45,7 +45,7 @@ class cusparse_resource : public resource {
 class cusparse_resource_factory : public resource_factory {
  public:
   cusparse_resource_factory(rmm::cuda_stream_view stream) : stream_(stream) {}
-  resource_type get_resource_type() override { return resource_type::CUSPARSE_res; }
+  resource_type get_resource_type() override { return resource_type::CUSPARSE_HANDLE; }
   resource* make_resource() override { return new cusparse_resource(stream_); }
 
  private:
@@ -60,10 +60,10 @@ class cusparse_resource_factory : public resource_factory {
  */
 inline cusparseHandle_t get_cusparse_handle(resources const& res)
 {
-  if (!res.has_resource_factory(resource_type::CUSPARSE_res)) {
+  if (!res.has_resource_factory(resource_type::CUSPARSE_HANDLE)) {
     rmm::cuda_stream_view stream = get_cuda_stream(res);
     res.add_resource_factory(std::make_shared<cusparse_resource_factory>(stream));
   }
-  return *res.get_resource<cusparseHandle_t>(resource_type::CUSPARSE_res);
+  return *res.get_resource<cusparseHandle_t>(resource_type::CUSPARSE_HANDLE);
 };
 }  // namespace raft::resource

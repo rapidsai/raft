@@ -23,6 +23,25 @@
 
 namespace raft {
 
+/**
+ * @brief Resource container which allows lazy-loading and registration
+ * of resource_factory implementations, which in turn generate resource instances.
+ *
+ * This class is intended to be agnostic of the resources it contains and
+ * does not, itself, differentiate between host and device resources. Downstream
+ * accessor functions can then register and load resources as needed in order
+ * to keep its usage somewhat opaque to end-users.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/resource/cuda_stream.hpp>
+ * #include <raft/core/resource/cublas_handle.hpp>
+ *
+ * raft::resources res;
+ * auto stream = raft::resource::get_cuda_stream(res);
+ * auto cublas_handle = raft::resource::get_cublas_handle(res);
+ * @endcode
+ */
 class resources {
  public:
   resources() {}
@@ -32,6 +51,12 @@ class resources {
   resources(resources&&)                 = delete;
   resources& operator=(resources&&) = delete;
 
+  /**
+   * @brief Returns true if a resource_factory has been registered for the
+   * given resource_type, false otherwise.
+   * @param resource_type resource type to check
+   * @return true if resource_factory is registered for the given resource_type
+   */
   bool has_resource_factory(resource::resource_type resource_type) const
   {
     std::lock_guard<std::mutex> _(mutex_);
@@ -39,8 +64,9 @@ class resources {
   }
 
   /**
+   * @brief Register a resource_factory with the current instance.
    * This will overwrite any existing resource factories.
-   * @param factory
+   * @param factory resource factory to register on the current instance
    */
   void add_resource_factory(std::shared_ptr<resource::resource_factory> factory) const
   {
@@ -48,11 +74,23 @@ class resources {
     factories_.insert(std::make_pair(factory.get()->get_resource_type(), factory));
   }
 
+  /**
+   * @brief Retrieve a resource for the given resource_type and cast to given pointer type.
+   * Note that the resources are loaded lazily on-demand and resources which don't yet
+   * exist on the current instance will be created using the corresponding factory, if
+   * it exists.
+   * @tparam res_t pointer type for which retrieved resource will be casted
+   * @param resource_type resource type to retrieve
+   * @return the given resource, if it exists.
+   */
   template <typename res_t>
   res_t* get_resource(resource::resource_type resource_type) const
   {
     std::lock_guard<std::mutex> _(mutex_);
     if (resources_.find(resource_type) == resources_.end()) {
+      RAFT_EXPECTS(factories_.find(resource_type) != factories_.end(),
+                   "No resource factory has been registered for the given resource %d.",
+                   resource_type);
       resource::resource_factory* factory = factories_.at(resource_type).get();
       resources_.insert(std::make_pair(resource_type, factory->make_resource()));
     }

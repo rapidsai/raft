@@ -32,16 +32,7 @@
 #include <cusolverSp.h>
 #include <cusparse.h>
 
-///@todo: enable once we have migrated cuml-comms layer too
-//#include <common/cuml_comms_int.hpp>
-
-#include <raft/core/cudart_utils.hpp>
-
 #include <raft/core/comms.hpp>
-#include <raft/core/cublas_macros.hpp>
-#include <raft/core/cusolver_macros.hpp>
-#include <raft/core/cusparse_macros.hpp>
-#include <raft/core/interruptible.hpp>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
 
@@ -62,8 +53,8 @@
 namespace raft {
 
 /**
- * @brief Main resources object that stores all necessary context used for calling
- *        necessary cuda kernels and/or libraries
+ * @brief Main resource container object that stores all necessary resources
+ * used for calling necessary device functions, cuda kernels and/or libraries
  */
 class device_resources : public resources {
  public:
@@ -75,13 +66,12 @@ class device_resources : public resources {
   device_resources& operator=(device_resources&&) = delete;
 
   /**
-   * @brief Construct a handle with a stream view and stream pool
+   * @brief Construct a resources instance with a stream view and stream pool
    *
    * @param[in] stream_view the default stream (which has the default per-thread stream if
    * unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
-
   device_resources(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
                    std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
     : resources{}
@@ -115,28 +105,28 @@ class device_resources : public resources {
   rmm::exec_policy& get_thrust_policy() const { return resource::get_thrust_policy(*this); }
 
   /**
-   * @brief synchronize a stream on the handle
+   * @brief synchronize a stream on the current container
    */
   void sync_stream(rmm::cuda_stream_view stream) const { resource::sync_stream(*this, stream); }
 
   /**
-   * @brief synchronize main stream on the handle
+   * @brief synchronize main stream on the current container
    */
   void sync_stream() const { resource::sync_stream(*this); }
 
   /**
-   * @brief returns main stream on the handle
+   * @brief returns main stream on the current container
    */
   rmm::cuda_stream_view get_stream() const { return resource::get_cuda_stream(*this); }
 
   /**
-   * @brief returns whether stream pool was initialized on the handle
+   * @brief returns whether stream pool was initialized on the current container
    */
 
   bool is_stream_pool_initialized() const { return resource::is_stream_pool_initialized(*this); }
 
   /**
-   * @brief returns stream pool on the handle
+   * @brief returns stream pool on the current container
    */
   const rmm::cuda_stream_pool& get_stream_pool() const
   {
@@ -162,7 +152,7 @@ class device_resources : public resources {
   }
 
   /**
-   * @brief return stream from pool if size > 0, else main stream on handle
+   * @brief return stream from pool if size > 0, else main stream on current container
    */
   rmm::cuda_stream_view get_next_usable_stream() const
   {
@@ -170,7 +160,7 @@ class device_resources : public resources {
   }
 
   /**
-   * @brief return stream from pool at index if size > 0, else main stream on handle
+   * @brief return stream from pool at index if size > 0, else main stream on current container
    *
    * @param[in] stream_idx the required index of the stream in the stream pool if available
    */
@@ -180,7 +170,7 @@ class device_resources : public resources {
   }
 
   /**
-   * @brief synchronize the stream pool on the handle
+   * @brief synchronize the stream pool on the current container
    */
   void sync_stream_pool() const { return resource::sync_stream_pool(*this); }
 
@@ -225,7 +215,7 @@ class device_resources : public resources {
 };  // class device_resources
 
 /**
- * @brief RAII approach to synchronizing across all streams in the handle
+ * @brief RAII approach to synchronizing across all streams in the current container
  */
 class stream_syncer {
  public:

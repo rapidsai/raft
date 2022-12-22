@@ -23,6 +23,8 @@ namespace raft {
 /**
  * raft::handle_t is being kept around for backwards
  * compatibility and will be removed in a future version.
+ *
+ * Use of `raft::resources` or `raft::device_resources` is preferred.
  */
 using handle_t = raft::device_resources;
 

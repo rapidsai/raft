@@ -50,7 +50,7 @@ class cusolver_sp_resource : public resource {
 class cusolver_sp_resource_factory : public resource_factory {
  public:
   cusolver_sp_resource_factory(rmm::cuda_stream_view stream) : stream_(stream) {}
-  resource_type get_resource_type() override { return resource_type::CUSOLVER_SP_res; }
+  resource_type get_resource_type() override { return resource_type::CUSOLVER_SP_HANDLE; }
   resource* make_resource() override { return new cusolver_sp_resource(stream_); }
 
  private:
@@ -65,10 +65,10 @@ class cusolver_sp_resource_factory : public resource_factory {
  */
 inline cusolverSpHandle_t get_cusolver_sp_handle(resources const& res)
 {
-  if (!res.has_resource_factory(resource_type::CUSOLVER_SP_res)) {
+  if (!res.has_resource_factory(resource_type::CUSOLVER_SP_HANDLE)) {
     cudaStream_t stream = get_cuda_stream(res);
     res.add_resource_factory(std::make_shared<cusolver_sp_resource_factory>(stream));
   }
-  return *res.get_resource<cusolverSpHandle_t>(resource_type::CUSOLVER_SP_res);
+  return *res.get_resource<cusolverSpHandle_t>(resource_type::CUSOLVER_SP_HANDLE);
 };
 }  // namespace raft::resource
