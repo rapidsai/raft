@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft/core/device_resources.hpp>
 
 namespace raft {
