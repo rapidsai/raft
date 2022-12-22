@@ -56,10 +56,10 @@ inline bool comms_initialized(resources const& res)
   return res.has_resource_factory(resource_type::COMMUNICATOR);
 }
 
-inline const comms::comms_t& get_comms(resources const& res)
+inline comms::comms_t const& get_comms(resources const& res)
 {
   RAFT_EXPECTS(comms_initialized(res), "ERROR: Communicator was not initialized\n");
-  return *res.get_resource<comms::comms_t>(resource_type::COMMUNICATOR);
+  return *(*res.get_resource<std::shared_ptr<comms::comms_t>>(resource_type::COMMUNICATOR));
 }
 
 inline void set_comms(resources const& res, std::shared_ptr<comms::comms_t> communicator)
