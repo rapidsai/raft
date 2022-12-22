@@ -45,8 +45,11 @@ from pylibraft.common.cpp.mdspan cimport *
 from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport handle_t
 
+from pylibraft.common import auto_convert_output
+
 
 @auto_sync_handle
+@auto_convert_output
 def compute_new_centroids(X,
                           centroids,
                           labels,
@@ -197,6 +200,7 @@ def compute_new_centroids(X,
 
 
 @auto_sync_handle
+@auto_convert_output
 def cluster_cost(X, centroids, handle=None):
     """
     Compute cluster cost given an input matrix and existing centroids
@@ -403,6 +407,7 @@ FitOutput = namedtuple("FitOutput", "centroids inertia n_iter")
 
 
 @auto_sync_handle
+@auto_convert_output
 def fit(
     KMeansParams params, X, centroids=None, sample_weights=None, handle=None
 ):
