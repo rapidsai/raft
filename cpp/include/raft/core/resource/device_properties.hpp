@@ -18,18 +18,20 @@
 #include <cuda_runtime.h>
 #include <raft/core/resource/device_id.hpp>
 #include <raft/core/resource/resource_types.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-namespace raft::core {
-class device_properties_resource_t : public resource_t {
+namespace raft::resource {
+
+class device_properties_resource : public resource {
  public:
-  device_properties_resource_t(int dev_id)
+  device_properties_resource(int dev_id)
   {
     RAFT_CUDA_TRY_NO_THROW(cudaGetDeviceProperties(&prop_, dev_id));
   }
   void* get_resource() override { return &prop_; }
 
-  ~device_properties_resource_t() override {}
+  ~device_properties_resource() override {}
 
  private:
   cudaDeviceProp prop_;
@@ -37,30 +39,30 @@ class device_properties_resource_t : public resource_t {
 
 /**
  * Factory that knows how to construct a
- * specific raft::resource_t to populate
- * the handle_t.
+ * specific raft::resource to populate
+ * the res_t.
  */
-class device_properties_resource_factory_t : public resource_factory_t {
+class device_properties_resource_factory : public resource_factory {
  public:
-  device_properties_resource_factory_t(int dev_id) : dev_id_(dev_id) {}
-  resource_type_t resource_type() override { return resource_type_t::DEVICE_PROPERTIES; }
-  resource_t* make_resource() override { return new device_properties_resource_t(dev_id_); }
+  device_properties_resource_factory(int dev_id) : dev_id_(dev_id) {}
+  resource_type get_resource_type() override { return resource_type::DEVICE_PROPERTIES; }
+  resource* make_resource() override { return new device_properties_resource(dev_id_); }
 
  private:
   int dev_id_;
 };
 
 /**
- * Load a cudaDeviceProp from a handle (and populate it on the handle if needed).
- * @param handle raft handle object for managing resources
+ * Load a cudaDeviceProp from a res (and populate it on the res if needed).
+ * @param res raft res object for managing resources
  * @return
  */
-inline cudaDeviceProp& get_device_properties(base_handle_t const& handle)
+inline cudaDeviceProp& get_device_properties(resources const& res)
 {
-  if (!handle.has_resource_factory(resource_type_t::DEVICE_PROPERTIES)) {
-    int dev_id = get_device_id(handle);
-    handle.add_resource_factory(std::make_shared<device_properties_resource_factory_t>(dev_id));
+  if (!res.has_resource_factory(resource_type::DEVICE_PROPERTIES)) {
+    int dev_id = get_device_id(res);
+    res.add_resource_factory(std::make_shared<device_properties_resource_factory>(dev_id));
   }
-  return *handle.get_resource<cudaDeviceProp>(resource_type_t::DEVICE_PROPERTIES);
+  return *res.get_resource<cudaDeviceProp>(resource_type::DEVICE_PROPERTIES);
 };
-}  // namespace raft::core
+}  // namespace raft::resource

@@ -18,19 +18,20 @@
 #include <cuda_runtime.h>
 #include <raft/core/interruptible.hpp>
 #include <raft/core/resource/resource_types.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
-namespace raft::core {
-class cuda_stream_resource_t : public resource_t {
+namespace raft::resource {
+class cuda_stream_resource : public resource {
  public:
-  cuda_stream_resource_t(rmm::cuda_stream_view stream_view = rmm::cuda_stream_per_thread)
+  cuda_stream_resource(rmm::cuda_stream_view stream_view = rmm::cuda_stream_per_thread)
     : stream(stream_view)
   {
   }
   void* get_resource() override { return &stream; }
 
-  ~cuda_stream_resource_t() override {}
+  ~cuda_stream_resource() override {}
 
  private:
   rmm::cuda_stream_view stream;
@@ -38,60 +39,57 @@ class cuda_stream_resource_t : public resource_t {
 
 /**
  * Factory that knows how to construct a
- * specific raft::resource_t to populate
- * the handle_t.
+ * specific raft::resource to populate
+ * the res_t.
  */
-class cuda_stream_resource_factory_t : public resource_factory_t {
+class cuda_stream_resource_factory : public resource_factory {
  public:
-  cuda_stream_resource_factory_t(rmm::cuda_stream_view stream_view = rmm::cuda_stream_per_thread)
+  cuda_stream_resource_factory(rmm::cuda_stream_view stream_view = rmm::cuda_stream_per_thread)
     : stream(stream_view)
   {
   }
-  resource_type_t resource_type() override { return resource_type_t::CUDA_STREAM_VIEW; }
-  resource_t* make_resource() override { return new cuda_stream_resource_t(stream); }
+  resource_type get_resource_type() override { return resource_type::CUDA_STREAM_VIEW; }
+  resource* make_resource() override { return new cuda_stream_resource(stream); }
 
  private:
   rmm::cuda_stream_view stream;
 };
 
 /**
- * Load a cudaStream_t from a handle (and populate it on the handle
+ * Load a cudaStream_t from a res (and populate it on the res
  * if needed).
- * @param handle raft handle object for managing resources
+ * @param res raft res object for managing resources
  * @return
  */
-inline rmm::cuda_stream_view get_cuda_stream(base_handle_t const& handle)
+inline rmm::cuda_stream_view get_cuda_stream(resources const& res)
 {
-  if (!handle.has_resource_factory(resource_type_t::CUDA_STREAM_VIEW)) {
-    handle.add_resource_factory(std::make_shared<cuda_stream_resource_factory_t>());
+  if (!res.has_resource_factory(resource_type::CUDA_STREAM_VIEW)) {
+    res.add_resource_factory(std::make_shared<cuda_stream_resource_factory>());
   }
-  return *handle.get_resource<rmm::cuda_stream_view>(resource_type_t::CUDA_STREAM_VIEW);
+  return *res.get_resource<rmm::cuda_stream_view>(resource_type::CUDA_STREAM_VIEW);
 };
 
 /**
- * Load a cudaStream_t from a handle (and populate it on the handle
+ * Load a cudaStream_t from a res (and populate it on the res
  * if needed).
- * @param handle raft handle object for managing resources
+ * @param res raft res object for managing resources
  * @return
  */
-inline void set_cuda_stream(base_handle_t const& handle, rmm::cuda_stream_view stream_view)
+inline void set_cuda_stream(resources const& res, rmm::cuda_stream_view stream_view)
 {
-  handle.add_resource_factory(std::make_shared<cuda_stream_resource_factory_t>(stream_view));
+  res.add_resource_factory(std::make_shared<cuda_stream_resource_factory>(stream_view));
 };
 
 /**
  * @brief synchronize a specific stream
  */
-inline void sync_stream(const base_handle_t& handle, rmm::cuda_stream_view stream)
+inline void sync_stream(const resources& res, rmm::cuda_stream_view stream)
 {
   interruptible::synchronize(stream);
 }
 
 /**
- * @brief synchronize main stream on the handle
+ * @brief synchronize main stream on the res
  */
-inline void sync_stream(const base_handle_t& handle)
-{
-  sync_stream(handle, get_cuda_stream(handle));
-}
-}  // namespace raft::core
+inline void sync_stream(const resources& res) { sync_stream(res, get_cuda_stream(res)); }
+}  // namespace raft::resource

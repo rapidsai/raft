@@ -15,24 +15,24 @@
  */
 #pragma once
 
-#include "resource_types.hpp"
+#include "resource/resource_types.hpp"
 #include <mutex>
 #include <raft/core/logger.hpp>
 #include <string>
 #include <unordered_map>
 
-namespace raft::core {
+namespace raft {
 
-class base_handle_t {
+class resources {
  public:
-  base_handle_t() {}
+  resources() {}
 
-  base_handle_t(const base_handle_t&) = delete;
-  base_handle_t& operator=(const base_handle_t&) = delete;
-  base_handle_t(base_handle_t&&)                 = delete;
-  base_handle_t& operator=(base_handle_t&&) = delete;
+  resources(const resources&) = delete;
+  resources& operator=(const resources&) = delete;
+  resources(resources&&)                 = delete;
+  resources& operator=(resources&&) = delete;
 
-  bool has_resource_factory(resource_type_t resource_type) const
+  bool has_resource_factory(resource::resource_type resource_type) const
   {
     std::lock_guard<std::mutex> _(mutex_);
     return factories_.find(resource_type) != factories_.end();
@@ -42,18 +42,18 @@ class base_handle_t {
    * This will overwrite any existing resource factories.
    * @param factory
    */
-  void add_resource_factory(std::shared_ptr<resource_factory_t> factory) const
+  void add_resource_factory(std::shared_ptr<resource::resource_factory> factory) const
   {
     std::lock_guard<std::mutex> _(mutex_);
-    factories_.insert(std::make_pair(factory.get()->resource_type(), factory));
+    factories_.insert(std::make_pair(factory.get()->get_resource_type(), factory));
   }
 
   template <typename res_t>
-  res_t* get_resource(resource_type_t resource_type) const
+  res_t* get_resource(resource::resource_type resource_type) const
   {
     std::lock_guard<std::mutex> _(mutex_);
     if (resources_.find(resource_type) == resources_.end()) {
-      resource_factory_t* factory = factories_.at(resource_type).get();
+      resource::resource_factory* factory = factories_.at(resource_type).get();
       resources_.insert(std::make_pair(resource_type, factory->make_resource()));
     }
     return reinterpret_cast<res_t*>(resources_.at(resource_type).get()->get_resource());
@@ -61,7 +61,9 @@ class base_handle_t {
 
  private:
   mutable std::mutex mutex_;
-  mutable std::unordered_map<resource_type_t, std::shared_ptr<resource_factory_t>> factories_;
-  mutable std::unordered_map<resource_type_t, std::shared_ptr<resource_t>> resources_;
+  mutable std::unordered_map<resource::resource_type, std::shared_ptr<resource::resource_factory>>
+    factories_;
+  mutable std::unordered_map<resource::resource_type, std::shared_ptr<resource::resource>>
+    resources_;
 };
-}  // namespace raft::core
+}  // namespace raft

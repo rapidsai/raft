@@ -19,51 +19,53 @@
 #include <raft/core/cublas_macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/resource_types.hpp>
+#include <raft/core/resources.hpp>
 
-namespace raft::core {
-class cublas_resource_t : public resource_t {
+namespace raft::resource {
+
+class cublas_resource : public resource {
  public:
-  cublas_resource_t(rmm::cuda_stream_view stream)
+  cublas_resource(rmm::cuda_stream_view stream)
   {
-    RAFT_CUBLAS_TRY_NO_THROW(cublasCreate(&cublas_handle));
-    RAFT_CUBLAS_TRY_NO_THROW(cublasSetStream(cublas_handle, stream));
+    RAFT_CUBLAS_TRY_NO_THROW(cublasCreate(&cublas_res));
+    RAFT_CUBLAS_TRY_NO_THROW(cublasSetStream(cublas_res, stream));
   }
 
-  ~cublas_resource_t() override { RAFT_CUBLAS_TRY_NO_THROW(cublasDestroy(cublas_handle)); }
+  ~cublas_resource() override { RAFT_CUBLAS_TRY_NO_THROW(cublasDestroy(cublas_res)); }
 
-  void* get_resource() override { return &cublas_handle; }
+  void* get_resource() override { return &cublas_res; }
 
  private:
-  cublasHandle_t cublas_handle;
+  cublasHandle_t cublas_res;
 };
 
 /**
  * Factory that knows how to construct a
- * specific raft::resource_t to populate
- * the handle_t.
+ * specific raft::resource to populate
+ * the res_t.
  */
-class cublas_resource_factory_t : public resource_factory_t {
+class cublas_resource_factory : public resource_factory {
  public:
-  cublas_resource_factory_t(rmm::cuda_stream_view stream) : stream_(stream) {}
-  resource_type_t resource_type() override { return resource_type_t::CUBLAS_HANDLE; }
-  resource_t* make_resource() override { return new cublas_resource_t(stream_); }
+  cublas_resource_factory(rmm::cuda_stream_view stream) : stream_(stream) {}
+  resource_type get_resource_type() override { return resource_type::CUBLAS_res; }
+  resource* make_resource() override { return new cublas_resource(stream_); }
 
  private:
   rmm::cuda_stream_view stream_;
 };
 
 /**
- * Load a cublasHandle_t from raft handle if it exists, otherwise
+ * Load a cublasres_t from raft res if it exists, otherwise
  * add it and return it.
- * @param handle
+ * @param res
  * @return
  */
-inline cublasHandle_t get_cublas_handle(base_handle_t const& handle)
+inline cublasHandle_t get_cublas_handle(resources const& res)
 {
-  if (!handle.has_resource_factory(resource_type_t::CUBLAS_HANDLE)) {
-    cudaStream_t stream = get_cuda_stream(handle);
-    handle.add_resource_factory(std::make_shared<cublas_resource_factory_t>(stream));
+  if (!res.has_resource_factory(resource_type::CUBLAS_res)) {
+    cudaStream_t stream = get_cuda_stream(res);
+    res.add_resource_factory(std::make_shared<cublas_resource_factory>(stream));
   }
-  return *handle.get_resource<cublasHandle_t>(resource_type_t::CUBLAS_HANDLE);
+  return *res.get_resource<cublasHandle_t>(resource_type::CUBLAS_res);
 };
-}  // end NAMESPACE raft::core
+}  // namespace raft::resource

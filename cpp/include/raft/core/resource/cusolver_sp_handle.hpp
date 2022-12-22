@@ -19,58 +19,56 @@
 #include <raft/core/cusolver_macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/resource_types.hpp>
+#include <raft/core/resources.hpp>
 
-namespace raft::core {
+namespace raft::resource {
 
 /**
  *
  */
-class cusolver_sp_resource_t : public resource_t {
+class cusolver_sp_resource : public resource {
  public:
-  cusolver_sp_resource_t(rmm::cuda_stream_view stream)
+  cusolver_sp_resource(rmm::cuda_stream_view stream)
   {
-    RAFT_CUSOLVER_TRY_NO_THROW(cusolverSpCreate(&cusolver_handle));
-    RAFT_CUSOLVER_TRY_NO_THROW(cusolverSpSetStream(cusolver_handle, stream));
+    RAFT_CUSOLVER_TRY_NO_THROW(cusolverSpCreate(&cusolver_res));
+    RAFT_CUSOLVER_TRY_NO_THROW(cusolverSpSetStream(cusolver_res, stream));
   }
 
-  void* get_resource() override { return &cusolver_handle; }
+  void* get_resource() override { return &cusolver_res; }
 
-  ~cusolver_sp_resource_t() override
-  {
-    RAFT_CUSOLVER_TRY_NO_THROW(cusolverSpDestroy(cusolver_handle));
-  }
+  ~cusolver_sp_resource() override { RAFT_CUSOLVER_TRY_NO_THROW(cusolverSpDestroy(cusolver_res)); }
 
  private:
-  cusolverSpHandle_t cusolver_handle;
+  cusolverSpHandle_t cusolver_res;
 };
 
 /**
  * Factory that knows how to construct a
- * specific raft::resource_t to populate
- * the handle_t.
+ * specific raft::resource to populate
+ * the res_t.
  */
-class cusolver_sp_resource_factory_t : public resource_factory_t {
+class cusolver_sp_resource_factory : public resource_factory {
  public:
-  cusolver_sp_resource_factory_t(rmm::cuda_stream_view stream) : stream_(stream) {}
-  resource_type_t resource_type() override { return resource_type_t::CUSOLVER_SP_HANDLE; }
-  resource_t* make_resource() override { return new cusolver_sp_resource_t(stream_); }
+  cusolver_sp_resource_factory(rmm::cuda_stream_view stream) : stream_(stream) {}
+  resource_type get_resource_type() override { return resource_type::CUSOLVER_SP_res; }
+  resource* make_resource() override { return new cusolver_sp_resource(stream_); }
 
  private:
   rmm::cuda_stream_view stream_;
 };
 
 /**
- * Load a cusolverSpHandle_t from raft handle if it exists, otherwise
+ * Load a cusolverSpres_t from raft res if it exists, otherwise
  * add it and return it.
- * @param handle
+ * @param res
  * @return
  */
-inline cusolverSpHandle_t get_cusolver_sp_handle(base_handle_t const& handle)
+inline cusolverSpHandle_t get_cusolver_sp_handle(resources const& res)
 {
-  if (!handle.has_resource_factory(resource_type_t::CUSOLVER_SP_HANDLE)) {
-    cudaStream_t stream = get_cuda_stream(handle);
-    handle.add_resource_factory(std::make_shared<cusolver_sp_resource_factory_t>(stream));
+  if (!res.has_resource_factory(resource_type::CUSOLVER_SP_res)) {
+    cudaStream_t stream = get_cuda_stream(res);
+    res.add_resource_factory(std::make_shared<cusolver_sp_resource_factory>(stream));
   }
-  return *handle.get_resource<cusolverSpHandle_t>(resource_type_t::CUSOLVER_SP_HANDLE);
+  return *res.get_resource<cusolverSpHandle_t>(resource_type::CUSOLVER_SP_res);
 };
-}  // end NAMESPACE raft::core
+}  // namespace raft::resource

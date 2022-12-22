@@ -16,17 +16,18 @@
 #pragma once
 
 #include <raft/core/resource/resource_types.hpp>
+#include <raft/core/resources.hpp>
 #include <rmm/exec_policy.hpp>
-namespace raft::core {
-class thrust_policy_resource_t : public resource_t {
+namespace raft::resource {
+class thrust_policy_resource : public resource {
  public:
-  thrust_policy_resource_t(rmm::cuda_stream_view stream_view)
+  thrust_policy_resource(rmm::cuda_stream_view stream_view)
     : thrust_policy_(std::make_shared<rmm::exec_policy>(stream_view))
   {
   }
   void* get_resource() override { return thrust_policy_.get(); }
 
-  ~thrust_policy_resource_t() override {}
+  ~thrust_policy_resource() override {}
 
  private:
   std::shared_ptr<rmm::exec_policy> thrust_policy_;
@@ -34,30 +35,30 @@ class thrust_policy_resource_t : public resource_t {
 
 /**
  * Factory that knows how to construct a
- * specific raft::resource_t to populate
- * the handle_t.
+ * specific raft::resource to populate
+ * the res_t.
  */
-class thrust_policy_resource_factory_t : public resource_factory_t {
+class thrust_policy_resource_factory : public resource_factory {
  public:
-  thrust_policy_resource_factory_t(rmm::cuda_stream_view stream_view) : stream_view_(stream_view) {}
-  resource_type_t resource_type() override { return resource_type_t::THRUST_POLICY; }
-  resource_t* make_resource() override { return new thrust_policy_resource_t(stream_view_); }
+  thrust_policy_resource_factory(rmm::cuda_stream_view stream_view) : stream_view_(stream_view) {}
+  resource_type get_resource_type() override { return resource_type::THRUST_POLICY; }
+  resource* make_resource() override { return new thrust_policy_resource(stream_view_); }
 
  private:
   rmm::cuda_stream_view stream_view_;
 };
 
 /**
- * Load a device id from a handle (and populate it on the handle if needed).
- * @param handle raft handle object for managing resources
+ * Load a device id from a res (and populate it on the res if needed).
+ * @param res raft res object for managing resources
  * @return
  */
-inline rmm::exec_policy& get_thrust_policy(base_handle_t const& handle)
+inline rmm::exec_policy& get_thrust_policy(resources const& res)
 {
-  if (!handle.has_resource_factory(resource_type_t::THRUST_POLICY)) {
-    rmm::cuda_stream_view stream = get_cuda_stream(handle);
-    handle.add_resource_factory(std::make_shared<thrust_policy_resource_factory_t>(stream));
+  if (!res.has_resource_factory(resource_type::THRUST_POLICY)) {
+    rmm::cuda_stream_view stream = get_cuda_stream(res);
+    res.add_resource_factory(std::make_shared<thrust_policy_resource_factory>(stream));
   }
-  return *handle.get_resource<rmm::exec_policy>(resource_type_t::THRUST_POLICY);
+  return *res.get_resource<rmm::exec_policy>(resource_type::THRUST_POLICY);
 };
-}  // namespace raft::core
+}  // namespace raft::resource

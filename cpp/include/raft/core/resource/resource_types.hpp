@@ -16,13 +16,14 @@
 
 #pragma once
 
-namespace raft::core {
+namespace raft::resource {
 
-enum resource_type_t {
-  CUBLAS_HANDLE = 0,
-  CUSOLVER_DN_HANDLE,
-  CUSOLVER_SP_HANDLE,
-  CUSPARSE_HANDLE,
+enum resource_type {
+  // device-specific resource types
+  CUBLAS_res = 0,
+  CUSOLVER_DN_res,
+  CUSOLVER_SP_res,
+  CUSPARSE_res,
   CUDA_STREAM_VIEW,
   CUDA_STREAM_POOL,
   CUDA_STREAM_SYNC_EVENT,
@@ -34,27 +35,27 @@ enum resource_type_t {
 };
 
 /**
- * A resource_t understands how to instantiate a specific
+ * A resource understands how to instantiate a specific
  * resource.
  */
 
-class resource_t {
+class resource {
  public:
   virtual void* get_resource() = 0;
 
-  virtual ~resource_t() {}
+  virtual ~resource() {}
 };
 
 /**
  * Factory that knows how to construct a
- * specific raft::resource_t to populate
- * the handle_t.
+ * specific raft::resource to populate
+ * the res_t.
  */
-class resource_factory_t {
+class resource_factory {
  public:
-  virtual resource_type_t resource_type() = 0;
+  virtual resource_type get_resource_type() = 0;
 
-  virtual resource_t* make_resource() = 0;
+  virtual resource* make_resource() = 0;
 };
 
-}  // end NAMESPACE raft::core
+}  // namespace raft::resource

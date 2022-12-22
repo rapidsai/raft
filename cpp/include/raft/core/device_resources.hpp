@@ -45,7 +45,6 @@
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <raft/core/resource/base_handle.hpp>
 #include <raft/core/resource/comms.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_event.hpp>
@@ -58,21 +57,22 @@
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resource/sub_comms.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 
 /**
- * @brief Main handle object that stores all necessary context used for calling
+ * @brief Main resources object that stores all necessary context used for calling
  *        necessary cuda kernels and/or libraries
  */
-class device_handle_t : public core::base_handle_t {
+class device_resources : public resources {
  public:
   // delete copy/move constructors and assignment operators as
   // copying and moving underlying resources is unsafe
-  device_handle_t(const device_handle_t&) = delete;
-  device_handle_t& operator=(const device_handle_t&) = delete;
-  device_handle_t(device_handle_t&&)                 = delete;
-  device_handle_t& operator=(device_handle_t&&) = delete;
+  device_resources(const device_resources&) = delete;
+  device_resources& operator=(const device_resources&) = delete;
+  device_resources(device_resources&&)                 = delete;
+  device_resources& operator=(device_resources&&) = delete;
 
   /**
    * @brief Construct a handle with a stream view and stream pool
@@ -82,67 +82,75 @@ class device_handle_t : public core::base_handle_t {
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
 
-  device_handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
-                  std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
-    : core::base_handle_t{}
+  device_resources(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
+                   std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
+    : resources{}
   {
-    core::base_handle_t::add_resource_factory(
-      std::make_shared<core::device_id_resource_factory_t>());
-    core::base_handle_t::add_resource_factory(
-      std::make_shared<core::cuda_stream_resource_factory_t>(stream_view));
-    core::base_handle_t::add_resource_factory(
-      std::make_shared<core::cuda_stream_pool_resource_factory_t>(stream_pool));
+    resources::add_resource_factory(std::make_shared<resource::device_id_resource_factory>());
+    resources::add_resource_factory(
+      std::make_shared<resource::cuda_stream_resource_factory>(stream_view));
+    resources::add_resource_factory(
+      std::make_shared<resource::cuda_stream_pool_resource_factory>(stream_pool));
   }
 
   /** Destroys all held-up resources */
-  virtual ~device_handle_t() {}
+  virtual ~device_resources() {}
 
-  int get_device() const { return core::get_device_id(*this); }
+  int get_device() const { return resource::get_device_id(*this); }
 
-  cublasHandle_t get_cublas_handle() const { return core::get_cublas_handle(*this); }
+  cublasHandle_t get_cublas_handle() const { return resource::get_cublas_handle(*this); }
 
-  cusolverDnHandle_t get_cusolver_dn_handle() const { return core::get_cusolver_dn_handle(*this); }
+  cusolverDnHandle_t get_cusolver_dn_handle() const
+  {
+    return resource::get_cusolver_dn_handle(*this);
+  }
 
-  cusolverSpHandle_t get_cusolver_sp_handle() const { return core::get_cusolver_sp_handle(*this); }
+  cusolverSpHandle_t get_cusolver_sp_handle() const
+  {
+    return resource::get_cusolver_sp_handle(*this);
+  }
 
-  cusparseHandle_t get_cusparse_handle() const { return core::get_cusparse_handle(*this); }
+  cusparseHandle_t get_cusparse_handle() const { return resource::get_cusparse_handle(*this); }
 
-  rmm::exec_policy& get_thrust_policy() const { return core::get_thrust_policy(*this); }
+  rmm::exec_policy& get_thrust_policy() const { return resource::get_thrust_policy(*this); }
 
   /**
    * @brief synchronize a stream on the handle
    */
-  void sync_stream(rmm::cuda_stream_view stream) const { core::sync_stream(*this, stream); }
+  void sync_stream(rmm::cuda_stream_view stream) const { resource::sync_stream(*this, stream); }
 
   /**
    * @brief synchronize main stream on the handle
    */
-  void sync_stream() const { core::sync_stream(*this); }
+  void sync_stream() const { resource::sync_stream(*this); }
 
   /**
    * @brief returns main stream on the handle
    */
-  rmm::cuda_stream_view get_stream() const { return core::get_cuda_stream(*this); }
+  rmm::cuda_stream_view get_stream() const { return resource::get_cuda_stream(*this); }
 
   /**
    * @brief returns whether stream pool was initialized on the handle
    */
 
-  bool is_stream_pool_initialized() const { return core::is_stream_pool_initialized(*this); }
+  bool is_stream_pool_initialized() const { return resource::is_stream_pool_initialized(*this); }
 
   /**
    * @brief returns stream pool on the handle
    */
-  const rmm::cuda_stream_pool& get_stream_pool() const { return core::get_cuda_stream_pool(*this); }
+  const rmm::cuda_stream_pool& get_stream_pool() const
+  {
+    return resource::get_cuda_stream_pool(*this);
+  }
 
-  std::size_t get_stream_pool_size() const { return core::get_stream_pool_size(*this); }
+  std::size_t get_stream_pool_size() const { return resource::get_stream_pool_size(*this); }
 
   /**
    * @brief return stream from pool
    */
   rmm::cuda_stream_view get_stream_from_stream_pool() const
   {
-    return core::get_stream_from_stream_pool(*this);
+    return resource::get_stream_from_stream_pool(*this);
   }
 
   /**
@@ -150,7 +158,7 @@ class device_handle_t : public core::base_handle_t {
    */
   rmm::cuda_stream_view get_stream_from_stream_pool(std::size_t stream_idx) const
   {
-    return core::get_stream_from_stream_pool(*this, stream_idx);
+    return resource::get_stream_from_stream_pool(*this, stream_idx);
   }
 
   /**
@@ -158,7 +166,7 @@ class device_handle_t : public core::base_handle_t {
    */
   rmm::cuda_stream_view get_next_usable_stream() const
   {
-    return core::get_next_usable_stream(*this);
+    return resource::get_next_usable_stream(*this);
   }
 
   /**
@@ -168,13 +176,13 @@ class device_handle_t : public core::base_handle_t {
    */
   rmm::cuda_stream_view get_next_usable_stream(std::size_t stream_idx) const
   {
-    return core::get_next_usable_stream(*this, stream_idx);
+    return resource::get_next_usable_stream(*this, stream_idx);
   }
 
   /**
    * @brief synchronize the stream pool on the handle
    */
-  void sync_stream_pool() const { return core::sync_stream_pool(*this); }
+  void sync_stream_pool() const { return resource::sync_stream_pool(*this); }
 
   /**
    * @brief synchronize subset of stream pool
@@ -183,39 +191,48 @@ class device_handle_t : public core::base_handle_t {
    */
   void sync_stream_pool(const std::vector<std::size_t> stream_indices) const
   {
-    return core::sync_stream_pool(*this, stream_indices);
+    return resource::sync_stream_pool(*this, stream_indices);
   }
 
   /**
    * @brief ask stream pool to wait on last event in main stream
    */
-  void wait_stream_pool_on_stream() const { return core::wait_stream_pool_on_stream(*this); }
+  void wait_stream_pool_on_stream() const { return resource::wait_stream_pool_on_stream(*this); }
 
   void set_comms(std::shared_ptr<comms::comms_t> communicator)
   {
-    core::set_comms(*this, communicator);
+    resource::set_comms(*this, communicator);
   }
 
-  const comms::comms_t& get_comms() const { return core::get_comms(*this); }
+  const comms::comms_t& get_comms() const { return resource::get_comms(*this); }
 
   void set_subcomm(std::string key, std::shared_ptr<comms::comms_t> subcomm)
   {
-    core::set_subcomm(*this, key, subcomm);
+    resource::set_subcomm(*this, key, subcomm);
   }
 
-  const comms::comms_t& get_subcomm(std::string key) const { return core::get_subcomm(*this, key); }
+  const comms::comms_t& get_subcomm(std::string key) const
+  {
+    return resource::get_subcomm(*this, key);
+  }
 
-  bool comms_initialized() const { return core::comms_initialized(*this); }
+  bool comms_initialized() const { return resource::comms_initialized(*this); }
 
-  const cudaDeviceProp& get_device_properties() const { return core::get_device_properties(*this); }
-};  // class device_handle_t
+  const cudaDeviceProp& get_device_properties() const
+  {
+    return resource::get_device_properties(*this);
+  }
+};  // class device_resources
 
 /**
  * @brief RAII approach to synchronizing across all streams in the handle
  */
 class stream_syncer {
  public:
-  explicit stream_syncer(const device_handle_t& handle) : handle_(handle) { handle_.sync_stream(); }
+  explicit stream_syncer(const device_resources& handle) : handle_(handle)
+  {
+    handle_.sync_stream();
+  }
   ~stream_syncer()
   {
     handle_.wait_stream_pool_on_stream();
@@ -226,7 +243,7 @@ class stream_syncer {
   stream_syncer& operator=(const stream_syncer& other) = delete;
 
  private:
-  const device_handle_t& handle_;
+  const device_resources& handle_;
 };  // class stream_syncer
 
 }  // namespace raft

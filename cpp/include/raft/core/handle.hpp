@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-#include <raft/core/device_handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 namespace raft {
 
-// This will eventually be deprecated in a future version.
-using handle_t = raft::device_handle_t;
+/**
+ * raft::handle_t is being kept around for backwards
+ * compatibility and will be removed in a future version.
+ */
+using handle_t = raft::device_resources;
 
 }  // end NAMESPACE raft

@@ -17,14 +17,15 @@
 
 #include <raft/core/comms.hpp>
 #include <raft/core/resource/resource_types.hpp>
+#include <raft/core/resources.hpp>
 
-namespace raft::core {
-class sub_comms_resource_t : public resource_t {
+namespace raft::resource {
+class sub_comms_resource : public resource {
  public:
-  sub_comms_resource_t() {}
+  sub_comms_resource() {}
   void* get_resource() override { return &communicators_; }
 
-  ~sub_comms_resource_t() override {}
+  ~sub_comms_resource() override {}
 
  private:
   std::unordered_map<std::string, std::shared_ptr<comms::comms_t>> communicators_;
@@ -32,24 +33,24 @@ class sub_comms_resource_t : public resource_t {
 
 /**
  * Factory that knows how to construct a
- * specific raft::resource_t to populate
- * the handle_t.
+ * specific raft::resource to populate
+ * the res_t.
  */
-class sub_comms_resource_factory_t : public resource_factory_t {
+class sub_comms_resource_factory : public resource_factory {
  public:
-  resource_type_t resource_type() override { return resource_type_t::SUB_COMMUNICATOR; }
-  resource_t* make_resource() override { return new sub_comms_resource_t(); }
+  resource_type get_resource_type() override { return resource_type::SUB_COMMUNICATOR; }
+  resource* make_resource() override { return new sub_comms_resource(); }
 };
 
-inline const comms::comms_t& get_subcomm(const base_handle_t& handle, std::string key)
+inline const comms::comms_t& get_subcomm(const resources& res, std::string key)
 {
-  if (!handle.has_resource_factory(resource_type_t::SUB_COMMUNICATOR)) {
-    handle.add_resource_factory(std::make_shared<sub_comms_resource_factory_t>());
+  if (!res.has_resource_factory(resource_type::SUB_COMMUNICATOR)) {
+    res.add_resource_factory(std::make_shared<sub_comms_resource_factory>());
   }
 
   auto sub_comms =
-    *handle.get_resource<std::unordered_map<std::string, std::shared_ptr<comms::comms_t>>>(
-      resource_type_t::SUB_COMMUNICATOR);
+    *res.get_resource<std::unordered_map<std::string, std::shared_ptr<comms::comms_t>>>(
+      resource_type::SUB_COMMUNICATOR);
   auto sub_comm = sub_comms.at(key);
 
   RAFT_EXPECTS(nullptr != sub_comm.get(), "ERROR: Subcommunicator was not initialized");
@@ -57,17 +58,17 @@ inline const comms::comms_t& get_subcomm(const base_handle_t& handle, std::strin
   return *sub_comm;
 }
 
-inline void set_subcomm(base_handle_t& handle,
+inline void set_subcomm(resources const& res,
                         std::string key,
                         std::shared_ptr<comms::comms_t> subcomm)
 {
-  if (!handle.has_resource_factory(resource_type_t::SUB_COMMUNICATOR)) {
-    handle.add_resource_factory(std::make_shared<sub_comms_resource_factory_t>());
+  if (!res.has_resource_factory(resource_type::SUB_COMMUNICATOR)) {
+    res.add_resource_factory(std::make_shared<sub_comms_resource_factory>());
   }
 
   auto sub_comms =
-    *handle.get_resource<std::unordered_map<std::string, std::shared_ptr<comms::comms_t>>>(
-      resource_type_t::SUB_COMMUNICATOR);
+    *res.get_resource<std::unordered_map<std::string, std::shared_ptr<comms::comms_t>>>(
+      resource_type::SUB_COMMUNICATOR);
   sub_comms[key] = subcomm;
 }
-}  // namespace raft::core
+}  // namespace raft::resource

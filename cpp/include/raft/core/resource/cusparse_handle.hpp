@@ -19,50 +19,51 @@
 #include <raft/core/cusparse_macros.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/resource_types.hpp>
+#include <raft/core/resources.hpp>
 
-namespace raft::core {
-class cusparse_resource_t : public resource_t {
+namespace raft::resource {
+class cusparse_resource : public resource {
  public:
-  cusparse_resource_t(rmm::cuda_stream_view stream)
+  cusparse_resource(rmm::cuda_stream_view stream)
   {
-    RAFT_CUSPARSE_TRY_NO_THROW(cusparseCreate(&cusparse_handle));
-    RAFT_CUSPARSE_TRY_NO_THROW(cusparseSetStream(cusparse_handle, stream));
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseCreate(&cusparse_res));
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseSetStream(cusparse_res, stream));
   }
 
-  ~cusparse_resource_t() { RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroy(cusparse_handle)); }
-  void* get_resource() override { return &cusparse_handle; }
+  ~cusparse_resource() { RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroy(cusparse_res)); }
+  void* get_resource() override { return &cusparse_res; }
 
  private:
-  cusparseHandle_t cusparse_handle;
+  cusparseHandle_t cusparse_res;
 };
 
 /**
  * Factory that knows how to construct a
- * specific raft::resource_t to populate
- * the handle_t.
+ * specific raft::resource to populate
+ * the res_t.
  */
-class cusparse_resource_factory_t : public resource_factory_t {
+class cusparse_resource_factory : public resource_factory {
  public:
-  cusparse_resource_factory_t(rmm::cuda_stream_view stream) : stream_(stream) {}
-  resource_type_t resource_type() override { return resource_type_t::CUSPARSE_HANDLE; }
-  resource_t* make_resource() override { return new cusparse_resource_t(stream_); }
+  cusparse_resource_factory(rmm::cuda_stream_view stream) : stream_(stream) {}
+  resource_type get_resource_type() override { return resource_type::CUSPARSE_res; }
+  resource* make_resource() override { return new cusparse_resource(stream_); }
 
  private:
   rmm::cuda_stream_view stream_;
 };
 
 /**
- * Load a cusparseHandle_t from raft handle if it exists, otherwise
+ * Load a cusparseres_t from raft res if it exists, otherwise
  * add it and return it.
- * @param handle
+ * @param res
  * @return
  */
-inline cusparseHandle_t get_cusparse_handle(base_handle_t const& handle)
+inline cusparseHandle_t get_cusparse_handle(resources const& res)
 {
-  if (!handle.has_resource_factory(resource_type_t::CUSPARSE_HANDLE)) {
-    rmm::cuda_stream_view stream = get_cuda_stream(handle);
-    handle.add_resource_factory(std::make_shared<cusparse_resource_factory_t>(stream));
+  if (!res.has_resource_factory(resource_type::CUSPARSE_res)) {
+    rmm::cuda_stream_view stream = get_cuda_stream(res);
+    res.add_resource_factory(std::make_shared<cusparse_resource_factory>(stream));
   }
-  return *handle.get_resource<cusparseHandle_t>(resource_type_t::CUSPARSE_HANDLE);
+  return *res.get_resource<cusparseHandle_t>(resource_type::CUSPARSE_res);
 };
-}  // end NAMESPACE raft::core
+}  // namespace raft::resource
