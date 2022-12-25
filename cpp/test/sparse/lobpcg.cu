@@ -66,7 +66,7 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
  protected:
   void SetUp() override
   {
-    n_rows_a = params.matrix_a.row_ind.size();
+    n_rows_a = params.matrix_a.row_ind.size() - 1;
     nnz_a    = params.matrix_a.row_ind_ptr.size();
   }
 
@@ -87,6 +87,10 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
         act_eigvecs.data(), n_rows_a, params.n_components),
       raft::make_device_vector_view<math_t, idx_t>(act_eigvals.data(), n_rows_a));
 
+    std::vector<math_t> X_CPU(n_rows_a * params.n_components);
+    std::vector<math_t> W_CPU(n_rows_a);
+    raft::copy(X_CPU.data(), act_eigvecs.data(), X_CPU.size(), stream);
+    raft::copy(W_CPU.data(), act_eigvals.data(), W_CPU.size(), stream);
     ASSERT_TRUE(raft::devArrMatch<math_t>(
       exp_eigvecs.data(), act_eigvecs.data(), exp_eigvecs.size(), raft::Compare<idx_t>(), stream));
     ASSERT_TRUE(raft::devArrMatch<math_t>(
@@ -176,8 +180,8 @@ const std::vector<LOBPCGInputs<double, int>> lobpcg_inputs_d = {
     -0.32900198},
    2}};
 
-INSTANTIATE_TEST_CASE_P(SparseAddTest, LOBPCGTestF, ::testing::ValuesIn(lobpcg_inputs_f));
-INSTANTIATE_TEST_CASE_P(SparseAddTest, LOBPCGTestD, ::testing::ValuesIn(lobpcg_inputs_d));
+INSTANTIATE_TEST_CASE_P(LOBPCGTest, LOBPCGTestF, ::testing::ValuesIn(lobpcg_inputs_f));
+INSTANTIATE_TEST_CASE_P(LOBPCGTest, LOBPCGTestD, ::testing::ValuesIn(lobpcg_inputs_d));
 
 }  // namespace sparse
 }  // namespace raft
@@ -197,8 +201,15 @@ a.data = array([0.37911922, 0.11567201, 0.5135106 , 0.08968836, 0.73450965,
        0.32938903, 0.82477561, 0.20858375, 0.24755519, 0.23677223,
        0.73957246, 0.09050876, 0.86530489])
 
+a.todense() = 
+np.matrix([[0.37911922, 0.        , 0.11567201, 0.5135106 , 0.        , 0.08968836],
+        [0.73450965, 0.26432646, 0.21985123, 0.74888277, 0.34753734, 0.11204864],
+        [0.82902676, 0.        , 0.53023521, 0.24047095, 0.        , 0.37913592],
+        [0.        , 0.60975031, 0.60746519, 0.96833343, 0.30845102, 0.88653955],
+        [0.43530847, 0.        , 0.32938903, 0.82477561, 0.20858375, 0.24755519],
+        [0.23677223, 0.        , 0.73957246, 0.09050876, 0.86530489, 0.        ]])
 x = np.random.rand(6,2)
-x = array([[0.08319983, 0.35005079],
+x = np.array([[0.08319983, 0.35005079],
            [0.17758466, 0.56035486],
            [0.93301819, 0.64176631],
            [0.67171826, 0.93904784],
