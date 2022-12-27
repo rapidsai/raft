@@ -227,6 +227,60 @@ void copyUpperTriangular(const m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, c
 }
 
 /**
+ * @brief Kernel for copying the lower triangular part of a matrix to another
+ * @param src: input matrix with a size of mxn
+ * @param dst: output matrix with a size of kxk
+ * @param n_rows: number of rows of input matrix
+ * @param n_cols: number of columns of input matrix
+ * @param k: min(n_rows, n_cols)
+ */
+template <typename m_t, typename idx_t = int>
+__global__ void getLowerTriangular(const m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, idx_t k)
+{
+  idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
+  idx_t m = n_rows, n = n_cols;
+  if (idx < m * n) {
+    idx_t i = idx % m, j = idx / m;
+    if (i < k && j < k && j <= i) { dst[i + j * k] = src[idx]; }
+  }
+}
+
+template <typename m_t, typename idx_t = int>
+void copyLowerTriangular(const m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+  idx_t m = n_rows, n = n_cols;
+  idx_t k = std::min(m, n);
+  dim3 block(64);
+  dim3 grid((m * n + block.x - 1) / block.x);
+  getLowerTriangular<<<grid, block, 0, stream>>>(src, dst, m, n, k);
+}
+
+/**
+ * @brief Create a diagonal identity matrix
+ * @param matrix: matrix of size n_rows x n_cols
+ * @param n_rows: number of rows of the matrix
+ * @param n_cols: number of columns of the matrix
+ */
+template <typename m_t, typename idx_t = int>
+__global__ void createEyeKernel(m_t* matrix, idx_t n_rows, idx_t n_cols)
+{
+  idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
+  if (idx < n_rows * n_cols) {
+    idx_t i = idx % n_rows, j = idx / n_rows;
+    matrix[idx] = m_t(j == i);
+  }
+}
+
+template <typename m_t, typename idx_t = int>
+void createEye(m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
+{
+   idx_t m = n_rows, n = n_cols;
+   dim3 block(64);
+   dim3 grid((m * n + block.x - 1) / block.x);
+   createEyeKernel<<<grid, block, 0, stream>>>(matrix, n_rows, n_cols);
+ }
+
+/**
  * @brief Copy a vector to the diagonal of a matrix
  * @param vec: vector of length k = min(n_rows, n_cols)
  * @param matrix: matrix of size n_rows x n_cols

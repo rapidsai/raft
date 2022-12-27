@@ -63,4 +63,11 @@ void fill(const raft::handle_t& handle,
   detail::setValue(
     inout.data_handle(), inout.data_handle(), scalar, inout.size(), handle.get_stream());
 }
+
+template <typename math_t, typename idx_t>
+void eye(const raft::handle_t& handle,
+         raft::device_matrix_view<math_t, idx_t, raft::col_major> inout)
+{
+  detail::createEye(inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
+}
 }  // namespace raft::matrix

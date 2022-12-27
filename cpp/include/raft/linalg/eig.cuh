@@ -133,7 +133,7 @@ void eig_dc(const raft::handle_t& handle,
             raft::device_vector_view<ValueType, IndexType> eig_vals)
 {
   RAFT_EXPECTS(in.size() == eig_vectors.size(), "Size mismatch between Input and Eigen Vectors");
-  RAFT_EXPECTS(eig_vals.size() == in.extent(1), "Size mismatch between Input and Eigen Values");
+  RAFT_EXPECTS(eig_vals.extent(0) == in.extent(1), "Size mismatch between Input and Eigen Values");
 
   eigDC(handle,
         in.data_handle(),
