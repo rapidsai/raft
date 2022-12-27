@@ -41,6 +41,10 @@ Changes:
 #include <cutlass/numeric_types.h>
 #include <cutlass/tensor_ref.h>
 #include <cutlass/transform/pitch_linear_thread_map.h>
+#include <cooperative_groups.h>
+#include <cooperative_groups/reduce.h>
+
+namespace cg = cooperative_groups;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -254,9 +258,6 @@ class PredicatedTileIteratorReducedVec {
     byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
                     LongIndex(thread_offset.row()) * LongIndex(params_.stride);
 
-    // printf("blockId = %d threadId = %d thread_offset_row = %d stride = %d  extent.row() = %d extent.column() = %d\n",
-    //       (int)blockIdx.x, (int)threadIdx.x, (int)thread_offset.row(), (int)params_.stride, (int)extent.row(), (int)extent.column());
-
     if (ScatterD) {
       byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
                       LongIndex(thread_offset.column()) * sizeof(AccessType) / kElementsPerAccess;
@@ -339,6 +340,9 @@ class PredicatedTileIteratorReducedVec {
     uint8_t* byte_pointer      = byte_pointer_;
     AccessType* frag_ptr = reinterpret_cast<AccessType*>(&frag);
 
+    cg::thread_block cta = cg::this_thread_block();
+    cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
+
     CUTLASS_PRAGMA_UNROLL
     for (int cluster = 0; cluster < ThreadMap::Iterations::kCluster; ++cluster) {
       CUTLASS_PRAGMA_UNROLL
@@ -362,7 +366,7 @@ class PredicatedTileIteratorReducedVec {
               byte_pointer + byte_offset +
               LongIndex(indices_[row_offset + thread_start_row_]) * LongIndex(params_.stride));
           }
-#if 1
+
           CUTLASS_PRAGMA_UNROLL
           for (int column = 0; column < ThreadMap::Iterations::kColumn; ++column) {
             bool guard = row_guard && mask_.predicates[column];
@@ -373,34 +377,30 @@ class PredicatedTileIteratorReducedVec {
                   frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column];
               }
             } else {
-              int frag_idx = frag_row_idx * ThreadMap::Iterations::kColumn;
-
+              const int frag_idx = frag_row_idx * ThreadMap::Iterations::kColumn;
               if (guard) {
-                //printf("gmem column id = %d  guard = %d \n", (int)(thread_start_column_ + ThreadMap::Delta::kColumn * column), (int) guard);
-                params_.user_param.red_op_.init_key(&(*frag_ptr)[frag_idx + column], thread_start_column_ + ThreadMap::Delta::kColumn * column);
+                params_.user_param.red_op_.init_key((*frag_ptr)[frag_idx + column], thread_start_column_ + ThreadMap::Delta::kColumn * column);
                 params_.user_param.red_op_(thread_start_column_ + ThreadMap::Delta::kColumn * column, &(*frag_ptr)[frag_idx], (*frag_ptr)[frag_idx + column]);
               }
             }
           }
-#if 1
-          if (row_guard ) {
-            // printf("blockIdx.x = %d threadIdx.x = %d sizeof(Element) = %d params_.increment_row = %d params_.increment_group = %d params_.increment_cluster = %d  frag_row_idx = %d extent_row_ = %d rowid = %d extent.column() = %d\n",
-            //         (int)blockIdx.x, (int)threadIdx.x, (int)sizeof(Element), (int)params_.increment_row, (int)params_.increment_group, (int)params_.increment_cluster,
-            //         (int)frag_row_idx, (int)extent_row_, (int)(row_offset + thread_start_row_), (int)extent_column_);
 
-            while (atomicCAS(params_.user_param.mutexes_ + row_offset + thread_start_row_, 0, 1) == 1)
-              ;
-            __threadfence();
-              params_.user_param.red_op_(row_offset + thread_start_row_, (Element*)&memory_pointer[0], (*frag_ptr)[frag_row_idx * ThreadMap::Iterations::kColumn]);
-              // cutlass::arch::global_store<AccessType, sizeof(AccessType)>(
-              // frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn],
-              // (void*)&memory_pointer[0],
-              // row_guard);
-            __threadfence();
-            atomicCAS(params_.user_param.mutexes_ + row_offset + thread_start_row_, 1, 0);
+          auto subTile = cg::binary_partition(tile32, row_guard && mask_.predicates[0]);
+          if (row_guard && mask_.predicates[0] ) {
+
+            (*frag_ptr)[frag_row_idx * ThreadMap::Iterations::kColumn] = cg::reduce(subTile, (*frag_ptr)[frag_row_idx * ThreadMap::Iterations::kColumn], params_.user_param.final_op_);
+
+            if (subTile.thread_rank() == 0) {
+
+              while (atomicCAS(params_.user_param.mutexes_ + row_offset + thread_start_row_, 0, 1) == 1);
+              __threadfence();
+                params_.user_param.red_op_(row_offset + thread_start_row_,
+                                          (Element*)&memory_pointer[0],
+                                          (*frag_ptr)[frag_row_idx * ThreadMap::Iterations::kColumn]);
+              __threadfence();
+              atomicCAS(params_.user_param.mutexes_ + row_offset + thread_start_row_, 1, 0);
+            }
           }
-#endif
-#endif
 
           if (row + 1 < ThreadMap::Iterations::kRow) {
             if (!ScatterD) { 

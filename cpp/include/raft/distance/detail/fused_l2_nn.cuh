@@ -71,11 +71,10 @@ struct MinAndDistanceReduceOpImpl {
     out->value = maxVal;
   }
 
-  DI void init_key(DataT *out, LabelT idx) const { return; }
-  DI void init_key(KVP *out, LabelT idx) const
+  DI void init_key(DataT &out, LabelT idx) const { return; }
+  DI void init_key(KVP &out, LabelT idx) const
   {
-    out->key   = idx;
-    //out->value = maxVal;
+    out.key   = idx;
   }
 };
 
@@ -280,6 +279,7 @@ struct kvp_fin_op {
   typedef typename raft::KeyValuePair<Index, AccType> KVP;
 
   __host__ __device__ kvp_fin_op() noexcept {};
+#if 0
   // functor signature.
   __host__ __device__ void operator()(KVP &a, AccType d_val, Index idx) const
   {
@@ -291,6 +291,19 @@ struct kvp_fin_op {
   {
     return;
   }
+#else
+  // functor signature.
+  __host__ __device__ KVP operator()(KVP a, KVP b) const
+  {
+    // a.value = d_val;
+    // a.key = idx;
+    return a.value < b.value ? a : b;
+  }
+  __host__ __device__ AccType operator()(AccType a, AccType b) const
+  {
+    return a < b ? a : b;
+  }
+#endif
 };
 
 template <typename DataT,
@@ -335,6 +348,7 @@ void fusedL2NNImpl(OutT* min,
   auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
 
   const auto deviceVersion = getComputeCapability();
+
   if (deviceVersion.first >= 8) {
     using L2Op = L2ExpandedOp<DataT, DataT>;
     using final_op_kvp_ = kvp_fin_op<DataT, IdxT, OutT>;

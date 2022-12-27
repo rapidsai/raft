@@ -60,10 +60,10 @@ struct FusedL2NNGemm {
 
   /// Threadblock-level tile size (concept: GemmShape)
   using ThreadblockShape =
-    cutlass::gemm::GemmShape<128, 128, 16>;  // <- threadblock tile M = 128, N = 128, K = 16
+    cutlass::gemm::GemmShape<32, 64, 16>;  // <- threadblock tile M = 128, N = 128, K = 16
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes tile size a warp will compute
-  using WarpShape = cutlass::gemm::GemmShape<64, 64, 16>;  // <- warp tile M = 64, N = 64, K = 16
+  using WarpShape = cutlass::gemm::GemmShape<16, 32, 16>;  // <- warp tile M = 64, N = 64, K = 16
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes the size of MMA op
   using InstructionShape =
