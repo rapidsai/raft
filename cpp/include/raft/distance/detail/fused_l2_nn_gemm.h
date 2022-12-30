@@ -131,7 +131,6 @@ struct FusedL2NNGemm {
     GemmBase::Epilogue::kElementsPerAccess>::Epilogue;
 
   // Compose the GEMM kernel
-  //using GemmKernel = GemmWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
   using GemmKernel = FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
 };
 
@@ -231,7 +230,6 @@ struct FusedL2NNGemm<double,
     GemmBase::Epilogue::kElementsPerAccess>::Epilogue;
 
   // Compose the GEMM kernel
-  //using GemmKernel = GemmWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
   using GemmKernel = FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
 };
 

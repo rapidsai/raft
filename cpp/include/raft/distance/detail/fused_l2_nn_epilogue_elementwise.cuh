@@ -50,7 +50,7 @@ template <typename ElementC_,
           typename ElementT_,
           int ElementsPerAccess,
           typename DistanceOp_,
-          typename FinalOp_,
+          typename CGReduceOp_,
           typename ReduceOpT_,
           typename KVPReduceOpT_>
 class FusedL2NNEpilogueElementwise {
@@ -65,7 +65,7 @@ class FusedL2NNEpilogueElementwise {
   static int const kCount             = kElementsPerAccess;
 
   using DistanceOp = DistanceOp_;
-  using FinalOp    = FinalOp_;
+  using CGReduceOp    = CGReduceOp_;
 
   using FragmentAccumulator = Array<ElementAccumulator, kElementsPerAccess>;
   using FragmentCompute     = Array<ElementCompute, kElementsPerAccess>;
@@ -85,7 +85,7 @@ class FusedL2NNEpilogueElementwise {
 
   /// Host-constructable parameters structure
   struct Params {
-    FinalOp_ final_op_;
+    CGReduceOp_ cg_reduce_op;
     DistanceOp_ dist_op_;
     KVPReduceOpT_ pair_redop_;
     ReduceOpT_ red_op_;
@@ -94,10 +94,10 @@ class FusedL2NNEpilogueElementwise {
     // Methods
     //
     CUTLASS_HOST_DEVICE
-    Params(DistanceOp_ dist_op, FinalOp final_op,
+    Params(DistanceOp_ dist_op, CGReduceOp cg_reduce_op,
            ReduceOpT_ red_op, KVPReduceOpT_ pair_redop,
            int *mutexes) :
-           final_op_(final_op), dist_op_(dist_op), pair_redop_(pair_redop),
+           cg_reduce_op(cg_reduce_op), dist_op_(dist_op), pair_redop_(pair_redop),
            red_op_(red_op), mutexes_(mutexes) {}
 
     CUTLASS_HOST_DEVICE
@@ -108,7 +108,6 @@ class FusedL2NNEpilogueElementwise {
   //
   // Data members
   //
-  FinalOp_ final_op;
   DistanceOp_ elementwise_op;
   KVPReduceOpT_ pair_redop;
   ReduceOpT_ red_op;
@@ -121,7 +120,7 @@ class FusedL2NNEpilogueElementwise {
   /// Constructor from Params
   CUTLASS_HOST_DEVICE
   FusedL2NNEpilogueElementwise(Params const& params)
-    : final_op(params.final_op_), elementwise_op(params.dist_op_),
+    :  elementwise_op(params.dist_op_),
       pair_redop(params.pair_redop_), red_op(params.red_op_)
   {
   }
@@ -155,9 +154,7 @@ class FusedL2NNEpilogueElementwise {
 
     CUTLASS_PRAGMA_UNROLL
     for (int i = 0; i < kElementsPerAccess; ++i) {
-      //result_Z[i] = elementwise_op(tmp_C[i], V[i], tmp_Accum[i]);
       ElementCompute res_Z = elementwise_op(tmp_C[i], V[i], tmp_Accum[i]);
-      //frag_T[i] = final_op(result_Z[i], 0);
       red_op.init(&frag_T[i], res_Z);
     }
 

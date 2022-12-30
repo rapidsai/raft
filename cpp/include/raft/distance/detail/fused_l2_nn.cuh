@@ -272,26 +272,14 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
   obj.run();
 }
 
-// final op functor for FusedL2NN used in its cutlass version
-// to convert the distance value & key(loc id) into key-value pair
+// cg::reduce functor for FusedL2NN used in its cutlass version
+// to output the min distance value & key(loc id).
 template <typename AccType, typename Index,  typename OutType>
-struct kvp_fin_op {
+struct kvp_cg_reduce_op {
   typedef typename raft::KeyValuePair<Index, AccType> KVP;
 
-  __host__ __device__ kvp_fin_op() noexcept {};
-#if 0
-  // functor signature.
-  __host__ __device__ void operator()(KVP &a, AccType d_val, Index idx) const
-  {
-    a.value = d_val;
-    a.key = idx;
-    return;
-  }
-  __host__ __device__ void operator()(AccType &a, AccType d_val, Index idx) const
-  {
-    return;
-  }
-#else
+  __host__ __device__ kvp_cg_reduce_op() noexcept {};
+
   // functor signature.
   __host__ __device__ KVP operator()(KVP a, KVP b) const
   {
@@ -301,7 +289,7 @@ struct kvp_fin_op {
   {
     return a < b ? a : b;
   }
-#endif
+
 };
 
 template <typename DataT,
@@ -349,16 +337,16 @@ void fusedL2NNImpl(OutT* min,
 
   if (deviceVersion.first >= 8) {
     using L2Op = L2ExpandedOp<DataT, DataT>;
-    using final_op_kvp_ = kvp_fin_op<DataT, IdxT, OutT>;
-    final_op_kvp_ fin_op_kvp;
+    using kvp_cg_reduce_op_ = kvp_cg_reduce_op<DataT, IdxT, OutT>;
+    kvp_cg_reduce_op_ cg_reduce_op;
     L2Op L2_dist_op(sqrt);
 
     IdxT lda, ldb, ldd;
     lda = k, ldb = k, ldd = n;
 
     cutlassFusedL2NNKernel<DataT, DataT, OutT, IdxT, P::Veclen,
-                          final_op_kvp_, L2Op, ReduceOpT, KVPReduceOpT>(x, y, xn, yn, m, n, k,
-                           lda, ldb, ldd, min, workspace, fin_op_kvp, L2_dist_op,
+                          kvp_cg_reduce_op_, L2Op, ReduceOpT, KVPReduceOpT>(x, y, xn, yn, m, n, k,
+                           lda, ldb, ldd, min, workspace, cg_reduce_op, L2_dist_op,
                            redOp, pairRedOp, stream);
   } else {
     constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));

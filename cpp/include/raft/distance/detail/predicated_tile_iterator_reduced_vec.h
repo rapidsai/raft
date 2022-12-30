@@ -236,7 +236,9 @@ class PredicatedTileIteratorReducedVec {
     thread_start_row_    = thread_offset.row();
     thread_start_column_ = thread_offset.column();
 
-
+    // if (blockIdx.x == 0 && blockIdx.y == 0) {
+    //   printf("constructor tid = %d thread_start_row_ = %d thread_start_column_ = %d\n ", (int)threadIdx.x, (int)thread_start_row_, (int)thread_start_column_);
+    // }
     // Initialize predicates
     CUTLASS_PRAGMA_UNROLL
     for (int c = 0; c < ThreadMap::Iterations::kColumn; ++c) {
@@ -338,6 +340,10 @@ class PredicatedTileIteratorReducedVec {
     cg::thread_block cta = cg::this_thread_block();
     cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
 
+    // if (blockIdx.x == 0 && blockIdx.y == 0) {
+    //   printf("tid = %d thread_start_row_ = %d thread_start_column_ = %d\n ", (int)threadIdx.x, (int)thread_start_row_, (int)thread_start_column_);
+    // }
+
     CUTLASS_PRAGMA_UNROLL
     for (int cluster = 0; cluster < ThreadMap::Iterations::kCluster; ++cluster) {
       CUTLASS_PRAGMA_UNROLL
@@ -385,7 +391,7 @@ class PredicatedTileIteratorReducedVec {
           auto subTile = cg::binary_partition(tile32, row_guard && mask_.predicates[0]);
 
           if (row_guard && mask_.predicates[0]) {
-            (*frag_ptr)[frag_idx] = cg::reduce(subTile, (*frag_ptr)[frag_idx], params_.user_param.final_op_);
+            (*frag_ptr)[frag_idx] = cg::reduce(subTile, (*frag_ptr)[frag_idx], params_.user_param.cg_reduce_op);
           }
           if (tile32.thread_rank() > 0) {
             if (row + 1 < ThreadMap::Iterations::kRow) {
