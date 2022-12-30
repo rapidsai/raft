@@ -70,8 +70,34 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
     nnz_a    = params.matrix_a.row_ind_ptr.size();
   }
 
+  void test_b_orthonormalize()
+  {
+    idx_t n_rows_v = n_rows_a;
+    idx_t n_features_v = params.n_components;
+    raft::update_device(act_eigvecs.data(), params.init_eigvecs.data(), act_eigvecs.size(), stream);
+    auto v = raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
+      act_eigvecs.data(), n_rows_v, n_features_v);
+    auto bv = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, n_rows_v, n_features_v);
+    auto vbv = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, n_features_v, n_features_v);
+    raft::sparse::solver::detail::b_orthonormalize(handle,
+      v,
+      bv.view(),
+      std::nullopt,
+      std::make_optional(vbv.view()),
+      std::nullopt,
+      true
+    );
+    std::vector<math_t> vbv_inv_expected{0.76298383, 0.0, -1.20276028, 1.0791533};
+    std::vector<math_t> vbv_inv_actual(4);
+    raft::copy(vbv_inv_actual.data(), vbv.data_handle(), vbv_inv_actual.size(), stream);
+
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    ASSERT_TRUE(hostVecMatch(vbv_inv_expected, vbv_inv_actual, raft::CompareApprox<math_t>(0.0001)));
+  }
+
   void Run()
   {
+    test_b_orthonormalize();
     raft::update_device(ind_a.data(), params.matrix_a.row_ind.data(), n_rows_a, stream);
     raft::update_device(ind_ptr_a.data(), params.matrix_a.row_ind_ptr.data(), nnz_a, stream);
     raft::update_device(values_a.data(), params.matrix_a.values.data(), nnz_a, stream);
@@ -92,9 +118,9 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
     raft::copy(X_CPU.data(), act_eigvecs.data(), X_CPU.size(), stream);
     raft::copy(W_CPU.data(), act_eigvals.data(), W_CPU.size(), stream);
     ASSERT_TRUE(raft::devArrMatch<math_t>(
-      exp_eigvecs.data(), act_eigvecs.data(), exp_eigvecs.size(), raft::Compare<idx_t>(), stream));
+      exp_eigvecs.data(), act_eigvecs.data(), exp_eigvecs.size(), raft::CompareApprox<math_t>(0.0001), stream));
     ASSERT_TRUE(raft::devArrMatch<math_t>(
-      exp_eigvals.data(), act_eigvals.data(), exp_eigvals.size(), raft::Compare<idx_t>(), stream));
+      exp_eigvals.data(), act_eigvals.data(), exp_eigvals.size(), raft::CompareApprox<math_t>(0.0001), stream));
   }
 
  protected:

@@ -16,15 +16,24 @@
 
 #pragma once
 
+#include <cmath>
+#include <optional>
+
+#include <thrust/reduce.h>
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/eig.cuh>
 #include <raft/linalg/matrix_vector.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/linalg/sqrt.cuh>
+#include <raft/linalg/substract.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/init.cuh>
+#include <raft/matrix/reverse.cuh>
 #include <raft/matrix/triangular.cuh>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/spectral/matrix_wrappers.hpp>
@@ -38,6 +47,28 @@ template <typename DataT>
 struct MaxOp {
   HDI DataT operator()(DataT a, DataT b) { return maxPrim(a, b); }
 };
+
+template <typename DataT>
+struct isnan_test {
+  HDA bool operator()(const DataT a) { return isnan(a); }
+};
+
+template <typename value_t, typename index_t>
+void truncEig(const raft::handle_t& handle,
+                 raft::device_matrix_view<value_t, index_t, raft::col_major> eigVector,
+                 raft::device_vector_view<value_t, index_t> eigLambda,
+                 index_t size_x,
+                 bool largest)
+{
+  // The eigenvalues are already sorted in ascending order with syevd
+  if (largest)
+  {
+    auto nrows = eigVector.extent(0);
+    auto ncols = eigVector.extent(1);
+    raft::matrix::col_reverse(handle, eigVector);
+    raft::matrix::col_reverse(handle, raft::make_device_matrix_view(eigLambda.data_handle(), 1, eigLambda.extent(0)));
+  }
+}
 
 // C = A * B
 template <typename value_t, typename index_t>
@@ -106,15 +137,19 @@ void cholesky(const raft::handle_t& handle,
   auto lda              = P.extent(0);
   auto dim              = P.extent(0);
   cublasFillMode_t uplo = lower ? CUBLAS_FILL_MODE_LOWER : CUBLAS_FILL_MODE_UPPER;
+
+  auto P_copy = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, P.extent(0), P.extent(1));
+  raft::copy(P_copy.data_handle(), P.data_handle(), P.size(), stream);
+
   RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf_bufferSize(
-    handle.get_cusolver_dn_handle(), uplo, dim, P.data_handle(), lda, &Lwork));
+    handle.get_cusolver_dn_handle(), uplo, dim, P_copy.data_handle(), lda, &Lwork));
 
   rmm::device_uvector<value_t> workspace_decomp(Lwork / sizeof(value_t), stream);
   rmm::device_uvector<int> info(1, stream);
   RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf(handle.get_cusolver_dn_handle(),
                                                           uplo,
                                                           dim,
-                                                          P.data_handle(),
+                                                          P_copy.data_handle(),
                                                           lda,
                                                           workspace_decomp.data(),
                                                           Lwork,
@@ -124,6 +159,27 @@ void cholesky(const raft::handle_t& handle,
   raft::update_host(&info_h, info.data(), 1, stream);
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   ASSERT(info_h == 0, "lobpcg: error in potrf, info=%d | expected=0", info_h);
+
+  bool h_hasnan = thrust::reduce(P_copy.data_handle(), P_copy.data_handle() + P_copy.size(), isnan_test(), 0, thrust::plus<bool>());
+  ASSERT(h_hasnan == 0, "lobpcg: error in cholesky, NaN in outputs", info_h);
+
+  raft::matrix::fill(handle, P, value_t(0));
+  if (lower)
+  {
+    raft::matrix::lower_triangular(
+      handle,
+      raft::make_device_matrix_view<const value_t, index_t, raft::col_major>(
+        P_copy.data_handle(), P.extent(0), P.extent(1)),
+      P);
+  }
+  else
+  {
+    raft::matrix::upper_triangular(
+      handle,
+      raft::make_device_matrix_view<const value_t, index_t, raft::col_major>(
+        P_copy.data_handle(), P.extent(0), P.extent(1)),
+      P);
+  }
 }
 
 template <typename value_t, typename index_t>
@@ -138,12 +194,7 @@ void inverse(const raft::handle_t& handle,
   auto dim                = P.extent(0);
   int info_h              = 0;
   cublasOperation_t trans = CUBLAS_OP_N;
-  // make Pinv an identity matrix
-  auto diag = raft::make_device_vector<value_t, index_t>(handle, dim);
-  raft::matrix::fill(handle, diag.view(), value_t(1));
-  raft::matrix::fill(handle, Pinv, value_t(0));
-  raft::matrix::set_diagonal(
-    handle, raft::make_device_vector_view<const value_t, index_t>(diag.data_handle(), dim), Pinv);
+  raft::matrix::eye(handle, Pinv);
 
   RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDngetrf_bufferSize(
     handle.get_cusolver_dn_handle(), dim, dim, P.data_handle(), lda, &Lwork));
@@ -184,14 +235,57 @@ void inverse(const raft::handle_t& handle,
 }
 
 /**
+ * Helper function for converting a generalized eigenvalue problem
+ * A(X) = lambda(B(X)) to standard eigen value problem using cholesky
+ * transformation
+ */
+template <typename value_t, typename index_t>
+void eigh(const raft::handle_t& handle,
+          raft::device_matrix_view<value_t, index_t, raft::col_major> A,
+          raft::device_matrix_view<value_t, index_t, raft::col_major> eigVecs,
+          raft::device_vector_view<value_t, index_t> eigVals,
+          std::optional<raft::device_matrix_view<value_t, index_t, raft::col_major>> B_opt = std::nullopt)
+{
+  if (B_opt.has_value())
+  {
+    raft::linalg::eig_dc(handle, 
+      raft::make_device_matrix_view<const value_t, index_t, raft::col_major>(A.data_handle(), A.extent(0), A.extent(1)),
+      eigVecs, eigVals);
+    return;
+  }
+  auto dim = A.extent(0);
+  auto RTi = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  auto Ri = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  auto RT = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  auto F = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  auto B = B_opt.value();
+  cholesky(handle, B, false);
+
+  raft::linalg::transpose(handle, B, RT.view());
+  inverse(handle, RT.view(), Ri.view());
+  inverse(handle, B, RTi.view());
+
+  // Reuse the memory of matrix
+  auto& ARi = B;
+  auto& Fvecs = RT;
+  raft::linalg::gemm(handle, A, Ri.view(), ARi);
+  raft::linalg::gemm(handle, RTi.view(), ARi, F.view());
+
+  raft::linalg::eig_dc(handle, 
+    raft::make_device_matrix_view<const value_t, index_t, raft::col_major>(F.data_handle(), F.extent(0), F.extent(1)),
+    Fvecs.view(), eigVals);
+  raft::linalg::gemm(handle, Ri.view(), Fvecs.view(), eigVecs);
+}
+
+/**
  * B-orthonormalize the given block vector using Cholesky
  *
  * @tparam value_t floating point type used for elements
  * @tparam index_t integer type used for indexing
  * @param[in] handle: raft handle
- * @param[in] B_opt: optional sparse matrix for normalization
  * @param[inout] V: dense matrix to normalize
  * @param[inout] BV: dense matrix. Use with parameter `bv_is_empty`.
+ * @param[in] B_opt: optional sparse matrix for normalization
  * @param[out] VBV_opt: optional dense matrix containing inverse matrix
  * @param[out] V_max_opt: optional vector containing normalization of V
  * @param[in] bv_is_empty: True if BV is used as input
@@ -199,9 +293,9 @@ void inverse(const raft::handle_t& handle,
 template <typename value_t, typename index_t>
 void b_orthonormalize(
   const raft::handle_t& handle,
-  std::optional<raft::spectral::matrix::sparse_matrix_t<index_t, value_t>> B_opt,
   raft::device_matrix_view<value_t, index_t, raft::col_major> V,
   raft::device_matrix_view<value_t, index_t, raft::col_major> BV,
+  std::optional<raft::spectral::matrix::sparse_matrix_t<index_t, value_t>> B_opt     = std::nullopt,
   std::optional<raft::device_matrix_view<value_t, index_t, raft::col_major>> VBV_opt = std::nullopt,
   std::optional<raft::device_vector_view<value_t, index_t>> V_max_opt                = std::nullopt,
   bool bv_is_empty                                                                   = true)
@@ -266,15 +360,8 @@ void b_orthonormalize(
     raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, V.extent(1), V.extent(0));
   raft::linalg::transpose(handle, V, VT.view());
 
-  raft::linalg::gemm(handle, VT.view(), BV, VBVBuffer.view());
-  cholesky(handle, VBVBuffer.view(), false);
-  // Reset VBV before copying upper triangular
-  raft::matrix::fill(handle, VBV, value_t(0));
-  raft::matrix::upper_triangular(
-    handle,
-    raft::make_device_matrix_view<const value_t, index_t, raft::col_major>(
-      VBVBuffer.data_handle(), VBVBuffer.extent(0), VBV.extent(1)),
-    VBV);
+  raft::linalg::gemm(handle, VT.view(), BV, VBV);
+  cholesky(handle, VBV, false);
 
   inverse(handle, VBV, VBVBuffer.view());
   raft::copy(VBV.data_handle(), VBVBuffer.data_handle(), VBV.size(), stream);
@@ -294,7 +381,7 @@ void lobpcg(
   std::optional<raft::device_matrix_view<value_t, index_t, raft::col_major>> Y_opt,  // Constraint
   // matrix shape=(n,Y)
   value_t tol            = 0,
-  std::uint32_t max_iter = 20,
+  std::int32_t max_iter  = 20,
   bool largest           = true)
 {
   cudaStream_t stream = handle.get_stream();
@@ -303,11 +390,11 @@ void lobpcg(
   auto n      = X.extent(0);
   auto size_x = X.extent(1);
 
-  /*  DENSE SOLUTION
+  /* TODO:  DENSE SOLUTION
   if ((n - size_y) < (5 * size_x)) {
     return;
   } */
-  if (tol == 0) { tol = raft::mySqrt(1e-15) * n; }
+  if (tol <= 0) { tol = raft::mySqrt(1e-15) * n; }
   // Apply constraints to X
   /*
   auto matrix_BY = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, n, size_y);
@@ -322,13 +409,57 @@ void lobpcg(
           raft::copy(matrix_BY.data_handle(), Y_opt.value().data_handle(), n * size_y,
   handle.get_stream());
       }
-      cusparseDestroyDnMat(denseY);
       // GramYBY
       // ApplyConstraints
   }*/
   auto BX = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, n, size_x);
-  b_orthonormalize(handle, B_opt, X, BX.view());
+  b_orthonormalize(handle, X, BX.view(), B_opt);
+  // Compute the initial Ritz vectors: solve the eigenproblem.
+  auto AX = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, n, size_x);
+  spmm(handle, A, X, AX.view());
+  auto gramXAX = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, size_x, size_x);
+  auto XT = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, size_x, n);
+  raft::linalg::transpose(handle, X, XT.view());
+  raft::linalg::gemm(handle, XT.view(), AX.view(), gramXAX.view());
+  auto eigVector = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, size_x, size_x);
+  auto eigLambda = raft::make_device_vector<value_t, index_t>(handle, size_x);
+  eigh(handle, gramXAX.view(), eigVector.view(), eigLambda.view());
+  truncEig(handle, eigVector.view(), eigLambda.view(), size_x, largest);
+  // Slice not needed for first eigh
+  // raft::matrix::slice(handle, eigVectorFull, eigVector, raft::matrix::slice_coordinates(0, 0, eigVectorFull.extent(0), size_x));
+
+  raft::linalg::gemm(handle, X, eigVector.view(), X);
+  raft::linalg::gemm(handle, AX.view(), eigVector.view(), AX.view());
+  if (B_opt) raft::linalg::gemm(handle, BX.view(), eigVector.view(), BX.view());
+  
+  // Active index set
+  auto mask = raft::make_device_vector<uint8_t, index_t>(handle, size_x);
+  auto previousBlockSize = size_x;
+
+  auto ident = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, size_x, size_x);
+  auto ident0 = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, size_x, size_x);
+  raft::matrix::eye(handle, ident.view());
+  raft::matrix::eye(handle, ident0.view());
+
+  std::int32_t iteration_number = -1;
   return;
   // TODO
+}
+
+// Helper for b_orthonormalize optional arguments
+template <typename value_t, typename index_t, typename b_opt_t, typename vbv_opt_t, typename v_max_opt_t>
+void b_orthonormalize(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<value_t, index_t, raft::col_major> V,
+  raft::device_matrix_view<value_t, index_t, raft::col_major> BV,
+  b_opt_t&& B_opt         = std::nullopt,
+  vbv_opt_t&& VBV_opt     = std::nullopt,
+  v_max_opt_t&& V_max_opt = std::nullopt,
+  bool bv_is_empty        = true)
+{
+  std::optional<raft::spectral::matrix::sparse_matrix_t<index_t, value_t>> b = std::forward<b_opt_t>(B_opt);
+  std::optional<raft::device_matrix_view<value_t, index_t, raft::col_major>> vbv = std::forward<vbv_opt_t>(VBV_opt);
+  std::optional<raft::device_vector_view<value_t, index_t>> v_max = std::forward<v_max_opt_t>(V_max_opt);
+  b_orthonormalize(handle, V, BV, b, vbv, v_max, bv_is_empty);
 }
 };  // namespace raft::sparse::solver::detail
