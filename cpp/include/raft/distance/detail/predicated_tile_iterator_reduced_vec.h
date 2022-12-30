@@ -94,18 +94,12 @@ class PredicatedTileIteratorReducedVec {
   static_assert(ThreadMap::Iterations::kColumn > 0, "ThreadMap::Iterations::kColumn must be > 0");
 
   /// Fragment object
-  // using Fragment = Array<Element,
-  //                        ThreadMap::Iterations::kColumn * ThreadMap::Iterations::kRow *
-  //                          ThreadMap::Iterations::kGroup * ThreadMap::Iterations::kCluster *
-  //                          ThreadMap::kElementsPerAccess>;
-
   using Fragment = Array<Element,
                          ThreadMap::Iterations::kColumn * ThreadMap::Iterations::kRow *
                            ThreadMap::Iterations::kGroup * ThreadMap::Iterations::kCluster *
                            kElementsPerAccess>;
 
   /// Memory access size
-  //using AccessType = AlignedArray<Element, ThreadMap::kElementsPerAccess>;
   using AccessType = AlignedArray<Element, kElementsPerAccess>;
 
   //
@@ -131,7 +125,6 @@ class PredicatedTileIteratorReducedVec {
     CUTLASS_HOST_DEVICE
     Params(Layout const& layout, EpilogueOpParams const& user_param_)
       : PredicatedTileIteratorParams(
-          //layout.stride(0) * int(sizeof(AccessType)) / kElementsPerAccess,
           int(sizeof(AccessType)) / kElementsPerAccess,
           make_OutputTileThreadMapDesc<ThreadMap>()),
           user_param(user_param_)
@@ -224,6 +217,7 @@ class PredicatedTileIteratorReducedVec {
   // Methods
   //
 
+
   /// Constructor
   CUTLASS_DEVICE
   PredicatedTileIteratorReducedVec(Params const& params,
@@ -241,6 +235,7 @@ class PredicatedTileIteratorReducedVec {
 
     thread_start_row_    = thread_offset.row();
     thread_start_column_ = thread_offset.column();
+
 
     // Initialize predicates
     CUTLASS_PRAGMA_UNROLL
@@ -367,6 +362,7 @@ class PredicatedTileIteratorReducedVec {
               LongIndex(indices_[row_offset + thread_start_row_]) * LongIndex(params_.stride));
           }
 
+          const int frag_idx = frag_row_idx * ThreadMap::Iterations::kColumn;
           CUTLASS_PRAGMA_UNROLL
           for (int column = 0; column < ThreadMap::Iterations::kColumn; ++column) {
             bool guard = row_guard && mask_.predicates[column];
@@ -377,36 +373,59 @@ class PredicatedTileIteratorReducedVec {
                   frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column];
               }
             } else {
-              const int frag_idx = frag_row_idx * ThreadMap::Iterations::kColumn;
               if (guard) {
-                params_.user_param.red_op_.init_key((*frag_ptr)[frag_idx + column], thread_start_column_ + ThreadMap::Delta::kColumn * column);
-                params_.user_param.red_op_(thread_start_column_ + ThreadMap::Delta::kColumn * column, &(*frag_ptr)[frag_idx], (*frag_ptr)[frag_idx + column]);
+                const auto key_id = thread_start_column_ + ThreadMap::Delta::kColumn * column;
+                const int frag_col_idx = frag_idx + column;
+                params_.user_param.red_op_.init_key((*frag_ptr)[frag_col_idx], key_id);
+                params_.user_param.red_op_(key_id, &(*frag_ptr)[frag_idx], (*frag_ptr)[frag_col_idx]);
               }
             }
           }
 
           auto subTile = cg::binary_partition(tile32, row_guard && mask_.predicates[0]);
-          if (row_guard && mask_.predicates[0] ) {
 
-            (*frag_ptr)[frag_row_idx * ThreadMap::Iterations::kColumn] = cg::reduce(subTile, (*frag_ptr)[frag_row_idx * ThreadMap::Iterations::kColumn], params_.user_param.final_op_);
-
-            if (subTile.thread_rank() == 0) {
-
-              while (atomicCAS(params_.user_param.mutexes_ + row_offset + thread_start_row_, 0, 1) == 1);
-              __threadfence();
-                params_.user_param.red_op_(row_offset + thread_start_row_,
-                                          (Element*)&memory_pointer[0],
-                                          (*frag_ptr)[frag_row_idx * ThreadMap::Iterations::kColumn]);
-              __threadfence();
-              atomicCAS(params_.user_param.mutexes_ + row_offset + thread_start_row_, 1, 0);
+          if (row_guard && mask_.predicates[0]) {
+            (*frag_ptr)[frag_idx] = cg::reduce(subTile, (*frag_ptr)[frag_idx], params_.user_param.final_op_);
+          }
+          if (tile32.thread_rank() > 0) {
+            if (row + 1 < ThreadMap::Iterations::kRow) {
+              if (!ScatterD) { 
+                byte_pointer += params_.increment_row;
+              }
             }
           }
+        }
+        
+        if (tile32.thread_rank() == 0 && thread_start_row_ < extent_row_) {
 
-          if (row + 1 < ThreadMap::Iterations::kRow) {
-            if (!ScatterD) { 
-              byte_pointer += params_.increment_row;
+          int *row_mutex = params_.user_param.mutexes_ +  thread_start_row_;
+          while (atomicCAS(row_mutex, 0, 1) == 1);
+          __threadfence();
+
+          CUTLASS_PRAGMA_UNROLL
+          for (int row = 0; row < ThreadMap::Iterations::kRow; ++row) {
+            const int frag_row_idx = (row + ThreadMap::Iterations::kRow * (group + ThreadMap::Iterations::kGroup * cluster));
+            
+            int row_offset = row * ThreadMap::Delta::kRow + group * ThreadMap::Delta::kGroup + cluster * ThreadMap::Delta::kCluster;
+            bool row_guard = ((row_offset + thread_start_row_) < extent_row_);
+
+
+            AccessType* memory_pointer = reinterpret_cast<AccessType*>(byte_pointer + byte_offset);
+            const int frag_idx = frag_row_idx * ThreadMap::Iterations::kColumn;
+            if (row_guard &&  mask_.predicates[0]) {
+              params_.user_param.red_op_(row_offset + thread_start_row_,
+                                        (Element*)&memory_pointer[0],
+                                        (*frag_ptr)[frag_idx]);
+            }
+
+            if (row + 1 < ThreadMap::Iterations::kRow) {
+              if (!ScatterD) { 
+                byte_pointer += params_.increment_row;
+              }
             }
           }
+          __threadfence();
+          atomicCAS(row_mutex, 1, 0);
         }
 
         if (group + 1 < ThreadMap::Iterations::kGroup) {

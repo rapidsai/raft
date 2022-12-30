@@ -295,8 +295,6 @@ struct kvp_fin_op {
   // functor signature.
   __host__ __device__ KVP operator()(KVP a, KVP b) const
   {
-    // a.value = d_val;
-    // a.key = idx;
     return a.value < b.value ? a : b;
   }
   __host__ __device__ AccType operator()(AccType a, AccType b) const
