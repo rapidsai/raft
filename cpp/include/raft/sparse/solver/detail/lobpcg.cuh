@@ -442,6 +442,43 @@ void lobpcg(
   raft::matrix::eye(handle, ident0.view());
 
   std::int32_t iteration_number = -1;
+  while (iteration_number < max_iter + 1)
+  {
+    iteration_number += 1
+    //auto lambda_matrix = raft::make_device_matrix_view<value_t, index_t, raft::col_major>(eigLambda.data_handle(), 1, eigLambda.extent(0));
+    auto aux = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, BX.extent(0), eigLambda.extent(0));
+    if (B_opt)
+    {
+      raft::matrix::copy(handle,
+        raft::make_device_matrix_view<const value_t, index_t, raft::col_major>(BX.data_handle(), BX.extent(0), BX.extent(1)),
+        aux.view());
+    }
+    else
+    {
+      raft::matrix::copy(handle,
+        raft::make_device_matrix_view<const value_t, index_t, raft::col_major>(X.data_handle(), X.extent(0), X.extent(1)),
+        aux.view());
+    }
+    raft::linalg::binary_mult_skip_zero(
+      handle, aux.view(),
+      raft::make_device_vector_view<const value_t, index_t, raft::col_major>(eigLambda.data_handle(), eigLambda.extent(0)),
+      Apply::ALONG_ROWS);
+
+    auto R = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, n, size_x);
+    raft::linalg::substract(handle, AX.view(), aux.view(), R.view());
+
+    auto aux_sum = raft::make_device_vector<value_t, index_t>(handle, size_x);
+    raft::linalg::reduce( // Could be done in-place in aux buffer
+      aux_sum.data_handle(),
+      R.data_handle(), size_x, n, value_t(0),
+      false, true, stream, false,
+      raft::L2Op<value_t, index_t>());
+
+    auto residual_norms = raft::make_device_vector<value_t, index_t>(handle, size_x);
+    raft::linalg::sqrt(handle, aux_sum, residual_norms);
+
+    // cupy where & activemask
+  }
   return;
   // TODO
 }
