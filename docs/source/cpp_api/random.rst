@@ -24,5 +24,6 @@ namespace *raft::random*
 
    random_datagen.rst
    random_sampling_univariate.rst
-   random_samling_multivariable.rst
+   random_sampling_multivariable.rst
    random_sampling_without_replacement.rst
+
