@@ -32,6 +32,7 @@ from libc.stdint cimport (
     uintptr_t,
 )
 from libcpp cimport bool, nullptr
+from libcpp.string cimport string
 
 from rmm._lib.memory_resource cimport device_memory_resource
 
@@ -175,3 +176,11 @@ cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
                      uint64_t* neighbors,
                      float* distances,
                      device_memory_resource* mr) except +
+
+    cdef void save(const handle_t& handle,
+                   const string& filename,
+                   const index[uint64_t]& index) except +
+
+    cdef void load(const handle_t& handle,
+                   const string& filename,
+                   index[uint64_t]* index) except +
