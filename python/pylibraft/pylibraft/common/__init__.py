@@ -17,5 +17,6 @@ from .cai_wrapper import cai_wrapper
 from .cuda import Stream
 from .device_ndarray import device_ndarray
 from .handle import Handle
+from .outputs import auto_convert_output
 
 __all__ = ["Handle", "Stream"]

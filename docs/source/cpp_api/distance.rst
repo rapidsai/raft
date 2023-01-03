@@ -9,7 +9,7 @@ distances have been highly optimized and support a wide assortment of different 
    :class: highlight
 
 Distance Types
-##############
+--------------
 
 ``#include <raft/distance/distance_types.hpp>``
 
@@ -19,28 +19,9 @@ namespace *raft::distance*
    :project: RAFT
 
 
-Pairwise Distance
-#################
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-``#include <raft/distance/distance.cuh>``
-
-namespace *raft::distance*
-
-.. doxygengroup:: distance_mdspan
-    :project: RAFT
-    :members:
-    :content-only:
-
-
-Fused 1-Nearest Neighbors
-#########################
-
-``#include <raft/distance/fused_l2_nn.cuh>``
-
-namespace *raft::distance*
-
-.. doxygengroup:: fused_l2_nn
-    :project: RAFT
-    :members:
-    :content-only:
-
+   distance_pairwise.rst
+   distance_1nn.rst

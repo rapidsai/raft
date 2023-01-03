@@ -30,6 +30,11 @@
 
 namespace raft {
 
+/**
+ * @defgroup error_handling Exceptions & Error Handling
+ * @{
+ */
+
 /** base exception class for the whole of raft */
 class exception : public std::exception {
  public:
@@ -93,6 +98,10 @@ struct logic_error : public raft::exception {
   explicit logic_error(std::string const& message) : raft::exception(message) {}
 };
 
+/**
+ * @}
+ */
+
 }  // namespace raft
 
 // FIXME: Need to be replaced with RAFT_FAIL
@@ -144,6 +153,11 @@ struct logic_error : public raft::exception {
   } while (0)
 
 /**
+ * @defgroup assertion Assertion and error macros
+ * @{
+ */
+
+/**
  * @brief Macro for checking (pre-)conditions that throws an exception when a condition is false
  *
  * @param[in] cond Expression that evaluates to true or false
@@ -173,5 +187,9 @@ struct logic_error : public raft::exception {
     SET_ERROR_MSG(msg, "RAFT failure at ", fmt, ##__VA_ARGS__); \
     throw raft::logic_error(msg);                               \
   } while (0)
+
+/**
+ * @}
+ */
 
 #endif
