@@ -31,7 +31,7 @@ from pylibraft.common.handle import auto_sync_handle
 
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common import cai_wrapper, device_ndarray
+from pylibraft.common import auto_convert_output, cai_wrapper, device_ndarray
 
 
 cdef extern from "raft_runtime/distance/pairwise_distance.hpp" \
@@ -89,6 +89,7 @@ SUPPORTED_DISTANCES = ["euclidean", "l1", "cityblock", "l2", "inner_product",
 
 
 @auto_sync_handle
+@auto_convert_output
 def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
     """
     Compute pairwise distances between X and Y
