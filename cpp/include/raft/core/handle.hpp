@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,36 @@ namespace raft {
  * raft::handle_t is being kept around for backwards
  * compatibility and will be removed in a future version.
  *
+ * Extending the `raft::device_resources` instead of `using` to
+ * minimize needed changes downstream
+ * (e.g. existing forward declarations, etc...)
+ *
  * Use of `raft::resources` or `raft::device_resources` is preferred.
  */
-using handle_t = raft::device_resources;
+class handle_t : public raft::device_resources {
+ public:
+  // delete copy/move constructors and assignment operators as
+  // copying and moving underlying resources is unsafe
+  handle_t(const handle_t&) = delete;
+  handle_t& operator=(const handle_t&) = delete;
+  handle_t(handle_t&&)                 = delete;
+  handle_t& operator=(handle_t&&) = delete;
+
+  /**
+   * @brief Construct a resources instance with a stream view and stream pool
+   *
+   * @param[in] stream_view the default stream (which has the default per-thread stream if
+   * unspecified)
+   * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
+   */
+  handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
+           std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
+    : device_resources{stream_view, stream_pool}
+  {
+  }
+
+  /** Destroys all held-up resources */
+  virtual ~handle_t() {}
+};
 
 }  // end NAMESPACE raft
