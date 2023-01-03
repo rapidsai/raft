@@ -216,8 +216,6 @@ class PredicatedTileIteratorReducedVec {
   //
   // Methods
   //
-
-
   /// Constructor
   CUTLASS_DEVICE
   PredicatedTileIteratorReducedVec(Params const& params,
@@ -236,9 +234,6 @@ class PredicatedTileIteratorReducedVec {
     thread_start_row_    = thread_offset.row();
     thread_start_column_ = thread_offset.column();
 
-    // if (blockIdx.x == 0 && blockIdx.y == 0) {
-    //   printf("constructor tid = %d thread_start_row_ = %d thread_start_column_ = %d\n ", (int)threadIdx.x, (int)thread_start_row_, (int)thread_start_column_);
-    // }
     // Initialize predicates
     CUTLASS_PRAGMA_UNROLL
     for (int c = 0; c < ThreadMap::Iterations::kColumn; ++c) {
@@ -330,7 +325,7 @@ class PredicatedTileIteratorReducedVec {
   CUTLASS_DEVICE
   void load(Fragment& frag) const { load_with_byte_offset(frag, 0); }
 
-  /// Stores a fragment to memory
+  /// Performs reduction and Stores a reduced output to memory
   CUTLASS_DEVICE
   void store_with_byte_offset(Fragment& frag, int64_t byte_offset) const
   {
@@ -339,10 +334,6 @@ class PredicatedTileIteratorReducedVec {
 
     cg::thread_block cta = cg::this_thread_block();
     cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
-
-    // if (blockIdx.x == 0 && blockIdx.y == 0) {
-    //   printf("tid = %d thread_start_row_ = %d thread_start_column_ = %d\n ", (int)threadIdx.x, (int)thread_start_row_, (int)thread_start_column_);
-    // }
 
     CUTLASS_PRAGMA_UNROLL
     for (int cluster = 0; cluster < ThreadMap::Iterations::kCluster; ++cluster) {
@@ -387,12 +378,13 @@ class PredicatedTileIteratorReducedVec {
               }
             }
           }
+          bool col_guard = row_guard && mask_.predicates[0];
+          auto subTile = cg::binary_partition(tile32, col_guard);
 
-          auto subTile = cg::binary_partition(tile32, row_guard && mask_.predicates[0]);
-
-          if (row_guard && mask_.predicates[0]) {
+          if (col_guard) {
             (*frag_ptr)[frag_idx] = cg::reduce(subTile, (*frag_ptr)[frag_idx], params_.user_param.cg_reduce_op);
           }
+
           if (tile32.thread_rank() > 0) {
             if (row + 1 < ThreadMap::Iterations::kRow) {
               if (!ScatterD) { 
@@ -401,11 +393,12 @@ class PredicatedTileIteratorReducedVec {
             }
           }
         }
-        
+#if 0
+      // single lock per warp for multiple rows
         if (tile32.thread_rank() == 0 && thread_start_row_ < extent_row_) {
 
-          int *row_mutex = params_.user_param.mutexes_ +  thread_start_row_;
-          while (atomicCAS(row_mutex, 0, 1) == 1);
+          volatile int *row_mutex = params_.user_param.mutexes_ +  thread_start_row_;
+          while (atomicCAS((int*)row_mutex, 0, 1) == 1);
           __threadfence();
 
           CUTLASS_PRAGMA_UNROLL
@@ -431,9 +424,51 @@ class PredicatedTileIteratorReducedVec {
             }
           }
           __threadfence();
-          atomicCAS(row_mutex, 1, 0);
+          atomicCAS((int*)row_mutex, 1, 0);
+        }
+#else
+        // single lock per block for multiple rows
+        // this performs better for most of the cases than per warp lock.
+        if (threadIdx.x == 0 && thread_start_row_ < extent_row_) {
+          // acquire mutex lock.
+          volatile int *row_mutex = params_.user_param.mutexes_ +  thread_start_row_;
+          while (atomicCAS((int*)row_mutex, 0, 1) == 1);
+        }
+        __syncthreads();
+        if (tile32.thread_rank() == 0) {
+
+          CUTLASS_PRAGMA_UNROLL
+          for (int row = 0; row < ThreadMap::Iterations::kRow; ++row) {
+            const int frag_row_idx = (row + ThreadMap::Iterations::kRow * (group + ThreadMap::Iterations::kGroup * cluster));
+            
+            int row_offset = row * ThreadMap::Delta::kRow + group * ThreadMap::Delta::kGroup + cluster * ThreadMap::Delta::kCluster;
+            bool row_guard = ((row_offset + thread_start_row_) < extent_row_);
+
+            AccessType* memory_pointer = reinterpret_cast<AccessType*>(byte_pointer + byte_offset);
+            const int frag_idx = frag_row_idx * ThreadMap::Iterations::kColumn;
+            if (row_guard &&  mask_.predicates[0]) {
+              // reduction with the current gmem value.
+              params_.user_param.red_op_(row_offset + thread_start_row_,
+                                        (Element*)&memory_pointer[0],
+                                        (*frag_ptr)[frag_idx]);
+            }
+
+            if (row + 1 < ThreadMap::Iterations::kRow) {
+              if (!ScatterD) { 
+                byte_pointer += params_.increment_row;
+              }
+            }
+          }
         }
 
+        __syncthreads();
+        __threadfence();
+        if (threadIdx.x == 0 && thread_start_row_ < extent_row_) {
+          // release mutex lock.
+          volatile int *row_mutex = params_.user_param.mutexes_ +  thread_start_row_;
+          atomicCAS((int*)row_mutex, 1, 0);
+        }
+#endif
         if (group + 1 < ThreadMap::Iterations::kGroup) {
           byte_pointer += params_.increment_group;
         }

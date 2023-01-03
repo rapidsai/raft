@@ -290,6 +290,7 @@ public:
       params_B(args.ldb),
       params_C(args.ldc),
       params_D(args.ldd),
+      // Here we additional pass user args via args.epilogue
       params_Tensor(args.ldt, args.epilogue),
       output_op(args.epilogue),
       mode(args.mode),

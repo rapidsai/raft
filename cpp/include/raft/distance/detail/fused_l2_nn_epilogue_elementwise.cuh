@@ -89,14 +89,14 @@ class FusedL2NNEpilogueElementwise {
     DistanceOp_ dist_op_;
     KVPReduceOpT_ pair_redop_;
     ReduceOpT_ red_op_;
-    int *mutexes_;
+    volatile int *mutexes_;
     //
     // Methods
     //
     CUTLASS_HOST_DEVICE
     Params(DistanceOp_ dist_op, CGReduceOp cg_reduce_op,
            ReduceOpT_ red_op, KVPReduceOpT_ pair_redop,
-           int *mutexes) :
+           volatile int *mutexes) :
            cg_reduce_op(cg_reduce_op), dist_op_(dist_op), pair_redop_(pair_redop),
            red_op_(red_op), mutexes_(mutexes) {}
 
@@ -150,7 +150,6 @@ class FusedL2NNEpilogueElementwise {
     FragmentCompute tmp_C =
       NumericArrayConverter<ElementCompute, ElementC, kElementsPerAccess>()(frag_C);
     FragmentCompute result_Z;
-    //FragmentT result_T;
 
     CUTLASS_PRAGMA_UNROLL
     for (int i = 0; i < kElementsPerAccess; ++i) {
@@ -158,8 +157,6 @@ class FusedL2NNEpilogueElementwise {
       red_op.init(&frag_T[i], res_Z);
     }
 
-    // NumericArrayConverter<ElementT, ElementCompute, kElementsPerAccess> convert_t;
-    // frag_T = convert_t(result_T);
   }
 
   /// Applies the operation when is_source_needed() is false

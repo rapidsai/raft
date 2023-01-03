@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
-
-#if (__CUDACC_VER_MAJOR__ < 12)
 
 // We define CUTLASS_NAMESPACE in case
 // RAFT cmake is not used
@@ -83,9 +81,6 @@ void cutlassFusedL2NNKernel(const DataT* x,
                            KVPReduceOpT pairRedOp,
                            cudaStream_t stream)
 {
-  // static_assert(!(std::is_same<OutT, bool>::value),
-  //               "OutType bool is not supported use uint8_t instead");
-
   using EpilogueOutputOp =
     cutlass::epilogue::thread::FusedL2NNEpilogueElementwise<DataT,  // ElementC_
                                                             AccT,   // ElementAccumulator_
@@ -130,18 +125,10 @@ void cutlassFusedL2NNKernel(const DataT* x,
 
   using cutlassDist = cutlass::gemm::device::GemmUniversalAdapter<cutlassDistKernel>;
 
-  if constexpr (isRowMajor) {
-    a        = y;
-    b        = x;
-    gemm_lda = ldb;
-    gemm_ldb = lda;
-  } else {
-    problem_size = cutlass::gemm::GemmCoord(m, n, k);
-    a            = x;
-    b            = y;
-    gemm_lda     = lda;
-    gemm_ldb     = ldb;
-  }
+  a        = y;
+  b        = x;
+  gemm_lda = ldb;
+  gemm_ldb = lda;
 
   typename cutlassDist::Arguments arguments{
     mode,       problem_size, batch_count, epilog_op_param, a, b,
@@ -183,5 +170,5 @@ void cutlassFusedL2NNKernel(const DataT* x,
 };      // namespace detail
 };      // namespace distance
 };      // namespace raft
-#endif  //  (__CUDACC_VER_MAJOR__ < 12)
+
 #pragma GCC diagnostic pop

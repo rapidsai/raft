@@ -59,15 +59,17 @@ struct FusedL2NNGemm {
   // This struct is specialized for fp32/3xTF32
 
   /// Threadblock-level tile size (concept: GemmShape)
+  // <- threadblock tile M = 32, N = 64, K = 16
   using ThreadblockShape =
-    cutlass::gemm::GemmShape<32, 64, 16>;  // <- threadblock tile M = 128, N = 128, K = 16
+    cutlass::gemm::GemmShape<32, 64, 16>;
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes tile size a warp will compute
-  using WarpShape = cutlass::gemm::GemmShape<16, 32, 16>;  // <- warp tile M = 64, N = 64, K = 16
+  // <- warp tile M = 64, N = 64, K = 16
+  using WarpShape = cutlass::gemm::GemmShape<16, 32, 16>;
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes the size of MMA op
-  using InstructionShape =
-    cutlass::gemm::GemmShape<16, 8, 4>;  // <- MMA Op tile M = 16, N = 8, K = 8
+  // <- MMA Op tile M = 16, N = 8, K = 4
+  using InstructionShape = cutlass::gemm::GemmShape<16, 8, 4>;
 
   /// Operation performed by GEMM
   using Operator = cutlass::arch::OpMultiplyAddFastF32;
@@ -158,13 +160,14 @@ struct FusedL2NNGemm<double,
                             EpilogueOutputOp,
                             Stages,
                             isRowMajor> {
-  // using Transform = cutlass::ComplexTransform::kNone;
+
   // Threadblock-level tile size (concept: GemmShape)
-  using ThreadblockShape =
-    cutlass::gemm::GemmShape<64, 64, 16>;  // <- threadblock tile M = 64, N = 64, K = 16
+  // <- threadblock tile M = 64, N = 64, K = 16
+  using ThreadblockShape = cutlass::gemm::GemmShape<64, 64, 16>;
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes tile size a warp will compute
-  using WarpShape = cutlass::gemm::GemmShape<32, 32, 16>;  // <- warp tile M = 32, N = 32, K = 16
+  // <- warp tile M = 32, N = 32, K = 16
+  using WarpShape = cutlass::gemm::GemmShape<32, 32, 16>;
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes the size of MMA op
   using InstructionShape = cutlass::gemm::GemmShape<8, 8, 4>;
