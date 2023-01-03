@@ -12,5 +12,5 @@ CMake:
  - '**/CMakeLists.txt'
  - '**/cmake/**'
 
-gpuCI:
+ci:
   - 'ci/**'

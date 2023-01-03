@@ -31,13 +31,38 @@ namespace comms {
 using std_comms = detail::std_comms;
 
 /**
- * Function to construct comms_t and inject it on a handle_t. This
- * is used for convenience in the Python layer.
+ * @defgroup std_comms_factory std_comms Factory functions
+ * @{
+ */
+
+/**
+ * Factory function to construct a RAFT NCCL communicator and inject it into a
+ * RAFT handle.
  *
  * @param handle raft::handle_t for injecting the comms
  * @param nccl_comm initialized NCCL communicator to use for collectives
  * @param num_ranks number of ranks in communicator clique
  * @param rank rank of local instance
+ *
+ * @code{.cpp}
+ * #include <raft/comms/std_comms.hpp>
+ * #include <raft/core/device_mdarray.hpp>
+ *
+ * ncclComm_t nccl_comm;
+ * raft::handle_t handle;
+ *
+ * build_comms_nccl_only(&handle, nccl_comm, 5, 0);
+ * ...
+ * const auto& comm = handle.get_comms();
+ * auto gather_data = raft::make_device_vector<float>(handle, comm.get_size());
+ * ...
+ * comm.allgather((gather_data.data_handle())[comm.get_rank()],
+ *                gather_data.data_handle(),
+ *                1,
+ *                handle.get_stream());
+ *
+ * comm.sync_stream(handle.get_stream());
+ * @endcode
  */
 void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks, int rank)
 {
@@ -49,8 +74,8 @@ void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks
 }
 
 /**
- * Function to construct comms_t and inject it on a handle_t. This
- * is used for convenience in the Python layer.
+ * Factory function to construct a RAFT NCCL+UCX and inject it into a RAFT
+ * handle.
  *
  * @param handle raft::handle_t for injecting the comms
  * @param nccl_comm initialized NCCL communicator to use for collectives
@@ -62,6 +87,28 @@ void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks
  *        the ucp_ep_h doesn't need to be exposed through the cython layer.
  * @param num_ranks number of ranks in communicator clique
  * @param rank rank of local instance
+ *
+ * @code{.cpp}
+ * #include <raft/comms/std_comms.hpp>
+ * #include <raft/core/device_mdarray.hpp>
+ *
+ * ncclComm_t nccl_comm;
+ * raft::handle_t handle;
+ * ucp_worker_h ucp_worker;
+ * ucp_ep_h *ucp_endpoints_arr;
+ *
+ * build_comms_nccl_ucx(&handle, nccl_comm, &ucp_worker, ucp_endpoints_arr, 5, 0);
+ * ...
+ * const auto& comm = handle.get_comms();
+ * auto gather_data = raft::make_device_vector<float>(handle, comm.get_size());
+ * ...
+ * comm.allgather((gather_data.data_handle())[comm.get_rank()],
+ *                gather_data.data_handle(),
+ *                1,
+ *                handle.get_stream());
+ *
+ * comm.sync_stream(handle.get_stream());
+ * @endcode
  */
 void build_comms_nccl_ucx(
   handle_t* handle, ncclComm_t nccl_comm, void* ucp_worker, void* eps, int num_ranks, int rank)
@@ -89,6 +136,10 @@ void build_comms_nccl_ucx(
       nccl_comm, (ucp_worker_h)ucp_worker, eps_sp, num_ranks, rank, stream)));
   handle->set_comms(communicator);
 }
+
+/**
+ * @}
+ */
 
 inline void nccl_unique_id_from_char(ncclUniqueId* id, char* uniqueId, int size)
 {
