@@ -34,7 +34,12 @@ from libcpp.string cimport string
 
 from pylibraft.distance.distance_type cimport DistanceType
 
-from pylibraft.common import Handle, cai_wrapper, device_ndarray
+from pylibraft.common import (
+    Handle,
+    auto_convert_output,
+    cai_wrapper,
+    device_ndarray,
+)
 from pylibraft.common.interruptible import cuda_interruptible
 
 from pylibraft.common.handle cimport handle_t
@@ -303,6 +308,7 @@ cdef class Index:
 
 
 @auto_sync_handle
+@auto_convert_output
 def build(IndexParams index_params, dataset, handle=None):
     """
     Builds an IVF-PQ index that can be later used for nearest neighbor search.
@@ -402,6 +408,7 @@ def build(IndexParams index_params, dataset, handle=None):
 
 
 @auto_sync_handle
+@auto_convert_output
 def extend(Index index, new_vectors, new_indices, handle=None):
     """
     Extend an existing index with new vectors.
@@ -566,6 +573,7 @@ cdef class SearchParams:
 
 
 @auto_sync_handle
+@auto_convert_output
 def search(SearchParams search_params,
            Index index,
            queries,
