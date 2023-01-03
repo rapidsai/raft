@@ -30,6 +30,7 @@ from libc.stdint cimport (
     uintptr_t,
 )
 from libcpp cimport bool, nullptr
+from libcpp.string cimport string
 
 from pylibraft.distance.distance_type cimport DistanceType
 
@@ -730,3 +731,107 @@ def search(SearchParams search_params,
         raise ValueError("query dtype %s not supported" % queries_dt)
 
     return (distances, neighbors)
+
+
+@auto_sync_handle
+def save(filename, Index index, handle=None):
+    """
+    Saves the index to file.
+
+    Saving / loading the index is experimental. The serialization format is
+    subject to change.
+
+    Parameters
+    ----------
+    filename : string
+        Name of the file.
+    index : Index
+        Trained IVF-PQ index.
+    {handle_docstring}
+
+    Examples
+    --------
+    >>> import cupy as cp
+
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.neighbors import ivf_pq
+
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+
+    >>> # Build index
+    >>> handle = Handle()
+    >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
+    >>> ivf_pq.save("my_index.bin", index, handle=handle)
+    """
+    if not index.trained:
+        raise ValueError("Index need to be built before saving it.")
+
+    if handle is None:
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+
+    cdef string c_filename = filename.encode('utf-8')
+
+    c_ivf_pq.save(deref(handle_), c_filename, deref(index.index))
+
+
+@auto_sync_handle
+def load(filename, handle=None):
+    """
+    Loads index from file.
+
+    Saving / loading the index is experimental. The serialization format is
+    subject to change, therefore loading an index saved with a previous
+    version of raft is not guaranteed to work.
+
+    Parameters
+    ----------
+    filename : string
+        Name of the file.
+    {handle_docstring}
+
+    Returns
+    -------
+    index : Index
+
+    Examples
+    --------
+    >>> import cupy as cp
+
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.neighbors import ivf_pq
+
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+
+    >>> # Build and save index
+    >>> handle = Handle()
+    >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
+    >>> ivf_pq.save("my_index.bin", index, handle=handle)
+    >>> del index
+
+    >>> n_queries = 100
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> handle = Handle()
+    >>> index = ivf_pq.load("my_index.bin", handle=handle)
+
+    >>> distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(), index,
+    ...                                      queries, k=10, handle=handle)
+    """
+    if handle is None:
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+
+    cdef string c_filename = filename.encode('utf-8')
+    index = Index()
+
+    c_ivf_pq.load(deref(handle_), c_filename, index.index)
+    index.trained = True
+
+    return index
