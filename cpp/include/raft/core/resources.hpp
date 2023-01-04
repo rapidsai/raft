@@ -16,12 +16,27 @@
 #pragma once
 
 #include "resource/resource_types.hpp"
+#include <algorithm>
 #include <mutex>
 #include <raft/core/logger.hpp>
 #include <string>
-#include <unordered_map>
+#include <vector>
 
 namespace raft {
+
+template <typename T>
+using pair_res = std::pair<resource::resource_type, std::shared_ptr<T>>;
+
+using pair_res_factory = pair_res<resource::resource_factory>;
+using pair_resource    = pair_res<resource::resource>;
+
+struct pair_first {
+  template <typename T1, typename T2>
+  bool operator()(T1& p1, T2& p2)
+  {
+    return p1.first < p2.first;
+  }
+};
 
 /**
  * @brief Resource container which allows lazy-loading and registration
@@ -60,7 +75,12 @@ class resources {
   bool has_resource_factory(resource::resource_type resource_type) const
   {
     std::lock_guard<std::mutex> _(mutex_);
-    return factories_.find(resource_type) != factories_.end();
+    auto it = std::lower_bound(
+      factories_.begin(),
+      factories_.end(),
+      std::make_pair(resource_type, std::shared_ptr<resource::resource_factory>(nullptr)),
+      pair_first());
+    return (it != factories_.end() && (*it).first == resource_type);
   }
 
   /**
@@ -71,7 +91,16 @@ class resources {
   void add_resource_factory(std::shared_ptr<resource::resource_factory> factory) const
   {
     std::lock_guard<std::mutex> _(mutex_);
-    factories_.insert(std::make_pair(factory.get()->get_resource_type(), factory));
+    resource::resource_type rtype = factory.get()->get_resource_type();
+
+    auto it = std::lower_bound(
+      factories_.begin(), factories_.end(), std::make_pair(rtype, factory), pair_first());
+    if (it != factories_.end() && (*it).first == rtype) {
+      // Use hashmap semantics- replace values that already exist.
+      (*it).second = factory;
+    } else {
+      factories_.insert(it, std::make_pair(factory.get()->get_resource_type(), factory));
+    }
   }
 
   /**
@@ -87,21 +116,37 @@ class resources {
   res_t* get_resource(resource::resource_type resource_type) const
   {
     std::lock_guard<std::mutex> _(mutex_);
-    if (resources_.find(resource_type) == resources_.end()) {
-      RAFT_EXPECTS(factories_.find(resource_type) != factories_.end(),
+    auto res_it =
+      std::lower_bound(resources_.begin(),
+                       resources_.end(),
+                       std::make_pair(resource_type, std::shared_ptr<resource::resource>(nullptr)),
+                       pair_first());
+    if (res_it == resources_.end() || (*res_it).first != resource_type) {
+      auto res_fac_it = std::lower_bound(
+        factories_.begin(),
+        factories_.end(),
+        std::make_pair(resource_type, std::shared_ptr<resource::resource_factory>(nullptr)),
+        pair_first());
+      RAFT_EXPECTS(res_fac_it != factories_.end() && (*res_fac_it).first == resource_type,
                    "No resource factory has been registered for the given resource %d.",
                    resource_type);
-      resource::resource_factory* factory = factories_.at(resource_type).get();
-      resources_.insert(std::make_pair(resource_type, factory->make_resource()));
+
+      resource::resource_factory* factory = (*res_fac_it).second.get();
+      auto created_res                    = factory->make_resource();
+
+      resources_.insert(
+        res_it, std::make_pair(resource_type, std::shared_ptr<resource::resource>(created_res)));
+
+      return reinterpret_cast<res_t*>(created_res->get_resource());
+    } else {
+      // If resource already exists, we just return it.
+      return reinterpret_cast<res_t*>((*res_it).second.get()->get_resource());
     }
-    return reinterpret_cast<res_t*>(resources_.at(resource_type).get()->get_resource());
   }
 
  private:
   mutable std::mutex mutex_;
-  mutable std::unordered_map<resource::resource_type, std::shared_ptr<resource::resource_factory>>
-    factories_;
-  mutable std::unordered_map<resource::resource_type, std::unique_ptr<resource::resource>>
-    resources_;
+  mutable std::vector<pair_res_factory> factories_;
+  mutable std::vector<pair_resource> resources_;
 };
 }  // namespace raft
