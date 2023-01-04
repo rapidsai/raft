@@ -34,7 +34,9 @@ enum resource_type {
   SUB_COMMUNICATOR,        // raft sub communicator
   DEVICE_PROPERTIES,       // cuda device properties
   DEVICE_ID,               // cuda device id
-  THRUST_POLICY            // thrust execution policy
+  THRUST_POLICY,           // thrust execution policy
+
+  LAST_KEY  // reserved for the last key
 };
 
 /**
@@ -47,6 +49,15 @@ class resource {
   virtual void* get_resource() = 0;
 
   virtual ~resource() {}
+};
+
+class empty_resource : public resource {
+ public:
+  empty_resource() : resource() {}
+
+  void* get_resource() override { return nullptr; }
+
+  ~empty_resource() override {}
 };
 
 /**
@@ -66,6 +77,29 @@ class resource_factory {
    * @return resource instance
    */
   virtual resource* make_resource() = 0;
+};
+
+/**
+ * @brief A resource factory knows how to construct an instance of
+ * a specific raft::resource::resource.
+ */
+class empty_resource_factory : public resource_factory {
+ public:
+  empty_resource_factory() : resource_factory() {}
+  /**
+   * @brief Return the resource_type associated with the current factory
+   * @return resource_type corresponding to the current factory
+   */
+  resource_type get_resource_type() override { return resource_type::LAST_KEY; }
+
+  /**
+   * @brief Construct an instance of the factory's underlying resource.
+   * @return resource instance
+   */
+  resource* make_resource() override { return &res; }
+
+ private:
+  empty_resource res;
 };
 
 }  // namespace raft::resource

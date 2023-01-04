@@ -30,14 +30,6 @@ using pair_res = std::pair<resource::resource_type, std::shared_ptr<T>>;
 using pair_res_factory = pair_res<resource::resource_factory>;
 using pair_resource    = pair_res<resource::resource>;
 
-struct pair_first {
-  template <typename T1, typename T2>
-  bool operator()(T1& p1, T2& p2)
-  {
-    return p1.first < p2.first;
-  }
-};
-
 /**
  * @brief Resource container which allows lazy-loading and registration
  * of resource_factory implementations, which in turn generate resource instances.
@@ -59,7 +51,18 @@ struct pair_first {
  */
 class resources {
  public:
-  resources() {}
+  resources()
+    : factories_(resource::resource_type::LAST_KEY), resources_(resource::resource_type::LAST_KEY)
+  {
+    for (int i = 0; i < resource::resource_type::LAST_KEY; ++i) {
+      factories_.insert(factories_.begin() + i,
+                        std::make_pair(resource::resource_type::LAST_KEY,
+                                       std::make_shared<resource::empty_resource_factory>()));
+      resources_.insert(resources_.begin() + i,
+                        std::make_pair(resource::resource_type::LAST_KEY,
+                                       std::make_shared<resource::empty_resource>()));
+    }
+  }
 
   resources(const resources&) = delete;
   resources& operator=(const resources&) = delete;
@@ -75,12 +78,7 @@ class resources {
   bool has_resource_factory(resource::resource_type resource_type) const
   {
     std::lock_guard<std::mutex> _(mutex_);
-    auto it = std::lower_bound(
-      factories_.begin(),
-      factories_.end(),
-      std::make_pair(resource_type, std::shared_ptr<resource::resource_factory>(nullptr)),
-      pair_first());
-    return (it != factories_.end() && (*it).first == resource_type);
+    return factories_.at(resource_type).first != resource::resource_type::LAST_KEY;
   }
 
   /**
@@ -92,15 +90,9 @@ class resources {
   {
     std::lock_guard<std::mutex> _(mutex_);
     resource::resource_type rtype = factory.get()->get_resource_type();
-
-    auto it = std::lower_bound(
-      factories_.begin(), factories_.end(), std::make_pair(rtype, factory), pair_first());
-    if (it != factories_.end() && (*it).first == rtype) {
-      // Use hashmap semantics- replace values that already exist.
-      (*it).second = factory;
-    } else {
-      factories_.insert(it, std::make_pair(factory.get()->get_resource_type(), factory));
-    }
+    RAFT_EXPECTS(rtype != resource::resource_type::LAST_KEY,
+                 "LAST_KEY is a placeholder and not a valid resource factory type.");
+    factories_.insert(factories_.begin() + rtype, std::make_pair(rtype, factory));
   }
 
   /**
@@ -116,32 +108,20 @@ class resources {
   res_t* get_resource(resource::resource_type resource_type) const
   {
     std::lock_guard<std::mutex> _(mutex_);
-    auto res_it =
-      std::lower_bound(resources_.begin(),
-                       resources_.end(),
-                       std::make_pair(resource_type, std::shared_ptr<resource::resource>(nullptr)),
-                       pair_first());
-    if (res_it == resources_.end() || (*res_it).first != resource_type) {
-      auto res_fac_it = std::lower_bound(
-        factories_.begin(),
-        factories_.end(),
-        std::make_pair(resource_type, std::shared_ptr<resource::resource_factory>(nullptr)),
-        pair_first());
-      RAFT_EXPECTS(res_fac_it != factories_.end() && (*res_fac_it).first == resource_type,
+
+    if (resources_.at(resource_type).first == resource::resource_type::LAST_KEY) {
+      RAFT_EXPECTS(factories_.at(resource_type).first != resource::resource_type::LAST_KEY,
                    "No resource factory has been registered for the given resource %d.",
                    resource_type);
-
-      resource::resource_factory* factory = (*res_fac_it).second.get();
-      auto created_res                    = factory->make_resource();
-
+      resource::resource_factory* factory = factories_.at(resource_type).second.get();
       resources_.insert(
-        res_it, std::make_pair(resource_type, std::shared_ptr<resource::resource>(created_res)));
-
-      return reinterpret_cast<res_t*>(created_res->get_resource());
-    } else {
-      // If resource already exists, we just return it.
-      return reinterpret_cast<res_t*>((*res_it).second.get()->get_resource());
+        resources_.begin() + resource_type,
+        std::make_pair(resource_type,
+                       std::shared_ptr<resource::resource>(factory->make_resource())));
     }
+
+    resource::resource* res = resources_.at(resource_type).second.get();
+    return reinterpret_cast<res_t*>(res->get_resource());
   }
 
  private:
