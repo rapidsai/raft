@@ -23,7 +23,8 @@ This file contains a customized version of PredicatedTileIterator from CUTLASS 2
 Changes:
 - added `Layout_` template param
 - PredicatedTileIteratorParams() is customized to not stride by layout.stride(0).
-- customized the store_with_byte_offset() to perform reduction per row and write final value to gmem.
+- customized the store_with_byte_offset() to perform reduction per row and write final value to
+gmem.
 - customized the Params() struct to take user inputs from epilogueOp params.
 
 */
