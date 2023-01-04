@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,12 @@
 
 #include <limits>
 #include <raft/core/kvp.hpp>
+#include <raft/distance/detail/euclidean.cuh>
+#include <raft/distance/detail/fused_l2_nn_cutlass_base.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <stdint.h>
-#include <raft/distance/detail/euclidean.cuh>
-#include <raft/distance/detail/fused_l2_nn_cutlass_base.cuh>
 
 namespace raft {
 namespace distance {
@@ -63,7 +63,6 @@ struct MinAndDistanceReduceOpImpl {
     if (other < *out) { *out = other; }
   }
 
-
   DI void init(DataT* out, DataT maxVal) const { *out = maxVal; }
   DI void init(KVP* out, DataT maxVal) const
   {
@@ -71,11 +70,8 @@ struct MinAndDistanceReduceOpImpl {
     out->value = maxVal;
   }
 
-  DI void init_key(DataT &out, LabelT idx) const { return; }
-  DI void init_key(KVP &out, LabelT idx) const
-  {
-    out.key   = idx;
-  }
+  DI void init_key(DataT& out, LabelT idx) const { return; }
+  DI void init_key(KVP& out, LabelT idx) const { out.key = idx; }
 };
 
 template <typename LabelT, typename DataT>
@@ -275,22 +271,15 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
 
 // cg::reduce functor for FusedL2NN used in its cutlass version
 // to output the min distance value & key(loc id).
-template <typename AccType, typename Index,  typename OutType>
+template <typename AccType, typename Index, typename OutType>
 struct kvp_cg_reduce_op {
   typedef typename raft::KeyValuePair<Index, AccType> KVP;
 
   __host__ __device__ kvp_cg_reduce_op() noexcept {};
 
   // functor signature.
-  __host__ __device__ KVP operator()(KVP a, KVP b) const
-  {
-    return a.value < b.value ? a : b;
-  }
-  __host__ __device__ AccType operator()(AccType a, AccType b) const
-  {
-    return a < b ? a : b;
-  }
-
+  __host__ __device__ KVP operator()(KVP a, KVP b) const { return a.value < b.value ? a : b; }
+  __host__ __device__ AccType operator()(AccType a, AccType b) const { return a < b ? a : b; }
 };
 
 template <typename DataT,
@@ -335,7 +324,7 @@ void fusedL2NNImpl(OutT* min,
   const auto deviceVersion = getComputeCapability();
 
   if (deviceVersion.first >= 8) {
-    using L2Op = L2ExpandedOp<DataT, DataT>;
+    using L2Op              = L2ExpandedOp<DataT, DataT>;
     using kvp_cg_reduce_op_ = kvp_cg_reduce_op<DataT, IdxT, OutT>;
     kvp_cg_reduce_op_ cg_reduce_op;
     L2Op L2_dist_op(sqrt);
@@ -343,37 +332,58 @@ void fusedL2NNImpl(OutT* min,
     IdxT lda, ldb, ldd;
     lda = k, ldb = k, ldd = n;
 
-    cutlassFusedL2NNKernel<DataT, DataT, OutT, IdxT, P::Veclen,
-                          kvp_cg_reduce_op_, L2Op, ReduceOpT, KVPReduceOpT>(x, y, xn, yn, m, n, k,
-                           lda, ldb, ldd, min, workspace, cg_reduce_op, L2_dist_op,
-                           redOp, pairRedOp, stream);
+    cutlassFusedL2NNKernel<DataT,
+                           DataT,
+                           OutT,
+                           IdxT,
+                           P::Veclen,
+                           kvp_cg_reduce_op_,
+                           L2Op,
+                           ReduceOpT,
+                           KVPReduceOpT>(x,
+                                         y,
+                                         xn,
+                                         yn,
+                                         m,
+                                         n,
+                                         k,
+                                         lda,
+                                         ldb,
+                                         ldd,
+                                         min,
+                                         workspace,
+                                         cg_reduce_op,
+                                         L2_dist_op,
+                                         redOp,
+                                         pairRedOp,
+                                         stream);
   } else {
-    auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
+    auto fin_op                = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
     constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
     if (sqrt) {
       auto fusedL2NNSqrt = fusedL2NNkernel<DataT,
-                                          OutT,
-                                          IdxT,
-                                          true,
-                                          P,
-                                          ReduceOpT,
-                                          KVPReduceOpT,
-                                          decltype(core_lambda),
-                                          decltype(fin_op)>;
+                                           OutT,
+                                           IdxT,
+                                           true,
+                                           P,
+                                           ReduceOpT,
+                                           KVPReduceOpT,
+                                           decltype(core_lambda),
+                                           decltype(fin_op)>;
       dim3 grid          = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NNSqrt);
 
       fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(
         min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);
     } else {
       auto fusedL2NN = fusedL2NNkernel<DataT,
-                                      OutT,
-                                      IdxT,
-                                      false,
-                                      P,
-                                      ReduceOpT,
-                                      KVPReduceOpT,
-                                      decltype(core_lambda),
-                                      decltype(fin_op)>;
+                                       OutT,
+                                       IdxT,
+                                       false,
+                                       P,
+                                       ReduceOpT,
+                                       KVPReduceOpT,
+                                       decltype(core_lambda),
+                                       decltype(fin_op)>;
       dim3 grid      = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NN);
       fusedL2NN<<<grid, blk, shmemSize, stream>>>(
         min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, core_lambda, fin_op);

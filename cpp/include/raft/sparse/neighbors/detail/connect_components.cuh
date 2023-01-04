@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ struct FixConnectivitiesRedOp {
   value_idx m;
 
   // default constructor for cutlass
-  DI FixConnectivitiesRedOp() : colors(0), m(0) { }
+  DI FixConnectivitiesRedOp() : colors(0), m(0) {}
 
   FixConnectivitiesRedOp(value_idx* colors_, value_idx m_) : colors(colors_), m(m_){};
 
@@ -88,11 +88,8 @@ struct FixConnectivitiesRedOp {
     out->value = maxVal;
   }
 
-  DI void init_key(value_t &out, value_idx idx) const { return; }
-  DI void init_key(KVP &out, value_idx idx) const
-  {
-    out.key   = idx;
-  }
+  DI void init_key(value_t& out, value_idx idx) const { return; }
+  DI void init_key(KVP& out, value_idx idx) const { out.key = idx; }
 };
 
 /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,9 +76,11 @@ struct FusedL2NNEpilogue {
   //
   // Additional tensor tile iterator - stores t = Elementwise(z)
   //
-  using OutputTileIterator =
-    cutlass::epilogue::threadblock::PredicatedTileIteratorReducedVec<typename Base::OutputTileThreadMap,
-                                                           ElementTensor, LayoutT, typename OutputOp::Params>;
+  using OutputTileIterator = cutlass::epilogue::threadblock::PredicatedTileIteratorReducedVec<
+    typename Base::OutputTileThreadMap,
+    ElementTensor,
+    LayoutT,
+    typename OutputOp::Params>;
 
   /// Define the epilogue
   using Epilogue = EpilogueWithBroadcast<Shape,

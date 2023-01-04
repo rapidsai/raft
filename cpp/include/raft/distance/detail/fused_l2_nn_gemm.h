@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@
 #include <cutlass/layout/matrix.h>
 #include <cutlass/layout/tensor.h>
 
-#include "./fused_l2_nn_epilogue.cuh"
 #include "./fusedL2NN_gemm_with_fused_epilogue.h"
+#include "./fused_l2_nn_epilogue.cuh"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -60,8 +60,7 @@ struct FusedL2NNGemm {
 
   /// Threadblock-level tile size (concept: GemmShape)
   // <- threadblock tile M = 32, N = 64, K = 16
-  using ThreadblockShape =
-    cutlass::gemm::GemmShape<32, 64, 16>;
+  using ThreadblockShape = cutlass::gemm::GemmShape<32, 64, 16>;
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes tile size a warp will compute
   // <- warp tile M = 64, N = 64, K = 16
@@ -133,7 +132,8 @@ struct FusedL2NNGemm {
     GemmBase::Epilogue::kElementsPerAccess>::Epilogue;
 
   // Compose the GEMM kernel
-  using GemmKernel = FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
+  using GemmKernel =
+    FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
 };
 
 template <
@@ -152,15 +152,14 @@ template <
   /// data layout row/column major of inputs
   bool isRowMajor>
 struct FusedL2NNGemm<double,
-                            kAlignmentA,
-                            double,
-                            kAlignmentB,
-                            ElementC_,
-                            ElementAccumulator,
-                            EpilogueOutputOp,
-                            Stages,
-                            isRowMajor> {
-
+                     kAlignmentA,
+                     double,
+                     kAlignmentB,
+                     ElementC_,
+                     ElementAccumulator,
+                     EpilogueOutputOp,
+                     Stages,
+                     isRowMajor> {
   // Threadblock-level tile size (concept: GemmShape)
   // <- threadblock tile M = 64, N = 64, K = 16
   using ThreadblockShape = cutlass::gemm::GemmShape<64, 64, 16>;
@@ -233,7 +232,8 @@ struct FusedL2NNGemm<double,
     GemmBase::Epilogue::kElementsPerAccess>::Epilogue;
 
   // Compose the GEMM kernel
-  using GemmKernel = FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
+  using GemmKernel =
+    FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////////

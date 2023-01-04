@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ class FusedL2NNEpilogueElementwise {
   static int const kCount             = kElementsPerAccess;
 
   using DistanceOp = DistanceOp_;
-  using CGReduceOp    = CGReduceOp_;
+  using CGReduceOp = CGReduceOp_;
 
   using FragmentAccumulator = Array<ElementAccumulator, kElementsPerAccess>;
   using FragmentCompute     = Array<ElementCompute, kElementsPerAccess>;
@@ -89,16 +89,23 @@ class FusedL2NNEpilogueElementwise {
     DistanceOp_ dist_op_;
     KVPReduceOpT_ pair_redop_;
     ReduceOpT_ red_op_;
-    volatile int *mutexes_;
+    volatile int* mutexes_;
     //
     // Methods
     //
     CUTLASS_HOST_DEVICE
-    Params(DistanceOp_ dist_op, CGReduceOp cg_reduce_op,
-           ReduceOpT_ red_op, KVPReduceOpT_ pair_redop,
-           volatile int *mutexes) :
-           cg_reduce_op(cg_reduce_op), dist_op_(dist_op), pair_redop_(pair_redop),
-           red_op_(red_op), mutexes_(mutexes) {}
+    Params(DistanceOp_ dist_op,
+           CGReduceOp cg_reduce_op,
+           ReduceOpT_ red_op,
+           KVPReduceOpT_ pair_redop,
+           volatile int* mutexes)
+      : cg_reduce_op(cg_reduce_op),
+        dist_op_(dist_op),
+        pair_redop_(pair_redop),
+        red_op_(red_op),
+        mutexes_(mutexes)
+    {
+    }
 
     CUTLASS_HOST_DEVICE
     Params() {}
@@ -120,8 +127,7 @@ class FusedL2NNEpilogueElementwise {
   /// Constructor from Params
   CUTLASS_HOST_DEVICE
   FusedL2NNEpilogueElementwise(Params const& params)
-    :  elementwise_op(params.dist_op_),
-      pair_redop(params.pair_redop_), red_op(params.red_op_)
+    : elementwise_op(params.dist_op_), pair_redop(params.pair_redop_), red_op(params.red_op_)
   {
   }
 
@@ -156,7 +162,6 @@ class FusedL2NNEpilogueElementwise {
       ElementCompute res_Z = elementwise_op(tmp_C[i], V[i], tmp_Accum[i]);
       red_op.init(&frag_T[i], res_Z);
     }
-
   }
 
   /// Applies the operation when is_source_needed() is false

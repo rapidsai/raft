@@ -39,7 +39,6 @@
 #include "./fused_l2_nn_epilogue_elementwise.cuh"
 #include "./fused_l2_nn_gemm.h"
 
-
 #define CUTLASS_CHECK(status)                                                                    \
   {                                                                                              \
     cutlass::Status error = status;                                                              \
@@ -64,22 +63,22 @@ template <typename DataT,
           typename ReduceOpT,
           typename KVPReduceOpT>
 void cutlassFusedL2NNKernel(const DataT* x,
-                           const DataT* y,
-                           const DataT* xn,
-                           const DataT* yn,
-                           IdxT m,
-                           IdxT n,
-                           IdxT k,
-                           IdxT lda,
-                           IdxT ldb,
-                           IdxT ldd,
-                           OutT* dOutput,
-                           int* mutexes,
-                           FinalLambda fin_op,
-                           DistanceFn dist_op,
-                           ReduceOpT redOp,
-                           KVPReduceOpT pairRedOp,
-                           cudaStream_t stream)
+                            const DataT* y,
+                            const DataT* xn,
+                            const DataT* yn,
+                            IdxT m,
+                            IdxT n,
+                            IdxT k,
+                            IdxT lda,
+                            IdxT ldb,
+                            IdxT ldd,
+                            OutT* dOutput,
+                            int* mutexes,
+                            FinalLambda fin_op,
+                            DistanceFn dist_op,
+                            ReduceOpT redOp,
+                            KVPReduceOpT pairRedOp,
+                            cudaStream_t stream)
 {
   using EpilogueOutputOp =
     cutlass::epilogue::thread::FusedL2NNEpilogueElementwise<DataT,  // ElementC_
@@ -114,14 +113,14 @@ void cutlassFusedL2NNKernel(const DataT* x,
 
   using cutlassDistKernel =
     typename cutlass::gemm::kernel::FusedL2NNGemm<DataT,
-                                                         Alignment,
-                                                         DataT,
-                                                         Alignment,
-                                                         AccT,
-                                                         AccT,
-                                                         EpilogueOutputOp,
-                                                         NumStages,  // Number of pipeline stages
-                                                         isRowMajor>::GemmKernel;
+                                                  Alignment,
+                                                  DataT,
+                                                  Alignment,
+                                                  AccT,
+                                                  AccT,
+                                                  EpilogueOutputOp,
+                                                  NumStages,  // Number of pipeline stages
+                                                  isRowMajor>::GemmKernel;
 
   using cutlassDist = cutlass::gemm::device::GemmUniversalAdapter<cutlassDistKernel>;
 
@@ -131,7 +130,12 @@ void cutlassFusedL2NNKernel(const DataT* x,
   gemm_ldb = lda;
 
   typename cutlassDist::Arguments arguments{
-    mode,       problem_size, batch_count, epilog_op_param, a, b,
+    mode,
+    problem_size,
+    batch_count,
+    epilog_op_param,
+    a,
+    b,
     xn,          // C matrix eq vector param, which here is A norm
     nullptr,     // tensor_Z,
     (DataT*)yn,  // this is broadcast vec, which is required to be non-const param
@@ -140,14 +144,14 @@ void cutlassFusedL2NNKernel(const DataT* x,
     (int64_t)0,  // batch stride B
     (int64_t)0,  // batch stride Norm A
     (int64_t)0,
-    (int64_t)0,  // batch stride Norm B
-    (int64_t)0,  // batch stride Output
-    (int64_t)gemm_lda,    // stride A
-    (int64_t)gemm_ldb,    // stride B
-    1,           // stride A norm
-    0,           // this is no-op for Z
-    0,           // This must be zero
-    (int64_t)ldd          // stride Output matrix
+    (int64_t)0,         // batch stride Norm B
+    (int64_t)0,         // batch stride Output
+    (int64_t)gemm_lda,  // stride A
+    (int64_t)gemm_ldb,  // stride B
+    1,                  // stride A norm
+    0,                  // this is no-op for Z
+    0,                  // This must be zero
+    (int64_t)ldd        // stride Output matrix
   };
 
   // Using the arguments, query for extra workspace required for matrix multiplication computation
@@ -167,8 +171,8 @@ void cutlassFusedL2NNKernel(const DataT* x,
   CUTLASS_CHECK(status);
 }
 
-};      // namespace detail
-};      // namespace distance
-};      // namespace raft
+};  // namespace detail
+};  // namespace distance
+};  // namespace raft
 
 #pragma GCC diagnostic pop
