@@ -24,12 +24,6 @@
 
 namespace raft {
 
-template <typename T>
-using pair_res = std::pair<resource::resource_type, std::shared_ptr<T>>;
-
-using pair_res_factory = pair_res<resource::resource_factory>;
-using pair_resource    = pair_res<resource::resource>;
-
 /**
  * @brief Resource container which allows lazy-loading and registration
  * of resource_factory implementations, which in turn generate resource instances.
@@ -51,6 +45,12 @@ using pair_resource    = pair_res<resource::resource>;
  */
 class resources {
  public:
+  template <typename T>
+  using pair_res = std::pair<resource::resource_type, std::shared_ptr<T>>;
+
+  using pair_res_factory = pair_res<resource::resource_factory>;
+  using pair_resource    = pair_res<resource::resource>;
+
   resources()
     : factories_(resource::resource_type::LAST_KEY), resources_(resource::resource_type::LAST_KEY)
   {
