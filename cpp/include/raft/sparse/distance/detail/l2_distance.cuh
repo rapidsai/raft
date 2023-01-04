@@ -430,8 +430,8 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       *config_,
       coo_rows.data(),
       [] __device__(value_t a, value_t b) { return sqrt(a) * sqrt(b); },
-      Sum(),
-      AtomicAdd());
+      raft::add_op(),
+      raft::atomic_add_op());
 
     raft::linalg::unaryOp<value_t>(
       out_dists,
