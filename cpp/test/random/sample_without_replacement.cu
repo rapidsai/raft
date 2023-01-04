@@ -217,7 +217,7 @@ const std::vector<SWoRInputs<float>> inputsf = {{1024, 512, -1, 0.f, GenPhilox, 
     if (params.largeWeightIndex >= 0) {                                                            \
       ASSERT_TRUE((h_outIdx[0] == params.largeWeightIndex) ||                                      \
                   (h_outIdx[1] == params.largeWeightIndex) ||                                      \
-                  (h_outIdx[3] == params.largeWeightIndex));                                       \
+                  (h_outIdx[2] == params.largeWeightIndex));                                       \
     }                                                                                              \
   } while (false)
 

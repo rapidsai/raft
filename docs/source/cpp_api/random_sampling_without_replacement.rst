@@ -1,8 +1,6 @@
 Sampling Without Replacement
 ============================
 
-This page provides C++ class references for the publicly-exposed elements of the random package.
-
 .. role:: py(code)
    :language: c++
    :class: highlight
