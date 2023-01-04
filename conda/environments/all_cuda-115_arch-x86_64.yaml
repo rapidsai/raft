@@ -32,7 +32,7 @@ dependencies:
 - libcusolver>=11.2.1.48,<=11.3.2.107
 - libcusparse-dev>=11.7.0.31,<=11.7.0.107
 - libcusparse>=11.7.0.31,<=11.7.0.107
-- libfaiss>=1.7.0=cuda*
+- libfaiss>=1.7.1=cuda*
 - ninja
 - pytest
 - pytest-cov
