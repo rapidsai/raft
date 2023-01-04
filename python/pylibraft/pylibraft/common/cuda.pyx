@@ -50,12 +50,10 @@ cdef class Stream:
     Examples
     --------
 
-    .. code-block:: python
-
-        from pylibraft.common.cuda import Stream
-        stream = Stream()
-        stream.sync()
-        del stream  # optional!
+    >>> from pylibraft.common.cuda import Stream
+    >>> stream = Stream()
+    >>> stream.sync()
+    >>> del stream  # optional!
     """
     def __cinit__(self):
         cdef cudaStream_t stream

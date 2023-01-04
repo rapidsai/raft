@@ -43,11 +43,17 @@ def calc_recall(ann_idx, true_nn_idx):
     return recall
 
 
-def check_distances(dataset, queries, metric, out_idx, out_dist):
+def check_distances(dataset, queries, metric, out_idx, out_dist, eps=None):
     """
     Calculate the real distance between queries and dataset[out_idx],
     and compare it to out_dist.
     """
+    if eps is None:
+        # Quantization leads to errors in the distance calculation.
+        # The aim of this test is not to test precision, but to catch obvious
+        # errors.
+        eps = 0.1
+
     dist = np.empty(out_dist.shape, out_dist.dtype)
     for i in range(queries.shape[0]):
         X = queries[np.newaxis, i, :]
@@ -57,7 +63,7 @@ def check_distances(dataset, queries, metric, out_idx, out_dist):
         elif metric == "inner_product":
             dist[i, :] = np.matmul(X, Y.T)
         else:
-            raise ValueError("Invali metric")
+            raise ValueError("Invalid metric")
 
     # Note: raft l2 metric does not include the square root operation like
     # sklearn's euclidean.
@@ -68,10 +74,7 @@ def check_distances(dataset, queries, metric, out_idx, out_dist):
     dist_eps[dist < 1e-3] = 1e-3
     diff = abs(out_dist - dist) / dist_eps
 
-    # Quantization leads to errors in the distance calculation.
-    # The aim of this test is not to test precision, but to catch obvious
-    # errors.
-    assert np.mean(diff) < 0.1
+    assert np.mean(diff) < eps
 
 
 def run_ivf_pq_build_search_test(
@@ -131,7 +134,7 @@ def run_ivf_pq_build_search_test(
         index = ivf_pq.extend(index, dataset_1_device, indices_1_device)
         index = ivf_pq.extend(index, dataset_2_device, indices_2_device)
 
-    assert index.size == n_rows
+    assert index.size >= n_rows
 
     queries = generate_data((n_queries, n_cols), dtype)
     out_idx = np.zeros((n_queries, k), dtype=np.uint64)

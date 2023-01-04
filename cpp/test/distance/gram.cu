@@ -15,10 +15,10 @@
  */
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/specializations.cuh>
 #endif
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>

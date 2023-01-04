@@ -18,7 +18,7 @@
 
 #include <raft/core/handle.hpp>
 
-#include "../ball_cover_common.h"
+#include "../ball_cover_types.hpp"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
 #include "block_select_faiss.cuh"
@@ -38,9 +38,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
 
 #include <thrust/fill.h>
 #include <thrust/for_each.h>

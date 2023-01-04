@@ -15,7 +15,7 @@
  */
 #include <raft/linalg/axpy.cuh>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>

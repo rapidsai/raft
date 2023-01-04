@@ -24,7 +24,7 @@
 
 #include <raft/sparse/distance/distance.cuh>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 namespace raft {
 namespace sparse {

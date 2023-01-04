@@ -21,12 +21,11 @@
 #include "detail/divide.cuh"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
-
-using detail::divides_scalar;
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer

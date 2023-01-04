@@ -18,7 +18,7 @@
 
 #include "common.cuh"
 
-#include "../../ball_cover_common.h"
+#include "../../ball_cover_types.hpp"
 #include "../block_select_faiss.cuh"
 #include "../haversine_distance.cuh"
 #include "../selection_faiss.cuh"
@@ -30,7 +30,6 @@
 
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
 
 #include <thrust/fill.h>
 

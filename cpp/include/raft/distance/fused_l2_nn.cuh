@@ -30,6 +30,10 @@
 
 namespace raft {
 namespace distance {
+/**
+ * \defgroup fused_l2_nn Fused 1-nearest neighbors
+ * @{
+ */
 
 template <typename LabelT, typename DataT>
 using KVPMinReduce = detail::KVPMinReduceImpl<LabelT, DataT>;
@@ -40,6 +44,8 @@ using MinAndDistanceReduceOp = detail::MinAndDistanceReduceOpImpl<LabelT, DataT>
 template <typename LabelT, typename DataT>
 using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
 
+/** @} */
+
 /**
  * Initialize array using init value from reduction op
  */
@@ -49,6 +55,10 @@ void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal, R
   detail::initialize<DataT, OutT, IdxT, ReduceOpT>(min, m, maxVal, redOp, handle.get_stream());
 }
 
+/**
+ * \ingroup fused_l2_nn
+ * @{
+ */
 /**
  * @brief Fused L2 distance and 1-nearest-neighbor computation in a single call.
  *
@@ -107,7 +117,9 @@ void fusedL2NN(OutT* min,
   bool is_skinny = k < 32;
 
   size_t bytes = sizeof(DataT) * k;
-  if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
+  auto px      = reinterpret_cast<uintptr_t>(x);
+  auto py      = reinterpret_cast<uintptr_t>(y);
+  if (16 % sizeof(DataT) == 0 && bytes % 16 == 0 && px % 16 == 0 && py % 16 == 0) {
     if (is_skinny) {
       detail::fusedL2NNImpl<DataT,
                             OutT,
@@ -123,7 +135,7 @@ void fusedL2NN(OutT* min,
                             ReduceOpT>(
         min, x, y, xn, yn, m, n, k, (int*)workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
     }
-  } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0) {
+  } else if (8 % sizeof(DataT) == 0 && bytes % 8 == 0 && px % 8 == 0 && py % 8 == 0) {
     if (is_skinny) {
       detail::fusedL2NNImpl<DataT,
                             OutT,
@@ -208,6 +220,8 @@ void fusedL2NNMinReduce(OutT* min,
   fusedL2NN<DataT, OutT, IdxT>(
     min, x, y, xn, yn, m, n, k, workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
 }
+
+/** @} */
 
 }  // namespace distance
 }  // namespace raft

@@ -22,6 +22,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_power Matrix Power Operations
+ * @{
+ */
+
+/**
  * @brief Power of every element in the input matrix
  * @tparam math_t type of matrix elements
  * @tparam idx_t integer type used for indexing
@@ -90,5 +95,7 @@ void power(const raft::handle_t& handle,
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be same size.");
   detail::power<math_t>(in.data_handle(), out.data_handle(), in.size(), handle.get_stream());
 }
+
+/** @} */  // end group matrix_power
 
 }  // namespace raft::matrix

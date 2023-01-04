@@ -3,30 +3,27 @@ Random
 
 This page provides C++ class references for the publicly-exposed elements of the random package.
 
-Data Generation
-###############
+.. role:: py(code)
+   :language: c++
+   :class: highlight
 
-.. doxygenfunction:: raft::random::make_blobs
-    :project: RAFT
+Random State
+############
 
-.. doxygenfunction:: raft::random::make_regression
-    :project: RAFT
+``#include <raft/random/rng_state.hpp>``
 
-.. doxygenfunction:: raft::random::rmat_rectangular_gen
-    :project: RAFT
+namespace *raft::random*
 
-
-Random Number Generation
-########################
-
-.. doxygenclass:: raft::random::Rng
+.. doxygenstruct:: raft::random::RngState
     :project: RAFT
     :members:
 
-Useful Operations
-#################
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-.. doxygenfunction:: raft::random::permute
-    :project: RAFT
-
+   random_datagen.rst
+   random_sampling_univariate.rst
+   random_sampling_multivariable.rst
+   random_sampling_without_replacement.rst
 

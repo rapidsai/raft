@@ -188,7 +188,8 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < P::AccColsPerTh; ++j) {
-          acc[i][j] = raft::mySqrt(acc[i][j]);
+          auto acc_ij = acc[i][j];
+          acc[i][j]   = acc_ij > DataT{0} ? raft::mySqrt(acc_ij) : DataT{0};
         }
       }
     }
@@ -331,8 +332,6 @@ void fusedL2NNImpl(OutT* min,
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 
-  auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
-
   const auto deviceVersion = getComputeCapability();
 
   if (deviceVersion.first >= 8) {
@@ -349,6 +348,7 @@ void fusedL2NNImpl(OutT* min,
                            lda, ldb, ldd, min, workspace, cg_reduce_op, L2_dist_op,
                            redOp, pairRedOp, stream);
   } else {
+    auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
     constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
     if (sqrt) {
       auto fusedL2NNSqrt = fusedL2NNkernel<DataT,

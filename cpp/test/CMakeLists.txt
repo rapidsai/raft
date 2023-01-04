@@ -86,6 +86,8 @@ if(BUILD_TESTS)
     CORE_TEST
     PATH
     test/common/logger.cpp
+    test/core/operators_device.cu
+    test/core/operators_host.cpp
     test/handle.cpp
     test/interruptible.cu
     test/nvtx.cpp
@@ -146,6 +148,7 @@ if(BUILD_TESTS)
     test/linalg/mean_squared_error.cu
     test/linalg/multiply.cu
     test/linalg/norm.cu
+    test/linalg/normalize.cu
     test/linalg/power.cu
     test/linalg/reduce.cu
     test/linalg/reduce_cols_by_key.cu
@@ -188,6 +191,7 @@ if(BUILD_TESTS)
     test/random/multi_variable_gaussian.cu
     test/random/permute.cu
     test/random/rng.cu
+    test/random/rng_discrete.cu
     test/random/rng_int.cu
     test/random/rmat_rectangular_generator.cu
     test/random/sample_without_replacement.cu
@@ -244,6 +248,7 @@ if(BUILD_TESTS)
     test/neighbors/ball_cover.cu
     test/neighbors/epsilon_neighborhood.cu
     test/neighbors/faiss_mr.cu
+    test/neighbors/refine.cu
     test/neighbors/selection.cu
     OPTIONAL
     DIST

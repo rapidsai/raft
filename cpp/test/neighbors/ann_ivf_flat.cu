@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ivf_flat.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
-#include <raft/spatial/knn/ivf_flat.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/stats/mean.cuh>
 
@@ -41,9 +41,7 @@
 #include <iostream>
 #include <vector>
 
-namespace raft {
-namespace spatial {
-namespace knn {
+namespace raft::neighbors::ivf_flat {
 
 template <typename IdxT>
 struct AnnIvfFlatInputs {
@@ -356,6 +354,4 @@ TEST_P(AnnIVFFlatTestF_int8, AnnIVFFlat) { this->testIVFFlat(); }
 
 INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF_int8, ::testing::ValuesIn(inputs));
 
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+}  // namespace raft::neighbors::ivf_flat

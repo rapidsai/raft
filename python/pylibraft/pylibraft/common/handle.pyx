@@ -37,19 +37,17 @@ cdef class Handle:
     Examples
     --------
 
-    .. code-block:: python
-
-        from raft.common import Stream, Handle
-        stream = Stream()
-        handle = Handle(stream)
-
-        # call algos here
-
-        # final sync of all work launched in the stream of this handle
-        # this is same as `raft.cuda.Stream.sync()` call, but safer in case
-        # the default stream inside the `handle_t` is being used
-        handle.sync()
-        del handle  # optional!
+    >>> from pylibraft.common import Stream, Handle
+    >>> stream = Stream()
+    >>> handle = Handle(stream)
+    >>>
+    >>> # call algos here
+    >>>
+    >>> # final sync of all work launched in the stream of this handle
+    >>> # this is same as `raft.cuda.Stream.sync()` call, but safer in case
+    >>> # the default stream inside the `handle_t` is being used
+    >>> handle.sync()
+    >>> del handle  # optional!
     """
 
     def __cinit__(self, stream: Stream = None, n_streams=0):

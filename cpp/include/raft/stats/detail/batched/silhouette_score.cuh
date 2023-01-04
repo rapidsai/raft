@@ -249,19 +249,18 @@ value_t silhouette_score(
 
   // calculating row-wise minimum in b
   // this prim only supports int indices for now
-  raft::linalg::
-    reduce<value_t, value_t, value_idx, raft::Nop<value_t>, raft::stats::detail::MinOp<value_t>>(
-      b_ptr,
-      b_ptr,
-      n_labels,
-      n_rows,
-      std::numeric_limits<value_t>::max(),
-      true,
-      true,
-      stream,
-      false,
-      raft::Nop<value_t>(),
-      raft::stats::detail::MinOp<value_t>());
+  raft::linalg::reduce<value_t, value_t, value_idx, raft::identity_op, raft::min_op>(
+    b_ptr,
+    b_ptr,
+    n_labels,
+    n_rows,
+    std::numeric_limits<value_t>::max(),
+    true,
+    true,
+    stream,
+    false,
+    raft::identity_op(),
+    raft::min_op());
 
   // calculating the silhouette score per sample
   raft::linalg::binaryOp<value_t, raft::stats::detail::SilOp<value_t>, value_t, value_idx>(

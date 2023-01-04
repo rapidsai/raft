@@ -25,7 +25,10 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
-namespace raft::spatial::knn {
+#include "../test_utils.cuh"
+#include <gtest/gtest.h>
+
+namespace raft::neighbors {
 
 struct print_dtype {
   cudaDataType_t value;
@@ -169,16 +172,17 @@ void naiveBfKnn(EvalT* dist_topk,
     naive_distance_kernel<EvalT, DataT, IdxT><<<grid_dim, block_dim, 0, stream>>>(
       dist.data(), x + offset * dim, y, batch_size, input_len, dim, type);
 
-    detail::select_topk<EvalT, IdxT>(dist.data(),
-                                     nullptr,
-                                     batch_size,
-                                     input_len,
-                                     static_cast<int>(k),
-                                     dist_topk + offset * k,
-                                     indices_topk + offset * k,
-                                     type != raft::distance::DistanceType::InnerProduct,
-                                     stream,
-                                     mr);
+    spatial::knn::detail::select_topk<EvalT, IdxT>(
+      dist.data(),
+      nullptr,
+      batch_size,
+      input_len,
+      static_cast<int>(k),
+      dist_topk + offset * k,
+      indices_topk + offset * k,
+      type != raft::distance::DistanceType::InnerProduct,
+      stream,
+      mr);
   }
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }
@@ -244,4 +248,4 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
   return testing::AssertionSuccess();
 }
 
-}  // namespace raft::spatial::knn
+}  // namespace raft::neighbors

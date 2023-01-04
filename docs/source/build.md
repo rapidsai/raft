@@ -1,4 +1,30 @@
-# Install Guide
+# Installation
+
+### Conda
+
+The easiest way to install RAFT is through conda and several packages are provided.
+- `libraft-headers` RAFT headers
+- `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
+- `libraft-distance` (optional) contains shared libraries for distance primitives.
+- `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives.
+- `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
+
+Use the following command to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
+```bash
+mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft
+```
+
+You can also install the `libraft-*` conda packages individually using the `mamba` command above.
+
+After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
+
+### Pip
+
+pylibraft and raft-dask both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
+```bash
+pip install pylibraft-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+pip install raft-dask-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+```
 
 ## Building and installing RAFT
 
@@ -36,10 +62,21 @@ The recommended way to build and install RAFT is to use the `build.sh` script in
 
 `build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `FAISS`, which will need to be explicitly enabled in `build.sh`.
 
-The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. The `--install` flag can be omitted to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
+The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. 
 ```bash
-./build.sh libraft --install
+./build.sh libraft
+
 ```
+The `-n` flag can be passed to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
+```bash
+./build.sh libraft -n
+```
+
+Once installed, `libraft` headers (and dependencies which were downloaded and installed using `rapids-cmake`) can be uninstalled also using `build.sh`:
+```bash
+./build.sh libraft --uninstall
+```
+
 
 ### C++ Shared Libraries (optional)
 
@@ -53,7 +90,13 @@ Individual shared libraries have their own flags and multiple can be used (thoug
 ./build.sh libraft --compile-nn --compile-dist
 ```
 
-Add the `--install` flag to the above example to also install the shared libraries into `$INSTALL_PREFIX/lib`.
+In above example the shared libraries are installed by default into `$INSTALL_PREFIX/lib`. To disable this, pass `-n` flag.
+
+Once installed, the shared libraries, headers (and any dependencies downloaded and installed via `rapids-cmake`) can be uninstalled using `build.sh`:
+```bash
+./build.sh libraft --uninstall
+```
+
 
 ### ccache and sccache
 
@@ -103,7 +146,7 @@ It can take sometime to compile all of the benchmarks. You can build individual 
 ./build.sh libraft bench --limit-bench=NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH
 ```
 
-### C++ Using Cmake
+### C++ Using Cmake Directly
 
 Use `CMAKE_INSTALL_PREFIX` to install RAFT into a specific location. The snippet below will install it into the current conda environment:
 ```bash
@@ -140,7 +183,7 @@ Currently, shared libraries are provided for the `libraft-nn` and `libraft-dista
 Conda environment scripts are provided for installing the necessary dependencies for building and using the Python APIs. It is preferred to use `mamba`, as it provides significant speedup over `conda`. In addition you will have to manually install `nvcc` as it will not be installed as part of the conda environment. The following example will install create and install dependencies for a CUDA 11.5 conda environment:
 
 ```bash
-mamba env create --name raft_env_name -f conda/environments/raft_dev_cuda11.5.yml
+mamba env create --name raft_env_name -f conda/environments/all_cuda-115_arch-x86_64.yaml
 mamba activate raft_env_name
 ```
 
@@ -148,9 +191,9 @@ The Python APIs can be built and installed using the `build.sh` script:
 
 ```bash
 # to build pylibraft
-./build.sh libraft pylibraft --install --compile-libs
+./build.sh libraft pylibraft --compile-libs
 # to build raft-dask
-./build.sh libraft raft-dask --install --compile-libs
+./build.sh libraft raft-dask --compile-libs
 ```
 
 `setup.py` can also be used to build the Python APIs manually:
@@ -174,6 +217,11 @@ cd python/pylibraft
 py.test -s -v
 ```
 
+The Python packages can also be uninstalled using the `build.sh` script:
+```bash
+./build.sh pylibraft raft-dask --uninstall
+```
+
 ### Documentation
 
 The documentation requires that the C++ headers and python packages have been built and installed.
@@ -181,7 +229,7 @@ The documentation requires that the C++ headers and python packages have been bu
 The following will build the docs along with the C++ and Python packages:
 
 ```
-./build.sh libraft pylibraft raft-dask docs --compile-libs --install
+./build.sh libraft pylibraft raft-dask docs --compile-libs
 ```
 
 
@@ -232,7 +280,7 @@ If RAFT has already been installed, such as by using the `build.sh` script, use 
 
 Use `find_package(raft COMPONENTS nn distance)` to enable the shared libraries and transitively pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
 
-The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.hpp` and located in the base directory for the packages that contain specializations.
+The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.cuh` and located in the base directory for the packages that contain specializations.
 
 The following example tells the compiler to ignore the pre-compiled templates for the `libraft-distance` API so any symbols already compiled into pre-compiled shared library will be used instead:
 ```c++
@@ -330,6 +378,14 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
 
 If using the nearest neighbors APIs without the shared libraries, set `ENABLE_NN_DEPENDENCIES=ON` and keep `USE_NN_LIBRARY=OFF`
 
-### Python/Cython Integration
+## Uninstall
 
-Once installed, RAFT's Python library can be added to downstream conda recipes, imported and used directly.
+Once built and installed, RAFT can be safely uninstalled using `build.sh` by specifying any or all of the installed components. Please note that since `pylibraft` depends on `libraft`, uninstalling `pylibraft` will also uninstall `libraft`:
+```bash
+./build.sh libraft pylibraft raft-dask --uninstall
+```
+
+Leaving off the installed components will uninstall everything that's been installed:
+```bash
+./build.sh --uninstall
+```

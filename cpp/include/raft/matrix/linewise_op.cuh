@@ -23,6 +23,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup linewise_op Matrix Linewise Operations
+ * @{
+ */
+
+/**
  * Run a function over matrix lines (rows or columns) with a variable number
  * row-vectors or column-vectors.
  * The term `line` here signifies that the lines can be either columns or rows,
@@ -114,5 +119,7 @@ void linewise_op(const raft::handle_t& handle,
   detail::MatrixLinewiseOp<16, 256>::runPadded<m_t, idx_t>(
     out, in, lineLen, nLines, alongLines, op, handle.get_stream(), vecs.data_handle()...);
 }
+
+/** @} */  // end of group linewise_op
 
 }  // namespace raft::matrix

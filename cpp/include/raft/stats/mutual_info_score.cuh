@@ -48,6 +48,11 @@ double mutual_info_score(const T* firstClusterArray,
 }
 
 /**
+ * @defgroup stats_mutual_info Mutual Information
+ * @{
+ */
+
+/**
  * @brief Function to calculate the mutual information between two clusters
  * <a href="https://en.wikipedia.org/wiki/Mutual_information">more info on mutual information</a>
  * @tparam value_t the data type
@@ -77,6 +82,9 @@ double mutual_info_score(const raft::handle_t& handle,
                                    upper_label_range,
                                    handle.get_stream());
 }
+
+/** @} */  // end group stats_mutual_info
+
 };  // end namespace stats
 };  // end namespace raft
 

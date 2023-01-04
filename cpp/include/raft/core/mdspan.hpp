@@ -194,6 +194,18 @@ auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 }
 
 /**
+ * @brief Create a layout_stride mapping from extents and strides
+ * @param[in] extents the dimensionality of the layout
+ * @param[in] strides the strides between elements in the layout
+ * @return raft::layout_stride::mapping<Extents>
+ */
+template <typename Extents, typename Strides>
+auto make_strided_layout(Extents extents, Strides strides)
+{
+  return layout_stride::mapping<Extents>{extents, strides};
+}
+
+/**
  * @brief Create raft::extents to specify dimensionality
  *
  * @tparam IndexType The type of each dimension of the extents

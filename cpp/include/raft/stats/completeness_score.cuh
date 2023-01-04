@@ -48,6 +48,11 @@ double completeness_score(const T* truthClusterArray,
 }
 
 /**
+ * @defgroup stats_completeness Completeness Score
+ * @{
+ */
+
+/**
  * @brief Function to calculate the completeness score between two clusters
  *
  * @tparam value_t the data type
@@ -76,6 +81,8 @@ double completeness_score(const raft::handle_t& handle,
                                    upper_label_range,
                                    handle.get_stream());
 }
+
+/** @} */  // end group stats_completeness
 
 };  // end namespace stats
 };  // end namespace raft

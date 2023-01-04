@@ -53,6 +53,11 @@ void sort_cols_per_row(const InType* in,
 }
 
 /**
+ * @defgroup col_wise_sort Sort rows within each column
+ * @{
+ */
+
+/**
  * @brief sort columns within each row of row-major input matrix and return sorted indexes
  * modelled as key-value sort with key being input matrix and value being index of values
  * @tparam in_t: element type of input matrix
@@ -125,6 +130,8 @@ void sort_cols_per_row(Args... args)
 {
   sort_cols_per_row(std::forward<Args>(args)..., std::nullopt);
 }
+
+/** @} */  // end of group col_wise_sort
 
 };  // end namespace raft::matrix
 

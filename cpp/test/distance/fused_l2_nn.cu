@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/kvp.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
@@ -25,7 +25,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/specializations.cuh>
 #endif
 
 namespace raft {
@@ -208,8 +208,8 @@ struct CompareApproxAbsKVP {
   CompareApproxAbsKVP(T eps_) : eps(eps_) {}
   bool operator()(const KVP& a, const KVP& b) const
   {
-    T diff  = raft::abs(raft::abs(a.value) - raft::abs(b.value));
-    T m     = std::max(raft::abs(a.value), raft::abs(b.value));
+    T diff  = std::abs(std::abs(a.value) - std::abs(b.value));
+    T m     = std::max(std::abs(a.value), std::abs(b.value));
     T ratio = m >= eps ? diff / m : diff;
     return (ratio <= eps);
   }

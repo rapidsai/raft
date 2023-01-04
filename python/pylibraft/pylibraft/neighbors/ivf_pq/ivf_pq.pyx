@@ -33,7 +33,12 @@ from libcpp cimport bool, nullptr
 
 from pylibraft.distance.distance_type cimport DistanceType
 
-from pylibraft.common import Handle, device_ndarray
+from pylibraft.common import (
+    Handle,
+    auto_convert_output,
+    cai_wrapper,
+    device_ndarray,
+)
 from pylibraft.common.interruptible import cuda_interruptible
 
 from pylibraft.common.handle cimport handle_t
@@ -46,8 +51,11 @@ from rmm._lib.memory_resource cimport (
     device_memory_resource,
 )
 
-cimport pylibraft.neighbors.ivf_pq.c_ivf_pq as c_ivf_pq
-from pylibraft.neighbors.ivf_pq.c_ivf_pq cimport index_params, search_params
+cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
+from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
+    index_params,
+    search_params,
+)
 
 
 def _get_metric(metric):
@@ -88,19 +96,19 @@ cdef _get_dtype_string(dtype):
 
 
 def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):
-    if cai["typestr"] not in exp_dt:
+    if cai.dtype not in exp_dt:
         raise TypeError("dtype %s not supported" % cai["typestr"])
 
-    if not is_c_contiguous(cai):
+    if not cai.c_contiguous:
         raise ValueError("Row major input is expected")
 
-    if exp_cols is not None and cai["shape"][1] != exp_cols:
+    if exp_cols is not None and cai.shape[1] != exp_cols:
         raise ValueError("Incorrect number of columns, expected {} got {}"
-                         .format(exp_cols, cai["shape"][1]))
+                         .format(exp_cols, cai.shape[1]))
 
-    if exp_rows is not None and cai["shape"][0] != exp_rows:
+    if exp_rows is not None and cai.shape[0] != exp_rows:
         raise ValueError("Incorrect number of rows, expected {} , got {}"
-                         .format(exp_rows, cai["shape"][0]))
+                         .format(exp_rows, cai.shape[0]))
 
 
 cdef class IndexParams:
@@ -299,6 +307,7 @@ cdef class Index:
 
 
 @auto_sync_handle
+@auto_convert_output
 def build(IndexParams index_params, dataset, handle=None):
     """
     Builds an IVF-PQ index that can be later used for nearest neighbor search.
@@ -317,49 +326,46 @@ def build(IndexParams index_params, dataset, handle=None):
     Examples
     --------
 
-    .. code-block:: python
+    >>> import cupy as cp
 
-        import cupy as cp
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.neighbors import ivf_pq
 
-        from pylibraft.common import Handle
-        from pylibraft.neighbors import ivf_pq
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
 
-        n_samples = 50000
-        n_features = 50
-        n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> handle = Handle()
+    >>> index_params = ivf_pq.IndexParams(
+    ...     n_lists=1024,
+    ...     metric="l2_expanded",
+    ...     pq_dim=10)
+    >>> index = ivf_pq.build(index_params, dataset, handle=handle)
 
-        dataset = cp.random.random_sample((n_samples, n_features),
-            dtype=cp.float32)
-        handle = Handle()
-        index_params = ivf_pq.IndexParams(
-            n_lists=1024,
-            metric="l2_expanded",
-            pq_dim=10)
-        index = ivf_pq.build(index_params, dataset, handle=handle)
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> k = 10
+    >>> distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(), index,
+    ...                                      queries, k, handle=handle)
 
-        # Search using the built index
-        queries = cp.random.random_sample((n_queries, n_features),
-                                          dtype=cp.float32)
-        k = 10
-        distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(), index,
-                                             queries, k, handle=handle)
+    >>> distances = cp.asarray(distances)
+    >>> neighbors = cp.asarray(neighbors)
 
-        distances = cp.asarray(distances)
-        neighbors = cp.asarray(neighbors)
-
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
-
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
     """
-    dataset_cai = dataset.__cuda_array_interface__
-    dataset_dt = np.dtype(dataset_cai["typestr"])
+    dataset_cai = cai_wrapper(dataset)
+    dataset_dt = dataset_cai.dtype
     _check_input_array(dataset_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')])
-    cdef uintptr_t dataset_ptr = dataset_cai["data"][0]
+    cdef uintptr_t dataset_ptr = dataset_cai.data
 
-    cdef uint64_t n_rows = dataset_cai["shape"][0]
-    cdef uint32_t dim = dataset_cai["shape"][1]
+    cdef uint64_t n_rows = dataset_cai.shape[0]
+    cdef uint32_t dim = dataset_cai.shape[1]
 
     if handle is None:
         handle = Handle()
@@ -401,6 +407,7 @@ def build(IndexParams index_params, dataset, handle=None):
 
 
 @auto_sync_handle
+@auto_convert_output
 def extend(Index index, new_vectors, new_indices, handle=None):
     """
     Extend an existing index with new vectors.
@@ -423,42 +430,40 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     Examples
     --------
 
-    .. code-block:: python
+    >>> import cupy as cp
 
-        import cupy as cp
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.neighbors import ivf_pq
 
-        from pylibraft.common import Handle
-        from pylibraft.neighbors import ivf_pq
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
 
-        n_samples = 50000
-        n_features = 50
-        n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> handle = Handle()
+    >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
 
-        dataset = cp.random.random_sample((n_samples, n_features),
-                                          dtype=cp.float32)
-        handle = Handle()
-        index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
+    >>> n_rows = 100
+    >>> more_data = cp.random.random_sample((n_rows, n_features),
+    ...                                     dtype=cp.float32)
+    >>> indices = index.size + cp.arange(n_rows, dtype=cp.uint64)
+    >>> index = ivf_pq.extend(index, more_data, indices)
 
-        n_rows = 100
-        more_data = cp.random.random_sample((n_rows, n_features),
-                                            dtype=cp.float32)
-        indices = index.size + cp.arange(n_rows, dtype=cp.uint64)
-        index = ivf_pq.extend(index, more_data, indices)
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> k = 10
+    >>> distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(),
+    ...                                      index, queries,
+    ...                                      k, handle=handle)
 
-        # Search using the built index
-        queries = cp.random.random_sample((n_queries, n_features),
-                                          dtype=cp.float32)
-        k = 10
-        distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(),
-                                             index, queries,
-                                             k, handle=handle)
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
 
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
-
-        distances = cp.asarray(distances)
-        neighbors = cp.asarray(neighbors)
+    >>> distances = cp.asarray(distances)
+    >>> neighbors = cp.asarray(neighbors)
     """
     if not index.trained:
         raise ValueError("Index need to be built before calling extend.")
@@ -467,22 +472,22 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    vecs_cai = new_vectors.__cuda_array_interface__
-    vecs_dt = np.dtype(vecs_cai["typestr"])
-    cdef uint64_t n_rows = vecs_cai["shape"][0]
-    cdef uint32_t dim = vecs_cai["shape"][1]
+    vecs_cai = cai_wrapper(new_vectors)
+    vecs_dt = vecs_cai.dtype
+    cdef uint64_t n_rows = vecs_cai.shape[0]
+    cdef uint32_t dim = vecs_cai.shape[1]
 
     _check_input_array(vecs_cai, [np.dtype('float32'), np.dtype('byte'),
                                   np.dtype('ubyte')],
                        exp_cols=index.dim)
 
-    idx_cai = new_indices.__cuda_array_interface__
+    idx_cai = cai_wrapper(new_indices)
     _check_input_array(idx_cai, [np.dtype('uint64')], exp_rows=n_rows)
-    if len(idx_cai["shape"])!=1:
+    if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
 
-    cdef uintptr_t vecs_ptr = vecs_cai["data"][0]
-    cdef uintptr_t idx_ptr = idx_cai["data"][0]
+    cdef uintptr_t vecs_ptr = vecs_cai.data
+    cdef uintptr_t idx_ptr = idx_cai.data
 
     if vecs_dt == np.float32:
         with cuda_interruptible():
@@ -567,6 +572,7 @@ cdef class SearchParams:
 
 
 @auto_sync_handle
+@auto_convert_output
 def search(SearchParams search_params,
            Index index,
            queries,
@@ -602,51 +608,50 @@ def search(SearchParams search_params,
 
     Examples
     --------
-    .. code-block:: python
+    >>> import cupy as cp
 
-        import cupy as cp
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.neighbors import ivf_pq
 
-        from pylibraft.common import Handle
-        from pylibraft.neighbors import ivf_pq
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
 
-        n_samples = 50000
-        n_features = 50
-        n_queries = 1000
-        dataset = cp.random.random_sample((n_samples, n_features),
-                                          dtype=cp.float32)
+    >>> # Build index
+    >>> handle = Handle()
+    >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
 
-        # Build index
-        handle = Handle()
-        index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> k = 10
+    >>> search_params = ivf_pq.SearchParams(
+    ...     n_probes=20,
+    ...     lut_dtype=cp.float16,
+    ...     internal_distance_dtype=cp.float32
+    ... )
 
-        # Search using the built index
-        queries = cp.random.random_sample((n_queries, n_features),
-                                          dtype=cp.float32)
-        k = 10
-        search_params = ivf_pq.SearchParams(
-            n_probes=20,
-            lut_dtype=ivf_pq.np.float16,
-            internal_distance_dtype=ivf_pq.np.float32
-        )
+    >>> # Using a pooling allocator reduces overhead of temporary array
+    >>> # creation during search. This is useful if multiple searches
+    >>> # are performad with same query size.
+    >>> import rmm
+    >>> mr = rmm.mr.PoolMemoryResource(
+    ...     rmm.mr.CudaMemoryResource(),
+    ...     initial_pool_size=2**29,
+    ...     maximum_pool_size=2**31
+    ... )
+    >>> distances, neighbors = ivf_pq.search(search_params, index, queries,
+    ...                                      k, memory_resource=mr,
+    ...                                      handle=handle)
 
-        # Using a pooling allocator reduces overhead of temporary array
-        # creation during search. This is useful if multiple searches
-        # are performad with same query size.
-        mr = rmm.mr.PoolMemoryResource(
-            rmm.mr.CudaMemoryResource(),
-            initial_pool_size=2**29,
-            maximum_pool_size=2**31
-        )
-        distances, neighbors = ivf_pq.search(search_params, index, queries,
-                                             k, memory_resource=mr,
-                                             handle=handle)
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
 
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
-
-        neighbors = cp.asarray(neighbors)
-        distances = cp.asarray(distances)
+    >>> neighbors = cp.asarray(neighbors)
+    >>> distances = cp.asarray(distances)
     """
 
     if not index.trained:
@@ -656,9 +661,9 @@ def search(SearchParams search_params,
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    queries_cai = queries.__cuda_array_interface__
-    queries_dt = np.dtype(queries_cai["typestr"])
-    cdef uint32_t n_queries = queries_cai["shape"][0]
+    queries_cai = cai_wrapper(queries)
+    queries_dt = queries_cai.dtype
+    cdef uint32_t n_queries = queries_cai.shape[0]
 
     _check_input_array(queries_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')],
@@ -667,22 +672,22 @@ def search(SearchParams search_params,
     if neighbors is None:
         neighbors = device_ndarray.empty((n_queries, k), dtype='uint64')
 
-    neighbors_cai = neighbors.__cuda_array_interface__
+    neighbors_cai = cai_wrapper(neighbors)
     _check_input_array(neighbors_cai, [np.dtype('uint64')],
                        exp_rows=n_queries, exp_cols=k)
 
     if distances is None:
         distances = device_ndarray.empty((n_queries, k), dtype='float32')
 
-    distances_cai = distances.__cuda_array_interface__
+    distances_cai = cai_wrapper(distances)
     _check_input_array(distances_cai, [np.dtype('float32')],
                        exp_rows=n_queries, exp_cols=k)
 
     cdef c_ivf_pq.search_params params = search_params.params
 
-    cdef uintptr_t queries_ptr = queries_cai["data"][0]
-    cdef uintptr_t neighbors_ptr = neighbors_cai["data"][0]
-    cdef uintptr_t distances_ptr = distances_cai["data"][0]
+    cdef uintptr_t queries_ptr = queries_cai.data
+    cdef uintptr_t neighbors_ptr = neighbors_cai.data
+    cdef uintptr_t distances_ptr = distances_cai.data
     # TODO(tfeher) pass mr_ptr arg
     cdef device_memory_resource* mr_ptr = <device_memory_resource*> nullptr
     if memory_resource is not None:

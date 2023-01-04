@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "ivf_pq_types.hpp"
+#include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/spatial/knn/detail/ivf_pq_build.cuh>
 #include <raft/spatial/knn/detail/ivf_pq_search.cuh>
 
@@ -26,6 +26,11 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 
 namespace raft::neighbors::ivf_pq {
+
+/**
+ * @defgroup ivf_pq IVF PQ Algorithm
+ * @{
+ */
 
 /**
  * @brief Build the index from the dataset for efficient search.
@@ -53,7 +58,7 @@ namespace raft::neighbors::ivf_pq {
  *
  * @param handle
  * @param params configure the index building
- * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
+ * @param[in] dataset a device/host pointer to a row-major matrix [n_rows, dim]
  * @param n_rows the number of samples
  * @param dim the dimensionality of the data
  *
@@ -91,8 +96,8 @@ inline auto build(
  *
  * @param handle
  * @param orig_index original index
- * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
- * @param[in] new_indices a device pointer to a vector of indices [n_rows].
+ * @param[in] new_vectors a device/host pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
  * @param n_rows the number of samples
@@ -118,8 +123,8 @@ inline auto extend(const handle_t& handle,
  *
  * @param handle
  * @param[inout] index
- * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
- * @param[in] new_indices a device pointer to a vector of indices [n_rows].
+ * @param[in] new_vectors a device/host pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
  * @param n_rows the number of samples
@@ -190,5 +195,7 @@ inline void search(const handle_t& handle,
   return raft::spatial::knn::ivf_pq::detail::search(
     handle, params, index, queries, n_queries, k, neighbors, distances, mr);
 }
+
+/** @} */  // end group ivf_pq
 
 }  // namespace raft::neighbors::ivf_pq
