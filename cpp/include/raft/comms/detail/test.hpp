@@ -142,9 +142,7 @@ bool test_collective_reduce(const handle_t& handle, int root)
  */
 bool test_collective_allgather(const handle_t& handle, int root)
 {
-  printf("Getting comms_t from handle\n");
   comms_t const& communicator = handle.get_comms();
-  printf("Done.\n");
 
   int const send = communicator.get_rank();
 

@@ -22,7 +22,7 @@ namespace raft::resource {
 class thrust_policy_resource : public resource {
  public:
   thrust_policy_resource(rmm::cuda_stream_view stream_view)
-    : thrust_policy_(std::make_shared<rmm::exec_policy>(stream_view))
+    : thrust_policy_(std::make_unique<rmm::exec_policy>(stream_view))
   {
   }
   void* get_resource() override { return thrust_policy_.get(); }
@@ -30,7 +30,7 @@ class thrust_policy_resource : public resource {
   ~thrust_policy_resource() override {}
 
  private:
-  std::shared_ptr<rmm::exec_policy> thrust_policy_;
+  std::unique_ptr<rmm::exec_policy> thrust_policy_;
 };
 
 /**

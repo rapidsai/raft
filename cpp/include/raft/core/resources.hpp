@@ -101,7 +101,7 @@ class resources {
   mutable std::mutex mutex_;
   mutable std::unordered_map<resource::resource_type, std::shared_ptr<resource::resource_factory>>
     factories_;
-  mutable std::unordered_map<resource::resource_type, std::shared_ptr<resource::resource>>
+  mutable std::unordered_map<resource::resource_type, std::unique_ptr<resource::resource>>
     resources_;
 };
 }  // namespace raft
