@@ -22,8 +22,9 @@ This file contains a customized version of PredicatedTileIterator from CUTLASS 2
 
 Changes:
 - added `Layout_` template param
-- Only the row index is used to load the data in load_with_byte_offset().
-  This way the same normalization data is used across all columns in a row.
+- PredicatedTileIteratorParams() is customized to not stride by layout.stride(0).
+- customized the store_with_byte_offset() to perform reduction per row and write final value to gmem.
+- customized the Params() struct to take user inputs from epilogueOp params.
 
 */
 

@@ -30,6 +30,12 @@
  **************************************************************************************************/
 /*! \file
     \brief Gemm kernel with fused reduction operation.
+
+This file contains a customized version of GemmWithFusedEpilogue from CUTLASS 2.9.0
+(https://github.com/NVIDIA/cutlass/blob/v2.9.0/include/cutlass/gemm/kernel/gemm_with_fused_epilogue.h)
+* Changes:
+-- added additional input parameter to params_Tensor constructor,
+   for passing user inputs to PredicatedTileIterator of reduced output values.
 */
 
 #pragma once
