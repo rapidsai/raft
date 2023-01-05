@@ -90,7 +90,7 @@ class resources {
     resource::resource_type rtype = factory.get()->get_resource_type();
     RAFT_EXPECTS(rtype != resource::resource_type::LAST_KEY,
                  "LAST_KEY is a placeholder and not a valid resource factory type.");
-    factories_.[rtype] = std::make_pair(rtype, factory);
+    factories_[rtype] = std::make_pair(rtype, factory);
   }
 
   /**
