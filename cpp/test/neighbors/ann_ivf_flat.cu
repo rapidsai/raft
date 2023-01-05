@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -107,8 +107,6 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         ivfParams.nprobe = ps.nprobe;
         ivfParams.nlist  = ps.nlist;
         raft::spatial::knn::knnIndex index;
-        index.index   = nullptr;
-        index.gpu_res = nullptr;
 
         approx_knn_build_index(handle_,
                                &index,
