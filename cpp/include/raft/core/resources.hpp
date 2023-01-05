@@ -56,9 +56,9 @@ class resources {
   {
     for (int i = 0; i < resource::resource_type::LAST_KEY; ++i) {
       factories_[i] = std::make_pair(resource::resource_type::LAST_KEY,
-                                       std::make_shared<resource::empty_resource_factory>()));
-      resources_[i] =std::make_pair(resource::resource_type::LAST_KEY,
-                                       std::make_shared<resource::empty_resource>()));
+                                     std::make_shared<resource::empty_resource_factory>());
+      resources_[i] = std::make_pair(resource::resource_type::LAST_KEY,
+                                     std::make_shared<resource::empty_resource>());
     }
   }
 
@@ -112,8 +112,8 @@ class resources {
                    "No resource factory has been registered for the given resource %d.",
                    resource_type);
       resource::resource_factory* factory = factories_.at(resource_type).second.get();
-      resources_[resource_type] = std::make_pair(resource_type,
-                       std::shared_ptr<resource::resource>(factory->make_resource())));
+      resources_[resource_type]           = std::make_pair(
+        resource_type, std::shared_ptr<resource::resource>(factory->make_resource()));
     }
 
     resource::resource* res = resources_.at(resource_type).second.get();
