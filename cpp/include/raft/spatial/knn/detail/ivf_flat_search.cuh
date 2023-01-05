@@ -899,7 +899,7 @@ struct euclidean_dist<Veclen, int8_t, int32_t> {
   {
     if constexpr (Veclen > 1) {
       const auto diff = __vabsdiffs4(x, y);
-      acc             = __dp4a(diff, diff, static_cast<uint32_t>(acc));
+      acc             = dp4a(diff, diff, static_cast<uint32_t>(acc));
     } else {
       const auto diff = x - y;
       acc += diff * diff;
