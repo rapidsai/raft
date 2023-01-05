@@ -886,6 +886,7 @@ struct euclidean_dist<Veclen, uint8_t, uint32_t> {
       const auto diff = __vabsdiffu4(x, y);
       acc             = dp4a(diff, diff, acc);
     } else {
+      // Note: diff can underflow but the multiplication is still correct in that case.
       const auto diff = x - y;
       acc += diff * diff;
     }
@@ -897,8 +898,11 @@ struct euclidean_dist<Veclen, int8_t, int32_t> {
   __device__ __forceinline__ void operator()(int32_t& acc, int32_t x, int32_t y)
   {
     if constexpr (Veclen > 1) {
-      const auto diff = static_cast<int32_t>(__vabsdiffs4(x, y));
-      acc             = dp4a(diff, diff, acc);
+      const uint32_t offset = 0x80808080;
+      const auto offset_x   = __vadd4(x, offset);
+      const auto offset_y   = __vadd4(y, offset);
+      const auto diff       = __vabsdiffu4(offset_x, offset_y);
+      acc = __dp4a(diff, diff, static_cast<uint32_t>(acc));
     } else {
       const auto diff = x - y;
       acc += diff * diff;
