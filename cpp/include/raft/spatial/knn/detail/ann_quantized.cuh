@@ -27,6 +27,7 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/label/classlabels.cuh>
+#include <raft/neighbors/ivf_pq.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 
@@ -51,23 +52,34 @@ void approx_knn_build_index(const handle_t& handle,
     index->nprobe = dynamic_cast<const IVFParam*>(params)->nprobe;
   }
   auto ivf_ft_pams = dynamic_cast<IVFFlatParam*>(params);
-  // TODO auto ivf_pq_pams = dynamic_cast<IVFPQParam*>(params);
-  // auto ivf_sq_pams = dynamic_cast<IVFSQParam*>(params);
+  auto ivf_pq_pams = dynamic_cast<IVFPQParam*>(params);
 
   if constexpr (std::is_same_v<T, float>) {
     index->metric_processor = create_processor<float>(metric, n, D, 0, false, stream);
   }
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->preprocess(index_array); }
 
-  if (ivf_ft_pams && (metric == raft::distance::DistanceType::L2Unexpanded ||
-                      metric == raft::distance::DistanceType::L2Expanded ||
-                      metric == raft::distance::DistanceType::InnerProduct)) {
+  if (!(metric == raft::distance::DistanceType::L2Unexpanded ||
+        metric == raft::distance::DistanceType::L2Expanded ||
+        metric == raft::distance::DistanceType::InnerProduct)) {
+    RAFT_FAIL("Unsupported metric for approx_knn_build_index");
+  }
+
+  if (ivf_ft_pams) {
     auto new_params               = from_legacy_index_params(*ivf_ft_pams, metric, metricArg);
     index->ivf_flat<T, int64_t>() = std::make_unique<const ivf_flat::index<T, int64_t>>(
       ivf_flat::build(handle, new_params, index_array, int64_t(n), D));
+  } else if (ivf_pq_pams) {
+    neighbors::ivf_pq::index_params params;
+    params.metric     = metric;
+    params.metric_arg = metricArg;
+    params.n_lists    = ivf_pq_pams->nlist;
+    params.pq_bits    = ivf_pq_pams->n_bits;
+    params.pq_dim     = ivf_pq_pams->M;
+    // TODO: handle ivf_pq_pams.usePrecomputedTables ?
+    index->ivf_pq = std::make_unique<const neighbors::ivf_pq::index<int64_t>>(
+      neighbors::ivf_pq::build(handle, params, index_array, int64_t(n), D));
   } else {
-    // TODO: support ivfpq
-    // TODO: better error message if ivf_flat, and not l2/ip distance
     RAFT_FAIL("Unrecognized index type.");
   }
 
@@ -94,6 +106,11 @@ void approx_knn_search(const handle_t& handle,
     params.n_probes = index->nprobe;
     ivf_flat::search(
       handle, params, *(index->ivf_flat<T, int64_t>()), query_array, n, k, indices, distances);
+  } else if (index->ivf_pq) {
+    neighbors::ivf_pq::search_params params;
+    params.n_probes = index->nprobe;
+    neighbors::ivf_pq::search(
+      handle, params, *index->ivf_pq, query_array, n, k, indices, distances);
   } else {
     RAFT_FAIL("The model is not trained");
   }

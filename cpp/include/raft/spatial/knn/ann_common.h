@@ -22,6 +22,7 @@
 
 #include "detail/processing.hpp"
 #include "ivf_flat_types.hpp"
+#include <raft/neighbors/ivf_pq.cuh>
 
 #include <raft/distance/distance_types.hpp>
 
@@ -39,7 +40,7 @@ struct knnIndex {
   std::unique_ptr<const ivf_flat::index<uint8_t, int64_t>> ivf_flat_uint8_t_;
   std::unique_ptr<const ivf_flat::index<int8_t, int64_t>> ivf_flat_int8_t_;
 
-  // TODO: ivf_pq ?
+  std::unique_ptr<const raft::neighbors::ivf_pq::index<int64_t>> ivf_pq;
 
   int device;
 
