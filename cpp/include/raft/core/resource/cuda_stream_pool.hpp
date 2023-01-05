@@ -163,7 +163,9 @@ inline void wait_stream_pool_on_stream(const resources& res)
   printf("waiting on stream pooll\n");
   printf("stream pool size: %ld\n", get_stream_pool_size(res));
   cudaEvent_t event = get_cuda_stream_sync_event(res);
+  printf("After get_cuda_stream_sync_event\n");
   RAFT_CUDA_TRY(cudaEventRecord(event, get_cuda_stream(res)));
+  printf("After cuda event record\n");
   for (std::size_t i = 0; i < get_stream_pool_size(res); i++) {
     RAFT_CUDA_TRY(cudaStreamWaitEvent(get_cuda_stream_pool(res).get_stream(i), event, 0));
   }

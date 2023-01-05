@@ -53,7 +53,7 @@ class handle_t : public raft::device_resources {
   }
 
   /** Destroys all held-up resources */
-  virtual ~handle_t() {}
+  ~handle_t() override {}
 };
 
 }  // end NAMESPACE raft

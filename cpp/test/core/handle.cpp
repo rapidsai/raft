@@ -80,6 +80,8 @@ TEST(Raft, GetHandleFromPool)
     handle_t child(worker_stream);
     ASSERT_EQ(parent.get_stream_from_stream_pool(i), child.get_stream());
   }
+
+  parent.wait_stream_pool_on_stream();
 }
 
 }  // namespace raft
