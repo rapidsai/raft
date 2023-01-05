@@ -55,10 +55,10 @@ class resources {
     : factories_(resource::resource_type::LAST_KEY), resources_(resource::resource_type::LAST_KEY)
   {
     for (int i = 0; i < resource::resource_type::LAST_KEY; ++i) {
-      factories_[i] = std::make_pair(resource::resource_type::LAST_KEY,
-                                     std::make_shared<resource::empty_resource_factory>());
-      resources_[i] = std::make_pair(resource::resource_type::LAST_KEY,
-                                     std::make_shared<resource::empty_resource>());
+      factories_.at(i) = std::make_pair(resource::resource_type::LAST_KEY,
+                                        std::make_shared<resource::empty_resource_factory>());
+      resources_.at(i) = std::make_pair(resource::resource_type::LAST_KEY,
+                                        std::make_shared<resource::empty_resource>());
     }
   }
 
@@ -90,7 +90,7 @@ class resources {
     resource::resource_type rtype = factory.get()->get_resource_type();
     RAFT_EXPECTS(rtype != resource::resource_type::LAST_KEY,
                  "LAST_KEY is a placeholder and not a valid resource factory type.");
-    factories_[rtype] = std::make_pair(rtype, factory);
+    factories_.at(rtype) = std::make_pair(rtype, factory);
   }
 
   /**
@@ -112,7 +112,7 @@ class resources {
                    "No resource factory has been registered for the given resource %d.",
                    resource_type);
       resource::resource_factory* factory = factories_.at(resource_type).second.get();
-      resources_[resource_type]           = std::make_pair(
+      resources_.at(resource_type)        = std::make_pair(
         resource_type, std::shared_ptr<resource::resource>(factory->make_resource()));
     }
 

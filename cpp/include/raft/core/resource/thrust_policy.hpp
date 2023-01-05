@@ -21,13 +21,16 @@
 namespace raft::resource {
 class thrust_policy_resource : public resource {
  public:
-  thrust_policy_resource(rmm::cuda_stream_view stream_view) : thrust_policy_(stream_view) {}
-  void* get_resource() override { return &thrust_policy_; }
+  thrust_policy_resource(rmm::cuda_stream_view stream_view)
+    : thrust_policy_(std::make_unique<rmm::exec_policy>(stream_view))
+  {
+  }
+  void* get_resource() override { return thrust_policy_.get(); }
 
   ~thrust_policy_resource() override {}
 
  private:
-  rmm::exec_policy thrust_policy_;
+  std::unique_ptr<rmm::exec_policy> thrust_policy_;
 };
 
 /**
@@ -46,7 +49,7 @@ class thrust_policy_resource_factory : public resource_factory {
 };
 
 /**
- * Load a device id from a res (and populate it on the res if needed).
+ * Load a thrust policy from a res (and populate it on the res if needed).
  * @param res raft res object for managing resources
  * @return
  */
