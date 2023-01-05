@@ -898,11 +898,8 @@ struct euclidean_dist<Veclen, int8_t, int32_t> {
   __device__ __forceinline__ void operator()(int32_t& acc, int32_t x, int32_t y)
   {
     if constexpr (Veclen > 1) {
-      const uint32_t offset = 0x80808080;
-      const auto offset_x   = __vadd4(x, offset);
-      const auto offset_y   = __vadd4(y, offset);
-      const auto diff       = __vabsdiffu4(offset_x, offset_y);
-      acc = __dp4a(diff, diff, static_cast<uint32_t>(acc));
+      const auto diff = __vabsdiffs4(x, y);
+      acc             = __dp4a(diff, diff, static_cast<uint32_t>(acc));
     } else {
       const auto diff = x - y;
       acc += diff * diff;
