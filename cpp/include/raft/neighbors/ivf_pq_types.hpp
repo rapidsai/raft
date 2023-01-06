@@ -316,8 +316,16 @@ struct index : ann::index {
    */
   void allocate(const handle_t& handle, IdxT index_size)
   {
-    pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));
-    indices_    = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    try {
+      pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));
+      indices_    = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    } catch (std::bad_alloc& e) {
+      RAFT_FAIL(
+        "ivf-pq: failed to allocate a big enough index to hold all data (size: %zu). "
+        "Allocator exception: %s",
+        size_t(index_size),
+        e.what());
+    }
     if (index_size > 0) {
       thrust::fill_n(
         handle.get_thrust_policy(), indices_.data_handle(), index_size, kInvalidRecord);
@@ -434,7 +442,7 @@ struct index : ann::index {
 
   /** A helper function to determine the extents of an array enough to hold a given amount of data.
    */
-  auto make_pq_dataset_extents(IdxT n_rows) -> pq_dataset_extents
+  auto make_pq_dataset_extents(IdxT n_rows) const -> pq_dataset_extents
   {
     // how many elems of pq_dim fit into one kIndexGroupVecLen-byte chunk
     auto pq_chunk = (kIndexGroupVecLen * 8u) / pq_bits();
