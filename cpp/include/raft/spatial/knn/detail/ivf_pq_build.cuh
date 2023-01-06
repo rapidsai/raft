@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@
 #include <thrust/binary_search.h>
 #include <thrust/extrema.h>
 #include <thrust/functional.h>
+#include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
 #include <thrust/sequence.h>
 
@@ -1093,12 +1094,15 @@ auto extend(const handle_t& handle,
     using group_align        = Pow2<kIndexGroupSize>;
     IdxT size                = 0;
     update_device(ext_cluster_offsets, &size, 1, stream);
-    thrust::inclusive_scan(
-      handle.get_thrust_policy(),
-      ext_cluster_sizes,
-      ext_cluster_sizes + n_clusters,
-      ext_cluster_offsets + 1,
-      [] __device__(IdxT a, IdxT b) { return group_align::roundUp(a) + group_align::roundUp(b); });
+    auto sizes_padded = thrust::make_transform_iterator(
+      ext_cluster_sizes, [] __device__ __host__(uint32_t x) -> IdxT {
+        return IdxT{Pow2<kIndexGroupSize>::roundUp(x)};
+      });
+    thrust::inclusive_scan(handle.get_thrust_policy(),
+                           sizes_padded,
+                           sizes_padded + n_clusters,
+                           ext_cluster_offsets + 1,
+                           add_op{});
     update_host(&size, ext_cluster_offsets + n_clusters, 1, stream);
     handle.sync_stream();  // syncs `size`, `cluster_ordering`
     ext_index.allocate(handle, size);
