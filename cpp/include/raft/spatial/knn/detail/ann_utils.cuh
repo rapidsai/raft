@@ -16,12 +16,19 @@
 
 #pragma once
 
+#include <raft/core/logger.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/util/integer_utils.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <memory>
+#include <optional>
 
 namespace raft::spatial::knn::detail::utils {
 
@@ -358,5 +365,203 @@ void copy_selected(IdxT n_rows,
     default: RAFT_FAIL("All pointers must reside on the same side, host or device.");
   }
 }
+
+/**
+ * A batch input iterator over the data source.
+ * Given an input pointer, it decides whether the current device has the access to the data and
+ * gives it back to the user in batches. Three scenarios are possible:
+ *
+ *  1. if `source == nullptr`: then `batch.data() == nullptr`
+ *  2. if `source` is accessible from the device, `batch.data()` points directly at the source at
+ *     the proper offsets on each iteration.
+ *  3. if `source` is not accessible from the device, `batch.data()` points to an intermediate
+ *     buffer; the corresponding data is copied in the given `stream` on every iterator dereference
+ *     (i.e. batches can be skipped). Dereferencing the same batch two times in a row does not force
+ *     the copy.
+ *
+ * In all three scenarios, the number of iterations, batch offsets and sizes are the same.
+ *
+ * The iterator can be reused. If the number of iterations is one, at most one copy will ever be
+ * invoked (i.e. small datasets are not reloaded multiple times).
+ */
+template <typename T>
+struct batch_load_iterator {
+  using size_type = size_t;
+
+  /** A single batch of data residing in device memory. */
+  struct batch {
+    /** Logical width of a single row in a batch, in elements of type `T`. */
+    [[nodiscard]] auto row_width() const -> size_type { return row_width_; }
+    /** Logical offset of the batch, in rows (`row_width()`) */
+    [[nodiscard]] auto offset() const -> size_type { return pos_.value_or(0) * batch_size_; }
+    /** Logical size of the batch, in rows (`row_width()`) */
+    [[nodiscard]] auto size() const -> size_type { return batch_len_; }
+    /** Logical size of the batch, in rows (`row_width()`) */
+    [[nodiscard]] auto data() const -> const T* { return const_cast<const T*>(dev_ptr_); }
+    /** Whether this batch copies the data (i.e. the source is inaccessible from the device). */
+    [[nodiscard]] auto does_copy() const -> bool { return needs_copy_; }
+
+   private:
+    batch(const T* source,
+          size_type n_rows,
+          size_type row_width,
+          size_type batch_size,
+          rmm::cuda_stream_view stream,
+          rmm::mr::device_memory_resource* mr)
+      : stream_(stream),
+        buf_(0, stream, mr),
+        source_(source),
+        dev_ptr_(nullptr),
+        n_rows_(n_rows),
+        row_width_(row_width),
+        batch_size_(std::min(batch_size, n_rows)),
+        pos_(std::nullopt),
+        n_iters_(raft::div_rounding_up_safe(n_rows, batch_size)),
+        needs_copy_(false)
+    {
+      if (source_ == nullptr) { return; }
+      cudaPointerAttributes attr;
+      RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, source_));
+      dev_ptr_ = reinterpret_cast<T*>(attr.devicePointer);
+      if (dev_ptr_ == nullptr) {
+        buf_.resize(row_width_ * batch_size_, stream);
+        dev_ptr_    = buf_.data();
+        needs_copy_ = true;
+      }
+    }
+    rmm::cuda_stream_view stream_;
+    rmm::device_uvector<T> buf_;
+    const T* source_;
+    size_type n_rows_;
+    size_type row_width_;
+    size_type batch_size_;
+    size_type n_iters_;
+    bool needs_copy_;
+
+    std::optional<size_type> pos_;
+    size_type batch_len_;
+    T* dev_ptr_;
+
+    friend class batch_load_iterator<T>;
+
+    /**
+     * Changes the state of the batch to point at the `pos` index.
+     * If necessary, copies the data from the source in the registered stream.
+     */
+    void load(const size_type& pos)
+    {
+      // No-op if the data is already loaded, or it's the end of the input.
+      if (pos == pos_ || pos >= n_iters_) { return; }
+      pos_.emplace(pos);
+      batch_len_ = std::min(batch_size_, n_rows_ - std::min(offset(), n_rows_));
+      if (source_ == nullptr) { return; }
+      if (needs_copy_) {
+        if (size() > 0) {
+          RAFT_LOG_DEBUG("batch_load_iterator::copy(offset = %zu, size = %zu, row_width = %zu)",
+                         size_t(offset()),
+                         size_t(size()),
+                         size_t(row_width()));
+          copy(dev_ptr_, source_ + offset() * row_width(), size() * row_width(), stream_);
+        }
+      } else {
+        dev_ptr_ = const_cast<T*>(source_) + offset() * row_width();
+      }
+    }
+  };
+
+  using value_type = batch;
+  using reference  = const value_type&;
+  using pointer    = const value_type*;
+
+  /**
+   * Create a batch iterator over the data `source`.
+   *
+   * For convenience, the data `source` is read in logical units of size `row_width`; batch sizes
+   * and offsets are calculated in logical rows. Hence, can interpret the data as a contiguous
+   * row-major matrix of size [n_rows, row_width], and the batches are the sub-matrices of size
+   * [x<=batch_size, n_rows].
+   *
+   * @param source the input data -- host, device, or nullptr.
+   * @param n_rows the size of the input in logical rows.
+   * @param row_width the size of the logical row in the elements of type `T`.
+   * @param batch_size the desired size of the batch.
+   * @param stream the ordering for the host->device copies, if applicable.
+   * @param mr a custom memory resource for the intermediate buffer, if applicable.
+   */
+  batch_load_iterator(const T* source,
+                      size_type n_rows,
+                      size_type row_width,
+                      size_type batch_size,
+                      rmm::cuda_stream_view stream,
+                      rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource())
+    : cur_batch_(new batch(source, n_rows, row_width, batch_size, stream, mr)), cur_pos_(0)
+  {
+  }
+  /**
+   * Whether this iterator copies the data on every iteration
+   * (i.e. the source is inaccessible from the device).
+   */
+  [[nodiscard]] auto does_copy() const -> bool { return cur_batch_->does_copy(); }
+  /** Reset the iterator position to `begin()` */
+  void reset() { cur_pos_ = 0; }
+  /** Reset the iterator position to `end()` */
+  void reset_to_end() { cur_pos_ = cur_batch_->n_iters_; }
+  [[nodiscard]] auto begin() const -> const batch_load_iterator<T>
+  {
+    batch_load_iterator<T> x(*this);
+    x.reset();
+    return x;
+  }
+  [[nodiscard]] auto end() const -> const batch_load_iterator<T>
+  {
+    batch_load_iterator<T> x(*this);
+    x.reset_to_end();
+    return x;
+  }
+  [[nodiscard]] auto operator*() const -> reference
+  {
+    cur_batch_->load(cur_pos_);
+    return *cur_batch_;
+  }
+  [[nodiscard]] auto operator->() const -> pointer
+  {
+    cur_batch_->load(cur_pos_);
+    return cur_batch_.get();
+  }
+  friend auto operator==(const batch_load_iterator<T>& x, const batch_load_iterator<T>& y) -> bool
+  {
+    return x.cur_batch_ == y.cur_batch_ && x.cur_pos_ == y.cur_pos_;
+  };
+  friend auto operator!=(const batch_load_iterator<T>& x, const batch_load_iterator<T>& y) -> bool
+  {
+    return x.cur_batch_ != y.cur_batch_ || x.cur_pos_ != y.cur_pos_;
+  };
+  auto operator++() -> batch_load_iterator<T>&
+  {
+    ++cur_pos_;
+    return *this;
+  }
+  auto operator++(int) -> batch_load_iterator<T>
+  {
+    batch_load_iterator<T> x(*this);
+    ++cur_pos_;
+    return x;
+  }
+  auto operator--() -> batch_load_iterator<T>&
+  {
+    --cur_pos_;
+    return *this;
+  }
+  auto operator--(int) -> batch_load_iterator<T>
+  {
+    batch_load_iterator<T> x(*this);
+    --cur_pos_;
+    return x;
+  }
+
+ private:
+  std::shared_ptr<value_type> cur_batch_;
+  size_type cur_pos_;
+};
 
 }  // namespace raft::spatial::knn::detail::utils
