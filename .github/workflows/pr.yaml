@@ -67,6 +67,8 @@ jobs:
     with:
       build_type: pull-request
       package-name: pylibraft
+      test-before-amd64: "pip install cupy-cuda11x"
+      test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64"
       test-unittest: "python -m pytest -v ./python/pylibraft/pylibraft/test"
       test-smoketest: "" #"python ci/wheel_smoke_test_pylibraft.py"
   wheel-build-raft-dask:

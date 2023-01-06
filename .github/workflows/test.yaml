@@ -40,6 +40,8 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       package-name: pylibraft
+      test-before-amd64: "pip install cupy-cuda11x"
+      test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64"
       test-unittest: "python -m pytest -v ./python/pylibraft/pylibraft/test"
   wheel-tests-raft-dask:
     secrets: inherit
