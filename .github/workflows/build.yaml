@@ -54,7 +54,7 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-build-pylibraft:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@upkeep/manylinux-improvements
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       repo: rapidsai/raft
@@ -67,7 +67,7 @@ jobs:
   wheel-publish-pylibraft:
     needs: wheel-build-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-publish.yml@upkeep/manylinux-improvements
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-publish.yml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       repo: rapidsai/raft
@@ -78,7 +78,7 @@ jobs:
   wheel-build-raft-dask:
     needs: wheel-publish-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@upkeep/manylinux-improvements
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       repo: rapidsai/raft
@@ -91,7 +91,7 @@ jobs:
   wheel-publish-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-publish.yml@upkeep/manylinux-improvements
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-publish.yml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       repo: rapidsai/raft

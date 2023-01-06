@@ -32,7 +32,7 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-tests-pylibraft:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@upkeep/manylinux-improvements
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@main
     with:
       build_type: nightly
       repo: rapidsai/raft
@@ -45,7 +45,7 @@ jobs:
       test-unittest: "python -m pytest -v ./python/pylibraft/pylibraft/test"
   wheel-tests-raft-dask:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@upkeep/manylinux-improvements
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@main
     with:
       build_type: nightly
       repo: rapidsai/raft
