@@ -26,7 +26,7 @@ except ImportError:
 
 
 @pytest.mark.parametrize("stream", [cupy.cuda.Stream().ptr, Stream()])
-def test_auto_convert_output(stream):
+def test_handle_external_stream(stream):
 
     input1 = np.random.random_sample((50, 3))
     input1 = np.asarray(input1, order="F").astype("float")
