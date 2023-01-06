@@ -59,12 +59,6 @@ void approx_knn_build_index(const handle_t& handle,
   }
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->preprocess(index_array); }
 
-  if (!(metric == raft::distance::DistanceType::L2Unexpanded ||
-        metric == raft::distance::DistanceType::L2Expanded ||
-        metric == raft::distance::DistanceType::InnerProduct)) {
-    RAFT_FAIL("Unsupported metric for approx_knn_build_index");
-  }
-
   if (ivf_ft_pams) {
     auto new_params               = from_legacy_index_params(*ivf_ft_pams, metric, metricArg);
     index->ivf_flat<T, int64_t>() = std::make_unique<const ivf_flat::index<T, int64_t>>(
