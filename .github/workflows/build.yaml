@@ -20,12 +20,6 @@ on:
       build_type:
         type: string
         default: nightly
-      wheel_versioneer_override:
-        type: string
-        default: ''
-      wheel_build_tag:
-        type: string
-        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -69,7 +63,6 @@ jobs:
       date: ${{ inputs.date }}
       package-name: pylibraft
       package-dir: python/pylibraft
-      versioneer-override: ${{ inputs.wheel_versioneer_override }}
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
   wheel-publish-pylibraft:
     needs: wheel-build-pylibraft
@@ -82,7 +75,6 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       package-name: pylibraft
-      build-tag: ${{ inputs.wheel_build_tag }}
   wheel-build-raft-dask:
     needs: wheel-publish-pylibraft
     secrets: inherit
@@ -95,7 +87,6 @@ jobs:
       date: ${{ inputs.date }}
       package-name: raft_dask
       package-dir: python/raft-dask
-      versioneer-override: ${{ inputs.wheel_versioneer_override }}
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
   wheel-publish-raft-dask:
     needs: wheel-build-raft-dask
@@ -108,4 +99,3 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       package-name: raft_dask
-      build-tag: ${{ inputs.wheel_build_tag }}
