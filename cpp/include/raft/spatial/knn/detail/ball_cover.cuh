@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@
 #include "../ball_cover_types.hpp"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
-#include "block_select_faiss.cuh"
 #include "haversine_distance.cuh"
 #include "knn_brute_force_faiss.cuh"
 #include "selection_faiss.cuh"
@@ -31,14 +30,14 @@
 
 #include <raft/util/cuda_utils.cuh>
 
+#include <raft/spatial/knn/detail/faiss_select/key_value_block_select.cuh>
+
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/convert/csr.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
-
-#include <faiss/gpu/utils/Select.cuh>
 
 #include <thrust/fill.h>
 #include <thrust/for_each.h>

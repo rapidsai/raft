@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include "common.cuh"
 
 #include "../../ball_cover_types.hpp"
-#include "../block_select_faiss.cuh"
+#include "../faiss_select/key_value_block_select.cuh"
 #include "../haversine_distance.cuh"
 #include "../selection_faiss.cuh"
 
@@ -27,9 +27,6 @@
 #include <limits.h>
 
 #include <raft/util/cuda_utils.cuh>
-
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
 
 #include <thrust/fill.h>
 
@@ -172,10 +169,10 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
                                               dist_func dfunc,
                                               value_int* dist_counter)
 {
-  static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+  static constexpr int kNumWarps = tpb / WarpSize;
 
   __shared__ value_t shared_memK[kNumWarps * warp_q];
-  __shared__ faiss::gpu::KeyValuePair<value_t, value_idx> shared_memV[kNumWarps * warp_q];
+  __shared__ KeyValuePair<value_t, value_idx> shared_memV[kNumWarps * warp_q];
 
   const value_t* x_ptr = X + (n_cols * blockIdx.x);
   value_t local_x_ptr[col_q];
@@ -183,21 +180,21 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
     local_x_ptr[j] = x_ptr[j];
   }
 
-  faiss::gpu::KeyValueBlockSelect<value_t,
-                                  value_idx,
-                                  false,
-                                  faiss::gpu::Comparator<value_t>,
-                                  warp_q,
-                                  thread_q,
-                                  tpb>
-    heap(faiss::gpu::Limits<value_t>::getMax(),
-         faiss::gpu::Limits<value_t>::getMax(),
+  faiss_select::KeyValueBlockSelect<value_t,
+                                    value_idx,
+                                    false,
+                                    faiss_select::Comparator<value_t>,
+                                    warp_q,
+                                    thread_q,
+                                    tpb>
+    heap(std::numeric_limits<value_t>::max(),
+         std::numeric_limits<value_t>::max(),
          -1,
          shared_memK,
          shared_memV,
          k);
 
-  const value_int n_k = faiss::gpu::utils::roundDown(k, faiss::gpu::kWarpSize);
+  const value_int n_k = Pow2<WarpSize>::roundDown(k);
   value_int i         = threadIdx.x;
   for (; i < n_k; i += tpb) {
     value_idx ind = knn_inds[blockIdx.x * k + i];
@@ -224,7 +221,7 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
       // Round R_size to the nearest warp threads so they can
       // all be computing in parallel.
 
-      const value_int limit = faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
+      const value_int limit = Pow2<WarpSize>::roundDown(R_size);
 
       i = threadIdx.x;
       for (; i < limit; i += tpb) {
@@ -334,10 +331,10 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
                                            distance_func dfunc,
                                            float weight = 1.0)
 {
-  static constexpr value_int kNumWarps = tpb / faiss::gpu::kWarpSize;
+  static constexpr value_int kNumWarps = tpb / WarpSize;
 
   __shared__ value_t shared_memK[kNumWarps * warp_q];
-  __shared__ faiss::gpu::KeyValuePair<value_t, value_idx> shared_memV[kNumWarps * warp_q];
+  __shared__ KeyValuePair<value_t, value_idx> shared_memV[kNumWarps * warp_q];
 
   // TODO: Separate kernels for different widths:
   // 1. Very small (between 3 and 32) just use registers for columns of "blockIdx.x"
@@ -352,15 +349,15 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
   }
 
   // Each warp works on 1 R
-  faiss::gpu::KeyValueBlockSelect<value_t,
-                                  value_idx,
-                                  false,
-                                  faiss::gpu::Comparator<value_t>,
-                                  warp_q,
-                                  thread_q,
-                                  tpb>
-    heap(faiss::gpu::Limits<value_t>::getMax(),
-         faiss::gpu::Limits<value_t>::getMax(),
+  faiss_select::KeyValueBlockSelect<value_t,
+                                    value_idx,
+                                    false,
+                                    faiss_select::Comparator<value_t>,
+                                    warp_q,
+                                    thread_q,
+                                    tpb>
+    heap(std::numeric_limits<value_t>::max(),
+         std::numeric_limits<value_t>::max(),
          -1,
          shared_memK,
          shared_memV,
@@ -390,7 +387,7 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
 
     value_idx R_size = R_stop_offset - R_start_offset;
 
-    value_int limit = faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
+    value_int limit = Pow2<WarpSize>::roundDown(R_size);
     value_int i     = threadIdx.x;
     for (; i < limit; i += tpb) {
       // Index and distance of current candidate's nearest landmark
