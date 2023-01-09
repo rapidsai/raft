@@ -45,6 +45,7 @@ cdef class Handle:
     Examples
     --------
 
+    Basic usage:
     >>> from pylibraft.common import Stream, Handle
     >>> stream = Stream()
     >>> handle = Handle(stream)
@@ -56,6 +57,20 @@ cdef class Handle:
     >>> # the default stream inside the `handle_t` is being used
     >>> handle.sync()
     >>> del handle  # optional!
+
+    Using a cuPy stream with RAFT handle:
+    >>> import cupy
+    >>> from pylibraft.common import Stream, Handle
+    >>>
+    >>> cupy_stream = cupy.cuda.Stream()
+    >>> handle = Handle(stream=cupy_stream.ptr)
+
+    Using a RAFT stream with CuPy ExternalStream:
+    >>> import cupy
+    >>> from pylibraft.common import Stream
+    >>>
+    >>> raft_stream = Stream()
+    >>> cupy_stream = cupy.cuda.ExternalStream(raft_stream.get_ptr())
     """
 
     def __cinit__(self, stream=None, n_streams=0):
@@ -66,6 +81,9 @@ cdef class Handle:
 
         cdef uintptr_t s
         cdef cuda_stream_view c_stream
+
+        # We should either have a pylibraft.common.Stream or a uintptr_t
+        # of a cudaStream_t
         if stream is None:
             # this constructor will construct a "main" handle on
             # per-thread default stream, which is non-blocking
@@ -77,10 +95,13 @@ cdef class Handle:
                 # Stream is pylibraft Stream()
                 s = stream.get_ptr()
                 c_stream = cuda_stream_view(<cudaStream_t>s)
-            else:
+            elif isinstance(stream, int):
                 # Stream is a pointer, cast to cudaStream_t
                 s = stream
                 c_stream = cuda_stream_view(<cudaStream_t>s)
+            else:
+                raise ValueError("stream should be common.Stream() or "
+                                 "uintptr_t to cudaStream_t")
 
             self.c_obj.reset(new handle_t(c_stream,
                              self.stream_pool))

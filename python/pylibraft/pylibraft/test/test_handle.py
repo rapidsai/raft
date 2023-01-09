@@ -42,3 +42,6 @@ def test_handle_external_stream(stream):
         input1_device, input1_device, output_device, "euclidean", handle=handle
     )
     handle.sync()
+
+    with pytest.raises(ValueError):
+        handle = Handle(stream=1.0)
