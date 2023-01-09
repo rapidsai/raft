@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
-
-#include <rmm/mr/device/device_memory_resource.hpp>
+#include <raft/util/mem_resource_handle.hpp>
 
 #include <optional>
 
@@ -80,7 +79,7 @@ void select_k(const handle_t& handle,
               raft::device_matrix_view<T, size_t, row_major> out_val,
               raft::device_matrix_view<IdxT, size_t, row_major> out_idx,
               bool select_min,
-              rmm::mr::device_memory_resource* mr = nullptr)
+              std::optional<device_mem_resource> mr = std::nullopt)
 {
   RAFT_EXPECTS(out_val.extent(1) <= size_t(std::numeric_limits<int>::max()),
                "output k must fit the int type.");

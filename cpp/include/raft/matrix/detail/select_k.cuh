@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
 #include "select_warpsort.cuh"
 
 #include <raft/core/nvtx.hpp>
+#include <raft/util/mem_resource_handle.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft::matrix::detail {
 
@@ -73,18 +73,34 @@ void select_k(const T* in_val,
               IdxT* out_idx,
               bool select_min,
               rmm::cuda_stream_view stream,
-              rmm::mr::device_memory_resource* mr = nullptr)
+              std::optional<device_mem_resource> mr = std::nullopt)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "matrix::select_k(batch_size = %zu, len = %zu, k = %d)", batch_size, len, k);
   // TODO (achirkin): investigate the trade-off for a wider variety of inputs.
   const bool radix_faster = batch_size >= 64 && len >= 102400 && k >= 128;
   if (k <= select::warpsort::kMaxCapacity && !radix_faster) {
-    select::warpsort::select_k<T, IdxT>(
-      in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream, mr);
+    select::warpsort::select_k<T, IdxT>(in_val,
+                                        in_idx,
+                                        batch_size,
+                                        len,
+                                        k,
+                                        out_val,
+                                        out_idx,
+                                        select_min,
+                                        stream,
+                                        mr.value_or(nullptr).get());
   } else {
-    select::radix::select_k<T, IdxT, (sizeof(T) >= 4 ? 11 : 8), 512>(
-      in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream, mr);
+    select::radix::select_k<T, IdxT, (sizeof(T) >= 4 ? 11 : 8), 512>(in_val,
+                                                                     in_idx,
+                                                                     batch_size,
+                                                                     len,
+                                                                     k,
+                                                                     out_val,
+                                                                     out_idx,
+                                                                     select_min,
+                                                                     stream,
+                                                                     mr.value_or(nullptr).get());
   }
 }
 
