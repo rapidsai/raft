@@ -54,7 +54,7 @@ jobs:
   wheel-build-pylibraft:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@main
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@feat/wheels-local-dependency
     with:
       build_type: pull-request
       package-name: pylibraft
@@ -74,13 +74,14 @@ jobs:
   wheel-build-raft-dask:
     needs: wheel-tests-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@main
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@feat/wheels-local-dependency
     with:
       build_type: pull-request
       package-name: raft_dask
       package-dir: python/raft-dask
+      before-wheel: "RAPIDS_PY_WHEEL_NAME=pylibraft rapids-download-wheels-from-s3 ./local-pylibraft-dep"
+      cibw-before-build: "pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl"
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
-      cibw-before-build: "RAPIDS_PY_WHEEL_NAME=pylibraft rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && rm -rf ./local-pylibraft-dep"
   wheel-tests-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
@@ -88,5 +89,7 @@ jobs:
     with:
       build_type: pull-request
       package-name: raft_dask
+      test-before-amd64: "RAPIDS_PY_WHEEL_NAME=pylibraft rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl"
+      test-before-arm64: "RAPIDS_PY_WHEEL_NAME=pylibraft rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl"
       test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"
       test-smoketest: "" #"python ci/wheel_smoke_test_raft_dask.py"
