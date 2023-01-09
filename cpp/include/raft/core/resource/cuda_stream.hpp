@@ -56,7 +56,7 @@ class cuda_stream_resource_factory : public resource_factory {
 };
 
 /**
- * Load a cudaStream_t from a res (and populate it on the res
+ * Load a cudaStream_t from a resources instance (and populate it on the res
  * if needed).
  * @param res raft res object for managing resources
  * @return
@@ -70,7 +70,7 @@ inline rmm::cuda_stream_view get_cuda_stream(resources const& res)
 };
 
 /**
- * Load a cudaStream_t from a res (and populate it on the res
+ * Load a cudaStream_t from a resources instance (and populate it on the res
  * if needed).
  * @param res raft res object for managing resources
  * @return
@@ -89,7 +89,7 @@ inline void sync_stream(const resources& res, rmm::cuda_stream_view stream)
 }
 
 /**
- * @brief synchronize main stream on the res
+ * @brief synchronize main stream on the resources instance
  */
 inline void sync_stream(const resources& res) { sync_stream(res, get_cuda_stream(res)); }
 }  // namespace raft::resource

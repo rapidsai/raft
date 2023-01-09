@@ -18,6 +18,8 @@
 #include <cuda_runtime.h>
 #include <raft/core/resource/cuda_event.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/detail/stream_sync_event.hpp>
+
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 #include <rmm/cuda_stream_pool.hpp>
@@ -160,12 +162,8 @@ inline void sync_stream_pool(const resources& res, const std::vector<std::size_t
  */
 inline void wait_stream_pool_on_stream(const resources& res)
 {
-  printf("waiting on stream pooll\n");
-  printf("stream pool size: %ld\n", get_stream_pool_size(res));
-  cudaEvent_t event = get_cuda_stream_sync_event(res);
-  printf("After get_cuda_stream_sync_event\n");
+  cudaEvent_t event = detail::get_cuda_stream_sync_event(res);
   RAFT_CUDA_TRY(cudaEventRecord(event, get_cuda_stream(res)));
-  printf("After cuda event record\n");
   for (std::size_t i = 0; i < get_stream_pool_size(res); i++) {
     RAFT_CUDA_TRY(cudaStreamWaitEvent(get_cuda_stream_pool(res).get_stream(i), event, 0));
   }
