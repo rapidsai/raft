@@ -8,9 +8,9 @@ RAFT relies heavily on the [RMM](https://github.com/rapidsai/rmm) library which 
 
 ## Multi-dimensional Spans and Arrays
 
-The APIs in RAFT currently accept raw pointers to device memory and we are in the process of simplifying the APIs with the [mdspan](https://arxiv.org/abs/2010.06474) multi-dimensional array view for representing data in higher dimensions similar to the `ndarray` in the Numpy Python library. RAFT also contains the corresponding owning `mdarray` structure, which simplifies the allocation and management of multi-dimensional data in both host and device (GPU) memory.
+Most of the APIs in RAFT accept  [mdspan](https://arxiv.org/abs/2010.06474) multi-dimensional array view for representing data in higher dimensions similar to the `ndarray` in the Numpy Python library. RAFT also contains the corresponding owning `mdarray` structure, which simplifies the allocation and management of multi-dimensional data in both host and device (GPU) memory.
 
-The `mdarray` forms a convenience layer over RMM and can be constructed in RAFT using a number of different helper functions:
+The `mdarray` is an owning object that forms a convenience layer over RMM and can be constructed in RAFT using a number of different helper functions:
 
 ```c++
 #include <raft/core/device_mdarray.hpp>
@@ -118,11 +118,11 @@ auto metric = raft::distance::DistanceType::L2SqrtExpanded;
 raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
 ```
 
-## Python Example
+### Python Example
 
-The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The package is currently limited to pairwise distances and RMAT graph generation, but we will continue adding more in future releases.
+The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The number of RAFT algorithms exposed in this package is continuing to grow from release to release.
 
-The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. `pylibraft` is a low-level API that prioritizes efficiency and simplicity over being pythonic, which is shown here by pre-allocating the output memory before invoking the `pairwise_distance` function. Note that CuPy is not a required dependency for `pylibraft`.
+The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. Note that CuPy is not a required dependency for `pylibraft`.
 
 ```python
 import cupy as cp
@@ -136,4 +136,48 @@ in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 
 output = pairwise_distance(in1, in2, metric="euclidean")
+```
+
+The `output` array in the above example is of type `raft.common.device_ndarray`, which supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) making it interoperable with other libraries like CuPy, Numba, and PyTorch that also support it. CuPy supports DLPack, which also enables zero-copy conversion from `raft.common.device_ndarray` to JAX and Tensorflow.
+
+Below is an example of converting the output `pylibraft.common.device_ndarray` to a CuPy array:
+```python
+cupy_array = cp.asarray(output)
+```
+
+And converting to a PyTorch tensor:
+```python
+import torch
+
+torch_tensor = torch.as_tensor(output, device='cuda')
+```
+
+When the corresponding library has been installed and available in your environment, this conversion can also be done automatically by all RAFT compute APIs by setting a global configuration option:
+```python
+import pylibraft.config
+pylibraft.config.set_output_as("cupy")  # All compute APIs will return cupy arrays
+pylibraft.config.set_output_as("torch") # All compute APIs will return torch tensors
+```
+
+You can also specify a `callable` that accepts a `pylibraft.common.device_ndarray` and performs a custom conversion. The following example converts all output to `numpy` arrays:
+```python
+pylibraft.config.set_output_as(lambda device_ndarray: return device_ndarray.copy_to_host())
+```
+
+
+`pylibraft` also supports writing to a pre-allocated output array so any `__cuda_array_interface__` supported array can be written to in-place:
+
+```python
+import cupy as cp
+
+from pylibraft.distance import pairwise_distance
+
+n_samples = 5000
+n_features = 50
+
+in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+output = cp.empty((n_samples, n_samples), dtype=cp.float32)
+
+pairwise_distance(in1, in2, out=output, metric="euclidean")
 ```

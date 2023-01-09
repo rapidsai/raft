@@ -26,7 +26,12 @@ from libcpp cimport bool
 
 from .distance_type cimport DistanceType
 
-from pylibraft.common import Handle, cai_wrapper, device_ndarray
+from pylibraft.common import (
+    Handle,
+    auto_convert_output,
+    cai_wrapper,
+    device_ndarray,
+)
 from pylibraft.common.handle import auto_sync_handle
 
 from pylibraft.common.handle cimport handle_t
@@ -57,6 +62,7 @@ cdef extern from "raft_runtime/distance/fused_l2_nn.hpp" \
 
 
 @auto_sync_handle
+@auto_convert_output
 def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
     """
     Compute the 1-nearest neighbors between X and Y using the L2 distance

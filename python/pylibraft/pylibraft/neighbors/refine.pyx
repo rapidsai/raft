@@ -33,7 +33,12 @@ from libcpp cimport bool, nullptr
 
 from pylibraft.distance.distance_type cimport DistanceType
 
-from pylibraft.common import Handle, cai_wrapper, device_ndarray
+from pylibraft.common import (
+    Handle,
+    auto_convert_output,
+    cai_wrapper,
+    device_ndarray,
+)
 
 from pylibraft.common.handle cimport handle_t
 
@@ -208,6 +213,7 @@ cdef host_matrix_view[int8_t, uint64_t, row_major] \
 
 
 @auto_sync_handle
+@auto_convert_output
 def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
            metric="l2_expanded", handle=None):
     """

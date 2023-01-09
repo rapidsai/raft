@@ -23,6 +23,11 @@
 namespace raft {
 namespace comms {
 
+/**
+ * @defgroup comms_types Common mnmg comms types
+ * @{
+ */
+
 typedef unsigned int request_t;
 enum class datatype_t { CHAR, UINT8, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64 };
 enum class op_t { SUM, PROD, MIN, MAX };
@@ -104,6 +109,15 @@ get_type<double>()
 {
   return datatype_t::FLOAT64;
 }
+
+/**
+ * @}
+ */
+
+/**
+ * @defgroup comms_iface MNMG Communicator Interface
+ * @{
+ */
 
 class comms_iface {
  public:
@@ -214,6 +228,15 @@ class comms_iface {
 
   virtual void group_end() const = 0;
 };
+
+/**
+ * @}
+ */
+
+/**
+ * @defgroup comms_t Base Communicator Proxy
+ * @{
+ */
 
 class comms_t {
  public:
@@ -646,6 +669,10 @@ class comms_t {
  private:
   std::unique_ptr<comms_iface> impl_;
 };
+
+/**
+ * @}
+ */
 
 }  // namespace comms
 }  // namespace raft
