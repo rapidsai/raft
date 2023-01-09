@@ -1057,8 +1057,8 @@ auto extend(const handle_t& handle,
                                     cudaMemcpyDefault,
                                     stream));
     for (const auto& batch : vec_batches) {
-      auto batch_data_view = raft::make_device_matrix_view<const float, IdxT>(
-        batch.data(), batch.size(), orig_index.dim());
+      auto batch_data_view =
+        raft::make_device_matrix_view<const T, IdxT>(batch.data(), batch.size(), orig_index.dim());
       auto batch_labels_view = raft::make_device_vector_view<uint32_t, IdxT>(
         new_data_labels.data() + batch.offset(), batch.size());
       auto centers_view = raft::make_device_matrix_view<const float, IdxT>(
