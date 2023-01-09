@@ -164,10 +164,12 @@ inline auto extend(const handle_t& handle,
     auto list_sizes_view =
       raft::make_device_vector_view<std::remove_pointer_t<decltype(list_sizes_ptr)>, IdxT>(
         list_sizes_ptr, n_lists);
+    auto const_labels_view =
+      raft::make_device_vector_view<const LabelT, IdxT>(new_labels.data(), n_rows);
     raft::cluster::kmeans_balanced::calc_centers_and_sizes(handle,
                                                            new_vectors_view,
                                                            centroids_view,
-                                                           labels_view,
+                                                           const_labels_view,
                                                            list_sizes_view,
                                                            false,
                                                            utils::mapping<float>{});
@@ -294,11 +296,13 @@ inline auto build(
                                     stream));
     auto trainset_const_view =
       raft::make_device_matrix_view<const T, IdxT>(trainset.data(), n_rows_train, index.dim());
+    auto centers_view = raft::make_device_matrix_view<float, IdxT>(
+      index.centers().data_handle(), index.n_lists(), index.dim());
     raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = params.kmeans_n_iters;
     kmeans_params.metric  = index.metric();
     raft::cluster::kmeans_balanced::fit(
-      handle, kmeans_params, trainset_const_view, index.centers().view(), utils::mapping<float>{});
+      handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
   }
 
   // add the data if necessary
