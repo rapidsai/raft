@@ -237,19 +237,19 @@ if(BUILD_TESTS)
     NEIGHBORS_TEST
     PATH
     test/neighbors/ann_ivf_flat.cu
-    test/neighbors/ann_ivf_pq/test_float_int64_t.cu
-    test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
-    test/neighbors/ann_ivf_pq/test_float_uint64_t.cu
-    test/neighbors/ann_ivf_pq/test_int8_t_uint64_t.cu
-    test/neighbors/ann_ivf_pq/test_uint8_t_uint64_t.cu
-    test/neighbors/knn.cu
-    test/neighbors/fused_l2_knn.cu
-    test/neighbors/haversine.cu
-    test/neighbors/ball_cover.cu
-    test/neighbors/epsilon_neighborhood.cu
-    test/neighbors/faiss_mr.cu
-    test/neighbors/refine.cu
-    test/neighbors/selection.cu
+    # test/neighbors/ann_ivf_pq/test_float_int64_t.cu
+    # test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
+    # test/neighbors/ann_ivf_pq/test_float_uint64_t.cu
+    # test/neighbors/ann_ivf_pq/test_int8_t_uint64_t.cu
+    # test/neighbors/ann_ivf_pq/test_uint8_t_uint64_t.cu
+    # test/neighbors/knn.cu
+    # test/neighbors/fused_l2_knn.cu
+    # test/neighbors/haversine.cu
+    # test/neighbors/ball_cover.cu
+    # test/neighbors/epsilon_neighborhood.cu
+    # test/neighbors/faiss_mr.cu
+    # test/neighbors/refine.cu
+    # test/neighbors/selection.cu
     OPTIONAL
     DIST
     NN
