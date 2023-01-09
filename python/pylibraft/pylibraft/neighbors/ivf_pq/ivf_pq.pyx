@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ from pylibraft.distance.distance_type cimport DistanceType
 
 from pylibraft.common import (
     Handle,
-    auto_convert_output,
     ai_wrapper,
+    auto_convert_output,
     cai_wrapper,
     device_ndarray,
 )
@@ -480,7 +480,6 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    
     vecs_cai = wrap_array(new_vectors)
     vecs_dt = vecs_cai.dtype
     cdef uint64_t n_rows = vecs_cai.shape[0]

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import numpy as np
-
-from pylibraft.common import input_validation
-from pylibraft.common.ai_wrapper import ai_wrapper
 from types import SimpleNamespace
+
+from pylibraft.common.ai_wrapper import ai_wrapper
 
 
 class cai_wrapper(ai_wrapper):
@@ -35,7 +33,9 @@ class cai_wrapper(ai_wrapper):
         ----------
         cai_arr : CUDA array interface array
         """
-        helper = SimpleNamespace(__array_interface__=cai_arr.__cuda_array_interface__)
+        helper = SimpleNamespace(
+            __array_interface__=cai_arr.__cuda_array_interface__
+        )
         super().__init__(helper)
 
 
