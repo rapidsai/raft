@@ -21,6 +21,8 @@
 #include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+namespace raft::resource::detail {
+
 /**
  * Factory that knows how to construct a specific raft::resource to populate
  * the res_t.
@@ -45,4 +47,4 @@ inline cudaEvent_t& get_cuda_stream_sync_event(resources const& res)
   return *res.get_resource<cudaEvent_t>(resource_type::CUDA_STREAM_SYNC_EVENT);
 };
 
-}  // namespace raft::resource
+}  // namespace raft::resource::detail
