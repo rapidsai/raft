@@ -27,7 +27,7 @@ namespace raft::bench::cluster {
 struct KMeansBalancedBenchParams {
   DatasetParams data;
   uint32_t n_lists;
-  raft::cluster::KMeansBalancedParams kb_params;
+  raft::cluster::kmeans_balanced_params kb_params;
 };
 
 template <typename T, typename IndexT = int>

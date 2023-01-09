@@ -75,7 +75,7 @@ constexpr static inline float kAdjustCentersWeight = 7.0f;
  */
 template <typename MathT, typename IdxT, typename LabelT>
 inline void predict_core(const handle_t& handle,
-                         const KMeansBalancedParams& params,
+                         const kmeans_balanced_params& params,
                          const MathT* centers,
                          IdxT n_clusters,
                          IdxT dim,
@@ -349,7 +349,7 @@ void compute_norm(MathT* dataset_norm,
  */
 template <typename T, typename MathT, typename IdxT, typename LabelT, typename MappingOpT>
 void predict(const handle_t& handle,
-             const KMeansBalancedParams& params,
+             const kmeans_balanced_params& params,
              const MathT* centers,
              IdxT n_clusters,
              IdxT dim,
@@ -596,7 +596,7 @@ template <typename T,
           typename CounterT,
           typename MappingOpT>
 void balancing_em_iters(const handle_t& handle,
-                        const KMeansBalancedParams& params,
+                        const kmeans_balanced_params& params,
                         uint32_t n_iters,
                         IdxT dim,
                         const T* dataset,
@@ -683,7 +683,7 @@ template <typename T,
           typename CounterT,
           typename MappingOpT>
 void build_clusters(const handle_t& handle,
-                    const KMeansBalancedParams& params,
+                    const kmeans_balanced_params& params,
                     IdxT dim,
                     const T* dataset,
                     IdxT n_rows,
@@ -816,7 +816,7 @@ template <typename T,
           typename CounterT,
           typename MappingOpT>
 auto build_fine_clusters(const handle_t& handle,
-                         const KMeansBalancedParams& params,
+                         const kmeans_balanced_params& params,
                          IdxT dim,
                          const T* dataset_mptr,
                          const MathT* dataset_norm_mptr,
@@ -935,7 +935,7 @@ auto build_fine_clusters(const handle_t& handle,
  */
 template <typename T, typename MathT, typename IdxT, typename MappingOpT>
 void build_hierarchical(const handle_t& handle,
-                        const KMeansBalancedParams& params,
+                        const kmeans_balanced_params& params,
                         IdxT dim,
                         const T* dataset,
                         IdxT n_rows,

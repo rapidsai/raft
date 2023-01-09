@@ -426,7 +426,7 @@ void compute_pq_codes(
         raft::make_device_matrix_view<const float, IdxT>(pq_centers_tmp.data(), pq_width, pq_len);
       auto labels_view = raft::make_device_vector_view<uint32_t, IdxT>(
         sub_vector_labels.data() + size_t(j) * size_t(cluster_size), cluster_size);
-      raft::cluster::KMeansBalancedParams kmeans_params;
+      raft::cluster::kmeans_balanced_params kmeans_params;
       kmeans_params.metric = raft::distance::DistanceType::L2Expanded;
       raft::cluster::kmeans_balanced::predict(handle,
                                               kmeans_params,
@@ -594,7 +594,7 @@ void train_per_subset(const handle_t& handle,
     auto sub_labels_view = raft::make_device_vector_view<uint32_t, IdxT>(sub_labels.data(), n_rows);
     auto cluster_sizes_view =
       raft::make_device_vector_view<uint32_t, IdxT>(pq_cluster_sizes.data(), index.pq_book_size());
-    raft::cluster::KMeansBalancedParams kmeans_params;
+    raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = kmeans_n_iters;
     kmeans_params.metric  = raft::distance::DistanceType::L2Expanded;
     raft::cluster::kmeans_balanced::build_clusters(handle,
@@ -680,7 +680,7 @@ void train_per_cluster(const handle_t& handle,
       raft::make_device_vector_view<uint32_t, IdxT>(pq_labels.data(), pq_n_rows);
     auto pq_cluster_sizes_view =
       raft::make_device_vector_view<uint32_t, IdxT>(pq_cluster_sizes.data(), index.pq_book_size());
-    raft::cluster::KMeansBalancedParams kmeans_params;
+    raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = kmeans_n_iters;
     kmeans_params.metric  = raft::distance::DistanceType::L2Expanded;
     raft::cluster::kmeans_balanced::build_clusters(handle,
@@ -769,7 +769,7 @@ inline auto extend_device(const handle_t& handle,
   auto centers_view = raft::make_device_matrix_view<const float, IdxT>(
     cluster_centers.data(), n_clusters, orig_index.dim());
   auto labels_view = raft::make_device_vector_view<uint32_t, IdxT>(new_data_labels.data(), n_rows);
-  raft::cluster::KMeansBalancedParams kmeans_params;
+  raft::cluster::kmeans_balanced_params kmeans_params;
   kmeans_params.metric = orig_index.metric();
   raft::cluster::kmeans_balanced::predict(
     handle, kmeans_params, vectors_view, centers_view, labels_view, utils::mapping<float>());
@@ -1166,7 +1166,7 @@ inline auto build_device(
     raft::make_device_matrix_view<const float, IdxT>(trainset.data(), n_rows_train, index.dim());
   auto centers_view =
     raft::make_device_matrix_view<float, IdxT>(cluster_centers, index.n_lists(), index.dim());
-  raft::cluster::KMeansBalancedParams kmeans_params;
+  raft::cluster::kmeans_balanced_params kmeans_params;
   kmeans_params.n_iters = params.kmeans_n_iters;
   kmeans_params.metric  = index.metric();
   raft::cluster::kmeans_balanced::fit(

@@ -46,7 +46,7 @@ struct KmeansBalancedInputs {
   IdxT n_rows;
   IdxT n_cols;
   IdxT n_clusters;
-  raft::cluster::KMeansBalancedParams kb_params;
+  raft::cluster::kmeans_balanced_params kb_params;
   MathT tol;
 };
 

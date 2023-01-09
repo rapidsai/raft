@@ -134,7 +134,7 @@ inline auto extend(const handle_t& handle,
                "You must pass data indices when the index is non-empty.");
 
   rmm::device_uvector<LabelT> new_labels(n_rows, stream);
-  raft::cluster::KMeansBalancedParams kmeans_params;
+  raft::cluster::kmeans_balanced_params kmeans_params;
   kmeans_params.metric     = orig_index.metric();
   auto new_vectors_view    = raft::make_device_matrix_view<const T, IdxT>(new_vectors, n_rows, dim);
   auto orig_centroids_view = raft::make_device_matrix_view<const float, IdxT>(
@@ -294,7 +294,7 @@ inline auto build(
                                     stream));
     auto trainset_const_view =
       raft::make_device_matrix_view<const T, IdxT>(trainset.data(), n_rows_train, index.dim());
-    raft::cluster::KMeansBalancedParams kmeans_params;
+    raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = params.kmeans_n_iters;
     kmeans_params.metric  = index.metric();
     raft::cluster::kmeans_balanced::fit(

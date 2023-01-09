@@ -25,7 +25,7 @@ namespace raft::cluster::kmeans_balanced {
 /**
  * Simple object to specify hyper-parameters to the balanced k-means algorithm.
  */
-struct KMeansBalancedParams {
+struct kmeans_balanced_params {
   /**
    * Number of training iterations
    */
@@ -46,6 +46,6 @@ struct KMeansBalancedParams {
 
 namespace raft::cluster {
 
-using kmeans_balanced::KMeansBalancedParams;
+using kmeans_balanced::kmeans_balanced_params;
 
 }  // namespace raft::cluster
