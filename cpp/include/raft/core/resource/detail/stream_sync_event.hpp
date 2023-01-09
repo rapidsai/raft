@@ -32,9 +32,9 @@ class cuda_stream_sync_event_resource_factory : public resource_factory {
 };
 
 /**
- * Load a cudaStream_t from a resources instance (and populate it on the res
- * if needed).
- * @param res raft res object for managing resources
+ * Load a cudaEvent from a resources instance (and populate it on the resources instance)
+ * if needed) for syncing the main cuda stream.
+ * @param res raft resources instance for managing resources
  * @return
  */
 inline cudaEvent_t& get_cuda_stream_sync_event(resources const& res)

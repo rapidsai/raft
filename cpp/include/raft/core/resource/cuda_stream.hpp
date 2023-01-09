@@ -38,9 +38,8 @@ class cuda_stream_resource : public resource {
 };
 
 /**
- * Factory that knows how to construct a
- * specific raft::resource to populate
- * the res_t.
+ * Factory that knows how to construct a specific raft::resource to populate
+ * the resources instance.
  */
 class cuda_stream_resource_factory : public resource_factory {
  public:
@@ -56,7 +55,7 @@ class cuda_stream_resource_factory : public resource_factory {
 };
 
 /**
- * Load a cudaStream_t from a resources instance (and populate it on the res
+ * Load a rmm::cuda_stream_view from a resources instance (and populate it on the res
  * if needed).
  * @param res raft res object for managing resources
  * @return
@@ -70,7 +69,7 @@ inline rmm::cuda_stream_view get_cuda_stream(resources const& res)
 };
 
 /**
- * Load a cudaStream_t from a resources instance (and populate it on the res
+ * Load a rmm::cuda_stream_view from a resources instance (and populate it on the res
  * if needed).
  * @param res raft res object for managing resources
  * @return
