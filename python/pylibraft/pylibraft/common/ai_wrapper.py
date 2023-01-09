@@ -27,32 +27,32 @@ class ai_wrapper:
 
     def __init__(self, ai_arr):
         """
-        Constructor accepts a CUDA array interface compliant array
+        Constructor accepts an array interface compliant array
 
         Parameters
         ----------
-        ai_arr : CUDA array interface array
+        ai_arr : array interface array
         """
         self.ai_ = ai_arr.__array_interface__
 
     @property
     def dtype(self):
         """
-        Returns the dtype of the underlying CUDA array interface
+        Returns the dtype of the underlying array interface
         """
         return np.dtype(self.ai_["typestr"])
 
     @property
     def shape(self):
         """
-        Returns the shape of the underlying CUDA array interface
+        Returns the shape of the underlying array interface
         """
         return self.ai_["shape"]
 
     @property
     def c_contiguous(self):
         """
-        Returns whether the underlying CUDA array interface has
+        Returns whether the underlying array interface has
         c-ordered (row-major) layout
         """
         return input_validation.is_c_contiguous(self.ai_)
@@ -60,7 +60,7 @@ class ai_wrapper:
     @property
     def f_contiguous(self):
         """
-        Returns whether the underlying CUDA array interface has
+        Returns whether the underlying array interface has
         f-ordered (column-major) layout
         """
         return not input_validation.is_c_contiguous(self.ai_)
@@ -68,7 +68,7 @@ class ai_wrapper:
     @property
     def data(self):
         """
-        Returns the data pointer of the underlying CUDA array interface
+        Returns the data pointer of the underlying array interface
         """
         return self.ai_["data"][0]
 

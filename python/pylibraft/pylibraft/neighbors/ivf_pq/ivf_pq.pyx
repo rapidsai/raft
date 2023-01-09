@@ -41,6 +41,7 @@ from pylibraft.common import (
     cai_wrapper,
     device_ndarray,
 )
+from pylibraft.common.cai_wrapper import wrap_array
 from pylibraft.common.interruptible import cuda_interruptible
 
 from pylibraft.common.handle cimport handle_t
@@ -363,11 +364,7 @@ def build(IndexParams index_params, dataset, handle=None):
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
     """
-    try:
-        dataset_cai = cai_wrapper(dataset)
-    except AttributeError:
-        dataset_cai = ai_wrapper(dataset)
-
+    dataset_cai = wrap_array(dataset)
     dataset_dt = dataset_cai.dtype
     _check_input_array(dataset_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')])
@@ -483,11 +480,8 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    try:
-        vecs_cai = cai_wrapper(new_vectors)
-    except AttributeError:
-        vecs_cai = ai_wrapper(new_vectors)
-
+    
+    vecs_cai = wrap_array(new_vectors)
     vecs_dt = vecs_cai.dtype
     cdef uint64_t n_rows = vecs_cai.shape[0]
     cdef uint32_t dim = vecs_cai.shape[1]
@@ -495,11 +489,8 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     _check_input_array(vecs_cai, [np.dtype('float32'), np.dtype('byte'),
                                   np.dtype('ubyte')],
                        exp_cols=index.dim)
-    try:
-        idx_cai = cai_wrapper(new_indices)
-    except AttributeError:
-        idx_cai = ai_wrapper(new_indices)
 
+    idx_cai = wrap_array(new_indices)
     _check_input_array(idx_cai, [np.dtype('uint64')], exp_rows=n_rows)
     if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
