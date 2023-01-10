@@ -107,7 +107,7 @@ void select_k(const handle_t& handle,
                                    out_idx.data_handle(),
                                    select_min,
                                    handle.get_stream(),
-                                   mr);
+                                   mr.value_or(nullptr).get());
 }
 
 /** @} */  // end of group select_k
