@@ -75,8 +75,7 @@ struct KMeansParams {
   /**
    * Seed to the random number generator.
    */
-  raft::random::RngState rng_state =
-    raft::random::RngState(0, raft::random::GeneratorType::GenPhilox);
+  raft::random::RngState rng_state{0};
 
   /**
    * Metric to use for distance computation.

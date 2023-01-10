@@ -40,6 +40,11 @@ double rand_index(T* firstClusterArray, T* secondClusterArray, uint64_t size, cu
 }
 
 /**
+ * @defgroup stats_rand_index Rand Index
+ * @{
+ */
+
+/**
  * @brief Function to calculate RandIndex
  * <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a>
  * @tparam value_t the data type
@@ -63,6 +68,9 @@ double rand_index(const raft::handle_t& handle,
                                     second_cluster_array.extent(0),
                                     handle.get_stream());
 }
+
+/** @} */  // end group stats_rand_index
+
 };  // end namespace stats
 };  // end namespace raft
 

@@ -20,6 +20,7 @@
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/operators.hpp>
 
 namespace raft::cluster::kmeans {
 
@@ -312,7 +313,8 @@ void cluster_cost(const raft::handle_t& handle,
                   raft::device_scalar_view<DataT> clusterCost,
                   ReductionOpT reduction_op)
 {
-  detail::computeClusterCost(handle, minClusterDistance, workspace, clusterCost, reduction_op);
+  detail::computeClusterCost(
+    handle, minClusterDistance, workspace, clusterCost, raft::identity_op{}, reduction_op);
 }
 
 /**

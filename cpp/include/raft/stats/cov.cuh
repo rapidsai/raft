@@ -60,6 +60,11 @@ void cov(const raft::handle_t& handle,
 }
 
 /**
+ * @defgroup stats_cov Covariance Matrix Construction
+ * @{
+ */
+
+/**
  * @brief Compute covariance of the input matrix
  *
  * Mean operation is assumed to be performed on a given column.
@@ -107,6 +112,9 @@ void cov(const raft::handle_t& handle,
               stable,
               handle.get_stream());
 }
+
+/** @} */  // end group stats_cov
+
 };  // end namespace stats
 };  // end namespace raft
 

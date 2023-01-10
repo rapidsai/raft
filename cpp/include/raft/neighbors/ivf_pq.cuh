@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "ivf_pq_types.hpp"
+#include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/spatial/knn/detail/ivf_pq_build.cuh>
 #include <raft/spatial/knn/detail/ivf_pq_search.cuh>
 
@@ -26,6 +26,11 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 
 namespace raft::neighbors::ivf_pq {
+
+/**
+ * @defgroup ivf_pq IVF PQ Algorithm
+ * @{
+ */
 
 /**
  * @brief Build the index from the dataset for efficient search.
@@ -190,5 +195,7 @@ inline void search(const handle_t& handle,
   return raft::spatial::knn::ivf_pq::detail::search(
     handle, params, index, queries, n_queries, k, neighbors, distances, mr);
 }
+
+/** @} */  // end group ivf_pq
 
 }  // namespace raft::neighbors::ivf_pq

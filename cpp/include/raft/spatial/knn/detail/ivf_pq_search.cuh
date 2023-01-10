@@ -27,6 +27,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -418,14 +419,12 @@ void postprocess_distances(float* out,        // [n_queries, topk]
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        [scaling_factor] __device__(ScoreT x) -> float {
-          return scaling_factor * scaling_factor * float(x);
-        },
-        stream);
+      linalg::unaryOp(out,
+                      in,
+                      len,
+                      raft::compose_op(raft::mul_const_op<float>{scaling_factor * scaling_factor},
+                                       raft::cast_op<float>{}),
+                      stream);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
@@ -433,18 +432,17 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [scaling_factor] __device__(ScoreT x) -> float { return scaling_factor * sqrtf(float(x)); },
+        raft::compose_op{
+          raft::mul_const_op<float>{scaling_factor}, raft::sqrt_op{}, raft::cast_op<float>{}},
         stream);
     } break;
     case distance::DistanceType::InnerProduct: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        [scaling_factor] __device__(ScoreT x) -> float {
-          return -scaling_factor * scaling_factor * float(x);
-        },
-        stream);
+      linalg::unaryOp(out,
+                      in,
+                      len,
+                      raft::compose_op(raft::mul_const_op<float>{-scaling_factor * scaling_factor},
+                                       raft::cast_op<float>{}),
+                      stream);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }
@@ -1173,7 +1171,13 @@ struct ivfpq_compute_similarity {
               // If we don't have enough repeating probes (locality_hint < tmp.blocks_per_sm),
               // the locality is not going to improve with increasing the number of blocks per SM.
               // Hence, the only metric here is the occupancy.
-              select_it = tmp.occupancy > cur.occupancy;
+              bool improves_occupancy = tmp.occupancy > cur.occupancy;
+              // Otherwise, the performance still improves with a smaller block size,
+              // given there is enough work to do
+              bool improves_parallelism =
+                tmp.occupancy == cur.occupancy &&
+                7u * tmp.blocks_per_sm * dev_props.multiProcessorCount <= n_blocks;
+              select_it = improves_occupancy || improves_parallelism;
             } else {
               // If we don't use shared memory for the lookup table, increasing the number of blocks
               // is very taxing on the global memory usage.

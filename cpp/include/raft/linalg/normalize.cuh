@@ -18,10 +18,16 @@
 
 #include "detail/normalize.cuh"
 
+#include <raft/core/operators.hpp>
 #include <raft/linalg/norm_types.hpp>
 
 namespace raft {
 namespace linalg {
+
+/**
+ * @defgroup norm Row- or Col-norm computation
+ * @{
+ */
 
 /**
  * @brief Divide rows by their norm defined by main_op, reduce_op and fin_op
@@ -94,38 +100,22 @@ void row_normalize(const raft::handle_t& handle,
 {
   switch (norm_type) {
     case L1Norm:
-      row_normalize(handle,
-                    in,
-                    out,
-                    ElementType(0),
-                    raft::L1Op<ElementType>(),
-                    raft::Sum<ElementType>(),
-                    raft::Nop<ElementType>(),
-                    eps);
+      row_normalize(
+        handle, in, out, ElementType(0), raft::abs_op(), raft::add_op(), raft::identity_op(), eps);
       break;
     case L2Norm:
-      row_normalize(handle,
-                    in,
-                    out,
-                    ElementType(0),
-                    raft::L2Op<ElementType>(),
-                    raft::Sum<ElementType>(),
-                    raft::SqrtOp<ElementType>(),
-                    eps);
+      row_normalize(
+        handle, in, out, ElementType(0), raft::sq_op(), raft::add_op(), raft::sqrt_op(), eps);
       break;
     case LinfNorm:
-      row_normalize(handle,
-                    in,
-                    out,
-                    ElementType(0),
-                    raft::L1Op<ElementType>(),
-                    raft::Max<ElementType>(),
-                    raft::Nop<ElementType>(),
-                    eps);
+      row_normalize(
+        handle, in, out, ElementType(0), raft::abs_op(), raft::max_op(), raft::identity_op(), eps);
       break;
     default: THROW("Unsupported norm type: %d", norm_type);
   }
 }
+
+/** @} */
 
 }  // namespace linalg
 }  // namespace raft

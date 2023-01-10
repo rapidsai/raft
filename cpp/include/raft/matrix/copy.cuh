@@ -23,6 +23,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_copy Matrix copy operations
+ * @{
+ */
+
+/**
  * @brief Copy selected rows of the input matrix into contiguous space.
  *
  * On exit out[i + k*n_rows] = in[indices[i] + k*n_rows],
@@ -93,5 +98,7 @@ void trunc_zero_origin(const raft::handle_t& handle,
                                       out.extent(1),
                                       handle.get_stream());
 }
+
+/** @} */  // end of group matrix_copy
 
 }  // namespace raft::matrix

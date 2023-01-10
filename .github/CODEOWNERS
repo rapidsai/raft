@@ -18,3 +18,4 @@ conda/             @rapidsai/ops-codeowners
 **/Dockerfile      @rapidsai/ops-codeowners
 **/.dockerignore   @rapidsai/ops-codeowners
 docker/            @rapidsai/ops-codeowners
+dependencies.yaml  @rapidsai/ops-codeowners

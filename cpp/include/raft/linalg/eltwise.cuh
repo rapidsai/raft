@@ -23,8 +23,6 @@
 namespace raft {
 namespace linalg {
 
-using detail::adds_scalar;
-
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
  * @tparam InType data-type upon which the math operation will be performed
@@ -41,8 +39,6 @@ void scalarAdd(OutType* out, const InType* in, InType scalar, IdxType len, cudaS
 {
   detail::scalarAdd(out, in, scalar, len, stream);
 }
-
-using detail::multiplies_scalar;
 
 template <typename InType, typename IdxType, typename OutType = InType>
 void scalarMultiply(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
@@ -89,8 +85,6 @@ void eltwiseDivide(
 {
   detail::eltwiseDivide(out, in1, in2, len, stream);
 }
-
-using detail::divides_check_zero;
 
 template <typename InType, typename IdxType, typename OutType = InType>
 void eltwiseDivideCheckZero(

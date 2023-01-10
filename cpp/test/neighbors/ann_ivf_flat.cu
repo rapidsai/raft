@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
 #include <raft/core/device_mdspan.hpp>
@@ -118,6 +118,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                database.data(),
                                ps.num_db_vecs,
                                ps.dim);
+
         handle_.sync_stream(stream_);
         approx_knn_search(handle_,
                           distances_ivfflat_dev.data(),
@@ -187,8 +188,13 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           indices_ivfflat_dev.data(), ps.num_queries, ps.k);
         auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
           distances_ivfflat_dev.data(), ps.num_queries, ps.k);
+        raft::spatial::knn::ivf_flat::detail::save(handle_, "ivf_flat_index", index_2);
+
+        auto index_loaded =
+          raft::spatial::knn::ivf_flat::detail::load<DataT, IdxT>(handle_, "ivf_flat_index");
+
         ivf_flat::search(handle_,
-                         index_2,
+                         index_loaded,
                          search_queries_view,
                          indices_out_view,
                          dists_out_view,

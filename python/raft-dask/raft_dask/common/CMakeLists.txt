@@ -12,10 +12,8 @@
 # the License.
 # =============================================================================
 
-include(${raft-dask-python_SOURCE_DIR}/cmake/thirdparty/get_nccl.cmake)
-
 set(cython_sources comms_utils.pyx nccl.pyx)
-set(linked_libraries raft::raft raft::distributed NCCL::NCCL)
+set(linked_libraries raft::raft raft::distributed)
 rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}" ASSOCIATED_TARGETS raft LINKED_LIBRARIES "${linked_libraries}"
                                                                             CXX

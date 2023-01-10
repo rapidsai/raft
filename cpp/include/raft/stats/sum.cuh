@@ -47,6 +47,11 @@ void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, c
 }
 
 /**
+ * @defgroup stats_sum Sum
+ * @{
+ */
+
+/**
  * @brief Compute sum of the input matrix
  *
  * Sum operation is assumed to be performed on a given column.
@@ -76,6 +81,8 @@ void sum(const raft::handle_t& handle,
               is_row_major,
               handle.get_stream());
 }
+
+/** @} */  // end group stats_sum
 
 };  // end namespace stats
 };  // end namespace raft

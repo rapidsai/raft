@@ -1,6 +1,6 @@
-~~~~~~~~~~~~~~~~~~~~~~~
-RAFT Dask API Reference
-~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+RAFT Dask API
+~~~~~~~~~~~~~
 
 .. role:: py(code)
    :language: python

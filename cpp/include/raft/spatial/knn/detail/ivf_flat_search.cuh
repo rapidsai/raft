@@ -25,6 +25,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/norm.cuh>
@@ -885,7 +886,7 @@ struct euclidean_dist<Veclen, uint8_t, uint32_t> {
       const auto diff = __vabsdiffu4(x, y);
       acc             = dp4a(diff, diff, acc);
     } else {
-      const auto diff = x - y;
+      const auto diff = __usad(x, y, 0u);
       acc += diff * diff;
     }
   }
@@ -896,8 +897,12 @@ struct euclidean_dist<Veclen, int8_t, int32_t> {
   __device__ __forceinline__ void operator()(int32_t& acc, int32_t x, int32_t y)
   {
     if constexpr (Veclen > 1) {
-      const auto diff = static_cast<int32_t>(__vabsdiffs4(x, y));
-      acc             = dp4a(diff, diff, acc);
+      // Note that we enforce here that the unsigned version of dp4a is used, because the difference
+      // between two int8 numbers can be greater than 127 and therefore represented as a negative
+      // number in int8. Casting from int8 to int32 would yield incorrect results, while casting
+      // from uint8 to uint32 is correct.
+      const auto diff = __vabsdiffs4(x, y);
+      acc             = dp4a(diff, diff, static_cast<uint32_t>(acc));
     } else {
       const auto diff = x - y;
       acc += diff * diff;
@@ -1110,7 +1115,7 @@ void search_impl(const handle_t& handle,
                           raft::linalg::L2Norm,
                           true,
                           stream,
-                          raft::SqrtOp<float>());
+                          raft::sqrt_op());
     utils::outer_add(query_norm_dev.data(),
                      (IdxT)n_queries,
                      index.center_norms()->data_handle(),
