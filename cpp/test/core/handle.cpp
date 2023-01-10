@@ -15,12 +15,154 @@
  */
 
 #include <cstddef>
+#include <cuda_runtime.h>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
+#include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
+#include <unordered_map>
 
 namespace raft {
+
+using namespace comms;
+class mock_comms : public comms_iface {
+ public:
+  mock_comms(int n) : n_ranks(n) {}
+  ~mock_comms() {}
+
+  int get_size() const override { return n_ranks; }
+
+  int get_rank() const override { return 0; }
+
+  std::unique_ptr<comms_iface> comm_split(int color, int key) const
+  {
+    return std::unique_ptr<comms_iface>(new mock_comms(0));
+  }
+
+  void barrier() const {}
+
+  void get_request_id(request_t* req) const {}
+
+  void isend(const void* buf, size_t size, int dest, int tag, request_t* request) const {}
+
+  void irecv(void* buf, size_t size, int source, int tag, request_t* request) const {}
+
+  void waitall(int count, request_t array_of_requests[]) const {}
+
+  void allreduce(const void* sendbuff,
+                 void* recvbuff,
+                 size_t count,
+                 datatype_t datatype,
+                 op_t op,
+                 cudaStream_t stream) const
+  {
+  }
+
+  void bcast(void* buff, size_t count, datatype_t datatype, int root, cudaStream_t stream) const {}
+
+  void bcast(const void* sendbuff,
+             void* recvbuff,
+             size_t count,
+             datatype_t datatype,
+             int root,
+             cudaStream_t stream) const
+  {
+  }
+
+  void reduce(const void* sendbuff,
+              void* recvbuff,
+              size_t count,
+              datatype_t datatype,
+              op_t op,
+              int root,
+              cudaStream_t stream) const
+  {
+  }
+
+  void allgather(const void* sendbuff,
+                 void* recvbuff,
+                 size_t sendcount,
+                 datatype_t datatype,
+                 cudaStream_t stream) const
+  {
+  }
+
+  void allgatherv(const void* sendbuf,
+                  void* recvbuf,
+                  const size_t* recvcounts,
+                  const size_t* displs,
+                  datatype_t datatype,
+                  cudaStream_t stream) const
+  {
+  }
+
+  void gather(const void* sendbuff,
+              void* recvbuff,
+              size_t sendcount,
+              datatype_t datatype,
+              int root,
+              cudaStream_t stream) const
+  {
+  }
+
+  void gatherv(const void* sendbuff,
+               void* recvbuff,
+               size_t sendcount,
+               const size_t* recvcounts,
+               const size_t* displs,
+               datatype_t datatype,
+               int root,
+               cudaStream_t stream) const
+  {
+  }
+
+  void reducescatter(const void* sendbuff,
+                     void* recvbuff,
+                     size_t recvcount,
+                     datatype_t datatype,
+                     op_t op,
+                     cudaStream_t stream) const
+  {
+  }
+
+  status_t sync_stream(cudaStream_t stream) const { return status_t::SUCCESS; }
+
+  // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
+  void device_send(const void* buf, size_t size, int dest, cudaStream_t stream) const {}
+
+  // if a thread is sending & receiving at the same time, use device_sendrecv to avoid deadlock
+  void device_recv(void* buf, size_t size, int source, cudaStream_t stream) const {}
+
+  void device_sendrecv(const void* sendbuf,
+                       size_t sendsize,
+                       int dest,
+                       void* recvbuf,
+                       size_t recvsize,
+                       int source,
+                       cudaStream_t stream) const
+  {
+  }
+
+  void device_multicast_sendrecv(const void* sendbuf,
+                                 std::vector<size_t> const& sendsizes,
+                                 std::vector<size_t> const& sendoffsets,
+                                 std::vector<int> const& dests,
+                                 void* recvbuf,
+                                 std::vector<size_t> const& recvsizes,
+                                 std::vector<size_t> const& recvoffsets,
+                                 std::vector<int> const& sources,
+                                 cudaStream_t stream) const
+  {
+  }
+
+  void group_start() const {}
+
+  void group_end() const {}
+
+ private:
+  int n_ranks;
+};
 
 TEST(Raft, HandleDefault)
 {
@@ -82,6 +224,19 @@ TEST(Raft, GetHandleFromPool)
   }
 
   parent.wait_stream_pool_on_stream();
+}
+
+TEST(Raft, SubComms)
+{
+  handle_t handle;
+  auto comm1 = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mock_comms(1)));
+  handle.set_subcomm("key1", comm1);
+
+  auto comm2 = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mock_comms(2)));
+  handle.set_subcomm("key2", comm2);
+
+  ASSERT_EQ(handle.get_subcomm("key1").get_size(), 1);
+  ASSERT_EQ(handle.get_subcomm("key2").get_size(), 2);
 }
 
 }  // namespace raft
