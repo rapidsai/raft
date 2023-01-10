@@ -91,7 +91,7 @@ void fit(handle_t const& handle,
          raft::host_scalar_view<DataT> inertia,
          raft::host_scalar_view<IndexT> n_iter)
 {
-  detail::kmeans_fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
+  kmeans::fit<DataT, IndexT>(handle, params, X, sample_weight, centroids, inertia, n_iter);
 }
 
 /**
@@ -156,7 +156,7 @@ void predict(handle_t const& handle,
              bool normalize_weight,
              raft::host_scalar_view<DataT> inertia)
 {
-  detail::kmeans_predict<DataT, IndexT>(
+  kmeans::predict<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, labels, normalize_weight, inertia);
 }
 
@@ -219,7 +219,7 @@ void fit_predict(handle_t const& handle,
                  raft::host_scalar_view<DataT> inertia,
                  raft::host_scalar_view<IndexT> n_iter)
 {
-  detail::kmeans_fit_predict<DataT, IndexT>(
+  kmeans::fit_predict<DataT, IndexT>(
     handle, params, X, sample_weight, centroids, labels, inertia, n_iter);
 }
 
@@ -245,7 +245,7 @@ void transform(const raft::handle_t& handle,
                raft::device_matrix_view<const DataT, IndexT> centroids,
                raft::device_matrix_view<DataT, IndexT> X_new)
 {
-  detail::kmeans_transform<DataT, IndexT>(handle, params, X, centroids, X_new);
+  kmeans::transform<DataT, IndexT>(handle, params, X, centroids, X_new);
 }
 
 template <typename DataT, typename IndexT>
@@ -257,8 +257,7 @@ void transform(const raft::handle_t& handle,
                IndexT n_features,
                DataT* X_new)
 {
-  detail::kmeans_transform<DataT, IndexT>(
-    handle, params, X, centroids, n_samples, n_features, X_new);
+  kmeans::transform<DataT, IndexT>(handle, params, X, centroids, n_samples, n_features, X_new);
 }
 
 /**
@@ -571,7 +570,7 @@ void fit_main(const raft::handle_t& handle,
     handle, params, X, sample_weights, centroids, inertia, n_iter, workspace);
 }
 
-};  // end namespace raft::cluster::kmeans
+};  // namespace raft::cluster::kmeans
 
 namespace raft::cluster {
 

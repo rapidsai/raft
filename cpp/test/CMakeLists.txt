@@ -197,10 +197,14 @@ if(BUILD_TESTS)
     test/random/sample_without_replacement.cu
   )
 
-  ConfigureTest(
-    NAME SOLVERS_TEST PATH test/cluster_solvers_deprecated.cu test/eigen_solvers.cu test/lap/lap.cu
-    test/mst.cu OPTIONAL DIST
-  )
+    ConfigureTest(NAME SOLVERS_TEST
+            PATH
+            test/cluster_solvers_deprecated.cu
+            test/eigen_solvers.cu
+            test/solver/lap.cu
+            test/solver/quasi_newton.cu
+            test/mst.cu
+    )
 
   ConfigureTest(
     NAME
