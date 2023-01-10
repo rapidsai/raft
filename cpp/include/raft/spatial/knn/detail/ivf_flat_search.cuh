@@ -935,6 +935,8 @@ void launch_with_fixed_consts(raft::distance::DistanceType metric, Args&&... arg
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
     case raft::distance::DistanceType::L2Unexpanded:
+    case raft::distance::DistanceType::L2SqrtExpanded:
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
       return launch_kernel<Capacity,
                            Veclen,
                            Ascending,
@@ -1105,7 +1107,8 @@ void search_impl(const handle_t& handle,
   float beta  = 0.0f;
 
   // todo(lsugy): raft distance? (if performance is similar/better than gemm)
-  if (index.metric() == raft::distance::DistanceType::L2Expanded) {
+  if ((index.metric() == raft::distance::DistanceType::L2Expanded) ||
+      (index.metric() == raft::distance::DistanceType::L2SqrtExpanded)) {
     alpha = -2.0f;
     beta  = 1.0f;
     raft::linalg::rowNorm(query_norm_dev.data(),
@@ -1214,6 +1217,13 @@ void search_impl(const handle_t& handle,
                             select_min,
                             stream,
                             search_mr);
+  }
+
+  // post-process
+  if (index.metric() == raft::distance::DistanceType::L2SqrtExpanded ||
+      index.metric() == raft::distance::DistanceType::L2SqrtUnexpanded) {
+    raft::linalg::unaryOp<float>(
+      distances, distances, n_queries * k, raft::sqrt_op(), handle.get_stream());
   }
 }
 

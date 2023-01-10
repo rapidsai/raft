@@ -252,8 +252,13 @@ struct index : ann::index {
    * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
    * of data.
    */
-  void allocate(const handle_t& handle, IdxT index_size, bool allocate_center_norms)
+  void allocate(const handle_t& handle, IdxT index_size)
   {
+    bool allocate_center_norms = ((metric_ == raft::distance::DistanceType::L2Expanded) ||
+                                  (metric_ == raft::distance::DistanceType::L2SqrtExpanded) ||
+                                  (metric_ == raft::distance::DistanceType::L2Unexpanded) ||
+                                  (metric_ == raft::distance::DistanceType::L2SqrtUnexpanded));
+
     data_    = make_device_mdarray<T>(handle, make_extents<IdxT>(index_size, dim()));
     indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
     center_norms_ =
