@@ -28,6 +28,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup select_k Batched-select k smallest or largest key/values
+ * @{
+ */
+
+/**
  * Select k smallest or largest key/values from each row in the input data.
  *
  * If you think of the input data `in_val` as a row-major matrix with `len` columns and
@@ -104,5 +109,7 @@ void select_k(const handle_t& handle,
                                    handle.get_stream(),
                                    mr);
 }
+
+/** @} */  // end of group select_k
 
 }  // namespace raft::matrix

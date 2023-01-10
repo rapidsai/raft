@@ -62,7 +62,7 @@ inline auto make_managed_mem_resource() -> device_mem_resource
  * @param initial_pool_size
  *   Minimum size, in bytes, of the initial pool.
  *   The default value is selected as in `rmm::mr::pool_memory_resource`.
- * @param initial_pool_size
+ * @param maximum_pool_size
  *   Maximum size, in bytes, that the pool can grow to.
  *   The default value is selected as in `rmm::mr::pool_memory_resource`.
  *
