@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ from cuda.ccudart cimport (
     cudaStreamSynchronize,
     cudaSuccess,
 )
+from libc.stdint cimport uintptr_t
 
 
 class CudaRuntimeError(RuntimeError):
@@ -80,3 +81,9 @@ cdef class Stream:
 
     cdef cudaStream_t getStream(self):
         return self.s
+
+    def get_ptr(self):
+        """
+        Return the uintptr_t pointer of the underlying cudaStream_t handle
+        """
+        return <uintptr_t>self.s
