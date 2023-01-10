@@ -226,6 +226,15 @@ TEST(Raft, GetHandleFromPool)
   parent.wait_stream_pool_on_stream();
 }
 
+TEST(Raft, Comms)
+{
+  handle_t handle;
+  auto comm1 = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mock_comms(2)));
+  handle.set_comms(comm1);
+
+  ASSERT_EQ(handle.get_comms().get_size(), 2);
+}
+
 TEST(Raft, SubComms)
 {
   handle_t handle;
