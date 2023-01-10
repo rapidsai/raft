@@ -35,10 +35,9 @@ FilesToCheck = [
     re.compile(r"CMakeLists[.]txt$"),
     re.compile(r"CMakeLists_standalone[.]txt$"),
     re.compile(r"setup[.]cfg$"),
-    re.compile(r"[.]flake8[.]cython$"),
     re.compile(r"meta[.]yaml$")
 ]
-ExemptFiles = []
+ExemptFiles = ["cpp/include/raft/spatial/knn/detail/warp_select_faiss.cuh"]
 
 # this will break starting at year 10000, which is probably OK :)
 CheckSimple = re.compile(

@@ -17,6 +17,7 @@
 
 #include <raft/core/error.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/memory_type.hpp>
 
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/detail/mdspan_util.cuh>
@@ -183,11 +184,25 @@ template <typename ElementType,
           size_t... Extents>
 auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
-  using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
-                                             is_host_accessible,
-                                             is_device_accessible>;
+  using accessor_type = host_device_accessor<
+    std::experimental::default_accessor<ElementType>,
+    detail::memory_type_from_access<is_host_accessible, is_device_accessible>()>;
+  /*using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
+                                             mem_type>; */
 
   return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
+}
+
+/**
+ * @brief Create a layout_stride mapping from extents and strides
+ * @param[in] extents the dimensionality of the layout
+ * @param[in] strides the strides between elements in the layout
+ * @return raft::layout_stride::mapping<Extents>
+ */
+template <typename Extents, typename Strides>
+auto make_strided_layout(Extents extents, Strides strides)
+{
+  return layout_stride::mapping<Extents>{extents, strides};
 }
 
 /**

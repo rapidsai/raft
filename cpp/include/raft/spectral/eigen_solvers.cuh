@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/linalg/lanczos.cuh>
+#include <raft/sparse/solver/lanczos.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {
@@ -58,17 +58,17 @@ struct lanczos_solver_t {
     RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
     index_type_t iters{};
-    linalg::computeSmallestEigenvectors(handle,
-                                        A,
-                                        config_.n_eigVecs,
-                                        config_.maxIter,
-                                        config_.restartIter,
-                                        config_.tol,
-                                        config_.reorthogonalize,
-                                        iters,
-                                        eigVals,
-                                        eigVecs,
-                                        config_.seed);
+    sparse::solver::computeSmallestEigenvectors(handle,
+                                                A,
+                                                config_.n_eigVecs,
+                                                config_.maxIter,
+                                                config_.restartIter,
+                                                config_.tol,
+                                                config_.reorthogonalize,
+                                                iters,
+                                                eigVals,
+                                                eigVecs,
+                                                config_.seed);
     return iters;
   }
 
@@ -81,17 +81,17 @@ struct lanczos_solver_t {
     RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
     RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
     index_type_t iters{};
-    linalg::computeLargestEigenvectors(handle,
-                                       A,
-                                       config_.n_eigVecs,
-                                       config_.maxIter,
-                                       config_.restartIter,
-                                       config_.tol,
-                                       config_.reorthogonalize,
-                                       iters,
-                                       eigVals,
-                                       eigVecs,
-                                       config_.seed);
+    sparse::solver::computeLargestEigenvectors(handle,
+                                               A,
+                                               config_.n_eigVecs,
+                                               config_.maxIter,
+                                               config_.restartIter,
+                                               config_.tol,
+                                               config_.reorthogonalize,
+                                               iters,
+                                               eigVals,
+                                               eigVecs,
+                                               config_.seed);
     return iters;
   }
 

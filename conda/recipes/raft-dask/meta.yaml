@@ -37,7 +37,7 @@ requirements:
     - rmm {{ minor_version }}
     - pylibraft {{ version }}
     - cudatoolkit {{ cuda_version }}.*
-    - cuda-python >=11.5,<11.7.1
+    - cuda-python >=11.7.1,<12.0
     - nccl>=2.9.9
     - ucx {{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
@@ -51,9 +51,9 @@ requirements:
     - ucx >={{ ucx_version }}
     - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
-    - dask>=2022.9.2
-    - distributed>=2022.9.2
-    - cuda-python >=11.5,<11.7.1
+    - dask==2022.11.1
+    - distributed==2022.11.1
+    - cuda-python >=11.7.1,<12.0
     - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
 

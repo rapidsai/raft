@@ -117,8 +117,8 @@ void minmax(const raft::handle_t& handle,
     ncols = colids.value().extent(0);
   }
   if (sampledcols.has_value()) { sampledcols_ptr = sampledcols.value().data_handle(); }
-  RAFT_EXPECTS(globalmin.extent(0) == ncols, "Size mismatch betwen globalmin and ncols");
-  RAFT_EXPECTS(globalmax.extent(0) == ncols, "Size mismatch betwen globalmax and ncols");
+  RAFT_EXPECTS(globalmin.extent(0) == ncols, "Size mismatch between globalmin and ncols");
+  RAFT_EXPECTS(globalmax.extent(0) == ncols, "Size mismatch between globalmax and ncols");
   detail::minmax<value_t>(data.data_handle(),
                           rowids_ptr,
                           colids_ptr,

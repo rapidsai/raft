@@ -123,7 +123,8 @@ void weighted_mean(const raft::handle_t& handle,
 
   RAFT_EXPECTS(weights.extent(0) == weight_size,
                "Size mismatch between weights and expected weight_size");
-  RAFT_EXPECTS(mu.extent(0) == mean_vec_size, "Size mismatch betwen mu and expected mean_vec_size");
+  RAFT_EXPECTS(mu.extent(0) == mean_vec_size,
+               "Size mismatch between mu and expected mean_vec_size");
 
   detail::weightedMean(mu.data_handle(),
                        data.data_handle(),

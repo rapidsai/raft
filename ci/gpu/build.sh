@@ -34,10 +34,10 @@ unset GIT_DESCRIBE_TAG
 export UCX_PY_VERSION='0.29.*'
 
 # Whether to install dask nightly or stable packages.
-export INSTALL_DASK_MAIN=1
+export INSTALL_DASK_MAIN=0
 
 # Dask version to install when `INSTALL_DASK_MAIN=0`
-export DASK_STABLE_VERSION="2022.9.2"
+export DASK_STABLE_VERSION="2022.11.1"
 
 ################################################################################
 # SETUP - Check environment
@@ -123,5 +123,5 @@ pytest --cache-clear --junitxml="$WORKSPACE/junit-raft-dask.xml" -v -s
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"
   gpuci_mamba_retry install "rapids-doc-env=${MINOR_VERSION}.*"
-  "$WORKSPACE/build.sh" docs -v
+  "$WORKSPACE/build.sh" docs -v -n
 fi

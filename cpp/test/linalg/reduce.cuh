@@ -28,70 +28,141 @@
 namespace raft {
 namespace linalg {
 
-template <typename InType, typename OutType>
-__global__ void naiveCoalescedReductionKernel(OutType* dots, const InType* data, int D, int N)
+template <typename InType,
+          typename OutType,
+          typename IdxType,
+          typename MainLambda,
+          typename ReduceLambda,
+          typename FinalLambda>
+__global__ void naiveCoalescedReductionKernel(OutType* dots,
+                                              const InType* data,
+                                              IdxType D,
+                                              IdxType N,
+                                              OutType init,
+                                              bool inplace,
+                                              MainLambda main_op,
+                                              ReduceLambda reduce_op,
+                                              FinalLambda fin_op)
 {
-  OutType acc  = (OutType)0;
-  int rowStart = threadIdx.x + blockIdx.x * blockDim.x;
+  OutType acc      = init;
+  IdxType rowStart = threadIdx.x + static_cast<IdxType>(blockIdx.x) * blockDim.x;
   if (rowStart < N) {
-    for (int i = 0; i < D; ++i) {
-      acc += static_cast<OutType>(data[rowStart * D + i] * data[rowStart * D + i]);
+    for (IdxType i = 0; i < D; ++i) {
+      acc = reduce_op(acc, main_op(data[rowStart * D + i], i));
     }
-    dots[rowStart] = 2 * acc;
+    if (inplace) {
+      dots[rowStart] = fin_op(reduce_op(dots[rowStart], acc));
+    } else {
+      dots[rowStart] = fin_op(acc);
+    }
   }
 }
 
-template <typename InType, typename OutType>
-void naiveCoalescedReduction(OutType* dots, const InType* data, int D, int N, cudaStream_t stream)
+template <typename InType,
+          typename OutType,
+          typename IdxType,
+          typename MainLambda   = raft::Nop<InType, IdxType>,
+          typename ReduceLambda = raft::Sum<OutType>,
+          typename FinalLambda  = raft::Nop<InType>>
+void naiveCoalescedReduction(OutType* dots,
+                             const InType* data,
+                             IdxType D,
+                             IdxType N,
+                             cudaStream_t stream,
+                             OutType init,
+                             bool inplace           = false,
+                             MainLambda main_op     = raft::Nop<InType, IdxType>(),
+                             ReduceLambda reduce_op = raft::Sum<OutType>(),
+                             FinalLambda fin_op     = raft::Nop<InType>())
 {
-  static const int TPB = 64;
-  int nblks            = raft::ceildiv(N, TPB);
-  naiveCoalescedReductionKernel<InType, OutType><<<nblks, TPB, 0, stream>>>(dots, data, D, N);
+  static const IdxType TPB = 64;
+  IdxType nblks            = raft::ceildiv(N, TPB);
+  naiveCoalescedReductionKernel<<<nblks, TPB, 0, stream>>>(
+    dots, data, D, N, init, inplace, main_op, reduce_op, fin_op);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename InType, typename OutType>
-void unaryAndGemv(OutType* dots, const InType* data, int D, int N, cudaStream_t stream)
+template <typename InType,
+          typename OutType,
+          typename IdxType,
+          typename MainLambda,
+          typename ReduceLambda,
+          typename FinalLambda>
+__global__ void naiveStridedReductionKernel(OutType* dots,
+                                            const InType* data,
+                                            IdxType D,
+                                            IdxType N,
+                                            OutType init,
+                                            bool inplace,
+                                            MainLambda main_op,
+                                            ReduceLambda reduce_op,
+                                            FinalLambda fin_op)
 {
-  // computes a MLCommon unary op on data (squares it), then computes Ax
-  //(A input matrix and x column vector) to sum columns
-  rmm::device_uvector<OutType> sq(D * N, stream);
-  raft::linalg::unaryOp(
-    thrust::raw_pointer_cast(sq.data()),
-    data,
-    D * N,
-    [] __device__(InType v) { return static_cast<OutType>(v * v); },
-    stream);
-  cublasHandle_t handle;
-  RAFT_CUBLAS_TRY(cublasCreate(&handle));
-  rmm::device_uvector<OutType> ones(N, stream);  // column vector [1...1]
-  raft::linalg::unaryOp<OutType>(
-    ones.data(), ones.data(), ones.size(), [=] __device__(OutType input) { return 1; }, stream);
-  OutType alpha = 1, beta = 0;
-  // #TODO: Call from public API when ready
-  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(
-    handle, CUBLAS_OP_N, D, N, &alpha, sq.data(), D, ones.data(), 1, &beta, dots, 1, stream));
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  RAFT_CUBLAS_TRY(cublasDestroy(handle));
+  OutType acc = init;
+  IdxType col = threadIdx.x + static_cast<IdxType>(blockIdx.x) * blockDim.x;
+  if (col < D) {
+    for (IdxType i = 0; i < N; ++i) {
+      acc = reduce_op(acc, main_op(data[i * D + col], i));
+    }
+    if (inplace) {
+      dots[col] = fin_op(reduce_op(dots[col], acc));
+    } else {
+      dots[col] = fin_op(acc);
+    }
+  }
 }
 
-template <typename InType, typename OutType>
+template <typename InType,
+          typename OutType,
+          typename IdxType,
+          typename MainLambda   = raft::Nop<InType, IdxType>,
+          typename ReduceLambda = raft::Sum<OutType>,
+          typename FinalLambda  = raft::Nop<InType>>
+void naiveStridedReduction(OutType* dots,
+                           const InType* data,
+                           IdxType D,
+                           IdxType N,
+                           cudaStream_t stream,
+                           OutType init,
+                           bool inplace           = false,
+                           MainLambda main_op     = raft::Nop<InType, IdxType>(),
+                           ReduceLambda reduce_op = raft::Sum<OutType>(),
+                           FinalLambda fin_op     = raft::Nop<InType>())
+{
+  static const IdxType TPB = 64;
+  IdxType nblks            = raft::ceildiv(D, TPB);
+  naiveStridedReductionKernel<<<nblks, TPB, 0, stream>>>(
+    dots, data, D, N, init, inplace, main_op, reduce_op, fin_op);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename InType,
+          typename OutType,
+          typename IdxType,
+          typename MainLambda   = raft::Nop<InType, IdxType>,
+          typename ReduceLambda = raft::Sum<OutType>,
+          typename FinalLambda  = raft::Nop<InType>>
 void naiveReduction(OutType* dots,
                     const InType* data,
-                    int D,
-                    int N,
+                    IdxType D,
+                    IdxType N,
                     bool rowMajor,
                     bool alongRows,
-                    cudaStream_t stream)
+                    cudaStream_t stream,
+                    OutType init,
+                    bool inplace           = false,
+                    MainLambda main_op     = raft::Nop<InType, IdxType>(),
+                    ReduceLambda reduce_op = raft::Sum<OutType>(),
+                    FinalLambda fin_op     = raft::Nop<InType>())
 {
   if (rowMajor && alongRows) {
-    naiveCoalescedReduction(dots, data, D, N, stream);
+    naiveCoalescedReduction(dots, data, D, N, stream, init, inplace, main_op, reduce_op, fin_op);
   } else if (rowMajor && !alongRows) {
-    unaryAndGemv(dots, data, D, N, stream);
+    naiveStridedReduction(dots, data, D, N, stream, init, inplace, main_op, reduce_op, fin_op);
   } else if (!rowMajor && alongRows) {
-    unaryAndGemv(dots, data, N, D, stream);
+    naiveStridedReduction(dots, data, N, D, stream, init, inplace, main_op, reduce_op, fin_op);
   } else {
-    naiveCoalescedReduction(dots, data, N, D, stream);
+    naiveCoalescedReduction(dots, data, N, D, stream, init, inplace, main_op, reduce_op, fin_op);
   }
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
 }

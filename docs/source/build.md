@@ -3,9 +3,11 @@
 ## Building and installing RAFT
 
 ### CUDA/GPU Requirements
-- CUDA Toolkit 11.0+
+- cmake 3.23.1+
+- GCC 9.3+ (9.5.0+ recommended)
+- CUDA Toolkit 11.2+
 - NVIDIA driver 450.80.02+
-- Pascal architecture of better (compute capability >= 6.0)
+- Pascal architecture or better (compute capability >= 6.0)
 
 ### Build Dependencies
 
@@ -17,15 +19,16 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 
 #### Optional
 - [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
-- [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0
-- [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::spatial::knn` API and needed to build tests.
-- [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `raft-dask`
-- [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `raft-dask`
+- [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0 - Used by cuCollections
+- [CUTLASS](https://github.com/NVIDIA/cutlass)  v2.9.1 - Used in `raft::distance` API.
+- [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::neighbors` API.
+- [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `raft-dask`.
+- [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `raft-dask`.
 - [Googletest](https://github.com/google/googletest) - Needed to build tests
 - [Googlebench](https://github.com/google/benchmark) - Needed to build benchmarks
 - [Doxygen](https://github.com/doxygen/doxygen) - Needed to build docs
 
-C++ RAFT is a header-only library but provides the option of building shared libraries with template instantiations for common types to speed up compile times for larger projects.
+All of RAFT's C++ APIs can be used header-only but pre-compiled shared libraries also contain some host-accessible APIs and template instantiations to accelerate compile times.
 
 The recommended way to build and install RAFT is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python artifacts and provides options for building and installing the headers, tests, benchmarks, and individual shared libraries.
 
@@ -33,9 +36,14 @@ The recommended way to build and install RAFT is to use the `build.sh` script in
 
 `build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `FAISS`, which will need to be explicitly enabled in `build.sh`.
 
-The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. The `--install` flag can be omitted to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
+The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. 
 ```bash
-./build.sh libraft --install
+./build.sh libraft
+
+```
+The `-n` flag can be passed to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
+```bash
+./build.sh libraft -n
 ```
 
 ### C++ Shared Libraries (optional)
@@ -50,7 +58,7 @@ Individual shared libraries have their own flags and multiple can be used (thoug
 ./build.sh libraft --compile-nn --compile-dist
 ```
 
-Add the `--install` flag to the above example to also install the shared libraries into `$INSTALL_PREFIX/lib`.
+In above example the shared libraries are installed by default into `$INSTALL_PREFIX/lib`. To disable this, pass `-n` flag.
 
 ### ccache and sccache
 
@@ -145,9 +153,9 @@ The Python APIs can be built and installed using the `build.sh` script:
 
 ```bash
 # to build pylibraft
-./build.sh libraft pylibraft --install --compile-libs
+./build.sh libraft pylibraft --compile-libs
 # to build raft-dask
-./build.sh libraft raft-dask --install --compile-libs
+./build.sh libraft raft-dask --compile-libs
 ```
 
 `setup.py` can also be used to build the Python APIs manually:
@@ -178,18 +186,39 @@ The documentation requires that the C++ headers and python packages have been bu
 The following will build the docs along with the C++ and Python packages:
 
 ```
-./build.sh libraft pylibraft raft-dask docs --compile-libs --install
+./build.sh libraft pylibraft raft-dask docs --compile-libs
 ```
-
 
 
 ## Using RAFT in downstream projects
 
-There are two different strategies for including RAFT in downstream projects, depending on whether or not the required dependencies are already installed and available on the `lib` and `include` paths.
+There are a few different strategies for including RAFT in downstream projects, depending on whether the [required build dependencies](#build-dependencies) have already been installed and are available on the `lib` and `include` paths.
 
-### C++ header-only integration using cmake
+Using cmake, you can enable CUDA support right in your project's declaration:
+```cmake
+project(YOUR_PROJECT VERSION 0.1 LANGUAGES CXX CUDA)
+```
 
-When the needed [build dependencies](#required_depenencies) are already satisfied, RAFT can be trivially integrated into downstream projects by cloning the repository and adding `cpp/include` from RAFT to the include path:
+Please note that some additional compiler flags might need to be added when building against RAFT. For example, if you see an error like this `The experimental flag '--expt-relaxed-constexpr' can be used to allow this.`. The necessary flags can be set with cmake:
+```cmake
+target_compile_options(your_target_name PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda --expt-relaxed-constexpr>)
+```
+
+Further, it's important that the language level be set to at least C++ 17. This can be done with cmake:
+```cmake
+set_target_properties(your_target_name
+PROPERTIES CXX_STANDARD                        17
+           CXX_STANDARD_REQUIRED               ON
+           CUDA_STANDARD                       17
+           CUDA_STANDARD_REQUIRED              ON
+           POSITION_INDEPENDENT_CODE           ON
+           INTERFACE_POSITION_INDEPENDENT_CODE ON)
+```
+
+
+### C++ header-only integration
+
+When the needed [build dependencies](#build-dependencies) are already satisfied, RAFT can be trivially integrated into downstream projects by cloning the repository and adding `cpp/include` from RAFT to the include path:
 ```cmake
 set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 ExternalProject_Add(raft
@@ -202,13 +231,13 @@ ExternalProject_Add(raft
 set(RAFT_INCLUDE_DIR ${RAFT_GIT_DIR}/raft/cpp/include CACHE STRING "RAFT include variable")
 ```
 
-If RAFT has already been installed, such as by using the `build.sh` script, use `find_package(raft)` and the `raft::raft` target if using RAFT to interact only with the public APIs of consuming projects.
+If RAFT has already been installed, such as by using the `build.sh` script, use `find_package(raft)` and the `raft::raft` target.
 
-### Using pre-compiled shared libraries
+### Using C++ pre-compiled shared libraries
 
 Use `find_package(raft COMPONENTS nn distance)` to enable the shared libraries and transitively pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
 
-The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.hpp` and located in the base directory for the packages that contain specializations.
+The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.cuh` and located in the base directory for the packages that contain specializations.
 
 The following example tells the compiler to ignore the pre-compiled templates for the `libraft-distance` API so any symbols already compiled into pre-compiled shared library will be used instead:
 ```c++
@@ -226,7 +255,7 @@ The following `cmake` snippet enables a flexible configuration of RAFT:
 
 ```cmake
 
-set(RAFT_VERSION "22.10")
+set(RAFT_VERSION "22.12")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 

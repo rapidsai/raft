@@ -16,7 +16,6 @@
 
 #pragma once
 #include "curand_wrappers.hpp"
-#include "random_types.hpp"
 #include <cmath>
 #include <memory>
 #include <optional>
@@ -26,13 +25,14 @@
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/random/random_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdio.h>
 #include <type_traits>
 
-// mvg.cuh takes in matrices that are colomn major (as in fortan)
+// mvg.cuh takes in matrices that are colomn major (as in fortran)
 #define IDX2C(i, j, ld) (j * ld + i)
 
 namespace raft::random {
@@ -170,13 +170,13 @@ class multi_variable_gaussian_impl {
   std::size_t get_workspace_size()
   {
     // malloc workspace_decomp
-    std::size_t granuality = 256, offset = 0;
+    std::size_t granularity = 256, offset = 0;
     workspace_decomp = (T*)offset;
-    offset += raft::alignTo(sizeof(T) * Lwork, granuality);
+    offset += raft::alignTo(sizeof(T) * Lwork, granularity);
     eig = (T*)offset;
-    offset += raft::alignTo(sizeof(T) * dim, granuality);
+    offset += raft::alignTo(sizeof(T) * dim, granularity);
     info = (int*)offset;
-    offset += raft::alignTo(sizeof(int), granuality);
+    offset += raft::alignTo(sizeof(int), granularity);
     return offset;
   }
 

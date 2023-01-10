@@ -18,13 +18,18 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
+#include <raft/core/kvp.hpp>
+#include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <rmm/exec_policy.hpp>
+#include <thrust/for_each.h>
 
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -42,13 +47,37 @@ struct CompareApprox {
   {
     T diff  = abs(a - b);
     T m     = std::max(abs(a), abs(b));
-    T ratio = diff >= eps ? diff / m : diff;
+    T ratio = diff > eps ? diff / m : diff;
 
     return (ratio <= eps);
   }
 
  private:
   T eps;
+};
+
+template <typename Key, typename Value>
+::std::ostream& operator<<(::std::ostream& os, const raft::KeyValuePair<Key, Value>& kv)
+{
+  os << "{ " << kv.key << ", " << kv.value << '}';
+  return os;
+}
+
+template <typename Key, typename Value>
+struct CompareApprox<raft::KeyValuePair<Key, Value>> {
+  CompareApprox(raft::KeyValuePair<Key, Value> eps)
+    : compare_keys(eps.key), compare_values(eps.value)
+  {
+  }
+  bool operator()(const raft::KeyValuePair<Key, Value>& a,
+                  const raft::KeyValuePair<Key, Value>& b) const
+  {
+    return compare_keys(a.key, b.key) && compare_values(a.value, b.value);
+  }
+
+ private:
+  CompareApprox<Key> compare_keys;
+  CompareApprox<Value> compare_values;
 };
 
 template <typename T>
@@ -278,6 +307,52 @@ testing::AssertionResult match(const T expected, T actual, L eq_compare)
     return testing::AssertionFailure() << "actual=" << actual << " != expected=" << expected;
   }
   return testing::AssertionSuccess();
+}
+
+template <typename T, typename IdxT>
+typename std::enable_if_t<std::is_floating_point_v<T>> gen_uniform(T* out,
+                                                                   raft::random::RngState& rng,
+                                                                   IdxT len,
+                                                                   cudaStream_t stream,
+                                                                   T range_min = T(-1),
+                                                                   T range_max = T(1))
+{
+  raft::random::uniform(rng, out, len, range_min, range_max, stream);
+}
+
+template <typename T, typename IdxT>
+typename std::enable_if_t<std::is_integral_v<T>> gen_uniform(T* out,
+                                                             raft::random::RngState& rng,
+                                                             IdxT len,
+                                                             cudaStream_t stream,
+                                                             T range_min = T(0),
+                                                             T range_max = T(100))
+{
+  raft::random::uniformInt(rng, out, len, range_min, range_max, stream);
+}
+
+template <typename T1, typename T2, typename IdxT>
+void gen_uniform(raft::KeyValuePair<T1, T2>* out,
+                 raft::random::RngState& rng,
+                 IdxT len,
+                 cudaStream_t stream)
+{
+  rmm::device_uvector<T1> keys(len, stream);
+  rmm::device_uvector<T2> values(len, stream);
+
+  gen_uniform(keys.data(), rng, len, stream);
+  gen_uniform(values.data(), rng, len, stream);
+
+  const T1* d_keys   = keys.data();
+  const T2* d_values = values.data();
+  auto counting      = thrust::make_counting_iterator<IdxT>(0);
+  thrust::for_each(rmm::exec_policy(stream),
+                   counting,
+                   counting + len,
+                   [out, d_keys, d_values] __device__(int idx) {
+                     out[idx].key   = d_keys[idx];
+                     out[idx].value = d_values[idx];
+                   });
 }
 
 /** @} */

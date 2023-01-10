@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,20 @@
 
 #pragma once
 
-namespace raft::random::detail {
+#include <raft/core/device_mdspan.hpp>
+#include <raft/matrix/detail/matrix.cuh>
 
-enum class multi_variable_gaussian_decomposition_method { CHOLESKY, JACOBI, QR };
+namespace raft::matrix {
 
-};  // end of namespace raft::random::detail
+/**
+ * @brief Get the L2/F-norm of a matrix
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix/vector with totally size elements
+ * @returns matrix l2 norm
+ */
+template <typename m_t, typename idx_t>
+m_t l2_norm(const raft::handle_t& handle, raft::device_mdspan<const m_t, idx_t> in)
+{
+  return detail::getL2Norm(handle, in.data_handle(), in.size(), handle.get_stream());
+}
+}  // namespace raft::matrix
