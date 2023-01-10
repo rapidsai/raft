@@ -51,7 +51,6 @@ if(NOT raft_FOUND)
   # rapids_cuda_init_architectures relies on `project` including.
   include("${CMAKE_PROJECT_raft-dask_INCLUDE}")
   find_package(ucx REQUIRED)
-  find_package(NCCL REQUIRED)
 
   # raft-dask doesn't actually use raft libraries, it just needs the headers, so we can turn off all
   # library compilation and we don't need to install anything here.
@@ -70,6 +69,7 @@ if(NOT raft_FOUND)
   endif()
 
   add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
+  find_package(NCCL REQUIRED)
 endif()
 
 include(rapids-cython)
