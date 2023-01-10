@@ -94,7 +94,6 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
  protected:
   void SetUp() override
   {
-    printf("Settingup test\n");
     // getting params
     params    = ::testing::TestWithParam<MVGInputs<T>>::GetParam();
     dim       = params.dim;
@@ -103,12 +102,9 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     corr      = params.corr;
     tolerance = params.tolerance;
 
-    printf("Getting cublas handl\n");
     auto cublasH   = handle.get_cublas_handle();
     auto cusolverH = handle.get_cusolver_dn_handle();
     auto stream    = handle.get_stream();
-
-    printf("Got handles\n");
 
     // preparing to store stuff
     P.resize(dim * dim);
