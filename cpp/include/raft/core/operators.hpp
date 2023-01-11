@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,14 @@ struct identity_op {
   constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
     return in;
+  }
+};
+
+struct no_op {
+  template <typename Type, typename... UnusedArgs>
+  constexpr RAFT_INLINE_FUNCTION void operator()(const Type& in, UnusedArgs...) const
+  {
+    return;
   }
 };
 
