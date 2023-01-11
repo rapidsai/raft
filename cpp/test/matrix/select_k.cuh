@@ -19,7 +19,6 @@
 #include <raft/matrix/select_k.cuh>
 
 #include <raft/core/handle.hpp>
-#include <raft/util/mem_resource_handle.hpp>
 
 namespace raft::matrix::select {
 
@@ -77,11 +76,9 @@ void select_k_impl(const handle_t& handle,
                    int k,
                    T* out,
                    IdxT* out_idx,
-                   bool select_min,
-                   std::optional<device_mem_resource> mr = std::nullopt)
+                   bool select_min)
 {
   auto stream = handle.get_stream();
-  auto mr_ptr = mr.value_or(nullptr).get();
   switch (algo) {
     case Algo::kPublicApi: {
       auto in_extent   = make_extents<size_t>(batch_size, len);
@@ -93,37 +90,37 @@ void select_k_impl(const handle_t& handle,
       if (in_idx == nullptr) {
         // NB: std::nullopt prevents automatic inference of the template parameters.
         return matrix::select_k<T, IdxT>(
-          handle, in_span, std::nullopt, out_span, out_idx_span, select_min, mr);
+          handle, in_span, std::nullopt, out_span, out_idx_span, select_min);
       } else {
         return matrix::select_k(
-          handle, in_span, std::make_optional(in_idx_span), out_span, out_idx_span, select_min, mr);
+          handle, in_span, std::make_optional(in_idx_span), out_span, out_idx_span, select_min);
       }
     }
     case Algo::kRadix8bits:
       return detail::select::radix::select_k<T, IdxT, 8, 512>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr_ptr);
+        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kRadix11bits:
       return detail::select::radix::select_k<T, IdxT, 11, 512>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr_ptr);
+        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kWarpAuto:
       return detail::select::warpsort::select_k<T, IdxT>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr_ptr);
+        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kWarpImmediate:
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_immediate>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr_ptr);
+          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kWarpFiltered:
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_filtered>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr_ptr);
+          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kWarpDistributed:
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr_ptr);
+          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kWarpDistributedShm:
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr_ptr);
+          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
   }
 }
 

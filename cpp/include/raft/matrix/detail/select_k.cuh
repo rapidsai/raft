@@ -20,7 +20,6 @@
 #include "select_warpsort.cuh"
 
 #include <raft/core/nvtx.hpp>
-#include <raft/util/mem_resource_handle.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>

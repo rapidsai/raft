@@ -21,7 +21,6 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/util/mem_resource_handle.hpp>
 
 #include <optional>
 
@@ -74,8 +73,6 @@ namespace raft::matrix {
  *   the payload selected together with `out_val`.
  * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
- * @param mr an optional memory resource to use across the calls (you can provide a large enough
- *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT>
 void select_k(const handle_t& handle,
@@ -83,8 +80,7 @@ void select_k(const handle_t& handle,
               std::optional<raft::device_matrix_view<const IdxT, size_t, row_major>> in_idx,
               raft::device_matrix_view<T, size_t, row_major> out_val,
               raft::device_matrix_view<IdxT, size_t, row_major> out_idx,
-              bool select_min,
-              std::optional<device_mem_resource> mr = std::nullopt)
+              bool select_min)
 {
   RAFT_EXPECTS(out_val.extent(1) <= size_t(std::numeric_limits<int>::max()),
                "output k must fit the int type.");
@@ -106,8 +102,7 @@ void select_k(const handle_t& handle,
                                    out_val.data_handle(),
                                    out_idx.data_handle(),
                                    select_min,
-                                   handle.get_stream(),
-                                   mr.value_or(nullptr).get());
+                                   handle.get_stream());
 }
 
 /** @} */  // end of group select_k
