@@ -33,6 +33,7 @@
 namespace raft::spatial::knn::detail::topk {
 namespace radix_impl {
 
+constexpr unsigned FULL_WARP_MASK = 0xffffffff;
 constexpr int BLOCK_DIM           = 512;
 using WideT                       = float4;
 constexpr int LAZY_WRITING_FACTOR = 4;
@@ -803,7 +804,8 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool use_dynamic)
   float best_tail_wave_penalty = 1.0f;
   const IdxT max_num_blocks    = (len - 1) / (sizeof(WideT) / sizeof(T) * BlockSize) + 1;
   for (int num_waves = 1;; ++num_waves) {
-    int num_blocks = std::min(max_num_blocks, std::max(num_waves * active_blocks / batch_size, 1));
+    IdxT num_blocks = std::min(
+      max_num_blocks, static_cast<IdxT>(std::max(num_waves * active_blocks / batch_size, 1)));
     IdxT items_per_thread = (len - 1) / (num_blocks * BlockSize) + 1;
     items_per_thread      = (items_per_thread - 1) / (sizeof(WideT) / sizeof(T)) + 1;
     items_per_thread *= sizeof(WideT) / sizeof(T);
@@ -833,9 +835,7 @@ template <typename T,
           int BlockSize,
           template <typename, typename, int>
           class Store>
-void radix_topk(void* buf,
-                size_t& buf_size,
-                const T* in,
+void radix_topk(const T* in,
                 const IdxT* in_idx,
                 int batch_size,
                 IdxT len,
@@ -843,46 +843,37 @@ void radix_topk(void* buf,
                 T* out,
                 IdxT* out_idx,
                 bool select_min,
-                cudaStream_t stream,
-                bool use_dynamic = false)
+                bool use_dynamic,
+                rmm::cuda_stream_view stream,
+                rmm::mr::device_memory_resource* mr)
 {
   // TODO: is it possible to relax this restriction?
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
 
-  Counter<T, IdxT>* counters = nullptr;
-  IdxT* histograms           = nullptr;
-  T* buf1                    = nullptr;
-  IdxT* idx_buf1             = nullptr;
-  T* buf2                    = nullptr;
-  IdxT* idx_buf2             = nullptr;
-  {
-    std::vector<size_t> sizes = {sizeof(*counters) * batch_size,
-                                 sizeof(*histograms) * num_buckets * batch_size,
-                                 sizeof(*buf1) * len * batch_size,
-                                 sizeof(*idx_buf1) * len * batch_size,
-                                 sizeof(*buf2) * len * batch_size,
-                                 sizeof(*idx_buf2) * len * batch_size};
-    size_t total_size         = calc_aligned_size(sizes);
-    if (!buf) {
-      buf_size = total_size;
-      return;
-    }
-
-    std::vector<void*> aligned_pointers = calc_aligned_pointers(buf, sizes);
-    counters                            = static_cast<decltype(counters)>(aligned_pointers[0]);
-    histograms                          = static_cast<decltype(histograms)>(aligned_pointers[1]);
-    buf1                                = static_cast<decltype(buf1)>(aligned_pointers[2]);
-    idx_buf1                            = static_cast<decltype(idx_buf1)>(aligned_pointers[3]);
-    buf2                                = static_cast<decltype(buf2)>(aligned_pointers[4]);
-    idx_buf2                            = static_cast<decltype(idx_buf2)>(aligned_pointers[5]);
-
-    RAFT_CUDA_TRY(cudaMemsetAsync(
-      buf,
-      0,
-      static_cast<char*>(aligned_pointers[2]) - static_cast<char*>(aligned_pointers[0]),
-      stream));
+  auto pool_guard =
+    raft::get_pool_memory_resource(mr,
+                                   batch_size * (sizeof(Counter<T, IdxT>)      // counters
+                                                 + sizeof(IdxT) * num_buckets  // histograms
+                                                 + sizeof(T) * len * 2         // T bufs
+                                                 + sizeof(IdxT) * len * 2      // IdxT bufs
+                                                 ) +
+                                     256 * 6);
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("radix_topk: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
   }
+
+  rmm::device_uvector<Counter<T, IdxT>> counters(batch_size, stream, mr);
+  rmm::device_uvector<IdxT> histograms(num_buckets * batch_size, stream, mr);
+  rmm::device_uvector<T> buf1(len * batch_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf1(len * batch_size, stream, mr);
+  rmm::device_uvector<T> buf2(len * batch_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf2(len * batch_size, stream, mr);
+
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(histograms.data(), 0, histograms.size() * sizeof(IdxT), stream));
 
   const T* in_buf        = nullptr;
   const IdxT* in_idx_buf = nullptr;
@@ -910,18 +901,18 @@ void radix_topk(void* buf,
     } else if (pass == 1) {
       in_buf      = in;
       in_idx_buf  = in_idx;
-      out_buf     = buf1;
-      out_idx_buf = idx_buf1;
+      out_buf     = buf1.data();
+      out_idx_buf = idx_buf1.data();
     } else if (pass % 2 == 0) {
-      in_buf      = buf1;
-      in_idx_buf  = idx_buf1;
-      out_buf     = buf2;
-      out_idx_buf = idx_buf2;
+      in_buf      = buf1.data();
+      in_idx_buf  = idx_buf1.data();
+      out_buf     = buf2.data();
+      out_idx_buf = idx_buf2.data();
     } else {
-      in_buf      = buf2;
-      in_idx_buf  = idx_buf2;
-      out_buf     = buf1;
-      out_idx_buf = idx_buf1;
+      in_buf      = buf2.data();
+      in_idx_buf  = idx_buf2.data();
+      out_buf     = buf1.data();
+      out_idx_buf = idx_buf1.data();
     }
 
     if (!use_dynamic) {
@@ -934,8 +925,8 @@ void radix_topk(void* buf,
                                            out_idx_buf,
                                            out,
                                            out_idx,
-                                           counters,
-                                           histograms,
+                                           counters.data(),
+                                           histograms.data(),
                                            len,
                                            k,
                                            select_min,
@@ -950,8 +941,8 @@ void radix_topk(void* buf,
                                            out_idx_buf,
                                            out,
                                            out_idx,
-                                           counters,
-                                           histograms,
+                                           counters.data(),
+                                           histograms.data(),
                                            len,
                                            k,
                                            select_min,
@@ -962,7 +953,7 @@ void radix_topk(void* buf,
   if (use_dynamic) {
     dim3 blocks((len / (sizeof(WideT) / sizeof(T)) - 1) / BlockSize + 1, batch_size);
     last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(
-      in, in_idx, out_buf, out_idx_buf, out, out_idx, len, k, counters, select_min);
+      in, in_idx, out_buf, out_idx_buf, out, out_idx, len, k, counters.data(), select_min);
   }
 }
 
@@ -1124,9 +1115,7 @@ __global__ void radix_topk_one_block_kernel(const T* in,
 }
 
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
-void radix_topk_one_block(void* buf,
-                          size_t& buf_size,
-                          const T* in,
+void radix_topk_one_block(const T* in,
                           const IdxT* in_idx,
                           int batch_size,
                           IdxT len,
@@ -1134,90 +1123,94 @@ void radix_topk_one_block(void* buf,
                           T* out,
                           IdxT* out_idx,
                           bool select_min,
-                          cudaStream_t stream)
+                          rmm::cuda_stream_view stream,
+                          rmm::mr::device_memory_resource* mr)
 {
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
 
-  T* buf1        = nullptr;
-  IdxT* idx_buf1 = nullptr;
-  T* buf2        = nullptr;
-  IdxT* idx_buf2 = nullptr;
-  {
-    std::vector<size_t> sizes = {sizeof(*buf1) * len * batch_size,
-                                 sizeof(*idx_buf1) * len * batch_size,
-                                 sizeof(*buf2) * len * batch_size,
-                                 sizeof(*idx_buf2) * len * batch_size};
-    size_t total_size         = calc_aligned_size(sizes);
-    if (!buf) {
-      buf_size = total_size;
-      return;
-    }
-
-    std::vector<void*> aligned_pointers = calc_aligned_pointers(buf, sizes);
-    buf1                                = static_cast<decltype(buf1)>(aligned_pointers[0]);
-    idx_buf1                            = static_cast<decltype(idx_buf1)>(aligned_pointers[1]);
-    buf2                                = static_cast<decltype(buf2)>(aligned_pointers[2]);
-    idx_buf2                            = static_cast<decltype(idx_buf2)>(aligned_pointers[3]);
+  auto pool_guard =
+    raft::get_pool_memory_resource(mr,
+                                   batch_size * (sizeof(T) * len * 2       // T bufs
+                                                 + sizeof(IdxT) * len * 2  // IdxT bufs
+                                                 ) +
+                                     256 * 4);
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("radix_topk: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
   }
 
+  rmm::device_uvector<T> buf1(len * batch_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf1(len * batch_size, stream, mr);
+  rmm::device_uvector<T> buf2(len * batch_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf2(len * batch_size, stream, mr);
+
   radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>
-    <<<batch_size, BlockSize, 0, stream>>>(
-      in, in_idx, len, k, out, out_idx, select_min, buf1, idx_buf1, buf2, idx_buf2);
+    <<<batch_size, BlockSize, 0, stream>>>(in,
+                                           in_idx,
+                                           len,
+                                           k,
+                                           out,
+                                           out_idx,
+                                           select_min,
+                                           buf1.data(),
+                                           idx_buf1.data(),
+                                           buf2.data(),
+                                           idx_buf2.data());
 }
 
 }  // namespace radix_impl
 
 template <typename T, typename IdxT>
-void radix_topk_11bits(void* buf,
-                       size_t& buf_size,
-                       const T* in,
+void radix_topk_11bits(const T* in,
                        const IdxT* in_idx,
                        int batch_size,
                        IdxT len,
                        IdxT k,
                        T* out,
-                       IdxT* out_idx       = nullptr,
-                       bool select_min     = true,
-                       cudaStream_t stream = 0)
+                       IdxT* out_idx,
+                       bool select_min,
+                       rmm::cuda_stream_view stream,
+                       rmm::mr::device_memory_resource* mr = nullptr)
 {
+  constexpr bool use_dynamic     = false;
   constexpr int items_per_thread = 32;
+
   if (len <= radix_impl::BLOCK_DIM * items_per_thread) {
     radix_impl::radix_topk_one_block<T, IdxT, 11, radix_impl::BLOCK_DIM>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+      in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
   } else if (len < 100.0 * k / batch_size + 0.01) {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::BufferedStore>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+      in, in_idx, batch_size, len, k, out, out_idx, select_min, use_dynamic, stream, mr);
   } else {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::DirectStore>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+      in, in_idx, batch_size, len, k, out, out_idx, select_min, use_dynamic, stream, mr);
   }
 }
 
 template <typename T, typename IdxT>
-void radix_topk_11bits_dynamic(void* buf,
-                               size_t& buf_size,
-                               const T* in,
+void radix_topk_11bits_dynamic(const T* in,
                                const IdxT* in_idx,
                                int batch_size,
                                IdxT len,
                                IdxT k,
                                T* out,
-                               IdxT* out_idx       = nullptr,
-                               bool select_min     = true,
-                               cudaStream_t stream = 0)
+                               IdxT* out_idx,
+                               bool select_min,
+                               rmm::cuda_stream_view stream,
+                               rmm::mr::device_memory_resource* mr = nullptr)
 {
-  constexpr bool use_dynamic = true;
-
+  constexpr bool use_dynamic     = true;
   constexpr int items_per_thread = 32;
+
   if (len <= radix_impl::BLOCK_DIM * items_per_thread) {
     radix_impl::radix_topk_one_block<T, IdxT, 11, radix_impl::BLOCK_DIM>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+      in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
   } else if (len < 100.0 * k / batch_size + 0.01) {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::BufferedStore>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, use_dynamic);
+      in, in_idx, batch_size, len, k, out, out_idx, select_min, use_dynamic, stream, mr);
   } else {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::DirectStore>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, use_dynamic);
+      in, in_idx, batch_size, len, k, out, out_idx, select_min, use_dynamic, stream, mr);
   }
 }
 
