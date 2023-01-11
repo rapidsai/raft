@@ -588,6 +588,7 @@ __device__ void last_filter(const T* out_buf,
 
 template <typename T, typename IdxT, int BitsPerPass>
 __global__ void last_filter_kernel(const T* in,
+                                   const IdxT* in_idx,
                                    const T* in_buf,
                                    const IdxT* in_idx_buf,
                                    T* out,
@@ -604,7 +605,7 @@ __global__ void last_filter_kernel(const T* in,
   if (previous_len == 0) { return; }
   if (previous_len > len / LAZY_WRITING_FACTOR) {
     in_buf       = in;
-    in_idx_buf   = nullptr;
+    in_idx_buf   = in_idx;
     previous_len = len;
   }
 
@@ -656,6 +657,7 @@ template <typename T,
           template <typename, typename, int>
           class Store>
 __global__ void radix_kernel(const T* in,
+                             const IdxT* in_idx,
                              const T* in_buf,
                              const IdxT* in_idx_buf,
                              T* out_buf,
@@ -702,7 +704,7 @@ __global__ void radix_kernel(const T* in,
     if (previous_len > len / LAZY_WRITING_FACTOR) {
       previous_len = len;
       in_buf       = in;
-      in_idx_buf   = nullptr;
+      in_idx_buf   = in_idx;
     }
     // Figure out if this pass need to write buffer
     if (current_len > len / LAZY_WRITING_FACTOR) {
@@ -834,6 +836,7 @@ template <typename T,
 void radix_topk(void* buf,
                 size_t& buf_size,
                 const T* in,
+                const IdxT* in_idx,
                 int batch_size,
                 IdxT len,
                 IdxT k,
@@ -906,7 +909,7 @@ void radix_topk(void* buf,
       out_idx_buf = nullptr;
     } else if (pass == 1) {
       in_buf      = in;
-      in_idx_buf  = nullptr;
+      in_idx_buf  = in_idx;
       out_buf     = buf1;
       out_idx_buf = idx_buf1;
     } else if (pass % 2 == 0) {
@@ -924,6 +927,7 @@ void radix_topk(void* buf,
     if (!use_dynamic) {
       radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, Store>
         <<<blocks, BlockSize, 0, stream>>>(in,
+                                           in_idx,
                                            in_buf,
                                            in_idx_buf,
                                            out_buf,
@@ -939,6 +943,7 @@ void radix_topk(void* buf,
     } else {
       radix_kernel<T, IdxT, BitsPerPass, BlockSize, true, Store>
         <<<blocks, BlockSize, 0, stream>>>(in,
+                                           in_idx,
                                            in_buf,
                                            in_idx_buf,
                                            out_buf,
@@ -957,7 +962,7 @@ void radix_topk(void* buf,
   if (use_dynamic) {
     dim3 blocks((len / (sizeof(WideT) / sizeof(T)) - 1) / BlockSize + 1, batch_size);
     last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(
-      in, out_buf, out_idx_buf, out, out_idx, len, k, counters, greater);
+      in, in_idx, out_buf, out_idx_buf, out, out_idx, len, k, counters, greater);
   }
 }
 
@@ -1020,6 +1025,7 @@ __device__ void filter_and_histogram(const T* in_buf,
 
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 __global__ void radix_topk_one_block_kernel(const T* in,
+                                            const IdxT* in_idx,
                                             const IdxT len,
                                             const IdxT k,
                                             T* out,
@@ -1045,6 +1051,7 @@ __global__ void radix_topk_one_block_kernel(const T* in,
   __syncthreads();
 
   in += blockIdx.x * len;
+  if (in_idx) { in_idx += blockIdx.x * len; }
   out += blockIdx.x * k;
   out_idx += blockIdx.x * k;
   buf1 += blockIdx.x * len;
@@ -1065,7 +1072,7 @@ __global__ void radix_topk_one_block_kernel(const T* in,
       out_idx_buf = nullptr;
     } else if (pass == 1) {
       in_buf      = in;
-      in_idx_buf  = nullptr;
+      in_idx_buf  = in_idx;
       out_buf     = buf1;
       out_idx_buf = idx_buf1;
     } else if (pass % 2 == 0) {
@@ -1095,7 +1102,7 @@ __global__ void radix_topk_one_block_kernel(const T* in,
 
     if (counter.len == counter.k || pass == num_passes - 1) {
       last_filter<T, IdxT, BitsPerPass>(pass == 0 ? in : out_buf,
-                                        pass == 0 ? nullptr : out_idx_buf,
+                                        pass == 0 ? in_idx : out_idx_buf,
                                         out,
                                         out_idx,
                                         current_len,
@@ -1112,6 +1119,7 @@ template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 void radix_topk_one_block(void* buf,
                           size_t& buf_size,
                           const T* in,
+                          const IdxT* in_idx,
                           int batch_size,
                           IdxT len,
                           IdxT k,
@@ -1146,7 +1154,7 @@ void radix_topk_one_block(void* buf,
 
   radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>
     <<<batch_size, BlockSize, 0, stream>>>(
-      in, len, k, out, out_idx, greater, buf1, idx_buf1, buf2, idx_buf2);
+      in, in_idx, len, k, out, out_idx, greater, buf1, idx_buf1, buf2, idx_buf2);
 }
 
 }  // namespace radix_impl
@@ -1155,6 +1163,7 @@ template <typename T, typename IdxT>
 void radix_topk_11bits(void* buf,
                        size_t& buf_size,
                        const T* in,
+                       const IdxT* in_idx,
                        int batch_size,
                        IdxT len,
                        IdxT k,
@@ -1166,13 +1175,13 @@ void radix_topk_11bits(void* buf,
   constexpr int items_per_thread = 32;
   if (len <= radix_impl::BLOCK_DIM * items_per_thread) {
     radix_impl::radix_topk_one_block<T, IdxT, 11, radix_impl::BLOCK_DIM>(
-      buf, buf_size, in, batch_size, len, k, out, out_idx, greater, stream);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
   } else if (len < 100.0 * k / batch_size + 0.01) {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::BufferedStore>(
-      buf, buf_size, in, batch_size, len, k, out, out_idx, greater, stream);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
   } else {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::DirectStore>(
-      buf, buf_size, in, batch_size, len, k, out, out_idx, greater, stream);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
   }
 }
 
@@ -1180,6 +1189,7 @@ template <typename T, typename IdxT>
 void radix_topk_11bits_dynamic(void* buf,
                                size_t& buf_size,
                                const T* in,
+                               const IdxT* in_idx,
                                int batch_size,
                                IdxT len,
                                IdxT k,
@@ -1193,13 +1203,13 @@ void radix_topk_11bits_dynamic(void* buf,
   constexpr int items_per_thread = 32;
   if (len <= radix_impl::BLOCK_DIM * items_per_thread) {
     radix_impl::radix_topk_one_block<T, IdxT, 11, radix_impl::BLOCK_DIM>(
-      buf, buf_size, in, batch_size, len, k, out, out_idx, greater, stream);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
   } else if (len < 100.0 * k / batch_size + 0.01) {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::BufferedStore>(
-      buf, buf_size, in, batch_size, len, k, out, out_idx, greater, stream, use_dynamic);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream, use_dynamic);
   } else {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::DirectStore>(
-      buf, buf_size, in, batch_size, len, k, out, out_idx, greater, stream, use_dynamic);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream, use_dynamic);
   }
 }
 
