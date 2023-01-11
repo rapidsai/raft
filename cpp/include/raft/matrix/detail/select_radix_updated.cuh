@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,10 +33,9 @@
 namespace raft::spatial::knn::detail::topk {
 namespace radix_impl {
 
-constexpr unsigned FULL_WARP_MASK = 0xffffffff;
-constexpr int BLOCK_DIM           = 512;
-using WideT                       = float4;
-constexpr int LAZY_WRITING_FACTOR = 4;
+constexpr int BLOCK_DIM            = 512;
+constexpr int VECTORIZED_READ_SIZE = 16;
+constexpr int LAZY_WRITING_FACTOR  = 4;
 
 template <int BitsPerPass>
 __host__ __device__ constexpr int calc_num_buckets()
@@ -47,11 +46,16 @@ __host__ __device__ constexpr int calc_num_buckets()
 template <typename T, int BitsPerPass>
 __host__ __device__ constexpr int calc_num_passes()
 {
-  return (sizeof(T) * 8 - 1) / BitsPerPass + 1;
+  return ceildiv<int>(sizeof(T) * 8, BitsPerPass);
 }
 
-// bit 0 is the least significant (rightmost) bit
-// this function works even when pass=-1, which is used in calc_mask()
+/**
+ * Bit 0 is the least significant (rightmost);
+ * this implementation processes input from the most to the least significant bit.
+ * This way, we can skip some passes in the end at the cost of having an unsorted output.
+ *
+ * NB: Use pass=-1 for calc_mask().
+ */
 template <typename T, int BitsPerPass>
 __device__ constexpr int calc_start_bit(int pass)
 {
@@ -68,6 +72,10 @@ __device__ constexpr unsigned calc_mask(int pass)
   return (1 << num_bits) - 1;
 }
 
+/**
+ * Use cub to twiddle bits - so that we can correctly compare bits of floating-point values as well
+ * as of integers.
+ */
 template <typename T>
 __device__ typename cub::Traits<T>::UnsignedBits twiddle_in(T key, bool select_min)
 {
@@ -93,50 +101,54 @@ __device__ int calc_bucket(T x, int start_bit, unsigned mask, bool select_min)
   return (twiddle_in(x, select_min) >> start_bit) & mask;
 }
 
+/**
+ * Map a Func over the input data, using vectorized load instructions if possible.
+ *
+ * NB: in future, we should move this to cpp/include/raft/linalg/detail/unary_op.cuh, which
+ *     currently does not support the second lambda argument (index of an element)
+ *
+ * @tparam T element type
+ * @tparam IdxT indexing type
+ * @tparam Func void (T x, IdxT idx)
+ *
+ * @param in the input data
+ * @param len the number of elements to read
+ * @param f the lambda taking two arguments (T x, IdxT idx)
+ */
 template <typename T, typename IdxT, typename Func>
 __device__ void vectorized_process(const T* in, IdxT len, Func f)
 {
   const IdxT stride = blockDim.x * gridDim.x;
   const int tid     = blockIdx.x * blockDim.x + threadIdx.x;
-  if constexpr (sizeof(T) >= sizeof(WideT)) {
+  if constexpr (sizeof(T) >= VECTORIZED_READ_SIZE || VECTORIZED_READ_SIZE % sizeof(T) != 0) {
     for (IdxT i = tid; i < len; i += stride) {
       f(in[i], i);
     }
   } else {
-    static_assert(sizeof(WideT) % sizeof(T) == 0);
-    constexpr int items_per_scalar = sizeof(WideT) / sizeof(T);
-    // TODO: it's UB
-    union {
-      WideT scalar;
-      T array[items_per_scalar];
-    } wide;
+    using wide_t      = TxN_t<T, VECTORIZED_READ_SIZE / sizeof(T)>;
+    using align_bytes = Pow2<(size_t)VECTORIZED_READ_SIZE>;
+    using align_elems = Pow2<wide_t::Ratio>;
+    wide_t wide;
 
-    int skip_cnt = (reinterpret_cast<size_t>(in) % sizeof(WideT))
-                     ? ((sizeof(WideT) - reinterpret_cast<size_t>(in) % sizeof(WideT)) / sizeof(T))
-                     : 0;
-    if (skip_cnt > len) { skip_cnt = len; }
-    const WideT* in_cast = reinterpret_cast<decltype(in_cast)>(in + skip_cnt);
-    const IdxT len_cast  = (len - skip_cnt) / items_per_scalar;
+    // how many elements to skip in order to do aligned vectorized load
+    const IdxT skip_cnt_left = std::min<IdxT>((IdxT)(align_bytes::roundUp(in) - in), len);
 
-    for (IdxT i = tid; i < len_cast; i += stride) {
-      wide.scalar       = in_cast[i];
-      const IdxT real_i = skip_cnt + i * items_per_scalar;
+    // The main loop: process all aligned data
+    for (IdxT i = tid * wide_t::Ratio + skip_cnt_left; i + wide_t::Ratio <= len;
+         i += stride * wide_t::Ratio) {
+      wide.load(in, i);
 #pragma unroll
-      for (int j = 0; j < items_per_scalar; ++j) {
-        f(wide.array[j], real_i + j);
+      for (int j = 0; j < wide_t::Ratio; ++j) {
+        f(wide.val.data[j], i + j);
       }
     }
 
-    static_assert(WarpSize >= items_per_scalar);
-    // and because items_per_scalar > skip_cnt, WarpSize > skip_cnt
-    // no need to use loop
-    if (tid < skip_cnt) { f(in[tid], tid); }
-    // because len_cast = (len - skip_cnt) / items_per_scalar,
-    // len_cast * items_per_scalar + items_per_scalar > len - skip_cnt;
-    // and so
-    // len - (skip_cnt + len_cast * items_per_scalar) < items_per_scalar <= WarpSize
-    // no need to use loop
-    const IdxT remain_i = skip_cnt + len_cast * items_per_scalar + tid;
+    static_assert(WarpSize >= wide_t::Ratio);
+    // Processes the skipped elements on the left
+    if (tid < skip_cnt_left) { f(in[tid], tid); }
+    // Processes the skipped elements on the right
+    const IdxT skip_cnt_right = align_elems::mod(len - skip_cnt_left);
+    const IdxT remain_i       = len - skip_cnt_right + tid;
     if (remain_i < len) { f(in[remain_i], remain_i); }
   }
 }
@@ -145,6 +157,7 @@ __device__ void vectorized_process(const T* in, IdxT len, Func f)
 template <typename T, typename IdxT, typename Func>
 __device__ void vectorized_process(const T* in, IdxT len, Func f, int sync_width)
 {
+  using WideT       = float4;
   const IdxT stride = blockDim.x * gridDim.x;
   const int tid     = blockIdx.x * blockDim.x + threadIdx.x;
   if constexpr (sizeof(T) >= sizeof(WideT)) {
@@ -240,7 +253,7 @@ class BufferedStore {
 
   __device__ void store(T value, IdxT index, bool valid, T* out, IdxT* out_idx, IdxT* p_out_cnt)
   {
-    unsigned int valid_mask = __ballot_sync(FULL_WARP_MASK, valid);
+    unsigned int valid_mask = __ballot_sync(FULL_WARP_MASK_, valid);
     if (valid_mask == 0) { return; }
 
     int pos = __popc(valid_mask & ((0x1u << lane_id_) - 1)) + warp_pos_;
@@ -254,7 +267,7 @@ class BufferedStore {
     if (warp_pos_ >= WarpSize) {
       IdxT pos_smem;
       if (lane_id_ == 0) { pos_smem = atomicAdd(p_out_cnt, static_cast<IdxT>(WarpSize)); }
-      pos_smem = __shfl_sync(FULL_WARP_MASK, pos_smem, 0);
+      pos_smem = __shfl_sync(FULL_WARP_MASK_, pos_smem, 0);
 
       __syncwarp();
       out[pos_smem + lane_id_]     = value_smem_[lane_id_];
@@ -276,7 +289,7 @@ class BufferedStore {
     if (warp_pos_ > 0) {
       IdxT pos_smem;
       if (lane_id_ == 0) { pos_smem = atomicAdd(p_out_cnt, static_cast<IdxT>(warp_pos_)); }
-      pos_smem = __shfl_sync(FULL_WARP_MASK, pos_smem, 0);
+      pos_smem = __shfl_sync(FULL_WARP_MASK_, pos_smem, 0);
 
       __syncwarp();
       if (lane_id_ < warp_pos_) {
@@ -287,6 +300,7 @@ class BufferedStore {
   }
 
  private:
+  const unsigned FULL_WARP_MASK_{0xffffffff};
   T* value_smem_;
   IdxT* index_smem_;
   IdxT lane_id_;  //@TODO: Can be const variable
@@ -392,6 +406,10 @@ class FilterAndHistogram {
   }
 };
 
+/**
+ * Fused filtering of the current phase and building histogram for the next phase
+ * (see steps 4-1 in `radix_kernel` description).
+ */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 class FilterAndHistogram<T, IdxT, BitsPerPass, BlockSize, DirectStore> {
  public:
@@ -419,6 +437,9 @@ class FilterAndHistogram<T, IdxT, BitsPerPass, BlockSize, DirectStore> {
     const unsigned mask = calc_mask<T, BitsPerPass>(pass);
 
     if (pass == 0) {
+      // Passed to vectorized_process, this function executes in all blocks in parallel,
+      // i.e. the work is split along the input (both, in batches and chunks of a single row).
+      // Later, the histograms are merged using atomicAdd.
       auto f = [select_min, start_bit, mask](T value, IdxT) {
         int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
         atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
@@ -430,6 +451,7 @@ class FilterAndHistogram<T, IdxT, BitsPerPass, BlockSize, DirectStore> {
       const auto kth_value_bits    = counter->kth_value_bits;
       const int previous_start_bit = calc_start_bit<T, BitsPerPass>(pass - 1);
 
+      // See the remark above on the distributed execution of `f` using vectorized_process.
       auto f = [in_idx_buf,
                 out_buf,
                 out_idx_buf,
@@ -461,12 +483,11 @@ class FilterAndHistogram<T, IdxT, BitsPerPass, BlockSize, DirectStore> {
             atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
           }
         }
-        // '(out_buf || early_stop)':
-        // If we skip writing to 'out_buf' (when !out_buf), we should skip
-        // writing to 'out' too. So we won't write the same value to 'out'
-        // multiple times. And if we keep skipping the writing, values will be
-        // written in last_filter_kernel at last. But when 'early_stop' is true,
-        // we need to write to 'out' since it's the last chance.
+        // '(out_buf || early_stop)' is a little tricky:
+        // If we skip writing to 'out_buf' (when 'out_buf' is false), we should skip writing to
+        // 'out' too. So we won't write the same value to 'out' multiple times. And if we keep
+        // skipping the writing, values will be written in last_filter_kernel at last.
+        // But when 'early_stop' is true, we need to write to 'out' since it's the last chance.
         else if ((out_buf || early_stop) && previous_bits < kth_value_bits) {
           IdxT pos     = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
           out[pos]     = value;
@@ -476,14 +497,20 @@ class FilterAndHistogram<T, IdxT, BitsPerPass, BlockSize, DirectStore> {
       vectorized_process(in_buf, previous_len, f);
     }
     if (early_stop) { return; }
-
     __syncthreads();
+
+    // merge histograms produced by individual blocks
     for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
       if (histogram_smem[i] != 0) { atomicAdd(histogram + i, histogram_smem[i]); }
     }
   }
 };
 
+/**
+ * Replace a part of the histogram with its own prefix sum, starting from the `start` and adding
+ * `current` to each entry of the result.
+ * (step 2 in `radix_kernel` description)
+ */
 template <typename IdxT, int BitsPerPass, int BlockSize>
 __device__ void scan(volatile IdxT* histogram)
 {
@@ -524,6 +551,10 @@ __device__ void scan(volatile IdxT* histogram)
   }
 }
 
+/**
+ * Calculate in which bucket the k-th value will fall
+ *  (steps 3 in `radix_kernel` description)
+ */
 template <typename T, typename IdxT, int BitsPerPass>
 __device__ void choose_bucket(Counter<T, IdxT>* counter,
                               const IdxT* histogram,
@@ -537,8 +568,8 @@ __device__ void choose_bucket(Counter<T, IdxT>* counter,
 
     // one and only one thread will satisfy this condition, so only write once
     if (prev < k && cur >= k) {
-      counter->k                                   = k - prev;
-      counter->len                                 = cur - prev;
+      counter->k   = k - prev;    // how many values still are there to find
+      counter->len = cur - prev;  // number of values in `index` bucket
       typename cub::Traits<T>::UnsignedBits bucket = i;
       int start_bit                                = calc_start_bit<T, BitsPerPass>(pass);
       counter->kth_value_bits |= bucket << start_bit;
@@ -650,6 +681,35 @@ __global__ void last_filter_kernel(const T* in,
   vectorized_process(in_buf, previous_len, f);
 }
 
+/**
+ *
+ * It is expected to call this kernel multiple times (passes), in each pass we process a radix,
+ * going from the most significant towards the least significant bits (MSD).
+ *
+ * Conceptually, each pass consists of 4 steps:
+ *
+ * 1. Calculate histogram
+ *      First, transform bits into a digit, the value of which is in the range
+ *      [0, 2^{BITS_PER_PASS}-1]. Then count the frequency of each digit value and the result is a
+ *      histogram. That is, histogram[i] contains the count of inputs having value i.
+ *
+ * 2. Scan the histogram
+ *      Inclusive prefix sum is computed for the histogram. After this step, histogram[i] contains
+ *      the count of inputs having value <= i.
+ *
+ * 3. Find the bucket j of the histogram that the k-th value falls into
+ *
+ * 4. Filtering
+ *      Input elements whose digit value <j are the top-k elements. We put them into the result
+ *      array out. The number of such elements is histogram[j-1]. Since the k-th value must be in
+ *      the bucket j, we write all elements in bucket j into a intermediate buffer out_buf. For the
+ *      next pass, these elements are used as input, and we would like to find the
+ *      (k - histogram[j-1])-th value among them. That is, the k in the next pass is set to
+ *      (k - histogram[j-1]).
+ *
+ * In the implementation, the filtering step is delayed to the next pass so the filtering and
+ * histogram computation are fused. In this way, inputs are read once rather than twice.
+ */
 template <typename T,
           typename IdxT,
           int BitsPerPass,
@@ -789,7 +849,7 @@ template <typename T,
           class Store>
 unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool use_dynamic)
 {
-  static_assert(sizeof(WideT) / sizeof(T) >= 1);
+  static_assert(VECTORIZED_READ_SIZE / sizeof(T) >= 1);
 
   int active_blocks;
   RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
@@ -802,13 +862,13 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool use_dynamic)
 
   IdxT best_num_blocks         = 0;
   float best_tail_wave_penalty = 1.0f;
-  const IdxT max_num_blocks    = (len - 1) / (sizeof(WideT) / sizeof(T) * BlockSize) + 1;
+  const IdxT max_num_blocks    = (len - 1) / (VECTORIZED_READ_SIZE / sizeof(T) * BlockSize) + 1;
   for (int num_waves = 1;; ++num_waves) {
     IdxT num_blocks = std::min(
       max_num_blocks, static_cast<IdxT>(std::max(num_waves * active_blocks / batch_size, 1)));
     IdxT items_per_thread = (len - 1) / (num_blocks * BlockSize) + 1;
-    items_per_thread      = (items_per_thread - 1) / (sizeof(WideT) / sizeof(T)) + 1;
-    items_per_thread *= sizeof(WideT) / sizeof(T);
+    items_per_thread      = (items_per_thread - 1) / (VECTORIZED_READ_SIZE / sizeof(T)) + 1;
+    items_per_thread *= VECTORIZED_READ_SIZE / sizeof(T);
     num_blocks             = (len - 1) / (items_per_thread * BlockSize) + 1;
     float actual_num_waves = static_cast<float>(num_blocks) * batch_size / active_blocks;
     float tail_wave_penalty =
@@ -829,6 +889,53 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool use_dynamic)
   return best_num_blocks;
 }
 
+/**
+ * Select k smallest or largest key/values from each row in the input data.
+ *
+ * If you think of the input data `in_keys` as a row-major matrix with len columns and
+ * batch_size rows, then this function selects k smallest/largest values in each row and fills
+ * in the row-major matrix `out` of size (batch_size, k).
+ *
+ * Note, the output is NOT sorted within the groups of `k` selected elements.
+ *
+ * @tparam T
+ *   the type of the keys (what is being compared).
+ * @tparam IdxT
+ *   the index type (what is being selected together with the keys).
+ * @tparam BitsPerPass
+ *   The size of the radix;
+ *   it affects the number of passes and number of buckets.
+ * @tparam BlockSize
+ *   Number of threads in a kernel thread block.
+ *
+ * @param[in] in
+ *   contiguous device array of inputs of size (len * batch_size);
+ *   these are compared and selected.
+ * @param[in] in_idx
+ *   contiguous device array of inputs of size (len * batch_size);
+ *   typically, these are indices of the corresponding in_keys.
+ * @param batch_size
+ *   number of input rows, i.e. the batch size.
+ * @param len
+ *   length of a single input array (row); also sometimes referred as n_cols.
+ *   Invariant: len >= k.
+ * @param k
+ *   the number of outputs to select in each input row.
+ * @param[out] out
+ *   contiguous device array of outputs of size (k * batch_size);
+ *   the k smallest/largest values from each row of the `in_keys`.
+ * @param[out] out_idx
+ *   contiguous device array of outputs of size (k * batch_size);
+ *   the payload selected together with `out`.
+ * @param select_min
+ *   whether to select k smallest (true) or largest (false) keys.
+ * @param use_dynamic
+ *   whether to use the dynamic implementation, which is favorable if the leading bits of input data
+ *   are almost the same.
+ * @param stream
+ * @param mr an optional memory resource to use across the calls (you can provide a large enough
+ *           memory pool here to avoid memory allocations within the call).
+ */
 template <typename T,
           typename IdxT,
           int BitsPerPass,
@@ -858,7 +965,7 @@ void radix_topk(const T* in,
                                                  + sizeof(T) * len * 2         // T bufs
                                                  + sizeof(IdxT) * len * 2      // IdxT bufs
                                                  ) +
-                                     256 * 6);
+                                     256 * 6);  // might need extra memory for alignment
   if (pool_guard) {
     RAFT_LOG_DEBUG("radix_topk: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
@@ -951,7 +1058,7 @@ void radix_topk(const T* in,
   }
 
   if (use_dynamic) {
-    dim3 blocks((len / (sizeof(WideT) / sizeof(T)) - 1) / BlockSize + 1, batch_size);
+    dim3 blocks((len / (VECTORIZED_READ_SIZE / sizeof(T)) - 1) / BlockSize + 1, batch_size);
     last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(
       in, in_idx, out_buf, out_idx_buf, out, out_idx, len, k, counters.data(), select_min);
   }
@@ -1133,7 +1240,7 @@ void radix_topk_one_block(const T* in,
                                    batch_size * (sizeof(T) * len * 2       // T bufs
                                                  + sizeof(IdxT) * len * 2  // IdxT bufs
                                                  ) +
-                                     256 * 4);
+                                     256 * 4);  // might need extra memory for alignment
   if (pool_guard) {
     RAFT_LOG_DEBUG("radix_topk: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
