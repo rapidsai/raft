@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -122,6 +122,8 @@ void approx_knn_build_index(const handle_t& handle,
 
   if (ivf_ft_pams && (metric == raft::distance::DistanceType::L2Unexpanded ||
                       metric == raft::distance::DistanceType::L2Expanded ||
+                      metric == raft::distance::DistanceType::L2SqrtExpanded ||
+                      metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
                       metric == raft::distance::DistanceType::InnerProduct)) {
     auto new_params               = from_legacy_index_params(*ivf_ft_pams, metric, metricArg);
     index->ivf_flat<T, int64_t>() = std::make_unique<const ivf_flat::index<T, int64_t>>(
