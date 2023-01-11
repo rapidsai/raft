@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,8 +43,8 @@ struct LinewiseTestParams {
 
 template <typename T, typename I, typename ParamsReader>
 struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Params> {
-  const LinewiseTestParams params;
   const raft::handle_t handle;
+  const LinewiseTestParams params;
   rmm::cuda_stream_view stream;
 
   LinewiseTest()
