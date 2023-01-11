@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,10 +116,10 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
   }
 
  protected:
+  raft::handle_t handle;
   columnSort<T> params;
   rmm::device_uvector<T> keyIn, keySorted, keySortGolden;
   rmm::device_uvector<int> valueOut, goldenValOut;  // valueOut are indexes
-  raft::handle_t handle;
 };
 
 const std::vector<columnSort<float>> inputsf1 = {{0.000001f, 503, 2000, false},

@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -77,25 +77,25 @@ endfunction()
 
 if(BUILD_TESTS)
   ConfigureTest(
-    NAME CLUSTER_TEST PATH test/cluster/kmeans.cu test/cluster_solvers.cu test/cluster/linkage.cu
-    OPTIONAL DIST NN
+    NAME CLUSTER_TEST PATH test/cluster/kmeans.cu test/cluster/cluster_solvers.cu
+    test/cluster/linkage.cu OPTIONAL DIST NN
   )
 
   ConfigureTest(
     NAME
     CORE_TEST
     PATH
-    test/common/logger.cpp
+    test/core/logger.cpp
     test/core/operators_device.cu
     test/core/operators_host.cpp
-    test/handle.cpp
-    test/interruptible.cu
-    test/nvtx.cpp
-    test/mdarray.cu
-    test/mdspan_utils.cu
-    test/memory_type.cpp
-    test/span.cpp
-    test/span.cu
+    test/core/handle.cpp
+    test/core/interruptible.cu
+    test/core/nvtx.cpp
+    test/core/mdarray.cu
+    test/core/mdspan_utils.cu
+    test/core/memory_type.cpp
+    test/core/span.cpp
+    test/core/span.cu
     test/test.cpp
   )
 
@@ -180,7 +180,7 @@ if(BUILD_TESTS)
     test/matrix/select_k.cu
     test/matrix/slice.cu
     test/matrix/triangular.cu
-    test/spectral_matrix.cu
+    test/sparse/spectral_matrix.cu
   )
 
   ConfigureTest(
@@ -199,8 +199,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SOLVERS_TEST PATH test/cluster_solvers_deprecated.cu test/eigen_solvers.cu test/lap/lap.cu
-    test/mst.cu OPTIONAL DIST
+    NAME SOLVERS_TEST PATH test/cluster/cluster_solvers_deprecated.cu test/linalg/eigen_solvers.cu
+    test/lap/lap.cu test/sparse/mst.cu OPTIONAL DIST
   )
 
   ConfigureTest(
@@ -291,7 +291,7 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME UTILS_TEST PATH test/common/seive.cu test/cudart_utils.cpp test/device_atomics.cu
-    test/integer_utils.cpp test/pow2_utils.cu test/util/bitonic_sort.cu
+    NAME UTILS_TEST PATH test/core/seive.cu test/util/bitonic_sort.cu test/util/cudart_utils.cpp
+    test/util/device_atomics.cu test/util/integer_utils.cpp test/util/pow2_utils.cu
   )
 endif()
