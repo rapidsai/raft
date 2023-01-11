@@ -69,7 +69,7 @@ if(NOT raft_FOUND)
   endif()
 
   add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
-  list(APPEND CMAKE_MODULE_PATH "${RAFT_BINARY_DIR}/cmake/find_modules/")
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_BINARY_DIR}/cmake/find_modules/")
   find_package(NCCL REQUIRED)
 endif()
 
