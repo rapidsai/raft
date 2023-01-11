@@ -76,7 +76,7 @@ static void l1Impl(const DataT* x,
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = raft::no_op();
+  auto epilog_lambda = raft::void_op();
 
   if (isRowMajor) {
     auto l1RowMajor = pairwiseDistanceMatKernel<false,

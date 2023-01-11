@@ -40,9 +40,9 @@ struct identity_op {
   }
 };
 
-struct no_op {
-  template <typename Type, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION void operator()(const Type& in, UnusedArgs...) const
+struct void_op {
+  template <typename... UnusedArgs>
+  constexpr RAFT_INLINE_FUNCTION void operator()(UnusedArgs...) const
   {
     return;
   }
