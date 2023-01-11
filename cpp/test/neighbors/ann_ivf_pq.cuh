@@ -383,6 +383,7 @@ inline auto big_dims_small_lut() -> test_cases_t
     y.index_params.pq_dim     = raft::round_up_safe(y.dim / 8u, 64u);
     y.index_params.pq_bits    = 6;
     y.search_params.lut_dtype = CUDA_R_8U;
+    y.min_recall              = 0.21;
     return y;
   });
 }
