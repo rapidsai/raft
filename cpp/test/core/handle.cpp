@@ -21,6 +21,7 @@
 #include <memory>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 #include <unordered_map>
 
 namespace raft {
@@ -246,6 +247,25 @@ TEST(Raft, SubComms)
 
   ASSERT_EQ(handle.get_subcomm("key1").get_size(), 1);
   ASSERT_EQ(handle.get_subcomm("key2").get_size(), 2);
+}
+
+TEST(Raft, WorkspaceResource)
+{
+  handle_t handle;
+
+  // We can't assert equality but we can test that a pool resource was not returned
+  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
+                handle.get_workspace_resource()) == nullptr);
+
+  auto pool_mr = new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource());
+  std::shared_ptr<rmm::cuda_stream_pool> pool = {nullptr};
+  handle_t handle2(rmm::cuda_stream_per_thread, pool, pool_mr);
+
+  // We can't assert equality so we can test that a pool resource was, in fact, returned
+  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
+                handle2.get_workspace_resource()) != nullptr);
+
+  delete pool_mr;
 }
 
 }  // namespace raft
