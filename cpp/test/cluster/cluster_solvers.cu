@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,80 +14,59 @@
  * limitations under the License.
  */
 
-#include <raft/common/nvtx.hpp>
-#include <raft/core/handle.hpp>
-#include <raft/spectral/eigen_solvers.cuh>
-#include <raft/spectral/partition.cuh>
-
 #include <gtest/gtest.h>
-
-#include <cstddef>
 #include <iostream>
 #include <memory>
+#include <raft/core/handle.hpp>
+
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#include <raft/spectral/specializations.cuh>
+#endif
+
+#include <raft/spectral/cluster_solvers.cuh>
+#include <raft/spectral/modularity_maximization.cuh>
 
 namespace raft {
 namespace spectral {
 
-TEST(Raft, EigenSolvers)
+TEST(Raft, ClusterSolvers)
 {
-  common::nvtx::range fun_scope("test::EigenSolvers");
   using namespace matrix;
   using index_type = int;
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0,
-            h.
 
-            get_device()
-
-  );
-
-  index_type* ro{nullptr};
-  index_type* ci{nullptr};
-  value_type* vs{nullptr};
-  index_type nnz   = 0;
-  index_type nrows = 0;
-
-  sparse_matrix_t<index_type, value_type> sm1{h, ro, ci, vs, nrows, nnz};
-  ASSERT_EQ(nullptr, sm1.row_offsets_);
-
-  index_type neigvs{10};
   index_type maxiter{100};
-  index_type restart_iter{10};
   value_type tol{1.0e-10};
-  bool reorthog{true};
+  unsigned long long seed{100110021003};
+
+  auto stream = h.get_stream();
+
+  index_type n{100};
+  index_type d{10};
+  index_type k{5};
 
   // nullptr expected to trigger exceptions:
   //
-  value_type* eigvals{nullptr};
   value_type* eigvecs{nullptr};
-  std::uint64_t seed{100110021003};
+  index_type* codes{nullptr};
 
-  eigen_solver_config_t<index_type, value_type> cfg{
-    neigvs, maxiter, restart_iter, tol, reorthog, seed};
+  cluster_solver_config_t<index_type, value_type> cfg{k, maxiter, tol, seed};
 
-  lanczos_solver_t<index_type, value_type> eig_solver{cfg};
+  kmeans_solver_t<index_type, value_type> cluster_solver{cfg};
 
-  EXPECT_ANY_THROW(eig_solver.solve_smallest_eigenvectors(h, sm1, eigvals, eigvecs));
-
-  EXPECT_ANY_THROW(eig_solver.solve_largest_eigenvectors(h, sm1, eigvals, eigvecs));
+  EXPECT_ANY_THROW(cluster_solver.solve(h, n, d, eigvecs, codes));
 }
 
-TEST(Raft, SpectralSolvers)
+TEST(Raft, ModularitySolvers)
 {
-  common::nvtx::range fun_scope("test::SpectralSolvers");
   using namespace matrix;
   using index_type = int;
   using value_type = double;
 
   handle_t h;
-  ASSERT_EQ(0,
-            h.
-
-            get_device()
-
-  );
+  ASSERT_EQ(0, h.get_device());
 
   index_type neigvs{10};
   index_type maxiter{100};
@@ -112,13 +91,14 @@ TEST(Raft, SpectralSolvers)
   cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol, seed};
   kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
+  auto stream = h.get_stream();
   sparse_matrix_t<index_type, value_type> sm{h, nullptr, nullptr, nullptr, 0, 0};
-  EXPECT_ANY_THROW(
-    spectral::partition(h, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
 
-  value_type edgeCut{0};
-  value_type cost{0};
-  EXPECT_ANY_THROW(spectral::analyzePartition(h, sm, k, clusters, edgeCut, cost));
+  EXPECT_ANY_THROW(spectral::modularity_maximization(
+    h, sm, eig_solver, cluster_solver, clusters, eigvals, eigvecs));
+
+  value_type modularity{0};
+  EXPECT_ANY_THROW(spectral::analyzeModularity(h, sm, k, clusters, modularity));
 }
 
 }  // namespace spectral

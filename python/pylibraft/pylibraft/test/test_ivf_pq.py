@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -97,6 +97,7 @@ def run_ivf_pq_build_search_test(
     kmeans_n_iters=20,
     compare=True,
     inplace=True,
+    array_type="device",
 ):
     dataset = generate_data((n_rows, n_cols), dtype)
     if metric == "inner_product":
@@ -115,7 +116,10 @@ def run_ivf_pq_build_search_test(
         add_data_on_build=add_data_on_build,
     )
 
-    index = ivf_pq.build(build_params, dataset_device)
+    if array_type == "device":
+        index = ivf_pq.build(build_params, dataset_device)
+    else:
+        index = ivf_pq.build(build_params, dataset)
 
     assert index.trained
     if pq_dim != 0:
@@ -125,14 +129,20 @@ def run_ivf_pq_build_search_test(
     assert index.n_lists == build_params.n_lists
 
     if not add_data_on_build:
-        dataset_1_device = device_ndarray(dataset[: n_rows // 2, :])
-        dataset_2_device = device_ndarray(dataset[n_rows // 2 :, :])
+        dataset_1 = dataset[: n_rows // 2, :]
+        dataset_2 = dataset[n_rows // 2 :, :]
         indices_1 = np.arange(n_rows // 2, dtype=np.uint64)
-        indices_1_device = device_ndarray(indices_1)
         indices_2 = np.arange(n_rows // 2, n_rows, dtype=np.uint64)
-        indices_2_device = device_ndarray(indices_2)
-        index = ivf_pq.extend(index, dataset_1_device, indices_1_device)
-        index = ivf_pq.extend(index, dataset_2_device, indices_2_device)
+        if array_type == "device":
+            dataset_1_device = device_ndarray(dataset_1)
+            dataset_2_device = device_ndarray(dataset_2)
+            indices_1_device = device_ndarray(indices_1)
+            indices_2_device = device_ndarray(indices_2)
+            index = ivf_pq.extend(index, dataset_1_device, indices_1_device)
+            index = ivf_pq.extend(index, dataset_2_device, indices_2_device)
+        else:
+            index = ivf_pq.extend(index, dataset_1, indices_1)
+            index = ivf_pq.extend(index, dataset_2, indices_2)
 
     assert index.size >= n_rows
 
@@ -190,7 +200,10 @@ def run_ivf_pq_build_search_test(
 @pytest.mark.parametrize("n_queries", [100])
 @pytest.mark.parametrize("n_lists", [100])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
-def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype, inplace):
+@pytest.mark.parametrize("array_type", ["host", "device"])
+def test_ivf_pq_dtypes(
+    n_rows, n_cols, n_queries, n_lists, dtype, inplace, array_type
+):
     # Note that inner_product tests use normalized input which we cannot
     # represent in int8, therefore we test only l2_expanded metric here.
     run_ivf_pq_build_search_test(
@@ -202,6 +215,7 @@ def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype, inplace):
         metric="l2_expanded",
         dtype=dtype,
         inplace=inplace,
+        array_type=array_type,
     )
 
 
@@ -337,7 +351,8 @@ def test_ivf_pq_search_params(params):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
-def test_extend(dtype):
+@pytest.mark.parametrize("array_type", ["host", "device"])
+def test_extend(dtype, array_type):
     run_ivf_pq_build_search_test(
         n_rows=10000,
         n_cols=10,
@@ -347,6 +362,7 @@ def test_extend(dtype):
         metric="l2_expanded",
         dtype=dtype,
         add_data_on_build=False,
+        array_type=array_type,
     )
 
 
