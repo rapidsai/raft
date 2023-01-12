@@ -89,7 +89,7 @@ jobs:
     with:
       build_type: pull-request
       package-name: raft_dask
-      test-before-amd64: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02 && export NCCL_DEBUG=INFO"
-      test-before-arm64: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02 && export NCCL_DEBUG=INFO"
-      test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"
+      test-before-amd64: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02"
+      test-before-arm64: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02"
+      test-unittest: "export NCCL_DEBUG=INFO && python -m pytest -v ./python/raft-dask/raft_dask/test"
       test-smoketest: "" #"python ci/wheel_smoke_test_raft_dask.py"
