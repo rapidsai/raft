@@ -68,15 +68,9 @@ if(NOT raft_FOUND)
     set(_exclude_from_all EXCLUDE_FROM_ALL)
   endif()
 
-  include(rapids-find)
-  rapids_find_generate_module(
-    NCCL
-    HEADER_NAMES nccl.h
-    LIBRARY_NAMES nccl
-  )
-  find_package(NCCL REQUIRED)
-
   add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
+  list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR}/cmake/find_modules)
+  find_package(NCCL REQUIRED)
 endif()
 
 include(rapids-cython)
