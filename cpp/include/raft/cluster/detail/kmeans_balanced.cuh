@@ -271,11 +271,16 @@ void calc_centers_and_sizes(const handle_t& handle,
     temp_sizes = temp_cluster_sizes.data();
   }
 
-  cub::TransformInputIterator<MathT, MappingOpT, const T*> mapping_itr(dataset, mapping_op);
-
-  // todo(lsugy): use iterator from KV output of fusedL2NN
-  raft::linalg::reduce_rows_by_key(
-    mapping_itr, dim, labels, nullptr, n_rows, dim, n_clusters, centers, stream, reset_counters);
+  // Apply mapping only when the data and math types are different.
+  if constexpr (std::is_same_v<T, MathT>) {
+    raft::linalg::reduce_rows_by_key(
+      dataset, dim, labels, nullptr, n_rows, dim, n_clusters, centers, stream, reset_counters);
+  } else {
+    // todo(lsugy): use iterator from KV output of fusedL2NN
+    cub::TransformInputIterator<MathT, MappingOpT, const T*> mapping_itr(dataset, mapping_op);
+    raft::linalg::reduce_rows_by_key(
+      mapping_itr, dim, labels, nullptr, n_rows, dim, n_clusters, centers, stream, reset_counters);
+  }
 
   // Compute weight of each cluster
   raft::cluster::detail::countLabels(handle, labels, temp_sizes, n_rows, n_clusters, workspace);
