@@ -328,7 +328,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2)
                                  FinalLambda fin_op)
 {
   extern __shared__ char smem[];
-  auto rowEpilog = [] __device__(IdxT starty) { return; };
+  auto rowEpilog = raft::void_op();
 
   PairwiseDistances<useNorms,
                     DataT,
@@ -412,7 +412,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2)
   // TODO: re-enable the CUDA_ARCH guard for below Ampere once cutlass based
   //  kernels are enabled for CUDA 12.0
   extern __shared__ char smem[];
-  auto rowEpilog = [] __device__(IdxT starty) { return; };
+  auto rowEpilog = raft::void_op();
 
   PairwiseDistances<useNorms,
                     DataT,
