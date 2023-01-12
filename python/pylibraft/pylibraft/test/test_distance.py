@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 from scipy.spatial.distance import cdist
 
-from pylibraft.common import Handle, device_ndarray
+from pylibraft.common import Handle, Stream, device_ndarray
 from pylibraft.distance import pairwise_distance
 
 
@@ -64,9 +64,10 @@ def test_distance(n_rows, n_cols, inplace, metric, order, dtype):
     input1_device = device_ndarray(input1)
     output_device = device_ndarray(output) if inplace else None
 
-    handle = Handle()
+    s2 = Stream()
+    handle = Handle(stream=s2)
     ret_output = pairwise_distance(
-        input1_device, input1_device, output_device, metric
+        input1_device, input1_device, output_device, metric, handle=handle
     )
     handle.sync()
 
