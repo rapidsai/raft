@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ void mapLaunch(OutType* out,
                IdxType len,
                cudaStream_t stream)
 {
-  raft::handle_t handle{stream};
+  raft::device_resources handle{stream};
   auto out_view = raft::make_device_vector_view(out, len);
   auto in1_view = raft::make_device_vector_view(in1, len);
   map(
@@ -99,7 +99,7 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   MapInputs<InType, IdxType, OutType> params;

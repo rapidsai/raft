@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -116,7 +116,10 @@ cudaError_t scale_obs(index_type_t m, index_type_t n, value_type_t* obs)
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs, weight_t* eigVecs)
+void transform_eigen_matrix(raft::device_resources const& handle,
+                            edge_t n,
+                            vertex_t nEigVecs,
+                            weight_t* eigVecs)
 {
   auto stream             = handle.get_stream();
   auto cublas_h           = handle.get_cublas_handle();
@@ -207,7 +210,7 @@ struct equal_to_i_op {
 // Construct indicator vector for ith partition
 //
 template <typename vertex_t, typename edge_t, typename weight_t>
-bool construct_indicator(handle_t const& handle,
+bool construct_indicator(raft::device_resources const& handle,
                          edge_t index,
                          edge_t n,
                          weight_t& clustersize,

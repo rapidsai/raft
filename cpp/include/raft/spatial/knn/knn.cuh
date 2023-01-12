@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -193,7 +193,7 @@ inline void select_k(const value_t* in_keys,
  *            as input vector.
  */
 template <typename idx_t = std::int64_t, typename value_t = float, typename value_int = int>
-void brute_force_knn(raft::handle_t const& handle,
+void brute_force_knn(raft::device_resources const& handle,
                      std::vector<value_t*>& input,
                      std::vector<value_int>& sizes,
                      value_int D,

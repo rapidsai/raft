@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ namespace linalg {
 template <typename InType, typename IdxType = int, typename OutType = InType>
 void unaryOpLaunch(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
 {
-  raft::handle_t handle{stream};
+  raft::device_resources handle{stream};
   auto out_view = raft::make_device_vector_view(out, len);
   auto in_view  = raft::make_device_vector_view<const InType>(in, len);
   if (in == nullptr) {
@@ -78,7 +78,7 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   UnaryOpInputs<InType, IdxType, OutType> params;

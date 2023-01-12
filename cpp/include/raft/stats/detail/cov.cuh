@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ namespace detail {
  * function returns!
  */
 template <typename Type>
-void cov(const raft::handle_t& handle,
+void cov(raft::device_resources const& handle,
          Type* covar,
          Type* data,
          const Type* mu,

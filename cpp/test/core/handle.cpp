@@ -20,7 +20,7 @@
 #include <iostream>
 #include <memory>
 #include <raft/core/comms.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <unordered_map>
 
 namespace raft {
@@ -166,7 +166,7 @@ class mock_comms : public comms_iface {
 
 TEST(Raft, HandleDefault)
 {
-  handle_t h;
+  raft::device_resources h;
   ASSERT_EQ(0, h.get_device());
   ASSERT_EQ(rmm::cuda_stream_per_thread, h.get_stream());
   ASSERT_NE(nullptr, h.get_cublas_handle());
@@ -180,14 +180,14 @@ TEST(Raft, Handle)
   // test stream pool creation
   constexpr std::size_t n_streams = 4;
   auto stream_pool                = std::make_shared<rmm::cuda_stream_pool>(n_streams);
-  handle_t h(rmm::cuda_stream_default, stream_pool);
+  raft::device_resources h(rmm::cuda_stream_default, stream_pool);
   ASSERT_EQ(n_streams, h.get_stream_pool_size());
 
   // test non default stream handle
   cudaStream_t stream;
   RAFT_CUDA_TRY(cudaStreamCreate(&stream));
   rmm::cuda_stream_view stream_view(stream);
-  handle_t handle(stream_view);
+  raft::device_resources handle(stream_view);
   ASSERT_EQ(stream_view, handle.get_stream());
   handle.sync_stream(stream);
   RAFT_CUDA_TRY(cudaStreamDestroy(stream));
@@ -195,7 +195,7 @@ TEST(Raft, Handle)
 
 TEST(Raft, DefaultConstructor)
 {
-  handle_t handle;
+  raft::device_resources handle;
 
   // Make sure waiting on the default stream pool
   // does not fail.
@@ -215,11 +215,11 @@ TEST(Raft, GetHandleFromPool)
 {
   constexpr std::size_t n_streams = 4;
   auto stream_pool                = std::make_shared<rmm::cuda_stream_pool>(n_streams);
-  handle_t parent(rmm::cuda_stream_default, stream_pool);
+  raft::device_resources parent(rmm::cuda_stream_default, stream_pool);
 
   for (std::size_t i = 0; i < n_streams; i++) {
     auto worker_stream = parent.get_stream_from_stream_pool(i);
-    handle_t child(worker_stream);
+    raft::device_resources child(worker_stream);
     ASSERT_EQ(parent.get_stream_from_stream_pool(i), child.get_stream());
   }
 
@@ -228,7 +228,7 @@ TEST(Raft, GetHandleFromPool)
 
 TEST(Raft, Comms)
 {
-  handle_t handle;
+  raft::device_resources handle;
   auto comm1 = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mock_comms(2)));
   handle.set_comms(comm1);
 
@@ -237,7 +237,7 @@ TEST(Raft, Comms)
 
 TEST(Raft, SubComms)
 {
-  handle_t handle;
+  raft::device_resources handle;
   auto comm1 = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mock_comms(1)));
   handle.set_subcomm("key1", comm1);
 

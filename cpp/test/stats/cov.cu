@@ -53,7 +53,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
 
   void SetUp() override
   {
-    raft::handle_t handle;
+    raft::device_resources handle;
     cudaStream_t stream = handle.get_stream();
 
     params = ::testing::TestWithParam<CovInputs<T>>::GetParam();

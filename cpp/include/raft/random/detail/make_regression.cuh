@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 
 #include <algorithm>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/init.cuh>
@@ -52,7 +52,7 @@ static __global__ void _singular_profile_kernel(DataT* out, IdxT n, DataT tail_s
 
 /* Internal auxiliary function to generate a low-rank matrix */
 template <typename DataT, typename IdxT>
-static void _make_low_rank_matrix(const raft::handle_t& handle,
+static void _make_low_rank_matrix(raft::device_resources const& handle,
                                   DataT* out,
                                   IdxT n_rows,
                                   IdxT n_cols,
@@ -143,7 +143,7 @@ static __global__ void _gather2d_kernel(
 }
 
 template <typename DataT, typename IdxT>
-void make_regression_caller(const raft::handle_t& handle,
+void make_regression_caller(raft::device_resources const& handle,
                             DataT* out,
                             DataT* values,
                             IdxT n_rows,

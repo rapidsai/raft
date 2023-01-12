@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ struct DivideByNonZero {
  *             so it's not guaranteed to stay unmodified.
  */
 template <typename math_t>
-void lstsqSvdQR(const raft::handle_t& handle,
+void lstsqSvdQR(raft::device_resources const& handle,
                 math_t* A,
                 const int n_rows,
                 const int n_cols,
@@ -177,7 +177,7 @@ void lstsqSvdQR(const raft::handle_t& handle,
  *             so it's not guaranteed to stay unmodified.
  */
 template <typename math_t>
-void lstsqSvdJacobi(const raft::handle_t& handle,
+void lstsqSvdJacobi(raft::device_resources const& handle,
                     math_t* A,
                     const int n_rows,
                     const int n_cols,
@@ -248,7 +248,7 @@ void lstsqSvdJacobi(const raft::handle_t& handle,
  *  (`w = (A^T A)^-1  A^T b`)
  */
 template <typename math_t>
-void lstsqEig(const raft::handle_t& handle,
+void lstsqEig(raft::device_resources const& handle,
               const math_t* A,
               const int n_rows,
               const int n_cols,
@@ -352,7 +352,7 @@ void lstsqEig(const raft::handle_t& handle,
  *            Warning: the content of this vector is modified by the cuSOLVER routines.
  */
 template <typename math_t>
-void lstsqQR(const raft::handle_t& handle,
+void lstsqQR(raft::device_resources const& handle,
              math_t* A,
              const int n_rows,
              const int n_cols,

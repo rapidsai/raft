@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ namespace raft::matrix {
  * @param[inout] inout: input matrix. Result also stored in this parameter
  */
 template <typename math_t, typename idx_t>
-void sign_flip(const raft::handle_t& handle,
+void sign_flip(raft::device_resources const& handle,
                raft::device_matrix_view<math_t, idx_t, col_major> inout)
 {
   detail::signFlip(inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());

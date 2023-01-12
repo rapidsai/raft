@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #include "ann_utils.cuh"
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -44,7 +44,7 @@ struct RefineInputs {
 template <typename DataT, typename DistanceT, typename IdxT>
 class RefineHelper {
  public:
-  RefineHelper(const raft::handle_t& handle, RefineInputs<IdxT> params)
+  RefineHelper(const raft::device_resources& handle, RefineInputs<IdxT> params)
     : handle_(handle), stream_(handle.get_stream()), p(params)
   {
     raft::random::Rng r(1234ULL);
@@ -119,7 +119,7 @@ class RefineHelper {
 
  public:
   RefineInputs<IdxT> p;
-  const raft::handle_t& handle_;
+  const raft::device_resources& handle_;
   rmm::cuda_stream_view stream_;
 
   raft::device_matrix<DataT, IdxT, row_major> dataset;

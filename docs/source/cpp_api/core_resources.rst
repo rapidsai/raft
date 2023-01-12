@@ -6,10 +6,10 @@ handle_t
    :class: highlight
 
 
-``#include <raft/core/handle.hpp>``
+``#include <raft/core/device_resources.hpp>``
 
 namespace *raft::core*
 
-.. doxygenclass:: raft::handle_t
+.. doxygenclass:: raft::device_resources
     :project: RAFT
     :members:

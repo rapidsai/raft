@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,14 +53,14 @@ void meanSquaredError(
  * @tparam IndexType Input/Output index type
  * @tparam OutValueType Output data-type
  * @tparam TPB threads-per-block
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] A input raft::device_vector_view
  * @param[in] B input raft::device_vector_view
  * @param[out] out the output mean squared error value of type raft::device_scalar_view
  * @param[in] weight weight to apply to every term in the mean squared error calculation
  */
 template <typename InValueType, typename IndexType, typename OutValueType>
-void mean_squared_error(const raft::handle_t& handle,
+void mean_squared_error(raft::device_resources const& handle,
                         raft::device_vector_view<const InValueType, IndexType> A,
                         raft::device_vector_view<const InValueType, IndexType> B,
                         raft::device_scalar_view<OutValueType, IndexType> out,

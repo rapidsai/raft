@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ class MeanSquaredErrorTest : public ::testing::TestWithParam<MeanSquaredErrorInp
  protected:
   MeanSquaredErrorInputs<T> params;
 
-  raft::handle_t handle;
+  raft::device_resources handle;
   rmm::device_scalar<T> output;
   rmm::device_scalar<T> refoutput;
 

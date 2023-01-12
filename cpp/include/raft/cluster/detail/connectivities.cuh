@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -39,7 +39,7 @@ namespace raft::cluster::detail {
 
 template <raft::cluster::LinkageDistance dist_type, typename value_idx, typename value_t>
 struct distance_graph_impl {
-  void run(const raft::handle_t& handle,
+  void run(raft::device_resources const& handle,
            const value_t* X,
            size_t m,
            size_t n,
@@ -57,7 +57,7 @@ struct distance_graph_impl {
  */
 template <typename value_idx, typename value_t>
 struct distance_graph_impl<raft::cluster::LinkageDistance::KNN_GRAPH, value_idx, value_t> {
-  void run(const raft::handle_t& handle,
+  void run(raft::device_resources const& handle,
            const value_t* X,
            size_t m,
            size_t n,
@@ -120,7 +120,7 @@ struct distance_graph_impl<raft::cluster::LinkageDistance::KNN_GRAPH, value_idx,
  *             which will guarantee k <= log(n) + c
  */
 template <typename value_idx, typename value_t, raft::cluster::LinkageDistance dist_type>
-void get_distance_graph(const raft::handle_t& handle,
+void get_distance_graph(raft::device_resources const& handle,
                         const value_t* X,
                         size_t m,
                         size_t n,

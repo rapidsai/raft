@@ -22,7 +22,7 @@
 #include <rmm/device_uvector.hpp>
 #include <vector>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/sparse/mst/mst.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -241,7 +241,7 @@ class MSTTest : public ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, w
   edge_t e;
   int iterations;
 
-  raft::handle_t handle;
+  raft::device_resources handle;
 };
 
 // connected components tests

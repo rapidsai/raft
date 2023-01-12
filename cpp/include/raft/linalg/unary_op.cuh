@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 #include "detail/unary_op.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
@@ -85,7 +85,7 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
  * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
  * @tparam OutType Output Type raft::device_mdspan
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in Input
  * @param[out] out Output
  * @param[in] op the device-lambda
@@ -97,7 +97,7 @@ template <typename InType,
           typename OutType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
+void unary_op(raft::device_resources const& handle, InType in, OutType out, Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
@@ -120,14 +120,14 @@ void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
  * This function does not read from the input
  * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[inout] in Input/Output
  * @param[in] op the device-lambda
  * @note Lambda must be a functor with the following signature:
  *       `InType func(const InType& val);`
  */
 template <typename InType, typename Lambda, typename = raft::enable_if_output_device_mdspan<InType>>
-void write_only_unary_op(const raft::handle_t& handle, InType in, Lambda op)
+void write_only_unary_op(raft::device_resources const& handle, InType in, Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
 

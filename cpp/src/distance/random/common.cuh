@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #include <raft_runtime/random/rmat_rectangular_generator.hpp>
 
 #define FUNC_DEF(IdxT, ProbT)                                                           \
-  void rmat_rectangular_gen(raft::handle_t const& handle,                               \
+  void rmat_rectangular_gen(raft::device_resources const& handle,                       \
                             IdxT* out,                                                  \
                             IdxT* out_src,                                              \
                             IdxT* out_dst,                                              \

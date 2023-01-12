@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ void approx_knn_ivfsq_build_index(knnIndex* index, const IVFSQParam& params, Int
 }
 
 template <typename T = float, typename IntType = int>
-void approx_knn_build_index(const handle_t& handle,
+void approx_knn_build_index(raft::device_resources const& handle,
                             knnIndex* index,
                             knnIndexParam* params,
                             raft::distance::DistanceType metric,
@@ -152,7 +152,7 @@ void approx_knn_build_index(const handle_t& handle,
 }
 
 template <typename T = float, typename IntType = int>
-void approx_knn_search(const handle_t& handle,
+void approx_knn_search(raft::device_resources const& handle,
                        float* distances,
                        int64_t* indices,
                        knnIndex* index,

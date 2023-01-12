@@ -21,7 +21,7 @@
 namespace raft {
 
 /**
- * raft::handle_t is being kept around for backwards
+ * raft::device_resources is being kept around for backwards
  * compatibility and will be removed in a future version.
  *
  * Extending the `raft::device_resources` instead of `using` to
@@ -34,9 +34,9 @@ class handle_t : public raft::device_resources {
  public:
   // delete copy/move constructors and assignment operators as
   // copying and moving underlying resources is unsafe
-  handle_t(const handle_t&) = delete;
-  handle_t& operator=(const handle_t&) = delete;
-  handle_t(handle_t&&)                 = delete;
+  handle_t(raft::device_resources const&) = delete;
+  handle_t& operator=(raft::device_resources const&) = delete;
+  handle_t(handle_t&&)                               = delete;
   handle_t& operator=(handle_t&&) = delete;
 
   /**

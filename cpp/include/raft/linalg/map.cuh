@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ void map_k(
  * @tparam TPB threads-per-block in the final kernel launched
  * @tparam OutType data-type of result of type raft::device_mdspan
  * @tparam Args additional parameters
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in the input of type raft::device_mdspan
  * @param[out] out the output of the map operation of type raft::device_mdspan
  * @param[in] map the device-lambda
@@ -78,7 +78,7 @@ template <typename InType,
           typename... Args,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void map(const raft::handle_t& handle, InType in, OutType out, MapOp map, Args... args)
+void map(raft::device_resources const& handle, InType in, OutType out, MapOp map, Args... args)
 {
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;

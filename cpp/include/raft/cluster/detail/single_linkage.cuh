@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ static const size_t EMPTY = 0;
  * @param[in] n_clusters number of clusters to assign data samples
  */
 template <typename value_idx, typename value_t, LinkageDistance dist_type>
-void single_linkage(const raft::handle_t& handle,
+void single_linkage(raft::device_resources const& handle,
                     const value_t* X,
                     size_t m,
                     size_t n,

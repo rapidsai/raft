@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ namespace raft::matrix {
  * @param[out] matrix: matrix of size n_rows x n_cols
  */
 template <typename m_t, typename idx_t, typename layout>
-void set_diagonal(const raft::handle_t& handle,
+void set_diagonal(raft::device_resources const& handle,
                   raft::device_vector_view<const m_t, idx_t> vec,
                   raft::device_matrix_view<m_t, idx_t, layout> matrix)
 {
@@ -55,7 +55,7 @@ void set_diagonal(const raft::handle_t& handle,
  * @param[out] vec: vector of length k = min(n_rows, n_cols)
  */
 template <typename m_t, typename idx_t, typename layout>
-void get_diagonal(const raft::handle_t& handle,
+void get_diagonal(raft::device_resources const& handle,
                   raft::device_matrix_view<const m_t, idx_t, layout> matrix,
                   raft::device_vector_view<m_t, idx_t> vec)
 {
@@ -74,7 +74,7 @@ void get_diagonal(const raft::handle_t& handle,
  * @param[inout] inout: square input matrix with size len x len
  */
 template <typename m_t, typename idx_t, typename layout>
-void invert_diagonal(const raft::handle_t& handle,
+void invert_diagonal(raft::device_resources const& handle,
                      raft::device_matrix_view<m_t, idx_t, layout> inout)
 {
   // TODO: Use get_diagonal for this to support rectangular
