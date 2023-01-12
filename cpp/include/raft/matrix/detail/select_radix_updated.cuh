@@ -68,28 +68,28 @@ __device__ constexpr unsigned calc_mask(int pass)
 }
 
 template <typename T>
-__device__ typename cub::Traits<T>::UnsignedBits twiddle_in(T key, bool greater)
+__device__ typename cub::Traits<T>::UnsignedBits twiddle_in(T key, bool select_min)
 {
   auto bits = reinterpret_cast<typename cub::Traits<T>::UnsignedBits&>(key);
   bits      = cub::Traits<T>::TwiddleIn(bits);
-  if (greater) { bits = ~bits; }
+  if (!select_min) { bits = ~bits; }
   return bits;
 }
 
 template <typename T>
-__device__ T twiddle_out(typename cub::Traits<T>::UnsignedBits bits, bool greater)
+__device__ T twiddle_out(typename cub::Traits<T>::UnsignedBits bits, bool select_min)
 {
-  if (greater) { bits = ~bits; }
+  if (!select_min) { bits = ~bits; }
   bits = cub::Traits<T>::TwiddleOut(bits);
   return reinterpret_cast<T&>(bits);
 }
 
 template <typename T, int BitsPerPass>
-__device__ int calc_bucket(T x, int start_bit, unsigned mask, bool greater)
+__device__ int calc_bucket(T x, int start_bit, unsigned mask, bool select_min)
 {
   static_assert(BitsPerPass <= sizeof(int) * 8 - 1,
                 "BitsPerPass is too large that the result type could not be int");
-  return (twiddle_in(x, greater) >> start_bit) & mask;
+  return (twiddle_in(x, select_min) >> start_bit) & mask;
 }
 
 template <typename T, typename IdxT, typename Func>
@@ -309,7 +309,7 @@ class FilterAndHistogram {
                              IdxT previous_len,
                              Counter<T, IdxT>* counter,
                              IdxT* histogram,
-                             bool greater,
+                             bool select_min,
                              int pass,
                              bool early_stop)
   {
@@ -325,8 +325,8 @@ class FilterAndHistogram {
     const unsigned mask = calc_mask<T, BitsPerPass>(pass);
 
     if (pass == 0) {
-      auto f = [greater, start_bit, mask](T value, IdxT) {
-        int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, greater);
+      auto f = [select_min, start_bit, mask](T value, IdxT) {
+        int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
         atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
       };
       vectorized_process(in_buf, previous_len, f);
@@ -341,7 +341,7 @@ class FilterAndHistogram {
                 out_idx_buf,
                 out,
                 out_idx,
-                greater,
+                select_min,
                 start_bit,
                 mask,
                 previous_start_bit,
@@ -350,7 +350,7 @@ class FilterAndHistogram {
                 p_out_cnt,
                 early_stop,
                 &store](T value, IdxT i, bool valid) {
-        const auto previous_bits = (twiddle_in(value, greater) >> previous_start_bit)
+        const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
                                    << previous_start_bit;
 
         if (valid && previous_bits == kth_value_bits) {
@@ -365,7 +365,7 @@ class FilterAndHistogram {
               out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i;
             }
 
-            int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, greater);
+            int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
             atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
           }
         }
@@ -403,7 +403,7 @@ class FilterAndHistogram<T, IdxT, BitsPerPass, BlockSize, DirectStore> {
                              IdxT previous_len,
                              Counter<T, IdxT>* counter,
                              IdxT* histogram,
-                             bool greater,
+                             bool select_min,
                              int pass,
                              bool early_stop)
   {
@@ -418,8 +418,8 @@ class FilterAndHistogram<T, IdxT, BitsPerPass, BlockSize, DirectStore> {
     const unsigned mask = calc_mask<T, BitsPerPass>(pass);
 
     if (pass == 0) {
-      auto f = [greater, start_bit, mask](T value, IdxT) {
-        int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, greater);
+      auto f = [select_min, start_bit, mask](T value, IdxT) {
+        int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
         atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
       };
       vectorized_process(in_buf, previous_len, f);
@@ -434,7 +434,7 @@ class FilterAndHistogram<T, IdxT, BitsPerPass, BlockSize, DirectStore> {
                 out_idx_buf,
                 out,
                 out_idx,
-                greater,
+                select_min,
                 start_bit,
                 mask,
                 previous_start_bit,
@@ -442,7 +442,7 @@ class FilterAndHistogram<T, IdxT, BitsPerPass, BlockSize, DirectStore> {
                 p_filter_cnt,
                 p_out_cnt,
                 early_stop](T value, IdxT i) {
-        const auto previous_bits = (twiddle_in(value, greater) >> previous_start_bit)
+        const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
                                    << previous_start_bit;
         if (previous_bits == kth_value_bits) {
           if (early_stop) {
@@ -456,7 +456,7 @@ class FilterAndHistogram<T, IdxT, BitsPerPass, BlockSize, DirectStore> {
               out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i;
             }
 
-            int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, greater);
+            int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
             atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
           }
         }
@@ -555,7 +555,7 @@ __device__ void last_filter(const T* out_buf,
                             IdxT current_len,
                             IdxT k,
                             Counter<T, IdxT>* counter,
-                            const bool greater,
+                            const bool select_min,
                             const int pass)
 {
   const auto kth_value_bits = counter->kth_value_bits;
@@ -567,7 +567,7 @@ __device__ void last_filter(const T* out_buf,
   IdxT* p_out_back_cnt         = &counter->out_back_cnt;
   for (IdxT i = threadIdx.x; i < current_len; i += blockDim.x) {
     const T value   = out_buf[i];
-    const auto bits = (twiddle_in(value, greater) >> start_bit) << start_bit;
+    const auto bits = (twiddle_in(value, select_min) >> start_bit) << start_bit;
     if (bits < kth_value_bits) {
       IdxT pos = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
       out[pos] = value;
@@ -596,7 +596,7 @@ __global__ void last_filter_kernel(const T* in,
                                    IdxT len,
                                    IdxT k,
                                    Counter<T, IdxT>* counters,
-                                   const bool greater)
+                                   const bool select_min)
 {
   const int batch_id = blockIdx.y;
 
@@ -623,7 +623,7 @@ __global__ void last_filter_kernel(const T* in,
   IdxT* p_out_back_cnt         = &counter->out_back_cnt;
 
   auto f = [k,
-            greater,
+            select_min,
             kth_value_bits,
             needed_num_of_kth,
             p_out_cnt,
@@ -631,7 +631,7 @@ __global__ void last_filter_kernel(const T* in,
             in_idx_buf,
             out,
             out_idx](T value, IdxT i) {
-    const auto bits = (twiddle_in(value, greater) >> start_bit) << start_bit;
+    const auto bits = (twiddle_in(value, select_min) >> start_bit) << start_bit;
     if (bits < kth_value_bits) {
       IdxT pos     = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
       out[pos]     = value;
@@ -668,7 +668,7 @@ __global__ void radix_kernel(const T* in,
                              IdxT* histograms,
                              const IdxT len,
                              const IdxT k,
-                             const bool greater,
+                             const bool select_min,
                              const int pass)
 {
   __shared__ bool isLastBlock;
@@ -731,7 +731,7 @@ __global__ void radix_kernel(const T* in,
                                                                previous_len,
                                                                counter,
                                                                histogram,
-                                                               greater,
+                                                               select_min,
                                                                pass,
                                                                early_stop);
   __threadfence();
@@ -774,7 +774,7 @@ __global__ void radix_kernel(const T* in,
     if constexpr (!use_dynamic) {
       if (pass == num_passes - 1) {
         last_filter<T, IdxT, BitsPerPass>(
-          out_buf, out_idx_buf, out, out_idx, current_len, k, counter, greater, pass);
+          out_buf, out_idx_buf, out, out_idx, current_len, k, counter, select_min, pass);
       }
     }
   }
@@ -842,7 +842,7 @@ void radix_topk(void* buf,
                 IdxT k,
                 T* out,
                 IdxT* out_idx,
-                bool greater,
+                bool select_min,
                 cudaStream_t stream,
                 bool use_dynamic = false)
 {
@@ -938,7 +938,7 @@ void radix_topk(void* buf,
                                            histograms,
                                            len,
                                            k,
-                                           greater,
+                                           select_min,
                                            pass);
     } else {
       radix_kernel<T, IdxT, BitsPerPass, BlockSize, true, Store>
@@ -954,7 +954,7 @@ void radix_topk(void* buf,
                                            histograms,
                                            len,
                                            k,
-                                           greater,
+                                           select_min,
                                            pass);
     }
   }
@@ -962,7 +962,7 @@ void radix_topk(void* buf,
   if (use_dynamic) {
     dim3 blocks((len / (sizeof(WideT) / sizeof(T)) - 1) / BlockSize + 1, batch_size);
     last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(
-      in, in_idx, out_buf, out_idx_buf, out, out_idx, len, k, counters, greater);
+      in, in_idx, out_buf, out_idx_buf, out, out_idx, len, k, counters, select_min);
   }
 }
 
@@ -975,7 +975,7 @@ __device__ void filter_and_histogram(const T* in_buf,
                                      IdxT* out_idx,
                                      Counter<T, IdxT>* counter,
                                      IdxT* histogram,
-                                     bool greater,
+                                     bool select_min,
                                      int pass)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
@@ -995,7 +995,7 @@ __device__ void filter_and_histogram(const T* in_buf,
     // vectorized_process() assumes multi-block, e.g. uses gridDim.x
     for (IdxT i = threadIdx.x; i < previous_len; i += blockDim.x) {
       T value    = in_buf[i];
-      int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, greater);
+      int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
       atomicAdd(histogram + bucket, static_cast<IdxT>(1));
     }
   } else {
@@ -1005,14 +1005,14 @@ __device__ void filter_and_histogram(const T* in_buf,
 
     for (IdxT i = threadIdx.x; i < previous_len; i += blockDim.x) {
       const T value            = in_buf[i];
-      const auto previous_bits = (twiddle_in(value, greater) >> previous_start_bit)
+      const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
                                  << previous_start_bit;
       if (previous_bits == kth_value_bits) {
         IdxT pos         = atomicAdd(p_filter_cnt, static_cast<IdxT>(1));
         out_buf[pos]     = value;
         out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i;
 
-        int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, greater);
+        int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
         atomicAdd(histogram + bucket, static_cast<IdxT>(1));
       } else if (previous_bits < kth_value_bits) {
         IdxT pos     = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
@@ -1030,7 +1030,7 @@ __global__ void radix_topk_one_block_kernel(const T* in,
                                             const IdxT k,
                                             T* out,
                                             IdxT* out_idx,
-                                            const bool greater,
+                                            const bool select_min,
                                             T* buf1,
                                             IdxT* idx_buf1,
                                             T* buf2,
@@ -1089,8 +1089,16 @@ __global__ void radix_topk_one_block_kernel(const T* in,
     IdxT current_len = counter.len;
     IdxT current_k   = counter.k;
 
-    filter_and_histogram<T, IdxT, BitsPerPass>(
-      in_buf, in_idx_buf, out_buf, out_idx_buf, out, out_idx, &counter, histogram, greater, pass);
+    filter_and_histogram<T, IdxT, BitsPerPass>(in_buf,
+                                               in_idx_buf,
+                                               out_buf,
+                                               out_idx_buf,
+                                               out,
+                                               out_idx,
+                                               &counter,
+                                               histogram,
+                                               select_min,
+                                               pass);
     __syncthreads();
 
     scan<IdxT, BitsPerPass, BlockSize>(histogram);
@@ -1108,7 +1116,7 @@ __global__ void radix_topk_one_block_kernel(const T* in,
                                         current_len,
                                         k,
                                         &counter,
-                                        greater,
+                                        select_min,
                                         pass);
       break;
     }
@@ -1125,7 +1133,7 @@ void radix_topk_one_block(void* buf,
                           IdxT k,
                           T* out,
                           IdxT* out_idx,
-                          bool greater,
+                          bool select_min,
                           cudaStream_t stream)
 {
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
@@ -1154,7 +1162,7 @@ void radix_topk_one_block(void* buf,
 
   radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>
     <<<batch_size, BlockSize, 0, stream>>>(
-      in, in_idx, len, k, out, out_idx, greater, buf1, idx_buf1, buf2, idx_buf2);
+      in, in_idx, len, k, out, out_idx, select_min, buf1, idx_buf1, buf2, idx_buf2);
 }
 
 }  // namespace radix_impl
@@ -1169,19 +1177,19 @@ void radix_topk_11bits(void* buf,
                        IdxT k,
                        T* out,
                        IdxT* out_idx       = nullptr,
-                       bool greater        = true,
+                       bool select_min     = true,
                        cudaStream_t stream = 0)
 {
   constexpr int items_per_thread = 32;
   if (len <= radix_impl::BLOCK_DIM * items_per_thread) {
     radix_impl::radix_topk_one_block<T, IdxT, 11, radix_impl::BLOCK_DIM>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
   } else if (len < 100.0 * k / batch_size + 0.01) {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::BufferedStore>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
   } else {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::DirectStore>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
   }
 }
 
@@ -1195,7 +1203,7 @@ void radix_topk_11bits_dynamic(void* buf,
                                IdxT k,
                                T* out,
                                IdxT* out_idx       = nullptr,
-                               bool greater        = true,
+                               bool select_min     = true,
                                cudaStream_t stream = 0)
 {
   constexpr bool use_dynamic = true;
@@ -1203,13 +1211,13 @@ void radix_topk_11bits_dynamic(void* buf,
   constexpr int items_per_thread = 32;
   if (len <= radix_impl::BLOCK_DIM * items_per_thread) {
     radix_impl::radix_topk_one_block<T, IdxT, 11, radix_impl::BLOCK_DIM>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
   } else if (len < 100.0 * k / batch_size + 0.01) {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::BufferedStore>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream, use_dynamic);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, use_dynamic);
   } else {
     radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::DirectStore>(
-      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, greater, stream, use_dynamic);
+      buf, buf_size, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, use_dynamic);
   }
 }
 
