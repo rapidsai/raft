@@ -359,9 +359,16 @@ inline auto small_dims_per_cluster() -> test_cases_t
 
 inline auto big_dims() -> test_cases_t
 {
-  return with_dims({512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053, 6144});
-  // return with_dims({512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053, 6144, 8192, 12288,
-  // 16384});
+  // with_dims({512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053, 6144, 8192, 12288, 16384});
+  auto xs = with_dims({512, 513, 1023, 1024, 1025, 2048, 2049, 2050, 2053, 6144});
+  return map<ivf_pq_inputs>(xs, [](const ivf_pq_inputs& x) {
+    ivf_pq_inputs y(x);
+    uint32_t pq_len       = 2;
+    y.index_params.pq_dim = div_rounding_up_safe(x.dim, pq_len);
+    // This comes from pure experimentation, also the recall depens a lot on pq_len.
+    y.min_recall = 0.48 + 0.028 * std::log2(x.dim);
+    return y;
+  });
 }
 
 /** These will surely trigger no-smem-lut kernel.  */
@@ -369,8 +376,11 @@ inline auto big_dims_moderate_lut() -> test_cases_t
 {
   return map<ivf_pq_inputs>(big_dims(), [](const ivf_pq_inputs& x) {
     ivf_pq_inputs y(x);
+    uint32_t pq_len           = 2;
+    y.index_params.pq_dim     = round_up_safe(div_rounding_up_safe(x.dim, pq_len), 4u);
     y.index_params.pq_bits    = 6;
     y.search_params.lut_dtype = CUDA_R_16F;
+    y.min_recall              = 0.6;
     return y;
   });
 }
@@ -380,7 +390,8 @@ inline auto big_dims_small_lut() -> test_cases_t
 {
   return map<ivf_pq_inputs>(big_dims(), [](const ivf_pq_inputs& x) {
     ivf_pq_inputs y(x);
-    y.index_params.pq_dim     = raft::round_up_safe(y.dim / 8u, 64u);
+    uint32_t pq_len           = 8;
+    y.index_params.pq_dim     = round_up_safe(div_rounding_up_safe(x.dim, pq_len), 4u);
     y.index_params.pq_bits    = 6;
     y.search_params.lut_dtype = CUDA_R_8U;
     y.min_recall              = 0.21;
