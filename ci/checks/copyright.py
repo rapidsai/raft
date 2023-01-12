@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ FilesToCheck = [
     re.compile(r"setup[.]cfg$"),
     re.compile(r"meta[.]yaml$")
 ]
-ExemptFiles = ["cpp/include/raft/spatial/knn/detail/warp_select_faiss.cuh"]
+ExemptFiles = ["cpp/include/raft/spatial/knn/detail/faiss_select/"]
 
 # this will break starting at year 10000, which is probably OK :)
 CheckSimple = re.compile(

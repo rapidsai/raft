@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,10 +36,12 @@ from pylibraft.distance.distance_type cimport DistanceType
 
 from pylibraft.common import (
     Handle,
+    ai_wrapper,
     auto_convert_output,
     cai_wrapper,
     device_ndarray,
 )
+from pylibraft.common.cai_wrapper import wrap_array
 from pylibraft.common.interruptible import cuda_interruptible
 
 from pylibraft.common.handle cimport handle_t
@@ -313,10 +315,13 @@ def build(IndexParams index_params, dataset, handle=None):
     """
     Builds an IVF-PQ index that can be later used for nearest neighbor search.
 
+    The input array can be either CUDA array interface compliant matrix or
+    array interface compliant matrix in host memory.
+
     Parameters
     ----------
     index_params : IndexParams object
-    dataset : CUDA array interface compliant matrix shape (n_samples, dim)
+    dataset : array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8]
     {handle_docstring}
 
@@ -359,7 +364,7 @@ def build(IndexParams index_params, dataset, handle=None):
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
     """
-    dataset_cai = cai_wrapper(dataset)
+    dataset_cai = wrap_array(dataset)
     dataset_dt = dataset_cai.dtype
     _check_input_array(dataset_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')])
@@ -413,14 +418,16 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     """
     Extend an existing index with new vectors.
 
+    The input array can be either CUDA array interface compliant matrix or
+    array interface compliant matrix in host memory.
 
     Parameters
     ----------
     index : ivf_pq.Index
         Trained ivf_pq object.
-    new_vectors : CUDA array interface compliant matrix shape (n_samples, dim)
+    new_vectors : array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8]
-    new_indices : CUDA array interface compliant matrix shape (n_samples, dim)
+    new_indices : array interface compliant matrix shape (n_samples, dim)
         Supported dtype [uint64]
     {handle_docstring}
 
@@ -473,7 +480,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    vecs_cai = cai_wrapper(new_vectors)
+    vecs_cai = wrap_array(new_vectors)
     vecs_dt = vecs_cai.dtype
     cdef uint64_t n_rows = vecs_cai.shape[0]
     cdef uint32_t dim = vecs_cai.shape[1]
@@ -482,7 +489,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
                                   np.dtype('ubyte')],
                        exp_cols=index.dim)
 
-    idx_cai = cai_wrapper(new_indices)
+    idx_cai = wrap_array(new_indices)
     _check_input_array(idx_cai, [np.dtype('uint64')], exp_rows=n_rows)
     if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
