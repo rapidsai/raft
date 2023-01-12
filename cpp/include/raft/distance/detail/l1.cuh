@@ -16,10 +16,14 @@
 
 #pragma once
 #include <raft/distance/detail/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_op.cuh>
+#include <raft/distance/detail/distance_operators.cuh>
 
 namespace raft {
 namespace distance {
 namespace detail {
+
+
 
 /**
  * @brief the L1 distance matrix calculation implementer
@@ -69,45 +73,15 @@ static void l1Impl(const DataT* x,
 
   dim3 blk(KPolicy::Nthreads);
 
-  // Accumulation operation lambda
-  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::abs(x - y);
-    acc += diff;
-  };
+  l1_distance_op distance_op{};
 
-  // epilogue operation lambda for final value calculation
-  auto epilog_lambda = raft::void_op();
+  using PCT = params_CT<DataT, AccT, OutT, IdxT, KPolicy, raft::distance::detail::l1_distance_op, FinalLambda, isRowMajor>;
 
-  if (isRowMajor) {
-    auto l1RowMajor = pairwiseDistanceMatKernel<false,
-                                                DataT,
-                                                AccT,
-                                                OutT,
-                                                IdxT,
-                                                KPolicy,
-                                                decltype(core_lambda),
-                                                decltype(epilog_lambda),
-                                                FinalLambda,
-                                                true>;
-    dim3 grid       = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1RowMajor);
+  auto kernel = pairwiseDistanceOpKernel<PCT>;
+  dim3 grid       = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, kernel);
 
-    l1RowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
-  } else {
-    auto l1ColMajor = pairwiseDistanceMatKernel<false,
-                                                DataT,
-                                                AccT,
-                                                OutT,
-                                                IdxT,
-                                                KPolicy,
-                                                decltype(core_lambda),
-                                                decltype(epilog_lambda),
-                                                FinalLambda,
-                                                false>;
-    dim3 grid       = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, l1ColMajor);
-    l1ColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
-  }
+  kernel<<<grid, blk, KPolicy::SmemSize, stream>>>(
+    x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, distance_op, fin_op);
 
   RAFT_CUDA_TRY(cudaGetLastError());
 }
