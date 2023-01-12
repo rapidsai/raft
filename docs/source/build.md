@@ -130,7 +130,7 @@ For example, to run the distance tests:
 It can take sometime to compile all of the tests. You can build individual tests by providing a semicolon-separated list to the `--limit-tests` option in `build.sh`:
 
 ```bash
-./build.sh libraft tests --limit-tests=NEIGHBORS_TEST;DISTANCE_TEST;MATRIX_TEST
+./build.sh libraft tests -n --limit-tests=NEIGHBORS_TEST;DISTANCE_TEST;MATRIX_TEST
 ```
 
 ### Benchmarks
@@ -143,7 +143,7 @@ The benchmarks are broken apart by algorithm category, so you will find several 
 It can take sometime to compile all of the benchmarks. You can build individual benchmarks by providing a semicolon-separated list to the `--limit-bench` option in `build.sh`:
 
 ```bash
-./build.sh libraft bench --limit-bench=NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH
+./build.sh libraft bench -n --limit-bench=NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH
 ```
 
 ### C++ Using Cmake Directly

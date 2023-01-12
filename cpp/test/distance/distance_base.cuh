@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -519,10 +519,10 @@ class BigMatrixDistanceTest : public ::testing::Test {
   }
 
  protected:
+  raft::handle_t handle;
   int m = 48000;
   int n = 48000;
   int k = 1;
-  raft::handle_t handle;
   rmm::device_uvector<float> x, dist;
 };
 }  // end namespace distance

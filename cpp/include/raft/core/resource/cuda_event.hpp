@@ -13,16 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#include "../ann_ivf_pq.cuh"
+#include <cuda_runtime.h>
+#include <raft/core/resource/resource_types.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/util/cudart_utils.hpp>
 
-namespace raft::neighbors::ivf_pq {
+namespace raft::resource {
 
-using f32_f32_i64 = ivf_pq_test<float, float, int64_t>;
+class cuda_event_resource : public resource {
+ public:
+  cuda_event_resource()
+  {
+    RAFT_CUDA_TRY_NO_THROW(cudaEventCreateWithFlags(&event_, cudaEventDisableTiming));
+  }
+  void* get_resource() override { return &event_; }
 
-TEST_BUILD_SEARCH(f32_f32_i64)
-TEST_BUILD_EXTEND_SEARCH(f32_f32_i64)
-INSTANTIATE(f32_f32_i64,
-            enum_variety_l2() + enum_variety_ip() + big_dims_small_lut() + enum_variety_l2sqrt());
+  ~cuda_event_resource() override { RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(event_)); }
 
-}  // namespace raft::neighbors::ivf_pq
+ private:
+  cudaEvent_t event_;
+};
+}  // namespace raft::resource
