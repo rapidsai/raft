@@ -24,6 +24,35 @@ namespace distance {
 namespace detail {
 
 
+template <typename PCT>
+static void distance_matrix_launch(
+    typename PCT::opT distance_op,
+    typename PCT::FinOpT fin_op,
+    const typename PCT::DataT* x,
+    const typename PCT::DataT* y,
+    const typename PCT::DataT* _xn,
+    const typename PCT::DataT* _yn,
+    typename PCT::IdxT m,
+    typename PCT::IdxT n,
+    typename PCT::IdxT k,
+    typename PCT::IdxT lda,
+    typename PCT::IdxT ldb,
+    typename PCT::IdxT ldd,
+    typename PCT::OutT* dOutput,
+    cudaStream_t stream)
+{
+  using Policy = typename PCT::PolicyT;
+
+  dim3 blk(Policy::Nthreads);
+  size_t smem_size = distance_op.template shared_mem_size<Policy>();
+  dim3 grid       = launchConfigGenerator<Policy>(m, n, smem_size, pairwiseDistanceOpKernel<PCT>);
+
+  pairwiseDistanceOpKernel<PCT><<<grid, blk, smem_size, stream>>>(
+    x, y, _xn, _yn, m, n, k, lda, ldb, ldd, dOutput, distance_op, fin_op);
+
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+}
 
 /**
  * @brief the L1 distance matrix calculation implementer
@@ -68,22 +97,18 @@ static void l1Impl(const DataT* x,
 {
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
-
   typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
-
-  dim3 blk(KPolicy::Nthreads);
 
   l1_distance_op distance_op{};
 
   using PCT = params_CT<DataT, AccT, OutT, IdxT, KPolicy, raft::distance::detail::l1_distance_op, FinalLambda, isRowMajor>;
 
-  auto kernel = pairwiseDistanceOpKernel<PCT>;
-  dim3 grid       = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, kernel);
-
-  kernel<<<grid, blk, KPolicy::SmemSize, stream>>>(
-    x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, distance_op, fin_op);
-
-  RAFT_CUDA_TRY(cudaGetLastError());
+  distance_matrix_launch<PCT>(
+    distance_op, fin_op,        // Operations
+    x, y, nullptr, nullptr,     // Input data
+    m, n, k, lda, ldb, ldd,     // Dimensions
+    dOutput,                    // Output data
+    stream);                    // CUDA stream
 }
 
 template <typename DataT,
