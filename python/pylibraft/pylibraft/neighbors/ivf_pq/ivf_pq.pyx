@@ -64,9 +64,7 @@ from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
 def _get_metric(metric):
     SUPPORTED_DISTANCES = {
         "l2_expanded": DistanceType.L2Expanded,
-        # TODO(tfeher): fix inconsistency: index building for L2SqrtExpanded is
-        # only supported by build, not by search.
-        # "euclidean": DistanceType.L2SqrtExpanded
+        "euclidean": DistanceType.L2SqrtExpanded,
         "inner_product": DistanceType.InnerProduct
     }
     if metric not in SUPPORTED_DISTANCES:
@@ -76,7 +74,8 @@ def _get_metric(metric):
 
 cdef _get_metric_string(DistanceType metric):
     return {DistanceType.L2Expanded : "l2_expanded",
-            DistanceType.InnerProduct: "inner_product"}[metric]
+            DistanceType.InnerProduct: "inner_product",
+            DistanceType.L2SqrtExpanded: "euclidean"}[metric]
 
 
 cdef _get_codebook_string(c_ivf_pq.codebook_gen codebook):
@@ -135,9 +134,11 @@ cdef class IndexParams:
         n_list : int, default = 1024
             The number of clusters used in the coarse quantizer.
         metric : string denoting the metric type, default="l2_expanded"
-            Valid values for metric: ["l2_expanded", "inner_product"], where
-            - l2_expanded is the equclidean distance without the square root
+            Valid values for metric: ["l2_expanded", "inner_product",
+            "euclidean"], where
+            - l2_expanded is the euclidean distance without the square root
               operation, i.e.: distance(a,b) = \\sum_i (a_i - b_i)^2,
+            - euclidean is the euclidean distance
             - inner product distance is defined as
               distance(a, b) = \\sum_i a_i * b_i.
         kmeans_n_iters : int, default = 20
