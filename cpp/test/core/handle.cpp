@@ -21,6 +21,7 @@
 #include <memory>
 #include <raft/core/comms.hpp>
 #include <raft/core/device_resources.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 #include <unordered_map>
 
 namespace raft {
@@ -246,6 +247,25 @@ TEST(Raft, SubComms)
 
   ASSERT_EQ(handle.get_subcomm("key1").get_size(), 1);
   ASSERT_EQ(handle.get_subcomm("key2").get_size(), 2);
+}
+
+TEST(Raft, WorkspaceResource)
+{
+  handle_t handle;
+
+  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
+                handle.get_workspace_resource()) == nullptr);
+  ASSERT_EQ(rmm::mr::get_current_device_resource(), handle.get_workspace_resource());
+
+  auto pool_mr = new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource());
+  std::shared_ptr<rmm::cuda_stream_pool> pool = {nullptr};
+  handle_t handle2(rmm::cuda_stream_per_thread, pool, pool_mr);
+
+  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
+                handle2.get_workspace_resource()) != nullptr);
+  ASSERT_EQ(pool_mr, handle2.get_workspace_resource());
+
+  delete pool_mr;
 }
 
 }  // namespace raft

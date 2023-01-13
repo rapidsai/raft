@@ -46,9 +46,10 @@ class handle_t : public raft::handle_t {
    * unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
-  handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
-           std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
-    : handle_t{stream_view, stream_pool}
+  handle_t(rmm::cuda_stream_view stream_view                   = rmm::cuda_stream_per_thread,
+           std::shared_ptr<rmm::cuda_stream_pool> stream_pool  = {nullptr},
+           rmm::mr::device_memory_resource* workspace_resource = nullptr)
+    : device_resources{stream_view, stream_pool, workspace_resource}
   {
   }
 
