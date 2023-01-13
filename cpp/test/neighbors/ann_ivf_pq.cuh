@@ -243,7 +243,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       static_cast<double>(ps.dim * 8) / static_cast<double>(index.pq_dim() * index.pq_bits());
     // Using a heuristic to lower the required recall due to code-packing errors
     min_recall =
-      std::min(std::erfc(0.1 * low_precision_factor / std::max(min_recall, 0.5)), min_recall);
+      std::min(std::erfc(0.05 * low_precision_factor / std::max(min_recall, 0.5)), min_recall);
     // Use explicit per-test min recall value if provided.
     min_recall = ps.min_recall.value_or(min_recall);
 
@@ -381,7 +381,7 @@ inline auto big_dims_moderate_lut() -> test_cases_t
     y.index_params.pq_dim     = round_up_safe(div_rounding_up_safe(x.dim, pq_len), 4u);
     y.index_params.pq_bits    = 6;
     y.search_params.lut_dtype = CUDA_R_16F;
-    y.min_recall              = 0.6;
+    y.min_recall              = 0.69;
     return y;
   });
 }
@@ -395,7 +395,7 @@ inline auto big_dims_small_lut() -> test_cases_t
     y.index_params.pq_dim     = round_up_safe(div_rounding_up_safe(x.dim, pq_len), 4u);
     y.index_params.pq_bits    = 6;
     y.search_params.lut_dtype = CUDA_R_8U;
-    y.min_recall              = 0.2;
+    y.min_recall              = 0.21;
     return y;
   });
 }
@@ -414,65 +414,65 @@ inline auto enum_variety() -> test_cases_t
 
   ADD_CASE({
     x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_CLUSTER;
-    x.min_recall                 = 0.75;
+    x.min_recall                 = 0.86;
   });
   ADD_CASE({
     x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_SUBSPACE;
-    x.min_recall                 = 0.75;
+    x.min_recall                 = 0.86;
   });
   ADD_CASE({
     x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_CLUSTER;
     x.index_params.pq_bits       = 4;
-    x.min_recall                 = 0.73;
+    x.min_recall                 = 0.79;
   });
   ADD_CASE({
     x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_CLUSTER;
     x.index_params.pq_bits       = 5;
-    x.min_recall                 = 0.74;
+    x.min_recall                 = 0.83;
   });
 
   ADD_CASE({
     x.index_params.pq_bits = 6;
-    x.min_recall           = 0.74;
+    x.min_recall           = 0.84;
   });
   ADD_CASE({
     x.index_params.pq_bits = 7;
-    x.min_recall           = 0.75;
+    x.min_recall           = 0.85;
   });
   ADD_CASE({
     x.index_params.pq_bits = 8;
-    x.min_recall           = 0.75;
+    x.min_recall           = 0.86;
   });
 
   ADD_CASE({
     x.index_params.force_random_rotation = true;
-    x.min_recall                         = 0.75;
+    x.min_recall                         = 0.86;
   });
   ADD_CASE({
     x.index_params.force_random_rotation = false;
-    x.min_recall                         = 0.75;
+    x.min_recall                         = 0.86;
   });
 
   ADD_CASE({
     x.search_params.lut_dtype = CUDA_R_32F;
-    x.min_recall              = 0.75;
+    x.min_recall              = 0.86;
   });
   ADD_CASE({
     x.search_params.lut_dtype = CUDA_R_16F;
-    x.min_recall              = 0.74;
+    x.min_recall              = 0.86;
   });
   ADD_CASE({
     x.search_params.lut_dtype = CUDA_R_8U;
-    x.min_recall              = 0.74;
+    x.min_recall              = 0.85;
   });
 
   ADD_CASE({
     x.search_params.internal_distance_dtype = CUDA_R_32F;
-    x.min_recall                            = 0.75;
+    x.min_recall                            = 0.86;
   });
   ADD_CASE({
     x.search_params.internal_distance_dtype = CUDA_R_16F;
-    x.min_recall                            = 0.74;
+    x.min_recall                            = 0.86;
   });
 
   return xs;
@@ -497,9 +497,6 @@ inline auto enum_variety_ip() -> test_cases_t
         // thus we're forced to used signed 8-bit representation,
         // thus we have one bit less precision
         y.min_recall = y.min_recall.value() * 0.95;
-      } else {
-        // Apparently InnerProduct tends to give higher scores for these parameter values.
-        y.min_recall = y.min_recall.value() * 1.12;
       }
     }
     y.index_params.metric = distance::DistanceType::InnerProduct;
