@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -191,8 +191,7 @@ inline auto extend(const handle_t& handle,
   update_host(&index_size, list_offsets_ptr + n_lists, 1, stream);
   handle.sync_stream(stream);
 
-  ext_index.allocate(
-    handle, index_size, ext_index.metric() == raft::distance::DistanceType::L2Expanded);
+  ext_index.allocate(handle, index_size);
 
   // Populate index with the old data
   if (orig_index.size() > 0) {
@@ -246,8 +245,7 @@ inline auto extend(const handle_t& handle,
                             n_lists,
                             raft::linalg::L2Norm,
                             true,
-                            stream,
-                            raft::sqrt_op());
+                            stream);
       RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
     }
   }
@@ -359,8 +357,7 @@ inline void fill_refinement_index(const handle_t& handle,
     stream);
 
   IdxT index_size = n_roundup * n_lists;
-  refinement_index->allocate(
-    handle, index_size, refinement_index->metric() == raft::distance::DistanceType::L2Expanded);
+  refinement_index->allocate(handle, index_size);
 
   RAFT_CUDA_TRY(cudaMemsetAsync(list_sizes_ptr, 0, n_lists * sizeof(uint32_t), stream));
 
@@ -454,7 +451,7 @@ auto load(const handle_t& handle, const std::string& filename) -> index<T, IdxT>
   index<T, IdxT> index_ =
     raft::spatial::knn::ivf_flat::index<T, IdxT>(handle, metric, n_lists, adaptive_centers, dim);
 
-  index_.allocate(handle, n_rows, metric == raft::distance::DistanceType::L2Expanded);
+  index_.allocate(handle, n_rows);
   auto data = index_.data();
   read_mdspan(handle, infile, data);
   read_mdspan(handle, infile, index_.indices());

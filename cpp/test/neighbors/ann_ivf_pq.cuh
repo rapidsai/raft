@@ -504,6 +504,15 @@ inline auto enum_variety_ip() -> test_cases_t
   });
 }
 
+inline auto enum_variety_l2sqrt() -> test_cases_t
+{
+  return map<ivf_pq_inputs>(enum_variety(), [](const ivf_pq_inputs& x) {
+    ivf_pq_inputs y(x);
+    y.index_params.metric = distance::DistanceType::L2SqrtExpanded;
+    return y;
+  });
+}
+
 /**
  * Try different number of n_probes, some of which may trigger the non-fused version of the search
  * kernel.
