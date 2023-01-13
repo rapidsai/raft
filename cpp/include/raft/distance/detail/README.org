@@ -1,12 +1,18 @@
 #+title: Readme
 
 - [X] Euclidean
-  - *Notes*: isRowMajor is now a runtime parameter. Was it a compile time
-    parameter before?
+  - *Notes*:
+    - enable_sqrt is now a runtime parameter. Was it a compile time
+      parameter before?
+    - CUTLASS fails on CUDA 12 (but prior to refactoring CUDA 12 did not work
+      either). I have not yet tested if everything works correctly on CUDA 11.
 - [X] canberra.cuh
 - [X] chebyshev.cuh
 - [X] correlation.cuh
-- [ ] cosine.cuh
+- [X] cosine.cuh
+  - *Notes*: cutlass fails on CUDA 12 (but prior to refactoring CUDA 12 did not
+    work either). I have not yet tested if everything works correctly on
+    CUDA 11.
 - [X] hamming.cuh
 - [X] hellinger.cuh
 - [X] jensen_shannon.cuh

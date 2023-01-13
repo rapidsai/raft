@@ -22,7 +22,6 @@
 #include "distance_ops/l2_exp.cuh"
 #include "distance_ops/l2_unexp.cuh"
 
-
 namespace raft {
 namespace distance {
 namespace detail {
