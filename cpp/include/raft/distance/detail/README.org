@@ -16,4 +16,4 @@
     reduces the number of kernels, but may have negative consequences for run
     time.
 - [X] minkowski.cuh
-- [ ] russell_rao.cuh
+- [X] russell_rao.cuh
