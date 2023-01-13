@@ -20,36 +20,16 @@
 
 namespace raft::distance::detail {
 
-template <typename data_type,
-          typename accumulate_type,
-          typename out_type,
-          typename index_type,
-
-          typename policy,
-          // Op (L2, L1, etc...)
-          typename op_type,
-          typename final_op_type,
-          bool row_major>
-struct params_CT {
-  using DataT                        = data_type;
-  using AccT                         = accumulate_type;
-  using OutT                         = out_type;
-  using IdxT                         = index_type;
-  using PolicyT                      = policy;
-  using opT                          = op_type;
-  using FinOpT                       = final_op_type;
-  static constexpr bool is_row_major = row_major;
-};
-
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          typename opT,
-          typename FinOpT>
-struct params_RT {
+template <typename DataT>
+struct params_dispatch {
   int vectorized_load_num_elem = 1;
   bool row_major               = true;
+
+  template <int vl, bool rm>
+  struct params_constexpr {
+    static constexpr int vec_len = vl;
+    static constexpr bool is_row_major = rm;
+  };
 
   // Turn run-time parameters into compile-time parameters.
   // Call the provided function f with these compile-time parameters.
@@ -69,17 +49,7 @@ struct params_RT {
     switch (vectorized_load_num_elem) {
       case 1: return layout<1>(f);
       case 2: return layout<2>(f);
-      case 4:
-        // We need "if constexpr" here, to prevent the if else to be delegated
-        // to run time (in which case a kernel that loads 4 doubles is
-        // generated). This is especially important, because that leads to
-        // compilation errors (which we want to avoid).
-        if constexpr (sizeof(DataT) < 8) {
-          return layout<4>(f);
-        } else {
-          // For doubles, load at most 2 elements in one instruction.
-          return layout<2>(f);
-        }
+      case 4: return layout<4>(f);
       default: return fail;
     };
   }
@@ -100,14 +70,9 @@ struct params_RT {
   template <int vec_len, bool is_row_major, typename F>
   bool to_compile_time_params(F&& f) const
   {
-    // Determine kernel policy using vec_len and layout
-    typedef typename raft::linalg::Policy4x4<DataT, vec_len>::Policy RowPolicy;
-    typedef typename raft::linalg::Policy4x4<DataT, vec_len>::ColPolicy ColPolicy;
-    typedef typename std::conditional<is_row_major, RowPolicy, ColPolicy>::type Policy;
-
     // Create compile-time parameter type and instantiate a struct;
-    using PCT = params_CT<DataT, AccT, OutT, IdxT, Policy, opT, FinOpT, is_row_major>;
-    PCT compile_time_params{};
+    using ct_params_T = params_constexpr<vec_len, is_row_major>;
+    ct_params_T compile_time_params{};
 
     // Dispatch to f
     f(compile_time_params);
@@ -181,22 +146,38 @@ void distance_matrix_dispatch(opT distance_op,
 
   int vectorized_load_num_elem = max_aligned_load(x, y, ldx, ldy);
 
-  // We dispatch based on
-  // - vectorized_load_num_elem
-  // - is_row_major
-
-  // Create run-time parameter struct that does the dispatching
-  using PRT = params_RT<DataT, AccT, OutT, IdxT, decltype(distance_op), FinOpT>;
-  PRT run_time_params{vectorized_load_num_elem, is_row_major};
+  // Create run-time parameter struct that does the dispatching.
+  //
+  // In addition to the template parameters of this function (IdxT, DataT,
+  // etc..), we explicitly dispatch based on:
+  params_dispatch<DataT> run_time_params{
+    vectorized_load_num_elem,   // 1. num array elements per load instruction
+      is_row_major              // 2. the layout x, y, and out
+  };
 
   // Turn run-time parameters into compile-time parameters.
   bool dispatch_success = run_time_params.dispatch_with_compile_time_params(
     // We pass a lambda that receives the compile-time parameters and can use these
     // to call the correct kernel.
-    [&](auto compile_time_params) {
-      // compile_time_params is an empty struct that we can convert back to a type
-      // using decltype.
-      return pairwise_matrix<decltype(compile_time_params)>(
+    [&](auto p) {
+      // p has two constexpr members:
+      // - vec_len
+      // - is_row_major
+
+      // There is no instruction to load 4 doubles, so we catch this situation
+      // and load 2 doubles.
+      constexpr bool load_4_doubles = sizeof(DataT) > 4 && p.vec_len == 4;
+      constexpr int vec_len = (load_4_doubles) ? 2 : p.vec_len;
+
+      // Determine kernel policy using vec_len and layout
+      typedef typename raft::linalg::Policy4x4<DataT, vec_len>::Policy RowPolicy;
+      typedef typename raft::linalg::Policy4x4<DataT, vec_len>::ColPolicy ColPolicy;
+      typedef typename std::conditional<p.is_row_major, RowPolicy, ColPolicy>::type Policy;
+
+      // Create compile-time template parameter
+      using KP_T = kernel_params_T<DataT, AccT, OutT, IdxT, Policy, opT, FinOpT, p.is_row_major>;
+
+      return pairwise_matrix<KP_T>(
         distance_op,
         fin_op,
         x,
