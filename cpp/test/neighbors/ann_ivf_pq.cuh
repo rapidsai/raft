@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -432,6 +432,15 @@ inline auto enum_variety_ip() -> test_cases_t
   return map<ivf_pq_inputs>(enum_variety(), [](const ivf_pq_inputs& x) {
     ivf_pq_inputs y(x);
     y.index_params.metric = distance::DistanceType::InnerProduct;
+    return y;
+  });
+}
+
+inline auto enum_variety_l2sqrt() -> test_cases_t
+{
+  return map<ivf_pq_inputs>(enum_variety(), [](const ivf_pq_inputs& x) {
+    ivf_pq_inputs y(x);
+    y.index_params.metric = distance::DistanceType::L2SqrtExpanded;
     return y;
   });
 }
