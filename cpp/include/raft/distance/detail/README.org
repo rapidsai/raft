@@ -8,6 +8,10 @@
 - [X] hamming.cuh
 - [X] hellinger.cuh
 - [X] jensen_shannon.cuh
-- [ ] kl_divergence.cuh
+- [X] kl_divergence.cuh
+  - *Notes*: the isRowMajor and x_equal_y boolean parameters where previously
+    template / constexpr parameters. Now they are passed by value. This greatly
+    reduces the number of kernels, but may have negative consequences for run
+    time.
 - [ ] minkowski.cuh
 - [ ] russell_rao.cuh
