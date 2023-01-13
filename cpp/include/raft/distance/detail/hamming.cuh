@@ -15,7 +15,8 @@
  */
 
 #pragma once
-#include <raft/distance/detail/pairwise_distance_base.cuh>
+#include "distance_ops/hamming.cuh"
+#include "pairwise_matrix/dispatch.cuh"
 
 namespace raft {
 namespace distance {
@@ -178,36 +179,28 @@ void hammingUnexpanded(IdxT m,
  * @param stream cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
  */
-template <typename InType,
-          typename AccType,
-          typename OutType,
-          typename FinalLambda,
-          typename Index_ = int>
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename FinOpT,
+          typename IdxT = int>
 void hammingUnexpandedImpl(int m,
                            int n,
                            int k,
-                           const InType* pA,
-                           const InType* pB,
-                           OutType* pD,
-                           FinalLambda fin_op,
+                           const DataT* x,
+                           const DataT* y,
+                           OutT* out,
+                           FinOpT fin_op,
                            cudaStream_t stream,
-                           bool isRowMajor)
+                           bool is_row_major)
 {
-  typedef std::is_same<OutType, bool> is_bool;
-  typedef
-    typename std::conditional<is_bool::value, OutType, AccType>::type hammingUnexpandedOutType;
-  Index_ lda, ldb, ldd;
-  hammingUnexpandedOutType* pDcast = reinterpret_cast<hammingUnexpandedOutType*>(pD);
-  if (isRowMajor) {
-    lda = k, ldb = k, ldd = n;
-    hammingUnexpanded<InType, AccType, hammingUnexpandedOutType, Index_, FinalLambda, true>(
-      m, n, k, lda, ldb, ldd, pA, pB, pDcast, fin_op, stream);
+  ops::hamming_distance_op<IdxT> distance_op{k};
 
-  } else {
-    lda = n, ldb = m, ldd = m;
-    hammingUnexpanded<InType, AccType, hammingUnexpandedOutType, Index_, FinalLambda, false>(
-      n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
-  }
+  const DataT* x_norm = nullptr;
+  const DataT* y_norm = nullptr;
+
+  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+    distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
 }  // namespace detail
