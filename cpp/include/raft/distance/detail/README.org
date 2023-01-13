@@ -6,7 +6,7 @@
 - [X] correlation.cuh
 - [ ] cosine.cuh
 - [X] hamming.cuh
-- [ ] hellinger.cuh
+- [X] hellinger.cuh
 - [ ] jensen_shannon.cuh
 - [ ] kl_divergence.cuh
 - [ ] minkowski.cuh
