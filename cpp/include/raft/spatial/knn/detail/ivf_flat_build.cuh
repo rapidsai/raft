@@ -245,8 +245,7 @@ inline auto extend(const handle_t& handle,
                             n_lists,
                             raft::linalg::L2Norm,
                             true,
-                            stream,
-                            raft::sqrt_op());
+                            stream);
       RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
     }
   }
