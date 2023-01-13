@@ -16,27 +16,27 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/handle_t.hpp>
 
 namespace raft {
 
 /**
- * raft::device_resources is being kept around for backwards
+ * raft::handle_t is being kept around for backwards
  * compatibility and will be removed in a future version.
  *
- * Extending the `raft::device_resources` instead of `using` to
+ * Extending the `raft::handle_t` instead of `using` to
  * minimize needed changes downstream
  * (e.g. existing forward declarations, etc...)
  *
- * Use of `raft::resources` or `raft::device_resources` is preferred.
+ * Use of `raft::resources` or `raft::handle_t` is preferred.
  */
-class handle_t : public raft::device_resources {
+class handle_t : public raft::handle_t {
  public:
   // delete copy/move constructors and assignment operators as
   // copying and moving underlying resources is unsafe
-  handle_t(raft::device_resources const&) = delete;
-  handle_t& operator=(raft::device_resources const&) = delete;
-  handle_t(handle_t&&)                               = delete;
+  handle_t(raft::handle_t const&) = delete;
+  handle_t& operator=(raft::handle_t const&) = delete;
+  handle_t(handle_t&&)                       = delete;
   handle_t& operator=(handle_t&&) = delete;
 
   /**
@@ -48,7 +48,7 @@ class handle_t : public raft::device_resources {
    */
   handle_t(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
            std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
-    : device_resources{stream_view, stream_pool}
+    : handle_t{stream_view, stream_pool}
   {
   }
 

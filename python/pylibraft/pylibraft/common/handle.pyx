@@ -31,7 +31,7 @@ from .cuda cimport Stream
 from .cuda import CudaRuntimeError
 
 
-cdef class Handle:
+cdef class DeviceResources:
     """
     Handle is a lightweight python wrapper around the corresponding C++ class
     of handle_t exposed by RAFT's C++ interface. Refer to the header file
@@ -125,6 +125,10 @@ cdef class Handle:
 
         self.c_obj.reset(new handle_t(cuda_stream_per_thread,
                                       self.stream_pool))
+
+
+cdef class Handle(DeviceResources):
+    pass
 
 
 _HANDLE_PARAM_DOCSTRING = """
