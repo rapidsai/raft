@@ -171,6 +171,7 @@ void select_clusters(raft::device_resources const& handle,
  */
   float norm_factor;
   switch (metric) {
+    case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded: norm_factor = 1.0 / -2.0; break;
     case raft::distance::DistanceType::InnerProduct: norm_factor = 0.0; break;
     default: RAFT_FAIL("Unsupported distance type %d.", int(metric));
@@ -189,6 +190,7 @@ void select_clusters(raft::device_resources const& handle,
   float beta;
   uint32_t gemm_k = dim;
   switch (metric) {
+    case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded: {
       alpha  = -2.0;
       beta   = 0.0;
@@ -710,6 +712,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     if constexpr (PrecompBaseDiff) {
       // Reduce number of memory reads later by pre-computing parts of the score
       switch (metric) {
+        case distance::DistanceType::L2SqrtExpanded:
         case distance::DistanceType::L2Expanded: {
           for (uint32_t i = threadIdx.x; i < dim; i += blockDim.x) {
             base_diff[i] = query[i] - cluster_center[i];
@@ -743,6 +746,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
           float pq_c = *cur_pq_center;
           cur_pq_center += PqShift;
           switch (metric) {
+            case distance::DistanceType::L2SqrtExpanded:
             case distance::DistanceType::L2Expanded: {
               float diff;
               if constexpr (PrecompBaseDiff) {
@@ -809,6 +813,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     switch (metric) {
       // If the metric is non-negative, we can use the query_kth approximation as an early stop
       // threshold to skip some iterations when computing the score. Add such metrics here.
+      case distance::DistanceType::L2SqrtExpanded:
       case distance::DistanceType::L2Expanded: {
         early_stop_limit = query_kth;
       } break;

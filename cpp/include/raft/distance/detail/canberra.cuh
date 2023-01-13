@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,11 +81,7 @@ static void canberraImpl(const DataT* x,
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                     DataT * regxn,
-                                     DataT * regyn,
-                                     IdxT gridStrideX,
-                                     IdxT gridStrideY) { return; };
+  auto epilog_lambda = raft::void_op();
 
   if (isRowMajor) {
     auto canberraRowMajor = pairwiseDistanceMatKernel<false,
