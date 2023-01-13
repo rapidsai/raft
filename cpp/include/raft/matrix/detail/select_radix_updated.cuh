@@ -27,13 +27,12 @@
 #include <cub/block/block_store.cuh>
 #include <cub/block/radix_rank_sort_operations.cuh>
 
-#include <rmm/device_vector.hpp>
+#include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft::spatial::knn::detail::topk {
 namespace radix_impl {
 
-constexpr int BLOCK_DIM            = 512;
 constexpr int VECTORIZED_READ_SIZE = 16;
 constexpr int LAZY_WRITING_FACTOR  = 4;
 
@@ -732,8 +731,6 @@ __global__ void radix_kernel(const T* in,
                              const bool select_min,
                              const int pass)
 {
-  __shared__ bool isLastBlock;
-
   const int batch_id = blockIdx.y;
   auto counter       = counters + batch_id;
   IdxT current_k;
@@ -797,14 +794,13 @@ __global__ void radix_kernel(const T* in,
                                                                early_stop);
   __threadfence();
 
+  bool isLastBlock = false;
   if (threadIdx.x == 0) {
     unsigned int finished = atomicInc(&counter->finished_block_cnt, gridDim.x - 1);
     isLastBlock           = (finished == (gridDim.x - 1));
   }
 
-  // Synchronize to make sure that each thread reads the correct value of isLastBlock.
-  __syncthreads();
-  if (isLastBlock) {
+  if (__syncthreads_or(isLastBlock)) {
     if (early_stop) {
       if (threadIdx.x == 0) {
         // last_filter_kernel from dynamic version requires setting previous_len
@@ -854,8 +850,8 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool use_dynamic)
   int active_blocks;
   RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
     &active_blocks,
-    use_dynamic ? radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, Store>
-                : radix_kernel<T, IdxT, BitsPerPass, BlockSize, true, Store>,
+    use_dynamic ? radix_kernel<T, IdxT, BitsPerPass, BlockSize, true, Store>
+                : radix_kernel<T, IdxT, BitsPerPass, BlockSize, false, Store>,
     BlockSize,
     0));
   active_blocks *= sm_cnt;
@@ -889,53 +885,6 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool use_dynamic)
   return best_num_blocks;
 }
 
-/**
- * Select k smallest or largest key/values from each row in the input data.
- *
- * If you think of the input data `in_keys` as a row-major matrix with len columns and
- * batch_size rows, then this function selects k smallest/largest values in each row and fills
- * in the row-major matrix `out` of size (batch_size, k).
- *
- * Note, the output is NOT sorted within the groups of `k` selected elements.
- *
- * @tparam T
- *   the type of the keys (what is being compared).
- * @tparam IdxT
- *   the index type (what is being selected together with the keys).
- * @tparam BitsPerPass
- *   The size of the radix;
- *   it affects the number of passes and number of buckets.
- * @tparam BlockSize
- *   Number of threads in a kernel thread block.
- *
- * @param[in] in
- *   contiguous device array of inputs of size (len * batch_size);
- *   these are compared and selected.
- * @param[in] in_idx
- *   contiguous device array of inputs of size (len * batch_size);
- *   typically, these are indices of the corresponding in_keys.
- * @param batch_size
- *   number of input rows, i.e. the batch size.
- * @param len
- *   length of a single input array (row); also sometimes referred as n_cols.
- *   Invariant: len >= k.
- * @param k
- *   the number of outputs to select in each input row.
- * @param[out] out
- *   contiguous device array of outputs of size (k * batch_size);
- *   the k smallest/largest values from each row of the `in_keys`.
- * @param[out] out_idx
- *   contiguous device array of outputs of size (k * batch_size);
- *   the payload selected together with `out`.
- * @param select_min
- *   whether to select k smallest (true) or largest (false) keys.
- * @param use_dynamic
- *   whether to use the dynamic implementation, which is favorable if the leading bits of input data
- *   are almost the same.
- * @param stream
- * @param mr an optional memory resource to use across the calls (you can provide a large enough
- *           memory pool here to avoid memory allocations within the call).
- */
 template <typename T,
           typename IdxT,
           int BitsPerPass,
@@ -1267,56 +1216,76 @@ void radix_topk_one_block(const T* in,
 
 }  // namespace radix_impl
 
-template <typename T, typename IdxT>
-void radix_topk_11bits(const T* in,
-                       const IdxT* in_idx,
-                       int batch_size,
-                       IdxT len,
-                       IdxT k,
-                       T* out,
-                       IdxT* out_idx,
-                       bool select_min,
-                       rmm::cuda_stream_view stream,
-                       rmm::mr::device_memory_resource* mr = nullptr)
+/**
+ * Select k smallest or largest key/values from each row in the input data.
+ *
+ * If you think of the input data `in_keys` as a row-major matrix with len columns and
+ * batch_size rows, then this function selects k smallest/largest values in each row and fills
+ * in the row-major matrix `out` of size (batch_size, k).
+ *
+ * Note, the output is NOT sorted within the groups of `k` selected elements.
+ *
+ * @tparam T
+ *   the type of the keys (what is being compared).
+ * @tparam IdxT
+ *   the index type (what is being selected together with the keys).
+ * @tparam BitsPerPass
+ *   The size of the radix;
+ *   it affects the number of passes and number of buckets.
+ * @tparam BlockSize
+ *   Number of threads in a kernel thread block.
+ *
+ * @param[in] in
+ *   contiguous device array of inputs of size (len * batch_size);
+ *   these are compared and selected.
+ * @param[in] in_idx
+ *   contiguous device array of inputs of size (len * batch_size);
+ *   typically, these are indices of the corresponding in_keys.
+ * @param batch_size
+ *   number of input rows, i.e. the batch size.
+ * @param len
+ *   length of a single input array (row); also sometimes referred as n_cols.
+ *   Invariant: len >= k.
+ * @param k
+ *   the number of outputs to select in each input row.
+ * @param[out] out
+ *   contiguous device array of outputs of size (k * batch_size);
+ *   the k smallest/largest values from each row of the `in_keys`.
+ * @param[out] out_idx
+ *   contiguous device array of outputs of size (k * batch_size);
+ *   the payload selected together with `out`.
+ * @param select_min
+ *   whether to select k smallest (true) or largest (false) keys.
+ * @param use_dynamic
+ *   whether to use the dynamic implementation, which is favorable if the leading bits of input data
+ *   are almost the same.
+ * @param stream
+ * @param mr an optional memory resource to use across the calls (you can provide a large enough
+ *           memory pool here to avoid memory allocations within the call).
+ */
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
+void radix_topk_updated(const T* in,
+                        const IdxT* in_idx,
+                        int batch_size,
+                        IdxT len,
+                        IdxT k,
+                        T* out,
+                        IdxT* out_idx,
+                        bool select_min,
+                        bool use_dynamic,
+                        rmm::cuda_stream_view stream,
+                        rmm::mr::device_memory_resource* mr = nullptr)
 {
-  constexpr bool use_dynamic     = false;
   constexpr int items_per_thread = 32;
 
-  if (len <= radix_impl::BLOCK_DIM * items_per_thread) {
-    radix_impl::radix_topk_one_block<T, IdxT, 11, radix_impl::BLOCK_DIM>(
+  if (len <= BlockSize * items_per_thread) {
+    radix_impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
   } else if (len < 100.0 * k / batch_size + 0.01) {
-    radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::BufferedStore>(
+    radix_impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, radix_impl::BufferedStore>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, use_dynamic, stream, mr);
   } else {
-    radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::DirectStore>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, use_dynamic, stream, mr);
-  }
-}
-
-template <typename T, typename IdxT>
-void radix_topk_11bits_dynamic(const T* in,
-                               const IdxT* in_idx,
-                               int batch_size,
-                               IdxT len,
-                               IdxT k,
-                               T* out,
-                               IdxT* out_idx,
-                               bool select_min,
-                               rmm::cuda_stream_view stream,
-                               rmm::mr::device_memory_resource* mr = nullptr)
-{
-  constexpr bool use_dynamic     = true;
-  constexpr int items_per_thread = 32;
-
-  if (len <= radix_impl::BLOCK_DIM * items_per_thread) {
-    radix_impl::radix_topk_one_block<T, IdxT, 11, radix_impl::BLOCK_DIM>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
-  } else if (len < 100.0 * k / batch_size + 0.01) {
-    radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::BufferedStore>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, use_dynamic, stream, mr);
-  } else {
-    radix_impl::radix_topk<T, IdxT, 11, radix_impl::BLOCK_DIM, radix_impl::DirectStore>(
+    radix_impl::radix_topk<T, IdxT, BitsPerPass, BlockSize, radix_impl::DirectStore>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, use_dynamic, stream, mr);
   }
 }
