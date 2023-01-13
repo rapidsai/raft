@@ -45,6 +45,7 @@
 #include <raft/core/resource/cusolver_sp_handle.hpp>
 #include <raft/core/resource/cusparse_handle.hpp>
 #include <raft/core/resource/device_id.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resource/sub_comms.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -73,7 +74,8 @@ class device_resources : public resources {
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    */
   device_resources(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
-                   std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr})
+                   std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr},
+                   rmm::mr::device_memory_resource* workspace_resource = nullptr)
     : resources{}
   {
     resources::add_resource_factory(std::make_shared<resource::device_id_resource_factory>());
@@ -81,6 +83,8 @@ class device_resources : public resources {
       std::make_shared<resource::cuda_stream_resource_factory>(stream_view));
     resources::add_resource_factory(
       std::make_shared<resource::cuda_stream_pool_resource_factory>(stream_pool));
+    resources::add_resource_factory(
+      std::make_shared<resource::workspace_resource_factory>(workspace_resource));
   }
 
   /** Destroys all held-up resources */
@@ -204,6 +208,11 @@ class device_resources : public resources {
   const comms::comms_t& get_subcomm(std::string key) const
   {
     return resource::get_subcomm(*this, key);
+  }
+
+  const rmm::mr::device_memory_resource* get_workspace_resource() const
+  {
+    return resource::get_workspace_resource(*this);
   }
 
   bool comms_initialized() const { return resource::comms_initialized(*this); }
