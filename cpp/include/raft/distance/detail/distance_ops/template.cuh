@@ -22,7 +22,7 @@ namespace raft::distance::detail::ops {
 //
 // Fill in the TODO items.
 
-struct template_op {
+struct template_distance_op {
   // Load norms of input data
   static constexpr bool use_norms = TODO;
 
