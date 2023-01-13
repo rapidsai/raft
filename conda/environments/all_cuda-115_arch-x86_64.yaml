@@ -34,7 +34,6 @@ dependencies:
 - libcusparse>=11.7.0.31,<=11.7.0.107
 - libfaiss>=1.7.0=cuda*
 - ninja
-- nccl
 - pytest
 - pytest-cov
 - rmm=23.02.*
