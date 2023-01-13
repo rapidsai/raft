@@ -15,156 +15,13 @@
  */
 
 #pragma once
-#include <raft/distance/detail/pairwise_distance_base.cuh>
+#include "distance_ops/jensen_shannon.cuh"
+#include "pairwise_matrix/dispatch.cuh"
+
 
 namespace raft {
 namespace distance {
 namespace detail {
-
-/**
- * @brief the Jensen Shannon distance matrix:
- *  It computes the following equation:
-    Cij = sqrt(0.5 * sum( -x_i * (log(0.5 * (x_i + y_i)) - log(x_i))
-            + (-y_i * (log(0.5 * (x_i + y_i)) - log(y_i)))))
- *
- * @tparam DataT          input data-type (for A and B matrices)
- * @tparam AccT           accumulation data-type
- * @tparam OutT           output data-type (for C and D matrices)
- * @tparam IdxT           index data-type
- * @tparam Veclen         number of k-elements loaded by each thread
-                          for every LDG call. details in contractions.cuh
- * @tparam FinalLambda    final lambda called on final distance value
- * @tparam isRowMajor     true if input/output is row major,
-                          false for column major
- * @param[in]       x input matrix
- * @param[in]       y input matrix
- * @param[in]       m number of rows of A and C/D
- * @param[in]       n number of rows of B and C/D
- * @param[in]       k number of cols of A and B
- * @param[in]       lda leading dimension of A
- * @param[in]       ldb leading dimension of B
- * @param[in]       ldd leading dimension of C/D
- * @param[output]   dOutput output matrix
- * @param[in]       fin_op the final gemm epilogue lambda
- * @param[in]       stream cuda stream to launch work
- */
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          int VecLen,
-          typename FinalLambda,
-          bool isRowMajor>
-static void jensenShannonImpl(const DataT* x,
-                              const DataT* y,
-                              IdxT m,
-                              IdxT n,
-                              IdxT k,
-                              IdxT lda,
-                              IdxT ldb,
-                              IdxT ldd,
-                              OutT* dOutput,
-                              FinalLambda fin_op,
-                              cudaStream_t stream)
-{
-  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
-  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
-
-  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
-
-  dim3 blk(KPolicy::Nthreads);
-
-  // Accumulation operation lambda
-  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const DataT m     = 0.5f * (x + y);
-    const bool m_zero = (m == 0);
-    const auto logM   = (!m_zero) * raft::log(m + m_zero);
-
-    const bool x_zero = (x == 0);
-    const bool y_zero = (y == 0);
-    acc += (-x * (logM - raft::log(x + x_zero))) + (-y * (logM - raft::log(y + y_zero)));
-  };
-
-  // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                     DataT * regxn,
-                                     DataT * regyn,
-                                     IdxT gridStrideX,
-                                     IdxT gridStrideY) {
-#pragma unroll
-    for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
-#pragma unroll
-      for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-        acc[i][j] = raft::sqrt(0.5 * acc[i][j]);
-      }
-    }
-  };
-
-  if (isRowMajor) {
-    auto jensenShannonRowMajor = pairwiseDistanceMatKernel<false,
-                                                           DataT,
-                                                           AccT,
-                                                           OutT,
-                                                           IdxT,
-                                                           KPolicy,
-                                                           decltype(core_lambda),
-                                                           decltype(epilog_lambda),
-                                                           FinalLambda,
-                                                           true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, jensenShannonRowMajor);
-
-    jensenShannonRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
-  } else {
-    auto jensenShannonColMajor = pairwiseDistanceMatKernel<false,
-                                                           DataT,
-                                                           AccT,
-                                                           OutT,
-                                                           IdxT,
-                                                           KPolicy,
-                                                           decltype(core_lambda),
-                                                           decltype(epilog_lambda),
-                                                           FinalLambda,
-                                                           false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, jensenShannonColMajor);
-    jensenShannonColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
-  }
-
-  RAFT_CUDA_TRY(cudaGetLastError());
-}
-
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          typename FinalLambda,
-          bool isRowMajor>
-void jensenShannon(IdxT m,
-                   IdxT n,
-                   IdxT k,
-                   IdxT lda,
-                   IdxT ldb,
-                   IdxT ldd,
-                   const DataT* x,
-                   const DataT* y,
-                   OutT* dOutput,
-                   FinalLambda fin_op,
-                   cudaStream_t stream)
-{
-  size_t bytesA = sizeof(DataT) * lda;
-  size_t bytesB = sizeof(DataT) * ldb;
-  if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    jensenShannonImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
-  } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    jensenShannonImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
-  } else {
-    jensenShannonImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
-  }
-}
 
 /**
  * @brief the Jensen Shannon distance matrix calculation
@@ -187,35 +44,28 @@ void jensenShannon(IdxT m,
  * @param stream cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
  */
-template <typename InType,
-          typename AccType,
-          typename OutType,
-          typename FinalLambda,
-          typename Index_ = int>
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename FinOpT,
+          typename IdxT = int>
 void jensenShannonImpl(int m,
                        int n,
                        int k,
-                       const InType* pA,
-                       const InType* pB,
-                       OutType* pD,
-                       FinalLambda fin_op,
+                       const DataT* x,
+                       const DataT* y,
+                       OutT* out,
+                       FinOpT fin_op,
                        cudaStream_t stream,
-                       bool isRowMajor)
+                       bool is_row_major)
 {
-  typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type jensenShannonOutType;
-  Index_ lda, ldb, ldd;
-  jensenShannonOutType* pDcast = reinterpret_cast<jensenShannonOutType*>(pD);
-  if (isRowMajor) {
-    lda = k, ldb = k, ldd = n;
-    jensenShannon<InType, AccType, jensenShannonOutType, Index_, FinalLambda, true>(
-      m, n, k, lda, ldb, ldd, pA, pB, pDcast, fin_op, stream);
+  ops::jensen_shannon_distance_op distance_op{};
 
-  } else {
-    lda = n, ldb = m, ldd = m;
-    jensenShannon<InType, AccType, jensenShannonOutType, Index_, FinalLambda, false>(
-      n, m, k, lda, ldb, ldd, pB, pA, pDcast, fin_op, stream);
-  }
+  const DataT* x_norm = nullptr;
+  const DataT* y_norm = nullptr;
+
+  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+    distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 }  // namespace detail
 }  // namespace distance
