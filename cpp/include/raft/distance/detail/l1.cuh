@@ -35,8 +35,11 @@ void l1Impl(int m,
 {
   ops::l1_distance_op distance_op{};
 
+  const DataT* x_norm = nullptr;
+  const DataT* y_norm = nullptr;
+
   distance_matrix_dispatch<ops::l1_distance_op, DataT, AccT, OutT, FinOpT, IdxT>(
-    distance_op, m, n, k, x, y, out, fin_op, stream, is_row_major);
+    distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
 }  // namespace detail

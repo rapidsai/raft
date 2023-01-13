@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cstdio>
 #include <raft/linalg/contractions.cuh>
 #include "kernel_sm60.cuh"
 
@@ -119,6 +120,8 @@ void distance_matrix_dispatch(opT distance_op,
                               int k_,
                               const DataT* x_,
                               const DataT* y_,
+                              const DataT* x_norm_,
+                              const DataT* y_norm_,
                               OutT* out,
                               FinOpT fin_op,
                               cudaStream_t stream,
@@ -129,17 +132,22 @@ void distance_matrix_dispatch(opT distance_op,
   //
   // ldx, ldy, and ld_out are the leading dimensions of x, y, and out
   const DataT* x;
+  const DataT* x_norm;
   const DataT* y;
+  const DataT* y_norm;
+
   int ldx, ldy, ld_out;
   int m, n, k;
   if (is_row_major) {
     // Pass x, y, m, n, k in order
     x = x_, y = y_;
+    x_norm = x_norm_, y_norm = y_norm_;
     m = m_, n = n_, k = k_;
     ldx = k_, ldy = k_, ld_out = n_;
   } else {
     // Flip x, y, and m, n, k.
     x = y_, y = x_;
+    x_norm = y_norm_, y_norm = x_norm_;
     m = n_, n = m_, k = k_;
     ldx = n_, ldy = m_, ld_out = m_;
   }
@@ -182,8 +190,8 @@ void distance_matrix_dispatch(opT distance_op,
         fin_op,
         x,
         y,
-        nullptr,
-        nullptr,  // TODO: use _xn, _yn for non-l1 distances
+        x_norm,
+        y_norm,
         m,
         n,
         k,
@@ -195,6 +203,7 @@ void distance_matrix_dispatch(opT distance_op,
     });
 
   if (!dispatch_success) {
+    std::printf("Dispatch error(!)\n");
     // TODO
   }
 }

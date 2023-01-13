@@ -18,28 +18,29 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the l2 unexpanded distance
-struct l2_unexp_distance_op {
+// Describes the computation the l2 expanded distance
+//
+// TODO: more explanation.
+struct l2_exp_distance_op {
   bool sqrt;
 
-  l2_unexp_distance_op(bool sqrt_) noexcept : sqrt(sqrt_) {}
+  l2_exp_distance_op(bool sqrt_) noexcept : sqrt(sqrt_) {}
 
-  // Do not load norms of data, the computation of L1 distance does not use them.
-  static constexpr bool use_norms = false;
+  // Load norms of input data
+  static constexpr bool use_norms = true;
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
   template <typename Policy, typename DataT>
   constexpr size_t shared_mem_size()
   {
-    return Policy::SmemSize;
+    return Policy::SmemSize + ((Policy::Mblk + Policy::Nblk) * sizeof(DataT));
   }
 
   template <typename AccT, typename DataT>
   DI void core(AccT& acc, DataT& x, DataT& y) const
   {
-    const auto diff = x - y;
-    acc += diff * diff;
+    acc += x * y;
   };
 
   template <typename Policy, typename AccT, typename DataT, typename IdxT>
@@ -49,6 +50,13 @@ struct l2_unexp_distance_op {
                  IdxT gridStrideX,
                  IdxT gridStrideY) const
   {
+#pragma unroll
+    for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
+#pragma unroll
+      for (int j = 0; j < Policy::AccColsPerTh; ++j) {
+        acc[i][j] = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
+      }
+    }
     if (sqrt) {
 #pragma unroll
       for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
@@ -58,7 +66,7 @@ struct l2_unexp_distance_op {
         }
       }
     }
-  };
+  }
 };
 
 }  // namespace raft::distance::detail::ops

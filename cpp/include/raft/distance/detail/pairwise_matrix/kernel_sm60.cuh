@@ -141,9 +141,10 @@ static void pairwise_matrix(typename KP_T::opT distance_op,
                             cudaStream_t stream)
 {
   using Policy = typename KP_T::PolicyT;
+  using DataT = typename KP_T::DataT;
 
   dim3 blk(Policy::Nthreads);
-  size_t smem_size = distance_op.template shared_mem_size<Policy>();
+  size_t smem_size = distance_op.template shared_mem_size<Policy, DataT>();
   dim3 grid        = launchConfigGenerator<Policy>(m, n, smem_size, pairwise_matrix_kernel<KP_T>);
 
   pairwise_matrix_kernel<KP_T><<<grid, blk, smem_size, stream>>>(

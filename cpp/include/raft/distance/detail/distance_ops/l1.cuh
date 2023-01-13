@@ -25,7 +25,7 @@ struct l1_distance_op {
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
-  template <typename Policy>
+  template <typename Policy, typename DataT>
   constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize;
