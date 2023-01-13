@@ -52,7 +52,7 @@ class workspace_resource_factory : public resource_factory {
  * Load a temp workspace resource from a resources instance (and populate it on the res
  * if needed).
  * @param res raft resources object for managing resources
- * @return
+ * @return device memory resource object
  */
 inline rmm::mr::device_memory_resource* get_workspace_resource(resources const& res)
 {
@@ -66,6 +66,7 @@ inline rmm::mr::device_memory_resource* get_workspace_resource(resources const& 
  * Set a temp workspace resource on a resources instance.
  *
  * @param res raft resources object for managing resources
+ * @param mr a valid rmm device_memory_resource
  * @return
  */
 inline void set_workspace_resource(resources const& res, rmm::mr::device_memory_resource* mr)
