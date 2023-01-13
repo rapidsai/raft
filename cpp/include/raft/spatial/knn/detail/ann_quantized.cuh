@@ -94,6 +94,18 @@ void approx_knn_ivfsq_build_index(knnIndex* index, const IVFSQParam& params, Int
     index->gpu_res.get(), D, params.nlist, faiss_qtype, faiss_metric, params.encodeResidual));
 }
 
+inline bool ivf_flat_supported_metric(raft::distance::DistanceType metric)
+{
+  switch (metric) {
+    case raft::distance::DistanceType::L2Unexpanded:
+    case raft::distance::DistanceType::L2Expanded:
+    case raft::distance::DistanceType::L2SqrtExpanded:
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
+    case raft::distance::DistanceType::InnerProduct: return true;
+    default: return false;
+  }
+}
+
 template <typename T = float, typename IntType = int>
 void approx_knn_build_index(const handle_t& handle,
                             knnIndex* index,
@@ -120,11 +132,7 @@ void approx_knn_build_index(const handle_t& handle,
   }
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->preprocess(index_array); }
 
-  if (ivf_ft_pams && (metric == raft::distance::DistanceType::L2Unexpanded ||
-                      metric == raft::distance::DistanceType::L2Expanded ||
-                      metric == raft::distance::DistanceType::L2SqrtExpanded ||
-                      metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
-                      metric == raft::distance::DistanceType::InnerProduct)) {
+  if (ivf_ft_pams && ivf_flat_supported_metric(metric)) {
     auto new_params               = from_legacy_index_params(*ivf_ft_pams, metric, metricArg);
     index->ivf_flat<T, int64_t>() = std::make_unique<const ivf_flat::index<T, int64_t>>(
       ivf_flat::build(handle, new_params, index_array, int64_t(n), D));

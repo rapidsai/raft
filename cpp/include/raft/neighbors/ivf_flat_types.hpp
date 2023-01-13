@@ -254,17 +254,19 @@ struct index : ann::index {
    */
   void allocate(const handle_t& handle, IdxT index_size)
   {
-    bool allocate_center_norms = ((metric_ == raft::distance::DistanceType::L2Expanded) ||
-                                  (metric_ == raft::distance::DistanceType::L2SqrtExpanded) ||
-                                  (metric_ == raft::distance::DistanceType::L2Unexpanded) ||
-                                  (metric_ == raft::distance::DistanceType::L2SqrtUnexpanded));
-
     data_    = make_device_mdarray<T>(handle, make_extents<IdxT>(index_size, dim()));
     indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
-    center_norms_ =
-      allocate_center_norms
-        ? std::optional(make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists())))
-        : std::nullopt;
+
+    switch (metric_) {
+      case raft::distance::DistanceType::L2Expanded:
+      case raft::distance::DistanceType::L2SqrtExpanded:
+      case raft::distance::DistanceType::L2Unexpanded:
+      case raft::distance::DistanceType::L2SqrtUnexpanded:
+        center_norms_ = make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists()));
+        break;
+      default: center_norms_ = std::nullopt;
+    }
+
     check_consistency();
   }
 
