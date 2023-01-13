@@ -1,6 +1,8 @@
 #+title: Readme
 
-
+- [X] Euclidean
+  - *Notes*: isRowMajor is now a runtime parameter. Was it a compile time
+    parameter before?
 - [X] canberra.cuh
 - [X] chebyshev.cuh
 - [X] correlation.cuh
@@ -13,5 +15,5 @@
     template / constexpr parameters. Now they are passed by value. This greatly
     reduces the number of kernels, but may have negative consequences for run
     time.
-- [ ] minkowski.cuh
+- [X] minkowski.cuh
 - [ ] russell_rao.cuh
