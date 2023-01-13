@@ -27,22 +27,6 @@ namespace raft {
 namespace distance {
 namespace detail {
 
-template <typename DataT, typename AccT>
-struct L2ExpandedOp {
-  bool sqrt;
-
-  __device__ L2ExpandedOp() noexcept : sqrt(false) {}
-  __device__ L2ExpandedOp(bool isSqrt) noexcept : sqrt(isSqrt) {}
-  __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
-  {
-    AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
-    return sqrt ? raft::sqrt(outVal) : outVal;
-  }
-
-  __device__ AccT operator()(DataT aData) const noexcept { return aData; }
-};
-
-
 // /**
 //  * @brief the expanded euclidean distance matrix calculation
 //  *  It computes the following equation: C = op(A^2 + B^2 - 2AB)
@@ -82,21 +66,6 @@ void euclideanAlgo1(IdxT m,
                     cudaStream_t stream,
                     bool isRowMajor)
 {
-  // TODO: handle cutlass kernels
-  // constexpr bool CUDA_11_or_below = __CUDACC_VER_MAJOR__ < 12;
-
-  // if constexpr(CUDA_11_or_below) {
-  //   const auto deviceVersion = getComputeCapability();
-  //   if (deviceVersion.first >= 8) {
-  //     using L2Op = L2ExpandedOp<DataT, AccT>;
-  //     L2Op L2_dist_op(sqrt);
-
-  //     cutlassDistanceKernel<DataT, AccT, OutT, IdxT, VecLen, FinOpT, L2Op, isRowMajor>(
-  //       x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, L2_dist_op, stream);
-  //   }
-  // }
-
-
   // raft distance support inputs as float/double and output as uint8_t/float/double.
   static_assert(!((sizeof(OutT) > 1) && (sizeof(AccT) != sizeof(OutT))),
                 "OutT can be uint8_t, float, double,"
@@ -120,10 +89,34 @@ void euclideanAlgo1(IdxT m,
       norm_A, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
   }
 
-  ops::l2_exp_distance_op l2_op(enable_sqrt);
+  // On CUDA 12:
+  // - always execute normal kernel
+  //
+  // On CUDA 11 and below:
+  // - execute CUTLASS-based kernel on SM_80 and above
+  // - execute normal kernel otherwise.
 
-  distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
-    l2_op, m, n, k, pA, pB, norm_A, norm_B, pD, fin_op, stream, isRowMajor);
+  if constexpr (__CUDACC_VER_MAJOR__ == 12) {
+    // Always execute legacy kernels on CUDA 12
+    ops::l2_exp_distance_op l2_op(enable_sqrt);
+    distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
+      l2_op, m, n, k, pA, pB, norm_A, norm_B, pD, fin_op, stream, isRowMajor);
+  } else {
+    const auto deviceVersion = getComputeCapability();
+    if (deviceVersion.first >= 8) {
+      // If device is SM_80 or later, use CUTLASS-based kernel.
+      using L2Op = ops::l2_exp_cutlass_op<DataT, AccT>;
+      L2Op l2_op(enable_sqrt);
+
+      distance_matrix_cutlass_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
+        l2_op, m, n, k, pA, pB, norm_A, norm_B, pD, fin_op, stream, isRowMajor);
+    } else {
+      // Else use "legacy" L2
+      ops::l2_exp_distance_op l2_op(enable_sqrt);
+      distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
+        l2_op, m, n, k, pA, pB, norm_A, norm_B, pD, fin_op, stream, isRowMajor);
+    }
+  }
 }
 
 

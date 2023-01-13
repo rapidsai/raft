@@ -16,7 +16,9 @@
 #pragma once
 
 #include <cstdio>
+#include <utility>
 #include <raft/linalg/contractions.cuh>
+#include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
 #include "kernel_sm60.cuh"
 
 namespace raft::distance::detail {
@@ -85,8 +87,8 @@ struct params_dispatch {
 
 // Determine the largest number of elements that can be loaded in one
 // instruction without causing misalignment errors.
-template <typename DataT>
-int max_aligned_load(const DataT* x, const DataT* y, int ldx, int ldy)
+template <typename DataT, typename IdxT>
+int vectorized_load_num_elem(const DataT* x, const DataT* y, IdxT ldx, IdxT ldy)
 {
   auto base_x     = reinterpret_cast<uintptr_t>(x);
   auto base_y     = reinterpret_cast<uintptr_t>(y);
@@ -115,13 +117,13 @@ template <typename opT,
           typename FinOpT,
           typename IdxT = int>
 void distance_matrix_dispatch(opT distance_op,
-                              int m_,
-                              int n_,
-                              int k_,
-                              const DataT* x_,
-                              const DataT* y_,
-                              const DataT* x_norm_,
-                              const DataT* y_norm_,
+                              IdxT m,
+                              IdxT n,
+                              IdxT k,
+                              const DataT* x,
+                              const DataT* y,
+                              const DataT* x_norm,
+                              const DataT* y_norm,
                               OutT* out,
                               FinOpT fin_op,
                               cudaStream_t stream,
@@ -129,38 +131,24 @@ void distance_matrix_dispatch(opT distance_op,
 {
   // Determine leading dimensions and possibly flip order of passing x and y if
   // column_major.
-  //
-  // ldx, ldy, and ld_out are the leading dimensions of x, y, and out
-  const DataT* x;
-  const DataT* x_norm;
-  const DataT* y;
-  const DataT* y_norm;
-
-  int ldx, ldy, ld_out;
-  int m, n, k;
+  IdxT ldx, ldy, ld_out;
   if (is_row_major) {
-    // Pass x, y, m, n, k in order
-    x = x_, y = y_;
-    x_norm = x_norm_, y_norm = y_norm_;
-    m = m_, n = n_, k = k_;
-    ldx = k_, ldy = k_, ld_out = n_;
+    ldx = k, ldy = k, ld_out = n;
   } else {
-    // Flip x, y, and m, n, k.
-    x = y_, y = x_;
-    x_norm = y_norm_, y_norm = x_norm_;
-    m = n_, n = m_, k = k_;
-    ldx = n_, ldy = m_, ld_out = m_;
+    // Flip x, y, and m, n.
+    std::swap<const DataT*>(x, y);
+    std::swap<const DataT*>(x_norm, y_norm);
+    std::swap(m, n);
+    ldx = m, ldy = n, ld_out = n;
   }
-
-  int vectorized_load_num_elem = max_aligned_load(x, y, ldx, ldy);
 
   // Create run-time parameter struct that does the dispatching.
   //
   // In addition to the template parameters of this function (IdxT, DataT,
   // etc..), we explicitly dispatch based on:
   params_dispatch<DataT> run_time_params{
-    vectorized_load_num_elem,   // 1. num array elements per load instruction
-      is_row_major              // 2. the layout x, y, and out
+    vectorized_load_num_elem(x, y, ldx, ldy),   // 1. num array elements per load instruction
+    is_row_major                                // 2. the layout of x, y, and out
   };
 
   // Turn run-time parameters into compile-time parameters.
@@ -200,6 +188,58 @@ void distance_matrix_dispatch(opT distance_op,
         ld_out,
         out,
         stream);
+    });
+
+  if (!dispatch_success) {
+    std::printf("Dispatch error(!)\n");
+    // TODO
+  }
+}
+
+template <typename opT,
+          typename DataT,
+          typename AccT,
+          typename OutT,
+          typename FinOpT,
+          typename IdxT = int>
+void distance_matrix_cutlass_dispatch(opT cutlass_op,
+                                      IdxT m,
+                                      IdxT n,
+                                      IdxT k,
+                                      const DataT* x,
+                                      const DataT* y,
+                                      const DataT* x_norm,
+                                      const DataT* y_norm,
+                                      OutT* out,
+                                      FinOpT fin_op,
+                                      cudaStream_t stream,
+                                      bool is_row_major)
+{
+  // Determine leading dimensions and possibly flip order of passing x and y if
+  // column_major.
+  IdxT ldx, ldy, ld_out;
+  if (is_row_major) {
+    ldx = k, ldy = k, ld_out = n;
+  } else {
+    std::swap<const DataT*>(x, y);
+    std::swap<const DataT*>(x_norm, y_norm);
+    std::swap(m, n);
+    ldx = m, ldy = n, ld_out = n;
+  }
+
+  params_dispatch<DataT> run_time_params{
+    vectorized_load_num_elem(x, y, ldx, ldy),
+    is_row_major
+  };
+
+  bool dispatch_success = run_time_params.dispatch_with_compile_time_params(
+    [&](auto p) {
+      // Prevent loading 4 doubles in one instruction.
+      constexpr bool load_4_doubles = sizeof(DataT) > 4 && p.vec_len == 4;
+      constexpr int vec_len = (load_4_doubles) ? 2 : p.vec_len;
+
+      cutlassDistanceKernel<DataT, AccT, OutT, IdxT, vec_len, FinOpT, opT, p.is_row_major>(
+        x, y, x_norm, y_norm, m, n, k, ldx, ldy, ld_out, out, fin_op, cutlass_op, stream);
     });
 
   if (!dispatch_success) {
