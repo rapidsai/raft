@@ -21,6 +21,10 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/util/cuda_utils.cuh>
 
+#include "distance_ops/l2_unexp.cuh"
+#include "pairwise_matrix/dispatch.cuh"
+
+
 namespace raft {
 namespace distance {
 namespace detail {
@@ -285,145 +289,6 @@ void euclideanAlgo1(Index_ m,
   }
 }
 
-/**
- * @brief the unexpanded euclidean distance matrix calculation
- *  It computes the following equation: cij = op((ai-bj)^2)
- * @tparam DataT          input data-type (for A and B matrices)
- * @tparam AccT           accumulation data-type
- * @tparam OutT           output data-type (for C and D matrices)
- * @tparam IdxT           index data-type
- * @tparam FinalLambda    final lambda called on final distance value
- *
- * @param[in]       x input matrix
- * @param[in]       y input matrix
- * @param[in]       m number of rows of A and C/D
- * @param[in]       n number of columns of B and C/D
- * @param[in]       k number of cols of A and rows of B
- * @param[in]       lda leading dimension of A
- * @param[in]       ldb leading dimension of B
- * @param[in]       ldd leading dimension of C/D
- * @param[in]       sqrt if the square root is computed or not
- * @param[output]   pD output matrix
- * @param fin_op    the final gemm epilogue lambda
- */
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          int VecLen,
-          typename FinalLambda,
-          bool isRowMajor>
-void euclideanUnExpImpl(const DataT* x,
-                        const DataT* y,
-                        IdxT m,
-                        IdxT n,
-                        IdxT k,
-                        IdxT lda,
-                        IdxT ldb,
-                        IdxT ldd,
-                        bool sqrt,
-                        OutT* dOutput,
-                        FinalLambda fin_op,
-                        cudaStream_t stream)
-{
-  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
-  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
-
-  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
-
-  dim3 blk(KPolicy::Nthreads);
-
-  // Accumulation operation lambda
-  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = x - y;
-    acc += diff * diff;
-  };
-
-  // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [sqrt] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                         DataT * regxn,
-                                         DataT * regyn,
-                                         IdxT gridStrideX,
-                                         IdxT gridStrideY) {
-    if (sqrt) {
-#pragma unroll
-      for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
-#pragma unroll
-        for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-          acc[i][j] = raft::sqrt(acc[i][j]);
-        }
-      }
-    }
-  };
-
-  if (isRowMajor) {
-    auto euclideanUnExpRowMajor = pairwiseDistanceMatKernel<false,
-                                                            DataT,
-                                                            AccT,
-                                                            OutT,
-                                                            IdxT,
-                                                            KPolicy,
-                                                            decltype(core_lambda),
-                                                            decltype(epilog_lambda),
-                                                            FinalLambda,
-                                                            true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, euclideanUnExpRowMajor);
-
-    euclideanUnExpRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
-
-  } else {
-    auto euclideanUnExpColMajor = pairwiseDistanceMatKernel<false,
-                                                            DataT,
-                                                            AccT,
-                                                            OutT,
-                                                            IdxT,
-                                                            KPolicy,
-                                                            decltype(core_lambda),
-                                                            decltype(epilog_lambda),
-                                                            FinalLambda,
-                                                            false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, euclideanUnExpColMajor);
-
-    euclideanUnExpColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
-      x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
-  }
-
-  RAFT_CUDA_TRY(cudaGetLastError());
-}
-
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          typename FinalLambda,
-          bool isRowMajor>
-void euclideanUnExp(IdxT m,
-                    IdxT n,
-                    IdxT k,
-                    IdxT lda,
-                    IdxT ldb,
-                    IdxT ldd,
-                    const DataT* x,
-                    const DataT* y,
-                    bool sqrt,
-                    OutT* dOutput,
-                    FinalLambda fin_op,
-                    cudaStream_t stream)
-{
-  size_t bytesA = sizeof(DataT) * lda;
-  size_t bytesB = sizeof(DataT) * ldb;
-  if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    euclideanUnExpImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, sqrt, dOutput, fin_op, stream);
-  } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    euclideanUnExpImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, sqrt, dOutput, fin_op, stream);
-  } else {
-    euclideanUnExpImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, sqrt, dOutput, fin_op, stream);
-  }
-}
 
 /**
  * @brief the unexpanded euclidean distance matrix calculation
@@ -444,35 +309,30 @@ void euclideanUnExp(IdxT m,
  * @param stream cuda stream where to launch work
  * @param isRowMajor whether the input and output matrices are row major
  */
-template <typename InType,
-          typename AccType,
-          typename OutType,
-          typename FinalLambda,
-          typename Index_ = int>
-void euclideanAlgo2(Index_ m,
-                    Index_ n,
-                    Index_ k,
-                    const InType* pA,
-                    const InType* pB,
-                    OutType* pD,
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename FinOpT,
+          typename IdxT = int>
+void euclideanAlgo2(IdxT m,
+                    IdxT n,
+                    IdxT k,
+                    const DataT* pA,
+                    const DataT* pB,
+                    OutT* pD,
                     bool enable_sqrt,
-                    FinalLambda fin_op,
+                    FinOpT fin_op,
                     cudaStream_t stream,
                     bool isRowMajor)
 {
-  typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type UnExpOutType;
-  UnExpOutType* pDcast = reinterpret_cast<UnExpOutType*>(pD);
-  Index_ lda, ldb, ldd;
-
-  if (isRowMajor) {
-    lda = k, ldb = k, ldd = n;
-    euclideanUnExp<InType, AccType, UnExpOutType, Index_, FinalLambda, true>(
-      m, n, k, lda, ldb, ldd, pA, pB, enable_sqrt, pDcast, fin_op, stream);
+  if (enable_sqrt) {
+    ops::l2_unexp_sqrt_distance_op l2_sqrt_op{};
+    distance_matrix_dispatch<decltype(l2_sqrt_op), DataT, AccT, OutT, FinOpT, IdxT>(
+      l2_sqrt_op, m, n, k, pA, pB, pD, fin_op, stream, isRowMajor);
   } else {
-    lda = n, ldb = m, ldd = m;
-    euclideanUnExp<InType, AccType, UnExpOutType, Index_, FinalLambda, false>(
-      n, m, k, lda, ldb, ldd, pB, pA, enable_sqrt, pDcast, fin_op, stream);
+    ops::l2_unexp_distance_op l2_op{};
+    distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
+      l2_op, m, n, k, pA, pB, pD, fin_op, stream, isRowMajor);
   }
 }
 
