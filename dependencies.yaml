@@ -70,6 +70,7 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - clang=11.1.0
+          - pre-commit
       - output_types: [conda]
         packages:
           - clang-tools=11.1.0
@@ -155,6 +156,7 @@ dependencies:
           - ucx>=1.13.0
           - ucx-py=0.30.*
           - ucx-proc=*=gpu
+          - nccl
           - libfaiss>=1.7.0=cuda*
           - faiss-proc=*=cuda
           - dask-cuda=23.02.*

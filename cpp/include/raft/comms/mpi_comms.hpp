@@ -55,7 +55,7 @@ using mpi_comms = detail::mpi_comms;
  * comm.sync_stream(handle.get_stream());
  * @endcode
  */
-inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm)
+inline void initialize_mpi_comms(device_resources* handle, MPI_Comm comm)
 {
   auto communicator = std::make_shared<comms_t>(
     std::unique_ptr<comms_iface>(new mpi_comms(comm, false, handle->get_stream())));

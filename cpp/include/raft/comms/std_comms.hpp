@@ -64,7 +64,7 @@ using std_comms = detail::std_comms;
  * comm.sync_stream(handle.get_stream());
  * @endcode
  */
-void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks, int rank)
+void build_comms_nccl_only(device_resources* handle, ncclComm_t nccl_comm, int num_ranks, int rank)
 {
   cudaStream_t stream = handle->get_stream();
 
@@ -110,8 +110,12 @@ void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks
  * comm.sync_stream(handle.get_stream());
  * @endcode
  */
-void build_comms_nccl_ucx(
-  handle_t* handle, ncclComm_t nccl_comm, void* ucp_worker, void* eps, int num_ranks, int rank)
+void build_comms_nccl_ucx(device_resources* handle,
+                          ncclComm_t nccl_comm,
+                          void* ucp_worker,
+                          void* eps,
+                          int num_ranks,
+                          int rank)
 {
   auto eps_sp = std::make_shared<ucp_ep_h*>(new ucp_ep_h[num_ranks]);
 
