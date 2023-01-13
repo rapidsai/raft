@@ -2,7 +2,7 @@
 
 
 - [X] canberra.cuh
-- [ ] chebyshev.cuh
+- [X] chebyshev.cuh
 - [ ] correlation.cuh
 - [ ] cosine.cuh
 - [ ] hamming.cuh
