@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,37 +15,37 @@
  */
 
 #pragma once
-#include <raft/distance/detail/pairwise_distance_base.cuh>
 
-namespace raft::distance::detail {
-
+namespace raft::distance::detail::ops {
 
 // Describes the computation the l1 distance
 struct l1_distance_op {
-  // Whether norms of data should be loaded.
+  // Do not load norms of data, the computation of L1 distance does not use them.
   static constexpr bool use_norms = false;
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
   template <typename Policy>
-  constexpr size_t shared_mem_size() {
+  constexpr size_t shared_mem_size()
+  {
     return Policy::SmemSize;
   }
 
   template <typename AccT, typename DataT>
-  DI void core(AccT & acc, DataT & x, DataT & y) const {
+  DI void core(AccT& acc, DataT& x, DataT& y) const
+  {
     acc += raft::abs(x - y);
   };
 
   template <typename Policy, typename AccT, typename DataT, typename IdxT>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
-                 DataT * regxn,
-                 DataT * regyn,
+                 DataT* regxn,
+                 DataT* regyn,
                  IdxT gridStrideX,
-                 IdxT gridStrideY) const {
+                 IdxT gridStrideY) const
+  {
     return;
   };
-
 };
 
-}  // namespace raft::distance::detail
+}  // namespace raft::distance::detail::ops

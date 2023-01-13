@@ -14,14 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/operators.hpp>
-#include <raft/linalg/contractions.cuh>
-#include <raft/linalg/norm.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/vectorized.cuh>
 
-#include <cstddef>
+#include <raft/linalg/contractions.cuh>
+#include "kernel_sm60.cuh"
 
 namespace raft::distance::detail {
 
@@ -36,11 +31,11 @@ template <typename data_type,
           typename final_op_type,
           bool row_major>
 struct params_CT {
-  using DataT = data_type;
-  using AccT  = accumulate_type;
-  using OutT  = out_type;
-  using IdxT  = index_type;
-  using PolicyT = policy;
+  using DataT                        = data_type;
+  using AccT                         = accumulate_type;
+  using OutT                         = out_type;
+  using IdxT                         = index_type;
+  using PolicyT                      = policy;
   using opT                          = op_type;
   using FinOpT                       = final_op_type;
   static constexpr bool is_row_major = row_major;
@@ -122,84 +117,105 @@ struct params_RT {
   }
 };
 
-template <typename PCT>
-__global__ __launch_bounds__(PCT::PolicyT::Nthreads, 2)
-
-  void pairwiseDistanceOpKernel(const typename PCT::DataT* x,
-                                const typename PCT::DataT* y,
-                                const typename PCT::DataT* _xn,
-                                const typename PCT::DataT* _yn,
-                                typename PCT::IdxT m,
-                                typename PCT::IdxT n,
-                                typename PCT::IdxT k,
-                                typename PCT::IdxT lda,
-                                typename PCT::IdxT ldb,
-                                typename PCT::IdxT ldd,
-                                typename PCT::OutT* dOutput,
-                                typename PCT::opT distance_op,
-                                typename PCT::FinOpT fin_op)
+// Determine the largest number of elements that can be loaded in one
+// instruction without causing misalignment errors.
+template <typename DataT>
+int max_aligned_load(const DataT* x, const DataT* y, int ldx, int ldy)
 {
-  using AccT  = typename PCT::AccT;
-  using DataT = typename PCT::DataT;
-  using OutT  = typename PCT::OutT;
-  using IdxT  = typename PCT::IdxT;
+  auto base_x     = reinterpret_cast<uintptr_t>(x);
+  auto base_y     = reinterpret_cast<uintptr_t>(y);
+  size_t stride_X = sizeof(DataT) * ldx;  // stride in bytes
+  size_t stride_Y = sizeof(DataT) * ldy;  // stride in bytes
 
-  using Policy = typename PCT::PolicyT;
+  bool base_16B_aligned = base_x % 16 == 0 && base_y % 16 == 0;
+  bool base_8B_aligned  = base_x % 8 == 0 && base_y % 8 == 0;
 
-  // Instantiate compile time parameters to access constexpr members.
-  PCT compile_time_params{};
+  bool stride_16B_aligned = stride_X % 16 == 0 && stride_Y % 16 == 0;
+  bool stride_8B_aligned  = stride_X % 8 == 0 && stride_Y % 8 == 0;
 
-  extern __shared__ char smem[];
+  if (16 % sizeof(DataT) == 0 && base_16B_aligned && stride_16B_aligned) {
+    return 16 / sizeof(DataT);
+  } else if (8 % sizeof(DataT) == 0 && base_8B_aligned && stride_8B_aligned) {
+    return 8 / sizeof(DataT);
+  } else {
+    return 1;
+  }
+}
 
-  // Wrap operator back into lambdas. This is temporary and should be removed. (TODO)
-  auto core_op = [distance_op] __device__(AccT & acc, DataT & x, DataT & y) {
-    // use .template to disambiguate (See:
-    // https://en.cppreference.com/w/cpp/language/dependent_name)
-    distance_op.template core<AccT, DataT>(acc, x, y);
-  };
-  auto epilog_op = [distance_op] __device__(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
-                                            DataT * regxn,
-                                            DataT * regyn,
-                                            IdxT gridStrideX,
-                                            IdxT gridStrideY) {
-    distance_op.template epilog<Policy, AccT, DataT, IdxT>(
-      acc, regxn, regyn, gridStrideX, gridStrideY);
-  };
+template <typename opT,
+          typename DataT,
+          typename AccT,
+          typename OutT,
+          typename FinOpT,
+          typename IdxT = int>
+void distance_matrix_dispatch(opT distance_op,
+                              int m_,
+                              int n_,
+                              int k_,
+                              const DataT* x_,
+                              const DataT* y_,
+                              OutT* out,
+                              FinOpT fin_op,
+                              cudaStream_t stream,
+                              bool is_row_major)
+{
+  // Determine leading dimensions and possibly flip order of passing x and y if
+  // column_major.
+  //
+  // ldx, ldy, and ld_out are the leading dimensions of x, y, and out
+  const DataT* x;
+  const DataT* y;
+  int ldx, ldy, ld_out;
+  int m, n, k;
+  if (is_row_major) {
+    // Pass x, y, m, n, k in order
+    x = x_, y = y_;
+    m = m_, n = n_, k = k_;
+    ldx = k_, ldy = k_, ld_out = n_;
+  } else {
+    // Flip x, y, and m, n, k.
+    x = y_, y = x_;
+    m = n_, n = m_, k = k_;
+    ldx = n_, ldy = m_, ld_out = m_;
+  }
 
-  // No support for row_epilog_op.
-  auto row_epilog_op = raft::void_op();
-  // Always write output
-  constexpr bool write_out = true;
-  constexpr bool use_norms = distance_op.use_norms;
-  PairwiseDistances<use_norms,
-                    DataT,
-                    AccT,
-                    OutT,
-                    IdxT,
-                    Policy,
-                    decltype(core_op),
-                    decltype(epilog_op),
-                    decltype(fin_op),
-                    decltype(row_epilog_op),
-                    compile_time_params.is_row_major,
-                    write_out>
-    obj(x,
+  int vectorized_load_num_elem = max_aligned_load(x, y, ldx, ldy);
+
+  // We dispatch based on
+  // - vectorized_load_num_elem
+  // - is_row_major
+
+  // Create run-time parameter struct that does the dispatching
+  using PRT = params_RT<DataT, AccT, OutT, IdxT, decltype(distance_op), FinOpT>;
+  PRT run_time_params{vectorized_load_num_elem, is_row_major};
+
+  // Turn run-time parameters into compile-time parameters.
+  bool dispatch_success = run_time_params.dispatch_with_compile_time_params(
+    // We pass a lambda that receives the compile-time parameters and can use these
+    // to call the correct kernel.
+    [&](auto compile_time_params) {
+      // compile_time_params is an empty struct that we can convert back to a type
+      // using decltype.
+      return pairwise_matrix<decltype(compile_time_params)>(
+        distance_op,
+        fin_op,
+        x,
         y,
+        nullptr,
+        nullptr,  // TODO: use _xn, _yn for non-l1 distances
         m,
         n,
         k,
-        lda,
-        ldb,
-        ldd,
-        _xn,
-        _yn,
-        dOutput,
-        smem,
-        core_op,
-        epilog_op,
-        fin_op,
-        row_epilog_op);
-  obj.run();
+        ldx,
+        ldy,
+        ld_out,
+        out,
+        stream);
+    });
+
+  if (!dispatch_success) {
+    // TODO
+  }
 }
 
 };  // namespace raft::distance::detail
