@@ -22,7 +22,11 @@ namespace raft {
 namespace distance {
 namespace detail {
 
-template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+template <typename DataT,
+          typename AccT,
+          typename OutT,
+          typename FinOpT,
+          typename IdxT = int>
 void l1Impl(int m,
             int n,
             int k,

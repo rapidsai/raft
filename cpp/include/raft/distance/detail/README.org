@@ -1,0 +1,13 @@
+#+title: Readme
+
+
+- [X] canberra.cuh
+- [ ] chebyshev.cuh
+- [ ] correlation.cuh
+- [ ] cosine.cuh
+- [ ] hamming.cuh
+- [ ] hellinger.cuh
+- [ ] jensen_shannon.cuh
+- [ ] kl_divergence.cuh
+- [ ] minkowski.cuh
+- [ ] russell_rao.cuh

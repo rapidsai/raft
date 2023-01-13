@@ -16,28 +16,32 @@
 
 #pragma once
 
+#include <raft/util/cuda_utils.cuh>
+
 namespace raft::distance::detail::ops {
 
-// Describes the computation the template distance
-//
-// Fill in the TODO items.
+// Describes the computation the canberra distance
 
-struct template_op {
+struct canberra_distance_op {
   // Load norms of input data
-  static constexpr bool use_norms = TODO;
+  static constexpr bool use_norms = false;
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
   template <typename Policy, typename DataT>
   constexpr size_t shared_mem_size()
   {
-    return Policy::SmemSize + TODO;
+    return Policy::SmemSize;
   }
 
   template <typename AccT, typename DataT>
   DI void core(AccT& acc, DataT& x, DataT& y) const
   {
-    TODO;
+    const auto diff = raft::abs(x - y);
+    const auto add  = raft::abs(x) + raft::abs(y);
+    // deal with potential for 0 in denominator by
+    // forcing 1/0 instead
+    acc += ((add != 0) * diff / (add + (add == 0)));
   };
 
   template <typename Policy, typename AccT, typename DataT, typename IdxT>
@@ -47,7 +51,7 @@ struct template_op {
                  IdxT gridStrideX,
                  IdxT gridStrideY) const
   {
-    TODO;
+    return;
   }
 };
 
