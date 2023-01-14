@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/handle_t.hpp>
+#include <raft/core/device_resources.hpp>
 
 namespace raft {
 
