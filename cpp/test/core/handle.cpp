@@ -251,7 +251,7 @@ TEST(Raft, SubComms)
 
 TEST(Raft, WorkspaceResource)
 {
-  handle_t handle;
+  raft::device_resources handle;
 
   ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
                 handle.get_workspace_resource()) == nullptr);
@@ -259,7 +259,7 @@ TEST(Raft, WorkspaceResource)
 
   auto pool_mr = new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource());
   std::shared_ptr<rmm::cuda_stream_pool> pool = {nullptr};
-  handle_t handle2(rmm::cuda_stream_per_thread, pool, pool_mr);
+  raft::device_resources handle2(rmm::cuda_stream_per_thread, pool, pool_mr);
 
   ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
                 handle2.get_workspace_resource()) != nullptr);

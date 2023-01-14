@@ -35,7 +35,7 @@ from libcpp.string cimport string
 from pylibraft.distance.distance_type cimport DistanceType
 
 from pylibraft.common import (
-    Handle,
+    DeviceResources,
     ai_wrapper,
     auto_convert_output,
     cai_wrapper,
@@ -44,7 +44,7 @@ from pylibraft.common import (
 from pylibraft.common.cai_wrapper import wrap_array
 from pylibraft.common.interruptible import cuda_interruptible
 
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle cimport device_resources
 
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.input_validation import is_c_contiguous
@@ -245,8 +245,9 @@ cdef class Index:
         self.trained = False
         self.index = NULL
         if handle is None:
-            handle = Handle()
-        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+            handle = DeviceResources()
+        cdef device_resources* handle_ = \
+            <device_resources*><size_t>handle.getHandle()
 
         # We create a placeholder object. The actual parameter values do
         # not matter, it will be replaced with a built index object later.
@@ -335,7 +336,7 @@ def build(IndexParams index_params, dataset, handle=None):
 
     >>> import cupy as cp
 
-    >>> from pylibraft.common import Handle
+    >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq
 
     >>> n_samples = 50000
@@ -344,7 +345,7 @@ def build(IndexParams index_params, dataset, handle=None):
 
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
-    >>> handle = Handle()
+    >>> handle = DeviceResources()
     >>> index_params = ivf_pq.IndexParams(
     ...     n_lists=1024,
     ...     metric="l2_expanded",
@@ -375,8 +376,9 @@ def build(IndexParams index_params, dataset, handle=None):
     cdef uint32_t dim = dataset_cai.shape[1]
 
     if handle is None:
-        handle = Handle()
-    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        handle = DeviceResources()
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
 
     idx = Index()
 
@@ -441,7 +443,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
 
     >>> import cupy as cp
 
-    >>> from pylibraft.common import Handle
+    >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq
 
     >>> n_samples = 50000
@@ -450,7 +452,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
 
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
-    >>> handle = Handle()
+    >>> handle = DeviceResources()
     >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
 
     >>> n_rows = 100
@@ -478,8 +480,9 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         raise ValueError("Index need to be built before calling extend.")
 
     if handle is None:
-        handle = Handle()
-    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        handle = DeviceResources()
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
 
     vecs_cai = wrap_array(new_vectors)
     vecs_dt = vecs_cai.dtype
@@ -619,7 +622,7 @@ def search(SearchParams search_params,
     --------
     >>> import cupy as cp
 
-    >>> from pylibraft.common import Handle
+    >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq
 
     >>> n_samples = 50000
@@ -629,7 +632,7 @@ def search(SearchParams search_params,
     ...                                   dtype=cp.float32)
 
     >>> # Build index
-    >>> handle = Handle()
+    >>> handle = DeviceResources()
     >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
 
     >>> # Search using the built index
@@ -667,8 +670,9 @@ def search(SearchParams search_params,
         raise ValueError("Index need to be built before calling search.")
 
     if handle is None:
-        handle = Handle()
-    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        handle = DeviceResources()
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
 
     queries_cai = cai_wrapper(queries)
     queries_dt = queries_cai.dtype
@@ -761,7 +765,7 @@ def save(filename, Index index, handle=None):
     --------
     >>> import cupy as cp
 
-    >>> from pylibraft.common import Handle
+    >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq
 
     >>> n_samples = 50000
@@ -770,7 +774,7 @@ def save(filename, Index index, handle=None):
     ...                                   dtype=cp.float32)
 
     >>> # Build index
-    >>> handle = Handle()
+    >>> handle = DeviceResources()
     >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
     >>> ivf_pq.save("my_index.bin", index, handle=handle)
     """
@@ -778,8 +782,9 @@ def save(filename, Index index, handle=None):
         raise ValueError("Index need to be built before saving it.")
 
     if handle is None:
-        handle = Handle()
-    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        handle = DeviceResources()
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
 
     cdef string c_filename = filename.encode('utf-8')
 
@@ -809,7 +814,7 @@ def load(filename, handle=None):
     --------
     >>> import cupy as cp
 
-    >>> from pylibraft.common import Handle
+    >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq
 
     >>> n_samples = 50000
@@ -818,7 +823,7 @@ def load(filename, handle=None):
     ...                                   dtype=cp.float32)
 
     >>> # Build and save index
-    >>> handle = Handle()
+    >>> handle = DeviceResources()
     >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
     >>> ivf_pq.save("my_index.bin", index, handle=handle)
     >>> del index
@@ -826,15 +831,16 @@ def load(filename, handle=None):
     >>> n_queries = 100
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
-    >>> handle = Handle()
+    >>> handle = DeviceResources()
     >>> index = ivf_pq.load("my_index.bin", handle=handle)
 
     >>> distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(), index,
     ...                                      queries, k=10, handle=handle)
     """
     if handle is None:
-        handle = Handle()
-    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        handle = DeviceResources()
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
 
     cdef string c_filename = filename.encode('utf-8')
     index = Index()

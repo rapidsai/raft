@@ -30,8 +30,8 @@ cdef extern from "nccl.h":
     ctypedef ncclComm *ncclComm_t
 
 cdef extern from "raft/core/handle.hpp" namespace "raft":
-    cdef cppclass handle_t:
-        handle_t() except +
+    cdef cppclass device_resources:
+        device_resources() except +
 
 cdef extern from "raft/core/device_resources.hpp" namespace "raft":
     cdef cppclass device_resources:

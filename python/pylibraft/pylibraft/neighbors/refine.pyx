@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,13 +34,13 @@ from libcpp cimport bool, nullptr
 from pylibraft.distance.distance_type cimport DistanceType
 
 from pylibraft.common import (
-    Handle,
+    DeviceResources,
     auto_convert_output,
     cai_wrapper,
     device_ndarray,
 )
 
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle cimport device_resources
 
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.input_validation import is_c_contiguous
@@ -71,7 +71,7 @@ cdef extern from "raft_runtime/neighbors/refine.hpp" \
         namespace "raft::runtime::neighbors" nogil:
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
-        const handle_t& handle,
+        const device_resources& handle,
         device_matrix_view[float, uint64_t, row_major] dataset,
         device_matrix_view[float, uint64_t, row_major] queries,
         device_matrix_view[uint64_t, uint64_t, row_major] candidates,
@@ -80,7 +80,7 @@ cdef extern from "raft_runtime/neighbors/refine.hpp" \
         DistanceType metric) except +
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
-        const handle_t& handle,
+        const device_resources& handle,
         device_matrix_view[uint8_t, uint64_t, row_major] dataset,
         device_matrix_view[uint8_t, uint64_t, row_major] queries,
         device_matrix_view[uint64_t, uint64_t, row_major] candidates,
@@ -89,7 +89,7 @@ cdef extern from "raft_runtime/neighbors/refine.hpp" \
         DistanceType metric) except +
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
-        const handle_t& handle,
+        const device_resources& handle,
         device_matrix_view[int8_t, uint64_t, row_major] dataset,
         device_matrix_view[int8_t, uint64_t, row_major] queries,
         device_matrix_view[uint64_t, uint64_t, row_major] candidates,
@@ -98,7 +98,7 @@ cdef extern from "raft_runtime/neighbors/refine.hpp" \
         DistanceType metric) except +
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
-        const handle_t& handle,
+        const device_resources& handle,
         host_matrix_view[float, uint64_t, row_major] dataset,
         host_matrix_view[float, uint64_t, row_major] queries,
         host_matrix_view[uint64_t, uint64_t, row_major] candidates,
@@ -107,7 +107,7 @@ cdef extern from "raft_runtime/neighbors/refine.hpp" \
         DistanceType metric) except +
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
-        const handle_t& handle,
+        const device_resources& handle,
         host_matrix_view[uint8_t, uint64_t, row_major] dataset,
         host_matrix_view[uint8_t, uint64_t, row_major] queries,
         host_matrix_view[uint64_t, uint64_t, row_major] candidates,
@@ -116,7 +116,7 @@ cdef extern from "raft_runtime/neighbors/refine.hpp" \
         DistanceType metric) except +
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
-        const handle_t& handle,
+        const device_resources& handle,
         host_matrix_view[int8_t, uint64_t, row_major] dataset,
         host_matrix_view[int8_t, uint64_t, row_major] queries,
         host_matrix_view[uint64_t, uint64_t, row_major] candidates,
@@ -261,7 +261,7 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
 
     >>> import cupy as cp
 
-    >>> from pylibraft.common import Handle
+    >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq, refine
 
     >>> n_samples = 50000
@@ -270,7 +270,7 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
 
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
-    >>> handle = Handle()
+    >>> handle = DeviceResources()
     >>> index_params = ivf_pq.IndexParams(n_lists=1024, metric="l2_expanded",
     ...                                   pq_dim=10)
     >>> index = ivf_pq.build(index_params, dataset, handle=handle)
@@ -294,7 +294,7 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
     """
 
     if handle is None:
-        handle = Handle()
+        handle = DeviceResources()
 
     if hasattr(dataset, "__cuda_array_interface__"):
         return _refine_device(dataset, queries, candidates, k, indices,
@@ -306,7 +306,8 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
 
 def _refine_device(dataset, queries, candidates, k, indices, distances,
                    metric, handle):
-    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
 
     cdef device_matrix_view[uint64_t, uint64_t, row_major] candidates_view = \
         get_device_matrix_view_uint64(candidates)
@@ -367,7 +368,8 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
 
 def _refine_host(dataset, queries, candidates, k, indices, distances,
                  metric, handle):
-    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
 
     if k is None:
         if indices is not None:
