@@ -30,7 +30,7 @@ namespace raft {
  *
  * Use of `raft::resources` or `raft::handle_t` is preferred.
  */
-class handle_t : public raft::handle_t {
+class handle_t : public raft::device_resources {
  public:
   // delete copy/move constructors and assignment operators as
   // copying and moving underlying resources is unsafe
