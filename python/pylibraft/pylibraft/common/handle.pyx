@@ -33,9 +33,10 @@ from .cuda import CudaRuntimeError
 
 cdef class DeviceResources:
     """
-    Handle is a lightweight python wrapper around the corresponding C++ class
-    of handle_t exposed by RAFT's C++ interface. Refer to the header file
-    raft/handle.hpp for interface level details of this struct
+    DeviceResources is a lightweight python wrapper around the corresponding
+    C++ class of device_resources exposed by RAFT's C++ interface. Refer to
+    the header file raft/core/device_resources.hpp for interface level
+    details of this struct
 
     Parameters
     ----------
@@ -48,7 +49,7 @@ cdef class DeviceResources:
     Basic usage:
     >>> from pylibraft.common import Stream, Handle
     >>> stream = Stream()
-    >>> handle = Handle(stream)
+    >>> handle = DeviceResources(stream)
     >>>
     >>> # call algos here
     >>>
@@ -58,12 +59,12 @@ cdef class DeviceResources:
     >>> handle.sync()
     >>> del handle  # optional!
 
-    Using a cuPy stream with RAFT handle:
+    Using a cuPy stream with RAFT device_resources:
     >>> import cupy
-    >>> from pylibraft.common import Stream, Handle
+    >>> from pylibraft.common import Stream, DeviceResources
     >>>
     >>> cupy_stream = cupy.cuda.Stream()
-    >>> handle = Handle(stream=cupy_stream.ptr)
+    >>> handle = DeviceResources(stream=cupy_stream.ptr)
 
     Using a RAFT stream with CuPy ExternalStream:
     >>> import cupy
@@ -112,7 +113,7 @@ cdef class DeviceResources:
         """
         self.c_obj.get()[0].sync_stream()
 
-    def getHandle(self):
+    def getDeviceResources(self):
         return <size_t> self.c_obj.get()
 
     def __getstate__(self):
@@ -128,7 +129,8 @@ cdef class DeviceResources:
 
 
 cdef class Handle(DeviceResources):
-    pass
+    def getHandle(self):
+        return <size_t> self.c_obj.get()
 
 
 _HANDLE_PARAM_DOCSTRING = """
