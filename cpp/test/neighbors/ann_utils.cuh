@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -232,7 +232,14 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
     }
   }
   double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
-  RAFT_LOG_INFO("Recall = %f (%zu/%zu)", actual_recall, match_count, total_count);
+  double error_margin  = (actual_recall - min_recall) / std::max(1.0 - min_recall, eps);
+  RAFT_LOG_INFO("Recall = %f (%zu/%zu), the error is %2.1f%% %s the threshold (eps = %f).",
+                actual_recall,
+                match_count,
+                total_count,
+                std::abs(error_margin * 100.0),
+                error_margin < 0 ? "above" : "below",
+                eps);
   if (actual_recall < min_recall - eps) {
     if (actual_recall < min_recall * min_recall - eps) {
       RAFT_LOG_ERROR("Recall is much lower than the minimum (%f < %f)", actual_recall, min_recall);
