@@ -22,7 +22,7 @@
 TEST(MathHost, Abs)
 {
   // Integer abs
-  ASSERT_TRUE(raft::match(123, raft::abs(int8_t{-123}), raft::Compare<int>()));
+  ASSERT_TRUE(raft::match(int8_t{123}, raft::abs(int8_t{-123}), raft::Compare<int8_t>()));
   ASSERT_TRUE(raft::match(12345, raft::abs(-12345), raft::Compare<int>()));
   ASSERT_TRUE(raft::match(12345l, raft::abs(-12345l), raft::Compare<long int>()));
   ASSERT_TRUE(

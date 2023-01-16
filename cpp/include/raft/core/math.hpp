@@ -25,13 +25,15 @@
 namespace raft {
 
 /**
- * Absolute value
- *
- * Note: no explicit type restrictions on this one, let the compiler find the appropriate overloads
- * (e.g int8_t casts to int) or fail.
+ * @defgroup Absolute value
+ * @{
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto abs(const T& x)
+  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T> ||
+                        std::is_same_v<int, T> || std::is_same_v<long int, T> ||
+                        std::is_same_v<long long int, T>,
+                      T>
 {
 #ifdef __CUDA_ARCH__
   return ::abs(x);
@@ -39,6 +41,16 @@ constexpr RAFT_INLINE_FUNCTION auto abs(const T& x)
   return std::abs(x);
 #endif
 }
+template <typename T>
+constexpr RAFT_INLINE_FUNCTION auto abs(const T& x)
+  -> std::enable_if_t<!std::is_same_v<float, T> && !std::is_same_v<double, T> &&
+                        !std::is_same_v<int, T> && !std::is_same_v<long int, T> &&
+                        !std::is_same_v<long long int, T>,
+                      T>
+{
+  return x < T{0} ? -x : x;
+}
+/** @} */
 
 /**
  * Inverse hyperbolic tangent
