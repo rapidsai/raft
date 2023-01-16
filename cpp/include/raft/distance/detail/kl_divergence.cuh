@@ -81,10 +81,10 @@ static void klDivergenceImpl(const DataT* x,
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
     if (isRowMajor) {
       const bool x_zero = (x == 0);
-      acc += x * (raft::myLog(x + x_zero) - y);
+      acc += x * (raft::log(x + x_zero) - y);
     } else {
       const bool y_zero = (y == 0);
-      acc += y * (raft::myLog(y + y_zero) - x);
+      acc += y * (raft::log(y + y_zero) - x);
     }
   };
 
@@ -92,23 +92,23 @@ static void klDivergenceImpl(const DataT* x,
     if (isRowMajor) {
       const bool x_zero = (x == 0);
       const bool y_zero = (y == 0);
-      acc += x * (raft::myLog(x + x_zero) - (!y_zero) * raft::myLog(y + y_zero));
+      acc += x * (raft::log(x + x_zero) - (!y_zero) * raft::log(y + y_zero));
     } else {
       const bool y_zero = (y == 0);
       const bool x_zero = (x == 0);
-      acc += y * (raft::myLog(y + y_zero) - (!x_zero) * raft::myLog(x + x_zero));
+      acc += y * (raft::log(y + y_zero) - (!x_zero) * raft::log(x + x_zero));
     }
   };
 
   auto unaryOp_lambda = [] __device__(DataT input) {
     const bool x_zero = (input == 0);
-    return (!x_zero) * raft::myLog(input + x_zero);
+    return (!x_zero) * raft::log(input + x_zero);
   };
 
   auto unaryOp_lambda_reverse = [] __device__(DataT input) {
     // reverse previous log (x) back to x using (e ^ log(x))
     const bool x_zero = (input == 0);
-    return (!x_zero) * raft::myExp(input);
+    return (!x_zero) * raft::exp(input);
   };
 
   // epilogue operation lambda for final value calculation

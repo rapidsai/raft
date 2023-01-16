@@ -105,7 +105,7 @@ static void hellingerImpl(const DataT* x,
         // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
         const auto finalVal  = (1 - acc[i][j]);
         const auto rectifier = (!signbit(finalVal));
-        acc[i][j]            = raft::mySqrt(rectifier * finalVal);
+        acc[i][j]            = raft::sqrt(rectifier * finalVal);
       }
     }
   };

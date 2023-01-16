@@ -303,7 +303,7 @@ HDI double myMin<double>(double x, double y)
 template <typename T>
 DI T myAtomicMin(T* address, T val)
 {
-  myAtomicReduce(address, val, myMin<T>);
+  myAtomicReduce(address, val, raft::min_op{});
   return *address;
 }
 
@@ -317,7 +317,7 @@ DI T myAtomicMin(T* address, T val)
 template <typename T>
 DI T myAtomicMax(T* address, T val)
 {
-  myAtomicReduce(address, val, myMax<T>);
+  myAtomicReduce(address, val, raft::max_op{});
   return *address;
 }
 

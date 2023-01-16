@@ -78,11 +78,11 @@ static void jensenShannonImpl(const DataT* x,
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
     const DataT m     = 0.5f * (x + y);
     const bool m_zero = (m == 0);
-    const auto logM   = (!m_zero) * raft::myLog(m + m_zero);
+    const auto logM   = (!m_zero) * raft::log(m + m_zero);
 
     const bool x_zero = (x == 0);
     const bool y_zero = (y == 0);
-    acc += (-x * (logM - raft::myLog(x + x_zero))) + (-y * (logM - raft::myLog(y + y_zero)));
+    acc += (-x * (logM - raft::log(x + x_zero))) + (-y * (logM - raft::log(y + y_zero)));
   };
 
   // epilogue operation lambda for final value calculation
@@ -95,7 +95,7 @@ static void jensenShannonImpl(const DataT* x,
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-        acc[i][j] = raft::mySqrt(0.5 * acc[i][j]);
+        acc[i][j] = raft::sqrt(0.5 * acc[i][j]);
       }
     }
   };

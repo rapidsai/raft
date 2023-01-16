@@ -131,7 +131,7 @@ __global__ void naive_distance_kernel(EvalT* dist,
     }
     if (type == raft::distance::DistanceType::L2SqrtExpanded ||
         type == raft::distance::DistanceType::L2SqrtUnexpanded)
-      acc = raft::mySqrt(acc);
+      acc = raft::sqrt(acc);
     dist[midx * n + nidx] = acc;
   }
 }

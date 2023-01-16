@@ -63,7 +63,7 @@ __global__ void stddevKernelColMajor(
     thread_data += diff * diff;
   }
   Type acc = BlockReduce(temp_storage).Sum(thread_data);
-  if (threadIdx.x == 0) { std[blockIdx.x] = raft::mySqrt(acc / N); }
+  if (threadIdx.x == 0) { std[blockIdx.x] = raft::sqrt(acc / N); }
 }
 
 template <typename Type, typename IdxType, int TPB>
@@ -126,7 +126,7 @@ void stddev(Type* std,
       std,
       mu,
       D,
-      [ratio] __device__(Type a, Type b) { return raft::mySqrt(a * ratio - b * b); },
+      [ratio] __device__(Type a, Type b) { return raft::sqrt(a * ratio - b * b); },
       stream);
   } else {
     stddevKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(std, data, mu, D, N);

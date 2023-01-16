@@ -143,10 +143,10 @@ DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type
 {
   constexpr Type twoPi  = Type(2.0) * Type(3.141592654);
   constexpr Type minus2 = -Type(2.0);
-  Type R                = raft::mySqrt(minus2 * raft::myLog(val1));
+  Type R                = raft::sqrt(minus2 * raft::log(val1));
   Type theta            = twoPi * val2;
   Type s, c;
-  raft::mySinCos(theta, s, c);
+  raft::sincos(theta, &s, &c);
   val1 = R * c * sigma1 + mu1;
   val2 = R * s * sigma2 + mu2;
 }
@@ -323,7 +323,7 @@ DI void custom_next(
     gen.next(res);
   } while (res == OutType(0.0));
 
-  *val = params.mu - params.beta * raft::myLog(-raft::myLog(res));
+  *val = params.mu - params.beta * raft::log(-raft::log(res));
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -340,8 +340,8 @@ DI void custom_next(GenType& gen,
 
   gen.next(res2);
   box_muller_transform<OutType>(res1, res2, params.sigma, params.mu);
-  *val       = raft::myExp(res1);
-  *(val + 1) = raft::myExp(res2);
+  *val       = raft::exp(res1);
+  *(val + 1) = raft::exp(res2);
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -358,7 +358,7 @@ DI void custom_next(GenType& gen,
   } while (res == OutType(0.0));
 
   constexpr OutType one = (OutType)1.0;
-  *val                  = params.mu - params.scale * raft::myLog(one / res - one);
+  *val                  = params.mu - params.scale * raft::log(one / res - one);
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -371,7 +371,7 @@ DI void custom_next(GenType& gen,
   OutType res;
   gen.next(res);
   constexpr OutType one = (OutType)1.0;
-  *val                  = -raft::myLog(one - res) / params.lambda;
+  *val                  = -raft::log(one - res) / params.lambda;
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -386,7 +386,7 @@ DI void custom_next(GenType& gen,
 
   constexpr OutType one = (OutType)1.0;
   constexpr OutType two = (OutType)2.0;
-  *val                  = raft::mySqrt(-two * raft::myLog(one - res)) * params.sigma;
+  *val                  = raft::sqrt(-two * raft::log(one - res)) * params.sigma;
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -409,9 +409,9 @@ DI void custom_next(GenType& gen,
   // The <= comparison here means, number of samples going in `if` branch are more by 1 than `else`
   // branch. However it does not matter as for 0.5 both branches evaluate to same result.
   if (res <= oneHalf) {
-    out = params.mu + params.scale * raft::myLog(two * res);
+    out = params.mu + params.scale * raft::log(two * res);
   } else {
-    out = params.mu - params.scale * raft::myLog(two * (one - res));
+    out = params.mu - params.scale * raft::log(two * (one - res));
   }
   *val = out;
 }
@@ -424,7 +424,7 @@ DI void custom_next(
   gen.next(res);
   params.inIdxPtr[idx]  = idx;
   constexpr OutType one = (OutType)1.0;
-  auto exp              = -raft::myLog(one - res);
+  auto exp              = -raft::log(one - res);
   if (params.wts != nullptr) {
     *val = exp / params.wts[idx];
   } else {

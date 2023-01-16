@@ -278,7 +278,7 @@ void matrixVectorBinaryDivSkipZero(Type* data,
       rowMajor,
       bcastAlongRows,
       [] __device__(Type a, Type b) {
-        if (raft::myAbs(b) < Type(1e-10))
+        if (raft::abs(b) < Type(1e-10))
           return Type(0);
         else
           return a / b;
@@ -294,7 +294,7 @@ void matrixVectorBinaryDivSkipZero(Type* data,
       rowMajor,
       bcastAlongRows,
       [] __device__(Type a, Type b) {
-        if (raft::myAbs(b) < Type(1e-10))
+        if (raft::abs(b) < Type(1e-10))
           return a;
         else
           return a / b;

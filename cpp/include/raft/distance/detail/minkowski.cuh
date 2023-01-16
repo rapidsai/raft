@@ -74,8 +74,8 @@ void minkowskiUnExpImpl(const DataT* x,
 
   // Accumulation operation lambda
   auto core_lambda = [p] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::myAbs(x - y);
-    acc += raft::myPow(diff, p);
+    const auto diff = raft::abs(x - y);
+    acc += raft::pow(diff, p);
   };
 
   // epilogue operation lambda for final value calculation
@@ -89,7 +89,7 @@ void minkowskiUnExpImpl(const DataT* x,
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-        acc[i][j] = raft::myPow(acc[i][j], one_over_p);
+        acc[i][j] = raft::pow(acc[i][j], one_over_p);
       }
     }
   };

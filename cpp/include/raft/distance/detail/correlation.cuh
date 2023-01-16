@@ -125,7 +125,7 @@ static void correlationImpl(const DataT* x,
         auto Q_denom = k * regx2n[i] - (regxn[i] * regxn[i]);
         auto R_denom = k * regy2n[j] - (regyn[j] * regyn[j]);
 
-        acc[i][j] = 1 - (numer / raft::mySqrt(Q_denom * R_denom));
+        acc[i][j] = 1 - (numer / raft::sqrt(Q_denom * R_denom));
       }
     }
   };

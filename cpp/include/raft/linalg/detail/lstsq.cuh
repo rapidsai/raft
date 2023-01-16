@@ -104,7 +104,7 @@ struct DivideByNonZero {
 
   operator()(const math_t a, const math_t b) const
   {
-    return raft::myAbs<math_t>(b) >= eps ? a / b : a;
+    return raft::abs<math_t>(b) >= eps ? a / b : a;
   }
 };
 

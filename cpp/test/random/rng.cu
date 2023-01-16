@@ -145,8 +145,8 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
       case RNG_LogNormal: {
         auto var   = params.end * params.end;
         auto mu    = params.start;
-        meanvar[0] = raft::myExp(mu + var * T(0.5));
-        meanvar[1] = (raft::myExp(var) - T(1.0)) * raft::myExp(T(2.0) * mu + var);
+        meanvar[0] = raft::exp(mu + var * T(0.5));
+        meanvar[1] = (raft::exp(var) - T(1.0)) * raft::exp(T(2.0) * mu + var);
         break;
       }
       case RNG_Uniform:
@@ -169,7 +169,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
         meanvar[1] = meanvar[0] * meanvar[0];
         break;
       case RNG_Rayleigh:
-        meanvar[0] = params.start * raft::mySqrt(T(3.1415 / 2.0));
+        meanvar[0] = params.start * raft::sqrt(T(3.1415 / 2.0));
         meanvar[1] = ((T(4.0) - T(3.1415)) / T(2.0)) * params.start * params.start;
         break;
       case RNG_Laplace:
@@ -239,8 +239,8 @@ class RngMdspanTest : public ::testing::TestWithParam<RngInputs<T>> {
       case RNG_LogNormal: {
         auto var   = params.end * params.end;
         auto mu    = params.start;
-        meanvar[0] = raft::myExp(mu + var * T(0.5));
-        meanvar[1] = (raft::myExp(var) - T(1.0)) * raft::myExp(T(2.0) * mu + var);
+        meanvar[0] = raft::exp(mu + var * T(0.5));
+        meanvar[1] = (raft::exp(var) - T(1.0)) * raft::exp(T(2.0) * mu + var);
         break;
       }
       case RNG_Uniform:
@@ -263,7 +263,7 @@ class RngMdspanTest : public ::testing::TestWithParam<RngInputs<T>> {
         meanvar[1] = meanvar[0] * meanvar[0];
         break;
       case RNG_Rayleigh:
-        meanvar[0] = params.start * raft::mySqrt(T(3.1415 / 2.0));
+        meanvar[0] = params.start * raft::sqrt(T(3.1415 / 2.0));
         meanvar[1] = ((T(4.0) - T(3.1415)) / T(2.0)) * params.start * params.start;
         break;
       case RNG_Laplace:

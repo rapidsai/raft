@@ -56,10 +56,10 @@ __global__ void naiveRowNormKernel(
       if (type == L2Norm) {
         acc += data[rowStart * D + i] * data[rowStart * D + i];
       } else {
-        acc += raft::myAbs(data[rowStart * D + i]);
+        acc += raft::abs(data[rowStart * D + i]);
       }
     }
-    dots[rowStart] = do_sqrt ? raft::mySqrt(acc) : acc;
+    dots[rowStart] = do_sqrt ? raft::sqrt(acc) : acc;
   }
 }
 
@@ -131,10 +131,10 @@ __global__ void naiveColNormKernel(
   Type acc = 0;
   for (IdxT i = 0; i < N; i++) {
     Type v = data[colID + i * D];
-    acc += type == L2Norm ? v * v : raft::myAbs(v);
+    acc += type == L2Norm ? v * v : raft::abs(v);
   }
 
-  dots[colID] = do_sqrt ? raft::mySqrt(acc) : acc;
+  dots[colID] = do_sqrt ? raft::sqrt(acc) : acc;
 }
 
 template <typename Type, typename IdxT>
