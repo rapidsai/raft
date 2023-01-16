@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -209,14 +209,23 @@ class warp_sort {
    * @param[out] out_idx
    *   device pointer to a contiguous array, unique per-subwarp of size `kWarpWidth`
    *    (length: k <= kWarpWidth * kMaxArrLen).
+   * @param valF (optional) postprocess values (T -> OutT)
+   * @param idxF (optional) postprocess indices (IdxT -> OutIdxT)
    */
-  _RAFT_DEVICE void store(T* out, IdxT* out_idx) const
+  template <typename OutT,
+            typename OutIdxT,
+            typename ValF = identity_op,
+            typename IdxF = identity_op>
+  _RAFT_DEVICE void store(OutT* out,
+                          OutIdxT* out_idx,
+                          ValF valF = raft::identity_op{},
+                          IdxF idxF = raft::identity_op{}) const
   {
     int idx = Pow2<kWarpWidth>::mod(laneId());
 #pragma unroll kMaxArrLen
     for (int i = 0; i < kMaxArrLen && idx < k; i++, idx += kWarpWidth) {
-      out[idx]     = val_arr_[i];
-      out_idx[idx] = idx_arr_[i];
+      out[idx]     = valF(val_arr_[i]);
+      out_idx[idx] = idxF(idx_arr_[i]);
     }
   }
 
@@ -713,9 +722,16 @@ class block_sort {
   }
 
   /** Save the content by the pointer location. */
-  _RAFT_DEVICE void store(T* out, IdxT* out_idx) const
+  template <typename OutT,
+            typename OutIdxT,
+            typename ValF = identity_op,
+            typename IdxF = identity_op>
+  _RAFT_DEVICE void store(OutT* out,
+                          OutIdxT* out_idx,
+                          ValF valF = raft::identity_op{},
+                          IdxF idxF = raft::identity_op{}) const
   {
-    if (threadIdx.x < subwarp_align::Value) { queue_.store(out, out_idx); }
+    if (threadIdx.x < subwarp_align::Value) { queue_.store(out, out_idx, valF, idxF); }
   }
 
  private:
