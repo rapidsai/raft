@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -124,8 +124,6 @@ def run_refine(
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
 @pytest.mark.parametrize("memory_type", ["device", "host"])
 def test_refine_dtypes(n_queries, dtype, inplace, metric, memory_type):
-    if memory_type == "device" and dtype == np.int8:
-        pytest.xfail("Possibly incorrect distance calculation (IVF-Flat)")
     run_refine(
         n_rows=2000,
         n_queries=n_queries,

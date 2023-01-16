@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,6 +118,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                database.data(),
                                ps.num_db_vecs,
                                ps.dim);
+
         handle_.sync_stream(stream_);
         approx_knn_search(handle_,
                           distances_ivfflat_dev.data(),
@@ -187,8 +188,13 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           indices_ivfflat_dev.data(), ps.num_queries, ps.k);
         auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
           distances_ivfflat_dev.data(), ps.num_queries, ps.k);
+        raft::spatial::knn::ivf_flat::detail::save(handle_, "ivf_flat_index", index_2);
+
+        auto index_loaded =
+          raft::spatial::knn::ivf_flat::detail::load<DataT, IdxT>(handle_, "ivf_flat_index");
+
         ivf_flat::search(handle_,
-                         index_2,
+                         index_loaded,
                          search_queries_view,
                          indices_out_view,
                          dists_out_view,
@@ -288,6 +294,8 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
   {1000, 10000, 4, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
   {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
   {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, true},
 
   // test dims that do not fit into kernel shared memory limits
   {1000, 10000, 2048, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},

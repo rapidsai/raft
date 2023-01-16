@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 
 # raft build script
 
@@ -153,6 +153,7 @@ function limitTests {
             # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
             ARGS=${ARGS//--limit-tests=$LIMIT_TEST_TARGETS/}
             TEST_TARGETS=${LIMIT_TEST_TARGETS}
+	    echo "Limiting tests to $TEST_TARGETS"
         fi
     fi
 }
@@ -387,7 +388,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
     else
-        RAFT_CMAKE_CUDA_ARCHITECTURES="ALL"
+        RAFT_CMAKE_CUDA_ARCHITECTURES="RAPIDS"
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
