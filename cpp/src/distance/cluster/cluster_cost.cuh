@@ -15,10 +15,10 @@
  */
 
 #include <raft/cluster/kmeans.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
-#include <raft/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 namespace raft::runtime::cluster::kmeans {

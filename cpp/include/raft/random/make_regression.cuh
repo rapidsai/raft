@@ -25,7 +25,7 @@
 
 #include <algorithm>
 #include <optional>
-#include <raft/mdarray.hpp>
+#include <raft/core/mdarray.hpp>
 
 #include "detail/make_regression.cuh"
 

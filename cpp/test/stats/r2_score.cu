@@ -17,7 +17,7 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <optional>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/r2_score.cuh>
 #include <raft/util/cuda_utils.cuh>

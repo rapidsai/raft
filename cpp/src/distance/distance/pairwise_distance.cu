@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/specializations.cuh>
-#include <raft/handle.hpp>
 
 namespace raft::runtime::distance {
 
