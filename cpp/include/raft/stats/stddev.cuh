@@ -88,6 +88,11 @@ void vars(Type* var,
 }
 
 /**
+ * @defgroup stats_stddev Standard Deviation
+ * @{
+ */
+
+/**
  * @brief Compute stddev of the input matrix
  *
  * Stddev operation is assumed to be performed on a given column.
@@ -126,6 +131,13 @@ void stddev(const raft::handle_t& handle,
                  is_row_major,
                  handle.get_stream());
 }
+
+/** @} */  // end group stats_stddev
+
+/**
+ * @defgroup stats_variance Variance
+ * @{
+ */
 
 /**
  * @brief Compute variance of the input matrix
@@ -166,6 +178,8 @@ void vars(const raft::handle_t& handle,
                is_row_major,
                handle.get_stream());
 }
+
+/** @} */  // end group stats_variance
 
 };  // namespace stats
 };  // namespace raft

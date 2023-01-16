@@ -66,14 +66,14 @@ void svdQR(const raft::handle_t& handle,
                 stream);
 }
 
-template <typename T>
+template <typename math_t, typename idx_t>
 void svdEig(const raft::handle_t& handle,
-            T* in,
-            int n_rows,
-            int n_cols,
-            T* S,
-            T* U,
-            T* V,
+            math_t* in,
+            idx_t n_rows,
+            idx_t n_cols,
+            math_t* S,
+            math_t* U,
+            math_t* V,
             bool gen_left_vec,
             cudaStream_t stream)
 {
@@ -189,12 +189,18 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
 /**
  * @brief singular value decomposition (SVD) on a column major
  * matrix using QR decomposition
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] sing_vals singular values raft::device_vector_view of shape (K)
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major and dimensions (m, n)
- * @param[out] V_in optional right singular values of raft::device_matrix_view with
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with
  * layout raft::col_major and dimensions (n, n)
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -237,7 +243,7 @@ void svd_qr(const raft::handle_t& handle,
  *
  * Please see above for documentation of `svd_qr`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 2>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 3>>
 void svd_qr(Args... args)
 {
   svd_qr(std::forward<Args>(args)..., std::nullopt, std::nullopt);
@@ -246,12 +252,18 @@ void svd_qr(Args... args)
 /**
  * @brief singular value decomposition (SVD) on a column major
  * matrix using QR decomposition. Right singular vector matrix is transposed before returning
+ * @tparam ValueType value type of parameters
+ * @tparam IndexType index type of parameters
+ * @tparam UType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * U_in
+ * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
+ * V_in
  * @param[in] handle raft::handle_t
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] sing_vals singular values raft::device_vector_view of shape (K)
- * @param[out] U_in optional left singular values of raft::device_matrix_view with layout
+ * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
  * raft::col_major and dimensions (m, n)
- * @param[out] V_in optional right singular values of raft::device_matrix_view with
+ * @param[out] V_in std::optional right singular values of raft::device_matrix_view with
  * layout raft::col_major and dimensions (n, n)
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
@@ -295,7 +307,7 @@ void svd_qr_transpose_right_vec(
  *
  * Please see above for documentation of `svd_qr_transpose_right_vec`.
  */
-template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 2>>
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 3>>
 void svd_qr_transpose_right_vec(Args... args)
 {
   svd_qr_transpose_right_vec(std::forward<Args>(args)..., std::nullopt, std::nullopt);

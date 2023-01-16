@@ -23,6 +23,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_sign_flip Matrix sign flip operations
+ * @{
+ */
+
+/**
  * @brief sign flip stabilizes the sign of col major eigen vectors.
  * The sign is flipped if the column has negative |max|.
  * @tparam math_t floating point type used for matrix elements
@@ -36,4 +41,6 @@ void sign_flip(const raft::handle_t& handle,
 {
   detail::signFlip(inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
 }
+
+/** @} */  // end group matrix_sign_flip
 }  // namespace raft::matrix

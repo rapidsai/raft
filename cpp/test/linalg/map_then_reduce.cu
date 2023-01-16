@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <limits>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/map_reduce.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -63,9 +65,8 @@ template <typename InType, typename OutType>
 void mapReduceLaunch(
   OutType* out_ref, OutType* out, const InType* in, size_t len, cudaStream_t stream)
 {
-  auto op = [] __device__(InType in) { return in; };
-  naiveMapReduce(out_ref, in, len, op, stream);
-  mapThenSumReduce(out, len, op, 0, in);
+  naiveMapReduce(out_ref, in, len, raft::identity_op{}, stream);
+  mapThenSumReduce(out, len, raft::identity_op{}, 0, in);
 }
 
 template <typename InType, typename OutType>
@@ -150,23 +151,21 @@ class MapGenericReduceTest : public ::testing::Test {
 
   void testMin()
   {
-    auto op          = [] __device__(InType in) { return in; };
     OutType neutral  = std::numeric_limits<InType>::max();
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
       input.data(), static_cast<std::uint32_t>(input.size()));
-    map_reduce(handle, input_view, output_view, neutral, op, cub::Min());
+    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cub::Min());
     EXPECT_TRUE(raft::devArrMatch(
       OutType(1), output.data(), 1, raft::Compare<OutType>(), handle.get_stream()));
   }
   void testMax()
   {
-    auto op          = [] __device__(InType in) { return in; };
     OutType neutral  = std::numeric_limits<InType>::min();
     auto output_view = raft::make_device_scalar_view(output.data());
     auto input_view  = raft::make_device_vector_view<const InType>(
       input.data(), static_cast<std::uint32_t>(input.size()));
-    map_reduce(handle, input_view, output_view, neutral, op, cub::Max());
+    map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cub::Max());
     EXPECT_TRUE(raft::devArrMatch(
       OutType(5), output.data(), 1, raft::Compare<OutType>(), handle.get_stream()));
   }

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,13 @@
 
 import functools
 
-from rmm._lib.cuda_stream_view cimport cuda_stream_per_thread
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from cuda.ccudart cimport cudaStream_t
+from libc.stdint cimport uintptr_t
+
+from rmm._lib.cuda_stream_view cimport cuda_stream_per_thread, cuda_stream_view
 
 from .cuda cimport Stream
+
 from .cuda import CudaRuntimeError
 
 
@@ -34,30 +37,53 @@ cdef class Handle:
     of handle_t exposed by RAFT's C++ interface. Refer to the header file
     raft/handle.hpp for interface level details of this struct
 
+    Parameters
+    ----------
+    stream : Optional stream to use for ordering CUDA instructions
+             Accepts pylibraft.common.Stream() or uintptr_t (cudaStream_t)
+
     Examples
     --------
 
-    .. code-block:: python
+    Basic usage:
+    >>> from pylibraft.common import Stream, Handle
+    >>> stream = Stream()
+    >>> handle = Handle(stream)
+    >>>
+    >>> # call algos here
+    >>>
+    >>> # final sync of all work launched in the stream of this handle
+    >>> # this is same as `raft.cuda.Stream.sync()` call, but safer in case
+    >>> # the default stream inside the `handle_t` is being used
+    >>> handle.sync()
+    >>> del handle  # optional!
 
-        from raft.common import Stream, Handle
-        stream = Stream()
-        handle = Handle(stream)
+    Using a cuPy stream with RAFT handle:
+    >>> import cupy
+    >>> from pylibraft.common import Stream, Handle
+    >>>
+    >>> cupy_stream = cupy.cuda.Stream()
+    >>> handle = Handle(stream=cupy_stream.ptr)
 
-        # call algos here
-
-        # final sync of all work launched in the stream of this handle
-        # this is same as `raft.cuda.Stream.sync()` call, but safer in case
-        # the default stream inside the `handle_t` is being used
-        handle.sync()
-        del handle  # optional!
+    Using a RAFT stream with CuPy ExternalStream:
+    >>> import cupy
+    >>> from pylibraft.common import Stream
+    >>>
+    >>> raft_stream = Stream()
+    >>> cupy_stream = cupy.cuda.ExternalStream(raft_stream.get_ptr())
     """
 
-    def __cinit__(self, stream: Stream = None, n_streams=0):
+    def __cinit__(self, stream=None, n_streams=0):
         self.n_streams = n_streams
+
         if n_streams > 0:
             self.stream_pool.reset(new cuda_stream_pool(n_streams))
 
+        cdef uintptr_t s
         cdef cuda_stream_view c_stream
+
+        # We should either have a pylibraft.common.Stream or a uintptr_t
+        # of a cudaStream_t
         if stream is None:
             # this constructor will construct a "main" handle on
             # per-thread default stream, which is non-blocking
@@ -65,9 +91,20 @@ cdef class Handle:
                                           self.stream_pool))
         else:
             # this constructor constructs a handle on user stream
-            c_stream = cuda_stream_view(stream.getStream())
+            if isinstance(stream, Stream):
+                # Stream is pylibraft Stream()
+                s = stream.get_ptr()
+                c_stream = cuda_stream_view(<cudaStream_t>s)
+            elif isinstance(stream, int):
+                # Stream is a pointer, cast to cudaStream_t
+                s = stream
+                c_stream = cuda_stream_view(<cudaStream_t>s)
+            else:
+                raise ValueError("stream should be common.Stream() or "
+                                 "uintptr_t to cudaStream_t")
+
             self.c_obj.reset(new handle_t(c_stream,
-                                          self.stream_pool))
+                             self.stream_pool))
 
     def sync(self):
         """

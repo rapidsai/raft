@@ -6,49 +6,17 @@ require minimal dependencies, can be compiled without `nvcc`, and thus are safe 
 the headers in the `raft/core` include directory, any headers in the codebase with the suffix `_types.hpp` are also safe to
 expose in public APIs.
 
-handle_t
-########
+.. role:: py(code)
+   :language: c++
+   :class: highlight
 
-.. doxygenclass:: raft::handle_t
-    :project: RAFT
-    :members:
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-
-Interruptible
-#############
-
-.. doxygenclass:: raft::interruptible
-    :project: RAFT
-    :members:
-
-NVTX
-####
-
-.. doxygennamespace:: raft::common::nvtx
-    :project: RAFT
-    :members:
-
-
-Key-Value Pair
-##############
-
-.. doxygenstruct:: raft::KeyValuePair
-    :project: RAFT
-    :members:
-
-
-logger
-######
-
-.. doxygenclass:: raft::logger
-    :project: RAFT
-    :members:
-
-
-Multi-node Multi-GPU
-####################
-
-.. doxygennamespace:: raft::comms
-    :project: RAFT
-    :members:
-
+   core_handle.rst
+   core_logger.rst
+   core_kvp.rst
+   core_nvtx.rst
+   core_interruptible.rst
+   core_operators.rst

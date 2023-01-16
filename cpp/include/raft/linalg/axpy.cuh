@@ -54,7 +54,7 @@ void axpy(const raft::handle_t& handle,
 }
 
 /**
- * @defgroup axpy axpy
+ * @defgroup axpy axpy routine
  * @{
  */
 

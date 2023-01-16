@@ -16,11 +16,6 @@
 #ifndef __ADD_H
 #define __ADD_H
 
-/**
- * @defgroup arithmetic Dense matrix arithmetic
- * @{
- */
-
 #pragma once
 
 #include "detail/add.cuh"
@@ -31,8 +26,6 @@
 
 namespace raft {
 namespace linalg {
-
-using detail::adds_scalar;
 
 /**
  * @ingroup arithmetic
@@ -74,7 +67,7 @@ void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t st
   detail::add(out, in1, in2, len, stream);
 }
 
-/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
+/** Subtract single value pointed by singleScalarDev parameter in device memory from inDev[i] and
  * write result to outDev[i]
  * @tparam InT     input data-type. Also the data-type upon which the math ops
  *                 will be performed
@@ -94,7 +87,7 @@ void addDevScalar(
 }
 
 /**
- * @defgroup add Addition Arithmetic
+ * @defgroup add_dense Addition Arithmetic
  * @{
  */
 
@@ -225,7 +218,5 @@ void add_scalar(const raft::handle_t& handle,
 
 };  // end namespace linalg
 };  // end namespace raft
-
-/** @} */
 
 #endif

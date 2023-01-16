@@ -33,12 +33,21 @@
 namespace raft {
 
 /**
+ * @ingroup error_handling
+ * @{
+ */
+
+/**
  * @brief Exception thrown when a cuBLAS error is encountered.
  */
 struct cublas_error : public raft::exception {
   explicit cublas_error(char const* const message) : raft::exception(message) {}
   explicit cublas_error(std::string const& message) : raft::exception(message) {}
 };
+
+/**
+ * @}
+ */
 
 namespace linalg {
 namespace detail {
@@ -65,6 +74,11 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
 }  // namespace raft
 
 #undef _CUBLAS_ERR_TO_STR
+
+/**
+ * @ingroup assertion
+ * @{
+ */
 
 /**
  * @brief Error checking macro for cuBLAS runtime API functions.
@@ -108,6 +122,9 @@ inline const char* cublas_error_to_string(cublasStatus_t err)
     }                                                                \
   } while (0)
 
+/**
+ * @}
+ */
 /** FIXME: remove after cuml rename */
 #ifndef CUBLAS_CHECK
 #define CUBLAS_CHECK(call) CUBLAS_TRY(call)

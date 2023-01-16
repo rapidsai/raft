@@ -71,6 +71,11 @@ void minmax(const T* data,
 }
 
 /**
+ * @defgroup stats_minmax Min/Max
+ * @{
+ */
+
+/**
  * @brief Computes min/max across every column of the input matrix, as well as
  * optionally allow to subsample based on the given row/col ID mapping vectors
  *
@@ -117,8 +122,8 @@ void minmax(const raft::handle_t& handle,
     ncols = colids.value().extent(0);
   }
   if (sampledcols.has_value()) { sampledcols_ptr = sampledcols.value().data_handle(); }
-  RAFT_EXPECTS(globalmin.extent(0) == ncols, "Size mismatch betwen globalmin and ncols");
-  RAFT_EXPECTS(globalmax.extent(0) == ncols, "Size mismatch betwen globalmax and ncols");
+  RAFT_EXPECTS(globalmin.extent(0) == ncols, "Size mismatch between globalmin and ncols");
+  RAFT_EXPECTS(globalmax.extent(0) == ncols, "Size mismatch between globalmax and ncols");
   detail::minmax<value_t>(data.data_handle(),
                           rowids_ptr,
                           colids_ptr,
@@ -130,6 +135,8 @@ void minmax(const raft::handle_t& handle,
                           sampledcols_ptr,
                           handle.get_stream());
 }
+
+/** @} */  // end group stats_minmax
 
 };  // namespace stats
 };  // namespace raft

@@ -94,6 +94,11 @@ void colWeightedMean(
 }
 
 /**
+ * @defgroup stats_weighted_mean Weighted Mean
+ * @{
+ */
+
+/**
  * @brief Compute the weighted mean of the input matrix with a
  * vector of weights, along rows or along columns
  *
@@ -123,7 +128,8 @@ void weighted_mean(const raft::handle_t& handle,
 
   RAFT_EXPECTS(weights.extent(0) == weight_size,
                "Size mismatch between weights and expected weight_size");
-  RAFT_EXPECTS(mu.extent(0) == mean_vec_size, "Size mismatch betwen mu and expected mean_vec_size");
+  RAFT_EXPECTS(mu.extent(0) == mean_vec_size,
+               "Size mismatch between mu and expected mean_vec_size");
 
   detail::weightedMean(mu.data_handle(),
                        data.data_handle(),
@@ -176,6 +182,9 @@ void col_weighted_mean(const raft::handle_t& handle,
 {
   weighted_mean(handle, data, weights, mu, false);
 }
+
+/** @} */  // end group stats_weighted_mean
+
 };  // end namespace stats
 };  // end namespace raft
 

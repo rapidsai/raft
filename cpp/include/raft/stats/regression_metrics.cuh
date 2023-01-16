@@ -54,6 +54,11 @@ void regression_metrics(const T* predictions,
 }
 
 /**
+ * @defgroup stats_regression_metrics Regression Metrics
+ * @{
+ */
+
+/**
  * @brief Compute regression metrics mean absolute error, mean squared error, median absolute error
  * @tparam value_t the data type for predictions (e.g., float or double for regression).
  * @tparam idx_t index type
@@ -76,7 +81,7 @@ void regression_metrics(const raft::handle_t& handle,
                         raft::host_scalar_view<double> median_abs_error)
 {
   RAFT_EXPECTS(predictions.extent(0) == ref_predictions.extent(0),
-               "Size mismatch betwen predictions and ref_predictions");
+               "Size mismatch between predictions and ref_predictions");
   RAFT_EXPECTS(predictions.is_exhaustive(), "predictions must be contiguous");
   RAFT_EXPECTS(ref_predictions.is_exhaustive(), "ref_predictions must be contiguous");
   RAFT_EXPECTS(mean_abs_error.data_handle() != nullptr, "mean_abs_error view must not be empty");
@@ -92,6 +97,9 @@ void regression_metrics(const raft::handle_t& handle,
                              *mean_squared_error.data_handle(),
                              *median_abs_error.data_handle());
 }
+
+/** @} */  // end group stats_regression_metrics
+
 }  // namespace stats
 }  // namespace raft
 

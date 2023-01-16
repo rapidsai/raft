@@ -75,6 +75,11 @@ value_t silhouette_score_batched(
 }
 
 /**
+ * @defgroup stats_silhouette_score Silhouette Score
+ * @{
+ */
+
+/**
  * @brief main function that returns the average silhouette score for a given set of data and its
  * clusterings
  * @tparam value_t: type of the data samples
@@ -100,13 +105,13 @@ value_t silhouette_score(
   idx_t n_unique_labels,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
 {
-  RAFT_EXPECTS(labels.extent(0) == X_in.extent(0), "Size mismatch betwen labels and data");
+  RAFT_EXPECTS(labels.extent(0) == X_in.extent(0), "Size mismatch between labels and data");
 
   value_t* silhouette_score_per_sample_ptr = nullptr;
   if (silhouette_score_per_sample.has_value()) {
     silhouette_score_per_sample_ptr = silhouette_score_per_sample.value().data_handle();
     RAFT_EXPECTS(silhouette_score_per_sample.value().extent(0) == X_in.extent(0),
-                 "Size mismatch betwen silhouette_score_per_sample and data");
+                 "Size mismatch between silhouette_score_per_sample and data");
   }
   return detail::silhouette_score(handle,
                                   X_in.data_handle(),
@@ -117,26 +122,6 @@ value_t silhouette_score(
                                   silhouette_score_per_sample_ptr,
                                   handle.get_stream(),
                                   metric);
-}
-
-/**
- * @brief Overload of `silhouette_score` to help the
- *   compiler find the above overload, in case users pass in
- *   `std::nullopt` for the optional arguments.
- *
- * Please see above for documentation of `silhouette_score`.
- */
-template <typename value_t, typename label_t, typename idx_t>
-value_t silhouette_score(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_in,
-  raft::device_vector_view<const label_t, idx_t> labels,
-  std::nullopt_t silhouette_score_per_sample,
-  idx_t n_unique_labels,
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
-{
-  std::optional<raft::device_vector_view<value_t, idx_t>> opt_scores = silhouette_score_per_sample;
-  return silhouette_score(handle, X_in, labels, opt_scores, n_unique_labels, metric);
 }
 
 /**
@@ -172,13 +157,13 @@ value_t silhouette_score_batched(
                 "of each mdspan argument must be an integral type.");
   static_assert(std::is_integral_v<label_t>,
                 "silhouette_score_batched: The label type must be an integral type.");
-  RAFT_EXPECTS(labels.extent(0) == X.extent(0), "Size mismatch betwen labels and data");
+  RAFT_EXPECTS(labels.extent(0) == X.extent(0), "Size mismatch between labels and data");
 
   value_t* scores_ptr = nullptr;
   if (silhouette_score_per_sample.has_value()) {
     scores_ptr = silhouette_score_per_sample.value().data_handle();
     RAFT_EXPECTS(silhouette_score_per_sample.value().extent(0) == X.extent(0),
-                 "Size mismatch betwen silhouette_score_per_sample and data");
+                 "Size mismatch between silhouette_score_per_sample and data");
   }
   return batched::detail::silhouette_score(handle,
                                            X.data_handle(),
@@ -189,6 +174,28 @@ value_t silhouette_score_batched(
                                            scores_ptr,
                                            batch_size,
                                            metric);
+}
+
+/** @} */  // end group stats_silhouette_score
+
+/**
+ * @brief Overload of `silhouette_score` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for the optional arguments.
+ *
+ * Please see above for documentation of `silhouette_score`.
+ */
+template <typename value_t, typename label_t, typename idx_t>
+value_t silhouette_score(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_in,
+  raft::device_vector_view<const label_t, idx_t> labels,
+  std::nullopt_t silhouette_score_per_sample,
+  idx_t n_unique_labels,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded)
+{
+  std::optional<raft::device_vector_view<value_t, idx_t>> opt_scores = silhouette_score_per_sample;
+  return silhouette_score(handle, X_in, labels, opt_scores, n_unique_labels, metric);
 }
 
 /**

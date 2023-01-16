@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
   Three APIs of different scopes are provided:
     1. host function: warp_sort_topk()
     2. block-wide API: class block_sort
-    3. warp-wide API: class warp_sort_filtered and class warp_sort_immediate
+    3. warp-wide API: several implementations of warp_sort_*
 
 
   1. warp_sort_topk()
@@ -42,7 +42,7 @@
   2. class block_sort
     It can be regarded as a fixed size priority queue for a thread block,
     although the API is not typical.
-    class warp_sort_filtered and warp_sort_immediate can be used to instantiate block_sort.
+    one of the classes `warp_sort_*` can be used to instantiate block_sort.
 
     It uses dynamic shared memory as an intermediate buffer.
     So the required shared memory size should be calculated using
@@ -70,7 +70,7 @@
      kernel<<<grid_dim, block_dim, smem_size>>>();
 
 
-  3. class warp_sort_filtered and class warp_sort_immediate
+  3. class warp_sort_*
     These two classes can be regarded as fixed size priority queue for a warp.
     Usage is similar to class block_sort. No shared memory is needed.
 
@@ -139,7 +139,7 @@ class warp_sort {
 
  public:
   /**
-   *  The `empty` value for the choosen binary operation,
+   *  The `empty` value for the chosen binary operation,
    *  i.e. `Ascending ? upper_bound<T>() : lower_bound<T>()`.
    */
   static constexpr T kDummy = Ascending ? upper_bound<T>() : lower_bound<T>();
@@ -168,7 +168,7 @@ class warp_sort {
    *
    * When it actually loads the values, it always performs some collective warp operations in the
    * end, thus enforcing warp sync. This means, it's safe to call `store` with the same arguments
-   * after `load_sorted` without extra sync. Note, however, that this is not neccesarily true for
+   * after `load_sorted` without extra sync. Note, however, that this is not necessarily true for
    * the reverse order, because the access patterns of `store` and `load_sorted` are different.
    *
    * @param[in] in
@@ -212,12 +212,13 @@ class warp_sort {
    *   device pointer to a contiguous array, unique per-subwarp of size `kWarpWidth`
    *    (length: k <= kWarpWidth * kMaxArrLen).
    */
-  __device__ void store(T* out, IdxT* out_idx) const
+  template <typename Lambda = raft::identity_op>
+  __device__ void store(T* out, IdxT* out_idx, Lambda post_process = raft::identity_op()) const
   {
     int idx = Pow2<kWarpWidth>::mod(laneId());
 #pragma unroll kMaxArrLen
     for (int i = 0; i < kMaxArrLen && idx < k; i++, idx += kWarpWidth) {
-      out[idx]     = val_arr_[i];
+      out[idx]     = post_process(val_arr_[i]);
       out_idx[idx] = idx_arr_[i];
     }
   }
@@ -276,14 +277,19 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
   using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
   using warp_sort<Capacity, Ascending, T, IdxT>::k;
 
-  __device__ warp_sort_filtered(int k)
-    : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0), k_th_(kDummy)
+  __device__ warp_sort_filtered(int k, T limit)
+    : warp_sort<Capacity, Ascending, T, IdxT>(k), buf_len_(0), k_th_(limit)
   {
 #pragma unroll
     for (int i = 0; i < kMaxBufLen; i++) {
       val_buf_[i] = kDummy;
       idx_buf_[i] = IdxT{};
     }
+  }
+
+  __device__ __forceinline__ explicit warp_sort_filtered(int k)
+    : warp_sort_filtered<Capacity, Ascending, T, IdxT>(k, kDummy)
+  {
   }
 
   __device__ void add(T val, IdxT idx)
@@ -352,6 +358,108 @@ class warp_sort_filtered : public warp_sort<Capacity, Ascending, T, IdxT> {
   T val_buf_[kMaxBufLen];
   IdxT idx_buf_[kMaxBufLen];
   int buf_len_;
+
+  T k_th_;
+};
+
+/**
+ * This version of warp_sort compares each input element against the current
+ * estimate of k-th value before adding it to the intermediate sorting buffer.
+ * In contrast to `warp_sort_filtered`, it keeps one distributed buffer for
+ * all threads in a warp (independently of the subwarp size), which makes its flushing less often.
+ */
+template <int Capacity, bool Ascending, typename T, typename IdxT>
+class warp_sort_distributed : public warp_sort<Capacity, Ascending, T, IdxT> {
+ public:
+  using warp_sort<Capacity, Ascending, T, IdxT>::kDummy;
+  using warp_sort<Capacity, Ascending, T, IdxT>::kWarpWidth;
+  using warp_sort<Capacity, Ascending, T, IdxT>::k;
+
+  __device__ warp_sort_distributed(int k, T limit)
+    : warp_sort<Capacity, Ascending, T, IdxT>(k),
+      buf_val_(kDummy),
+      buf_idx_(IdxT{}),
+      buf_len_(0),
+      k_th_(limit)
+  {
+  }
+
+  __device__ __forceinline__ explicit warp_sort_distributed(int k)
+    : warp_sort_distributed<Capacity, Ascending, T, IdxT>(k, kDummy)
+  {
+  }
+
+  __device__ void add(T val, IdxT idx)
+  {
+    // mask tells which lanes in the warp have valid items to be added
+    uint32_t mask = ballot(is_ordered<Ascending>(val, k_th_));
+    if (mask == 0) { return; }
+    // how many elements to be added
+    uint32_t n_valid = __popc(mask);
+    // index of the source lane containing the value to put into the current lane.
+    uint32_t src_ix = 0;
+    // remove a few smallest set bits from the mask.
+    for (uint32_t i = std::min(n_valid, Pow2<WarpSize>::mod(uint32_t(laneId()) - buf_len_)); i > 0;
+         i--) {
+      src_ix = __ffs(mask) - 1;
+      mask ^= (0x1u << src_ix);
+    }
+    // now the least significant bit of the mask corresponds to the lane id we want to get.
+    // for not-added (invalid) indices, the mask is zeroed by now.
+    src_ix = __ffs(mask) - 1;
+    // rearrange the inputs to be ready to put them into the tmp buffer
+    val = shfl(val, src_ix);
+    idx = shfl(idx, src_ix);
+    // for non-valid lanes, src_ix should be uint(-1)
+    if (mask == 0) { val = kDummy; }
+    // save the values into the free slots of the warp tmp buffer
+    if (laneId() >= buf_len_) {
+      buf_val_ = val;
+      buf_idx_ = idx;
+    }
+    buf_len_ += n_valid;
+    if (buf_len_ < WarpSize) { return; }
+    // merge the warp tmp buffer into the queue
+    merge_buf_();
+    buf_len_ -= WarpSize;
+    // save the inputs that couldn't fit before the merge
+    if (laneId() < buf_len_) {
+      buf_val_ = val;
+      buf_idx_ = idx;
+    }
+  }
+
+  __device__ void done()
+  {
+    if (buf_len_ != 0) {
+      merge_buf_();
+      buf_len_ = 0;
+    }
+  }
+
+ private:
+  __device__ __forceinline__ void set_k_th_()
+  {
+    // NB on using srcLane: it's ok if it is outside the warp size / width;
+    //                      the modulo op will be done inside the __shfl_sync.
+    k_th_ = shfl(val_arr_[kMaxArrLen - 1], k - 1, kWarpWidth);
+  }
+
+  __device__ __forceinline__ void merge_buf_()
+  {
+    topk::bitonic<1>(!Ascending, kWarpWidth).sort(buf_val_, buf_idx_);
+    this->merge_in<1>(&buf_val_, &buf_idx_);
+    set_k_th_();  // contains warp sync
+    buf_val_ = kDummy;
+  }
+
+  using warp_sort<Capacity, Ascending, T, IdxT>::kMaxArrLen;
+  using warp_sort<Capacity, Ascending, T, IdxT>::val_arr_;
+  using warp_sort<Capacity, Ascending, T, IdxT>::idx_arr_;
+
+  T buf_val_;
+  IdxT buf_idx_;
+  uint32_t buf_len_;  // 0 <= buf_len_ <= WarpSize
 
   T k_th_;
 };
@@ -436,7 +544,8 @@ class block_sort {
  public:
   using queue_t = WarpSortWarpWide<Capacity, Ascending, T, IdxT>;
 
-  __device__ block_sort(int k, uint8_t* smem_buf) : queue_(k)
+  template <typename... Args>
+  __device__ block_sort(int k, uint8_t* smem_buf, Args... args) : queue_(k, args...)
   {
     val_smem_             = reinterpret_cast<T*>(smem_buf);
     const int num_of_warp = subwarp_align::div(blockDim.x);
@@ -483,9 +592,10 @@ class block_sort {
   }
 
   /** Save the content by the pointer location. */
-  __device__ void store(T* out, IdxT* out_idx) const
+  template <typename Lambda = raft::identity_op>
+  __device__ void store(T* out, IdxT* out_idx, Lambda post_process = raft::identity_op()) const
   {
-    if (threadIdx.x < subwarp_align::Value) { queue_.store(out, out_idx); }
+    if (threadIdx.x < subwarp_align::Value) { queue_.store(out, out_idx, post_process); }
   }
 
  private:

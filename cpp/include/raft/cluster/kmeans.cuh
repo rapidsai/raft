@@ -20,6 +20,7 @@
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/operators.hpp>
 
 namespace raft::cluster::kmeans {
 
@@ -271,7 +272,7 @@ void transform(const raft::handle_t& handle,
  *                                [dim = n_samples x n_features]
  * @param[in]  minClusterDistance Distance for every sample to it's nearest centroid
  *                                [dim = n_samples]
- * @param[in]  isSampleCentroid   Flag the sample choosen as initial centroid
+ * @param[in]  isSampleCentroid   Flag the sample chosen as initial centroid
  *                                [dim = n_samples]
  * @param[in]  select_op          The sampling operation used to select the centroids
  * @param[out] inRankCp           The sampled centroids
@@ -313,7 +314,8 @@ void cluster_cost(const raft::handle_t& handle,
                   raft::device_scalar_view<DataT> clusterCost,
                   ReductionOpT reduction_op)
 {
-  detail::computeClusterCost(handle, minClusterDistance, workspace, clusterCost, reduction_op);
+  detail::computeClusterCost(
+    handle, minClusterDistance, workspace, clusterCost, raft::identity_op{}, reduction_op);
 }
 
 /**
@@ -798,7 +800,7 @@ using KeyValueIndexOp = kmeans::KeyValueIndexOp<IndexT, DataT>;
  *                                [dim = n_samples x n_features]
  * @param[in]  minClusterDistance Distance for every sample to it's nearest centroid
  *                                [dim = n_samples]
- * @param[in]  isSampleCentroid   Flag the sample choosen as initial centroid
+ * @param[in]  isSampleCentroid   Flag the sample chosen as initial centroid
  *                                [dim = n_samples]
  * @param[in]  select_op          The sampling operation used to select the centroids
  * @param[out] inRankCp           The sampled centroids

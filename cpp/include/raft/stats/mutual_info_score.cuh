@@ -48,6 +48,11 @@ double mutual_info_score(const T* firstClusterArray,
 }
 
 /**
+ * @defgroup stats_mutual_info Mutual Information
+ * @{
+ */
+
+/**
  * @brief Function to calculate the mutual information between two clusters
  * <a href="https://en.wikipedia.org/wiki/Mutual_information">more info on mutual information</a>
  * @tparam value_t the data type
@@ -67,7 +72,7 @@ double mutual_info_score(const raft::handle_t& handle,
                          value_t upper_label_range)
 {
   RAFT_EXPECTS(first_cluster_array.extent(0) == second_cluster_array.extent(0),
-               "Size mismatch betwen first_cluster_array and second_cluster_array");
+               "Size mismatch between first_cluster_array and second_cluster_array");
   RAFT_EXPECTS(first_cluster_array.is_exhaustive(), "first_cluster_array must be contiguous");
   RAFT_EXPECTS(second_cluster_array.is_exhaustive(), "second_cluster_array must be contiguous");
   return detail::mutual_info_score(first_cluster_array.data_handle(),
@@ -77,6 +82,9 @@ double mutual_info_score(const raft::handle_t& handle,
                                    upper_label_range,
                                    handle.get_stream());
 }
+
+/** @} */  // end group stats_mutual_info
+
 };  // end namespace stats
 };  // end namespace raft
 

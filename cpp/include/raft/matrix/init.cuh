@@ -22,6 +22,12 @@
 #include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
+
+/**
+ * @defgroup matrix_init Matrix initialization operations
+ * @{
+ */
+
 /**
  * @brief set values to scalar in matrix
  * @tparam math_t data-type upon which the math operation will be performed
@@ -70,4 +76,7 @@ void eye(const raft::handle_t& handle,
 {
   detail::createEye(inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
 }
+
+/** @} */  // end of group matrix_init
+
 }  // namespace raft::matrix

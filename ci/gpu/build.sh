@@ -21,6 +21,13 @@ export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 export CUDA_REL=${CUDA_VERSION%.*}
 CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/raft/cpu/.conda-bld/ # notice there is no `linux-64` here
 
+# Workaround to keep Jenkins builds working
+# until we migrate fully to GitHub Actions
+export RAPIDS_CUDA_VERSION="${CUDA}"
+export SCCACHE_BUCKET=rapids-sccache
+export SCCACHE_REGION=us-west-2
+export SCCACHE_IDLE_TIMEOUT=32768
+
 # Set home to the job's workspace
 export HOME=$WORKSPACE
 
@@ -37,7 +44,7 @@ export UCX_PY_VERSION='0.30.*'
 export INSTALL_DASK_MAIN=1
 
 # Dask version to install when `INSTALL_DASK_MAIN=0`
-export DASK_STABLE_VERSION="2022.9.2"
+export DASK_STABLE_VERSION="2022.12.0"
 
 ################################################################################
 # SETUP - Check environment
@@ -123,5 +130,5 @@ pytest --cache-clear --junitxml="$WORKSPACE/junit-raft-dask.xml" -v -s
 if [ "$(arch)" = "x86_64" ]; then
   gpuci_logger "Building docs"
   gpuci_mamba_retry install "rapids-doc-env=${MINOR_VERSION}.*"
-  "$WORKSPACE/build.sh" docs -v
+  "$WORKSPACE/build.sh" docs -v -n
 fi

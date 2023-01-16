@@ -22,6 +22,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_triangular Extract Matrix Triangles
+ * @{
+ */
+
+/**
  * @brief Copy the upper triangular part of a matrix to another
  * @param[in] handle: raft handle
  * @param[in] src: input matrix with a size of n_rows x n_cols
@@ -56,4 +61,7 @@ void upper_triangular(const raft::handle_t& handle,
    detail::copyLowerTriangular(
      src.data_handle(), dst.data_handle(), src.extent(0), src.extent(1), handle.get_stream());
  }
+
+/** @} */  // end group matrix_triangular
+
 }  // namespace raft::matrix

@@ -23,13 +23,12 @@
 #include <raft/sparse/linalg/transpose.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 namespace raft {
 namespace sparse {
 
 using namespace raft;
-using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct CSRTransposeInputs {

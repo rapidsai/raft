@@ -19,9 +19,9 @@
 #pragma once
 
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
@@ -41,8 +41,7 @@ namespace linalg {
 template <typename in_t, typename out_t = in_t, typename IdxType = int>
 void powerScalar(out_t* out, const in_t* in, const in_t scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(
-    out, in, len, [scalar] __device__(in_t in) { return raft::myPow(in, scalar); }, stream);
+  raft::linalg::unaryOp(out, in, len, raft::pow_const_op<in_t>(scalar), stream);
 }
 /** @} */
 
@@ -61,8 +60,7 @@ void powerScalar(out_t* out, const in_t* in, const in_t scalar, IdxType len, cud
 template <typename in_t, typename out_t = in_t, typename IdxType = int>
 void power(out_t* out, const in_t* in1, const in_t* in2, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::binaryOp(
-    out, in1, in2, len, [] __device__(in_t a, in_t b) { return raft::myPow(a, b); }, stream);
+  raft::linalg::binaryOp(out, in1, in2, len, raft::pow_op(), stream);
 }
 /** @} */
 

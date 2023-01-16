@@ -26,11 +26,6 @@ namespace raft {
 namespace linalg {
 
 /**
- * @defgroup eig Eigen Decomposition Methods
- * @{
- */
-
-/**
  * @brief eig decomp with divide and conquer method for the column-major
  * symmetric matrices
  * @param handle raft handle
@@ -114,6 +109,11 @@ void eigJacobi(const raft::handle_t& handle,
 {
   detail::eigJacobi(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream, tol, sweeps);
 }
+
+/**
+ * @defgroup eig Eigen Decomposition Methods
+ * @{
+ */
 
 /**
  * @brief eig decomp with divide and conquer method for the column-major

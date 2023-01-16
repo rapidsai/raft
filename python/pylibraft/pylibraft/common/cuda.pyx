@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,17 +19,18 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from cuda.ccudart cimport(
-    cudaStream_t,
+from cuda.ccudart cimport (
     cudaError_t,
-    cudaSuccess,
+    cudaGetErrorName,
+    cudaGetErrorString,
+    cudaGetLastError,
+    cudaStream_t,
     cudaStreamCreate,
     cudaStreamDestroy,
     cudaStreamSynchronize,
-    cudaGetLastError,
-    cudaGetErrorString,
-    cudaGetErrorName
+    cudaSuccess,
 )
+from libc.stdint cimport uintptr_t
 
 
 class CudaRuntimeError(RuntimeError):
@@ -50,12 +51,10 @@ cdef class Stream:
     Examples
     --------
 
-    .. code-block:: python
-
-        from pylibraft.common.cuda import Stream
-        stream = Stream()
-        stream.sync()
-        del stream  # optional!
+    >>> from pylibraft.common.cuda import Stream
+    >>> stream = Stream()
+    >>> stream.sync()
+    >>> del stream  # optional!
     """
     def __cinit__(self):
         cdef cudaStream_t stream
@@ -82,3 +81,9 @@ cdef class Stream:
 
     cdef cudaStream_t getStream(self):
         return self.s
+
+    def get_ptr(self):
+        """
+        Return the uintptr_t pointer of the underlying cudaStream_t handle
+        """
+        return <uintptr_t>self.s

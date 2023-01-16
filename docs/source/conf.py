@@ -51,6 +51,7 @@ extensions = [
     "breathe",
     "recommonmark",
     "sphinx_markdown_tables",
+    "sphinx_copybutton"
 ]
 
 breathe_default_project = "RAFT"
@@ -76,8 +77,8 @@ master_doc = "index"
 
 # General information about the project.
 project = "raft"
-copyright = "2022, nvidia"
-author = "nvidia"
+copyright = "2023, NVIDIA Corporation"
+author = "NVIDIA Corporation"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -112,32 +113,27 @@ todo_include_todos = False
 # a list of builtin themes.
 #
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
 
-# on_rtd is whether we are on readthedocs.org
-on_rtd = os.environ.get("READTHEDOCS", None) == "True"
-
-if not on_rtd:
-    # only import and set the theme if we're building docs locally
-    # otherwise, readthedocs.org uses their theme by default,
-    # so no need to specify it
-    import sphinx_rtd_theme
-
-    html_theme = "sphinx_rtd_theme"
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    "external_links": [],
+    "github_url": "https://github.com/rapidsai/raft",
+    "twitter_url": "https://twitter.com/rapidsai",
+    "show_toc_level": 1,
+    "navbar_align": "right",
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-html_js_files = ["example_mod.js"]
+html_js_files = []
 
 # -- Options for HTMLHelp output ------------------------------------------
 
@@ -165,7 +161,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "raft.tex", "RAFT Documentation", "nvidia", "manual"),
+    (master_doc, "raft.tex", "RAFT Documentation", "NVIDIA Corporation", "manual"),
 ]
 
 # -- Options for manual page output ---------------------------------------
@@ -203,8 +199,6 @@ numpydoc_class_members_toctree = False
 
 
 def setup(app):
-    app.add_css_file("copybutton.css")
-    app.add_css_file("infoboxes.css")
     app.add_css_file("references.css")
     app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
     app.add_js_file(

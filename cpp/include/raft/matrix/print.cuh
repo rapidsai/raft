@@ -25,6 +25,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_print Matrix print operations
+ * @{
+ */
+
+/**
  * @brief Prints the data stored in GPU memory
  * @tparam m_t type of matrix elements
  * @tparam idx_t integer type used for indexing
@@ -44,4 +49,6 @@ void print(const raft::handle_t& handle,
                 separators.vertical,
                 handle.get_stream());
 }
+
+/** @} */  // end group matrix_print
 }  // namespace raft::matrix

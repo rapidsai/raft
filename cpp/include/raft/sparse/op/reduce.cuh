@@ -34,7 +34,7 @@ namespace op {
  *
  * Note that this function always marks the first value as 0 so that
  * a cumulative sum can be performed as a follow-on. However, even
- * if the mask is used direclty, any duplicates should always have a
+ * if the mask is used directly, any duplicates should always have a
  * 1 when first encountered so it can be assumed that the first element
  * is always a 1 otherwise.
  *

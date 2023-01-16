@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "ivf_flat_types.hpp"
+#include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/spatial/knn/detail/ivf_flat_build.cuh>
 #include <raft/spatial/knn/detail/ivf_flat_search.cuh>
 
@@ -69,6 +69,11 @@ auto build(
 }
 
 /**
+ * @defgroup ivf_flat IVF Flat Algorithm
+ * @{
+ */
+
+/**
  * @brief Build the index from the dataset for efficient search.
  *
  * NB: Currently, the following distance metrics are supported:
@@ -112,6 +117,8 @@ auto build(const handle_t& handle,
                                                      static_cast<idx_t>(dataset.extent(1)));
 }
 
+/** @} */
+
 /**
  * @brief Build a new index containing the data of the original plus new extra vectors.
  *
@@ -154,6 +161,11 @@ auto extend(const handle_t& handle,
   return raft::spatial::knn::ivf_flat::detail::extend(
     handle, orig_index, new_vectors, new_indices, n_rows);
 }
+
+/**
+ * @ingroup ivf_flat
+ * @{
+ */
 
 /**
  * @brief Build a new index containing the data of the original plus new extra vectors.
@@ -203,6 +215,8 @@ auto extend(const handle_t& handle,
     new_vectors.extent(0));
 }
 
+/** @} */
+
 /**
  * @brief Extend the index in-place with the new data.
  *
@@ -238,6 +252,11 @@ void extend(const handle_t& handle,
 {
   *index = extend(handle, *index, new_vectors, new_indices, n_rows);
 }
+
+/**
+ * @ingroup ivf_flat
+ * @{
+ */
 
 /**
  * @brief Extend the index in-place with the new data.
@@ -278,6 +297,8 @@ void extend(const handle_t& handle,
                   new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
                   static_cast<idx_t>(new_vectors.extent(0)));
 }
+
+/** @} */
 
 /**
  * @brief Search ANN using the constructed index.
@@ -335,6 +356,11 @@ void search(const handle_t& handle,
   return raft::spatial::knn::ivf_flat::detail::search(
     handle, params, index, queries, n_queries, k, neighbors, distances, mr);
 }
+
+/**
+ * @ingroup ivf_flat
+ * @{
+ */
 
 /**
  * @brief Search ANN using the constructed index.
@@ -401,5 +427,7 @@ void search(const handle_t& handle,
                 distances.data_handle(),
                 nullptr);
 }
+
+/** @} */
 
 }  // namespace raft::neighbors::ivf_flat

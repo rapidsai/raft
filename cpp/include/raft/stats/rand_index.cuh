@@ -40,6 +40,11 @@ double rand_index(T* firstClusterArray, T* secondClusterArray, uint64_t size, cu
 }
 
 /**
+ * @defgroup stats_rand_index Rand Index
+ * @{
+ */
+
+/**
  * @brief Function to calculate RandIndex
  * <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a>
  * @tparam value_t the data type
@@ -55,7 +60,7 @@ double rand_index(const raft::handle_t& handle,
                   raft::device_vector_view<const value_t, idx_t> second_cluster_array)
 {
   RAFT_EXPECTS(first_cluster_array.extent(0) == second_cluster_array.extent(0),
-               "Size mismatch betwen first_cluster_array and second_cluster_array");
+               "Size mismatch between first_cluster_array and second_cluster_array");
   RAFT_EXPECTS(first_cluster_array.is_exhaustive(), "first_cluster_array must be contiguous");
   RAFT_EXPECTS(second_cluster_array.is_exhaustive(), "second_cluster_array must be contiguous");
   return detail::compute_rand_index(first_cluster_array.data_handle(),
@@ -63,6 +68,9 @@ double rand_index(const raft::handle_t& handle,
                                     second_cluster_array.extent(0),
                                     handle.get_stream());
 }
+
+/** @} */  // end group stats_rand_index
+
 };  // end namespace stats
 };  // end namespace raft
 

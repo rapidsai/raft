@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 #include "common_faiss.h"
 #include "processing.cuh"
+#include <raft/core/operators.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -32,16 +33,10 @@
 
 #include <rmm/cuda_stream_view.hpp>
 
-#include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuIndexIVFFlat.h>
 #include <faiss/gpu/GpuIndexIVFPQ.h>
 #include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/gpu/utils/Tensor.cuh>
-#include <faiss/utils/Heap.h>
 
 #include <thrust/iterator/transform_iterator.h>
 
@@ -99,6 +94,18 @@ void approx_knn_ivfsq_build_index(knnIndex* index, const IVFSQParam& params, Int
     index->gpu_res.get(), D, params.nlist, faiss_qtype, faiss_metric, params.encodeResidual));
 }
 
+inline bool ivf_flat_supported_metric(raft::distance::DistanceType metric)
+{
+  switch (metric) {
+    case raft::distance::DistanceType::L2Unexpanded:
+    case raft::distance::DistanceType::L2Expanded:
+    case raft::distance::DistanceType::L2SqrtExpanded:
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
+    case raft::distance::DistanceType::InnerProduct: return true;
+    default: return false;
+  }
+}
+
 template <typename T = float, typename IntType = int>
 void approx_knn_build_index(const handle_t& handle,
                             knnIndex* index,
@@ -125,9 +132,7 @@ void approx_knn_build_index(const handle_t& handle,
   }
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->preprocess(index_array); }
 
-  if (ivf_ft_pams && (metric == raft::distance::DistanceType::L2Unexpanded ||
-                      metric == raft::distance::DistanceType::L2Expanded ||
-                      metric == raft::distance::DistanceType::InnerProduct)) {
+  if (ivf_ft_pams && ivf_flat_supported_metric(metric)) {
     auto new_params               = from_legacy_index_params(*ivf_ft_pams, metric, metricArg);
     index->ivf_flat<T, int64_t>() = std::make_unique<const ivf_flat::index<T, int64_t>>(
       ivf_flat::build(handle, new_params, index_array, int64_t(n), D));
@@ -202,11 +207,7 @@ void approx_knn_search(const handle_t& handle,
     float p = 0.5;  // standard l2
     if (index->metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
     raft::linalg::unaryOp<float>(
-      distances,
-      distances,
-      n * k,
-      [p] __device__(float input) { return powf(input, p); },
-      handle.get_stream());
+      distances, distances, n * k, raft::pow_const_op<float>(p), handle.get_stream());
   }
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->postprocess(distances); }
 }

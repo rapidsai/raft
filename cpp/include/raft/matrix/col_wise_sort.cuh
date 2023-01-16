@@ -53,23 +53,32 @@ void sort_cols_per_row(const InType* in,
 }
 
 /**
+ * @defgroup col_wise_sort Sort rows within each column
+ * @{
+ */
+
+/**
  * @brief sort columns within each row of row-major input matrix and return sorted indexes
  * modelled as key-value sort with key being input matrix and value being index of values
  * @tparam in_t: element type of input matrix
  * @tparam out_t: element type of output matrix
  * @tparam matrix_idx_t: integer type for matrix indexing
+ * @tparam sorted_keys_t: std::optional<raft::device_matrix_view<in_t, matrix_idx_t,
+ * raft::row_major>> @c sorted_keys_opt
  * @param[in] handle: raft handle
  * @param[in] in: input matrix
  * @param[out] out: output value(index) matrix
- * @param[out] sorted_keys: Optional, output matrix for sorted keys (input)
+ * @param[out] sorted_keys_opt: std::optional, output matrix for sorted keys (input)
  */
-template <typename in_t, typename out_t, typename matrix_idx_t>
+template <typename in_t, typename out_t, typename matrix_idx_t, typename sorted_keys_t>
 void sort_cols_per_row(const raft::handle_t& handle,
                        raft::device_matrix_view<const in_t, matrix_idx_t, raft::row_major> in,
                        raft::device_matrix_view<out_t, matrix_idx_t, raft::row_major> out,
-                       std::optional<raft::device_matrix_view<in_t, matrix_idx_t, raft::row_major>>
-                         sorted_keys = std::nullopt)
+                       sorted_keys_t&& sorted_keys_opt)
 {
+  std::optional<raft::device_matrix_view<in_t, matrix_idx_t, raft::row_major>> sorted_keys =
+    std::forward<sorted_keys_t>(sorted_keys_opt);
+
   RAFT_EXPECTS(in.extent(1) == out.extent(1) && in.extent(0) == out.extent(0),
                "Input and output matrices must have the same shape.");
 
@@ -109,26 +118,6 @@ void sort_cols_per_row(const raft::handle_t& handle,
   }
 }
 
-namespace sort_cols_per_row_impl {
-template <typename T>
-struct sorted_keys_alias {
-};
-
-template <>
-struct sorted_keys_alias<std::nullopt_t> {
-  using type = double;
-};
-
-template <typename in_t, typename matrix_idx_t>
-struct sorted_keys_alias<
-  std::optional<raft::device_matrix_view<in_t, matrix_idx_t, raft::row_major>>> {
-  using type = typename raft::device_matrix_view<in_t, matrix_idx_t, raft::row_major>::value_type;
-};
-
-template <typename T>
-using sorted_keys_t = typename sorted_keys_alias<T>::type;
-}  // namespace sort_cols_per_row_impl
-
 /**
  * @brief Overload of `sort_keys_per_row` to help the
  *   compiler find the above overload, in case users pass in
@@ -136,19 +125,13 @@ using sorted_keys_t = typename sorted_keys_alias<T>::type;
  *
  * Please see above for documentation of `sort_keys_per_row`.
  */
-template <typename in_t, typename out_t, typename matrix_idx_t, typename sorted_keys_vector_type>
-void sort_cols_per_row(const raft::handle_t& handle,
-                       raft::device_matrix_view<const in_t, matrix_idx_t, raft::row_major> in,
-                       raft::device_matrix_view<out_t, matrix_idx_t, raft::row_major> out,
-                       sorted_keys_vector_type sorted_keys)
+template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 3>>
+void sort_cols_per_row(Args... args)
 {
-  using sorted_keys_type = sort_cols_per_row_impl::sorted_keys_t<
-    std::remove_const_t<std::remove_reference_t<sorted_keys_vector_type>>>;
-  std::optional<raft::device_matrix_view<in_t, matrix_idx_t, raft::row_major>> sorted_keys_opt =
-    std::forward<sorted_keys_vector_type>(sorted_keys);
-
-  sort_cols_per_row(handle, in, out, sorted_keys_opt);
+  sort_cols_per_row(std::forward<Args>(args)..., std::nullopt);
 }
+
+/** @} */  // end of group col_wise_sort
 
 };  // end namespace raft::matrix
 

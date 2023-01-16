@@ -35,7 +35,7 @@ __global__ void permuteKernel(
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   // having shuffled input indices and coalesced output indices appears
-  // to be preferrable to the reverse, especially for column major
+  // to be preferable to the reverse, especially for column major
   IntType inIdx  = ((a * int64_t(tid)) + b) % N;
   IntType outIdx = tid;
 

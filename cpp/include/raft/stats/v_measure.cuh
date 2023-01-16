@@ -50,6 +50,11 @@ double v_measure(const T* truthClusterArray,
 }
 
 /**
+ * @defgroup stats_vmeasure V-Measure
+ * @{
+ */
+
+/**
  * @brief Function to calculate the v-measure between two clusters
  *
  * @tparam value_t the data type
@@ -71,7 +76,7 @@ double v_measure(const raft::handle_t& handle,
                  double beta = 1.0)
 {
   RAFT_EXPECTS(truth_cluster_array.extent(0) == pred_cluster_array.extent(0),
-               "Size mismatch betwen truth_cluster_array and pred_cluster_array");
+               "Size mismatch between truth_cluster_array and pred_cluster_array");
   RAFT_EXPECTS(truth_cluster_array.is_exhaustive(), "truth_cluster_array must be contiguous");
   RAFT_EXPECTS(pred_cluster_array.is_exhaustive(), "pred_cluster_array must be contiguous");
 
@@ -83,6 +88,8 @@ double v_measure(const raft::handle_t& handle,
                            handle.get_stream(),
                            beta);
 }
+
+/** @} */  // end group stats_vmeasure
 
 };  // end namespace stats
 };  // end namespace raft

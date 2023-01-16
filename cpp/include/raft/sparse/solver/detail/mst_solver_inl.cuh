@@ -220,7 +220,7 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration()
   auto nthreads = std::min(v, max_threads);
   auto nblocks  = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
-  // maximum alteration that does not change realtive weights order
+  // maximum alteration that does not change relative weights order
   alteration_t max = alteration_max();
 
   // pool of rand values

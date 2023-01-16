@@ -51,6 +51,11 @@ void mean(
 }
 
 /**
+ * @defgroup stats_mean Mean
+ * @{
+ */
+
+/**
  * @brief Compute mean of the input matrix
  *
  * Mean operation is assumed to be performed on a given column.
@@ -73,7 +78,7 @@ void mean(const raft::handle_t& handle,
   static_assert(
     std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
     "Data layout not supported");
-  RAFT_EXPECTS(data.extent(1) == mu.extent(0), "Size mismatch betwen data and mu");
+  RAFT_EXPECTS(data.extent(1) == mu.extent(0), "Size mismatch between data and mu");
   RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   detail::mean(mu.data_handle(),
@@ -84,6 +89,8 @@ void mean(const raft::handle_t& handle,
                std::is_same_v<layout_t, raft::row_major>,
                handle.get_stream());
 }
+
+/** @} */  // end group stats_mean
 
 };  // namespace stats
 };  // namespace raft

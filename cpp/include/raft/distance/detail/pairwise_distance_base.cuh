@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <raft/core/operators.hpp>
 #include <raft/linalg/contractions.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -362,6 +363,91 @@ __global__ __launch_bounds__(Policy::Nthreads, 2)
     obj(
       x, y, m, n, k, lda, ldb, ldd, _xn, _yn, dOutput, smem, core_op, epilog_op, fin_op, rowEpilog);
   obj.run();
+}
+
+/**
+ * @brief the distance matrix calculation kernel for L2 and cosine
+ * for GPU arch < SM 8.0, this version is to make sure we don't recompile
+ * these kernels for ampere or higher as we use cutlass kernel for it.
+ * @tparam useNorms       whether norms are needed
+ * @tparam DataT          input data-type (for A and B matrices)
+ * @tparam AccT           accumulation data-type
+ * @tparam OutT           output data-type (for C and D matrices)
+ * @tparam IdxT           index data-type
+ * @tparam Policy         struct which tunes the Contraction kernel
+ * @tparam CoreLambda     lambda which implements accumulation operation
+ * @tparam EpilogueLambda lambda which implements operation for calculating
+                          final value.
+ * @tparam FinalLambda    final lambda called on final distance value
+ * @tparam isRowMajor     true if input/output is row major(default),
+                          false for column major
+ *
+ * @param[in]       x input matrix
+ * @param[in]       y input matrix
+ * @param[in]       xn row norms of input matrix A.
+ * @param[in]       yn row norms of input matrix B.
+ * @param[in]       m number of rows of A and C/D
+ * @param[in]       n number of columns of B and C/D
+ * @param[in]       k number of cols of A and rows of B
+ * @param[in]       lda leading dimension of A
+ * @param[in]       ldb leading dimension of B
+ * @param[in]       ldd leading dimension of C/D
+ * @param[output]   pD output matrix
+ * @param core_op   the core lambda
+ * @param epilog_op the epilogue lambda
+ * @param fin_op    the final gemm epilogue lambda
+ */
+
+template <bool useNorms,
+          typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          typename Policy,
+          typename CoreLambda,
+          typename EpilogueLambda,
+          typename FinalLambda,
+          bool isRowMajor = true,
+          bool writeOut   = true>
+__global__ __launch_bounds__(Policy::Nthreads, 2)
+
+  void pairwiseDistanceMatKernelPriorToAmpere(const DataT* x,
+                                              const DataT* y,
+                                              const DataT* _xn,
+                                              const DataT* _yn,
+                                              IdxT m,
+                                              IdxT n,
+                                              IdxT k,
+                                              IdxT lda,
+                                              IdxT ldb,
+                                              IdxT ldd,
+                                              OutT* dOutput,
+                                              CoreLambda core_op,
+                                              EpilogueLambda epilog_op,
+                                              FinalLambda fin_op)
+{
+  //#if __CUDA_ARCH__ < 800
+  // TODO: re-enable the CUDA_ARCH guard for below Ampere once cutlass based
+  //  kernels are enabled for CUDA 12.0
+  extern __shared__ char smem[];
+  auto rowEpilog = [] __device__(IdxT starty) { return; };
+
+  PairwiseDistances<useNorms,
+                    DataT,
+                    AccT,
+                    OutT,
+                    IdxT,
+                    Policy,
+                    CoreLambda,
+                    EpilogueLambda,
+                    FinalLambda,
+                    decltype(rowEpilog),
+                    isRowMajor,
+                    writeOut>
+    obj(
+      x, y, m, n, k, lda, ldb, ldd, _xn, _yn, dOutput, smem, core_op, epilog_op, fin_op, rowEpilog);
+  obj.run();
+  //#endif
 }
 
 template <typename P, typename IdxT, typename T>

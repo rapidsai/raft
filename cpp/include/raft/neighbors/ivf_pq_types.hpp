@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,16 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
+#include <thrust/fill.h>
+
 #include <type_traits>
 
 namespace raft::neighbors::ivf_pq {
+
+/**
+ * @ingroup ivf_pq
+ * @{
+ */
 
 /** A type for specifying how PQ codebooks are created. */
 enum class codebook_gen {  // NOLINT
@@ -108,16 +115,29 @@ struct search_params : ann::search_params {
    */
   cudaDataType_t internal_distance_dtype = CUDA_R_32F;
   /**
-   * Thread block size of the distance calculation kernel at search time.
-   * When zero, an optimal block size is selected using a heuristic.
+   * Preferred fraction of SM's unified memory / L1 cache to be used as shared memory.
    *
-   * Possible values: [0, 256, 512, 1024]
+   * Possible values: [0.0 - 1.0] as a fraction of the `sharedMemPerMultiprocessor`.
+   *
+   * One wants to increase the carveout to make sure a good GPU occupancy for the main search
+   * kernel, but not to keep it too high to leave some memory to be used as L1 cache. Note, this
+   * value is interpreted only as a hint. Moreover, a GPU usually allows only a fixed set of cache
+   * configurations, so the provided value is rounded up to the nearest configuration. Refer to the
+   * NVIDIA tuning guide for the target GPU architecture.
+   *
+   * Note, this is a low-level tuning parameter that can have drastic negative effects on the search
+   * performance if tweaked incorrectly.
    */
-  uint32_t preferred_thread_block_size = 0;
+  double preferred_shmem_carveout = 1.0;
 };
 
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);
+
+/** Size of the interleaved group. */
+constexpr static uint32_t kIndexGroupSize = 32;
+/** Stride of the interleaved group for vectorized loads. */
+constexpr static uint32_t kIndexGroupVecLen = 16;
 
 /**
  * @brief IVF-PQ index.
@@ -170,6 +190,19 @@ struct index : ann::index {
                 "IdxT must be able to represent all values of uint32_t");
 
  public:
+  /**
+   * Default value filled in the `indices()` array.
+   * One may encounter it trying to access a record within a cluster that is outside of the
+   * `list_sizes()` bound (due to the record alignment `kIndexGroupSize`).
+   */
+  constexpr static IdxT kInvalidRecord = std::numeric_limits<IdxT>::max() - 1;
+  /**
+   * Default value returned by `search` when the `n_probes` is too small and top-k is too large.
+   * One may encounter it if the combined size of probed clusters is smaller than the requested
+   * number of results per query.
+   */
+  constexpr static IdxT kOutOfBoundsRecord = std::numeric_limits<IdxT>::max();
+
   /** Total length of the index. */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return indices_.extent(0); }
   /** Dimensionality of the input data. */
@@ -247,12 +280,12 @@ struct index : ann::index {
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
       n_nonempty_lists_(n_nonempty_lists),
       pq_centers_{make_device_mdarray<float>(handle, make_pq_centers_extents())},
-      pq_dataset_{make_device_mdarray<uint8_t>(
-        handle, make_extents<IdxT>(0, this->pq_dim() * this->pq_bits() / 8))},
+      pq_dataset_{make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(0))},
       indices_{make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0))},
       rotation_matrix_{
         make_device_mdarray<float>(handle, make_extents<uint32_t>(this->rot_dim(), this->dim()))},
       list_offsets_{make_device_mdarray<IdxT>(handle, make_extents<uint32_t>(this->n_lists() + 1))},
+      list_sizes_{make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(this->n_lists()))},
       centers_{make_device_mdarray<float>(
         handle, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
       centers_rot_{make_device_mdarray<float>(
@@ -283,35 +316,57 @@ struct index : ann::index {
    */
   void allocate(const handle_t& handle, IdxT index_size)
   {
-    pq_dataset_ =
-      make_device_mdarray<uint8_t>(handle, make_extents<IdxT>(index_size, pq_dataset_.extent(1)));
-    indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    try {
+      pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));
+      indices_    = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    } catch (std::bad_alloc& e) {
+      RAFT_FAIL(
+        "ivf-pq: failed to allocate a big enough index to hold all data (size: %zu). "
+        "Allocator exception: %s",
+        size_t(index_size),
+        e.what());
+    }
+    if (index_size > 0) {
+      thrust::fill_n(
+        handle.get_thrust_policy(), indices_.data_handle(), index_size, kInvalidRecord);
+    }
     check_consistency();
   }
 
+  using pq_centers_extents =
+    std::experimental::extents<uint32_t, dynamic_extent, dynamic_extent, dynamic_extent>;
   /**
    * PQ cluster centers
    *
-   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_book_size, pq_len]
-   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_book_size, pq_len]
+   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_len, pq_book_size]
+   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_len, pq_book_size]
    */
-  inline auto pq_centers() noexcept -> device_mdspan<float, extent_3d<uint32_t>, row_major>
+  inline auto pq_centers() noexcept -> device_mdspan<float, pq_centers_extents, row_major>
   {
     return pq_centers_.view();
   }
   [[nodiscard]] inline auto pq_centers() const noexcept
-    -> device_mdspan<const float, extent_3d<uint32_t>, row_major>
+    -> device_mdspan<const float, pq_centers_extents, row_major>
   {
     return pq_centers_.view();
   }
 
-  /** PQ-encoded data [size, pq_dim * pq_bits / 8]. */
-  inline auto pq_dataset() noexcept -> device_mdspan<uint8_t, extent_2d<IdxT>, row_major>
+  using pq_dataset_extents = std::experimental::
+    extents<IdxT, dynamic_extent, dynamic_extent, kIndexGroupSize, kIndexGroupVecLen>;
+  /** PQ-encoded data stored in the interleaved format:
+   *
+   *    [ ceildiv(size, kIndexGroupSize)
+   *    , ceildiv(pq_dim, (kIndexGroupVecLen * 8u) / pq_bits)
+   *    , kIndexGroupSize
+   *    , kIndexGroupVecLen
+   *    ].
+   */
+  inline auto pq_dataset() noexcept -> device_mdspan<uint8_t, pq_dataset_extents, row_major>
   {
     return pq_dataset_.view();
   }
   [[nodiscard]] inline auto pq_dataset() const noexcept
-    -> device_mdspan<const uint8_t, extent_2d<IdxT>, row_major>
+    -> device_mdspan<const uint8_t, pq_dataset_extents, row_major>
   {
     return pq_dataset_.view();
   }
@@ -352,6 +407,17 @@ struct index : ann::index {
     return list_offsets_.view();
   }
 
+  /** Sizes of the lists [n_lists]. */
+  inline auto list_sizes() noexcept -> device_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return list_sizes_.view();
+  }
+  [[nodiscard]] inline auto list_sizes() const noexcept
+    -> device_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
+  {
+    return list_sizes_.view();
+  }
+
   /** Cluster centers corresponding to the lists in the original space [n_lists, dim_ext] */
   inline auto centers() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
   {
@@ -374,6 +440,18 @@ struct index : ann::index {
     return centers_rot_.view();
   }
 
+  /** A helper function to determine the extents of an array enough to hold a given amount of data.
+   */
+  auto make_pq_dataset_extents(IdxT n_rows) const -> pq_dataset_extents
+  {
+    // how many elems of pq_dim fit into one kIndexGroupVecLen-byte chunk
+    auto pq_chunk = (kIndexGroupVecLen * 8u) / pq_bits();
+    return make_extents<IdxT>(raft::div_rounding_up_safe<IdxT>(n_rows, kIndexGroupSize),
+                              raft::div_rounding_up_safe<IdxT>(pq_dim(), pq_chunk),
+                              kIndexGroupSize,
+                              kIndexGroupVecLen);
+  }
+
  private:
   raft::distance::DistanceType metric_;
   codebook_gen codebook_kind_;
@@ -383,11 +461,12 @@ struct index : ann::index {
   uint32_t pq_dim_;
   uint32_t n_nonempty_lists_;
 
-  device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers_;
-  device_mdarray<uint8_t, extent_2d<IdxT>, row_major> pq_dataset_;
+  device_mdarray<float, pq_centers_extents, row_major> pq_centers_;
+  device_mdarray<uint8_t, pq_dataset_extents, row_major> pq_dataset_;
   device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> rotation_matrix_;
   device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
+  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_rot_;
 
@@ -404,13 +483,13 @@ struct index : ann::index {
                  pq_bits() * pq_dim());
   }
 
-  auto make_pq_centers_extents() -> extent_3d<uint32_t>
+  auto make_pq_centers_extents() -> pq_centers_extents
   {
     switch (codebook_kind()) {
       case codebook_gen::PER_SUBSPACE:
-        return make_extents<uint32_t>(pq_dim(), pq_book_size(), pq_len());
+        return make_extents<uint32_t>(pq_dim(), pq_len(), pq_book_size());
       case codebook_gen::PER_CLUSTER:
-        return make_extents<uint32_t>(n_lists(), pq_book_size(), pq_len());
+        return make_extents<uint32_t>(n_lists(), pq_len(), pq_book_size());
       default: RAFT_FAIL("Unreachable code");
     }
   }
@@ -420,7 +499,7 @@ struct index : ann::index {
     // If the dimensionality is large enough, we can reduce it to improve performance
     if (dim >= 128) { dim /= 2; }
     // Round it down to 32 to improve performance.
-    uint32_t r = raft::round_down_safe<uint32_t>(dim, 32);
+    auto r = raft::round_down_safe<uint32_t>(dim, 32);
     if (r > 0) return r;
     // If the dimensionality is really low, round it to the closest power-of-two
     r = 1;
@@ -430,5 +509,7 @@ struct index : ann::index {
     return r;
   }
 };
+
+/** @} */
 
 }  // namespace raft::neighbors::ivf_pq
