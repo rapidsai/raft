@@ -26,6 +26,11 @@
 namespace raft::neighbors {
 
 /**
+ * @defgroup ann_refine Approximate Nearest Neighbors Refinement
+ * @{
+ */
+
+/**
  * @brief Refine nearest neighbor search.
  *
  * Refinement is an operation that follows an approximate NN search. The approximate search has
@@ -95,4 +100,6 @@ void refine(raft::handle_t const& handle,
 {
   detail::refine_host(dataset, queries, neighbor_candidates, indices, distances, metric);
 }
+
+/** @} */  // end group ann_refine
 }  // namespace raft::neighbors

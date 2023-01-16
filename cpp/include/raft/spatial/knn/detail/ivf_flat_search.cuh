@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/norm.cuh>
@@ -662,9 +663,11 @@ template <int Capacity,
           typename T,
           typename AccT,
           typename IdxT,
-          typename Lambda>
+          typename Lambda,
+          typename PostLambda>
 __global__ void __launch_bounds__(kThreadsPerBlock)
   interleaved_scan_kernel(Lambda compute_dist,
+                          PostLambda post_process,
                           const uint32_t query_smem_elems,
                           const T* query,
                           const uint32_t* coarse_index,
@@ -776,7 +779,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
 
   // finalize and store selected neighbours
   queue.done();
-  queue.store(distances, neighbors);
+  queue.store(distances, neighbors, post_process);
 }
 
 /**
@@ -804,8 +807,10 @@ template <int Capacity,
           typename T,
           typename AccT,
           typename IdxT,
-          typename Lambda>
+          typename Lambda,
+          typename PostLambda>
 void launch_kernel(Lambda lambda,
+                   PostLambda post_process,
                    const ivf_flat::index<T, IdxT>& index,
                    const T* queries,
                    const uint32_t* coarse_index,
@@ -820,7 +825,7 @@ void launch_kernel(Lambda lambda,
   RAFT_EXPECTS(Veclen == index.veclen(),
                "Configured Veclen does not match the index interleaving pattern.");
   constexpr auto kKernel =
-    interleaved_scan_kernel<Capacity, Veclen, Ascending, T, AccT, IdxT, Lambda>;
+    interleaved_scan_kernel<Capacity, Veclen, Ascending, T, AccT, IdxT, Lambda, PostLambda>;
   const int max_query_smem = 16384;
   int query_smem_elems =
     std::min<int>(max_query_smem / sizeof(T), Pow2<Veclen * WarpSize>::roundUp(index.dim()));
@@ -850,6 +855,7 @@ void launch_kernel(Lambda lambda,
       n_probes,
       smem_size);
     kKernel<<<grid_dim, block_dim, smem_size, stream>>>(lambda,
+                                                        post_process,
                                                         query_smem_elems,
                                                         queries,
                                                         coarse_index,
@@ -885,7 +891,7 @@ struct euclidean_dist<Veclen, uint8_t, uint32_t> {
       const auto diff = __vabsdiffu4(x, y);
       acc             = dp4a(diff, diff, acc);
     } else {
-      const auto diff = x - y;
+      const auto diff = __usad(x, y, 0u);
       acc += diff * diff;
     }
   }
@@ -896,8 +902,12 @@ struct euclidean_dist<Veclen, int8_t, int32_t> {
   __device__ __forceinline__ void operator()(int32_t& acc, int32_t x, int32_t y)
   {
     if constexpr (Veclen > 1) {
-      const auto diff = static_cast<int32_t>(__vabsdiffs4(x, y));
-      acc             = dp4a(diff, diff, acc);
+      // Note that we enforce here that the unsigned version of dp4a is used, because the difference
+      // between two int8 numbers can be greater than 127 and therefore represented as a negative
+      // number in int8. Casting from int8 to int32 would yield incorrect results, while casting
+      // from uint8 to uint32 is correct.
+      const auto diff = __vabsdiffs4(x, y);
+      acc             = dp4a(diff, diff, static_cast<uint32_t>(acc));
     } else {
       const auto diff = x - y;
       acc += diff * diff;
@@ -936,7 +946,18 @@ void launch_with_fixed_consts(raft::distance::DistanceType metric, Args&&... arg
                            T,
                            AccT,
                            IdxT,
-                           euclidean_dist<Veclen, T, AccT>>({}, std::forward<Args>(args)...);
+                           euclidean_dist<Veclen, T, AccT>,
+                           raft::identity_op>({}, {}, std::forward<Args>(args)...);
+    case raft::distance::DistanceType::L2SqrtExpanded:
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
+      return launch_kernel<Capacity,
+                           Veclen,
+                           Ascending,
+                           T,
+                           AccT,
+                           IdxT,
+                           euclidean_dist<Veclen, T, AccT>,
+                           raft::sqrt_op>({}, {}, std::forward<Args>(args)...);
     case raft::distance::DistanceType::InnerProduct:
       return launch_kernel<Capacity,
                            Veclen,
@@ -944,7 +965,8 @@ void launch_with_fixed_consts(raft::distance::DistanceType metric, Args&&... arg
                            T,
                            AccT,
                            IdxT,
-                           inner_prod_dist<Veclen, T, AccT>>({}, std::forward<Args>(args)...);
+                           inner_prod_dist<Veclen, T, AccT>,
+                           raft::identity_op>({}, {}, std::forward<Args>(args)...);
     // NB: update the description of `knn::ivf_flat::build` when adding here a new metric.
     default: RAFT_FAIL("The chosen distance metric is not supported (%d)", int(metric));
   }
@@ -1100,28 +1122,32 @@ void search_impl(const handle_t& handle,
   float beta  = 0.0f;
 
   // todo(lsugy): raft distance? (if performance is similar/better than gemm)
-  if (index.metric() == raft::distance::DistanceType::L2Expanded) {
-    alpha = -2.0f;
-    beta  = 1.0f;
-    raft::linalg::rowNorm(query_norm_dev.data(),
-                          converted_queries_ptr,
-                          static_cast<IdxT>(index.dim()),
-                          static_cast<IdxT>(n_queries),
-                          raft::linalg::L2Norm,
-                          true,
-                          stream,
-                          raft::SqrtOp<float>());
-    utils::outer_add(query_norm_dev.data(),
-                     (IdxT)n_queries,
-                     index.center_norms()->data_handle(),
-                     (IdxT)index.n_lists(),
-                     distance_buffer_dev.data(),
-                     stream);
-    RAFT_LOG_TRACE_VEC(index.center_norms()->data_handle(), std::min<uint32_t>(20, index.dim()));
-    RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), std::min<uint32_t>(20, index.n_lists()));
-  } else {
-    alpha = 1.0f;
-    beta  = 0.0f;
+  switch (index.metric()) {
+    case raft::distance::DistanceType::L2Expanded:
+    case raft::distance::DistanceType::L2SqrtExpanded: {
+      alpha = -2.0f;
+      beta  = 1.0f;
+      raft::linalg::rowNorm(query_norm_dev.data(),
+                            converted_queries_ptr,
+                            static_cast<IdxT>(index.dim()),
+                            static_cast<IdxT>(n_queries),
+                            raft::linalg::L2Norm,
+                            true,
+                            stream);
+      utils::outer_add(query_norm_dev.data(),
+                       (IdxT)n_queries,
+                       index.center_norms()->data_handle(),
+                       (IdxT)index.n_lists(),
+                       distance_buffer_dev.data(),
+                       stream);
+      RAFT_LOG_TRACE_VEC(index.center_norms()->data_handle(), std::min<uint32_t>(20, index.dim()));
+      RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), std::min<uint32_t>(20, index.n_lists()));
+      break;
+    }
+    default: {
+      alpha = 1.0f;
+      beta  = 0.0f;
+    }
   }
 
   linalg::gemm(handle,

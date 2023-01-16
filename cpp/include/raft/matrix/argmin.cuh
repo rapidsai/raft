@@ -22,6 +22,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup argmin Argmin operation
+ * @{
+ */
+
+/**
  * @brief Argmin: find the col idx with minimum value for each row
  * @param[in] handle: raft handle
  * @param[in] in: input matrix of size (n_rows, n_cols)
@@ -37,4 +42,7 @@ void argmin(const raft::handle_t& handle,
   detail::argmin(
     in.data_handle(), in.extent(1), in.extent(0), out.data_handle(), handle.get_stream());
 }
+
+/** @} */  // end of group argmin
+
 }  // namespace raft::matrix

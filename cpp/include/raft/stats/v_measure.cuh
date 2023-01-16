@@ -50,6 +50,11 @@ double v_measure(const T* truthClusterArray,
 }
 
 /**
+ * @defgroup stats_vmeasure V-Measure
+ * @{
+ */
+
+/**
  * @brief Function to calculate the v-measure between two clusters
  *
  * @tparam value_t the data type
@@ -83,6 +88,8 @@ double v_measure(const raft::handle_t& handle,
                            handle.get_stream(),
                            beta);
 }
+
+/** @} */  // end group stats_vmeasure
 
 };  // end namespace stats
 };  // end namespace raft

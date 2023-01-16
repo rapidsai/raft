@@ -1,4 +1,30 @@
-# Install Guide
+# Installation
+
+### Conda
+
+The easiest way to install RAFT is through conda and several packages are provided.
+- `libraft-headers` RAFT headers
+- `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
+- `libraft-distance` (optional) contains shared libraries for distance primitives.
+- `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives.
+- `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
+
+Use the following command to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
+```bash
+mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft
+```
+
+You can also install the `libraft-*` conda packages individually using the `mamba` command above.
+
+After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
+
+### Pip
+
+pylibraft and raft-dask both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
+```bash
+pip install pylibraft-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+pip install raft-dask-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+```
 
 ## Building and installing RAFT
 
@@ -46,6 +72,12 @@ The `-n` flag can be passed to just have the build download the needed dependenc
 ./build.sh libraft -n
 ```
 
+Once installed, `libraft` headers (and dependencies which were downloaded and installed using `rapids-cmake`) can be uninstalled also using `build.sh`:
+```bash
+./build.sh libraft --uninstall
+```
+
+
 ### C++ Shared Libraries (optional)
 
 For larger projects which make heavy use of the pairwise distances or nearest neighbors APIs, shared libraries can be built to speed up compile times. These shared libraries can also significantly improve re-compile times both while developing RAFT and developing against the APIs. Build all of the available shared libraries by passing `--compile-libs` flag to `build.sh`:
@@ -59,6 +91,12 @@ Individual shared libraries have their own flags and multiple can be used (thoug
 ```
 
 In above example the shared libraries are installed by default into `$INSTALL_PREFIX/lib`. To disable this, pass `-n` flag.
+
+Once installed, the shared libraries, headers (and any dependencies downloaded and installed via `rapids-cmake`) can be uninstalled using `build.sh`:
+```bash
+./build.sh libraft --uninstall
+```
+
 
 ### ccache and sccache
 
@@ -92,7 +130,7 @@ For example, to run the distance tests:
 It can take sometime to compile all of the tests. You can build individual tests by providing a semicolon-separated list to the `--limit-tests` option in `build.sh`:
 
 ```bash
-./build.sh libraft tests --limit-tests=NEIGHBORS_TEST;DISTANCE_TEST;MATRIX_TEST
+./build.sh libraft tests -n --limit-tests=NEIGHBORS_TEST;DISTANCE_TEST;MATRIX_TEST
 ```
 
 ### Benchmarks
@@ -105,10 +143,10 @@ The benchmarks are broken apart by algorithm category, so you will find several 
 It can take sometime to compile all of the benchmarks. You can build individual benchmarks by providing a semicolon-separated list to the `--limit-bench` option in `build.sh`:
 
 ```bash
-./build.sh libraft bench --limit-bench=NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH
+./build.sh libraft bench -n --limit-bench=NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH
 ```
 
-### C++ Using Cmake
+### C++ Using Cmake Directly
 
 Use `CMAKE_INSTALL_PREFIX` to install RAFT into a specific location. The snippet below will install it into the current conda environment:
 ```bash
@@ -145,7 +183,7 @@ Currently, shared libraries are provided for the `libraft-nn` and `libraft-dista
 Conda environment scripts are provided for installing the necessary dependencies for building and using the Python APIs. It is preferred to use `mamba`, as it provides significant speedup over `conda`. In addition you will have to manually install `nvcc` as it will not be installed as part of the conda environment. The following example will install create and install dependencies for a CUDA 11.5 conda environment:
 
 ```bash
-mamba env create --name raft_env_name -f conda/environments/raft_dev_cuda11.5.yml
+mamba env create --name raft_env_name -f conda/environments/all_cuda-115_arch-x86_64.yaml
 mamba activate raft_env_name
 ```
 
@@ -177,6 +215,11 @@ py.test -s -v
 
 cd python/pylibraft
 py.test -s -v
+```
+
+The Python packages can also be uninstalled using the `build.sh` script:
+```bash
+./build.sh pylibraft raft-dask --uninstall
 ```
 
 ### Documentation
@@ -335,6 +378,14 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
 
 If using the nearest neighbors APIs without the shared libraries, set `ENABLE_NN_DEPENDENCIES=ON` and keep `USE_NN_LIBRARY=OFF`
 
-### Python/Cython Integration
+## Uninstall
 
-Once installed, RAFT's Python library can be added to downstream conda recipes, imported and used directly.
+Once built and installed, RAFT can be safely uninstalled using `build.sh` by specifying any or all of the installed components. Please note that since `pylibraft` depends on `libraft`, uninstalling `pylibraft` will also uninstall `libraft`:
+```bash
+./build.sh libraft pylibraft raft-dask --uninstall
+```
+
+Leaving off the installed components will uninstall everything that's been installed:
+```bash
+./build.sh --uninstall
+```

@@ -18,7 +18,7 @@
 
 #include <raft/label/classlabels.cuh>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 

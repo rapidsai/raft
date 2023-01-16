@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <optional>
 #include <vector>
@@ -22,6 +22,7 @@
 #include <raft/cluster/kmeans.cuh>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/stats/adjusted_rand_index.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -50,22 +51,17 @@ void run_cluster_cost(const raft::handle_t& handle,
                       raft::device_scalar_view<DataT> clusterCost)
 {
   raft::cluster::kmeans::cluster_cost(
-    handle,
-    minClusterDistance,
-    workspace,
-    clusterCost,
-    [] __device__(const DataT& a, const DataT& b) { return a + b; });
+    handle, minClusterDistance, workspace, clusterCost, raft::add_op{});
 }
 
 template <typename T>
 class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
  protected:
   KmeansTest()
-    : stream(handle.get_stream()),
-      d_labels(0, stream),
-      d_labels_ref(0, stream),
-      d_centroids(0, stream),
-      d_sample_weight(0, stream)
+    : d_labels(0, handle.get_stream()),
+      d_labels_ref(0, handle.get_stream()),
+      d_centroids(0, handle.get_stream()),
+      d_sample_weight(0, handle.get_stream())
   {
   }
 
@@ -73,6 +69,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
   {
     testparams = ::testing::TestWithParam<KmeansInputs<T>>::GetParam();
 
+    auto stream                = handle.get_stream();
     int n_samples              = testparams.n_row;
     int n_features             = testparams.n_col;
     params.n_clusters          = testparams.n_clusters;
@@ -252,6 +249,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     auto X      = raft::make_device_matrix<T, int>(handle, n_samples, n_features);
     auto labels = raft::make_device_vector<int, int>(handle, n_samples);
+    auto stream = handle.get_stream();
 
     raft::random::make_blobs<T, int>(X.data_handle(),
                                      labels.data_handle(),
@@ -326,7 +324,6 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
  protected:
   raft::handle_t handle;
-  cudaStream_t stream;
   KmeansInputs<T> testparams;
   rmm::device_uvector<int> d_labels;
   rmm::device_uvector<int> d_labels_ref;

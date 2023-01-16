@@ -22,6 +22,12 @@
 #include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
+
+/**
+ * @defgroup matrix_init Matrix initialization operations
+ * @{
+ */
+
 /**
  * @brief set values to scalar in matrix
  * @tparam math_t data-type upon which the math operation will be performed
@@ -63,4 +69,7 @@ void fill(const raft::handle_t& handle,
   detail::setValue(
     inout.data_handle(), inout.data_handle(), scalar, inout.size(), handle.get_stream());
 }
+
+/** @} */  // end of group matrix_init
+
 }  // namespace raft::matrix

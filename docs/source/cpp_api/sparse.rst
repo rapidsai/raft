@@ -8,42 +8,13 @@ This page provides C++ class references for the publicly-exposed elements of the
    :class: highlight
 
 
-Conversion
-##########
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-.. doxygennamespace:: raft::sparse::convert
-    :project: RAFT
-    :members:
-    :content-only:
+   sparse_distance.rst
+   sparse_linalg.rst
+   sparse_matrix.rst
+   sparse_neighbors.rst
+   sparse_solver.rst
 
-Distance
-########
-
-.. doxygennamespace:: raft::sparse::distance
-    :project: RAFT
-    :members:
-    :content-only:
-
-Linear Algebra
-##############
-
-.. doxygennamespace:: raft::sparse::linalg
-    :project: RAFT
-    :members:
-    :content-only:
-
-Matrix Operations
-#################
-
-.. doxygennamespace:: raft::sparse::op
-    :project: RAFT
-    :members:
-    :content-only:
-
-Neighbors
-#########
-
-.. doxygennamespace:: raft::sparse::neighbors
-    :project: RAFT
-    :members:
-    :content-only:

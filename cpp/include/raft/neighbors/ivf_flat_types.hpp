@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,10 @@
 #include <type_traits>
 
 namespace raft::neighbors::ivf_flat {
+/**
+ * @ingroup ivf_flat
+ * @{
+ */
 
 /** Size of the interleaved group (see `index::data` description). */
 constexpr static uint32_t kIndexGroupSize = 32;
@@ -248,14 +252,21 @@ struct index : ann::index {
    * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
    * of data.
    */
-  void allocate(const handle_t& handle, IdxT index_size, bool allocate_center_norms)
+  void allocate(const handle_t& handle, IdxT index_size)
   {
     data_    = make_device_mdarray<T>(handle, make_extents<IdxT>(index_size, dim()));
     indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
-    center_norms_ =
-      allocate_center_norms
-        ? std::optional(make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists())))
-        : std::nullopt;
+
+    switch (metric_) {
+      case raft::distance::DistanceType::L2Expanded:
+      case raft::distance::DistanceType::L2SqrtExpanded:
+      case raft::distance::DistanceType::L2Unexpanded:
+      case raft::distance::DistanceType::L2SqrtUnexpanded:
+        center_norms_ = make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists()));
+        break;
+      default: center_norms_ = std::nullopt;
+    }
+
     check_consistency();
   }
 
@@ -300,5 +311,7 @@ struct index : ann::index {
     return veclen;
   }
 };
+
+/** @} */
 
 }  // namespace raft::neighbors::ivf_flat

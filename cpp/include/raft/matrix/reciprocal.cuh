@@ -23,6 +23,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_reciprocal Matrix Reciprocal Operations
+ * @{
+ */
+
+/**
  * @brief Reciprocal of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
@@ -78,4 +83,7 @@ void reciprocal(const raft::handle_t& handle,
                              setzero,
                              thres);
 }
+
+/** @} */  // end group matrix_reciprocal
+
 }  // namespace raft::matrix

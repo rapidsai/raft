@@ -10,8 +10,13 @@ hide the complexities of lower-level C-based libraries provided in the CUDA tool
    :language: c++
    :class: highlight
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-.. doxygennamespace:: raft::linalg
-    :project: RAFT
-    :members:
-    :content-only:
+   linalg_arithmetic.rst
+   linalg_blas.rst
+   linalg_map_reduce.rst
+   linalg_matrix.rst
+   linalg_matrix_vector.rst
+   linalg_solver.rst

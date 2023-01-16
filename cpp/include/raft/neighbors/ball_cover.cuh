@@ -20,13 +20,18 @@
 
 #include <cstdint>
 
-#include "ball_cover_types.hpp"
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ball_cover_types.hpp>
 #include <raft/spatial/knn/detail/ball_cover.cuh>
 #include <raft/spatial/knn/detail/ball_cover/common.cuh>
 #include <thrust/transform.h>
 
 namespace raft::neighbors::ball_cover {
+
+/**
+ * @defgroup random_ball_cover Random Ball Cover algorithm
+ * @{
+ */
 
 /**
  * Builds and populates a previously unbuilt BallCoverIndex
@@ -72,6 +77,8 @@ void build_index(const raft::handle_t& handle,
 
   index.set_index_trained();
 }
+
+/** @} */  // end group random_ball_cover
 
 /**
  * Performs a faster exact knn in metric spaces using the triangle
@@ -138,6 +145,11 @@ void all_knn_query(const raft::handle_t& handle,
 
   index.set_index_trained();
 }
+
+/**
+ * @ingroup random_ball_cover
+ * @{
+ */
 
 /**
  * Performs a faster exact knn in metric spaces using the triangle
@@ -212,6 +224,8 @@ void all_knn_query(const raft::handle_t& handle,
     handle, index, k, inds.data_handle(), dists.data_handle(), perform_post_filtering, weight);
 }
 
+/** @} */
+
 /**
  * Performs a faster exact knn in metric spaces using the triangle
  * inequality with a number of landmark points to reduce the
@@ -280,6 +294,11 @@ void knn_query(const raft::handle_t& handle,
     RAFT_FAIL("Metric not supported");
   }
 }
+
+/**
+ * @ingroup random_ball_cover
+ * @{
+ */
 
 /**
  * Performs a faster exact knn in metric spaces using the triangle
@@ -364,6 +383,8 @@ void knn_query(const raft::handle_t& handle,
             perform_post_filtering,
             weight);
 }
+
+/** @} */
 
 // TODO: implement functions for:
 //  4. rbc_eps_neigh() - given a populated index, perform query against different query array

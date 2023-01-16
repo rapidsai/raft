@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -192,6 +192,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
   }
 
   // declaring the data values
+  raft::handle_t handle;
   silhouetteScoreParam params;
   int nLabels;
   rmm::device_uvector<DataT> d_X;
@@ -203,7 +204,6 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
   double truthSilhouetteScore    = 0;
   double computedSilhouetteScore = 0;
   double batchedSilhouetteScore  = 0;
-  raft::handle_t handle;
   int chunk;
 };
 

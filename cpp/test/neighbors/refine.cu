@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
 #include "refine_helper.cuh"
@@ -126,4 +126,7 @@ typedef RefineTest<uint8_t, float, std::int64_t> RefineTestF_uint8;
 TEST_P(RefineTestF_uint8, AnnRefine) { this->testRefine(); }
 INSTANTIATE_TEST_CASE_P(RefineTest, RefineTestF_uint8, ::testing::ValuesIn(inputs));
 
+typedef RefineTest<int8_t, float, std::int64_t> RefineTestF_int8;
+TEST_P(RefineTestF_int8, AnnRefine) { this->testRefine(); }
+INSTANTIATE_TEST_CASE_P(RefineTest, RefineTestF_int8, ::testing::ValuesIn(inputs));
 }  // namespace raft::neighbors

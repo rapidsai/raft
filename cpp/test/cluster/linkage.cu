@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
@@ -162,23 +162,24 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
  public:
   LinkageTest()
     : params(::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam()),
-      stream(handle.get_stream()),
-      labels(params.n_row, stream),
-      labels_ref(params.n_row, stream)
+      labels(0, handle.get_stream()),
+      labels_ref(0, handle.get_stream())
   {
   }
 
  protected:
   void basicTest()
   {
+    auto stream = handle.get_stream();
+
+    labels.resize(params.n_row, stream);
+    labels_ref.resize(params.n_row, stream);
     rmm::device_uvector<T> data(params.n_row * params.n_col, stream);
 
     raft::copy(data.data(), params.data.data(), data.size(), stream);
     raft::copy(labels_ref.data(), params.expected_labels.data(), params.n_row, stream);
 
     rmm::device_uvector<IdxT> out_children(params.n_row * 2, stream);
-
-    raft::handle_t handle;
 
     auto data_view = raft::make_device_matrix_view<const T, IdxT, row_major>(
       data.data(), params.n_row, params.n_col);
@@ -205,7 +206,6 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
  protected:
   raft::handle_t handle;
-  cudaStream_t stream;
 
   LinkageInputs<T, IdxT> params;
   rmm::device_uvector<IdxT> labels, labels_ref;

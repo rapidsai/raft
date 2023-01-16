@@ -278,78 +278,83 @@ set_target_properties(raft_distance PROPERTIES EXPORT_NAME distance)
 if(RAFT_COMPILE_DIST_LIBRARY)
   add_library(
     raft_distance_lib
-    src/distance/pairwise_distance.cu
-    src/distance/fused_l2_min_arg.cu
-    src/distance/update_centroids_float.cu
-    src/distance/update_centroids_double.cu
-    src/distance/cluster_cost_float.cu
-    src/distance/cluster_cost_double.cu
-    src/distance/specializations/detail/canberra.cu
-    src/distance/specializations/detail/chebyshev.cu
-    src/distance/specializations/detail/correlation.cu
-    src/distance/specializations/detail/cosine.cu
-    src/distance/specializations/detail/cosine.cu
-    src/distance/specializations/detail/hamming_unexpanded.cu
-    src/distance/specializations/detail/hellinger_expanded.cu
-    src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
-    src/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
-    src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
-    src/distance/specializations/detail/kernels/gram_matrix_base_double.cu
-    src/distance/specializations/detail/kernels/gram_matrix_base_float.cu
-    src/distance/specializations/detail/kernels/polynomial_kernel_double_int.cu
-    src/distance/specializations/detail/kernels/polynomial_kernel_float_int.cu
+    src/distance/distance/pairwise_distance.cu
+    src/distance/distance/fused_l2_min_arg.cu
+    src/distance/cluster/update_centroids_float.cu
+    src/distance/cluster/update_centroids_double.cu
+    src/distance/cluster/cluster_cost_float.cu
+    src/distance/cluster/cluster_cost_double.cu
+    src/distance/neighbors/refine.cu
+    src/distance/neighbors/ivfpq_search.cu
+    src/distance/cluster/kmeans_fit_float.cu
+    src/distance/cluster/kmeans_fit_double.cu
+    src/distance/distance/specializations/detail/canberra.cu
+    src/distance/distance/specializations/detail/chebyshev.cu
+    src/distance/distance/specializations/detail/correlation.cu
+    src/distance/distance/specializations/detail/cosine.cu
+    src/distance/distance/specializations/detail/cosine.cu
+    src/distance/distance/specializations/detail/hamming_unexpanded.cu
+    src/distance/distance/specializations/detail/hellinger_expanded.cu
+    src/distance/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
+    src/distance/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
+    src/distance/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
+    src/distance/distance/specializations/detail/kernels/gram_matrix_base_double.cu
+    src/distance/distance/specializations/detail/kernels/gram_matrix_base_float.cu
+    src/distance/distance/specializations/detail/kernels/polynomial_kernel_double_int.cu
+    src/distance/distance/specializations/detail/kernels/polynomial_kernel_float_int.cu
     # These are somehow missing a kernel definition which is causing a compile error.
     # src/distance/specializations/detail/kernels/rbf_kernel_double.cu
     # src/distance/specializations/detail/kernels/rbf_kernel_float.cu
-    src/distance/specializations/detail/kernels/tanh_kernel_double.cu
-    src/distance/specializations/detail/kernels/tanh_kernel_float.cu
-    src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
-    src/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
-    src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
-    src/distance/specializations/detail/l1_float_float_float_int.cu
-    src/distance/specializations/detail/l1_float_float_float_uint32.cu
-    src/distance/specializations/detail/l1_double_double_double_int.cu
-    src/distance/specializations/detail/l2_expanded_float_float_float_int.cu
-    src/distance/specializations/detail/l2_expanded_float_float_float_uint32.cu
-    src/distance/specializations/detail/l2_expanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_sqrt_expanded_float_float_float_int.cu
-    src/distance/specializations/detail/l2_sqrt_expanded_float_float_float_uint32.cu
-    src/distance/specializations/detail/l2_sqrt_expanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_uint32.cu
-    src/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_unexpanded_float_float_float_uint32.cu
-    src/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
-    src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/russel_rao_double_double_double_int.cu
-    src/distance/specializations/detail/russel_rao_float_float_float_uint32.cu
-    src/distance/specializations/detail/russel_rao_float_float_float_int.cu
-    src/distance/specializations/fused_l2_nn_double_int.cu
-    src/distance/specializations/fused_l2_nn_double_int64.cu
-    src/distance/specializations/fused_l2_nn_float_int.cu
-    src/distance/specializations/fused_l2_nn_float_int64.cu
-    src/nn/specializations/detail/ivfpq_build.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_float_fast.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_fast.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_no_basediff.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_no_smem_lut.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_fast.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_no_basediff.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_no_smem_lut.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_half_fast.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
-    src/nn/specializations/detail/ivfpq_search.cu
-    src/nn/specializations/detail/ivfpq_search_float_uint64_t.cu
-    src/random/specializations/rmat_rectangular_generator_int_double.cu
-    src/random/specializations/rmat_rectangular_generator_int64_double.cu
-    src/random/specializations/rmat_rectangular_generator_int_float.cu
-    src/random/specializations/rmat_rectangular_generator_int64_float.cu
+    src/distance/distance/specializations/detail/kernels/tanh_kernel_double.cu
+    src/distance/distance/specializations/detail/kernels/tanh_kernel_float.cu
+    src/distance/distance/specializations/detail/kl_divergence_float_float_float_int.cu
+    src/distance/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
+    src/distance/distance/specializations/detail/kl_divergence_double_double_double_int.cu
+    src/distance/distance/specializations/detail/l1_float_float_float_int.cu
+    src/distance/distance/specializations/detail/l1_float_float_float_uint32.cu
+    src/distance/distance/specializations/detail/l1_double_double_double_int.cu
+    src/distance/distance/specializations/detail/l2_expanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/l2_expanded_float_float_float_uint32.cu
+    src/distance/distance/specializations/detail/l2_expanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/l2_sqrt_expanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/l2_sqrt_expanded_float_float_float_uint32.cu
+    src/distance/distance/specializations/detail/l2_sqrt_expanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_uint32.cu
+    src/distance/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/l2_unexpanded_float_float_float_uint32.cu
+    src/distance/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
+    src/distance/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/russel_rao_double_double_double_int.cu
+    src/distance/distance/specializations/detail/russel_rao_float_float_float_uint32.cu
+    src/distance/distance/specializations/detail/russel_rao_float_float_float_int.cu
+    src/distance/distance/specializations/fused_l2_nn_double_int.cu
+    src/distance/distance/specializations/fused_l2_nn_double_int64.cu
+    src/distance/distance/specializations/fused_l2_nn_float_int.cu
+    src/distance/distance/specializations/fused_l2_nn_float_int64.cu
+    src/distance/neighbors/ivfpq_build.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8s_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8s_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8s_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8u_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8u_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8u_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_search_float_int64_t.cu
+    src/distance/neighbors/specializations/detail/ivfpq_search_float_uint64_t.cu
+    src/distance/neighbors/specializations/detail/ivfpq_search_float_uint32_t.cu
+    src/distance/random/rmat_rectangular_generator_int_double.cu
+    src/distance/random/rmat_rectangular_generator_int64_double.cu
+    src/distance/random/rmat_rectangular_generator_int_float.cu
+    src/distance/random/rmat_rectangular_generator_int64_float.cu
   )
   set_target_properties(
     raft_distance_lib
@@ -367,7 +372,7 @@ if(RAFT_COMPILE_DIST_LIBRARY)
   target_link_libraries(
     raft_distance_lib
     PUBLIC raft::raft cuco::cuco
-    PRIVATE nvidia::cutlass::cutlass
+    PRIVATE nvidia::cutlass::cutlass $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   )
   target_compile_options(
     raft_distance_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
@@ -407,23 +412,6 @@ if(RAFT_COMPILE_NN_LIBRARY)
     src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
     src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
     src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_float_fast.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_fast.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_no_basediff.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8s_no_smem_lut.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_fast.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_no_basediff.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_fp8u_no_smem_lut.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_half_fast.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
-    src/nn/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
-    src/nn/specializations/detail/ivfpq_build.cu
-    src/nn/specializations/detail/ivfpq_search.cu
-    src/nn/specializations/detail/ivfpq_search_float_int64_t.cu
-    src/nn/specializations/detail/ivfpq_search_float_uint32_t.cu
-    src/nn/specializations/detail/ivfpq_search_float_uint64_t.cu
     src/nn/specializations/fused_l2_knn_long_float_true.cu
     src/nn/specializations/fused_l2_knn_long_float_false.cu
     src/nn/specializations/fused_l2_knn_int_float_true.cu
@@ -476,10 +464,20 @@ endif()
 
 set_target_properties(raft_distributed PROPERTIES EXPORT_NAME distributed)
 
+rapids_find_generate_module(
+  NCCL
+  HEADER_NAMES nccl.h
+  LIBRARY_NAMES nccl
+  BUILD_EXPORT_SET raft-distributed-exports
+  INSTALL_EXPORT_SET raft-distributed-exports
+)
+
 rapids_export_package(BUILD ucx raft-distributed-exports)
 rapids_export_package(INSTALL ucx raft-distributed-exports)
+rapids_export_package(BUILD NCCL raft-distributed-exports)
+rapids_export_package(INSTALL NCCL raft-distributed-exports)
 
-target_link_libraries(raft_distributed INTERFACE ucx::ucp)
+target_link_libraries(raft_distributed INTERFACE ucx::ucp NCCL::NCCL)
 
 # ##################################################################################################
 # * install targets-----------------------------------------------------------
@@ -516,7 +514,7 @@ if(TARGET raft_distance_lib)
     EXPORT raft-distance-lib-exports
   )
   install(
-    DIRECTORY include/raft_distance
+    DIRECTORY include/raft_runtime
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     COMPONENT distance
   )

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/kvp.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
@@ -158,6 +158,8 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   }
 
  protected:
+  raft::handle_t handle;
+  cudaStream_t stream;
   Inputs<DataT> params;
   rmm::device_uvector<DataT> x;
   rmm::device_uvector<DataT> y;
@@ -166,8 +168,6 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   rmm::device_uvector<raft::KeyValuePair<int, DataT>> min;
   rmm::device_uvector<raft::KeyValuePair<int, DataT>> min_ref;
   rmm::device_uvector<char> workspace;
-  raft::handle_t handle;
-  cudaStream_t stream;
 
   virtual void generateGoldenResult()
   {
@@ -208,8 +208,8 @@ struct CompareApproxAbsKVP {
   CompareApproxAbsKVP(T eps_) : eps(eps_) {}
   bool operator()(const KVP& a, const KVP& b) const
   {
-    T diff  = raft::abs(raft::abs(a.value) - raft::abs(b.value));
-    T m     = std::max(raft::abs(a.value), raft::abs(b.value));
+    T diff  = std::abs(std::abs(a.value) - std::abs(b.value));
+    T m     = std::max(std::abs(a.value), std::abs(b.value));
     T ratio = m >= eps ? diff / m : diff;
     return (ratio <= eps);
   }

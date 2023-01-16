@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/itertools.hpp>
 
@@ -95,11 +97,10 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
     auto input_col_major = raft::make_device_matrix_view<const T, IdxT, raft::col_major>(
       data.data(), params.rows, params.cols);
     if (params.do_sqrt) {
-      auto fin_op = [] __device__(const T in) { return raft::mySqrt(in); };
       if (params.rowMajor) {
-        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_ROWS, fin_op);
+        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_ROWS, raft::sqrt_op{});
       } else {
-        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS, fin_op);
+        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS, raft::sqrt_op{});
       }
     } else {
       if (params.rowMajor) {
@@ -171,11 +172,12 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
     auto input_col_major = raft::make_device_matrix_view<const T, IdxT, raft::col_major>(
       data.data(), params.rows, params.cols);
     if (params.do_sqrt) {
-      auto fin_op = [] __device__(const T in) { return raft::mySqrt(in); };
       if (params.rowMajor) {
-        norm(handle, input_row_major, output_view, params.type, Apply::ALONG_COLUMNS, fin_op);
+        norm(
+          handle, input_row_major, output_view, params.type, Apply::ALONG_COLUMNS, raft::sqrt_op{});
       } else {
-        norm(handle, input_col_major, output_view, params.type, Apply::ALONG_COLUMNS, fin_op);
+        norm(
+          handle, input_col_major, output_view, params.type, Apply::ALONG_COLUMNS, raft::sqrt_op{});
       }
     } else {
       if (params.rowMajor) {
