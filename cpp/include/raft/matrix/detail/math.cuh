@@ -87,10 +87,10 @@ void seqRoot(math_t* in,
         if (a < math_t(0)) {
           return math_t(0);
         } else {
-          return sqrt(a * scalar);
+          return raft::sqrt(a * scalar);
         }
       } else {
-        return sqrt(a * scalar);
+        return raft::sqrt(a * scalar);
       }
     },
     stream);

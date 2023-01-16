@@ -32,6 +32,22 @@ TEST(MathHost, Abs)
   ASSERT_TRUE(raft::match(12.34, raft::abs(-12.34), raft::CompareApprox<double>(0.000001)));
 }
 
+TEST(MathHost, Acos)
+{
+  ASSERT_TRUE(
+    raft::match(std::acos(0.123f), raft::acos(0.123f), raft::CompareApprox<float>(0.0001f)));
+  ASSERT_TRUE(
+    raft::match(std::acos(0.123), raft::acos(0.123), raft::CompareApprox<double>(0.000001)));
+}
+
+TEST(MathHost, Asin)
+{
+  ASSERT_TRUE(
+    raft::match(std::asin(0.123f), raft::asin(0.123f), raft::CompareApprox<float>(0.0001f)));
+  ASSERT_TRUE(
+    raft::match(std::asin(0.123), raft::asin(0.123), raft::CompareApprox<double>(0.000001)));
+}
+
 TEST(MathHost, Atanh)
 {
   ASSERT_TRUE(

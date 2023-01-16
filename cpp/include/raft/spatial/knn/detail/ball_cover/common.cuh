@@ -71,7 +71,7 @@ struct EuclideanFunc : public DistFunc<value_t, value_int> {
       sum_sq += diff * diff;
     }
 
-    return sqrt(sum_sq);
+    return raft::sqrt(sum_sq);
   }
 };
 

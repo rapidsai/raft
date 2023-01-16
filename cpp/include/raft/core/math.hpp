@@ -53,6 +53,34 @@ constexpr RAFT_INLINE_FUNCTION auto abs(const T& x)
 /** @} */
 
 /**
+ * Inverse cosine
+ */
+template <typename T>
+constexpr RAFT_INLINE_FUNCTION auto acos(const T& x)
+  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
+{
+#ifdef __CUDA_ARCH__
+  return ::acos(x);
+#else
+  return std::acos(x);
+#endif
+}
+
+/**
+ * Inverse sine
+ */
+template <typename T>
+constexpr RAFT_INLINE_FUNCTION auto asin(const T& x)
+  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
+{
+#ifdef __CUDA_ARCH__
+  return ::asin(x);
+#else
+  return std::asin(x);
+#endif
+}
+
+/**
  * Inverse hyperbolic tangent
  */
 template <typename T>

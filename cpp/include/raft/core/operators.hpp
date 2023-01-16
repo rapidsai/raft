@@ -77,7 +77,7 @@ struct sqrt_op {
   template <typename Type, typename... UnusedArgs>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
-    return std::sqrt(in);
+    return raft::sqrt(in);
   }
 };
 
@@ -93,7 +93,7 @@ struct abs_op {
   template <typename Type, typename... UnusedArgs>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
-    return std::abs(in);
+    return raft::abs(in);
   }
 };
 
@@ -150,7 +150,7 @@ struct pow_op {
   template <typename Type>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
   {
-    return std::pow(a, b);
+    return raft::pow(a, b);
   }
 };
 

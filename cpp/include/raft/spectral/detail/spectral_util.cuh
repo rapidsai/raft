@@ -72,7 +72,7 @@ static __global__ void scale_obs_kernel(index_type_t m, index_type_t n, value_ty
 
   // scale by alpha
   alpha = __shfl_sync(warp_full_mask(), alpha, blockDim.x - 1, blockDim.x);
-  alpha = std::sqrt(alpha);
+  alpha = raft::sqrt(alpha);
   for (j = threadIdx.y + blockIdx.y * blockDim.y; j < n; j += blockDim.y * gridDim.y) {
     for (i = threadIdx.x; i < m; i += blockDim.x) {  // blockDim.x=32
       index      = i + j * m;

@@ -62,6 +62,38 @@ TEST(MathDevice, Abs)
     raft::match(12.34, math_eval(abs_test_op{}, -12.34), raft::CompareApprox<double>(0.000001)));
 }
 
+struct acos_test_op {
+  template <typename Type>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in) const
+  {
+    return raft::acos(in);
+  }
+};
+
+TEST(MathDevice, Acos)
+{
+  ASSERT_TRUE(raft::match(
+    std::acos(0.123f), math_eval(acos_test_op{}, 0.123f), raft::CompareApprox<float>(0.0001f)));
+  ASSERT_TRUE(raft::match(
+    std::acos(0.123), math_eval(acos_test_op{}, 0.123), raft::CompareApprox<double>(0.000001)));
+}
+
+struct asin_test_op {
+  template <typename Type>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in) const
+  {
+    return raft::asin(in);
+  }
+};
+
+TEST(MathDevice, Asin)
+{
+  ASSERT_TRUE(raft::match(
+    std::asin(0.123f), math_eval(asin_test_op{}, 0.123f), raft::CompareApprox<float>(0.0001f)));
+  ASSERT_TRUE(raft::match(
+    std::asin(0.123), math_eval(asin_test_op{}, 0.123), raft::CompareApprox<double>(0.000001)));
+}
+
 struct atanh_test_op {
   template <typename Type>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in) const
