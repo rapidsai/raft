@@ -1314,8 +1314,7 @@ auto build(
                           index.n_lists(),
                           raft::linalg::L2Norm,
                           true,
-                          stream,
-                          raft::sqrt_op());
+                          stream);
     RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle() + index.dim(),
                                     sizeof(float) * index.dim_ext(),
                                     center_norms.data(),

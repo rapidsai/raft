@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -212,12 +212,13 @@ class warp_sort {
    *   device pointer to a contiguous array, unique per-subwarp of size `kWarpWidth`
    *    (length: k <= kWarpWidth * kMaxArrLen).
    */
-  __device__ void store(T* out, IdxT* out_idx) const
+  template <typename Lambda = raft::identity_op>
+  __device__ void store(T* out, IdxT* out_idx, Lambda post_process = raft::identity_op()) const
   {
     int idx = Pow2<kWarpWidth>::mod(laneId());
 #pragma unroll kMaxArrLen
     for (int i = 0; i < kMaxArrLen && idx < k; i++, idx += kWarpWidth) {
-      out[idx]     = val_arr_[i];
+      out[idx]     = post_process(val_arr_[i]);
       out_idx[idx] = idx_arr_[i];
     }
   }
@@ -591,9 +592,10 @@ class block_sort {
   }
 
   /** Save the content by the pointer location. */
-  __device__ void store(T* out, IdxT* out_idx) const
+  template <typename Lambda = raft::identity_op>
+  __device__ void store(T* out, IdxT* out_idx, Lambda post_process = raft::identity_op()) const
   {
-    if (threadIdx.x < subwarp_align::Value) { queue_.store(out, out_idx); }
+    if (threadIdx.x < subwarp_align::Value) { queue_.store(out, out_idx, post_process); }
   }
 
  private:
