@@ -40,6 +40,14 @@ struct identity_op {
   }
 };
 
+struct void_op {
+  template <typename... UnusedArgs>
+  constexpr RAFT_INLINE_FUNCTION void operator()(UnusedArgs...) const
+  {
+    return;
+  }
+};
+
 template <typename OutT>
 struct cast_op {
   template <typename InT, typename... UnusedArgs>
