@@ -192,6 +192,19 @@ void fit_predict(handle_t const& handle,
  * hierarchical algorithm once to build the mesoclusters and once per mesocluster to build the fine
  * clusters.
  *
+ * @code{.cpp}
+ *   #include <raft/core/handle.hpp>
+ *   #include <raft/cluster/kmeans_balanced.cuh>
+ *   #include <raft/cluster/kmeans_balanced_types.hpp>
+ *   ...
+ *   raft::handle_t handle;
+ *   raft::cluster::kmeans_balanced_params params;
+ *   auto centroids = raft::make_device_matrix<float, int>(handle, n_clusters, n_features);
+ *   auto labels = raft::make_device_vector<int, int>(handle, n_samples);
+ *   auto sizes = raft::make_device_vector<int, int>(handle, n_clusters);
+ *   raft::cluster::kmeans_balanced::build_clusters(handle, params, X, centroids, labels, sizes);
+ * @endcode
+ *
  * @tparam DataT Type of the input data.
  * @tparam MathT Type of the centroids and mapped data.
  * @tparam IndexT Type used for indexing.
@@ -262,6 +275,17 @@ void build_clusters(handle_t const& handle,
  * center, and the coordinates of the points labeled with i. _This allows calling this function
  * multiple times with different datasets with the same effect as if calling this function once
  * on the combined dataset_.
+ *
+ * @code{.cpp}
+ *   #include <raft/core/handle.hpp>
+ *   #include <raft/cluster/kmeans_balanced.cuh>
+ *   ...
+ *   raft::handle_t handle;
+ *   auto centroids = raft::make_device_matrix<float, int>(handle, n_clusters, n_features);
+ *   auto sizes = raft::make_device_vector<int, int>(handle, n_clusters);
+ *   raft::cluster::kmeans_balanced::calc_centers_and_sizes(
+ *       handle, X, centroids, labels, sizes, true);
+ * @endcode
  *
  * @tparam DataT Type of the input data.
  * @tparam MathT Type of the centroids and mapped data.
