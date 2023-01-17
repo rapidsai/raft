@@ -23,6 +23,7 @@
 #include <utility>
 
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/math.hpp>
 
 namespace raft {
 
