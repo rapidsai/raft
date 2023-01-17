@@ -47,7 +47,7 @@ cdef class DeviceResources:
     --------
 
     Basic usage:
-    >>> from pylibraft.common import Stream, Handle
+    >>> from pylibraft.common import Stream, DeviceResources
     >>> stream = Stream()
     >>> handle = DeviceResources(stream)
     >>>
@@ -139,7 +139,7 @@ cdef class Handle(DeviceResources):
     the header file raft/core/handle.hpp for interface level
     details of this struct
 
-    Note: This API is officiall deprecated in favor of DeviceResources
+    Note: This API is officially deprecated in favor of DeviceResources
     and will be removed in a future release.
 
     Parameters

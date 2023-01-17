@@ -48,6 +48,6 @@ cdef extern from "raft/core/device_resources.hpp" namespace "raft" nogil:
         void sync_stream() except +
 
 cdef class DeviceResources:
-    cdef unique_ptr[handle_t] c_obj
+    cdef unique_ptr[device_resources] c_obj
     cdef shared_ptr[cuda_stream_pool] stream_pool
     cdef int n_streams
