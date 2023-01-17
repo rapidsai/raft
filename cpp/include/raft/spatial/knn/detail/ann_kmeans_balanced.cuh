@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -724,10 +724,11 @@ void build_clusters(const handle_t& handle,
                "the chosen index type cannot represent all indices for the given dataset");
 
   // "randomly initialize labels"
-  auto f = [n_clusters] __device__(LabelT * out, IdxT i) {
-    *out = LabelT(i % static_cast<IdxT>(n_clusters));
-  };
-  linalg::writeOnlyUnaryOp<LabelT, decltype(f), IdxT>(cluster_labels, n_rows, f, stream);
+  auto labels_view = raft::make_device_vector_view<LabelT, IdxT>(cluster_labels, n_rows);
+  linalg::index_unary_op(
+    handle,
+    labels_view,
+    raft::compose_op(raft::cast_op<LabelT>(), raft::mod_const_op<IdxT>(n_clusters)));
 
   // update centers to match the initialized labels.
   calc_centers_and_sizes(handle,

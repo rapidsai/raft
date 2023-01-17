@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/util/input_validation.hpp>
+#include <thrust/tabulate.h>
 
 namespace raft {
 namespace linalg {
@@ -81,7 +82,7 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
  */
 
 /**
- * @brief perform element-wise binary operation on the input arrays
+ * @brief Perform an element-wise unary operation into the output array
  * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
  * @tparam OutType Output Type raft::device_mdspan
@@ -90,7 +91,7 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
  * @param[out] out Output
  * @param[in] op the device-lambda
  * @note Lambda must be a functor with the following signature:
- *       `InType func(const InType& val);`
+ *       `out_value_t func(const in_value_t& val);`
  */
 template <typename InType,
           typename Lambda,
@@ -116,30 +117,58 @@ void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
 }
 
 /**
- * @brief perform element-wise binary operation on the input arrays
- * This function does not read from the input
- * @tparam InType Input Type raft::device_mdspan
+ * @brief Perform an element-wise unary operation on the input index into the output array
+ *
+ * To be deprecated. Please use the index_unary_op instead.
+ *
+ * @tparam OutType Output Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
  * @param[in] handle raft::handle_t
- * @param[inout] in Input/Output
+ * @param[out] out Output
  * @param[in] op the device-lambda
  * @note Lambda must be a functor with the following signature:
- *       `InType func(const InType& val);`
+ *       `void func(out_value_t* out_location, index_t idx);`
  */
-template <typename InType, typename Lambda, typename = raft::enable_if_output_device_mdspan<InType>>
-void write_only_unary_op(const raft::handle_t& handle, InType in, Lambda op)
+template <typename OutType,
+          typename Lambda,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
+void write_only_unary_op(const raft::handle_t& handle, OutType out, Lambda op)
 {
-  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
 
-  using in_value_t = typename InType::value_type;
+  using out_value_t = typename OutType::value_type;
 
-  if (in.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    writeOnlyUnaryOp<in_value_t, Lambda, std::uint32_t>(
-      in.data_handle(), in.size(), op, handle.get_stream());
+  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
+    writeOnlyUnaryOp<out_value_t, Lambda, std::uint32_t>(
+      out.data_handle(), out.size(), op, handle.get_stream());
   } else {
-    writeOnlyUnaryOp<in_value_t, Lambda, std::uint64_t>(
-      in.data_handle(), in.size(), op, handle.get_stream());
+    writeOnlyUnaryOp<out_value_t, Lambda, std::uint64_t>(
+      out.data_handle(), out.size(), op, handle.get_stream());
   }
+}
+
+/**
+ * @brief Perform an element-wise unary operation on the input index into the output array
+ *
+ * @tparam OutType Output mdspan type
+ * @tparam Lambda  The unary operation type
+ * @param[in]  handle The raft handle
+ * @param[out] out    Output array
+ * @param[in]  op     The unary operation
+ * @note Lambda must be a functor with the following signature:
+ *       `OutT func(const IdxT& idx);`
+ */
+template <typename OutType,
+          typename Lambda,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
+void index_unary_op(const raft::handle_t& handle, OutType out, Lambda op)
+{
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+
+  using out_value_t = typename OutType::value_type;
+
+  thrust::tabulate(
+    handle.get_thrust_policy(), out.data_handle(), out.data_handle() + out.size(), op);
 }
 
 /** @} */  // end of group unary_op

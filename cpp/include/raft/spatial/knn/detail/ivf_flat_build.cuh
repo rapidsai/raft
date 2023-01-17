@@ -338,23 +338,25 @@ inline void fill_refinement_index(const handle_t& handle,
     "ivf_flat::fill_refinement_index(%zu, %u)", size_t(n_queries));
 
   rmm::device_uvector<LabelT> new_labels(n_queries * n_candidates, stream);
-  linalg::writeOnlyUnaryOp(
-    new_labels.data(),
-    n_queries * n_candidates,
-    [n_candidates] __device__(LabelT * out, uint32_t i) { *out = i / n_candidates; },
-    stream);
+  auto new_labels_view =
+    raft::make_device_vector_view<LabelT, IdxT>(new_labels.data(), n_queries * n_candidates);
+  linalg::index_unary_op(
+    handle,
+    new_labels_view,
+    raft::compose_op(raft::cast_op<LabelT>(), raft::div_const_op<IdxT>(n_candidates)));
 
   auto list_sizes_ptr   = refinement_index->list_sizes().data_handle();
   auto list_offsets_ptr = refinement_index->list_offsets().data_handle();
   // We do not fill centers and center norms, since we will not run coarse search.
 
   // Calculate new offsets
-  uint32_t n_roundup = Pow2<kIndexGroupSize>::roundUp(n_candidates);
-  linalg::writeOnlyUnaryOp(
-    refinement_index->list_offsets().data_handle(),
-    refinement_index->list_offsets().size(),
-    [n_roundup] __device__(IdxT * out, uint32_t i) { *out = i * n_roundup; },
-    stream);
+  uint32_t n_roundup     = Pow2<kIndexGroupSize>::roundUp(n_candidates);
+  auto list_offsets_view = raft::make_device_vector_view<IdxT, IdxT>(
+    list_offsets_ptr, refinement_index->list_offsets().size());
+  linalg::index_unary_op(
+    handle,
+    list_offsets_view,
+    raft::compose_op(raft::cast_op<IdxT>(), raft::mul_const_op<IdxT>(n_roundup)));
 
   IdxT index_size = n_roundup * n_lists;
   refinement_index->allocate(handle, index_size);
