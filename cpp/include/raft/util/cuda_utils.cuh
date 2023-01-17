@@ -260,14 +260,14 @@ DI double myAtomicMax(double* address, double val)
 template <typename T>
 HDI T myMax(T x, T y);
 template <>
-[[deprecated("use raft::max from raft/core/math.hpp instead")]]
-HDI float myMax<float>(float x, float y)
+[[deprecated("use raft::max from raft/core/math.hpp instead")]] HDI float myMax<float>(float x,
+                                                                                       float y)
 {
   return fmaxf(x, y);
 }
 template <>
-[[deprecated("use raft::max from raft/core/math.hpp instead")]]
-HDI double myMax<double>(double x, double y)
+[[deprecated("use raft::max from raft/core/math.hpp instead")]] HDI double myMax<double>(double x,
+                                                                                         double y)
 {
   return fmax(x, y);
 }
@@ -280,14 +280,14 @@ HDI double myMax<double>(double x, double y)
 template <typename T>
 HDI T myMin(T x, T y);
 template <>
-[[deprecated("use raft::min from raft/core/math.hpp instead")]]
-HDI float myMin<float>(float x, float y)
+[[deprecated("use raft::min from raft/core/math.hpp instead")]] HDI float myMin<float>(float x,
+                                                                                       float y)
 {
   return fminf(x, y);
 }
 template <>
-[[deprecated("use raft::min from raft/core/math.hpp instead")]]
-HDI double myMin<double>(double x, double y)
+[[deprecated("use raft::min from raft/core/math.hpp instead")]] HDI double myMin<double>(double x,
+                                                                                         double y)
 {
   return fmin(x, y);
 }
@@ -328,14 +328,12 @@ DI T myAtomicMax(T* address, T val)
 template <typename T>
 HDI T myExp(T x);
 template <>
-[[deprecated("use raft::exp from raft/core/math.hpp instead")]]
-HDI float myExp(float x)
+[[deprecated("use raft::exp from raft/core/math.hpp instead")]] HDI float myExp(float x)
 {
   return expf(x);
 }
 template <>
-[[deprecated("use raft::exp from raft/core/math.hpp instead")]]
-HDI double myExp(double x)
+[[deprecated("use raft::exp from raft/core/math.hpp instead")]] HDI double myExp(double x)
 {
   return ::exp(x);
 }
@@ -366,14 +364,12 @@ inline __device__ double myInf<double>()
 template <typename T>
 HDI T myLog(T x);
 template <>
-[[deprecated("use raft::log from raft/core/math.hpp instead")]]
-HDI float myLog(float x)
+[[deprecated("use raft::log from raft/core/math.hpp instead")]] HDI float myLog(float x)
 {
   return logf(x);
 }
 template <>
-[[deprecated("use raft::log from raft/core/math.hpp instead")]]
-HDI double myLog(double x)
+[[deprecated("use raft::log from raft/core/math.hpp instead")]] HDI double myLog(double x)
 {
   return ::log(x);
 }
@@ -386,14 +382,12 @@ HDI double myLog(double x)
 template <typename T>
 HDI T mySqrt(T x);
 template <>
-[[deprecated("use raft::sqrt from raft/core/math.hpp instead")]]
-HDI float mySqrt(float x)
+[[deprecated("use raft::sqrt from raft/core/math.hpp instead")]] HDI float mySqrt(float x)
 {
   return sqrtf(x);
 }
 template <>
-[[deprecated("use raft::sqrt from raft/core/math.hpp instead")]]
-HDI double mySqrt(double x)
+[[deprecated("use raft::sqrt from raft/core/math.hpp instead")]] HDI double mySqrt(double x)
 {
   return ::sqrt(x);
 }
@@ -406,14 +400,16 @@ HDI double mySqrt(double x)
 template <typename T>
 DI void mySinCos(T x, T& s, T& c);
 template <>
-[[deprecated("use raft::sincos from raft/core/math.hpp instead")]]
-DI void mySinCos(float x, float& s, float& c)
+[[deprecated("use raft::sincos from raft/core/math.hpp instead")]] DI void mySinCos(float x,
+                                                                                    float& s,
+                                                                                    float& c)
 {
   sincosf(x, &s, &c);
 }
 template <>
-[[deprecated("use raft::sincos from raft/core/math.hpp instead")]]
-DI void mySinCos(double x, double& s, double& c)
+[[deprecated("use raft::sincos from raft/core/math.hpp instead")]] DI void mySinCos(double x,
+                                                                                    double& s,
+                                                                                    double& c)
 {
   ::sincos(x, &s, &c);
 }
@@ -426,14 +422,12 @@ DI void mySinCos(double x, double& s, double& c)
 template <typename T>
 DI T mySin(T x);
 template <>
-[[deprecated("use raft::sin from raft/core/math.hpp instead")]]
-DI float mySin(float x)
+[[deprecated("use raft::sin from raft/core/math.hpp instead")]] DI float mySin(float x)
 {
   return sinf(x);
 }
 template <>
-[[deprecated("use raft::sin from raft/core/math.hpp instead")]]
-DI double mySin(double x)
+[[deprecated("use raft::sin from raft/core/math.hpp instead")]] DI double mySin(double x)
 {
   return ::sin(x);
 }
@@ -449,14 +443,12 @@ DI T myAbs(T x)
   return x < 0 ? -x : x;
 }
 template <>
-[[deprecated("use raft::abs from raft/core/math.hpp instead")]]
-DI float myAbs(float x)
+[[deprecated("use raft::abs from raft/core/math.hpp instead")]] DI float myAbs(float x)
 {
   return fabsf(x);
 }
 template <>
-[[deprecated("use raft::abs from raft/core/math.hpp instead")]]
-DI double myAbs(double x)
+[[deprecated("use raft::abs from raft/core/math.hpp instead")]] DI double myAbs(double x)
 {
   return fabs(x);
 }
@@ -469,14 +461,14 @@ DI double myAbs(double x)
 template <typename T>
 HDI T myPow(T x, T power);
 template <>
-[[deprecated("use raft::pow from raft/core/math.hpp instead")]]
-HDI float myPow(float x, float power)
+[[deprecated("use raft::pow from raft/core/math.hpp instead")]] HDI float myPow(float x,
+                                                                                float power)
 {
   return powf(x, power);
 }
 template <>
-[[deprecated("use raft::pow from raft/core/math.hpp instead")]]
-HDI double myPow(double x, double power)
+[[deprecated("use raft::pow from raft/core/math.hpp instead")]] HDI double myPow(double x,
+                                                                                 double power)
 {
   return ::pow(x, power);
 }
@@ -489,14 +481,12 @@ HDI double myPow(double x, double power)
 template <typename T>
 HDI T myTanh(T x);
 template <>
-[[deprecated("use raft::tanh from raft/core/math.hpp instead")]]
-HDI float myTanh(float x)
+[[deprecated("use raft::tanh from raft/core/math.hpp instead")]] HDI float myTanh(float x)
 {
   return tanhf(x);
 }
 template <>
-[[deprecated("use raft::tanh from raft/core/math.hpp instead")]]
-HDI double myTanh(double x)
+[[deprecated("use raft::tanh from raft/core/math.hpp instead")]] HDI double myTanh(double x)
 {
   return ::tanh(x);
 }
@@ -509,14 +499,12 @@ HDI double myTanh(double x)
 template <typename T>
 HDI T myATanh(T x);
 template <>
-[[deprecated("use raft::atanh from raft/core/math.hpp instead")]]
-HDI float myATanh(float x)
+[[deprecated("use raft::atanh from raft/core/math.hpp instead")]] HDI float myATanh(float x)
 {
   return atanhf(x);
 }
 template <>
-[[deprecated("use raft::atanh from raft/core/math.hpp instead")]]
-HDI double myATanh(double x)
+[[deprecated("use raft::atanh from raft/core/math.hpp instead")]] HDI double myATanh(double x)
 {
   return ::atanh(x);
 }
