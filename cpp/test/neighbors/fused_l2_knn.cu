@@ -127,22 +127,29 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
  protected:
   void testBruteForce()
   {
+    // calculate the naive knn, by calculating the full pairwise distances and doing a k-select
+    rmm::device_uvector<T> temp_distances(num_db_vecs * num_queries, stream_);
+    distance::pairwise_distance(
+      handle_,
+      raft::make_device_matrix_view<T, int64_t>(search_queries.data(), num_queries, dim),
+      raft::make_device_matrix_view<T, int64_t>(database.data(), num_db_vecs, dim),
+      raft::make_device_matrix_view<T, int64_t>(temp_distances.data(), num_queries, num_db_vecs),
+      metric);
+
+    spatial::knn::select_k<int64_t, T>(temp_distances.data(),
+                                       nullptr,
+                                       num_queries,
+                                       num_db_vecs,
+                                       ref_distances_.data(),
+                                       ref_indices_.data(),
+                                       true,
+                                       k_,
+                                       stream_);
+
     auto index_view =
       raft::make_device_matrix_view<const T, int64_t>(database.data(), num_db_vecs, dim);
     auto query_view =
       raft::make_device_matrix_view<const T, int64_t>(search_queries.data(), num_queries, dim);
-
-    std::vector<raft::device_matrix_view<const T, int64_t>> index{index_view};
-
-    raft::neighbors::brute_force::knn(
-      handle_,
-      index,
-      query_view,
-      raft::make_device_matrix_view<int64_t, int64_t>(ref_indices_.data(), num_queries, k_),
-      raft::make_device_matrix_view<T, int64_t>(ref_distances_.data(), num_queries, k_),
-      k_,
-      distance::DistanceType::L2Unexpanded);
-
     auto out_indices_view =
       raft::make_device_matrix_view<int64_t, int64_t>(raft_indices_.data(), num_queries, k_);
     auto out_dists_view =
@@ -201,7 +208,6 @@ const std::vector<FusedL2KNNInputs> inputs = {
   {1000, 10000, 16, 50, raft::distance::DistanceType::L2Expanded},
   {1000, 10000, 32, 50, raft::distance::DistanceType::L2Expanded},
   {10000, 40000, 32, 30, raft::distance::DistanceType::L2Expanded},
-  {131072, 131072, 8, 60, raft::distance::DistanceType::L2Expanded},
   // L2 unexpanded
   {100, 1000, 16, 10, raft::distance::DistanceType::L2Unexpanded},
   {1000, 10000, 16, 10, raft::distance::DistanceType::L2Unexpanded},
@@ -210,7 +216,7 @@ const std::vector<FusedL2KNNInputs> inputs = {
   {1000, 10000, 16, 50, raft::distance::DistanceType::L2Unexpanded},
   {1000, 10000, 32, 50, raft::distance::DistanceType::L2Unexpanded},
   {10000, 40000, 32, 30, raft::distance::DistanceType::L2Unexpanded},
-  {131072, 131072, 8, 60, raft::distance::DistanceType::L2Unexpanded}};
+};
 
 typedef FusedL2KNNTest<float> FusedL2KNNTestF;
 TEST_P(FusedL2KNNTestF, FusedBruteForce) { this->testBruteForce(); }
