@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -974,7 +974,9 @@ void build_hierarchical(const handle_t& handle,
   rmm::mr::device_memory_resource* device_memory = nullptr;
   IdxT max_minibatch_size =
     calc_minibatch_size(n_clusters, n_rows, dim, metric, std::is_same_v<T, float>);
-  auto pool_guard = raft::get_pool_memory_resource(device_memory, max_minibatch_size * dim * 4);
+  auto pool_guard = raft::get_pool_memory_resource(
+    device_memory,
+    std::min<size_t>(size_t(dim * 4) * max_minibatch_size, 1000lu * 1000lu * 1000lu));
   if (pool_guard) {
     RAFT_LOG_DEBUG(
       "kmeans::build_hierarchical: using pool memory resource with initial size %zu bytes",
