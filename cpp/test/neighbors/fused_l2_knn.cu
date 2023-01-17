@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,10 @@
 
 #include "../test_utils.cuh"
 
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/StandardGpuResources.h>
-
 #include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/rng.cuh>
-#include <raft/spatial/knn/detail/common_faiss.h>
 #include <raft/spatial/knn/knn.cuh>
 
 #if defined RAFT_NN_COMPILED
@@ -112,8 +108,8 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
       search_queries(params_.num_queries * params_.dim, stream_),
       raft_indices_(params_.num_queries * params_.k, stream_),
       raft_distances_(params_.num_queries * params_.k, stream_),
-      faiss_indices_(params_.num_queries * params_.k, stream_),
-      faiss_distances_(params_.num_queries * params_.k, stream_)
+      ref_indices_(params_.num_queries * params_.k, stream_),
+      ref_distances_(params_.num_queries * params_.k, stream_)
   {
     RAFT_CUDA_TRY(cudaMemsetAsync(database.data(), 0, database.size() * sizeof(T), stream_));
     RAFT_CUDA_TRY(
@@ -123,20 +119,30 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
     RAFT_CUDA_TRY(
       cudaMemsetAsync(raft_distances_.data(), 0, raft_distances_.size() * sizeof(T), stream_));
     RAFT_CUDA_TRY(
-      cudaMemsetAsync(faiss_indices_.data(), 0, faiss_indices_.size() * sizeof(int64_t), stream_));
+      cudaMemsetAsync(ref_indices_.data(), 0, ref_indices_.size() * sizeof(int64_t), stream_));
     RAFT_CUDA_TRY(
-      cudaMemsetAsync(faiss_distances_.data(), 0, faiss_distances_.size() * sizeof(T), stream_));
+      cudaMemsetAsync(ref_distances_.data(), 0, ref_distances_.size() * sizeof(T), stream_));
   }
 
  protected:
   void testBruteForce()
   {
-    launchFaissBfknn();
-
     auto index_view =
       raft::make_device_matrix_view<const T, int64_t>(database.data(), num_db_vecs, dim);
     auto query_view =
       raft::make_device_matrix_view<const T, int64_t>(search_queries.data(), num_queries, dim);
+
+    std::vector<raft::device_matrix_view<const T, int64_t>> index{index_view};
+
+    raft::neighbors::brute_force::knn(
+      handle_,
+      index,
+      query_view,
+      raft::make_device_matrix_view<int64_t, int64_t>(ref_indices_.data(), num_queries, k_),
+      raft::make_device_matrix_view<T, int64_t>(ref_distances_.data(), num_queries, k_),
+      k_,
+      distance::DistanceType::L2Unexpanded);
+
     auto out_indices_view =
       raft::make_device_matrix_view<int64_t, int64_t>(raft_indices_.data(), num_queries, k_);
     auto out_dists_view =
@@ -145,14 +151,14 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
       handle_, index_view, query_view, out_indices_view, out_dists_view, metric);
 
     // verify.
-    devArrMatchKnnPair(faiss_indices_.data(),
-                       raft_indices_.data(),
-                       faiss_distances_.data(),
-                       raft_distances_.data(),
-                       num_queries,
-                       k_,
-                       float(0.001),
-                       stream_);
+    ASSERT_TRUE(devArrMatchKnnPair(ref_indices_.data(),
+                                   raft_indices_.data(),
+                                   ref_distances_.data(),
+                                   raft_distances_.data(),
+                                   num_queries,
+                                   k_,
+                                   float(0.001),
+                                   stream_));
   }
 
   void SetUp() override
@@ -169,34 +175,6 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
     uniform(handle_, r, search_queries.data(), num_queries * dim, T(-1.0), T(1.0));
   }
 
-  void launchFaissBfknn()
-  {
-    faiss::MetricType m = detail::build_faiss_metric(metric);
-
-    faiss::gpu::StandardGpuResources gpu_res;
-
-    gpu_res.noTempMemory();
-    int device;
-    RAFT_CUDA_TRY(cudaGetDevice(&device));
-    gpu_res.setDefaultStream(device, stream_);
-
-    faiss::gpu::GpuDistanceParams args;
-    args.metric          = m;
-    args.metricArg       = 0;
-    args.k               = k_;
-    args.dims            = dim;
-    args.vectors         = database.data();
-    args.vectorsRowMajor = true;
-    args.numVectors      = num_db_vecs;
-    args.queries         = search_queries.data();
-    args.queriesRowMajor = true;
-    args.numQueries      = num_queries;
-    args.outDistances    = faiss_distances_.data();
-    args.outIndices      = faiss_indices_.data();
-
-    bfKnn(&gpu_res, args);
-  }
-
  private:
   raft::handle_t handle_;
   cudaStream_t stream_ = 0;
@@ -208,8 +186,8 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
   rmm::device_uvector<T> search_queries;
   rmm::device_uvector<int64_t> raft_indices_;
   rmm::device_uvector<T> raft_distances_;
-  rmm::device_uvector<int64_t> faiss_indices_;
-  rmm::device_uvector<T> faiss_distances_;
+  rmm::device_uvector<int64_t> ref_indices_;
+  rmm::device_uvector<T> ref_distances_;
   int k_;
   raft::distance::DistanceType metric;
 };
