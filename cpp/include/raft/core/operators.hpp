@@ -155,8 +155,8 @@ struct pow_op {
 };
 
 struct mod_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
   {
     return a % b;
   }
