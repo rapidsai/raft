@@ -177,7 +177,7 @@ void select_clusters(const handle_t& handle,
     default: RAFT_FAIL("Unsupported distance type %d.", int(metric));
   }
   auto float_queries_view =
-    raft::make_device_vector_view<float, IdxT>(float_queries, dim_ext * n_queries);
+    raft::make_device_vector_view<float, uint32_t>(float_queries, dim_ext * n_queries);
   linalg::index_unary_op(
     handle, float_queries_view, [queries, dim, dim_ext, norm_factor] __device__(uint32_t ix) {
       uint32_t col = ix % dim_ext;
