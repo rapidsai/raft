@@ -1133,8 +1133,7 @@ void search_impl(const handle_t& handle,
                             static_cast<IdxT>(n_queries),
                             raft::linalg::L2Norm,
                             true,
-                            stream,
-                            raft::sqrt_op());
+                            stream);
       utils::outer_add(query_norm_dev.data(),
                        (IdxT)n_queries,
                        index.center_norms()->data_handle(),
