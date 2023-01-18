@@ -156,20 +156,18 @@ struct pow_op {
 };
 
 struct min_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  template <typename... Args>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
   {
-    if (a > b) { return b; }
-    return a;
+    return raft::min(std::forward<Args>(args)...);
   }
 };
 
 struct max_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  template <typename... Args>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
   {
-    if (b > a) { return b; }
-    return a;
+    return raft::max(std::forward<Args>(args)...);
   }
 };
 
