@@ -144,7 +144,8 @@ auto make_host_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType
 
   static_assert(std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
                 std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value);
-  assert(ptr == alignTo(ptr, detail::alignment::value));
+  assert(reinterpret_cast<std::uintptr_t>(ptr)
+         == std::experimental::details::alignTo(reinterpret_cast<std::uintptr_t>(ptr), detail::alignment::value));
   data_handle_type aligned_pointer = ptr;
 
   matrix_extent<IndexType> extents{n_rows, n_cols};
