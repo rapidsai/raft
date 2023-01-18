@@ -39,6 +39,7 @@ void generate_labels(IdxT* labels,
                      raft::random::RngState& r,
                      cudaStream_t stream)
 {
+  raft::handle_t handle(stream);
   IdxT a, b;
   raft::random::affine_transform_params(r, n_clusters, a, b);
   auto op = [=] __device__(IdxT idx) {
