@@ -56,6 +56,13 @@ void approx_knn_build_index(const handle_t& handle,
 
   if constexpr (std::is_same_v<T, float>) {
     index->metric_processor = create_processor<float>(metric, n, D, 0, false, stream);
+    // For cosine/correlation distance, the metric processor translates distance
+    // to inner product via pre/post processing - pass the translated metric to
+    // ANN index
+    if (metric == raft::distance::DistanceType::CosineExpanded ||
+        metric == raft::distance::DistanceType::CorrelationExpanded) {
+      metric = index->metric = raft::distance::DistanceType::InnerProduct;
+    }
   }
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->preprocess(index_array); }
 
