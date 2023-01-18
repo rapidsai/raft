@@ -796,7 +796,8 @@ struct MatrixLinewiseOp {
                   "layout for in and out must be either padded row or col major");
 
     // also statically assert padded matrix alignment == 2^i*VecBytes
-    RAFT_EXPECTS(raft::Pow2<VecBytes>::areSameAlignOffsets(in.data_handle(), out.data_handle()));
+    RAFT_EXPECTS(raft::Pow2<VecBytes>::areSameAlignOffsets(in.data_handle(), out.data_handle()),
+                 "The matrix views in and out does not have correct alignment");
 
     if (alongLines)
       return matrixLinewiseVecRowsSpan<Type,
