@@ -57,7 +57,6 @@ constexpr RAFT_INLINE_FUNCTION auto abs(const T& x)
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto acos(const T& x)
-  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
 {
 #ifdef __CUDA_ARCH__
   return ::acos(x);
@@ -71,7 +70,6 @@ constexpr RAFT_INLINE_FUNCTION auto acos(const T& x)
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto asin(const T& x)
-  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
 {
 #ifdef __CUDA_ARCH__
   return ::asin(x);
@@ -85,7 +83,6 @@ constexpr RAFT_INLINE_FUNCTION auto asin(const T& x)
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto atanh(const T& x)
-  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
 {
 #ifdef __CUDA_ARCH__
   return ::atanh(x);
@@ -99,7 +96,6 @@ constexpr RAFT_INLINE_FUNCTION auto atanh(const T& x)
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto cos(const T& x)
-  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
 {
 #ifdef __CUDA_ARCH__
   return ::cos(x);
@@ -113,7 +109,6 @@ constexpr RAFT_INLINE_FUNCTION auto cos(const T& x)
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto exp(const T& x)
-  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
 {
 #ifdef __CUDA_ARCH__
   return ::exp(x);
@@ -127,7 +122,6 @@ constexpr RAFT_INLINE_FUNCTION auto exp(const T& x)
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto log(const T& x)
-  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
 {
 #ifdef __CUDA_ARCH__
   return ::log(x);
@@ -181,10 +175,18 @@ constexpr RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y)
 #endif
 }
 
+/** Many-argument overload to avoid verbose nested calls or use with variadic arguments */
 template <typename T1, typename T2, typename... Args>
 constexpr RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y, Args&&... args)
 {
   return raft::max(x, raft::max(y, std::forward<Args>(args)...));
+}
+
+/** One-argument overload for convenience when using with variadic arguments */
+template <typename T>
+constexpr RAFT_INLINE_FUNCTION auto max(const T& x)
+{
+  return x;
 }
 /** @} */
 
@@ -233,10 +235,18 @@ constexpr RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y)
 #endif
 }
 
+/** Many-argument overload to avoid verbose nested calls or use with variadic arguments */
 template <typename T1, typename T2, typename... Args>
 constexpr RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y, Args&&... args)
 {
   return raft::min(x, raft::min(y, std::forward<Args>(args)...));
+}
+
+/** One-argument overload for convenience when using with variadic arguments */
+template <typename T>
+constexpr RAFT_INLINE_FUNCTION auto min(const T& x)
+{
+  return x;
 }
 /** @} */
 
@@ -245,7 +255,6 @@ constexpr RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y, Args&&... args
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto pow(const T& x, const T& y)
-  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
 {
 #ifdef __CUDA_ARCH__
   return ::pow(x, y);
@@ -268,7 +277,6 @@ constexpr RAFT_INLINE_FUNCTION auto sgn(const T val) -> int
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto sin(const T& x)
-  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
 {
 #ifdef __CUDA_ARCH__
   return ::sin(x);
@@ -298,7 +306,6 @@ constexpr RAFT_INLINE_FUNCTION
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto sqrt(const T& x)
-  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
 {
 #ifdef __CUDA_ARCH__
   return ::sqrt(x);
@@ -312,7 +319,6 @@ constexpr RAFT_INLINE_FUNCTION auto sqrt(const T& x)
  */
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto tanh(const T& x)
-  -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>, T>
 {
 #ifdef __CUDA_ARCH__
   return ::tanh(x);
