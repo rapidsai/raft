@@ -76,7 +76,7 @@ struct value_op {
 
 struct sqrt_op {
   template <typename Type, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
+  RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
     return raft::sqrt(in);
   }
@@ -92,7 +92,7 @@ struct nz_op {
 
 struct abs_op {
   template <typename Type, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
+  RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
     return raft::abs(in);
   }
@@ -149,7 +149,7 @@ struct div_checkzero_op {
 
 struct pow_op {
   template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
   {
     return raft::pow(a, b);
   }
@@ -157,7 +157,7 @@ struct pow_op {
 
 struct min_op {
   template <typename... Args>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
+  RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
   {
     return raft::min(std::forward<Args>(args)...);
   }
@@ -165,7 +165,7 @@ struct min_op {
 
 struct max_op {
   template <typename... Args>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
+  RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
   {
     return raft::max(std::forward<Args>(args)...);
   }

@@ -343,7 +343,9 @@ __global__ void __launch_bounds__(MaxOffset, 2)
 template <typename... Types>
 constexpr size_t maxSizeOf()
 {
-  return raft::max(sizeof(Types)...);
+  size_t maxSize = 0;
+  ((maxSize = std::max(maxSize, sizeof(Types))), ...);
+  return maxSize;
 }
 
 /**

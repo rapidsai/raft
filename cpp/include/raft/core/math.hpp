@@ -29,7 +29,7 @@ namespace raft {
  * @{
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto abs(T x)
+RAFT_INLINE_FUNCTION auto abs(T x)
   -> std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T> ||
                         std::is_same_v<int, T> || std::is_same_v<long int, T> ||
                         std::is_same_v<long long int, T>,
@@ -56,7 +56,7 @@ constexpr RAFT_INLINE_FUNCTION auto abs(T x)
  * Inverse cosine
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto acos(T x)
+RAFT_INLINE_FUNCTION auto acos(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::acos(x);
@@ -69,7 +69,7 @@ constexpr RAFT_INLINE_FUNCTION auto acos(T x)
  * Inverse sine
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto asin(T x)
+RAFT_INLINE_FUNCTION auto asin(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::asin(x);
@@ -82,7 +82,7 @@ constexpr RAFT_INLINE_FUNCTION auto asin(T x)
  * Inverse hyperbolic tangent
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto atanh(T x)
+RAFT_INLINE_FUNCTION auto atanh(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::atanh(x);
@@ -95,7 +95,7 @@ constexpr RAFT_INLINE_FUNCTION auto atanh(T x)
  * Cosine
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto cos(T x)
+RAFT_INLINE_FUNCTION auto cos(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::cos(x);
@@ -108,7 +108,7 @@ constexpr RAFT_INLINE_FUNCTION auto cos(T x)
  * Exponential function
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto exp(T x)
+RAFT_INLINE_FUNCTION auto exp(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::exp(x);
@@ -121,7 +121,7 @@ constexpr RAFT_INLINE_FUNCTION auto exp(T x)
  * Natural logarithm
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto log(T x)
+RAFT_INLINE_FUNCTION auto log(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::log(x);
@@ -144,7 +144,7 @@ constexpr RAFT_INLINE_FUNCTION auto log(T x)
  * @{
  */
 template <typename T1, typename T2>
-constexpr RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y)
+RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y)
 {
 #ifdef __CUDA_ARCH__
   // Combinations of types supported by the CUDA Math API
@@ -177,7 +177,7 @@ constexpr RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y)
 
 /** Many-argument overload to avoid verbose nested calls or use with variadic arguments */
 template <typename T1, typename T2, typename... Args>
-constexpr RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y, Args&&... args)
+RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y, Args&&... args)
 {
   return raft::max(x, raft::max(y, std::forward<Args>(args)...));
 }
@@ -204,7 +204,7 @@ constexpr RAFT_INLINE_FUNCTION auto max(const T& x)
  * @{
  */
 template <typename T1, typename T2>
-constexpr RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y)
+RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y)
 {
 #ifdef __CUDA_ARCH__
   // Combinations of types supported by the CUDA Math API
@@ -237,7 +237,7 @@ constexpr RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y)
 
 /** Many-argument overload to avoid verbose nested calls or use with variadic arguments */
 template <typename T1, typename T2, typename... Args>
-constexpr RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y, Args&&... args)
+RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y, Args&&... args)
 {
   return raft::min(x, raft::min(y, std::forward<Args>(args)...));
 }
@@ -254,7 +254,7 @@ constexpr RAFT_INLINE_FUNCTION auto min(const T& x)
  * Power
  */
 template <typename T1, typename T2>
-constexpr RAFT_INLINE_FUNCTION auto pow(T1 x, T2 y)
+RAFT_INLINE_FUNCTION auto pow(T1 x, T2 y)
 {
 #ifdef __CUDA_ARCH__
   return ::pow(x, y);
@@ -267,7 +267,7 @@ constexpr RAFT_INLINE_FUNCTION auto pow(T1 x, T2 y)
  * Sign
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto sgn(T val) -> int
+RAFT_INLINE_FUNCTION auto sgn(T val) -> int
 {
   return (T(0) < val) - (val < T(0));
 }
@@ -276,7 +276,7 @@ constexpr RAFT_INLINE_FUNCTION auto sgn(T val) -> int
  * Sine
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto sin(T x)
+RAFT_INLINE_FUNCTION auto sin(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::sin(x);
@@ -289,9 +289,8 @@ constexpr RAFT_INLINE_FUNCTION auto sin(T x)
  * Sine and cosine
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION
-  std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>>
-  sincos(const T& x, T* s, T* c)
+RAFT_INLINE_FUNCTION std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>> sincos(
+  const T& x, T* s, T* c)
 {
 #ifdef __CUDA_ARCH__
   ::sincos(x, s, c);
@@ -305,7 +304,7 @@ constexpr RAFT_INLINE_FUNCTION
  * Square root
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto sqrt(T x)
+RAFT_INLINE_FUNCTION auto sqrt(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::sqrt(x);
@@ -318,7 +317,7 @@ constexpr RAFT_INLINE_FUNCTION auto sqrt(T x)
  * Hyperbolic tangent
  */
 template <typename T>
-constexpr RAFT_INLINE_FUNCTION auto tanh(T x)
+RAFT_INLINE_FUNCTION auto tanh(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::tanh(x);
