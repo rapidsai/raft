@@ -371,10 +371,11 @@ auto calculate_offsets_and_indices(IdxT n_rows,
 }
 
 template <typename IdxT>
-void transpose_pq_centers(index<IdxT>& index,
-                          const float* pq_centers_source,
-                          rmm::cuda_stream_view stream)
+void transpose_pq_centers(const handle_t& handle,
+                          index<IdxT>& index,
+                          const float* pq_centers_source)
 {
+  auto stream  = handle.get_stream();
   auto extents = index.pq_centers().extents();
   static_assert(extents.rank() == 3);
   auto extents_source =
@@ -461,7 +462,7 @@ void train_per_subset(const handle_t& handle,
                            stream,
                            device_memory);
   }
-  transpose_pq_centers(index, pq_centers_tmp.data(), stream);
+  transpose_pq_centers(handle, index, pq_centers_tmp.data());
 }
 
 template <typename IdxT>
@@ -538,7 +539,7 @@ void train_per_cluster(const handle_t& handle,
       stream,
       device_memory);
   }
-  transpose_pq_centers(index, pq_centers_tmp.data(), stream);
+  transpose_pq_centers(handle, index, pq_centers_tmp.data());
 }
 
 /**
