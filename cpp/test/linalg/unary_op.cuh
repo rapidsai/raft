@@ -29,7 +29,7 @@ __global__ void naiveScaleKernel(OutType* out, const InType* in, InType scalar, 
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * (IdxType)blockDim.x);
   if (idx < len) {
     if (in == nullptr) {
-      // used for testing write_only_unary_op and index_unary_op
+      // used for testing write_only_unary_op
       out[idx] = static_cast<OutType>(scalar * idx);
     } else {
       out[idx] = static_cast<OutType>(scalar * in[idx]);

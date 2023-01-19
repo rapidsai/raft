@@ -30,6 +30,7 @@
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/normalize.cuh>
@@ -725,7 +726,7 @@ void build_clusters(const handle_t& handle,
 
   // "randomly initialize labels"
   auto labels_view = raft::make_device_vector_view<LabelT, IdxT>(cluster_labels, n_rows);
-  linalg::index_unary_op(
+  linalg::map_offset(
     handle,
     labels_view,
     raft::compose_op(raft::cast_op<LabelT>(), raft::mod_const_op<IdxT>(n_clusters)));

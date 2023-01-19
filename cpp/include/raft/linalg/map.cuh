@@ -96,6 +96,27 @@ void map(const raft::handle_t& handle, InType in, OutType out, MapOp map, Args..
   }
 }
 
+/**
+ * @brief Perform an element-wise unary operation on the input offset into the output array
+ * @tparam OutType Output mdspan type
+ * @tparam MapOp   The unary operation type with signature `OutT func(const IdxT& idx);`
+ * @param[in]  handle The raft handle
+ * @param[out] out    Output array
+ * @param[in]  op     The unary operation
+ */
+template <typename OutType,
+          typename MapOp,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
+void map_offset(const raft::handle_t& handle, OutType out, MapOp op)
+{
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+
+  using out_value_t = typename OutType::value_type;
+
+  thrust::tabulate(
+    handle.get_thrust_policy(), out.data_handle(), out.data_handle() + out.size(), op);
+}
+
 /** @} */  // end of map
 
 }  // namespace linalg

@@ -119,7 +119,7 @@ void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
 /**
  * @brief Perform an element-wise unary operation on the input index into the output array
  *
- * To be deprecated. Please use the index_unary_op instead.
+ * To be deprecated. Please use map_offset instead.
  *
  * @tparam OutType Output Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
@@ -145,30 +145,6 @@ void write_only_unary_op(const raft::handle_t& handle, OutType out, Lambda op)
     writeOnlyUnaryOp<out_value_t, Lambda, std::uint64_t>(
       out.data_handle(), out.size(), op, handle.get_stream());
   }
-}
-
-/**
- * @brief Perform an element-wise unary operation on the input index into the output array
- *
- * @tparam OutType Output mdspan type
- * @tparam Lambda  The unary operation type
- * @param[in]  handle The raft handle
- * @param[out] out    Output array
- * @param[in]  op     The unary operation
- * @note Lambda must be a functor with the following signature:
- *       `OutT func(const IdxT& idx);`
- */
-template <typename OutType,
-          typename Lambda,
-          typename = raft::enable_if_output_device_mdspan<OutType>>
-void index_unary_op(const raft::handle_t& handle, OutType out, Lambda op)
-{
-  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
-
-  using out_value_t = typename OutType::value_type;
-
-  thrust::tabulate(
-    handle.get_thrust_policy(), out.data_handle(), out.data_handle() + out.size(), op);
 }
 
 /** @} */  // end of group unary_op

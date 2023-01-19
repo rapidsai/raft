@@ -31,7 +31,9 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/qr.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/histogram.cuh>
@@ -211,7 +213,7 @@ inline void make_rotation_matrix(const handle_t& handle,
     uint32_t stride = n + 1;
     auto rotation_matrix_view =
       raft::make_device_vector_view<float, uint32_t>(rotation_matrix, n * n);
-    linalg::index_unary_op(handle, rotation_matrix_view, [stride] __device__(uint32_t i) {
+    linalg::map_offset(handle, rotation_matrix_view, [stride] __device__(uint32_t i) {
       return static_cast<float>(i % stride == 0u);
     });
   }
@@ -287,7 +289,7 @@ void flat_compute_residuals(
   auto rot_dim = rotation_matrix.extent(0);
   rmm::device_uvector<float> tmp(n_rows * dim, stream, device_memory);
   auto tmp_view = raft::make_device_vector_view<float, IdxT>(tmp.data(), tmp.size());
-  linalg::index_unary_op(handle, tmp_view, [centers, dataset, labels, dim] __device__(size_t i) {
+  linalg::map_offset(handle, tmp_view, [centers, dataset, labels, dim] __device__(size_t i) {
     auto row_ix = i / dim;
     auto el_ix  = i % dim;
     auto label  = labels[row_ix];
@@ -381,7 +383,7 @@ void transpose_pq_centers(const handle_t& handle,
     make_mdspan<const float, uint32_t, row_major, false, true>(pq_centers_source, extents_source);
   auto pq_centers_view = raft::make_device_vector_view<float, IdxT>(
     index.pq_centers().data_handle(), index.pq_centers().size());
-  linalg::index_unary_op(handle, pq_centers_view, [span_source, extents] __device__(size_t i) {
+  linalg::map_offset(handle, pq_centers_view, [span_source, extents] __device__(size_t i) {
     uint32_t ii[3];
     for (int r = 2; r > 0; r--) {
       ii[r] = i % extents.extent(r);
@@ -1213,7 +1215,7 @@ auto build(
       auto p = reinterpret_cast<T*>(dataset_attr.devicePointer);
       auto trainset_view =
         raft::make_device_vector_view<float, IdxT>(trainset.data(), dim * n_rows_train);
-      linalg::index_unary_op(handle, trainset_view, [p, trainset_ratio, dim] __device__(size_t i) {
+      linalg::map_offset(handle, trainset_view, [p, trainset_ratio, dim] __device__(size_t i) {
         auto col = i % dim;
         return utils::mapping<float>{}(p[(i - col) * size_t(trainset_ratio) + col]);
       });

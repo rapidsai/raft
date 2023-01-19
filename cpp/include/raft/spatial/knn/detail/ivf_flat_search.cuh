@@ -29,6 +29,7 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_loads_stores.cuh>
 #include <raft/util/pow2_utils.cuh>

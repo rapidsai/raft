@@ -17,7 +17,7 @@
 #pragma once
 
 #include "permute.cuh"
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/random/rng_device.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -48,7 +48,7 @@ void generate_labels(IdxT* labels,
     return idx;
   };
   auto labels_view = raft::make_device_vector_view<IdxT, IdxT>(labels, n_rows);
-  linalg::index_unary_op(handle, labels_view, op);
+  linalg::map_offset(handle, labels_view, op);
 }
 
 template <typename DataT, typename IdxT>

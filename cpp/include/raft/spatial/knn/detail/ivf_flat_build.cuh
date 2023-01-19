@@ -27,8 +27,8 @@
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/pow2_utils.cuh>
 
@@ -340,7 +340,7 @@ inline void fill_refinement_index(const handle_t& handle,
   rmm::device_uvector<LabelT> new_labels(n_queries * n_candidates, stream);
   auto new_labels_view =
     raft::make_device_vector_view<LabelT, IdxT>(new_labels.data(), n_queries * n_candidates);
-  linalg::index_unary_op(
+  linalg::map_offset(
     handle,
     new_labels_view,
     raft::compose_op(raft::cast_op<LabelT>(), raft::div_const_op<IdxT>(n_candidates)));
@@ -353,10 +353,9 @@ inline void fill_refinement_index(const handle_t& handle,
   uint32_t n_roundup     = Pow2<kIndexGroupSize>::roundUp(n_candidates);
   auto list_offsets_view = raft::make_device_vector_view<IdxT, IdxT>(
     list_offsets_ptr, refinement_index->list_offsets().size());
-  linalg::index_unary_op(
-    handle,
-    list_offsets_view,
-    raft::compose_op(raft::cast_op<IdxT>(), raft::mul_const_op<IdxT>(n_roundup)));
+  linalg::map_offset(handle,
+                     list_offsets_view,
+                     raft::compose_op(raft::cast_op<IdxT>(), raft::mul_const_op<IdxT>(n_roundup)));
 
   IdxT index_size = n_roundup * n_lists;
   refinement_index->allocate(handle, index_size);

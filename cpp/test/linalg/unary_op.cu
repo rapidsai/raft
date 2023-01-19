@@ -96,23 +96,6 @@ class WriteOnlyUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
   }
 };
 
-template <typename OutType, typename IdxType>
-class IndexUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
- protected:
-  void DoTest() override
-  {
-    auto len    = this->params.len;
-    auto scalar = this->params.scalar;
-    naiveScale(this->out_ref.data(), (OutType*)nullptr, scalar, len, this->stream);
-
-    auto out_view = raft::make_device_vector_view(this->out.data(), len);
-    index_unary_op(this->handle,
-                   out_view,
-                   raft::compose_op(raft::cast_op<OutType>(), raft::mul_const_op<OutType>(scalar)));
-    this->handle.sync_stream(this->stream);
-  }
-};
-
 #define UNARY_OP_TEST(test_type, test_name, inputs)                  \
   typedef RAFT_DEPAREN(test_type) test_name;                         \
   TEST_P(test_name, Result)                                          \
@@ -128,13 +111,11 @@ class IndexUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
 const std::vector<UnaryOpInputs<float, int>> inputsf_i32 = {{0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 UNARY_OP_TEST((UnaryOpTest<float, int>), UnaryOpTestF_i32, inputsf_i32);
 UNARY_OP_TEST((WriteOnlyUnaryOpTest<float, int>), WriteOnlyUnaryOpTestF_i32, inputsf_i32);
-UNARY_OP_TEST((IndexUnaryOpTest<float, int>), IndexUnaryOpTestF_i32, inputsf_i32);
 
 const std::vector<UnaryOpInputs<float, size_t>> inputsf_i64 = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 UNARY_OP_TEST((UnaryOpTest<float, size_t>), UnaryOpTestF_i64, inputsf_i64);
 UNARY_OP_TEST((WriteOnlyUnaryOpTest<float, size_t>), WriteOnlyUnaryOpTestF_i64, inputsf_i64);
-UNARY_OP_TEST((IndexUnaryOpTest<float, size_t>), IndexUnaryOpTestF_i64, inputsf_i64);
 
 const std::vector<UnaryOpInputs<float, int, double>> inputsf_i32_d = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
@@ -144,13 +125,11 @@ const std::vector<UnaryOpInputs<double, int>> inputsd_i32 = {
   {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
 UNARY_OP_TEST((UnaryOpTest<double, int>), UnaryOpTestD_i32, inputsd_i32);
 UNARY_OP_TEST((WriteOnlyUnaryOpTest<double, int>), WriteOnlyUnaryOpTestD_i32, inputsd_i32);
-UNARY_OP_TEST((IndexUnaryOpTest<double, int>), IndexUnaryOpTestD_i32, inputsd_i32);
 
 const std::vector<UnaryOpInputs<double, size_t>> inputsd_i64 = {
   {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
 UNARY_OP_TEST((UnaryOpTest<double, size_t>), UnaryOpTestD_i64, inputsd_i64);
 UNARY_OP_TEST((WriteOnlyUnaryOpTest<double, size_t>), WriteOnlyUnaryOpTestD_i64, inputsd_i64);
-UNARY_OP_TEST((IndexUnaryOpTest<double, size_t>), IndexUnaryOpTestD_i64, inputsd_i64);
 
 }  // end namespace linalg
 }  // end namespace raft

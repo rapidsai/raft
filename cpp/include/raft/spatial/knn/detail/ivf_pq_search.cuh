@@ -30,6 +30,8 @@
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/device_loads_stores.cuh>
@@ -178,7 +180,7 @@ void select_clusters(const handle_t& handle,
   }
   auto float_queries_view =
     raft::make_device_vector_view<float, uint32_t>(float_queries, dim_ext * n_queries);
-  linalg::index_unary_op(
+  linalg::map_offset(
     handle, float_queries_view, [queries, dim, dim_ext, norm_factor] __device__(uint32_t ix) {
       uint32_t col = ix % dim_ext;
       uint32_t row = ix / dim_ext;
