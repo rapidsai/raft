@@ -32,6 +32,7 @@ function(ConfigureBench)
     PRIVATE raft::raft
             $<$<BOOL:${ConfigureBench_DIST}>:raft::distance>
             $<$<BOOL:${ConfigureBench_NN}>:raft::nn>
+            GTest::gtest
             benchmark::benchmark
             Threads::Threads
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
