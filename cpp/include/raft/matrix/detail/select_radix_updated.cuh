@@ -369,7 +369,7 @@ __device__ void last_filter(const T* out_buf,
       IdxT pos = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
       out[pos] = value;
       // For one-block version, `out_idx_buf` could be nullptr at pass 0.
-      // And for dynamic version, `out_idx_buf` could be nullptr if `out_buf` is `in`
+      // And for adaptive version, `out_idx_buf` could be nullptr if `out_buf` is `in`
       out_idx[pos] = out_idx_buf ? out_idx_buf[i] : i;
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
@@ -382,7 +382,7 @@ __device__ void last_filter(const T* out_buf,
   }
 }
 
-// used only for dynamic version
+// used only for adaptive version
 template <typename T, typename IdxT, int BitsPerPass>
 __global__ void last_filter_kernel(const T* in,
                                    const IdxT* in_idx,
@@ -475,7 +475,7 @@ __global__ void last_filter_kernel(const T* in,
  * In the implementation, the filtering step is delayed to the next pass so the filtering and
  * histogram computation are fused. In this way, inputs are read once rather than twice.
  */
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool use_dynamic>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool adaptive>
 __global__ void radix_kernel(const T* in,
                              const IdxT* in_idx,
                              const T* in_buf,
@@ -517,7 +517,7 @@ __global__ void radix_kernel(const T* in,
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   constexpr int num_passes  = calc_num_passes<T, BitsPerPass>();
 
-  if constexpr (use_dynamic) {
+  if constexpr (adaptive) {
     // Figure out if the previous pass writes buffer
     if (use_lazy_writing<T>(len, previous_len)) {
       previous_len = len;
@@ -563,7 +563,7 @@ __global__ void radix_kernel(const T* in,
   if (__syncthreads_or(isLastBlock)) {
     if (early_stop) {
       if (threadIdx.x == 0) {
-        // last_filter_kernel from the dynamic version requires setting previous_len
+        // last_filter_kernel from the adaptive version requires setting previous_len
         counter->previous_len = 0;
         counter->len          = 0;
       }
@@ -588,9 +588,9 @@ __global__ void radix_kernel(const T* in,
       counter->filter_cnt = 0;
     }
 
-    // For non-dynamic version, we do the last filtering using the last thread block.
-    // For dynamic version, we'll use a multi-block kernel (last_filter_kernel).
-    if constexpr (!use_dynamic) {
+    // For non-adaptive version, we do the last filtering using the last thread block.
+    // For adaptive version, we'll use a multi-block kernel (last_filter_kernel).
+    if constexpr (!adaptive) {
       if (pass == num_passes - 1) {
         last_filter<T, IdxT, BitsPerPass>(
           out_buf, out_idx_buf, out, out_idx, current_len, k, counter, select_min, pass);
@@ -600,15 +600,15 @@ __global__ void radix_kernel(const T* in,
 }
 
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
-unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool use_dynamic)
+unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool adaptive)
 {
   static_assert(VECTORIZED_READ_SIZE / sizeof(T) >= 1);
 
   int active_blocks;
   RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
     &active_blocks,
-    use_dynamic ? radix_kernel<T, IdxT, BitsPerPass, BlockSize, true>
-                : radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>,
+    adaptive ? radix_kernel<T, IdxT, BitsPerPass, BlockSize, true>
+             : radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>,
     BlockSize,
     0));
   active_blocks *= sm_cnt;
@@ -651,7 +651,7 @@ void radix_topk(const T* in,
                 T* out,
                 IdxT* out_idx,
                 bool select_min,
-                bool use_dynamic,
+                bool adaptive,
                 rmm::cuda_stream_view stream,
                 rmm::mr::device_memory_resource* mr)
 {
@@ -694,7 +694,7 @@ void radix_topk(const T* in,
     RAFT_CUDA_TRY(cudaGetDevice(&dev));
     RAFT_CUDA_TRY(cudaDeviceGetAttribute(&sm_cnt, cudaDevAttrMultiProcessorCount, dev));
   }
-  dim3 blocks(calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt, use_dynamic),
+  dim3 blocks(calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt, adaptive),
               batch_size);
 
   constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
@@ -722,7 +722,7 @@ void radix_topk(const T* in,
       out_idx_buf = idx_buf1.data();
     }
 
-    if (!use_dynamic) {
+    if (!adaptive) {
       radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>
         <<<blocks, BlockSize, 0, stream>>>(in,
                                            in_idx,
@@ -757,7 +757,7 @@ void radix_topk(const T* in,
     }
   }
 
-  if (use_dynamic) {
+  if (adaptive) {
     dim3 blocks((len / (VECTORIZED_READ_SIZE / sizeof(T)) - 1) / BlockSize + 1, batch_size);
     last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(
       in, in_idx, out_buf, out_idx_buf, out, out_idx, len, k, counters.data(), select_min);
@@ -1010,9 +1010,9 @@ void radix_topk_one_block(const T* in,
  *   the payload selected together with `out`.
  * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
- * @param use_dynamic
- *   whether to use the dynamic implementation, which is favorable if the most significant bits of
- *   input data are almost the same. That is, when the value range of input data is narrow.
+ * @param adaptive
+ *   whether to use the adaptive implementation, which is preferable when the most significant bits
+ *   of input data are almost the same. That is, when the value range of input data is narrow.
  * @param stream
  * @param mr an optional memory resource to use across the calls (you can provide a large enough
  *           memory pool here to avoid memory allocations within the call).
@@ -1026,7 +1026,7 @@ void radix_topk_updated(const T* in,
                         T* out,
                         IdxT* out_idx,
                         bool select_min,
-                        bool use_dynamic,
+                        bool adaptive,
                         rmm::cuda_stream_view stream,
                         rmm::mr::device_memory_resource* mr = nullptr)
 {
@@ -1037,7 +1037,7 @@ void radix_topk_updated(const T* in,
       in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
   } else {
     radix_impl::radix_topk<T, IdxT, BitsPerPass, BlockSize>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, use_dynamic, stream, mr);
+      in, in_idx, batch_size, len, k, out, out_idx, select_min, adaptive, stream, mr);
   }
 }
 
