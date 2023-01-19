@@ -34,7 +34,6 @@ namespace raft::spatial::knn::detail::topk {
 namespace radix_impl {
 
 constexpr int VECTORIZED_READ_SIZE = 16;
-constexpr int LAZY_WRITING_FACTOR  = 4;
 
 template <int BitsPerPass>
 __host__ __device__ constexpr int calc_num_buckets()
@@ -72,7 +71,7 @@ __device__ constexpr unsigned calc_mask(int pass)
 }
 
 /**
- * Use cub to twiddle bits - so that we can correctly compare bits of floating-point values as well
+ * Use CUB to twiddle bits - so that we can correctly compare bits of floating-point values as well
  * as of integers.
  */
 template <typename T>
@@ -98,6 +97,16 @@ __device__ int calc_bucket(T x, int start_bit, unsigned mask, bool select_min)
   static_assert(BitsPerPass <= sizeof(int) * 8 - 1,
                 "BitsPerPass is too large that the result type could not be int");
   return (twiddle_in(x, select_min) >> start_bit) & mask;
+}
+
+template <typename T, typename IdxT>
+__device__ bool use_lazy_writing(IdxT original_len, IdxT len)
+{
+  // When using lazy writing, only read `in`(type T).
+  // When not using it, read `in_buf`(T) and `in_idx_buf`(IdxT), and write `out_buf`(T) and
+  // `out_idx_buf`(IdxT).
+  constexpr float ratio = 2 + sizeof(IdxT) * 2.0 / sizeof(T);
+  return len * ratio > original_len;
 }
 
 /**
@@ -166,8 +175,8 @@ struct alignas(128) Counter {
 };
 
 /**
- * Fused filtering of the current phase and building histogram for the next phase
- * (see steps 4-1 in `radix_kernel` description).
+ * Fused filtering of the current pass and building histogram for the next pass
+ * (see steps 4 & 1 in `radix_kernel` description).
  */
 template <typename T, typename IdxT, int BitsPerPass>
 __device__ void filter_and_histogram(const T* in_buf,
@@ -240,11 +249,12 @@ __device__ void filter_and_histogram(const T* in_buf,
           atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
         }
       }
-      // '(out_buf || early_stop)' is a little tricky:
-      // If we skip writing to 'out_buf' (when 'out_buf' is false), we should skip writing to
-      // 'out' too. So we won't write the same value to 'out' multiple times. And if we keep
-      // skipping the writing, values will be written in last_filter_kernel at last.
-      // But when 'early_stop' is true, we need to write to 'out' since it's the last chance.
+      // the condition `(out_buf || early_stop)` is a little tricky:
+      // If we skip writing to `out_buf` (when `out_buf` is false), we should skip writing to
+      // `out` too. So we won't write the same value to `out` multiple times in different passes.
+      // And if we keep skipping the writing, values will be written in `last_filter_kernel` at
+      // last.
+      // But when `early_stop` is true, we need to write to `out` since it's the last chance.
       else if ((out_buf || early_stop) && previous_bits < kth_value_bits) {
         IdxT pos     = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
         out[pos]     = value;
@@ -263,8 +273,7 @@ __device__ void filter_and_histogram(const T* in_buf,
 }
 
 /**
- * Replace a part of the histogram with its own prefix sum, starting from the `start` and adding
- * `current` to each entry of the result.
+ * Replace histogram with its own prefix sum
  * (step 2 in `radix_kernel` description)
  */
 template <typename IdxT, int BitsPerPass, int BlockSize>
@@ -322,10 +331,10 @@ __device__ void choose_bucket(Counter<T, IdxT>* counter,
     IdxT prev = (i == 0) ? 0 : histogram[i - 1];
     IdxT cur  = histogram[i];
 
-    // one and only one thread will satisfy this condition, so only write once
+    // one and only one thread will satisfy this condition, so counter is written by only one thread
     if (prev < k && cur >= k) {
       counter->k   = k - prev;    // how many values still are there to find
-      counter->len = cur - prev;  // number of values in `index` bucket
+      counter->len = cur - prev;  // number of values in next pass
       typename cub::Traits<T>::UnsignedBits bucket = i;
       int start_bit                                = calc_start_bit<T, BitsPerPass>(pass);
       counter->kth_value_bits |= bucket << start_bit;
@@ -334,7 +343,7 @@ __device__ void choose_bucket(Counter<T, IdxT>* counter,
 }
 
 // For one-block version, last_filter() could be called when pass < num_passes - 1.
-// So pass could not be constexpr
+// So `pass` could not be constexpr
 template <typename T, typename IdxT, int BitsPerPass>
 __device__ void last_filter(const T* out_buf,
                             const IdxT* out_idx_buf,
@@ -349,7 +358,7 @@ __device__ void last_filter(const T* out_buf,
   const auto kth_value_bits = counter->kth_value_bits;
   const int start_bit       = calc_start_bit<T, BitsPerPass>(pass);
 
-  // changed in choose_bucket(), need to reload
+  // changed in choose_bucket(); need to reload
   const IdxT needed_num_of_kth = counter->k;
   IdxT* p_out_cnt              = &counter->out_cnt;
   IdxT* p_out_back_cnt         = &counter->out_back_cnt;
@@ -359,9 +368,8 @@ __device__ void last_filter(const T* out_buf,
     if (bits < kth_value_bits) {
       IdxT pos = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
       out[pos] = value;
-      // for one-block version, 'out_idx_buf' could be nullptr at pass 0;
-      // and for dynamic version, 'out_idx_buf' could be nullptr if 'out_buf' is
-      // 'in'
+      // For one-block version, `out_idx_buf` could be nullptr at pass 0.
+      // And for dynamic version, `out_idx_buf` could be nullptr if `out_buf` is `in`
       out_idx[pos] = out_idx_buf ? out_idx_buf[i] : i;
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
@@ -374,6 +382,7 @@ __device__ void last_filter(const T* out_buf,
   }
 }
 
+// used only for dynamic version
 template <typename T, typename IdxT, int BitsPerPass>
 __global__ void last_filter_kernel(const T* in,
                                    const IdxT* in_idx,
@@ -391,7 +400,7 @@ __global__ void last_filter_kernel(const T* in,
   Counter<T, IdxT>* counter = counters + batch_id;
   IdxT previous_len         = counter->previous_len;
   if (previous_len == 0) { return; }
-  if (previous_len > len / LAZY_WRITING_FACTOR) {
+  if (use_lazy_writing<T>(len, previous_len)) {
     in_buf       = in;
     in_idx_buf   = in_idx;
     previous_len = len;
@@ -492,7 +501,7 @@ __global__ void radix_kernel(const T* in,
     previous_len = len;
     // Need to do this so setting counter->previous_len for the next pass is correct.
     // This value is meaningless for pass 0, but it's fine because pass 0 won't be the
-    // last pass in current implementation so pass 0 won't hit the "if (pass ==
+    // last pass in this implementation so pass 0 won't hit the "if (pass ==
     // num_passes - 1)" branch.
     // Maybe it's better to reload counter->previous_len and use it rather than
     // current_len in last_filter()
@@ -510,13 +519,13 @@ __global__ void radix_kernel(const T* in,
 
   if constexpr (use_dynamic) {
     // Figure out if the previous pass writes buffer
-    if (previous_len > len / LAZY_WRITING_FACTOR) {
+    if (use_lazy_writing<T>(len, previous_len)) {
       previous_len = len;
       in_buf       = in;
       in_idx_buf   = in_idx;
     }
     // Figure out if this pass need to write buffer
-    if (current_len > len / LAZY_WRITING_FACTOR) {
+    if (use_lazy_writing<T>(len, current_len)) {
       out_buf     = nullptr;
       out_idx_buf = nullptr;
     }
@@ -554,7 +563,7 @@ __global__ void radix_kernel(const T* in,
   if (__syncthreads_or(isLastBlock)) {
     if (early_stop) {
       if (threadIdx.x == 0) {
-        // last_filter_kernel from dynamic version requires setting previous_len
+        // last_filter_kernel from the dynamic version requires setting previous_len
         counter->previous_len = 0;
         counter->len          = 0;
       }
@@ -579,6 +588,8 @@ __global__ void radix_kernel(const T* in,
       counter->filter_cnt = 0;
     }
 
+    // For non-dynamic version, we do the last filtering using the last thread block.
+    // For dynamic version, we'll use a multi-block kernel (last_filter_kernel).
     if constexpr (!use_dynamic) {
       if (pass == num_passes - 1) {
         last_filter<T, IdxT, BitsPerPass>(
@@ -753,17 +764,20 @@ void radix_topk(const T* in,
   }
 }
 
+// The following a few functions are for the one-block version, which uses single thread block for
+// each row of a batch. It's used when len is relatively small, so intermediate data, like counters
+// and histograms, can be kept in shared memory and cheap sync operations can be used.
 template <typename T, typename IdxT, int BitsPerPass>
-__device__ void filter_and_histogram(const T* in_buf,
-                                     const IdxT* in_idx_buf,
-                                     T* out_buf,
-                                     IdxT* out_idx_buf,
-                                     T* out,
-                                     IdxT* out_idx,
-                                     Counter<T, IdxT>* counter,
-                                     IdxT* histogram,
-                                     bool select_min,
-                                     int pass)
+__device__ void filter_and_histogram_for_one_block(const T* in_buf,
+                                                   const IdxT* in_idx_buf,
+                                                   T* out_buf,
+                                                   IdxT* out_idx_buf,
+                                                   T* out,
+                                                   IdxT* out_idx,
+                                                   Counter<T, IdxT>* counter,
+                                                   IdxT* histogram,
+                                                   bool select_min,
+                                                   int pass)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
@@ -778,7 +792,7 @@ __device__ void filter_and_histogram(const T* in_buf,
   const IdxT previous_len = counter->previous_len;
 
   if (pass == 0) {
-    // Could not use vectorized_process() as in filter_and_histogram because
+    // Could not use vectorized_process() as in filter_and_histogram() because
     // vectorized_process() assumes multi-block, e.g. uses gridDim.x
     for (IdxT i = threadIdx.x; i < previous_len; i += blockDim.x) {
       T value    = in_buf[i];
@@ -876,16 +890,16 @@ __global__ void radix_topk_one_block_kernel(const T* in,
     IdxT current_len = counter.len;
     IdxT current_k   = counter.k;
 
-    filter_and_histogram<T, IdxT, BitsPerPass>(in_buf,
-                                               in_idx_buf,
-                                               out_buf,
-                                               out_idx_buf,
-                                               out,
-                                               out_idx,
-                                               &counter,
-                                               histogram,
-                                               select_min,
-                                               pass);
+    filter_and_histogram_for_one_block<T, IdxT, BitsPerPass>(in_buf,
+                                                             in_idx_buf,
+                                                             out_buf,
+                                                             out_idx_buf,
+                                                             out,
+                                                             out_idx,
+                                                             &counter,
+                                                             histogram,
+                                                             select_min,
+                                                             pass);
     __syncthreads();
 
     scan<IdxT, BitsPerPass, BlockSize>(histogram);
@@ -997,8 +1011,8 @@ void radix_topk_one_block(const T* in,
  * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
  * @param use_dynamic
- *   whether to use the dynamic implementation, which is favorable if the leading bits of input data
- *   are almost the same.
+ *   whether to use the dynamic implementation, which is favorable if the most significant bits of
+ *   input data are almost the same. That is, when the value range of input data is narrow.
  * @param stream
  * @param mr an optional memory resource to use across the calls (you can provide a large enough
  *           memory pool here to avoid memory allocations within the call).
