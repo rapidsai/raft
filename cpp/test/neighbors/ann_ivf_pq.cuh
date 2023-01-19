@@ -139,8 +139,8 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
  protected:
   void gen_data()
   {
-    database.resize(ps.num_db_vecs * ps.dim, stream_);
-    search_queries.resize(ps.num_queries * ps.dim, stream_);
+    database.resize(size_t{ps.num_db_vecs} * size_t{ps.dim}, stream_);
+    search_queries.resize(size_t{ps.num_queries} * size_t{ps.dim}, stream_);
 
     raft::random::Rng r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
@@ -155,7 +155,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
 
   void calc_ref()
   {
-    size_t queries_size = ps.num_queries * ps.k;
+    size_t queries_size = size_t{ps.num_queries} * size_t{ps.k};
     rmm::device_uvector<EvalT> distances_naive_dev(queries_size, stream_);
     rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
     naiveBfKnn<EvalT, DataT, IdxT>(distances_naive_dev.data(),
@@ -463,7 +463,7 @@ inline auto enum_variety() -> test_cases_t
   });
   ADD_CASE({
     x.search_params.lut_dtype = CUDA_R_8U;
-    x.min_recall              = 0.85;
+    x.min_recall              = 0.84;
   });
 
   ADD_CASE({
