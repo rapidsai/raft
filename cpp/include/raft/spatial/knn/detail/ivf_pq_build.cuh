@@ -209,14 +209,11 @@ inline void make_rotation_matrix(const handle_t& handle,
     }
   } else {
     uint32_t stride = n + 1;
-    // The op is equivalent to: [stride] __device__(uint32_t i) { return float(i % stride == 0); };
     auto rotation_matrix_view =
       raft::make_device_vector_view<float, uint32_t>(rotation_matrix, n * n);
-    linalg::index_unary_op(handle,
-                           rotation_matrix_view,
-                           raft::compose_op(raft::cast_op<float>(),
-                                            raft::equal_const_op<uint32_t>(0u),
-                                            raft::mod_const_op<uint32_t>(stride)));
+    linalg::index_unary_op(handle, rotation_matrix_view, [stride] __device__(uint32_t i) {
+      return static_cast<float>(i % stride == 0u);
+    });
   }
 }
 
