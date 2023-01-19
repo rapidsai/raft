@@ -59,16 +59,13 @@ def check_distances(dataset, queries, metric, out_idx, out_dist, eps=None):
         X = queries[np.newaxis, i, :]
         Y = dataset[out_idx[i, :], :]
         if metric == "l2_expanded":
+            dist[i, :] = pairwise_distances(X, Y, "sqeuclidean")
+        elif metric == "euclidean":
             dist[i, :] = pairwise_distances(X, Y, "euclidean")
         elif metric == "inner_product":
             dist[i, :] = np.matmul(X, Y.T)
         else:
             raise ValueError("Invalid metric")
-
-    # Note: raft l2 metric does not include the square root operation like
-    # sklearn's euclidean.
-    if metric == "l2_expanded":
-        dist = np.power(dist, 2)
 
     dist_eps = abs(dist)
     dist_eps[dist < 1e-3] = 1e-3
@@ -179,9 +176,11 @@ def run_ivf_pq_build_search_test(
     out_dist = out_dist_device.copy_to_host()
 
     # Calculate reference values with sklearn
-    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[
-        metric
-    ]
+    skl_metric = {
+        "l2_expanded": "sqeuclidean",
+        "inner_product": "cosine",
+        "euclidean": "euclidean",
+    }[metric]
     nn_skl = NearestNeighbors(
         n_neighbors=k, algorithm="brute", metric=skl_metric
     )
@@ -253,7 +252,9 @@ def test_ivf_pq_n(params):
     )
 
 
-@pytest.mark.parametrize("metric", ["l2_expanded", "inner_product"])
+@pytest.mark.parametrize(
+    "metric", ["l2_expanded", "inner_product", "euclidean"]
+)
 @pytest.mark.parametrize("dtype", [np.float32])
 @pytest.mark.parametrize("codebook_kind", ["subspace", "cluster"])
 @pytest.mark.parametrize("rotation", [True, False])
