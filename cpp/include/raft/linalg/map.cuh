@@ -98,6 +98,19 @@ void map(const raft::handle_t& handle, InType in, OutType out, MapOp map, Args..
 
 /**
  * @brief Perform an element-wise unary operation on the input offset into the output array
+ *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/device_mdarray.hpp>
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/operators.hpp>
+ *  #include <raft/linalg/map.cuh>
+ *  ...
+ *  raft::handle_t handle;
+ *  auto squares = raft::make_device_vector<int>(handle, n);
+ *  raft::linalg::map_offset(handle, squares.view(), raft::sq_op());
+ * @endcode
+ *
  * @tparam OutType Output mdspan type
  * @tparam MapOp   The unary operation type with signature `OutT func(const IdxT& idx);`
  * @param[in]  handle The raft handle
