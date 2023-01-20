@@ -18,6 +18,8 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import warnings
+
 import numpy as np
 
 from cython.operator cimport dereference as deref
@@ -63,17 +65,22 @@ from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
 
 def _get_metric(metric):
     SUPPORTED_DISTANCES = {
-        "l2_expanded": DistanceType.L2Expanded,
+        "sqeuclidean": DistanceType.L2Expanded,
         "euclidean": DistanceType.L2SqrtExpanded,
         "inner_product": DistanceType.InnerProduct
     }
     if metric not in SUPPORTED_DISTANCES:
+        if metric == "l2_expanded":
+            warnings.warn("Using l2_expanded as a metric name is deprecated,"
+                          " use sqeuclidean instead", FutureWarning)
+            return DistanceType.L2Expanded
+
         raise ValueError("metric %s is not supported" % metric)
     return SUPPORTED_DISTANCES[metric]
 
 
 cdef _get_metric_string(DistanceType metric):
-    return {DistanceType.L2Expanded : "l2_expanded",
+    return {DistanceType.L2Expanded : "sqeuclidean",
             DistanceType.InnerProduct: "inner_product",
             DistanceType.L2SqrtExpanded: "euclidean"}[metric]
 
@@ -118,7 +125,7 @@ cdef class IndexParams:
 
     def __init__(self, *,
                  n_lists=1024,
-                 metric="l2_expanded",
+                 metric="sqeuclidean",
                  kmeans_n_iters=20,
                  kmeans_trainset_fraction=0.5,
                  pq_bits=8,
@@ -133,10 +140,10 @@ cdef class IndexParams:
         ----------
         n_list : int, default = 1024
             The number of clusters used in the coarse quantizer.
-        metric : string denoting the metric type, default="l2_expanded"
-            Valid values for metric: ["l2_expanded", "inner_product",
+        metric : string denoting the metric type, default="sqeuclidean"
+            Valid values for metric: ["sqeuclidean", "inner_product",
             "euclidean"], where
-            - l2_expanded is the euclidean distance without the square root
+            - sqeuclidean is the euclidean distance without the square root
               operation, i.e.: distance(a,b) = \\sum_i (a_i - b_i)^2,
             - euclidean is the euclidean distance
             - inner product distance is defined as
@@ -252,7 +259,7 @@ cdef class Index:
         # We create a placeholder object. The actual parameter values do
         # not matter, it will be replaced with a built index object later.
         self.index = new c_ivf_pq.index[uint64_t](
-            deref(handle_), _get_metric("l2_expanded"),
+            deref(handle_), _get_metric("sqeuclidean"),
             c_ivf_pq.codebook_gen.PER_SUBSPACE,
             <uint32_t>1,
             <uint32_t>4,
@@ -348,7 +355,7 @@ def build(IndexParams index_params, dataset, handle=None):
     >>> handle = DeviceResources()
     >>> index_params = ivf_pq.IndexParams(
     ...     n_lists=1024,
-    ...     metric="l2_expanded",
+    ...     metric="sqeuclidean",
     ...     pq_dim=10)
     >>> index = ivf_pq.build(index_params, dataset, handle=handle)
 
