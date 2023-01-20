@@ -107,8 +107,6 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         ivfParams.nprobe = ps.nprobe;
         ivfParams.nlist  = ps.nlist;
         raft::spatial::knn::knnIndex index;
-        index.index   = nullptr;
-        index.gpu_res = nullptr;
 
         approx_knn_build_index(handle_,
                                &index,

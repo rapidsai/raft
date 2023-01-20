@@ -215,7 +215,7 @@ cdef host_matrix_view[int8_t, uint64_t, row_major] \
 @auto_sync_handle
 @auto_convert_output
 def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
-           metric="l2_expanded", handle=None):
+           metric="sqeuclidean", handle=None):
     """
     Refine nearest neighbor search.
 
@@ -271,7 +271,7 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
     >>> handle = DeviceResources()
-    >>> index_params = ivf_pq.IndexParams(n_lists=1024, metric="l2_expanded",
+    >>> index_params = ivf_pq.IndexParams(n_lists=1024, metric="sqeuclidean",
     ...                                   pq_dim=10)
     >>> index = ivf_pq.build(index_params, dataset, handle=handle)
 
