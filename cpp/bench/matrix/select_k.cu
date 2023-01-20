@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+/**
+ * TODO: reconsider how to organize shared test+bench files better
+ *       Related Issue: https://github.com/rapidsai/raft/issues/1153
+ *       (although this header does not depend on any gtest headers)
+ */
 #include "../../test/matrix/select_k.cuh"
 
 #include <common/benchmark.hpp>
