@@ -497,6 +497,9 @@ inline auto enum_variety_ip() -> test_cases_t
         // thus we're forced to used signed 8-bit representation,
         // thus we have one bit less precision
         y.min_recall = y.min_recall.value() * 0.95;
+      } else {
+        // In other cases it seems to perform just a bit worse than L2
+        y.min_recall = y.min_recall.value() * 0.98;
       }
     }
     y.index_params.metric = distance::DistanceType::InnerProduct;
