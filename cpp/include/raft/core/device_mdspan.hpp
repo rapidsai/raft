@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -197,7 +197,9 @@ auto make_device_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexTy
                                                  detail::alignment::value>::data_handle_type;
   static_assert(std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
                 std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value);
-  assert(ptr == alignTo(ptr, detail::alignment::value));
+  assert(reinterpret_cast<std::uintptr_t>(ptr) ==
+         std::experimental::details::alignTo(reinterpret_cast<std::uintptr_t>(ptr),
+                                             detail::alignment::value));
 
   data_handle_type aligned_pointer = ptr;
 
