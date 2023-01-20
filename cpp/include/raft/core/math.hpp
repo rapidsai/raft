@@ -25,7 +25,7 @@
 namespace raft {
 
 /**
- * @defgroup Absolute value
+ * @defgroup Absolute Absolute value
  * @{
  */
 template <typename T>
@@ -53,8 +53,10 @@ constexpr RAFT_INLINE_FUNCTION auto abs(T x)
 /** @} */
 
 /**
- * Inverse cosine
+ * @defgroup Trigonometry Trigonometry functions
+ * @{
  */
+/** Inverse cosine */
 template <typename T>
 RAFT_INLINE_FUNCTION auto acos(T x)
 {
@@ -65,9 +67,7 @@ RAFT_INLINE_FUNCTION auto acos(T x)
 #endif
 }
 
-/**
- * Inverse sine
- */
+/** Inverse sine */
 template <typename T>
 RAFT_INLINE_FUNCTION auto asin(T x)
 {
@@ -78,9 +78,7 @@ RAFT_INLINE_FUNCTION auto asin(T x)
 #endif
 }
 
-/**
- * Inverse hyperbolic tangent
- */
+/** Inverse hyperbolic tangent */
 template <typename T>
 RAFT_INLINE_FUNCTION auto atanh(T x)
 {
@@ -91,9 +89,7 @@ RAFT_INLINE_FUNCTION auto atanh(T x)
 #endif
 }
 
-/**
- * Cosine
- */
+/** Cosine */
 template <typename T>
 RAFT_INLINE_FUNCTION auto cos(T x)
 {
@@ -104,9 +100,47 @@ RAFT_INLINE_FUNCTION auto cos(T x)
 #endif
 }
 
+/** Sine */
+template <typename T>
+RAFT_INLINE_FUNCTION auto sin(T x)
+{
+#ifdef __CUDA_ARCH__
+  return ::sin(x);
+#else
+  return std::sin(x);
+#endif
+}
+
+/** Sine and cosine */
+template <typename T>
+RAFT_INLINE_FUNCTION std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>> sincos(
+  const T& x, T* s, T* c)
+{
+#ifdef __CUDA_ARCH__
+  ::sincos(x, s, c);
+#else
+  *s = std::sin(x);
+  *c = std::cos(x);
+#endif
+}
+
+/** Hyperbolic tangent */
+template <typename T>
+RAFT_INLINE_FUNCTION auto tanh(T x)
+{
+#ifdef __CUDA_ARCH__
+  return ::tanh(x);
+#else
+  return std::tanh(x);
+#endif
+}
+/** @} */
+
 /**
- * Exponential function
+ * @defgroup Exponential Exponential and logarithm
+ * @{
  */
+/** Exponential function */
 template <typename T>
 RAFT_INLINE_FUNCTION auto exp(T x)
 {
@@ -117,9 +151,7 @@ RAFT_INLINE_FUNCTION auto exp(T x)
 #endif
 }
 
-/**
- * Natural logarithm
- */
+/** Natural logarithm */
 template <typename T>
 RAFT_INLINE_FUNCTION auto log(T x)
 {
@@ -129,9 +161,10 @@ RAFT_INLINE_FUNCTION auto log(T x)
   return std::log(x);
 #endif
 }
+/** @} */
 
 /**
- * @defgroup Maximum of two or more values.
+ * @defgroup Maximum Maximum of two or more values.
  *
  * The CUDA Math API has overloads for all combinations of float/double. We provide similar
  * functionality while wrapping around std::max, which only supports arguments of the same type.
@@ -191,7 +224,7 @@ constexpr RAFT_INLINE_FUNCTION auto max(const T& x)
 /** @} */
 
 /**
- * @defgroup Minimum of two or more values.
+ * @defgroup Minimum Minimum of two or more values.
  *
  * The CUDA Math API has overloads for all combinations of float/double. We provide similar
  * functionality while wrapping around std::min, which only supports arguments of the same type.
@@ -251,8 +284,10 @@ constexpr RAFT_INLINE_FUNCTION auto min(const T& x)
 /** @} */
 
 /**
- * Power
+ * @defgroup Power Power and root functions
+ * @{
  */
+/** Power */
 template <typename T1, typename T2>
 RAFT_INLINE_FUNCTION auto pow(T1 x, T2 y)
 {
@@ -263,46 +298,7 @@ RAFT_INLINE_FUNCTION auto pow(T1 x, T2 y)
 #endif
 }
 
-/**
- * Sign
- */
-template <typename T>
-RAFT_INLINE_FUNCTION auto sgn(T val) -> int
-{
-  return (T(0) < val) - (val < T(0));
-}
-
-/**
- * Sine
- */
-template <typename T>
-RAFT_INLINE_FUNCTION auto sin(T x)
-{
-#ifdef __CUDA_ARCH__
-  return ::sin(x);
-#else
-  return std::sin(x);
-#endif
-}
-
-/**
- * Sine and cosine
- */
-template <typename T>
-RAFT_INLINE_FUNCTION std::enable_if_t<std::is_same_v<float, T> || std::is_same_v<double, T>> sincos(
-  const T& x, T* s, T* c)
-{
-#ifdef __CUDA_ARCH__
-  ::sincos(x, s, c);
-#else
-  *s = std::sin(x);
-  *c = std::cos(x);
-#endif
-}
-
-/**
- * Square root
- */
+/** Square root */
 template <typename T>
 RAFT_INLINE_FUNCTION auto sqrt(T x)
 {
@@ -312,18 +308,13 @@ RAFT_INLINE_FUNCTION auto sqrt(T x)
   return std::sqrt(x);
 #endif
 }
+/** @} */
 
-/**
- * Hyperbolic tangent
- */
+/** Sign */
 template <typename T>
-RAFT_INLINE_FUNCTION auto tanh(T x)
+RAFT_INLINE_FUNCTION auto sgn(T val) -> int
 {
-#ifdef __CUDA_ARCH__
-  return ::tanh(x);
-#else
-  return std::tanh(x);
-#endif
+  return (T(0) < val) - (val < T(0));
 }
 
 }  // namespace raft
