@@ -23,7 +23,6 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/util/input_validation.hpp>
-#include <thrust/tabulate.h>
 
 namespace raft {
 namespace linalg {
