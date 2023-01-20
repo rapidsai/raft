@@ -188,9 +188,9 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
 
   void SetUp() override
   {
-    #if CUDART_VERSION >= 11050
+#if CUDART_VERSION >= 11050
     apiTest();
-    #endif
+#endif
     basicTest();
   }
 
