@@ -32,7 +32,7 @@ from .cuda import CudaRuntimeError
 
 
 cdef class DeviceResources:
-    """
+    '''
     DeviceResources is a lightweight python wrapper around the corresponding
     C++ class of device_resources exposed by RAFT's C++ interface. Refer to
     the header file raft/core/device_resources.hpp for interface level
@@ -72,7 +72,7 @@ cdef class DeviceResources:
     >>>
     >>> raft_stream = Stream()
     >>> cupy_stream = cupy.cuda.ExternalStream(raft_stream.get_ptr())
-    """
+    '''
 
     def __cinit__(self, stream=None, n_streams=0):
         self.n_streams = n_streams
@@ -176,6 +176,7 @@ cdef class Handle(DeviceResources):
     >>>
     >>> raft_stream = Stream()
     >>> cupy_stream = cupy.cuda.ExternalStream(raft_stream.get_ptr())
+
     """
     def __getstate__(self):
         return self.n_streams
