@@ -72,6 +72,8 @@ class device_resources : public resources {
    * @param[in] stream_view the default stream (which has the default per-thread stream if
    * unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
+   * @param[in] workspace_resource an optional resource used by some functions for allocating
+   *            temporary workspaces.
    */
   device_resources(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
                    std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr},

@@ -71,8 +71,8 @@ inline void set_comms(resources const& res, std::shared_ptr<comms::comms_t> comm
 {
   res.add_resource_factory(std::make_shared<comms_resource_factory>(communicator));
 }
-}  // namespace raft::resource
 
 /**
  * @}
  */
+}  // namespace raft::resource
