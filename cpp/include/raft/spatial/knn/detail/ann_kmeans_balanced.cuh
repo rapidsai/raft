@@ -839,6 +839,10 @@ inline auto arrange_fine_clusters(uint32_t n_clusters,
  *  As a result, the fine clusters are what is returned by `build_hierarchical`;
  *  this function returns the total number of fine clusters, which can be checked to be
  *  the same as the requested number of clusters.
+ *
+ *  Note: this function uses at most `fine_clusters_nums_max` points per mesocluster for training;
+ *  if one of the clusters is larger than that (as given by `mesocluster_sizes`), the extra data
+ *  is ignored and a warning is reported.
  */
 template <typename T, typename IdxT, typename LabelT>
 auto build_fine_clusters(const handle_t& handle,
