@@ -47,6 +47,7 @@ cdef class DeviceResources:
     --------
 
     Basic usage:
+
     >>> from pylibraft.common import Stream, DeviceResources
     >>> stream = Stream()
     >>> handle = DeviceResources(stream)
@@ -60,6 +61,7 @@ cdef class DeviceResources:
     >>> del handle  # optional!
 
     Using a cuPy stream with RAFT device_resources:
+
     >>> import cupy
     >>> from pylibraft.common import Stream, DeviceResources
     >>>
@@ -67,6 +69,7 @@ cdef class DeviceResources:
     >>> handle = DeviceResources(stream=cupy_stream.ptr)
 
     Using a RAFT stream with CuPy ExternalStream:
+
     >>> import cupy
     >>> from pylibraft.common import Stream
     >>>
@@ -151,6 +154,7 @@ cdef class Handle(DeviceResources):
     --------
 
     Basic usage:
+
     >>> from pylibraft.common import Stream, Handle
     >>> stream = Stream()
     >>> handle = Handle(stream)
@@ -164,6 +168,7 @@ cdef class Handle(DeviceResources):
     >>> del handle  # optional!
 
     Using a cuPy stream with RAFT device_resources:
+
     >>> import cupy
     >>> from pylibraft.common import Stream, Handle
     >>>
@@ -171,6 +176,7 @@ cdef class Handle(DeviceResources):
     >>> handle = Handle(stream=cupy_stream.ptr)
 
     Using a RAFT stream with CuPy ExternalStream:
+
     >>> import cupy
     >>> from pylibraft.common import Stream
     >>>
