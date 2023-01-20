@@ -1034,8 +1034,8 @@ void build_hierarchical(const handle_t& handle,
   auto [mesocluster_size_max, fine_clusters_nums_max, fine_clusters_nums, fine_clusters_csum] =
     arrange_fine_clusters(n_clusters, n_mesoclusters, n_rows, mesocluster_sizes);
 
-  const auto mesocluster_size_max_balanced =
-    uint32_t(size_t{n_rows * 2lu} / std::max<size_t>(n_mesoclusters, 1lu));
+  const auto mesocluster_size_max_balanced = uint32_t(
+    div_rounding_up_safe<size_t>(2lu * size_t{n_rows}, std::max<size_t>(n_mesoclusters, 1lu)));
   if (mesocluster_size_max > mesocluster_size_max_balanced) {
     RAFT_LOG_WARN(
       "build_hierarchical: built unbalanced mesoclusters (max_mesocluster_size == %u > %u). "
