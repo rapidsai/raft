@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,6 +87,8 @@ enum class SelectKAlgo {
  * Note, depending on the selected algorithm, the values within rows of `out_keys` are not
  * necessarily sorted. See the `SelectKAlgo` enumeration for more details.
  *
+ * Note: This call is deprecated, please use `raft/matrix/select_k.cuh`
+ *
  * @tparam idx_t
  *   the payload type (what is being selected together with the keys).
  * @tparam value_t
@@ -121,7 +123,7 @@ enum class SelectKAlgo {
  *   the implementation of the algorithm
  */
 template <typename idx_t = int, typename value_t = float>
-[[deprecated("Use function `select_k` from `raft/matrix/select_k.cuh")]] inline void select_k(
+[[deprecated("Use function `select_k` from `raft/matrix/select_k.cuh`")]] inline void select_k(
   const value_t* in_keys,
   const idx_t* in_values,
   size_t n_inputs,
