@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,8 +44,8 @@ static __global__ void _singular_profile_kernel(DataT* out, IdxT n, DataT tail_s
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
     DataT sval     = static_cast<DataT>(tid) / rank;
-    DataT low_rank = ((DataT)1.0 - tail_strength) * raft::myExp(-sval * sval);
-    DataT tail     = tail_strength * raft::myExp((DataT)-0.1 * sval);
+    DataT low_rank = ((DataT)1.0 - tail_strength) * raft::exp(-sval * sval);
+    DataT tail     = tail_strength * raft::exp((DataT)-0.1 * sval);
     out[tid]       = low_rank + tail;
   }
 }
