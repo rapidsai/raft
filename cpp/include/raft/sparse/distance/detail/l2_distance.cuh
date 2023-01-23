@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ __global__ void compute_correlation_warp_kernel(value_t* __restrict__ C,
   value_t Q_denom = n * Q_l2 - (Q_l1 * Q_l1);
   value_t R_denom = n * R_l2 - (R_l1 * R_l1);
 
-  value_t val = 1 - (numer / sqrt(Q_denom * R_denom));
+  value_t val = 1 - (numer / raft::sqrt(Q_denom * R_denom));
 
   // correct for small instabilities
   C[(size_t)i * n_cols + j] = val * (fabs(val) >= 0.0001);
@@ -292,7 +292,7 @@ class l2_sqrt_expanded_distances_t : public l2_expanded_distances_t<value_idx, v
       this->config_->a_nrows * this->config_->b_nrows,
       [] __device__(value_t input) {
         int neg = input < 0 ? -1 : 1;
-        return sqrt(abs(input) * neg);
+        return raft::sqrt(abs(input) * neg);
       },
       this->config_->handle.get_stream());
   }
@@ -379,7 +379,7 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
                config_->b_nrows,
                config_->handle.get_stream(),
                [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
-                 value_t norms = sqrt(q_norm) * sqrt(r_norm);
+                 value_t norms = raft::sqrt(q_norm) * raft::sqrt(r_norm);
                  // deal with potential for 0 in denominator by forcing 0/1 instead
                  value_t cos = ((norms != 0) * dot) / ((norms == 0) + norms);
 
@@ -429,7 +429,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       out_dists,
       *config_,
       coo_rows.data(),
-      [] __device__(value_t a, value_t b) { return sqrt(a) * sqrt(b); },
+      [] __device__(value_t a, value_t b) { return raft::sqrt(a) * raft::sqrt(b); },
       raft::add_op(),
       raft::atomic_add_op());
 
@@ -440,7 +440,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
       [=] __device__(value_t input) {
         // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
         bool rectifier = (1 - input) > 0;
-        return sqrt(rectifier * (1 - input));
+        return raft::sqrt(rectifier * (1 - input));
       },
       config_->handle.get_stream());
   }

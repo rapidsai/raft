@@ -86,6 +86,8 @@ if(BUILD_TESTS)
     CORE_TEST
     PATH
     test/core/logger.cpp
+    test/core/math_device.cu
+    test/core/math_host.cpp
     test/core/operators_device.cu
     test/core/operators_host.cpp
     test/core/handle.cpp
