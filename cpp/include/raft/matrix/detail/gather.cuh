@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,28 @@
 #pragma once
 
 #include <raft/core/operators.hpp>
+#include <raft/cudart_utils.h>
 
 namespace raft {
 namespace matrix {
 namespace detail {
 
-// gatherKernel conditionally copies rows from the source matrix 'in' into the destination matrix
-// 'out' according to a map (or a transformed map)
-template <int TPB,
+/** Tiling policy for the gather kernel.
+ *
+ * The output matrix is considered as a flattened array, an approach that provides much better
+ * performance than 1 row per block when D is small. Additionally, each thread works on multiple
+ * output elements using an unrolled loop (approx. 30% faster than working on a single element)
+ */
+template <int tpb, int wpt>
+struct gather_policy {
+  static constexpr int n_threads       = tpb;
+  static constexpr int work_per_thread = wpt;
+  static constexpr int stride          = tpb * wpt;
+};
+
+/** Conditionally copies rows from the source matrix 'in' into the destination matrix
+ * 'out' according to a map (or a transformed map) */
+template <typename Policy,
           typename InputIteratorT,
           typename MapIteratorT,
           typename StencilIteratorT,
@@ -32,27 +46,34 @@ template <int TPB,
           typename MapTransformOp,
           typename OutputIteratorT,
           typename IndexT>
-__global__ void gatherKernel(const InputIteratorT in,
-                             IndexT D,
-                             IndexT N,
-                             const MapIteratorT map,
-                             StencilIteratorT stencil,
-                             OutputIteratorT out,
-                             PredicateOp pred_op,
-                             MapTransformOp transform_op)
+__global__ void gather_kernel(const InputIteratorT in,
+                              IndexT D,
+                              IndexT len,
+                              const MapIteratorT map,
+                              StencilIteratorT stencil,
+                              OutputIteratorT out,
+                              PredicateOp pred_op,
+                              MapTransformOp transform_op)
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
   typedef typename std::iterator_traits<StencilIteratorT>::value_type StencilValueT;
 
-  IndexT outRowStart        = blockIdx.x * D;
-  MapValueT map_val         = map[blockIdx.x];
-  StencilValueT stencil_val = stencil[blockIdx.x];
+#pragma unroll
+  for (IndexT wid = 0; wid < Policy::work_per_thread; wid++) {
+    IndexT tid = threadIdx.x + (Policy::work_per_thread * static_cast<IndexT>(blockIdx.x) + wid) *
+                                 Policy::n_threads;
+    if (tid < len) {
+      IndexT i_dst = tid / D;
+      IndexT j     = tid % D;
 
-  bool predicate = pred_op(stencil_val);
-  if (predicate) {
-    IndexT inRowStart = transform_op(map_val) * D;
-    for (IndexT i = threadIdx.x; i < D; i += TPB) {
-      out[outRowStart + i] = in[inRowStart + i];
+      MapValueT map_val         = map[i_dst];
+      StencilValueT stencil_val = stencil[i_dst];
+
+      bool predicate = pred_op(stencil_val);
+      if (predicate) {
+        IndexT i_src = transform_op(map_val);
+        out[tid]     = in[i_src * D + j];
+      }
     }
   }
 }
@@ -124,18 +145,26 @@ void gatherImpl(const InputIteratorT in,
   static_assert((std::is_convertible<PredicateOpReturnT, bool>::value),
                 "UnaryPredicateOp's result type must be convertible to bool type");
 
-  if (D <= 32) {
-    gatherKernel<32>
-      <<<map_length, 32, 0, stream>>>(in, D, N, map, stencil, out, pred_op, transform_op);
-  } else if (D <= 64) {
-    gatherKernel<64>
-      <<<map_length, 64, 0, stream>>>(in, D, N, map, stencil, out, pred_op, transform_op);
-  } else if (D <= 128) {
-    gatherKernel<128>
-      <<<map_length, 128, 0, stream>>>(in, D, N, map, stencil, out, pred_op, transform_op);
+  IndexT len        = map_length * D;
+  constexpr int TPB = 128;
+  const int n_sm    = raft::getMultiProcessorCount();
+  // The following empirical heuristics enforce that we keep a good balance between having enough
+  // blocks and enough work per thread.
+  if (len < 32 * TPB * n_sm) {
+    using Policy    = gather_policy<TPB, 1>;
+    IndexT n_blocks = raft::ceildiv(map_length * D, static_cast<IndexT>(Policy::stride));
+    gather_kernel<Policy><<<n_blocks, Policy::n_threads, 0, stream>>>(
+      in, D, len, map, stencil, out, pred_op, transform_op);
+  } else if (len < 32 * 4 * TPB * n_sm) {
+    using Policy    = gather_policy<TPB, 4>;
+    IndexT n_blocks = raft::ceildiv(map_length * D, static_cast<IndexT>(Policy::stride));
+    gather_kernel<Policy><<<n_blocks, Policy::n_threads, 0, stream>>>(
+      in, D, len, map, stencil, out, pred_op, transform_op);
   } else {
-    gatherKernel<256>
-      <<<map_length, 256, 0, stream>>>(in, D, N, map, stencil, out, pred_op, transform_op);
+    using Policy    = gather_policy<TPB, 8>;
+    IndexT n_blocks = raft::ceildiv(map_length * D, static_cast<IndexT>(Policy::stride));
+    gather_kernel<Policy><<<n_blocks, Policy::n_threads, 0, stream>>>(
+      in, D, len, map, stencil, out, pred_op, transform_op);
   }
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
