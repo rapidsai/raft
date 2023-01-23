@@ -39,7 +39,7 @@ namespace distance {
  *
  * In addition, prescribes whether to compute the square root of the distance
  * (`sqrt`) and whether to initialize the output buffer (`initOutBuffer`).
-  */
+ */
 template <typename ReduceOpT, typename KVPReduceOpT>
 struct MaskedL2NNParams {
   /** Reduction operator in the epilogue */

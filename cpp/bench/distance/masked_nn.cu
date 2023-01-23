@@ -85,12 +85,12 @@ __global__ void init_adj(
 
 template <typename T>
 struct masked_l2_nn : public fixture {
-  using DataT = T;
-  using IdxT  = int;
-  using OutT  = raft::KeyValuePair<IdxT, DataT>;
-  using RedOpT = raft::distance::MinAndDistanceReduceOp<int, DataT>;
+  using DataT      = T;
+  using IdxT       = int;
+  using OutT       = raft::KeyValuePair<IdxT, DataT>;
+  using RedOpT     = raft::distance::MinAndDistanceReduceOp<int, DataT>;
   using PairRedOpT = raft::distance::KVPMinReduce<int, DataT>;
-  using ParamT = raft::distance::MaskedL2NNParams<RedOpT, PairRedOpT>;
+  using ParamT     = raft::distance::MaskedL2NNParams<RedOpT, PairRedOpT>;
 
   // Parameters
   masked_l2_nn_inputs params;
@@ -115,8 +115,10 @@ struct masked_l2_nn : public fixture {
 
     uniform(handle, r, x.data_handle(), p.m * p.k, T(-1.0), T(1.0));
     uniform(handle, r, y.data_handle(), p.n * p.k, T(-1.0), T(1.0));
-    raft::linalg::rowNorm(xn.data_handle(), x.data_handle(), p.k, p.m, raft::linalg::L2Norm, true, stream);
-    raft::linalg::rowNorm(yn.data_handle(), y.data_handle(), p.k, p.n, raft::linalg::L2Norm, true, stream);
+    raft::linalg::rowNorm(
+      xn.data_handle(), x.data_handle(), p.k, p.m, raft::linalg::L2Norm, true, stream);
+    raft::linalg::rowNorm(
+      yn.data_handle(), y.data_handle(), p.k, p.n, raft::linalg::L2Norm, true, stream);
     raft::distance::initialize<T, raft::KeyValuePair<int, T>, int>(
       handle, out.data_handle(), p.m, std::numeric_limits<T>::max(), RedOpT{});
 
@@ -130,7 +132,7 @@ struct masked_l2_nn : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     bool init_out = false;
-    bool sqrt = false;
+    bool sqrt     = false;
     ParamT masked_l2_params{RedOpT{}, PairRedOpT{}, sqrt, init_out};
 
     loop_on_state(state, [this, masked_l2_params]() {
@@ -193,4 +195,4 @@ const std::vector<masked_l2_nn_inputs> masked_l2_nn_input_vecs = {
 RAFT_BENCH_REGISTER(masked_l2_nn<float>, "", masked_l2_nn_input_vecs);
 // Do not benchmark double.
 
-}  // namespace raft::bench::spatial::masked
+}  // namespace raft::bench::distance::masked_nn

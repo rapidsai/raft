@@ -206,7 +206,8 @@ void maskedL2NNImpl(raft::handle_t& handle,
   static_assert(P::Mblk == 64, "maskedL2NNImpl only supports a policy with 64 rows per block.");
 
   // Get stream and workspace memory resource
-  rmm::mr::device_memory_resource * ws_mr = dynamic_cast<rmm::mr::device_memory_resource *>(handle.get_workspace_resource());
+  rmm::mr::device_memory_resource* ws_mr =
+    dynamic_cast<rmm::mr::device_memory_resource*>(handle.get_workspace_resource());
   auto stream = handle.get_stream();
 
   // Acquire temporary buffers and initialize to zero:

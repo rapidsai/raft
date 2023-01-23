@@ -275,11 +275,11 @@ class MaskedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
 
   void runTest(raft::KeyValuePair<int, DataT>* out)
   {
-    using IdxT = int;
-    using OutT = raft::KeyValuePair<int, DataT>;
-    using RedOpT = MinAndDistanceReduceOp<int, DataT>;
+    using IdxT       = int;
+    using OutT       = raft::KeyValuePair<int, DataT>;
+    using RedOpT     = MinAndDistanceReduceOp<int, DataT>;
     using PairRedOpT = raft::distance::KVPMinReduce<int, DataT>;
-    using ParamT = MaskedL2NNParams<RedOpT, PairRedOpT>;
+    using ParamT     = MaskedL2NNParams<RedOpT, PairRedOpT>;
 
     bool init_out = true;
     ParamT masked_l2_params{RedOpT{}, PairRedOpT{}, Sqrt, init_out};
@@ -297,16 +297,15 @@ class MaskedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     auto group_idxs_view = raft::make_device_vector_view(group_idxs.data(), num_groups);
     auto out_view        = raft::make_device_vector_view(out, m);
 
-    maskedL2NN<DataT, OutT, IdxT>(
-      handle,
-      masked_l2_params,
-      x_view,
-      y_view,
-      x_norm,
-      y_norm,
-      adj_view,
-      group_idxs_view,
-      out_view);
+    maskedL2NN<DataT, OutT, IdxT>(handle,
+                                  masked_l2_params,
+                                  x_view,
+                                  y_view,
+                                  x_norm,
+                                  y_norm,
+                                  adj_view,
+                                  group_idxs_view,
+                                  out_view);
 
     handle.sync_stream(stream);
   }
