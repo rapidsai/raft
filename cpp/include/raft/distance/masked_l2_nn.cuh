@@ -30,6 +30,29 @@ namespace raft {
 namespace distance {
 
 /**
+ * @brief Parameters for maskedL2NN function
+ *
+ * Prescribes how to reduce a distance to an intermediate type (`redOp`), and
+ * how to reduce two intermediate types (`pairRedOp`). Typically, a distance is
+ * mapped to an (index, value) pair and (index, value) pair with the lowest
+ * value (distance) is selected.
+ *
+ * In addition, prescribes whether to compute the square root of the distance
+ * (`sqrt`) and whether to initialize the output buffer (`initOutBuffer`).
+  */
+template <typename ReduceOpT, typename KVPReduceOpT>
+struct MaskedL2NNParams {
+  /** Reduction operator in the epilogue */
+  ReduceOpT redOp;
+  /** Reduction operation on key value pairs */
+  KVPReduceOpT pairRedOp;
+  /** Whether the output `minDist` should contain L2-sqrt */
+  bool sqrt;
+  /** Whether to initialize the output buffer before the main kernel launch */
+  bool initOutBuffer;
+};
+
+/**
  * @brief Masked L2 distance and 1-nearest-neighbor computation in a single call.
  *
  * This function enables faster computation of nearest neighbors if the
@@ -63,8 +86,7 @@ namespace distance {
  *                   appropriate initial value needed for reduction.
  *
  * @param handle             RAFT handle for managing expensive resources
- * @param[out] min           will contain the reduced output (Length = `m`)
- *                           (on device)
+ * @param params             Parameter struct specifying the reduction operations.
  * @param[in]  x             first matrix. Row major. Dim = `m x k`.
  *                           (on device).
  * @param[in]  y             second matrix. Row major. Dim = `n x k`.
@@ -81,29 +103,19 @@ namespace distance {
  *                           always assumed to start at index 0 and the last
  *                           group typically ends at index `n`. Length =
  *                           `num_groups`.
- * @param[in]  num_groups    The number of groups in `y`.
- * @param[in]  m             gemm m
- * @param[in]  n             gemm n
- * @param[in]  k             gemm k
- * @param[in]  redOp         reduction operator in the epilogue
- * @param[in]  pairRedOp     reduction operation on key value pairs
- * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
- * @param[in]  initOutBuffer whether to initialize the output buffer before the
- *                           main kernel launch
+ * @param[out] min           will contain the reduced output (Length = `m`)
+ *                           (on device)
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
 void maskedL2NN(raft::handle_t& handle,
-                raft::device_vector_view<OutT, IdxT, raft::layout_c_contiguous> out,
+                MaskedL2NNParams<ReduceOpT, KVPReduceOpT> params,
                 raft::device_matrix_view<DataT, IdxT, raft::layout_c_contiguous> const x,
                 raft::device_matrix_view<DataT, IdxT, raft::layout_c_contiguous> const y,
                 raft::device_vector_view<DataT, IdxT, raft::layout_c_contiguous> const x_norm,
                 raft::device_vector_view<DataT, IdxT, raft::layout_c_contiguous> const y_norm,
                 raft::device_matrix_view<bool, IdxT, raft::layout_c_contiguous> const adj,
                 raft::device_vector_view<IdxT, IdxT, raft::layout_c_contiguous> const group_idxs,
-                ReduceOpT redOp,
-                KVPReduceOpT pairRedOp,
-                bool sqrt,
-                bool initOutBuffer)
+                raft::device_vector_view<OutT, IdxT, raft::layout_c_contiguous> out)
 {
   // TODO: add more assertions.
   RAFT_EXPECTS(x.extent(1) == y.extent(1), "Dimension of vectors in x and y must be equal.");
@@ -128,10 +140,10 @@ void maskedL2NN(raft::handle_t& handle,
                                                        m,
                                                        n,
                                                        k,
-                                                       redOp,
-                                                       pairRedOp,
-                                                       sqrt,
-                                                       initOutBuffer);
+                                                       params.redOp,
+                                                       params.pairRedOp,
+                                                       params.sqrt,
+                                                       params.initOutBuffer);
 }
 
 }  // namespace distance

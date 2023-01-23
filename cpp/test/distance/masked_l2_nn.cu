@@ -277,35 +277,39 @@ class MaskedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
 
   void runTest(raft::KeyValuePair<int, DataT>* out)
   {
+    using IdxT = int;
+    using OutT = raft::KeyValuePair<int, DataT>;
+    using RedOpT = MinAndDistanceReduceOp<int, DataT>;
+    using PairRedOpT = raft::distance::KVPMinReduce<int, DataT>;
+    using ParamT = MaskedL2NNParams<RedOpT, PairRedOpT>;
+
+    bool init_out = true;
+    ParamT masked_l2_params{RedOpT{}, PairRedOpT{}, Sqrt, init_out};
+
     int m          = params.m;
     int n          = params.n;
     int k          = params.k;
     int num_groups = params.num_groups;
 
-    auto out_view        = raft::make_device_vector_view(out, m);
     auto x_view          = raft::make_device_matrix_view(x.data(), m, k);
     auto y_view          = raft::make_device_matrix_view(y.data(), n, k);
     auto x_norm          = raft::make_device_vector_view(xn.data(), m);
     auto y_norm          = raft::make_device_vector_view(yn.data(), n);
     auto adj_view        = raft::make_device_matrix_view(adj.data(), m, num_groups);
     auto group_idxs_view = raft::make_device_vector_view(group_idxs.data(), num_groups);
+    auto out_view        = raft::make_device_vector_view(out, m);
 
-    MinAndDistanceReduceOp<int, DataT> redOp;
-    using IdxT = int;
-
-    maskedL2NN<DataT, raft::KeyValuePair<int, DataT>, IdxT>(
+    maskedL2NN<DataT, OutT, IdxT>(
       handle,
-      out_view,
+      masked_l2_params,
       x_view,
       y_view,
       x_norm,
       y_norm,
       adj_view,
       group_idxs_view,
-      redOp,
-      raft::distance::KVPMinReduce<int, DataT>(),
-      Sqrt,
-      true);
+      out_view);
+
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 };

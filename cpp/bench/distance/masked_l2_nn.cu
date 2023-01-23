@@ -88,6 +88,9 @@ struct masked_l2_nn : public fixture {
   using DataT = T;
   using IdxT  = int;
   using OutT  = raft::KeyValuePair<IdxT, DataT>;
+  using RedOpT = raft::distance::MinAndDistanceReduceOp<int, DataT>;
+  using PairRedOpT = raft::distance::KVPMinReduce<int, DataT>;
+  using ParamT = raft::distance::MaskedL2NNParams<RedOpT, PairRedOpT>;
 
   // Parameters
   masked_l2_nn_inputs params;
@@ -97,9 +100,6 @@ struct masked_l2_nn : public fixture {
   raft::device_vector<DataT, IdxT> xn, yn;
   raft::device_matrix<bool, IdxT> adj;
   raft::device_vector<IdxT, IdxT> group_idxs;
-  // Reduction operators
-  raft::distance::KVPMinReduce<int, T> pairRedOp;
-  raft::distance::MinAndDistanceReduceOp<int, T> op;
 
   masked_l2_nn(const masked_l2_nn_inputs& p)
     : params(p),
@@ -118,7 +118,7 @@ struct masked_l2_nn : public fixture {
     raft::linalg::rowNorm(xn.data_handle(), x.data_handle(), p.k, p.m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(yn.data_handle(), y.data_handle(), p.k, p.n, raft::linalg::L2Norm, true, stream);
     raft::distance::initialize<T, raft::KeyValuePair<int, T>, int>(
-      handle, out.data_handle(), p.m, std::numeric_limits<T>::max(), op);
+      handle, out.data_handle(), p.m, std::numeric_limits<T>::max(), RedOpT{});
 
     dim3 block(32, 32);
     dim3 grid(10, 10);
@@ -129,20 +129,21 @@ struct masked_l2_nn : public fixture {
 
   void run_benchmark(::benchmark::State& state) override
   {
-    loop_on_state(state, [this]() {
+    bool init_out = false;
+    bool sqrt = false;
+    ParamT masked_l2_params{RedOpT{}, PairRedOpT{}, sqrt, init_out};
+
+    loop_on_state(state, [this, masked_l2_params]() {
       // It is sufficient to only benchmark the L2-squared metric
       raft::distance::maskedL2NN<DataT, OutT, IdxT>(handle,
-                                                    out.view(),
+                                                    masked_l2_params,
                                                     x.view(),
                                                     y.view(),
                                                     xn.view(),
                                                     yn.view(),
                                                     adj.view(),
                                                     group_idxs.view(),
-                                                    op,
-                                                    pairRedOp,
-                                                    false,
-                                                    false);
+                                                    out.view());
     });
   }
 };  // struct MaskedL2NN
