@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,8 @@
  */
 #pragma once
 
-#include "ann_utils.cuh"
+#include <internal/neighbors/naive_knn.cuh>
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
@@ -25,9 +26,9 @@
 #include <raft/random/rng.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/device_buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
-namespace raft::neighbors::detail {
+namespace raft::neighbors {
 
 template <typename IdxT>
 struct RefineInputs {
@@ -66,16 +67,16 @@ class RefineHelper {
     {
       candidates = raft::make_device_matrix<IdxT, IdxT>(handle_, p.n_queries, p.k0);
       rmm::device_uvector<DistanceT> distances_tmp(p.n_queries * p.k0, stream_);
-      raft::neighbors::naiveBfKnn<DistanceT, DataT, IdxT>(distances_tmp.data(),
-                                                          candidates.data_handle(),
-                                                          queries.data_handle(),
-                                                          dataset.data_handle(),
-                                                          p.n_queries,
-                                                          p.n_rows,
-                                                          p.dim,
-                                                          p.k0,
-                                                          p.metric,
-                                                          stream_);
+      naive_knn<DistanceT, DataT, IdxT>(distances_tmp.data(),
+                                        candidates.data_handle(),
+                                        queries.data_handle(),
+                                        dataset.data_handle(),
+                                        p.n_queries,
+                                        p.n_rows,
+                                        p.dim,
+                                        p.k0,
+                                        p.metric,
+                                        stream_);
       handle_.sync_stream(stream_);
     }
 
@@ -98,16 +99,16 @@ class RefineHelper {
     {
       rmm::device_uvector<DistanceT> distances_dev(p.n_queries * p.k, stream_);
       rmm::device_uvector<IdxT> indices_dev(p.n_queries * p.k, stream_);
-      raft::neighbors::naiveBfKnn<DistanceT, DataT, IdxT>(distances_dev.data(),
-                                                          indices_dev.data(),
-                                                          queries.data_handle(),
-                                                          dataset.data_handle(),
-                                                          p.n_queries,
-                                                          p.n_rows,
-                                                          p.dim,
-                                                          p.k,
-                                                          p.metric,
-                                                          stream_);
+      naive_knn<DistanceT, DataT, IdxT>(distances_dev.data(),
+                                        indices_dev.data(),
+                                        queries.data_handle(),
+                                        dataset.data_handle(),
+                                        p.n_queries,
+                                        p.n_rows,
+                                        p.dim,
+                                        p.k,
+                                        p.metric,
+                                        stream_);
       true_refined_distances_host.resize(p.n_queries * p.k);
       true_refined_indices_host.resize(p.n_queries * p.k);
       raft::copy(true_refined_indices_host.data(), indices_dev.data(), indices_dev.size(), stream_);
@@ -137,4 +138,4 @@ class RefineHelper {
   std::vector<IdxT> true_refined_indices_host;
   std::vector<DistanceT> true_refined_distances_host;
 };
-}  // namespace raft::neighbors::detail
+}  // namespace raft::neighbors
