@@ -22,6 +22,8 @@
 
 #include <common/benchmark.hpp>
 #include <limits>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/distance/masked_l2_nn.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/norm.cuh>
@@ -83,77 +85,66 @@ __global__ void init_adj(
 
 template <typename T>
 struct masked_l2_nn : public fixture {
+  using DataT = T;
+  using IdxT  = int;
+  using OutT  = raft::KeyValuePair<IdxT, DataT>;
+
+  // Parameters
+  masked_l2_nn_inputs params;
+  // Data
+  raft::device_vector<OutT, IdxT> out;
+  raft::device_matrix<T, IdxT> x, y;
+  raft::device_vector<DataT, IdxT> xn, yn;
+  raft::device_matrix<bool, IdxT> adj;
+  raft::device_vector<IdxT, IdxT> group_idxs;
+  // Reduction operators
+  raft::distance::KVPMinReduce<int, T> pairRedOp;
+  raft::distance::MinAndDistanceReduceOp<int, T> op;
+
   masked_l2_nn(const masked_l2_nn_inputs& p)
     : params(p),
-      out(p.m, stream),
-      x(p.m * p.k, stream),
-      y(p.n * p.k, stream),
-      xn(p.m, stream),
-      yn(p.n, stream),
-      adj(p.m * p.num_groups, stream),
-      group_idxs(p.num_groups, stream)
+      out{raft::make_device_vector<OutT, IdxT>(handle, p.m)},
+      x{raft::make_device_matrix<DataT, IdxT>(handle, p.m, p.k)},
+      y{raft::make_device_matrix<DataT, IdxT>(handle, p.n, p.k)},
+      xn{raft::make_device_vector<DataT, IdxT>(handle, p.m)},
+      yn{raft::make_device_vector<DataT, IdxT>(handle, p.n)},
+      adj{raft::make_device_matrix<bool, IdxT>(handle, p.m, p.num_groups)},
+      group_idxs{raft::make_device_vector<IdxT, IdxT>(handle, p.num_groups)}
   {
-    raft::handle_t handle{stream};
     raft::random::RngState r(123456ULL);
 
-    uniform(handle, r, x.data(), p.m * p.k, T(-1.0), T(1.0));
-    uniform(handle, r, y.data(), p.n * p.k, T(-1.0), T(1.0));
-    raft::linalg::rowNorm(xn.data(), x.data(), p.k, p.m, raft::linalg::L2Norm, true, stream);
-    raft::linalg::rowNorm(yn.data(), y.data(), p.k, p.n, raft::linalg::L2Norm, true, stream);
+    uniform(handle, r, x.data_handle(), p.m * p.k, T(-1.0), T(1.0));
+    uniform(handle, r, y.data_handle(), p.n * p.k, T(-1.0), T(1.0));
+    raft::linalg::rowNorm(xn.data_handle(), x.data_handle(), p.k, p.m, raft::linalg::L2Norm, true, stream);
+    raft::linalg::rowNorm(yn.data_handle(), y.data_handle(), p.k, p.n, raft::linalg::L2Norm, true, stream);
     raft::distance::initialize<T, raft::KeyValuePair<int, T>, int>(
-      handle, out.data(), p.m, std::numeric_limits<T>::max(), op);
+      handle, out.data_handle(), p.m, std::numeric_limits<T>::max(), op);
 
     dim3 block(32, 32);
     dim3 grid(10, 10);
     init_adj<<<grid, block, 0, stream>>>(
-      p.m, p.n, p.num_groups, p.pattern, adj.data(), group_idxs.data());
+      p.m, p.n, p.num_groups, p.pattern, adj.data_handle(), group_idxs.data_handle());
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 
   void run_benchmark(::benchmark::State& state) override
   {
     loop_on_state(state, [this]() {
-      using DataT = T;
-      using IdxT  = int;
-      using OutT  = raft::KeyValuePair<IdxT, DataT>;
-
-      IdxT m          = params.m;
-      IdxT n          = params.n;
-      IdxT k          = params.k;
-      IdxT num_groups = params.num_groups;
-
-      auto out_view        = raft::make_device_vector_view(out.data(), m);
-      auto x_view          = raft::make_device_matrix_view(x.data(), m, k);
-      auto y_view          = raft::make_device_matrix_view(y.data(), n, k);
-      auto x_norm          = raft::make_device_vector_view(xn.data(), m);
-      auto y_norm          = raft::make_device_vector_view(yn.data(), n);
-      auto adj_view        = raft::make_device_matrix_view(adj.data(), m, num_groups);
-      auto group_idxs_view = raft::make_device_vector_view(group_idxs.data(), num_groups);
-
       // It is sufficient to only benchmark the L2-squared metric
       raft::distance::maskedL2NN<DataT, OutT, IdxT>(handle,
-                                                    out_view,
-                                                    x_view,
-                                                    y_view,
-                                                    x_norm,
-                                                    y_norm,
-                                                    adj_view,
-                                                    group_idxs_view,
+                                                    out.view(),
+                                                    x.view(),
+                                                    y.view(),
+                                                    xn.view(),
+                                                    yn.view(),
+                                                    adj.view(),
+                                                    group_idxs.view(),
                                                     op,
                                                     pairRedOp,
                                                     false,
                                                     false);
     });
   }
-
- private:
-  masked_l2_nn_inputs params;
-  rmm::device_uvector<T> x, y, xn, yn;
-  rmm::device_uvector<bool> adj;
-  rmm::device_uvector<int> group_idxs;
-  rmm::device_uvector<raft::KeyValuePair<int, T>> out;
-  raft::distance::KVPMinReduce<int, T> pairRedOp;
-  raft::distance::MinAndDistanceReduceOp<int, T> op;
 };  // struct MaskedL2NN
 
 // TODO: Consider thinning the list of benchmark cases..
