@@ -58,7 +58,6 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
   }
 
  protected:
-
   void test_eye()
   {
     auto eyemat = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 4, 5);

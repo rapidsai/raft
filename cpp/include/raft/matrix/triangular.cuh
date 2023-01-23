@@ -50,17 +50,17 @@ void upper_triangular(const raft::handle_t& handle,
  * @param[in] src: input matrix with a size of n_rows x n_cols
  * @param[out] dst: output matrix with a size of kxk, k = min(n_rows, n_cols)
  */
- template <typename m_t, typename idx_t>
- void lower_triangular(const raft::handle_t& handle,
-                       raft::device_matrix_view<const m_t, idx_t, col_major> src,
-                       raft::device_matrix_view<m_t, idx_t, col_major> dst)
- {
-   auto k = std::min(src.extent(0), src.extent(1));
-   RAFT_EXPECTS(k == dst.extent(0) && k == dst.extent(1),
-                "dst should be of size kxk, k = min(n_rows, n_cols)");
-   detail::copyLowerTriangular(
-     src.data_handle(), dst.data_handle(), src.extent(0), src.extent(1), handle.get_stream());
- }
+template <typename m_t, typename idx_t>
+void lower_triangular(const raft::handle_t& handle,
+                      raft::device_matrix_view<const m_t, idx_t, col_major> src,
+                      raft::device_matrix_view<m_t, idx_t, col_major> dst)
+{
+  auto k = std::min(src.extent(0), src.extent(1));
+  RAFT_EXPECTS(k == dst.extent(0) && k == dst.extent(1),
+               "dst should be of size kxk, k = min(n_rows, n_cols)");
+  detail::copyLowerTriangular(
+    src.data_handle(), dst.data_handle(), src.extent(0), src.extent(1), handle.get_stream());
+}
 
 /** @} */  // end group matrix_triangular
 

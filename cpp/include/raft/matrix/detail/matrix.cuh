@@ -274,11 +274,11 @@ __global__ void createEyeKernel(m_t* matrix, idx_t n_rows, idx_t n_cols)
 template <typename m_t, typename idx_t = int>
 void createEye(m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
-   idx_t m = n_rows, n = n_cols;
-   dim3 block(64);
-   dim3 grid((m * n + block.x - 1) / block.x);
-   createEyeKernel<<<grid, block, 0, stream>>>(matrix, n_rows, n_cols);
- }
+  idx_t m = n_rows, n = n_cols;
+  dim3 block(64);
+  dim3 grid((m * n + block.x - 1) / block.x);
+  createEyeKernel<<<grid, block, 0, stream>>>(matrix, n_rows, n_cols);
+}
 
 /**
  * @brief Copy a vector to the diagonal of a matrix

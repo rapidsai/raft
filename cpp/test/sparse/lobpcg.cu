@@ -22,6 +22,7 @@
 #include <raft/sparse/solver/lobpcg.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
 
+#include "../test_utils.cuh"
 #include "../test_utils.h"
 #include <raft/util/cudart_utils.hpp>
 
@@ -47,6 +48,29 @@ struct LOBPCGInputs {
   idx_t n_components;
 };
 
+// Helper for b_orthonormalize optional arguments
+template <typename value_t,
+          typename index_t,
+          typename b_opt_t,
+          typename vbv_opt_t,
+          typename v_max_opt_t>
+void b_orthonormalize(const raft::handle_t& handle,
+                      raft::device_matrix_view<value_t, index_t, raft::col_major> V,
+                      raft::device_matrix_view<value_t, index_t, raft::col_major> BV,
+                      b_opt_t&& B_opt         = std::nullopt,
+                      vbv_opt_t&& VBV_opt     = std::nullopt,
+                      v_max_opt_t&& V_max_opt = std::nullopt,
+                      bool bv_is_empty        = true)
+{
+  std::optional<raft::spectral::matrix::sparse_matrix_t<index_t, value_t>> b =
+    std::forward<b_opt_t>(B_opt);
+  std::optional<raft::device_matrix_view<value_t, index_t, raft::col_major>> vbv =
+    std::forward<vbv_opt_t>(VBV_opt);
+  std::optional<raft::device_vector_view<value_t, index_t>> v_max =
+    std::forward<v_max_opt_t>(V_max_opt);
+  raft::sparse::solver::detail::b_orthonormalize(handle, V, BV, b, vbv, v_max, bv_is_empty);
+}
+
 template <typename math_t, typename idx_t>
 class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> {
  public:
@@ -70,33 +94,48 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
     nnz_a    = params.matrix_a.row_ind_ptr.size();
   }
 
+  void test_selectcolsif()
+  {
+    auto a = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 5, 8);
+    auto c = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 5, 4);
+    auto b = raft::make_device_vector<idx_t, idx_t>(handle, 8);
+    raft::linalg::range(a.data_handle(), a.size(), handle.get_stream());
+    std::vector<idx_t> select_h{0, 1, 1, 1, 0, 0, 0, 1};
+    raft::copy(b.data_handle(), select_h.data(), 8, handle.get_stream());
+    raft::sparse::solver::detail::selectColsIf(handle, a.view(), b.view(), c.view());
+    std::vector<math_t> res(c.size());
+    std::vector<math_t> expected{5,  6,  7,  8,  9,  10, 11, 12, 13, 14,
+                                 15, 16, 17, 18, 19, 35, 36, 37, 38, 39};
+    raft::copy(res.data(), c.data_handle(), c.size(), handle.get_stream());
+
+    ASSERT_TRUE(hostVecMatch(expected, res, raft::CompareApprox<math_t>(0.0001)));
+  }
+
   void test_b_orthonormalize()
   {
-    idx_t n_rows_v = n_rows_a;
+    idx_t n_rows_v     = n_rows_a;
     idx_t n_features_v = params.n_components;
     raft::update_device(act_eigvecs.data(), params.init_eigvecs.data(), act_eigvecs.size(), stream);
     auto v = raft::make_device_matrix_view<math_t, idx_t, raft::col_major>(
       act_eigvecs.data(), n_rows_v, n_features_v);
-    auto bv = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, n_rows_v, n_features_v);
-    auto vbv = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, n_features_v, n_features_v);
-    raft::sparse::solver::detail::b_orthonormalize(handle,
-      v,
-      bv.view(),
-      std::nullopt,
-      std::make_optional(vbv.view()),
-      std::nullopt,
-      true
-    );
+    auto bv =
+      raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, n_rows_v, n_features_v);
+    auto vbv =
+      raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, n_features_v, n_features_v);
+    b_orthonormalize(
+      handle, v, bv.view(), std::nullopt, std::make_optional(vbv.view()), std::nullopt, true);
     std::vector<math_t> vbv_inv_expected{0.76298383, 0.0, -1.20276028, 1.0791533};
     std::vector<math_t> vbv_inv_actual(4);
     raft::copy(vbv_inv_actual.data(), vbv.data_handle(), vbv_inv_actual.size(), stream);
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    ASSERT_TRUE(hostVecMatch(vbv_inv_expected, vbv_inv_actual, raft::CompareApprox<math_t>(0.0001)));
+    ASSERT_TRUE(
+      hostVecMatch(vbv_inv_expected, vbv_inv_actual, raft::CompareApprox<math_t>(0.0001)));
   }
 
   void Run()
   {
+    test_selectcolsif();
     test_b_orthonormalize();
     raft::update_device(ind_a.data(), params.matrix_a.row_ind.data(), n_rows_a, stream);
     raft::update_device(ind_ptr_a.data(), params.matrix_a.row_ind_ptr.data(), nnz_a, stream);
@@ -117,10 +156,16 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
     std::vector<math_t> W_CPU(n_rows_a);
     raft::copy(X_CPU.data(), act_eigvecs.data(), X_CPU.size(), stream);
     raft::copy(W_CPU.data(), act_eigvals.data(), W_CPU.size(), stream);
-    ASSERT_TRUE(raft::devArrMatch<math_t>(
-      exp_eigvecs.data(), act_eigvecs.data(), exp_eigvecs.size(), raft::CompareApprox<math_t>(0.0001), stream));
-    ASSERT_TRUE(raft::devArrMatch<math_t>(
-      exp_eigvals.data(), act_eigvals.data(), exp_eigvals.size(), raft::CompareApprox<math_t>(0.0001), stream));
+    ASSERT_TRUE(raft::devArrMatch<math_t>(exp_eigvecs.data(),
+                                          act_eigvecs.data(),
+                                          exp_eigvecs.size(),
+                                          raft::CompareApprox<math_t>(0.0001),
+                                          stream));
+    ASSERT_TRUE(raft::devArrMatch<math_t>(exp_eigvals.data(),
+                                          act_eigvals.data(),
+                                          exp_eigvals.size(),
+                                          raft::CompareApprox<math_t>(0.0001),
+                                          stream));
   }
 
  protected:
@@ -227,7 +272,7 @@ a.data = array([0.37911922, 0.11567201, 0.5135106 , 0.08968836, 0.73450965,
        0.32938903, 0.82477561, 0.20858375, 0.24755519, 0.23677223,
        0.73957246, 0.09050876, 0.86530489])
 
-a.todense() = 
+a.todense() =
 np.matrix([[0.37911922, 0.        , 0.11567201, 0.5135106 , 0.        , 0.08968836],
         [0.73450965, 0.26432646, 0.21985123, 0.74888277, 0.34753734, 0.11204864],
         [0.82902676, 0.        , 0.53023521, 0.24047095, 0.        , 0.37913592],

@@ -32,9 +32,9 @@ void lobpcg(
     std::nullopt,  // shape=(n,n)
   std::optional<raft::device_matrix_view<value_t, index_t, raft::col_major>> Y =
     std::nullopt,  // Constraint matrix shape=(n,Y)
-  value_t tol            = 0,
-  std::int32_t max_iter  = 20,
-  bool largest           = true)
+  value_t tol           = 0,
+  std::int32_t max_iter = 20,
+  bool largest          = true)
 {
   detail::lobpcg(handle, A, X, W, B, M, Y, tol, max_iter, largest);
 }
