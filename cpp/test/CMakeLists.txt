@@ -121,7 +121,7 @@ if(BUILD_TESTS)
     test/distance/dist_minkowski.cu
     test/distance/dist_russell_rao.cu
     test/distance/fused_l2_nn.cu
-    test/distance/masked_l2_nn.cu
+    test/distance/masked_nn.cu
     test/distance/gram.cu
     OPTIONAL
     DIST
