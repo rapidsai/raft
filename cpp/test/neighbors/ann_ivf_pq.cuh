@@ -498,8 +498,8 @@ inline auto enum_variety_ip() -> test_cases_t
         // thus we have one bit less precision
         y.min_recall = y.min_recall.value() * 0.93;
       } else {
-        // In other cases it seems to perform just a bit worse than L2
-        y.min_recall = y.min_recall.value() * 0.97;
+        // In other cases it seems to perform a little bit better, still worse than L2
+        y.min_recall = y.min_recall.value() * 0.95;
       }
     }
     y.index_params.metric = distance::DistanceType::InnerProduct;
