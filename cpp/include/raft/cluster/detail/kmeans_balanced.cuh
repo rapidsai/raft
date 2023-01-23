@@ -38,6 +38,7 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
+#include <raft/util/integer_utils.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>

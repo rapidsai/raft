@@ -35,7 +35,7 @@ namespace raft::cluster::kmeans_balanced {
  *   raft::handle_t handle;
  *   raft::cluster::kmeans_balanced_params params;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, n_clusters, n_features);
- *   raft::cluster::kmeans_balanced::fit(handle, params, X, centroids);
+ *   raft::cluster::kmeans_balanced::fit(handle, params, X, centroids.view());
  * @endcode
  *
  * @tparam DataT Type of the input data.
@@ -57,12 +57,14 @@ void fit(handle_t const& handle,
          raft::device_matrix_view<MathT, IndexT> centroids,
          MappingOpT mapping_op = raft::identity_op())
 {
-  logger::get(RAFT_NAME).set_level(params.verbosity);
   RAFT_EXPECTS(X.extent(1) == centroids.extent(1),
                "Number of features in dataset and centroids are different");
   RAFT_EXPECTS(static_cast<uint64_t>(X.extent(0)) * static_cast<uint64_t>(X.extent(1)) <=
                  static_cast<uint64_t>(std::numeric_limits<IndexT>::max()),
                "The chosen index type cannot represent all indices for the given dataset");
+  RAFT_EXPECTS(centroids.extent(0) > IndexT{0} && centroids.extent(0) <= X.extent(0),
+               "The number of centroids must be strictly positive and cannot exceed the number of "
+               "points in the training dataset.");
 
   detail::build_hierarchical(handle,
                              params,
@@ -114,7 +116,6 @@ void predict(handle_t const& handle,
              raft::device_vector_view<LabelT, IndexT> labels,
              MappingOpT mapping_op = raft::identity_op())
 {
-  logger::get(RAFT_NAME).set_level(params.verbosity);
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
                "Number of rows in dataset and labels are different");
   RAFT_EXPECTS(X.extent(1) == centroids.extent(1),
@@ -150,7 +151,8 @@ void predict(handle_t const& handle,
  *   raft::cluster::kmeans_balanced_params params;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, n_clusters, n_features);
  *   auto labels = raft::make_device_vector<float, int>(handle, n_rows);
- *   raft::cluster::kmeans_balanced::fit_predict(handle, params, X, centroids, labels);
+ *   raft::cluster::kmeans_balanced::fit_predict(
+ *       handle, params, X, centroids.view(), labels.view());
  * @endcode
  *
  * @tparam DataT Type of the input data.
@@ -202,7 +204,8 @@ void fit_predict(handle_t const& handle,
  *   auto centroids = raft::make_device_matrix<float, int>(handle, n_clusters, n_features);
  *   auto labels = raft::make_device_vector<int, int>(handle, n_samples);
  *   auto sizes = raft::make_device_vector<int, int>(handle, n_clusters);
- *   raft::cluster::kmeans_balanced::build_clusters(handle, params, X, centroids, labels, sizes);
+ *   raft::cluster::kmeans_balanced::build_clusters(
+ *       handle, params, X, centroids.view(), labels.view(), sizes.view());
  * @endcode
  *
  * @tparam DataT Type of the input data.
@@ -284,7 +287,7 @@ void build_clusters(handle_t const& handle,
  *   auto centroids = raft::make_device_matrix<float, int>(handle, n_clusters, n_features);
  *   auto sizes = raft::make_device_vector<int, int>(handle, n_clusters);
  *   raft::cluster::kmeans_balanced::calc_centers_and_sizes(
- *       handle, X, centroids, labels, sizes, true);
+ *       handle, X, centroids.view(), labels, sizes.view(), true);
  * @endcode
  *
  * @tparam DataT Type of the input data.

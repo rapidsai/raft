@@ -33,13 +33,13 @@ struct kmeans_balanced_params {
 
   /**
    * Metric to use for distance computation.
+   *
+   * The following metrics are currently supported in k-means balanced:
+   *  - InnerProduct
+   *  - L2Expanded
+   *  - L2SqrtExpanded
    */
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded;
-
-  /**
-   * Verbosity level. Note that it will not log any level greater than RAFT_ACTIVE_LEVEL
-   */
-  int verbosity = RAFT_LEVEL_INFO;
 };
 
 }  // namespace raft::cluster::kmeans_balanced

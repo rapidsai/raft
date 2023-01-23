@@ -41,9 +41,6 @@
 #include <memory>
 #include <mutex>
 
-///@todo: enable once logging has been enabled in raft
-// #include "logger.hpp"
-
 namespace raft {
 
 /**
