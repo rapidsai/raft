@@ -103,7 +103,10 @@ if(BUILD_BENCH)
     bench/main.cpp
   )
 
-  ConfigureBench(NAME MATRIX_BENCH PATH bench/matrix/argmin.cu bench/matrix/gather.cu bench/main.cpp)
+  ConfigureBench(
+    NAME MATRIX_BENCH PATH bench/matrix/argmin.cu bench/matrix/gather.cu bench/matrix/select_k.cu
+    bench/main.cpp
+  )
 
   ConfigureBench(
     NAME RANDOM_BENCH PATH bench/random/make_blobs.cu bench/random/permute.cu bench/random/rng.cu
@@ -127,7 +130,6 @@ if(BUILD_BENCH)
     bench/neighbors/knn/ivf_pq_int8_t_int64_t.cu
     bench/neighbors/knn/ivf_pq_uint8_t_uint32_t.cu
     bench/neighbors/refine.cu
-    bench/neighbors/selection.cu
     bench/main.cpp
     OPTIONAL
     DIST
