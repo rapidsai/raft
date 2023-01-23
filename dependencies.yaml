@@ -27,6 +27,12 @@ files:
     includes:
       - checks
       - py_version
+  docs:
+    output: none
+    includes:
+      - cudatoolkit
+      - docs_build
+      - py_version
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -131,17 +137,21 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
-  doc:
+  docs_build:
     common:
       - output_types: [conda, requirements]
         packages:
           - breathe
       - output_types: [requirements]
         packages:
+          - pydata_sphinx_theme
           - sphinx_markdown_tables
       - output_types: [conda]
         packages:
           - doxygen>=1.8.20
+          - ipython
+          - numpydoc
+          - recommonmark
           - sphinx-markdown-tables
   py_version:
     specific:
