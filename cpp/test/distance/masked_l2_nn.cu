@@ -28,9 +28,7 @@
 #include <iostream>
 #include <stdio.h>
 
-namespace raft {
-namespace distance {
-namespace masked_l2_nn {
+namespace raft::distance::masked_l2_nn {
 
 template <typename LabelT, typename DataT>
 struct RaftKVPMinReduce {
@@ -238,7 +236,7 @@ class MaskedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     generateGoldenResult();
     raft::linalg::rowNorm(xn.data(), x.data(), k, m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(yn.data(), y.data(), k, n, raft::linalg::L2Norm, true, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
  protected:
@@ -310,7 +308,7 @@ class MaskedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
       group_idxs_view,
       out_view);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 };
 
@@ -442,7 +440,7 @@ class MaskedL2NNDetTest : public MaskedL2NNTest<DataT, Sqrt> {
     MaskedL2NNTest<DataT, Sqrt>::SetUp();
     int m = this->params.m;
     min1.resize(m, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    handle.sync_stream(stream);
   }
 
   void TearDown() override { MaskedL2NNTest<DataT, Sqrt>::TearDown(); }
@@ -500,6 +498,4 @@ TEST_P(MaskedL2NNDetTestD_Sqrt, Result)
 }
 INSTANTIATE_TEST_CASE_P(MaskedL2NNDetTests, MaskedL2NNDetTestD_Sqrt, ::testing::ValuesIn(inputsd));
 
-}  // end namespace masked_l2_nn
-}  // end namespace distance
-}  // end namespace raft
+}  // end namespace raft::distance::masked_l2_nn

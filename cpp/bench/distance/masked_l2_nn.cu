@@ -34,7 +34,7 @@
 #include <raft/spatial/knn/specializations.hpp>
 #endif
 
-namespace raft::bench::spatial::masked {
+namespace raft::bench::distance::masked_nn {
 
 // Introduce various sparsity patterns
 enum SparsityPattern {
