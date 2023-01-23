@@ -236,8 +236,11 @@ void select_residuals(const handle_t& handle,
 {
   auto stream = handle.get_stream();
   rmm::device_uvector<float> tmp(size_t(n_rows) * size_t(dim), stream, device_memory);
-  utils::copy_selected<float, T>(
-    n_rows, (IdxT)dim, dataset, row_ids, (IdxT)dim, tmp.data(), (IdxT)dim, stream);
+  // Note: the number of rows of the input dataset isn't actually n_rows, but matrix::gather doesn't
+  // need to know it, any strictly positive number would work.
+  cub::TransformInputIterator<float, utils::mapping<float>, const T*> mapping_itr(
+    dataset, utils::mapping<float>{});
+  raft::matrix::gather(mapping_itr, (IdxT)dim, n_rows, row_ids, n_rows, tmp.data(), stream);
 
   raft::matrix::linewiseOp(
     tmp.data(), tmp.data(), IdxT(dim), n_rows, true, raft::sub_op{}, stream, center);
@@ -840,11 +843,12 @@ void copy_index_data(index<IdxT>& target,
                      const uint32_t* cluster_ordering,
                      rmm::cuda_stream_view stream)
 {
-  auto n_clusters = target.n_lists();
   RAFT_EXPECTS(target.size() >= source.size(),
                "The target index must be not smaller than the source index.");
-  RAFT_EXPECTS(n_clusters >= source.n_lists(),
+  RAFT_EXPECTS(target.n_lists() == source.n_lists(),
                "The target and the source are not compatible (different numbers of clusters).");
+  RAFT_EXPECTS(target.rot_dim() == source.rot_dim() && target.dim_ext() == source.dim_ext(),
+               "The target and the source are not compatible (different dimensionality).");
 
   // Copy the unchanged parts
   copy(target.rotation_matrix().data_handle(),
@@ -853,29 +857,26 @@ void copy_index_data(index<IdxT>& target,
        stream);
 
   // copy cluster-ordering-dependent data
-  utils::copy_selected(n_clusters,
-                       uint32_t{1},
-                       source.list_sizes().data_handle(),
+  raft::matrix::gather(source.list_sizes().data_handle(),
+                       IdxT{1},
+                       static_cast<IdxT>(source.n_lists()),
                        cluster_ordering,
-                       uint32_t{1},
+                       static_cast<IdxT>(target.n_lists()),
                        target.list_sizes().data_handle(),
-                       uint32_t{1},
                        stream);
-  utils::copy_selected(n_clusters,
-                       target.dim_ext(),
-                       source.centers().data_handle(),
+  raft::matrix::gather(source.centers().data_handle(),
+                       static_cast<IdxT>(target.dim_ext()),
+                       static_cast<IdxT>(source.n_lists()),
                        cluster_ordering,
-                       source.dim_ext(),
+                       static_cast<IdxT>(target.n_lists()),
                        target.centers().data_handle(),
-                       target.dim_ext(),
                        stream);
-  utils::copy_selected(n_clusters,
-                       target.rot_dim(),
-                       source.centers_rot().data_handle(),
+  raft::matrix::gather(source.centers_rot().data_handle(),
+                       static_cast<IdxT>(target.rot_dim()),
+                       static_cast<IdxT>(source.n_lists()),
                        cluster_ordering,
-                       source.rot_dim(),
+                       static_cast<IdxT>(target.n_lists()),
                        target.centers_rot().data_handle(),
-                       target.rot_dim(),
                        stream);
   switch (source.codebook_kind()) {
     case codebook_gen::PER_SUBSPACE: {
@@ -885,14 +886,12 @@ void copy_index_data(index<IdxT>& target,
            stream);
     } break;
     case codebook_gen::PER_CLUSTER: {
-      auto d = source.pq_book_size() * source.pq_len();
-      utils::copy_selected(n_clusters,
-                           d,
-                           source.pq_centers().data_handle(),
+      raft::matrix::gather(source.pq_centers().data_handle(),
+                           static_cast<IdxT>(source.pq_book_size() * source.pq_len()),
+                           static_cast<IdxT>(source.n_lists()),
                            cluster_ordering,
-                           d,
+                           static_cast<IdxT>(target.n_lists()),
                            target.pq_centers().data_handle(),
-                           d,
                            stream);
     } break;
     default: RAFT_FAIL("Unreachable code");
@@ -900,9 +899,9 @@ void copy_index_data(index<IdxT>& target,
 
   // Fill the data with the old clusters.
   if (source.size() > 0) {
-    std::vector<IdxT> target_cluster_offsets(n_clusters + 1);
-    std::vector<IdxT> source_cluster_offsets(n_clusters + 1);
-    std::vector<uint32_t> source_cluster_sizes(n_clusters);
+    std::vector<IdxT> target_cluster_offsets(target.n_lists() + 1);
+    std::vector<IdxT> source_cluster_offsets(target.n_lists() + 1);
+    std::vector<uint32_t> source_cluster_sizes(target.n_lists());
     copy(target_cluster_offsets.data(),
          target.list_offsets().data_handle(),
          target.list_offsets().size(),
