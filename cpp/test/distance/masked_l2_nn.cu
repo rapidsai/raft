@@ -16,6 +16,7 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/distance/detail/masked_l2_nn.cuh>
 #include <raft/distance/masked_l2_nn.cuh>
@@ -281,20 +282,26 @@ class MaskedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     int k          = params.k;
     int num_groups = params.num_groups;
 
+    auto out_view        = raft::make_device_vector_view(out, m);
+    auto x_view          = raft::make_device_matrix_view(x.data(), m, k);
+    auto y_view          = raft::make_device_matrix_view(y.data(), n, k);
+    auto x_norm          = raft::make_device_vector_view(xn.data(), m);
+    auto y_norm          = raft::make_device_vector_view(yn.data(), n);
+    auto adj_view        = raft::make_device_matrix_view(adj.data(), m, num_groups);
+    auto group_idxs_view = raft::make_device_vector_view(group_idxs.data(), num_groups);
+
     MinAndDistanceReduceOp<int, DataT> redOp;
-    maskedL2NN<DataT, raft::KeyValuePair<int, DataT>, int>(
+    using IdxT = int;
+
+    maskedL2NN<DataT, raft::KeyValuePair<int, DataT>, IdxT>(
       handle,
-      out,
-      x.data(),
-      y.data(),
-      xn.data(),
-      yn.data(),
-      adj.data(),
-      group_idxs.data(),
-      num_groups,
-      m,
-      n,
-      k,
+      out_view,
+      x_view,
+      y_view,
+      x_norm,
+      y_norm,
+      adj_view,
+      group_idxs_view,
       redOp,
       raft::distance::KVPMinReduce<int, DataT>(),
       Sqrt,

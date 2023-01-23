@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,36 +91,39 @@ namespace distance {
  * @param[in]  initOutBuffer whether to initialize the output buffer before the
  *                           main kernel launch
  */
-template <typename DataT,
-          typename OutT,
-          typename IdxT,
-          typename ReduceOpT,
-          typename KVPReduceOpT>
+template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
 void maskedL2NN(raft::handle_t& handle,
-                OutT* min,
-                const DataT* x,
-                const DataT* y,
-                const DataT* xn,
-                const DataT* yn,
-                const bool* adj,
-                const IdxT* group_idxs,
-                IdxT num_groups,
-                IdxT m,
-                IdxT n,
-                IdxT k,
+                raft::device_vector_view<OutT, IdxT, raft::layout_c_contiguous> out,
+                raft::device_matrix_view<DataT, IdxT, raft::layout_c_contiguous> const x,
+                raft::device_matrix_view<DataT, IdxT, raft::layout_c_contiguous> const y,
+                raft::device_vector_view<DataT, IdxT, raft::layout_c_contiguous> const x_norm,
+                raft::device_vector_view<DataT, IdxT, raft::layout_c_contiguous> const y_norm,
+                raft::device_matrix_view<bool, IdxT, raft::layout_c_contiguous> const adj,
+                raft::device_vector_view<IdxT, IdxT, raft::layout_c_contiguous> const group_idxs,
                 ReduceOpT redOp,
                 KVPReduceOpT pairRedOp,
                 bool sqrt,
                 bool initOutBuffer)
 {
+  // TODO: add more assertions.
+  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Dimension of vectors in x and y must be equal.");
+
+  RAFT_EXPECTS(x.is_exhaustive(), "Input x must be contiguous.");
+  RAFT_EXPECTS(y.is_exhaustive(), "Input y must be contiguous.");
+
+  IdxT m          = x.extent(0);
+  IdxT n          = y.extent(0);
+  IdxT k          = x.extent(1);
+  IdxT num_groups = group_idxs.extent(0);
+
   detail::maskedL2NNImpl<DataT, OutT, IdxT, ReduceOpT>(handle,
-                                                       min,
-                                                       x,
-                                                       y,
-                                                       xn,
-                                                       yn,
-                                                       adj,
-                                                       group_idxs,
+                                                       out.data_handle(),
+                                                       x.data_handle(),
+                                                       y.data_handle(),
+                                                       x_norm.data_handle(),
+                                                       y_norm.data_handle(),
+                                                       adj.data_handle(),
+                                                       group_idxs.data_handle(),
                                                        num_groups,
                                                        m,
                                                        n,

@@ -113,23 +113,36 @@ struct masked_l2_nn : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     loop_on_state(state, [this]() {
+      using DataT = T;
+      using IdxT  = int;
+      using OutT  = raft::KeyValuePair<IdxT, DataT>;
+
+      IdxT m          = params.m;
+      IdxT n          = params.n;
+      IdxT k          = params.k;
+      IdxT num_groups = params.num_groups;
+
+      auto out_view        = raft::make_device_vector_view(out.data(), m);
+      auto x_view          = raft::make_device_matrix_view(x.data(), m, k);
+      auto y_view          = raft::make_device_matrix_view(y.data(), n, k);
+      auto x_norm          = raft::make_device_vector_view(xn.data(), m);
+      auto y_norm          = raft::make_device_vector_view(yn.data(), n);
+      auto adj_view        = raft::make_device_matrix_view(adj.data(), m, num_groups);
+      auto group_idxs_view = raft::make_device_vector_view(group_idxs.data(), num_groups);
+
       // It is sufficient to only benchmark the L2-squared metric
-      raft::distance::maskedL2NN<T, raft::KeyValuePair<int, T>, int>(handle,
-                                                                    out.data(),
-                                                                    x.data(),
-                                                                    y.data(),
-                                                                    xn.data(),
-                                                                    yn.data(),
-                                                                    adj.data(),
-                                                                    group_idxs.data(),
-                                                                    params.num_groups,
-                                                                    params.m,
-                                                                    params.n,
-                                                                    params.k,
-                                                                    op,
-                                                                    pairRedOp,
-                                                                    false,
-                                                                    false);
+      raft::distance::maskedL2NN<DataT, OutT, IdxT>(handle,
+                                                    out_view,
+                                                    x_view,
+                                                    y_view,
+                                                    x_norm,
+                                                    y_norm,
+                                                    adj_view,
+                                                    group_idxs_view,
+                                                    op,
+                                                    pairRedOp,
+                                                    false,
+                                                    false);
     });
   }
 
