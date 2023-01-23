@@ -184,7 +184,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
 }
 
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
-void maskedL2NNImpl(raft::handle_t const& handle,
+void maskedL2NNImpl(raft::handle_t& handle,
                     OutT* min,
                     const DataT* x,
                     const DataT* y,
@@ -196,7 +196,6 @@ void maskedL2NNImpl(raft::handle_t const& handle,
                     IdxT m,
                     IdxT n,
                     IdxT k,
-                    int* workspace,
                     ReduceOpT redOp,
                     KVPReduceOpT pairRedOp,
                     bool sqrt,
@@ -206,14 +205,23 @@ void maskedL2NNImpl(raft::handle_t const& handle,
 
   static_assert(P::Mblk == 64, "maskedL2NNImpl only supports a policy with 64 rows per block.");
 
-  cudaStream_t stream = handle.get_stream();
+  // Get stream and workspace memory resource
+  rmm::mr::device_memory_resource * ws_mr = dynamic_cast<rmm::mr::device_memory_resource *>(handle.get_workspace_resource());
+  auto stream = handle.get_stream();
 
-  // first, compress boolean to bitfield.
-  rmm::device_uvector<uint64_t> adj64(raft::ceildiv(m, IdxT(64)) * num_groups, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(adj64.data(), 0, adj64.size() * sizeof(uint64_t), stream));
+  // Acquire temporary buffers and initialize to zero:
+  // 1) Adjacency matrix bitfield
+  // 2) Workspace for fused nearest neighbor operation
+  size_t m_div_64 = raft::ceildiv(m, IdxT(64));
+  rmm::device_uvector<uint64_t> ws_adj64{m_div_64 * num_groups, stream, ws_mr};
+  rmm::device_uvector<int> ws_fused_nn{size_t(m), stream, ws_mr};
+  RAFT_CUDA_TRY(cudaMemsetAsync(ws_adj64.data(), 0, ws_adj64.size() * sizeof(uint64_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(ws_fused_nn.data(), 0, ws_fused_nn.size() * sizeof(int), stream));
+
+  // Compress boolean adjacency matrix to bitfield.
   dim3 compress_grid(raft::ceildiv(m, 32), raft::ceildiv(num_groups, 32));
   compress_to_bits_naive<<<compress_grid, dim3(32, 32), 0, stream>>>(
-    adj, num_groups, m, adj64.data());
+    adj, num_groups, m, ws_adj64.data());
 
   dim3 blk(P::Nthreads);
   auto nblks            = raft::ceildiv<int>(m, P::Nthreads);
@@ -223,7 +231,6 @@ void maskedL2NNImpl(raft::handle_t const& handle,
   // Accumulation operation lambda
   auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
 
-  RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   if (initOutBuffer) {
     initKernel<DataT, OutT, IdxT, ReduceOpT>
       <<<nblks, P::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
@@ -250,14 +257,14 @@ void maskedL2NNImpl(raft::handle_t const& handle,
                                                      y,
                                                      xn,
                                                      yn,
-                                                     adj64.data(),
+                                                     ws_adj64.data(),
                                                      group_idxs,
                                                      num_groups,
                                                      m,
                                                      n,
                                                      k,
                                                      maxVal,
-                                                     workspace,
+                                                     ws_fused_nn.data(),
                                                      redOp,
                                                      pairRedOp,
                                                      core_lambda,
@@ -278,14 +285,14 @@ void maskedL2NNImpl(raft::handle_t const& handle,
                                                  y,
                                                  xn,
                                                  yn,
-                                                 adj64.data(),
+                                                 ws_adj64.data(),
                                                  group_idxs,
                                                  num_groups,
                                                  m,
                                                  n,
                                                  k,
                                                  maxVal,
-                                                 workspace,
+                                                 ws_fused_nn.data(),
                                                  redOp,
                                                  pairRedOp,
                                                  core_lambda,

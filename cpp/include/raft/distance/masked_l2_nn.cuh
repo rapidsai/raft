@@ -85,7 +85,6 @@ namespace distance {
  * @param[in]  m             gemm m
  * @param[in]  n             gemm n
  * @param[in]  k             gemm k
- * @param[in]  workspace     temp workspace. Size = sizeof(int)*m. (on device)
  * @param[in]  redOp         reduction operator in the epilogue
  * @param[in]  pairRedOp     reduction operation on key value pairs
  * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
@@ -97,7 +96,7 @@ template <typename DataT,
           typename IdxT,
           typename ReduceOpT,
           typename KVPReduceOpT>
-void maskedL2NN(raft::handle_t const& handle,
+void maskedL2NN(raft::handle_t& handle,
                 OutT* min,
                 const DataT* x,
                 const DataT* y,
@@ -109,7 +108,6 @@ void maskedL2NN(raft::handle_t const& handle,
                 IdxT m,
                 IdxT n,
                 IdxT k,
-                void* workspace,
                 ReduceOpT redOp,
                 KVPReduceOpT pairRedOp,
                 bool sqrt,
@@ -127,7 +125,6 @@ void maskedL2NN(raft::handle_t const& handle,
                                                        m,
                                                        n,
                                                        k,
-                                                       (int*)workspace,
                                                        redOp,
                                                        pairRedOp,
                                                        sqrt,

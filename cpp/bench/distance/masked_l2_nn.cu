@@ -91,8 +91,7 @@ struct masked_l2_nn : public fixture {
       xn(p.m, stream),
       yn(p.n, stream),
       adj(p.m * p.num_groups, stream),
-      group_idxs(p.num_groups, stream),
-      workspace(p.m, stream)
+      group_idxs(p.num_groups, stream)
   {
     raft::handle_t handle{stream};
     raft::random::RngState r(123456ULL);
@@ -127,7 +126,6 @@ struct masked_l2_nn : public fixture {
                                                                     params.m,
                                                                     params.n,
                                                                     params.k,
-                                                                    (void*)workspace.data(),
                                                                     op,
                                                                     pairRedOp,
                                                                     false,
@@ -141,7 +139,6 @@ struct masked_l2_nn : public fixture {
   rmm::device_uvector<bool> adj;
   rmm::device_uvector<int> group_idxs;
   rmm::device_uvector<raft::KeyValuePair<int, T>> out;
-  rmm::device_uvector<int> workspace;
   raft::distance::KVPMinReduce<int, T> pairRedOp;
   raft::distance::MinAndDistanceReduceOp<int, T> op;
 };  // struct MaskedL2NN

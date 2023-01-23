@@ -295,7 +295,6 @@ class MaskedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
       m,
       n,
       k,
-      (void*)workspace.data(),
       redOp,
       raft::distance::KVPMinReduce<int, DataT>(),
       Sqrt,
