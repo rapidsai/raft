@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/cudart_utils.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/pow2_utils.cuh>
@@ -30,19 +31,19 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
-namespace raft::spatial::knn::detail::topk {
-namespace radix_impl {
+namespace raft::matrix::detail::select::radix {
+namespace impl {
 
 constexpr int VECTORIZED_READ_SIZE = 16;
 
 template <int BitsPerPass>
-__host__ __device__ constexpr int calc_num_buckets()
+_RAFT_HOST_DEVICE constexpr int calc_num_buckets()
 {
   return 1 << BitsPerPass;
 }
 
 template <typename T, int BitsPerPass>
-__host__ __device__ constexpr int calc_num_passes()
+_RAFT_HOST_DEVICE constexpr int calc_num_passes()
 {
   return ceildiv<int>(sizeof(T) * 8, BitsPerPass);
 }
@@ -55,7 +56,7 @@ __host__ __device__ constexpr int calc_num_passes()
  * NB: Use pass=-1 for calc_mask().
  */
 template <typename T, int BitsPerPass>
-__device__ constexpr int calc_start_bit(int pass)
+_RAFT_DEVICE constexpr int calc_start_bit(int pass)
 {
   int start_bit = static_cast<int>(sizeof(T) * 8) - (pass + 1) * BitsPerPass;
   if (start_bit < 0) { start_bit = 0; }
@@ -63,7 +64,7 @@ __device__ constexpr int calc_start_bit(int pass)
 }
 
 template <typename T, int BitsPerPass>
-__device__ constexpr unsigned calc_mask(int pass)
+_RAFT_DEVICE constexpr unsigned calc_mask(int pass)
 {
   static_assert(BitsPerPass <= 31);
   int num_bits = calc_start_bit<T, BitsPerPass>(pass - 1) - calc_start_bit<T, BitsPerPass>(pass);
@@ -75,7 +76,7 @@ __device__ constexpr unsigned calc_mask(int pass)
  * as of integers.
  */
 template <typename T>
-__device__ typename cub::Traits<T>::UnsignedBits twiddle_in(T key, bool select_min)
+_RAFT_DEVICE typename cub::Traits<T>::UnsignedBits twiddle_in(T key, bool select_min)
 {
   auto bits = reinterpret_cast<typename cub::Traits<T>::UnsignedBits&>(key);
   bits      = cub::Traits<T>::TwiddleIn(bits);
@@ -84,7 +85,7 @@ __device__ typename cub::Traits<T>::UnsignedBits twiddle_in(T key, bool select_m
 }
 
 template <typename T>
-__device__ T twiddle_out(typename cub::Traits<T>::UnsignedBits bits, bool select_min)
+_RAFT_DEVICE T twiddle_out(typename cub::Traits<T>::UnsignedBits bits, bool select_min)
 {
   if (!select_min) { bits = ~bits; }
   bits = cub::Traits<T>::TwiddleOut(bits);
@@ -92,7 +93,7 @@ __device__ T twiddle_out(typename cub::Traits<T>::UnsignedBits bits, bool select
 }
 
 template <typename T, int BitsPerPass>
-__device__ int calc_bucket(T x, int start_bit, unsigned mask, bool select_min)
+_RAFT_DEVICE int calc_bucket(T x, int start_bit, unsigned mask, bool select_min)
 {
   static_assert(BitsPerPass <= sizeof(int) * 8 - 1,
                 "BitsPerPass is too large that the result type could not be int");
@@ -100,7 +101,7 @@ __device__ int calc_bucket(T x, int start_bit, unsigned mask, bool select_min)
 }
 
 template <typename T, typename IdxT>
-__device__ bool use_lazy_writing(IdxT original_len, IdxT len)
+_RAFT_DEVICE bool use_lazy_writing(IdxT original_len, IdxT len)
 {
   // When using lazy writing, only read `in`(type T).
   // When not using it, read `in_buf`(T) and `in_idx_buf`(IdxT), and write `out_buf`(T) and
@@ -124,7 +125,7 @@ __device__ bool use_lazy_writing(IdxT original_len, IdxT len)
  * @param f the lambda taking two arguments (T x, IdxT idx)
  */
 template <typename T, typename IdxT, typename Func>
-__device__ void vectorized_process(const T* in, IdxT len, Func f)
+_RAFT_DEVICE void vectorized_process(const T* in, IdxT len, Func f)
 {
   const IdxT stride = blockDim.x * gridDim.x;
   const int tid     = blockIdx.x * blockDim.x + threadIdx.x;
@@ -179,18 +180,18 @@ struct alignas(128) Counter {
  * (see steps 4 & 1 in `radix_kernel` description).
  */
 template <typename T, typename IdxT, int BitsPerPass>
-__device__ void filter_and_histogram(const T* in_buf,
-                                     const IdxT* in_idx_buf,
-                                     T* out_buf,
-                                     IdxT* out_idx_buf,
-                                     T* out,
-                                     IdxT* out_idx,
-                                     IdxT previous_len,
-                                     Counter<T, IdxT>* counter,
-                                     IdxT* histogram,
-                                     bool select_min,
-                                     int pass,
-                                     bool early_stop)
+_RAFT_DEVICE void filter_and_histogram(const T* in_buf,
+                                       const IdxT* in_idx_buf,
+                                       T* out_buf,
+                                       IdxT* out_idx_buf,
+                                       T* out,
+                                       IdxT* out_idx,
+                                       IdxT previous_len,
+                                       Counter<T, IdxT>* counter,
+                                       IdxT* histogram,
+                                       bool select_min,
+                                       int pass,
+                                       bool early_stop)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   __shared__ IdxT histogram_smem[num_buckets];
@@ -277,7 +278,7 @@ __device__ void filter_and_histogram(const T* in_buf,
  * (step 2 in `radix_kernel` description)
  */
 template <typename IdxT, int BitsPerPass, int BlockSize>
-__device__ void scan(volatile IdxT* histogram)
+_RAFT_DEVICE void scan(volatile IdxT* histogram)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   if constexpr (num_buckets >= BlockSize) {
@@ -321,10 +322,10 @@ __device__ void scan(volatile IdxT* histogram)
  *  (steps 3 in `radix_kernel` description)
  */
 template <typename T, typename IdxT, int BitsPerPass>
-__device__ void choose_bucket(Counter<T, IdxT>* counter,
-                              const IdxT* histogram,
-                              const IdxT k,
-                              const int pass)
+_RAFT_DEVICE void choose_bucket(Counter<T, IdxT>* counter,
+                                const IdxT* histogram,
+                                const IdxT k,
+                                const int pass)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
@@ -345,15 +346,15 @@ __device__ void choose_bucket(Counter<T, IdxT>* counter,
 // For one-block version, last_filter() could be called when pass < num_passes - 1.
 // So `pass` could not be constexpr
 template <typename T, typename IdxT, int BitsPerPass>
-__device__ void last_filter(const T* out_buf,
-                            const IdxT* out_idx_buf,
-                            T* out,
-                            IdxT* out_idx,
-                            IdxT current_len,
-                            IdxT k,
-                            Counter<T, IdxT>* counter,
-                            const bool select_min,
-                            const int pass)
+_RAFT_DEVICE void last_filter(const T* out_buf,
+                              const IdxT* out_idx_buf,
+                              T* out,
+                              IdxT* out_idx,
+                              IdxT current_len,
+                              IdxT k,
+                              Counter<T, IdxT>* counter,
+                              const bool select_min,
+                              const int pass)
 {
   const auto kth_value_bits = counter->kth_value_bits;
   const int start_bit       = calc_start_bit<T, BitsPerPass>(pass);
@@ -659,25 +660,33 @@ void radix_topk(const T* in,
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
 
-  auto pool_guard =
-    raft::get_pool_memory_resource(mr,
-                                   batch_size * (sizeof(Counter<T, IdxT>)      // counters
-                                                 + sizeof(IdxT) * num_buckets  // histograms
-                                                 + sizeof(T) * len * 2         // T bufs
-                                                 + sizeof(IdxT) * len * 2      // IdxT bufs
-                                                 ) +
-                                     256 * 6);  // might need extra memory for alignment
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("radix_topk: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
+  size_t req_aux = batch_size * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
+  size_t req_buf = batch_size * len * 2 * (sizeof(T) + sizeof(IdxT));
+  size_t mem_req = req_aux + req_buf;
+  size_t mem_free, mem_total;
+  RAFT_CUDA_TRY(cudaMemGetInfo(&mem_free, &mem_total));
+  std::optional<rmm::mr::managed_memory_resource> managed_memory;
+  rmm::mr::device_memory_resource* mr_buf = nullptr;
+  if (mem_req > mem_free) {
+    // if there's not enough memory for buffers on the device, resort to the managed memory.
+    mem_req = req_aux;
+    managed_memory.emplace();
+    mr_buf = &managed_memory.value();
   }
 
+  auto pool_guard = raft::get_pool_memory_resource(mr, mem_req);
+  if (pool_guard) {
+    RAFT_LOG_DEBUG("radix::select_k: using pool memory resource with initial size %zu bytes",
+                   pool_guard->pool_size());
+  }
+  if (mr_buf == nullptr) { mr_buf = mr; }
+
   rmm::device_uvector<Counter<T, IdxT>> counters(batch_size, stream, mr);
-  rmm::device_uvector<IdxT> histograms(num_buckets * batch_size, stream, mr);
-  rmm::device_uvector<T> buf1(len * batch_size, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf1(len * batch_size, stream, mr);
-  rmm::device_uvector<T> buf2(len * batch_size, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf2(len * batch_size, stream, mr);
+  rmm::device_uvector<IdxT> histograms(batch_size * num_buckets, stream, mr);
+  rmm::device_uvector<T> buf1(batch_size * len, stream, mr_buf);
+  rmm::device_uvector<IdxT> idx_buf1(batch_size * len, stream, mr_buf);
+  rmm::device_uvector<T> buf2(batch_size * len, stream, mr_buf);
+  rmm::device_uvector<IdxT> idx_buf2(batch_size * len, stream, mr_buf);
 
   RAFT_CUDA_TRY(
     cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
@@ -768,16 +777,16 @@ void radix_topk(const T* in,
 // each row of a batch. It's used when len is relatively small, so intermediate data, like counters
 // and histograms, can be kept in shared memory and cheap sync operations can be used.
 template <typename T, typename IdxT, int BitsPerPass>
-__device__ void filter_and_histogram_for_one_block(const T* in_buf,
-                                                   const IdxT* in_idx_buf,
-                                                   T* out_buf,
-                                                   IdxT* out_idx_buf,
-                                                   T* out,
-                                                   IdxT* out_idx,
-                                                   Counter<T, IdxT>* counter,
-                                                   IdxT* histogram,
-                                                   bool select_min,
-                                                   int pass)
+_RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
+                                                     const IdxT* in_idx_buf,
+                                                     T* out_buf,
+                                                     IdxT* out_idx_buf,
+                                                     T* out,
+                                                     IdxT* out_idx,
+                                                     Counter<T, IdxT>* counter,
+                                                     IdxT* histogram,
+                                                     bool select_min,
+                                                     int pass)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
@@ -945,7 +954,7 @@ void radix_topk_one_block(const T* in,
                                                  ) +
                                      256 * 4);  // might need extra memory for alignment
   if (pool_guard) {
-    RAFT_LOG_DEBUG("radix_topk: using pool memory resource with initial size %zu bytes",
+    RAFT_LOG_DEBUG("radix::select_k: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
   }
 
@@ -968,7 +977,7 @@ void radix_topk_one_block(const T* in,
                                            idx_buf2.data());
 }
 
-}  // namespace radix_impl
+}  // namespace impl
 
 /**
  * Select k smallest or largest key/values from each row in the input data.
@@ -1018,27 +1027,27 @@ void radix_topk_one_block(const T* in,
  *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
-void radix_topk_updated(const T* in,
-                        const IdxT* in_idx,
-                        int batch_size,
-                        IdxT len,
-                        IdxT k,
-                        T* out,
-                        IdxT* out_idx,
-                        bool select_min,
-                        bool adaptive,
-                        rmm::cuda_stream_view stream,
-                        rmm::mr::device_memory_resource* mr = nullptr)
+void select_k_updated(const T* in,
+                      const IdxT* in_idx,
+                      int batch_size,
+                      IdxT len,
+                      IdxT k,
+                      T* out,
+                      IdxT* out_idx,
+                      bool select_min,
+                      bool adaptive,
+                      rmm::cuda_stream_view stream,
+                      rmm::mr::device_memory_resource* mr = nullptr)
 {
   constexpr int items_per_thread = 32;
 
   if (len <= BlockSize * items_per_thread) {
-    radix_impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
+    impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
   } else {
-    radix_impl::radix_topk<T, IdxT, BitsPerPass, BlockSize>(
+    impl::radix_topk<T, IdxT, BitsPerPass, BlockSize>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, adaptive, stream, mr);
   }
 }
 
-}  // namespace raft::spatial::knn::detail::topk
+}  // namespace raft::matrix::detail::select::radix
