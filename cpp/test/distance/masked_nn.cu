@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/kvp.hpp>
-#include <raft/distance/detail/masked_l2_nn.cuh>
-#include <raft/distance/masked_l2_nn.cuh>
+#include <raft/distance/detail/masked_nn.cuh>
+#include <raft/distance/masked_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>

@@ -20,7 +20,7 @@
 #pragma once
 
 #include <limits>
-#include <raft/distance/detail/masked_l2_nn.cuh>
+#include <raft/distance/detail/masked_nn.cuh>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
