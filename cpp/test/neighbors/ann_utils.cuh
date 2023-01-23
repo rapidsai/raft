@@ -110,28 +110,39 @@ __global__ void naive_distance_kernel(EvalT* dist,
                                       IdxT m,
                                       IdxT n,
                                       IdxT k,
-                                      raft::distance::DistanceType type)
+                                      raft::distance::DistanceType metric)
 {
-  IdxT midx = threadIdx.x + blockIdx.x * blockDim.x;
+  IdxT midx = IdxT(threadIdx.x) + IdxT(blockIdx.x) * IdxT(blockDim.x);
   if (midx >= m) return;
-  for (IdxT nidx = threadIdx.y + blockIdx.y * blockDim.y; nidx < n;
-       nidx += blockDim.y * gridDim.y) {
+  IdxT grid_size = IdxT(blockDim.y) * IdxT(gridDim.y);
+  for (IdxT nidx = threadIdx.y + blockIdx.y * blockDim.y; nidx < n; nidx += grid_size) {
     EvalT acc = EvalT(0);
     for (IdxT i = 0; i < k; ++i) {
       IdxT xidx = i + midx * k;
       IdxT yidx = i + nidx * k;
-      EvalT xv  = (EvalT)x[xidx];
-      EvalT yv  = (EvalT)y[yidx];
-      if (type == raft::distance::DistanceType::InnerProduct) {
-        acc += xv * yv;
-      } else {
-        EvalT diff = xv - yv;
-        acc += diff * diff;
+      auto xv   = EvalT(x[xidx]);
+      auto yv   = EvalT(y[yidx]);
+      switch (metric) {
+        case raft::distance::DistanceType::InnerProduct: {
+          acc += xv * yv;
+        } break;
+        case raft::distance::DistanceType::L2SqrtExpanded:
+        case raft::distance::DistanceType::L2SqrtUnexpanded:
+        case raft::distance::DistanceType::L2Expanded:
+        case raft::distance::DistanceType::L2Unexpanded: {
+          auto diff = xv - yv;
+          acc += diff * diff;
+        } break;
+        default: break;
       }
     }
-    if (type == raft::distance::DistanceType::L2SqrtExpanded ||
-        type == raft::distance::DistanceType::L2SqrtUnexpanded)
-      acc = raft::sqrt(acc);
+    switch (metric) {
+      case raft::distance::DistanceType::L2SqrtExpanded:
+      case raft::distance::DistanceType::L2SqrtUnexpanded: {
+        acc = raft::sqrt(acc);
+      } break;
+      default: break;
+    }
     dist[midx * n + nidx] = acc;
   }
 }
@@ -241,16 +252,9 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
                 error_margin < 0 ? "above" : "below",
                 eps);
   if (actual_recall < min_recall - eps) {
-    if (actual_recall < min_recall * min_recall - eps) {
-      RAFT_LOG_ERROR("Recall is much lower than the minimum (%f < %f)", actual_recall, min_recall);
-    } else {
-      RAFT_LOG_WARN("Recall is suspiciously too low (%f < %f)", actual_recall, min_recall);
-    }
-    if (match_count == 0 || actual_recall < min_recall * std::min(min_recall, 0.5) - eps) {
-      return testing::AssertionFailure()
-             << "actual recall (" << actual_recall
-             << ") is much smaller than the minimum expected recall (" << min_recall << ").";
-    }
+    return testing::AssertionFailure()
+           << "actual recall (" << actual_recall << ") is lower than the minimum expected recall ("
+           << min_recall << "); eps = " << eps << ". ";
   }
   return testing::AssertionSuccess();
 }
