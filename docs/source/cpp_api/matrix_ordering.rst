@@ -29,6 +29,18 @@ namespace *raft::matrix*
     :members:
     :content-only:
 
+Select-K
+--------
+
+``#include <raft/matrix/select_k.cuh>``
+
+namespace *raft::matrix*
+
+.. doxygengroup:: select_k
+    :project: RAFT
+    :members:
+    :content-only:
+
 Column-wise Sort
 ----------------
 
