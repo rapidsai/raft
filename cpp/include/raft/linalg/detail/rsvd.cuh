@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ void randomized_svd(const raft::handle_t& handle,
   RAFT_EXPECTS((k + p) < std::min(n_rows, n_cols), "k + p must be < min(n_rows, n_cols)");
   RAFT_EXPECTS(!gen_U || (U != nullptr), "computation of U vector requested but found nullptr");
   RAFT_EXPECTS(!gen_V || (V != nullptr), "computation of V vector requested but found nullptr");
-#if CUDART_VERSION >= 11050
+#if CUDART_VERSION < 11050
   RAFT_EXPECTS(gen_U && gen_V, "not computing U or V is not supported in CUDA version < 11.5");
 #endif
   cudaStream_t stream          = handle.get_stream();
