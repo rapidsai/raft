@@ -28,9 +28,32 @@
 
 namespace raft {
 namespace distance {
+/**
+ * \defgroup masked_nn Masked 1-nearest neighbors
+ * @{
+ */
 
 /**
- * @brief Parameters for maskedL2NN function
+ * @brief Parameter struct for maskedL2NN function
+ *
+ * @tparam ReduceOpT    Type of reduction operator in the epilogue.
+ * @tparam KVPReduceOpT Type of Reduction operation on key value pairs.
+ *
+ * Usage example:
+ * @code{.cpp}
+ * #include <raft/distance/masked_nn.cuh>
+ *
+ * using IdxT        = int;
+ * using DataT       = float;
+ * using RedOpT      = raft::distance::MinAndDistanceReduceOp<IdxT, DataT>;
+ * using PairRedOpT  = raft::distance::KVPMinReduce<IdxT, DataT>;
+ * using ParamT      = raft::distance::MaskedL2NNParams<RedOpT, PairRedOpT>;
+ *
+ * bool init_out = true;
+ * bool sqrt     = false;
+ *
+ * ParamT masked_l2_params{RedOpT{}, PairRedOpT{}, sqrt, init_out};
+ * @endcode
  *
  * Prescribes how to reduce a distance to an intermediate type (`redOp`), and
  * how to reduce two intermediate types (`pairRedOp`). Typically, a distance is
@@ -91,8 +114,8 @@ struct MaskedL2NNParams {
  *                           (on device).
  * @param[in]  y             second matrix. Row major. Dim = `n x k`.
  *                           (on device).
- * @param[in]  xn            L2 squared norm of `x`. Length = `m`. (on device).
- * @param[in]  yn            L2 squared norm of `y`. Length = `n`. (on device)
+ * @param[in]  x_norm        L2 squared norm of `x`. Length = `m`. (on device).
+ * @param[in]  y_norm        L2 squared norm of `y`. Length = `n`. (on device)
  * @param[in]  adj           A boolean adjacency matrix indicating for each
  *                           row of `x` and each group in `y` whether to compute the
  *                           distance. Dim = `m x num_groups`.
@@ -103,12 +126,12 @@ struct MaskedL2NNParams {
  *                           always assumed to start at index 0 and the last
  *                           group typically ends at index `n`. Length =
  *                           `num_groups`.
- * @param[out] min           will contain the reduced output (Length = `m`)
+ * @param[out] out           will contain the reduced output (Length = `m`)
  *                           (on device)
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
 void maskedL2NN(raft::handle_t& handle,
-                MaskedL2NNParams<ReduceOpT, KVPReduceOpT> params,
+                raft::distance::MaskedL2NNParams<ReduceOpT, KVPReduceOpT> params,
                 raft::device_matrix_view<DataT, IdxT, raft::layout_c_contiguous> const x,
                 raft::device_matrix_view<DataT, IdxT, raft::layout_c_contiguous> const y,
                 raft::device_vector_view<DataT, IdxT, raft::layout_c_contiguous> const x_norm,
@@ -145,6 +168,8 @@ void maskedL2NN(raft::handle_t& handle,
                                                        params.sqrt,
                                                        params.initOutBuffer);
 }
+
+/** @} */
 
 }  // namespace distance
 }  // namespace raft
