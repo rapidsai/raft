@@ -168,8 +168,8 @@ inline auto extend(const handle_t& handle,
       raft::make_device_vector_view<const LabelT, IdxT>(new_labels.data(), n_rows);
     raft::cluster::kmeans_balanced::helpers::calc_centers_and_sizes(handle,
                                                                     new_vectors_view,
-                                                                    centroids_view,
                                                                     const_labels_view,
+                                                                    centroids_view,
                                                                     list_sizes_view,
                                                                     false,
                                                                     utils::mapping<float>{});

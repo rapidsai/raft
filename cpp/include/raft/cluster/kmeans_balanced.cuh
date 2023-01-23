@@ -289,7 +289,7 @@ void build_clusters(handle_t const& handle,
  *   auto centroids = raft::make_device_matrix<float, int>(handle, n_clusters, n_features);
  *   auto sizes = raft::make_device_vector<int, int>(handle, n_clusters);
  *   raft::cluster::kmeans_balanced::calc_centers_and_sizes(
- *       handle, X, centroids.view(), labels, sizes.view(), true);
+ *       handle, X, labels, centroids.view(), sizes.view(), true);
  * @endcode
  *
  * @tparam DataT Type of the input data.
@@ -318,8 +318,8 @@ template <typename DataT,
           typename MappingOpT = raft::identity_op>
 void calc_centers_and_sizes(handle_t const& handle,
                             raft::device_matrix_view<const DataT, IndexT> X,
-                            raft::device_matrix_view<MathT, IndexT> centroids,
                             raft::device_vector_view<const LabelT, IndexT> labels,
+                            raft::device_matrix_view<MathT, IndexT> centroids,
                             raft::device_vector_view<CounterT, IndexT> cluster_sizes,
                             bool reset_counters   = true,
                             MappingOpT mapping_op = raft::identity_op())
