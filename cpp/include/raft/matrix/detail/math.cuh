@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,10 +87,10 @@ void seqRoot(math_t* in,
         if (a < math_t(0)) {
           return math_t(0);
         } else {
-          return sqrt(a * scalar);
+          return raft::sqrt(a * scalar);
         }
       } else {
-        return sqrt(a * scalar);
+        return raft::sqrt(a * scalar);
       }
     },
     stream);
@@ -278,7 +278,7 @@ void matrixVectorBinaryDivSkipZero(Type* data,
       rowMajor,
       bcastAlongRows,
       [] __device__(Type a, Type b) {
-        if (raft::myAbs(b) < Type(1e-10))
+        if (raft::abs(b) < Type(1e-10))
           return Type(0);
         else
           return a / b;
@@ -294,7 +294,7 @@ void matrixVectorBinaryDivSkipZero(Type* data,
       rowMajor,
       bcastAlongRows,
       [] __device__(Type a, Type b) {
-        if (raft::myAbs(b) < Type(1e-10))
+        if (raft::abs(b) < Type(1e-10))
           return a;
         else
           return a / b;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ void naive_matrix_vector_op_launch(const raft::handle_t& handle,
     }
   };
   auto operation_bin_div_skip_zero = [] __device__(T mat_element, T vec_element) {
-    if (raft::myAbs(vec_element) < T(1e-10))
+    if (raft::abs(vec_element) < T(1e-10))
       return T(0);
     else
       return mat_element / vec_element;

@@ -139,7 +139,7 @@ __global__ void naive_distance_kernel(EvalT* dist,
     switch (metric) {
       case raft::distance::DistanceType::L2SqrtExpanded:
       case raft::distance::DistanceType::L2SqrtUnexpanded: {
-        acc = raft::mySqrt(acc);
+        acc = raft::sqrt(acc);
       } break;
       default: break;
     }
