@@ -17,8 +17,6 @@
 #pragma once
 
 #include "ann_utils.cuh"
-#include "topk.cuh"
-#include "topk/warpsort_topk.cuh"
 
 #include <raft/neighbors/ivf_pq_types.hpp>
 
@@ -30,6 +28,8 @@
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/matrix/detail/select_k.cuh>
+#include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/device_loads_stores.cuh>
@@ -130,7 +130,7 @@ struct fp_8bit {
  * Select the clusters to probe and, as a side-effect, translate the queries type `T -> float`
  *
  * Assuming the number of clusters is not that big (a few thousands), we do a plain GEMM
- * followed by select_topk to select the clusters to probe. There's no need to return the similarity
+ * followed by select_k to select the clusters to probe. There's no need to return the similarity
  * scores here.
  */
 template <typename T>
@@ -148,7 +148,6 @@ void select_clusters(const handle_t& handle,
                      rmm::mr::device_memory_resource* mr)
 {
   auto stream = handle.get_stream();
-  rmm::device_uvector<float> qc_distances(n_queries * n_lists, stream, mr);
   /* NOTE[qc_distances]
 
   We compute query-center distances to choose the clusters to probe.
@@ -158,16 +157,16 @@ void select_clusters(const handle_t& handle,
       cluster_centers[i, dim()] contains the squared norm of the center vector i;
       we extend the dimension K of the GEMM to compute it together with all the dot products:
 
-      `cq_distances[i, j] = |cluster_centers[j]|^2 - 2 * (queries[i], cluster_centers[j])`
+      `qc_distances[i, j] = |cluster_centers[j]|^2 - 2 * (queries[i], cluster_centers[j])`
 
       This is a monotonous mapping of the proper L2 distance.
 
     IP distance:
-      `cq_distances[i, j] = - (queries[i], cluster_centers[j])`
+      `qc_distances[i, j] = - (queries[i], cluster_centers[j])`
 
       This is a negative inner-product distance. We minimize it to find the similar clusters.
 
-      NB: cq_distances is NOT used further in ivfpq_search.
+      NB: qc_distances is NOT used further in ivfpq_search.
  */
   float norm_factor;
   switch (metric) {
@@ -203,6 +202,7 @@ void select_clusters(const handle_t& handle,
     } break;
     default: RAFT_FAIL("Unsupported distance type %d.", int(metric));
   }
+  rmm::device_uvector<float> qc_distances(n_queries * n_lists, stream, mr);
   linalg::gemm(handle,
                true,
                false,
@@ -221,16 +221,16 @@ void select_clusters(const handle_t& handle,
 
   // Select neighbor clusters for each query.
   rmm::device_uvector<float> cluster_dists(n_queries * n_probes, stream, mr);
-  select_topk<float, uint32_t>(qc_distances.data(),
-                               nullptr,
-                               n_queries,
-                               n_lists,
-                               n_probes,
-                               cluster_dists.data(),
-                               clusters_to_probe,
-                               true,
-                               stream,
-                               mr);
+  matrix::detail::select_k<float, uint32_t>(qc_distances.data(),
+                                            nullptr,
+                                            n_queries,
+                                            n_lists,
+                                            n_probes,
+                                            cluster_dists.data(),
+                                            clusters_to_probe,
+                                            true,
+                                            stream,
+                                            mr);
 }
 
 /**
@@ -452,14 +452,15 @@ void postprocess_distances(float* out,        // [n_queries, topk]
 
 template <typename T, typename IdxT>
 struct dummy_block_sort_t {
-  using queue_t = topk::warp_sort_distributed<WarpSize, true, T, IdxT>;
+  using queue_t = matrix::detail::select::warpsort::warp_sort_distributed<WarpSize, true, T, IdxT>;
   template <typename... Args>
-  __device__ dummy_block_sort_t(int k, uint8_t* smem_buf, Args...){};
+  __device__ dummy_block_sort_t(int k, Args...){};
 };
 
 template <int Capacity, typename T, typename IdxT>
 struct pq_block_sort {
-  using type = topk::block_sort<topk::warp_sort_distributed, Capacity, true, T, IdxT>;
+  using type = matrix::detail::select::warpsort::
+    block_sort<matrix::detail::select::warpsort::warp_sort_distributed, Capacity, true, T, IdxT>;
 };
 
 template <typename T, typename IdxT>
@@ -808,7 +809,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     constexpr OutT kDummy = upper_bound<OutT>();
     OutT query_kth        = kDummy;
     if constexpr (kManageLocalTopK) { query_kth = OutT(query_kths[query_ix]); }
-    local_topk_t block_topk(topk, smem_buf, query_kth);
+    local_topk_t block_topk(topk, nullptr, query_kth);
     OutT early_stop_limit = kDummy;
     switch (metric) {
       // If the metric is non-negative, we can use the query_kth approximation as an early stop
@@ -845,7 +846,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     if constexpr (kManageLocalTopK) {
       // sync threads before the topk merging operation, because we reuse smem_buf
       __syncthreads();
-      block_topk.done();
+      block_topk.done(smem_buf);
       block_topk.store(out_scores, out_indices);
       if (threadIdx.x == 0) { atomicMin(query_kths + query_ix, float(out_scores[topk - 1])); }
     } else {
@@ -1055,9 +1056,11 @@ struct ivfpq_compute_similarity {
 
       [[nodiscard]] auto operator()(uint32_t n_threads) const -> size_t
       {
-        return manage_local_topk ? topk::template calc_smem_size_for_block_wide<OutT, IdxT>(
-                                     n_threads / subwarp_size, topk)
-                                 : 0;
+        return manage_local_topk
+                 ? matrix::detail::select::warpsort::template calc_smem_size_for_block_wide<OutT,
+                                                                                            IdxT>(
+                     n_threads / subwarp_size, topk)
+                 : 0;
       }
     } ltk_mem{manage_local_topk, topk};
 
@@ -1412,16 +1415,16 @@ void ivfpq_search_worker(const handle_t& handle,
 
   // Select topk vectors for each query
   rmm::device_uvector<ScoreT> topk_dists(n_queries * topK, stream, mr);
-  select_topk<ScoreT, IdxT>(distances_buf.data(),
-                            neighbors_ptr,
-                            n_queries,
-                            topk_len,
-                            topK,
-                            topk_dists.data(),
-                            neighbors,
-                            true,
-                            stream,
-                            mr);
+  matrix::detail::select_k<ScoreT, IdxT>(distances_buf.data(),
+                                         neighbors_ptr,
+                                         n_queries,
+                                         topk_len,
+                                         topK,
+                                         topk_dists.data(),
+                                         neighbors,
+                                         true,
+                                         stream,
+                                         mr);
 
   // Postprocessing
   postprocess_distances(
@@ -1524,11 +1527,7 @@ inline auto get_max_batch_size(uint32_t k,
   };
   constexpr uint64_t kMaxWsSize = 1024 * 1024 * 1024;
   if (ws_size(max_batch_size) > kMaxWsSize) {
-    uint32_t smaller_batch_size = 1;
-    // take powers of two for better alignment
-    while (smaller_batch_size * 2 <= max_batch_size) {
-      smaller_batch_size <<= 1;
-    }
+    uint32_t smaller_batch_size = bound_by_power_of_two(max_batch_size);
     // gradually reduce the batch size until we fit into the max size limit.
     while (smaller_batch_size > 1 && ws_size(smaller_batch_size) > kMaxWsSize) {
       smaller_batch_size >>= 1;
