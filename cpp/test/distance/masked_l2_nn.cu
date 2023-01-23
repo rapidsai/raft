@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@
 
 #include "../test_utils.h"
 #include <gtest/gtest.h>
-#include <raft/distance/detail/sparse_l2_nn.cuh>
-#include <raft/distance/sparse_l2_nn.cuh>
+#include <raft/core/kvp.hpp>
+#include <raft/distance/detail/masked_l2_nn.cuh>
+#include <raft/distance/masked_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -28,11 +29,11 @@
 
 namespace raft {
 namespace distance {
-namespace sparse_l2_nn {
+namespace masked_l2_nn {
 
 template <typename LabelT, typename DataT>
-struct CubKVPMinReduce {
-  typedef cub::KeyValuePair<LabelT, DataT> KVP;
+struct RaftKVPMinReduce {
+  typedef raft::KeyValuePair<LabelT, DataT> KVP;
 
   DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
 
@@ -41,7 +42,7 @@ struct CubKVPMinReduce {
 };  // KVPMinReduce
 
 template <typename DataT, bool Sqrt, typename ReduceOpT, int NWARPS>
-__global__ __launch_bounds__(32 * NWARPS, 2) void naiveKernel(cub::KeyValuePair<int, DataT>* min,
+__global__ __launch_bounds__(32 * NWARPS, 2) void naiveKernel(raft::KeyValuePair<int, DataT>* min,
                                                               DataT* x,
                                                               DataT* y,
                                                               bool* adj,
@@ -78,15 +79,15 @@ __global__ __launch_bounds__(32 * NWARPS, 2) void naiveKernel(cub::KeyValuePair<
         auto diff = x[xidx] - y[yidx];
         acc += diff * diff;
       }
-      if (Sqrt) { acc = raft::mySqrt(acc); }
+      if (Sqrt) { acc = raft::sqrt(acc); }
       ReduceOpT redOp;
-      typedef cub::WarpReduce<cub::KeyValuePair<int, DataT>> WarpReduce;
+      typedef cub::WarpReduce<raft::KeyValuePair<int, DataT>> WarpReduce;
       __shared__ typename WarpReduce::TempStorage temp[NWARPS];
       int warpId = threadIdx.x / raft::WarpSize;
-      cub::KeyValuePair<int, DataT> tmp;
+      raft::KeyValuePair<int, DataT> tmp;
       tmp.key   = include_dist ? nidx : -1;
       tmp.value = include_dist ? acc : maxVal;
-      tmp       = WarpReduce(temp[warpId]).Reduce(tmp, CubKVPMinReduce<int, DataT>());
+      tmp       = WarpReduce(temp[warpId]).Reduce(tmp, RaftKVPMinReduce<int, DataT>());
       if (threadIdx.x % raft::WarpSize == 0 && midx < m) {
         while (atomicCAS(workspace + midx, 0, 1) == 1)
           ;
@@ -101,7 +102,7 @@ __global__ __launch_bounds__(32 * NWARPS, 2) void naiveKernel(cub::KeyValuePair<
 }
 
 template <typename DataT, bool Sqrt>
-void naive(cub::KeyValuePair<int, DataT>* min,
+void naive(raft::KeyValuePair<int, DataT>* min,
            DataT* x,
            DataT* y,
            bool* adj,
@@ -116,7 +117,7 @@ void naive(cub::KeyValuePair<int, DataT>* min,
   RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   auto blks = raft::ceildiv(m, 256);
   MinAndDistanceReduceOp<int, DataT> op;
-  raft::distance::detail::initKernel<DataT, cub::KeyValuePair<int, DataT>, int>
+  raft::distance::detail::initKernel<DataT, raft::KeyValuePair<int, DataT>, int>
     <<<blks, 256, 0, stream>>>(min, m, std::numeric_limits<DataT>::max(), op);
   RAFT_CUDA_TRY(cudaGetLastError());
 
@@ -199,9 +200,9 @@ __global__ void init_adj(
 }
 
 template <typename DataT, bool Sqrt>
-class SparseL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
+class MaskedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
  public:
-  SparseL2NNTest()
+  MaskedL2NNTest()
     : params(::testing::TestWithParam<Inputs<DataT>>::GetParam()),
       stream(handle.get_stream()),
       x(params.m * params.k, stream),
@@ -247,8 +248,8 @@ class SparseL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   rmm::device_uvector<int> group_idxs;
   rmm::device_uvector<DataT> xn;
   rmm::device_uvector<DataT> yn;
-  rmm::device_uvector<cub::KeyValuePair<int, DataT>> min;
-  rmm::device_uvector<cub::KeyValuePair<int, DataT>> min_ref;
+  rmm::device_uvector<raft::KeyValuePair<int, DataT>> min;
+  rmm::device_uvector<raft::KeyValuePair<int, DataT>> min_ref;
   rmm::device_uvector<char> workspace;
   raft::handle_t handle;
   cudaStream_t stream;
@@ -273,7 +274,7 @@ class SparseL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
                        stream);
   }
 
-  void runTest(cub::KeyValuePair<int, DataT>* out)
+  void runTest(raft::KeyValuePair<int, DataT>* out)
   {
     int m          = params.m;
     int n          = params.n;
@@ -281,7 +282,8 @@ class SparseL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     int num_groups = params.num_groups;
 
     MinAndDistanceReduceOp<int, DataT> redOp;
-    sparseL2NN<DataT, cub::KeyValuePair<int, DataT>, int>(
+    maskedL2NN<DataT, raft::KeyValuePair<int, DataT>, int>(
+      handle,
       out,
       x.data(),
       y.data(),
@@ -297,15 +299,14 @@ class SparseL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
       redOp,
       raft::distance::KVPMinReduce<int, DataT>(),
       Sqrt,
-      true,
-      stream);
+      true);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 };
 
 template <typename T>
 struct CompareApproxAbsKVP {
-  typedef typename cub::KeyValuePair<int, T> KVP;
+  typedef typename raft::KeyValuePair<int, T> KVP;
   CompareApproxAbsKVP(T eps_) : eps(eps_) {}
   bool operator()(const KVP& a, const KVP& b) const
   {
@@ -321,7 +322,7 @@ struct CompareApproxAbsKVP {
 
 template <typename T>
 struct CompareExactKVP {
-  typedef typename cub::KeyValuePair<int, T> KVP;
+  typedef typename raft::KeyValuePair<int, T> KVP;
   bool operator()(const KVP& a, const KVP& b) const
   {
     if (a.value != b.value) return false;
@@ -330,13 +331,13 @@ struct CompareExactKVP {
 };
 
 template <typename K, typename V, typename L>
-::testing::AssertionResult devArrMatch(const cub::KeyValuePair<K, V>* expected,
-                                       const cub::KeyValuePair<K, V>* actual,
+::testing::AssertionResult devArrMatch(const raft::KeyValuePair<K, V>* expected,
+                                       const raft::KeyValuePair<K, V>* actual,
                                        size_t size,
                                        L eq_compare,
                                        cudaStream_t stream = 0)
 {
-  typedef typename cub::KeyValuePair<K, V> KVP;
+  typedef typename raft::KeyValuePair<K, V> KVP;
   std::shared_ptr<KVP> exp_h(new KVP[size]);
   std::shared_ptr<KVP> act_h(new KVP[size]);
   raft::update_host<KVP>(exp_h.get(), expected, size, stream);
@@ -371,22 +372,22 @@ const std::vector<Inputs<float>> inputsf = {
   {0.001f, (1 << 15) + 19, (1 << 9) + 17, 8, 32, 1234ULL, AdjacencyPattern::checkerboard},
 };
 
-typedef SparseL2NNTest<float, false> SparseL2NNTestF_Sq;
-TEST_P(SparseL2NNTestF_Sq, Result)
+typedef MaskedL2NNTest<float, false> MaskedL2NNTestF_Sq;
+TEST_P(MaskedL2NNTestF_Sq, Result)
 {
   runTest(min.data());
   ASSERT_TRUE(devArrMatch(
     min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<float>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(SparseL2NNTests, SparseL2NNTestF_Sq, ::testing::ValuesIn(inputsf));
-typedef SparseL2NNTest<float, true> SparseL2NNTestF_Sqrt;
-TEST_P(SparseL2NNTestF_Sqrt, Result)
+INSTANTIATE_TEST_CASE_P(MaskedL2NNTests, MaskedL2NNTestF_Sq, ::testing::ValuesIn(inputsf));
+typedef MaskedL2NNTest<float, true> MaskedL2NNTestF_Sqrt;
+TEST_P(MaskedL2NNTestF_Sqrt, Result)
 {
   runTest(min.data());
   ASSERT_TRUE(devArrMatch(
     min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<float>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(SparseL2NNTests, SparseL2NNTestF_Sqrt, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(MaskedL2NNTests, MaskedL2NNTestF_Sqrt, ::testing::ValuesIn(inputsf));
 
 const std::vector<Inputs<double>> inputsd = {
   {0.00001, 32, 32, 32, 2, 1234ULL, AdjacencyPattern::all_true},
@@ -403,52 +404,52 @@ const std::vector<Inputs<double>> inputsd = {
   {0.00001, 1 << 9, 1 << 16, 8, 1 << 9, 1234ULL, AdjacencyPattern::checkerboard_4},
   {0.00001, 1 << 9, 1 << 16, 8, 1 << 9, 1234ULL, AdjacencyPattern::checkerboard_64},
 };
-typedef SparseL2NNTest<double, false> SparseL2NNTestD_Sq;
-TEST_P(SparseL2NNTestD_Sq, Result)
+typedef MaskedL2NNTest<double, false> MaskedL2NNTestD_Sq;
+TEST_P(MaskedL2NNTestD_Sq, Result)
 {
   runTest(min.data());
   ASSERT_TRUE(devArrMatch(
     min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<double>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(SparseL2NNTests, SparseL2NNTestD_Sq, ::testing::ValuesIn(inputsd));
-typedef SparseL2NNTest<double, true> SparseL2NNTestD_Sqrt;
-TEST_P(SparseL2NNTestD_Sqrt, Result)
+INSTANTIATE_TEST_CASE_P(MaskedL2NNTests, MaskedL2NNTestD_Sq, ::testing::ValuesIn(inputsd));
+typedef MaskedL2NNTest<double, true> MaskedL2NNTestD_Sqrt;
+TEST_P(MaskedL2NNTestD_Sqrt, Result)
 {
   runTest(min.data());
   ASSERT_TRUE(devArrMatch(
     min_ref.data(), min.data(), params.m, CompareApproxAbsKVP<double>(params.tolerance), stream));
 }
-INSTANTIATE_TEST_CASE_P(SparseL2NNTests, SparseL2NNTestD_Sqrt, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(MaskedL2NNTests, MaskedL2NNTestD_Sqrt, ::testing::ValuesIn(inputsd));
 
 /// This is to test output determinism of the prim
 template <typename DataT, bool Sqrt>
-class SparseL2NNDetTest : public SparseL2NNTest<DataT, Sqrt> {
+class MaskedL2NNDetTest : public MaskedL2NNTest<DataT, Sqrt> {
  public:
-  SparseL2NNDetTest() : stream(handle.get_stream()), min1(0, stream) {}
+  MaskedL2NNDetTest() : stream(handle.get_stream()), min1(0, stream) {}
 
   void SetUp() override
   {
-    SparseL2NNTest<DataT, Sqrt>::SetUp();
+    MaskedL2NNTest<DataT, Sqrt>::SetUp();
     int m = this->params.m;
     min1.resize(m, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override { SparseL2NNTest<DataT, Sqrt>::TearDown(); }
+  void TearDown() override { MaskedL2NNTest<DataT, Sqrt>::TearDown(); }
 
  protected:
   raft::handle_t handle;
   cudaStream_t stream;
 
-  rmm::device_uvector<cub::KeyValuePair<int, DataT>> min1;
+  rmm::device_uvector<raft::KeyValuePair<int, DataT>> min1;
 
   static const int NumRepeats = 100;
 
   void generateGoldenResult() override {}
 };
 
-typedef SparseL2NNDetTest<float, false> SparseL2NNDetTestF_Sq;
-TEST_P(SparseL2NNDetTestF_Sq, Result)
+typedef MaskedL2NNDetTest<float, false> MaskedL2NNDetTestF_Sq;
+TEST_P(MaskedL2NNDetTestF_Sq, Result)
 {
   runTest(min.data());  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
@@ -456,9 +457,9 @@ TEST_P(SparseL2NNDetTestF_Sq, Result)
     ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<float>(), stream));
   }
 }
-INSTANTIATE_TEST_CASE_P(SparseL2NNDetTests, SparseL2NNDetTestF_Sq, ::testing::ValuesIn(inputsf));
-typedef SparseL2NNDetTest<float, true> SparseL2NNDetTestF_Sqrt;
-TEST_P(SparseL2NNDetTestF_Sqrt, Result)
+INSTANTIATE_TEST_CASE_P(MaskedL2NNDetTests, MaskedL2NNDetTestF_Sq, ::testing::ValuesIn(inputsf));
+typedef MaskedL2NNDetTest<float, true> MaskedL2NNDetTestF_Sqrt;
+TEST_P(MaskedL2NNDetTestF_Sqrt, Result)
 {
   runTest(min.data());  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
@@ -466,10 +467,10 @@ TEST_P(SparseL2NNDetTestF_Sqrt, Result)
     ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<float>(), stream));
   }
 }
-INSTANTIATE_TEST_CASE_P(SparseL2NNDetTests, SparseL2NNDetTestF_Sqrt, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(MaskedL2NNDetTests, MaskedL2NNDetTestF_Sqrt, ::testing::ValuesIn(inputsf));
 
-typedef SparseL2NNDetTest<double, false> SparseL2NNDetTestD_Sq;
-TEST_P(SparseL2NNDetTestD_Sq, Result)
+typedef MaskedL2NNDetTest<double, false> MaskedL2NNDetTestD_Sq;
+TEST_P(MaskedL2NNDetTestD_Sq, Result)
 {
   runTest(min.data());  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
@@ -477,9 +478,9 @@ TEST_P(SparseL2NNDetTestD_Sq, Result)
     ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<double>(), stream));
   }
 }
-INSTANTIATE_TEST_CASE_P(SparseL2NNDetTests, SparseL2NNDetTestD_Sq, ::testing::ValuesIn(inputsd));
-typedef SparseL2NNDetTest<double, true> SparseL2NNDetTestD_Sqrt;
-TEST_P(SparseL2NNDetTestD_Sqrt, Result)
+INSTANTIATE_TEST_CASE_P(MaskedL2NNDetTests, MaskedL2NNDetTestD_Sq, ::testing::ValuesIn(inputsd));
+typedef MaskedL2NNDetTest<double, true> MaskedL2NNDetTestD_Sqrt;
+TEST_P(MaskedL2NNDetTestD_Sqrt, Result)
 {
   runTest(min.data());  // assumed to be golden
   for (int i = 0; i < NumRepeats; ++i) {
@@ -487,8 +488,8 @@ TEST_P(SparseL2NNDetTestD_Sqrt, Result)
     ASSERT_TRUE(devArrMatch(min.data(), min1.data(), params.m, CompareExactKVP<double>(), stream));
   }
 }
-INSTANTIATE_TEST_CASE_P(SparseL2NNDetTests, SparseL2NNDetTestD_Sqrt, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(MaskedL2NNDetTests, MaskedL2NNDetTestD_Sqrt, ::testing::ValuesIn(inputsd));
 
-}  // end namespace sparse_l2_nn
+}  // end namespace masked_l2_nn
 }  // end namespace distance
 }  // end namespace raft

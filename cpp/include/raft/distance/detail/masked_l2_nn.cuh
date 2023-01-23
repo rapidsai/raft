@@ -16,13 +16,12 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
 #include <limits>
 #include <stdint.h>
 
 #include <raft/distance/detail/compress_to_bits.cuh>
 #include <raft/distance/detail/fused_l2_nn.cuh>
-#include <raft/distance/detail/sparse_distance_base.cuh>
+#include <raft/distance/detail/masked_distance_base.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
@@ -45,7 +44,7 @@ template <typename DataT,
           typename KVPReduceOpT,
           typename CoreLambda,
           typename FinalLambda>
-__global__ __launch_bounds__(P::Nthreads, 2) void sparseL2NNkernel(OutT* min,
+__global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
                                                                    const DataT* x,
                                                                    const DataT* y,
                                                                    const DataT* xn,
@@ -65,7 +64,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void sparseL2NNkernel(OutT* min,
 {
   extern __shared__ char smem[];
 
-  typedef cub::KeyValuePair<IdxT, DataT> KVPair;
+  typedef raft::KeyValuePair<IdxT, DataT> KVPair;
   KVPair val[P::AccRowsPerTh];
 #pragma unroll
   for (int i = 0; i < P::AccRowsPerTh; ++i) {
@@ -95,7 +94,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void sparseL2NNkernel(OutT* min,
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < P::AccColsPerTh; ++j) {
-          acc[i][j] = raft::mySqrt(acc[i][j]);
+          acc[i][j] = raft::sqrt(acc[i][j]);
         }
       }
     }
@@ -152,7 +151,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void sparseL2NNkernel(OutT* min,
     };
 
   IdxT lda = k, ldb = k, ldd = n;
-  SparseDistances<true,
+  MaskedDistances<true,
                   DataT,
                   DataT,
                   DataT,
@@ -185,7 +184,8 @@ __global__ __launch_bounds__(P::Nthreads, 2) void sparseL2NNkernel(OutT* min,
 }
 
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
-void sparseL2NNImpl(OutT* min,
+void maskedL2NNImpl(raft::handle_t const& handle,
+                    OutT* min,
                     const DataT* x,
                     const DataT* y,
                     const DataT* xn,
@@ -200,17 +200,15 @@ void sparseL2NNImpl(OutT* min,
                     ReduceOpT redOp,
                     KVPReduceOpT pairRedOp,
                     bool sqrt,
-                    bool initOutBuffer,
-                    cudaStream_t stream)
+                    bool initOutBuffer)
 {
   typedef typename linalg::Policy4x4<DataT, 1>::Policy P;
 
-  static_assert(P::Mblk == 64, "sparseL2NNImpl only supports a policy with 64 rows per block.");
+  static_assert(P::Mblk == 64, "maskedL2NNImpl only supports a policy with 64 rows per block.");
 
-  // First, compress boolean to bitfield.
+  cudaStream_t stream = handle.get_stream();
 
-  // TODO 1: Remove allocation; use workspace instead(?)
-  // TODO 2: Use a faster compress_to_bits implementation that does not require a pre-zeroed output.
+  // first, compress boolean to bitfield.
   rmm::device_uvector<uint64_t> adj64(raft::ceildiv(m, IdxT(64)) * num_groups, stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(adj64.data(), 0, adj64.size() * sizeof(uint64_t), stream));
   dim3 compress_grid(raft::ceildiv(m, 32), raft::ceildiv(num_groups, 32));
@@ -220,7 +218,7 @@ void sparseL2NNImpl(OutT* min,
   dim3 blk(P::Nthreads);
   auto nblks            = raft::ceildiv<int>(m, P::Nthreads);
   constexpr auto maxVal = std::numeric_limits<DataT>::max();
-  typedef cub::KeyValuePair<IdxT, DataT> KVPair;
+  typedef raft::KeyValuePair<IdxT, DataT> KVPair;
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
@@ -232,12 +230,11 @@ void sparseL2NNImpl(OutT* min,
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 
-  // TODO 3: remove fin_op
-  auto fin_op = [] __device__(DataT d_val, int g_d_idx) { return d_val; };
+  auto fin_op = raft::identity_op{};
 
   constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
   if (sqrt) {
-    auto sparseL2NNSqrt = sparseL2NNkernel<DataT,
+    auto maskedL2NNSqrt = maskedL2NNkernel<DataT,
                                            OutT,
                                            IdxT,
                                            true,
@@ -246,9 +243,9 @@ void sparseL2NNImpl(OutT* min,
                                            KVPReduceOpT,
                                            decltype(core_lambda),
                                            decltype(fin_op)>;
-    dim3 grid           = launchConfigGenerator<P>(m, n, shmemSize, sparseL2NNSqrt);
+    dim3 grid           = launchConfigGenerator<P>(m, n, shmemSize, maskedL2NNSqrt);
 
-    sparseL2NNSqrt<<<grid, blk, shmemSize, stream>>>(min,
+    maskedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(min,
                                                      x,
                                                      y,
                                                      xn,
@@ -266,7 +263,7 @@ void sparseL2NNImpl(OutT* min,
                                                      core_lambda,
                                                      fin_op);
   } else {
-    auto sparseL2NN = sparseL2NNkernel<DataT,
+    auto maskedL2NN = maskedL2NNkernel<DataT,
                                        OutT,
                                        IdxT,
                                        false,
@@ -275,8 +272,8 @@ void sparseL2NNImpl(OutT* min,
                                        KVPReduceOpT,
                                        decltype(core_lambda),
                                        decltype(fin_op)>;
-    dim3 grid       = launchConfigGenerator<P>(m, n, shmemSize, sparseL2NN);
-    sparseL2NN<<<grid, blk, shmemSize, stream>>>(min,
+    dim3 grid       = launchConfigGenerator<P>(m, n, shmemSize, maskedL2NN);
+    maskedL2NN<<<grid, blk, shmemSize, stream>>>(min,
                                                  x,
                                                  y,
                                                  xn,

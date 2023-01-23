@@ -70,7 +70,7 @@ template <bool useNorms,
           typename rowEpilogueLambda,
           bool isRowMajor    = true,
           typename BaseClass = raft::linalg::Contractions_NT<DataT, IdxT, Policy, isRowMajor>>
-struct SparseDistances : public BaseClass {
+struct MaskedDistances : public BaseClass {
  private:
   typedef Policy P;
   const DataT* xn;
@@ -89,7 +89,7 @@ struct SparseDistances : public BaseClass {
 
  public:
   // Constructor
-  DI SparseDistances(const DataT* _x,
+  DI MaskedDistances(const DataT* _x,
                      const DataT* _y,
                      IdxT _m,
                      IdxT _n,
@@ -156,7 +156,6 @@ struct SparseDistances : public BaseClass {
         for (; tile_idx_n < tile_end_n; tile_idx_n += P::Nblk) {
           // We provide tile_end_n to limit the number of unnecessary data
           // points that are loaded from y.
-          // TODO: determine if this actually improves performance.
           this->ldgXY(tile_idx_m, tile_idx_n, 0, tile_end_n);
 
           reset_accumulator();
@@ -279,7 +278,7 @@ struct SparseDistances : public BaseClass {
       regyn[i] = syNorm[i * P::AccThCols + (threadIdx.x % P::AccThCols)];
     }
   }
-};  // struct SparseDistances
+};  // struct MaskedDistances
 
 /**
  * @brief the distance matrix calculation kernel for L1, L2 and cosine
@@ -324,7 +323,7 @@ template <bool useNorms,
           bool isRowMajor = true>
 __global__ __launch_bounds__(Policy::Nthreads, 2)
 
-  void sparseDistanceMatKernel(const DataT* x,
+  void maskedDistanceMatKernel(const DataT* x,
                                const DataT* y,
                                const DataT* _xn,
                                const DataT* _yn,
@@ -342,7 +341,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2)
   extern __shared__ char smem[];
   auto rowEpilog = [] __device__(IdxT starty) { return; };
 
-  SparseDistances<useNorms,
+  MaskedDistances<useNorms,
                   DataT,
                   AccT,
                   OutT,

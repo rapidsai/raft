@@ -22,7 +22,7 @@
 
 #include <common/benchmark.hpp>
 #include <limits>
-#include <raft/distance/sparse_l2_nn.cuh>
+#include <raft/distance/masked_l2_nn.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
@@ -32,7 +32,7 @@
 #include <raft/spatial/knn/specializations.hpp>
 #endif
 
-namespace raft::bench::spatial::sparse {
+namespace raft::bench::spatial::masked {
 
 // Introduce various sparsity patterns
 enum SparsityPattern {
@@ -43,10 +43,10 @@ enum SparsityPattern {
   all_false       = 4
 };
 
-struct sparse_l2_nn_inputs {
+struct masked_l2_nn_inputs {
   int m, n, k, num_groups;
   SparsityPattern pattern;
-};  // struct sparse_l2_nn_inputs
+};  // struct masked_l2_nn_inputs
 
 __global__ void init_adj(
   int m, int n, int num_groups, SparsityPattern pattern, bool* adj, int* group_idxs)
@@ -82,8 +82,8 @@ __global__ void init_adj(
 }
 
 template <typename T>
-struct sparse_l2_nn : public fixture {
-  sparse_l2_nn(const sparse_l2_nn_inputs& p)
+struct masked_l2_nn : public fixture {
+  masked_l2_nn(const masked_l2_nn_inputs& p)
     : params(p),
       out(p.m, stream),
       x(p.m * p.k, stream),
@@ -101,7 +101,7 @@ struct sparse_l2_nn : public fixture {
     uniform(handle, r, y.data(), p.n * p.k, T(-1.0), T(1.0));
     raft::linalg::rowNorm(xn.data(), x.data(), p.k, p.m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(yn.data(), y.data(), p.k, p.n, raft::linalg::L2Norm, true, stream);
-    raft::distance::initialize<T, cub::KeyValuePair<int, T>, int>(
+    raft::distance::initialize<T, raft::KeyValuePair<int, T>, int>(
       handle, out.data(), p.m, std::numeric_limits<T>::max(), op);
 
     dim3 block(32, 32);
@@ -115,7 +115,8 @@ struct sparse_l2_nn : public fixture {
   {
     loop_on_state(state, [this]() {
       // It is sufficient to only benchmark the L2-squared metric
-      raft::distance::sparseL2NN<T, cub::KeyValuePair<int, T>, int>(out.data(),
+      raft::distance::maskedL2NN<T, raft::KeyValuePair<int, T>, int>(handle,
+                                                                    out.data(),
                                                                     x.data(),
                                                                     y.data(),
                                                                     xn.data(),
@@ -130,24 +131,23 @@ struct sparse_l2_nn : public fixture {
                                                                     op,
                                                                     pairRedOp,
                                                                     false,
-                                                                    false,
-                                                                    stream);
+                                                                    false);
     });
   }
 
  private:
-  sparse_l2_nn_inputs params;
+  masked_l2_nn_inputs params;
   rmm::device_uvector<T> x, y, xn, yn;
   rmm::device_uvector<bool> adj;
   rmm::device_uvector<int> group_idxs;
-  rmm::device_uvector<cub::KeyValuePair<int, T>> out;
+  rmm::device_uvector<raft::KeyValuePair<int, T>> out;
   rmm::device_uvector<int> workspace;
   raft::distance::KVPMinReduce<int, T> pairRedOp;
   raft::distance::MinAndDistanceReduceOp<int, T> op;
-};  // struct SparseL2NN
+};  // struct MaskedL2NN
 
 // TODO: Consider thinning the list of benchmark cases..
-const std::vector<sparse_l2_nn_inputs> sparse_l2_nn_input_vecs = {
+const std::vector<masked_l2_nn_inputs> masked_l2_nn_input_vecs = {
   // Very fat matrices...
   {32, 16384, 16384, 32, SparsityPattern::checkerboard},
   {64, 16384, 16384, 32, SparsityPattern::checkerboard},
@@ -188,7 +188,7 @@ const std::vector<sparse_l2_nn_inputs> sparse_l2_nn_input_vecs = {
   {16384, 16384, 16384, 32, SparsityPattern::checkerboard_64},
 };
 
-RAFT_BENCH_REGISTER(sparse_l2_nn<float>, "", sparse_l2_nn_input_vecs);
+RAFT_BENCH_REGISTER(masked_l2_nn<float>, "", masked_l2_nn_input_vecs);
 // Do not benchmark double.
 
-}  // namespace raft::bench::spatial::sparse
+}  // namespace raft::bench::spatial::masked
