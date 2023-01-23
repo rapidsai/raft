@@ -462,14 +462,14 @@ void train_per_subset(const handle_t& handle,
     raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = kmeans_n_iters;
     kmeans_params.metric  = raft::distance::DistanceType::L2Expanded;
-    raft::cluster::kmeans_balanced::build_clusters(handle,
-                                                   kmeans_params,
-                                                   sub_trainset_view,
-                                                   centers_tmp_view,
-                                                   sub_labels_view,
-                                                   cluster_sizes_view,
-                                                   utils::mapping<float>{},
-                                                   device_memory);
+    raft::cluster::kmeans_balanced::helpers::build_clusters(handle,
+                                                            kmeans_params,
+                                                            sub_trainset_view,
+                                                            centers_tmp_view,
+                                                            sub_labels_view,
+                                                            cluster_sizes_view,
+                                                            utils::mapping<float>{},
+                                                            device_memory);
   }
   transpose_pq_centers(index, pq_centers_tmp.data(), stream);
 }
@@ -548,14 +548,14 @@ void train_per_cluster(const handle_t& handle,
     raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = kmeans_n_iters;
     kmeans_params.metric  = raft::distance::DistanceType::L2Expanded;
-    raft::cluster::kmeans_balanced::build_clusters(handle,
-                                                   kmeans_params,
-                                                   rot_vectors_view,
-                                                   centers_tmp_view,
-                                                   pq_labels_view,
-                                                   pq_cluster_sizes_view,
-                                                   utils::mapping<float>{},
-                                                   device_memory);
+    raft::cluster::kmeans_balanced::helpers::build_clusters(handle,
+                                                            kmeans_params,
+                                                            rot_vectors_view,
+                                                            centers_tmp_view,
+                                                            pq_labels_view,
+                                                            pq_cluster_sizes_view,
+                                                            utils::mapping<float>{},
+                                                            device_memory);
   }
   transpose_pq_centers(index, pq_centers_tmp.data(), stream);
 }

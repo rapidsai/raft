@@ -187,6 +187,8 @@ void fit_predict(handle_t const& handle,
   raft::cluster::kmeans_balanced::predict(handle, params, X, centroids_const, labels, mapping_op);
 }
 
+namespace helpers {
+
 /**
  * @brief Randomly initialize centers and apply expectation-maximization-balancing iterations
  *
@@ -340,5 +342,7 @@ void calc_centers_and_sizes(handle_t const& handle,
                                  reset_counters,
                                  mapping_op);
 }
+
+}  // namespace helpers
 
 }  // namespace raft::cluster::kmeans_balanced
