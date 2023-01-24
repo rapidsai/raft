@@ -185,7 +185,7 @@ void predict(handle_t const& handle,
  * @param[in]  params     Structure containing the hyper-parameters
  * @param[in]  X          Training instances to cluster. The data must be in row-major format.
  *                        [dim = n_samples x n_features]
- * @param[in]  centroids  The input centroids [dim = n_clusters x n_features]
+ * @param[out] centroids  The output centroids [dim = n_clusters x n_features]
  * @param[out] labels     The output labels [dim = n_samples]
  * @param[in]  mapping_op (optional) Functor to convert from the input datatype to the arithmetic
  *                        datatype. If DataT and MathT are the same, this must be the identity.
@@ -246,7 +246,6 @@ namespace helpers {
  * @param[out] cluster_sizes Size of each cluster [dim = n_clusters]
  * @param[in]  mapping_op    (optional) Functor to convert from the input datatype to the
  *                           arithmetic datatype. If DataT == MathT, this must be the identity.
- * @param[in]  mr            (optional) Device memory resource.
  * @param[in]  X_norm        (optional) Dataset's row norms [dim = n_samples]
  */
 template <typename DataT,
@@ -319,8 +318,8 @@ void build_clusters(handle_t const& handle,
  * @param[in]  handle         The raft handle
  * @param[in]  X              Dataset for which to calculate cluster centers. The data must be in
  *                            row-major format. [dim = n_samples x n_features]
- * @param[out] centroids      The output centroids [dim = n_clusters x n_features]
  * @param[in]  labels         The input labels [dim = n_samples]
+ * @param[out] centroids      The output centroids [dim = n_clusters x n_features]
  * @param[out] cluster_sizes  Size of each cluster [dim = n_clusters]
  * @param[in]  reset_counters Whether to clear the output arrays before calculating.
  *                            When set to `false`, this function may be used to update existing
