@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ static void hellingerImpl(const DataT* x,
         // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
         const auto finalVal  = (1 - acc[i][j]);
         const auto rectifier = (!signbit(finalVal));
-        acc[i][j]            = raft::mySqrt(rectifier * finalVal);
+        acc[i][j]            = raft::sqrt(rectifier * finalVal);
       }
     }
   };
