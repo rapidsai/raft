@@ -184,7 +184,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
 }
 
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
-void maskedL2NNImpl(raft::handle_t& handle,
+void maskedL2NNImpl(const raft::handle_t& handle,
                     OutT* min,
                     const DataT* x,
                     const DataT* y,

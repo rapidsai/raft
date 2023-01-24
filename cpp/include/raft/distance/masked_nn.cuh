@@ -143,26 +143,33 @@ struct MaskedL2NNParams {
  *                           (on device)
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
-void maskedL2NN(raft::handle_t& handle,
+void maskedL2NN(const raft::handle_t& handle,
                 raft::distance::MaskedL2NNParams<ReduceOpT, KVPReduceOpT> params,
-                raft::device_matrix_view<DataT, IdxT, raft::layout_c_contiguous> const x,
-                raft::device_matrix_view<DataT, IdxT, raft::layout_c_contiguous> const y,
-                raft::device_vector_view<DataT, IdxT, raft::layout_c_contiguous> const x_norm,
-                raft::device_vector_view<DataT, IdxT, raft::layout_c_contiguous> const y_norm,
-                raft::device_matrix_view<bool, IdxT, raft::layout_c_contiguous> const adj,
-                raft::device_vector_view<IdxT, IdxT, raft::layout_c_contiguous> const group_idxs,
+                raft::device_matrix_view<const DataT, IdxT, raft::layout_c_contiguous> x,
+                raft::device_matrix_view<const DataT, IdxT, raft::layout_c_contiguous> y,
+                raft::device_vector_view<const DataT, IdxT, raft::layout_c_contiguous> x_norm,
+                raft::device_vector_view<const DataT, IdxT, raft::layout_c_contiguous> y_norm,
+                raft::device_matrix_view<const bool, IdxT, raft::layout_c_contiguous> adj,
+                raft::device_vector_view<const IdxT, IdxT, raft::layout_c_contiguous> group_idxs,
                 raft::device_vector_view<OutT, IdxT, raft::layout_c_contiguous> out)
 {
-  // TODO: add more assertions.
-  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Dimension of vectors in x and y must be equal.");
-
-  RAFT_EXPECTS(x.is_exhaustive(), "Input x must be contiguous.");
-  RAFT_EXPECTS(y.is_exhaustive(), "Input y must be contiguous.");
-
   IdxT m          = x.extent(0);
   IdxT n          = y.extent(0);
   IdxT k          = x.extent(1);
   IdxT num_groups = group_idxs.extent(0);
+
+  // Match k dimension of x, y
+  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Dimension of vectors in x and y must be equal.");
+  // Match x, x_norm and y, y_norm
+  RAFT_EXPECTS(m == x_norm.extent(0), "Length of `x_norm` must match input `x`.");
+  RAFT_EXPECTS(n == y_norm.extent(0), "Length of `y_norm` must match input `y` ");
+  // Match adj to x and group_idxs
+  RAFT_EXPECTS(m == adj.extent(0), "#rows in `adj` must match input `x`.");
+  RAFT_EXPECTS(num_groups == adj.extent(1), "#cols in `adj` must match length of `group_idxs`.");
+  // NOTE: We do not check if all indices in group_idxs actually points *inside* y.
+
+  // If there is no work to be done, return immediately.
+  if (m == 0 || n == 0 || k == 0 || num_groups == 0) { return; }
 
   detail::maskedL2NNImpl<DataT, OutT, IdxT, ReduceOpT>(handle,
                                                        out.data_handle(),
