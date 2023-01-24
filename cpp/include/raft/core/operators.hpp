@@ -147,14 +147,6 @@ struct div_checkzero_op {
   }
 };
 
-struct modulo_op {
-  template <typename T1, typename T2>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
-  {
-    return a % b;
-  }
-};
-
 struct pow_op {
   template <typename Type>
   RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
@@ -164,8 +156,8 @@ struct pow_op {
 };
 
 struct mod_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
   {
     return a % b;
   }
@@ -314,9 +306,6 @@ using div_const_op = plug_const_op<Type, div_op>;
 
 template <typename Type>
 using div_checkzero_const_op = plug_const_op<Type, div_checkzero_op>;
-
-template <typename Type>
-using modulo_const_op = plug_const_op<Type, modulo_op>;
 
 template <typename Type>
 using pow_const_op = plug_const_op<Type, pow_op>;
