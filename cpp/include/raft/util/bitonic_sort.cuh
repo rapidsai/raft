@@ -16,14 +16,15 @@
 
 #pragma once
 
+#include <raft/core/detail/macros.hpp>
 #include <raft/util/cuda_utils.cuh>
 
-namespace raft::spatial::knn::detail::topk {
+namespace raft::util {
 
-namespace helpers {
+namespace {
 
 template <typename T>
-__device__ __forceinline__ void swap(T& x, T& y)
+_RAFT_DEVICE _RAFT_FORCEINLINE void swap(T& x, T& y)
 {
   T t = x;
   x   = y;
@@ -31,12 +32,12 @@ __device__ __forceinline__ void swap(T& x, T& y)
 }
 
 template <typename T>
-__device__ __forceinline__ void conditional_assign(bool cond, T& ptr, T x)
+_RAFT_DEVICE _RAFT_FORCEINLINE void conditional_assign(bool cond, T& ptr, T x)
 {
   if (cond) { ptr = x; }
 }
 
-}  // namespace helpers
+}  // namespace
 
 /**
  * Warp-wide bitonic merge and sort.
@@ -59,6 +60,19 @@ __device__ __forceinline__ void conditional_assign(bool cond, T& ptr, T x)
  *   3  48  49  50  51  52  53  54  55  56  57  58  59  60  61  62  63    48  49  50 ...
  * `
  *
+ * Here is a small usage example of device code, which sorts the arrays of length 6 (= 3 * 2)
+ * grouped in pairs of threads in ascending order:
+ * @code{.cpp}
+ *   // Fill an array of three ints in each thread of a warp.
+ *   int i = laneId();
+ *   int arr[3] = {i+1, i+5, i};
+ *   // Sort the arrays in groups of two threads.
+ *   bitonic<3>(ascending=true, warp_width=2).sort(arr);
+ *   // As a result,
+ *   //  for every even thread (`i == 2j`):    arr == {2j,   2j+1, 2j+5}
+ *   //  for every odd  thread (`i == 2j+1`):  arr == {2j+1, 2j+2, 2j+6}
+ * @endcode
+ *
  * @tparam Size
  *   number of elements processed in each thread;
  *   i.e. the total data size is `Size * warp_width`.
@@ -80,7 +94,7 @@ class bitonic {
    *   the total size of the sorted data is `Size * warp_width`.
    *   Must be power-of-two, not larger than the WarpSize.
    */
-  __device__ __forceinline__ explicit bitonic(bool ascending, int warp_width = WarpSize)
+  _RAFT_DEVICE _RAFT_FORCEINLINE explicit bitonic(bool ascending, int warp_width = WarpSize)
     : ascending_(ascending), warp_width_(warp_width)
   {
   }
@@ -95,7 +109,7 @@ class bitonic {
    *
    *   1) Sort any bitonic sequence.
    *   2) Merge two halves of the input data assuming they're already sorted, and their order is
-   *      opposite (i.e. either ascending, descending or vice-versa).
+   *      opposite (i.e. either ascending+descending or descending+ascending).
    *
    * The input pointers are unique per-thread.
    * See the class description for the description of the data layout.
@@ -108,10 +122,10 @@ class bitonic {
    *   the keys; must be at least `Size` elements long.
    */
   template <typename KeyT, typename... PayloadTs>
-  __device__ __forceinline__ void merge(KeyT* __restrict__ keys,
-                                        PayloadTs* __restrict__... payloads) const
+  _RAFT_DEVICE _RAFT_FORCEINLINE void merge(KeyT* __restrict__ keys,
+                                            PayloadTs* __restrict__... payloads) const
   {
-    return bitonic<Size>::merge_(ascending_, warp_width_, keys, payloads...);
+    return bitonic<Size>::merge_impl(ascending_, warp_width_, keys, payloads...);
   }
 
   /**
@@ -127,10 +141,10 @@ class bitonic {
    *   the keys; must be at least `Size` elements long.
    */
   template <typename KeyT, typename... PayloadTs>
-  __device__ __forceinline__ void sort(KeyT* __restrict__ keys,
-                                       PayloadTs* __restrict__... payloads) const
+  _RAFT_DEVICE _RAFT_FORCEINLINE void sort(KeyT* __restrict__ keys,
+                                           PayloadTs* __restrict__... payloads) const
   {
-    return bitonic<Size>::sort_(ascending_, warp_width_, keys, payloads...);
+    return bitonic<Size>::sort_impl(ascending_, warp_width_, keys, payloads...);
   }
 
   /**
@@ -141,8 +155,8 @@ class bitonic {
    * @param payload
    */
   template <typename KeyT, typename... PayloadTs, int S = Size>
-  __device__ __forceinline__ auto merge(KeyT& __restrict__ key,
-                                        PayloadTs& __restrict__... payload) const
+  _RAFT_DEVICE _RAFT_FORCEINLINE auto merge(KeyT& __restrict__ key,
+                                            PayloadTs& __restrict__... payload) const
     -> std::enable_if_t<S == 1, void>  // SFINAE to enable this for Size == 1 only
   {
     static_assert(S == Size);
@@ -157,8 +171,8 @@ class bitonic {
    * @param payload
    */
   template <typename KeyT, typename... PayloadTs, int S = Size>
-  __device__ __forceinline__ auto sort(KeyT& __restrict__ key,
-                                       PayloadTs& __restrict__... payload) const
+  _RAFT_DEVICE _RAFT_FORCEINLINE auto sort(KeyT& __restrict__ key,
+                                           PayloadTs& __restrict__... payload) const
     -> std::enable_if_t<S == 1, void>  // SFINAE to enable this for Size == 1 only
   {
     static_assert(S == Size);
@@ -173,10 +187,10 @@ class bitonic {
   friend class bitonic;
 
   template <typename KeyT, typename... PayloadTs>
-  static __device__ __forceinline__ void merge_(bool ascending,
-                                                int warp_width,
-                                                KeyT* __restrict__ keys,
-                                                PayloadTs* __restrict__... payloads)
+  static _RAFT_DEVICE _RAFT_FORCEINLINE void merge_impl(bool ascending,
+                                                        int warp_width,
+                                                        KeyT* __restrict__ keys,
+                                                        PayloadTs* __restrict__... payloads)
   {
 #pragma unroll
     for (int size = Size; size > 1; size >>= 1) {
@@ -189,8 +203,8 @@ class bitonic {
           KeyT& key         = keys[i];
           KeyT& other       = keys[other_i];
           if (ascending ? key > other : key < other) {
-            helpers::swap(key, other);
-            (helpers::swap(payloads[i], payloads[other_i]), ...);
+            swap(key, other);
+            (swap(payloads[i], payloads[other_i]), ...);
           }
         }
       }
@@ -204,33 +218,32 @@ class bitonic {
         const KeyT other     = shfl_xor(key, stride, warp_width);
         const bool do_assign = (ascending != is_second) ? key > other : key < other;
 
-        helpers::conditional_assign(do_assign, key, other);
+        conditional_assign(do_assign, key, other);
         // NB: don't put shfl_xor in a conditional; it must be called by all threads in a warp.
-        (helpers::conditional_assign(
-           do_assign, payloads[i], shfl_xor(payloads[i], stride, warp_width)),
+        (conditional_assign(do_assign, payloads[i], shfl_xor(payloads[i], stride, warp_width)),
          ...);
       }
     }
   }
 
   template <typename KeyT, typename... PayloadTs>
-  static __device__ __forceinline__ void sort_(bool ascending,
-                                               int warp_width,
-                                               KeyT* __restrict__ keys,
-                                               PayloadTs* __restrict__... payloads)
+  static _RAFT_DEVICE _RAFT_FORCEINLINE void sort_impl(bool ascending,
+                                                       int warp_width,
+                                                       KeyT* __restrict__ keys,
+                                                       PayloadTs* __restrict__... payloads)
   {
     if constexpr (Size == 1) {
       const int lane = laneId();
       for (int width = 2; width < warp_width; width <<= 1) {
-        bitonic<1>::merge_(lane & width, width, keys, payloads...);
+        bitonic<1>::merge_impl(lane & width, width, keys, payloads...);
       }
     } else {
       constexpr int kSize2 = Size / 2;
-      bitonic<kSize2>::sort_(false, warp_width, keys, payloads...);
-      bitonic<kSize2>::sort_(true, warp_width, keys + kSize2, (payloads + kSize2)...);
+      bitonic<kSize2>::sort_impl(false, warp_width, keys, payloads...);
+      bitonic<kSize2>::sort_impl(true, warp_width, keys + kSize2, (payloads + kSize2)...);
     }
-    bitonic<Size>::merge_(ascending, warp_width, keys, payloads...);
+    bitonic<Size>::merge_impl(ascending, warp_width, keys, payloads...);
   }
 };
 
-}  // namespace raft::spatial::knn::detail::topk
+}  // namespace raft::util
