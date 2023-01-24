@@ -484,7 +484,7 @@ __global__ void __launch_bounds__((WarpSize * BlockDimY))
  *
  * NB: if this function returns `true`, you should update the labels.
  *
- * NB: all pointers are used either on the host side or on the device side together.
+ * NB: all pointers must be on the device side.
  *
  * @tparam T element type
  * @tparam MathT type of the centroids and mapped data

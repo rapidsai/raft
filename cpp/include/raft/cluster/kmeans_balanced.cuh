@@ -27,6 +27,27 @@ namespace raft::cluster::kmeans_balanced {
 /**
  * @brief Find clusters of balanced sizes with a hierarchical k-means algorithm.
  *
+ * This variant of the k-means algorithm first clusters the dataset in mesoclusters, then clusters
+ * the subsets associated to each mesocluster into fine clusters, and finally runs a few k-means
+ * iterations over the whole dataset and with all the centroids to obtain the final clusters.
+ *
+ * Each k-means iteration applies expectation-maximization-balancing:
+ *  - Balancing: adjust centers for clusters that have a small number of entries. If the size of a
+ *    cluster is below a threshold, the center is moved towards a bigger cluster.
+ *  - Expectation: predict the labels (i.e find closest cluster centroid to each point)
+ *  - Maximization: calculate optimal centroids (i.e find the center of gravity of each cluster)
+ *
+ * The number of mesoclusters is chosen by rounding the square root of the number of clusters. E.g
+ * for 512 clusters, we would have 23 mesoclusters. The number of fine clusters per mesocluster is
+ * chosen proportionally to the number of points in each mesocluster.
+ *
+ * This variant of k-means uses random initialization and a fixed number of iterations, though
+ * iterations can be repeated if the balancing step moved the centroids.
+ *
+ * Additionally, this algorithm supports quantized datasets in arbitrary types but the core part of
+ * the algorithm will work with a floating-point type, hence a conversion function can be provided
+ * to map the data type to the math type.
+ *
  * @code{.cpp}
  *   #include <raft/core/handle.hpp>
  *   #include <raft/cluster/kmeans_balanced.cuh>
@@ -240,7 +261,7 @@ void build_clusters(handle_t const& handle,
                     raft::device_matrix_view<MathT, IndexT> centroids,
                     raft::device_vector_view<LabelT, IndexT> labels,
                     raft::device_vector_view<CounterT, IndexT> cluster_sizes,
-                    MappingOpT mapping_op               = raft::identity_op(),
+                    MappingOpT mapping_op = raft::identity_op(),
                     std::optional<raft::device_vector_view<const MathT>> X_norm = std::nullopt)
 {
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
