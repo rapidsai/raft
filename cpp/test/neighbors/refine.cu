@@ -17,7 +17,7 @@
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
-#include <internal/neighbors/refine_helper.cuh>
+#include <raft_internal/neighbors/refine_helper.cuh>
 
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>

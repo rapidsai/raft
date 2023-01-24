@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <internal/neighbors/refine_helper.cuh>
+#include <raft_internal/neighbors/refine_helper.cuh>
 
 #include <common/benchmark.hpp>
 

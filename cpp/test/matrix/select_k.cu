@@ -16,7 +16,7 @@
 
 #include "../test_utils.cuh"
 
-#include <internal/matrix/select_k.cuh>
+#include <raft_internal/matrix/select_k.cuh>
 
 #include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>

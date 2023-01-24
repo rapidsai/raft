@@ -17,7 +17,7 @@
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
-#include <internal/neighbors/naive_knn.cuh>
+#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>

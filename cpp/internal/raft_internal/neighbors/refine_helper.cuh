@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <internal/neighbors/naive_knn.cuh>
+#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
