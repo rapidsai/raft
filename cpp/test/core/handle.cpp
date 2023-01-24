@@ -165,6 +165,22 @@ class mock_comms : public comms_iface {
   int n_ranks;
 };
 
+void assert_handles_equal(raft::handle_t& handle_one, raft::handle_t& handle_two)
+{
+  // Assert shallow copied state
+  ASSERT_EQ(handle_one.get_stream().value(), handle_two.get_stream().value());
+  ASSERT_EQ(handle_one.get_stream_pool_size(), handle_two.get_stream_pool_size());
+
+  // Sanity check to make sure non-corresponding streams are not equal
+  ASSERT_NE(handle_one.get_stream_pool().get_stream(0).value(),
+            handle_two.get_stream_pool().get_stream(1).value());
+
+  for (size_t i = 0; i < handle_one.get_stream_pool_size(); ++i) {
+    ASSERT_EQ(handle_one.get_stream_pool().get_stream(i).value(),
+              handle_two.get_stream_pool().get_stream(i).value());
+  }
+}
+
 TEST(Raft, HandleDefault)
 {
   handle_t h;
@@ -278,18 +294,7 @@ TEST(Raft, WorkspaceResourceCopy)
 
   handle_t copied_handle(handle, pool_mr);
 
-  // Assert shallow copied state
-  ASSERT_EQ(handle.get_stream().value(), copied_handle.get_stream().value());
-  ASSERT_EQ(handle.get_stream_pool_size(), copied_handle.get_stream_pool_size());
-
-  // Sanity check to make sure non-corresponding streams are not equal
-  ASSERT_NE(handle.get_stream_pool().get_stream(0).value(),
-            copied_handle.get_stream_pool().get_stream(1).value());
-
-  for (size_t i = 0; i < handle.get_stream_pool_size(); ++i) {
-    ASSERT_EQ(handle.get_stream_pool().get_stream(i).value(),
-              copied_handle.get_stream_pool().get_stream(i).value());
-  }
+  assert_handles_equal(handle, copied_handle);
 
   // Assert the workspace_resources are what we expect
   ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
@@ -306,18 +311,7 @@ TEST(Raft, HandleCopy)
   handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
   handle_t copied_handle(handle);
 
-  // Assert shallow copied state
-  ASSERT_EQ(handle.get_stream().value(), copied_handle.get_stream().value());
-  ASSERT_EQ(handle.get_stream_pool_size(), copied_handle.get_stream_pool_size());
-
-  // Sanity check to make sure non-corresponding streams are not equal
-  ASSERT_NE(handle.get_stream_pool().get_stream(0).value(),
-            copied_handle.get_stream_pool().get_stream(1).value());
-
-  for (size_t i = 0; i < handle.get_stream_pool_size(); ++i) {
-    ASSERT_EQ(handle.get_stream_pool().get_stream(i).value(),
-              copied_handle.get_stream_pool().get_stream(i).value());
-  }
+  assert_handles_equal(handle, copied_handle);
 }
 
 TEST(Raft, HandleAssign)
@@ -327,18 +321,7 @@ TEST(Raft, HandleAssign)
   handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
   handle_t copied_handle = handle;
 
-  // Assert shallow copied state
-  ASSERT_EQ(handle.get_stream().value(), copied_handle.get_stream().value());
-  ASSERT_EQ(handle.get_stream_pool_size(), copied_handle.get_stream_pool_size());
-
-  // Sanity check to make sure non-corresponding streams are not equal
-  ASSERT_NE(handle.get_stream_pool().get_stream(0).value(),
-            copied_handle.get_stream_pool().get_stream(1).value());
-
-  for (size_t i = 0; i < handle.get_stream_pool_size(); ++i) {
-    ASSERT_EQ(handle.get_stream_pool().get_stream(i).value(),
-              copied_handle.get_stream_pool().get_stream(i).value());
-  }
+  assert_handles_equal(handle, copied_handle);
 }
 
 }  // namespace raft
