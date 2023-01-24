@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ template <typename Type>
 __global__ void naiveSqrtElemKernel(Type* out, const Type* in1, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = raft::mySqrt(in1[idx]); }
+  if (idx < len) { out[idx] = raft::sqrt(in1[idx]); }
 }
 
 template <typename Type>

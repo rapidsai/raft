@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ static __global__ void scale_obs_kernel(index_type_t m, index_type_t n, value_ty
 
   // scale by alpha
   alpha = __shfl_sync(warp_full_mask(), alpha, blockDim.x - 1, blockDim.x);
-  alpha = std::sqrt(alpha);
+  alpha = raft::sqrt(alpha);
   for (j = threadIdx.y + blockIdx.y * blockDim.y; j < n; j += blockDim.y * gridDim.y) {
     for (i = threadIdx.x; i < m; i += blockDim.x) {  // blockDim.x=32
       index      = i + j * m;
