@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <iostream>
 #include <raft/core/detail/mdspan_numpy_serializer.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
@@ -57,6 +58,41 @@ void serialize_mdspan(
     raft::host_mdspan<ElementType, Extents, LayoutPolicy, raft::host_accessor<inner_accessor_type>>(
       tmp, obj.extents());
   detail::numpy_serializer::serialize(handle, os, tmp_mdspan);
+}
+
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+void deserialize_mdspan(const raft::handle_t& handle,
+                        std::istream& is,
+                        raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
+{
+  static_assert(std::is_same_v<LayoutPolicy, raft::layout_c_contiguous> ||
+                  std::is_same_v<LayoutPolicy, raft::layout_f_contiguous>,
+                "The serializer only supports row-major and column-major layouts");
+  detail::numpy_serializer::deserialize(handle, is, obj);
+}
+
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+void deserialize_mdspan(
+  const raft::handle_t& handle,
+  std::istream& is,
+  raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
+{
+  static_assert(std::is_same_v<LayoutPolicy, raft::layout_c_contiguous> ||
+                  std::is_same_v<LayoutPolicy, raft::layout_f_contiguous>,
+                "The serializer only supports row-major and column-major layouts");
+  using obj_t = raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
+
+  // Copy to device after serializing
+  // For contiguous layouts, size() == product of dimensions
+  std::vector<typename obj_t::value_type> tmp(obj.size());
+  using inner_accessor_type = typename obj_t::accessor_type::accessor_type;
+  auto tmp_mdspan =
+    raft::host_mdspan<ElementType, Extents, LayoutPolicy, raft::host_accessor<inner_accessor_type>>(
+      tmp, obj.extents());
+  detail::numpy_serializer::deserialize(handle, is, tmp_mdspan);
+
+  cudaStream_t stream = handle.get_stream();
+  raft::update_device(obj.data_handle(), tmp.data(), obj.size(), stream);
 }
 
 }  // end namespace raft

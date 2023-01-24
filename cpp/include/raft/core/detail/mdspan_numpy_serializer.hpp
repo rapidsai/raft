@@ -19,10 +19,12 @@
 #include <algorithm>
 #include <complex>
 #include <cstdint>
-#include <ostream>
+#include <cstring>
+#include <iostream>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -99,6 +101,11 @@ struct header_t {
   const dtype_t dtype;
   const bool fortran_order;
   const std::vector<ndarray_len_t> shape;
+
+  bool operator==(const header_t& other) const
+  {
+    return (dtype == other.dtype && fortran_order == other.fortran_order && shape == other.shape);
+  }
 };
 
 template <class T>
@@ -163,6 +170,112 @@ std::string header_to_string(const header_t& header)
   return oss.str();
 }
 
+std::string trim(const std::string& str)
+{
+  const std::string whitespace = " \t";
+  auto begin                   = str.find_first_not_of(whitespace);
+  if (begin == std::string::npos) { return ""; }
+  auto end = str.find_last_not_of(whitespace);
+
+  return str.substr(begin, end - begin + 1);
+}
+
+// A poor man's parser for Python dictionary
+// TODO(hcho3): Consider writing a proper parser
+// Limitation: can only parse a flat dictionary; all values are assumed to non-objects
+// Limitation: must know all the keys ahead of time; you get undefined behavior if you omit any key
+std::map<std::string, std::string> parse_pydict(std::string str,
+                                                const std::vector<std::string>& keys)
+{
+  std::map<std::string, std::string> result;
+
+  // Unwrap dictionary
+  str = trim(str);
+  RAFT_EXPECTS(str.front() == '{' && str.back() == '}', "Expected a Python dictionary");
+  str = str.substr(1, str.length() - 2);
+
+  // Get the position of each key and put it in the list
+  std::vector<std::pair<std::size_t, std::string>> positions;
+  for (auto const& key : keys) {
+    std::size_t pos = str.find("'" + key + "'");
+    RAFT_EXPECTS(pos != std::string::npos, "Missing '%s' key.", key.c_str());
+    positions.emplace_back(pos, key);
+  }
+  // Sort the list
+  std::sort(positions.begin(), positions.end());
+
+  // Extract each key-value pair
+  for (std::size_t i = 0; i < positions.size(); ++i) {
+    std::string key = positions[i].second;
+
+    std::size_t begin     = positions[i].first;
+    std::size_t end       = (i + 1 < positions.size() ? positions[i + 1].first : std::string::npos);
+    std::string raw_value = trim(str.substr(begin, end - begin));
+    if (raw_value.back() == ',') { raw_value.pop_back(); }
+    std::size_t sep_pos = raw_value.find_first_of(":");
+    if (sep_pos == std::string::npos) {
+      result[key] = "";
+    } else {
+      result[key] = trim(raw_value.substr(sep_pos + 1));
+    }
+  }
+
+  return result;
+}
+
+std::string parse_pystring(std::string str)
+{
+  RAFT_EXPECTS(str.front() == '\'' && str.back() == '\'', "Invalid Python string: %s", str.c_str());
+  return str.substr(1, str.length() - 2);
+}
+
+bool parse_pybool(std::string str)
+{
+  if (str == "True") {
+    return true;
+  } else if (str == "False") {
+    return false;
+  } else {
+    RAFT_FAIL("Invalid Python boolean: %s", str.c_str());
+  }
+}
+
+std::vector<std::string> parse_pytuple(std::string str)
+{
+  std::vector<std::string> result;
+
+  str = trim(str);
+  RAFT_EXPECTS(str.front() == '(' && str.back() == ')', "Invalid Python tuple: %s", str.c_str());
+  str = str.substr(1, str.length() - 2);
+
+  std::istringstream iss(str);
+  for (std::string token; std::getline(iss, token, ',');) {
+    result.push_back(trim(token));
+  }
+
+  return result;
+}
+
+dtype_t parse_descr(std::string typestr)
+{
+  RAFT_EXPECTS(typestr.length() >= 3, "Invalid typestr: Too short");
+  char byteorder_c       = typestr.at(0);
+  char kind_c            = typestr.at(1);
+  std::string itemsize_s = typestr.substr(2);
+
+  RAFT_EXPECTS(std::find(std::begin(endian_chars), std::end(endian_chars), byteorder_c) !=
+                 std::end(endian_chars),
+               "Invalid typestr: unrecognized byteorder %c",
+               byteorder_c);
+  RAFT_EXPECTS(std::find(std::begin(numtype_chars), std::end(numtype_chars), kind_c) !=
+                 std::end(numtype_chars),
+               "Invalid typestr: unrecognized kind %c",
+               kind_c);
+  unsigned int itemsize = std::stoul(itemsize_s);
+
+  return {byteorder_c, kind_c, itemsize};
+}
+
 const char magic_string[]             = "\x93NUMPY";
 const std::size_t magic_string_length = 6;
 
@@ -174,6 +287,23 @@ void write_magic(std::ostream& os)
   os.put(1);
   os.put(0);
   RAFT_EXPECTS(os.good(), "Error writing magic string");
+}
+
+void read_magic(std::istream& is)
+{
+  char magic_buf[magic_string_length + 2] = {0};
+  is.read(magic_buf, magic_string_length + 2);
+  RAFT_EXPECTS(is.good(), "Error reading magic string");
+
+  RAFT_EXPECTS(std::memcmp(magic_buf, magic_string, magic_string_length) == 0,
+               "The given stream does not have a valid NumPy format.");
+
+  std::uint8_t version_major = magic_buf[magic_string_length];
+  std::uint8_t version_minor = magic_buf[magic_string_length + 1];
+  RAFT_EXPECTS(version_major == 1 && version_minor == 0,
+               "Unsupported NumPy version: %d.%d",
+               version_major,
+               version_minor);
 }
 
 void write_header(std::ostream& os, const header_t& header)
@@ -200,6 +330,44 @@ void write_header(std::ostream& os, const header_t& header)
   RAFT_EXPECTS(os.good(), "Error writing header dict");
 }
 
+std::string read_header_bytes(std::istream& is)
+{
+  read_magic(is);
+
+  // Read header length
+  std::uint8_t header_len_le16[2];
+  is.read(reinterpret_cast<char*>(header_len_le16), 2);
+  RAFT_EXPECTS(is.good(), "Error while reading HEADER_LEN");
+  const std::uint32_t header_length = (header_len_le16[0] << 0) | (header_len_le16[1] << 8);
+
+  std::vector<char> header_bytes(header_length);
+  is.read(header_bytes.data(), header_length);
+  RAFT_EXPECTS(is.good(), "Error while reading the header");
+
+  return std::string(header_bytes.data(), header_length);
+}
+
+header_t read_header(std::istream& is)
+{
+  std::string header_bytes = read_header_bytes(is);
+
+  // remove trailing newline
+  RAFT_EXPECTS(header_bytes.back() == '\n', "Invalid NumPy header");
+  header_bytes.pop_back();
+
+  // parse the header dict
+  auto header_dict   = parse_pydict(header_bytes, {"descr", "fortran_order", "shape"});
+  dtype_t descr      = parse_descr(parse_pystring(header_dict["descr"]));
+  bool fortran_order = parse_pybool(header_dict["fortran_order"]);
+  std::vector<ndarray_len_t> shape;
+  auto shape_tup_str = parse_pytuple(header_dict["shape"]);
+  for (const auto& e : shape_tup_str) {
+    shape.push_back(static_cast<ndarray_len_t>(std::stoul(e)));
+  }
+
+  return {descr, fortran_order, shape};
+}
+
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 void serialize(const raft::handle_t& handle,
                std::ostream& os,
@@ -223,6 +391,46 @@ void serialize(const raft::handle_t& handle,
   // For contiguous layouts, size() == product of dimensions
   os.write(reinterpret_cast<const char*>(obj.data_handle()), obj.size() * sizeof(ElementType));
   RAFT_EXPECTS(os.good(), "Error writing content of mdspan");
+}
+
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+void deserialize(const raft::handle_t& handle,
+                 std::istream& is,
+                 const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
+{
+  using obj_t               = raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
+  using inner_accessor_type = typename obj_t::accessor_type::accessor_type;
+  static_assert(
+    std::is_same_v<inner_accessor_type, std::experimental::default_accessor<ElementType>>,
+    "The serializer only supports serializing mdspans with default accessor");
+
+  // Check if given dtype and fortran_order are compatible with the mdspan
+  const auto expected_dtype         = get_numpy_dtype<ElementType>();
+  const bool expected_fortran_order = std::is_same_v<LayoutPolicy, raft::layout_f_contiguous>;
+  header_t header                   = read_header(is);
+  RAFT_EXPECTS(header.dtype == expected_dtype,
+               "Expected dtype %s but got %s instead",
+               header.dtype.to_string().c_str(),
+               expected_dtype.to_string().c_str());
+  RAFT_EXPECTS(header.fortran_order == expected_fortran_order,
+               "Wrong matrix layout; expected %s but got a different layout",
+               (expected_fortran_order ? "Fortran layout" : "C layout"));
+
+  // Check if dimensions are correct
+  RAFT_EXPECTS(obj.rank() == header.shape.size(),
+               "Incorrect rank: expected %zu but got %zu",
+               obj.rank(),
+               header.shape.size());
+  for (typename obj_t::rank_type i = 0; i < obj.rank(); ++i) {
+    RAFT_EXPECTS(obj.extent(i) == header.shape[i],
+                 "Incorrect dimension: expected %zu but got %zu",
+                 obj.extent(i),
+                 header.shape[i]);
+  }
+
+  // For contiguous layouts, size() == product of dimensions
+  is.read(reinterpret_cast<char*>(obj.data_handle()), obj.size() * sizeof(ElementType));
+  RAFT_EXPECTS(is.good(), "Error while reading mdspan content");
 }
 
 }  // end namespace numpy_serializer

@@ -21,23 +21,72 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_serializer.hpp>
+#include <sstream>
 #include <string>
 #include <vector>
 
 namespace raft {
 
-TEST(MDArraySerializer, Basic)
+template <typename MDSpanType, typename... Args>
+void test_mdspan_roundtrip(const raft::handle_t& handle, std::vector<float>& vec, Args... dims)
+{
+  std::vector<float> vec2(vec.size());
+
+  auto span = MDSpanType(vec.data(), dims...);
+  std::ostringstream oss;
+  serialize_mdspan(handle, oss, span);
+
+  auto span2 = MDSpanType(vec2.data(), dims...);
+  std::istringstream iss(oss.str());
+  deserialize_mdspan(handle, iss, span2);
+  EXPECT_EQ(vec, vec2);
+}
+
+TEST(MDArraySerializer, E2ERoundTrip)
 {
   raft::handle_t handle{};
-
-  std::vector<float> vec{1.0, 2.0, 3.0, 4.0};
+  std::vector<float> vec{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0};
 
   using mdspan_matrix2d_c_layout =
     raft::host_mdspan<float, raft::dextents<std::size_t, 2>, raft::layout_c_contiguous>;
-  auto span = mdspan_matrix2d_c_layout(vec.data(), 2, 2);
+  using mdspan_matrix2d_f_layout =
+    raft::host_mdspan<float, raft::dextents<std::size_t, 2>, raft::layout_f_contiguous>;
+  using mdspan_matrix3d_c_layout =
+    raft::host_mdspan<float, raft::dextents<std::size_t, 3>, raft::layout_c_contiguous>;
+  using mdspan_matrix3d_f_layout =
+    raft::host_mdspan<float, raft::dextents<std::size_t, 3>, raft::layout_f_contiguous>;
 
-  std::ofstream of("/home/phcho/tmp/foobar.npy", std::ios::out | std::ios::binary);
-  serialize_mdspan(handle, of, span);
+  test_mdspan_roundtrip<mdspan_matrix2d_c_layout>(handle, vec, 2, 4);
+  test_mdspan_roundtrip<mdspan_matrix2d_f_layout>(handle, vec, 2, 4);
+  test_mdspan_roundtrip<mdspan_matrix2d_c_layout>(handle, vec, 1, 8);
+  test_mdspan_roundtrip<mdspan_matrix2d_f_layout>(handle, vec, 1, 8);
+  test_mdspan_roundtrip<mdspan_matrix3d_c_layout>(handle, vec, 2, 2, 2);
+  test_mdspan_roundtrip<mdspan_matrix3d_f_layout>(handle, vec, 2, 2, 2);
+  test_mdspan_roundtrip<mdspan_matrix3d_c_layout>(handle, vec, 1, 2, 4);
+  test_mdspan_roundtrip<mdspan_matrix3d_f_layout>(handle, vec, 1, 2, 4);
+}
+
+TEST(MDArraySerializer, HeaderRoundTrip)
+{
+  for (char byteorder : detail::numpy_serializer::endian_chars) {
+    for (char kind : detail::numpy_serializer::numtype_chars) {
+      for (unsigned int itemsize : std::vector<unsigned int>{1, 2, 4, 8, 16}) {
+        for (bool fortran_order : std::vector<bool>{true, false}) {
+          for (const auto& shape :
+               std::vector<std::vector<detail::numpy_serializer::ndarray_len_t>>{
+                 {10}, {2, 2}, {10, 30, 100}, {}}) {
+            detail::numpy_serializer::dtype_t dtype{byteorder, kind, itemsize};
+            detail::numpy_serializer::header_t header{dtype, fortran_order, shape};
+            std::ostringstream oss;
+            detail::numpy_serializer::write_header(oss, header);
+            std::istringstream iss(oss.str());
+            auto header2 = detail::numpy_serializer::read_header(iss);
+            EXPECT_EQ(header, header2);
+          }
+        }
+      }
+    }
+  }
 }
 
 TEST(MDArraySerializer, Tuple2String)
@@ -110,6 +159,40 @@ TEST(MDArraySerializer, WriteHeader)
             "{'descr': '<f8', 'fortran_order': False, 'shape': (2, 10, 5)}"s  // header
             "\x20\x20\x20\x20\x20\x20\x20\x20\n"s                             // padding
   );
+}
+
+TEST(MDArraySerializer, ParsePyDict)
+{
+  std::string dict{"{'apple': 2, 'pie': 'is', 'delicious': True, 'piece of': 'cake'}"};
+  auto parse =
+    detail::numpy_serializer::parse_pydict(dict, {"apple", "pie", "delicious", "piece of"});
+  auto expected_parse = std::map<std::string, std::string>{
+    {"apple", "2"}, {"pie", "'is'"}, {"delicious", "True"}, {"piece of", "'cake'"}};
+  EXPECT_EQ(parse, expected_parse);
+}
+
+TEST(MDArraySerializer, ParsePyString)
+{
+  EXPECT_EQ(detail::numpy_serializer::parse_pystring("'foobar'"), "foobar");
+}
+
+TEST(MDArraySerializer, ParsePyTuple)
+{
+  {
+    std::string tuple_str{"(2,)"};
+    std::vector<std::string> expected_parse{"2"};
+    EXPECT_EQ(detail::numpy_serializer::parse_pytuple(tuple_str), expected_parse);
+  }
+  {
+    std::string tuple_str{"(2, 3)"};
+    std::vector<std::string> expected_parse{"2", "3"};
+    EXPECT_EQ(detail::numpy_serializer::parse_pytuple(tuple_str), expected_parse);
+  }
+  {
+    std::string tuple_str{"(2, 3, 10, 20)"};
+    std::vector<std::string> expected_parse{"2", "3", "10", "20"};
+    EXPECT_EQ(detail::numpy_serializer::parse_pytuple(tuple_str), expected_parse);
+  }
 }
 
 }  // namespace raft
