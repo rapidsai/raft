@@ -66,10 +66,7 @@ class resources {
    * @brief Shallow copy of underlying resources instance.
    * Note that this does not create any new resources.
    */
-  resources(const resources&)
-    : factories_(resources.factories_.copy()), resources_(resources.resources_.copy())
-  {
-  }
+  resources(const resources& res) : factories_(res.factories_), resources_(res.resources_) {}
   resources& operator=(const resources&) = delete;
   resources(resources&&)                 = delete;
   resources& operator=(resources&&) = delete;

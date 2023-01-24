@@ -268,4 +268,35 @@ TEST(Raft, WorkspaceResource)
   delete pool_mr;
 }
 
+TEST(Raft, WorkspaceResourceCopy)
+{
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(10);
+
+  handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  auto pool_mr = new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource());
+
+  handle_t copied_handle(handle, pool_mr);
+
+  // Assert shallow copied state
+  ASSERT_EQ(handle.get_stream().value(), copied_handle.get_stream().value());
+  ASSERT_EQ(handle.get_stream_pool_size(), copied_handle.get_stream_pool_size());
+
+  // Sanity check to make sure non-corresponding streams are not equal
+  ASSERT_NE(handle.get_stream_pool().get_stream(0).value(),
+            copied_handle.get_stream_pool().get_stream(1).value());
+
+  for (size_t i = 0; i < handle.get_stream_pool_size(); ++i) {
+    ASSERT_EQ(handle.get_stream_pool().get_stream(i).value(),
+              copied_handle.get_stream_pool().get_stream(i).value());
+  }
+
+  // Assert the workspace_resources are what we expect
+  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
+                handle.get_workspace_resource()) == nullptr);
+
+  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
+                copied_handle.get_workspace_resource()) != nullptr);
+}
+
 }  // namespace raft
