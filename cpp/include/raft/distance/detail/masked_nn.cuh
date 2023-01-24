@@ -30,11 +30,6 @@ namespace raft {
 namespace distance {
 namespace detail {
 
-#if (ENABLE_MEMCPY_ASYNC == 1)
-#include <cuda_pipeline.h>
-using namespace nvcuda::experimental;
-#endif
-
 template <typename DataT,
           typename OutT,
           typename IdxT,
