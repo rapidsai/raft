@@ -24,6 +24,7 @@ dependencies:
 - doxygen>=1.8.20
 - faiss-proc=*=cuda
 - gcc_linux-64=9
+- ipython
 - libcublas-dev=11.11.3.6
 - libcublas=11.11.3.6
 - libcurand-dev=10.3.0.86
@@ -34,8 +35,10 @@ dependencies:
 - libcusparse=11.7.5.86
 - libfaiss>=1.7.1=cuda*
 - ninja
+- numpydoc
 - pytest
 - pytest-cov
+- recommonmark
 - rmm=23.02
 - scikit-build>=0.13.1
 - scikit-learn

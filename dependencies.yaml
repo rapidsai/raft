@@ -9,7 +9,7 @@ files:
       - build
       - cudatoolkit
       - develop
-      - doc
+      - docs_build
       - run
       - test_python
   test_cpp:
