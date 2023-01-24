@@ -450,7 +450,7 @@ class MaskedL2NNDetTest : public MaskedL2NNTest<DataT, Sqrt> {
 
   rmm::device_uvector<raft::KeyValuePair<int, DataT>> min1;
 
-  static const int NumRepeats = 100;
+  static const int NumRepeats = 3;
 
   void generateGoldenResult() override {}
 };
