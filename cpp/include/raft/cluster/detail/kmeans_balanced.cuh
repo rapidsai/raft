@@ -17,6 +17,7 @@
 #pragma once
 
 #include <limits>
+#include <type_traits>
 
 #include <raft/cluster/detail/kmeans_common.cuh>
 #include <raft/cluster/kmeans_balanced_types.hpp>
@@ -78,7 +79,7 @@ constexpr static inline float kAdjustCentersWeight = 7.0f;
  * @param[inout] mr (optional) Memory resource to use for temporary allocations
  */
 template <typename MathT, typename IdxT, typename LabelT>
-inline std::enable_if_t<is_floating_point_v<MathT>> predict_core(
+inline std::enable_if_t<std::is_floating_point_v<MathT>> predict_core(
   const handle_t& handle,
   const kmeans_balanced_params& params,
   const MathT* centers,
