@@ -59,9 +59,14 @@ namespace raft {
  */
 class device_resources : public resources {
  public:
-  // delete copy/move constructors and assignment operators as
-  // copying and moving underlying resources is unsafe
-  device_resources(const device_resources&) = delete;
+  device_resources(const device_resources& handle,
+                   rmm::mr::device_memory_resource* workspace_resource)
+    : resources{handle}
+  {
+    // replace the resource factory for the workspace_resources
+    resources::add_resource_factory(
+      std::make_shared<resource::workspace_resource_factory>(workspace_resource));
+  }
   device_resources& operator=(const device_resources&) = delete;
   device_resources(device_resources&&)                 = delete;
   device_resources& operator=(device_resources&&) = delete;
