@@ -241,7 +241,6 @@ void build_clusters(handle_t const& handle,
                     raft::device_vector_view<LabelT, IndexT> labels,
                     raft::device_vector_view<CounterT, IndexT> cluster_sizes,
                     MappingOpT mapping_op               = raft::identity_op(),
-                    rmm::mr::device_memory_resource* mr = nullptr,
                     std::optional<raft::device_vector_view<const MathT>> X_norm = std::nullopt)
 {
   RAFT_EXPECTS(X.extent(0) == labels.extent(0),
@@ -250,8 +249,6 @@ void build_clusters(handle_t const& handle,
                "Number of features in dataset and centroids are different");
   RAFT_EXPECTS(centroids.extent(0) == cluster_sizes.extent(0),
                "Number of rows in centroids and clusyer_sizes are different");
-
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
 
   detail::build_clusters(handle,
                          params,
@@ -263,7 +260,7 @@ void build_clusters(handle_t const& handle,
                          labels.data_handle(),
                          cluster_sizes.data_handle(),
                          mapping_op,
-                         mr,
+                         handle.get_workspace_resource(),
                          X_norm.has_value() ? X_norm.value().data_handle() : nullptr);
 }
 

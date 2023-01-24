@@ -261,7 +261,7 @@ void calc_centers_and_sizes(const handle_t& handle,
                             rmm::mr::device_memory_resource* mr = nullptr)
 {
   auto stream = handle.get_stream();
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+  if (mr == nullptr) { mr = handle.get_workspace_resource(); }
 
   if (!reset_counters) {
     raft::linalg::matrixVectorOp(
@@ -311,16 +311,17 @@ void calc_centers_and_sizes(const handle_t& handle,
 
 /** Computes the L2 norm of the dataset, converting to MathT if necessary */
 template <typename T, typename MathT, typename IdxT, typename MappingOpT>
-void compute_norm(MathT* dataset_norm,
+void compute_norm(const handle_t& handle,
+                  MathT* dataset_norm,
                   const T* dataset,
                   IdxT dim,
                   IdxT n_rows,
                   MappingOpT mapping_op,
-                  rmm::cuda_stream_view stream,
                   rmm::mr::device_memory_resource* mr = nullptr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("compute_norm");
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+  auto stream = handle.get_stream();
+  if (mr == nullptr) { mr = handle.get_workspace_resource(); }
   rmm::device_uvector<MathT> mapped_dataset(0, stream, mr);
 
   const MathT* dataset_ptr = nullptr;
@@ -376,7 +377,7 @@ void predict(const handle_t& handle,
   auto stream = handle.get_stream();
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "predict(%zu, %u)", static_cast<size_t>(n_rows), n_clusters);
-  if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
+  if (mr == nullptr) { mr = handle.get_workspace_resource(); }
   auto [max_minibatch_size, _mem_per_row] =
     calc_minibatch_size<MathT>(n_clusters, n_rows, dim, params.metric, std::is_same_v<T, MathT>);
   rmm::device_uvector<MathT> cur_dataset(
@@ -401,7 +402,7 @@ void predict(const handle_t& handle,
     // Compute the norm now if it hasn't been pre-computed.
     if (need_compute_norm) {
       compute_norm(
-        cur_dataset_norm.data(), cur_dataset_ptr, dim, minibatch_size, mapping_op, stream, mr);
+        handle, cur_dataset_norm.data(), cur_dataset_ptr, dim, minibatch_size, mapping_op, mr);
       dataset_norm_ptr = cur_dataset_norm.data();
     } else if (dataset_norm != nullptr) {
       dataset_norm_ptr = dataset_norm + offset;
@@ -966,7 +967,7 @@ void build_hierarchical(const handle_t& handle,
   RAFT_LOG_DEBUG("build_hierarchical: n_mesoclusters: %u", n_mesoclusters);
 
   rmm::mr::managed_memory_resource managed_memory;
-  rmm::mr::device_memory_resource* device_memory = nullptr;
+  rmm::mr::device_memory_resource* device_memory = handle.get_workspace_resource();
   auto [max_minibatch_size, mem_per_row] =
     calc_minibatch_size<MathT>(n_clusters, n_rows, dim, params.metric, std::is_same_v<T, MathT>);
   auto pool_guard =
@@ -984,12 +985,12 @@ void build_hierarchical(const handle_t& handle,
     dataset_norm_buf.resize(n_rows, stream);
     for (IdxT offset = 0; offset < n_rows; offset += max_minibatch_size) {
       IdxT minibatch_size = std::min<IdxT>(max_minibatch_size, n_rows - offset);
-      compute_norm(dataset_norm_buf.data() + offset,
+      compute_norm(handle,
+                   dataset_norm_buf.data() + offset,
                    dataset + dim * offset,
                    dim,
                    minibatch_size,
                    mapping_op,
-                   stream,
                    device_memory);
     }
     dataset_norm = (const MathT*)dataset_norm_buf.data();

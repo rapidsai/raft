@@ -215,7 +215,7 @@ class device_resources : public resources {
     return resource::get_subcomm(*this, key);
   }
 
-  const rmm::mr::device_memory_resource* get_workspace_resource() const
+  rmm::mr::device_memory_resource* get_workspace_resource() const
   {
     return resource::get_workspace_resource(*this);
   }
