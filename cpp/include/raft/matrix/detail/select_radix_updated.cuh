@@ -513,6 +513,10 @@ __global__ void radix_kernel(const T* in,
     previous_len = counter->previous_len;
   }
   if (current_len == 0) { return; }
+
+  // When k=len, early_stop will be true at pass 0. It means filter_and_histogram() should handle
+  // correctly the case that pass=0 and early_stop=true. However, this special case of k=len is
+  // handled in other way in select_k() so such case is not possible here.
   bool early_stop = (current_len == current_k);
 
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
@@ -977,6 +981,16 @@ void radix_topk_one_block(const T* in,
                                            idx_buf2.data());
 }
 
+template <typename IdxT>
+__global__ void fill_idx_kernel(int batch_size, IdxT len, IdxT* out_idx)
+{
+  const int batch_i = blockIdx.y;
+  const int stride  = blockDim.x * gridDim.x;
+  for (IdxT i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += stride) {
+    out_idx[batch_i * len + i] = i;
+  }
+}
+
 }  // namespace impl
 
 /**
@@ -1039,6 +1053,20 @@ void select_k_updated(const T* in,
                       rmm::cuda_stream_view stream,
                       rmm::mr::device_memory_resource* mr = nullptr)
 {
+  if (k == len) {
+    RAFT_CUDA_TRY(
+      cudaMemcpyAsync(out, in, sizeof(T) * batch_size * len, cudaMemcpyDeviceToDevice, stream));
+    if (in_idx) {
+      RAFT_CUDA_TRY(cudaMemcpyAsync(
+        out_idx, in_idx, sizeof(IdxT) * batch_size * len, cudaMemcpyDeviceToDevice, stream));
+    } else {
+      constexpr int block_dim = 256;
+      dim3 grid_dim((len - 1) / block_dim + 1, batch_size, 1);
+      impl::fill_idx_kernel<<<grid_dim, block_dim, 0, stream>>>(batch_size, len, out_idx);
+    }
+    return;
+  }
+
   constexpr int items_per_thread = 32;
 
   if (len <= BlockSize * items_per_thread) {
