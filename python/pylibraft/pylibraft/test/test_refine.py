@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ def run_refine(
     n_rows=500,
     n_cols=50,
     n_queries=100,
-    metric="l2_expanded",
+    metric="sqeuclidean",
     k0=40,
     k=10,
     inplace=False,
@@ -49,7 +49,7 @@ def run_refine(
     queries_device = device_ndarray(queries)
 
     # Calculate reference values with sklearn
-    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[
+    skl_metric = {"sqeuclidean": "euclidean", "inner_product": "cosine"}[
         metric
     ]
     nn_skl = NearestNeighbors(
@@ -106,7 +106,7 @@ def run_refine(
     if recall <= 0.999:
         # We did not find the same neighbor indices.
         # We could have found other neighbor with same distance.
-        if metric == "l2_expanded":
+        if metric == "sqeuclidean":
             skl_dist = np.power(skl_dist[:, :k], 2)
         elif metric == "inner_product":
             skl_dist = 1 - skl_dist[:, :k]
@@ -120,12 +120,10 @@ def run_refine(
 
 @pytest.mark.parametrize("n_queries", [100, 1024, 37])
 @pytest.mark.parametrize("inplace", [True, False])
-@pytest.mark.parametrize("metric", ["l2_expanded", "inner_product"])
+@pytest.mark.parametrize("metric", ["sqeuclidean", "inner_product"])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
 @pytest.mark.parametrize("memory_type", ["device", "host"])
 def test_refine_dtypes(n_queries, dtype, inplace, metric, memory_type):
-    if memory_type == "device" and dtype == np.int8:
-        pytest.xfail("Possibly incorrect distance calculation (IVF-Flat)")
     run_refine(
         n_rows=2000,
         n_queries=n_queries,

@@ -34,10 +34,10 @@
 #include <raft/core/kvp.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
-#include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/gather.cuh>
@@ -156,12 +156,11 @@ void checkWeight(const raft::handle_t& handle,
       n_samples);
 
     auto scale = static_cast<DataT>(n_samples) / wt_sum;
-    raft::linalg::unaryOp(
-      weight.data_handle(),
-      weight.data_handle(),
-      n_samples,
-      [=] __device__(const DataT& wt) { return wt * scale; },
-      stream);
+    raft::linalg::unaryOp(weight.data_handle(),
+                          weight.data_handle(),
+                          n_samples,
+                          raft::mul_const_op<DataT>{scale},
+                          stream);
   }
 }
 
@@ -179,33 +178,42 @@ IndexT getCentroidsBatchSize(int batch_centroids, IndexT n_local_clusters)
   return (minVal == 0) ? n_local_clusters : minVal;
 }
 
-template <typename DataT, typename ReductionOpT, typename IndexT = int>
+template <typename InputT,
+          typename OutputT,
+          typename MainOpT,
+          typename ReductionOpT,
+          typename IndexT = int>
 void computeClusterCost(const raft::handle_t& handle,
-                        raft::device_vector_view<DataT, IndexT> minClusterDistance,
+                        raft::device_vector_view<InputT, IndexT> minClusterDistance,
                         rmm::device_uvector<char>& workspace,
-                        raft::device_scalar_view<DataT> clusterCost,
+                        raft::device_scalar_view<OutputT> clusterCost,
+                        MainOpT main_op,
                         ReductionOpT reduction_op)
 {
-  cudaStream_t stream       = handle.get_stream();
+  cudaStream_t stream = handle.get_stream();
+
+  cub::TransformInputIterator<OutputT, MainOpT, InputT*> itr(minClusterDistance.data_handle(),
+                                                             main_op);
+
   size_t temp_storage_bytes = 0;
   RAFT_CUDA_TRY(cub::DeviceReduce::Reduce(nullptr,
                                           temp_storage_bytes,
-                                          minClusterDistance.data_handle(),
+                                          itr,
                                           clusterCost.data_handle(),
                                           minClusterDistance.size(),
                                           reduction_op,
-                                          DataT(),
+                                          OutputT(),
                                           stream));
 
   workspace.resize(temp_storage_bytes, stream);
 
   RAFT_CUDA_TRY(cub::DeviceReduce::Reduce(workspace.data(),
                                           temp_storage_bytes,
-                                          minClusterDistance.data_handle(),
+                                          itr,
                                           clusterCost.data_handle(),
                                           minClusterDistance.size(),
                                           reduction_op,
-                                          DataT(),
+                                          OutputT(),
                                           stream));
 }
 
@@ -267,9 +275,7 @@ void sampleCentroids(const raft::handle_t& handle,
                        sampledMinClusterDistance.data_handle(),
                        nPtsSampledInRank,
                        inRankCp.data(),
-                       [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> val) {  // MapTransformOp
-                         return val.key;
-                       },
+                       raft::key_op{},
                        stream);
 }
 
@@ -329,7 +335,7 @@ void shuffleAndGather(const raft::handle_t& handle,
                        in.extent(1),
                        in.extent(0),
                        indices.data_handle(),
-                       n_samples_to_gather,
+                       static_cast<IndexT>(n_samples_to_gather),
                        out.data_handle(),
                        stream);
 }
@@ -464,10 +470,8 @@ void minClusterAndDistanceCompute(
             pair.value = val;
             return pair;
           },
-          [=] __device__(raft::KeyValuePair<IndexT, DataT> a, raft::KeyValuePair<IndexT, DataT> b) {
-            return (b.value < a.value) ? b : a;
-          },
-          [=] __device__(raft::KeyValuePair<IndexT, DataT> pair) { return pair; });
+          raft::argmin_op{},
+          raft::identity_op{});
       }
     }
   }
@@ -542,7 +546,6 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
     if (is_fused) {
       workspace.resize((sizeof(IndexT)) * ns, stream);
 
-      // todo(lsugy): remove cIdx
       raft::distance::fusedL2NNMinReduce<DataT, DataT, IndexT>(
         minClusterDistanceView.data_handle(),
         datasetView.data_handle(),
@@ -577,23 +580,16 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
         pairwise_distance_kmeans<DataT, IndexT>(
           handle, datasetView, centroidsView, pairwiseDistanceView, workspace, metric);
 
-        raft::linalg::coalescedReduction(
-          minClusterDistanceView.data_handle(),
-          pairwiseDistanceView.data_handle(),
-          pairwiseDistanceView.extent(1),
-          pairwiseDistanceView.extent(0),
-          std::numeric_limits<DataT>::max(),
-          stream,
-          true,
-          [=] __device__(DataT val, IndexT i) {  // MainLambda
-            return val;
-          },
-          [=] __device__(DataT a, DataT b) {  // ReduceLambda
-            return (b < a) ? b : a;
-          },
-          [=] __device__(DataT val) {  // FinalLambda
-            return val;
-          });
+        raft::linalg::coalescedReduction(minClusterDistanceView.data_handle(),
+                                         pairwiseDistanceView.data_handle(),
+                                         pairwiseDistanceView.extent(1),
+                                         pairwiseDistanceView.extent(0),
+                                         std::numeric_limits<DataT>::max(),
+                                         stream,
+                                         true,
+                                         raft::identity_op{},
+                                         raft::min_op{},
+                                         raft::identity_op{});
       }
     }
   }

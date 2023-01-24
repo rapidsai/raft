@@ -3,11 +3,10 @@
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
-{% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
-{% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
-{% set cuda_major=cuda_version.split('.')[0] %}
-{% set py_version=environ.get('CONDA_PY', 36) %}
-{% set ucx_py_version=environ.get('UCX_PY_VERSION') %}
+{% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
+{% set py_version = environ['CONDA_PY'] %}
+{% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
+{% set cuda_major = cuda_version.split('.')[0] %}
 
 package:
   name: raft-dask
@@ -24,47 +23,49 @@ build:
 
 requirements:
   build:
-    - cmake {{ cmake_version }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - {{ compiler('cuda') }} {{ cuda_version }}
+    - cmake {{ cmake_version }}
+    - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
+    - cuda-python >=11.7.1,<12.0
+    - cudatoolkit ={{ cuda_version }}
+    - cython >=0.29,<0.30
+    - nccl >=2.9.9
+    - pylibraft {{ version }}
     - python x.x
+    - rmm ={{ minor_version }}
+    - scikit-build >=0.13.1
     - setuptools
-    - cython>=0.29,<0.30
-    - scikit-build>=0.13.1
-    - rmm {{ minor_version }}
-    - pylibraft {{ version }}
-    - cudatoolkit {{ cuda_version }}.*
-    - cuda-python >=11.7.1,<12.0
-    - nccl>=2.9.9
     - ucx {{ ucx_version }}
-    - ucx-py {{ ucx_py_version }}
     - ucx-proc=*=gpu
+    - ucx-py {{ ucx_py_version }}
   run:
-    - python x.x
-    - dask-cuda {{ minor_version }}
-    - pylibraft {{ version }}
-    - nccl>=2.9.9
-    - rmm {{ minor_version }}
-    - ucx >={{ ucx_version }}
-    - ucx-py {{ ucx_py_version }}
-    - ucx-proc=*=gpu
-    - dask==2022.11.1
-    - distributed==2022.11.1
-    - cuda-python >=11.7.1,<12.0
-    - joblib >=0.11
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    - cuda-python >=11.7.1,<12.0
+    - dask >=2022.12.0
+    - dask-cuda ={{ minor_version }}
+    - distributed >=2022.12.0
+    - joblib >=0.11
+    - nccl >=2.9.9
+    - pylibraft {{ version }}
+    - python x.x
+    - rmm ={{ minor_version }}
+    - ucx >={{ ucx_version }}
+    - ucx-proc=*=gpu
+    - ucx-py {{ ucx_py_version }}
 
+# TODO: Remove the linux64 tags on tests after disabling gpuCI / Jenkins
 tests:                                 # [linux64]
   requirements:                        # [linux64]
-    - cudatoolkit {{ cuda_version }}.* # [linux64]
+    - cudatoolkit ={{ cuda_version }}  # [linux64]
   imports:                             # [linux64]
     - raft_dask                        # [linux64]
 
 about:
-  home: http://rapids.ai/
+  home: https://rapids.ai/
   license: Apache-2.0
   # license_file: LICENSE
   summary: raft-dask library

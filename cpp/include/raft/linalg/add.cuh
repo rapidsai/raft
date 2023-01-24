@@ -27,8 +27,6 @@
 namespace raft {
 namespace linalg {
 
-using detail::adds_scalar;
-
 /**
  * @ingroup arithmetic
  * @brief Elementwise scalar add operation on the input buffer

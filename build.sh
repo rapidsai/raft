@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 
 # raft build script
 
@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean -v -g -n --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -34,6 +34,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    -v                          - verbose build mode
    -g                          - build for debug
    -n                          - no install step
+   --uninstall                 - uninstall files for specified targets which were built and installed prior
    --compile-libs              - compile shared libraries for all components
    --compile-nn                - compile shared library for nn component
    --compile-dist              - compile shared library for distance and current random components
@@ -56,9 +57,9 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
 "
 LIBRAFT_BUILD_DIR=${LIBRAFT_BUILD_DIR:=${REPODIR}/cpp/build}
 SPHINX_BUILD_DIR=${REPODIR}/docs
-PY_RAFT_BUILD_DIR=${REPODIR}/python/raft/build
-PY_LIBRAFT_BUILD_DIR=${REPODIR}/python/pylibraft/_skbuild
-BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PY_RAFT_BUILD_DIR} ${PY_LIBRAFT_BUILD_DIR}"
+RAFT_DASK_BUILD_DIR=${REPODIR}/python/raft-dask/_skbuild
+PYLIBRAFT_BUILD_DIR=${REPODIR}/python/pylibraft/_skbuild
+BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PYLIBRAFT_BUILD_DIR} ${RAFT_DASK_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
 CMAKE_LOG_LEVEL=""
@@ -152,6 +153,7 @@ function limitTests {
             # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
             ARGS=${ARGS//--limit-tests=$LIMIT_TEST_TARGETS/}
             TEST_TARGETS=${LIMIT_TEST_TARGETS}
+	    echo "Limiting tests to $TEST_TARGETS"
         fi
     fi
 }
@@ -189,6 +191,65 @@ if (( ${NUMARGS} != 0 )); then
         fi
     done
 fi
+
+# This should run before build/install
+if hasArg --uninstall; then
+    UNINSTALL=1
+
+    if hasArg pylibraft || hasArg libraft || (( ${NUMARGS} == 1 )); then
+
+      echo "Removing libraft files..."
+      if [ -e ${LIBRAFT_BUILD_DIR}/install_manifest.txt ]; then
+          xargs rm -fv < ${LIBRAFT_BUILD_DIR}/install_manifest.txt > /dev/null 2>&1
+      fi
+    fi
+
+    if hasArg pylibraft || (( ${NUMARGS} == 1 )); then
+      echo "Uninstalling pylibraft package..."
+      if [ -e ${PYLIBRAFT_BUILD_DIR}/install_manifest.txt ]; then
+          xargs rm -fv < ${PYLIBRAFT_BUILD_DIR}/install_manifest.txt > /dev/null 2>&1
+      fi
+
+      # Try to uninstall via pip if it is installed
+      if [ -x "$(command -v pip)" ]; then
+        echo "Using pip to uninstall pylibraft"
+        pip uninstall -y pylibraft
+
+      # Otherwise, try to uninstall through conda if that's where things are installed
+      elif [ -x "$(command -v conda)" ] && [ "$INSTALL_PREFIX" == "$CONDA_PREFIX" ]; then
+        echo "Using conda to uninstall pylibraft"
+        conda uninstall -y pylibraft
+
+      # Otherwise, fail
+      else
+        echo "Could not uninstall pylibraft from pip or conda. pylibraft package will need to be manually uninstalled"
+      fi
+    fi
+
+    if hasArg raft-dask || (( ${NUMARGS} == 1 )); then
+      echo "Uninstalling raft-dask package..."
+      if [ -e ${RAFT_DASK_BUILD_DIR}/install_manifest.txt ]; then
+          xargs rm -fv < ${RAFT_DASK_BUILD_DIR}/install_manifest.txt > /dev/null 2>&1
+      fi
+
+      # Try to uninstall via pip if it is installed
+      if [ -x "$(command -v pip)" ]; then
+        echo "Using pip to uninstall raft-dask"
+        pip uninstall -y raft-dask
+
+      # Otherwise, try to uninstall through conda if that's where things are installed
+      elif [ -x "$(command -v conda)" ] && [ "$INSTALL_PREFIX" == "$CONDA_PREFIX" ]; then
+        echo "Using conda to uninstall raft-dask"
+        conda uninstall -y raft-dask
+
+      # Otherwise, fail
+      else
+        echo "Could not uninstall raft-dask from pip or conda. raft-dask package will need to be manually uninstalled."
+      fi
+    fi
+    exit 0
+fi
+
 
 # Process flags
 if hasArg -n; then
@@ -286,9 +347,8 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
-if hasArg uninstall; then
-    UNINSTALL=1
-fi
+
+
 
 if [[ ${CMAKE_TARGET} == "" ]]; then
     CMAKE_TARGET="all"
@@ -328,7 +388,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
     else
-        RAFT_CMAKE_CUDA_ARCHITECTURES="ALL"
+        RAFT_CMAKE_CUDA_ARCHITECTURES="RAPIDS"
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
@@ -370,7 +430,7 @@ if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
     fi
 
     cd ${REPODIR}/python/raft-dask
-    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
+    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${RAFT_DASK_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi
@@ -384,7 +444,7 @@ if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
     fi
 
     cd ${REPODIR}/python/pylibraft
-    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${LIBRAFT_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
+    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${RAFT_DASK_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
         python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
     fi

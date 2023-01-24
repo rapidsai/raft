@@ -66,14 +66,14 @@ void svdQR(const raft::handle_t& handle,
                 stream);
 }
 
-template <typename T>
+template <typename math_t, typename idx_t>
 void svdEig(const raft::handle_t& handle,
-            T* in,
-            int n_rows,
-            int n_cols,
-            T* S,
-            T* U,
-            T* V,
+            math_t* in,
+            idx_t n_rows,
+            idx_t n_cols,
+            math_t* S,
+            math_t* U,
+            math_t* V,
             bool gen_left_vec,
             cudaStream_t stream)
 {

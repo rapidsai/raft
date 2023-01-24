@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace distance {
@@ -33,7 +34,7 @@ struct L2ExpandedOp {
   __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
   {
     AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
-    return sqrt ? raft::mySqrt(outVal) : outVal;
+    return sqrt ? raft::sqrt(outVal) : outVal;
   }
 
   __device__ AccT operator()(DataT aData) const noexcept { return aData; }
@@ -129,7 +130,7 @@ void euclideanExpImpl(const DataT* x,
         for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
           for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-            acc[i][j] = raft::mySqrt(acc[i][j]);
+            acc[i][j] = raft::sqrt(acc[i][j]);
           }
         }
       }
@@ -247,8 +248,6 @@ void euclideanAlgo1(Index_ m,
                     cudaStream_t stream,
                     bool isRowMajor)
 {
-  auto norm_op = [] __device__(InType in) { return in; };
-
   // raft distance support inputs as float/double and output as uint8_t/float/double.
   static_assert(!((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
                 "OutType can be uint8_t, float, double,"
@@ -266,10 +265,13 @@ void euclideanAlgo1(Index_ m,
   InType* row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
-    raft::linalg::rowNorm(row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+    raft::linalg::rowNorm(
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
+    raft::linalg::rowNorm(
+      row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
   } else {
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+    raft::linalg::rowNorm(
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
   }
 
   if (isRowMajor) {
@@ -348,7 +350,7 @@ void euclideanUnExpImpl(const DataT* x,
       for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-          acc[i][j] = raft::mySqrt(acc[i][j]);
+          acc[i][j] = raft::sqrt(acc[i][j]);
         }
       }
     }

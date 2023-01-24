@@ -37,7 +37,7 @@ While not exhaustive, the following general categories help summarize the accele
 All of RAFT's C++ APIs can be accessed header-only and optional pre-compiled shared libraries can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
 
 In addition to the C++ library, RAFT also provides 2 Python libraries:
-- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessible APIs.
+- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessible "runtime" APIs.
 - `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
 
 ## Getting started
@@ -142,7 +142,7 @@ in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 output = pairwise_distance(in1, in2, metric="euclidean")
 ```
 
-The `output` array supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) so it is interoperable with other libraries like CuPy, Numba, and PyTorch that also support it. 
+The `output` array in the above example is of type `raft.common.device_ndarray`, which supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) making it interoperable with other libraries like CuPy, Numba, and PyTorch that also support it. CuPy supports DLPack, which also enables zero-copy conversion from `raft.common.device_ndarray` to JAX and Tensorflow.
 
 Below is an example of converting the output `pylibraft.device_ndarray` to a CuPy array:
 ```python
@@ -154,6 +154,18 @@ And converting to a PyTorch tensor:
 import torch
 
 torch_tensor = torch.as_tensor(output, device='cuda')
+```
+
+When the corresponding library has been installed and available in your environment, this conversion can also be done automatically by all RAFT compute APIs by setting a global configuration option:
+```python
+import pylibraft.config
+pylibraft.config.set_output_as("cupy")  # All compute APIs will return cupy arrays
+pylibraft.config.set_output_as("torch") # All compute APIs will return torch tensors
+```
+
+You can also specify a `callable` that accepts a `pylibraft.common.device_ndarray` and performs a custom conversion. The following example converts all output to `numpy` arrays:
+```python
+pylibraft.config.set_output_as(lambda device_ndarray: return device_ndarray.copy_to_host())
 ```
 
 `pylibraft` also supports writing to a pre-allocated output array so any `__cuda_array_interface__` supported array can be written to in-place:
@@ -176,7 +188,7 @@ pairwise_distance(in1, in2, out=output, metric="euclidean")
 
 ## Installing
 
-RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), pip, or by building the repository from source. Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on building RAFT and using it in downstream projects.
+RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), pip, or by building the repository from source. Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on installing and building RAFT and using it in downstream projects.
 
 ### Conda
 
@@ -257,14 +269,15 @@ Several CMake targets can be made available by adding components in the table be
 | --- | --- | --- | --- |
 | n/a | `raft::raft` | Full RAFT header library | CUDA toolkit library, RMM, Thrust (optional), NVTools (optional) |
 | distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::raft, cuCollections (optional)  |
-| nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::raft, FAISS (optional) |
+| nn | `raft::nn` | Pre-compiled template specializations for raft::neighbors | raft::raft, FAISS (optional) |
+| distributed | `raft::distributed` | No specializations | raft::raft, UCX, NCCL |
 
 ### Source
 
 The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository:
 1. Create an environment with the needed dependencies:
 ```
-mamba env create --name raft_dev_env -f conda/environments/all_cuda-115_arch-x86_64.yaml
+mamba env create --name raft_dev_env -f conda/environments/all_cuda-118_arch-x86_64.yaml
 mamba activate raft_dev_env
 ```
 ```

@@ -43,9 +43,9 @@ void check_input(extents_t dataset,
   auto n_queries = queries.extent(0);
   auto k         = distances.extent(1);
 
-  RAFT_EXPECTS(k <= raft::spatial::knn::detail::topk::kMaxCapacity,
+  RAFT_EXPECTS(k <= raft::matrix::detail::select::warpsort::kMaxCapacity,
                "k must be lest than topk::kMaxCapacity (%d).",
-               raft::spatial::knn::detail::topk::kMaxCapacity);
+               raft::matrix::detail::select::warpsort::kMaxCapacity);
 
   RAFT_EXPECTS(indices.extent(0) == n_queries && distances.extent(0) == n_queries &&
                  candidates.extent(0) == n_queries,

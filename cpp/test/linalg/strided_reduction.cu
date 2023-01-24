@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "reduce.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/strided_reduction.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 namespace raft {
@@ -38,7 +40,7 @@ void stridedReductionLaunch(
   raft::handle_t handle{stream};
   auto dots_view = raft::make_device_vector_view(dots, cols);
   auto data_view = raft::make_device_matrix_view(data, rows, cols);
-  strided_reduction(handle, data_view, dots_view, (T)0, inplace, raft::L2Op<T, int>{});
+  strided_reduction(handle, data_view, dots_view, (T)0, inplace, raft::sq_op{});
 }
 
 template <typename T>
@@ -70,9 +72,9 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
                           stream,
                           T(0),
                           false,
-                          raft::L2Op<T, int>{},
-                          raft::Sum<T>{},
-                          raft::Nop<T>{});
+                          raft::sq_op{},
+                          raft::add_op{},
+                          raft::identity_op{});
     naiveStridedReduction(dots_exp.data(),
                           data.data(),
                           cols,
@@ -80,9 +82,9 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
                           stream,
                           T(0),
                           true,
-                          raft::L2Op<T, int>{},
-                          raft::Sum<T>{},
-                          raft::Nop<T>{});
+                          raft::sq_op{},
+                          raft::add_op{},
+                          raft::identity_op{});
     stridedReductionLaunch(dots_act.data(), data.data(), cols, rows, false, stream);
     stridedReductionLaunch(dots_act.data(), data.data(), cols, rows, true, stream);
     handle.sync_stream(stream);

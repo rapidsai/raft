@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "matrix_vector_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/matrix_vector.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 namespace raft {
@@ -113,34 +115,25 @@ void naive_matrix_vector_op_launch(const raft::handle_t& handle,
       return mat_element;
     }
   };
-  auto operation_div = [] __device__(T mat_element, T vec_element) {
-    return mat_element / vec_element;
-  };
   auto operation_bin_div_skip_zero = [] __device__(T mat_element, T vec_element) {
-    if (raft::myAbs(vec_element) < T(1e-10))
+    if (raft::abs(vec_element) < T(1e-10))
       return T(0);
     else
       return mat_element / vec_element;
-  };
-  auto operation_bin_add = [] __device__(T mat_element, T vec_element) {
-    return mat_element + vec_element;
-  };
-  auto operation_bin_sub = [] __device__(T mat_element, T vec_element) {
-    return mat_element - vec_element;
   };
 
   if (operation_type == 0) {
     naiveMatVec(
       in, in, vec1, D, N, row_major, bcast_along_rows, operation_bin_mult_skip_zero, stream);
   } else if (operation_type == 1) {
-    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, operation_div, stream);
+    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::div_op{}, stream);
   } else if (operation_type == 2) {
     naiveMatVec(
       in, in, vec1, D, N, row_major, bcast_along_rows, operation_bin_div_skip_zero, stream);
   } else if (operation_type == 3) {
-    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, operation_bin_add, stream);
+    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::add_op{}, stream);
   } else if (operation_type == 4) {
-    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, operation_bin_sub, stream);
+    naiveMatVec(in, in, vec1, D, N, row_major, bcast_along_rows, raft::sub_op{}, stream);
   } else {
     THROW("Unknown operation type '%d'!", (int)operation_type);
   }

@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 #include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>

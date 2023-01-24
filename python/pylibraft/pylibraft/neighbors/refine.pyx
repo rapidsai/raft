@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,12 @@ from libcpp cimport bool, nullptr
 
 from pylibraft.distance.distance_type cimport DistanceType
 
-from pylibraft.common import Handle, cai_wrapper, device_ndarray
+from pylibraft.common import (
+    Handle,
+    auto_convert_output,
+    cai_wrapper,
+    device_ndarray,
+)
 
 from pylibraft.common.handle cimport handle_t
 
@@ -208,8 +213,9 @@ cdef host_matrix_view[int8_t, uint64_t, row_major] \
 
 
 @auto_sync_handle
+@auto_convert_output
 def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
-           metric="l2_expanded", handle=None):
+           metric="sqeuclidean", handle=None):
     """
     Refine nearest neighbor search.
 
@@ -265,7 +271,7 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
     >>> handle = Handle()
-    >>> index_params = ivf_pq.IndexParams(n_lists=1024, metric="l2_expanded",
+    >>> index_params = ivf_pq.IndexParams(n_lists=1024, metric="sqeuclidean",
     ...                                   pq_dim=10)
     >>> index = ivf_pq.build(index_params, dataset, handle=handle)
 

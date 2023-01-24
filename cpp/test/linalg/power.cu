@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/linalg/power.cuh>
 #include <raft/random/rng.cuh>
@@ -27,7 +27,7 @@ template <typename Type>
 __global__ void naivePowerElemKernel(Type* out, const Type* in1, const Type* in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = raft::myPow(in1[idx], in2[idx]); }
+  if (idx < len) { out[idx] = raft::pow(in1[idx], in2[idx]); }
 }
 
 template <typename Type>
@@ -43,7 +43,7 @@ template <typename Type>
 __global__ void naivePowerScalarKernel(Type* out, const Type* in1, const Type in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = raft::myPow(in1[idx], in2); }
+  if (idx < len) { out[idx] = raft::pow(in1[idx], in2); }
 }
 
 template <typename Type>

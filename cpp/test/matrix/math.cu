@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 
 #include <raft/core/device_mdspan.hpp>
@@ -51,7 +51,7 @@ template <typename Type>
 __global__ void naiveSqrtKernel(Type* in, Type* out, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = std::sqrt(in[idx]); }
+  if (idx < len) { out[idx] = raft::sqrt(in[idx]); }
 }
 
 template <typename Type>
