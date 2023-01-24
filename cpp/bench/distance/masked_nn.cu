@@ -193,6 +193,7 @@ const std::vector<masked_l2_nn_inputs> masked_l2_nn_input_vecs = {
 };
 
 RAFT_BENCH_REGISTER(masked_l2_nn<float>, "", masked_l2_nn_input_vecs);
-// Do not benchmark double.
+// We don't benchmark double to keep compile times in check when not using the
+// distance library.
 
 }  // namespace raft::bench::distance::masked_nn

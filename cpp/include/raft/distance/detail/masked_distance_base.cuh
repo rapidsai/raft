@@ -54,9 +54,9 @@ namespace detail {
  * @param[in] ldd parameter to keep Contractions_NT happy..
  * @param[in] xn row norms of input matrix A. Required for expanded L2, cosine
  * @param[in] yn row norms of input matrix B. Required for expanded L2, cosine
- * @param[in]  adj           A boolean adjacency matrix indicating for each
+ * @param[in]  adj           An adjacency matrix encoded as a bitfield indicating for each
  *                           row of `x` and each group in `y` whether to compute the
- *                           distance. Dim = `m x num_groups`.
+ *                           distance. Dim = `(m / 64) x num_groups`.
  * @param[in]  group_idxs    An array containing the *end* indices of each group
  *                           in `y`. The value of group_idxs[j] indicates the
  *                           start of group j + 1, i.e., it is the inclusive
@@ -145,10 +145,6 @@ struct MaskedDistances : public BaseClass {
     for (auto tile_idx_m = grid_offset_m; tile_idx_m < this->m; tile_idx_m += grid_stride_m) {
       // Start loop over groups
       for (auto idx_g = grid_offset_g; idx_g < this->num_groups; idx_g += grid_stride_g) {
-        // The __syncthreads() ensures that loading the block flag occurs at
-        // the same time in all threads of the block. Since all threads load
-        // the same address, this speeds up the code.
-        __syncthreads();
         const uint64_t block_adj = get_block_adjacency(adj, tile_idx_m, idx_g);
         // block_adj is a bitfield that contains a 1 if a row is adjacent to the
         // current group. All zero means we can skip this group.
@@ -213,7 +209,11 @@ struct MaskedDistances : public BaseClass {
  private:
   DI uint64_t get_block_adjacency(const uint64_t* adj, IdxT tile_idx_m, IdxT idx_group)
   {
+    // A single element of `adj` contains exactly enough bits to indicate which
+    // rows in the current tile to skip and which to compute.
+    static_assert(P::Mblk == 8 * sizeof(adj[0]), "maskedL2NN only supports a policy with 64 rows per block.");
     IdxT block_flag_idx = tile_idx_m / P::Mblk;
+    // Index into adj at row tile_idx_m / 64 and column idx_group.
     return adj[block_flag_idx * this->num_groups + idx_group];
   }
 
