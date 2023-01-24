@@ -67,8 +67,10 @@ class device_resources : public resources {
     resources::add_resource_factory(
       std::make_shared<resource::workspace_resource_factory>(workspace_resource));
   }
-  device_resources& operator=(const device_resources&) = delete;
-  device_resources(device_resources&&)                 = delete;
+
+  device_resources(const device_resources& handle) : resources{handle} {}
+
+  device_resources(device_resources&&) = delete;
   device_resources& operator=(device_resources&&) = delete;
 
   /**

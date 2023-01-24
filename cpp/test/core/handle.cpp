@@ -299,4 +299,46 @@ TEST(Raft, WorkspaceResourceCopy)
                 copied_handle.get_workspace_resource()) != nullptr);
 }
 
+TEST(Raft, HandleCopy)
+{
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(10);
+
+  handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  handle_t copied_handle(handle);
+
+  // Assert shallow copied state
+  ASSERT_EQ(handle.get_stream().value(), copied_handle.get_stream().value());
+  ASSERT_EQ(handle.get_stream_pool_size(), copied_handle.get_stream_pool_size());
+
+  // Sanity check to make sure non-corresponding streams are not equal
+  ASSERT_NE(handle.get_stream_pool().get_stream(0).value(),
+            copied_handle.get_stream_pool().get_stream(1).value());
+
+  for (size_t i = 0; i < handle.get_stream_pool_size(); ++i) {
+    ASSERT_EQ(handle.get_stream_pool().get_stream(i).value(),
+              copied_handle.get_stream_pool().get_stream(i).value());
+  }
+}
+
+TEST(Raft, HandleAssign)
+{
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(10);
+
+  handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  handle_t copied_handle = handle;
+
+  // Assert shallow copied state
+  ASSERT_EQ(handle.get_stream().value(), copied_handle.get_stream().value());
+  ASSERT_EQ(handle.get_stream_pool_size(), copied_handle.get_stream_pool_size());
+
+  // Sanity check to make sure non-corresponding streams are not equal
+  ASSERT_NE(handle.get_stream_pool().get_stream(0).value(),
+            copied_handle.get_stream_pool().get_stream(1).value());
+
+  for (size_t i = 0; i < handle.get_stream_pool_size(); ++i) {
+    ASSERT_EQ(handle.get_stream_pool().get_stream(i).value(),
+              copied_handle.get_stream_pool().get_stream(i).value());
+  }
+}
+
 }  // namespace raft

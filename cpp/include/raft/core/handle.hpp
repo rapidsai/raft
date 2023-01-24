@@ -36,8 +36,10 @@ class handle_t : public raft::device_resources {
     : device_resources(handle, workspace_resource)
   {
   }
-  handle_t& operator=(const handle_t&) = delete;
-  handle_t(handle_t&&)                 = delete;
+
+  handle_t(const handle_t& handle) : device_resources{handle} {}
+
+  handle_t(handle_t&&) = delete;
   handle_t& operator=(handle_t&&) = delete;
 
   /**
