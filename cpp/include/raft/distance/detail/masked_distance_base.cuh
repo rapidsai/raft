@@ -211,7 +211,8 @@ struct MaskedDistances : public BaseClass {
   {
     // A single element of `adj` contains exactly enough bits to indicate which
     // rows in the current tile to skip and which to compute.
-    static_assert(P::Mblk == 8 * sizeof(adj[0]), "maskedL2NN only supports a policy with 64 rows per block.");
+    static_assert(P::Mblk == 8 * sizeof(adj[0]),
+                  "maskedL2NN only supports a policy with 64 rows per block.");
     IdxT block_flag_idx = tile_idx_m / P::Mblk;
     // Index into adj at row tile_idx_m / 64 and column idx_group.
     return adj[block_flag_idx * this->num_groups + idx_group];
