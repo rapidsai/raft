@@ -38,7 +38,6 @@ using namespace nvcuda::experimental;
 template <typename DataT,
           typename OutT,
           typename IdxT,
-          bool Sqrt,
           typename P,
           typename ReduceOpT,
           typename KVPReduceOpT,
@@ -55,6 +54,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
                                                                    IdxT m,
                                                                    IdxT n,
                                                                    IdxT k,
+                                                                   bool sqrt,
                                                                    DataT maxVal,
                                                                    int* mutex,
                                                                    ReduceOpT redOp,
@@ -72,7 +72,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
   }
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [pairRedOp, &val, maxVal] __device__(
+  auto epilog_lambda = [pairRedOp, &val, maxVal, sqrt] __device__(
                          DataT acc[P::AccRowsPerTh][P::AccColsPerTh],
                          int acc_adj,
                          DataT* regxn,
@@ -89,7 +89,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
         acc[i][j] = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
       }
     }
-    if (Sqrt) {
+    if (sqrt) {
 #pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -240,64 +240,33 @@ void maskedL2NNImpl(const raft::handle_t& handle,
   auto fin_op = raft::identity_op{};
 
   constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
-  if (sqrt) {
-    auto maskedL2NNSqrt = maskedL2NNkernel<DataT,
-                                           OutT,
-                                           IdxT,
-                                           true,
-                                           P,
-                                           ReduceOpT,
-                                           KVPReduceOpT,
-                                           decltype(core_lambda),
-                                           decltype(fin_op)>;
-    dim3 grid           = launchConfigGenerator<P>(m, n, shmemSize, maskedL2NNSqrt);
-
-    maskedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(min,
-                                                     x,
-                                                     y,
-                                                     xn,
-                                                     yn,
-                                                     ws_adj64.data(),
-                                                     group_idxs,
-                                                     num_groups,
-                                                     m,
-                                                     n,
-                                                     k,
-                                                     maxVal,
-                                                     ws_fused_nn.data(),
-                                                     redOp,
-                                                     pairRedOp,
-                                                     core_lambda,
-                                                     fin_op);
-  } else {
-    auto maskedL2NN = maskedL2NNkernel<DataT,
-                                       OutT,
-                                       IdxT,
-                                       false,
-                                       P,
-                                       ReduceOpT,
-                                       KVPReduceOpT,
-                                       decltype(core_lambda),
-                                       decltype(fin_op)>;
-    dim3 grid       = launchConfigGenerator<P>(m, n, shmemSize, maskedL2NN);
-    maskedL2NN<<<grid, blk, shmemSize, stream>>>(min,
-                                                 x,
-                                                 y,
-                                                 xn,
-                                                 yn,
-                                                 ws_adj64.data(),
-                                                 group_idxs,
-                                                 num_groups,
-                                                 m,
-                                                 n,
-                                                 k,
-                                                 maxVal,
-                                                 ws_fused_nn.data(),
-                                                 redOp,
-                                                 pairRedOp,
-                                                 core_lambda,
-                                                 fin_op);
-  }
+  auto maskedL2NN            = maskedL2NNkernel<DataT,
+                                     OutT,
+                                     IdxT,
+                                     P,
+                                     ReduceOpT,
+                                     KVPReduceOpT,
+                                     decltype(core_lambda),
+                                     decltype(fin_op)>;
+  dim3 grid                  = launchConfigGenerator<P>(m, n, shmemSize, maskedL2NN);
+  maskedL2NN<<<grid, blk, shmemSize, stream>>>(min,
+                                               x,
+                                               y,
+                                               xn,
+                                               yn,
+                                               ws_adj64.data(),
+                                               group_idxs,
+                                               num_groups,
+                                               m,
+                                               n,
+                                               k,
+                                               sqrt,
+                                               maxVal,
+                                               ws_fused_nn.data(),
+                                               redOp,
+                                               pairRedOp,
+                                               core_lambda,
+                                               fin_op);
 
   RAFT_CUDA_TRY(cudaGetLastError());
 }
