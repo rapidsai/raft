@@ -87,7 +87,7 @@ struct MaskedL2NNParams {
  *
  * **Performance considerations**
  *
- * The points in `x` are grouped into tiles of `M` points (`M` is currently 64,
+ * The points in `x` are processed in tiles of `M` points (`M` is currently 64,
  * but may change in the future). As a result, the largest compute time
  * reduction occurs if all `M` points can skip a group. If only part of the `M`
  * points can skip a group, then at most a minor compute time reduction and a
