@@ -335,7 +335,7 @@ void shuffleAndGather(raft::device_resources const& handle,
                        in.extent(1),
                        in.extent(0),
                        indices.data_handle(),
-                       n_samples_to_gather,
+                       static_cast<IndexT>(n_samples_to_gather),
                        out.data_handle(),
                        stream);
 }

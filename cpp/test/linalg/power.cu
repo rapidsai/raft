@@ -27,7 +27,7 @@ template <typename Type>
 __global__ void naivePowerElemKernel(Type* out, const Type* in1, const Type* in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = raft::myPow(in1[idx], in2[idx]); }
+  if (idx < len) { out[idx] = raft::pow(in1[idx], in2[idx]); }
 }
 
 template <typename Type>
@@ -43,7 +43,7 @@ template <typename Type>
 __global__ void naivePowerScalarKernel(Type* out, const Type* in1, const Type in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = raft::myPow(in1[idx], in2); }
+  if (idx < len) { out[idx] = raft::pow(in1[idx], in2); }
 }
 
 template <typename Type>

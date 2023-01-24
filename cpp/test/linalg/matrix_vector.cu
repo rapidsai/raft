@@ -116,7 +116,7 @@ void naive_matrix_vector_op_launch(const raft::device_resources& handle,
     }
   };
   auto operation_bin_div_skip_zero = [] __device__(T mat_element, T vec_element) {
-    if (raft::myAbs(vec_element) < T(1e-10))
+    if (raft::abs(vec_element) < T(1e-10))
       return T(0);
     else
       return mat_element / vec_element;

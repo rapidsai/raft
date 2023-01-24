@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,11 @@
 #include <common/benchmark.hpp>
 #include <raft/matrix/argmin.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/itertools.hpp>
 
 #include <rmm/device_uvector.hpp>
 
-namespace raft::bench::linalg {
+namespace raft::bench::matrix {
 
 template <typename IdxT>
 struct ArgminParams {
@@ -57,15 +58,11 @@ struct Argmin : public fixture {
   raft::device_vector<OutT, IdxT> indices;
 };  // struct Argmin
 
-const std::vector<ArgminParams<int64_t>> argmin_inputs_i64{
-  {1000, 64},     {1000, 128},     {1000, 256},     {1000, 512},     {1000, 1024},
-  {10000, 64},    {10000, 128},    {10000, 256},    {10000, 512},    {10000, 1024},
-  {100000, 64},   {100000, 128},   {100000, 256},   {100000, 512},   {100000, 1024},
-  {1000000, 64},  {1000000, 128},  {1000000, 256},  {1000000, 512},  {1000000, 1024},
-  {10000000, 64}, {10000000, 128}, {10000000, 256}, {10000000, 512}, {10000000, 1024},
-};
+const std::vector<ArgminParams<int64_t>> argmin_inputs_i64 =
+  raft::util::itertools::product<ArgminParams<int64_t>>({1000, 10000, 100000, 1000000, 10000000},
+                                                        {64, 128, 256, 512, 1024});
 
 RAFT_BENCH_REGISTER((Argmin<float, uint32_t, int64_t>), "", argmin_inputs_i64);
 RAFT_BENCH_REGISTER((Argmin<double, uint32_t, int64_t>), "", argmin_inputs_i64);
 
-}  // namespace raft::bench::linalg
+}  // namespace raft::bench::matrix

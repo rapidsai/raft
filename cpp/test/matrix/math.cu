@@ -51,7 +51,7 @@ template <typename Type>
 __global__ void naiveSqrtKernel(Type* in, Type* out, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = std::sqrt(in[idx]); }
+  if (idx < len) { out[idx] = raft::sqrt(in[idx]); }
 }
 
 template <typename Type>

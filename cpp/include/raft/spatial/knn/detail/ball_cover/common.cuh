@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ struct EuclideanFunc : public DistFunc<value_t, value_int> {
       sum_sq += diff * diff;
     }
 
-    return sqrt(sum_sq);
+    return raft::sqrt(sum_sq);
   }
 };
 

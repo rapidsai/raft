@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ struct L2ExpandedOp {
   __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
   {
     AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
-    return sqrt ? raft::mySqrt(outVal) : outVal;
+    return sqrt ? raft::sqrt(outVal) : outVal;
   }
 
   __device__ AccT operator()(DataT aData) const noexcept { return aData; }
@@ -130,7 +130,7 @@ void euclideanExpImpl(const DataT* x,
         for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
           for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-            acc[i][j] = raft::mySqrt(acc[i][j]);
+            acc[i][j] = raft::sqrt(acc[i][j]);
           }
         }
       }
@@ -350,7 +350,7 @@ void euclideanUnExpImpl(const DataT* x,
       for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-          acc[i][j] = raft::mySqrt(acc[i][j]);
+          acc[i][j] = raft::sqrt(acc[i][j]);
         }
       }
     }

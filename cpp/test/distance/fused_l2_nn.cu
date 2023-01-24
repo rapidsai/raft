@@ -60,7 +60,7 @@ __global__ void naiveKernel(raft::KeyValuePair<int, DataT>* min,
     auto diff = midx >= m || nidx >= n ? DataT(0) : x[xidx] - y[yidx];
     acc += diff * diff;
   }
-  if (Sqrt) { acc = raft::mySqrt(acc); }
+  if (Sqrt) { acc = raft::sqrt(acc); }
   ReduceOpT redOp;
   typedef cub::WarpReduce<raft::KeyValuePair<int, DataT>> WarpReduce;
   __shared__ typename WarpReduce::TempStorage temp[NWARPS];
