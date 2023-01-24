@@ -99,6 +99,19 @@ struct MaskedL2NNParams {
  * evenly divisible by `N`, then the computation is most efficient, although for
  * larger group sizes this effect is minor.
  *
+ *
+ * **Comparison to SDDM**
+ *
+ * [SDDMM](https://ieeexplore.ieee.org/document/8638042) (sampled dense-dense
+ * matrix multiplication) is a matrix-matrix multiplication where only part of
+ * the output is computed. Compared to maskedL2NN, there are a few differences:
+ *
+ * - The output of maskedL2NN is a single vector (of nearest neighbors) and not
+ *   a sparse matrix.
+ *
+ * - The sampling in maskedL2NN is expressed through intermediate "groups"
+     rather than a CSR format.
+ *
  * @tparam DataT     data type
  * @tparam OutT      output type to either store 1-NN indices and their minimum
  *                   distances or store only the min distances. Accordingly, one
