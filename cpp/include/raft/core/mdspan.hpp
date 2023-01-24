@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,9 @@ template <typename ElementType,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
+
+template <class IndexType, std::size_t Rank>
+using dextents = std::experimental::dextents<IndexType, Rank>;
 
 namespace detail {
 
