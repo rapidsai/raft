@@ -78,16 +78,17 @@ constexpr static inline float kAdjustCentersWeight = 7.0f;
  * @param[inout] mr (optional) Memory resource to use for temporary allocations
  */
 template <typename MathT, typename IdxT, typename LabelT>
-inline void predict_core(const handle_t& handle,
-                         const kmeans_balanced_params& params,
-                         const MathT* centers,
-                         IdxT n_clusters,
-                         IdxT dim,
-                         const MathT* dataset,
-                         const MathT* dataset_norm,
-                         IdxT n_rows,
-                         LabelT* labels,
-                         rmm::mr::device_memory_resource* mr)
+inline std::enable_if_t<is_floating_point_v<MathT>> predict_core(
+  const handle_t& handle,
+  const kmeans_balanced_params& params,
+  const MathT* centers,
+  IdxT n_clusters,
+  IdxT dim,
+  const MathT* dataset,
+  const MathT* dataset_norm,
+  IdxT n_rows,
+  LabelT* labels,
+  rmm::mr::device_memory_resource* mr)
 {
   auto stream = handle.get_stream();
   switch (params.metric) {
@@ -202,7 +203,7 @@ constexpr auto calc_minibatch_size(IdxT n_clusters,
     } break;
     // Other metrics require storing a distance matrix.
     default: {
-      mem_per_row += sizeof(float) * n_clusters;
+      mem_per_row += sizeof(MathT) * n_clusters;
     }
   }
 
@@ -822,6 +823,10 @@ inline auto arrange_fine_clusters(IdxT n_clusters,
  *  As a result, the fine clusters are what is returned by `build_hierarchical`;
  *  this function returns the total number of fine clusters, which can be checked to be
  *  the same as the requested number of clusters.
+ *
+ *  Note: this function uses at most `fine_clusters_nums_max` points per mesocluster for training;
+ *  if one of the clusters is larger than that (as given by `mesocluster_sizes`), the extra data
+ *  is ignored and a warning is reported.
  */
 template <typename T,
           typename MathT,
@@ -868,8 +873,8 @@ auto build_fine_clusters(const handle_t& handle,
   IdxT n_clusters_done = 0;
   for (IdxT i = 0; i < n_mesoclusters; i++) {
     IdxT k = 0;
-    for (IdxT j = 0; j < n_rows; j++) {
-      if (labels_mptr[j] == (LabelT)i) { mc_trainset_ids[k++] = j; }
+    for (IdxT j = 0; j < n_rows && k < mesocluster_size_max; j++) {
+      if (labels_mptr[j] == LabelT(i)) { mc_trainset_ids[k++] = j; }
     }
     if (k != static_cast<IdxT>(mesocluster_sizes[i]))
       RAFT_LOG_WARN("Incorrect mesocluster size at %d. %zu vs %zu",
@@ -888,18 +893,12 @@ auto build_fine_clusters(const handle_t& handle,
     }
 
     cub::TransformInputIterator<MathT, MappingOpT, const T*> mapping_itr(dataset_mptr, mapping_op);
-    raft::matrix::gather(mapping_itr,
-                         dim,
-                         n_rows,
-                         mc_trainset_ids,
-                         static_cast<IdxT>(mesocluster_sizes[i]),
-                         mc_trainset,
-                         stream);
+    raft::matrix::gather(mapping_itr, dim, n_rows, mc_trainset_ids, k, mc_trainset, stream);
     if (params.metric == raft::distance::DistanceType::L2Expanded ||
         params.metric == raft::distance::DistanceType::L2SqrtExpanded) {
       thrust::gather(handle.get_thrust_policy(),
                      mc_trainset_ids,
-                     mc_trainset_ids + mesocluster_sizes[i],
+                     mc_trainset_ids + k,
                      dataset_norm_mptr,
                      mc_trainset_norm);
     }
@@ -908,7 +907,7 @@ auto build_fine_clusters(const handle_t& handle,
                    params,
                    dim,
                    mc_trainset,
-                   static_cast<IdxT>(mesocluster_sizes[i]),
+                   k,
                    fine_clusters_nums[i],
                    mc_trainset_ccenters.data(),
                    mc_trainset_labels.data(),
@@ -1029,10 +1028,19 @@ void build_hierarchical(const handle_t& handle,
   auto [mesocluster_size_max, fine_clusters_nums_max, fine_clusters_nums, fine_clusters_csum] =
     arrange_fine_clusters(n_clusters, n_mesoclusters, n_rows, mesocluster_sizes);
 
-  if (mesocluster_size_max * n_mesoclusters > 2 * n_rows) {
-    RAFT_LOG_WARN("build_hierarchical: built unbalanced mesoclusters");
+  const auto mesocluster_size_max_balanced = uint32_t(div_rounding_up_safe<size_t>(
+    2lu * size_t(n_rows), std::max<size_t>(size_t(n_mesoclusters), 1lu)));
+  if (mesocluster_size_max > mesocluster_size_max_balanced) {
+    RAFT_LOG_WARN(
+      "build_hierarchical: built unbalanced mesoclusters (max_mesocluster_size == %u > %u). "
+      "At most %u points will be used for training within each mesocluster. "
+      "Consider increasing the number of training iterations `n_iters`.",
+      mesocluster_size_max,
+      mesocluster_size_max_balanced,
+      mesocluster_size_max_balanced);
     RAFT_LOG_TRACE_VEC(mesocluster_sizes, n_mesoclusters);
     RAFT_LOG_TRACE_VEC(fine_clusters_nums.data(), n_mesoclusters);
+    mesocluster_size_max = mesocluster_size_max_balanced;
   }
 
   auto n_clusters_done = build_fine_clusters(handle,
