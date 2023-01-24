@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,12 @@ namespace distance {
 namespace detail {
 
 /**
- * @brief Device class for L1, L2 and cosine distance metrics.
+ * @brief Device class for masked nearest neighbor computations.
+ *
  * @tparam useNorms       whether norms are needed
- * @tparam DataT          input data-type (for A and B matrices)
+ * @tparam DataT          input data-type (for x and y matrices)
  * @tparam AccT           accumulation data-type
- * @tparam OutT           output data-type (for C and D matrices)
- * @tparam IdxT           index data-type
+  * @tparam IdxT           index data-type
  * @tparam Policy         struct which tunes the Contraction kernel
  * @tparam CoreLambda     tells how to accumulate an x and y into
                           acc. its signature:
@@ -41,27 +41,39 @@ namespace detail {
     template <typename AccT, typename DataT> void epilogue_lambda
     (AccT acc[][], DataT* regxn, DataT* regyn);
  * @tparam FinalLambda the final lambda called on final distance value
+ * @tparam rowEpilogueLambda epilog lambda that executes when a full row has
+ * been processed.
+ *
  * @param[in] x input matrix
  * @param[in] y input matrix
- * @param[in] m number of rows of A and C/D
- * @param[in] n number of columns of B and C/D
- * @param[in] k number of cols of A and rows of B
- * @param[in] lda leading dimension of A
- * @param[in] ldb leading dimension of B
- * @param[in] ldd leading dimension of C/D
+ * @param[in] m number of rows of x
+ * @param[in] n number of columns of y
+ * @param[in] k number of cols of x and y
+ * @param[in] lda leading dimension of x
+ * @param[in] ldb leading dimension of y
+ * @param[in] ldd parameter to keep Contractions_NT happy..
  * @param[in] xn row norms of input matrix A. Required for expanded L2, cosine
  * @param[in] yn row norms of input matrix B. Required for expanded L2, cosine
- * @param[output] pD output matrix
- * @param[in] smem shared mem buffer for intermediate storage of A, B, xn & yn.
+ * @param[in]  adj           A boolean adjacency matrix indicating for each
+ *                           row of `x` and each group in `y` whether to compute the
+ *                           distance. Dim = `m x num_groups`.
+ * @param[in]  group_idxs    An array containing the *end* indices of each group
+ *                           in `y`. The value of group_idxs[j] indicates the
+ *                           start of group j + 1, i.e., it is the inclusive
+ *                           scan of the group lengths. The first group is
+ *                           always assumed to start at index 0 and the last
+ *                           group typically ends at index `n`. Length =
+ *                           `num_groups`.
+ * @param[in] num_groups     The number of groups in group_idxs.
+ * @param[in] smem shared mem buffer for intermediate storage of x, y, xn & yn.
  * @param core_op the core accumulation operation lambda
  * @param epilog_op the epilog operation lambda
  * @param fin_op the final gemm epilogue lambda
+ * @param rowEpilog_op epilog lambda that executes when a full row has been processed.
  */
-
 template <bool useNorms,
           typename DataT,
           typename AccT,
-          typename OutT,
           typename IdxT,
           typename Policy,
           typename CoreLambda,
@@ -176,10 +188,9 @@ struct MaskedDistances : public BaseClass {
           if (thread_adj != 0) {
             accumulate();  // last iteration
           }
-          // This is needed for making sure next grid stride of
-          // non-norm based metrics uses previously accumulated buffer so
-          // it doesn't make shmem dirty until previous iteration
-          // is complete.
+          // The pre-condition for the loop over tile_idx_n is that write_buffer
+          // and read_buffer point to the same buffer. This flips read_buffer
+          // back so that it satisfies the pre-condition of this loop.
           this->switch_read_buffer();
 
           if (useNorms) {
@@ -196,7 +207,7 @@ struct MaskedDistances : public BaseClass {
         }  // tile_idx_n
       }    // idx_g
       rowEpilog_op(tile_idx_m);
-    }  // tile_idx_n
+    }  // tile_idx_m
   }
 
  private:
@@ -279,82 +290,6 @@ struct MaskedDistances : public BaseClass {
     }
   }
 };  // struct MaskedDistances
-
-/**
- * @brief the distance matrix calculation kernel for L1, L2 and cosine
- * @tparam useNorms       whether norms are needed
- * @tparam DataT          input data-type (for A and B matrices)
- * @tparam AccT           accumulation data-type
- * @tparam OutT           output data-type (for C and D matrices)
- * @tparam IdxT           index data-type
- * @tparam Policy         struct which tunes the Contraction kernel
- * @tparam CoreLambda     lambda which implements accumulation operation
- * @tparam EpilogueLambda lambda which implements operation for calculating
-                          final value.
- * @tparam FinalLambda    final lambda called on final distance value
- * @tparam isRowMajor     true if input/output is row major(default),
-                          false for column major
- *
- * @param[in]       x input matrix
- * @param[in]       y input matrix
- * @param[in]       xn row norms of input matrix A.
- * @param[in]       yn row norms of input matrix B.
- * @param[in]       m number of rows of A and C/D
- * @param[in]       n number of columns of B and C/D
- * @param[in]       k number of cols of A and rows of B
- * @param[in]       lda leading dimension of A
- * @param[in]       ldb leading dimension of B
- * @param[in]       ldd leading dimension of C/D
- * @param[output]   pD output matrix
- * @param core_op   the core lambda
- * @param epilog_op the epilogue lambda
- * @param fin_op    the final gemm epilogue lambda
- */
-
-template <bool useNorms,
-          typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          typename Policy,
-          typename CoreLambda,
-          typename EpilogueLambda,
-          typename FinalLambda,
-          bool isRowMajor = true>
-__global__ __launch_bounds__(Policy::Nthreads, 2)
-
-  void maskedDistanceMatKernel(const DataT* x,
-                               const DataT* y,
-                               const DataT* _xn,
-                               const DataT* _yn,
-                               const bool* adj,
-                               IdxT m,
-                               IdxT n,
-                               IdxT k,
-                               IdxT lda,
-                               IdxT ldb,
-                               IdxT ldd,
-                               CoreLambda core_op,
-                               EpilogueLambda epilog_op,
-                               FinalLambda fin_op)
-{
-  extern __shared__ char smem[];
-  auto rowEpilog = [] __device__(IdxT starty) { return; };
-
-  MaskedDistances<useNorms,
-                  DataT,
-                  AccT,
-                  OutT,
-                  IdxT,
-                  Policy,
-                  CoreLambda,
-                  EpilogueLambda,
-                  FinalLambda,
-                  decltype(rowEpilog),
-                  isRowMajor>
-    obj(x, y, m, n, k, lda, ldb, ldd, _xn, _yn, smem, core_op, epilog_op, fin_op, rowEpilog);
-  obj.run();
-}
 
 };  // namespace detail
 };  // namespace distance
