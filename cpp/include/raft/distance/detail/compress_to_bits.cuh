@@ -15,11 +15,27 @@
  */
 #pragma once
 
+#include <raft/core/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 
 namespace raft::distance::detail {
 
+/**
+ * @brief Transpose and compress 2D boolean matrix to bitfield
+ *
+ * Utility kernel for maskedL2NN.
+ *
+ * @tparam T
+ *
+ * @parameter[in]  in       An `m x n` boolean matrix. Row major.
+ * @parameter      in_rows  The number of rows of `in`, i.e. `m`.
+ * @parameter      in_cols  The number of cols of `in`, i.e. `n`.
+ *
+ * @parameter[out] out      An `(n / bits_per_elem) x m` matrix with elements of
+ *                          type T, where T is of size `bits_per_elem` bits.
+ *                          Note: the division (`/`) is a ceilDiv.
+ */
 template <typename T = uint64_t, typename = std::enable_if_t<std::is_integral<T>::value>>
 __global__ void compress_to_bits_kernel(const bool* in, int in_rows, int in_cols, T* out)
 {
@@ -42,6 +58,22 @@ __global__ void compress_to_bits_kernel(const bool* in, int in_rows, int in_cols
   if (out_i < out_rows && out_j < out_cols) { atomicOr(&out[out_i * out_cols + out_j], bitfield); }
 }
 
+/**
+ * @brief Transpose and compress 2D boolean matrix to bitfield
+ *
+ * Utility kernel for maskedL2NN.
+ *
+ * @tparam T
+ *
+ * @parameter      handle   RAFT handle.
+ * @parameter[in]  in       An `m x n` boolean matrix. Row major.
+ * @parameter      in_rows  The number of rows of `in`, i.e. `m`.
+ * @parameter      in_cols  The number of cols of `in`, i.e. `n`.
+ *
+ * @parameter[out] out      An `(n / bits_per_elem) x m` matrix with elements of
+ *                          type T, where T is of size `bits_per_elem` bits.
+ *                          Note: the division (`/`) is a ceilDiv.
+ */
 template <typename T = uint64_t, typename = std::enable_if_t<std::is_integral<T>::value>>
 void compress_to_bits(
   const raft::handle_t& handle, const bool* in, int in_rows, int in_cols, T* out)
