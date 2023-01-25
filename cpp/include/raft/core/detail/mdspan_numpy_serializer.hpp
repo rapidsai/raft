@@ -65,16 +65,16 @@ namespace numpy_serializer {
  * SOFTWARE.
  */
 
-const char little_endian_char = '<';
-const char big_endian_char    = '>';
-const char no_endian_char     = '|';
-const char endian_chars[]     = {little_endian_char, big_endian_char, no_endian_char};
-const char numtype_chars[]    = {'f', 'i', 'u', 'c'};
+#define RAFT_NUMPY_LITTLE_ENDIAN_CHAR  '<'
+#define RAFT_NUMPY_BIG_ENDIAN_CHAR     '>'
+#define RAFT_NUMPY_NO_ENDIAN_CHAR      '|'
+#define RAFT_NUMPY_MAGIC_STRING        "\x93NUMPY"
+#define RAFT_NUMPY_MAGIC_STRING_LENGTH 6
 
 #if RAFT_SYSTEM_LITTLE_ENDIAN == 1
-const char host_endian_char = little_endian_char;
-#else   // RAFT_SYSTEM_LITTLE_ENDIAN == 1
-const char host_endian_char = big_endian_char;
+#define RAFT_NUMPY_HOST_ENDIAN_CHAR RAFT_NUMPY_LITTLE_ENDIAN_CHAR
+#else  // RAFT_SYSTEM_LITTLE_ENDIAN == 1
+#define RAFT_NUMPY_HOST_ENDIAN_CHAR RAFT_NUMPY_BIG_ENDIAN_CHAR
 #endif  // RAFT_SYSTEM_LITTLE_ENDIAN == 1
 
 using ndarray_len_t = std::uint64_t;
@@ -116,35 +116,37 @@ struct is_complex<std::complex<T>> : std::true_type {
 };
 
 template <typename T, typename std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
-dtype_t get_numpy_dtype()
+inline dtype_t get_numpy_dtype()
 {
-  return {host_endian_char, 'f', sizeof(T)};
+  return {RAFT_NUMPY_HOST_ENDIAN_CHAR, 'f', sizeof(T)};
 }
 
 template <typename T,
           typename std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>, bool> = true>
-dtype_t get_numpy_dtype()
+inline dtype_t get_numpy_dtype()
 {
-  const char endian_char = (sizeof(T) == 1 ? no_endian_char : host_endian_char);
+  const char endian_char =
+    (sizeof(T) == 1 ? RAFT_NUMPY_NO_ENDIAN_CHAR : RAFT_NUMPY_HOST_ENDIAN_CHAR);
   return {endian_char, 'i', sizeof(T)};
 }
 
 template <typename T,
           typename std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T>, bool> = true>
-dtype_t get_numpy_dtype()
+inline dtype_t get_numpy_dtype()
 {
-  const char endian_char = (sizeof(T) == 1 ? no_endian_char : host_endian_char);
+  const char endian_char =
+    (sizeof(T) == 1 ? RAFT_NUMPY_NO_ENDIAN_CHAR : RAFT_NUMPY_HOST_ENDIAN_CHAR);
   return {endian_char, 'u', sizeof(T)};
 }
 
 template <typename T, typename std::enable_if_t<is_complex<T>{}, bool> = true>
-dtype_t get_numpy_dtype()
+inline dtype_t get_numpy_dtype()
 {
-  return {host_endian_char, 'c', sizeof(T)};
+  return {RAFT_NUMPY_HOST_ENDIAN_CHAR, 'c', sizeof(T)};
 }
 
 template <typename T>
-std::string tuple_to_string(const std::vector<T>& tuple)
+inline std::string tuple_to_string(const std::vector<T>& tuple)
 {
   std::ostringstream oss;
   if (tuple.empty()) {
@@ -161,7 +163,7 @@ std::string tuple_to_string(const std::vector<T>& tuple)
   return oss.str();
 }
 
-std::string header_to_string(const header_t& header)
+inline std::string header_to_string(const header_t& header)
 {
   std::ostringstream oss;
   oss << "{'descr': '" << header.dtype.to_string()
@@ -170,7 +172,7 @@ std::string header_to_string(const header_t& header)
   return oss.str();
 }
 
-std::string trim(const std::string& str)
+inline std::string trim(const std::string& str)
 {
   const std::string whitespace = " \t";
   auto begin                   = str.find_first_not_of(whitespace);
@@ -184,8 +186,8 @@ std::string trim(const std::string& str)
 // TODO(hcho3): Consider writing a proper parser
 // Limitation: can only parse a flat dictionary; all values are assumed to non-objects
 // Limitation: must know all the keys ahead of time; you get undefined behavior if you omit any key
-std::map<std::string, std::string> parse_pydict(std::string str,
-                                                const std::vector<std::string>& keys)
+inline std::map<std::string, std::string> parse_pydict(std::string str,
+                                                       const std::vector<std::string>& keys)
 {
   std::map<std::string, std::string> result;
 
@@ -223,13 +225,13 @@ std::map<std::string, std::string> parse_pydict(std::string str,
   return result;
 }
 
-std::string parse_pystring(std::string str)
+inline std::string parse_pystring(std::string str)
 {
   RAFT_EXPECTS(str.front() == '\'' && str.back() == '\'', "Invalid Python string: %s", str.c_str());
   return str.substr(1, str.length() - 2);
 }
 
-bool parse_pybool(std::string str)
+inline bool parse_pybool(std::string str)
 {
   if (str == "True") {
     return true;
@@ -240,7 +242,7 @@ bool parse_pybool(std::string str)
   }
 }
 
-std::vector<std::string> parse_pytuple(std::string str)
+inline std::vector<std::string> parse_pytuple(std::string str)
 {
   std::vector<std::string> result;
 
@@ -256,12 +258,16 @@ std::vector<std::string> parse_pytuple(std::string str)
   return result;
 }
 
-dtype_t parse_descr(std::string typestr)
+inline dtype_t parse_descr(std::string typestr)
 {
   RAFT_EXPECTS(typestr.length() >= 3, "Invalid typestr: Too short");
   char byteorder_c       = typestr.at(0);
   char kind_c            = typestr.at(1);
   std::string itemsize_s = typestr.substr(2);
+
+  const char endian_chars[] = {
+    RAFT_NUMPY_LITTLE_ENDIAN_CHAR, RAFT_NUMPY_BIG_ENDIAN_CHAR, RAFT_NUMPY_NO_ENDIAN_CHAR};
+  const char numtype_chars[] = {'f', 'i', 'u', 'c'};
 
   RAFT_EXPECTS(std::find(std::begin(endian_chars), std::end(endian_chars), byteorder_c) !=
                  std::end(endian_chars),
@@ -276,12 +282,9 @@ dtype_t parse_descr(std::string typestr)
   return {byteorder_c, kind_c, itemsize};
 }
 
-const char magic_string[]             = "\x93NUMPY";
-const std::size_t magic_string_length = 6;
-
-void write_magic(std::ostream& os)
+inline void write_magic(std::ostream& os)
 {
-  os.write(magic_string, magic_string_length);
+  os.write(RAFT_NUMPY_MAGIC_STRING, RAFT_NUMPY_MAGIC_STRING_LENGTH);
   RAFT_EXPECTS(os.good(), "Error writing magic string");
   // Use version 1.0
   os.put(1);
@@ -289,27 +292,27 @@ void write_magic(std::ostream& os)
   RAFT_EXPECTS(os.good(), "Error writing magic string");
 }
 
-void read_magic(std::istream& is)
+inline void read_magic(std::istream& is)
 {
-  char magic_buf[magic_string_length + 2] = {0};
-  is.read(magic_buf, magic_string_length + 2);
+  char magic_buf[RAFT_NUMPY_MAGIC_STRING_LENGTH + 2] = {0};
+  is.read(magic_buf, RAFT_NUMPY_MAGIC_STRING_LENGTH + 2);
   RAFT_EXPECTS(is.good(), "Error reading magic string");
 
-  RAFT_EXPECTS(std::memcmp(magic_buf, magic_string, magic_string_length) == 0,
+  RAFT_EXPECTS(std::memcmp(magic_buf, RAFT_NUMPY_MAGIC_STRING, RAFT_NUMPY_MAGIC_STRING_LENGTH) == 0,
                "The given stream does not have a valid NumPy format.");
 
-  std::uint8_t version_major = magic_buf[magic_string_length];
-  std::uint8_t version_minor = magic_buf[magic_string_length + 1];
+  std::uint8_t version_major = magic_buf[RAFT_NUMPY_MAGIC_STRING_LENGTH];
+  std::uint8_t version_minor = magic_buf[RAFT_NUMPY_MAGIC_STRING_LENGTH + 1];
   RAFT_EXPECTS(version_major == 1 && version_minor == 0,
                "Unsupported NumPy version: %d.%d",
                version_major,
                version_minor);
 }
 
-void write_header(std::ostream& os, const header_t& header)
+inline void write_header(std::ostream& os, const header_t& header)
 {
   std::string header_dict     = header_to_string(header);
-  std::size_t preamble_length = magic_string_length + 2 + 2 + header_dict.length() + 1;
+  std::size_t preamble_length = RAFT_NUMPY_MAGIC_STRING_LENGTH + 2 + 2 + header_dict.length() + 1;
   RAFT_EXPECTS(preamble_length < 255 * 255, "Header too long");
   std::size_t padding_len = 16 - preamble_length % 16;
   std::string padding(padding_len, ' ');
@@ -330,7 +333,7 @@ void write_header(std::ostream& os, const header_t& header)
   RAFT_EXPECTS(os.good(), "Error writing header dict");
 }
 
-std::string read_header_bytes(std::istream& is)
+inline std::string read_header_bytes(std::istream& is)
 {
   read_magic(is);
 
@@ -347,7 +350,7 @@ std::string read_header_bytes(std::istream& is)
   return std::string(header_bytes.data(), header_length);
 }
 
-header_t read_header(std::istream& is)
+inline header_t read_header(std::istream& is)
 {
   std::string header_bytes = read_header_bytes(is);
 
@@ -369,9 +372,10 @@ header_t read_header(std::istream& is)
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void serialize(const raft::handle_t& handle,
-               std::ostream& os,
-               const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
+inline void serialize(
+  const raft::handle_t& handle,
+  std::ostream& os,
+  const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
   using obj_t = raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
@@ -390,9 +394,10 @@ void serialize(const raft::handle_t& handle,
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void deserialize(const raft::handle_t& handle,
-                 std::istream& is,
-                 const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
+inline void deserialize(
+  const raft::handle_t& handle,
+  std::istream& is,
+  const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
   using obj_t = raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
@@ -414,9 +419,9 @@ void deserialize(const raft::handle_t& handle,
                obj.rank(),
                header.shape.size());
   for (typename obj_t::rank_type i = 0; i < obj.rank(); ++i) {
-    RAFT_EXPECTS(obj.extent(i) == header.shape[i],
+    RAFT_EXPECTS(static_cast<ndarray_len_t>(obj.extent(i)) == header.shape[i],
                  "Incorrect dimension: expected %zu but got %zu",
-                 obj.extent(i),
+                 static_cast<ndarray_len_t>(obj.extent(i)),
                  header.shape[i]);
   }
 

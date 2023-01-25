@@ -26,7 +26,7 @@
 namespace raft {
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void serialize_mdspan(
+inline void serialize_mdspan(
   const raft::handle_t& handle,
   std::ostream& os,
   const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
@@ -38,7 +38,7 @@ void serialize_mdspan(
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void serialize_mdspan(
+inline void serialize_mdspan(
   const raft::handle_t& handle,
   std::ostream& os,
   const raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
@@ -61,9 +61,10 @@ void serialize_mdspan(
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void deserialize_mdspan(const raft::handle_t& handle,
-                        std::istream& is,
-                        raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
+inline void deserialize_mdspan(
+  const raft::handle_t& handle,
+  std::istream& is,
+  raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
   static_assert(std::is_same_v<LayoutPolicy, raft::layout_c_contiguous> ||
                   std::is_same_v<LayoutPolicy, raft::layout_f_contiguous>,
@@ -72,7 +73,7 @@ void deserialize_mdspan(const raft::handle_t& handle,
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void deserialize_mdspan(
+inline void deserialize_mdspan(
   const raft::handle_t& handle,
   std::istream& is,
   raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
@@ -96,15 +97,16 @@ void deserialize_mdspan(
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void deserialize_mdspan(const raft::handle_t& handle,
-                        std::istream& is,
-                        raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
+inline void deserialize_mdspan(
+  const raft::handle_t& handle,
+  std::istream& is,
+  raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
 {
   deserialize_mdspan(handle, is, obj);
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void deserialize_mdspan(
+inline void deserialize_mdspan(
   const raft::handle_t& handle,
   std::istream& is,
   raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)

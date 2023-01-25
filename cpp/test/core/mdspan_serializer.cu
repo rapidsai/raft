@@ -68,8 +68,9 @@ TEST(MDArraySerializer, E2ERoundTrip)
 
 TEST(MDArraySerializer, HeaderRoundTrip)
 {
-  for (char byteorder : detail::numpy_serializer::endian_chars) {
-    for (char kind : detail::numpy_serializer::numtype_chars) {
+  for (char byteorder : std::vector<char>{
+         RAFT_NUMPY_LITTLE_ENDIAN_CHAR, RAFT_NUMPY_BIG_ENDIAN_CHAR, RAFT_NUMPY_NO_ENDIAN_CHAR}) {
+    for (char kind : std::vector<char>{'f', 'i', 'u', 'c'}) {
       for (unsigned int itemsize : std::vector<unsigned int>{1, 2, 4, 8, 16}) {
         for (bool fortran_order : std::vector<bool>{true, false}) {
           for (const auto& shape :
