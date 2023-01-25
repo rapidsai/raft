@@ -150,7 +150,6 @@ struct Params {
   AdjacencyPattern pattern;
 };
 
-template <typename DataT>
 inline auto operator<<(std::ostream& os, const Params& p) -> std::ostream&
 {
   os << "m: " << p.m << ", n: " << p.n << ", k: " << p.k << ", num_groups: " << p.num_groups
