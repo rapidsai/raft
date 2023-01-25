@@ -27,6 +27,7 @@
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/normalize.cuh>
@@ -731,10 +732,11 @@ void build_clusters(const handle_t& handle,
                "the chosen index type cannot represent all indices for the given dataset");
 
   // "randomly initialize labels"
-  auto f = [n_clusters] __device__(LabelT * out, IdxT i) {
-    *out = LabelT(i % static_cast<IdxT>(n_clusters));
-  };
-  linalg::writeOnlyUnaryOp<LabelT, decltype(f), IdxT>(cluster_labels, n_rows, f, stream);
+  auto labels_view = raft::make_device_vector_view<LabelT, IdxT>(cluster_labels, n_rows);
+  linalg::map_offset(
+    handle,
+    labels_view,
+    raft::compose_op(raft::cast_op<LabelT>(), raft::mod_const_op<IdxT>(n_clusters)));
 
   // update centers to match the initialized labels.
   calc_centers_and_sizes(handle,

@@ -28,6 +28,8 @@
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -175,15 +177,14 @@ void select_clusters(const handle_t& handle,
     case raft::distance::DistanceType::InnerProduct: norm_factor = 0.0; break;
     default: RAFT_FAIL("Unsupported distance type %d.", int(metric));
   }
-  linalg::writeOnlyUnaryOp(
-    float_queries,
-    dim_ext * n_queries,
-    [queries, dim, dim_ext, norm_factor] __device__(float* out, uint32_t ix) {
+  auto float_queries_view =
+    raft::make_device_vector_view<float, uint32_t>(float_queries, dim_ext * n_queries);
+  linalg::map_offset(
+    handle, float_queries_view, [queries, dim, dim_ext, norm_factor] __device__(uint32_t ix) {
       uint32_t col = ix % dim_ext;
       uint32_t row = ix / dim_ext;
-      *out         = col < dim ? utils::mapping<float>{}(queries[col + dim * row]) : norm_factor;
-    },
-    stream);
+      return col < dim ? utils::mapping<float>{}(queries[col + dim * row]) : norm_factor;
+    });
 
   float alpha;
   float beta;
