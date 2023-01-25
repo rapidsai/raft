@@ -297,16 +297,6 @@ struct CompareApproxAbsKVP {
   T eps;
 };
 
-template <typename T>
-struct CompareExactKVP {
-  typedef typename raft::KeyValuePair<int, T> KVP;
-  bool operator()(const KVP& a, const KVP& b) const
-  {
-    if (a.value != b.value) return false;
-    return true;
-  }
-};
-
 template <typename K, typename V, typename L>
 ::testing::AssertionResult devArrMatch(const raft::KeyValuePair<K, V>* expected,
                                        const raft::KeyValuePair<K, V>* actual,
@@ -364,12 +354,12 @@ inline auto gen_params() -> std::vector<Params>
   return regular;
 }
 
-class MaskedL2NNTestMin : public ::testing::TestWithParam<Params> {
+class MaskedL2NNTest : public ::testing::TestWithParam<Params> {
   // Empty.
 };
 
 //
-TEST_P(MaskedL2NNTestMin, Float)
+TEST_P(MaskedL2NNTest, ReferenceCheckFloat)
 {
   using DataT = float;
 
@@ -392,7 +382,7 @@ TEST_P(MaskedL2NNTestMin, Float)
 
 // This test checks whether running the maskedL2NN twice returns the same
 // output.
-TEST_P(MaskedL2NNTestMin, Determinism)
+TEST_P(MaskedL2NNTest, DeterminismCheck)
 {
   using DataT = float;
 
@@ -413,7 +403,7 @@ TEST_P(MaskedL2NNTestMin, Determinism)
                           handle.get_stream()));
 }
 
-TEST_P(MaskedL2NNTestMin, Double)
+TEST_P(MaskedL2NNTest, ReferenceCheckDouble)
 {
   using DataT = double;
 
@@ -433,6 +423,7 @@ TEST_P(MaskedL2NNTestMin, Double)
                           CompareApproxAbsKVP<DataT>(p.tolerance),
                           handle.get_stream()));
 }
-INSTANTIATE_TEST_CASE_P(MaskedL2NNTests, MaskedL2NNTestMin, ::testing::ValuesIn(gen_params()));
+
+INSTANTIATE_TEST_CASE_P(MaskedL2NNTests, MaskedL2NNTest, ::testing::ValuesIn(gen_params()));
 
 }  // end namespace raft::distance::masked_nn
