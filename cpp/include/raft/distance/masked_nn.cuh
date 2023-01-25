@@ -81,9 +81,11 @@ struct MaskedL2NNParams {
  * This function enables faster computation of nearest neighbors if the
  * computation of distances between certain point pairs can be skipped.
  *
- * To avoid using a full adjacency matrix between all points in `x` and `y`, the
- * points in `y` are divided into groups. An adjacency matrix describes for each
- * point in `x` and each group whether to compute the distance.
+ * We use an adjacency matrix that describes which distances to calculate. The
+ * points in `y` are divided into groups, and the adjacency matrix indicates
+ * whether to compute distances between points in `x` and groups in `y`. In other
+ * words, if `adj[i,k]` is true then distance between point `x_i`, and points in
+ * `group_k` will be calculated.
  *
  * **Performance considerations**
  *
