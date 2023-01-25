@@ -173,12 +173,12 @@ struct MaskedDistances : public BaseClass {
         // performance.
         int thread_adj = compute_thread_adjacency(block_adj);
 
-        auto tile_idx_n       = idx_g == 0 ? 0 : group_idxs[idx_g - 1];
-        const auto tile_end_n = group_idxs[idx_g];
-        for (; tile_idx_n < tile_end_n; tile_idx_n += P::Nblk) {
-          // We provide tile_end_n to limit the number of unnecessary data
+        auto tile_idx_n        = idx_g == 0 ? 0 : group_idxs[idx_g - 1];
+        const auto group_end_n = group_idxs[idx_g];
+        for (; tile_idx_n < group_end_n; tile_idx_n += P::Nblk) {
+          // We provide group_end_n to limit the number of unnecessary data
           // points that are loaded from y.
-          this->ldgXY(tile_idx_m, tile_idx_n, 0, tile_end_n);
+          this->ldgXY(tile_idx_m, tile_idx_n, 0, group_end_n);
 
           reset_accumulator();
           this->stsXY();
@@ -186,7 +186,7 @@ struct MaskedDistances : public BaseClass {
           this->switch_write_buffer();
 
           for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-            this->ldgXY(tile_idx_m, tile_idx_n, kidx, tile_end_n);
+            this->ldgXY(tile_idx_m, tile_idx_n, kidx, group_end_n);
             // Process all data in shared memory (previous k-block) and
             // accumulate in registers.
             if (thread_adj != 0) { accumulate(); }
@@ -205,13 +205,13 @@ struct MaskedDistances : public BaseClass {
 
           if (useNorms) {
             DataT regxn[P::AccRowsPerTh], regyn[P::AccColsPerTh];
-            load_norms(tile_idx_m, tile_idx_n, tile_end_n, regxn, regyn);
+            load_norms(tile_idx_m, tile_idx_n, group_end_n, regxn, regyn);
             if (thread_adj != 0) {
-              epilog_op(acc, thread_adj, regxn, regyn, tile_idx_n, tile_idx_m, tile_end_n);
+              epilog_op(acc, thread_adj, regxn, regyn, tile_idx_n, tile_idx_m, group_end_n);
             }
           } else {
             if (thread_adj != 0) {
-              epilog_op(acc, thread_adj, nullptr, nullptr, tile_idx_n, tile_idx_m, tile_end_n);
+              epilog_op(acc, thread_adj, nullptr, nullptr, tile_idx_n, tile_idx_m, group_end_n);
             }
           }
         }  // tile_idx_n
@@ -247,7 +247,7 @@ struct MaskedDistances : public BaseClass {
 
       // block_row_is_adjacent is true if the current block_row_idx is adjacent
       // to the current group.
-      const uint64_t block_mask  = 1ull << block_row_idx;
+      const uint64_t block_mask        = 1ull << block_row_idx;
       const bool block_row_is_adjacent = (block_adj & block_mask) != 0;
       if (block_row_is_adjacent) {
         // If block row is adjacent, write a 1 bit to thread_adj at location
@@ -291,7 +291,7 @@ struct MaskedDistances : public BaseClass {
 
   DI void load_norms(IdxT tile_idx_m,
                      IdxT tile_idx_n,
-                     IdxT tile_end_n,
+                     IdxT end_n,
                      DataT (&regxn)[P::AccRowsPerTh],
                      DataT (&regyn)[P::AccColsPerTh])
   {
@@ -306,7 +306,7 @@ struct MaskedDistances : public BaseClass {
 
     for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
       auto idx  = tile_idx_n + i;
-      syNorm[i] = idx < tile_end_n ? yn[idx] : 0;
+      syNorm[i] = idx < end_n ? yn[idx] : 0;
     }
     __syncthreads();
 
