@@ -21,6 +21,7 @@
 #include "detail/map.cuh"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/input_validation.hpp>
 #include <thrust/tabulate.h>
 
@@ -121,7 +122,7 @@ void map(raft::device_resources const& handle, InType in, OutType out, MapOp map
 template <typename OutType,
           typename MapOp,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void map_offset(const raft::handle_t& handle, OutType out, MapOp op)
+void map_offset(const raft::device_resources& handle, OutType out, MapOp op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
 

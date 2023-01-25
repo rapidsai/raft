@@ -85,19 +85,10 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
  * @tparam Lambda Device lambda performing the actual operation, with the signature
  *                `out_value_t func(const in_value_t& val);`
  * @tparam OutType Output Type raft::device_mdspan
-<<<<<<< imp-2302-raft_device_resources
- * @param[in] handle raft::device_resources
- * @param[in] in Input
- * @param[out] out Output
- * @param[in] op the device-lambda
- * @note Lambda must be a functor with the following signature:
- *       `InType func(const InType& val);`
-=======
  * @param[in]  handle The raft handle
  * @param[in]  in     Input
  * @param[out] out    Output
  * @param[in]  op     Device lambda
->>>>>>> branch-23.02
  */
 template <typename InType,
           typename Lambda,
@@ -123,20 +114,6 @@ void unary_op(raft::device_resources const& handle, InType in, OutType out, Lamb
 }
 
 /**
-<<<<<<< imp-2302-raft_device_resources
- * @brief perform element-wise binary operation on the input arrays
- * This function does not read from the input
- * @tparam InType Input Type raft::device_mdspan
- * @tparam Lambda the device-lambda performing the actual operation
- * @param[in] handle raft::device_resources
- * @param[inout] in Input/Output
- * @param[in] op the device-lambda
- * @note Lambda must be a functor with the following signature:
- *       `InType func(const InType& val);`
- */
-template <typename InType, typename Lambda, typename = raft::enable_if_output_device_mdspan<InType>>
-void write_only_unary_op(raft::device_resources const& handle, InType in, Lambda op)
-=======
  * @brief Perform an element-wise unary operation on the input index into the output array
  *
  * @note This operation is deprecated. Please use map_offset in `raft/linalg/map.cuh` instead.
@@ -151,8 +128,7 @@ void write_only_unary_op(raft::device_resources const& handle, InType in, Lambda
 template <typename OutType,
           typename Lambda,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void write_only_unary_op(const raft::handle_t& handle, OutType out, Lambda op)
->>>>>>> branch-23.02
+void write_only_unary_op(const raft::device_resources& handle, OutType out, Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
 
