@@ -197,10 +197,11 @@ constexpr auto calc_minibatch_size(IdxT n_clusters,
   // Estimate memory needs per row (i.e element of the batch).
   size_t mem_per_row = 0;
   switch (metric) {
-    // fusedL2NN only needs one integer per row for a mutex.
+    // fusedL2NN needs a mutex and a key-value pair for each row.
     case distance::DistanceType::L2Expanded:
     case distance::DistanceType::L2SqrtExpanded: {
       mem_per_row += sizeof(int);
+      mem_per_row += sizeof(raft::KeyValuePair<IdxT, MathT>);
     } break;
     // Other metrics require storing a distance matrix.
     default: {
