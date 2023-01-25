@@ -32,11 +32,14 @@ namespace raft {
  */
 class handle_t : public raft::device_resources {
  public:
-  // delete copy/move constructors and assignment operators as
-  // copying and moving underlying resources is unsafe
-  handle_t(raft::handle_t const&) = delete;
-  handle_t& operator=(raft::handle_t const&) = delete;
-  handle_t(handle_t&&)                       = delete;
+  handle_t(const handle_t& handle, rmm::mr::device_memory_resource* workspace_resource)
+    : device_resources(handle, workspace_resource)
+  {
+  }
+
+  handle_t(const handle_t& handle) : device_resources{handle} {}
+
+  handle_t(handle_t&&) = delete;
   handle_t& operator=(handle_t&&) = delete;
 
   /**
