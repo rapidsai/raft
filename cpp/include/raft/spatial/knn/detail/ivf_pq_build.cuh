@@ -370,7 +370,7 @@ auto calculate_offsets_and_indices(IdxT n_rows,
 }
 
 template <typename IdxT>
-void transpose_pq_centers(const handle_t& handle,
+void transpose_pq_centers(const device_resources& handle,
                           index<IdxT>& index,
                           const float* pq_centers_source)
 {
