@@ -27,6 +27,7 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/util/cuda_utils.cuh>

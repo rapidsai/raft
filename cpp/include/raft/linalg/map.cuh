@@ -22,6 +22,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/util/input_validation.hpp>
+#include <thrust/tabulate.h>
 
 namespace raft {
 namespace linalg {
@@ -94,6 +95,40 @@ void map(raft::device_resources const& handle, InType in, OutType out, MapOp map
     map_k<in_value_t, MapOp, std::uint64_t, TPB, out_value_t, Args...>(
       out.data_handle(), out.size(), map, handle.get_stream(), in.data_handle(), args...);
   }
+}
+
+/**
+ * @brief Perform an element-wise unary operation on the input offset into the output array
+ *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/device_mdarray.hpp>
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/operators.hpp>
+ *  #include <raft/linalg/map.cuh>
+ *  ...
+ *  raft::handle_t handle;
+ *  auto squares = raft::make_device_vector<int>(handle, n);
+ *  raft::linalg::map_offset(handle, squares.view(), raft::sq_op());
+ * @endcode
+ *
+ * @tparam OutType Output mdspan type
+ * @tparam MapOp   The unary operation type with signature `OutT func(const IdxT& idx);`
+ * @param[in]  handle The raft handle
+ * @param[out] out    Output array
+ * @param[in]  op     The unary operation
+ */
+template <typename OutType,
+          typename MapOp,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
+void map_offset(const raft::handle_t& handle, OutType out, MapOp op)
+{
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+
+  using out_value_t = typename OutType::value_type;
+
+  thrust::tabulate(
+    handle.get_thrust_policy(), out.data_handle(), out.data_handle() + out.size(), op);
 }
 
 /** @} */  // end of map

@@ -31,7 +31,9 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/qr.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/histogram.cuh>
@@ -209,8 +211,11 @@ inline void make_rotation_matrix(raft::device_resources const& handle,
     }
   } else {
     uint32_t stride = n + 1;
-    auto f = [stride] __device__(float* out, uint32_t i) -> void { *out = float(i % stride == 0); };
-    linalg::writeOnlyUnaryOp(rotation_matrix, n * n, f, stream);
+    auto rotation_matrix_view =
+      raft::make_device_vector_view<float, uint32_t>(rotation_matrix, n * n);
+    linalg::map_offset(handle, rotation_matrix_view, [stride] __device__(uint32_t i) {
+      return static_cast<float>(i % stride == 0u);
+    });
   }
 }
 
@@ -283,16 +288,13 @@ void flat_compute_residuals(
   auto dim     = rotation_matrix.extent(1);
   auto rot_dim = rotation_matrix.extent(0);
   rmm::device_uvector<float> tmp(n_rows * dim, stream, device_memory);
-  linalg::writeOnlyUnaryOp(
-    tmp.data(),
-    tmp.size(),
-    [centers, dataset, labels, dim] __device__(float* out, size_t i) {
-      auto row_ix = i / dim;
-      auto el_ix  = i % dim;
-      auto label  = labels[row_ix];
-      *out        = utils::mapping<float>{}(dataset[i]) - centers(label, el_ix);
-    },
-    stream);
+  auto tmp_view = raft::make_device_vector_view<float, IdxT>(tmp.data(), tmp.size());
+  linalg::map_offset(handle, tmp_view, [centers, dataset, labels, dim] __device__(size_t i) {
+    auto row_ix = i / dim;
+    auto el_ix  = i % dim;
+    auto label  = labels[row_ix];
+    return utils::mapping<float>{}(dataset[i]) - centers(label, el_ix);
+  });
 
   float alpha = 1.0f;
   float beta  = 0.0f;
@@ -368,29 +370,28 @@ auto calculate_offsets_and_indices(IdxT n_rows,
 }
 
 template <typename IdxT>
-void transpose_pq_centers(index<IdxT>& index,
-                          const float* pq_centers_source,
-                          rmm::cuda_stream_view stream)
+void transpose_pq_centers(const handle_t& handle,
+                          index<IdxT>& index,
+                          const float* pq_centers_source)
 {
+  auto stream  = handle.get_stream();
   auto extents = index.pq_centers().extents();
   static_assert(extents.rank() == 3);
   auto extents_source =
     make_extents<uint32_t>(extents.extent(0), extents.extent(2), extents.extent(1));
   auto span_source =
     make_mdspan<const float, uint32_t, row_major, false, true>(pq_centers_source, extents_source);
-  linalg::writeOnlyUnaryOp(
-    index.pq_centers().data_handle(),
-    index.pq_centers().size(),
-    [span_source, extents] __device__(float* out, size_t i) {
-      uint32_t ii[3];
-      for (int r = 2; r > 0; r--) {
-        ii[r] = i % extents.extent(r);
-        i /= extents.extent(r);
-      }
-      ii[0] = i;
-      *out  = span_source(ii[0], ii[2], ii[1]);
-    },
-    stream);
+  auto pq_centers_view = raft::make_device_vector_view<float, IdxT>(
+    index.pq_centers().data_handle(), index.pq_centers().size());
+  linalg::map_offset(handle, pq_centers_view, [span_source, extents] __device__(size_t i) {
+    uint32_t ii[3];
+    for (int r = 2; r > 0; r--) {
+      ii[r] = i % extents.extent(r);
+      i /= extents.extent(r);
+    }
+    ii[0] = i;
+    return span_source(ii[0], ii[2], ii[1]);
+  });
 }
 
 template <typename IdxT>
@@ -460,7 +461,7 @@ void train_per_subset(raft::device_resources const& handle,
                            stream,
                            device_memory);
   }
-  transpose_pq_centers(index, pq_centers_tmp.data(), stream);
+  transpose_pq_centers(handle, index, pq_centers_tmp.data());
 }
 
 template <typename IdxT>
@@ -537,7 +538,7 @@ void train_per_cluster(raft::device_resources const& handle,
       stream,
       device_memory);
   }
-  transpose_pq_centers(index, pq_centers_tmp.data(), stream);
+  transpose_pq_centers(handle, index, pq_centers_tmp.data());
 }
 
 /**
@@ -1214,14 +1215,12 @@ auto build(raft::device_resources const& handle,
     if (dataset_attr.devicePointer != nullptr) {
       // data is available on device: just run the kernel to copy and map the data
       auto p = reinterpret_cast<T*>(dataset_attr.devicePointer);
-      linalg::writeOnlyUnaryOp(
-        trainset.data(),
-        dim * n_rows_train,
-        [p, trainset_ratio, dim] __device__(float* out, size_t i) {
-          auto col = i % dim;
-          *out     = utils::mapping<float>{}(p[(i - col) * size_t(trainset_ratio) + col]);
-        },
-        stream);
+      auto trainset_view =
+        raft::make_device_vector_view<float, IdxT>(trainset.data(), dim * n_rows_train);
+      linalg::map_offset(handle, trainset_view, [p, trainset_ratio, dim] __device__(size_t i) {
+        auto col = i % dim;
+        return utils::mapping<float>{}(p[(i - col) * size_t(trainset_ratio) + col]);
+      });
     } else {
       // data is not available: first copy, then map inplace
       auto trainset_tmp = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(trainset.data()) +
