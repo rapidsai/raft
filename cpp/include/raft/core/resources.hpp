@@ -67,8 +67,7 @@ class resources {
    * Note that this does not create any new resources.
    */
   resources(const resources& res) : factories_(res.factories_), resources_(res.resources_) {}
-  resources& operator=(const resources&) = delete;
-  resources(resources&&)                 = delete;
+  resources(resources&&)            = delete;
   resources& operator=(resources&&) = delete;
 
   /**
