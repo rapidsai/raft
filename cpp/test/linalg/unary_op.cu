@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,27 +23,6 @@
 
 namespace raft {
 namespace linalg {
-
-// Or else, we get the following compilation error
-// for an extended __device__ lambda cannot have private or protected access
-// within its class
-template <typename InType, typename IdxType = int, typename OutType = InType>
-void unaryOpLaunch(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
-{
-  raft::handle_t handle{stream};
-  auto out_view = raft::make_device_vector_view(out, len);
-  auto in_view  = raft::make_device_vector_view<const InType>(in, len);
-  if (in == nullptr) {
-    auto op = [scalar] __device__(OutType * ptr, IdxType idx) {
-      *ptr = static_cast<OutType>(scalar * idx);
-    };
-
-    write_only_unary_op(handle, out_view, op);
-  } else {
-    auto op = [scalar] __device__(InType in) { return static_cast<OutType>(in * scalar); };
-    unary_op(handle, in_view, out_view, op);
-  }
-}
 
 template <typename InType, typename IdxType, typename OutType = InType>
 class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxType, OutType>> {
@@ -71,10 +50,14 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
     auto len    = params.len;
     auto scalar = params.scalar;
     naiveScale(out_ref.data(), in.data(), scalar, len, stream);
-    unaryOpLaunch(out.data(), in.data(), scalar, len, stream);
+
+    auto in_view  = raft::make_device_vector_view<const InType>(in.data(), len);
+    auto out_view = raft::make_device_vector_view(out.data(), len);
+    unary_op(handle,
+             in_view,
+             out_view,
+             raft::compose_op(raft::cast_op<OutType>(), raft::mul_const_op<InType>(scalar)));
     handle.sync_stream(stream);
-    ASSERT_TRUE(devArrMatch(
-      out_ref.data(), out.data(), params.len, CompareApprox<OutType>(params.tolerance)));
   }
 
  protected:
@@ -86,6 +69,19 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
   rmm::device_uvector<OutType> out_ref, out;
 };
 
+// Or else, we get the following compilation error:
+// The enclosing parent function ("DoTest") for an extended __device__ lambda cannot have private or
+// protected access within its class
+template <typename InType, typename IdxType, typename OutType>
+void launchWriteOnlyUnaryOp(const raft::handle_t& handle, OutType* out, InType scalar, IdxType len)
+{
+  auto out_view = raft::make_device_vector_view(out, len);
+  auto op       = [scalar] __device__(OutType * ptr, IdxType idx) {
+    *ptr = static_cast<OutType>(scalar * idx);
+  };
+  write_only_unary_op(handle, out_view, op);
+}
+
 template <typename OutType, typename IdxType>
 class WriteOnlyUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
  protected:
@@ -94,50 +90,46 @@ class WriteOnlyUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
     auto len    = this->params.len;
     auto scalar = this->params.scalar;
     naiveScale(this->out_ref.data(), (OutType*)nullptr, scalar, len, this->stream);
-    unaryOpLaunch(this->out.data(), (OutType*)nullptr, scalar, len, this->stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(this->stream));
-    ASSERT_TRUE(devArrMatch(this->out_ref.data(),
-                            this->out.data(),
-                            this->params.len,
-                            CompareApprox<OutType>(this->params.tolerance)));
+
+    launchWriteOnlyUnaryOp(this->handle, this->out.data(), scalar, len);
+    this->handle.sync_stream(this->stream);
   }
 };
 
-#define UNARY_OP_TEST(Name, inputs)  \
-  TEST_P(Name, Result) { DoTest(); } \
-  INSTANTIATE_TEST_SUITE_P(UnaryOpTests, Name, ::testing::ValuesIn(inputs))
+#define UNARY_OP_TEST(test_type, test_name, inputs)                  \
+  typedef RAFT_DEPAREN(test_type) test_name;                         \
+  TEST_P(test_name, Result)                                          \
+  {                                                                  \
+    DoTest();                                                        \
+    ASSERT_TRUE(devArrMatch(this->out_ref.data(),                    \
+                            this->out.data(),                        \
+                            this->params.len,                        \
+                            CompareApprox(this->params.tolerance))); \
+  }                                                                  \
+  INSTANTIATE_TEST_SUITE_P(UnaryOpTests, test_name, ::testing::ValuesIn(inputs))
 
 const std::vector<UnaryOpInputs<float, int>> inputsf_i32 = {{0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-typedef UnaryOpTest<float, int> UnaryOpTestF_i32;
-UNARY_OP_TEST(UnaryOpTestF_i32, inputsf_i32);
-typedef WriteOnlyUnaryOpTest<float, int> WriteOnlyUnaryOpTestF_i32;
-UNARY_OP_TEST(WriteOnlyUnaryOpTestF_i32, inputsf_i32);
+UNARY_OP_TEST((UnaryOpTest<float, int>), UnaryOpTestF_i32, inputsf_i32);
+UNARY_OP_TEST((WriteOnlyUnaryOpTest<float, int>), WriteOnlyUnaryOpTestF_i32, inputsf_i32);
 
 const std::vector<UnaryOpInputs<float, size_t>> inputsf_i64 = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-typedef UnaryOpTest<float, size_t> UnaryOpTestF_i64;
-UNARY_OP_TEST(UnaryOpTestF_i64, inputsf_i64);
-typedef WriteOnlyUnaryOpTest<float, size_t> WriteOnlyUnaryOpTestF_i64;
-UNARY_OP_TEST(WriteOnlyUnaryOpTestF_i64, inputsf_i64);
+UNARY_OP_TEST((UnaryOpTest<float, size_t>), UnaryOpTestF_i64, inputsf_i64);
+UNARY_OP_TEST((WriteOnlyUnaryOpTest<float, size_t>), WriteOnlyUnaryOpTestF_i64, inputsf_i64);
 
 const std::vector<UnaryOpInputs<float, int, double>> inputsf_i32_d = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-typedef UnaryOpTest<float, int, double> UnaryOpTestF_i32_D;
-UNARY_OP_TEST(UnaryOpTestF_i32_D, inputsf_i32_d);
+UNARY_OP_TEST((UnaryOpTest<float, int, double>), UnaryOpTestF_i32_D, inputsf_i32_d);
 
 const std::vector<UnaryOpInputs<double, int>> inputsd_i32 = {
   {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
-typedef UnaryOpTest<double, int> UnaryOpTestD_i32;
-UNARY_OP_TEST(UnaryOpTestD_i32, inputsd_i32);
-typedef WriteOnlyUnaryOpTest<double, int> WriteOnlyUnaryOpTestD_i32;
-UNARY_OP_TEST(WriteOnlyUnaryOpTestD_i32, inputsd_i32);
+UNARY_OP_TEST((UnaryOpTest<double, int>), UnaryOpTestD_i32, inputsd_i32);
+UNARY_OP_TEST((WriteOnlyUnaryOpTest<double, int>), WriteOnlyUnaryOpTestD_i32, inputsd_i32);
 
 const std::vector<UnaryOpInputs<double, size_t>> inputsd_i64 = {
   {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
-typedef UnaryOpTest<double, size_t> UnaryOpTestD_i64;
-UNARY_OP_TEST(UnaryOpTestD_i64, inputsd_i64);
-typedef WriteOnlyUnaryOpTest<double, size_t> WriteOnlyUnaryOpTestD_i64;
-UNARY_OP_TEST(WriteOnlyUnaryOpTestD_i64, inputsd_i64);
+UNARY_OP_TEST((UnaryOpTest<double, size_t>), UnaryOpTestD_i64, inputsd_i64);
+UNARY_OP_TEST((WriteOnlyUnaryOpTest<double, size_t>), WriteOnlyUnaryOpTestD_i64, inputsd_i64);
 
 }  // end namespace linalg
 }  // end namespace raft
