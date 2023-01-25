@@ -145,6 +145,7 @@ dependencies:
       - output_types: [requirements]
         packages:
           - pydata_sphinx_theme
+          - sphinx_copybutton
           - sphinx_markdown_tables
       - output_types: [conda]
         packages:
@@ -152,7 +153,6 @@ dependencies:
           - ipython
           - numpydoc
           - recommonmark
-          - sphinx-markdown-tables
   py_version:
     specific:
       - output_types: conda

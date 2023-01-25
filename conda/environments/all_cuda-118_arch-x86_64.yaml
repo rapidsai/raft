@@ -43,7 +43,6 @@ dependencies:
 - scikit-build>=0.13.1
 - scikit-learn
 - scipy
-- sphinx-markdown-tables
 - sysroot_linux-64==2.17
 - ucx-proc=*=gpu
 - ucx-py=0.30
