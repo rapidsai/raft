@@ -165,6 +165,22 @@ class mock_comms : public comms_iface {
   int n_ranks;
 };
 
+void assert_handles_equal(raft::handle_t& handle_one, raft::handle_t& handle_two)
+{
+  // Assert shallow copied state
+  ASSERT_EQ(handle_one.get_stream().value(), handle_two.get_stream().value());
+  ASSERT_EQ(handle_one.get_stream_pool_size(), handle_two.get_stream_pool_size());
+
+  // Sanity check to make sure non-corresponding streams are not equal
+  ASSERT_NE(handle_one.get_stream_pool().get_stream(0).value(),
+            handle_two.get_stream_pool().get_stream(1).value());
+
+  for (size_t i = 0; i < handle_one.get_stream_pool_size(); ++i) {
+    ASSERT_EQ(handle_one.get_stream_pool().get_stream(i).value(),
+              handle_two.get_stream_pool().get_stream(i).value());
+  }
+}
+
 TEST(Raft, HandleDefault)
 {
   handle_t h;
@@ -266,6 +282,46 @@ TEST(Raft, WorkspaceResource)
   ASSERT_EQ(pool_mr, handle2.get_workspace_resource());
 
   delete pool_mr;
+}
+
+TEST(Raft, WorkspaceResourceCopy)
+{
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(10);
+
+  handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  auto pool_mr = new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource());
+
+  handle_t copied_handle(handle, pool_mr);
+
+  assert_handles_equal(handle, copied_handle);
+
+  // Assert the workspace_resources are what we expect
+  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
+                handle.get_workspace_resource()) == nullptr);
+
+  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
+                copied_handle.get_workspace_resource()) != nullptr);
+}
+
+TEST(Raft, HandleCopy)
+{
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(10);
+
+  handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  handle_t copied_handle(handle);
+
+  assert_handles_equal(handle, copied_handle);
+}
+
+TEST(Raft, HandleAssign)
+{
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(10);
+
+  handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  handle_t copied_handle = handle;
+
+  assert_handles_equal(handle, copied_handle);
 }
 
 }  // namespace raft
