@@ -180,7 +180,6 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
   obj.run();
 }
 
-
 /**
  * @brief Wrapper for maskedL2NNkernel
  *
@@ -278,45 +277,44 @@ void maskedL2NNImpl(const raft::handle_t& handle,
     dim3 grid(raft::ceildiv<int>(m, P::Nthreads));
     dim3 block(P::Nthreads);
 
-    initKernel<DataT, OutT, IdxT, ReduceOpT>
-      <<<grid, block, 0, stream>>>(out, m, maxVal, redOp);
+    initKernel<DataT, OutT, IdxT, ReduceOpT><<<grid, block, 0, stream>>>(out, m, maxVal, redOp);
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
-  auto fin_op = raft::identity_op{};
+  auto fin_op      = raft::identity_op{};
 
-  auto kernel = maskedL2NNkernel<DataT,
-                                     OutT,
-                                     IdxT,
-                                     P,
-                                     ReduceOpT,
-                                     KVPReduceOpT,
-                                     decltype(core_lambda),
-                                     decltype(fin_op)>;
+  auto kernel               = maskedL2NNkernel<DataT,
+                                 OutT,
+                                 IdxT,
+                                 P,
+                                 ReduceOpT,
+                                 KVPReduceOpT,
+                                 decltype(core_lambda),
+                                 decltype(fin_op)>;
   constexpr size_t smemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
   dim3 block(P::Nthreads);
   dim3 grid = launchConfigGenerator<P>(m, n, smemSize, kernel);
 
   kernel<<<grid, block, smemSize, stream>>>(out,
-                                           x,
-                                           y,
-                                           xn,
-                                           yn,
-                                           ws_adj64.data(),
-                                           group_idxs,
-                                           num_groups,
-                                           m,
-                                           n,
-                                           k,
-                                           sqrt,
-                                           maxVal,
-                                           ws_fused_nn.data(),
-                                           redOp,
-                                           pairRedOp,
-                                           core_lambda,
-                                           fin_op);
+                                            x,
+                                            y,
+                                            xn,
+                                            yn,
+                                            ws_adj64.data(),
+                                            group_idxs,
+                                            num_groups,
+                                            m,
+                                            n,
+                                            k,
+                                            sqrt,
+                                            maxVal,
+                                            ws_fused_nn.data(),
+                                            redOp,
+                                            pairRedOp,
+                                            core_lambda,
+                                            fin_op);
 
   RAFT_CUDA_TRY(cudaGetLastError());
 }
