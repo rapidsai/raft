@@ -125,9 +125,9 @@ struct MaskedL2NNParams {
  *
  * @param handle             RAFT handle for managing expensive resources
  * @param params             Parameter struct specifying the reduction operations.
- * @param[in]  x             first matrix. Row major. Dim = `m x k`.
+ * @param[in]  x             First matrix. Row major. Dim = `m x k`.
  *                           (on device).
- * @param[in]  y             second matrix. Row major. Dim = `n x k`.
+ * @param[in]  y             Second matrix. Row major. Dim = `n x k`.
  *                           (on device).
  * @param[in]  x_norm        L2 squared norm of `x`. Length = `m`. (on device).
  * @param[in]  y_norm        L2 squared norm of `y`. Length = `n`. (on device)

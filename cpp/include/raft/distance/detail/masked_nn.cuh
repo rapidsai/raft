@@ -177,9 +177,59 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
   obj.run();
 }
 
+
+/**
+ * @brief Wrapper for maskedL2NNkernel
+ *
+ * Responsibilities:
+ * - Allocate (and initialize) workspace memory for:
+ *   - mutexes used in nearest neighbor update step
+ *   - adjacency matrix bitfield
+ * - Compress adjacency matrix to bitfield
+ * - Initialize output buffer (conditional on `initOutBuffer`)
+ * - Specify core and final operations for the L2 norm
+ * - Determine optimal launch configuration for kernel.
+ * - Launch kernel and check for errors.
+ *
+ * @tparam DataT         Input data-type (for x and y matrices).
+ * @tparam OutT          Output data-type (for key-value pairs).
+ * @tparam IdxT          Index data-type.
+ * @tparam ReduceOpT     A struct to perform the final needed reduction
+ *                       operation and also to initialize the output array
+ *                       elements with the appropriate initial value needed for
+ *                       reduction.
+ * @tparam KVPReduceOpT  Type of Reduction operation on key value pairs.
+ *
+ * @param      handle            RAFT handle for managing expensive resources
+ * @param[out] out               Will contain reduced output (nn key-value pairs)
+ * @param[in]  x                 First matrix. Row major. Dim = `m x k`. (on device)
+ * @param[in]  y                 Second matrix. Row major. Dim = `n x k`. (on device)
+ * @param[in]  xn                L2 squared norm of `x`. Length = `m`.
+ * @param[in]  yn                L2 squared norm of `y`. Length = `n`.
+ * @param[in]  adj           A boolean adjacency matrix indicating for each
+ *                           row of `x` and each group in `y` whether to compute the
+ *                           distance. Dim = `m x num_groups`.
+ * @param[in]  group_idxs    An array containing the *end* indices of each group
+ *                           in `y`. The value of group_idxs[j] indicates the
+ *                           start of group j + 1, i.e., it is the inclusive
+ *                           scan of the group lengths. The first group is
+ *                           always assumed to start at index 0 and the last
+ *                           group typically ends at index `n`. Length =
+ *                           `num_groups`.
+ * @param[in]  num_groups    Length of `group_idxs`.
+ * @param      m             Rows of `x`.
+ * @param      n             Rows of `y`.
+ * @param      k             Cols of `x` and `y`.
+ * @param      redOp         Reduction operator in the epilogue
+ * @param      pairRedOp     Reduction operation on key value pairs
+ * @param      sqrt          Whether to compute the squared or actual (i.e. sqrt) L2 norm.
+ * @param      initOutBuffer Whether to initialize the output buffer
+ *
+ *
+ */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
 void maskedL2NNImpl(const raft::handle_t& handle,
-                    OutT* min,
+                    OutT* out,
                     const DataT* x,
                     const DataT* y,
                     const DataT* xn,
@@ -218,24 +268,23 @@ void maskedL2NNImpl(const raft::handle_t& handle,
   compress_to_bits_naive<<<compress_grid, dim3(32, 32), 0, stream>>>(
     adj, num_groups, m, ws_adj64.data());
 
-  dim3 blk(P::Nthreads);
-  auto nblks            = raft::ceildiv<int>(m, P::Nthreads);
+  // Initialize output buffer with keyvalue pairs as determined by the reduction
+  // operator (it will be called with maxVal).
   constexpr auto maxVal = std::numeric_limits<DataT>::max();
-  typedef raft::KeyValuePair<IdxT, DataT> KVPair;
-
-  // Accumulation operation lambda
-  auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
-
   if (initOutBuffer) {
+    dim3 grid(raft::ceildiv<int>(m, P::Nthreads));
+    dim3 block(P::Nthreads);
+
     initKernel<DataT, OutT, IdxT, ReduceOpT>
-      <<<nblks, P::Nthreads, 0, stream>>>(min, m, maxVal, redOp);
+      <<<grid, block, 0, stream>>>(out, m, maxVal, redOp);
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 
+  // Accumulation operation lambda
+  auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
   auto fin_op = raft::identity_op{};
 
-  constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
-  auto maskedL2NN            = maskedL2NNkernel<DataT,
+  auto kernel = maskedL2NNkernel<DataT,
                                      OutT,
                                      IdxT,
                                      P,
@@ -243,25 +292,28 @@ void maskedL2NNImpl(const raft::handle_t& handle,
                                      KVPReduceOpT,
                                      decltype(core_lambda),
                                      decltype(fin_op)>;
-  dim3 grid                  = launchConfigGenerator<P>(m, n, shmemSize, maskedL2NN);
-  maskedL2NN<<<grid, blk, shmemSize, stream>>>(min,
-                                               x,
-                                               y,
-                                               xn,
-                                               yn,
-                                               ws_adj64.data(),
-                                               group_idxs,
-                                               num_groups,
-                                               m,
-                                               n,
-                                               k,
-                                               sqrt,
-                                               maxVal,
-                                               ws_fused_nn.data(),
-                                               redOp,
-                                               pairRedOp,
-                                               core_lambda,
-                                               fin_op);
+  constexpr size_t smemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
+  dim3 block(P::Nthreads);
+  dim3 grid = launchConfigGenerator<P>(m, n, smemSize, kernel);
+
+  kernel<<<grid, block, smemSize, stream>>>(out,
+                                           x,
+                                           y,
+                                           xn,
+                                           yn,
+                                           ws_adj64.data(),
+                                           group_idxs,
+                                           num_groups,
+                                           m,
+                                           n,
+                                           k,
+                                           sqrt,
+                                           maxVal,
+                                           ws_fused_nn.data(),
+                                           redOp,
+                                           pairRedOp,
+                                           core_lambda,
+                                           fin_op);
 
   RAFT_CUDA_TRY(cudaGetLastError());
 }
