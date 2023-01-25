@@ -30,7 +30,9 @@ VERSION_NUMBER=$(rapids-get-rapids-version-from-git)
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
-  libraft-split \
+  libraft-distance \
+  libraft-headers \
+  libraft-nn \
   pylibraft \
   raft-dask
 
