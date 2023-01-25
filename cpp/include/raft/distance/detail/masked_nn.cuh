@@ -266,9 +266,7 @@ void maskedL2NNImpl(const raft::handle_t& handle,
   RAFT_CUDA_TRY(cudaMemsetAsync(ws_fused_nn.data(), 0, ws_fused_nn.size() * sizeof(int), stream));
 
   // Compress boolean adjacency matrix to bitfield.
-  dim3 compress_grid(raft::ceildiv(m, 32), raft::ceildiv(num_groups, 32));
-  compress_to_bits_naive<<<compress_grid, dim3(32, 32), 0, stream>>>(
-    adj, num_groups, m, ws_adj64.data());
+  compress_to_bits(handle, adj, num_groups, m, ws_adj64.data());
 
   // Initialize output buffer with keyvalue pairs as determined by the reduction
   // operator (it will be called with maxVal).

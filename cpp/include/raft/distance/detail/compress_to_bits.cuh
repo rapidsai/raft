@@ -18,12 +18,10 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 
-namespace raft {
-namespace distance {
-namespace detail {
+namespace raft::distance::detail {
 
 template <typename T = uint64_t, typename = std::enable_if_t<std::is_integral<T>::value>>
-__global__ void compress_to_bits_naive(const bool* in, int in_rows, int in_cols, T* out)
+__global__ void compress_to_bits_kernel(const bool* in, int in_rows, int in_cols, T* out)
 {
   constexpr int bits_per_element = 8 * sizeof(T);
 
@@ -44,6 +42,15 @@ __global__ void compress_to_bits_naive(const bool* in, int in_rows, int in_cols,
   if (out_i < out_rows && out_j < out_cols) { atomicOr(&out[out_i * out_cols + out_j], bitfield); }
 }
 
-};  // namespace detail
-};  // namespace distance
-};  // namespace raft
+template <typename T = uint64_t, typename = std::enable_if_t<std::is_integral<T>::value>>
+void compress_to_bits(
+  const raft::handle_t& handle, const bool* in, int in_rows, int in_cols, T* out)
+{
+  auto stream = handle.get_stream();
+  dim3 grid(raft::ceildiv(in_cols, 32), raft::ceildiv(in_rows, 32));
+  dim3 block(32, 32);
+  compress_to_bits_kernel<<<grid, block, 0, stream>>>(in, in_rows, in_cols, out);
+  RAFT_CUDA_TRY(cudaGetLastError());
+}
+
+};  // namespace raft::distance::detail
