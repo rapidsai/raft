@@ -150,13 +150,27 @@ struct MaskedDistances : public BaseClass {
         // current group. All zero means we can skip this group.
         if (block_adj == 0) { continue; }
 
-        // Determine which results, that are computed by this thread, have to
-        // be taken into account. This information is stored in a bitfield,
-        // thread_adj. If all results computed by this thread can be ignored,
-        // then we can also skip some computations (thread_adj == 0).
-
+        // thread_adj is a bitfield that contains a 1 at location i iff we must
+        // compute row i of acc (the accumulator register tile). That is,
+        // for i = 0,.., AccRowsPerTh and j = 0,.., AccColsPerTh:
+        //
+        //   ((1 << i) & thread_adj) > 0 <=> acc[i][j] must be computed.
+        //
         // We precompute this information because it is used in various
-        // locations to skip thread-local computations.
+        // locations to skip thread-local computations, specifically:
+        //
+        // 1. To skip computations if thread_adj == 0, i.e., none of the values
+        //    of `acc` have to be computed.
+        //
+        // 2. In epilog_op, to consider only values of `acc` to be reduced that
+        //    are not masked of.
+        //
+        // Note 1: Even when the computation can be skipped for a specific thread,
+        // the thread still participates in synchronization operations.
+        //
+        // Note 2: In theory, it should be possible to skip computations for
+        // specific rows of `acc`. In practice, however, this does not improve
+        // performance.
         int thread_adj = compute_thread_adjacency(block_adj);
 
         auto tile_idx_n       = idx_g == 0 ? 0 : group_idxs[idx_g - 1];
@@ -220,12 +234,27 @@ struct MaskedDistances : public BaseClass {
 
   DI uint32_t compute_thread_adjacency(const uint64_t block_adj)
   {
+    // thread_adj is a bitfield that contains a 1 at location i iff we must
+    // compute row i of acc (the accumulator register tile). It is described in
+    // more detail in the run() method.
     uint32_t thread_adj = 0;
 #pragma unroll
-    for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      const uint64_t read_mask  = 1ull << (this->accrowid + i * P::AccThRows);
-      const uint32_t write_mask = 1 << i;
-      if ((block_adj & read_mask) != 0) { thread_adj |= write_mask; }
+    for (int thread_row_idx = 0; thread_row_idx < P::AccRowsPerTh; ++thread_row_idx) {
+      // Index `thread_row_idx` refers to a row of the current threads' register
+      // tile `acc`, i.e., acc[i][:]. Index `block_row_idx` refers to the
+      // corresponding row of the current block tile in shared memory.
+      const int block_row_idx = this->accrowid + thread_row_idx * P::AccThRows;
+
+      // block_row_is_adjacent is true if the current block_row_idx is adjacent
+      // to the current group.
+      const uint64_t block_mask  = 1ull << block_row_idx;
+      const bool block_row_is_adjacent = (block_adj & block_mask) != 0;
+      if (block_row_is_adjacent) {
+        // If block row is adjacent, write a 1 bit to thread_adj at location
+        // `thread_row_idx`.
+        const uint32_t thread_mask = 1 << thread_row_idx;
+        thread_adj |= thread_mask;
+      }
     }
     return thread_adj;
   }

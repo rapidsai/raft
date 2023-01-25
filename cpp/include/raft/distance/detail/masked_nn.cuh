@@ -69,7 +69,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = [pairRedOp, &val, maxVal, sqrt] __device__(
                          DataT acc[P::AccRowsPerTh][P::AccColsPerTh],
-                         int acc_adj,
+                         int thread_adj,
                          DataT* regxn,
                          DataT* regyn,
                          IdxT tile_idx_n,
@@ -100,7 +100,10 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
 
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
-      const bool ignore = (acc_adj & (1 << i)) == 0;
+      // thread_adj is a bitfield that contains a 1 at location i iff we must
+      // compute row i of acc (the accumulator register tile). It is described in
+      // more detail in the maskedDistances.run() method.
+      const bool ignore = (thread_adj & (1 << i)) == 0;
       if (ignore) { continue; }
 #pragma unroll
       for (int j = 0; j < P::AccColsPerTh; ++j) {
