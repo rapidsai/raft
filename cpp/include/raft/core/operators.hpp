@@ -163,6 +163,14 @@ struct pow_op {
   }
 };
 
+struct mod_op {
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
+  {
+    return a % b;
+  }
+};
+
 struct min_op {
   template <typename... Args>
   RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
@@ -312,6 +320,12 @@ using modulo_const_op = plug_const_op<Type, modulo_op>;
 
 template <typename Type>
 using pow_const_op = plug_const_op<Type, pow_op>;
+
+template <typename Type>
+using mod_const_op = plug_const_op<Type, mod_op>;
+
+template <typename Type>
+using equal_const_op = plug_const_op<Type, equal_op>;
 
 /**
  * @brief Constructs an operator by composing a chain of operators.
