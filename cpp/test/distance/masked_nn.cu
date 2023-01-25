@@ -43,17 +43,24 @@ enum AdjacencyPattern {
 // - init_adj: to initialize the adjacency kernel with a specific adjacency pattern
 // - referenceKernel: to produce the ground-truth output
 
-__global__ void init_adj(
-  int m, int n, int num_groups, AdjacencyPattern pattern, bool* adj, int* group_idxs)
+__global__ void init_adj(AdjacencyPattern pattern,
+                         int n,
+                         raft::device_matrix_view<bool, int, raft::layout_c_contiguous> adj,
+                         raft::device_vector_view<int, int, raft::layout_c_contiguous> group_idxs)
 {
-  for (int i = blockIdx.y * blockDim.y + threadIdx.y; i < num_groups; i += blockDim.y * gridDim.y) {
-    for (int j = blockIdx.x * blockDim.x + threadIdx.x; j < m; j += blockDim.x * gridDim.x) {
+  int m          = adj.extent(0);
+  int num_groups = adj.extent(1);
+
+  for (int idx_m = blockIdx.y * blockDim.y + threadIdx.y; idx_m < m;
+       idx_m += blockDim.y * gridDim.y) {
+    for (int idx_g = blockIdx.x * blockDim.x + threadIdx.x; idx_g < num_groups;
+         idx_g += blockDim.x * gridDim.x) {
       switch (pattern) {
-        case checkerboard: adj[i * m + j] = (i + j) % 2; break;
-        case checkerboard_4: adj[i * m + j] = (i + (j / 4)) % 2; break;
-        case checkerboard_64: adj[i * m + j] = (i + (j / 64)) % 2; break;
-        case all_true: adj[i * m + j] = true; break;
-        case all_false: adj[i * m + j] = false; break;
+        case checkerboard: adj(idx_m, idx_g) = (idx_m + idx_g) % 2; break;
+        case checkerboard_4: adj(idx_m, idx_g) = (idx_m / 4 + idx_g) % 2; break;
+        case checkerboard_64: adj(idx_m, idx_g) = (idx_m / 64 + idx_g) % 2; break;
+        case all_true: adj(idx_m, idx_g) = true; break;
+        case all_false: adj(idx_m, idx_g) = false; break;
         default: assert(false && "unknown pattern");
       }
     }
@@ -68,11 +75,11 @@ __global__ void init_adj(
   // - The group_idxs[num_groups - 1] should always equal n.
 
   if (blockIdx.y == 0 && threadIdx.y == 0) {
-    const int j_stride = blockDim.x * gridDim.x;
-    for (int j = blockIdx.x * blockDim.x + threadIdx.x; j < num_groups; j += j_stride) {
-      group_idxs[j] = (j + 1) * (n / num_groups);
+    const int g_stride = blockDim.x * gridDim.x;
+    for (int idx_g = blockIdx.x * blockDim.x + threadIdx.x; idx_g < num_groups; idx_g += g_stride) {
+      group_idxs(idx_g) = (idx_g + 1) * (n / num_groups);
     }
-    group_idxs[num_groups - 1] = n;
+    group_idxs(num_groups - 1) = n;
   }
 }
 
@@ -106,7 +113,7 @@ __global__ __launch_bounds__(32 * NWARPS,
       for (int i = num_groups; 0 <= i; --i) {
         if (nidx < group_idxs[i]) { group_idx = i; }
       }
-      const bool include_dist = adj[group_idx * m + midx] && midx < m && nidx < n;
+      const bool include_dist = adj[midx * num_groups + group_idx] && midx < m && nidx < n;
 
       // Compute L2 metric.
       DataT acc = DataT(0);
@@ -180,7 +187,7 @@ struct Inputs {
     dim3 block(32, 32);
     dim3 grid(10, 10);
     init_adj<<<grid, block, 0, handle.get_stream()>>>(
-      p.m, p.n, p.num_groups, p.pattern, adj.data_handle(), group_idxs.data_handle());
+      p.pattern, p.n, adj.view(), group_idxs.view());
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 };
