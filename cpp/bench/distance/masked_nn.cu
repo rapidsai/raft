@@ -37,7 +37,7 @@
 namespace raft::bench::distance::masked_nn {
 
 // Introduce various sparsity patterns
-enum SparsityPattern {
+enum AdjacencyPattern {
   checkerboard    = 0,
   checkerboard_4  = 1,
   checkerboard_64 = 2,
@@ -45,22 +45,29 @@ enum SparsityPattern {
   all_false       = 4
 };
 
-struct masked_l2_nn_inputs {
+struct Params {
   int m, n, k, num_groups;
-  SparsityPattern pattern;
-};  // struct masked_l2_nn_inputs
+  AdjacencyPattern pattern;
+};  // struct Params
 
-__global__ void init_adj(
-  int m, int n, int num_groups, SparsityPattern pattern, bool* adj, int* group_idxs)
+__global__ void init_adj(AdjacencyPattern pattern,
+                         int n,
+                         raft::device_matrix_view<bool, int, raft::layout_c_contiguous> adj,
+                         raft::device_vector_view<int, int, raft::layout_c_contiguous> group_idxs)
 {
-  for (int i = blockIdx.y * blockDim.y + threadIdx.y; i < num_groups; i += blockDim.y * gridDim.y) {
-    for (int j = blockIdx.x * blockDim.x + threadIdx.x; j < m; j += blockDim.x * gridDim.x) {
+  int m          = adj.extent(0);
+  int num_groups = adj.extent(1);
+
+  for (int idx_m = blockIdx.y * blockDim.y + threadIdx.y; idx_m < m;
+       idx_m += blockDim.y * gridDim.y) {
+    for (int idx_g = blockIdx.x * blockDim.x + threadIdx.x; idx_g < num_groups;
+         idx_g += blockDim.x * gridDim.x) {
       switch (pattern) {
-        case checkerboard: adj[i * m + j] = (i + j) % 2; break;
-        case checkerboard_4: adj[i * m + j] = (i + (j / 4)) % 2; break;
-        case checkerboard_64: adj[i * m + j] = (i + (j / 64)) % 2; break;
-        case all_true: adj[i * m + j] = true; break;
-        case all_false: adj[i * m + j] = false; break;
+        case checkerboard: adj(idx_m, idx_g) = (idx_m + idx_g) % 2; break;
+        case checkerboard_4: adj(idx_m, idx_g) = (idx_m / 4 + idx_g) % 2; break;
+        case checkerboard_64: adj(idx_m, idx_g) = (idx_m / 64 + idx_g) % 2; break;
+        case all_true: adj(idx_m, idx_g) = true; break;
+        case all_false: adj(idx_m, idx_g) = false; break;
         default: assert(false && "unknown pattern");
       }
     }
@@ -75,11 +82,11 @@ __global__ void init_adj(
   // - The group_idxs[num_groups - 1] should always equal n.
 
   if (blockIdx.y == 0 && threadIdx.y == 0) {
-    for (int j = blockIdx.x * blockDim.x + threadIdx.x; j < num_groups;
-         j += blockDim.x * gridDim.x) {
-      group_idxs[j] = (j + 1) * (n / num_groups);
+    const int g_stride = blockDim.x * gridDim.x;
+    for (int idx_g = blockIdx.x * blockDim.x + threadIdx.x; idx_g < num_groups; idx_g += g_stride) {
+      group_idxs(idx_g) = (idx_g + 1) * (n / num_groups);
     }
-    group_idxs[num_groups - 1] = n;
+    group_idxs(num_groups - 1) = n;
   }
 }
 
@@ -93,7 +100,7 @@ struct masked_l2_nn : public fixture {
   using ParamT     = raft::distance::MaskedL2NNParams<RedOpT, PairRedOpT>;
 
   // Parameters
-  masked_l2_nn_inputs params;
+  Params params;
   // Data
   raft::device_vector<OutT, IdxT> out;
   raft::device_matrix<T, IdxT> x, y;
@@ -101,7 +108,7 @@ struct masked_l2_nn : public fixture {
   raft::device_matrix<bool, IdxT> adj;
   raft::device_vector<IdxT, IdxT> group_idxs;
 
-  masked_l2_nn(const masked_l2_nn_inputs& p)
+  masked_l2_nn(const Params& p)
     : params(p),
       out{raft::make_device_vector<OutT, IdxT>(handle, p.m)},
       x{raft::make_device_matrix<DataT, IdxT>(handle, p.m, p.k)},
@@ -124,14 +131,13 @@ struct masked_l2_nn : public fixture {
 
     dim3 block(32, 32);
     dim3 grid(10, 10);
-    init_adj<<<grid, block, 0, stream>>>(
-      p.m, p.n, p.num_groups, p.pattern, adj.data_handle(), group_idxs.data_handle());
+    init_adj<<<grid, block, 0, stream>>>(p.pattern, p.n, adj.view(), group_idxs.view());
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 
   void run_benchmark(::benchmark::State& state) override
   {
-    bool init_out = false;
+    bool init_out = true;
     bool sqrt     = false;
     ParamT masked_l2_params{RedOpT{}, PairRedOpT{}, sqrt, init_out};
 
@@ -147,49 +153,111 @@ struct masked_l2_nn : public fixture {
                                                     group_idxs.view(),
                                                     out.view());
     });
+
+    // Virtual flop count if no skipping had occurred.
+    size_t virtual_flops = size_t(2) * size_t(params.m) * size_t(params.n) * size_t(params.k);
+
+    int64_t read_elts  = params.n * params.k + params.m * params.k;
+    int64_t write_elts = params.m;
+
+    // Virtual min flops is the number of flops that would have been executed if
+    // the algorithm had actually skipped each computation that it could have
+    // skipped.
+    size_t virtual_min_flops = 0;
+    switch (params.pattern) {
+      case checkerboard:
+      case checkerboard_4:
+      case checkerboard_64: virtual_min_flops = virtual_flops / 2; break;
+      case all_true: virtual_min_flops = virtual_flops; break;
+      case all_false: virtual_min_flops = 0; break;
+      default: assert(false && "unknown pattern");
+    }
+
+    // VFLOP/s is the "virtual" flop count that would have executed if there was
+    // no adjacency pattern. This is useful for comparing to fusedL2NN
+    state.counters["VFLOP/s"] = benchmark::Counter(virtual_flops,
+                                                   benchmark::Counter::kIsIterationInvariantRate,
+                                                   benchmark::Counter::OneK::kIs1000);
+    // Virtual min flops is the number of flops that would have been executed if
+    // the algorithm had actually skipped each computation that it could have
+    // skipped.
+    state.counters["VminFLOP/s"] = benchmark::Counter(virtual_min_flops,
+                                                      benchmark::Counter::kIsIterationInvariantRate,
+                                                      benchmark::Counter::OneK::kIs1000);
+
+    state.counters["BW Wr"] = benchmark::Counter(write_elts * sizeof(OutT),
+                                                 benchmark::Counter::kIsIterationInvariantRate,
+                                                 benchmark::Counter::OneK::kIs1000);
+    state.counters["BW Rd"] = benchmark::Counter(read_elts * sizeof(DataT),
+                                                 benchmark::Counter::kIsIterationInvariantRate,
+                                                 benchmark::Counter::OneK::kIs1000);
+
+    state.counters["m"]          = benchmark::Counter(params.m);
+    state.counters["n"]          = benchmark::Counter(params.n);
+    state.counters["k"]          = benchmark::Counter(params.k);
+    state.counters["num_groups"] = benchmark::Counter(params.num_groups);
+    state.counters["group size"] = benchmark::Counter(params.n / params.num_groups);
+    state.counters["Pat"]        = benchmark::Counter(static_cast<int>(params.pattern));
+
+    state.counters["SM count"] = raft::getMultiProcessorCount();
   }
 };  // struct MaskedL2NN
 
-// TODO: Consider thinning the list of benchmark cases..
-const std::vector<masked_l2_nn_inputs> masked_l2_nn_input_vecs = {
+const std::vector<Params> masked_l2_nn_input_vecs = {
   // Very fat matrices...
-  {32, 16384, 16384, 32, SparsityPattern::checkerboard},
-  {64, 16384, 16384, 32, SparsityPattern::checkerboard},
-  {128, 16384, 16384, 32, SparsityPattern::checkerboard},
-  {256, 16384, 16384, 32, SparsityPattern::checkerboard},
-  {512, 16384, 16384, 32, SparsityPattern::checkerboard},
-  {1024, 16384, 16384, 32, SparsityPattern::checkerboard},
-  {16384, 32, 16384, 32, SparsityPattern::checkerboard},
-  {16384, 64, 16384, 32, SparsityPattern::checkerboard},
-  {16384, 128, 16384, 32, SparsityPattern::checkerboard},
-  {16384, 256, 16384, 32, SparsityPattern::checkerboard},
-  {16384, 512, 16384, 32, SparsityPattern::checkerboard},
-  {16384, 1024, 16384, 32, SparsityPattern::checkerboard},
+  {32, 16384, 16384, 32, AdjacencyPattern::checkerboard},
+  {64, 16384, 16384, 32, AdjacencyPattern::checkerboard},
+  {128, 16384, 16384, 32, AdjacencyPattern::checkerboard},
+  {256, 16384, 16384, 32, AdjacencyPattern::checkerboard},
+  {512, 16384, 16384, 32, AdjacencyPattern::checkerboard},
+  {1024, 16384, 16384, 32, AdjacencyPattern::checkerboard},
+  {16384, 32, 16384, 32, AdjacencyPattern::checkerboard},
+  {16384, 64, 16384, 32, AdjacencyPattern::checkerboard},
+  {16384, 128, 16384, 32, AdjacencyPattern::checkerboard},
+  {16384, 256, 16384, 32, AdjacencyPattern::checkerboard},
+  {16384, 512, 16384, 32, AdjacencyPattern::checkerboard},
+  {16384, 1024, 16384, 32, AdjacencyPattern::checkerboard},
 
   // Representative matrices...
-  {16384, 16384, 32, 32, SparsityPattern::checkerboard},
-  {16384, 16384, 64, 32, SparsityPattern::checkerboard},
-  {16384, 16384, 128, 32, SparsityPattern::checkerboard},
-  {16384, 16384, 256, 32, SparsityPattern::checkerboard},
-  {16384, 16384, 512, 32, SparsityPattern::checkerboard},
-  {16384, 16384, 1024, 32, SparsityPattern::checkerboard},
-  {16384, 16384, 16384, 32, SparsityPattern::checkerboard},
+  {16384, 16384, 32, 32, AdjacencyPattern::checkerboard},
+  {16384, 16384, 64, 32, AdjacencyPattern::checkerboard},
+  {16384, 16384, 128, 32, AdjacencyPattern::checkerboard},
+  {16384, 16384, 256, 32, AdjacencyPattern::checkerboard},
+  {16384, 16384, 512, 32, AdjacencyPattern::checkerboard},
+  {16384, 16384, 1024, 32, AdjacencyPattern::checkerboard},
+  {16384, 16384, 16384, 32, AdjacencyPattern::checkerboard},
 
-  {16384, 16384, 32, 32, SparsityPattern::checkerboard_4},
-  {16384, 16384, 64, 32, SparsityPattern::checkerboard_4},
-  {16384, 16384, 128, 32, SparsityPattern::checkerboard_4},
-  {16384, 16384, 256, 32, SparsityPattern::checkerboard_4},
-  {16384, 16384, 512, 32, SparsityPattern::checkerboard_4},
-  {16384, 16384, 1024, 32, SparsityPattern::checkerboard_4},
-  {16384, 16384, 16384, 32, SparsityPattern::checkerboard_4},
+  {16384, 16384, 32, 32, AdjacencyPattern::checkerboard_4},
+  {16384, 16384, 64, 32, AdjacencyPattern::checkerboard_4},
+  {16384, 16384, 128, 32, AdjacencyPattern::checkerboard_4},
+  {16384, 16384, 256, 32, AdjacencyPattern::checkerboard_4},
+  {16384, 16384, 512, 32, AdjacencyPattern::checkerboard_4},
+  {16384, 16384, 1024, 32, AdjacencyPattern::checkerboard_4},
+  {16384, 16384, 16384, 32, AdjacencyPattern::checkerboard_4},
 
-  {16384, 16384, 32, 32, SparsityPattern::checkerboard_64},
-  {16384, 16384, 64, 32, SparsityPattern::checkerboard_64},
-  {16384, 16384, 128, 32, SparsityPattern::checkerboard_64},
-  {16384, 16384, 256, 32, SparsityPattern::checkerboard_64},
-  {16384, 16384, 512, 32, SparsityPattern::checkerboard_64},
-  {16384, 16384, 1024, 32, SparsityPattern::checkerboard_64},
-  {16384, 16384, 16384, 32, SparsityPattern::checkerboard_64},
+  {16384, 16384, 32, 32, AdjacencyPattern::checkerboard_64},
+  {16384, 16384, 64, 32, AdjacencyPattern::checkerboard_64},
+  {16384, 16384, 128, 32, AdjacencyPattern::checkerboard_64},
+  {16384, 16384, 256, 32, AdjacencyPattern::checkerboard_64},
+  {16384, 16384, 512, 32, AdjacencyPattern::checkerboard_64},
+  {16384, 16384, 1024, 32, AdjacencyPattern::checkerboard_64},
+  {16384, 16384, 16384, 32, AdjacencyPattern::checkerboard_64},
+
+  {16384, 16384, 32, 32, AdjacencyPattern::all_true},
+  {16384, 16384, 64, 32, AdjacencyPattern::all_true},
+  {16384, 16384, 128, 32, AdjacencyPattern::all_true},
+  {16384, 16384, 256, 32, AdjacencyPattern::all_true},
+  {16384, 16384, 512, 32, AdjacencyPattern::all_true},
+  {16384, 16384, 1024, 32, AdjacencyPattern::all_true},
+  {16384, 16384, 16384, 32, AdjacencyPattern::all_true},
+
+  {16384, 16384, 32, 32, AdjacencyPattern::all_false},
+  {16384, 16384, 64, 32, AdjacencyPattern::all_false},
+  {16384, 16384, 128, 32, AdjacencyPattern::all_false},
+  {16384, 16384, 256, 32, AdjacencyPattern::all_false},
+  {16384, 16384, 512, 32, AdjacencyPattern::all_false},
+  {16384, 16384, 1024, 32, AdjacencyPattern::all_false},
+  {16384, 16384, 16384, 32, AdjacencyPattern::all_false},
 };
 
 RAFT_BENCH_REGISTER(masked_l2_nn<float>, "", masked_l2_nn_input_vecs);
