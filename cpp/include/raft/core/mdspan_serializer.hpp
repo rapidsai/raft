@@ -56,7 +56,7 @@ void serialize_mdspan(
   using inner_accessor_type = typename obj_t::accessor_type::accessor_type;
   auto tmp_mdspan =
     raft::host_mdspan<ElementType, Extents, LayoutPolicy, raft::host_accessor<inner_accessor_type>>(
-      tmp, obj.extents());
+      tmp.data(), obj.extents());
   detail::numpy_serializer::serialize(handle, os, tmp_mdspan);
 }
 
@@ -88,11 +88,28 @@ void deserialize_mdspan(
   using inner_accessor_type = typename obj_t::accessor_type::accessor_type;
   auto tmp_mdspan =
     raft::host_mdspan<ElementType, Extents, LayoutPolicy, raft::host_accessor<inner_accessor_type>>(
-      tmp, obj.extents());
+      tmp.data(), obj.extents());
   detail::numpy_serializer::deserialize(handle, is, tmp_mdspan);
 
   cudaStream_t stream = handle.get_stream();
   raft::update_device(obj.data_handle(), tmp.data(), obj.size(), stream);
+}
+
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+void deserialize_mdspan(const raft::handle_t& handle,
+                        std::istream& is,
+                        raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
+{
+  deserialize_mdspan(handle, is, obj);
+}
+
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+void deserialize_mdspan(
+  const raft::handle_t& handle,
+  std::istream& is,
+  raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
+{
+  deserialize_mdspan(handle, is, obj);
 }
 
 }  // end namespace raft

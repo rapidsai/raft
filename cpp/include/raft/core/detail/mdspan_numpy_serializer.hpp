@@ -373,11 +373,7 @@ void serialize(const raft::handle_t& handle,
                std::ostream& os,
                const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
-  using obj_t               = raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
-  using inner_accessor_type = typename obj_t::accessor_type::accessor_type;
-  static_assert(
-    std::is_same_v<inner_accessor_type, std::experimental::default_accessor<ElementType>>,
-    "The serializer only supports serializing mdspans with default accessor");
+  using obj_t = raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
   const auto dtype         = get_numpy_dtype<ElementType>();
   const bool fortran_order = std::is_same_v<LayoutPolicy, raft::layout_f_contiguous>;
@@ -398,11 +394,7 @@ void deserialize(const raft::handle_t& handle,
                  std::istream& is,
                  const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
-  using obj_t               = raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
-  using inner_accessor_type = typename obj_t::accessor_type::accessor_type;
-  static_assert(
-    std::is_same_v<inner_accessor_type, std::experimental::default_accessor<ElementType>>,
-    "The serializer only supports serializing mdspans with default accessor");
+  using obj_t = raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
   // Check if given dtype and fortran_order are compatible with the mdspan
   const auto expected_dtype         = get_numpy_dtype<ElementType>();

@@ -24,6 +24,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/mdspan_serializer.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/linalg/add.cuh>
@@ -405,15 +406,15 @@ void save(const handle_t& handle, const std::string& filename, const index<T, Id
   write_scalar(of, index_.metric());
   write_scalar(of, index_.veclen());
   write_scalar(of, index_.adaptive_centers());
-  write_mdspan(handle, of, index_.data());
-  write_mdspan(handle, of, index_.indices());
-  write_mdspan(handle, of, index_.list_sizes());
-  write_mdspan(handle, of, index_.list_offsets());
-  write_mdspan(handle, of, index_.centers());
+  serialize_mdspan(handle, of, index_.data());
+  serialize_mdspan(handle, of, index_.indices());
+  serialize_mdspan(handle, of, index_.list_sizes());
+  serialize_mdspan(handle, of, index_.list_offsets());
+  serialize_mdspan(handle, of, index_.centers());
   if (index_.center_norms()) {
     bool has_norms = true;
     write_scalar(of, has_norms);
-    write_mdspan(handle, of, *index_.center_norms());
+    serialize_mdspan(handle, of, *index_.center_norms());
   } else {
     bool has_norms = false;
     write_scalar(of, has_norms);
@@ -454,18 +455,18 @@ auto load(const handle_t& handle, const std::string& filename) -> index<T, IdxT>
 
   index_.allocate(handle, n_rows);
   auto data = index_.data();
-  read_mdspan(handle, infile, data);
-  read_mdspan(handle, infile, index_.indices());
-  read_mdspan(handle, infile, index_.list_sizes());
-  read_mdspan(handle, infile, index_.list_offsets());
-  read_mdspan(handle, infile, index_.centers());
+  deserialize_mdspan(handle, infile, data);
+  deserialize_mdspan(handle, infile, index_.indices());
+  deserialize_mdspan(handle, infile, index_.list_sizes());
+  deserialize_mdspan(handle, infile, index_.list_offsets());
+  deserialize_mdspan(handle, infile, index_.centers());
   bool has_norms = read_scalar<bool>(infile);
   if (has_norms) {
     if (!index_.center_norms()) {
       RAFT_FAIL("Error inconsistent center norms");
     } else {
       auto center_norms = *index_.center_norms();
-      read_mdspan(handle, infile, center_norms);
+      deserialize_mdspan(handle, infile, center_norms);
     }
   }
   infile.close();

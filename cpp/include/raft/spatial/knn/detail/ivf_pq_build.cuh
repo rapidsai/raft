@@ -25,6 +25,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/mdspan_serializer.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -1398,14 +1399,14 @@ void save(const handle_t& handle_, const std::string& filename, const index<IdxT
   write_scalar(of, index_.n_lists());
   write_scalar(of, index_.n_nonempty_lists());
 
-  write_mdspan(handle_, of, index_.pq_centers());
-  write_mdspan(handle_, of, index_.pq_dataset());
-  write_mdspan(handle_, of, index_.indices());
-  write_mdspan(handle_, of, index_.rotation_matrix());
-  write_mdspan(handle_, of, index_.list_offsets());
-  write_mdspan(handle_, of, index_.list_sizes());
-  write_mdspan(handle_, of, index_.centers());
-  write_mdspan(handle_, of, index_.centers_rot());
+  serialize_mdspan(handle_, of, index_.pq_centers());
+  serialize_mdspan(handle_, of, index_.pq_dataset());
+  serialize_mdspan(handle_, of, index_.indices());
+  serialize_mdspan(handle_, of, index_.rotation_matrix());
+  serialize_mdspan(handle_, of, index_.list_offsets());
+  serialize_mdspan(handle_, of, index_.list_sizes());
+  serialize_mdspan(handle_, of, index_.centers());
+  serialize_mdspan(handle_, of, index_.centers_rot());
 
   of.close();
   if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
@@ -1454,14 +1455,14 @@ auto load(const handle_t& handle_, const std::string& filename) -> index<IdxT>
     handle_, metric, codebook_kind, n_lists, dim, pq_bits, pq_dim, n_nonempty_lists);
   index_.allocate(handle_, n_rows);
 
-  read_mdspan(handle_, infile, index_.pq_centers());
-  read_mdspan(handle_, infile, index_.pq_dataset());
-  read_mdspan(handle_, infile, index_.indices());
-  read_mdspan(handle_, infile, index_.rotation_matrix());
-  read_mdspan(handle_, infile, index_.list_offsets());
-  read_mdspan(handle_, infile, index_.list_sizes());
-  read_mdspan(handle_, infile, index_.centers());
-  read_mdspan(handle_, infile, index_.centers_rot());
+  deserialize_mdspan(handle_, infile, index_.pq_centers());
+  deserialize_mdspan(handle_, infile, index_.pq_dataset());
+  deserialize_mdspan(handle_, infile, index_.indices());
+  deserialize_mdspan(handle_, infile, index_.rotation_matrix());
+  deserialize_mdspan(handle_, infile, index_.list_offsets());
+  deserialize_mdspan(handle_, infile, index_.list_sizes());
+  deserialize_mdspan(handle_, infile, index_.centers());
+  deserialize_mdspan(handle_, infile, index_.centers_rot());
 
   infile.close();
 
