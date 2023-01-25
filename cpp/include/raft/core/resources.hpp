@@ -62,9 +62,12 @@ class resources {
     }
   }
 
-  resources(const resources&) = delete;
-  resources& operator=(const resources&) = delete;
-  resources(resources&&)                 = delete;
+  /**
+   * @brief Shallow copy of underlying resources instance.
+   * Note that this does not create any new resources.
+   */
+  resources(const resources& res) : factories_(res.factories_), resources_(res.resources_) {}
+  resources(resources&&) = delete;
   resources& operator=(resources&&) = delete;
 
   /**
@@ -120,7 +123,7 @@ class resources {
     return reinterpret_cast<res_t*>(res->get_resource());
   }
 
- private:
+ protected:
   mutable std::mutex mutex_;
   mutable std::vector<pair_res_factory> factories_;
   mutable std::vector<pair_resource> resources_;

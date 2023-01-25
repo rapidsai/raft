@@ -107,8 +107,6 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         ivfParams.nprobe = ps.nprobe;
         ivfParams.nlist  = ps.nlist;
         raft::spatial::knn::knnIndex index;
-        index.index   = nullptr;
-        index.gpu_res = nullptr;
 
         approx_knn_build_index(handle_,
                                &index,
@@ -334,16 +332,16 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
    10000,
    16,
    10,
-   raft::spatial::knn::detail::topk::kMaxCapacity * 2,
-   raft::spatial::knn::detail::topk::kMaxCapacity * 4,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 2,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
    raft::distance::DistanceType::L2Expanded,
    false},
   {1000,
    10000,
    16,
    10,
-   raft::spatial::knn::detail::topk::kMaxCapacity * 4,
-   raft::spatial::knn::detail::topk::kMaxCapacity * 4,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
    raft::distance::DistanceType::InnerProduct,
    false}};
 
