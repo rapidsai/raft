@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 
 #include <algorithm>
@@ -380,7 +380,7 @@ inline header_t read_header(std::istream& is)
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void serialize(
-  const raft::handle_t& handle,
+  const raft::device_resources& handle,
   std::ostream& os,
   const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
@@ -402,7 +402,7 @@ inline void serialize(
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void deserialize(
-  const raft::handle_t& handle,
+  const raft::device_resources& handle,
   std::istream& is,
   const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {

@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/serialize.hpp>
 
@@ -33,7 +33,7 @@
 namespace raft {
 
 template <typename MDSpanType, typename VectorType, typename... Args>
-void test_mdspan_roundtrip(const raft::handle_t& handle, VectorType& vec, Args... dims)
+void test_mdspan_roundtrip(const raft::device_resources& handle, VectorType& vec, Args... dims)
 {
   VectorType vec2(vec.size());
 
@@ -49,7 +49,7 @@ void test_mdspan_roundtrip(const raft::handle_t& handle, VectorType& vec, Args..
 
 TEST(MDArraySerializer, E2ERoundTrip)
 {
-  raft::handle_t handle{};
+  raft::device_resources handle{};
   thrust::host_vector<float> vec = std::vector<float>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0};
 
   using mdspan_matrix2d_c_layout =

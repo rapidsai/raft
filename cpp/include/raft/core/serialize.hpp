@@ -18,7 +18,7 @@
 
 #include <raft/core/detail/mdspan_numpy_serializer.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 
 #include <iostream>
@@ -32,7 +32,7 @@ namespace raft {
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void serialize_mdspan(
-  const raft::handle_t& handle,
+  const raft::device_resources& handle,
   std::ostream& os,
   const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
@@ -44,7 +44,7 @@ inline void serialize_mdspan(
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void serialize_mdspan(
-  const raft::handle_t& handle,
+  const raft::device_resources& handle,
   std::ostream& os,
   const raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
@@ -67,7 +67,7 @@ inline void serialize_mdspan(
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void deserialize_mdspan(
-  const raft::handle_t& handle,
+  const raft::device_resources& handle,
   std::istream& is,
   raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
@@ -79,7 +79,7 @@ inline void deserialize_mdspan(
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void deserialize_mdspan(
-  const raft::handle_t& handle,
+  const raft::device_resources& handle,
   std::istream& is,
   raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
@@ -103,7 +103,7 @@ inline void deserialize_mdspan(
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void deserialize_mdspan(
-  const raft::handle_t& handle,
+  const raft::device_resources& handle,
   std::istream& is,
   raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
 {
@@ -112,7 +112,7 @@ inline void deserialize_mdspan(
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void deserialize_mdspan(
-  const raft::handle_t& handle,
+  const raft::device_resources& handle,
   std::istream& is,
   raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
 {
@@ -120,7 +120,7 @@ inline void deserialize_mdspan(
 }
 
 template <typename T>
-void serialize_scalar(const raft::handle_t& handle, std::ostream& os, const T& value)
+void serialize_scalar(const raft::device_resources& handle, std::ostream& os, const T& value)
 {
   using mdspan_1d_c_layout =
     raft::host_mdspan<const T, raft::dextents<std::size_t, 1>, raft::layout_c_contiguous>;
@@ -129,7 +129,7 @@ void serialize_scalar(const raft::handle_t& handle, std::ostream& os, const T& v
 }
 
 template <typename T>
-T deserialize_scalar(const raft::handle_t& handle, std::istream& is)
+T deserialize_scalar(const raft::device_resources& handle, std::istream& is)
 {
   T value;
   using mdspan_1d_c_layout =
