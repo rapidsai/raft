@@ -109,11 +109,11 @@ class RefineTest : public ::testing::TestWithParam<RefineInputs<IdxT>> {
 
 const std::vector<RefineInputs<uint64_t>> inputs =
   raft::util::itertools::product<RefineInputs<uint64_t>>(
-    {137},
-    {1000},
-    {16},
-    {1, 10, 33},
-    {33},
+    {static_cast<uint64_t>(137)},
+    {static_cast<uint64_t>(1000)},
+    {static_cast<uint64_t>(16)},
+    {static_cast<uint64_t>(1), static_cast<uint64_t>(10), static_cast<uint64_t>(33)},
+    {static_cast<uint64_t>(33)},
     {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false, true});
 
