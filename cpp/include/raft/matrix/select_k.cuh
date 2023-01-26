@@ -19,7 +19,7 @@
 #include "detail/select_k.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/nvtx.hpp>
 
 #include <optional>
@@ -75,7 +75,7 @@ namespace raft::matrix {
  *   whether to select k smallest (true) or largest (false) keys.
  */
 template <typename T, typename IdxT>
-void select_k(const handle_t& handle,
+void select_k(const device_resources& handle,
               raft::device_matrix_view<const T, size_t, row_major> in_val,
               std::optional<raft::device_matrix_view<const IdxT, size_t, row_major>> in_idx,
               raft::device_matrix_view<T, size_t, row_major> out_val,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ template <typename T>
 void stridedReductionLaunch(
   T* dots, const T* data, int cols, int rows, bool inplace, cudaStream_t stream)
 {
-  raft::handle_t handle{stream};
+  raft::device_resources handle{stream};
   auto dots_view = raft::make_device_vector_view(dots, cols);
   auto data_view = raft::make_device_matrix_view(data, rows, cols);
   strided_reduction(handle, data_view, dots_view, (T)0, inplace, raft::sq_op{});
@@ -91,7 +91,7 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   stridedReductionInputs<T> params;

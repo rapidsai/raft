@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ namespace raft::runtime::distance {
  * @{
  */
 
-void pairwise_distance(raft::handle_t const& handle,
+void pairwise_distance(raft::device_resources const& handle,
                        float* x,
                        float* y,
                        float* dists,
@@ -34,7 +34,7 @@ void pairwise_distance(raft::handle_t const& handle,
                        bool isRowMajor,
                        float metric_arg);
 
-void pairwise_distance(raft::handle_t const& handle,
+void pairwise_distance(raft::device_resources const& handle,
                        double* x,
                        double* y,
                        double* dists,

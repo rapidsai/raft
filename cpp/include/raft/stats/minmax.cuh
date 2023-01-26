@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ void minmax(const T* data,
  *    in shared memory
  */
 template <typename value_t, typename idx_t>
-void minmax(const raft::handle_t& handle,
+void minmax(raft::device_resources const& handle,
             raft::device_matrix_view<const value_t, idx_t, raft::col_major> data,
             std::optional<raft::device_vector_view<const unsigned, idx_t>> rowids,
             std::optional<raft::device_vector_view<const unsigned, idx_t>> colids,

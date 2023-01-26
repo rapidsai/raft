@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
@@ -238,7 +238,7 @@ void distance(const InType* x,
  * @param metric_arg metric argument (used for Minkowski distance)
  */
 template <typename Type, typename Index_ = int>
-void pairwise_distance(const raft::handle_t& handle,
+void pairwise_distance(raft::device_resources const& handle,
                        const Type* x,
                        const Type* y,
                        Type* dist,
@@ -333,7 +333,7 @@ void pairwise_distance(const raft::handle_t& handle,
  * @param metric_arg metric argument (used for Minkowski distance)
  */
 template <typename Type, typename Index_ = int>
-void pairwise_distance(const raft::handle_t& handle,
+void pairwise_distance(raft::device_resources const& handle,
                        const Type* x,
                        const Type* y,
                        Type* dist,
@@ -363,12 +363,12 @@ void pairwise_distance(const raft::handle_t& handle,
  *
  * Usage example:
  * @code{.cpp}
- * #include <raft/core/handle.hpp>
+ * #include <raft/core/device_resources.hpp>
  * #include <raft/core/device_mdarray.hpp>
  * #include <raft/random/make_blobs.cuh>
  * #include <raft/distance/distance.cuh>
  *
- * raft::handle_t handle;
+ * raft::raft::device_resources handle;
  * int n_samples = 5000;
  * int n_features = 50;
  *
@@ -398,7 +398,7 @@ template <raft::distance::DistanceType distanceType,
           typename OutType,
           typename layout = raft::layout_c_contiguous,
           typename Index_ = int>
-void distance(raft::handle_t const& handle,
+void distance(raft::device_resources const& handle,
               raft::device_matrix_view<InType, Index_, layout> const x,
               raft::device_matrix_view<InType, Index_, layout> const y,
               raft::device_matrix_view<OutType, Index_, layout> dist,
@@ -441,7 +441,7 @@ void distance(raft::handle_t const& handle,
  * @param metric_arg metric argument (used for Minkowski distance)
  */
 template <typename Type, typename layout = layout_c_contiguous, typename Index_ = int>
-void pairwise_distance(raft::handle_t const& handle,
+void pairwise_distance(raft::device_resources const& handle,
                        device_matrix_view<Type, Index_, layout> const x,
                        device_matrix_view<Type, Index_, layout> const y,
                        device_matrix_view<Type, Index_, layout> dist,

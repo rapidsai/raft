@@ -144,7 +144,7 @@ void randomized_svd(const raft::handle_t& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void rsvdFixedRank(const raft::handle_t& handle,
+void rsvdFixedRank(raft::device_resources const& handle,
                    math_t* M,
                    int n_rows,
                    int n_cols,
@@ -461,7 +461,7 @@ void rsvdFixedRank(const raft::handle_t& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void rsvdPerc(const raft::handle_t& handle,
+void rsvdPerc(raft::device_resources const& handle,
               math_t* M,
               int n_rows,
               int n_cols,
