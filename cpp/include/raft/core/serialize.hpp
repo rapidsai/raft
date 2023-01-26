@@ -55,6 +55,7 @@ inline void serialize_mdspan(
   std::vector<typename obj_t::value_type> tmp(obj.size());
   cudaStream_t stream = handle.get_stream();
   raft::update_host(tmp.data(), obj.data_handle(), obj.size(), stream);
+  handle.sync_stream();
   using inner_accessor_type = typename obj_t::accessor_type::accessor_type;
   auto tmp_mdspan =
     raft::host_mdspan<ElementType, Extents, LayoutPolicy, raft::host_accessor<inner_accessor_type>>(
@@ -93,6 +94,7 @@ inline void deserialize_mdspan(
 
   cudaStream_t stream = handle.get_stream();
   raft::update_device(obj.data_handle(), tmp.data(), obj.size(), stream);
+  handle.sync_stream();
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
