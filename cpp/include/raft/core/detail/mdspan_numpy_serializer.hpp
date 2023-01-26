@@ -377,12 +377,11 @@ inline header_t read_header(std::istream& is)
   }
 
   RAFT_EXPECTS(
-    descr.byteorder == RAFT_NUMPY_HOST_ENDIAN_CHAR,
+    descr.byteorder == RAFT_NUMPY_HOST_ENDIAN_CHAR || descr.byteorder == RAFT_NUMPY_NO_ENDIAN_CHAR,
     "The mdspan was serialized on a %s machine but you're attempting to load it on "
     "a %s machine. This use case is not currently supported.",
-    (RAFT_NUMPY_HOST_ENDIAN_CHAR == RAFT_NUMPY_LITTLE_ENDIAN_CHAR ? "big-endian" : "little-endian"),
-    (RAFT_NUMPY_HOST_ENDIAN_CHAR == RAFT_NUMPY_LITTLE_ENDIAN_CHAR ? "little-endian"
-                                                                  : "big-endian"));
+    (RAFT_SYSTEM_LITTLE_ENDIAN ? "big-endian" : "little-endian"),
+    (RAFT_SYSTEM_LITTLE_ENDIAN ? "little-endian" : "big-endian"));
 
   return {descr, fortran_order, shape};
 }
