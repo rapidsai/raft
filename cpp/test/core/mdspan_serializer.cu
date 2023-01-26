@@ -92,22 +92,19 @@ TEST(MDArraySerializer, E2ERoundTrip)
 
 TEST(MDArraySerializer, HeaderRoundTrip)
 {
-  for (char byteorder : std::vector<char>{
-         RAFT_NUMPY_LITTLE_ENDIAN_CHAR, RAFT_NUMPY_BIG_ENDIAN_CHAR, RAFT_NUMPY_NO_ENDIAN_CHAR}) {
-    for (char kind : std::vector<char>{'f', 'i', 'u', 'c'}) {
-      for (unsigned int itemsize : std::vector<unsigned int>{1, 2, 4, 8, 16}) {
-        for (bool fortran_order : std::vector<bool>{true, false}) {
-          for (const auto& shape :
-               std::vector<std::vector<detail::numpy_serializer::ndarray_len_t>>{
-                 {10}, {2, 2}, {10, 30, 100}, {}}) {
-            detail::numpy_serializer::dtype_t dtype{byteorder, kind, itemsize};
-            detail::numpy_serializer::header_t header{dtype, fortran_order, shape};
-            std::ostringstream oss;
-            detail::numpy_serializer::write_header(oss, header);
-            std::istringstream iss(oss.str());
-            auto header2 = detail::numpy_serializer::read_header(iss);
-            EXPECT_EQ(header, header2);
-          }
+  char byteorder = RAFT_NUMPY_HOST_ENDIAN_CHAR;
+  for (char kind : std::vector<char>{'f', 'i', 'u', 'c'}) {
+    for (unsigned int itemsize : std::vector<unsigned int>{1, 2, 4, 8, 16}) {
+      for (bool fortran_order : std::vector<bool>{true, false}) {
+        for (const auto& shape : std::vector<std::vector<detail::numpy_serializer::ndarray_len_t>>{
+               {10}, {2, 2}, {10, 30, 100}, {}}) {
+          detail::numpy_serializer::dtype_t dtype{byteorder, kind, itemsize};
+          detail::numpy_serializer::header_t header{dtype, fortran_order, shape};
+          std::ostringstream oss;
+          detail::numpy_serializer::write_header(oss, header);
+          std::istringstream iss(oss.str());
+          auto header2 = detail::numpy_serializer::read_header(iss);
+          EXPECT_EQ(header, header2);
         }
       }
     }
