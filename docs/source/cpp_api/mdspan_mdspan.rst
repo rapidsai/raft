@@ -22,6 +22,9 @@ mdspan: Multi-dimensional Non-owning View
 .. doxygenfunction:: raft::unravel_index
     :project: RAFT
 
+.. doxygenfunction:: raft::make_const_mdspan(mdspan_type mds)
+    :project: RAFT
+
 
 Device Vocabulary
 -----------------
