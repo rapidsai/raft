@@ -715,11 +715,11 @@ void build_clusters(const handle_t& handle,
   auto stream = handle.get_stream();
 
   // "randomly" initialize labels
-  linalg::writeOnlyUnaryOp(
-    cluster_labels,
-    n_rows,
-    write_only_op(compose_op(cast_op<LabelT>(), mod_const_op<IdxT>(n_clusters))),
-    stream);
+  auto labels_view = raft::make_device_vector_view<LabelT, IdxT>(cluster_labels, n_rows);
+  linalg::map_offset(
+    handle,
+    labels_view,
+    raft::compose_op(raft::cast_op<LabelT>(), raft::mod_const_op<IdxT>(n_clusters)));
 
   // update centers to match the initialized labels.
   calc_centers_and_sizes(handle,

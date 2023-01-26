@@ -82,7 +82,7 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   SqrtInputs<T> params;
   rmm::device_uvector<T> in1, out_ref, out;
   int device_count = 0;

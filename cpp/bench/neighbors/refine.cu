@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
+#include <raft_internal/neighbors/refine_helper.cuh>
+
 #include <common/benchmark.hpp>
 
-#include <raft/random/rng.cuh>
-
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/refine.cuh>
+#include <raft/random/rng.cuh>
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
@@ -36,12 +37,10 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
-#include "../../test/neighbors/refine_helper.cuh"
-
 #include <iostream>
 #include <sstream>
 
-using namespace raft::neighbors::detail;
+using namespace raft::neighbors;
 
 namespace raft::bench::neighbors {
 
@@ -95,7 +94,7 @@ class RefineAnn : public fixture {
   }
 
  private:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   RefineHelper<DataT, DistanceT, IdxT> data;
 };
 

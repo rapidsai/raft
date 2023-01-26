@@ -32,6 +32,7 @@ function(ConfigureTest)
   target_link_libraries(
     ${TEST_NAME}
     PRIVATE raft::raft
+            raft_internal
             $<$<BOOL:${ConfigureTest_DIST}>:raft::distance>
             $<$<BOOL:${ConfigureTest_NN}>:raft::nn>
             GTest::gtest

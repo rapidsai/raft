@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,12 +44,12 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  *   k-means++ algorithm.
  *
  * @code{.cpp}
- *   #include <raft/core/handle.hpp>
+ *   #include <raft/core/device_resources.hpp>
  *   #include <raft/cluster/kmeans.cuh>
  *   #include <raft/cluster/kmeans_types.hpp>
  *   using namespace raft::cluster;
  *   ...
- *   raft::handle_t handle;
+ *   raft::raft::device_resources handle;
  *   raft::cluster::KMeansParams params;
  *   int n_features = 15, inertia, n_iter;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
@@ -83,7 +83,7 @@ using KeyValueIndexOp = detail::KeyValueIndexOp<IndexT, DataT>;
  * @param[out]    n_iter        Number of iterations run.
  */
 template <typename DataT, typename IndexT>
-void fit(handle_t const& handle,
+void fit(raft::device_resources const& handle,
          const KMeansParams& params,
          raft::device_matrix_view<const DataT, IndexT> X,
          std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
@@ -98,12 +98,12 @@ void fit(handle_t const& handle,
  * @brief Predict the closest cluster each sample in X belongs to.
  *
  * @code{.cpp}
- *   #include <raft/core/handle.hpp>
+ *   #include <raft/core/device_resources.hpp>
  *   #include <raft/cluster/kmeans.cuh>
  *   #include <raft/cluster/kmeans_types.hpp>
  *   using namespace raft::cluster;
  *   ...
- *   raft::handle_t handle;
+ *   raft::raft::device_resources handle;
  *   raft::cluster::KMeansParams params;
  *   int n_features = 15, inertia, n_iter;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
@@ -147,7 +147,7 @@ void fit(handle_t const& handle,
  *                                 their closest cluster center.
  */
 template <typename DataT, typename IndexT>
-void predict(handle_t const& handle,
+void predict(raft::device_resources const& handle,
              const KMeansParams& params,
              raft::device_matrix_view<const DataT, IndexT> X,
              std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
@@ -165,12 +165,12 @@ void predict(handle_t const& handle,
  * in the input.
  *
  * @code{.cpp}
- *   #include <raft/core/handle.hpp>
+ *   #include <raft/core/device_resources.hpp>
  *   #include <raft/cluster/kmeans.cuh>
  *   #include <raft/cluster/kmeans_types.hpp>
  *   using namespace raft::cluster;
  *   ...
- *   raft::handle_t handle;
+ *   raft::raft::device_resources handle;
  *   raft::cluster::KMeansParams params;
  *   int n_features = 15, inertia, n_iter;
  *   auto centroids = raft::make_device_matrix<float, int>(handle, params.n_clusters, n_features);
@@ -210,7 +210,7 @@ void predict(handle_t const& handle,
  * @param[out]    n_iter        Number of iterations run.
  */
 template <typename DataT, typename IndexT>
-void fit_predict(handle_t const& handle,
+void fit_predict(raft::device_resources const& handle,
                  const KMeansParams& params,
                  raft::device_matrix_view<const DataT, IndexT> X,
                  std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
@@ -239,7 +239,7 @@ void fit_predict(handle_t const& handle,
  *                              [dim = n_samples x n_features]
  */
 template <typename DataT, typename IndexT>
-void transform(const raft::handle_t& handle,
+void transform(raft::device_resources const& handle,
                const KMeansParams& params,
                raft::device_matrix_view<const DataT, IndexT> X,
                raft::device_matrix_view<const DataT, IndexT> centroids,
@@ -249,7 +249,7 @@ void transform(const raft::handle_t& handle,
 }
 
 template <typename DataT, typename IndexT>
-void transform(const raft::handle_t& handle,
+void transform(raft::device_resources const& handle,
                const KMeansParams& params,
                const DataT* X,
                const DataT* centroids,
@@ -281,7 +281,7 @@ void transform(const raft::handle_t& handle,
  *
  */
 template <typename DataT, typename IndexT>
-void sample_centroids(const raft::handle_t& handle,
+void sample_centroids(raft::device_resources const& handle,
                       raft::device_matrix_view<const DataT, IndexT> X,
                       raft::device_vector_view<DataT, IndexT> minClusterDistance,
                       raft::device_vector_view<std::uint8_t, IndexT> isSampleCentroid,
@@ -308,7 +308,7 @@ void sample_centroids(const raft::handle_t& handle,
  *
  */
 template <typename DataT, typename IndexT, typename ReductionOpT>
-void cluster_cost(const raft::handle_t& handle,
+void cluster_cost(raft::device_resources const& handle,
                   raft::device_vector_view<DataT, IndexT> minClusterDistance,
                   rmm::device_uvector<char>& workspace,
                   raft::device_scalar_view<DataT> clusterCost,
@@ -334,7 +334,7 @@ void cluster_cost(const raft::handle_t& handle,
  * @param[out] new_centroids: output matrix of updated centroids (size n_clusters, n_features)
  */
 template <typename DataT, typename IndexT, typename LabelsIterator>
-void update_centroids(const raft::handle_t& handle,
+void update_centroids(raft::device_resources const& handle,
                       raft::device_matrix_view<const DataT, IndexT, row_major> X,
                       raft::device_vector_view<const DataT, IndexT> sample_weights,
                       raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
@@ -375,7 +375,7 @@ void update_centroids(const raft::handle_t& handle,
  *
  */
 template <typename DataT, typename IndexT>
-void min_cluster_distance(const raft::handle_t& handle,
+void min_cluster_distance(raft::device_resources const& handle,
                           raft::device_matrix_view<const DataT, IndexT> X,
                           raft::device_matrix_view<DataT, IndexT> centroids,
                           raft::device_vector_view<DataT, IndexT> minClusterDistance,
@@ -426,7 +426,7 @@ void min_cluster_distance(const raft::handle_t& handle,
  */
 template <typename DataT, typename IndexT>
 void min_cluster_and_distance(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const DataT, IndexT> X,
   raft::device_matrix_view<const DataT, IndexT> centroids,
   raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> minClusterAndDistance,
@@ -466,7 +466,7 @@ void min_cluster_and_distance(
  *
  */
 template <typename DataT, typename IndexT>
-void shuffle_and_gather(const raft::handle_t& handle,
+void shuffle_and_gather(raft::device_resources const& handle,
                         raft::device_matrix_view<const DataT, IndexT> in,
                         raft::device_matrix_view<DataT, IndexT> out,
                         uint32_t n_samples_to_gather,
@@ -495,7 +495,7 @@ void shuffle_and_gather(const raft::handle_t& handle,
  *
  */
 template <typename DataT, typename IndexT>
-void count_samples_in_cluster(const raft::handle_t& handle,
+void count_samples_in_cluster(raft::device_resources const& handle,
                               const KMeansParams& params,
                               raft::device_matrix_view<const DataT, IndexT> X,
                               raft::device_vector_view<DataT, IndexT> L2NormX,
@@ -525,7 +525,7 @@ void count_samples_in_cluster(const raft::handle_t& handle,
  * @param[in]  workspace             Temporary workspace buffer which can get resized
  */
 template <typename DataT, typename IndexT>
-void init_plus_plus(const raft::handle_t& handle,
+void init_plus_plus(raft::device_resources const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
                     raft::device_matrix_view<DataT, IndexT> centroids,
@@ -558,7 +558,7 @@ void init_plus_plus(const raft::handle_t& handle,
  * @param[in]     workspace     Temporary workspace buffer which can get resized
  */
 template <typename DataT, typename IndexT>
-void fit_main(const raft::handle_t& handle,
+void fit_main(raft::device_resources const& handle,
               const KMeansParams& params,
               raft::device_matrix_view<const DataT, IndexT> X,
               raft::device_vector_view<const DataT, IndexT> sample_weights,
@@ -605,7 +605,7 @@ namespace raft::cluster {
  * @param[out]    n_iter        Number of iterations run.
  */
 template <typename DataT, typename IndexT = int>
-void kmeans_fit(handle_t const& handle,
+void kmeans_fit(raft::device_resources const& handle,
                 const KMeansParams& params,
                 raft::device_matrix_view<const DataT, IndexT> X,
                 std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
@@ -617,7 +617,7 @@ void kmeans_fit(handle_t const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_fit(handle_t const& handle,
+void kmeans_fit(raft::device_resources const& handle,
                 const KMeansParams& params,
                 const DataT* X,
                 const DataT* sample_weight,
@@ -652,7 +652,7 @@ void kmeans_fit(handle_t const& handle,
  *                                 their closest cluster center.
  */
 template <typename DataT, typename IndexT = int>
-void kmeans_predict(handle_t const& handle,
+void kmeans_predict(raft::device_resources const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
                     std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
@@ -666,7 +666,7 @@ void kmeans_predict(handle_t const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_predict(handle_t const& handle,
+void kmeans_predict(raft::device_resources const& handle,
                     const KMeansParams& params,
                     const DataT* X,
                     const DataT* sample_weight,
@@ -717,7 +717,7 @@ void kmeans_predict(handle_t const& handle,
  * @param[out]    n_iter        Number of iterations run.
  */
 template <typename DataT, typename IndexT = int>
-void kmeans_fit_predict(handle_t const& handle,
+void kmeans_fit_predict(raft::device_resources const& handle,
                         const KMeansParams& params,
                         raft::device_matrix_view<const DataT, IndexT> X,
                         std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
@@ -731,7 +731,7 @@ void kmeans_fit_predict(handle_t const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_fit_predict(handle_t const& handle,
+void kmeans_fit_predict(raft::device_resources const& handle,
                         const KMeansParams& params,
                         const DataT* X,
                         const DataT* sample_weight,
@@ -762,7 +762,7 @@ void kmeans_fit_predict(handle_t const& handle,
  *                              [dim = n_samples x n_features]
  */
 template <typename DataT, typename IndexT = int>
-void kmeans_transform(const raft::handle_t& handle,
+void kmeans_transform(raft::device_resources const& handle,
                       const KMeansParams& params,
                       raft::device_matrix_view<const DataT, IndexT> X,
                       raft::device_matrix_view<const DataT, IndexT> centroids,
@@ -772,7 +772,7 @@ void kmeans_transform(const raft::handle_t& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_transform(const raft::handle_t& handle,
+void kmeans_transform(raft::device_resources const& handle,
                       const KMeansParams& params,
                       const DataT* X,
                       const DataT* centroids,
@@ -809,7 +809,7 @@ using KeyValueIndexOp = kmeans::KeyValueIndexOp<IndexT, DataT>;
  *
  */
 template <typename DataT, typename IndexT>
-void sampleCentroids(const raft::handle_t& handle,
+void sampleCentroids(raft::device_resources const& handle,
                      raft::device_matrix_view<const DataT, IndexT> X,
                      raft::device_vector_view<DataT, IndexT> minClusterDistance,
                      raft::device_vector_view<std::uint8_t, IndexT> isSampleCentroid,
@@ -836,7 +836,7 @@ void sampleCentroids(const raft::handle_t& handle,
  *
  */
 template <typename DataT, typename IndexT, typename ReductionOpT>
-void computeClusterCost(const raft::handle_t& handle,
+void computeClusterCost(raft::device_resources const& handle,
                         raft::device_vector_view<DataT, IndexT> minClusterDistance,
                         rmm::device_uvector<char>& workspace,
                         raft::device_scalar_view<DataT> clusterCost,
@@ -867,7 +867,7 @@ void computeClusterCost(const raft::handle_t& handle,
  *
  */
 template <typename DataT, typename IndexT>
-void minClusterDistanceCompute(const raft::handle_t& handle,
+void minClusterDistanceCompute(raft::device_resources const& handle,
                                const KMeansParams& params,
                                raft::device_matrix_view<const DataT, IndexT> X,
                                raft::device_matrix_view<DataT, IndexT> centroids,
@@ -914,7 +914,7 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
  */
 template <typename DataT, typename IndexT>
 void minClusterAndDistanceCompute(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   const KMeansParams& params,
   raft::device_matrix_view<const DataT, IndexT> X,
   raft::device_matrix_view<const DataT, IndexT> centroids,
@@ -952,7 +952,7 @@ void minClusterAndDistanceCompute(
  *
  */
 template <typename DataT, typename IndexT>
-void shuffleAndGather(const raft::handle_t& handle,
+void shuffleAndGather(raft::device_resources const& handle,
                       raft::device_matrix_view<const DataT, IndexT> in,
                       raft::device_matrix_view<DataT, IndexT> out,
                       uint32_t n_samples_to_gather,
@@ -981,7 +981,7 @@ void shuffleAndGather(const raft::handle_t& handle,
  *
  */
 template <typename DataT, typename IndexT>
-void countSamplesInCluster(const raft::handle_t& handle,
+void countSamplesInCluster(raft::device_resources const& handle,
                            const KMeansParams& params,
                            raft::device_matrix_view<const DataT, IndexT> X,
                            raft::device_vector_view<DataT, IndexT> L2NormX,
@@ -1012,7 +1012,7 @@ void countSamplesInCluster(const raft::handle_t& handle,
  * @param[in]  workspace             Temporary workspace buffer which can get resized
  */
 template <typename DataT, typename IndexT>
-void kmeansPlusPlus(const raft::handle_t& handle,
+void kmeansPlusPlus(raft::device_resources const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
                     raft::device_matrix_view<DataT, IndexT> centroidsRawData,
@@ -1045,7 +1045,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
  * @param[in]     workspace     Temporary workspace buffer which can get resized
  */
 template <typename DataT, typename IndexT>
-void kmeans_fit_main(const raft::handle_t& handle,
+void kmeans_fit_main(raft::device_resources const& handle,
                      const KMeansParams& params,
                      raft::device_matrix_view<const DataT, IndexT> X,
                      raft::device_vector_view<const DataT, IndexT> weight,

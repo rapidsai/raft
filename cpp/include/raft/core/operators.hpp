@@ -313,6 +313,12 @@ using pow_const_op = plug_const_op<Type, pow_op>;
 template <typename Type>
 using mod_const_op = plug_const_op<Type, mod_op>;
 
+template <typename Type>
+using mod_const_op = plug_const_op<Type, mod_op>;
+
+template <typename Type>
+using equal_const_op = plug_const_op<Type, equal_op>;
+
 /**
  * @brief Constructs an operator by composing a chain of operators.
  *

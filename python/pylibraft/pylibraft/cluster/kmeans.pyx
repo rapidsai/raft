@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from enum import IntEnum
 from pylibraft.common import Handle, cai_wrapper, device_ndarray
 from pylibraft.common.handle import auto_sync_handle
 
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle cimport device_resources
 from pylibraft.random.cpp.rng_state cimport RngState
 
 from pylibraft.common.input_validation import *
@@ -43,7 +43,7 @@ from pylibraft.cluster.cpp.kmeans cimport (
 )
 from pylibraft.common.cpp.mdspan cimport *
 from pylibraft.common.cpp.optional cimport optional
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle cimport device_resources
 
 from pylibraft.common import auto_convert_output
 
@@ -159,7 +159,7 @@ def compute_new_centroids(X,
         weight_per_cluster_ptr = <uintptr_t>nullptr
 
     handle = handle if handle is not None else Handle()
-    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
     x_c_contiguous = is_c_contiguous(x_cai)
     centroids_c_contiguous = is_c_contiguous(centroids_cai)
@@ -250,7 +250,7 @@ def cluster_cost(X, centroids, handle=None):
     centroids_ptr = <uintptr_t>centroids_cai["data"][0]
 
     handle = handle if handle is not None else Handle()
-    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
     x_c_contiguous = is_c_contiguous(x_cai)
     centroids_c_contiguous = is_c_contiguous(centroids_cai)
@@ -452,7 +452,7 @@ def fit(
     >>> params = KMeansParams(n_clusters=n_clusters)
     >>> centroids, inertia, n_iter = fit(params, X)
     """
-    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
     cdef float f_inertia = 0.0
     cdef double d_inertia = 0.0

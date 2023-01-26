@@ -20,13 +20,14 @@
 #include "ann_utils.cuh"
 
 #include <raft/core/cudart_utils.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -1086,7 +1087,7 @@ void ivfflat_interleaved_scan(const ivf_flat::index<T, IdxT>& index,
 }
 
 template <typename T, typename AccT, typename IdxT>
-void search_impl(const handle_t& handle,
+void search_impl(raft::device_resources const& handle,
                  const index<T, IdxT>& index,
                  const T* queries,
                  uint32_t n_queries,
@@ -1269,7 +1270,7 @@ inline bool is_min_close(distance::DistanceType metric)
 
 /** See raft::spatial::knn::ivf_flat::search docs */
 template <typename T, typename IdxT>
-inline void search(const handle_t& handle,
+inline void search(raft::device_resources const& handle,
                    const search_params& params,
                    const index<T, IdxT>& index,
                    const T* queries,

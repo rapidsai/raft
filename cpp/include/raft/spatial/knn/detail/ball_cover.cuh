@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 #include "../ball_cover_types.hpp"
 #include "ball_cover/common.cuh"
@@ -64,7 +64,7 @@ namespace detail {
  * @param index
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void sample_landmarks(const raft::handle_t& handle,
+void sample_landmarks(raft::device_resources const& handle,
                       BallCoverIndex<value_idx, value_t, value_int>& index)
 {
   rmm::device_uvector<value_idx> R_1nn_cols2(index.n_landmarks, handle.get_stream());
@@ -116,7 +116,7 @@ void sample_landmarks(const raft::handle_t& handle,
  * @param index
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void construct_landmark_1nn(const raft::handle_t& handle,
+void construct_landmark_1nn(raft::device_resources const& handle,
                             const value_idx* R_knn_inds_ptr,
                             const value_t* R_knn_dists_ptr,
                             value_int k,
@@ -170,7 +170,7 @@ void construct_landmark_1nn(const raft::handle_t& handle,
  * @param R_knn_dists
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void k_closest_landmarks(const raft::handle_t& handle,
+void k_closest_landmarks(raft::device_resources const& handle,
                          const BallCoverIndex<value_idx, value_t, value_int>& index,
                          const value_t* query_pts,
                          value_int n_query_pts,
@@ -206,7 +206,7 @@ void k_closest_landmarks(const raft::handle_t& handle,
  * @param index
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void compute_landmark_radii(const raft::handle_t& handle,
+void compute_landmark_radii(raft::device_resources const& handle,
                             BallCoverIndex<value_idx, value_t, value_int>& index)
 {
   auto entries = thrust::make_counting_iterator<value_idx>(0);
@@ -237,7 +237,7 @@ template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
           typename dist_func>
-void perform_rbc_query(const raft::handle_t& handle,
+void perform_rbc_query(raft::device_resources const& handle,
                        const BallCoverIndex<value_idx, value_t, value_int>& index,
                        const value_t* query,
                        value_int n_query_pts,
@@ -339,7 +339,7 @@ template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_build_index(const raft::handle_t& handle,
+void rbc_build_index(raft::device_resources const& handle,
                      BallCoverIndex<value_idx, value_t, value_int>& index,
                      distance_func dfunc)
 {
@@ -398,7 +398,7 @@ template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_all_knn_query(const raft::handle_t& handle,
+void rbc_all_knn_query(raft::device_resources const& handle,
                        BallCoverIndex<value_idx, value_t, value_int>& index,
                        value_int k,
                        value_idx* inds,
@@ -467,7 +467,7 @@ template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_knn_query(const raft::handle_t& handle,
+void rbc_knn_query(raft::device_resources const& handle,
                    const BallCoverIndex<value_idx, value_t, value_int>& index,
                    value_int k,
                    const value_t* query,

@@ -20,15 +20,14 @@
 #include "ann_serialization.h"
 #include "ann_utils.cuh"
 
-#include <raft/cluster/kmeans_balanced.cuh>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/pow2_utils.cuh>
 
@@ -116,7 +115,7 @@ __global__ void build_index_kernel(const LabelT* labels,
 
 /** See raft::spatial::knn::ivf_flat::extend docs */
 template <typename T, typename IdxT>
-inline auto extend(const handle_t& handle,
+inline auto extend(raft::device_resources const& handle,
                    const index<T, IdxT>& orig_index,
                    const T* new_vectors,
                    const IdxT* new_indices,
@@ -262,9 +261,11 @@ inline auto extend(const handle_t& handle,
 
 /** See raft::spatial::knn::ivf_flat::build docs */
 template <typename T, typename IdxT>
-inline auto build(
-  const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
-  -> index<T, IdxT>
+inline auto build(raft::device_resources const& handle,
+                  const index_params& params,
+                  const T* dataset,
+                  IdxT n_rows,
+                  uint32_t dim) -> index<T, IdxT>
 {
   auto stream = handle.get_stream();
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
@@ -329,7 +330,7 @@ inline auto build(
  * @param[in] n_candidates  of neighbor_candidates
  */
 template <typename T, typename IdxT>
-inline void fill_refinement_index(const handle_t& handle,
+inline void fill_refinement_index(raft::device_resources const& handle,
                                   index<T, IdxT>* refinement_index,
                                   const T* dataset,
                                   const IdxT* candidate_idx,
@@ -344,23 +345,24 @@ inline void fill_refinement_index(const handle_t& handle,
     "ivf_flat::fill_refinement_index(%zu, %u)", size_t(n_queries));
 
   rmm::device_uvector<LabelT> new_labels(n_queries * n_candidates, stream);
-  linalg::writeOnlyUnaryOp(
-    new_labels.data(),
-    n_queries * n_candidates,
-    [n_candidates] __device__(LabelT * out, uint32_t i) { *out = i / n_candidates; },
-    stream);
+  auto new_labels_view =
+    raft::make_device_vector_view<LabelT, IdxT>(new_labels.data(), n_queries * n_candidates);
+  linalg::map_offset(
+    handle,
+    new_labels_view,
+    raft::compose_op(raft::cast_op<LabelT>(), raft::div_const_op<IdxT>(n_candidates)));
 
   auto list_sizes_ptr   = refinement_index->list_sizes().data_handle();
   auto list_offsets_ptr = refinement_index->list_offsets().data_handle();
   // We do not fill centers and center norms, since we will not run coarse search.
 
   // Calculate new offsets
-  uint32_t n_roundup = Pow2<kIndexGroupSize>::roundUp(n_candidates);
-  linalg::writeOnlyUnaryOp(
-    refinement_index->list_offsets().data_handle(),
-    refinement_index->list_offsets().size(),
-    [n_roundup] __device__(IdxT * out, uint32_t i) { *out = i * n_roundup; },
-    stream);
+  uint32_t n_roundup     = Pow2<kIndexGroupSize>::roundUp(n_candidates);
+  auto list_offsets_view = raft::make_device_vector_view<IdxT, IdxT>(
+    list_offsets_ptr, refinement_index->list_offsets().size());
+  linalg::map_offset(handle,
+                     list_offsets_view,
+                     raft::compose_op(raft::cast_op<IdxT>(), raft::mul_const_op<IdxT>(n_roundup)));
 
   IdxT index_size = n_roundup * n_lists;
   refinement_index->allocate(handle, index_size);
@@ -396,7 +398,9 @@ static const int serialization_version = 1;
  *
  */
 template <typename T, typename IdxT>
-void save(const handle_t& handle, const std::string& filename, const index<T, IdxT>& index_)
+void save(raft::device_resources const& handle,
+          const std::string& filename,
+          const index<T, IdxT>& index_)
 {
   std::ofstream of(filename, std::ios::out | std::ios::binary);
   if (!of) { RAFT_FAIL("Cannot open %s", filename.c_str()); }
@@ -437,7 +441,7 @@ void save(const handle_t& handle, const std::string& filename, const index<T, Id
  *
  */
 template <typename T, typename IdxT>
-auto load(const handle_t& handle, const std::string& filename) -> index<T, IdxT>
+auto load(raft::device_resources const& handle, const std::string& filename) -> index<T, IdxT>
 {
   std::ifstream infile(filename, std::ios::in | std::ios::binary);
 

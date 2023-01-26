@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,14 +34,14 @@ from pylibraft.common import (
 )
 from pylibraft.common.handle import auto_sync_handle
 
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle cimport device_resources
 
 
 cdef extern from "raft_runtime/distance/fused_l2_nn.hpp" \
         namespace "raft::runtime::distance" nogil:
 
     void fused_l2_nn_min_arg(
-        const handle_t &handle,
+        const device_resources &handle,
         int* min,
         const float* x,
         const float* y,
@@ -51,7 +51,7 @@ cdef extern from "raft_runtime/distance/fused_l2_nn.hpp" \
         bool sqrt) except +
 
     void fused_l2_nn_min_arg(
-        const handle_t &handle,
+        const device_resources &handle,
         int* min,
         const double* x,
         const double* y,
@@ -154,7 +154,7 @@ def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
     d_ptr = <uintptr_t>output_cai.data
 
     handle = handle if handle is not None else Handle()
-    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
     d_dt = output_cai.dtype
 
