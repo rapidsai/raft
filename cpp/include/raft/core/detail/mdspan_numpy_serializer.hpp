@@ -376,6 +376,14 @@ inline header_t read_header(std::istream& is)
     shape.push_back(static_cast<ndarray_len_t>(std::stoul(e)));
   }
 
+  RAFT_EXPECTS(
+    descr.byteorder == RAFT_NUMPY_HOST_ENDIAN_CHAR,
+    "The mdspan was serialized on a %s machine but you're attempting to load it on "
+    "a %s machine. This use case is not currently supported.",
+    (RAFT_NUMPY_HOST_ENDIAN_CHAR == RAFT_NUMPY_LITTLE_ENDIAN_CHAR ? "big-endian" : "little-endian"),
+    (RAFT_NUMPY_HOST_ENDIAN_CHAR == RAFT_NUMPY_LITTLE_ENDIAN_CHAR ? "little-endian"
+                                                                  : "big-endian"));
+
   return {descr, fortran_order, shape};
 }
 
