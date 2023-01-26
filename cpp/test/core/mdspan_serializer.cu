@@ -180,10 +180,14 @@ TEST(MDArraySerializer, WriteHeader)
   detail::numpy_serializer::write_header(oss, header);
   EXPECT_EQ(oss.str(),
             "\x93NUMPY\x01\x00"s  // magic string + version (1.0)
-            "\x46\x00"s           // HEADER_LEN = 70, in little endian
+            "\x76\x00"s           // HEADER_LEN = 118, in little endian
             "{'descr': '<f8', 'fortran_order': False, 'shape': (2, 10, 5)}"s  // header
-            "\x20\x20\x20\x20\x20\x20\x20\x20\n"s                             // padding
-  );
+            "\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20"s                       // padding
+            "\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20"s
+            "\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20"s
+            "\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20"s
+            "\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20"s
+            "\x20\x20\x20\x20\x20\x20\n"s);
 }
 
 TEST(MDArraySerializer, ParsePyDict)

@@ -38,7 +38,7 @@ namespace numpy_serializer {
 
 /**
  * A small implementation of NumPy serialization format.
- * Reference: https://numpy.org/doc/1.13/neps/npy-format.html
+ * Reference: https://numpy.org/doc/1.23/reference/generated/numpy.lib.format.html
  *
  * Adapted from https://github.com/llohse/libnpy/blob/master/include/npy.hpp, using the following
  * license:
@@ -321,7 +321,8 @@ inline void write_header(std::ostream& os, const header_t& header)
   std::string header_dict     = header_to_string(header);
   std::size_t preamble_length = RAFT_NUMPY_MAGIC_STRING_LENGTH + 2 + 2 + header_dict.length() + 1;
   RAFT_EXPECTS(preamble_length < 255 * 255, "Header too long");
-  std::size_t padding_len = 16 - preamble_length % 16;
+  // Enforce 64-byte alignment
+  std::size_t padding_len = 64 - preamble_length % 64;
   std::string padding(padding_len, ' ');
 
   write_magic(os);
