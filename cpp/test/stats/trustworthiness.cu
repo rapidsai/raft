@@ -338,7 +338,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
   void TearDown() override {}
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
 
   rmm::device_uvector<float> d_X;
   rmm::device_uvector<float> d_X_embedded;

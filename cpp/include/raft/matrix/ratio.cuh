@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ namespace raft::matrix {
  * @param[out] dest: output matrix. The result is stored in the dest matrix
  */
 template <typename math_t, typename idx_t, typename layout>
-void ratio(const raft::handle_t& handle,
+void ratio(raft::device_resources const& handle,
            raft::device_matrix_view<const math_t, idx_t, layout> src,
            raft::device_matrix_view<math_t, idx_t, layout> dest)
 {
@@ -53,7 +53,8 @@ void ratio(const raft::handle_t& handle,
  * @param[inout] inout: input matrix
  */
 template <typename math_t, typename idx_t, typename layout>
-void ratio(const raft::handle_t& handle, raft::device_matrix_view<math_t, idx_t, layout> inout)
+void ratio(raft::device_resources const& handle,
+           raft::device_matrix_view<math_t, idx_t, layout> inout)
 {
   detail::ratio(
     handle, inout.data_handle(), inout.data_handle(), inout.size(), handle.get_stream());

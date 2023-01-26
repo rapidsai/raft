@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/stats/detail/batched/information_criterion.cuh>
 #include <raft/stats/stats_types.hpp>
 
@@ -91,7 +91,7 @@ void information_criterion_batched(ScalarT* d_ic,
  * @param[in]  n_samples        Number of samples in each series
  */
 template <typename value_t, typename idx_t>
-void information_criterion_batched(const raft::handle_t& handle,
+void information_criterion_batched(raft::device_resources const& handle,
                                    raft::device_vector_view<const value_t, idx_t> d_loglikelihood,
                                    raft::device_vector_view<value_t, idx_t> d_ic,
                                    IC_Type ic_type,

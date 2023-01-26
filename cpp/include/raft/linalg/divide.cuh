@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ void divideScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in    Input
  * @param[in] scalar    raft::host_scalar_view
  * @param[out] out    Output
@@ -66,7 +66,7 @@ template <typename InType,
           typename ScalarIdxType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void divide_scalar(const raft::handle_t& handle,
+void divide_scalar(raft::device_resources const& handle,
                    InType in,
                    OutType out,
                    raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)

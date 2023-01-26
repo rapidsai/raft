@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ namespace raft {
 namespace spatial {
 namespace knn {
 
-template void brute_force_knn<long, float, int>(raft::handle_t const& handle,
+template void brute_force_knn<long, float, int>(raft::device_resources const& handle,
                                                 std::vector<float*>& input,
                                                 std::vector<int>& sizes,
                                                 int D,
@@ -36,7 +36,7 @@ template void brute_force_knn<long, float, int>(raft::handle_t const& handle,
                                                 distance::DistanceType metric,
                                                 float metric_arg);
 
-template void brute_force_knn<long, float, unsigned int>(raft::handle_t const& handle,
+template void brute_force_knn<long, float, unsigned int>(raft::device_resources const& handle,
                                                          std::vector<float*>& input,
                                                          std::vector<unsigned int>& sizes,
                                                          unsigned int D,
@@ -51,7 +51,7 @@ template void brute_force_knn<long, float, unsigned int>(raft::handle_t const& h
                                                          distance::DistanceType metric,
                                                          float metric_arg);
 
-template void brute_force_knn<uint32_t, float, int>(raft::handle_t const& handle,
+template void brute_force_knn<uint32_t, float, int>(raft::device_resources const& handle,
                                                     std::vector<float*>& input,
                                                     std::vector<int>& sizes,
                                                     int D,
@@ -66,7 +66,7 @@ template void brute_force_knn<uint32_t, float, int>(raft::handle_t const& handle
                                                     distance::DistanceType metric,
                                                     float metric_arg);
 
-template void brute_force_knn<uint32_t, float, unsigned int>(raft::handle_t const& handle,
+template void brute_force_knn<uint32_t, float, unsigned int>(raft::device_resources const& handle,
                                                              std::vector<float*>& input,
                                                              std::vector<unsigned int>& sizes,
                                                              unsigned int D,

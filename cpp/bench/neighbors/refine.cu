@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
+#include <raft_internal/neighbors/refine_helper.cuh>
+
 #include <common/benchmark.hpp>
 
-#include <raft/random/rng.cuh>
-
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/refine.cuh>
+#include <raft/random/rng.cuh>
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 #if defined RAFT_NN_COMPILED
@@ -36,12 +38,10 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
-#include "../../test/neighbors/refine_helper.cuh"
-
 #include <iostream>
 #include <sstream>
 
-using namespace raft::neighbors::detail;
+using namespace raft::neighbors;
 
 namespace raft::bench::neighbors {
 
@@ -53,7 +53,7 @@ inline auto operator<<(std::ostream& os, const RefineInputs<IdxT>& p) -> std::os
   return os;
 }
 
-RefineInputs<int64_t> p;
+RefineInputs<uint64_t> p;
 
 template <typename DataT, typename DistanceT, typename IdxT>
 class RefineAnn : public fixture {
@@ -95,7 +95,7 @@ class RefineAnn : public fixture {
   }
 
  private:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   RefineHelper<DataT, DistanceT, IdxT> data;
 };
 
@@ -114,9 +114,9 @@ std::vector<RefineInputs<int64_t>> getInputs()
   return out;
 }
 
-using refine_float_int64 = RefineAnn<float, float, int64_t>;
-RAFT_BENCH_REGISTER(refine_float_int64, "", getInputs());
+using refine_float_uint64 = RefineAnn<float, float, uint64_t>;
+RAFT_BENCH_REGISTER(refine_float_uint64, "", getInputs());
 
-using refine_uint8_int64 = RefineAnn<uint8_t, float, int64_t>;
-RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs());
+using refine_uint8_uint64 = RefineAnn<uint8_t, float, uint64_t>;
+RAFT_BENCH_REGISTER(refine_uint8_uint64, "", getInputs());
 }  // namespace raft::bench::neighbors

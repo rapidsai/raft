@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -39,7 +39,7 @@ struct Graph_COO {
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
 class MST_solver {
  public:
-  MST_solver(const raft::handle_t& handle_,
+  MST_solver(raft::device_resources const& handle_,
              const edge_t* offsets_,
              const vertex_t* indices_,
              const weight_t* weights_,
@@ -56,7 +56,7 @@ class MST_solver {
   ~MST_solver() {}
 
  private:
-  const raft::handle_t& handle;
+  raft::device_resources const& handle;
   cudaStream_t stream;
   bool symmetrize_output, initialize_colors;
   int iterations;

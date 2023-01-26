@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ void sort_cols_per_row(const InType* in,
  * @param[out] sorted_keys_opt: std::optional, output matrix for sorted keys (input)
  */
 template <typename in_t, typename out_t, typename matrix_idx_t, typename sorted_keys_t>
-void sort_cols_per_row(const raft::handle_t& handle,
+void sort_cols_per_row(raft::device_resources const& handle,
                        raft::device_matrix_view<const in_t, matrix_idx_t, raft::row_major> in,
                        raft::device_matrix_view<out_t, matrix_idx_t, raft::row_major> out,
                        sorted_keys_t&& sorted_keys_opt)

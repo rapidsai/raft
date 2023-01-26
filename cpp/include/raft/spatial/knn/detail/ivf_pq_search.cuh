@@ -22,7 +22,7 @@
 
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
@@ -136,7 +136,7 @@ struct fp_8bit {
  * scores here.
  */
 template <typename T>
-void select_clusters(const handle_t& handle,
+void select_clusters(raft::device_resources const& handle,
                      uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                      float* float_queries,         // [n_queries, dim_ext]
                      uint32_t n_queries,
@@ -1262,7 +1262,7 @@ inline auto is_local_topk_feasible(uint32_t k, uint32_t n_probes, uint32_t n_que
  *      is guaranteed to fit into GPU memory.
  */
 template <typename ScoreT, typename LutT, typename IdxT>
-void ivfpq_search_worker(const handle_t& handle,
+void ivfpq_search_worker(raft::device_resources const& handle,
                          const index<IdxT>& index,
                          uint32_t max_samples,
                          uint32_t n_probes,
@@ -1540,7 +1540,7 @@ inline auto get_max_batch_size(uint32_t k,
 
 /** See raft::spatial::knn::ivf_pq::search docs */
 template <typename T, typename IdxT>
-inline void search(const handle_t& handle,
+inline void search(raft::device_resources const& handle,
                    const search_params& params,
                    const index<IdxT>& index,
                    const T* queries,

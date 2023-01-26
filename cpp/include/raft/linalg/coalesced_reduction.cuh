@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 #include "detail/coalesced_reduction.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/operators.hpp>
 
 namespace raft {
@@ -101,7 +101,7 @@ void coalescedReduction(OutType* dots,
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
  * It must be a 'callable' supporting the following input and output:
  * <pre>OutType (*FinalLambda)(OutType);</pre>
- * @param handle raft::handle_t
+ * @param handle raft::device_resources
  * @param[in] data Input of type raft::device_matrix_view
  * @param[out] dots Output of type raft::device_matrix_view
  * @param[in] init initial value to use for the reduction
@@ -117,7 +117,7 @@ template <typename InValueType,
           typename MainLambda   = raft::identity_op,
           typename ReduceLambda = raft::add_op,
           typename FinalLambda  = raft::identity_op>
-void coalesced_reduction(const raft::handle_t& handle,
+void coalesced_reduction(raft::device_resources const& handle,
                          raft::device_matrix_view<const InValueType, IdxType, LayoutPolicy> data,
                          raft::device_vector_view<OutValueType, IdxType> dots,
                          OutValueType init,
