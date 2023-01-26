@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ namespace raft::matrix {
  * @{
  */
 template <typename math_t, typename idx_t, typename layout>
-void reciprocal(const raft::handle_t& handle,
+void reciprocal(raft::device_resources const& handle,
                 raft::device_matrix_view<const math_t, idx_t, layout> in,
                 raft::device_matrix_view<math_t, idx_t, layout> out,
                 raft::host_scalar_view<math_t> scalar,
@@ -70,7 +70,7 @@ void reciprocal(const raft::handle_t& handle,
  * @{
  */
 template <typename math_t, typename idx_t, typename layout>
-void reciprocal(const raft::handle_t& handle,
+void reciprocal(raft::device_resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout> inout,
                 raft::host_scalar_view<math_t> scalar,
                 bool setzero = false,

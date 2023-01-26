@@ -55,10 +55,15 @@ class cublas_resource_factory : public resource_factory {
 };
 
 /**
+ * @defgroup resource_cublas cuBLAS handle resource functions
+ * @{
+ */
+
+/**
  * Load a cublasres_t from raft res if it exists, otherwise
  * add it and return it.
- * @param res
- * @return
+ * @param[in] res the raft resources object
+ * @return cublas handle
  */
 inline cublasHandle_t get_cublas_handle(resources const& res)
 {
@@ -68,4 +73,9 @@ inline cublasHandle_t get_cublas_handle(resources const& res)
   }
   return *res.get_resource<cublasHandle_t>(resource_type::CUBLAS_HANDLE);
 };
+
+/**
+ * @}
+ */
+
 }  // namespace raft::resource

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ T read_scalar(std::ifstream& file)
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 void write_mdspan(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   std::ofstream& of,
   const raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
@@ -91,7 +91,7 @@ void write_mdspan(
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void read_mdspan(const raft::handle_t& handle,
+void read_mdspan(raft::device_resources const& handle,
                  std::ifstream& file,
                  raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
@@ -131,7 +131,7 @@ void read_mdspan(const raft::handle_t& handle,
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void read_mdspan(const raft::handle_t& handle,
+void read_mdspan(raft::device_resources const& handle,
                  std::ifstream& file,
                  raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
 {

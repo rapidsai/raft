@@ -147,7 +147,7 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   MakeBlobsInputs<T> params;
   cudaStream_t stream = 0;
 

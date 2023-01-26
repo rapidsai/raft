@@ -116,8 +116,9 @@ inline auto operator<<(std::ostream& os, const ivf_pq_inputs& p) -> std::ostream
 }
 
 template <typename IdxT>
-auto min_output_size(const handle_t& handle, const ivf_pq::index<IdxT>& index, uint32_t n_probes)
-  -> IdxT
+auto min_output_size(const raft::device_resources& handle,
+                     const ivf_pq::index<IdxT>& index,
+                     uint32_t n_probes) -> IdxT
 {
   uint32_t skip = index.n_nonempty_lists() > n_probes ? index.n_nonempty_lists() - n_probes : 0;
   auto map_type = [] __device__(uint32_t x) { return IdxT(x); };
@@ -308,7 +309,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   }
 
  private:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   rmm::cuda_stream_view stream_;
   ivf_pq_inputs ps;                           // NOLINT
   rmm::device_uvector<DataT> database;        // NOLINT

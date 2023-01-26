@@ -23,7 +23,7 @@
 #include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
@@ -182,7 +182,7 @@ void copy_warped(T* out,
  * @param[out] rotation_matrix device pointer to a row-major matrix of size [n_rows, n_cols].
  * @param rng random number generator state
  */
-inline void make_rotation_matrix(const handle_t& handle,
+inline void make_rotation_matrix(raft::device_resources const& handle,
                                  bool force_random_rotation,
                                  uint32_t n_rows,
                                  uint32_t n_cols,
@@ -226,7 +226,7 @@ inline void make_rotation_matrix(const handle_t& handle,
  *
  */
 template <typename T, typename IdxT>
-void select_residuals(const handle_t& handle,
+void select_residuals(raft::device_resources const& handle,
                       float* residuals,
                       IdxT n_rows,
                       uint32_t dim,
@@ -275,7 +275,7 @@ void select_residuals(const handle_t& handle,
  */
 template <typename T, typename IdxT>
 void flat_compute_residuals(
-  const handle_t& handle,
+  raft::device_resources const& handle,
   float* residuals,  // [n_rows, rot_dim]
   IdxT n_rows,
   device_mdspan<const float, extent_2d<uint32_t>, row_major> rotation_matrix,  // [rot_dim, dim]
@@ -370,7 +370,7 @@ auto calculate_offsets_and_indices(IdxT n_rows,
 }
 
 template <typename IdxT>
-void transpose_pq_centers(const handle_t& handle,
+void transpose_pq_centers(const device_resources& handle,
                           index<IdxT>& index,
                           const float* pq_centers_source)
 {
@@ -395,7 +395,7 @@ void transpose_pq_centers(const handle_t& handle,
 }
 
 template <typename IdxT>
-void train_per_subset(const handle_t& handle,
+void train_per_subset(raft::device_resources const& handle,
                       index<IdxT>& index,
                       size_t n_rows,
                       const float* trainset,   // [n_rows, dim]
@@ -465,7 +465,7 @@ void train_per_subset(const handle_t& handle,
 }
 
 template <typename IdxT>
-void train_per_cluster(const handle_t& handle,
+void train_per_cluster(raft::device_resources const& handle,
                        index<IdxT>& index,
                        size_t n_rows,
                        const float* trainset,   // [n_rows, dim]
@@ -546,7 +546,7 @@ void train_per_cluster(const handle_t& handle,
  *
  * @return Number of non-empty clusters
  */
-inline auto reorder_clusters_by_size_desc(const handle_t& handle,
+inline auto reorder_clusters_by_size_desc(raft::device_resources const& handle,
                                           uint32_t* ordering,
                                           uint32_t* cluster_sizes_out,
                                           const uint32_t* cluster_sizes_in,
@@ -752,7 +752,7 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
  *    a memory resource to use for device allocations
  */
 template <typename T, typename IdxT>
-void process_and_fill_codes(const handle_t& handle,
+void process_and_fill_codes(raft::device_resources const& handle,
                             index<IdxT>& index,
                             const T* new_vectors,
                             std::variant<IdxT, const IdxT*> src_offset_or_indices,
@@ -922,7 +922,7 @@ void copy_index_data(index<IdxT>& target,
 
 /** See raft::spatial::knn::ivf_pq::extend docs */
 template <typename T, typename IdxT>
-auto extend(const handle_t& handle,
+auto extend(raft::device_resources const& handle,
             const index<IdxT>& orig_index,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -1148,9 +1148,11 @@ auto extend(const handle_t& handle,
 
 /** See raft::spatial::knn::ivf_pq::build docs */
 template <typename T, typename IdxT>
-auto build(
-  const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
-  -> index<IdxT>
+auto build(raft::device_resources const& handle,
+           const index_params& params,
+           const T* dataset,
+           IdxT n_rows,
+           uint32_t dim) -> index<IdxT>
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::build(%zu, %u)", size_t(n_rows), dim);
@@ -1376,7 +1378,9 @@ static const int serialization_version = 1;
  *
  */
 template <typename IdxT>
-void save(const handle_t& handle_, const std::string& filename, const index<IdxT>& index_)
+void save(raft::device_resources const& handle_,
+          const std::string& filename,
+          const index<IdxT>& index_)
 {
   std::ofstream of(filename, std::ios::out | std::ios::binary);
   if (!of) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
@@ -1423,7 +1427,7 @@ void save(const handle_t& handle_, const std::string& filename, const index<IdxT
  *
  */
 template <typename IdxT>
-auto load(const handle_t& handle_, const std::string& filename) -> index<IdxT>
+auto load(raft::device_resources const& handle_, const std::string& filename) -> index<IdxT>
 {
   std::ifstream infile(filename, std::ios::in | std::ios::binary);
 

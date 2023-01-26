@@ -192,7 +192,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
   }
 
   // declaring the data values
-  raft::handle_t handle;
+  raft::device_resources handle;
   silhouetteScoreParam params;
   int nLabels;
   rmm::device_uvector<DataT> d_X;

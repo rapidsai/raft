@@ -18,7 +18,7 @@
 
 #include <raft_internal/matrix/select_k.cuh>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
@@ -102,7 +102,7 @@ struct io_computed {
       default: break;
     }
 
-    handle_t handle{};
+    device_resources handle{};
     auto stream = handle.get_stream();
 
     rmm::device_uvector<KeyT> in_dists_d(in_dists_.size(), stream);
@@ -345,7 +345,7 @@ struct with_ref {
       auto algo = std::get<1>(ps);
       std::vector<KeyT> dists(spec.len * spec.batch_size);
 
-      raft::handle_t handle;
+      raft::device_resources handle;
       {
         auto s = handle.get_stream();
         rmm::device_uvector<KeyT> dists_d(spec.len * spec.batch_size, s);

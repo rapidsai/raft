@@ -66,6 +66,11 @@ inline bool is_stream_pool_initialized(const resources& res)
 }
 
 /**
+ * @defgroup resource_stream_pool CUDA Stream pool resource functions
+ * @{
+ */
+
+/**
  * Load a cuda_stream_pool, and create a new one if it doesn't already exist
  * @param res raft res object for managing resources
  * @return
@@ -126,6 +131,7 @@ inline rmm::cuda_stream_view get_next_usable_stream(const resources& res)
 /**
  * @brief return stream from pool at index if size > 0, else main stream on res
  *
+ * @param[in] res the raft resources object
  * @param[in] stream_idx the required index of the stream in the stream pool if available
  */
 inline rmm::cuda_stream_view get_next_usable_stream(const resources& res, std::size_t stream_idx)
@@ -136,6 +142,8 @@ inline rmm::cuda_stream_view get_next_usable_stream(const resources& res, std::s
 
 /**
  * @brief synchronize the stream pool on the res
+ *
+ * @param[in] res the raft resources object
  */
 inline void sync_stream_pool(const resources& res)
 {
@@ -147,6 +155,7 @@ inline void sync_stream_pool(const resources& res)
 /**
  * @brief synchronize subset of stream pool
  *
+ * @param[in] res the raft resources object
  * @param[in] stream_indices the indices of the streams in the stream pool to synchronize
  */
 inline void sync_stream_pool(const resources& res, const std::vector<std::size_t> stream_indices)
@@ -159,6 +168,8 @@ inline void sync_stream_pool(const resources& res, const std::vector<std::size_t
 
 /**
  * @brief ask stream pool to wait on last event in main stream
+ *
+ * @param[in] res the raft resources object
  */
 inline void wait_stream_pool_on_stream(const resources& res)
 {
@@ -168,4 +179,9 @@ inline void wait_stream_pool_on_stream(const resources& res)
     RAFT_CUDA_TRY(cudaStreamWaitEvent(get_cuda_stream_pool(res).get_stream(i), event, 0));
   }
 }
+
+/**
+ * @}
+ */
+
 }  // namespace raft::resource

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ double adjusted_rand_index(const T* firstClusterArray,
  * @return the Adjusted RandIndex
  */
 template <typename value_t, typename math_t, typename idx_t>
-double adjusted_rand_index(const raft::handle_t& handle,
+double adjusted_rand_index(raft::device_resources const& handle,
                            raft::device_vector_view<const value_t, idx_t> first_cluster_array,
                            raft::device_vector_view<const value_t, idx_t> second_cluster_array)
 {

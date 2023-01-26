@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ namespace cluster {
  *  @return error flag
  */
 template <typename index_type_t, typename value_type_t>
-int kmeans(handle_t const& handle,
+int kmeans(raft::device_resources const& handle,
            index_type_t n,
            index_type_t d,
            index_type_t k,

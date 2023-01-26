@@ -51,6 +51,11 @@ class comms_resource_factory : public resource_factory {
   std::shared_ptr<comms::comms_t> communicator_;
 };
 
+/**
+ * @defgroup resource_comms Comms resource functions
+ * @{
+ */
+
 inline bool comms_initialized(resources const& res)
 {
   return res.has_resource_factory(resource_type::COMMUNICATOR);
@@ -66,4 +71,8 @@ inline void set_comms(resources const& res, std::shared_ptr<comms::comms_t> comm
 {
   res.add_resource_factory(std::make_shared<comms_resource_factory>(communicator));
 }
+
+/**
+ * @}
+ */
 }  // namespace raft::resource

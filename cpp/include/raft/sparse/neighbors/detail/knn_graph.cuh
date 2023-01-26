@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ void conv_indices(in_t* inds, out_t* out, size_t size, cudaStream_t stream)
  * @param c
  */
 template <typename value_idx = int, typename value_t = float>
-void knn_graph(const handle_t& handle,
+void knn_graph(raft::device_resources const& handle,
                const value_t* X,
                size_t m,
                size_t n,

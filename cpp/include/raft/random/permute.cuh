@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <type_traits>
 
 namespace raft::random {
@@ -95,7 +95,7 @@ using perms_out_view_t = typename perms_out_view<T, InputOutputValueType, IdxTyp
  *   then we recommend Knuth Shuffle.
  */
 template <typename InputOutputValueType, typename IntType, typename IdxType, typename Layout>
-void permute(const raft::handle_t& handle,
+void permute(raft::device_resources const& handle,
              raft::device_matrix_view<const InputOutputValueType, IdxType, Layout> in,
              std::optional<raft::device_vector_view<IntType, IdxType>> permsOut,
              std::optional<raft::device_matrix_view<InputOutputValueType, IdxType, Layout>> out)
@@ -142,7 +142,7 @@ template <typename InputOutputValueType,
           typename Layout,
           typename PermsOutType,
           typename OutType>
-void permute(const raft::handle_t& handle,
+void permute(raft::device_resources const& handle,
              raft::device_matrix_view<const InputOutputValueType, IdxType, Layout> in,
              PermsOutType&& permsOut,
              OutType&& out)
