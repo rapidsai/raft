@@ -73,8 +73,8 @@ static void chebyshevImpl(const DataT* x,
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::myAbs(x - y);
-    acc             = raft::myMax(acc, diff);
+    const auto diff = raft::abs(x - y);
+    acc             = raft::max(acc, diff);
   };
 
   // epilogue operation lambda for final value calculation

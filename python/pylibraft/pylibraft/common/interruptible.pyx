@@ -54,11 +54,17 @@ def cuda_interruptible():
         with nogil:
             dereference(token).cancel()
 
-    oldhr = signal.signal(signal.SIGINT, newhr)
+    try:
+        oldhr = signal.signal(signal.SIGINT, newhr)
+    except ValueError:
+        # the signal creation would fail if this is not the main thread
+        # That's fine! The feature is disabled.
+        oldhr = None
     try:
         yield
     finally:
-        signal.signal(signal.SIGINT, oldhr)
+        if oldhr is not None:
+            signal.signal(signal.SIGINT, oldhr)
 
 
 def synchronize(stream: Stream):
