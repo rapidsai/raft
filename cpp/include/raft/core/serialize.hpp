@@ -36,9 +36,6 @@ inline void serialize_mdspan(
   std::ostream& os,
   const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
-  static_assert(std::is_same_v<LayoutPolicy, raft::layout_c_contiguous> ||
-                  std::is_same_v<LayoutPolicy, raft::layout_f_contiguous>,
-                "The serializer only supports row-major and column-major layouts");
   detail::numpy_serializer::serialize(handle, os, obj);
 }
 
@@ -71,9 +68,6 @@ inline void deserialize_mdspan(
   std::istream& is,
   raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
-  static_assert(std::is_same_v<LayoutPolicy, raft::layout_c_contiguous> ||
-                  std::is_same_v<LayoutPolicy, raft::layout_f_contiguous>,
-                "The serializer only supports row-major and column-major layouts");
   detail::numpy_serializer::deserialize(handle, is, obj);
 }
 

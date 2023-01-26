@@ -385,6 +385,10 @@ inline void serialize(
   std::ostream& os,
   const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
+  static_assert(std::is_same_v<LayoutPolicy, raft::layout_c_contiguous> ||
+                  std::is_same_v<LayoutPolicy, raft::layout_f_contiguous>,
+                "The serializer only supports row-major and column-major layouts");
+
   using obj_t = raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
   const auto dtype         = get_numpy_dtype<ElementType>();
@@ -407,6 +411,10 @@ inline void deserialize(
   std::istream& is,
   const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
+  static_assert(std::is_same_v<LayoutPolicy, raft::layout_c_contiguous> ||
+                  std::is_same_v<LayoutPolicy, raft::layout_f_contiguous>,
+                "The serializer only supports row-major and column-major layouts");
+
   using obj_t = raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
   // Check if given dtype and fortran_order are compatible with the mdspan
