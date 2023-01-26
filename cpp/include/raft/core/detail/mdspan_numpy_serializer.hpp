@@ -380,8 +380,7 @@ inline header_t read_header(std::istream& is)
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-inline void serialize(
-  const raft::device_resources& handle,
+inline void serialize_host_mdspan(
   std::ostream& os,
   const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
@@ -405,9 +404,20 @@ inline void serialize(
   RAFT_EXPECTS(os.good(), "Error writing content of mdspan");
 }
 
+template <typename T>
+inline void serialize_scalar(std::ostream& os, const T& value)
+{
+  const auto dtype         = get_numpy_dtype<T>();
+  const bool fortran_order = false;
+  const std::vector<ndarray_len_t> shape{};
+  const header_t header = {dtype, fortran_order, shape};
+  write_header(os, header);
+  os.write(reinterpret_cast<const char*>(&value), sizeof(T));
+  RAFT_EXPECTS(os.good(), "Error serializing a scalar");
+}
+
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-inline void deserialize(
-  const raft::device_resources& handle,
+inline void deserialize_host_mdspan(
   std::istream& is,
   const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
@@ -444,6 +454,24 @@ inline void deserialize(
   // For contiguous layouts, size() == product of dimensions
   is.read(reinterpret_cast<char*>(obj.data_handle()), obj.size() * sizeof(ElementType));
   RAFT_EXPECTS(is.good(), "Error while reading mdspan content");
+}
+
+template <typename T>
+inline T deserialize_scalar(std::istream& is)
+{
+  // Check if dtype is correct
+  const auto expected_dtype = get_numpy_dtype<T>();
+  header_t header           = read_header(is);
+  RAFT_EXPECTS(header.dtype == expected_dtype,
+               "Expected dtype %s but got %s instead",
+               header.dtype.to_string().c_str(),
+               expected_dtype.to_string().c_str());
+  // Check if dimensions are correct; shape should be ()
+  RAFT_EXPECTS(header.shape.empty(), "Incorrect rank: expected 0 but got %zu", header.shape.size());
+
+  T value;
+  is.read(reinterpret_cast<char*>(&value), sizeof(T));
+  RAFT_EXPECTS(is.good(), "Error while deserializing scalar");
 }
 
 }  // end namespace numpy_serializer

@@ -32,11 +32,11 @@ namespace raft {
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void serialize_mdspan(
-  const raft::device_resources& handle,
+  const raft::device_resources&,
   std::ostream& os,
   const raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
-  detail::numpy_serializer::serialize(handle, os, obj);
+  detail::numpy_serializer::serialize_host_mdspan(os, obj);
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
@@ -60,16 +60,16 @@ inline void serialize_mdspan(
   auto tmp_mdspan =
     raft::host_mdspan<ElementType, Extents, LayoutPolicy, raft::host_accessor<inner_accessor_type>>(
       tmp.data(), obj.extents());
-  detail::numpy_serializer::serialize(handle, os, tmp_mdspan);
+  detail::numpy_serializer::serialize_host_mdspan(os, tmp_mdspan);
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void deserialize_mdspan(
-  const raft::device_resources& handle,
+  const raft::device_resources&,
   std::istream& is,
   raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
 {
-  detail::numpy_serializer::deserialize(handle, is, obj);
+  detail::numpy_serializer::deserialize_host_mdspan(is, obj);
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
@@ -90,7 +90,7 @@ inline void deserialize_mdspan(
   auto tmp_mdspan =
     raft::host_mdspan<ElementType, Extents, LayoutPolicy, raft::host_accessor<inner_accessor_type>>(
       tmp.data(), obj.extents());
-  detail::numpy_serializer::deserialize(handle, is, tmp_mdspan);
+  detail::numpy_serializer::deserialize_host_mdspan(is, tmp_mdspan);
 
   cudaStream_t stream = handle.get_stream();
   raft::update_device(obj.data_handle(), tmp.data(), obj.size(), stream);
@@ -116,23 +116,15 @@ inline void deserialize_mdspan(
 }
 
 template <typename T>
-void serialize_scalar(const raft::device_resources& handle, std::ostream& os, const T& value)
+inline void serialize_scalar(const raft::device_resources&, std::ostream& os, const T& value)
 {
-  using mdspan_1d_c_layout =
-    raft::host_mdspan<const T, raft::dextents<std::size_t, 1>, raft::layout_c_contiguous>;
-  auto tmp_mdspan = mdspan_1d_c_layout(&value, 1);
-  serialize_mdspan(handle, os, tmp_mdspan);
+  detail::numpy_serializer::serialize_scalar(os, value);
 }
 
 template <typename T>
-T deserialize_scalar(const raft::device_resources& handle, std::istream& is)
+inline T deserialize_scalar(const raft::device_resources&, std::istream& is)
 {
-  T value;
-  using mdspan_1d_c_layout =
-    raft::host_mdspan<T, raft::dextents<std::size_t, 1>, raft::layout_c_contiguous>;
-  auto tmp_mdspan = mdspan_1d_c_layout(&value, 1);
-  deserialize_mdspan(handle, is, tmp_mdspan);
-  return value;
+  return detail::numpy_serializer::deserialize_scalar<T>(is);
 }
 
 }  // end namespace raft
