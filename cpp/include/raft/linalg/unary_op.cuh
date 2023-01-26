@@ -21,7 +21,7 @@
 #include "detail/unary_op.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
@@ -95,7 +95,7 @@ template <typename InType,
           typename OutType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
+void unary_op(raft::device_resources const& handle, InType in, OutType out, Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
@@ -128,7 +128,7 @@ void unary_op(const raft::handle_t& handle, InType in, OutType out, Lambda op)
 template <typename OutType,
           typename Lambda,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void write_only_unary_op(const raft::handle_t& handle, OutType out, Lambda op)
+void write_only_unary_op(const raft::device_resources& handle, OutType out, Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
 

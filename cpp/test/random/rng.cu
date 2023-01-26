@@ -180,7 +180,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   RngInputs<T> params;
@@ -274,7 +274,7 @@ class RngMdspanTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   RngInputs<T> params;
@@ -391,7 +391,7 @@ TEST(Rng, MeanError)
   int num_experiments = 1024;
   int len             = num_samples * num_experiments;
 
-  raft::handle_t handle;
+  raft::device_resources handle;
   auto stream = handle.get_stream();
 
   rmm::device_uvector<float> data(len, stream);
@@ -458,7 +458,7 @@ class ScaledBernoulliTest : public ::testing::Test {
       h_data.get(), h_data.get() + len, [](const T& a) { return a < -scale || a > scale; }));
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<T> data;
@@ -487,7 +487,7 @@ class ScaledBernoulliMdspanTest : public ::testing::Test {
       h_data.get(), h_data.get() + len, [](const T& a) { return a < -scale || a > scale; }));
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<T> data;
@@ -528,7 +528,7 @@ class BernoulliTest : public ::testing::Test {
     delete[] h_data;
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<bool> data;
@@ -559,7 +559,7 @@ class BernoulliMdspanTest : public ::testing::Test {
     ASSERT_TRUE(std::any_of(h_data.get(), h_data.get() + len, [](bool a) { return !a; }));
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<bool> data;
@@ -635,7 +635,7 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   RngNormalTableInputs<T> params;
@@ -691,7 +691,7 @@ class RngNormalTableMdspanTest : public ::testing::TestWithParam<RngNormalTableI
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   RngNormalTableInputs<T> params;

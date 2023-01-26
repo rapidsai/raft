@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ DataT dispersion(const DataT* centroids,
  */
 template <typename value_t, typename idx_t>
 value_t cluster_dispersion(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> centroids,
   raft::device_vector_view<const idx_t, idx_t> cluster_sizes,
   std::optional<raft::device_vector_view<value_t, idx_t>> global_centroid,
@@ -117,7 +117,7 @@ value_t cluster_dispersion(
  */
 template <typename value_t, typename idx_t>
 value_t cluster_dispersion(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> centroids,
   raft::device_vector_view<const idx_t, idx_t> cluster_sizes,
   std::nullopt_t global_centroid,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,10 @@ template <typename IdxType>
 }
 
 template <typename T, typename LenT>
-inline void gen_uniform(const raft::handle_t& handle, raft::random::RngState& rng, T* ptr, LenT len)
+inline void gen_uniform(const raft::device_resources& handle,
+                        raft::random::RngState& rng,
+                        T* ptr,
+                        LenT len)
 {
   if constexpr (std::is_integral_v<T>) {
     raft::random::uniformInt(handle, rng, ptr, len, (T)0, (T)100);
@@ -54,7 +57,7 @@ inline void gen_uniform(const raft::handle_t& handle, raft::random::RngState& rn
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename OpT, typename MatT, typename IdxType, typename Vec1T, typename Vec2T>
-void matrixVectorOpLaunch(const raft::handle_t& handle,
+void matrixVectorOpLaunch(const raft::device_resources& handle,
                           MatT* out,
                           const MatT* in,
                           const Vec1T* vec1,
@@ -156,7 +159,7 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   MatVecOpInputs<IdxType> params;

@@ -14,7 +14,7 @@ expose in public APIs.
    :maxdepth: 2
    :caption: Contents:
 
-   core_handle.rst
+   core_resources.rst
    core_logger.rst
    core_kvp.rst
    core_nvtx.rst

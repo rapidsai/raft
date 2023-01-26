@@ -52,9 +52,14 @@ class device_id_resource_factory : public resource_factory {
 };
 
 /**
+ * @defgroup resource_device_id Device ID resource functions
+ * @{
+ */
+
+/**
  * Load a device id from a res (and populate it on the res if needed).
  * @param res raft res object for managing resources
- * @return
+ * @return device id
  */
 inline int get_device_id(resources const& res)
 {
@@ -63,4 +68,8 @@ inline int get_device_id(resources const& res)
   }
   return *res.get_resource<int>(resource_type::DEVICE_ID);
 };
+
+/**
+ * @}
+ */
 }  // namespace raft::resource

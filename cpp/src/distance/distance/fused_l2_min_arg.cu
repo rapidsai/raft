@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
@@ -35,7 +35,7 @@ struct KeyValueIndexOp {
 };
 
 template <typename value_t, typename idx_t>
-void compute_fused_l2_nn_min_arg(raft::handle_t const& handle,
+void compute_fused_l2_nn_min_arg(raft::device_resources const& handle,
                                  idx_t* min,
                                  const value_t* x,
                                  const value_t* y,
@@ -71,7 +71,7 @@ void compute_fused_l2_nn_min_arg(raft::handle_t const& handle,
   handle.sync_stream();
 }
 
-void fused_l2_nn_min_arg(raft::handle_t const& handle,
+void fused_l2_nn_min_arg(raft::device_resources const& handle,
                          int* min,
                          const float* x,
                          const float* y,
@@ -83,7 +83,7 @@ void fused_l2_nn_min_arg(raft::handle_t const& handle,
   compute_fused_l2_nn_min_arg<float, int>(handle, min, x, y, m, n, k, sqrt);
 }
 
-void fused_l2_nn_min_arg(raft::handle_t const& handle,
+void fused_l2_nn_min_arg(raft::device_resources const& handle,
                          int* min,
                          const double* x,
                          const double* y,

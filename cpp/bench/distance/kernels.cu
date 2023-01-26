@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 
 #include <common/benchmark.hpp>
 #include <memory>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/random/rng.cuh>
@@ -77,7 +77,7 @@ struct GramMatrix : public fixture {
   }
 
  private:
-  const raft::handle_t handle;
+  const raft::device_resources handle;
   std::unique_ptr<GramMatrixBase<T>> kernel;
   GramTestParams params;
 

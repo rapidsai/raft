@@ -21,7 +21,7 @@
 
 #include <raft/cluster/kmeans.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/stats/adjusted_rand_index.cuh>
@@ -45,7 +45,7 @@ struct KmeansInputs {
 };
 
 template <typename DataT, typename IndexT>
-void run_cluster_cost(const raft::handle_t& handle,
+void run_cluster_cost(const raft::device_resources& handle,
                       raft::device_vector_view<DataT, IndexT> minClusterDistance,
                       rmm::device_uvector<char>& workspace,
                       raft::device_scalar_view<DataT> clusterCost)
@@ -317,7 +317,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   KmeansInputs<T> testparams;
   rmm::device_uvector<int> d_labels;
   rmm::device_uvector<int> d_labels_ref;

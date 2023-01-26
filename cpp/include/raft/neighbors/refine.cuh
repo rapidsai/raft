@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/matrix/matrix.cuh>
 #include <raft/neighbors/detail/refine.cuh>
@@ -68,7 +68,7 @@ namespace raft::neighbors {
  * @param[in] metric distance metric to use. Euclidean (L2) is used by default
  */
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
-void refine(raft::handle_t const& handle,
+void refine(raft::device_resources const& handle,
             raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,
             raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,
             raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
@@ -90,7 +90,7 @@ void refine(raft::handle_t const& handle,
  * @param[in] metric distance metric to use. Euclidean (L2) is used by default
  */
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
-void refine(raft::handle_t const& handle,
+void refine(raft::device_resources const& handle,
             raft::host_matrix_view<const data_t, matrix_idx, row_major> dataset,
             raft::host_matrix_view<const data_t, matrix_idx, row_major> queries,
             raft::host_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,

@@ -263,7 +263,7 @@ struct index : ann::index {
   ~index()                          = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle,
+  index(raft::device_resources const& handle,
         raft::distance::DistanceType metric,
         codebook_gen codebook_kind,
         uint32_t n_lists,
@@ -295,7 +295,7 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle,
+  index(raft::device_resources const& handle,
         const index_params& params,
         uint32_t dim,
         uint32_t n_nonempty_lists = 0)
@@ -314,7 +314,7 @@ struct index : ann::index {
    * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
    * of data.
    */
-  void allocate(const handle_t& handle, IdxT index_size)
+  void allocate(raft::device_resources const& handle, IdxT index_size)
   {
     try {
       pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));

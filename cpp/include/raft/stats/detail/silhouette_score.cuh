@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -191,7 +191,7 @@ struct SilOp {
  */
 template <typename DataT, typename LabelT>
 DataT silhouette_score(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   const DataT* X_in,
   int nRows,
   int nCols,

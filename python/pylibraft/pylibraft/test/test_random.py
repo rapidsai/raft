@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 import numpy as np
 import pytest
 
-from pylibraft.common import Handle, device_ndarray
+from pylibraft.common import DeviceResources, device_ndarray
 from pylibraft.random import rmat
 
 
@@ -46,7 +46,7 @@ def test_rmat(n_edges, r_scale, c_scale, dtype):
     out_buff = np.empty((n_edges, 2), dtype=dtype)
     output_device = device_ndarray(out_buff)
 
-    handle = Handle()
+    handle = DeviceResources()
     rmat(output_device, theta_device, r_scale, c_scale, 12345, handle=handle)
     handle.sync()
     output = output_device.copy_to_host()
