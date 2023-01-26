@@ -417,24 +417,5 @@ struct map_args_op {
   }
 };
 
-template <typename ComposedOpT>
-struct write_only_op {
-  const ComposedOpT composed_op;
-
-  template <typename OpT     = ComposedOpT,
-            typename UnusedT = std::enable_if_t<std::is_default_constructible_v<OpT>>>
-  constexpr write_only_op()
-    : composed_op{}  // The compiler complains if composed_op is not initialized explicitly
-  {
-  }
-  constexpr write_only_op(ComposedOpT o) : composed_op{o} {}
-
-  template <typename OutT, typename... Args>
-  constexpr RAFT_INLINE_FUNCTION void operator()(OutT* out, Args&&... args) const
-  {
-    *out = composed_op(std::forward<Args>(args)...);
-  }
-};
-
 /** @} */
 }  // namespace raft
