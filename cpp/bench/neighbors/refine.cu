@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-#include <common/benchmark.hpp>
+#include <raft_internal/neighbors/refine_helper.cuh>
 
-#include <raft/random/rng.cuh>
+#include <common/benchmark.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/refine.cuh>
+#include <raft/random/rng.cuh>
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
@@ -36,12 +37,10 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
-#include "../../test/neighbors/refine_helper.cuh"
-
 #include <iostream>
 #include <sstream>
 
-using namespace raft::neighbors::detail;
+using namespace raft::neighbors;
 
 namespace raft::bench::neighbors {
 

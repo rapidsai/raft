@@ -14,12 +14,7 @@
  * limitations under the License.
  */
 
-/**
- * TODO: reconsider how to organize shared test+bench files better
- *       Related Issue: https://github.com/rapidsai/raft/issues/1153
- *       (although this header does not depend on any gtest headers)
- */
-#include "../../test/matrix/select_k.cuh"
+#include <raft_internal/matrix/select_k.cuh>
 
 #include <common/benchmark.hpp>
 
