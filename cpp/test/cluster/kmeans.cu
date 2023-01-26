@@ -112,8 +112,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     rmm::device_uvector<char> workspace(0, stream);
     rmm::device_uvector<T> L2NormBuf_OR_DistBuf(0, stream);
     rmm::device_uvector<T> inRankCp(0, stream);
-    auto X_view =
-      raft::make_device_matrix_view<const T, int>(X.data_handle(), X.extent(0), X.extent(1));
+    auto X_view = raft::make_const_mdspan(X.view());
     auto centroids_view =
       raft::make_device_matrix_view<T, int>(d_centroids.data(), params.n_clusters, n_features);
     auto miniX = raft::make_device_matrix<T, int>(handle, n_samples / 4, n_features);
@@ -126,12 +125,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
       miniX.extent(0),
       params.rng_state.seed);
 
-    raft::cluster::kmeans::init_plus_plus(handle,
-                                          params,
-                                          raft::make_device_matrix_view<const T, int>(
-                                            miniX.data_handle(), miniX.extent(0), miniX.extent(1)),
-                                          centroids_view,
-                                          workspace);
+    raft::cluster::kmeans::init_plus_plus(
+      handle, params, raft::make_const_mdspan(miniX.view()), centroids_view, workspace);
 
     auto minClusterDistance = raft::make_device_vector<T, int>(handle, n_samples);
     auto minClusterAndDistance =
@@ -285,10 +280,9 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     raft::copy(d_labels_ref.data(), labels.data_handle(), n_samples, stream);
 
-    T inertia  = 0;
-    int n_iter = 0;
-    auto X_view =
-      raft::make_device_matrix_view<const T, int>(X.data_handle(), X.extent(0), X.extent(1));
+    T inertia   = 0;
+    int n_iter  = 0;
+    auto X_view = raft::make_const_mdspan(X.view());
 
     raft::cluster::kmeans_fit_predict<T, int>(
       handle,
