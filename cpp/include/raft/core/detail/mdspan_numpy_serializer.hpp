@@ -480,6 +480,7 @@ inline T deserialize_scalar(std::istream& is)
   T value;
   is.read(reinterpret_cast<char*>(&value), sizeof(T));
   RAFT_EXPECTS(is.good(), "Error while deserializing scalar");
+  return value;
 }
 
 }  // end namespace numpy_serializer
