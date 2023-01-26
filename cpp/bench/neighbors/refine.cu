@@ -27,6 +27,7 @@
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 #if defined RAFT_NN_COMPILED
@@ -52,7 +53,7 @@ inline auto operator<<(std::ostream& os, const RefineInputs<IdxT>& p) -> std::os
   return os;
 }
 
-RefineInputs<int64_t> p;
+RefineInputs<uint64_t> p;
 
 template <typename DataT, typename DistanceT, typename IdxT>
 class RefineAnn : public fixture {
@@ -113,9 +114,9 @@ std::vector<RefineInputs<int64_t>> getInputs()
   return out;
 }
 
-using refine_float_int64 = RefineAnn<float, float, int64_t>;
-RAFT_BENCH_REGISTER(refine_float_int64, "", getInputs());
+using refine_float_uint64 = RefineAnn<float, float, uint64_t>;
+RAFT_BENCH_REGISTER(refine_float_uint64, "", getInputs());
 
-using refine_uint8_int64 = RefineAnn<uint8_t, float, int64_t>;
-RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs());
+using refine_uint8_uint64 = RefineAnn<uint8_t, float, uint64_t>;
+RAFT_BENCH_REGISTER(refine_uint8_uint64, "", getInputs());
 }  // namespace raft::bench::neighbors

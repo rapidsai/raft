@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#if defined RAFT_NN_COMPILED
+#if defined RAFT_DISTANCE_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 
@@ -107,8 +107,8 @@ class RefineTest : public ::testing::TestWithParam<RefineInputs<IdxT>> {
   RefineHelper<DataT, DistanceT, IdxT> data;
 };
 
-const std::vector<RefineInputs<int64_t>> inputs =
-  raft::util::itertools::product<RefineInputs<int64_t>>(
+const std::vector<RefineInputs<uint64_t>> inputs =
+  raft::util::itertools::product<RefineInputs<uint64_t>>(
     {137},
     {1000},
     {16},
@@ -117,16 +117,16 @@ const std::vector<RefineInputs<int64_t>> inputs =
     {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false, true});
 
-typedef RefineTest<float, float, std::int64_t> RefineTestF;
+typedef RefineTest<float, float, std::uint64_t> RefineTestF;
 TEST_P(RefineTestF, AnnRefine) { this->testRefine(); }
 
 INSTANTIATE_TEST_CASE_P(RefineTest, RefineTestF, ::testing::ValuesIn(inputs));
 
-typedef RefineTest<uint8_t, float, std::int64_t> RefineTestF_uint8;
+typedef RefineTest<uint8_t, float, std::uint64_t> RefineTestF_uint8;
 TEST_P(RefineTestF_uint8, AnnRefine) { this->testRefine(); }
 INSTANTIATE_TEST_CASE_P(RefineTest, RefineTestF_uint8, ::testing::ValuesIn(inputs));
 
-typedef RefineTest<int8_t, float, std::int64_t> RefineTestF_int8;
+typedef RefineTest<int8_t, float, std::uint64_t> RefineTestF_int8;
 TEST_P(RefineTestF_int8, AnnRefine) { this->testRefine(); }
 INSTANTIATE_TEST_CASE_P(RefineTest, RefineTestF_int8, ::testing::ValuesIn(inputs));
 }  // namespace raft::neighbors
