@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 
 #include <cub/cub.cuh>
 #include <limits>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -50,7 +50,8 @@ using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
  * Initialize array using init value from reduction op
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
-void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
+void initialize(
+  raft::device_resources const& handle, OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
 {
   detail::initialize<DataT, OutT, IdxT, ReduceOpT>(min, m, maxVal, redOp, handle.get_stream());
 }

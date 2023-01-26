@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
@@ -61,7 +61,7 @@ class LinearAssignmentProblem {
   Vertices<vertex_t, weight_t> d_vertices_dev;
   VertexData<vertex_t> d_row_data_dev, d_col_data_dev;
 
-  raft::handle_t const& handle_;
+  raft::device_resources const& handle_;
   rmm::device_uvector<int> row_covers_v;
   rmm::device_uvector<int> col_covers_v;
   rmm::device_uvector<weight_t> row_duals_v;
@@ -84,7 +84,7 @@ class LinearAssignmentProblem {
    * @param batchsize
    * @param epsilon
    */
-  LinearAssignmentProblem(raft::handle_t const& handle,
+  LinearAssignmentProblem(raft::device_resources const& handle,
                           vertex_t size,
                           vertex_t batchsize,
                           weight_t epsilon)

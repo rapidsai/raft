@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,11 +33,11 @@ template class BallCoverIndex<int, float, std::uint32_t, std::uint32_t>;
 template class BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>;
 
 template void build_index<std::int64_t, float, std::uint32_t, std::uint32_t>(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index);
 
 template void knn_query<std::int64_t, float, std::uint32_t>(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   const BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
   std::uint32_t k,
   const float* query,
@@ -48,7 +48,7 @@ template void knn_query<std::int64_t, float, std::uint32_t>(
   float weight);
 
 template void all_knn_query<std::int64_t, float, std::uint32_t>(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
   std::uint32_t k,
   std::int64_t* inds,

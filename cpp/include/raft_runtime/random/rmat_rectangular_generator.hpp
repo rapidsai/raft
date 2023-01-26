@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #include <cstdint>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/random/rng_state.hpp>
 
 namespace raft::runtime::random {
@@ -26,15 +26,15 @@ namespace raft::runtime::random {
  * @{
  */
 
-#define FUNC_DECL(IdxT, ProbT)                            \
-  void rmat_rectangular_gen(raft::handle_t const& handle, \
-                            IdxT* out,                    \
-                            IdxT* out_src,                \
-                            IdxT* out_dst,                \
-                            const ProbT* theta,           \
-                            IdxT r_scale,                 \
-                            IdxT c_scale,                 \
-                            IdxT n_edges,                 \
+#define FUNC_DECL(IdxT, ProbT)                                    \
+  void rmat_rectangular_gen(raft::device_resources const& handle, \
+                            IdxT* out,                            \
+                            IdxT* out_src,                        \
+                            IdxT* out_dst,                        \
+                            const ProbT* theta,                   \
+                            IdxT r_scale,                         \
+                            IdxT c_scale,                         \
+                            IdxT n_edges,                         \
                             raft::random::RngState& r)
 
 FUNC_DECL(int, float);

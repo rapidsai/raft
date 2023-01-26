@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
-#include "refine_helper.cuh"
+#include <raft_internal/neighbors/refine_helper.cuh>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/refine.cuh>
@@ -40,11 +40,11 @@
 namespace raft::neighbors {
 
 template <typename DataT, typename DistanceT, typename IdxT>
-class RefineTest : public ::testing::TestWithParam<detail::RefineInputs<IdxT>> {
+class RefineTest : public ::testing::TestWithParam<RefineInputs<IdxT>> {
  public:
   RefineTest()
     : stream_(handle_.get_stream()),
-      data(handle_, ::testing::TestWithParam<detail::RefineInputs<IdxT>>::GetParam())
+      data(handle_, ::testing::TestWithParam<RefineInputs<IdxT>>::GetParam())
   {
   }
 
@@ -102,13 +102,13 @@ class RefineTest : public ::testing::TestWithParam<detail::RefineInputs<IdxT>> {
   }
 
  public:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   rmm::cuda_stream_view stream_;
-  detail::RefineHelper<DataT, DistanceT, IdxT> data;
+  RefineHelper<DataT, DistanceT, IdxT> data;
 };
 
-const std::vector<detail::RefineInputs<int64_t>> inputs =
-  raft::util::itertools::product<detail::RefineInputs<int64_t>>(
+const std::vector<RefineInputs<int64_t>> inputs =
+  raft::util::itertools::product<RefineInputs<int64_t>>(
     {137},
     {1000},
     {16},

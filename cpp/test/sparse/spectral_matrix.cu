@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 #include <raft/spectral/matrix_wrappers.hpp>
 
@@ -39,7 +39,7 @@ TEST(Raft, SpectralMatrices)
   using index_type = int;
   using value_type = double;
 
-  handle_t h;
+  raft::device_resources h;
   ASSERT_EQ(0, h.get_device());
 
   csr_view_t<index_type, value_type> csr_v{nullptr, nullptr, nullptr, 0, 0};

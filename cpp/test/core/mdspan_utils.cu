@@ -118,7 +118,7 @@ TEST(MDArray, HostFlatten) { test_host_flatten(); }
 
 void test_device_flatten()
 {
-  raft::handle_t handle{};
+  raft::device_resources handle{};
   // flatten 3d device mdspan
   {
     using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
@@ -179,7 +179,7 @@ void test_reshape()
 
   // reshape 4d device array to 2d
   {
-    raft::handle_t handle{};
+    raft::device_resources handle{};
     using four_d_extents =
       extents<int, dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
     using four_d_mdarray = device_mdarray<int, four_d_extents>;

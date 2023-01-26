@@ -17,6 +17,8 @@
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
+#include <raft_internal/neighbors/naive_knn.cuh>
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -78,16 +80,16 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
     {
       rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      naiveBfKnn<T, DataT, IdxT>(distances_naive_dev.data(),
-                                 indices_naive_dev.data(),
-                                 search_queries.data(),
-                                 database.data(),
-                                 ps.num_queries,
-                                 ps.num_db_vecs,
-                                 ps.dim,
-                                 ps.k,
-                                 ps.metric,
-                                 stream_);
+      naive_knn<T, DataT, IdxT>(distances_naive_dev.data(),
+                                indices_naive_dev.data(),
+                                search_queries.data(),
+                                database.data(),
+                                ps.num_queries,
+                                ps.num_db_vecs,
+                                ps.dim,
+                                ps.k,
+                                ps.metric,
+                                stream_);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
       handle_.sync_stream(stream_);
@@ -277,7 +279,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
   }
 
  private:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   rmm::cuda_stream_view stream_;
   AnnIvfFlatInputs<IdxT> ps;
   rmm::device_uvector<DataT> database;
