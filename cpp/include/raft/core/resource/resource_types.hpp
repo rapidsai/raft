@@ -19,6 +19,11 @@
 namespace raft::resource {
 
 /**
+ * @defgroup resource_types Core resource vocabulary types
+ * @{
+ */
+
+/**
  * @brief Resource types can apply to any resource and don't have to be host- or device-specific.
  */
 enum resource_type {
@@ -102,5 +107,9 @@ class empty_resource_factory : public resource_factory {
  private:
   empty_resource res;
 };
+
+/**
+ * @}
+ */
 
 }  // namespace raft::resource

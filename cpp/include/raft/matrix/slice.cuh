@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ struct slice_coordinates {
  * example: Slice the 2nd and 3rd columns of a 4x3 matrix: slice(handle, in, out, {0, 1, 4, 3});
  */
 template <typename m_t, typename idx_t>
-void slice(const raft::handle_t& handle,
+void slice(raft::device_resources const& handle,
            raft::device_matrix_view<const m_t, idx_t, col_major> in,
            raft::device_matrix_view<m_t, idx_t, col_major> out,
            slice_coordinates<idx_t> coords)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@
 
 #include "cublas_wrappers.hpp"
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 namespace raft::linalg::detail {
 
 template <typename T, bool DevicePointerMode = false>
-void axpy(const raft::handle_t& handle,
+void axpy(raft::device_resources const& handle,
           const int n,
           const T* alpha,
           const T* x,

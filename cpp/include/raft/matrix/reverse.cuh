@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@ namespace raft::matrix {
  * @param[inout] inout: input and output matrix
  */
 template <typename m_t, typename idx_t, typename layout_t>
-void col_reverse(const raft::handle_t& handle, raft::device_matrix_view<m_t, idx_t, layout_t> inout)
+void col_reverse(raft::device_resources const& handle,
+                 raft::device_matrix_view<m_t, idx_t, layout_t> inout)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(inout), "Unsupported matrix layout");
   if (raft::is_col_major(inout)) {
@@ -51,7 +52,8 @@ void col_reverse(const raft::handle_t& handle, raft::device_matrix_view<m_t, idx
  * @param[inout] inout: input and output matrix
  */
 template <typename m_t, typename idx_t, typename layout_t>
-void row_reverse(const raft::handle_t& handle, raft::device_matrix_view<m_t, idx_t, layout_t> inout)
+void row_reverse(raft::device_resources const& handle,
+                 raft::device_matrix_view<m_t, idx_t, layout_t> inout)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(inout), "Unsupported matrix layout");
   if (raft::is_col_major(inout)) {

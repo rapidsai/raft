@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ void matrixVectorOp(MatT* out,
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
  * @tparam IndexType Integer used for addressing
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] matrix input raft::matrix_view
  * @param[in] vec vector raft::vector_view
  * @param[out] out output raft::matrix_view
@@ -135,7 +135,7 @@ template <typename MatValueType,
           typename LayoutPolicy,
           typename Lambda,
           typename IndexType>
-void matrix_vector_op(const raft::handle_t& handle,
+void matrix_vector_op(raft::device_resources const& handle,
                       raft::device_matrix_view<const MatValueType, IndexType, LayoutPolicy> matrix,
                       raft::device_vector_view<const VecValueType, IndexType> vec,
                       raft::device_matrix_view<MatValueType, IndexType, LayoutPolicy> out,
@@ -182,7 +182,7 @@ void matrix_vector_op(const raft::handle_t& handle,
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
  * @tparam IndexType Integer used for addressing
- * @param handle raft::handle_t
+ * @param handle raft::device_resources
  * @param matrix input raft::matrix_view
  * @param vec1 the first vector raft::vector_view
  * @param vec2 the second vector raft::vector_view
@@ -197,7 +197,7 @@ template <typename MatValueType,
           typename LayoutPolicy,
           typename Lambda,
           typename IndexType>
-void matrix_vector_op(const raft::handle_t& handle,
+void matrix_vector_op(raft::device_resources const& handle,
                       raft::device_matrix_view<const MatValueType, IndexType, LayoutPolicy> matrix,
                       raft::device_vector_view<const Vec1ValueType, IndexType> vec1,
                       raft::device_vector_view<const Vec2ValueType, IndexType> vec2,

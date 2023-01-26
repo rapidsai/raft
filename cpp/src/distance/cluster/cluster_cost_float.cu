@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
  */
 
 #include "cluster_cost.cuh"
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/specializations.cuh>
-#include <raft/handle.hpp>
 
 namespace raft::runtime::cluster::kmeans {
 
-void cluster_cost(const raft::handle_t& handle,
+void cluster_cost(raft::device_resources const& handle,
                   const float* X,
                   int n_samples,
                   int n_features,

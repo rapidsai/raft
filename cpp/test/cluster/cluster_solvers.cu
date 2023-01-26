@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
 #include <raft/spectral/specializations.cuh>
@@ -35,7 +35,7 @@ TEST(Raft, ClusterSolvers)
   using index_type = int;
   using value_type = double;
 
-  handle_t h;
+  raft::device_resources h;
 
   index_type maxiter{100};
   value_type tol{1.0e-10};
@@ -65,7 +65,7 @@ TEST(Raft, ModularitySolvers)
   using index_type = int;
   using value_type = double;
 
-  handle_t h;
+  raft::device_resources h;
   ASSERT_EQ(0, h.get_device());
 
   index_type neigvs{10};

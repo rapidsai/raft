@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 #include "detail/reduce_cols_by_key.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 namespace raft {
 namespace linalg {
@@ -69,7 +69,7 @@ void reduce_cols_by_key(const T* data,
  * @tparam ElementType the input data type (as well as the output reduced matrix)
  * @tparam KeyType data type of the keys
  * @tparam IndexType indexing arithmetic type
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] data the input data (dim = nrows x ncols). This is assumed to be in
  * row-major layout of type raft::device_matrix_view
  * @param[in] keys keys raft::device_vector_view (len = ncols). It is assumed that each key in this
@@ -84,7 +84,7 @@ void reduce_cols_by_key(const T* data,
  */
 template <typename ElementType, typename KeyType = ElementType, typename IndexType = std::uint32_t>
 void reduce_cols_by_key(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const ElementType, IndexType, raft::row_major> data,
   raft::device_vector_view<const KeyType, IndexType> keys,
   raft::device_matrix_view<ElementType, IndexType, raft::row_major> out,

@@ -53,10 +53,15 @@ class cusparse_resource_factory : public resource_factory {
 };
 
 /**
+ * @defgroup resource_cusparse cuSparse handle resource functions
+ * @{
+ */
+
+/**
  * Load a cusparseres_t from raft res if it exists, otherwise
  * add it and return it.
- * @param res
- * @return
+ * @param[in] res the raft resources object
+ * @return cusparse handle
  */
 inline cusparseHandle_t get_cusparse_handle(resources const& res)
 {
@@ -66,4 +71,9 @@ inline cusparseHandle_t get_cusparse_handle(resources const& res)
   }
   return *res.get_resource<cusparseHandle_t>(resource_type::CUSPARSE_HANDLE);
 };
+
+/**
+ * @}
+ */
+
 }  // namespace raft::resource
