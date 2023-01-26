@@ -17,6 +17,7 @@
 #pragma once
 
 #include "permute.cuh"
+#include <raft/core/handle.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/random/rng_device.cuh>

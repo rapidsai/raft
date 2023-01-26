@@ -46,7 +46,7 @@ template <typename T, typename IdxType>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T, typename IdxType>
-void matrix_vector_op_launch(const raft::handle_t& handle,
+void matrix_vector_op_launch(const raft::device_resources& handle,
                              T* in,
                              const T* vec1,
                              IdxType D,
@@ -98,7 +98,7 @@ void matrix_vector_op_launch(const raft::handle_t& handle,
 }
 
 template <typename T, typename IdxType>
-void naive_matrix_vector_op_launch(const raft::handle_t& handle,
+void naive_matrix_vector_op_launch(const raft::device_resources& handle,
                                    T* in,
                                    const T* vec1,
                                    IdxType D,
@@ -183,7 +183,7 @@ class MatrixVectorTest : public ::testing::TestWithParam<MatrixVectorInputs<T, I
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   MatrixVectorInputs<T, IdxType> params;

@@ -163,7 +163,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream = 0;
   GatherInputs<IdxT> params;
   std::vector<MatrixT> h_in, h_out, h_stencil;

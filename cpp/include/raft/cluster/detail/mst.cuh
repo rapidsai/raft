@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ void merge_msts(sparse::solver::Graph_COO<value_idx, value_idx, value_t>& coo1,
  */
 template <typename value_idx, typename value_t, typename red_op>
 void connect_knn_graph(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   const value_t* X,
   sparse::solver::Graph_COO<value_idx, value_idx, value_t>& msf,
   size_t m,
@@ -130,7 +130,7 @@ void connect_knn_graph(
  */
 template <typename value_idx, typename value_t, typename red_op>
 void build_sorted_mst(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   const value_t* X,
   const value_idx* indptr,
   const value_idx* indices,

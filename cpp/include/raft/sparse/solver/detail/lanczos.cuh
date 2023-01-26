@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 #include <cuda.h>
 #include <curand.h>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/detail/lapack.hpp>
 #include <raft/spectral/detail/warn_dbg.hpp>
@@ -80,7 +80,7 @@ inline curandStatus_t curandGenerateNormalX(
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename index_type_t, typename value_type_t>
-int performLanczosIteration(handle_t const& handle,
+int performLanczosIteration(raft::device_resources const& handle,
                             spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
                             index_type_t* iter,
                             index_type_t maxIter,
@@ -541,7 +541,7 @@ static int francisQRIteration(index_type_t n,
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
-static int lanczosRestart(handle_t const& handle,
+static int lanczosRestart(raft::device_resources const& handle,
                           index_type_t n,
                           index_type_t iter,
                           index_type_t iter_new,
@@ -744,7 +744,7 @@ static int lanczosRestart(handle_t const& handle,
  */
 template <typename index_type_t, typename value_type_t>
 int computeSmallestEigenvectors(
-  handle_t const& handle,
+  raft::device_resources const& handle,
   spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
   index_type_t nEigVecs,
   index_type_t maxIter,
@@ -988,7 +988,7 @@ int computeSmallestEigenvectors(
 
 template <typename index_type_t, typename value_type_t>
 int computeSmallestEigenvectors(
-  handle_t const& handle,
+  raft::device_resources const& handle,
   spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
   index_type_t nEigVecs,
   index_type_t maxIter,
@@ -1091,7 +1091,7 @@ int computeSmallestEigenvectors(
  */
 template <typename index_type_t, typename value_type_t>
 int computeLargestEigenvectors(
-  handle_t const& handle,
+  raft::device_resources const& handle,
   spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
   index_type_t nEigVecs,
   index_type_t maxIter,
@@ -1338,7 +1338,7 @@ int computeLargestEigenvectors(
 
 template <typename index_type_t, typename value_type_t>
 int computeLargestEigenvectors(
-  handle_t const& handle,
+  raft::device_resources const& handle,
   spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
   index_type_t nEigVecs,
   index_type_t maxIter,

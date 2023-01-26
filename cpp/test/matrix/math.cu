@@ -207,7 +207,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   MathInputs<T> params;

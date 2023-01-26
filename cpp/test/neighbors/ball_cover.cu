@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ uint32_t count_discrepancies(value_idx* actual_idx,
 }
 
 template <typename value_t>
-void compute_bfknn(const raft::handle_t& handle,
+void compute_bfknn(const raft::device_resources& handle,
                    const value_t* X1,
                    const value_t* X2,
                    uint32_t n_rows,
@@ -152,7 +152,7 @@ class BallCoverKNNQueryTest : public ::testing::TestWithParam<BallCoverInputs<va
   void basicTest()
   {
     params = ::testing::TestWithParam<BallCoverInputs<value_int>>::GetParam();
-    raft::handle_t handle;
+    raft::device_resources handle;
 
     uint32_t k         = params.k;
     uint32_t n_centers = 25;
@@ -252,7 +252,7 @@ class BallCoverAllKNNTest : public ::testing::TestWithParam<BallCoverInputs<valu
   void basicTest()
   {
     params = ::testing::TestWithParam<BallCoverInputs<value_int>>::GetParam();
-    raft::handle_t handle;
+    raft::device_resources handle;
 
     uint32_t k         = params.k;
     uint32_t n_centers = 25;

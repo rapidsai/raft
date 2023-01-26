@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 #include "rng_device.cuh"
 
 #include <curand_kernel.h>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/detail/cub_wrappers.cuh>
@@ -259,7 +259,7 @@ class RngImpl {
 
   template <typename DataT, typename WeightsT, typename IdxT = int>
   METHOD_DEPR(sampleWithoutReplacement)
-  void sampleWithoutReplacement(const raft::handle_t& handle,
+  void sampleWithoutReplacement(raft::device_resources const& handle,
                                 DataT* out,
                                 IdxT* outIdx,
                                 const DataT* in,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <raft/spatial/knn/detail/ivf_flat_build.cuh>
 #include <raft/spatial/knn/detail/ivf_flat_search.cuh>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <rmm/cuda_stream_view.hpp>
@@ -61,9 +61,11 @@ namespace raft::neighbors::ivf_flat {
  * @return the constructed ivf-flat index
  */
 template <typename T, typename IdxT>
-auto build(
-  const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
-  -> index<T, IdxT>
+auto build(raft::device_resources const& handle,
+           const index_params& params,
+           const T* dataset,
+           IdxT n_rows,
+           uint32_t dim) -> index<T, IdxT>
 {
   return raft::spatial::knn::ivf_flat::detail::build(handle, params, dataset, n_rows, dim);
 }
@@ -106,7 +108,7 @@ auto build(
  * @return the constructed ivf-flat index
  */
 template <typename value_t, typename idx_t>
-auto build(const handle_t& handle,
+auto build(raft::device_resources const& handle,
            raft::device_matrix_view<const value_t, idx_t, row_major> dataset,
            const index_params& params) -> index<value_t, idx_t>
 {
@@ -152,7 +154,7 @@ auto build(const handle_t& handle,
  * @return the constructed extended ivf-flat index
  */
 template <typename T, typename IdxT>
-auto extend(const handle_t& handle,
+auto extend(raft::device_resources const& handle,
             const index<T, IdxT>& orig_index,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -201,7 +203,7 @@ auto extend(const handle_t& handle,
  * @return the constructed extended ivf-flat index
  */
 template <typename value_t, typename idx_t>
-auto extend(const handle_t& handle,
+auto extend(raft::device_resources const& handle,
             const index<value_t, idx_t>& orig_index,
             raft::device_matrix_view<const value_t, idx_t, row_major> new_vectors,
             std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
@@ -244,7 +246,7 @@ auto extend(const handle_t& handle,
  * @param[in] n_rows the number of samples
  */
 template <typename T, typename IdxT>
-void extend(const handle_t& handle,
+void extend(raft::device_resources const& handle,
             index<T, IdxT>* index,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -286,7 +288,7 @@ void extend(const handle_t& handle,
  *    here to imply a continuous range `[0...n_rows)`.
  */
 template <typename value_t, typename idx_t>
-void extend(const handle_t& handle,
+void extend(raft::device_resources const& handle,
             index<value_t, idx_t>* index,
             raft::device_matrix_view<const value_t, idx_t, row_major> new_vectors,
             std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
@@ -343,7 +345,7 @@ void extend(const handle_t& handle,
  * enough memory pool here to avoid memory allocations within search).
  */
 template <typename T, typename IdxT>
-void search(const handle_t& handle,
+void search(raft::device_resources const& handle,
             const search_params& params,
             const index<T, IdxT>& index,
             const T* queries,
@@ -398,7 +400,7 @@ void search(const handle_t& handle,
  * @param[in] k the number of neighbors to find for each query.
  */
 template <typename value_t, typename idx_t, typename int_t>
-void search(const handle_t& handle,
+void search(raft::device_resources const& handle,
             const index<value_t, idx_t>& index,
             raft::device_matrix_view<const value_t, idx_t, row_major> queries,
             raft::device_matrix_view<idx_t, idx_t, row_major> neighbors,
