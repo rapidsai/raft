@@ -19,7 +19,7 @@
 #include <common/benchmark.hpp>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/refine.cuh>
@@ -94,7 +94,7 @@ class RefineAnn : public fixture {
   }
 
  private:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   RefineHelper<DataT, DistanceT, IdxT> data;
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,14 +34,14 @@
 namespace raft::spatial::knn {
 
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
-void rbc_build_index(const raft::handle_t& handle,
+void rbc_build_index(raft::device_resources const& handle,
                      BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index)
 {
   raft::neighbors::ball_cover::build_index(handle, index);
 }
 
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
-void rbc_all_knn_query(const raft::handle_t& handle,
+void rbc_all_knn_query(raft::device_resources const& handle,
                        BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                        int_t k,
                        idx_t* inds,
@@ -54,7 +54,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
 }
 
 template <typename idx_t, typename value_t, typename int_t>
-void rbc_knn_query(const raft::handle_t& handle,
+void rbc_knn_query(raft::device_resources const& handle,
                    const BallCoverIndex<idx_t, value_t, int_t>& index,
                    int_t k,
                    const value_t* query,

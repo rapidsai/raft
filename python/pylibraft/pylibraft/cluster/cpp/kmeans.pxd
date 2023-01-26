@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,14 +27,14 @@ from libcpp cimport bool, nullptr
 from pylibraft.cluster.cpp.kmeans_types cimport KMeansParams
 from pylibraft.common.cpp.mdspan cimport *
 from pylibraft.common.cpp.optional cimport optional
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle cimport device_resources
 
 
 cdef extern from "raft_runtime/cluster/kmeans.hpp" \
         namespace "raft::runtime::cluster::kmeans" nogil:
 
     cdef void update_centroids(
-        const handle_t& handle,
+        const device_resources& handle,
         const double *X,
         int n_samples,
         int n_features,
@@ -46,7 +46,7 @@ cdef extern from "raft_runtime/cluster/kmeans.hpp" \
         double *weight_per_cluster) except +
 
     cdef void update_centroids(
-        const handle_t& handle,
+        const device_resources& handle,
         const float *X,
         int n_samples,
         int n_features,
@@ -58,7 +58,7 @@ cdef extern from "raft_runtime/cluster/kmeans.hpp" \
         float *weight_per_cluster) except +
 
     cdef void cluster_cost(
-        const handle_t& handle,
+        const device_resources& handle,
         const float* X,
         int n_samples,
         int n_features,
@@ -67,7 +67,7 @@ cdef extern from "raft_runtime/cluster/kmeans.hpp" \
         float * cost) except +
 
     cdef void cluster_cost(
-        const handle_t& handle,
+        const device_resources& handle,
         const double* X,
         int n_samples,
         int n_features,
@@ -76,7 +76,7 @@ cdef extern from "raft_runtime/cluster/kmeans.hpp" \
         double * cost) except +
 
     cdef void fit(
-        const handle_t & handle,
+        const device_resources & handle,
         const KMeansParams& params,
         device_matrix_view[float, int, row_major] X,
         optional[device_vector_view[float, int]] sample_weight,
@@ -85,7 +85,7 @@ cdef extern from "raft_runtime/cluster/kmeans.hpp" \
         host_scalar_view[int, int] n_iter) except +
 
     cdef void fit(
-        const handle_t & handle,
+        const device_resources & handle,
         const KMeansParams& params,
         device_matrix_view[double, int, row_major] X,
         optional[device_vector_view[double, int]] sample_weight,

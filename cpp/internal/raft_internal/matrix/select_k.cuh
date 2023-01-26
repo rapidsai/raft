@@ -18,7 +18,7 @@
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 namespace raft::matrix::select {
 
@@ -67,7 +67,7 @@ inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
 }
 
 template <typename T, typename IdxT>
-void select_k_impl(const handle_t& handle,
+void select_k_impl(const device_resources& handle,
                    const Algo& algo,
                    const T* in,
                    const IdxT* in_idx,

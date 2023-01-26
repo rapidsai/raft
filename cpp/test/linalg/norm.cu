@@ -113,7 +113,7 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   NormInputs<T, IdxT> params;
@@ -190,7 +190,7 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   NormInputs<T, IdxT> params;

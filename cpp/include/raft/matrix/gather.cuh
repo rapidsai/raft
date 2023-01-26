@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/matrix/detail/gather.cuh>
 #include <raft/util/itertools.hpp>
 
@@ -210,7 +210,7 @@ template <typename matrix_t,
           typename map_t,
           typename idx_t,
           typename map_xform_t = raft::identity_op>
-void gather(const raft::handle_t& handle,
+void gather(const raft::device_resources& handle,
             raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
             raft::device_vector_view<const map_t, idx_t> map,
             raft::device_matrix_view<matrix_t, idx_t, row_major> out,
@@ -261,7 +261,7 @@ template <typename matrix_t,
           typename unary_pred_t,
           typename idx_t,
           typename map_xform_t = raft::identity_op>
-void gather_if(const raft::handle_t& handle,
+void gather_if(const raft::device_resources& handle,
                raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
                raft::device_matrix_view<matrix_t, idx_t, row_major> out,
                raft::device_vector_view<const map_t, idx_t> map,

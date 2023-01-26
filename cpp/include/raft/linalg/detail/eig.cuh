@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include "cusolver_wrappers.hpp"
 #include <cuda_runtime_api.h>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
@@ -29,7 +29,7 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void eigDC_legacy(const raft::handle_t& handle,
+void eigDC_legacy(raft::device_resources const& handle,
                   const math_t* in,
                   std::size_t n_rows,
                   std::size_t n_cols,
@@ -74,7 +74,7 @@ void eigDC_legacy(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void eigDC(const raft::handle_t& handle,
+void eigDC(raft::device_resources const& handle,
            const math_t* in,
            std::size_t n_rows,
            std::size_t n_cols,
@@ -137,7 +137,7 @@ void eigDC(const raft::handle_t& handle,
 enum EigVecMemUsage { OVERWRITE_INPUT, COPY_INPUT };
 
 template <typename math_t>
-void eigSelDC(const raft::handle_t& handle,
+void eigSelDC(raft::device_resources const& handle,
               math_t* in,
               std::size_t n_rows,
               std::size_t n_cols,
@@ -228,7 +228,7 @@ void eigSelDC(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void eigJacobi(const raft::handle_t& handle,
+void eigJacobi(raft::device_resources const& handle,
                const math_t* in,
                std::size_t n_rows,
                std::size_t n_cols,

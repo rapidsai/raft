@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include <cooperative_groups.h>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/vectorized.cuh>
@@ -129,7 +129,7 @@ __global__ void __launch_bounds__(adj_to_csr_tpb)
  *                         number of non-zeros in adj.
  */
 template <typename index_t = int>
-void adj_to_csr(const raft::handle_t& handle,
+void adj_to_csr(raft::device_resources const& handle,
                 const bool* adj,         // row-major adjacency matrix
                 const index_t* row_ind,  // precomputed row indices
                 index_t num_rows,        // # rows of adj

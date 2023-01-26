@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
   }
 
   // declaring the data values
-  raft::handle_t handle;
+  raft::device_resources handle;
   klDivergenceParam params;
   int nElements              = 0;
   DataT truthklDivergence    = 0;

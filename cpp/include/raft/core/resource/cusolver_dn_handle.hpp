@@ -44,6 +44,11 @@ class cusolver_dn_resource : public resource {
 };
 
 /**
+ * @defgroup resource_cusolver_dn cuSolver DN handle resource functions
+ * @{
+ */
+
+/**
  * Factory that knows how to construct a
  * specific raft::resource to populate
  * the res_t.
@@ -61,8 +66,8 @@ class cusolver_dn_resource_factory : public resource_factory {
 /**
  * Load a cusolverSpres_t from raft res if it exists, otherwise
  * add it and return it.
- * @param res
- * @return
+ * @param[in] res the raft resources object
+ * @return cusolver dn handle
  */
 inline cusolverDnHandle_t get_cusolver_dn_handle(resources const& res)
 {
@@ -72,4 +77,9 @@ inline cusolverDnHandle_t get_cusolver_dn_handle(resources const& res)
   }
   return *res.get_resource<cusolverDnHandle_t>(resource_type::CUSOLVER_DN_HANDLE);
 };
+
+/**
+ * @}
+ */
+
 }  // namespace raft::resource

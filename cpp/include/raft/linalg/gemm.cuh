@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ namespace linalg {
  * @param [in] stream
  */
 template <typename math_t, bool DevicePointerMode = false>
-void gemm(const raft::handle_t& handle,
+void gemm(raft::device_resources const& handle,
           const bool trans_a,
           const bool trans_b,
           const int m,
@@ -91,7 +91,7 @@ void gemm(const raft::handle_t& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void gemm(const raft::handle_t& handle,
+void gemm(raft::device_resources const& handle,
           const math_t* a,
           int n_rows_a,
           int n_cols_a,
@@ -126,7 +126,7 @@ void gemm(const raft::handle_t& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void gemm(const raft::handle_t& handle,
+void gemm(raft::device_resources const& handle,
           const math_t* a,
           int n_rows_a,
           int n_cols_a,
@@ -161,7 +161,7 @@ void gemm(const raft::handle_t& handle,
  * @param beta scalar
  */
 template <typename T>
-void gemm(const raft::handle_t& handle,
+void gemm(raft::device_resources const& handle,
           T* z,
           T* x,
           T* y,
@@ -213,7 +213,7 @@ template <typename ValueType,
           typename                = std::enable_if_t<std::disjunction_v<
             std::is_same<ScalarViewType, raft::host_scalar_view<ValueType, ScalarIdxType>>,
             std::is_same<ScalarViewType, raft::device_scalar_view<ValueType, ScalarIdxType>>>>>
-void gemm(const raft::handle_t& handle,
+void gemm(raft::device_resources const& handle,
           raft::device_matrix_view<ValueType, IndexType, LayoutPolicyX> x,
           raft::device_matrix_view<ValueType, IndexType, LayoutPolicyY> y,
           raft::device_matrix_view<ValueType, IndexType, LayoutPolicyZ> z,
