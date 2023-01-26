@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ from pylibraft.cluster.kmeans import (
     compute_new_centroids,
     fit,
 )
-from pylibraft.common import Handle, device_ndarray
+from pylibraft.common import DeviceResources, device_ndarray
 from pylibraft.distance import pairwise_distance
 
 
@@ -64,7 +64,7 @@ def test_compute_new_centroids(
 
     # A single RAFT handle can optionally be reused across
     # pylibraft functions.
-    handle = Handle()
+    handle = DeviceResources()
 
     X = np.random.random_sample((n_rows, n_cols)).astype(dtype)
     X_device = device_ndarray(X)

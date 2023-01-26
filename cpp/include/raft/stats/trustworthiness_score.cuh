@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 
 #pragma once
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/stats/detail/trustworthiness_score.cuh>
 
 namespace raft {
@@ -38,7 +38,7 @@ namespace stats {
  * @return[out] Trustworthiness score
  */
 template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(const raft::handle_t& h,
+double trustworthiness_score(const raft::device_resources& h,
                              const math_t* X,
                              math_t* X_embedded,
                              int n,
@@ -71,7 +71,7 @@ double trustworthiness_score(const raft::handle_t& h,
  */
 template <raft::distance::DistanceType distance_type, typename value_t, typename idx_t>
 double trustworthiness_score(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_embedded,
   int n_neighbors,

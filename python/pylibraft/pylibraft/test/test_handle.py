@@ -16,7 +16,7 @@
 import numpy as np
 import pytest
 
-from pylibraft.common import Handle, Stream, device_ndarray
+from pylibraft.common import DeviceResources, Stream, device_ndarray
 from pylibraft.distance import pairwise_distance
 
 try:
@@ -37,11 +37,11 @@ def test_handle_external_stream(stream):
     output_device = device_ndarray(output)
 
     # We are just testing that this doesn't segfault
-    handle = Handle(stream)
+    handle = DeviceResources(stream)
     pairwise_distance(
         input1_device, input1_device, output_device, "euclidean", handle=handle
     )
     handle.sync()
 
     with pytest.raises(ValueError):
-        handle = Handle(stream=1.0)
+        handle = DeviceResources(stream=1.0)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 #include <cassert>
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <type_traits>
 #include <variant>
 
@@ -41,7 +41,7 @@ namespace raft::random {
  * @param[in] end end of the range
  */
 template <typename OutputValueType, typename IndexType>
-void uniform(const raft::handle_t& handle,
+void uniform(raft::device_resources const& handle,
              RngState& rng_state,
              raft::device_vector_view<OutputValueType, IndexType> out,
              OutputValueType start,
@@ -63,7 +63,7 @@ void uniform(const raft::handle_t& handle,
  * @param[in] end end of the range
  */
 template <typename OutType, typename LenType = int>
-void uniform(const raft::handle_t& handle,
+void uniform(raft::device_resources const& handle,
              RngState& rng_state,
              OutType* ptr,
              LenType len,
@@ -86,7 +86,7 @@ void uniform(const raft::handle_t& handle,
  * @param[in] end end of the range
  */
 template <typename OutputValueType, typename IndexType>
-void uniformInt(const raft::handle_t& handle,
+void uniformInt(raft::device_resources const& handle,
                 RngState& rng_state,
                 raft::device_vector_view<OutputValueType, IndexType> out,
                 OutputValueType start,
@@ -114,7 +114,7 @@ void uniformInt(const raft::handle_t& handle,
  * @param[in] end end of the range
  */
 template <typename OutType, typename LenType = int>
-void uniformInt(const raft::handle_t& handle,
+void uniformInt(raft::device_resources const& handle,
                 RngState& rng_state,
                 OutType* ptr,
                 LenType len,
@@ -138,7 +138,7 @@ void uniformInt(const raft::handle_t& handle,
  * @param[in] sigma std-dev of the distribution
  */
 template <typename OutputValueType, typename IndexType>
-void normal(const raft::handle_t& handle,
+void normal(raft::device_resources const& handle,
             RngState& rng_state,
             raft::device_vector_view<OutputValueType, IndexType> out,
             OutputValueType mu,
@@ -160,7 +160,7 @@ void normal(const raft::handle_t& handle,
  * @param[in] sigma std-dev of the distribution
  */
 template <typename OutType, typename LenType = int>
-void normal(const raft::handle_t& handle,
+void normal(raft::device_resources const& handle,
             RngState& rng_state,
             OutType* ptr,
             LenType len,
@@ -183,7 +183,7 @@ void normal(const raft::handle_t& handle,
  * @param[in] sigma standard deviation of the distribution
  */
 template <typename OutputValueType, typename IndexType>
-void normalInt(const raft::handle_t& handle,
+void normalInt(raft::device_resources const& handle,
                RngState& rng_state,
                raft::device_vector_view<OutputValueType, IndexType> out,
                OutputValueType mu,
@@ -212,7 +212,7 @@ void normalInt(const raft::handle_t& handle,
  * @param[in] sigma std-dev of the distribution
  */
 template <typename IntType, typename LenType = int>
-void normalInt(const raft::handle_t& handle,
+void normalInt(raft::device_resources const& handle,
                RngState& rng_state,
                IntType* ptr,
                LenType len,
@@ -244,7 +244,7 @@ void normalInt(const raft::handle_t& handle,
  */
 template <typename OutputValueType, typename IndexType>
 void normalTable(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   RngState& rng_state,
   raft::device_vector_view<const OutputValueType, IndexType> mu_vec,
   std::variant<raft::device_vector_view<const OutputValueType, IndexType>, OutputValueType> sigma,
@@ -307,7 +307,7 @@ void normalTable(
  * @param[in] sigma scalar sigma to be used if 'sigma_vec' is nullptr
  */
 template <typename OutType, typename LenType = int>
-void normalTable(const raft::handle_t& handle,
+void normalTable(raft::device_resources const& handle,
                  RngState& rng_state,
                  OutType* ptr,
                  LenType n_rows,
@@ -332,7 +332,7 @@ void normalTable(const raft::handle_t& handle,
  * @param[out] out the output vector
  */
 template <typename OutputValueType, typename IndexType>
-void fill(const raft::handle_t& handle,
+void fill(raft::device_resources const& handle,
           RngState& rng_state,
           OutputValueType val,
           raft::device_vector_view<OutputValueType, IndexType> out)
@@ -352,7 +352,8 @@ void fill(const raft::handle_t& handle,
  * @param[in] val value to be filled
  */
 template <typename OutType, typename LenType = int>
-void fill(const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenType len, OutType val)
+void fill(
+  raft::device_resources const& handle, RngState& rng_state, OutType* ptr, LenType len, OutType val)
 {
   detail::fill(rng_state, ptr, len, val, handle.get_stream());
 }
@@ -371,7 +372,7 @@ void fill(const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenTy
  * @param[in] prob coin-toss probability for heads
  */
 template <typename OutputValueType, typename IndexType, typename Type>
-void bernoulli(const raft::handle_t& handle,
+void bernoulli(raft::device_resources const& handle,
                RngState& rng_state,
                raft::device_vector_view<OutputValueType, IndexType> out,
                Type prob)
@@ -394,7 +395,7 @@ void bernoulli(const raft::handle_t& handle,
  */
 template <typename Type, typename OutType = bool, typename LenType = int>
 void bernoulli(
-  const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenType len, Type prob)
+  raft::device_resources const& handle, RngState& rng_state, OutType* ptr, LenType len, Type prob)
 {
   detail::bernoulli(rng_state, ptr, len, prob, handle.get_stream());
 }
@@ -412,7 +413,7 @@ void bernoulli(
  * @param[in] scale scaling factor
  */
 template <typename OutputValueType, typename IndexType>
-void scaled_bernoulli(const raft::handle_t& handle,
+void scaled_bernoulli(raft::device_resources const& handle,
                       RngState& rng_state,
                       raft::device_vector_view<OutputValueType, IndexType> out,
                       OutputValueType prob,
@@ -435,7 +436,7 @@ void scaled_bernoulli(const raft::handle_t& handle,
  * @param[in] scale scaling factor
  */
 template <typename OutType, typename LenType = int>
-void scaled_bernoulli(const raft::handle_t& handle,
+void scaled_bernoulli(raft::device_resources const& handle,
                       RngState& rng_state,
                       OutType* ptr,
                       LenType len,
@@ -459,7 +460,7 @@ void scaled_bernoulli(const raft::handle_t& handle,
  * @note https://en.wikipedia.org/wiki/Gumbel_distribution
  */
 template <typename OutputValueType, typename IndexType = int>
-void gumbel(const raft::handle_t& handle,
+void gumbel(raft::device_resources const& handle,
             RngState& rng_state,
             raft::device_vector_view<OutputValueType, IndexType> out,
             OutputValueType mu,
@@ -482,7 +483,7 @@ void gumbel(const raft::handle_t& handle,
  * @note https://en.wikipedia.org/wiki/Gumbel_distribution
  */
 template <typename OutType, typename LenType = int>
-void gumbel(const raft::handle_t& handle,
+void gumbel(raft::device_resources const& handle,
             RngState& rng_state,
             OutType* ptr,
             LenType len,
@@ -505,7 +506,7 @@ void gumbel(const raft::handle_t& handle,
  * @param[in] sigma standard deviation of the distribution
  */
 template <typename OutputValueType, typename IndexType>
-void lognormal(const raft::handle_t& handle,
+void lognormal(raft::device_resources const& handle,
                RngState& rng_state,
                raft::device_vector_view<OutputValueType, IndexType> out,
                OutputValueType mu,
@@ -527,7 +528,7 @@ void lognormal(const raft::handle_t& handle,
  * @param[in] sigma standard deviation of the distribution
  */
 template <typename OutType, typename LenType = int>
-void lognormal(const raft::handle_t& handle,
+void lognormal(raft::device_resources const& handle,
                RngState& rng_state,
                OutType* ptr,
                LenType len,
@@ -550,7 +551,7 @@ void lognormal(const raft::handle_t& handle,
  * @param[in] scale scale value
  */
 template <typename OutputValueType, typename IndexType = int>
-void logistic(const raft::handle_t& handle,
+void logistic(raft::device_resources const& handle,
               RngState& rng_state,
               raft::device_vector_view<OutputValueType, IndexType> out,
               OutputValueType mu,
@@ -572,7 +573,7 @@ void logistic(const raft::handle_t& handle,
  * @param[in] scale scale value
  */
 template <typename OutType, typename LenType = int>
-void logistic(const raft::handle_t& handle,
+void logistic(raft::device_resources const& handle,
               RngState& rng_state,
               OutType* ptr,
               LenType len,
@@ -594,7 +595,7 @@ void logistic(const raft::handle_t& handle,
  * @param[in] lambda the exponential distribution's lambda parameter
  */
 template <typename OutputValueType, typename IndexType>
-void exponential(const raft::handle_t& handle,
+void exponential(raft::device_resources const& handle,
                  RngState& rng_state,
                  raft::device_vector_view<OutputValueType, IndexType> out,
                  OutputValueType lambda)
@@ -614,8 +615,11 @@ void exponential(const raft::handle_t& handle,
  * @param[in] lambda the exponential distribution's lambda parameter
  */
 template <typename OutType, typename LenType = int>
-void exponential(
-  const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenType len, OutType lambda)
+void exponential(raft::device_resources const& handle,
+                 RngState& rng_state,
+                 OutType* ptr,
+                 LenType len,
+                 OutType lambda)
 {
   detail::exponential(rng_state, ptr, len, lambda, handle.get_stream());
 }
@@ -632,7 +636,7 @@ void exponential(
  * @param[in] sigma the distribution's sigma parameter
  */
 template <typename OutputValueType, typename IndexType>
-void rayleigh(const raft::handle_t& handle,
+void rayleigh(raft::device_resources const& handle,
               RngState& rng_state,
               raft::device_vector_view<OutputValueType, IndexType> out,
               OutputValueType sigma)
@@ -652,8 +656,11 @@ void rayleigh(const raft::handle_t& handle,
  * @param[in] sigma the distribution's sigma parameter
  */
 template <typename OutType, typename LenType = int>
-void rayleigh(
-  const raft::handle_t& handle, RngState& rng_state, OutType* ptr, LenType len, OutType sigma)
+void rayleigh(raft::device_resources const& handle,
+              RngState& rng_state,
+              OutType* ptr,
+              LenType len,
+              OutType sigma)
 {
   detail::rayleigh(rng_state, ptr, len, sigma, handle.get_stream());
 }
@@ -671,7 +678,7 @@ void rayleigh(
  * @param[in] scale the scale
  */
 template <typename OutputValueType, typename IndexType>
-void laplace(const raft::handle_t& handle,
+void laplace(raft::device_resources const& handle,
              RngState& rng_state,
              raft::device_vector_view<OutputValueType, IndexType> out,
              OutputValueType mu,
@@ -693,7 +700,7 @@ void laplace(const raft::handle_t& handle,
  * @param[in] scale the scale
  */
 template <typename OutType, typename LenType = int>
-void laplace(const raft::handle_t& handle,
+void laplace(raft::device_resources const& handle,
              RngState& rng_state,
              OutType* ptr,
              LenType len,
@@ -709,10 +716,10 @@ void laplace(const raft::handle_t& handle,
  * Usage example:
  * @code{.cpp}
  *  #include <raft/core/device_mdarray.hpp>
- *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/device_resources.hpp>
  *  #include <raft/random/rng.cuh>
  *
- *  raft::handle_t handle;
+ *  raft::raft::device_resources handle;
  *  ...
  *  raft::random::RngState rng(seed);
  *  auto indices = raft::make_device_vector<int>(handle, n_samples);
@@ -730,7 +737,7 @@ void laplace(const raft::handle_t& handle,
  */
 template <typename OutType, typename WeightType, typename IndexType>
 std::enable_if_t<std::is_integral_v<OutType>> discrete(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   RngState& rng_state,
   raft::device_vector_view<OutType, IndexType> out,
   raft::device_vector_view<const WeightType, IndexType> weights)
@@ -763,7 +770,7 @@ std::enable_if_t<std::is_integral_v<OutType>> discrete(
  * @param[in] len input array length
  */
 template <typename DataT, typename WeightsT, typename IdxT = int>
-void sampleWithoutReplacement(const raft::handle_t& handle,
+void sampleWithoutReplacement(raft::device_resources const& handle,
                               RngState& rng_state,
                               DataT* out,
                               IdxT* outIdx,
@@ -1099,7 +1106,7 @@ class DEPR Rng : public detail::RngImpl {
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
-  void sampleWithoutReplacement(const raft::handle_t& handle,
+  void sampleWithoutReplacement(raft::device_resources const& handle,
                                 DataT* out,
                                 IdxT* outIdx,
                                 const DataT* in,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +26,7 @@
 
 #include <raft/solver/linear_assignment_types.hpp>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/solver/detail/lap_kernels.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
@@ -98,7 +98,7 @@ inline void calculateRectangularDims(
 }
 
 template <typename vertex_t, typename weight_t>
-inline void initialReduction(raft::handle_t const& handle,
+inline void initialReduction(raft::device_resources const& handle,
                              weight_t const* d_costs,
                              Vertices<vertex_t, weight_t>& d_vertices_dev,
                              int SP,
@@ -125,7 +125,7 @@ inline void initialReduction(raft::handle_t const& handle,
 }
 
 template <typename vertex_t, typename weight_t>
-inline void computeInitialAssignments(raft::handle_t const& handle,
+inline void computeInitialAssignments(raft::device_resources const& handle,
                                       weight_t const* d_costs,
                                       Vertices<vertex_t, weight_t>& d_vertices,
                                       int SP,
@@ -164,7 +164,7 @@ inline void computeInitialAssignments(raft::handle_t const& handle,
 
 // Function for finding row cover on individual devices.
 template <typename vertex_t, typename weight_t>
-inline int computeRowCovers(raft::handle_t const& handle,
+inline int computeRowCovers(raft::device_resources const& handle,
                             Vertices<vertex_t, weight_t>& d_vertices,
                             VertexData<vertex_t>& d_row_data,
                             VertexData<vertex_t>& d_col_data,
@@ -198,7 +198,7 @@ inline int computeRowCovers(raft::handle_t const& handle,
 
 // Function for covering the zeros in uncovered rows and expanding the frontier.
 template <typename vertex_t, typename weight_t>
-inline void coverZeroAndExpand(raft::handle_t const& handle,
+inline void coverZeroAndExpand(raft::device_resources const& handle,
                                weight_t const* d_costs_dev,
                                vertex_t const* d_rows_csr_neighbors,
                                vertex_t const* d_rows_csr_ptrs,
@@ -230,7 +230,7 @@ inline void coverZeroAndExpand(raft::handle_t const& handle,
 }
 
 template <typename vertex_t, typename weight_t>
-inline vertex_t zeroCoverIteration(raft::handle_t const& handle,
+inline vertex_t zeroCoverIteration(raft::device_resources const& handle,
                                    weight_t const* d_costs_dev,
                                    Vertices<vertex_t, weight_t>& d_vertices_dev,
                                    VertexData<vertex_t>& d_row_data_dev,
@@ -310,7 +310,7 @@ inline vertex_t zeroCoverIteration(raft::handle_t const& handle,
 // Function for executing recursive zero cover. Returns the next step (Step 4 or Step 5) depending
 // on the presence of uncovered zeros.
 template <typename vertex_t, typename weight_t>
-inline void executeZeroCover(raft::handle_t const& handle,
+inline void executeZeroCover(raft::device_resources const& handle,
                              weight_t const* d_costs_dev,
                              Vertices<vertex_t, weight_t>& d_vertices_dev,
                              VertexData<vertex_t>& d_row_data_dev,
@@ -329,7 +329,7 @@ inline void executeZeroCover(raft::handle_t const& handle,
 
 // Function for executing reverse pass of the maximum matching.
 template <typename vertex_t>
-inline void reversePass(raft::handle_t const& handle,
+inline void reversePass(raft::device_resources const& handle,
                         VertexData<vertex_t>& d_row_data_dev,
                         VertexData<vertex_t>& d_col_data_dev,
                         int SP,
@@ -385,7 +385,7 @@ inline void reversePass(raft::handle_t const& handle,
 
 // Function for executing augmentation pass of the maximum matching.
 template <typename vertex_t, typename weight_t>
-inline void augmentationPass(raft::handle_t const& handle,
+inline void augmentationPass(raft::device_resources const& handle,
                              Vertices<vertex_t, weight_t>& d_vertices_dev,
                              VertexData<vertex_t>& d_row_data_dev,
                              VertexData<vertex_t>& d_col_data_dev,
@@ -448,7 +448,7 @@ inline void augmentationPass(raft::handle_t const& handle,
 }
 
 template <typename vertex_t, typename weight_t>
-inline void dualUpdate(raft::handle_t const& handle,
+inline void dualUpdate(raft::device_resources const& handle,
                        Vertices<vertex_t, weight_t>& d_vertices_dev,
                        VertexData<vertex_t>& d_row_data_dev,
                        VertexData<vertex_t>& d_col_data_dev,
@@ -493,7 +493,7 @@ inline void dualUpdate(raft::handle_t const& handle,
 
 // Function for calculating optimal objective function value using dual variables.
 template <typename vertex_t, typename weight_t>
-inline void calcObjValDual(raft::handle_t const& handle,
+inline void calcObjValDual(raft::device_resources const& handle,
                            weight_t* d_obj_val,
                            Vertices<vertex_t, weight_t>& d_vertices_dev,
                            int SP,
@@ -513,7 +513,7 @@ inline void calcObjValDual(raft::handle_t const& handle,
 
 // Function for calculating optimal objective function value using dual variables.
 template <typename vertex_t, typename weight_t>
-inline void calcObjValPrimal(raft::handle_t const& handle,
+inline void calcObjValPrimal(raft::device_resources const& handle,
                              weight_t* d_obj_val,
                              weight_t const* d_costs,
                              vertex_t const* d_row_assignments,

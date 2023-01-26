@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ TEST_P(COOSort, Result)
 {
   params = ::testing::TestWithParam<SparseSortInput<float>>::GetParam();
   raft::random::RngState r(params.seed);
-  raft::handle_t h;
+  raft::device_resources h;
   auto stream = h.get_stream();
 
   rmm::device_uvector<int> in_rows(params.nnz, stream);

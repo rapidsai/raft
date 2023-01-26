@@ -19,7 +19,7 @@
 
 #include <raft_internal/neighbors/refine_helper.cuh>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/refine.cuh>
@@ -102,7 +102,7 @@ class RefineTest : public ::testing::TestWithParam<RefineInputs<IdxT>> {
   }
 
  public:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   rmm::cuda_stream_view stream_;
   RefineHelper<DataT, DistanceT, IdxT> data;
 };

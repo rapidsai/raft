@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ namespace raft::random {
  */
 
 template <typename ValueType>
-void multi_variable_gaussian(const raft::handle_t& handle,
+void multi_variable_gaussian(raft::device_resources const& handle,
                              rmm::mr::device_memory_resource& mem_resource,
                              std::optional<raft::device_vector_view<const ValueType, int>> x,
                              raft::device_matrix_view<ValueType, int, raft::col_major> P,
@@ -41,7 +41,7 @@ void multi_variable_gaussian(const raft::handle_t& handle,
 }
 
 template <typename ValueType>
-void multi_variable_gaussian(const raft::handle_t& handle,
+void multi_variable_gaussian(raft::device_resources const& handle,
                              std::optional<raft::device_vector_view<const ValueType, int>> x,
                              raft::device_matrix_view<ValueType, int, raft::col_major> P,
                              raft::device_matrix_view<ValueType, int, raft::col_major> X,

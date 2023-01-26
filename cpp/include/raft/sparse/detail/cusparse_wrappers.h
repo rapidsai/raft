@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -779,7 +779,7 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
   auto return_value =
     cusparsespmm(handle, opB, opA, alpha, matB, matA, beta, matC, alg, ext_buf, stream);
 
-  raft::handle_t rhandle;
+  raft::device_resources rhandle;
   raft::linalg::transpose(rhandle, CT.data(), C, n, m, stream);
   // destroy matrix/vector descriptors
   CUSPARSE_CHECK(cusparseDestroyDnMat(matA));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ void histogram(HistType type,
  * @note signature of binner_op is `int func(value_t, IdxT);`
  */
 template <typename value_t, typename idx_t, typename binner_op = IdentityBinner<value_t, idx_t>>
-void histogram(const raft::handle_t& handle,
+void histogram(raft::device_resources const& handle,
                HistType type,
                raft::device_matrix_view<const value_t, idx_t, raft::col_major> data,
                raft::device_matrix_view<int, idx_t, raft::col_major> bins,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ __global__ void compute_chunked_a_b_kernel(value_t* a,
 }
 
 template <typename value_idx, typename label_idx>
-rmm::device_uvector<value_idx> get_cluster_counts(const raft::handle_t& handle,
+rmm::device_uvector<value_idx> get_cluster_counts(raft::device_resources const& handle,
                                                   const label_idx* y,
                                                   value_idx& n_rows,
                                                   label_idx& n_labels)
@@ -128,7 +128,7 @@ rmm::device_uvector<value_idx> get_cluster_counts(const raft::handle_t& handle,
 }
 
 template <typename value_t, typename value_idx>
-rmm::device_uvector<value_t> get_pairwise_distance(const raft::handle_t& handle,
+rmm::device_uvector<value_t> get_pairwise_distance(raft::device_resources const& handle,
                                                    const value_t* left_begin,
                                                    const value_t* right_begin,
                                                    value_idx& n_left_rows,
@@ -146,7 +146,7 @@ rmm::device_uvector<value_t> get_pairwise_distance(const raft::handle_t& handle,
 }
 
 template <typename value_t, typename value_idx, typename label_idx>
-void compute_chunked_a_b(const raft::handle_t& handle,
+void compute_chunked_a_b(raft::device_resources const& handle,
                          value_t* a,
                          value_t* b,
                          value_idx& row_offset,
@@ -169,7 +169,7 @@ void compute_chunked_a_b(const raft::handle_t& handle,
 
 template <typename value_t, typename value_idx, typename label_idx>
 value_t silhouette_score(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   const value_t* X,
   value_idx n_rows,
   value_idx n_cols,

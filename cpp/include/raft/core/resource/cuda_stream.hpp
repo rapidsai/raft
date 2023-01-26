@@ -55,6 +55,10 @@ class cuda_stream_resource_factory : public resource_factory {
 };
 
 /**
+ * @defgroup resource_cuda_stream CUDA stream resource functions
+ * @{
+ */
+/**
  * Load a rmm::cuda_stream_view from a resources instance (and populate it on the res
  * if needed).
  * @param res raft res object for managing resources
@@ -71,8 +75,8 @@ inline rmm::cuda_stream_view get_cuda_stream(resources const& res)
 /**
  * Load a rmm::cuda_stream_view from a resources instance (and populate it on the res
  * if needed).
- * @param res raft res object for managing resources
- * @return
+ * @param[in] res raft resources object for managing resources
+ * @param[in] stream_view cuda stream view
  */
 inline void set_cuda_stream(resources const& res, rmm::cuda_stream_view stream_view)
 {
@@ -81,6 +85,9 @@ inline void set_cuda_stream(resources const& res, rmm::cuda_stream_view stream_v
 
 /**
  * @brief synchronize a specific stream
+ *
+ * @param[in] res the raft resources object
+ * @param[in] stream stream to synchronize
  */
 inline void sync_stream(const resources& res, rmm::cuda_stream_view stream)
 {
@@ -91,4 +98,9 @@ inline void sync_stream(const resources& res, rmm::cuda_stream_view stream)
  * @brief synchronize main stream on the resources instance
  */
 inline void sync_stream(const resources& res) { sync_stream(res, get_cuda_stream(res)); }
+
+/**
+ * @}
+ */
+
 }  // namespace raft::resource
