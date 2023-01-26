@@ -47,7 +47,7 @@ void test_mdspan_roundtrip(const raft::device_resources& handle, VectorType& vec
   EXPECT_EQ(vec, vec2);
 }
 
-TEST(MDArraySerializer, E2ERoundTrip)
+TEST(NumPySerializerMDSpan, E2ERoundTrip)
 {
   raft::device_resources handle{};
   thrust::host_vector<float> vec = std::vector<float>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0};
@@ -90,7 +90,7 @@ TEST(MDArraySerializer, E2ERoundTrip)
   test_mdspan_roundtrip<device_mdspan_matrix3d_f_layout>(handle, d_vec, 1, 2, 4);
 }
 
-TEST(MDArraySerializer, HeaderRoundTrip)
+TEST(NumPySerializerMDSpan, HeaderRoundTrip)
 {
   char byteorder = RAFT_NUMPY_HOST_ENDIAN_CHAR;
   for (char kind : std::vector<char>{'f', 'i', 'u', 'c'}) {
@@ -111,7 +111,7 @@ TEST(MDArraySerializer, HeaderRoundTrip)
   }
 }
 
-TEST(MDArraySerializer, Tuple2String)
+TEST(NumPySerializerMDSpan, Tuple2String)
 {
   {
     std::vector<int> tuple{};
@@ -131,7 +131,7 @@ TEST(MDArraySerializer, Tuple2String)
   }
 }
 
-TEST(MDArraySerializer, NumPyDType)
+TEST(NumPySerializerMDSpan, NumPyDType)
 {
   const char expected_endian_char = RAFT_SYSTEM_LITTLE_ENDIAN ? '<' : '>';
   {
@@ -169,7 +169,7 @@ TEST(MDArraySerializer, NumPyDType)
   }
 }
 
-TEST(MDArraySerializer, WriteHeader)
+TEST(NumPySerializerMDSpan, WriteHeader)
 {
   using namespace std::string_literals;
   std::ostringstream oss;
@@ -187,7 +187,7 @@ TEST(MDArraySerializer, WriteHeader)
             "\x20\x20\x20\x20\x20\x20\n"s);
 }
 
-TEST(MDArraySerializer, ParsePyDict)
+TEST(NumPySerializerMDSpan, ParsePyDict)
 {
   std::string dict{"{'apple': 2, 'pie': 'is', 'delicious': True, 'piece of': 'cake'}"};
   auto parse =
@@ -197,12 +197,12 @@ TEST(MDArraySerializer, ParsePyDict)
   EXPECT_EQ(parse, expected_parse);
 }
 
-TEST(MDArraySerializer, ParsePyString)
+TEST(NumPySerializerMDSpan, ParsePyString)
 {
   EXPECT_EQ(detail::numpy_serializer::parse_pystring("'foobar'"), "foobar");
 }
 
-TEST(MDArraySerializer, ParsePyTuple)
+TEST(NumPySerializerMDSpan, ParsePyTuple)
 {
   {
     std::string tuple_str{"(2,)"};

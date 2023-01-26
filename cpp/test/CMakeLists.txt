@@ -96,7 +96,7 @@ if(BUILD_TESTS)
     test/core/nvtx.cpp
     test/core/mdarray.cu
     test/core/mdspan_utils.cu
-    test/core/mdspan_serializer.cu
+    test/core/numpy_serializer.cu
     test/core/memory_type.cpp
     test/core/span.cpp
     test/core/span.cu
