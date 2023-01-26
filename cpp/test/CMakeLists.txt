@@ -32,6 +32,7 @@ function(ConfigureTest)
   target_link_libraries(
     ${TEST_NAME}
     PRIVATE raft::raft
+            raft_internal
             $<$<BOOL:${ConfigureTest_DIST}>:raft::distance>
             $<$<BOOL:${ConfigureTest_NN}>:raft::nn>
             GTest::gtest
@@ -86,6 +87,8 @@ if(BUILD_TESTS)
     CORE_TEST
     PATH
     test/core/logger.cpp
+    test/core/math_device.cu
+    test/core/math_host.cpp
     test/core/operators_device.cu
     test/core/operators_host.cpp
     test/core/handle.cpp
@@ -178,6 +181,7 @@ if(BUILD_TESTS)
     test/matrix/matrix.cu
     test/matrix/norm.cu
     test/matrix/reverse.cu
+    test/matrix/select_k.cu
     test/matrix/slice.cu
     test/matrix/triangular.cu
     test/sparse/spectral_matrix.cu
@@ -291,7 +295,7 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME UTILS_TEST PATH test/core/seive.cu test/util/cudart_utils.cpp test/util/device_atomics.cu
-    test/util/integer_utils.cpp test/util/pow2_utils.cu
+    NAME UTILS_TEST PATH test/core/seive.cu test/util/bitonic_sort.cu test/util/cudart_utils.cpp
+    test/util/device_atomics.cu test/util/integer_utils.cpp test/util/pow2_utils.cu
   )
 endif()
