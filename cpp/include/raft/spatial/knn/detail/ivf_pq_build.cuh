@@ -17,7 +17,6 @@
 #pragma once
 
 #include "ann_kmeans_balanced.cuh"
-#include "ann_serialization.h"
 #include "ann_utils.cuh"
 
 #include <raft/neighbors/ivf_pq_types.hpp>
@@ -56,6 +55,8 @@
 #include <thrust/scan.h>
 #include <thrust/sequence.h>
 
+#include <cstdint>
+#include <fstream>
 #include <variant>
 
 namespace raft::spatial::knn::ivf_pq::detail {
@@ -1388,16 +1389,16 @@ void save(const handle_t& handle_, const std::string& filename, const index<IdxT
                  static_cast<int>(index_.pq_dim()),
                  static_cast<int>(index_.pq_bits()));
 
-  write_scalar(of, serialization_version);
-  write_scalar(of, index_.size());
-  write_scalar(of, index_.dim());
-  write_scalar(of, index_.pq_bits());
-  write_scalar(of, index_.pq_dim());
+  serialize_scalar(handle_, of, serialization_version);
+  serialize_scalar(handle_, of, index_.size());
+  serialize_scalar(handle_, of, index_.dim());
+  serialize_scalar(handle_, of, index_.pq_bits());
+  serialize_scalar(handle_, of, index_.pq_dim());
 
-  write_scalar(of, index_.metric());
-  write_scalar(of, index_.codebook_kind());
-  write_scalar(of, index_.n_lists());
-  write_scalar(of, index_.n_nonempty_lists());
+  serialize_scalar(handle_, of, index_.metric());
+  serialize_scalar(handle_, of, index_.codebook_kind());
+  serialize_scalar(handle_, of, index_.n_lists());
+  serialize_scalar(handle_, of, index_.n_nonempty_lists());
 
   serialize_mdspan(handle_, of, index_.pq_centers());
   serialize_mdspan(handle_, of, index_.pq_dataset());
@@ -1430,22 +1431,22 @@ auto load(const handle_t& handle_, const std::string& filename) -> index<IdxT>
 
   if (!infile) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
 
-  auto ver = read_scalar<int>(infile);
+  auto ver = deserialize_scalar<int>(handle_, infile);
   if (ver != serialization_version) {
     RAFT_FAIL("serialization version mismatch %d vs. %d", ver, serialization_version);
   }
-  auto n_rows  = read_scalar<IdxT>(infile);
-  auto dim     = read_scalar<uint32_t>(infile);
-  auto pq_bits = read_scalar<uint32_t>(infile);
-  auto pq_dim  = read_scalar<uint32_t>(infile);
+  auto n_rows  = deserialize_scalar<IdxT>(handle_, infile);
+  auto dim     = deserialize_scalar<std::uint32_t>(handle_, infile);
+  auto pq_bits = deserialize_scalar<std::uint32_t>(handle_, infile);
+  auto pq_dim  = deserialize_scalar<std::uint32_t>(handle_, infile);
 
-  auto metric           = read_scalar<raft::distance::DistanceType>(infile);
-  auto codebook_kind    = read_scalar<raft::neighbors::ivf_pq::codebook_gen>(infile);
-  auto n_lists          = read_scalar<uint32_t>(infile);
-  auto n_nonempty_lists = read_scalar<uint32_t>(infile);
+  auto metric        = deserialize_scalar<raft::distance::DistanceType>(handle_, infile);
+  auto codebook_kind = deserialize_scalar<raft::neighbors::ivf_pq::codebook_gen>(handle_, infile);
+  auto n_lists       = deserialize_scalar<std::uint32_t>(handle_, infile);
+  auto n_nonempty_lists = deserialize_scalar<std::uint32_t>(handle_, infile);
 
   RAFT_LOG_DEBUG("n_rows %zu, dim %d, pq_dim %d, pq_bits %d, n_lists %d",
-                 static_cast<size_t>(n_rows),
+                 static_cast<std::size_t>(n_rows),
                  static_cast<int>(dim),
                  static_cast<int>(pq_dim),
                  static_cast<int>(pq_bits),

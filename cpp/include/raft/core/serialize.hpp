@@ -16,11 +16,12 @@
 
 #pragma once
 
-#include <iostream>
 #include <raft/core/detail/mdspan_numpy_serializer.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdspan.hpp>
+
+#include <iostream>
 #include <vector>
 
 /**
@@ -116,6 +117,26 @@ inline void deserialize_mdspan(
   raft::device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
 {
   deserialize_mdspan(handle, is, obj);
+}
+
+template <typename T>
+void serialize_scalar(const raft::handle_t& handle, std::ostream& os, const T& value)
+{
+  using mdspan_1d_c_layout =
+    raft::host_mdspan<const T, raft::dextents<std::size_t, 1>, raft::layout_c_contiguous>;
+  auto tmp_mdspan = mdspan_1d_c_layout(&value, 1);
+  serialize_mdspan(handle, os, tmp_mdspan);
+}
+
+template <typename T>
+T deserialize_scalar(const raft::handle_t& handle, std::istream& is)
+{
+  T value;
+  using mdspan_1d_c_layout =
+    raft::host_mdspan<T, raft::dextents<std::size_t, 1>, raft::layout_c_contiguous>;
+  auto tmp_mdspan = mdspan_1d_c_layout(&value, 1);
+  deserialize_mdspan(handle, is, tmp_mdspan);
+  return value;
 }
 
 }  // end namespace raft

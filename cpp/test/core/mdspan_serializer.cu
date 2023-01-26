@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-#include <complex>
-#include <cstdint>
-#include <fstream>
 #include <gtest/gtest.h>
+
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/serialize.hpp>
-#include <sstream>
-#include <string>
+
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
+
+#include <complex>
+#include <cstdint>
+#include <fstream>
+#include <sstream>
+#include <string>
 #include <vector>
 
 namespace raft {

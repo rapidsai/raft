@@ -16,14 +16,15 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/core/host_mdspan.hpp>
+
 #include <algorithm>
 #include <complex>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
-#include <raft/core/host_mdspan.hpp>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -143,6 +144,12 @@ template <typename T, typename std::enable_if_t<is_complex<T>{}, bool> = true>
 inline dtype_t get_numpy_dtype()
 {
   return {RAFT_NUMPY_HOST_ENDIAN_CHAR, 'c', sizeof(T)};
+}
+
+template <typename T, typename std::enable_if_t<std::is_enum_v<T>, bool> = true>
+inline dtype_t get_numpy_dtype()
+{
+  return get_numpy_dtype<std::underlying_type_t<T>>();
 }
 
 template <typename T>

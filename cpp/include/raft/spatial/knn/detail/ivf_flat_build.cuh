@@ -18,7 +18,6 @@
 
 #include "../ivf_flat_types.hpp"
 #include "ann_kmeans_balanced.cuh"
-#include "ann_serialization.h"
 #include "ann_utils.cuh"
 
 #include <raft/core/handle.hpp>
@@ -34,6 +33,9 @@
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
+
+#include <cstdint>
+#include <fstream>
 
 namespace raft::spatial::knn::ivf_flat::detail {
 
@@ -399,13 +401,13 @@ void save(const handle_t& handle, const std::string& filename, const index<T, Id
 
   RAFT_LOG_DEBUG(
     "Saving IVF-PQ index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
-  write_scalar(of, serialization_version);
-  write_scalar(of, index_.size());
-  write_scalar(of, index_.dim());
-  write_scalar(of, index_.n_lists());
-  write_scalar(of, index_.metric());
-  write_scalar(of, index_.veclen());
-  write_scalar(of, index_.adaptive_centers());
+  serialize_scalar(handle, of, serialization_version);
+  serialize_scalar(handle, of, index_.size());
+  serialize_scalar(handle, of, index_.dim());
+  serialize_scalar(handle, of, index_.n_lists());
+  serialize_scalar(handle, of, index_.metric());
+  serialize_scalar(handle, of, index_.veclen());
+  serialize_scalar(handle, of, index_.adaptive_centers());
   serialize_mdspan(handle, of, index_.data());
   serialize_mdspan(handle, of, index_.indices());
   serialize_mdspan(handle, of, index_.list_sizes());
@@ -413,11 +415,11 @@ void save(const handle_t& handle, const std::string& filename, const index<T, Id
   serialize_mdspan(handle, of, index_.centers());
   if (index_.center_norms()) {
     bool has_norms = true;
-    write_scalar(of, has_norms);
+    serialize_scalar(handle, of, has_norms);
     serialize_mdspan(handle, of, *index_.center_norms());
   } else {
     bool has_norms = false;
-    write_scalar(of, has_norms);
+    serialize_scalar(handle, of, has_norms);
   }
   of.close();
   if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
@@ -439,16 +441,16 @@ auto load(const handle_t& handle, const std::string& filename) -> index<T, IdxT>
 
   if (!infile) { RAFT_FAIL("Cannot open %s", filename.c_str()); }
 
-  auto ver = read_scalar<int>(infile);
+  auto ver = deserialize_scalar<int>(handle, infile);
   if (ver != serialization_version) {
     RAFT_FAIL("serialization version mismatch, expected %d, got %d ", serialization_version, ver);
   }
-  auto n_rows           = read_scalar<IdxT>(infile);
-  auto dim              = read_scalar<uint32_t>(infile);
-  auto n_lists          = read_scalar<uint32_t>(infile);
-  auto metric           = read_scalar<raft::distance::DistanceType>(infile);
-  auto veclen           = read_scalar<uint32_t>(infile);
-  bool adaptive_centers = read_scalar<bool>(infile);
+  auto n_rows           = deserialize_scalar<IdxT>(handle, infile);
+  auto dim              = deserialize_scalar<std::uint32_t>(handle, infile);
+  auto n_lists          = deserialize_scalar<std::uint32_t>(handle, infile);
+  auto metric           = deserialize_scalar<raft::distance::DistanceType>(handle, infile);
+  auto veclen           = deserialize_scalar<std::uint32_t>(handle, infile);
+  bool adaptive_centers = deserialize_scalar<bool>(handle, infile);
 
   index<T, IdxT> index_ =
     raft::spatial::knn::ivf_flat::index<T, IdxT>(handle, metric, n_lists, adaptive_centers, dim);
@@ -460,7 +462,7 @@ auto load(const handle_t& handle, const std::string& filename) -> index<T, IdxT>
   deserialize_mdspan(handle, infile, index_.list_sizes());
   deserialize_mdspan(handle, infile, index_.list_offsets());
   deserialize_mdspan(handle, infile, index_.centers());
-  bool has_norms = read_scalar<bool>(infile);
+  bool has_norms = deserialize_scalar<bool>(handle, infile);
   if (has_norms) {
     if (!index_.center_norms()) {
       RAFT_FAIL("Error inconsistent center norms");
