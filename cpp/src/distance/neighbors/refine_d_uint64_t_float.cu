@@ -15,7 +15,7 @@
  */
 
 #include <raft/neighbors/refine.cuh>
-#include <raft/neighbors/specializations.cuh>
+#include <raft/neighbors/specializations/refine.cuh>
 
 namespace raft::runtime::neighbors {
 
