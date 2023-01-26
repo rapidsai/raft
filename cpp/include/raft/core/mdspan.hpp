@@ -304,4 +304,24 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
   }
 }
 
+/**
+ * @brief Create a copy of the given mdspan with const element type
+ * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
+ * @param mds raft::host_mdspan or raft::device_mdspan object
+ * @return raft::host_mdspan or raft::device_mdspan with vector_extent
+ *         depending on AccessoryPolicy
+ */
+template <typename mdspan_type, typename = enable_if_mdspan<mdspan_type>>
+auto make_const_mdspan(mdspan_type mds)
+{
+  using const_element_t = std::add_const_t<typename mdspan_type::element_type>;
+  using const_accessor_t =
+    host_device_accessor<std::experimental::default_accessor<const_element_t>,
+                         mdspan_type::accessor_type::mem_type>;
+  return std::experimental::mdspan<const_element_t,
+                                   typename mdspan_type::extents_type,
+                                   typename mdspan_type::layout_type,
+                                   const_accessor_t>(mds);
+}
+
 }  // namespace raft

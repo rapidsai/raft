@@ -45,7 +45,7 @@ void upper_triangular(const raft::handle_t& handle,
 }
 
 /**
- * @brief Copy the Lower triangular part of a matrix to another
+ * @brief Copy the lower triangular part of a matrix to another
  * @param[in] handle: raft handle
  * @param[in] src: input matrix with a size of n_rows x n_cols
  * @param[out] dst: output matrix with a size of kxk, k = min(n_rows, n_cols)
