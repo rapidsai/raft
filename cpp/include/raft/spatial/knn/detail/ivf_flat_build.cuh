@@ -20,6 +20,7 @@
 #include "ann_serialization.h"
 #include "ann_utils.cuh"
 
+#include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>

@@ -30,6 +30,7 @@
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/normalize.cuh>
