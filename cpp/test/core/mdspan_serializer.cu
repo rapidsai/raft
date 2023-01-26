@@ -23,20 +23,22 @@
 #include <raft/core/mdspan_serializer.hpp>
 #include <sstream>
 #include <string>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 #include <vector>
 
 namespace raft {
 
-template <typename MDSpanType, typename... Args>
-void test_mdspan_roundtrip(const raft::handle_t& handle, std::vector<float>& vec, Args... dims)
+template <typename MDSpanType, typename VectorType, typename... Args>
+void test_mdspan_roundtrip(const raft::handle_t& handle, VectorType& vec, Args... dims)
 {
-  std::vector<float> vec2(vec.size());
+  VectorType vec2(vec.size());
 
-  auto span = MDSpanType(vec.data(), dims...);
+  auto span = MDSpanType(thrust::raw_pointer_cast(vec.data()), dims...);
   std::ostringstream oss;
   serialize_mdspan(handle, oss, span);
 
-  auto span2 = MDSpanType(vec2.data(), dims...);
+  auto span2 = MDSpanType(thrust::raw_pointer_cast(vec2.data()), dims...);
   std::istringstream iss(oss.str());
   deserialize_mdspan(handle, iss, span2);
   EXPECT_EQ(vec, vec2);
@@ -45,7 +47,7 @@ void test_mdspan_roundtrip(const raft::handle_t& handle, std::vector<float>& vec
 TEST(MDArraySerializer, E2ERoundTrip)
 {
   raft::handle_t handle{};
-  std::vector<float> vec{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0};
+  thrust::host_vector<float> vec = std::vector<float>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0};
 
   using mdspan_matrix2d_c_layout =
     raft::host_mdspan<float, raft::dextents<std::size_t, 2>, raft::layout_c_contiguous>;
@@ -64,6 +66,25 @@ TEST(MDArraySerializer, E2ERoundTrip)
   test_mdspan_roundtrip<mdspan_matrix3d_f_layout>(handle, vec, 2, 2, 2);
   test_mdspan_roundtrip<mdspan_matrix3d_c_layout>(handle, vec, 1, 2, 4);
   test_mdspan_roundtrip<mdspan_matrix3d_f_layout>(handle, vec, 1, 2, 4);
+
+  using device_mdspan_matrix2d_c_layout =
+    raft::device_mdspan<float, raft::dextents<std::size_t, 2>, raft::layout_c_contiguous>;
+  using device_mdspan_matrix2d_f_layout =
+    raft::device_mdspan<float, raft::dextents<std::size_t, 2>, raft::layout_f_contiguous>;
+  using device_mdspan_matrix3d_c_layout =
+    raft::device_mdspan<float, raft::dextents<std::size_t, 3>, raft::layout_c_contiguous>;
+  using device_mdspan_matrix3d_f_layout =
+    raft::device_mdspan<float, raft::dextents<std::size_t, 3>, raft::layout_f_contiguous>;
+
+  thrust::device_vector<float> d_vec(vec);
+  test_mdspan_roundtrip<device_mdspan_matrix2d_c_layout>(handle, d_vec, 2, 4);
+  test_mdspan_roundtrip<device_mdspan_matrix2d_f_layout>(handle, d_vec, 2, 4);
+  test_mdspan_roundtrip<device_mdspan_matrix2d_c_layout>(handle, d_vec, 1, 8);
+  test_mdspan_roundtrip<device_mdspan_matrix2d_f_layout>(handle, d_vec, 1, 8);
+  test_mdspan_roundtrip<device_mdspan_matrix3d_c_layout>(handle, d_vec, 2, 2, 2);
+  test_mdspan_roundtrip<device_mdspan_matrix3d_f_layout>(handle, d_vec, 2, 2, 2);
+  test_mdspan_roundtrip<device_mdspan_matrix3d_c_layout>(handle, d_vec, 1, 2, 4);
+  test_mdspan_roundtrip<device_mdspan_matrix3d_f_layout>(handle, d_vec, 1, 2, 4);
 }
 
 TEST(MDArraySerializer, HeaderRoundTrip)
