@@ -134,7 +134,7 @@ class MapOffsetTest : public ::testing::TestWithParam<MapInputs<OutType, IdxType
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   MapInputs<OutType, IdxType, OutType> params;

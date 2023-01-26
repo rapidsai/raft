@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -73,7 +74,10 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
 // The enclosing parent function ("DoTest") for an extended __device__ lambda cannot have private or
 // protected access within its class
 template <typename InType, typename IdxType, typename OutType>
-void launchWriteOnlyUnaryOp(const raft::handle_t& handle, OutType* out, InType scalar, IdxType len)
+void launchWriteOnlyUnaryOp(const raft::device_resources& handle,
+                            OutType* out,
+                            InType scalar,
+                            IdxType len)
 {
   auto out_view = raft::make_device_vector_view(out, len);
   auto op       = [scalar] __device__(OutType * ptr, IdxType idx) {
