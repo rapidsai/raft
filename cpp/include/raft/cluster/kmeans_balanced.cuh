@@ -63,7 +63,7 @@ namespace raft::cluster::kmeans_balanced {
  * @tparam MathT Type of the centroids and mapped data.
  * @tparam IndexT Type used for indexing.
  * @tparam MappingOpT Type of the mapping function.
- * @param[in]  handle     The raft handle
+ * @param[in]  handle     The raft resources
  * @param[in]  params     Structure containing the hyper-parameters
  * @param[in]  X          Training instances to cluster. The data must be in row-major format.
  *                        [dim = n_samples x n_features]
@@ -72,7 +72,7 @@ namespace raft::cluster::kmeans_balanced {
  *                        datatype. If DataT == MathT, this must be the identity.
  */
 template <typename DataT, typename MathT, typename IndexT, typename MappingOpT = raft::identity_op>
-void fit(handle_t const& handle,
+void fit(const raft::device_resources& handle,
          kmeans_balanced_params const& params,
          raft::device_matrix_view<const DataT, IndexT> X,
          raft::device_matrix_view<MathT, IndexT> centroids,
@@ -116,7 +116,7 @@ void fit(handle_t const& handle,
  * @tparam IndexT Type used for indexing.
  * @tparam LabelT Type of the output labels.
  * @tparam MappingOpT Type of the mapping function.
- * @param[in]  handle     The raft handle
+ * @param[in]  handle     The raft resources
  * @param[in]  params     Structure containing the hyper-parameters
  * @param[in]  X          Dataset for which to infer the closest clusters.
  *                        [dim = n_samples x n_features]
@@ -130,7 +130,7 @@ template <typename DataT,
           typename IndexT,
           typename LabelT,
           typename MappingOpT = raft::identity_op>
-void predict(handle_t const& handle,
+void predict(const raft::device_resources& handle,
              kmeans_balanced_params const& params,
              raft::device_matrix_view<const DataT, IndexT> X,
              raft::device_matrix_view<const MathT, IndexT> centroids,
@@ -181,7 +181,7 @@ void predict(handle_t const& handle,
  * @tparam IndexT Type used for indexing.
  * @tparam LabelT Type of the output labels.
  * @tparam MappingOpT Type of the mapping function.
- * @param[in]  handle     The raft handle
+ * @param[in]  handle     The raft resources
  * @param[in]  params     Structure containing the hyper-parameters
  * @param[in]  X          Training instances to cluster. The data must be in row-major format.
  *                        [dim = n_samples x n_features]
@@ -195,7 +195,7 @@ template <typename DataT,
           typename IndexT,
           typename LabelT,
           typename MappingOpT = raft::identity_op>
-void fit_predict(handle_t const& handle,
+void fit_predict(const raft::device_resources& handle,
                  kmeans_balanced_params const& params,
                  raft::device_matrix_view<const DataT, IndexT> X,
                  raft::device_matrix_view<MathT, IndexT> centroids,
@@ -237,7 +237,7 @@ namespace helpers {
  * @tparam LabelT Type of the output labels.
  * @tparam CounterT Counter type supported by CUDA's native atomicAdd.
  * @tparam MappingOpT Type of the mapping function.
- * @param[in]  handle        The raft handle
+ * @param[in]  handle        The raft resources
  * @param[in]  params        Structure containing the hyper-parameters
  * @param[in]  X             Training instances to cluster. The data must be in row-major format.
  *                           [dim = n_samples x n_features]
@@ -254,7 +254,7 @@ template <typename DataT,
           typename LabelT,
           typename CounterT,
           typename MappingOpT>
-void build_clusters(handle_t const& handle,
+void build_clusters(const raft::device_resources& handle,
                     const kmeans_balanced_params& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
                     raft::device_matrix_view<MathT, IndexT> centroids,
@@ -315,7 +315,7 @@ void build_clusters(handle_t const& handle,
  * @tparam LabelT Type of the output labels.
  * @tparam CounterT Counter type supported by CUDA's native atomicAdd.
  * @tparam MappingOpT Type of the mapping function.
- * @param[in]  handle         The raft handle
+ * @param[in]  handle         The raft resources
  * @param[in]  X              Dataset for which to calculate cluster centers. The data must be in
  *                            row-major format. [dim = n_samples x n_features]
  * @param[in]  labels         The input labels [dim = n_samples]
@@ -333,7 +333,7 @@ template <typename DataT,
           typename LabelT,
           typename CounterT,
           typename MappingOpT = raft::identity_op>
-void calc_centers_and_sizes(handle_t const& handle,
+void calc_centers_and_sizes(const raft::device_resources& handle,
                             raft::device_matrix_view<const DataT, IndexT> X,
                             raft::device_vector_view<const LabelT, IndexT> labels,
                             raft::device_matrix_view<MathT, IndexT> centroids,

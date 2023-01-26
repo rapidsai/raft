@@ -80,7 +80,7 @@ constexpr static inline float kAdjustCentersWeight = 7.0f;
  */
 template <typename MathT, typename IdxT, typename LabelT>
 inline std::enable_if_t<std::is_floating_point_v<MathT>> predict_core(
-  const handle_t& handle,
+  const raft::device_resources& handle,
   const kmeans_balanced_params& params,
   const MathT* centers,
   IdxT n_clusters,
@@ -251,7 +251,7 @@ template <typename T,
           typename LabelT,
           typename CounterT,
           typename MappingOpT>
-void calc_centers_and_sizes(const handle_t& handle,
+void calc_centers_and_sizes(const raft::device_resources& handle,
                             MathT* centers,
                             CounterT* cluster_sizes,
                             IdxT n_clusters,
@@ -314,7 +314,7 @@ void calc_centers_and_sizes(const handle_t& handle,
 
 /** Computes the L2 norm of the dataset, converting to MathT if necessary */
 template <typename T, typename MathT, typename IdxT, typename MappingOpT>
-void compute_norm(const handle_t& handle,
+void compute_norm(const raft::device_resources& handle,
                   MathT* dataset_norm,
                   const T* dataset,
                   IdxT dim,
@@ -365,7 +365,7 @@ void compute_norm(const handle_t& handle,
  * @param[in] dataset_norm (optional) Pre-computed norms of each row in the dataset [n_rows]
  */
 template <typename T, typename MathT, typename IdxT, typename LabelT, typename MappingOpT>
-void predict(const handle_t& handle,
+void predict(const raft::device_resources& handle,
              const kmeans_balanced_params& params,
              const MathT* centers,
              IdxT n_clusters,
@@ -612,7 +612,7 @@ template <typename T,
           typename LabelT,
           typename CounterT,
           typename MappingOpT>
-void balancing_em_iters(const handle_t& handle,
+void balancing_em_iters(const raft::device_resources& handle,
                         const kmeans_balanced_params& params,
                         uint32_t n_iters,
                         IdxT dim,
@@ -699,7 +699,7 @@ template <typename T,
           typename LabelT,
           typename CounterT,
           typename MappingOpT>
-void build_clusters(const handle_t& handle,
+void build_clusters(const raft::device_resources& handle,
                     const kmeans_balanced_params& params,
                     IdxT dim,
                     const T* dataset,
@@ -836,7 +836,7 @@ template <typename T,
           typename LabelT,
           typename CounterT,
           typename MappingOpT>
-auto build_fine_clusters(const handle_t& handle,
+auto build_fine_clusters(const raft::device_resources& handle,
                          const kmeans_balanced_params& params,
                          IdxT dim,
                          const T* dataset_mptr,
@@ -949,7 +949,7 @@ auto build_fine_clusters(const handle_t& handle,
  * @param stream
  */
 template <typename T, typename MathT, typename IdxT, typename MappingOpT>
-void build_hierarchical(const handle_t& handle,
+void build_hierarchical(const raft::device_resources& handle,
                         const kmeans_balanced_params& params,
                         IdxT dim,
                         const T* dataset,

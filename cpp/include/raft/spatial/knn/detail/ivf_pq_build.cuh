@@ -451,7 +451,7 @@ void train_per_subset(raft::device_resources const& handle,
                  stream);
 
     // clone the handle and attached the device memory resource to it
-    const handle_t new_handle(handle, device_memory);
+    const device_resources new_handle(handle, device_memory);
 
     // train PQ codebook for this subspace
     auto sub_trainset_view =
@@ -532,7 +532,7 @@ void train_per_cluster(raft::device_resources const& handle,
                      device_memory);
 
     // clone the handle and attached the device memory resource to it
-    const handle_t new_handle(handle, device_memory);
+    const device_resources new_handle(handle, device_memory);
 
     // limit the cluster size to bound the training time.
     // [sic] we interpret the data as pq_len-dimensional
