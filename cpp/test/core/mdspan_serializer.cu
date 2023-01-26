@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdarray.hpp>
-#include <raft/core/mdspan_serializer.hpp>
+#include <raft/core/serialize.hpp>
 #include <sstream>
 #include <string>
 #include <thrust/device_vector.h>

@@ -23,6 +23,10 @@
 #include <raft/core/host_mdspan.hpp>
 #include <vector>
 
+/**
+ * Collection of serialization functions for RAFT data types
+ */
+
 namespace raft {
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>

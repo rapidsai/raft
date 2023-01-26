@@ -35,7 +35,7 @@ namespace detail {
 
 namespace numpy_serializer {
 
-/*
+/**
  * A small implementation of NumPy serialization format.
  * Reference: https://numpy.org/doc/1.13/neps/npy-format.html
  *
