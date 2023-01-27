@@ -95,7 +95,7 @@ __global__ void compress_to_bits_kernel(
  *                          Note: the division (`/`) is a ceilDiv.
  */
 template <typename T = uint64_t, typename = std::enable_if_t<std::is_integral<T>::value>>
-void compress_to_bits(const raft::handle_t& handle,
+void compress_to_bits(raft::device_resources const& handle,
                       raft::device_matrix_view<const bool, int, raft::layout_c_contiguous> in,
                       raft::device_matrix_view<T, int, raft::layout_c_contiguous> out)
 {
