@@ -154,8 +154,13 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
 
 const std::vector<TiledKNNInputs> random_inputs = {
   {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2Expanded},
-  {4, 12, 32, 6, 4, 8, raft::distance::DistanceType::L2Expanded},
   {10000, 40000, 32, 30, 512, 1024, raft::distance::DistanceType::L2Expanded},
+  {345, 1023, 16, 128, 512, 1024, raft::distance::DistanceType::CosineExpanded},
+  {789, 20516, 64, 256, 512, 4096, raft::distance::DistanceType::L2SqrtExpanded},
+  // Test where the final column tile has < K items:
+  {4, 12, 32, 6, 4, 8, raft::distance::DistanceType::L2Expanded},
+  // Test where passing column_tiles < K
+  {1, 40, 32, 30, 1, 8, raft::distance::DistanceType::L2Expanded},
 };
 
 typedef TiledKNNTest<float> TiledKNNTestF;

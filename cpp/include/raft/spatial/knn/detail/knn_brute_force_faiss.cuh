@@ -171,6 +171,9 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   if (max_row_tile_size && (tile_rows > max_row_tile_size)) { tile_rows = max_row_tile_size; }
   if (max_col_tile_size && (tile_cols > max_col_tile_size)) { tile_cols = max_col_tile_size; }
 
+  // tile_cols must be at least k items
+  tile_cols = std::max(tile_cols, static_cast<size_t>(k));
+
   // stores pairwise distances for the current tile
   rmm::device_uvector<ElementType> temp_distances(tile_rows * tile_cols, stream);
 
