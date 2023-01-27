@@ -28,9 +28,9 @@ install_requires = [
     "joblib>=0.11",
     "dask-cuda>=23.2*",
     "dask>=2022.12.0",
-    f"ucx-py{cuda_suffix}==23.02.*",
+    f"ucx-py{cuda_suffix}==23.2.*",
     "distributed>=2022.12.0",
-    f"pylibraft{cuda_suffix}==23.02.*",
+    f"pylibraft{cuda_suffix}==23.2.*",
 ]
 
 extras_require = {

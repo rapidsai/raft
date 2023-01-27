@@ -25,7 +25,7 @@ cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
 install_requires = [
     "numpy",
     "cuda-python>=11.7.1,<12.0",
-    f"rmm{cuda_suffix}==23.02.*",
+    f"rmm{cuda_suffix}==23.2.*",
 ]
 
 extras_require = {
