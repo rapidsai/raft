@@ -136,7 +136,7 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
   }
 
  private:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   cudaStream_t stream_ = 0;
   TiledKNNInputs params_;
   int num_queries;
