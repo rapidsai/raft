@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
 install_requires = [
     "numpy",
     "cuda-python>=11.7.1,<12.0",
-    f"rmm{cuda_suffix}",
+    f"rmm{cuda_suffix}==23.02.*",
 ]
 
 extras_require = {
