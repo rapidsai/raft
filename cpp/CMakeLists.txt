@@ -288,6 +288,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/ivfpq_search.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu
+    src/distance/cluster/kmeans_init_plus_plus_double.cu
+    src/distance/cluster/kmeans_init_plus_plus_float.cu
     src/distance/distance/specializations/detail/canberra.cu
     src/distance/distance/specializations/detail/chebyshev.cu
     src/distance/distance/specializations/detail/correlation.cu

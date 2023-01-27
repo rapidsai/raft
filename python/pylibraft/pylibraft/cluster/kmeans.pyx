@@ -40,6 +40,7 @@ from pylibraft.cluster.cpp cimport kmeans as cpp_kmeans, kmeans_types
 from pylibraft.cluster.cpp.kmeans cimport (
     cluster_cost as cpp_cluster_cost,
     update_centroids,
+    init_plus_plus as cpp_init_plus_plus,
 )
 from pylibraft.common.cpp.mdspan cimport *
 from pylibraft.common.cpp.optional cimport optional
@@ -197,6 +198,52 @@ def compute_new_centroids(X,
                          <double*> weight_per_cluster_ptr)
     else:
         raise ValueError("dtype %s not supported" % x_dt)
+
+
+@auto_sync_handle
+@auto_convert_output
+def init_plus_plus(X, n_clusters, seed=None, handle=None):
+    cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
+
+    # Can't set attributes of KMeansParameters after creating it, so taking
+    # a detour via a dict to collect the possible constructor arguments
+    params_ = dict(n_clusters=n_clusters)
+    if seed is not None:
+        params_["seed"] = seed
+    params = KMeansParams(**params_)
+
+    X_cai = cai_wrapper(X)
+    X_cai.validate_shape_dtype(expected_dims=2)
+    dtype = X_cai.dtype
+
+    centroids_shape = (n_clusters, X_cai.shape[1])
+    centroids = device_ndarray.empty(centroids_shape, dtype=dtype)
+    centroids_cai = cai_wrapper(centroids)
+
+    if dtype == np.float64:
+        cpp_init_plus_plus(deref(h),
+                        params.c_obj,
+                        make_device_matrix_view[double, int, row_major](
+                            <double *><uintptr_t>X_cai.data,
+                            <int>X_cai.shape[0], <int>X_cai.shape[1]),
+                        make_device_matrix_view[double, int, row_major](
+                            <double *><uintptr_t>centroids_cai.data,
+                            <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
+        )
+    elif dtype == np.float32:
+        cpp_init_plus_plus(deref(h),
+                        params.c_obj,
+                        make_device_matrix_view[float, int, row_major](
+                            <float *><uintptr_t>X_cai.data,
+                            <int>X_cai.shape[0], <int>X_cai.shape[1]),
+                        make_device_matrix_view[float, int, row_major](
+                            <float *><uintptr_t>centroids_cai.data,
+                            <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
+        )
+    else:
+        raise ValueError(f"Unhandled dtype ({dtype}) for X.")
+
+    return centroids
 
 
 @auto_sync_handle
