@@ -231,4 +231,45 @@ TEST(NumPySerializerMDSpan, ParsePyTuple)
   }
 }
 
+template <typename T>
+void run_roundtrip_test_scalar_serializer(T scalar)
+{
+  std::ostringstream oss;
+  detail::numpy_serializer::serialize_scalar(oss, scalar);
+  std::istringstream iss(oss.str());
+  T tmp = detail::numpy_serializer::deserialize_scalar<T>(iss);
+  EXPECT_EQ(scalar, tmp);
+}
+
+TEST(NumPySerializerScalar, E2ERoundTrip)
+{
+  using namespace std::complex_literals;
+  run_roundtrip_test_scalar_serializer<float>(2.0f);
+  run_roundtrip_test_scalar_serializer<double>(-2.0);
+  run_roundtrip_test_scalar_serializer<std::int8_t>(-2);
+  run_roundtrip_test_scalar_serializer<std::uint32_t>(0x4FFFFFF);
+  run_roundtrip_test_scalar_serializer<std::complex<double>>(1.0 - 2.0i);
+}
+
+template <typename T>
+void check_header_scalar_serializer(T scalar)
+{
+  std::ostringstream oss;
+  detail::numpy_serializer::serialize_scalar(oss, scalar);
+  std::istringstream iss(oss.str());
+  detail::numpy_serializer::header_t header = detail::numpy_serializer::read_header(iss);
+  EXPECT_TRUE(header.shape.empty());
+  EXPECT_EQ(header.dtype.to_string(), detail::numpy_serializer::get_numpy_dtype<T>().to_string());
+}
+
+TEST(NumPySerializerScalar, HeaderCheck)
+{
+  using namespace std::complex_literals;
+  check_header_scalar_serializer<float>(2.0f);
+  check_header_scalar_serializer<double>(-2.0);
+  check_header_scalar_serializer<std::int8_t>(-2);
+  check_header_scalar_serializer<std::uint32_t>(0x4FFFFFF);
+  check_header_scalar_serializer<std::complex<double>>(1.0 - 2.0i);
+}
+
 }  // namespace raft
