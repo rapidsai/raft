@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/spatial/knn/faiss_mr.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
 

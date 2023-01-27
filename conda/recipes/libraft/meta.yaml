@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 
 # Usage:
 #   conda build . -c conda-forge -c nvidia -c rapidsai
@@ -126,7 +126,6 @@ outputs:
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
-        - faiss-proc=*=cuda
         - lapack
         - libcublas {{ libcublas_host_version }}
         - libcublas-dev {{ libcublas_host_version }}
@@ -136,10 +135,7 @@ outputs:
         - libcusolver-dev {{ libcusolver_host_version }}
         - libcusparse {{ libcusparse_host_version }}
         - libcusparse-dev {{ libcusparse_host_version }}
-        - libfaiss {{ libfaiss_version }}
       run:
-        - faiss-proc=*=cuda
-        - libfaiss {{ libfaiss_version }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
       home: https://rapids.ai/

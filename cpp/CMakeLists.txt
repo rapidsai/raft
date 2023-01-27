@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -65,9 +65,7 @@ option(
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations"
        ${RAFT_COMPILE_LIBRARIES}
 )
-option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss"
-       ${RAFT_COMPILE_LIBRARIES}
-)
+option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies" ${RAFT_COMPILE_LIBRARIES})
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
 
@@ -83,16 +81,7 @@ if(BUILD_TESTS AND NOT RAFT_ENABLE_thrust_DEPENDENCY)
   set(RAFT_ENABLE_thrust_DEPENDENCY ON)
 endif()
 
-option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
-
 include(CMakeDependentOption)
-cmake_dependent_option(
-  RAFT_USE_FAISS_STATIC
-  "Build and statically link the FAISS library for nearest neighbors search on GPU"
-  ON
-  RAFT_COMPILE_LIBRARIES
-  OFF
-)
 
 message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
@@ -177,7 +166,6 @@ rapids_cpm_init()
 # thrust before rmm/cuco so we get the right version of thrust/cub
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_faiss.cmake)
 include(cmake/thirdparty/get_cutlass.cmake)
 
 if(RAFT_ENABLE_cuco_DEPENDENCY)
@@ -291,7 +279,6 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/detail/canberra.cu
     src/distance/distance/specializations/detail/chebyshev.cu
     src/distance/distance/specializations/detail/correlation.cu
-    src/distance/distance/specializations/detail/cosine.cu
     src/distance/distance/specializations/detail/cosine.cu
     src/distance/distance/specializations/detail/hamming_unexpanded.cu
     src/distance/distance/specializations/detail/hellinger_expanded.cu
@@ -433,7 +420,7 @@ if(RAFT_COMPILE_NN_LIBRARY)
 
   target_link_libraries(
     raft_nn_lib
-    PUBLIC faiss::faiss raft::raft
+    PUBLIC raft::raft
     PRIVATE nvidia::cutlass::cutlass
   )
   target_compile_options(
@@ -641,12 +628,6 @@ endif()
 
 if(nn IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
-
-  if(TARGET faiss AND (NOT TARGET faiss::faiss))
-      add_library(faiss::faiss ALIAS faiss)
-  elseif(TARGET faiss::faiss AND (NOT TARGET faiss))
-      add_library(faiss ALIAS faiss::faiss)
-  endif()
 endif()
 ]=]
 )

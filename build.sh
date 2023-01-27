@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -45,7 +45,6 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench               - semicolon-separated list of benchmark executables to compute (e.g. NEIGHBORS_BENCH;CLUSTER_BENCH)
    --allgpuarch                - build for all supported GPU architectures
-   --buildfaiss                - build faiss statically into raft
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
@@ -68,7 +67,6 @@ BUILD_ALL_GPU_ARCH=0
 BUILD_TESTS=OFF
 BUILD_TYPE=Release
 BUILD_BENCH=OFF
-BUILD_STATIC_FAISS=OFF
 COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
@@ -335,9 +333,6 @@ if hasArg bench || (( ${NUMARGS} == 0 )); then
 
 fi
 
-if hasArg --buildfaiss; then
-    BUILD_STATIC_FAISS=ON
-fi
 if hasArg --no-nvtx; then
     NVTX=OFF
 fi
@@ -407,7 +402,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
-          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}

@@ -22,22 +22,20 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <faiss/gpu/GpuDistance.h>
-
 #include <cstdint>
 #include <iostream>
 #include <raft/core/handle.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/spatial/knn/detail/faiss_select/DistanceUtils.h>
 #include <raft/spatial/knn/detail/faiss_select/Select.cuh>
-#include <raft/spatial/knn/faiss_mr.hpp>
+#include <raft/spatial/knn/detail/selection_faiss.cuh>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>
 
 #include "fused_l2_knn.cuh"
 #include "haversine_distance.cuh"
 #include "processing.cuh"
-
-#include "common_faiss.h"
 
 namespace raft {
 namespace spatial {
@@ -139,6 +137,128 @@ inline void knn_merge_parts_impl(value_t* inK,
     <<<grid, block, 0, stream>>>(
       inK, inV, outK, outV, n_samples, n_parts, kInit, vInit, k, translations);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/**
+ * Calculates brute force knn, using a fixed memory budget
+ * by tiling over both the rows and columns of pairwise_distances
+ */
+template <typename ElementType = float, typename IndexType = int64_t>
+void tiled_brute_force_knn(const raft::handle_t& handle,
+                           const ElementType* search,  // size (m ,d)
+                           const ElementType* index,   // size (n ,d)
+                           size_t m,
+                           size_t n,
+                           size_t d,
+                           int k,
+                           ElementType* distances,  // size (m, k)
+                           IndexType* indices,      // size (m, k)
+                           raft::distance::DistanceType metric,
+                           size_t max_row_tile_size = 0,
+                           size_t max_col_tile_size = 0)
+{
+  // Figure out the number of rows/cols to tile for
+  size_t tile_rows   = 0;
+  size_t tile_cols   = 0;
+  auto stream        = handle.get_stream();
+  auto device_memory = handle.get_workspace_resource();
+  auto total_mem     = device_memory->get_mem_info(stream).second;
+  raft::spatial::knn::detail::faiss_select::chooseTileSize(
+    m, n, d, sizeof(ElementType), total_mem, tile_rows, tile_cols);
+
+  // for unittesting, its convenient to be able to put a max size on the tiles
+  // so we can test the tiling logic without having to use huge inputs.
+  if (max_row_tile_size && (tile_rows > max_row_tile_size)) { tile_rows = max_row_tile_size; }
+  if (max_col_tile_size && (tile_cols > max_col_tile_size)) { tile_cols = max_col_tile_size; }
+
+  // stores pairwise distances for the current tile
+  rmm::device_uvector<ElementType> temp_distances(tile_rows * tile_cols, stream);
+
+  // if we're tiling over columns, we need additional buffers for temporary output
+  // distances/indices
+  size_t num_col_tiles = raft::ceildiv(n, tile_cols);
+  size_t temp_out_cols = k * num_col_tiles;
+
+  // the final column tile could have less than 'k' items in it
+  // in which case the number of columns here is too high in the temp output.
+  // adjust if necessary
+  auto last_col_tile_size = n % tile_cols;
+  if (last_col_tile_size && (last_col_tile_size < static_cast<size_t>(k))) {
+    temp_out_cols -= k - last_col_tile_size;
+  }
+  rmm::device_uvector<ElementType> temp_out_distances(tile_rows * temp_out_cols, stream);
+  rmm::device_uvector<IndexType> temp_out_indices(tile_rows * temp_out_cols, stream);
+
+  for (size_t i = 0; i < m; i += tile_rows) {
+    size_t current_query_size = std::min(tile_rows, m - i);
+
+    for (size_t j = 0; j < n; j += tile_cols) {
+      size_t current_centroid_size = std::min(tile_cols, n - j);
+      size_t current_k             = std::min(current_centroid_size, static_cast<size_t>(k));
+
+      // calculate the top-k elements for the current tile, by calculating the
+      // full pairwise distance for the tile - and then selecting the top-k from that
+      distance::pairwise_distance<ElementType, IndexType>(handle,
+                                                          search + i * d,
+                                                          index + j * d,
+                                                          temp_distances.data(),
+                                                          current_query_size,
+                                                          current_centroid_size,
+                                                          d,
+                                                          metric,
+                                                          true);
+
+      detail::select_k<IndexType, ElementType>(temp_distances.data(),
+                                               nullptr,
+                                               current_query_size,
+                                               current_centroid_size,
+                                               distances + i * k,
+                                               indices + i * k,
+                                               true,
+                                               current_k,
+                                               stream);
+
+      // if we're tiling over columns, we need to do a couple things to fix up
+      // the output of select_k
+      // 1. The column id's in the output are relative to the tile, so we need
+      // to adjust the column ids by adding the column the tile starts at (j)
+      // 2. select_k writes out output in a row-major format, which means we
+      // can't just concat the output of all the tiles and do a select_k on the
+      // concatenation.
+      // Fix both of these problems in a single pass here
+      if (tile_cols != n) {
+        const ElementType* in_distances = distances + i * k;
+        const IndexType* in_indices     = indices + i * k;
+        ElementType* out_distances      = temp_out_distances.data();
+        IndexType* out_indices          = temp_out_indices.data();
+
+        auto count = thrust::make_counting_iterator<IndexType>(0);
+        thrust::for_each(handle.get_thrust_policy(),
+                         count,
+                         count + current_query_size * current_k,
+                         [=] __device__(IndexType i) {
+                           IndexType row = i / current_k, col = i % current_k;
+                           IndexType out_index = row * temp_out_cols + j * k / tile_cols + col;
+
+                           out_distances[out_index] = in_distances[i];
+                           out_indices[out_index]   = in_indices[i] + j;
+                         });
+      }
+    }
+
+    if (tile_cols != n) {
+      // select the actual top-k items here from the temporary output
+      detail::select_k<IndexType, ElementType>(temp_out_distances.data(),
+                                               temp_out_indices.data(),
+                                               current_query_size,
+                                               temp_out_cols,
+                                               distances + i * k,
+                                               indices + i * k,
+                                               true,
+                                               k,
+                                               stream);
+    }
+  }
 }
 
 /**
@@ -311,7 +431,6 @@ void brute_force_knn_impl(
     } else {
       switch (metric) {
         case raft::distance::DistanceType::Haversine:
-
           ASSERT(D == 2,
                  "Haversine distance requires 2 dimensions "
                  "(latitude / longitude).");
@@ -319,35 +438,9 @@ void brute_force_knn_impl(
           haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k, stream);
           break;
         default:
-          faiss::MetricType m = build_faiss_metric(metric);
-
-          raft::spatial::knn::RmmGpuResources gpu_res;
-
-          gpu_res.noTempMemory();
-          gpu_res.setDefaultStream(device, stream);
-
-          faiss::gpu::GpuDistanceParams args;
-          args.metric          = m;
-          args.metricArg       = metricArg;
-          args.k               = k;
-          args.dims            = D;
-          args.vectors         = input[i];
-          args.vectorsRowMajor = rowMajorIndex;
-          args.numVectors      = sizes[i];
-          args.queries         = search_items;
-          args.queriesRowMajor = rowMajorQuery;
-          args.numQueries      = n;
-          args.outDistances    = out_d_ptr;
-          args.outIndices      = out_i_ptr;
-          args.outIndicesType  = sizeof(IdxType) == 4 ? faiss::gpu::IndicesDataType::I32
-                                                      : faiss::gpu::IndicesDataType::I64;
-
-          /**
-           * @todo: Until FAISS supports pluggable allocation strategies,
-           * we will not reap the benefits of the pool allocator for
-           * avoiding device-wide synchronizations from cudaMalloc/cudaFree
-           */
-          bfKnn(&gpu_res, args);
+          tiled_brute_force_knn<value_t, IdxType>(
+            handle, input[i], search_items, sizes[i], n, D, k, out_d_ptr, out_i_ptr, metric);
+          break;
       }
     }
 
