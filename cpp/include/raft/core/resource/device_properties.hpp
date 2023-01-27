@@ -38,6 +38,11 @@ class device_properties_resource : public resource {
 };
 
 /**
+ * @defgroup resource_device_props Device properties resource functions
+ * @{
+ */
+
+/**
  * Factory that knows how to construct a
  * specific raft::resource to populate
  * the res_t.
@@ -55,7 +60,7 @@ class device_properties_resource_factory : public resource_factory {
 /**
  * Load a cudaDeviceProp from a res (and populate it on the res if needed).
  * @param res raft res object for managing resources
- * @return
+ * @return populated cuda device properties instance
  */
 inline cudaDeviceProp& get_device_properties(resources const& res)
 {
@@ -65,4 +70,8 @@ inline cudaDeviceProp& get_device_properties(resources const& res)
   }
   return *res.get_resource<cudaDeviceProp>(resource_type::DEVICE_PROPERTIES);
 };
+
+/**
+ * @}
+ */
 }  // namespace raft::resource

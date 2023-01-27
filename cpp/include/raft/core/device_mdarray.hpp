@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ using device_matrix = device_mdarray<ElementType, matrix_extent<IndexType>, Layo
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- * @param handle raft::handle_t
+ * @param handle raft::device_resources
  * @param exts dimensionality of the array (series of integers)
  * @return raft::device_mdarray
  */
@@ -80,7 +80,7 @@ template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous,
           size_t... Extents>
-auto make_device_mdarray(const raft::handle_t& handle, extents<IndexType, Extents...> exts)
+auto make_device_mdarray(raft::device_resources const& handle, extents<IndexType, Extents...> exts)
 {
   using mdarray_t = device_mdarray<ElementType, decltype(exts), LayoutPolicy>;
 
@@ -95,7 +95,7 @@ auto make_device_mdarray(const raft::handle_t& handle, extents<IndexType, Extent
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- * @param handle raft::handle_t
+ * @param handle raft::device_resources
  * @param mr rmm memory resource used for allocating the memory for the array
  * @param exts dimensionality of the array (series of integers)
  * @return raft::device_mdarray
@@ -104,7 +104,7 @@ template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous,
           size_t... Extents>
-auto make_device_mdarray(const raft::handle_t& handle,
+auto make_device_mdarray(raft::device_resources const& handle,
                          rmm::mr::device_memory_resource* mr,
                          extents<IndexType, Extents...> exts)
 {
@@ -130,7 +130,7 @@ auto make_device_mdarray(const raft::handle_t& handle,
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto make_device_matrix(raft::handle_t const& handle, IndexType n_rows, IndexType n_cols)
+auto make_device_matrix(raft::device_resources const& handle, IndexType n_rows, IndexType n_cols)
 {
   return make_device_mdarray<ElementType, IndexType, LayoutPolicy>(
     handle.get_stream(), make_extents<IndexType>(n_rows, n_cols));
@@ -146,7 +146,7 @@ auto make_device_matrix(raft::handle_t const& handle, IndexType n_rows, IndexTyp
  * @return raft::device_scalar
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_device_scalar(raft::handle_t const& handle, ElementType const& v)
+auto make_device_scalar(raft::device_resources const& handle, ElementType const& v)
 {
   scalar_extent<IndexType> extents;
   using policy_t = typename device_scalar<ElementType>::container_policy_type;
@@ -168,7 +168,7 @@ auto make_device_scalar(raft::handle_t const& handle, ElementType const& v)
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto make_device_vector(raft::handle_t const& handle, IndexType n)
+auto make_device_vector(raft::device_resources const& handle, IndexType n)
 {
   return make_device_mdarray<ElementType, IndexType, LayoutPolicy>(handle.get_stream(),
                                                                    make_extents<IndexType>(n));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/detail/warn_dbg.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
@@ -360,7 +360,7 @@ static __global__ void divideCentroids(index_type_t d,
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename index_type_t, typename value_type_t>
-static int chooseNewCentroid(handle_t const& handle,
+static int chooseNewCentroid(raft::device_resources const& handle,
                              index_type_t n,
                              index_type_t d,
                              value_type_t rand,
@@ -457,7 +457,7 @@ static int chooseNewCentroid(handle_t const& handle,
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename index_type_t, typename value_type_t>
-static int initializeCentroids(handle_t const& handle,
+static int initializeCentroids(raft::device_resources const& handle,
                                index_type_t n,
                                index_type_t d,
                                index_type_t k,
@@ -568,7 +568,7 @@ static int initializeCentroids(handle_t const& handle,
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename index_type_t, typename value_type_t>
-static int assignCentroids(handle_t const& handle,
+static int assignCentroids(raft::device_resources const& handle,
                            index_type_t n,
                            index_type_t d,
                            index_type_t k,
@@ -640,7 +640,7 @@ static int assignCentroids(handle_t const& handle,
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename index_type_t, typename value_type_t>
-static int updateCentroids(handle_t const& handle,
+static int updateCentroids(raft::device_resources const& handle,
                            index_type_t n,
                            index_type_t d,
                            index_type_t k,
@@ -783,7 +783,7 @@ static int updateCentroids(handle_t const& handle,
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
-int kmeans(handle_t const& handle,
+int kmeans(raft::device_resources const& handle,
            index_type_t n,
            index_type_t d,
            index_type_t k,
@@ -950,7 +950,7 @@ int kmeans(handle_t const& handle,
  *  @return error flag
  */
 template <typename index_type_t, typename value_type_t>
-int kmeans(handle_t const& handle,
+int kmeans(raft::device_resources const& handle,
            index_type_t n,
            index_type_t d,
            index_type_t k,

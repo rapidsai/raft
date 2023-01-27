@@ -27,6 +27,7 @@
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/normalize.cuh>
@@ -73,7 +74,7 @@ constexpr static inline const float kAdjustCentersWeight = 7.0f;
  * @param mr (optional) memory resource to use for temporary allocations
  */
 template <typename IdxT, typename LabelT>
-inline void predict_float_core(const handle_t& handle,
+inline void predict_float_core(raft::device_resources const& handle,
                                const float* centers,
                                uint32_t n_clusters,
                                uint32_t dim,
@@ -242,7 +243,7 @@ constexpr auto calc_minibatch_size(
  * @param mr (optional) memory resource to use for temporary allocations on the device
  */
 template <typename T, typename IdxT, typename LabelT>
-void calc_centers_and_sizes(const handle_t& handle,
+void calc_centers_and_sizes(raft::device_resources const& handle,
                             float* centers,
                             uint32_t* cluster_sizes,
                             uint32_t n_clusters,
@@ -375,7 +376,7 @@ void compute_norm(float* dataset_norm,
  * @param mr (optional) memory resource to use for temporary allocations
  */
 template <typename T, typename IdxT, typename LabelT>
-void predict(const handle_t& handle,
+void predict(raft::device_resources const& handle,
              const float* centers,
              uint32_t n_clusters,
              uint32_t dim,
@@ -631,7 +632,7 @@ auto adjust_centers(float* centers,
  *   a memory resource for device allocations (makes sense to provide a memory pool here)
  */
 template <typename T, typename IdxT, typename LabelT>
-void balancing_em_iters(const handle_t& handle,
+void balancing_em_iters(raft::device_resources const& handle,
                         uint32_t n_iters,
                         uint32_t dim,
                         const T* dataset,
@@ -712,7 +713,7 @@ void balancing_em_iters(const handle_t& handle,
 
 /** Randomly initialize cluster centers and then call `balancing_em_iters`. */
 template <typename T, typename IdxT, typename LabelT>
-void build_clusters(const handle_t& handle,
+void build_clusters(raft::device_resources const& handle,
                     uint32_t n_iters,
                     uint32_t dim,
                     const T* dataset,
@@ -731,10 +732,11 @@ void build_clusters(const handle_t& handle,
                "the chosen index type cannot represent all indices for the given dataset");
 
   // "randomly initialize labels"
-  auto f = [n_clusters] __device__(LabelT * out, IdxT i) {
-    *out = LabelT(i % static_cast<IdxT>(n_clusters));
-  };
-  linalg::writeOnlyUnaryOp<LabelT, decltype(f), IdxT>(cluster_labels, n_rows, f, stream);
+  auto labels_view = raft::make_device_vector_view<LabelT, IdxT>(cluster_labels, n_rows);
+  linalg::map_offset(
+    handle,
+    labels_view,
+    raft::compose_op(raft::cast_op<LabelT>(), raft::mod_const_op<IdxT>(n_clusters)));
 
   // update centers to match the initialized labels.
   calc_centers_and_sizes(handle,
@@ -839,9 +841,13 @@ inline auto arrange_fine_clusters(uint32_t n_clusters,
  *  As a result, the fine clusters are what is returned by `build_hierarchical`;
  *  this function returns the total number of fine clusters, which can be checked to be
  *  the same as the requested number of clusters.
+ *
+ *  Note: this function uses at most `fine_clusters_nums_max` points per mesocluster for training;
+ *  if one of the clusters is larger than that (as given by `mesocluster_sizes`), the extra data
+ *  is ignored and a warning is reported.
  */
 template <typename T, typename IdxT, typename LabelT>
-auto build_fine_clusters(const handle_t& handle,
+auto build_fine_clusters(raft::device_resources const& handle,
                          uint32_t n_iters,
                          uint32_t dim,
                          const T* dataset_mptr,
@@ -880,8 +886,8 @@ auto build_fine_clusters(const handle_t& handle,
   uint32_t n_clusters_done = 0;
   for (uint32_t i = 0; i < n_mesoclusters; i++) {
     uint32_t k = 0;
-    for (IdxT j = 0; j < n_rows; j++) {
-      if (labels_mptr[j] == (LabelT)i) { mc_trainset_ids[k++] = j; }
+    for (IdxT j = 0; j < n_rows && k < mesocluster_size_max; j++) {
+      if (labels_mptr[j] == LabelT(i)) { mc_trainset_ids[k++] = j; }
     }
     if (k != mesocluster_sizes[i])
       RAFT_LOG_WARN("Incorrect mesocluster size at %d. %d vs %d", i, k, mesocluster_sizes[i]);
@@ -896,19 +902,13 @@ auto build_fine_clusters(const handle_t& handle,
                    "Number of fine clusters must be non-zero for a non-empty mesocluster");
     }
 
-    utils::copy_selected((IdxT)mesocluster_sizes[i],
-                         (IdxT)dim,
-                         dataset_mptr,
-                         mc_trainset_ids,
-                         (IdxT)dim,
-                         mc_trainset,
-                         (IdxT)dim,
-                         stream);
+    utils::copy_selected(
+      (IdxT)k, (IdxT)dim, dataset_mptr, mc_trainset_ids, (IdxT)dim, mc_trainset, (IdxT)dim, stream);
     if (metric == raft::distance::DistanceType::L2Expanded ||
         metric == raft::distance::DistanceType::L2SqrtExpanded) {
       thrust::gather(handle.get_thrust_policy(),
                      mc_trainset_ids,
-                     mc_trainset_ids + mesocluster_sizes[i],
+                     mc_trainset_ids + k,
                      dataset_norm_mptr,
                      mc_trainset_norm);
     }
@@ -917,7 +917,7 @@ auto build_fine_clusters(const handle_t& handle,
                                         n_iters,
                                         dim,
                                         mc_trainset,
-                                        mesocluster_sizes[i],
+                                        k,
                                         fine_clusters_nums[i],
                                         mc_trainset_ccenters.data(),
                                         mc_trainset_labels.data(),
@@ -955,7 +955,7 @@ auto build_fine_clusters(const handle_t& handle,
  * @param stream
  */
 template <typename T, typename IdxT>
-void build_hierarchical(const handle_t& handle,
+void build_hierarchical(raft::device_resources const& handle,
                         uint32_t n_iters,
                         uint32_t dim,
                         const T* dataset,
@@ -1036,10 +1036,19 @@ void build_hierarchical(const handle_t& handle,
   auto [mesocluster_size_max, fine_clusters_nums_max, fine_clusters_nums, fine_clusters_csum] =
     arrange_fine_clusters(n_clusters, n_mesoclusters, n_rows, mesocluster_sizes);
 
-  if (mesocluster_size_max * n_mesoclusters > 2 * n_rows) {
-    RAFT_LOG_WARN("build_hierarchical: built unbalanced mesoclusters");
+  const auto mesocluster_size_max_balanced = uint32_t(div_rounding_up_safe<size_t>(
+    2lu * size_t(n_rows), std::max<size_t>(size_t(n_mesoclusters), 1lu)));
+  if (mesocluster_size_max > mesocluster_size_max_balanced) {
+    RAFT_LOG_WARN(
+      "build_hierarchical: built unbalanced mesoclusters (max_mesocluster_size == %u > %u). "
+      "At most %u points will be used for training within each mesocluster. "
+      "Consider increasing the number of training iterations `n_iters`.",
+      mesocluster_size_max,
+      mesocluster_size_max_balanced,
+      mesocluster_size_max_balanced);
     RAFT_LOG_TRACE_VEC(mesocluster_sizes, n_mesoclusters);
     RAFT_LOG_TRACE_VEC(fine_clusters_nums.data(), n_mesoclusters);
+    mesocluster_size_max = mesocluster_size_max_balanced;
   }
 
   auto n_clusters_done = build_fine_clusters<T, IdxT, LabelT>(handle,

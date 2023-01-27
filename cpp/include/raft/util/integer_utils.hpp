@@ -1,7 +1,7 @@
 /*
  * Copyright 2019 BlazingDB, Inc.
  *     Copyright 2019 Eyal Rozenberg <eyalroz@blazingdb.com>
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
  *
  */
 
+#include <limits>
 #include <stdexcept>
 #include <type_traits>
 
@@ -112,18 +113,37 @@ constexpr inline I div_rounding_up_safe(std::integral_constant<bool, true>,
  * approach of using (dividend + divisor - 1) / divisor
  */
 template <typename I>
-constexpr inline std::enable_if_t<std::is_integral<I>::value, I> div_rounding_up_safe(
-  I dividend, I divisor) noexcept
+constexpr inline auto div_rounding_up_safe(I dividend, I divisor) noexcept
+  -> std::enable_if_t<std::is_integral<I>::value, I>
 {
   using i_is_a_signed_type = std::integral_constant<bool, std::is_signed<I>::value>;
   return detail::div_rounding_up_safe(i_is_a_signed_type{}, dividend, divisor);
 }
 
 template <typename I>
-constexpr inline std::enable_if_t<std::is_integral<I>::value, bool> is_a_power_of_two(
-  I val) noexcept
+constexpr inline auto is_a_power_of_two(I val) noexcept
+  -> std::enable_if_t<std::is_integral<I>::value, bool>
 {
-  return ((val - 1) & val) == 0;
+  return (val != 0) && (((val - 1) & val) == 0);
+}
+
+/**
+ * Given an integer `x`, return such `y` that `x <= y` and `is_a_power_of_two(y)`.
+ * If such `y` does not exist in `T`, return zero.
+ */
+template <typename T>
+constexpr inline auto bound_by_power_of_two(T x) noexcept
+  -> std::enable_if_t<std::is_integral<T>::value, T>
+{
+  if (is_a_power_of_two(x)) { return x; }
+  constexpr T kMaxUnsafe = std::numeric_limits<T>::max();
+  constexpr T kMaxSafe   = is_a_power_of_two(kMaxUnsafe) ? kMaxUnsafe : (kMaxUnsafe >> 1);
+  const T limited        = std::min(x, kMaxSafe);
+  T bound                = T{1};
+  while (bound < limited) {
+    bound <<= 1;
+  }
+  return bound < x ? T{0} : bound;
 }
 
 /**
@@ -150,13 +170,13 @@ constexpr inline std::enable_if_t<std::is_integral<I>::value, bool> is_a_power_o
  * @return Absolute value if value type is signed.
  */
 template <typename T>
-std::enable_if_t<std::is_signed<T>::value, T> constexpr inline absolute_value(T val)
+constexpr inline auto absolute_value(T val) -> std::enable_if_t<std::is_signed<T>::value, T>
 {
   return std::abs(val);
 }
 // Unsigned type just returns itself.
 template <typename T>
-std::enable_if_t<!std::is_signed<T>::value, T> constexpr inline absolute_value(T val)
+constexpr inline auto absolute_value(T val) -> std::enable_if_t<!std::is_signed<T>::value, T>
 {
   return val;
 }

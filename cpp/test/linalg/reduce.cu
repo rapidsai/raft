@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ void reduceLaunch(OutType* dots,
   auto input_view_col_major =
     raft::make_device_matrix_view<const InType, IdxType, raft::col_major>(data, rows, cols);
 
-  raft::handle_t handle{stream};
+  raft::device_resources handle{stream};
 
   if (rowMajor) {
     reduce(handle,
@@ -184,7 +184,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType,
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   ReduceInputs<InType, OutType, IdxType> params;

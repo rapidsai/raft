@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ namespace raft::cluster {
 template <typename value_idx,
           typename value_t,
           LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
-void single_linkage(const raft::handle_t& handle,
+void single_linkage(raft::device_resources const& handle,
                     const value_t* X,
                     size_t m,
                     size_t n,
@@ -87,7 +87,7 @@ constexpr int DEFAULT_CONST_C = 15;
  control of k. The algorithm will set `k = log(n) + c`
  */
 template <typename value_t, typename idx_t, LinkageDistance dist_type = LinkageDistance::KNN_GRAPH>
-void single_linkage(const raft::handle_t& handle,
+void single_linkage(raft::device_resources const& handle,
                     raft::device_matrix_view<const value_t, idx_t, row_major> X,
                     raft::device_matrix_view<idx_t, idx_t, row_major> dendrogram,
                     raft::device_vector_view<idx_t, idx_t> labels,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ template <typename T, typename IdxType>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T, typename IdxType>
-void matrix_vector_op_launch(const raft::handle_t& handle,
+void matrix_vector_op_launch(const raft::device_resources& handle,
                              T* in,
                              const T* vec1,
                              IdxType D,
@@ -98,7 +98,7 @@ void matrix_vector_op_launch(const raft::handle_t& handle,
 }
 
 template <typename T, typename IdxType>
-void naive_matrix_vector_op_launch(const raft::handle_t& handle,
+void naive_matrix_vector_op_launch(const raft::device_resources& handle,
                                    T* in,
                                    const T* vec1,
                                    IdxType D,
@@ -116,7 +116,7 @@ void naive_matrix_vector_op_launch(const raft::handle_t& handle,
     }
   };
   auto operation_bin_div_skip_zero = [] __device__(T mat_element, T vec_element) {
-    if (raft::myAbs(vec_element) < T(1e-10))
+    if (raft::abs(vec_element) < T(1e-10))
       return T(0);
     else
       return mat_element / vec_element;
@@ -183,7 +183,7 @@ class MatrixVectorTest : public ::testing::TestWithParam<MatrixVectorInputs<T, I
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   MatrixVectorInputs<T, IdxType> params;

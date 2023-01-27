@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ __global__ void compute_rank(double* rank,
  * @param[out] distances KNN distances
  */
 template <raft::distance::DistanceType distance_type, typename math_t>
-void run_knn(const raft::handle_t& h,
+void run_knn(const raft::device_resources& h,
              math_t* input,
              int n,
              int d,
@@ -128,7 +128,7 @@ void run_knn(const raft::handle_t& h,
  * @return Trustworthiness score
  */
 template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(const raft::handle_t& h,
+double trustworthiness_score(const raft::device_resources& h,
                              const math_t* X,
                              math_t* X_embedded,
                              int n,

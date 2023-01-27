@@ -131,7 +131,7 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
   }
 
  private:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   cudaStream_t stream_ = 0;
   FusedL2KNNInputs params_;
   int num_queries;

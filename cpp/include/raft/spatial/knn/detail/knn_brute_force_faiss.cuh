@@ -24,7 +24,7 @@
 
 #include <cstdint>
 #include <iostream>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/faiss_select/DistanceUtils.h>
@@ -144,7 +144,7 @@ inline void knn_merge_parts_impl(value_t* inK,
  * by tiling over both the rows and columns of pairwise_distances
  */
 template <typename ElementType = float, typename IndexType = int64_t>
-void tiled_brute_force_knn(const raft::handle_t& handle,
+void tiled_brute_force_knn(const raft::device_resources& handle,
                            const ElementType* search,  // size (m ,d)
                            const ElementType* index,   // size (n ,d)
                            size_t m,
@@ -335,7 +335,7 @@ inline void knn_merge_parts(value_t* inK,
  */
 template <typename IntType = int, typename IdxType = std::int64_t, typename value_t = float>
 void brute_force_knn_impl(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   std::vector<value_t*>& input,
   std::vector<IntType>& sizes,
   IntType D,
