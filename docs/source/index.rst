@@ -45,6 +45,7 @@ While not exhaustive, the following general categories help summarize the accele
    cpp_api.rst
    pylibraft_api.rst
    raft_dask_api.rst
+   using_comms.rst
    contributing.md
 
 
