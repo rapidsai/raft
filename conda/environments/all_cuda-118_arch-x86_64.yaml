@@ -36,6 +36,7 @@ dependencies:
 - libfaiss>=1.7.1=cuda*
 - ninja
 - numpydoc
+- pip
 - pytest
 - pytest-cov
 - recommonmark
@@ -47,4 +48,9 @@ dependencies:
 - ucx-proc=*=gpu
 - ucx-py=0.30
 - ucx>=1.13.0
+- pip:
+  - breathe
+  - pydata_sphinx_theme
+  - sphinx_copybutton
+  - sphinx_markdown_tables
 name: all_cuda-118_arch-x86_64
