@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,9 @@
 #include "detail/map.cuh"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/input_validation.hpp>
+#include <thrust/tabulate.h>
 
 namespace raft {
 namespace linalg {
@@ -65,7 +67,7 @@ void map_k(
  * @tparam TPB threads-per-block in the final kernel launched
  * @tparam OutType data-type of result of type raft::device_mdspan
  * @tparam Args additional parameters
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in the input of type raft::device_mdspan
  * @param[out] out the output of the map operation of type raft::device_mdspan
  * @param[in] map the device-lambda
@@ -78,7 +80,7 @@ template <typename InType,
           typename... Args,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void map(const raft::handle_t& handle, InType in, OutType out, MapOp map, Args... args)
+void map(raft::device_resources const& handle, InType in, OutType out, MapOp map, Args... args)
 {
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
@@ -94,6 +96,40 @@ void map(const raft::handle_t& handle, InType in, OutType out, MapOp map, Args..
     map_k<in_value_t, MapOp, std::uint64_t, TPB, out_value_t, Args...>(
       out.data_handle(), out.size(), map, handle.get_stream(), in.data_handle(), args...);
   }
+}
+
+/**
+ * @brief Perform an element-wise unary operation on the input offset into the output array
+ *
+ * Usage example:
+ * @code{.cpp}
+ *  #include <raft/core/device_mdarray.hpp>
+ *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/operators.hpp>
+ *  #include <raft/linalg/map.cuh>
+ *  ...
+ *  raft::handle_t handle;
+ *  auto squares = raft::make_device_vector<int>(handle, n);
+ *  raft::linalg::map_offset(handle, squares.view(), raft::sq_op());
+ * @endcode
+ *
+ * @tparam OutType Output mdspan type
+ * @tparam MapOp   The unary operation type with signature `OutT func(const IdxT& idx);`
+ * @param[in]  handle The raft handle
+ * @param[out] out    Output array
+ * @param[in]  op     The unary operation
+ */
+template <typename OutType,
+          typename MapOp,
+          typename = raft::enable_if_output_device_mdspan<OutType>>
+void map_offset(const raft::device_resources& handle, OutType out, MapOp op)
+{
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+
+  using out_value_t = typename OutType::value_type;
+
+  thrust::tabulate(
+    handle.get_thrust_policy(), out.data_handle(), out.data_handle() + out.size(), op);
 }
 
 /** @} */  // end of map

@@ -24,19 +24,22 @@ namespace raft {
  * raft::handle_t is being kept around for backwards
  * compatibility and will be removed in a future version.
  *
- * Extending the `raft::device_resources` instead of `using` to
+ * Extending the `raft::handle_t` instead of `using` to
  * minimize needed changes downstream
  * (e.g. existing forward declarations, etc...)
  *
- * Use of `raft::resources` or `raft::device_resources` is preferred.
+ * Use of `raft::resources` or `raft::handle_t` is preferred.
  */
 class handle_t : public raft::device_resources {
  public:
-  // delete copy/move constructors and assignment operators as
-  // copying and moving underlying resources is unsafe
-  handle_t(const handle_t&) = delete;
-  handle_t& operator=(const handle_t&) = delete;
-  handle_t(handle_t&&)                 = delete;
+  handle_t(const handle_t& handle, rmm::mr::device_memory_resource* workspace_resource)
+    : device_resources(handle, workspace_resource)
+  {
+  }
+
+  handle_t(const handle_t& handle) : device_resources{handle} {}
+
+  handle_t(handle_t&&) = delete;
   handle_t& operator=(handle_t&&) = delete;
 
   /**
@@ -45,6 +48,8 @@ class handle_t : public raft::device_resources {
    * @param[in] stream_view the default stream (which has the default per-thread stream if
    * unspecified)
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
+   * @param[in] workspace_resource an optional resource used by some functions for allocating
+   *            temporary workspaces.
    */
   handle_t(rmm::cuda_stream_view stream_view                   = rmm::cuda_stream_per_thread,
            std::shared_ptr<rmm::cuda_stream_pool> stream_pool  = {nullptr},

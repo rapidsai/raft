@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ namespace raft::cache {
  * // We assume that our ML algo repeatedly calls calc, and the set of keys have
  * // an overlap. We will use the cache to avoid repeated calculations.
  *
- * // Assume we have raft::handle_t& h, and cudaStream_t stream
+ * // Assume we have raft::device_resources& h, and cudaStream_t stream
  * Cache<float> cache(h.get_device_allocator(), stream, m);
  *
  * // A buffer that we will reuse to store the cache indices.

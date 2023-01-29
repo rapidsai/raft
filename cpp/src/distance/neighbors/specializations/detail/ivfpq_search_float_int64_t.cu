@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 namespace raft::spatial::knn::ivf_pq::detail {
 
-template void search<float, int64_t>(const handle_t&,
+template void search<float, int64_t>(const raft::device_resources&,
                                      const search_params&,
                                      const index<int64_t>&,
                                      const float*,

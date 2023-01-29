@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 namespace raft::runtime::neighbors::ivf_pq {
 
 #define RAFT_SEARCH_INST(T, IdxT)                                            \
-  void search(const handle_t& handle,                                        \
+  void search(raft::device_resources const& handle,                          \
               const raft::neighbors::ivf_pq::search_params& params,          \
               const raft::neighbors::ivf_pq::index<IdxT>& idx,               \
               const T* queries,                                              \

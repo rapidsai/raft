@@ -49,9 +49,14 @@ class thrust_policy_resource_factory : public resource_factory {
 };
 
 /**
+ * @defgroup resource_thrust_policy Thrust policy resource functions
+ * @{
+ */
+
+/**
  * Load a thrust policy from a res (and populate it on the res if needed).
  * @param res raft res object for managing resources
- * @return
+ * @return thrust execution policy
  */
 inline rmm::exec_policy& get_thrust_policy(resources const& res)
 {
@@ -61,4 +66,9 @@ inline rmm::exec_policy& get_thrust_policy(resources const& res)
   }
   return *res.get_resource<rmm::exec_policy>(resource_type::THRUST_POLICY);
 };
+
+/**
+ * @}
+ */
+
 }  // namespace raft::resource

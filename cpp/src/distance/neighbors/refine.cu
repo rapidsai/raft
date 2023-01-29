@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 namespace raft::runtime::neighbors {
 
 #define RAFT_INST_REFINE(IDX_T, DATA_T)                                                       \
-  void refine(raft::handle_t const& handle,                                                   \
+  void refine(raft::device_resources const& handle,                                           \
               raft::device_matrix_view<const DATA_T, uint64_t, row_major> dataset,            \
               raft::device_matrix_view<const DATA_T, uint64_t, row_major> queries,            \
               raft::device_matrix_view<const IDX_T, uint64_t, row_major> neighbor_candidates, \
@@ -31,7 +31,7 @@ namespace raft::runtime::neighbors {
       handle, dataset, queries, neighbor_candidates, indices, distances, metric);             \
   }                                                                                           \
                                                                                               \
-  void refine(raft::handle_t const& handle,                                                   \
+  void refine(raft::device_resources const& handle,                                           \
               raft::host_matrix_view<const DATA_T, uint64_t, row_major> dataset,              \
               raft::host_matrix_view<const DATA_T, uint64_t, row_major> queries,              \
               raft::host_matrix_view<const IDX_T, uint64_t, row_major> neighbor_candidates,   \

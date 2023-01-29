@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 #include "detail/binary_op.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/input_validation.hpp>
 
@@ -65,7 +65,7 @@ void binaryOp(
  * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
  * @tparam OutType Output Type raft::device_mdspan
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in1 First input
  * @param[in] in2 Second input
  * @param[out] out Output
@@ -78,7 +78,7 @@ template <typename InType,
           typename OutType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void binary_op(const raft::handle_t& handle, InType in1, InType in2, OutType out, Lambda op)
+void binary_op(raft::device_resources const& handle, InType in1, InType in2, OutType out, Lambda op)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
   RAFT_EXPECTS(raft::is_row_or_column_major(in1), "Input 1 must be contiguous");

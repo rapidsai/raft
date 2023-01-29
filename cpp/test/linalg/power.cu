@@ -113,7 +113,7 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   PowerInputs<T> params;
   rmm::device_uvector<T> in1, in2, out_ref, out;
   int device_count = 0;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include <cusparse_v2.h>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -44,7 +44,7 @@ namespace convert {
 namespace detail {
 
 template <typename value_t>
-void coo_to_csr(const raft::handle_t& handle,
+void coo_to_csr(raft::device_resources const& handle,
                 const int* srcRows,
                 const int* srcCols,
                 const value_t* srcVals,

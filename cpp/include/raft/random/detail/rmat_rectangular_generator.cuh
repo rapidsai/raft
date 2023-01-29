@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include "rmat_rectangular_generator_types.cuh"
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -206,7 +206,7 @@ void rmat_rectangular_gen_caller(IdxT* out,
  * @param[in]  c_scale 2^c_scale represents the number of destination nodes
  */
 template <typename IdxT, typename ProbT>
-void rmat_rectangular_gen_impl(const raft::handle_t& handle,
+void rmat_rectangular_gen_impl(raft::device_resources const& handle,
                                raft::random::RngState& r,
                                raft::device_vector_view<const ProbT, IdxT> theta,
                                raft::random::detail::rmat_rectangular_gen_output<IdxT> output,
@@ -259,7 +259,7 @@ void rmat_rectangular_gen_impl(const raft::handle_t& handle,
  * `theta` parameter.
  */
 template <typename IdxT, typename ProbT>
-void rmat_rectangular_gen_impl(const raft::handle_t& handle,
+void rmat_rectangular_gen_impl(raft::device_resources const& handle,
                                raft::random::RngState& r,
                                raft::random::detail::rmat_rectangular_gen_output<IdxT> output,
                                ProbT a,

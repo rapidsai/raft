@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/stats/detail/contingencyMatrix.cuh>
 
@@ -120,7 +120,7 @@ void contingencyMatrix(const T* groundTruth,
  * @param[out] maxLabel: calculated max value in input array
  */
 template <typename value_t, typename idx_t>
-void get_input_class_cardinality(const raft::handle_t& handle,
+void get_input_class_cardinality(raft::device_resources const& handle,
                                  raft::device_vector_view<const value_t, idx_t> groundTruth,
                                  raft::host_scalar_view<value_t> minLabel,
                                  raft::host_scalar_view<value_t> maxLabel)
@@ -158,7 +158,7 @@ template <typename value_t,
           typename layout_t,
           typename opt_min_label_t,
           typename opt_max_label_t>
-void contingency_matrix(const raft::handle_t& handle,
+void contingency_matrix(raft::device_resources const& handle,
                         raft::device_vector_view<const value_t, idx_t> ground_truth,
                         raft::device_vector_view<const value_t, idx_t> predicted_label,
                         raft::device_matrix_view<out_t, idx_t, layout_t> out_mat,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 #include "detail/reduce_rows_by_key.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 namespace raft {
 namespace linalg {
@@ -136,7 +136,7 @@ void reduce_rows_by_key(const DataIteratorT d_A,
  * @tparam KeyType data-type of keys
  * @tparam WeightType data-type of weights
  * @tparam IndexType index type
- * @param[in]  handle      raft::handle_t
+ * @param[in]  handle      raft::device_resources
  * @param[in]  d_A         Input raft::device_mdspan (ncols * nrows)
  * @param[in]  d_keys      Keys for each row raft::device_vector_view (1 x nrows)
  * @param[out] d_sums      Row sums by key raft::device_matrix_view (ncols x d_keys)
@@ -148,7 +148,7 @@ void reduce_rows_by_key(const DataIteratorT d_A,
  */
 template <typename ElementType, typename KeyType, typename WeightType, typename IndexType>
 void reduce_rows_by_key(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const ElementType, IndexType, raft::row_major> d_A,
   raft::device_vector_view<const KeyType, IndexType> d_keys,
   raft::device_matrix_view<ElementType, IndexType, raft::row_major> d_sums,

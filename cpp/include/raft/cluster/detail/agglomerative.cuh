@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -100,7 +100,7 @@ class UnionFind {
  * @param[out] out_size cluster sizes of output
  */
 template <typename value_idx, typename value_t>
-void build_dendrogram_host(const handle_t& handle,
+void build_dendrogram_host(raft::device_resources const& handle,
                            const value_idx* rows,
                            const value_idx* cols,
                            const value_t* data,
@@ -236,7 +236,7 @@ struct init_label_roots {
  * @param n_leaves
  */
 template <typename value_idx, int tpb = 256>
-void extract_flattened_clusters(const raft::handle_t& handle,
+void extract_flattened_clusters(raft::device_resources const& handle,
                                 value_idx* labels,
                                 const value_idx* children,
                                 size_t n_clusters,

@@ -27,6 +27,7 @@
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/normalize.cuh>
@@ -73,7 +74,7 @@ constexpr static inline const float kAdjustCentersWeight = 7.0f;
  * @param mr (optional) memory resource to use for temporary allocations
  */
 template <typename IdxT, typename LabelT>
-inline void predict_float_core(const handle_t& handle,
+inline void predict_float_core(raft::device_resources const& handle,
                                const float* centers,
                                uint32_t n_clusters,
                                uint32_t dim,
@@ -242,7 +243,7 @@ constexpr auto calc_minibatch_size(
  * @param mr (optional) memory resource to use for temporary allocations on the device
  */
 template <typename T, typename IdxT, typename LabelT>
-void calc_centers_and_sizes(const handle_t& handle,
+void calc_centers_and_sizes(raft::device_resources const& handle,
                             float* centers,
                             uint32_t* cluster_sizes,
                             uint32_t n_clusters,
@@ -375,7 +376,7 @@ void compute_norm(float* dataset_norm,
  * @param mr (optional) memory resource to use for temporary allocations
  */
 template <typename T, typename IdxT, typename LabelT>
-void predict(const handle_t& handle,
+void predict(raft::device_resources const& handle,
              const float* centers,
              uint32_t n_clusters,
              uint32_t dim,
@@ -631,7 +632,7 @@ auto adjust_centers(float* centers,
  *   a memory resource for device allocations (makes sense to provide a memory pool here)
  */
 template <typename T, typename IdxT, typename LabelT>
-void balancing_em_iters(const handle_t& handle,
+void balancing_em_iters(raft::device_resources const& handle,
                         uint32_t n_iters,
                         uint32_t dim,
                         const T* dataset,
@@ -712,7 +713,7 @@ void balancing_em_iters(const handle_t& handle,
 
 /** Randomly initialize cluster centers and then call `balancing_em_iters`. */
 template <typename T, typename IdxT, typename LabelT>
-void build_clusters(const handle_t& handle,
+void build_clusters(raft::device_resources const& handle,
                     uint32_t n_iters,
                     uint32_t dim,
                     const T* dataset,
@@ -731,10 +732,11 @@ void build_clusters(const handle_t& handle,
                "the chosen index type cannot represent all indices for the given dataset");
 
   // "randomly initialize labels"
-  auto f = [n_clusters] __device__(LabelT * out, IdxT i) {
-    *out = LabelT(i % static_cast<IdxT>(n_clusters));
-  };
-  linalg::writeOnlyUnaryOp<LabelT, decltype(f), IdxT>(cluster_labels, n_rows, f, stream);
+  auto labels_view = raft::make_device_vector_view<LabelT, IdxT>(cluster_labels, n_rows);
+  linalg::map_offset(
+    handle,
+    labels_view,
+    raft::compose_op(raft::cast_op<LabelT>(), raft::mod_const_op<IdxT>(n_clusters)));
 
   // update centers to match the initialized labels.
   calc_centers_and_sizes(handle,
@@ -845,7 +847,7 @@ inline auto arrange_fine_clusters(uint32_t n_clusters,
  *  is ignored and a warning is reported.
  */
 template <typename T, typename IdxT, typename LabelT>
-auto build_fine_clusters(const handle_t& handle,
+auto build_fine_clusters(raft::device_resources const& handle,
                          uint32_t n_iters,
                          uint32_t dim,
                          const T* dataset_mptr,
@@ -953,7 +955,7 @@ auto build_fine_clusters(const handle_t& handle,
  * @param stream
  */
 template <typename T, typename IdxT>
-void build_hierarchical(const handle_t& handle,
+void build_hierarchical(raft::device_resources const& handle,
                         uint32_t n_iters,
                         uint32_t dim,
                         const T* dataset,
