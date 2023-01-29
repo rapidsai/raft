@@ -139,19 +139,18 @@ dependencies:
               - *libcusparse114
   docs_build:
     common:
-      - output_types: [conda, requirements]
-        packages:
-          - breathe
-      - output_types: [requirements]
-        packages:
-          - pydata_sphinx_theme
-          - sphinx_copybutton
-          - sphinx_markdown_tables
       - output_types: [conda]
         packages:
+          - breathe
           - doxygen>=1.8.20
           - ipython
           - numpydoc
+          - pip
+          - pip:
+            - breathe
+            - pydata_sphinx_theme
+            - sphinx_copybutton
+            - sphinx_markdown_tables
           - recommonmark
   py_version:
     specific:

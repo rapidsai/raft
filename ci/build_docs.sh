@@ -16,8 +16,8 @@ rapids-dependency-file-generator \
   --file_key docs \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee requirements.txt
   
-rapids-mamba-retry env create --force -f env.yaml -n test
-conda activate test
+rapids-mamba-retry env create --force -f env.yaml -n docs
+conda activate docs
 pip install -r requirements.txt
 
 rapids-print-env
@@ -38,13 +38,14 @@ rapids-mamba-retry install \
 
 
 # Build CPP docs
-gpuci_logger "Build CPP docs"
+rapids-logger "Build CPP docs"
 pushd docs
-sphinx-build -b dirhtml source build
+sphinx-build -b dirhtml source build -W
 popd
 
 
 
 if [[ ${RAPIDS_BUILD_TYPE} == "branch" ]]; then
+  rapids-logger "Upload Docs to S3"
   aws s3 sync --delete docs/build "s3://rapidsai-docs/raft/${VERSION_NUMBER}/build"
 fi
