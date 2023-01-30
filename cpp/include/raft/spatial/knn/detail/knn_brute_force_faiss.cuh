@@ -154,6 +154,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                            ElementType* distances,  // size (m, k)
                            IndexType* indices,      // size (m, k)
                            raft::distance::DistanceType metric,
+                           float metric_arg         = 0.0,
                            size_t max_row_tile_size = 0,
                            size_t max_col_tile_size = 0)
 {
@@ -209,7 +210,8 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                                                           current_centroid_size,
                                                           d,
                                                           metric,
-                                                          true);
+                                                          true,
+                                                          metric_arg);
 
       detail::select_k<IndexType, ElementType>(temp_distances.data(),
                                                nullptr,
@@ -441,8 +443,17 @@ void brute_force_knn_impl(
           haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k, stream);
           break;
         default:
-          tiled_brute_force_knn<value_t, IdxType>(
-            handle, input[i], search_items, sizes[i], n, D, k, out_d_ptr, out_i_ptr, metric);
+          tiled_brute_force_knn<value_t, IdxType>(handle,
+                                                  input[i],
+                                                  search_items,
+                                                  sizes[i],
+                                                  n,
+                                                  D,
+                                                  k,
+                                                  out_d_ptr,
+                                                  out_i_ptr,
+                                                  metric,
+                                                  metricArg);
           break;
       }
     }
