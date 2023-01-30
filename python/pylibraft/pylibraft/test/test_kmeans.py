@@ -159,7 +159,10 @@ def test_init_plus_plus(n_rows, n_cols, n_clusters, dtype):
     X_device = device_ndarray(X)
 
     centroids = init_plus_plus(X_device, n_clusters, seed=1)
+    centroids_ = centroids.copy_to_host()
+
+    assert centroids_.shape == (n_clusters, X.shape[1])
 
     # Centroids are selected from the existing points
-    for centroid in centroids.copy_to_host():
+    for centroid in centroids_:
         assert (centroid == X).all(axis=1).any()
