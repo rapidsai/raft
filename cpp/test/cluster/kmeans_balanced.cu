@@ -159,8 +159,12 @@ std::vector<KmeansBalancedInputs<MathT, IdxT>> get_kmeans_balanced_inputs()
   p.kb_params.n_iters = 20;
   p.kb_params.metric  = raft::distance::DistanceType::L2Expanded;
   p.tol               = MathT{0.0001};
-  std::vector<std::tuple<size_t, size_t, size_t>> row_cols_k = {
-    {1000, 32, 5}, {1000, 100, 20}, {10000, 32, 10}, {10000, 100, 50}, {10000, 500, 100}};
+  std::vector<std::tuple<size_t, size_t, size_t>> row_cols_k = {{1000, 32, 5},
+                                                                {1000, 100, 20},
+                                                                {10000, 32, 10},
+                                                                {10000, 100, 50},
+                                                                {10000, 500, 100},
+                                                                {1000000, 128, 10}};
   for (auto& rck : row_cols_k) {
     p.n_rows     = static_cast<IdxT>(std::get<0>(rck));
     p.n_cols     = static_cast<IdxT>(std::get<1>(rck));
