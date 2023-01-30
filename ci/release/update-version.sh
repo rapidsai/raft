@@ -23,7 +23,8 @@ CURRENT_UCX_PY_VERSION="$(curl -sL https://version.gpuci.io/rapids/${CURRENT_SHO
 NEXT_MAJOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[1]}')
 NEXT_MINOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[2]}')
 NEXT_SHORT_TAG=${NEXT_MAJOR}.${NEXT_MINOR}
-NEXT_UCX_PY_VERSION="$(curl -sL https://version.gpuci.io/rapids/${NEXT_SHORT_TAG}).*"
+NEXT_UCX_PY_SHORT_TAG="$(curl -sL https://version.gpuci.io/rapids/${NEXT_SHORT_TAG})"
+NEXT_UCX_PY_VERSION="${NEXT_UCX_PY_SHORT_TAG}.*"
 
 echo "Preparing release $CURRENT_TAG => $NEXT_FULL_TAG"
 
@@ -59,13 +60,11 @@ sed_runner "/^ucx_py_version:$/ {n;s/.*/  - \"${NEXT_UCX_PY_VERSION}\"/}" conda/
 sed_runner "s/dask-cuda.git@branch-[^\"\s]\+/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
 
 # Need to distutils-normalize the original version
-CURRENT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${CURRENT_SHORT_TAG}')")
-NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}')")
-CURRENT_UCX_PY_VERSION_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${CURRENT_UCX_PY_VERSION}')")
-NEXT_UCX_PY_VERSION_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_UCX_PY_VERSION}')")
+NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
+NEXT_UCX_PY_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_UCX_PY_SHORT_TAG}'))")
 
 # Wheel builds install intra-RAPIDS dependencies from same release
-sed_runner "s/${CURRENT_SHORT_TAG_PEP440}/${NEXT_SHORT_TAG_PEP440}/g" python/pylibraft/setup.py
-sed_runner "s/${CURRENT_SHORT_TAG_PEP440}/${NEXT_SHORT_TAG_PEP440}/g" python/pylibraft/_custom_build/backend.py
-sed_runner "s/${CURRENT_SHORT_TAG_PEP440}/${NEXT_SHORT_TAG_PEP440}/g" python/raft-dask/setup.py
-sed_runner "s/${CURRENT_UCX_PY_VERSION_PEP440}/${NEXT_UCX_PY_VERSION_PEP440}/g" python/raft-dask/setup.py
+sed_runner "s/{cuda_suffix}[^\"].*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pylibraft/setup.py
+sed_runner "s/{cuda_suffix}.*\"\]/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\"\]/g" python/pylibraft/_custom_build/backend.py
+sed_runner "s/pylibraft{cuda_suffix}.*\",/pylibraft{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py
+sed_runner "s/ucx-py{cuda_suffix}.*\",/ucx-py{cuda_suffix}==${NEXT_UCX_PY_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py
