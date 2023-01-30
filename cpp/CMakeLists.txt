@@ -414,7 +414,10 @@ if(RAFT_COMPILE_NN_LIBRARY)
     src/nn/specializations/fused_l2_knn_long_float_false.cu
     src/nn/specializations/fused_l2_knn_int_float_true.cu
     src/nn/specializations/fused_l2_knn_int_float_false.cu
-    src/nn/specializations/knn.cu
+    src/nn/specializations/knn_long_float_int.cu
+    src/nn/specializations/knn_long_float_uint.cu
+    src/nn/specializations/knn_uint_float_int.cu
+    src/nn/specializations/knn_uint_float_uint.cu
   )
   set_target_properties(
     raft_nn_lib
