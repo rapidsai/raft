@@ -20,8 +20,8 @@ First, an instance of `raft::comms_t` is passed through the `raft::device_resour
      raft::device_scalar<int> temp_scalar(stream);
 
      int to_send = 1;
-     raft::copy(temp.data(), &send, 1, stream);
-     communicator.allreduce(temp.data(), temp.data(), 1,
+     raft::copy(temp_scalar.data(), &to_send, 1, stream);
+     communicator.allreduce(temp_scalar.data(), temp_scalar.data(), 1,
                             raft::comms::opt_t::SUM, stream);
      handle.sync_stream();
    }
@@ -36,7 +36,7 @@ This exact function can now be executed in several different types of GPU cluste
 
    raft::device_resources resource_handle;
    // ...
-   initialize MPI_Comm
+   // initialize MPI_Comm
    // ...
    raft::comms::initialize_mpi_comms(resource_handle,  mpi_comm);
    // ...
@@ -54,7 +54,7 @@ Deploying our`test_allreduce` function in Dask requires a lightweight Python int
        void test_allreduce(device_resources const &handle, int root) except +
 
    def run_test_allreduce(handle, root):
-     cdef const device_resources* h = <device_resources*><size_t>handle.getHandle()
+       cdef const device_resources* h = <device_resources*><size_t>handle.getHandle()
 
    test_allreduce(deref(h), root)
 
@@ -93,3 +93,5 @@ Finally, we can use `raft_dask` to execute our new algorithm in a Dask cluster (
    wait(dfs, timeout=5)
 
    comms.destroy()
+   client.close()
+   cluster.close()
