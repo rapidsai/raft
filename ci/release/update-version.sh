@@ -66,5 +66,6 @@ NEXT_UCX_PY_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packagin
 # Wheel builds install intra-RAPIDS dependencies from same release
 sed_runner "s/{cuda_suffix}[^\"].*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pylibraft/setup.py
 sed_runner "s/{cuda_suffix}.*\"\]/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\"\]/g" python/pylibraft/_custom_build/backend.py
+sed_runner "s/dask-cuda==.*\",/dask-cuda==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py
 sed_runner "s/pylibraft{cuda_suffix}.*\",/pylibraft{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py
 sed_runner "s/ucx-py{cuda_suffix}.*\",/ucx-py{cuda_suffix}==${NEXT_UCX_PY_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py
