@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,11 @@ namespace linalg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename InType, typename IdxType, typename OutType>
-void binaryOpLaunch(
-  const raft::handle_t& handle, OutType* out, const InType* in1, const InType* in2, IdxType len)
+void binaryOpLaunch(const raft::device_resources& handle,
+                    OutType* out,
+                    const InType* in1,
+                    const InType* in2,
+                    IdxType len)
 {
   auto out_view = raft::make_device_vector_view(out, len);
   auto in1_view = raft::make_device_vector_view(in1, len);
@@ -66,7 +69,7 @@ class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxT
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   BinaryOpInputs<InType, IdxType, OutType> params;
@@ -142,7 +145,7 @@ class BinaryOpAlignment : public ::testing::Test {
       z.data() + 9, x.data() + 137, y.data() + 19, 256, raft::add_op{}, handle.get_stream());
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
 };
 typedef ::testing::Types<float, double> FloatTypes;
 TYPED_TEST_CASE(BinaryOpAlignment, FloatTypes);

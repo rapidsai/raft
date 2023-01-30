@@ -165,9 +165,25 @@ class mock_comms : public comms_iface {
   int n_ranks;
 };
 
+void assert_handles_equal(raft::handle_t& handle_one, raft::handle_t& handle_two)
+{
+  // Assert shallow copied state
+  ASSERT_EQ(handle_one.get_stream().value(), handle_two.get_stream().value());
+  ASSERT_EQ(handle_one.get_stream_pool_size(), handle_two.get_stream_pool_size());
+
+  // Sanity check to make sure non-corresponding streams are not equal
+  ASSERT_NE(handle_one.get_stream_pool().get_stream(0).value(),
+            handle_two.get_stream_pool().get_stream(1).value());
+
+  for (size_t i = 0; i < handle_one.get_stream_pool_size(); ++i) {
+    ASSERT_EQ(handle_one.get_stream_pool().get_stream(i).value(),
+              handle_two.get_stream_pool().get_stream(i).value());
+  }
+}
+
 TEST(Raft, HandleDefault)
 {
-  handle_t h;
+  raft::handle_t h;
   ASSERT_EQ(0, h.get_device());
   ASSERT_EQ(rmm::cuda_stream_per_thread, h.get_stream());
   ASSERT_NE(nullptr, h.get_cublas_handle());
@@ -181,14 +197,14 @@ TEST(Raft, Handle)
   // test stream pool creation
   constexpr std::size_t n_streams = 4;
   auto stream_pool                = std::make_shared<rmm::cuda_stream_pool>(n_streams);
-  handle_t h(rmm::cuda_stream_default, stream_pool);
+  raft::handle_t h(rmm::cuda_stream_default, stream_pool);
   ASSERT_EQ(n_streams, h.get_stream_pool_size());
 
   // test non default stream handle
   cudaStream_t stream;
   RAFT_CUDA_TRY(cudaStreamCreate(&stream));
   rmm::cuda_stream_view stream_view(stream);
-  handle_t handle(stream_view);
+  raft::handle_t handle(stream_view);
   ASSERT_EQ(stream_view, handle.get_stream());
   handle.sync_stream(stream);
   RAFT_CUDA_TRY(cudaStreamDestroy(stream));
@@ -196,7 +212,7 @@ TEST(Raft, Handle)
 
 TEST(Raft, DefaultConstructor)
 {
-  handle_t handle;
+  raft::handle_t handle;
 
   // Make sure waiting on the default stream pool
   // does not fail.
@@ -216,11 +232,11 @@ TEST(Raft, GetHandleFromPool)
 {
   constexpr std::size_t n_streams = 4;
   auto stream_pool                = std::make_shared<rmm::cuda_stream_pool>(n_streams);
-  handle_t parent(rmm::cuda_stream_default, stream_pool);
+  raft::handle_t parent(rmm::cuda_stream_default, stream_pool);
 
   for (std::size_t i = 0; i < n_streams; i++) {
     auto worker_stream = parent.get_stream_from_stream_pool(i);
-    handle_t child(worker_stream);
+    raft::handle_t child(worker_stream);
     ASSERT_EQ(parent.get_stream_from_stream_pool(i), child.get_stream());
   }
 
@@ -229,7 +245,7 @@ TEST(Raft, GetHandleFromPool)
 
 TEST(Raft, Comms)
 {
-  handle_t handle;
+  raft::handle_t handle;
   auto comm1 = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mock_comms(2)));
   handle.set_comms(comm1);
 
@@ -238,7 +254,7 @@ TEST(Raft, Comms)
 
 TEST(Raft, SubComms)
 {
-  handle_t handle;
+  raft::handle_t handle;
   auto comm1 = std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new mock_comms(1)));
   handle.set_subcomm("key1", comm1);
 
@@ -251,7 +267,7 @@ TEST(Raft, SubComms)
 
 TEST(Raft, WorkspaceResource)
 {
-  handle_t handle;
+  raft::handle_t handle;
 
   ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
                 handle.get_workspace_resource()) == nullptr);
@@ -259,13 +275,53 @@ TEST(Raft, WorkspaceResource)
 
   auto pool_mr = new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource());
   std::shared_ptr<rmm::cuda_stream_pool> pool = {nullptr};
-  handle_t handle2(rmm::cuda_stream_per_thread, pool, pool_mr);
+  raft::handle_t handle2(rmm::cuda_stream_per_thread, pool, pool_mr);
 
   ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
                 handle2.get_workspace_resource()) != nullptr);
   ASSERT_EQ(pool_mr, handle2.get_workspace_resource());
 
   delete pool_mr;
+}
+
+TEST(Raft, WorkspaceResourceCopy)
+{
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(10);
+
+  handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  auto pool_mr = new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource());
+
+  handle_t copied_handle(handle, pool_mr);
+
+  assert_handles_equal(handle, copied_handle);
+
+  // Assert the workspace_resources are what we expect
+  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
+                handle.get_workspace_resource()) == nullptr);
+
+  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
+                copied_handle.get_workspace_resource()) != nullptr);
+}
+
+TEST(Raft, HandleCopy)
+{
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(10);
+
+  handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  handle_t copied_handle(handle);
+
+  assert_handles_equal(handle, copied_handle);
+}
+
+TEST(Raft, HandleAssign)
+{
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(10);
+
+  handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  handle_t copied_handle = handle;
+
+  assert_handles_equal(handle, copied_handle);
 }
 
 }  // namespace raft

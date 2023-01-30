@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,15 @@
  */
 
 #include <raft/cluster/kmeans.cuh>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
-#include <raft/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 namespace raft::runtime::cluster::kmeans {
 template <typename ElementType, typename IndexType>
-void cluster_cost(const raft::handle_t& handle,
+void cluster_cost(raft::device_resources const& handle,
                   const ElementType* X,
                   IndexType n_samples,
                   IndexType n_features,

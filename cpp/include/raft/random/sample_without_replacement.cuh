@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 #include <cassert>
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <type_traits>
 #include <variant>
 
@@ -94,7 +94,7 @@ using weight_t = typename weight_alias<T>::type;
  *   equals the number of inputs `in.extent(0)`.
  */
 template <typename DataT, typename IdxT, typename WeightsVectorType, class OutIndexVectorType>
-void sample_without_replacement(const raft::handle_t& handle,
+void sample_without_replacement(raft::device_resources const& handle,
                                 RngState& rng_state,
                                 raft::device_vector_view<const DataT, IdxT> in,
                                 WeightsVectorType&& weights_opt,

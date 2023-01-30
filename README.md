@@ -277,7 +277,7 @@ Several CMake targets can be made available by adding components in the table be
 The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository:
 1. Create an environment with the needed dependencies:
 ```
-mamba env create --name raft_dev_env -f conda/environments/all_cuda-115_arch-x86_64.yaml
+mamba env create --name raft_dev_env -f conda/environments/all_cuda-118_arch-x86_64.yaml
 mamba activate raft_dev_env
 ```
 ```
@@ -315,6 +315,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
       - `solver`: Sparse solvers for optimization and approximation
     - `stats`: Moments, summary statistics, model performance measures
     - `util`: Various reusable tools and utilities for accelerated algorithm development
+  - `internal`: A private header-only component that hosts the code shared between benchmarks and tests.
   - `scripts`: Helpful scripts for development
   - `src`: Compiled APIs and template specializations for the shared libraries
   - `test`: Googletests source code

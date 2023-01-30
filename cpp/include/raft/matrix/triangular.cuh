@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ namespace raft::matrix {
  * @param[out] dst: output matrix with a size of kxk, k = min(n_rows, n_cols)
  */
 template <typename m_t, typename idx_t>
-void upper_triangular(const raft::handle_t& handle,
+void upper_triangular(raft::device_resources const& handle,
                       raft::device_matrix_view<const m_t, idx_t, col_major> src,
                       raft::device_matrix_view<m_t, idx_t, col_major> dst)
 {

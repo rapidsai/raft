@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ namespace raft::matrix {
  * @returns matrix l2 norm
  */
 template <typename m_t, typename idx_t>
-m_t l2_norm(const raft::handle_t& handle, raft::device_mdspan<const m_t, idx_t> in)
+m_t l2_norm(raft::device_resources const& handle, raft::device_mdspan<const m_t, idx_t> in)
 {
   return detail::getL2Norm(handle, in.data_handle(), in.size(), handle.get_stream());
 }

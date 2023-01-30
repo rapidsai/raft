@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ namespace linalg {
  * @param stream cuda stream
  */
 template <typename math_t>
-void eigDC(const raft::handle_t& handle,
+void eigDC(raft::device_resources const& handle,
            const math_t* in,
            std::size_t n_rows,
            std::size_t n_cols,
@@ -68,7 +68,7 @@ using detail::OVERWRITE_INPUT;
  * @param stream cuda stream
  */
 template <typename math_t>
-void eigSelDC(const raft::handle_t& handle,
+void eigSelDC(raft::device_resources const& handle,
               math_t* in,
               std::size_t n_rows,
               std::size_t n_cols,
@@ -97,7 +97,7 @@ void eigSelDC(const raft::handle_t& handle,
  * accuracy.
  */
 template <typename math_t>
-void eigJacobi(const raft::handle_t& handle,
+void eigJacobi(raft::device_resources const& handle,
                const math_t* in,
                std::size_t n_rows,
                std::size_t n_cols,
@@ -120,14 +120,14 @@ void eigJacobi(const raft::handle_t& handle,
  * symmetric matrices
  * @tparam ValueType the data-type of input and output
  * @tparam IntegerType Integer used for addressing
- * @param handle raft::handle_t
+ * @param handle raft::device_resources
  * @param[in] in input raft::device_matrix_view (symmetric matrix that has real eig values and
  * vectors)
  * @param[out] eig_vectors: eigenvectors output of type raft::device_matrix_view
  * @param[out] eig_vals: eigen values output of type raft::device_vector_view
  */
 template <typename ValueType, typename IndexType>
-void eig_dc(const raft::handle_t& handle,
+void eig_dc(raft::device_resources const& handle,
             raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
             raft::device_matrix_view<ValueType, IndexType, raft::col_major> eig_vectors,
             raft::device_vector_view<ValueType, IndexType> eig_vals)
@@ -149,7 +149,7 @@ void eig_dc(const raft::handle_t& handle,
  *        for the column-major symmetric matrices
  * @tparam ValueType the data-type of input and output
  * @tparam IntegerType Integer used for addressing
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in input raft::device_matrix_view (symmetric matrix that has real eig values and
  * vectors)
  * @param[out] eig_vectors: eigenvectors output of type raft::device_matrix_view
@@ -158,7 +158,7 @@ void eig_dc(const raft::handle_t& handle,
  * @param[in] memUsage: the memory selection for eig vector output
  */
 template <typename ValueType, typename IndexType>
-void eig_dc_selective(const raft::handle_t& handle,
+void eig_dc_selective(raft::device_resources const& handle,
                       raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
                       raft::device_matrix_view<ValueType, IndexType, raft::col_major> eig_vectors,
                       raft::device_vector_view<ValueType, IndexType> eig_vals,
@@ -185,7 +185,7 @@ void eig_dc_selective(const raft::handle_t& handle,
  * column-major symmetric matrices (in parameter)
  * @tparam ValueType the data-type of input and output
  * @tparam IntegerType Integer used for addressing
- * @param handle raft::handle_t
+ * @param handle raft::device_resources
  * @param[in] in input raft::device_matrix_view (symmetric matrix that has real eig values and
  * vectors)
  * @param[out] eig_vectors: eigenvectors output of type raft::device_matrix_view
@@ -196,7 +196,7 @@ void eig_dc_selective(const raft::handle_t& handle,
  * accuracy.
  */
 template <typename ValueType, typename IndexType>
-void eig_jacobi(const raft::handle_t& handle,
+void eig_jacobi(raft::device_resources const& handle,
                 raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
                 raft::device_matrix_view<ValueType, IndexType, raft::col_major> eig_vectors,
                 raft::device_vector_view<ValueType, IndexType> eig_vals,

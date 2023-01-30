@@ -42,6 +42,11 @@ class sub_comms_resource_factory : public resource_factory {
   resource* make_resource() override { return new sub_comms_resource(); }
 };
 
+/**
+ * @defgroup resource_subcomms Subcommunicator resource functions
+ * @{
+ */
+
 inline const comms::comms_t& get_subcomm(const resources& res, std::string key)
 {
   if (!res.has_resource_factory(resource_type::SUB_COMMUNICATOR)) {
@@ -69,4 +74,9 @@ inline void set_subcomm(resources const& res,
       resource_type::SUB_COMMUNICATOR);
   sub_comms->insert(std::make_pair(key, subcomm));
 }
+
+/**
+ * @}
+ */
+
 }  // namespace raft::resource

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 
 namespace raft::runtime::distance {
@@ -42,7 +42,7 @@ namespace raft::runtime::distance {
  * @param[in]  k             gemm k
  * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
  */
-void fused_l2_nn_min_arg(raft::handle_t const& handle,
+void fused_l2_nn_min_arg(raft::device_resources const& handle,
                          int* min,
                          const float* x,
                          const float* y,
@@ -51,7 +51,7 @@ void fused_l2_nn_min_arg(raft::handle_t const& handle,
                          int k,
                          bool sqrt);
 
-void fused_l2_nn_min_arg(raft::handle_t const& handle,
+void fused_l2_nn_min_arg(raft::device_resources const& handle,
                          int* min,
                          const double* x,
                          const double* y,

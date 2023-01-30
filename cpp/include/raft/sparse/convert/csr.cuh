@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ namespace sparse {
 namespace convert {
 
 template <typename value_t>
-void coo_to_csr(const raft::handle_t& handle,
+void coo_to_csr(raft::device_resources const& handle,
                 const int* srcRows,
                 const int* srcCols,
                 const value_t* srcVals,
@@ -90,7 +90,7 @@ void sorted_coo_to_csr(COO<T>* coo, int* row_ind, cudaStream_t stream)
  *                         number of non-zeros in adj.
  */
 template <typename index_t = int>
-void adj_to_csr(const raft::handle_t& handle,
+void adj_to_csr(raft::device_resources const& handle,
                 const bool* adj,         // Row-major adjacency matrix
                 const index_t* row_ind,  // Precomputed row indices
                 index_t num_rows,        // # rows of adj

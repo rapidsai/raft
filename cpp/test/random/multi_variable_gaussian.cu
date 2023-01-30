@@ -197,7 +197,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   MVGInputs<T> params;
   rmm::device_uvector<T> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
   std::vector<T> P, x, X;
@@ -325,7 +325,7 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
 
   MVGInputs<T> params;
   std::vector<T> P, x, X;

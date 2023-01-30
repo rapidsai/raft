@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ namespace detail {
  */
 template <typename math_t>
 void qrGetQ_inplace(
-  const raft::handle_t& handle, math_t* Q, int n_rows, int n_cols, cudaStream_t stream)
+  raft::device_resources const& handle, math_t* Q, int n_rows, int n_cols, cudaStream_t stream)
 {
   RAFT_EXPECTS(n_rows >= n_cols, "QR decomposition expects n_rows >= n_cols.");
   cusolverDnHandle_t cusolver = handle.get_cusolver_dn_handle();
@@ -83,7 +83,7 @@ void qrGetQ_inplace(
 }
 
 template <typename math_t>
-void qrGetQ(const raft::handle_t& handle,
+void qrGetQ(raft::device_resources const& handle,
             const math_t* M,
             math_t* Q,
             int n_rows,
@@ -95,7 +95,7 @@ void qrGetQ(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void qrGetQR(const raft::handle_t& handle,
+void qrGetQR(raft::device_resources const& handle,
              math_t* M,
              math_t* Q,
              math_t* R,

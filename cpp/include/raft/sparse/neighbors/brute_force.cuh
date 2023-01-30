@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/neighbors/detail/knn.cuh>
 
@@ -61,7 +61,7 @@ void knn(const value_idx* idxIndptr,
          value_idx* output_indices,
          value_t* output_dists,
          int k,
-         const raft::handle_t& handle,
+         raft::device_resources const& handle,
          size_t batch_size_index             = 2 << 14,  // approx 1M
          size_t batch_size_query             = 2 << 14,
          raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,

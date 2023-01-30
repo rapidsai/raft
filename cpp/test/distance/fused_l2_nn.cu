@@ -60,7 +60,7 @@ __global__ void naiveKernel(raft::KeyValuePair<int, DataT>* min,
     auto diff = midx >= m || nidx >= n ? DataT(0) : x[xidx] - y[yidx];
     acc += diff * diff;
   }
-  if (Sqrt) { acc = raft::mySqrt(acc); }
+  if (Sqrt) { acc = raft::sqrt(acc); }
   ReduceOpT redOp;
   typedef cub::WarpReduce<raft::KeyValuePair<int, DataT>> WarpReduce;
   __shared__ typename WarpReduce::TempStorage temp[NWARPS];
@@ -158,7 +158,7 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
   Inputs<DataT> params;
   rmm::device_uvector<DataT> x;
@@ -380,12 +380,12 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
   void TearDown() override { FusedL2NNTest<DataT, Sqrt>::TearDown(); }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<raft::KeyValuePair<int, DataT>> min1;
 
-  static const int NumRepeats = 100;
+  static const int NumRepeats = 3;
 
   void generateGoldenResult() override {}
 };

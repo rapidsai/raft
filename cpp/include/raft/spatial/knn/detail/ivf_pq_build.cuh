@@ -23,7 +23,7 @@
 #include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
@@ -31,7 +31,9 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/qr.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/histogram.cuh>
@@ -180,7 +182,7 @@ void copy_warped(T* out,
  * @param[out] rotation_matrix device pointer to a row-major matrix of size [n_rows, n_cols].
  * @param rng random number generator state
  */
-inline void make_rotation_matrix(const handle_t& handle,
+inline void make_rotation_matrix(raft::device_resources const& handle,
                                  bool force_random_rotation,
                                  uint32_t n_rows,
                                  uint32_t n_cols,
@@ -209,8 +211,11 @@ inline void make_rotation_matrix(const handle_t& handle,
     }
   } else {
     uint32_t stride = n + 1;
-    auto f = [stride] __device__(float* out, uint32_t i) -> void { *out = float(i % stride == 0); };
-    linalg::writeOnlyUnaryOp(rotation_matrix, n * n, f, stream);
+    auto rotation_matrix_view =
+      raft::make_device_vector_view<float, uint32_t>(rotation_matrix, n * n);
+    linalg::map_offset(handle, rotation_matrix_view, [stride] __device__(uint32_t i) {
+      return static_cast<float>(i % stride == 0u);
+    });
   }
 }
 
@@ -221,7 +226,7 @@ inline void make_rotation_matrix(const handle_t& handle,
  *
  */
 template <typename T, typename IdxT>
-void select_residuals(const handle_t& handle,
+void select_residuals(raft::device_resources const& handle,
                       float* residuals,
                       IdxT n_rows,
                       uint32_t dim,
@@ -270,7 +275,7 @@ void select_residuals(const handle_t& handle,
  */
 template <typename T, typename IdxT>
 void flat_compute_residuals(
-  const handle_t& handle,
+  raft::device_resources const& handle,
   float* residuals,  // [n_rows, rot_dim]
   IdxT n_rows,
   device_mdspan<const float, extent_2d<uint32_t>, row_major> rotation_matrix,  // [rot_dim, dim]
@@ -283,16 +288,13 @@ void flat_compute_residuals(
   auto dim     = rotation_matrix.extent(1);
   auto rot_dim = rotation_matrix.extent(0);
   rmm::device_uvector<float> tmp(n_rows * dim, stream, device_memory);
-  linalg::writeOnlyUnaryOp(
-    tmp.data(),
-    tmp.size(),
-    [centers, dataset, labels, dim] __device__(float* out, size_t i) {
-      auto row_ix = i / dim;
-      auto el_ix  = i % dim;
-      auto label  = labels[row_ix];
-      *out        = utils::mapping<float>{}(dataset[i]) - centers(label, el_ix);
-    },
-    stream);
+  auto tmp_view = raft::make_device_vector_view<float, IdxT>(tmp.data(), tmp.size());
+  linalg::map_offset(handle, tmp_view, [centers, dataset, labels, dim] __device__(size_t i) {
+    auto row_ix = i / dim;
+    auto el_ix  = i % dim;
+    auto label  = labels[row_ix];
+    return utils::mapping<float>{}(dataset[i]) - centers(label, el_ix);
+  });
 
   float alpha = 1.0f;
   float beta  = 0.0f;
@@ -368,33 +370,32 @@ auto calculate_offsets_and_indices(IdxT n_rows,
 }
 
 template <typename IdxT>
-void transpose_pq_centers(index<IdxT>& index,
-                          const float* pq_centers_source,
-                          rmm::cuda_stream_view stream)
+void transpose_pq_centers(const device_resources& handle,
+                          index<IdxT>& index,
+                          const float* pq_centers_source)
 {
+  auto stream  = handle.get_stream();
   auto extents = index.pq_centers().extents();
   static_assert(extents.rank() == 3);
   auto extents_source =
     make_extents<uint32_t>(extents.extent(0), extents.extent(2), extents.extent(1));
   auto span_source =
     make_mdspan<const float, uint32_t, row_major, false, true>(pq_centers_source, extents_source);
-  linalg::writeOnlyUnaryOp(
-    index.pq_centers().data_handle(),
-    index.pq_centers().size(),
-    [span_source, extents] __device__(float* out, size_t i) {
-      uint32_t ii[3];
-      for (int r = 2; r > 0; r--) {
-        ii[r] = i % extents.extent(r);
-        i /= extents.extent(r);
-      }
-      ii[0] = i;
-      *out  = span_source(ii[0], ii[2], ii[1]);
-    },
-    stream);
+  auto pq_centers_view = raft::make_device_vector_view<float, IdxT>(
+    index.pq_centers().data_handle(), index.pq_centers().size());
+  linalg::map_offset(handle, pq_centers_view, [span_source, extents] __device__(size_t i) {
+    uint32_t ii[3];
+    for (int r = 2; r > 0; r--) {
+      ii[r] = i % extents.extent(r);
+      i /= extents.extent(r);
+    }
+    ii[0] = i;
+    return span_source(ii[0], ii[2], ii[1]);
+  });
 }
 
 template <typename IdxT>
-void train_per_subset(const handle_t& handle,
+void train_per_subset(raft::device_resources const& handle,
                       index<IdxT>& index,
                       size_t n_rows,
                       const float* trainset,   // [n_rows, dim]
@@ -460,11 +461,11 @@ void train_per_subset(const handle_t& handle,
                            stream,
                            device_memory);
   }
-  transpose_pq_centers(index, pq_centers_tmp.data(), stream);
+  transpose_pq_centers(handle, index, pq_centers_tmp.data());
 }
 
 template <typename IdxT>
-void train_per_cluster(const handle_t& handle,
+void train_per_cluster(raft::device_resources const& handle,
                        index<IdxT>& index,
                        size_t n_rows,
                        const float* trainset,   // [n_rows, dim]
@@ -537,7 +538,7 @@ void train_per_cluster(const handle_t& handle,
       stream,
       device_memory);
   }
-  transpose_pq_centers(index, pq_centers_tmp.data(), stream);
+  transpose_pq_centers(handle, index, pq_centers_tmp.data());
 }
 
 /**
@@ -545,7 +546,7 @@ void train_per_cluster(const handle_t& handle,
  *
  * @return Number of non-empty clusters
  */
-inline auto reorder_clusters_by_size_desc(const handle_t& handle,
+inline auto reorder_clusters_by_size_desc(raft::device_resources const& handle,
                                           uint32_t* ordering,
                                           uint32_t* cluster_sizes_out,
                                           const uint32_t* cluster_sizes_in,
@@ -751,7 +752,7 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
  *    a memory resource to use for device allocations
  */
 template <typename T, typename IdxT>
-void process_and_fill_codes(const handle_t& handle,
+void process_and_fill_codes(raft::device_resources const& handle,
                             index<IdxT>& index,
                             const T* new_vectors,
                             std::variant<IdxT, const IdxT*> src_offset_or_indices,
@@ -921,7 +922,7 @@ void copy_index_data(index<IdxT>& target,
 
 /** See raft::spatial::knn::ivf_pq::extend docs */
 template <typename T, typename IdxT>
-auto extend(const handle_t& handle,
+auto extend(raft::device_resources const& handle,
             const index<IdxT>& orig_index,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -1147,9 +1148,11 @@ auto extend(const handle_t& handle,
 
 /** See raft::spatial::knn::ivf_pq::build docs */
 template <typename T, typename IdxT>
-auto build(
-  const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
-  -> index<IdxT>
+auto build(raft::device_resources const& handle,
+           const index_params& params,
+           const T* dataset,
+           IdxT n_rows,
+           uint32_t dim) -> index<IdxT>
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::build(%zu, %u)", size_t(n_rows), dim);
@@ -1212,14 +1215,12 @@ auto build(
     if (dataset_attr.devicePointer != nullptr) {
       // data is available on device: just run the kernel to copy and map the data
       auto p = reinterpret_cast<T*>(dataset_attr.devicePointer);
-      linalg::writeOnlyUnaryOp(
-        trainset.data(),
-        dim * n_rows_train,
-        [p, trainset_ratio, dim] __device__(float* out, size_t i) {
-          auto col = i % dim;
-          *out     = utils::mapping<float>{}(p[(i - col) * size_t(trainset_ratio) + col]);
-        },
-        stream);
+      auto trainset_view =
+        raft::make_device_vector_view<float, IdxT>(trainset.data(), dim * n_rows_train);
+      linalg::map_offset(handle, trainset_view, [p, trainset_ratio, dim] __device__(size_t i) {
+        auto col = i % dim;
+        return utils::mapping<float>{}(p[(i - col) * size_t(trainset_ratio) + col]);
+      });
     } else {
       // data is not available: first copy, then map inplace
       auto trainset_tmp = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(trainset.data()) +
@@ -1377,7 +1378,9 @@ static const int serialization_version = 1;
  *
  */
 template <typename IdxT>
-void save(const handle_t& handle_, const std::string& filename, const index<IdxT>& index_)
+void save(raft::device_resources const& handle_,
+          const std::string& filename,
+          const index<IdxT>& index_)
 {
   std::ofstream of(filename, std::ios::out | std::ios::binary);
   if (!of) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
@@ -1424,7 +1427,7 @@ void save(const handle_t& handle_, const std::string& filename, const index<IdxT
  *
  */
 template <typename IdxT>
-auto load(const handle_t& handle_, const std::string& filename) -> index<IdxT>
+auto load(raft::device_resources const& handle_, const std::string& filename) -> index<IdxT>
 {
   std::ifstream infile(filename, std::ios::in | std::ios::binary);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 #include <raft/linalg/transpose.cuh>
 
 #include <raft/common/nvtx.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -36,7 +36,7 @@ namespace linalg {
 namespace detail {
 
 template <typename T>
-void svdQR(const raft::handle_t& handle,
+void svdQR(raft::device_resources const& handle,
            T* in,
            int n_rows,
            int n_cols,
@@ -102,7 +102,7 @@ void svdQR(const raft::handle_t& handle,
 }
 
 template <typename math_t, typename idx_t>
-void svdEig(const raft::handle_t& handle,
+void svdEig(raft::device_resources const& handle,
             math_t* in,
             idx_t n_rows,
             idx_t n_cols,
@@ -162,7 +162,7 @@ void svdEig(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void svdJacobi(const raft::handle_t& handle,
+void svdJacobi(raft::device_resources const& handle,
                math_t* in,
                int n_rows,
                int n_cols,
@@ -232,7 +232,7 @@ void svdJacobi(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void svdReconstruction(const raft::handle_t& handle,
+void svdReconstruction(raft::device_resources const& handle,
                        math_t* U,
                        math_t* S,
                        math_t* V,
@@ -263,7 +263,7 @@ void svdReconstruction(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-bool evaluateSVDByL2Norm(const raft::handle_t& handle,
+bool evaluateSVDByL2Norm(raft::device_resources const& handle,
                          math_t* A_d,
                          math_t* U,
                          math_t* S_vec,

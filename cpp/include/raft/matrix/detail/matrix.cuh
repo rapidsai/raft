@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
 
@@ -353,7 +353,7 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
 }
 
 template <typename m_t, typename idx_t = int>
-m_t getL2Norm(const raft::handle_t& handle, const m_t* in, idx_t size, cudaStream_t stream)
+m_t getL2Norm(raft::device_resources const& handle, const m_t* in, idx_t size, cudaStream_t stream)
 {
   cublasHandle_t cublasH = handle.get_cublas_handle();
   m_t normval            = 0;
