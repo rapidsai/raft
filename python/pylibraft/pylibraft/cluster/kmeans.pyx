@@ -202,8 +202,25 @@ def compute_new_centroids(X,
 
 @auto_sync_handle
 @auto_convert_output
-def init_plus_plus(X, n_clusters, seed=None, handle=None):
+def init_plus_plus(X, n_clusters=None, seed=None, handle=None, centroids=None):
+    if n_clusters is not None and centroids is not None:
+        msg = ("Parameters 'n_clusters' and 'centroids' are exclusive. Only " +
+               "pass one at a time.")
+        raise RuntimeError(msg)
+
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
+
+    X_cai = cai_wrapper(X)
+    X_cai.validate_shape_dtype(expected_dims=2)
+    dtype = X_cai.dtype
+
+    if centroids is not None:
+        n_clusters = centroids.shape[0]
+    else:
+        centroids_shape = (n_clusters, X_cai.shape[1])
+        centroids = device_ndarray.empty(centroids_shape, dtype=dtype)
+
+    centroids_cai = cai_wrapper(centroids)
 
     # Can't set attributes of KMeansParameters after creating it, so taking
     # a detour via a dict to collect the possible constructor arguments
@@ -211,14 +228,6 @@ def init_plus_plus(X, n_clusters, seed=None, handle=None):
     if seed is not None:
         params_["seed"] = seed
     params = KMeansParams(**params_)
-
-    X_cai = cai_wrapper(X)
-    X_cai.validate_shape_dtype(expected_dims=2)
-    dtype = X_cai.dtype
-
-    centroids_shape = (n_clusters, X_cai.shape[1])
-    centroids = device_ndarray.empty(centroids_shape, dtype=dtype)
-    centroids_cai = cai_wrapper(centroids)
 
     if dtype == np.float64:
         cpp_init_plus_plus(deref(h),

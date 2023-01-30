@@ -82,9 +82,7 @@ def test_compute_new_centroids(
     new_centroids_device = device_ndarray(new_centroids)
 
     sample_weights = np.ones((n_rows,)).astype(dtype) / n_rows
-    sample_weights_device = (
-        device_ndarray(sample_weights) if additional_args else None
-    )
+    sample_weights_device = device_ndarray(sample_weights) if additional_args else None
 
     # Compute new centroids naively
     dists = np.zeros((n_rows, n_clusters), dtype=dtype)
@@ -141,9 +139,7 @@ def test_cluster_cost(n_rows, n_cols, n_clusters, dtype):
     ).copy_to_host()
     cluster_ids = np.argmin(distances, axis=1)
 
-    cluster_distances = np.take_along_axis(
-        distances, cluster_ids[:, None], axis=1
-    )
+    cluster_distances = np.take_along_axis(distances, cluster_ids[:, None], axis=1)
 
     # need reduced tolerance for float32
     tol = 1e-3 if dtype == np.float32 else 1e-6
@@ -166,3 +162,37 @@ def test_init_plus_plus(n_rows, n_cols, n_clusters, dtype):
     # Centroids are selected from the existing points
     for centroid in centroids_:
         assert (centroid == X).all(axis=1).any()
+
+
+@pytest.mark.parametrize("n_rows", [100])
+@pytest.mark.parametrize("n_cols", [5, 25])
+@pytest.mark.parametrize("n_clusters", [4, 15])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_init_plus_plus_preallocated_output(n_rows, n_cols, n_clusters, dtype):
+    X = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+    X_device = device_ndarray(X)
+
+    centroids = device_ndarray.empty((n_clusters, n_cols), dtype=dtype)
+
+    new_centroids = init_plus_plus(X_device, centroids=centroids, seed=1)
+    new_centroids_ = new_centroids.copy_to_host()
+
+    # The shape should not have changed
+    assert new_centroids_.shape == centroids.shape
+
+    # Centroids are selected from the existing points
+    for centroid in new_centroids_:
+        assert (centroid == X).all(axis=1).any()
+
+
+def test_init_plus_plus_exclusive_arguments():
+    X = np.random.random_sample((10, 5)).astype(np.float64)
+    X = device_ndarray(X)
+
+    n_clusters = 3
+
+    centroids = np.random.random_sample((n_clusters, 5)).astype(np.float64)
+    centroids = device_ndarray(centroids)
+
+    with pytest.raises(RuntimeError, match="Parameters 'n_clusters' and 'centroids'"):
+        init_plus_plus(X, n_clusters, centroids=centroids)
