@@ -16,7 +16,7 @@
 
 requires = [
     "wheel",
-    "setuptools",
+    "setuptools<0.67",
     "cython>=0.29,<0.30",
     "cuda-python>=11.7.1,<12.0",
     "scikit-build>=0.13.1",
