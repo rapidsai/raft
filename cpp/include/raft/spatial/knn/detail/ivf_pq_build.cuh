@@ -1372,7 +1372,7 @@ auto build(raft::device_resources const& handle,
 // backward compatibility.
 // TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
 //             compatible fashion.
-static const int serialization_version = 2;
+constexpr int serialization_version = 2;
 
 /**
  * Save the index to file.
