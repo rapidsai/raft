@@ -147,7 +147,6 @@ dependencies:
           - numpydoc
           - pip
           - pip:
-            - breathe
             - pydata_sphinx_theme
             - sphinx_copybutton
             - sphinx_markdown_tables
