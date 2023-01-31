@@ -520,12 +520,12 @@ struct batch_load_iterator {
   }
   [[nodiscard]] auto operator*() const -> reference
   {
-    cur_batch_->load(cur_pos_);
+    cur_batch_->deserialize(cur_pos_);
     return *cur_batch_;
   }
   [[nodiscard]] auto operator->() const -> pointer
   {
-    cur_batch_->load(cur_pos_);
+    cur_batch_->deserialize(cur_pos_);
     return cur_batch_.get();
   }
   friend auto operator==(const batch_load_iterator<T>& x, const batch_load_iterator<T>& y) -> bool

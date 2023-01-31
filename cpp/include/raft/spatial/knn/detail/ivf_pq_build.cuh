@@ -1385,9 +1385,9 @@ static const int serialization_version = 2;
  *
  */
 template <typename IdxT>
-void save(raft::device_resources const& handle_,
-          const std::string& filename,
-          const index<IdxT>& index_)
+void serialize(raft::device_resources const& handle_,
+               const std::string& filename,
+               const index<IdxT>& index_)
 {
   std::ofstream of(filename, std::ios::out | std::ios::binary);
   if (!of) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
@@ -1434,7 +1434,7 @@ void save(raft::device_resources const& handle_,
  *
  */
 template <typename IdxT>
-auto load(raft::device_resources const& handle_, const std::string& filename) -> index<IdxT>
+auto deserialize(raft::device_resources const& handle_, const std::string& filename) -> index<IdxT>
 {
   std::ifstream infile(filename, std::ios::in | std::ios::binary);
 
