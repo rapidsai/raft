@@ -305,23 +305,52 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
 }
 
 /**
- * @brief Create a copy of the given mdspan with const element type
- * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
- * @param mds raft::host_mdspan or raft::device_mdspan object
- * @return raft::host_mdspan or raft::device_mdspan with vector_extent
- *         depending on AccessoryPolicy
+ * @brief Const accessor specialization for default_accessor
+ * 
+ * @tparam ElementType 
+ * @param a 
+ * @return std::experimental::default_accessor<std::add_const_t<ElementType>> 
  */
-template <typename mdspan_type, typename = enable_if_mdspan<mdspan_type>>
-auto make_const_mdspan(mdspan_type mds)
+template<class ElementType>
+std::experimental::default_accessor<std::add_const_t<ElementType>>
+accessor_of_const(std::experimental::default_accessor<ElementType> a)
 {
-  using const_element_t = std::add_const_t<typename mdspan_type::element_type>;
-  using const_accessor_t =
-    host_device_accessor<std::experimental::default_accessor<const_element_t>,
-                         mdspan_type::accessor_type::mem_type>;
-  return std::experimental::mdspan<const_element_t,
-                                   typename mdspan_type::extents_type,
-                                   typename mdspan_type::layout_type,
-                                   const_accessor_t>(mds);
+  return {a};
+}
+
+/**
+ * @brief Const accessor specialization for host_device_accessor
+ * 
+ * @tparam ElementType the data type of the mdspan elements
+ * @tparam MemType the type of memory where the elements are stored.
+ * @param a host_device_accessor
+ * @return host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>, MemType> 
+ */
+template<class ElementType, memory_type MemType>
+host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>, MemType>
+accessor_of_const(host_device_accessor<std::experimental::default_accessor<ElementType>, MemType> a)
+{
+  return {a};
+}
+
+/**
+ * @brief Create a copy of the given mdspan with const element type
+ *
+ * @tparam ElementType the data type of the mdspan elements
+ * @tparam Extents raft::extents for dimensions
+ * @tparam Layout policy for strides and layout ordering
+ * @tparam Accessor Accessor policy for the input and output
+ * @param mds raft::mdspan object
+ * @return raft::mdspan
+ */
+template<class ElementType, class Extents, class Layout, class Accessor>
+auto make_const_mdspan(mdspan<ElementType, Extents, Layout, Accessor> mds)
+{
+  auto acc_c = accessor_of_const(mds.accessor()); 
+  return mdspan<std::add_const_t<ElementType>, Extents, Layout, decltype(acc_c)>{
+    mds.data_handle(),
+    mds.mapping(),
+    acc_c};
 }
 
 }  // namespace raft
