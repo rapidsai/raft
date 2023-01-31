@@ -17,10 +17,10 @@
 #pragma once
 
 #include "../ivf_flat_types.hpp"
-#include "ann_kmeans_balanced.cuh"
 #include "ann_serialization.h"
 #include "ann_utils.cuh"
 
+#include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
@@ -134,15 +134,18 @@ inline auto extend(raft::device_resources const& handle,
                "You must pass data indices when the index is non-empty.");
 
   rmm::device_uvector<LabelT> new_labels(n_rows, stream);
-  kmeans::predict<T, IdxT, LabelT>(handle,
-                                   orig_index.centers().data_handle(),
-                                   n_lists,
-                                   dim,
-                                   new_vectors,
-                                   n_rows,
-                                   new_labels.data(),
-                                   orig_index.metric(),
-                                   stream);
+  raft::cluster::kmeans_balanced_params kmeans_params;
+  kmeans_params.metric     = orig_index.metric();
+  auto new_vectors_view    = raft::make_device_matrix_view<const T, IdxT>(new_vectors, n_rows, dim);
+  auto orig_centroids_view = raft::make_device_matrix_view<const float, IdxT>(
+    orig_index.centers().data_handle(), n_lists, dim);
+  auto labels_view = raft::make_device_vector_view<LabelT, IdxT>(new_labels.data(), n_rows);
+  raft::cluster::kmeans_balanced::predict(handle,
+                                          kmeans_params,
+                                          new_vectors_view,
+                                          orig_centroids_view,
+                                          labels_view,
+                                          utils::mapping<float>{});
 
   index<T, IdxT> ext_index(
     handle, orig_index.metric(), n_lists, orig_index.adaptive_centers(), dim);
@@ -157,16 +160,19 @@ inline auto extend(raft::device_resources const& handle,
   if (ext_index.adaptive_centers()) {
     raft::copy(
       list_sizes_ptr, orig_index.list_sizes().data_handle(), ext_index.list_sizes().size(), stream);
-    kmeans::calc_centers_and_sizes(handle,
-                                   centers_ptr,
-                                   list_sizes_ptr,
-                                   n_lists,
-                                   dim,
-                                   new_vectors,
-                                   n_rows,
-                                   new_labels.data(),
-                                   false,
-                                   stream);
+    auto centroids_view = raft::make_device_matrix_view<float, IdxT>(centers_ptr, n_lists, dim);
+    auto list_sizes_view =
+      raft::make_device_vector_view<std::remove_pointer_t<decltype(list_sizes_ptr)>, IdxT>(
+        list_sizes_ptr, n_lists);
+    auto const_labels_view =
+      raft::make_device_vector_view<const LabelT, IdxT>(new_labels.data(), n_rows);
+    raft::cluster::kmeans_balanced::helpers::calc_centers_and_sizes(handle,
+                                                                    new_vectors_view,
+                                                                    const_labels_view,
+                                                                    centroids_view,
+                                                                    list_sizes_view,
+                                                                    false,
+                                                                    utils::mapping<float>{});
   } else {
     raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
                                            reinterpret_cast<int32_t*>(list_sizes_ptr),
@@ -288,15 +294,15 @@ inline auto build(raft::device_resources const& handle,
                                     n_rows_train,
                                     cudaMemcpyDefault,
                                     stream));
-    kmeans::build_hierarchical<T, IdxT>(handle,
-                                        params.kmeans_n_iters,
-                                        index.dim(),
-                                        trainset.data(),
-                                        n_rows_train,
-                                        index.centers().data_handle(),
-                                        index.n_lists(),
-                                        index.metric(),
-                                        stream);
+    auto trainset_const_view =
+      raft::make_device_matrix_view<const T, IdxT>(trainset.data(), n_rows_train, index.dim());
+    auto centers_view = raft::make_device_matrix_view<float, IdxT>(
+      index.centers().data_handle(), index.n_lists(), index.dim());
+    raft::cluster::kmeans_balanced_params kmeans_params;
+    kmeans_params.n_iters = params.kmeans_n_iters;
+    kmeans_params.metric  = index.metric();
+    raft::cluster::kmeans_balanced::fit(
+      handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
   }
 
   // add the data if necessary
