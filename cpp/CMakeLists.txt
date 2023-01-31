@@ -65,7 +65,6 @@ option(
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations"
        ${RAFT_COMPILE_LIBRARIES}
 )
-option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies" ${RAFT_COMPILE_LIBRARIES})
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
 

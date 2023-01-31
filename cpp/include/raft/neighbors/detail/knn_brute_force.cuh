@@ -29,18 +29,16 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/faiss_select/DistanceUtils.h>
 #include <raft/spatial/knn/detail/faiss_select/Select.cuh>
+#include <raft/spatial/knn/detail/fused_l2_knn.cuh>
+#include <raft/spatial/knn/detail/haversine_distance.cuh>
+#include <raft/spatial/knn/detail/processing.cuh>
 #include <raft/spatial/knn/detail/selection_faiss.cuh>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>
 
-#include "fused_l2_knn.cuh"
-#include "haversine_distance.cuh"
-#include "processing.cuh"
-
-namespace raft {
-namespace spatial {
-namespace knn {
-namespace detail {
+namespace raft::neighbors::detail {
+using namespace raft::spatial::knn::detail;
+using namespace raft::spatial::knn;
 
 template <typename value_idx = std::int64_t,
           typename value_t   = float,
@@ -498,7 +496,4 @@ void brute_force_knn_impl(
   if (translations == nullptr) delete id_ranges;
 };
 
-}  // namespace detail
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
+}  // namespace raft::neighbors::detail

@@ -22,7 +22,6 @@
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
 #include "haversine_distance.cuh"
-#include "knn_brute_force_faiss.cuh"
 #include "selection_faiss.cuh"
 
 #include <cstdint>
@@ -33,6 +32,7 @@
 #include <raft/spatial/knn/detail/faiss_select/key_value_block_select.cuh>
 
 #include <raft/matrix/matrix.cuh>
+#include <raft/neighbors/detail/knn_brute_force.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/convert/csr.cuh>
 
@@ -182,19 +182,20 @@ void k_closest_landmarks(raft::device_resources const& handle,
   std::vector<value_t*> input  = {const_cast<value_t*>(index.get_R().data_handle())};
   std::vector<value_int> sizes = {index.n_landmarks};
 
-  brute_force_knn_impl<value_int, value_idx>(handle,
-                                             input,
-                                             sizes,
-                                             index.n,
-                                             const_cast<value_t*>(query_pts),
-                                             n_query_pts,
-                                             R_knn_inds,
-                                             R_knn_dists,
-                                             k,
-                                             true,
-                                             true,
-                                             nullptr,
-                                             index.get_metric());
+  raft::neighbors::detail::brute_force_knn_impl<value_int, value_idx>(
+    handle,
+    input,
+    sizes,
+    index.n,
+    const_cast<value_t*>(query_pts),
+    n_query_pts,
+    R_knn_inds,
+    R_knn_dists,
+    k,
+    true,
+    true,
+    nullptr,
+    index.get_metric());
 }
 
 /**

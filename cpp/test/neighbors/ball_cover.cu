@@ -19,8 +19,8 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ball_cover.cuh>
+#include <raft/neighbors/detail/knn_brute_force.cuh>
 #include <raft/random/make_blobs.cuh>
-#include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
 #include <raft/util/cudart_utils.hpp>
 #if defined RAFT_NN_COMPILED
 #include <raft/neighbors/specializations.cuh>

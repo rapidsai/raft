@@ -59,7 +59,7 @@ The recommended way to build and install RAFT is to use the `build.sh` script in
 
 ### Header-only C++
 
-`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `cuCollections`, which will need to be explicitly enabled in `build.sh`.
+`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed.
 
 The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. 
 ```bash
@@ -152,7 +152,7 @@ Use `CMAKE_INSTALL_PREFIX` to install RAFT into a specific location. The snippet
 cd cpp
 mkdir build
 cd build
-cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_ENABLE_NN_DEPENDENCIES=ON  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
+cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
 make -j<parallel_level> install
 ```
 
@@ -166,7 +166,6 @@ RAFT's cmake has the following configurable flags available:.
 | RAFT_COMPILE_LIBRARIES | ON, OFF | OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
 | RAFT_COMPILE_NN_LIBRARY | ON, OFF | OFF | Compiles the `libraft-nn` shared library |
 | RAFT_COMPILE_DIST_LIBRARY | ON, OFF | OFF | Compiles the `libraft-distance` shared library |
-| RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, and compiles them if not found. Needed for `raft::spatial::knn` |
 | RAFT_STATIC_LINK_LIBRARIES | ON, OFF | ON | Build static link libraries instead of shared libraries |
 | DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
 | NVTX | ON, OFF | OFF | Enable NVTX Markers |
@@ -345,7 +344,6 @@ function(find_and_configure_raft)
           OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
-          "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
           "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
           "RAFT_ENABLE_thrust_DEPENDENCY ${PKG_ENABLE_thrust_DEPENDENCY}"
   )
