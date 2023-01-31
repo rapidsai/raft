@@ -117,19 +117,19 @@ void compute_bfknn(const raft::device_resources& handle,
 
   std::vector<int64_t>* translations = nullptr;
 
-  raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(handle,
-                                                                      input_vec,
-                                                                      sizes_vec,
-                                                                      d,
-                                                                      const_cast<value_t*>(X2),
-                                                                      n_query_rows,
-                                                                      inds,
-                                                                      dists,
-                                                                      k,
-                                                                      true,
-                                                                      true,
-                                                                      translations,
-                                                                      metric);
+  raft::neighbors::detail::brute_force_knn_impl<uint32_t, int64_t>(handle,
+                                                                   input_vec,
+                                                                   sizes_vec,
+                                                                   d,
+                                                                   const_cast<value_t*>(X2),
+                                                                   n_query_rows,
+                                                                   inds,
+                                                                   dists,
+                                                                   k,
+                                                                   true,
+                                                                   true,
+                                                                   translations,
+                                                                   metric);
 }
 
 struct ToRadians {

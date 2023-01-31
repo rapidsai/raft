@@ -97,18 +97,18 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
                           k_,
                           stream_);
 
-    knn::detail::tiled_brute_force_knn(handle_,
-                                       search_queries.data(),
-                                       database.data(),
-                                       num_queries,
-                                       num_db_vecs,
-                                       dim,
-                                       k_,
-                                       raft_distances_.data(),
-                                       raft_indices_.data(),
-                                       metric,
-                                       params_.row_tiles,
-                                       params_.col_tiles);
+    neighbors::detail::tiled_brute_force_knn(handle_,
+                                             search_queries.data(),
+                                             database.data(),
+                                             num_queries,
+                                             num_db_vecs,
+                                             dim,
+                                             k_,
+                                             raft_distances_.data(),
+                                             raft_indices_.data(),
+                                             metric,
+                                             params_.row_tiles,
+                                             params_.col_tiles);
 
     // verify.
     ASSERT_TRUE(knn::devArrMatchKnnPair(ref_indices_.data(),

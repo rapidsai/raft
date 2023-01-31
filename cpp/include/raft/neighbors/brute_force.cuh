@@ -96,15 +96,15 @@ inline void knn_merge_parts(
                "Number of columns in output indices and distances matrices must be equal to k");
 
   auto n_parts = in_keys.extent(0) / n_samples;
-  spatial::knn::detail::knn_merge_parts(in_keys.data_handle(),
-                                        in_values.data_handle(),
-                                        out_keys.data_handle(),
-                                        out_values.data_handle(),
-                                        n_samples,
-                                        n_parts,
-                                        in_keys.extent(1),
-                                        handle.get_stream(),
-                                        translations.value_or(nullptr));
+  detail::knn_merge_parts(in_keys.data_handle(),
+                          in_values.data_handle(),
+                          out_keys.data_handle(),
+                          out_values.data_handle(),
+                          n_samples,
+                          n_parts,
+                          in_keys.extent(1),
+                          handle.get_stream(),
+                          translations.value_or(nullptr));
 }
 
 /**
