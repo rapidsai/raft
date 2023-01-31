@@ -29,6 +29,13 @@
 #include <string>
 #include <vector>
 
+namespace {
+
+template <class IndexType, std::size_t Rank>
+using dextents = std::experimental::dextents<IndexType, Rank>;
+
+}  // anonymous namespace
+
 namespace raft {
 
 template <typename MDSpanType, typename VectorType, typename... Args>
@@ -53,17 +60,17 @@ void run_roundtrip_test_mdspan_serializer()
   thrust::host_vector<T> vec = std::vector<T>{1, 2, 3, 4, 5, 6, 7, 8};
 
   using mdspan_matrix2d_c_layout =
-    raft::host_mdspan<T, raft::dextents<std::size_t, 2>, raft::layout_c_contiguous>;
+    raft::host_mdspan<T, dextents<std::size_t, 2>, raft::layout_c_contiguous>;
   using mdspan_matrix2d_f_layout =
-    raft::host_mdspan<T, raft::dextents<std::size_t, 2>, raft::layout_f_contiguous>;
+    raft::host_mdspan<T, dextents<std::size_t, 2>, raft::layout_f_contiguous>;
 
   test_mdspan_roundtrip<mdspan_matrix2d_c_layout>(handle, vec, 2, 4);
   test_mdspan_roundtrip<mdspan_matrix2d_f_layout>(handle, vec, 2, 4);
 
   using device_mdspan_matrix3d_c_layout =
-    raft::device_mdspan<T, raft::dextents<std::size_t, 3>, raft::layout_c_contiguous>;
+    raft::device_mdspan<T, dextents<std::size_t, 3>, raft::layout_c_contiguous>;
   using device_mdspan_matrix3d_f_layout =
-    raft::device_mdspan<T, raft::dextents<std::size_t, 3>, raft::layout_f_contiguous>;
+    raft::device_mdspan<T, dextents<std::size_t, 3>, raft::layout_f_contiguous>;
 
   thrust::device_vector<T> d_vec(vec);
   test_mdspan_roundtrip<device_mdspan_matrix3d_c_layout>(handle, d_vec, 2, 2, 2);

@@ -33,9 +33,6 @@ template <typename ElementType,
           typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
 
-template <class IndexType, std::size_t Rank>
-using dextents = std::experimental::dextents<IndexType, Rank>;
-
 namespace detail {
 
 // keeping ByteAlignment as optional to allow testing
