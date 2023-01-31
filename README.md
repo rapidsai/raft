@@ -25,8 +25,8 @@ While not exhaustive, the following general categories help summarize the accele
 | Category | Examples |
 | --- | --- |
 | **Data Formats** | sparse & dense, conversions, data generation |
-| **Dense Operations** | linear algebra, matrix and vector operations, slicing, norms, factorization, least squares, svd & eigenvalue problems |
-| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, components & labeling |
+| **Dense Operations** | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
+| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
 | **Solvers** | combinatorial optimization, iterative solvers |
@@ -65,17 +65,17 @@ auto matrix = raft::make_device_matrix<float>(handle, n_rows, n_cols);
 
 ### C++ Example
 
-Most of the primitives in RAFT accept a `raft::handle_t` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.
+Most of the primitives in RAFT accept a `raft::device_resources` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.
 
 The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
 pairwise Euclidean distances:
 ```c++
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/distance/distance.cuh>
 
-raft::handle_t handle;
+raft::device_resources handle;
 
 int n_samples = 5000;
 int n_features = 50;
@@ -93,12 +93,12 @@ raft::distance::pairwise_distance(handle, input.view(), input.view(), output.vie
 It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information:
 
 ```c++
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/distance/distance.cuh>
 
-raft::handle_t handle;
+raft::device_resources handle;
 
 int n_samples = 5000;
 int n_features = 50;
