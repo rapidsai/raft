@@ -49,7 +49,6 @@ dependencies:
 - ucx-py=0.30
 - ucx>=1.13.0
 - pip:
-  - breathe
   - pydata_sphinx_theme
   - sphinx_copybutton
   - sphinx_markdown_tables
