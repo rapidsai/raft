@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -306,27 +306,28 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
 
 /**
  * @brief Const accessor specialization for default_accessor
- * 
- * @tparam ElementType 
- * @param a 
- * @return std::experimental::default_accessor<std::add_const_t<ElementType>> 
+ *
+ * @tparam ElementType
+ * @param a
+ * @return std::experimental::default_accessor<std::add_const_t<ElementType>>
  */
-template<class ElementType>
-std::experimental::default_accessor<std::add_const_t<ElementType>>
-accessor_of_const(std::experimental::default_accessor<ElementType> a)
+template <class ElementType>
+std::experimental::default_accessor<std::add_const_t<ElementType>> accessor_of_const(
+  std::experimental::default_accessor<ElementType> a)
 {
   return {a};
 }
 
 /**
  * @brief Const accessor specialization for host_device_accessor
- * 
+ *
  * @tparam ElementType the data type of the mdspan elements
  * @tparam MemType the type of memory where the elements are stored.
  * @param a host_device_accessor
- * @return host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>, MemType> 
+ * @return host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>,
+ * MemType>
  */
-template<class ElementType, memory_type MemType>
+template <class ElementType, memory_type MemType>
 host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>, MemType>
 accessor_of_const(host_device_accessor<std::experimental::default_accessor<ElementType>, MemType> a)
 {
@@ -343,14 +344,12 @@ accessor_of_const(host_device_accessor<std::experimental::default_accessor<Eleme
  * @param mds raft::mdspan object
  * @return raft::mdspan
  */
-template<class ElementType, class Extents, class Layout, class Accessor>
+template <class ElementType, class Extents, class Layout, class Accessor>
 auto make_const_mdspan(mdspan<ElementType, Extents, Layout, Accessor> mds)
 {
-  auto acc_c = accessor_of_const(mds.accessor()); 
+  auto acc_c = accessor_of_const(mds.accessor());
   return mdspan<std::add_const_t<ElementType>, Extents, Layout, decltype(acc_c)>{
-    mds.data_handle(),
-    mds.mapping(),
-    acc_c};
+    mds.data_handle(), mds.mapping(), acc_c};
 }
 
 }  // namespace raft
