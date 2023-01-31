@@ -203,6 +203,34 @@ def compute_new_centroids(X,
 @auto_sync_handle
 @auto_convert_output
 def init_plus_plus(X, n_clusters=None, seed=None, handle=None, centroids=None):
+    """
+    Compute initial centroids using the "kmeans++" algorithm.
+
+    Parameters
+    ----------
+
+    X : Input CUDA array interface compliant matrix shape (m, k)
+    n_clusters : Number of clusters to select
+    seed : Controls the random sampling of centroids
+    centroids : Optional writable CUDA array interface compliant matrix shape
+                (n_clusters, k). Use instead of passing `n_clusters`.
+    {handle_docstring}
+
+    Examples
+    --------
+
+    >>> import cupy as cp
+    >>> from pylibraft.cluster.kmeans import init_plus_plus
+
+    >>> n_samples = 5000
+    >>> n_features = 50
+    >>> n_clusters = 3
+
+    >>> X = cp.random.random_sample((n_samples, n_features),
+    ...                               dtype=cp.float32)
+
+    >>> centroids = init_plus_plus(X, n_clusters)
+    """
     if n_clusters is not None and centroids is not None:
         msg = ("Parameters 'n_clusters' and 'centroids' are exclusive. Only " +
                "pass one at a time.")
