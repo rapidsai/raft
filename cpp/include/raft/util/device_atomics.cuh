@@ -242,7 +242,7 @@ struct genericAtomicOperationImpl<T, Op, 8> {
 
 // -------------------------------------------------------------------------------------------------
 // specialized functions for operators
-// `atomicAdd` supports int, unsigned int, unsigend long long int, float, double (long long int is
+// `atomicAdd` supports int, unsigned int, unsigned long long int, float, double (long long int is
 // not supported.) `atomicMin`, `atomicMax` support int, unsigned int, unsigned long long int
 // `atomicAnd`, `atomicOr`, `atomicXor` support int, unsigned int, unsigned long long int
 
@@ -519,7 +519,7 @@ __forceinline__ __device__ T atomicAdd(T* address, T val)
  * performed in one atomic transaction.
  *
  * The supported types for `atomicMin` are: integers are floating point numbers.
- * CUDA natively supports `int`, `unsigend int`, `unsigned long long int`.
+ * CUDA natively supports `int`, `unsigned int`, `unsigned long long int`.
  *
  * @param[in] address The address of old value in global or shared memory
  * @param[in] val The value to be computed
@@ -540,7 +540,7 @@ __forceinline__ __device__ T atomicMin(T* address, T val)
  * performed in one atomic transaction.
  *
  * The supported types for `atomicMax` are: integers are floating point numbers.
- * CUDA natively supports `int`, `unsigend int`, `unsigned long long int`.
+ * CUDA natively supports `int`, `unsigned int`, `unsigned long long int`.
  *
  * @param[in] address The address of old value in global or shared memory
  * @param[in] val The value to be computed
