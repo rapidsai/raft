@@ -64,6 +64,20 @@ inline void serialize_mdspan(
 }
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+inline void serialize_mdspan(
+  const raft::device_resources&,
+  std::ostream& os,
+  const raft::managed_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
+{
+  using obj_t = raft::managed_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
+  using inner_accessor_type = typename obj_t::accessor_type::accessor_type;
+  auto tmp_mdspan =
+    raft::host_mdspan<ElementType, Extents, LayoutPolicy, raft::host_accessor<inner_accessor_type>>(
+      obj.data_handle(), obj.extents());
+  detail::numpy_serializer::serialize_host_mdspan(os, tmp_mdspan);
+}
+
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
 inline void deserialize_mdspan(
   const raft::device_resources&,
   std::istream& is,
@@ -102,6 +116,29 @@ inline void deserialize_mdspan(
   const raft::device_resources& handle,
   std::istream& is,
   raft::host_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
+{
+  deserialize_mdspan(handle, is, obj);
+}
+
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+inline void deserialize_mdspan(
+  const raft::device_resources& handle,
+  std::istream& is,
+  raft::managed_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>& obj)
+{
+  using obj_t = raft::managed_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
+  using inner_accessor_type = typename obj_t::accessor_type::accessor_type;
+  auto tmp_mdspan =
+    raft::host_mdspan<ElementType, Extents, LayoutPolicy, raft::host_accessor<inner_accessor_type>>(
+      obj.data_handle(), obj.extents());
+  detail::numpy_serializer::deserialize_host_mdspan(is, tmp_mdspan);
+}
+
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
+inline void deserialize_mdspan(
+  const raft::device_resources& handle,
+  std::istream& is,
+  raft::managed_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>&& obj)
 {
   deserialize_mdspan(handle, is, obj);
 }

@@ -22,6 +22,7 @@
 
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
+#include <thrust/universal_vector.h>
 
 #include <complex>
 #include <cstdint>
@@ -105,6 +106,15 @@ TEST(NumPySerializerMDSpan, HeaderRoundTrip)
       }
     }
   }
+}
+
+TEST(NumPySerializerMDSpan, ManagedMDSpan)
+{
+  raft::device_resources handle{};
+  thrust::universal_vector<float> vec = std::vector<float>{1, 2, 3, 4, 5, 6, 7, 8};
+  using managed_mdspan_matrix2d_c_layout =
+    raft::managed_mdspan<float, dextents<std::size_t, 2>, raft::layout_c_contiguous>;
+  test_mdspan_roundtrip<managed_mdspan_matrix2d_c_layout>(handle, vec, 2, 2, 2);
 }
 
 TEST(NumPySerializerMDSpan, Tuple2String)
