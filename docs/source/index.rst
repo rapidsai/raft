@@ -23,7 +23,7 @@ While not exhaustive, the following general categories help summarize the accele
    * - Dense Operations
      - linear algebra, matrix and vector operations, slicing, norms, factorization, least squares, svd & eigenvalue problems
    * - Sparse Operations
-     - linear algebra, arithmetic, eigenvalue problems, slicing, symmetrization, components & labeling
+     - linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling
    * - Spatial
      - pairwise distances, nearest neighbors, neighborhood graph construction
    * - Basic Clustering
@@ -45,6 +45,7 @@ While not exhaustive, the following general categories help summarize the accele
    cpp_api.rst
    pylibraft_api.rst
    raft_dask_api.rst
+   using_comms.rst
    contributing.md
 
 
