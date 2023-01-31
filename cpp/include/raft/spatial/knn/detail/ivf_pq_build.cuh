@@ -1397,6 +1397,10 @@ auto build(raft::device_resources const& handle,
 //             compatible fashion.
 constexpr int serialization_version = 2;
 
+static_assert(sizeof(index<std::uint64_t>) == 560,
+              "The size of the index struct has changed since the last update; "
+              "paste in the new size and consider updating the save/load logic");
+
 /**
  * Save the index to file.
  *
