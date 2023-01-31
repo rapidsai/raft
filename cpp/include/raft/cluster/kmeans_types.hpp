@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,24 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/random/rng_state.hpp>
 
+namespace raft::cluster {
+
+/** Base structure for parameters that are common to all k-means algorithms */
+struct kmeans_base_params {
+  /**
+   * Metric to use for distance computation. The supported metrics can vary per algorithm.
+   */
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded;
+};
+
+}  // namespace raft::cluster
+
 namespace raft::cluster::kmeans {
 
 /**
  * Simple object to specify hyper-parameters to the kmeans algorithm.
  */
-struct KMeansParams {
+struct KMeansParams : kmeans_base_params {
   enum InitMethod {
 
     /**
@@ -76,11 +88,6 @@ struct KMeansParams {
    * Seed to the random number generator.
    */
   raft::random::RngState rng_state{0};
-
-  /**
-   * Metric to use for distance computation.
-   */
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded;
 
   /**
    * Number of instance k-means algorithm will be run with different seeds.

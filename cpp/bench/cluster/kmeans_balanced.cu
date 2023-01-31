@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,19 @@
  */
 
 #include <common/benchmark.hpp>
+#include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/random/rng.cuh>
-#include <raft/spatial/knn/detail/ann_kmeans_balanced.cuh>
 
-#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
-#include <raft/cluster/specializations.cuh>
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
 #endif
 
 namespace raft::bench::cluster {
 
 struct KMeansBalancedBenchParams {
   DatasetParams data;
-  uint32_t max_iter;
   uint32_t n_lists;
-  raft::distance::DistanceType metric;
+  raft::cluster::kmeans_balanced_params kb_params;
 };
 
 template <typename T, typename IndexT = int>
@@ -38,15 +37,10 @@ struct KMeansBalanced : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     this->loop_on_state(state, [this]() {
-      raft::spatial::knn::detail::kmeans::build_hierarchical<T>(this->handle,
-                                                                this->params.max_iter,
-                                                                (uint32_t)this->params.data.cols,
-                                                                this->X.data_handle(),
-                                                                this->params.data.rows,
-                                                                this->centroids.data_handle(),
-                                                                this->params.n_lists,
-                                                                this->params.metric,
-                                                                this->handle.get_stream());
+      raft::device_matrix_view<const T, IndexT> X_view   = this->X.view();
+      raft::device_matrix_view<T, IndexT> centroids_view = this->centroids.view();
+      raft::cluster::kmeans_balanced::fit(
+        this->handle, this->params.kb_params, X_view, centroids_view);
     });
   }
 
@@ -84,8 +78,8 @@ std::vector<KMeansBalancedBenchParams> getKMeansBalancedInputs()
   std::vector<KMeansBalancedBenchParams> out;
   KMeansBalancedBenchParams p;
   p.data.row_major                          = true;
-  p.max_iter                                = 20;
-  p.metric                                  = raft::distance::DistanceType::L2Expanded;
+  p.kb_params.n_iters                       = 20;
+  p.kb_params.metric                        = raft::distance::DistanceType::L2Expanded;
   std::vector<std::pair<int, int>> row_cols = {
     {100000, 128}, {1000000, 128}, {10000000, 128},
     // The following dataset sizes are too large for most GPUs.
@@ -104,7 +98,5 @@ std::vector<KMeansBalancedBenchParams> getKMeansBalancedInputs()
 
 // Note: the datasets sizes are too large for 32-bit index types.
 RAFT_BENCH_REGISTER((KMeansBalanced<float, int64_t>), "", getKMeansBalancedInputs());
-RAFT_BENCH_REGISTER((KMeansBalanced<int8_t, int64_t>), "", getKMeansBalancedInputs());
-RAFT_BENCH_REGISTER((KMeansBalanced<uint8_t, int64_t>), "", getKMeansBalancedInputs());
 
 }  // namespace raft::bench::cluster
