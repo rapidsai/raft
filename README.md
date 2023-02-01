@@ -315,7 +315,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
       - `solver`: Sparse solvers for optimization and approximation
     - `stats`: Moments, summary statistics, model performance measures
     - `util`: Various reusable tools and utilities for accelerated algorithm development
-  - `internal`: A private header-only component that hosts the code shared between benchmarks.
+  - `internal`: A private header-only component that hosts the code shared between benchmarks and tests.
   - `scripts`: Helpful scripts for development
   - `src`: Compiled APIs and template specializations for the shared libraries
   - `test`: Googletests source code
