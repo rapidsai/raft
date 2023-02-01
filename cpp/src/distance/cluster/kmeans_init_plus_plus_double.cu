@@ -25,8 +25,7 @@ void init_plus_plus(raft::device_resources const& handle,
                     raft::device_matrix_view<const double, int> X,
                     raft::device_matrix_view<double, int> centroids)
 {
-  // XXX what should the size of this be?
-  rmm::device_uvector<char> workspace(10, handle.get_stream());
+  rmm::device_uvector<char> workspace(0, handle.get_stream());
   raft::cluster::kmeans::init_plus_plus<double, int>(
     handle, params, X, centroids, workspace);
 }
