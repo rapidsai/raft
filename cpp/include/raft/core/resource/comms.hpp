@@ -27,7 +27,7 @@ class comms_resource : public resource {
 
   void* get_resource() override { return &communicator_; }
 
-  ~comms_resource() override { RAFT_LOG_INFO("Destroying comms resource"); }
+  ~comms_resource() override { RAFT_LOG_TRACE("Destroying comms resource"); }
 
  private:
   std::shared_ptr<comms::comms_t> communicator_;

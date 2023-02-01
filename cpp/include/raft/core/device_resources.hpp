@@ -71,7 +71,7 @@ class device_resources : public resources {
 
   device_resources(const device_resources& handle) : resources{handle}
   {
-    RAFT_LOG_INFO("Device Resources copy constructor");
+    RAFT_LOG_TRACE("Device Resources copy constructor");
   }
 
   device_resources(device_resources&&) = delete;
@@ -91,7 +91,7 @@ class device_resources : public resources {
                    rmm::mr::device_memory_resource* workspace_resource = nullptr)
     : resources{}
   {
-    RAFT_LOG_INFO("Device resources constructor");
+    RAFT_LOG_TRACE("Device resources constructor");
     resources::add_resource_factory(std::make_shared<resource::device_id_resource_factory>());
     resources::add_resource_factory(
       std::make_shared<resource::cuda_stream_resource_factory>(stream_view));
@@ -102,7 +102,7 @@ class device_resources : public resources {
   }
 
   /** Destroys all held-up resources */
-  virtual ~device_resources() { RAFT_LOG_INFO("Destroying device resources instance"); }
+  virtual ~device_resources() { RAFT_LOG_TRACE("Destroying device resources instance"); }
 
   int get_device() const { return resource::get_device_id(*this); }
 

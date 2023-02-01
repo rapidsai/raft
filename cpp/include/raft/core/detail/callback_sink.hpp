@@ -46,7 +46,6 @@ class CallbackSink : public base_sink<Mutex> {
     std::string msg_string = fmt::to_string(formatted);
 
     if (_callback) {
-      std::cout << "Inside callback : " << msg_string << "Done." << std::endl;
       _callback(static_cast<int>(msg.level), msg_string.c_str());
     } else {
       std::cout << msg_string;
