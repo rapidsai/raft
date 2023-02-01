@@ -231,7 +231,7 @@ def test_ivf_pq_dtypes(
             },
             marks=pytest.mark.xfail(reason="empty dataset"),
         ),
-        {"n_rows": 1, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 10},
+        {"n_rows": 1, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 1},
         {"n_rows": 10, "n_cols": 1, "n_queries": 10, "k": 10, "n_lists": 10},
         # {"n_rows": 999, "n_cols": 42, "n_queries": 453, "k": 137,
         #  "n_lists": 53},
