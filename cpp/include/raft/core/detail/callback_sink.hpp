@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ typedef void (*LogCallback)(int lvl, const char* msg);
 template <class Mutex>
 class CallbackSink : public base_sink<Mutex> {
  public:
-  explicit CallbackSink(std::string tag      = "spdlog",
+  explicit CallbackSink(std::string tag      = "raft",
                         LogCallback callback = nullptr,
                         void (*flush)()      = nullptr)
     : _callback{callback}, _flush{flush} {};
@@ -46,6 +46,7 @@ class CallbackSink : public base_sink<Mutex> {
     std::string msg_string = fmt::to_string(formatted);
 
     if (_callback) {
+      std::cout << "Inside callback : " << msg_string << "Done." << std::endl;
       _callback(static_cast<int>(msg.level), msg_string.c_str());
     } else {
       std::cout << msg_string;

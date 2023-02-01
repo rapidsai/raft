@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,9 +57,12 @@
 #define RAFT_ACTIVE_LEVEL RAFT_LEVEL_INFO
 #endif
 
+#ifndef RAFT_NAME
+#define RAFT_NAME "raft"
+#endif
+
 namespace raft {
 
-static const std::string RAFT_NAME = "raft";
 static const std::string default_log_pattern("[%L] [%H:%M:%S.%f] %v");
 
 namespace detail {

@@ -16,8 +16,8 @@
 #pragma once
 
 #include <cublas_v2.h>
-#include
 #include <raft/core/cublas_macros.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
