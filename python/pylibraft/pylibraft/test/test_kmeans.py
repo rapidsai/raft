@@ -186,12 +186,14 @@ def test_init_plus_plus_preallocated_output(n_rows, n_cols, n_clusters, dtype):
 
 
 def test_init_plus_plus_exclusive_arguments():
+    # Check an exception is raised when n_clusters and centroids shape
+    # are inconsistent.
     X = np.random.random_sample((10, 5)).astype(np.float64)
     X = device_ndarray(X)
 
     n_clusters = 3
 
-    centroids = np.random.random_sample((n_clusters, 5)).astype(np.float64)
+    centroids = np.random.random_sample((n_clusters + 1, 5)).astype(np.float64)
     centroids = device_ndarray(centroids)
 
     with pytest.raises(RuntimeError, match="Parameters 'n_clusters' and 'centroids'"):

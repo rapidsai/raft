@@ -231,7 +231,9 @@ def init_plus_plus(X, n_clusters=None, seed=None, handle=None, centroids=None):
 
     >>> centroids = init_plus_plus(X, n_clusters)
     """
-    if n_clusters is not None and centroids is not None:
+    if (n_clusters is not None and
+        centroids is not None and
+        n_clusters != centroids.shape[0]):
         msg = ("Parameters 'n_clusters' and 'centroids' are exclusive. Only " +
                "pass one at a time.")
         raise RuntimeError(msg)
