@@ -16,6 +16,7 @@
 #pragma once
 
 #include <raft/core/comms.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 
@@ -26,7 +27,7 @@ class comms_resource : public resource {
 
   void* get_resource() override { return &communicator_; }
 
-  ~comms_resource() override {}
+  ~comms_resource() override { RAFT_LOG_INFO("Destroying comms resource"); }
 
  private:
   std::shared_ptr<comms::comms_t> communicator_;

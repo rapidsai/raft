@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include <mutex>
 #include <optional>
 #include <raft/core/error.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <thread>
@@ -130,6 +131,7 @@ class interruptible {
    */
   static inline auto get_token() -> std::shared_ptr<interruptible>
   {
+    RAFT_LOG_INFO("Inside interruptible get_token 2");
     // NB: using static thread-local storage to keep the token alive once it is initialized
     static thread_local std::shared_ptr<interruptible> s(
       get_token_impl<true>(std::this_thread::get_id()));
@@ -147,6 +149,7 @@ class interruptible {
    */
   static inline auto get_token(std::thread::id thread_id) -> std::shared_ptr<interruptible>
   {
+    RAFT_LOG_INFO("Inside interruptible gettoken");
     return get_token_impl<false>(thread_id);
   }
 
@@ -160,7 +163,11 @@ class interruptible {
    *
    * @param [in] thread_id a CPU thread, in which the work should be interrupted.
    */
-  static inline void cancel(std::thread::id thread_id) { get_token(thread_id)->cancel(); }
+  static inline void cancel(std::thread::id thread_id)
+  {
+    RAFT_LOG_INFO("Inside interruptible cancel");
+    get_token(thread_id)->cancel();
+  }
 
   /**
    * @brief Cancel any current or next call to `interruptible::synchronize` performed on the
@@ -217,14 +224,23 @@ class interruptible {
           // thread_store is not moveable, thus retains its original location.
           // Not equal pointers below imply the new store has been already placed
           // in the registry_ by the same std::thread::id
-          if (!stored || stored.get() == ts) { registry_.erase(found); }
+          if (!stored || stored.get() == ts) {
+            RAFT_LOG_INFO("Calling registry_.erase");
+            registry_.erase(found);
+          }
         }
+        RAFT_LOG_INFO("Deleting thread_store");
         delete ts;
       });
+      RAFT_LOG_INFO("Calling interruptible.swap");
       std::weak_ptr<interruptible>(thread_store).swap(weak_store);
     }
     // The thread_store is "claimed" by the thread
-    if constexpr (Claim) { thread_store->claimed_ = true; }
+    if constexpr (Claim) {
+      RAFT_LOG_INFO("Thread_store claimed");
+      thread_store->claimed_ = true;
+    }
+    RAFT_LOG_INFO("Returning thread_store");
     return thread_store;
   }
 
@@ -244,6 +260,8 @@ class interruptible {
   {
     if (!yield_no_throw_impl()) {
       throw interrupted_exception("The work in this thread was cancelled.");
+    } else {
+      RAFT_LOG_INFO("The work in this thread was cancelled.");
     }
   }
 
@@ -255,6 +273,7 @@ class interruptible {
   template <typename Query, typename Object>
   inline void synchronize_impl(Query query, Object object)
   {
+    RAFT_LOG_INFO("Synchronize_impl called");
     cudaError_t query_result;
     while (true) {
       yield_impl();

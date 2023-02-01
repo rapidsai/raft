@@ -286,14 +286,12 @@ inline auto build(raft::device_resources const& handle,
     auto n_rows_train = n_rows / trainset_ratio;
     rmm::device_uvector<T> trainset(n_rows_train * index.dim(), stream);
     // TODO: a proper sampling
-    RAFT_CUDA_TRY(cudaMemcpy2DAsync(trainset.data(),
-                                    sizeof(T) * index.dim(),
-                                    dataset,
-                                    sizeof(T) * index.dim() * trainset_ratio,
-                                    sizeof(T) * index.dim(),
-                                    n_rows_train,
-                                    cudaMemcpyDefault,
-                                    stream));
+
+    auto X_view =
+      raft::make_device_matrix_view<const T, IdxT, raft::row_major>(dataset, n_rows, dim);
+    auto trainset_view =
+      raft::make_device_matrix_view<T, IdxT, raft::row_major>(trainset.data(), n_rows_train, dim);
+    utils::sample_training_data(handle, X_view, trainset_view);
     auto trainset_const_view =
       raft::make_device_matrix_view<const T, IdxT>(trainset.data(), n_rows_train, index.dim());
     auto centers_view = raft::make_device_matrix_view<float, IdxT>(

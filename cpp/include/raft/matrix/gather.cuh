@@ -24,11 +24,6 @@
 namespace raft::matrix {
 
 /**
- * @defgroup matrix_gather Matrix gather operations
- * @{
- */
-
-/**
  * @brief Copies rows from a source matrix into a destination matrix according to a map.
  *
  * For each output row, read the index in the input matrix from the map and copy the row.
@@ -188,6 +183,11 @@ void gather_if(const InputIteratorT in,
 {
   detail::gather_if(in, D, N, map, stencil, map_length, out, pred_op, transform_op, stream);
 }
+
+/**
+ * @defgroup matrix_gather Matrix gather operations
+ * @{
+ */
 
 /**
  * @brief Copies rows from a source matrix into a destination matrix according to a transformed map.

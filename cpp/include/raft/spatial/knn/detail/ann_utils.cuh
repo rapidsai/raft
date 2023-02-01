@@ -16,12 +16,16 @@
 
 #pragma once
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/matrix/gather.cuh>
+#include <raft/random/sample_without_replacement.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/integer_utils.hpp>
+#include <thrust/sequence.h>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
@@ -134,6 +138,32 @@ struct with_mapped_memory_t {
     return cudaHostRegisterMapped;
   }
 };
+
+template <typename value_t, typename idx_t>
+void sample_training_data(raft::device_resources const& handle,
+                          raft::device_matrix_view<const value_t, idx_t, raft::row_major> X,
+                          raft::device_matrix_view<value_t, idx_t, raft::row_major> trainset)
+{
+  auto seq     = raft::make_device_vector<idx_t, idx_t>(handle, trainset.extent(0));
+  auto sampled = raft::make_device_vector<idx_t, idx_t>(handle, trainset.extent(0));
+  thrust::sequence(handle.get_thrust_policy(),
+                   seq.data_handle(),
+                   seq.data_handle() + trainset.extent(0),
+                   static_cast<idx_t>(0));
+
+  /**
+   * 1. Randomly sample sqrt(n) points from X
+   */
+  auto seq_const_view =
+    raft::make_device_vector_view<const idx_t, idx_t>(seq.data_handle(), seq.extent(0));
+  auto sampled_const_view =
+    raft::make_device_vector_view<const idx_t, idx_t>(sampled.data_handle(), seq.extent(0));
+  raft::random::RngState rng_state(12345);
+  raft::random::sample_without_replacement(
+    handle, rng_state, seq_const_view, std::nullopt, sampled.view(), std::nullopt);
+
+  raft::matrix::gather(handle, X, sampled_const_view, trainset);
+}
 
 template <typename T>
 struct config {
