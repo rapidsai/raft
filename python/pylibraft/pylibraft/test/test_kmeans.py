@@ -82,7 +82,9 @@ def test_compute_new_centroids(
     new_centroids_device = device_ndarray(new_centroids)
 
     sample_weights = np.ones((n_rows,)).astype(dtype) / n_rows
-    sample_weights_device = device_ndarray(sample_weights) if additional_args else None
+    sample_weights_device = (
+        device_ndarray(sample_weights) if additional_args else None
+    )
 
     # Compute new centroids naively
     dists = np.zeros((n_rows, n_clusters), dtype=dtype)
@@ -139,7 +141,9 @@ def test_cluster_cost(n_rows, n_cols, n_clusters, dtype):
     ).copy_to_host()
     cluster_ids = np.argmin(distances, axis=1)
 
-    cluster_distances = np.take_along_axis(distances, cluster_ids[:, None], axis=1)
+    cluster_distances = np.take_along_axis(
+        distances, cluster_ids[:, None], axis=1
+    )
 
     # need reduced tolerance for float32
     tol = 1e-3 if dtype == np.float32 else 1e-6
@@ -196,5 +200,7 @@ def test_init_plus_plus_exclusive_arguments():
     centroids = np.random.random_sample((n_clusters + 1, 5)).astype(np.float64)
     centroids = device_ndarray(centroids)
 
-    with pytest.raises(RuntimeError, match="Parameters 'n_clusters' and 'centroids'"):
+    with pytest.raises(
+        RuntimeError, match="Parameters 'n_clusters' and 'centroids'"
+    ):
         init_plus_plus(X, n_clusters, centroids=centroids)

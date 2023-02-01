@@ -39,8 +39,8 @@ from pylibraft.distance import DISTANCE_TYPES
 from pylibraft.cluster.cpp cimport kmeans as cpp_kmeans, kmeans_types
 from pylibraft.cluster.cpp.kmeans cimport (
     cluster_cost as cpp_cluster_cost,
-    update_centroids,
     init_plus_plus as cpp_init_plus_plus,
+    update_centroids,
 )
 from pylibraft.common.cpp.mdspan cimport *
 from pylibraft.common.cpp.optional cimport optional

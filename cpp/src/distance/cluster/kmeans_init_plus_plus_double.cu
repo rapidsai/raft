@@ -26,7 +26,6 @@ void init_plus_plus(raft::device_resources const& handle,
                     raft::device_matrix_view<double, int> centroids)
 {
   rmm::device_uvector<char> workspace(0, handle.get_stream());
-  raft::cluster::kmeans::init_plus_plus<double, int>(
-    handle, params, X, centroids, workspace);
+  raft::cluster::kmeans::init_plus_plus<double, int>(handle, params, X, centroids, workspace);
 }
 }  // namespace raft::runtime::cluster::kmeans
