@@ -145,12 +145,11 @@ dependencies:
           - doxygen>=1.8.20
           - ipython
           - numpydoc
-          - pip
-          - pip:
-            - pydata_sphinx_theme
-            - sphinx_copybutton
-            - sphinx_markdown_tables
+          - pydata-sphinx-theme
+          - sphinxcopybutton
+          - sphinx-markdown-tables
           - recommonmark
+          - pip
   py_version:
     specific:
       - output_types: conda
