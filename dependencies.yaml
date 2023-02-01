@@ -146,7 +146,7 @@ dependencies:
           - ipython
           - numpydoc
           - pydata-sphinx-theme
-          - sphinxcopybutton
+          - sphinx-copybutton
           - sphinx-markdown-tables
           - recommonmark
           - pip

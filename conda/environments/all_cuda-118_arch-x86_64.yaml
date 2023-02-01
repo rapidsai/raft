@@ -48,7 +48,4 @@ dependencies:
 - ucx-proc=*=gpu
 - ucx-py=0.30
 - ucx>=1.13.0
-- pydata-sphinx-theme
-- sphinx-copybutton
-- sphinx-markdown-tables
 name: all_cuda-118_arch-x86_64
