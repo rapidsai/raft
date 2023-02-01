@@ -64,14 +64,11 @@ struct Gather : public fixture {
     state.SetLabel(label_stream.str());
 
     loop_on_state(state, [this]() {
-      auto matrix_const_view = raft::make_device_matrix_view<const T, IdxT, row_major>(
-        matrix.data_handle(), matrix.extent(0), matrix.extent(1));
-      auto map_const_view =
-        raft::make_device_vector_view<const MapT, IdxT>(map.data_handle(), map.extent(0));
+      auto matrix_const_view = raft::make_const_mdspan(matrix.view());
+      auto map_const_view    = raft::make_const_mdspan(map.view());
       if constexpr (Conditional) {
-        auto stencil_const_view =
-          raft::make_device_vector_view<const T, IdxT>(stencil.data_handle(), stencil.extent(0));
-        auto pred_op = raft::plug_const_op(T(0.0), raft::greater_op());
+        auto stencil_const_view = raft::make_const_mdspan(stencil.view());
+        auto pred_op            = raft::plug_const_op(T(0.0), raft::greater_op());
         raft::matrix::gather_if(
           handle, matrix_const_view, out.view(), map_const_view, stencil_const_view, pred_op);
       } else {
