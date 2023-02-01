@@ -91,7 +91,7 @@ inline void set_cuda_stream(resources const& res, rmm::cuda_stream_view stream_v
  */
 inline void sync_stream(const resources& res, rmm::cuda_stream_view stream)
 {
-  interruptible::synchronize(stream);
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 }
 
 /**
