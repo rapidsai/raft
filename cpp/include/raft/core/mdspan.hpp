@@ -337,7 +337,7 @@ accessor_of_const(host_device_accessor<std::experimental::default_accessor<Eleme
 /**
  * @brief Create a copy of the given mdspan with const element type
  *
- * @tparam ElementType the data type of the mdspan elements
+ * @tparam ElementType the const-qualified data type of the mdspan elements
  * @tparam Extents raft::extents for dimensions
  * @tparam Layout policy for strides and layout ordering
  * @tparam Accessor Accessor policy for the input and output
