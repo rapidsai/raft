@@ -39,9 +39,10 @@ rapids-mamba-retry install \
 
 # Build CPP docs
 rapids-logger "Build CPP docs"
-pushd docs
-sphinx-build -b dirhtml source build -W
-popd
+#pushd docs
+#sphinx-build -b dirhtml source build -W
+#popd
+build.sh docs -v -n
 
 
 
