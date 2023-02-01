@@ -983,7 +983,7 @@ void fusedL2Knn(size_t D,
     case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded:
       tempWorksize = raft::distance::detail::
-        getWorkspaceSize<raft::distance::DistanceType::L2Expanded, float, float, float, value_idx>(
+        getWorkspaceSize<raft::distance::DistanceType::L2Expanded, float, float, float>(
           query, index, n_query_rows, n_index_rows, D);
       worksize = tempWorksize;
       workspace.resize(worksize, stream);

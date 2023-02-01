@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -135,7 +135,12 @@ void cutlassDistanceKernel(const DataT* x,
   }
 
   typename cutlassDist::Arguments arguments{
-    mode,       problem_size, batch_count, epilog_op_param, a, b,
+    mode,
+    problem_size,
+    batch_count,
+    epilog_op_param,
+    a,
+    b,
     xn,          // C matrix eq vector param, which here is A norm
     nullptr,     // tensor_Z,
     (DataT*)yn,  // this is broadcast vec, which is required to be non-const param
@@ -144,14 +149,14 @@ void cutlassDistanceKernel(const DataT* x,
     (int64_t)0,  // batch stride B
     (int64_t)0,  // batch stride Norm A
     (int64_t)0,
-    (int64_t)0,  // batch stride Norm B
-    (int64_t)0,  // batch stride Output
-    gemm_lda,    // stride A
-    gemm_ldb,    // stride B
-    1,           // stride A norm
-    0,           // this is no-op for Z
-    0,           // This must be zero
-    ldd          // stride Output matrix
+    (int64_t)0,         // batch stride Norm B
+    (int64_t)0,         // batch stride Output
+    (int64_t)gemm_lda,  // stride A
+    (int64_t)gemm_ldb,  // stride B
+    1,                  // stride A norm
+    0,                  // this is no-op for Z
+    0,                  // This must be zero
+    (int64_t)ldd        // stride Output matrix
   };
 
   // Using the arguments, query for extra workspace required for matrix multiplication computation
