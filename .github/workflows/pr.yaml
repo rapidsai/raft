@@ -91,8 +91,7 @@ jobs:
       build_type: pull-request
       package-name: raft_dask
       package-dir: python/raft-dask
-      before-wheel: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-pylibraft-dep"
-      cibw-before-build: "pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl"
+      before-wheel: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-wheelhouse"
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
   wheel-tests-raft-dask:
     needs: wheel-build-raft-dask
