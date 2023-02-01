@@ -42,8 +42,9 @@ rapids-logger "Build CPP docs"
 #pushd docs
 #sphinx-build -b dirhtml source build -W
 #popd
+pushd ../
 build.sh docs -v -n
-
+popd
 
 
 if [[ ${RAPIDS_BUILD_TYPE} == "branch" ]]; then
