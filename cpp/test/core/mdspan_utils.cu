@@ -214,4 +214,31 @@ void test_reshape()
 
 TEST(MDArray, Reshape) { test_reshape(); }
 
+void test_const_mdspan()
+{
+  // 3d host array
+  {
+    using two_d_extents = extents<int, 5, 5>;
+    using two_d_mdarray = host_mdarray<float, two_d_extents>;
+
+    typename two_d_mdarray::mapping_type layout{two_d_extents{}};
+    typename two_d_mdarray::container_policy_type policy;
+    two_d_mdarray mda{layout, policy};
+
+    auto const_mda = make_const_mdspan(mda.view());
+
+    static_assert(std::is_same_v<const float, typename decltype(const_mda)::element_type>,
+                  "elements not the same");
+    static_assert(std::is_same_v<typename decltype(mda)::extents_type,
+                                 typename decltype(const_mda)::extents_type>,
+                  "extents not the same");
+    static_assert(std::is_same_v<typename decltype(mda)::layout_type,
+                                 typename decltype(const_mda)::layout_type>,
+                  "layouts not the same");
+    ASSERT_EQ(mda.size(), const_mda.size());
+  }
+}
+
+TEST(MDSpan, ConstMDSpan) { test_const_mdspan(); }
+
 }  // namespace raft
