@@ -78,7 +78,7 @@ class interruptible {
    */
   static inline void synchronize(rmm::cuda_stream_view stream)
   {
-    RAFT_LOG_INFO("Inside interruptible::synchronize(stream)");
+    RAFT_LOG_TRACE("Inside interruptible::synchronize(stream)");
     get_token()->synchronize_impl(cudaStreamQuery, stream);
   }
 
@@ -94,7 +94,7 @@ class interruptible {
    */
   static inline void synchronize(cudaEvent_t event)
   {
-    RAFT_LOG_INFO("Inside interruptible::synchronize(event)");
+    RAFT_LOG_TRACE("Inside interruptible::synchronize(event)");
     get_token()->synchronize_impl(cudaEventQuery, event);
   }
 
@@ -114,7 +114,7 @@ class interruptible {
    */
   static inline void yield()
   {
-    RAFT_LOG_INFO("Inside interruptible::yield()");
+    RAFT_LOG_TRACE("Inside interruptible::yield()");
     get_token()->yield_impl();
   }
 
@@ -130,7 +130,7 @@ class interruptible {
    */
   static inline auto yield_no_throw() -> bool
   {
-    RAFT_LOG_INFO("Inside interruptible::yield_no_throw()");
+    RAFT_LOG_TRACE("Inside interruptible::yield_no_throw()");
     return get_token()->yield_no_throw_impl();
   }
 
@@ -141,7 +141,7 @@ class interruptible {
    */
   static inline auto get_token() -> std::shared_ptr<interruptible>
   {
-    RAFT_LOG_INFO("Inside interruptible::get_token<true>()");
+    RAFT_LOG_TRACE("Inside interruptible::get_token<true>()");
     // NB: using static thread-local storage to keep the token alive once it is initialized
     static thread_local std::shared_ptr<interruptible> s(
       get_token_impl<true>(std::this_thread::get_id()));
@@ -159,7 +159,7 @@ class interruptible {
    */
   static inline auto get_token(std::thread::id thread_id) -> std::shared_ptr<interruptible>
   {
-    RAFT_LOG_INFO("Inside interruptible::get_token<false>()");
+    RAFT_LOG_TRACE("Inside interruptible::get_token<false>()");
     return get_token_impl<false>(thread_id);
   }
 
@@ -175,8 +175,7 @@ class interruptible {
    */
   static inline void cancel(std::thread::id thread_id)
   {
-    RAFT_LOG_INFO("Inside interruptible::cancel(id)");
-
+    RAFT_LOG_TRACE("Inside interruptible::cancel(id)");
     get_token(thread_id)->cancel();
   }
 
@@ -189,8 +188,7 @@ class interruptible {
    */
   inline void cancel() noexcept
   {
-    RAFT_LOG_INFO("Inside interruptible::cancel()");
-
+    RAFT_LOG_TRACE("Inside interruptible::cancel()");
     continue_.clear(std::memory_order_relaxed);
   }
 
@@ -224,7 +222,7 @@ class interruptible {
   template <bool Claim>
   static auto get_token_impl(std::thread::id thread_id) -> std::shared_ptr<interruptible>
   {
-    RAFT_LOG_INFO("Inside interruptible::get_token_impl()");
+    RAFT_LOG_TRACE("Inside interruptible::get_token_impl()");
     std::lock_guard<std::mutex> guard_get(mutex_);
     // the following constructs an empty shared_ptr if the key does not exist.
     auto& weak_store  = registry_[thread_id];
@@ -235,6 +233,7 @@ class interruptible {
       //  2. The previous store in the map has not yet been deleted
       thread_store.reset(new interruptible(), [thread_id](auto ts) {
         std::lock_guard<std::mutex> guard_erase(mutex_);
+
         auto found = registry_.find(thread_id);
         if (found != registry_.end()) {
           auto stored = found->second.lock();
@@ -264,13 +263,13 @@ class interruptible {
 
   interruptible() noexcept
   {
-    RAFT_LOG_INFO("Inside interruptible::interruptible()");
+    RAFT_LOG_TRACE("Inside interruptible::interruptible()");
     yield_no_throw_impl();
   }
 
   void yield_impl()
   {
-    RAFT_LOG_INFO("Inside interruptible::yield_impl()");
+    RAFT_LOG_TRACE("Inside interruptible::yield_impl()");
     if (!yield_no_throw_impl()) {
       throw interrupted_exception("The work in this thread was cancelled.");
     }
@@ -278,14 +277,14 @@ class interruptible {
 
   auto yield_no_throw_impl() noexcept -> bool
   {
-    RAFT_LOG_INFO("Inside interruptible::yield_no_throw_impl()");
+    RAFT_LOG_TRACE("Inside interruptible::yield_no_throw_impl()");
     return continue_.test_and_set(std::memory_order_relaxed);
   }
 
   template <typename Query, typename Object>
   inline void synchronize_impl(Query query, Object object)
   {
-    RAFT_LOG_INFO("Inside interruptible::synchronize_impl()");
+    RAFT_LOG_TRACE("Inside interruptible::synchronize_impl()");
     cudaError_t query_result;
     while (true) {
       yield_impl();
