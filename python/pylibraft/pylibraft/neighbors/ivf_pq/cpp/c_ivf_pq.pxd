@@ -177,10 +177,10 @@ cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
                      float* distances,
                      device_memory_resource* mr) except +
 
-    cdef void save(const device_resources& handle,
-                   const string& filename,
-                   const index[uint64_t]& index) except +
+    cdef void serialize(const device_resources& handle,
+                        const string& filename,
+                        const index[uint64_t]& index) except +
 
-    cdef void load(const device_resources& handle,
-                   const string& filename,
-                   index[uint64_t]* index) except +
+    cdef void deserialize(const device_resources& handle,
+                          const string& filename,
+                          index[uint64_t]* index) except +
