@@ -134,6 +134,32 @@ __global__ void rbf_kernel(math_t* inout, int ld, int rows, int cols, math_t gai
     }
 }
 
+/** Epiloge function for rbf kernel using expansion.
+ * Calculates output_ij = exp(-gain * (norm_i + norm_j - 2*input_ij));
+ * @param inout device vector in column major format, size [ld * cols]
+ * @param ld leading dimension of the inout buffer
+ * @param rows number of rows (rows <= ld)
+ * @param cols number of columns
+ * @param norm norm for row indices
+ * @param offset_i offset into norm for rows (assumed to be coalesced)
+ * @param idx_j indirect column id to access norm
+ * @param gain
+ */
+template <typename math_t>
+__global__ void rbf_kernel_expanded(
+  math_t* inout, int ld, int rows, int cols, math_t* norm, int offset_i, int* idx_j, math_t gain)
+{
+  for (size_t tidy = threadIdx.y + blockIdx.y * blockDim.y; tidy < cols;
+       tidy += blockDim.y * gridDim.y) {
+    math_t norm_y = norm[idx_j[tidy]];
+    for (size_t tidx = threadIdx.x + blockIdx.x * blockDim.x; tidx < rows;
+         tidx += blockDim.x * gridDim.x) {
+      inout[tidx + tidy * ld] =
+        exp(-1.0 * gain * (norm[tidx + offset_i] + norm_y - inout[tidx + tidy * ld] * 2));
+    }
+  }
+}
+
 /**
  * Create a kernel matrix using polynomial kernel function.
  */
@@ -212,6 +238,41 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
   {
     GramMatrixBase<math_t>::linear(
       x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
+    applyKernel(out, ld_out, n1, n2, is_row_major, stream);
+  }
+
+  void evaluateSparseX1(const raft::handle_t& handle,
+                        const int* x1_indptr,
+                        const int* x1_indices,
+                        const math_t* x1_data,
+                        int x1_nnz,
+                        int n1,
+                        int n_cols,
+                        const math_t* x2_data,
+                        int n2,
+                        math_t* out,
+                        bool is_row_major,
+                        cudaStream_t stream,
+                        int ld2,
+                        int ld_out,
+                        math_t* norm,
+                        int offset_x1,
+                        int* idx_x2)
+  {
+    GramMatrixBase<math_t>::linearSparseX1(handle,
+                                           x1_indptr,
+                                           x1_indices,
+                                           x1_data,
+                                           x1_nnz,
+                                           n1,
+                                           n_cols,
+                                           x2_data,
+                                           n2,
+                                           out,
+                                           is_row_major,
+                                           stream,
+                                           ld2,
+                                           ld_out);
     applyKernel(out, ld_out, n1, n2, is_row_major, stream);
   }
 
@@ -331,6 +392,41 @@ class TanhKernel : public GramMatrixBase<math_t> {
     applyKernel(out, ld_out, n1, n2, is_row_major, stream);
   }
 
+  void evaluateSparseX1(const raft::handle_t& handle,
+                        const int* x1_indptr,
+                        const int* x1_indices,
+                        const math_t* x1_data,
+                        int x1_nnz,
+                        int n1,
+                        int n_cols,
+                        const math_t* x2_data,
+                        int n2,
+                        math_t* out,
+                        bool is_row_major,
+                        cudaStream_t stream,
+                        int ld2,
+                        int ld_out,
+                        math_t* norm,
+                        int offset_x1,
+                        int* idx_x2)
+  {
+    GramMatrixBase<math_t>::linearSparseX1(handle,
+                                           x1_indptr,
+                                           x1_indices,
+                                           x1_data,
+                                           x1_nnz,
+                                           n1,
+                                           n_cols,
+                                           x2_data,
+                                           n2,
+                                           out,
+                                           is_row_major,
+                                           stream,
+                                           ld2,
+                                           ld_out);
+    applyKernel(out, ld_out, n1, n2, is_row_major, stream);
+  }
+
   void evaluateSparse(const raft::handle_t& handle,
                       const int* x1_indptr,
                       const int* x1_indices,
@@ -392,6 +488,23 @@ class RBFKernel : public GramMatrixBase<math_t> {
     }
   }
 
+  void applyExpandedRbfKernel(math_t* inout,
+                              int ld,
+                              int rows,
+                              int cols,
+                              math_t* norm,
+                              int offset_i,
+                              int* idx_j,
+                              bool is_row_major,
+                              cudaStream_t stream)
+  {
+    ASSERT(!is_row_major, "Expanded RBF kernel currently only supports col major format");
+    rbf_kernel_expanded<<<dim3(raft::ceildiv(rows, 32), raft::ceildiv(cols, 4), 1),
+                          dim3(32, 4, 1),
+                          0,
+                          stream>>>(inout, ld, rows, cols, norm, offset_i, idx_j, gain);
+  }
+
  public:
   /**
    * Constructs a RBF kernel object.
@@ -441,6 +554,49 @@ class RBFKernel : public GramMatrixBase<math_t> {
     ASSERT(ld2 == minor2, "RBF Kernel distance does not support ld2 parameter");
     ASSERT(ld_out == minor_out, "RBF Kernel distance does not support ld_out parameter");
     distance(x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
+  }
+
+  void evaluateSparseX1(const raft::handle_t& handle,
+                        const int* x1_indptr,
+                        const int* x1_indices,
+                        const math_t* x1_data,
+                        int x1_nnz,
+                        int n1,
+                        int n_cols,
+                        const math_t* x2_data,
+                        int n2,
+                        math_t* out,
+                        bool is_row_major,
+                        cudaStream_t stream,
+                        int ld2,
+                        int ld_out,
+                        math_t* norm,
+                        int offset_x1,
+                        int* idx_x2)
+  {
+    int minor2    = is_row_major ? n_cols : n2;
+    int minor_out = is_row_major ? n2 : n1;
+    ASSERT(ld2 == minor2, "RBF Kernel distance does not support ld2 parameter");
+    ASSERT(ld_out == minor_out, "RBF Kernel distance does not support ld_out parameter");
+
+    ASSERT(norm != nullptr, "RBF Kernel needs pre-computed norm for expanded distance compute");
+    // compute L2 expanded
+    GramMatrixBase<math_t>::linearSparseX1(handle,
+                                           x1_indptr,
+                                           x1_indices,
+                                           x1_data,
+                                           x1_nnz,
+                                           n1,
+                                           n_cols,
+                                           x2_data,
+                                           n2,
+                                           out,
+                                           is_row_major,
+                                           stream,
+                                           ld2,
+                                           ld_out);
+
+    applyExpandedRbfKernel(out, ld_out, n1, n2, norm, offset_x1, idx_x2, is_row_major, stream);
   }
 
   void evaluateSparse(const raft::handle_t& handle,

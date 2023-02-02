@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/linalg/norm_types.hpp>
 #include <raft/sparse/linalg/detail/norm.cuh>
 
 namespace raft {
@@ -64,6 +65,37 @@ void csr_row_normalize_max(const int* ia,  // csr row ind array (sorted by row)
                            cudaStream_t stream)
 {
   detail::csr_row_normalize_max(ia, vals, nnz, m, result, stream);
+}
+
+/**
+ * @brief Compute row-wise norm of the input matrix and perform fin_op lambda
+ *
+ * Row-wise norm is useful while computing pairwise distance matrix, for
+ * example.
+ * This is used in many clustering algos like knn, kmeans, dbscan, etc...
+ *
+ * @tparam Type the data type
+ * @tparam Lambda device final lambda
+ * @tparam IdxType Integer type used to for addressing
+ * @param dots the output vector of row-wise dot products
+ * @param ia the input matrix row pointers
+ * @param data the input matrix nnz data
+ * @param N number of rows of data
+ * @param type the type of norm to be applied
+ * @param stream cuda stream where to launch work
+ * @param fin_op the final lambda op
+ */
+template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+void rowNormCsr(Type* dots,
+                const IdxType* ia,
+                const Type* data,
+                IdxType nnz,
+                IdxType N,
+                raft::linalg::NormType type,
+                cudaStream_t stream,
+                Lambda fin_op = raft::Nop<Type, IdxType>())
+{
+  detail::rowNormCsrCaller(dots, ia, data, nnz, N, type, stream, fin_op);
 }
 
 };  // end NAMESPACE linalg

@@ -18,6 +18,7 @@
 
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/distance/distance.cuh>
 
 #include <raft/linalg/detail/cublas_wrappers.hpp>
@@ -86,6 +87,46 @@ class GramMatrixBase {
                           int x1_nnz,
                           int n1,
                           int n_cols,
+                          const math_t* x2_data,
+                          int n2,
+                          math_t* out,
+                          bool is_row_major,
+                          cudaStream_t stream,
+                          int ld2       = 0,
+                          int ld_out    = 0,
+                          math_t* norm  = nullptr,
+                          int offset_x1 = 0,
+                          int* idx_x2   = 0)
+
+  {
+    if (ld2 <= 0) { ld2 = is_row_major ? n_cols : n2; }
+    if (ld_out <= 0) { ld_out = is_row_major ? n2 : n1; }
+    evaluateSparseX1(handle,
+                     x1_indptr,
+                     x1_indices,
+                     x1_data,
+                     x1_nnz,
+                     n1,
+                     n_cols,
+                     x2_data,
+                     n2,
+                     out,
+                     is_row_major,
+                     stream,
+                     ld2,
+                     ld_out,
+                     norm,
+                     offset_x1,
+                     idx_x2);
+  }
+
+  virtual void operator()(const raft::handle_t& handle,
+                          const int* x1_indptr,
+                          const int* x1_indices,
+                          const math_t* x1_data,
+                          int x1_nnz,
+                          int n1,
+                          int n_cols,
                           const int* x2_indptr,
                           const int* x2_indices,
                           const math_t* x2_data,
@@ -143,6 +184,40 @@ class GramMatrixBase {
                         int ld_out)
   {
     linear(x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
+  }
+
+  virtual void evaluateSparseX1(const raft::handle_t& handle,
+                                const int* x1_indptr,
+                                const int* x1_indices,
+                                const math_t* x1_data,
+                                int x1_nnz,
+                                int n1,
+                                int n_cols,
+                                const math_t* x2_data,
+                                int n2,
+                                math_t* out,
+                                bool is_row_major,
+                                cudaStream_t stream,
+                                int ld2,
+                                int ld_out,
+                                math_t* norm,
+                                int offset_x1,
+                                int* idx_x2)
+  {
+    linearSparseX1(handle,
+                   x1_indptr,
+                   x1_indices,
+                   x1_data,
+                   x1_nnz,
+                   n1,
+                   n_cols,
+                   x2_data,
+                   n2,
+                   out,
+                   is_row_major,
+                   stream,
+                   ld2,
+                   ld_out);
   }
 
   virtual void evaluateSparse(const raft::handle_t& handle,
@@ -253,6 +328,84 @@ class GramMatrixBase {
                                                        ld_out,
                                                        stream));
     }
+  }
+
+  void linearSparseX1(const raft::handle_t& handle,
+                      const int* x1_indptr,
+                      const int* x1_indices,
+                      const math_t* x1_data,
+                      int x1_nnz,
+                      int n1,
+                      int n_cols,
+                      const math_t* x2_data,
+                      int n2,
+                      math_t* out,
+                      bool is_row_major,
+                      cudaStream_t stream,
+                      int ld2,
+                      int ld_out)
+  {
+    math_t alpha = 1.0;
+    math_t beta  = 0.0;
+
+    cusparseSpMatDescr_t descrX1;
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatecsr(&descrX1,
+                                                              n1,
+                                                              n_cols,
+                                                              x1_nnz,
+                                                              const_cast<int*>(x1_indptr),
+                                                              const_cast<int*>(x1_indices),
+                                                              const_cast<math_t*>(x1_data)));
+
+    auto order = is_row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
+
+    cusparseDnMatDescr_t descrX2;
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednmat(
+      &descrX2, n2, n_cols, ld2, const_cast<math_t*>(x2_data), order));
+
+    cusparseDnMatDescr_t descrOut;
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednmat(
+      &descrOut, n1, n2, ld_out, const_cast<math_t*>(out), order));
+
+    auto alg = order == CUSPARSE_ORDER_COL ? CUSPARSE_SPMM_CSR_ALG1 : CUSPARSE_SPMM_CSR_ALG2;
+
+    // compute X1*X2^T
+    auto opX1 = CUSPARSE_OPERATION_NON_TRANSPOSE;
+    auto opX2 = CUSPARSE_OPERATION_TRANSPOSE;
+
+    size_t bufferSize;
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm_bufferSize(handle.get_cusparse_handle(),
+                                                                    opX1,
+                                                                    opX2,
+                                                                    &alpha,
+                                                                    descrX1,
+                                                                    descrX2,
+                                                                    &beta,
+                                                                    descrOut,
+                                                                    alg,
+                                                                    &bufferSize,
+                                                                    stream));
+
+    raft::interruptible::synchronize(stream);
+
+    rmm::device_uvector<math_t> tmp(bufferSize, stream);
+
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(handle.get_cusparse_handle(),
+                                                         opX1,
+                                                         opX2,
+                                                         &alpha,
+                                                         descrX1,
+                                                         descrX2,
+                                                         &beta,
+                                                         descrOut,
+                                                         alg,
+                                                         tmp.data(),
+                                                         stream));
+
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(descrX1));
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(descrX2));
+    RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(descrOut));
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   void linearSparse(const raft::handle_t& handle,
