@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/linalg/init.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -61,20 +62,23 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     auto data_view = raft::make_device_matrix_view<const T, int, raft::col_major>(
       data.data(), params.n_row, params.n_col);
     auto sing_vals_view = raft::make_device_vector_view<T, int>(sing_vals_qr.data(), params.n_col);
+    auto left_eig_vectors_view = raft::make_device_matrix_view<T, int, raft::col_major>(
+      left_eig_vectors_qr.data(), params.n_row, params.n_col);
     auto right_eig_vectors_view = raft::make_device_matrix_view<T, int, raft::col_major>(
       right_eig_vectors_trans_qr.data(), params.n_col, params.n_col);
     raft::linalg::svd_eig(handle, data_view, sing_vals_view, right_eig_vectors_view, std::nullopt);
-    raft::linalg::svd_qr_transpose_right_vec(handle, data_view, sing_vals_view);
-    raft::linalg::svd_qr_transpose_right_vec(
-      handle, data_view, sing_vals_view, std::make_optional(right_eig_vectors_view));
-    raft::linalg::svd_qr_transpose_right_vec(
-      handle, data_view, sing_vals_view, std::nullopt, std::make_optional(right_eig_vectors_view));
     raft::linalg::svd_qr(handle, data_view, sing_vals_view);
     raft::linalg::svd_qr(
-      handle, data_view, sing_vals_view, std::make_optional(right_eig_vectors_view));
+      handle, data_view, sing_vals_view, std::make_optional(left_eig_vectors_view));
     raft::linalg::svd_qr(
       handle, data_view, sing_vals_view, std::nullopt, std::make_optional(right_eig_vectors_view));
+    raft::linalg::svd_qr_transpose_right_vec(handle, data_view, sing_vals_view);
+    raft::linalg::svd_qr_transpose_right_vec(
+      handle, data_view, sing_vals_view, std::make_optional(left_eig_vectors_view));
+    raft::linalg::svd_qr_transpose_right_vec(
+      handle, data_view, sing_vals_view, std::nullopt, std::make_optional(right_eig_vectors_view));
   }
+
   void test_qr()
   {
     auto data_view = raft::make_device_matrix_view<const T, int, raft::col_major>(
@@ -119,6 +123,7 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     raft::update_device(sing_vals_ref.data(), sing_vals_ref_h, params.n_col, stream);
 
     test_API();
+    raft::update_device(data.data(), data_h, len, stream);
     test_qr();
   }
 
