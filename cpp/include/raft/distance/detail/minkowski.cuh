@@ -97,15 +97,15 @@ void minkowskiUnExpImpl(const DataT* x,
 
   if (isRowMajor) {
     auto minkowskiUnExpRowMajor = no_unroll::pairwiseDistanceMatKernel<false,
-                                                            DataT,
-                                                            AccT,
-                                                            OutT,
-                                                            IdxT,
-                                                            KPolicy,
-                                                            decltype(core_lambda),
-                                                            decltype(epilog_lambda),
-                                                            FinalLambda,
-                                                            true>;
+                                                                       DataT,
+                                                                       AccT,
+                                                                       OutT,
+                                                                       IdxT,
+                                                                       KPolicy,
+                                                                       decltype(core_lambda),
+                                                                       decltype(epilog_lambda),
+                                                                       FinalLambda,
+                                                                       true>;
     dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, minkowskiUnExpRowMajor);
 
     minkowskiUnExpRowMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(
@@ -113,15 +113,15 @@ void minkowskiUnExpImpl(const DataT* x,
 
   } else {
     auto minkowskiUnExpColMajor = no_unroll::pairwiseDistanceMatKernel<false,
-                                                            DataT,
-                                                            AccT,
-                                                            OutT,
-                                                            IdxT,
-                                                            KPolicy,
-                                                            decltype(core_lambda),
-                                                            decltype(epilog_lambda),
-                                                            FinalLambda,
-                                                            false>;
+                                                                       DataT,
+                                                                       AccT,
+                                                                       OutT,
+                                                                       IdxT,
+                                                                       KPolicy,
+                                                                       decltype(core_lambda),
+                                                                       decltype(epilog_lambda),
+                                                                       FinalLambda,
+                                                                       false>;
     dim3 grid = launchConfigGenerator<KPolicy>(m, n, KPolicy::SmemSize, minkowskiUnExpColMajor);
 
     minkowskiUnExpColMajor<<<grid, blk, KPolicy::SmemSize, stream>>>(

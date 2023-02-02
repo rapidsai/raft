@@ -435,7 +435,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2)
   //#endif
 }
 
-};  // namepsace no_unroll
+};  // namespace no_unroll
 };  // namespace detail
 };  // namespace distance
 };  // namespace raft
