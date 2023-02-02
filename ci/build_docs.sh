@@ -43,7 +43,7 @@ rapids-logger "Build CPP docs"
 #sphinx-build -b dirhtml source build -W
 #popd
 pushd ../
-build.sh docs -v -n
+./build.sh docs -v -n
 popd
 
 
