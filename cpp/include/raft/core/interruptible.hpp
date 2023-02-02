@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -178,10 +178,12 @@ class interruptible {
   auto operator=(interruptible&&) -> interruptible& = delete;
 
  private:
-  /** Global registry of thread-local cancellation stores. */
-  static inline std::unordered_map<std::thread::id, std::weak_ptr<interruptible>> registry_;
   /** Protect the access to the registry. */
   static inline std::mutex mutex_;
+
+  using registry_t = std::unordered_map<std::thread::id, std::weak_ptr<interruptible>>;
+  /** Global registry of thread-local cancellation stores. */
+  static inline std::shared_ptr<registry_t> registry_{new registry_t{}};
 
   /**
    * Create a new interruptible token or get an existing from the global registry_.
@@ -203,21 +205,25 @@ class interruptible {
   {
     std::lock_guard<std::mutex> guard_get(mutex_);
     // the following constructs an empty shared_ptr if the key does not exist.
-    auto& weak_store  = registry_[thread_id];
+    auto& weak_store  = (*registry_)[thread_id];
     auto thread_store = weak_store.lock();
     if (!thread_store || (Claim && thread_store->claimed_)) {
+      std::weak_ptr<registry_t> weak_registry = registry_;
       // Create a new thread_store in two cases:
       //  1. It does not exist in the map yet
       //  2. The previous store in the map has not yet been deleted
-      thread_store.reset(new interruptible(), [thread_id](auto ts) {
+      thread_store.reset(new interruptible(), [weak_registry, thread_id](auto ts) {
         std::lock_guard<std::mutex> guard_erase(mutex_);
-        auto found = registry_.find(thread_id);
-        if (found != registry_.end()) {
-          auto stored = found->second.lock();
-          // thread_store is not moveable, thus retains its original location.
-          // Not equal pointers below imply the new store has been already placed
-          // in the registry_ by the same std::thread::id
-          if (!stored || stored.get() == ts) { registry_.erase(found); }
+        auto registry = weak_registry.lock();
+        if (registry) {
+          auto found = registry->find(thread_id);
+          if (found != registry->end()) {
+            auto stored = found->second.lock();
+            // thread_store is not moveable, thus retains its original location.
+            // Not equal pointers below imply the new store has been already placed
+            // in the registry by the same std::thread::id
+            if (!stored || stored.get() == ts) { registry->erase(found); }
+          }
         }
         delete ts;
       });
