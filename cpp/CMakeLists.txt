@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -293,18 +293,7 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/cluster/update_centroids_double.cu
     src/distance/cluster/cluster_cost_float.cu
     src/distance/cluster/cluster_cost_double.cu
-    src/distance/neighbors/refine_d_uint64_t_float.cu
-    src/distance/neighbors/refine_d_uint64_t_int8_t.cu
-    src/distance/neighbors/refine_d_uint64_t_uint8_t.cu
-    src/distance/neighbors/refine_h_uint64_t_float.cu
-    src/distance/neighbors/refine_h_uint64_t_int8_t.cu
-    src/distance/neighbors/refine_h_uint64_t_uint8_t.cu
-    src/distance/neighbors/specializations/refine_d_uint64_t_float.cu
-    src/distance/neighbors/specializations/refine_d_uint64_t_int8_t.cu
-    src/distance/neighbors/specializations/refine_d_uint64_t_uint8_t.cu
-    src/distance/neighbors/specializations/refine_h_uint64_t_float.cu
-    src/distance/neighbors/specializations/refine_h_uint64_t_int8_t.cu
-    src/distance/neighbors/specializations/refine_h_uint64_t_uint8_t.cu
+    src/distance/neighbors/refine.cu
     src/distance/neighbors/ivfpq_search.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu

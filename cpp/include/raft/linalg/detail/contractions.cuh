@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,10 +40,14 @@ struct Contractions_NT {
   /** leading dimension in Output D */
   IdxT ldd;
 
+  /** current thread's global mem row id for X data */
+  IdxT xrowid;
+  /** current thread's global mem row id for Y data */
+  IdxT yrowid;
   /** global memory pointer to X matrix */
-  const DataT* x_base;
+  const DataT* x;
   /** global memory pointer to Y matrix */
-  const DataT* y_base;
+  const DataT* y;
 
   /** current thread's smem row id */
   int srowid;
@@ -90,8 +94,10 @@ struct Contractions_NT {
       k(_k),
       lda(_k),
       ldb(_k),
-      x_base(_x),
-      y_base(_y),
+      xrowid(IdxT(blockIdx.x) * P::Mblk + threadIdx.x / P::LdgThRow),
+      yrowid(IdxT(blockIdx.y) * P::Nblk + threadIdx.x / P::LdgThRow),
+      x(_x + xrowid * lda),
+      y(_y + yrowid * ldb),
       srowid(threadIdx.x / P::LdgThRow),
       scolid((threadIdx.x % P::LdgThRow) * P::Veclen),
       accrowid(threadIdx.x / P::AccThCols),
@@ -127,8 +133,6 @@ struct Contractions_NT {
       lda(_lda),
       ldb(_ldb),
       ldd(_ldd),
-      x_base(_x),
-      y_base(_y),
       srowid(threadIdx.x / P::LdgThRow),
       scolid((threadIdx.x % P::LdgThRow) * P::Veclen),
       accrowid(threadIdx.x / P::AccThCols),
@@ -138,6 +142,17 @@ struct Contractions_NT {
       pageWr(0),
       pageRd(0)
   {
+    if (isRowMajor) {
+      xrowid = IdxT(blockIdx.y) * P::Mblk + srowid;
+      yrowid = IdxT(blockIdx.x) * P::Nblk + srowid;
+      x      = _x + xrowid * lda;
+      y      = _y + yrowid * ldb;
+    } else {
+      xrowid = IdxT(blockIdx.y) * P::Mblk;
+      yrowid = IdxT(blockIdx.x) * P::Nblk;
+      x      = _x + xrowid + srowid * lda;
+      y      = _y + yrowid + srowid * ldb;
+    }
   }
 
  protected:
@@ -145,10 +160,10 @@ struct Contractions_NT {
    * @brief Load current block of X/Y from global memory to registers
    * @param[in] kidx current start index of k to be loaded
    */
-  DI void ldgXY(IdxT tile_idx_m, IdxT tile_idx_n, IdxT kidx)
+  DI void ldgXY(IdxT kidx)
   {
-    ldgX(tile_idx_m, kidx);
-    ldgY(tile_idx_n, kidx);
+    ldgX(kidx);
+    ldgY(kidx);
   }
 
   /**
@@ -171,16 +186,9 @@ struct Contractions_NT {
     ldsY(kidx, sy + pageRd * P::SmemPage);
   }
 
-  DI void switch_read_buffer() { this->pageRd ^= 1; }
-
-  DI void switch_write_buffer() { this->pageWr ^= 1; }
-
  private:
-  DI void ldgX(IdxT tile_idx_m, IdxT kidx)
+  DI void ldgX(IdxT kidx)
   {
-    IdxT xrowid = isRowMajor ? tile_idx_m + srowid : tile_idx_m;
-    auto x      = isRowMajor ? x_base + xrowid * lda : x_base + xrowid + srowid * lda;
-
     if (isRowMajor) {
       auto numRows = m;
       auto koffset = kidx + scolid;
@@ -212,11 +220,8 @@ struct Contractions_NT {
     }
   }
 
-  DI void ldgY(IdxT tile_idx_n, IdxT kidx)
+  DI void ldgY(IdxT kidx)
   {
-    IdxT yrowid = isRowMajor ? tile_idx_n + srowid : tile_idx_n;
-    auto y      = isRowMajor ? y_base + yrowid * ldb : y_base + yrowid + srowid * ldb;
-
     if (isRowMajor) {
       auto numRows = n;
       auto koffset = kidx + scolid;

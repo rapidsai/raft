@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
  private:
   DI void prolog()
   {
-    this->ldgXY(IdxT(blockIdx.x) * P::Mblk, IdxT(blockIdx.y) * P::Nblk, 0);
+    this->ldgXY(0);
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -74,18 +74,18 @@ struct EpsUnexpL2SqNeighborhood : public BaseClass {
     }
     this->stsXY();
     __syncthreads();
-    this->switch_write_buffer();
+    this->pageWr ^= 1;
   }
 
   DI void loop()
   {
     for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgXY(IdxT(blockIdx.x) * P::Mblk, IdxT(blockIdx.y) * P::Nblk, kidx);
+      this->ldgXY(kidx);
       accumulate();  // on the previous k-block
       this->stsXY();
       __syncthreads();
-      this->switch_write_buffer();
-      this->switch_read_buffer();
+      this->pageWr ^= 1;
+      this->pageRd ^= 1;
     }
     accumulate();  // last iteration
   }

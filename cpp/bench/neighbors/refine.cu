@@ -27,7 +27,6 @@
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
-#include <raft/neighbors/specializations.cuh>
 #endif
 
 #if defined RAFT_NN_COMPILED
@@ -53,7 +52,7 @@ inline auto operator<<(std::ostream& os, const RefineInputs<IdxT>& p) -> std::os
   return os;
 }
 
-RefineInputs<uint64_t> p;
+RefineInputs<int64_t> p;
 
 template <typename DataT, typename DistanceT, typename IdxT>
 class RefineAnn : public fixture {
@@ -99,24 +98,24 @@ class RefineAnn : public fixture {
   RefineHelper<DataT, DistanceT, IdxT> data;
 };
 
-std::vector<RefineInputs<uint64_t>> getInputs()
+std::vector<RefineInputs<int64_t>> getInputs()
 {
-  std::vector<RefineInputs<uint64_t>> out;
+  std::vector<RefineInputs<int64_t>> out;
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded;
   for (bool host_data : {true, false}) {
-    for (uint64_t n_queries : {1000, 10000}) {
-      for (uint64_t dim : {128, 512}) {
-        out.push_back(RefineInputs<uint64_t>{n_queries, 2000000, dim, 32, 128, metric, host_data});
-        out.push_back(RefineInputs<uint64_t>{n_queries, 2000000, dim, 10, 40, metric, host_data});
+    for (int64_t n_queries : {1000, 10000}) {
+      for (int64_t dim : {128, 512}) {
+        out.push_back(RefineInputs<int64_t>{n_queries, 2000000, dim, 32, 128, metric, host_data});
+        out.push_back(RefineInputs<int64_t>{n_queries, 2000000, dim, 10, 40, metric, host_data});
       }
     }
   }
   return out;
 }
 
-using refine_float_uint64 = RefineAnn<float, float, uint64_t>;
-RAFT_BENCH_REGISTER(refine_float_uint64, "", getInputs());
+using refine_float_int64 = RefineAnn<float, float, int64_t>;
+RAFT_BENCH_REGISTER(refine_float_int64, "", getInputs());
 
-using refine_uint8_uint64 = RefineAnn<uint8_t, float, uint64_t>;
-RAFT_BENCH_REGISTER(refine_uint8_uint64, "", getInputs());
+using refine_uint8_int64 = RefineAnn<uint8_t, float, int64_t>;
+RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs());
 }  // namespace raft::bench::neighbors
