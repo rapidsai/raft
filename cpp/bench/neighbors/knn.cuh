@@ -32,6 +32,7 @@
 #include <raft/spatial/knn/specializations.cuh>
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/cluster/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
 #endif
 #endif
 
