@@ -16,6 +16,7 @@
 
 #pragma once
 #include <raft/distance/detail/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_base_no_unroll.cuh>
 
 namespace raft {
 namespace distance {
@@ -95,7 +96,7 @@ void minkowskiUnExpImpl(const DataT* x,
   };
 
   if (isRowMajor) {
-    auto minkowskiUnExpRowMajor = pairwiseDistanceMatKernel<false,
+    auto minkowskiUnExpRowMajor = no_unroll::pairwiseDistanceMatKernel<false,
                                                             DataT,
                                                             AccT,
                                                             OutT,
@@ -111,7 +112,7 @@ void minkowskiUnExpImpl(const DataT* x,
       x, y, nullptr, nullptr, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
 
   } else {
-    auto minkowskiUnExpColMajor = pairwiseDistanceMatKernel<false,
+    auto minkowskiUnExpColMajor = no_unroll::pairwiseDistanceMatKernel<false,
                                                             DataT,
                                                             AccT,
                                                             OutT,
