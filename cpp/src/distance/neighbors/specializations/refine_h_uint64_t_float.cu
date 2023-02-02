@@ -28,4 +28,3 @@ template void refine<uint64_t, float, float, uint64_t>(
   distance::DistanceType metric);
 
 }  // namespace raft::neighbors
-
