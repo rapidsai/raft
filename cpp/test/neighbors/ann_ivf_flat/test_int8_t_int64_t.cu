@@ -14,15 +14,20 @@
  * limitations under the License.
  */
 
-#include "../ann_ivf_pq.cuh"
+#include <gtest/gtest.h>
 
-namespace raft::neighbors::ivf_pq {
+#include "../ann_ivf_flat.cuh"
 
-using f32_f32_i64 = ivf_pq_test<float, float, int64_t>;
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#include <raft/cluster/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
+#endif
 
-TEST_BUILD_SEARCH(f32_f32_i64)
-TEST_BUILD_EXTEND_SEARCH(f32_f32_i64)
-INSTANTIATE(f32_f32_i64,
-            enum_variety_l2() + enum_variety_ip() + big_dims_small_lut() + enum_variety_l2sqrt());
+namespace raft::neighbors::ivf_flat {
 
-}  // namespace raft::neighbors::ivf_pq
+typedef AnnIVFFlatTest<float, int8_t, std::int64_t> AnnIVFFlatTestF_int8;
+TEST_P(AnnIVFFlatTestF_int8, AnnIVFFlat) { this->testIVFFlat(); }
+
+INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF_int8, ::testing::ValuesIn(inputs));
+
+}  // namespace raft::neighbors::ivf_flat

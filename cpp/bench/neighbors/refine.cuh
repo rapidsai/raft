@@ -25,14 +25,6 @@
 #include <raft/neighbors/refine.cuh>
 #include <raft/random/rng.cuh>
 
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
-#endif
-
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
@@ -113,9 +105,4 @@ std::vector<RefineInputs<uint64_t>> getInputs()
   return out;
 }
 
-using refine_float_int64 = RefineAnn<float, float, uint64_t>;
-RAFT_BENCH_REGISTER(refine_float_int64, "", getInputs());
-
-using refine_uint8_int64 = RefineAnn<uint8_t, float, uint64_t>;
-RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs());
 }  // namespace raft::bench::neighbors

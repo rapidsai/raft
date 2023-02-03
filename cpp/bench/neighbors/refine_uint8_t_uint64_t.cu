@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,21 @@
  * limitations under the License.
  */
 
-#include "../ann_ivf_pq.cuh"
+#include "refine.cuh"
+#include <common/benchmark.hpp>
 
-namespace raft::neighbors::ivf_pq {
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations/refine.cuh>
+#endif
 
-using f32_f32_u32 = ivf_pq_test<float, float, uint32_t>;
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
 
-TEST_BUILD_SEARCH(f32_f32_u32)
-INSTANTIATE(f32_f32_u32, defaults() + var_n_probes() + var_k() + special_cases());
+using namespace raft::neighbors;
 
-}  // namespace raft::neighbors::ivf_pq
+namespace raft::bench::neighbors {
+using refine_uint8_int64 = RefineAnn<uint8_t, float, uint64_t>;
+RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs());
+}  // namespace raft::bench::neighbors
