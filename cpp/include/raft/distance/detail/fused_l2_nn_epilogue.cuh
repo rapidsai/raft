@@ -36,12 +36,13 @@ operation.
 
 #include <cutlass/gemm/gemm.h>
 
-#include <raft/distance/detail/predicated_tile_iterator_normvec.h>
-#include <raft/distance/detail/predicated_tile_iterator_reduced_vec.h>
 #include <cutlass/epilogue/threadblock/default_epilogue_tensor_op.h>
 #include <cutlass/epilogue/threadblock/default_epilogue_volta_tensor_op.h>
 #include <cutlass/epilogue/threadblock/epilogue.h>
 #include <cutlass/epilogue/threadblock/epilogue_with_broadcast.h>
+
+#include <raft/distance/detail/predicated_tile_iterator_normvec.h>
+#include <raft/distance/detail/predicated_tile_iterator_reduced_vec.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -17,11 +17,11 @@
 #include <test_utils.cuh>
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/knn.cuh>
-#include <raft/distance/distance.cuh>
 
 #if defined RAFT_NN_COMPILED
 #include <raft/neighbors/specializations.cuh>
