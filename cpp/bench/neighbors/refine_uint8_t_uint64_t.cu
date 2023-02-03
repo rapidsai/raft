@@ -30,5 +30,5 @@ using namespace raft::neighbors;
 
 namespace raft::bench::neighbors {
 using refine_uint8_int64 = RefineAnn<uint8_t, float, uint64_t>;
-RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs());
+RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs<uint64_t>());
 }  // namespace raft::bench::neighbors
