@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,18 @@ namespace distance {
 namespace detail {
 
 template void
-distance<raft::distance::DistanceType::LpUnexpanded, float, float, float, std::uint32_t>(
-  const float* x,
-  const float* y,
-  float* dist,
-  std::uint32_t m,
-  std::uint32_t n,
-  std::uint32_t k,
+distance<raft::distance::DistanceType::HellingerExpanded, double, double, double, int>(
+  const double* x,
+  const double* y,
+  double* dist,
+  int m,
+  int n,
+  int k,
   void* workspace,
   std::size_t worksize,
   cudaStream_t stream,
   bool isRowMajor,
-  float metric_arg);
+  double metric_arg);
 
 }  // namespace detail
 }  // namespace distance
