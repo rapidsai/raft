@@ -82,7 +82,6 @@ if(BUILD_BENCH)
     bench/distance/distance_l1.cu
     bench/distance/distance_unexp_l2.cu
     bench/distance/fused_l2_nn.cu
-    bench/distance/masked_nn.cu
     bench/distance/kernels.cu
     bench/main.cpp
     OPTIONAL
