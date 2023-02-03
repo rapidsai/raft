@@ -22,8 +22,8 @@
 #include <cutlass/layout/matrix.h>
 #include <cutlass/layout/tensor.h>
 
-#include <fusedL2NN_gemm_with_fused_epilogue.h>
-#include <fused_l2_nn_epilogue.cuh>
+#include <raft/distance/detail/fusedL2NN_gemm_with_fused_epilogue.h>
+#include <raft/distance/detail/fused_l2_nn_epilogue.cuh>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 

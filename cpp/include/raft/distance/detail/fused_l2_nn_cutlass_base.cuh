@@ -36,8 +36,8 @@
 #include <cutlass/matrix_coord.h>
 #include <cutlass/tensor_view.h>
 
-#include <fused_l2_nn_epilogue_elementwise.cuh>
-#include <fused_l2_nn_gemm.h>
+#include <raft/distance/detail/fused_l2_nn_epilogue_elementwise.cuh>
+#include <raft/distance/detail/fused_l2_nn_gemm.h>
 
 #define CUTLASS_CHECK(status)                                                                    \
   {                                                                                              \
