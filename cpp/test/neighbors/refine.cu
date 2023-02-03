@@ -32,7 +32,7 @@
 #include <gtest/gtest.h>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/neighbors/specializations.cuh>
+#include <raft/neighbors/specializations/refine.cuh>
 #endif
 
 #include <vector>

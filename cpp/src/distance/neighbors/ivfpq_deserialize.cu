@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-#ifndef __KNN_SPECIALIZATIONS_H
-#define __KNN_SPECIALIZATIONS_H
+#include <raft/neighbors/ivf_pq.cuh>
+#include <raft_runtime/neighbors/ivf_pq.hpp>
 
-#pragma once
+namespace raft::runtime::neighbors::ivf_pq {
 
-#include <raft/neighbors/specializations/ball_cover.cuh>
-#include <raft/neighbors/specializations/fused_l2_knn.cuh>
-#include <raft/neighbors/specializations/knn.cuh>
-
-#include <raft/neighbors/specializations/detail/ivf_pq_search.cuh>
-
-#endif
+void deserialize(raft::device_resources const& handle,
+                 const std::string& filename,
+                 raft::neighbors::ivf_pq::index<uint64_t>* index)
+{
+  if (!index) { RAFT_FAIL("Invalid index pointer"); }
+  *index = raft::spatial::knn::ivf_pq::detail::deserialize<uint64_t>(handle, filename);
+};
+}  // namespace raft::runtime::neighbors::ivf_pq

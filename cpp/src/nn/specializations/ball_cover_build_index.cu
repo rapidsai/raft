@@ -36,24 +36,4 @@ template void build_index<std::int64_t, float, std::uint32_t, std::uint32_t>(
   raft::device_resources const& handle,
   BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index);
 
-template void knn_query<std::int64_t, float, std::uint32_t>(
-  raft::device_resources const& handle,
-  const BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
-  std::uint32_t k,
-  const float* query,
-  std::uint32_t n_query_pts,
-  std::int64_t* inds,
-  float* dists,
-  bool perform_post_filtering,
-  float weight);
-
-template void all_knn_query<std::int64_t, float, std::uint32_t>(
-  raft::device_resources const& handle,
-  BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
-  std::uint32_t k,
-  std::int64_t* inds,
-  float* dists,
-  bool perform_post_filtering,
-  float weight);
-
 };  // namespace raft::neighbors::ball_cover
