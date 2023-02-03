@@ -46,9 +46,7 @@ struct Argmin : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     loop_on_state(state, [this]() {
-      auto matrix_const_view = raft::make_device_matrix_view<const T, IdxT, row_major>(
-        matrix.data_handle(), matrix.extent(0), matrix.extent(1));
-      raft::matrix::argmin(handle, matrix_const_view, indices.view());
+      raft::matrix::argmin(handle, raft::make_const_mdspan(matrix.view()), indices.view());
     });
   }
 
