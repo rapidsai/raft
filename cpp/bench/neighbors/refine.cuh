@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft_internal/neighbors/refine_helper.cuh>
 
 #include <common/benchmark.hpp>
