@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.cuh"
+#include <test_utils.cuh>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
