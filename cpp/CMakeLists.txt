@@ -307,15 +307,19 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/refine_h_uint64_t_uint8_t.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu
-    src/distance/distance/specializations/detail/canberra.cu
-    src/distance/distance/specializations/detail/chebyshev.cu
-    src/distance/distance/specializations/detail/correlation.cu
-    src/distance/distance/specializations/detail/cosine.cu
-    src/distance/distance/specializations/detail/cosine.cu
-    src/distance/distance/specializations/detail/hamming_unexpanded.cu
-    src/distance/distance/specializations/detail/hellinger_expanded.cu
+    src/distance/distance/specializations/detail/canberra_double_double_double_int.cu
+    src/distance/distance/specializations/detail/canberra_float_float_float_int.cu
+    src/distance/distance/specializations/detail/chebyshev_double_double_double_int.cu
+    src/distance/distance/specializations/detail/chebyshev_float_float_float_int.cu
+    src/distance/distance/specializations/detail/correlation_double_double_double_int.cu
+    src/distance/distance/specializations/detail/correlation_float_float_float_int.cu
+    src/distance/distance/specializations/detail/cosine_double_double_double_int.cu
+    src/distance/distance/specializations/detail/cosine_float_float_float_int.cu
+    src/distance/distance/specializations/detail/hamming_unexpanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/hamming_unexpanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/hellinger_expanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/hellinger_expanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
-    src/distance/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
     src/distance/distance/specializations/detail/kernels/gram_matrix_base_double.cu
     src/distance/distance/specializations/detail/kernels/gram_matrix_base_float.cu
@@ -327,28 +331,20 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/detail/kernels/tanh_kernel_double.cu
     src/distance/distance/specializations/detail/kernels/tanh_kernel_float.cu
     src/distance/distance/specializations/detail/kl_divergence_float_float_float_int.cu
-    src/distance/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/kl_divergence_double_double_double_int.cu
     src/distance/distance/specializations/detail/l1_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l1_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l1_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_expanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_expanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_expanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_sqrt_expanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_sqrt_expanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_sqrt_expanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
-    src/distance/distance/specializations/detail/l2_unexpanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
-    src/distance/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/russel_rao_double_double_double_int.cu
-    src/distance/distance/specializations/detail/russel_rao_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/russel_rao_float_float_float_int.cu
     src/distance/distance/specializations/fused_l2_nn_double_int.cu
     src/distance/distance/specializations/fused_l2_nn_double_int64.cu
