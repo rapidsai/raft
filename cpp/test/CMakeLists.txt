@@ -78,8 +78,8 @@ endfunction()
 
 if(BUILD_TESTS)
   ConfigureTest(
-    NAME CLUSTER_TEST PATH test/cluster/kmeans.cu test/cluster/cluster_solvers.cu
-    test/cluster/linkage.cu OPTIONAL DIST NN
+    NAME CLUSTER_TEST PATH test/cluster/kmeans.cu test/cluster/kmeans_balanced.cu
+    test/cluster/cluster_solvers.cu test/cluster/linkage.cu OPTIONAL DIST NN
   )
 
   ConfigureTest(
@@ -96,6 +96,7 @@ if(BUILD_TESTS)
     test/core/nvtx.cpp
     test/core/mdarray.cu
     test/core/mdspan_utils.cu
+    test/core/numpy_serializer.cu
     test/core/memory_type.cpp
     test/core/span.cpp
     test/core/span.cu
@@ -122,8 +123,6 @@ if(BUILD_TESTS)
     test/distance/dist_minkowski.cu
     test/distance/dist_russell_rao.cu
     test/distance/fused_l2_nn.cu
-    test/distance/masked_nn.cu
-    test/distance/masked_nn_compress_to_bits.cu
     test/distance/gram.cu
     OPTIONAL
     DIST
