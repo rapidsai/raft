@@ -59,19 +59,18 @@ namespace raft::neighbors::ivf_pq {
  * @param handle
  * @param params configure the index building
  * @param[in] dataset a device/host pointer to a row-major matrix [n_rows, dim]
- * @param n_rows the number of samples
- * @param dim the dimensionality of the data
  *
  * @return the constructed ivf-pq index
  */
 template <typename T, typename IdxT = uint32_t>
 inline auto build(raft::device_resources const& handle,
                   const index_params& params,
-                  const T* dataset,
-                  IdxT n_rows,
-                  uint32_t dim) -> index<IdxT>
+                  const raft::device_matrix_view<const T, IdxT>& dataset) -> index<IdxT>
 {
-  return raft::spatial::knn::ivf_pq::detail::build(handle, params, dataset, n_rows, dim);
+  IdxT n_rows = dataset.extent(0);
+  IdxT dim    = dataset.extent(1);
+  return raft::spatial::knn::ivf_pq::detail::build(
+    handle, params, dataset.data_handle(), n_rows, dim);
 }
 
 /**
@@ -102,19 +101,18 @@ inline auto build(raft::device_resources const& handle,
  * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
- * @param n_rows the number of samples
  *
  * @return the constructed extended ivf-pq index
  */
 template <typename T, typename IdxT>
 inline auto extend(raft::device_resources const& handle,
                    const index<IdxT>& orig_index,
-                   const T* new_vectors,
-                   const IdxT* new_indices,
-                   IdxT n_rows) -> index<IdxT>
+                   const raft::device_matrix_view<const T, IdxT>& new_vectors,
+                   const raft::device_matrix_view<const IdxT, IdxT>& new_indices) -> index<IdxT>
 {
+  IdxT n_rows = new_vectors.extent(0);
   return raft::spatial::knn::ivf_pq::detail::extend(
-    handle, orig_index, new_vectors, new_indices, n_rows);
+    handle, orig_index, new_vectors.data_handle(), new_indices.data_handle(), n_rows);
 }
 
 /**
@@ -129,16 +127,14 @@ inline auto extend(raft::device_resources const& handle,
  * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
- * @param n_rows the number of samples
  */
 template <typename T, typename IdxT>
 inline void extend(raft::device_resources const& handle,
                    index<IdxT>* index,
-                   const T* new_vectors,
-                   const IdxT* new_indices,
-                   IdxT n_rows)
+                   const raft::device_matrix_view<const T, IdxT>& new_vectors,
+                   const raft::device_matrix_view<const IdxT, IdxT>& new_indices)
 {
-  *index = extend(handle, *index, new_vectors, new_indices, n_rows);
+  *index = extend(handle, *index, new_vectors, new_indices);
 }
 
 /**
@@ -175,7 +171,6 @@ inline void extend(raft::device_resources const& handle,
  * @param params configure the search
  * @param index ivf-pq constructed index
  * @param[in] queries a device pointer to a row-major matrix [n_queries, index->dim()]
- * @param n_queries the batch size
  * @param k the number of neighbors to find for each query.
  * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
  * [n_queries, k]
@@ -187,15 +182,22 @@ template <typename T, typename IdxT>
 inline void search(raft::device_resources const& handle,
                    const search_params& params,
                    const index<IdxT>& index,
-                   const T* queries,
-                   uint32_t n_queries,
+                   const raft::device_matrix_view<const T, IdxT>& queries,
                    uint32_t k,
-                   IdxT* neighbors,
-                   float* distances,
+                   const raft::device_matrix_view<IdxT, IdxT>& neighbors,
+                   const raft::device_matrix_view<float, IdxT>& distances,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
-  return raft::spatial::knn::ivf_pq::detail::search(
-    handle, params, index, queries, n_queries, k, neighbors, distances, mr);
+  IdxT n_queries = queries.extent(0);
+  return raft::spatial::knn::ivf_pq::detail::search(handle,
+                                                    params,
+                                                    index,
+                                                    queries.data_handle(),
+                                                    n_queries,
+                                                    k,
+                                                    neighbors.data_handle(),
+                                                    distances.data_handle(),
+                                                    mr);
 }
 
 /** @} */  // end group ivf_pq
