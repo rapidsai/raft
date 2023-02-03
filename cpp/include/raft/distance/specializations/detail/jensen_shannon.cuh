@@ -47,7 +47,6 @@ distance<raft::distance::DistanceType::JensenShannon, double, double, double, in
   cudaStream_t stream,
   bool isRowMajor,
   double metric_arg);
-extern template void
 
 }  // namespace detail
 }  // namespace distance
