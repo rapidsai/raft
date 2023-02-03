@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,9 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import pylibraft.common.handle
-from cython.operator cimport dereference as deref
+from libcpp.string cimport string
+
+from pylibraft.common.handle cimport device_resources
 
 
 cdef extern from "raft/thirdparty/mdspan/include/experimental/__p0009_bits/layout_stride.hpp" namespace "std::experimental":  # noqa: E501
@@ -35,6 +36,8 @@ cdef extern from "raft/core/mdspan_types.hpp" \
         namespace "raft":
     ctypedef layout_right row_major
     ctypedef layout_left col_major
+    cdef cppclass matrix_extent[IndexType]:
+        pass
 
 
 cdef extern from "raft/core/device_mdspan.hpp" namespace "raft" nogil:
@@ -73,6 +76,9 @@ cdef extern from "raft/core/host_mdspan.hpp" \
     cdef cppclass host_scalar_view[ElementType, IndexType]:
         pass
 
+    cdef cppclass host_mdspan[ElementType, Extents, LayoutPolicy]:
+        pass
+
     cdef host_matrix_view[ElementType, IndexType, LayoutPolicy] \
         make_host_matrix_view[ElementType, IndexType, LayoutPolicy](
             ElementType* ptr, IndexType n_rows, IndexType n_cols) except +
@@ -84,3 +90,24 @@ cdef extern from "raft/core/host_mdspan.hpp" \
     cdef host_scalar_view[ElementType, IndexType] \
         make_host_scalar_view[ElementType, IndexType](
             ElementType *ptr) except +
+
+cdef extern from "<sstream>" namespace "std" nogil:
+    cdef cppclass ostringstream:
+        ostringstream() except +
+        string str() except +
+
+
+cdef extern from "<ostream>" namespace "std" nogil:
+
+    cdef cppclass ostream:
+        pass
+
+cdef extern from "raft/core/mdspan.hpp" namespace "raft" nogil:
+    cdef cppclass dextents[IndentType, Rank]:
+        pass
+
+cdef extern from "raft/core/serialize.hpp" namespace "raft" nogil:
+
+    cdef void serialize_mdspan[ElementType, Extents, LayoutPolicy](
+        const device_resources& handle, ostream& os,
+        const host_mdspan[ElementType, Extents, LayoutPolicy]& obj)

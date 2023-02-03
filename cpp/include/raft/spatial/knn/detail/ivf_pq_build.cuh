@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "ann_serialization.h"
 #include "ann_utils.cuh"
 
 #include <raft/neighbors/ivf_pq_types.hpp>
@@ -27,6 +26,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/serialize.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/qr.cuh>
@@ -55,6 +55,8 @@
 #include <thrust/scan.h>
 #include <thrust/sequence.h>
 
+#include <cstdint>
+#include <fstream>
 #include <variant>
 
 namespace raft::spatial::knn::ivf_pq::detail {
@@ -1388,7 +1390,16 @@ auto build(raft::device_resources const& handle,
   }
 }
 
-static const int serialization_version = 1;
+// Serialization version 2
+// No backward compatibility yet; that is, can't add additional fields without breaking
+// backward compatibility.
+// TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
+//             compatible fashion.
+constexpr int serialization_version = 2;
+
+static_assert(sizeof(index<std::uint64_t>) == 560,
+              "The size of the index struct has changed since the last update; "
+              "paste in the new size and consider updating the save/load logic");
 
 /**
  * Save the index to file.
@@ -1401,9 +1412,9 @@ static const int serialization_version = 1;
  *
  */
 template <typename IdxT>
-void save(raft::device_resources const& handle_,
-          const std::string& filename,
-          const index<IdxT>& index_)
+void serialize(raft::device_resources const& handle_,
+               const std::string& filename,
+               const index<IdxT>& index_)
 {
   std::ofstream of(filename, std::ios::out | std::ios::binary);
   if (!of) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
@@ -1414,25 +1425,25 @@ void save(raft::device_resources const& handle_,
                  static_cast<int>(index_.pq_dim()),
                  static_cast<int>(index_.pq_bits()));
 
-  write_scalar(of, serialization_version);
-  write_scalar(of, index_.size());
-  write_scalar(of, index_.dim());
-  write_scalar(of, index_.pq_bits());
-  write_scalar(of, index_.pq_dim());
+  serialize_scalar(handle_, of, serialization_version);
+  serialize_scalar(handle_, of, index_.size());
+  serialize_scalar(handle_, of, index_.dim());
+  serialize_scalar(handle_, of, index_.pq_bits());
+  serialize_scalar(handle_, of, index_.pq_dim());
 
-  write_scalar(of, index_.metric());
-  write_scalar(of, index_.codebook_kind());
-  write_scalar(of, index_.n_lists());
-  write_scalar(of, index_.n_nonempty_lists());
+  serialize_scalar(handle_, of, index_.metric());
+  serialize_scalar(handle_, of, index_.codebook_kind());
+  serialize_scalar(handle_, of, index_.n_lists());
+  serialize_scalar(handle_, of, index_.n_nonempty_lists());
 
-  write_mdspan(handle_, of, index_.pq_centers());
-  write_mdspan(handle_, of, index_.pq_dataset());
-  write_mdspan(handle_, of, index_.indices());
-  write_mdspan(handle_, of, index_.rotation_matrix());
-  write_mdspan(handle_, of, index_.list_offsets());
-  write_mdspan(handle_, of, index_.list_sizes());
-  write_mdspan(handle_, of, index_.centers());
-  write_mdspan(handle_, of, index_.centers_rot());
+  serialize_mdspan(handle_, of, index_.pq_centers());
+  serialize_mdspan(handle_, of, index_.pq_dataset());
+  serialize_mdspan(handle_, of, index_.indices());
+  serialize_mdspan(handle_, of, index_.rotation_matrix());
+  serialize_mdspan(handle_, of, index_.list_offsets());
+  serialize_mdspan(handle_, of, index_.list_sizes());
+  serialize_mdspan(handle_, of, index_.centers());
+  serialize_mdspan(handle_, of, index_.centers_rot());
 
   of.close();
   if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
@@ -1450,28 +1461,28 @@ void save(raft::device_resources const& handle_,
  *
  */
 template <typename IdxT>
-auto load(raft::device_resources const& handle_, const std::string& filename) -> index<IdxT>
+auto deserialize(raft::device_resources const& handle_, const std::string& filename) -> index<IdxT>
 {
   std::ifstream infile(filename, std::ios::in | std::ios::binary);
 
   if (!infile) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
 
-  auto ver = read_scalar<int>(infile);
+  auto ver = deserialize_scalar<int>(handle_, infile);
   if (ver != serialization_version) {
     RAFT_FAIL("serialization version mismatch %d vs. %d", ver, serialization_version);
   }
-  auto n_rows  = read_scalar<IdxT>(infile);
-  auto dim     = read_scalar<uint32_t>(infile);
-  auto pq_bits = read_scalar<uint32_t>(infile);
-  auto pq_dim  = read_scalar<uint32_t>(infile);
+  auto n_rows  = deserialize_scalar<IdxT>(handle_, infile);
+  auto dim     = deserialize_scalar<std::uint32_t>(handle_, infile);
+  auto pq_bits = deserialize_scalar<std::uint32_t>(handle_, infile);
+  auto pq_dim  = deserialize_scalar<std::uint32_t>(handle_, infile);
 
-  auto metric           = read_scalar<raft::distance::DistanceType>(infile);
-  auto codebook_kind    = read_scalar<raft::neighbors::ivf_pq::codebook_gen>(infile);
-  auto n_lists          = read_scalar<uint32_t>(infile);
-  auto n_nonempty_lists = read_scalar<uint32_t>(infile);
+  auto metric        = deserialize_scalar<raft::distance::DistanceType>(handle_, infile);
+  auto codebook_kind = deserialize_scalar<raft::neighbors::ivf_pq::codebook_gen>(handle_, infile);
+  auto n_lists       = deserialize_scalar<std::uint32_t>(handle_, infile);
+  auto n_nonempty_lists = deserialize_scalar<std::uint32_t>(handle_, infile);
 
   RAFT_LOG_DEBUG("n_rows %zu, dim %d, pq_dim %d, pq_bits %d, n_lists %d",
-                 static_cast<size_t>(n_rows),
+                 static_cast<std::size_t>(n_rows),
                  static_cast<int>(dim),
                  static_cast<int>(pq_dim),
                  static_cast<int>(pq_bits),
@@ -1481,14 +1492,14 @@ auto load(raft::device_resources const& handle_, const std::string& filename) ->
     handle_, metric, codebook_kind, n_lists, dim, pq_bits, pq_dim, n_nonempty_lists);
   index_.allocate(handle_, n_rows);
 
-  read_mdspan(handle_, infile, index_.pq_centers());
-  read_mdspan(handle_, infile, index_.pq_dataset());
-  read_mdspan(handle_, infile, index_.indices());
-  read_mdspan(handle_, infile, index_.rotation_matrix());
-  read_mdspan(handle_, infile, index_.list_offsets());
-  read_mdspan(handle_, infile, index_.list_sizes());
-  read_mdspan(handle_, infile, index_.centers());
-  read_mdspan(handle_, infile, index_.centers_rot());
+  deserialize_mdspan(handle_, infile, index_.pq_centers());
+  deserialize_mdspan(handle_, infile, index_.pq_dataset());
+  deserialize_mdspan(handle_, infile, index_.indices());
+  deserialize_mdspan(handle_, infile, index_.rotation_matrix());
+  deserialize_mdspan(handle_, infile, index_.list_offsets());
+  deserialize_mdspan(handle_, infile, index_.list_sizes());
+  deserialize_mdspan(handle_, infile, index_.centers());
+  deserialize_mdspan(handle_, infile, index_.centers_rot());
 
   infile.close();
 
