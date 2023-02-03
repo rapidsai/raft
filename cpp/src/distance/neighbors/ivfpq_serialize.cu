@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,26 +14,16 @@
  * limitations under the License.
  */
 
-#include <raft/distance/detail/distance.cuh>
+#include <raft/neighbors/ivf_pq.cuh>
+#include <raft_runtime/neighbors/ivf_pq.hpp>
 
-namespace raft {
-namespace distance {
-namespace detail {
+namespace raft::runtime::neighbors::ivf_pq {
 
-template void
-distance<raft::distance::DistanceType::JensenShannon, float, float, float, std::uint32_t>(
-  const float* x,
-  const float* y,
-  float* dist,
-  std::uint32_t m,
-  std::uint32_t n,
-  std::uint32_t k,
-  void* workspace,
-  std::size_t worksize,
-  cudaStream_t stream,
-  bool isRowMajor,
-  float metric_arg);
+void serialize(raft::device_resources const& handle,
+               const std::string& filename,
+               const raft::neighbors::ivf_pq::index<uint64_t>& index)
+{
+  raft::spatial::knn::ivf_pq::detail::serialize(handle, filename, index);
+};
 
-}  // namespace detail
-}  // namespace distance
-}  // namespace raft
+}  // namespace raft::runtime::neighbors::ivf_pq

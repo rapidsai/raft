@@ -35,8 +35,6 @@ namespace raft::runtime::neighbors::ivf_pq {
       handle, params, idx, queries, n_queries, k, neighbors, distances, mr); \
   }
 
-RAFT_SEARCH_INST(float, uint64_t);
-RAFT_SEARCH_INST(int8_t, uint64_t);
 RAFT_SEARCH_INST(uint8_t, uint64_t);
 
 #undef RAFT_INST_SEARCH

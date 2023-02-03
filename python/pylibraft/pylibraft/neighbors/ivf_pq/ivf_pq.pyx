@@ -795,7 +795,7 @@ def save(filename, Index index, handle=None):
 
     cdef string c_filename = filename.encode('utf-8')
 
-    c_ivf_pq.save(deref(handle_), c_filename, deref(index.index))
+    c_ivf_pq.serialize(deref(handle_), c_filename, deref(index.index))
 
 
 @auto_sync_handle
@@ -852,7 +852,7 @@ def load(filename, handle=None):
     cdef string c_filename = filename.encode('utf-8')
     index = Index()
 
-    c_ivf_pq.load(deref(handle_), c_filename, index.index)
+    c_ivf_pq.deserialize(deref(handle_), c_filename, index.index)
     index.trained = True
 
     return index

@@ -166,13 +166,13 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-          - rmm=23.02
+          - rmm=23.04
           - dask>=2022.12.0
           - distributed>=2022.12.0
           - ucx>=1.13.0
-          - ucx-py=0.30
+          - ucx-py=0.31.*
           - ucx-proc=*=gpu
-          - dask-cuda=23.02
+          - dask-cuda=23.04
   test_python:
     common:
       - output_types: [conda, requirements]
