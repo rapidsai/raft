@@ -92,7 +92,7 @@ class RefineAnn : public fixture {
   RefineHelper<DataT, DistanceT, IdxT> data;
 };
 
-std::vector<RefineInputs<uint64_t>> getInputs()
+inline std::vector<RefineInputs<uint64_t>> getInputs()
 {
   std::vector<RefineInputs<uint64_t>> out;
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded;
