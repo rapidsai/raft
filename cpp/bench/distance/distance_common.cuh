@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,14 +24,14 @@
 
 namespace raft::bench::distance {
 
-struct distance_params {
+struct distance_inputs {
   int m, n, k;
   bool isRowMajor;
-};  // struct distance_params
+};  // struct distance_inputs
 
 template <typename T, raft::distance::DistanceType DType>
 struct distance : public fixture {
-  distance(const distance_params& p)
+  distance(const distance_inputs& p)
     : params(p),
       x(p.m * p.k, stream),
       y(p.n * p.k, stream),
@@ -63,13 +63,13 @@ struct distance : public fixture {
   }
 
  private:
-  distance_params params;
+  distance_inputs params;
   rmm::device_uvector<T> x, y, out;
   rmm::device_uvector<char> workspace;
   size_t worksize;
 };  // struct Distance
 
-const std::vector<distance_params> dist_input_vecs{
+const std::vector<distance_inputs> dist_input_vecs{
   {32, 16384, 16384, true},    {64, 16384, 16384, true},    {128, 16384, 16384, true},
   {256, 16384, 16384, true},   {512, 16384, 16384, true},   {1024, 16384, 16384, true},
   {16384, 32, 16384, true},    {16384, 64, 16384, true},    {16384, 128, 16384, true},
