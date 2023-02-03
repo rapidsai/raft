@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/specializations/detail/ivf_pq_search.cuh>
+#include <raft/spatial/knn/detail/ivf_pq_search.cuh>
 
 namespace raft::spatial::knn::ivf_pq::detail {
 
