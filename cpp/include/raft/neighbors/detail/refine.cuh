@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
@@ -43,9 +43,9 @@ void check_input(extents_t dataset,
   auto n_queries = queries.extent(0);
   auto k         = distances.extent(1);
 
-  RAFT_EXPECTS(k <= raft::spatial::knn::detail::topk::kMaxCapacity,
+  RAFT_EXPECTS(k <= raft::matrix::detail::select::warpsort::kMaxCapacity,
                "k must be lest than topk::kMaxCapacity (%d).",
-               raft::spatial::knn::detail::topk::kMaxCapacity);
+               raft::matrix::detail::select::warpsort::kMaxCapacity);
 
   RAFT_EXPECTS(indices.extent(0) == n_queries && distances.extent(0) == n_queries &&
                  candidates.extent(0) == n_queries,
@@ -72,7 +72,7 @@ void check_input(extents_t dataset,
  * See raft::neighbors::refine for docs.
  */
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
-void refine_device(raft::handle_t const& handle,
+void refine_device(raft::device_resources const& handle,
                    raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,
                    raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,
                    raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,

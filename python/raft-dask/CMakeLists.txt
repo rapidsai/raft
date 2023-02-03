@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
-set(raft_dask_version 23.02.00)
+set(raft_dask_version 23.04.00)
 
 include(../../fetch_rapids.cmake)
 
@@ -69,6 +69,8 @@ if(NOT raft_FOUND)
   endif()
 
   add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
+  list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR}/cmake/find_modules)
+  find_package(NCCL REQUIRED)
 endif()
 
 include(rapids-cython)

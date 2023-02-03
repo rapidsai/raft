@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ namespace raft::matrix {
  * @param[in] thres threshold to set values to zero
  */
 template <typename math_t, typename idx_t, typename layout>
-void zero_small_values(const raft::handle_t& handle,
+void zero_small_values(raft::device_resources const& handle,
                        raft::device_matrix_view<const math_t, idx_t, layout> in,
                        raft::device_matrix_view<math_t, idx_t, layout> out,
                        math_t thres = 1e-15)
@@ -57,7 +57,7 @@ void zero_small_values(const raft::handle_t& handle,
  * @param thres: threshold
  */
 template <typename math_t, typename idx_t, typename layout>
-void zero_small_values(const raft::handle_t& handle,
+void zero_small_values(raft::device_resources const& handle,
                        raft::device_matrix_view<math_t, idx_t, layout> inout,
                        math_t thres = 1e-15)
 {

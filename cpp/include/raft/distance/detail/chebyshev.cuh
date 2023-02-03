@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <raft/core/operators.hpp>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 
 namespace raft {
@@ -72,16 +73,12 @@ static void chebyshevImpl(const DataT* x,
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::myAbs(x - y);
-    acc             = raft::myMax(acc, diff);
+    const auto diff = raft::abs(x - y);
+    acc             = raft::max(acc, diff);
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                     DataT * regxn,
-                                     DataT * regyn,
-                                     IdxT gridStrideX,
-                                     IdxT gridStrideY) { return; };
+  auto epilog_lambda = raft::void_op();
 
   if (isRowMajor) {
     auto chebyshevRowMajor = pairwiseDistanceMatKernel<false,

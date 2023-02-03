@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ using mpi_comms = detail::mpi_comms;
  * #include <raft/core/device_mdarray.hpp>
  *
  * MPI_Comm mpi_comm;
- * raft::handle_t handle;
+ * raft::raft::device_resources handle;
  *
  * initialize_mpi_comms(&handle, mpi_comm);
  * ...
@@ -55,7 +55,7 @@ using mpi_comms = detail::mpi_comms;
  * comm.sync_stream(handle.get_stream());
  * @endcode
  */
-inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm)
+inline void initialize_mpi_comms(device_resources* handle, MPI_Comm comm)
 {
   auto communicator = std::make_shared<comms_t>(
     std::unique_ptr<comms_iface>(new mpi_comms(comm, false, handle->get_stream())));

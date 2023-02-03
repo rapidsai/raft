@@ -39,6 +39,7 @@ template <typename LabelT, typename DataT>
 struct KVPMinReduceImpl {
   typedef raft::KeyValuePair<LabelT, DataT> KVP;
   DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
+  DI KVP operator()(const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
 
 };  // KVPMinReduce
 
@@ -185,7 +186,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
 #pragma unroll
         for (int j = 0; j < P::AccColsPerTh; ++j) {
           auto acc_ij = acc[i][j];
-          acc[i][j]   = acc_ij > DataT{0} ? raft::mySqrt(acc_ij) : DataT{0};
+          acc[i][j]   = acc_ij > DataT{0} ? raft::sqrt(acc_ij) : DataT{0};
         }
       }
     }

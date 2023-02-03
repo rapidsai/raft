@@ -130,7 +130,7 @@ For example, to run the distance tests:
 It can take sometime to compile all of the tests. You can build individual tests by providing a semicolon-separated list to the `--limit-tests` option in `build.sh`:
 
 ```bash
-./build.sh libraft tests --limit-tests=NEIGHBORS_TEST;DISTANCE_TEST;MATRIX_TEST
+./build.sh libraft tests -n --limit-tests=NEIGHBORS_TEST;DISTANCE_TEST;MATRIX_TEST
 ```
 
 ### Benchmarks
@@ -143,7 +143,7 @@ The benchmarks are broken apart by algorithm category, so you will find several 
 It can take sometime to compile all of the benchmarks. You can build individual benchmarks by providing a semicolon-separated list to the `--limit-bench` option in `build.sh`:
 
 ```bash
-./build.sh libraft bench --limit-bench=NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH
+./build.sh libraft bench -n --limit-bench=NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH
 ```
 
 ### C++ Using Cmake Directly
@@ -180,10 +180,10 @@ Currently, shared libraries are provided for the `libraft-nn` and `libraft-dista
 
 ### Python
 
-Conda environment scripts are provided for installing the necessary dependencies for building and using the Python APIs. It is preferred to use `mamba`, as it provides significant speedup over `conda`. In addition you will have to manually install `nvcc` as it will not be installed as part of the conda environment. The following example will install create and install dependencies for a CUDA 11.5 conda environment:
+Conda environment scripts are provided for installing the necessary dependencies for building and using the Python APIs. It is preferred to use `mamba`, as it provides significant speedup over `conda`. In addition you will have to manually install `nvcc` as it will not be installed as part of the conda environment. The following example will install create and install dependencies for a CUDA 11.8 conda environment:
 
 ```bash
-mamba env create --name raft_env_name -f conda/environments/all_cuda-115_arch-x86_64.yaml
+mamba env create --name raft_env_name -f conda/environments/all_cuda-118_arch-x86_64.yaml
 mamba activate raft_env_name
 ```
 

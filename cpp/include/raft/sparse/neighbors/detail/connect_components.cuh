@@ -324,7 +324,7 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  */
 template <typename value_idx, typename value_t, typename red_op>
 void connect_components(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::sparse::COO<value_t, value_idx>& out,
   const value_t* X,
   const value_idx* orig_colors,

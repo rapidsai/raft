@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,8 +106,8 @@ class RegressionTest : public ::testing::TestWithParam<RegressionInputs<T>> {
   }
 
  protected:
+  raft::device_resources handle;
   RegressionInputs<T> params;
-  raft::handle_t handle;
   cudaStream_t stream           = 0;
   double mean_abs_error         = 0;
   double mean_squared_error     = 0;

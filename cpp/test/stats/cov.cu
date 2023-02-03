@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
 
   void SetUp() override
   {
-    raft::handle_t handle;
+    raft::device_resources handle;
     cudaStream_t stream = handle.get_stream();
 
     params = ::testing::TestWithParam<CovInputs<T>>::GetParam();
@@ -103,10 +103,10 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
   }
 
  protected:
-  CovInputs<T> params;
-  rmm::device_uvector<T> data, mean_act, cov_act, cov_cm, cov_cm_ref;
   cublasHandle_t handle;
   cudaStream_t stream = 0;
+  CovInputs<T> params;
+  rmm::device_uvector<T> data, mean_act, cov_act, cov_cm, cov_cm_ref;
 };
 
 ///@todo: add stable=false after it has been implemented

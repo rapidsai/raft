@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ namespace raft::sparse::neighbors {
  * @param c
  */
 template <typename value_idx = int, typename value_t = float>
-void knn_graph(const handle_t& handle,
+void knn_graph(raft::device_resources const& handle,
                const value_t* X,
                std::size_t m,
                std::size_t n,

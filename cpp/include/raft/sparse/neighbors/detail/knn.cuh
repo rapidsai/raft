@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@ class sparse_knn_t {
                value_idx* output_indices_,
                value_t* output_dists_,
                int k_,
-               const raft::handle_t& handle_,
+               raft::device_resources const& handle_,
                size_t batch_size_index_             = 2 << 14,  // approx 1M
                size_t batch_size_query_             = 2 << 14,
                raft::distance::DistanceType metric_ = raft::distance::DistanceType::L2Expanded,
@@ -422,7 +422,7 @@ class sparse_knn_t {
 
   int n_idx_rows, n_idx_cols, n_query_rows, n_query_cols, k;
 
-  const raft::handle_t& handle;
+  raft::device_resources const& handle;
 };
 
 };  // namespace raft::sparse::neighbors::detail

@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.02")
-set(RAFT_VERSION "23.02.00")
+set(RAPIDS_VERSION "23.04")
+set(RAFT_VERSION "23.04.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -284,7 +284,18 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/cluster/update_centroids_double.cu
     src/distance/cluster/cluster_cost_float.cu
     src/distance/cluster/cluster_cost_double.cu
-    src/distance/neighbors/refine.cu
+    src/distance/neighbors/refine_d_uint64_t_float.cu
+    src/distance/neighbors/refine_d_uint64_t_int8_t.cu
+    src/distance/neighbors/refine_d_uint64_t_uint8_t.cu
+    src/distance/neighbors/refine_h_uint64_t_float.cu
+    src/distance/neighbors/refine_h_uint64_t_int8_t.cu
+    src/distance/neighbors/refine_h_uint64_t_uint8_t.cu
+    src/distance/neighbors/specializations/refine_d_uint64_t_float.cu
+    src/distance/neighbors/specializations/refine_d_uint64_t_int8_t.cu
+    src/distance/neighbors/specializations/refine_d_uint64_t_uint8_t.cu
+    src/distance/neighbors/specializations/refine_h_uint64_t_float.cu
+    src/distance/neighbors/specializations/refine_h_uint64_t_int8_t.cu
+    src/distance/neighbors/specializations/refine_h_uint64_t_uint8_t.cu
     src/distance/neighbors/ivfpq_search.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu
@@ -664,6 +675,13 @@ raft_export(
   BUILD raft EXPORT_SET raft-exports COMPONENTS nn distance distributed GLOBAL_TARGETS raft
   distance distributed nn DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
 )
+
+# ##################################################################################################
+# * shared test/bench headers ------------------------------------------------
+
+if(BUILD_TESTS OR BUILD_BENCH)
+  include(internal/CMakeLists.txt)
+endif()
 
 # ##################################################################################################
 # * build test executable ----------------------------------------------------

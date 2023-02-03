@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 ########################
 # RAFT Version Updater #
 ########################
@@ -17,12 +17,14 @@ CURRENT_MAJOR=$(echo $CURRENT_TAG | awk '{split($0, a, "."); print a[1]}')
 CURRENT_MINOR=$(echo $CURRENT_TAG | awk '{split($0, a, "."); print a[2]}')
 CURRENT_PATCH=$(echo $CURRENT_TAG | awk '{split($0, a, "."); print a[3]}')
 CURRENT_SHORT_TAG=${CURRENT_MAJOR}.${CURRENT_MINOR}
+CURRENT_UCX_PY_VERSION="$(curl -sL https://version.gpuci.io/rapids/${CURRENT_SHORT_TAG}).*"
 
 #Get <major>.<minor> for next version
 NEXT_MAJOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[1]}')
 NEXT_MINOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[2]}')
 NEXT_SHORT_TAG=${NEXT_MAJOR}.${NEXT_MINOR}
-NEXT_UCX_PY_VERSION="$(curl -sL https://version.gpuci.io/rapids/${NEXT_SHORT_TAG}).*"
+NEXT_UCX_PY_SHORT_TAG="$(curl -sL https://version.gpuci.io/rapids/${NEXT_SHORT_TAG})"
+NEXT_UCX_PY_VERSION="${NEXT_UCX_PY_SHORT_TAG}.*"
 
 echo "Preparing release $CURRENT_TAG => $NEXT_FULL_TAG"
 
@@ -53,3 +55,17 @@ done
 sed_runner "s/export UCX_PY_VERSION=.*/export UCX_PY_VERSION='${NEXT_UCX_PY_VERSION}'/g" ci/gpu/build.sh
 sed_runner "s/export UCX_PY_VERSION=.*/export UCX_PY_VERSION='${NEXT_UCX_PY_VERSION}'/g" ci/cpu/build.sh
 sed_runner "/^ucx_py_version:$/ {n;s/.*/  - \"${NEXT_UCX_PY_VERSION}\"/}" conda/recipes/raft-dask/conda_build_config.yaml
+
+# Wheel builds install dask-cuda from source, update its branch
+sed_runner "s/dask-cuda.git@branch-[^\"\s]\+/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
+
+# Need to distutils-normalize the original version
+NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
+NEXT_UCX_PY_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_UCX_PY_SHORT_TAG}'))")
+
+# Wheel builds install intra-RAPIDS dependencies from same release
+sed_runner "s/{cuda_suffix}[^\"].*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pylibraft/setup.py
+sed_runner "s/{cuda_suffix}.*\"\]/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\"\]/g" python/pylibraft/_custom_build/backend.py
+sed_runner "s/dask-cuda==.*\",/dask-cuda==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py
+sed_runner "s/pylibraft{cuda_suffix}.*\",/pylibraft{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py
+sed_runner "s/ucx-py{cuda_suffix}.*\",/ucx-py{cuda_suffix}==${NEXT_UCX_PY_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py

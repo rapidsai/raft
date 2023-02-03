@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+
+#include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
@@ -78,16 +80,16 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
     {
       rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      naiveBfKnn<T, DataT, IdxT>(distances_naive_dev.data(),
-                                 indices_naive_dev.data(),
-                                 search_queries.data(),
-                                 database.data(),
-                                 ps.num_queries,
-                                 ps.num_db_vecs,
-                                 ps.dim,
-                                 ps.k,
-                                 ps.metric,
-                                 stream_);
+      naive_knn<T, DataT, IdxT>(distances_naive_dev.data(),
+                                indices_naive_dev.data(),
+                                search_queries.data(),
+                                database.data(),
+                                ps.num_queries,
+                                ps.num_db_vecs,
+                                ps.dim,
+                                ps.k,
+                                ps.metric,
+                                stream_);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
       handle_.sync_stream(stream_);
@@ -107,8 +109,6 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         ivfParams.nprobe = ps.nprobe;
         ivfParams.nlist  = ps.nlist;
         raft::spatial::knn::knnIndex index;
-        index.index   = nullptr;
-        index.gpu_res = nullptr;
 
         approx_knn_build_index(handle_,
                                &index,
@@ -279,7 +279,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
   }
 
  private:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   rmm::cuda_stream_view stream_;
   AnnIvfFlatInputs<IdxT> ps;
   rmm::device_uvector<DataT> database;
@@ -294,6 +294,8 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
   {1000, 10000, 4, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
   {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
   {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, true},
 
   // test dims that do not fit into kernel shared memory limits
   {1000, 10000, 2048, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
@@ -332,16 +334,16 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
    10000,
    16,
    10,
-   raft::spatial::knn::detail::topk::kMaxCapacity * 2,
-   raft::spatial::knn::detail::topk::kMaxCapacity * 4,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 2,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
    raft::distance::DistanceType::L2Expanded,
    false},
   {1000,
    10000,
    16,
    10,
-   raft::spatial::knn::detail::topk::kMaxCapacity * 4,
-   raft::spatial::knn::detail::topk::kMaxCapacity * 4,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
    raft::distance::DistanceType::InnerProduct,
    false}};
 
