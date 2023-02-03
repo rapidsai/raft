@@ -232,10 +232,9 @@ def init_plus_plus(X, n_clusters=None, seed=None, handle=None, centroids=None):
     >>> centroids = init_plus_plus(X, n_clusters)
     """
     if (n_clusters is not None and
-        centroids is not None and
-        n_clusters != centroids.shape[0]):
-        msg = ("Parameters 'n_clusters' and 'centroids' are exclusive. Only " +
-               "pass one at a time.")
+            centroids is not None and n_clusters != centroids.shape[0]):
+        msg = ("Parameters 'n_clusters' and 'centroids' "
+               "are exclusive. Only pass one at a time.")
         raise RuntimeError(msg)
 
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
@@ -260,24 +259,24 @@ def init_plus_plus(X, n_clusters=None, seed=None, handle=None, centroids=None):
     params = KMeansParams(**params_)
 
     if dtype == np.float64:
-        cpp_init_plus_plus(deref(h),
-                        params.c_obj,
-                        make_device_matrix_view[double, int, row_major](
-                            <double *><uintptr_t>X_cai.data,
-                            <int>X_cai.shape[0], <int>X_cai.shape[1]),
-                        make_device_matrix_view[double, int, row_major](
-                            <double *><uintptr_t>centroids_cai.data,
-                            <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
+        cpp_init_plus_plus(
+            deref(h), params.c_obj,
+            make_device_matrix_view[double, int, row_major](
+                <double *><uintptr_t>X_cai.data,
+                <int>X_cai.shape[0], <int>X_cai.shape[1]),
+            make_device_matrix_view[double, int, row_major](
+                <double *><uintptr_t>centroids_cai.data,
+                <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
         )
     elif dtype == np.float32:
-        cpp_init_plus_plus(deref(h),
-                        params.c_obj,
-                        make_device_matrix_view[float, int, row_major](
-                            <float *><uintptr_t>X_cai.data,
-                            <int>X_cai.shape[0], <int>X_cai.shape[1]),
-                        make_device_matrix_view[float, int, row_major](
-                            <float *><uintptr_t>centroids_cai.data,
-                            <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
+        cpp_init_plus_plus(
+            deref(h), params.c_obj,
+            make_device_matrix_view[float, int, row_major](
+                <float *><uintptr_t>X_cai.data,
+                <int>X_cai.shape[0], <int>X_cai.shape[1]),
+            make_device_matrix_view[float, int, row_major](
+                <float *><uintptr_t>centroids_cai.data,
+                <int>centroids_cai.shape[0], <int>centroids_cai.shape[1]),
         )
     else:
         raise ValueError(f"Unhandled dtype ({dtype}) for X.")
