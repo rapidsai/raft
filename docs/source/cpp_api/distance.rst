@@ -25,4 +25,3 @@ namespace *raft::distance*
 
    distance_pairwise.rst
    distance_1nn.rst
-   distance_masked_nn.rst

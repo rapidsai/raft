@@ -33,8 +33,6 @@
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/cluster/specializations.cuh>
 #include <raft/neighbors/specializations.cuh>
-#else
-#pragma message("NN / Distance specializations are not enabled; expect very long building times.")
 #endif
 #endif
 
