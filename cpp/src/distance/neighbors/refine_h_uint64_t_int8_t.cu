@@ -18,6 +18,7 @@
 #include <raft/neighbors/specializations/refine.cuh>
 
 namespace raft::runtime::neighbors {
+
 void refine(raft::device_resources const& handle,
             raft::host_matrix_view<const int8_t, uint64_t, row_major> dataset,
             raft::host_matrix_view<const int8_t, uint64_t, row_major> queries,
