@@ -138,21 +138,23 @@ struct PairwiseDistances : public BaseClass {
         // Prolog:
         reset_accumulator();
         this->stsXY();
-        __syncthreads();
         this->switch_write_buffer();
 
         // Main loop:
-        for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-          this->ldgXY(tile_idx_m, tile_idx_n, kidx);
+        for (int kidx = P::Kblk; kidx <= this->k; kidx += P::Kblk) {
+          if (kidx != this->k) {
+            this->ldgXY(tile_idx_m, tile_idx_n, kidx);
+          }
+          __syncthreads();      // accumulate depends on stsXY
           // Process all data in shared memory (previous k-block) and
           // accumulate in registers.
           accumulate();
-          this->stsXY();
-          __syncthreads();
+          if (kidx != this-> k) {
+            this->stsXY();        // no need for __syncthreads (stsXY writes to different buffer)
+          }
           this->switch_write_buffer();
           this->switch_read_buffer();
         }
-        accumulate();  // last iteration
         // The pre-condition for the loop over tile_idx_n is that write_buffer
         // and read_buffer point to the same buffer. This flips read_buffer back
         // so that it satisfies the pre-condition of this loop.
