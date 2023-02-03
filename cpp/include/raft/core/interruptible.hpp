@@ -213,9 +213,9 @@ class interruptible {
       //  1. It does not exist in the map yet
       //  2. The previous store in the map has not yet been deleted
       thread_store.reset(new interruptible(), [weak_registry, thread_id](auto ts) {
-        std::lock_guard<std::mutex> guard_erase(mutex_);
         auto registry = weak_registry.lock();
         if (registry) {
+          std::lock_guard<std::mutex> guard_erase(mutex_);
           auto found = registry->find(thread_id);
           if (found != registry->end()) {
             auto stored = found->second.lock();
