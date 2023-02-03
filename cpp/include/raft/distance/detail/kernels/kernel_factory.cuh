@@ -38,7 +38,7 @@ class KernelFactory {
         res = new PolynomialKernel<math_t, int>(params.degree, gamma, coef0, cublas_handle);
         break;
       case TANH: res = new TanhKernel<math_t>(gamma, coef0, cublas_handle); break;
-      case RBF: res = new RBFKernel<math_t>(gamma); break;
+      case RBF: res = new RBFKernel<math_t>(gamma, cublas_handle); break;
       default: throw raft::exception("Kernel not implemented");
     }
     return res;

@@ -223,6 +223,9 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
    * @param ld1 leading dimension of x1
    * @param ld2 leading dimension of x2
    * @param ld_out leading dimension of out
+   * @param norm optional L2 row norm of x1 for expanded computation within RBF.
+   * @param offset_x1 offset where x1 starts within norm
+   * @param idx_x2 indirect access to x2 row id within norm
    */
   void evaluate(const math_t* x1,
                 int n1,
@@ -234,7 +237,10 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
                 cudaStream_t stream,
                 int ld1,
                 int ld2,
-                int ld_out)
+                int ld_out,
+                math_t* norm,
+                int offset_x1,
+                int* idx_x2)
   {
     GramMatrixBase<math_t>::linear(
       x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
@@ -374,6 +380,9 @@ class TanhKernel : public GramMatrixBase<math_t> {
    * @param ld1 leading dimension of x1 (usually it is n1)
    * @param ld2 leading dimension of x2 (usually it is n2)
    * @param ld_out leading dimension of out (usually it is n1)
+   * @param norm optional L2 row norm of x1 for expanded computation within RBF.
+   * @param offset_x1 offset where x1 starts within norm
+   * @param idx_x2 indirect access to x2 row id within norm
    */
   void evaluate(const math_t* x1,
                 int n1,
@@ -385,7 +394,10 @@ class TanhKernel : public GramMatrixBase<math_t> {
                 cudaStream_t stream,
                 int ld1,
                 int ld2,
-                int ld_out)
+                int ld_out,
+                math_t* norm,
+                int offset_x1,
+                int* idx_x2)
   {
     GramMatrixBase<math_t>::linear(
       x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
@@ -514,7 +526,10 @@ class RBFKernel : public GramMatrixBase<math_t> {
    * @tparam math_t floating point type
    * @param gain
    */
-  RBFKernel(math_t gain) : GramMatrixBase<math_t>(NULL), gain(gain) {}
+  RBFKernel(math_t gain, cublasHandle_t cublas_handle)
+    : GramMatrixBase<math_t>(cublas_handle), gain(gain)
+  {
+  }
 
   /** Evaluate kernel matrix using RBF kernel.
    *
@@ -534,6 +549,9 @@ class RBFKernel : public GramMatrixBase<math_t> {
    * @param ld1 leading dimension of x1, currently only ld1 == n1 is supported
    * @param ld2 leading dimension of x2, currently only ld2 == n2 is supported
    * @param ld_out leading dimension of out, only ld_out == n1 is supported
+   * @param norm optional L2 row norm of x1 for expanded computation within RBF.
+   * @param offset_x1 offset where x1 starts within norm
+   * @param idx_x2 indirect access to x2 row id within norm
    */
   void evaluate(const math_t* x1,
                 int n1,
@@ -545,15 +563,25 @@ class RBFKernel : public GramMatrixBase<math_t> {
                 cudaStream_t stream,
                 int ld1,
                 int ld2,
-                int ld_out)
+                int ld_out,
+                math_t* norm,
+                int offset_x1,
+                int* idx_x2)
   {
-    int minor1    = is_row_major ? n_cols : n1;
-    int minor2    = is_row_major ? n_cols : n2;
     int minor_out = is_row_major ? n2 : n1;
-    ASSERT(ld1 == minor1, "RBF Kernel distance does not support ld1 parameter");
-    ASSERT(ld2 == minor2, "RBF Kernel distance does not support ld2 parameter");
     ASSERT(ld_out == minor_out, "RBF Kernel distance does not support ld_out parameter");
-    distance(x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
+    if (norm != nullptr) {
+      // compute L2expanded
+      GramMatrixBase<math_t>::linear(
+        x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
+      applyExpandedRbfKernel(out, ld_out, n1, n2, norm, offset_x1, idx_x2, is_row_major, stream);
+    } else {
+      int minor1 = is_row_major ? n_cols : n1;
+      int minor2 = is_row_major ? n_cols : n2;
+      ASSERT(ld1 == minor1, "RBF Kernel distance does not support ld1 parameter");
+      ASSERT(ld2 == minor2, "RBF Kernel distance does not support ld2 parameter");
+      distance(x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
+    }
   }
 
   void evaluateSparseX1(const raft::handle_t& handle,
@@ -574,11 +602,6 @@ class RBFKernel : public GramMatrixBase<math_t> {
                         int offset_x1,
                         int* idx_x2)
   {
-    int minor2    = is_row_major ? n_cols : n2;
-    int minor_out = is_row_major ? n2 : n1;
-    ASSERT(ld2 == minor2, "RBF Kernel distance does not support ld2 parameter");
-    ASSERT(ld_out == minor_out, "RBF Kernel distance does not support ld_out parameter");
-
     ASSERT(norm != nullptr, "RBF Kernel needs pre-computed norm for expanded distance compute");
     // compute L2 expanded
     GramMatrixBase<math_t>::linearSparseX1(handle,

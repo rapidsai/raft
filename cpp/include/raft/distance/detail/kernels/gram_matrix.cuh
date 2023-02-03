@@ -61,6 +61,9 @@ class GramMatrixBase {
    * @param ld1 leading dimension of x1
    * @param ld2 leading dimension of x2
    * @param ld_out leading dimension of out
+   * @param norm optional L2 row norm of x1 for expanded computation within RBF.
+   * @param offset_x1 offset where x1 starts within norm
+   * @param idx_x2 indirect access to x2 row id within norm
    */
   virtual void operator()(const math_t* x1,
                           int n1,
@@ -70,14 +73,18 @@ class GramMatrixBase {
                           math_t* out,
                           bool is_row_major,
                           cudaStream_t stream,
-                          int ld1    = 0,
-                          int ld2    = 0,
-                          int ld_out = 0)
+                          int ld1       = 0,
+                          int ld2       = 0,
+                          int ld_out    = 0,
+                          math_t* norm  = nullptr,
+                          int offset_x1 = 0,
+                          int* idx_x2   = nullptr)
   {
     if (ld1 <= 0) { ld1 = is_row_major ? n_cols : n1; }
     if (ld2 <= 0) { ld2 = is_row_major ? n_cols : n2; }
     if (ld_out <= 0) { ld_out = is_row_major ? n2 : n1; }
-    evaluate(x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
+    evaluate(
+      x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out, norm, offset_x1, idx_x2);
   }
 
   virtual void operator()(const raft::handle_t& handle,
@@ -96,7 +103,7 @@ class GramMatrixBase {
                           int ld_out    = 0,
                           math_t* norm  = nullptr,
                           int offset_x1 = 0,
-                          int* idx_x2   = 0)
+                          int* idx_x2   = nullptr)
 
   {
     if (ld2 <= 0) { ld2 = is_row_major ? n_cols : n2; }
@@ -170,6 +177,9 @@ class GramMatrixBase {
    * @param ld1 leading dimension of x1 (usually it is n1)
    * @param ld2 leading dimension of x2 (usually it is n2)
    * @param ld_out leading dimension of out (usually it is n1)
+   * @param norm optional L2 row norm of x1 for expanded computation within RBF.
+   * @param offset_x1 offset where x1 starts within norm
+   * @param idx_x2 indirect access to x2 row id within norm
    */
   virtual void evaluate(const math_t* x1,
                         int n1,
@@ -181,7 +191,10 @@ class GramMatrixBase {
                         cudaStream_t stream,
                         int ld1,
                         int ld2,
-                        int ld_out)
+                        int ld_out,
+                        math_t* norm,
+                        int offset_x1,
+                        int* idx_x2)
   {
     linear(x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
   }
