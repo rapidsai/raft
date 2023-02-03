@@ -31,11 +31,12 @@ from .cuda cimport Stream
 from .cuda import CudaRuntimeError
 
 
-cdef class Handle:
+cdef class DeviceResources:
     """
-    Handle is a lightweight python wrapper around the corresponding C++ class
-    of handle_t exposed by RAFT's C++ interface. Refer to the header file
-    raft/handle.hpp for interface level details of this struct
+    DeviceResources is a lightweight python wrapper around the corresponding
+    C++ class of device_resources exposed by RAFT's C++ interface. Refer to
+    the header file raft/core/device_resources.hpp for interface level
+    details of this struct
 
     Parameters
     ----------
@@ -46,26 +47,29 @@ cdef class Handle:
     --------
 
     Basic usage:
-    >>> from pylibraft.common import Stream, Handle
+
+    >>> from pylibraft.common import Stream, DeviceResources
     >>> stream = Stream()
-    >>> handle = Handle(stream)
+    >>> handle = DeviceResources(stream)
     >>>
     >>> # call algos here
     >>>
     >>> # final sync of all work launched in the stream of this handle
     >>> # this is same as `raft.cuda.Stream.sync()` call, but safer in case
-    >>> # the default stream inside the `handle_t` is being used
+    >>> # the default stream inside the `device_resources` is being used
     >>> handle.sync()
     >>> del handle  # optional!
 
-    Using a cuPy stream with RAFT handle:
+    Using a cuPy stream with RAFT device_resources:
+
     >>> import cupy
-    >>> from pylibraft.common import Stream, Handle
+    >>> from pylibraft.common import Stream, DeviceResources
     >>>
     >>> cupy_stream = cupy.cuda.Stream()
-    >>> handle = Handle(stream=cupy_stream.ptr)
+    >>> handle = DeviceResources(stream=cupy_stream.ptr)
 
     Using a RAFT stream with CuPy ExternalStream:
+
     >>> import cupy
     >>> from pylibraft.common import Stream
     >>>
@@ -108,13 +112,78 @@ cdef class Handle:
 
     def sync(self):
         """
-        Issues a sync on the stream set for this handle.
+        Issues a sync on the stream set for this instance.
         """
         self.c_obj.get()[0].sync_stream()
 
     def getHandle(self):
+        """
+        Return the pointer to the underlying raft::device_resources
+        instance as a size_t
+        """
         return <size_t> self.c_obj.get()
 
+    def __getstate__(self):
+        return self.n_streams
+
+    def __setstate__(self, state):
+        self.n_streams = state
+        if self.n_streams > 0:
+            self.stream_pool.reset(new cuda_stream_pool(self.n_streams))
+
+        self.c_obj.reset(new device_resources(cuda_stream_per_thread,
+                                              self.stream_pool))
+
+
+cdef class Handle(DeviceResources):
+    """
+    Handle is a lightweight python wrapper around the corresponding
+    C++ class of handle_t exposed by RAFT's C++ interface. Refer to
+    the header file raft/core/handle.hpp for interface level
+    details of this struct
+
+    Note: This API is officially deprecated in favor of DeviceResources
+    and will be removed in a future release.
+
+    Parameters
+    ----------
+    stream : Optional stream to use for ordering CUDA instructions
+            Accepts pylibraft.common.Stream() or uintptr_t (cudaStream_t)
+
+    Examples
+    --------
+
+    Basic usage:
+
+    >>> from pylibraft.common import Stream, Handle
+    >>> stream = Stream()
+    >>> handle = Handle(stream)
+    >>>
+    >>> # call algos here
+    >>>
+    >>> # final sync of all work launched in the stream of this handle
+    >>> # this is same as `raft.cuda.Stream.sync()` call, but safer in case
+    >>> # the default stream inside the `handle_t` is being used
+    >>> handle.sync()
+    >>> del handle  # optional!
+
+    Using a cuPy stream with RAFT device_resources:
+
+    >>> import cupy
+    >>> from pylibraft.common import Stream, Handle
+    >>>
+    >>> cupy_stream = cupy.cuda.Stream()
+    >>> handle = Handle(stream=cupy_stream.ptr)
+
+    Using a RAFT stream with CuPy ExternalStream:
+
+    >>> import cupy
+    >>> from pylibraft.common import Stream
+    >>>
+    >>> raft_stream = Stream()
+    >>> cupy_stream = cupy.cuda.ExternalStream(raft_stream.get_ptr())
+
+    """
     def __getstate__(self):
         return self.n_streams
 
@@ -128,11 +197,12 @@ cdef class Handle:
 
 
 _HANDLE_PARAM_DOCSTRING = """
-     handle : Optional RAFT handle for reusing expensive CUDA resources
-        If a handle isn't supplied, CUDA resources will be allocated
-        inside this function and synchronized before the function exits.
-        If a handle is supplied, you will need to explicitly synchronize
-        yourself by calling `handle.sync()` before accessing the output.
+     handle : Optional RAFT resource handle for reusing expensive CUDA
+        resources. If a handle isn't supplied, CUDA resources will be
+        allocated inside this function and synchronized before the
+        function exits. If a handle is supplied, you will need to
+        explicitly synchronize yourself by calling `handle.sync()`
+        before accessing the output.
 """.strip()
 
 
@@ -150,7 +220,7 @@ def auto_sync_handle(f):
     @functools.wraps(f)
     def wrapper(*args, handle=None, **kwargs):
         sync_handle = handle is None
-        handle = handle if handle is not None else Handle()
+        handle = handle if handle is not None else DeviceResources()
 
         ret_value = f(*args, handle=handle, **kwargs)
 

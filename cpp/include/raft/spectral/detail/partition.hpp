@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ namespace detail {
  */
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> partition(
-  handle_t const& handle,
+  raft::device_resources const& handle,
   spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
@@ -131,7 +131,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
  *  @return error flag.
  */
 template <typename vertex_t, typename weight_t>
-void analyzePartition(handle_t const& handle,
+void analyzePartition(raft::device_resources const& handle,
                       spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                       vertex_t nClusters,
                       const vertex_t* __restrict__ clusters,

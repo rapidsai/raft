@@ -139,19 +139,11 @@ struct div_op {
 };
 
 struct div_checkzero_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
-  {
-    if (b == Type{0}) { return Type{0}; }
-    return a / b;
-  }
-};
-
-struct modulo_op {
   template <typename T1, typename T2>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
   {
-    return a % b;
+    if (b == T2{0}) { return T1{0} / T2{1}; }
+    return a / b;
   }
 };
 
@@ -160,6 +152,14 @@ struct pow_op {
   RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
   {
     return raft::pow(a, b);
+  }
+};
+
+struct mod_op {
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
+  {
+    return a % b;
   }
 };
 
@@ -308,10 +308,16 @@ template <typename Type>
 using div_checkzero_const_op = plug_const_op<Type, div_checkzero_op>;
 
 template <typename Type>
-using modulo_const_op = plug_const_op<Type, modulo_op>;
+using pow_const_op = plug_const_op<Type, pow_op>;
 
 template <typename Type>
-using pow_const_op = plug_const_op<Type, pow_op>;
+using mod_const_op = plug_const_op<Type, mod_op>;
+
+template <typename Type>
+using mod_const_op = plug_const_op<Type, mod_op>;
+
+template <typename Type>
+using equal_const_op = plug_const_op<Type, equal_op>;
 
 /**
  * @brief Constructs an operator by composing a chain of operators.

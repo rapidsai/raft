@@ -18,6 +18,8 @@
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
+#include <raft_internal/neighbors/naive_knn.cuh>
+
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ivf_pq.cuh>
@@ -114,8 +116,9 @@ inline auto operator<<(std::ostream& os, const ivf_pq_inputs& p) -> std::ostream
 }
 
 template <typename IdxT>
-auto min_output_size(const handle_t& handle, const ivf_pq::index<IdxT>& index, uint32_t n_probes)
-  -> IdxT
+auto min_output_size(const raft::device_resources& handle,
+                     const ivf_pq::index<IdxT>& index,
+                     uint32_t n_probes) -> IdxT
 {
   uint32_t skip = index.n_nonempty_lists() > n_probes ? index.n_nonempty_lists() - n_probes : 0;
   auto map_type = [] __device__(uint32_t x) { return IdxT(x); };
@@ -158,16 +161,16 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     size_t queries_size = size_t{ps.num_queries} * size_t{ps.k};
     rmm::device_uvector<EvalT> distances_naive_dev(queries_size, stream_);
     rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-    naiveBfKnn<EvalT, DataT, IdxT>(distances_naive_dev.data(),
-                                   indices_naive_dev.data(),
-                                   search_queries.data(),
-                                   database.data(),
-                                   ps.num_queries,
-                                   ps.num_db_vecs,
-                                   ps.dim,
-                                   ps.k,
-                                   ps.index_params.metric,
-                                   stream_);
+    naive_knn<EvalT, DataT, IdxT>(distances_naive_dev.data(),
+                                  indices_naive_dev.data(),
+                                  search_queries.data(),
+                                  database.data(),
+                                  ps.num_queries,
+                                  ps.num_db_vecs,
+                                  ps.dim,
+                                  ps.k,
+                                  ps.index_params.metric,
+                                  stream_);
     distances_ref.resize(queries_size);
     update_host(distances_ref.data(), distances_naive_dev.data(), queries_size, stream_);
     indices_ref.resize(queries_size);
@@ -212,9 +215,9 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   {
     {
       auto index = build_index();
-      raft::spatial::knn::ivf_pq::detail::save<IdxT>(handle_, "ivf_pq_index", index);
+      raft::spatial::knn::ivf_pq::detail::serialize<IdxT>(handle_, "ivf_pq_index", index);
     }
-    auto index = raft::spatial::knn::ivf_pq::detail::load<IdxT>(handle_, "ivf_pq_index");
+    auto index = raft::spatial::knn::ivf_pq::detail::deserialize<IdxT>(handle_, "ivf_pq_index");
 
     size_t queries_size = ps.num_queries * ps.k;
     std::vector<IdxT> indices_ivf_pq(queries_size);
@@ -306,7 +309,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   }
 
  private:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   rmm::cuda_stream_view stream_;
   ivf_pq_inputs ps;                           // NOLINT
   rmm::device_uvector<DataT> database;        // NOLINT

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ namespace linalg {
  *    conditioned systems. Negative values mean no regularizaton.
  */
 template <typename math_t>
-void choleskyRank1Update(const raft::handle_t& handle,
+void choleskyRank1Update(raft::device_resources const& handle,
                          math_t* L,
                          int n,
                          int ld,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/std_comms.hpp>
@@ -39,7 +39,7 @@ using std_comms = detail::std_comms;
  * Factory function to construct a RAFT NCCL communicator and inject it into a
  * RAFT handle.
  *
- * @param handle raft::handle_t for injecting the comms
+ * @param handle raft::device_resources for injecting the comms
  * @param nccl_comm initialized NCCL communicator to use for collectives
  * @param num_ranks number of ranks in communicator clique
  * @param rank rank of local instance
@@ -49,7 +49,7 @@ using std_comms = detail::std_comms;
  * #include <raft/core/device_mdarray.hpp>
  *
  * ncclComm_t nccl_comm;
- * raft::handle_t handle;
+ * raft::raft::device_resources handle;
  *
  * build_comms_nccl_only(&handle, nccl_comm, 5, 0);
  * ...
@@ -64,7 +64,7 @@ using std_comms = detail::std_comms;
  * comm.sync_stream(handle.get_stream());
  * @endcode
  */
-void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks, int rank)
+void build_comms_nccl_only(device_resources* handle, ncclComm_t nccl_comm, int num_ranks, int rank)
 {
   cudaStream_t stream = handle->get_stream();
 
@@ -77,7 +77,7 @@ void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks
  * Factory function to construct a RAFT NCCL+UCX and inject it into a RAFT
  * handle.
  *
- * @param handle raft::handle_t for injecting the comms
+ * @param handle raft::device_resources for injecting the comms
  * @param nccl_comm initialized NCCL communicator to use for collectives
  * @param ucp_worker of local process
  *        Note: This is purposefully left as void* so that the ucp_worker_h
@@ -93,7 +93,7 @@ void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks
  * #include <raft/core/device_mdarray.hpp>
  *
  * ncclComm_t nccl_comm;
- * raft::handle_t handle;
+ * raft::raft::device_resources handle;
  * ucp_worker_h ucp_worker;
  * ucp_ep_h *ucp_endpoints_arr;
  *
@@ -110,8 +110,12 @@ void build_comms_nccl_only(handle_t* handle, ncclComm_t nccl_comm, int num_ranks
  * comm.sync_stream(handle.get_stream());
  * @endcode
  */
-void build_comms_nccl_ucx(
-  handle_t* handle, ncclComm_t nccl_comm, void* ucp_worker, void* eps, int num_ranks, int rank)
+void build_comms_nccl_ucx(device_resources* handle,
+                          ncclComm_t nccl_comm,
+                          void* ucp_worker,
+                          void* eps,
+                          int num_ranks,
+                          int rank)
 {
   auto eps_sp = std::make_shared<ucp_ep_h*>(new ucp_ep_h[num_ranks]);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <memory>
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
@@ -139,13 +139,15 @@ class multi_variable_gaussian_impl {
   int *info, Lwork, info_h;
   syevjInfo_t syevj_params = NULL;
   curandGenerator_t gen;
-  const raft::handle_t& handle;
+  raft::device_resources const& handle;
   cusolverEigMode_t jobz = CUSOLVER_EIG_MODE_VECTOR;
   bool deinitilized      = false;
 
  public:  // functions
   multi_variable_gaussian_impl() = delete;
-  multi_variable_gaussian_impl(const raft::handle_t& handle, const int dim, Decomposer method)
+  multi_variable_gaussian_impl(raft::device_resources const& handle,
+                               const int dim,
+                               Decomposer method)
     : handle(handle), dim(dim), method(method)
   {
     auto cusolverHandle = handle.get_cusolver_dn_handle();
@@ -297,7 +299,7 @@ class multi_variable_gaussian_setup_token;
 
 template <typename ValueType>
 multi_variable_gaussian_setup_token<ValueType> build_multi_variable_gaussian_token_impl(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   rmm::mr::device_memory_resource& mem_resource,
   const int dim,
   const multi_variable_gaussian_decomposition_method method);
@@ -313,7 +315,7 @@ template <typename ValueType>
 class multi_variable_gaussian_setup_token {
   template <typename T>
   friend multi_variable_gaussian_setup_token<T> build_multi_variable_gaussian_token_impl(
-    const raft::handle_t& handle,
+    raft::device_resources const& handle,
     rmm::mr::device_memory_resource& mem_resource,
     const int dim,
     const multi_variable_gaussian_decomposition_method method);
@@ -340,7 +342,7 @@ class multi_variable_gaussian_setup_token {
 
   // Constructor, only for use by friend functions.
   // Hiding this will let us change the implementation in the future.
-  multi_variable_gaussian_setup_token(const raft::handle_t& handle,
+  multi_variable_gaussian_setup_token(raft::device_resources const& handle,
                                       rmm::mr::device_memory_resource& mem_resource,
                                       const int dim,
                                       const multi_variable_gaussian_decomposition_method method)
@@ -397,7 +399,7 @@ class multi_variable_gaussian_setup_token {
 
  private:
   std::unique_ptr<multi_variable_gaussian_impl<ValueType>> impl_;
-  const raft::handle_t& handle_;
+  raft::device_resources const& handle_;
   rmm::mr::device_memory_resource& mem_resource_;
   int dim_ = 0;
 
@@ -412,7 +414,7 @@ class multi_variable_gaussian_setup_token {
 
 template <typename ValueType>
 multi_variable_gaussian_setup_token<ValueType> build_multi_variable_gaussian_token_impl(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   rmm::mr::device_memory_resource& mem_resource,
   const int dim,
   const multi_variable_gaussian_decomposition_method method)
@@ -432,7 +434,7 @@ void compute_multi_variable_gaussian_impl(
 
 template <typename ValueType>
 void compute_multi_variable_gaussian_impl(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   rmm::mr::device_memory_resource& mem_resource,
   std::optional<raft::device_vector_view<const ValueType, int>> x,
   raft::device_matrix_view<ValueType, int, raft::col_major> P,
@@ -453,7 +455,7 @@ class multi_variable_gaussian : public detail::multi_variable_gaussian_impl<T> {
   // using detail::multi_variable_gaussian_impl<T>::Decomposer::qr;
 
   multi_variable_gaussian() = delete;
-  multi_variable_gaussian(const raft::handle_t& handle,
+  multi_variable_gaussian(raft::device_resources const& handle,
                           const int dim,
                           typename detail::multi_variable_gaussian_impl<T>::Decomposer method)
     : detail::multi_variable_gaussian_impl<T>{handle, dim, method}

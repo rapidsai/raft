@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ namespace linalg {
  * @tparam MainLambda Type of main_op
  * @tparam ReduceLambda Type of reduce_op
  * @tparam FinalLambda Type of fin_op
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_matrix_view
  * @param[in] init Initialization value, i.e identity element for the reduction operation
@@ -52,7 +52,7 @@ template <typename ElementType,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-void row_normalize(const raft::handle_t& handle,
+void row_normalize(raft::device_resources const& handle,
                    raft::device_matrix_view<const ElementType, IndexType, row_major> in,
                    raft::device_matrix_view<ElementType, IndexType, row_major> out,
                    ElementType init,
@@ -85,14 +85,14 @@ void row_normalize(const raft::handle_t& handle,
  *
  * @tparam ElementType Input/Output data type
  * @tparam IndexType Integer type used to for addressing
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_matrix_view
  * @param[in] norm_type the type of norm to be applied
  * @param[in] eps If the norm is below eps, the row is considered zero and no division is applied
  */
 template <typename ElementType, typename IndexType>
-void row_normalize(const raft::handle_t& handle,
+void row_normalize(raft::device_resources const& handle,
                    raft::device_matrix_view<const ElementType, IndexType, row_major> in,
                    raft::device_matrix_view<ElementType, IndexType, row_major> out,
                    NormType norm_type,

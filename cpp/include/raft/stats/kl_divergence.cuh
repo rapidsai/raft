@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
  * @return the KL Divergence value
  */
 template <typename value_t, typename idx_t>
-value_t kl_divergence(const raft::handle_t& handle,
+value_t kl_divergence(raft::device_resources const& handle,
                       raft::device_vector_view<const value_t, idx_t> modelPDF,
                       raft::device_vector_view<const value_t, idx_t> candidatePDF)
 {

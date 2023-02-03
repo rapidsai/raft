@@ -22,12 +22,14 @@
 
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -134,7 +136,7 @@ struct fp_8bit {
  * scores here.
  */
 template <typename T>
-void select_clusters(const handle_t& handle,
+void select_clusters(raft::device_resources const& handle,
                      uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                      float* float_queries,         // [n_queries, dim_ext]
                      uint32_t n_queries,
@@ -175,15 +177,14 @@ void select_clusters(const handle_t& handle,
     case raft::distance::DistanceType::InnerProduct: norm_factor = 0.0; break;
     default: RAFT_FAIL("Unsupported distance type %d.", int(metric));
   }
-  linalg::writeOnlyUnaryOp(
-    float_queries,
-    dim_ext * n_queries,
-    [queries, dim, dim_ext, norm_factor] __device__(float* out, uint32_t ix) {
+  auto float_queries_view =
+    raft::make_device_vector_view<float, uint32_t>(float_queries, dim_ext * n_queries);
+  linalg::map_offset(
+    handle, float_queries_view, [queries, dim, dim_ext, norm_factor] __device__(uint32_t ix) {
       uint32_t col = ix % dim_ext;
       uint32_t row = ix / dim_ext;
-      *out         = col < dim ? utils::mapping<float>{}(queries[col + dim * row]) : norm_factor;
-    },
-    stream);
+      return col < dim ? utils::mapping<float>{}(queries[col + dim * row]) : norm_factor;
+    });
 
   float alpha;
   float beta;
@@ -1261,7 +1262,7 @@ inline auto is_local_topk_feasible(uint32_t k, uint32_t n_probes, uint32_t n_que
  *      is guaranteed to fit into GPU memory.
  */
 template <typename ScoreT, typename LutT, typename IdxT>
-void ivfpq_search_worker(const handle_t& handle,
+void ivfpq_search_worker(raft::device_resources const& handle,
                          const index<IdxT>& index,
                          uint32_t max_samples,
                          uint32_t n_probes,
@@ -1539,7 +1540,7 @@ inline auto get_max_batch_size(uint32_t k,
 
 /** See raft::spatial::knn::ivf_pq::search docs */
 template <typename T, typename IdxT>
-inline void search(const handle_t& handle,
+inline void search(raft::device_resources const& handle,
                    const search_params& params,
                    const index<IdxT>& index,
                    const T* queries,

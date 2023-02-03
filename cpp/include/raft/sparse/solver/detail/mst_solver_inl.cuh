@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,17 +60,18 @@ inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
-MST_solver<vertex_t, edge_t, weight_t, alteration_t>::MST_solver(const raft::handle_t& handle_,
-                                                                 const edge_t* offsets_,
-                                                                 const vertex_t* indices_,
-                                                                 const weight_t* weights_,
-                                                                 const vertex_t v_,
-                                                                 const edge_t e_,
-                                                                 vertex_t* color_,
-                                                                 cudaStream_t stream_,
-                                                                 bool symmetrize_output_,
-                                                                 bool initialize_colors_,
-                                                                 int iterations_)
+MST_solver<vertex_t, edge_t, weight_t, alteration_t>::MST_solver(
+  raft::device_resources const& handle_,
+  const edge_t* offsets_,
+  const vertex_t* indices_,
+  const weight_t* weights_,
+  const vertex_t v_,
+  const edge_t e_,
+  vertex_t* color_,
+  cudaStream_t stream_,
+  bool symmetrize_output_,
+  bool initialize_colors_,
+  int iterations_)
   : handle(handle_),
     offsets(offsets_),
     indices(indices_),

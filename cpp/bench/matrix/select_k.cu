@@ -14,16 +14,11 @@
  * limitations under the License.
  */
 
-/**
- * TODO: reconsider how to organize shared test+bench files better
- *       Related Issue: https://github.com/rapidsai/raft/issues/1153
- *       (although this header does not depend on any gtest headers)
- */
-#include "../../test/matrix/select_k.cuh"
+#include <raft_internal/matrix/select_k.cuh>
 
 #include <common/benchmark.hpp>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
@@ -76,7 +71,7 @@ struct selection : public fixture {
 
   void run_benchmark(::benchmark::State& state) override  // NOLINT
   {
-    handle_t handle{stream};
+    device_resources handle{stream};
     using_pool_memory_res res;
     try {
       std::ostringstream label_stream;

@@ -15,7 +15,7 @@
  */
 
 #include <raft/common/nvtx.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/partition.cuh>
 
@@ -35,7 +35,7 @@ TEST(Raft, EigenSolvers)
   using index_type = int;
   using value_type = double;
 
-  handle_t h;
+  raft::device_resources h;
   ASSERT_EQ(0,
             h.
 
@@ -81,7 +81,7 @@ TEST(Raft, SpectralSolvers)
   using index_type = int;
   using value_type = double;
 
-  handle_t h;
+  raft::device_resources h;
   ASSERT_EQ(0,
             h.
 

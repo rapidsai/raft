@@ -32,6 +32,7 @@ function(ConfigureTest)
   target_link_libraries(
     ${TEST_NAME}
     PRIVATE raft::raft
+            raft_internal
             $<$<BOOL:${ConfigureTest_DIST}>:raft::distance>
             $<$<BOOL:${ConfigureTest_NN}>:raft::nn>
             GTest::gtest
@@ -77,8 +78,8 @@ endfunction()
 
 if(BUILD_TESTS)
   ConfigureTest(
-    NAME CLUSTER_TEST PATH test/cluster/kmeans.cu test/cluster/cluster_solvers.cu
-    test/cluster/linkage.cu OPTIONAL DIST NN
+    NAME CLUSTER_TEST PATH test/cluster/kmeans.cu test/cluster/kmeans_balanced.cu
+    test/cluster/cluster_solvers.cu test/cluster/linkage.cu OPTIONAL DIST NN
   )
 
   ConfigureTest(
@@ -95,6 +96,7 @@ if(BUILD_TESTS)
     test/core/nvtx.cpp
     test/core/mdarray.cu
     test/core/mdspan_utils.cu
+    test/core/numpy_serializer.cu
     test/core/memory_type.cpp
     test/core/span.cpp
     test/core/span.cu
