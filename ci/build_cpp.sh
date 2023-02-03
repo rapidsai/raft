@@ -14,3 +14,15 @@ rapids-logger "Begin cpp build"
 rapids-mamba-retry mambabuild conda/recipes/libraft
 
 rapids-upload-conda-to-s3 cpp
+
+
+rapids-logger "ls conda-bld"
+
+ls /opt/conda/conda-bld/
+
+rapids-logger "ls conda-bld/*libraft*/"
+
+ls /opt/conda/conda-bld/*libraft*/**/*
+
+# stop the CI pipeline here to preserve resources
+exit 1
