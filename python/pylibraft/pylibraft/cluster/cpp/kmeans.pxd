@@ -75,6 +75,18 @@ cdef extern from "raft_runtime/cluster/kmeans.hpp" \
         const double * centroids,
         double * cost) except +
 
+    cdef void init_plus_plus(
+        const device_resources & handle,
+        const KMeansParams& params,
+        device_matrix_view[float, int, row_major] X,
+        device_matrix_view[float, int, row_major] centroids) except +
+
+    cdef void init_plus_plus(
+        const device_resources & handle,
+        const KMeansParams& params,
+        device_matrix_view[double, int, row_major] X,
+        device_matrix_view[double, int, row_major] centroids) except +
+
     cdef void fit(
         const device_resources & handle,
         const KMeansParams& params,
