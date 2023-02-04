@@ -21,6 +21,7 @@ from pylibraft.cluster.kmeans import (
     cluster_cost,
     compute_new_centroids,
     fit,
+    init_plus_plus,
 )
 from pylibraft.common import DeviceResources, device_ndarray
 from pylibraft.distance import pairwise_distance
@@ -147,3 +148,59 @@ def test_cluster_cost(n_rows, n_cols, n_clusters, dtype):
     # need reduced tolerance for float32
     tol = 1e-3 if dtype == np.float32 else 1e-6
     assert np.allclose(inertia, sum(cluster_distances), rtol=tol, atol=tol)
+
+
+@pytest.mark.parametrize("n_rows", [100])
+@pytest.mark.parametrize("n_cols", [5, 25])
+@pytest.mark.parametrize("n_clusters", [4, 15])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_init_plus_plus(n_rows, n_cols, n_clusters, dtype):
+    X = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+    X_device = device_ndarray(X)
+
+    centroids = init_plus_plus(X_device, n_clusters, seed=1)
+    centroids_ = centroids.copy_to_host()
+
+    assert centroids_.shape == (n_clusters, X.shape[1])
+
+    # Centroids are selected from the existing points
+    for centroid in centroids_:
+        assert (centroid == X).all(axis=1).any()
+
+
+@pytest.mark.parametrize("n_rows", [100])
+@pytest.mark.parametrize("n_cols", [5, 25])
+@pytest.mark.parametrize("n_clusters", [4, 15])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_init_plus_plus_preallocated_output(n_rows, n_cols, n_clusters, dtype):
+    X = np.random.random_sample((n_rows, n_cols)).astype(dtype)
+    X_device = device_ndarray(X)
+
+    centroids = device_ndarray.empty((n_clusters, n_cols), dtype=dtype)
+
+    new_centroids = init_plus_plus(X_device, centroids=centroids, seed=1)
+    new_centroids_ = new_centroids.copy_to_host()
+
+    # The shape should not have changed
+    assert new_centroids_.shape == centroids.shape
+
+    # Centroids are selected from the existing points
+    for centroid in new_centroids_:
+        assert (centroid == X).all(axis=1).any()
+
+
+def test_init_plus_plus_exclusive_arguments():
+    # Check an exception is raised when n_clusters and centroids shape
+    # are inconsistent.
+    X = np.random.random_sample((10, 5)).astype(np.float64)
+    X = device_ndarray(X)
+
+    n_clusters = 3
+
+    centroids = np.random.random_sample((n_clusters + 1, 5)).astype(np.float64)
+    centroids = device_ndarray(centroids)
+
+    with pytest.raises(
+        RuntimeError, match="Parameters 'n_clusters' and 'centroids'"
+    ):
+        init_plus_plus(X, n_clusters, centroids=centroids)
