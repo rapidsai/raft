@@ -57,7 +57,7 @@ option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
-option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
+option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" OFF)
 option(
   RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations"
   ${RAFT_COMPILE_LIBRARIES}
@@ -66,7 +66,7 @@ option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library in
        ${RAFT_COMPILE_LIBRARIES}
 )
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss"
-       ${RAFT_COMPILE_LIBRARIES}
+       ${RAFT_COMPILE_NN_LIBRARY}
 )
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
