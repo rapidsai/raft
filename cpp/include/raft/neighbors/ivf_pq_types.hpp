@@ -20,11 +20,14 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/mdspan_types.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
 #include <thrust/fill.h>
 
+#include <memory>
 #include <type_traits>
 
 namespace raft::neighbors::ivf_pq {
@@ -139,6 +142,61 @@ constexpr static uint32_t kIndexGroupSize = 32;
 /** Stride of the interleaved group for vectorized loads. */
 constexpr static uint32_t kIndexGroupVecLen = 16;
 
+/** PQ-encoded data stored in the interleaved format:
+ *
+ *    [ ceildiv(list_size, kIndexGroupSize)
+ *    , ceildiv(pq_dim, (kIndexGroupVecLen * 8u) / pq_bits)
+ *    , kIndexGroupSize
+ *    , kIndexGroupVecLen
+ *    ].
+ */
+template <typename SizeT = uint32_t>
+using list_extents =
+  extents<SizeT, dynamic_extent, dynamic_extent, kIndexGroupSize, kIndexGroupVecLen>;
+
+/** Determine the extents of an array enough to hold a given amount of data. */
+template <typename SizeT = uint32_t>
+constexpr auto make_list_extents(SizeT n_rows, uint32_t pq_bits, uint32_t pq_dim)
+  -> list_extents<SizeT>
+{
+  // how many elems of pq_dim fit into one kIndexGroupVecLen-byte chunk
+  auto pq_chunk = (kIndexGroupVecLen * 8u) / pq_bits;
+  return make_extents<SizeT>(div_rounding_up_safe<SizeT>(n_rows, kIndexGroupSize),
+                             div_rounding_up_safe<SizeT>(pq_dim, pq_chunk),
+                             kIndexGroupSize,
+                             kIndexGroupVecLen);
+}
+
+/** The data for a single list (cluster). */
+template <typename IdxT, typename SizeT = uint32_t>
+struct list_data {
+  /** PQ-encoded interleaved data. */
+  device_mdarray<uint8_t, list_extents<SizeT>, row_major> data;
+  /** Source indices. */
+  device_mdarray<IdxT, extent_1d<SizeT>, row_major> indices;
+  /** The actual size of the content. */
+  std::atomic<SizeT> size;
+
+  list_data(raft::device_resources const& handle, SizeT n_rows, uint32_t pq_bits, uint32_t pq_dim)
+    : size{n_rows}
+  {
+    auto capacity = round_up_safe<SizeT>(bound_by_power_of_two<SizeT>(size), kIndexGroupSize);
+    try {
+      data =
+        make_device_mdarray<uint8_t>(handle, make_list_extents<SizeT>(capacity, pq_bits, pq_dim));
+      indices = make_device_mdarray<IdxT>(handle, make_extents<SizeT>(capacity));
+    } catch (std::bad_alloc& e) {
+      RAFT_FAIL(
+        "ivf-pq: failed to allocate a big enough index list to hold all data "
+        "(requested size: %zu records, selected capacity: %zu records). "
+        "Allocator exception: %s",
+        size_t(size),
+        size_t(capacity),
+        e.what());
+    }
+  }
+};
+
 /**
  * @brief IVF-PQ index.
  *
@@ -204,7 +262,10 @@ struct index : ann::index {
   constexpr static IdxT kOutOfBoundsRecord = std::numeric_limits<IdxT>::max();
 
   /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return indices_.extent(0); }
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
+  {
+    return accum_sorted_sizes_(n_lists());
+  }
   /** Dimensionality of the input data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t { return dim_; }
   /**
@@ -248,11 +309,9 @@ struct index : ann::index {
     return codebook_kind_;
   }
   /** Number of clusters/inverted lists (first level quantization). */
-  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t { return n_lists_; }
-  /** Number of non-empty clusters/inverted lists. */
-  [[nodiscard]] constexpr inline auto n_nonempty_lists() const noexcept -> uint32_t
+  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t
   {
-    return n_nonempty_lists_;
+    return lists_.extent(0);
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
@@ -268,69 +327,111 @@ struct index : ann::index {
         codebook_gen codebook_kind,
         uint32_t n_lists,
         uint32_t dim,
-        uint32_t pq_bits          = 8,
-        uint32_t pq_dim           = 0,
-        uint32_t n_nonempty_lists = 0)
+        uint32_t pq_bits = 8,
+        uint32_t pq_dim  = 0)
     : ann::index(),
       metric_(metric),
       codebook_kind_(codebook_kind),
-      n_lists_(n_lists),
       dim_(dim),
       pq_bits_(pq_bits),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
-      n_nonempty_lists_(n_nonempty_lists),
       pq_centers_{make_device_mdarray<float>(handle, make_pq_centers_extents())},
-      pq_dataset_{make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(0))},
-      indices_{make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0))},
+      lists_{make_host_mdarray<std::shared_ptr<list_data<IdxT>>>(make_extents<uint32_t>(n_lists))},
       rotation_matrix_{
         make_device_mdarray<float>(handle, make_extents<uint32_t>(this->rot_dim(), this->dim()))},
-      list_offsets_{make_device_mdarray<IdxT>(handle, make_extents<uint32_t>(this->n_lists() + 1))},
-      list_sizes_{make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(this->n_lists()))},
-      centers_{make_device_mdarray<float>(
-        handle, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
-      centers_rot_{make_device_mdarray<float>(
-        handle, make_extents<uint32_t>(this->n_lists(), this->rot_dim()))}
+      list_sizes_{make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(n_lists))},
+      centers_{
+        make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists, this->dim_ext()))},
+      centers_rot_{
+        make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists, this->rot_dim()))},
+      data_ptrs_{make_device_mdarray<uint8_t*>(handle, make_extents<uint32_t>(n_lists))},
+      inds_ptrs_{make_device_mdarray<IdxT*>(handle, make_extents<uint32_t>(n_lists))},
+      accum_sorted_sizes_{make_host_mdarray<IdxT>(make_extents<uint32_t>(n_lists + 1))}
   {
     check_consistency();
+    for (uint32_t i = 0; i < n_lists; i++) {
+      lists_(i) = std::shared_ptr<list_data<IdxT>>();
+    }
+    accum_sorted_sizes_(n_lists) = 0;
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::device_resources const& handle,
-        const index_params& params,
-        uint32_t dim,
-        uint32_t n_nonempty_lists = 0)
+  index(raft::device_resources const& handle, const index_params& params, uint32_t dim)
     : index(handle,
             params.metric,
             params.codebook_kind,
             params.n_lists,
             dim,
             params.pq_bits,
-            params.pq_dim,
-            n_nonempty_lists)
+            params.pq_dim)
   {
   }
 
   /**
-   * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
-   * of data.
+   * Resize a list by the given id, so that it can contain the given number of records;
+   * possibly, copy the data.
+   *
+   * Besides resizing the corresponding list_data, this function updates the device pointers
+   *   data_ptrs, inds_ptrs, and the list_sizes if necessary.
+   *
+   * The new `list_sizes(label)` represents the number of valid records in the index;
+   * it can be `list_size` if the previous size was not smaller; otherwise it's not updated.
+   *
+   * @param[in] handle
+   * @param[in] label list id
+   * @param[in] list_size the minimum size the list should grow.
    */
-  void allocate(raft::device_resources const& handle, IdxT index_size)
+  void resize_list(raft::device_resources const& handle, uint32_t label, uint32_t list_size)
   {
-    try {
-      pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));
-      indices_    = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
-    } catch (std::bad_alloc& e) {
-      RAFT_FAIL(
-        "ivf-pq: failed to allocate a big enough index to hold all data (size: %zu). "
-        "Allocator exception: %s",
-        size_t(index_size),
-        e.what());
+    uint32_t prev_size = 0;
+    auto& list         = lists()(label);
+    bool skip_resize   = false;
+    if (list) {
+      copy(&prev_size, &list_sizes()(label), 1, handle.get_stream());
+      handle.sync_stream();
+      if (list_size <= list->indices.extent(0)) {
+        auto shared_list_size = prev_size;
+        if (list_size <= prev_size ||
+            list->size.compare_exchange_strong(shared_list_size, list_size)) {
+          // We don't need to resize the list if:
+          //  1. The list exists
+          //  2. The new size fits in the list
+          //  3. The list doesn't grow or no-one else has grown it yet
+          skip_resize = true;
+        }
+      }
     }
-    if (index_size > 0) {
-      thrust::fill_n(
-        handle.get_thrust_policy(), indices_.data_handle(), index_size, kInvalidRecord);
+    // Sic! We're writing the min(list_size, prev_size)
+    //       to keep the number of _valid_ records after update
+    const auto new_list_size = std::min(list_size, prev_size);
+    raft::copy(&list_sizes()(label), &new_list_size, 1, handle.get_stream());
+    if (skip_resize) { return; }
+    auto new_list = new list_data<IdxT>(handle, list_size, pq_bits(), pq_dim());
+    if (prev_size > 0) {
+      auto copied_data_extents = make_list_extents<size_t>(prev_size, pq_bits(), pq_dim());
+      auto copied_view         = make_mdspan<uint8_t, size_t, row_major, false, true>(
+        new_list->data.data_handle(), copied_data_extents);
+      copy(copied_view.data_handle(),
+           list->data.data_handle(),
+           copied_view.size(),
+           handle.get_stream());
+      copy(new_list->indices.data_handle(),
+           list->indices.data_handle(),
+           prev_size,
+           handle.get_stream());
     }
-    check_consistency();
+    // swap the shared pointer content with the new list
+    list.reset(new_list);
+    // fill unused index spaces with placeholder values for easier debugging
+    thrust::fill_n(handle.get_thrust_policy(),
+                   list->indices.data_handle() + prev_size,
+                   list->indices.size() - prev_size,
+                   kInvalidRecord);
+    // keep the device pointers updated
+    const auto new_data_ptr = list->data.data_handle();
+    copy(&(data_ptrs()(label)), &new_data_ptr, 1, handle.get_stream());
+    const auto new_inds_ptr = list->indices.data_handle();
+    copy(&(inds_ptrs()(label)), &new_inds_ptr, 1, handle.get_stream());
   }
 
   using pq_centers_extents =
@@ -351,35 +452,38 @@ struct index : ann::index {
     return pq_centers_.view();
   }
 
-  using pq_dataset_extents = std::experimental::
-    extents<IdxT, dynamic_extent, dynamic_extent, kIndexGroupSize, kIndexGroupVecLen>;
-  /** PQ-encoded data stored in the interleaved format:
-   *
-   *    [ ceildiv(size, kIndexGroupSize)
-   *    , ceildiv(pq_dim, (kIndexGroupVecLen * 8u) / pq_bits)
-   *    , kIndexGroupSize
-   *    , kIndexGroupVecLen
-   *    ].
-   */
-  inline auto pq_dataset() noexcept -> device_mdspan<uint8_t, pq_dataset_extents, row_major>
+  /** Lists' data and indices. */
+  inline auto lists() noexcept
+    -> host_mdspan<std::shared_ptr<list_data<IdxT>>, extent_1d<uint32_t>, row_major>
   {
-    return pq_dataset_.view();
+    return lists_.view();
   }
-  [[nodiscard]] inline auto pq_dataset() const noexcept
-    -> device_mdspan<const uint8_t, pq_dataset_extents, row_major>
+  [[nodiscard]] inline auto lists() const noexcept
+    -> host_mdspan<const std::shared_ptr<list_data<IdxT>>, extent_1d<uint32_t>, row_major>
   {
-    return pq_dataset_.view();
+    return lists_.view();
   }
 
-  /** Inverted list indices: ids of items in the source data [size] */
-  inline auto indices() noexcept -> device_mdspan<IdxT, extent_1d<IdxT>, row_major>
+  /** Pointers to the inverted lists (clusters) data  [n_lists]. */
+  inline auto data_ptrs() noexcept -> device_mdspan<uint8_t*, extent_1d<uint32_t>, row_major>
   {
-    return indices_.view();
+    return data_ptrs_.view();
   }
-  [[nodiscard]] inline auto indices() const noexcept
-    -> device_mdspan<const IdxT, extent_1d<IdxT>, row_major>
+  [[nodiscard]] inline auto data_ptrs() const noexcept
+    -> device_mdspan<uint8_t* const, extent_1d<uint32_t>, row_major>
   {
-    return indices_.view();
+    return data_ptrs_.view();
+  }
+
+  /** Pointers to the inverted lists (clusters) indices  [n_lists]. */
+  inline auto inds_ptrs() noexcept -> device_mdspan<IdxT*, extent_1d<uint32_t>, row_major>
+  {
+    return inds_ptrs_.view();
+  }
+  [[nodiscard]] inline auto inds_ptrs() const noexcept
+    -> device_mdspan<IdxT* const, extent_1d<uint32_t>, row_major>
+  {
+    return inds_ptrs_.view();
   }
 
   /** The transform matrix (original space -> rotated padded space) [rot_dim, dim] */
@@ -394,17 +498,22 @@ struct index : ann::index {
   }
 
   /**
-   * Offsets into the lists [n_lists + 1].
+   * Accumulated list sizes, sorted in descending order [n_lists + 1].
    * The last value contains the total length of the index.
+   * The value at index zero is always zero.
+   *
+   * That is, the content of this span is as if the `list_sizes` was sorted and then accumulated.
+   *
+   * This span is used during search to estimate the maximum size of the workspace.
    */
-  inline auto list_offsets() noexcept -> device_mdspan<IdxT, extent_1d<uint32_t>, row_major>
+  inline auto accum_sorted_sizes() noexcept -> host_mdspan<IdxT, extent_1d<uint32_t>, row_major>
   {
-    return list_offsets_.view();
+    return accum_sorted_sizes_.view();
   }
-  [[nodiscard]] inline auto list_offsets() const noexcept
-    -> device_mdspan<const IdxT, extent_1d<uint32_t>, row_major>
+  [[nodiscard]] inline auto accum_sorted_sizes() const noexcept
+    -> host_mdspan<const IdxT, extent_1d<uint32_t>, row_major>
   {
-    return list_offsets_.view();
+    return accum_sorted_sizes_.view();
   }
 
   /** Sizes of the lists [n_lists]. */
@@ -440,35 +549,25 @@ struct index : ann::index {
     return centers_rot_.view();
   }
 
-  /** A helper function to determine the extents of an array enough to hold a given amount of data.
-   */
-  auto make_pq_dataset_extents(IdxT n_rows) const -> pq_dataset_extents
-  {
-    // how many elems of pq_dim fit into one kIndexGroupVecLen-byte chunk
-    auto pq_chunk = (kIndexGroupVecLen * 8u) / pq_bits();
-    return make_extents<IdxT>(raft::div_rounding_up_safe<IdxT>(n_rows, kIndexGroupSize),
-                              raft::div_rounding_up_safe<IdxT>(pq_dim(), pq_chunk),
-                              kIndexGroupSize,
-                              kIndexGroupVecLen);
-  }
-
  private:
   raft::distance::DistanceType metric_;
   codebook_gen codebook_kind_;
-  uint32_t n_lists_;
   uint32_t dim_;
   uint32_t pq_bits_;
   uint32_t pq_dim_;
-  uint32_t n_nonempty_lists_;
 
-  device_mdarray<float, pq_centers_extents, row_major> pq_centers_;
-  device_mdarray<uint8_t, pq_dataset_extents, row_major> pq_dataset_;
-  device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
-  device_mdarray<float, extent_2d<uint32_t>, row_major> rotation_matrix_;
-  device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
+  // Primary data members
+  host_mdarray<std::shared_ptr<list_data<IdxT>>, extent_1d<uint32_t>, row_major> lists_;
   device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
+  device_mdarray<float, pq_centers_extents, row_major> pq_centers_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_rot_;
+  device_mdarray<float, extent_2d<uint32_t>, row_major> rotation_matrix_;
+
+  // Computed members for accelerating search.
+  device_mdarray<uint8_t*, extent_1d<uint32_t>, row_major> data_ptrs_;
+  device_mdarray<IdxT*, extent_1d<uint32_t>, row_major> inds_ptrs_;
+  host_mdarray<IdxT, extent_1d<uint32_t>, row_major> accum_sorted_sizes_;
 
   /** Throw an error if the index content is inconsistent. */
   void check_consistency()

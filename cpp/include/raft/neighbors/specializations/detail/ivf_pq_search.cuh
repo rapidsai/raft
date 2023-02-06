@@ -27,19 +27,14 @@ using fp8s_t = fp_8bit<5, true>;
 using fp8u_t = fp_8bit<5, false>;
 }  // namespace
 
-#define RAFT_INST(IdxT, OutT, LutT)                                                           \
-  extern template struct ivfpq_compute_similarity<IdxT, OutT, LutT>::configured<true, true>;  \
-  extern template struct ivfpq_compute_similarity<IdxT, OutT, LutT>::configured<false, true>; \
-  extern template struct ivfpq_compute_similarity<IdxT, OutT, LutT>::configured<true, false>;
+#define RAFT_INST(OutT, LutT)                                                           \
+  extern template struct ivfpq_compute_similarity<OutT, LutT>::configured<true, true>;  \
+  extern template struct ivfpq_compute_similarity<OutT, LutT>::configured<false, true>; \
+  extern template struct ivfpq_compute_similarity<OutT, LutT>::configured<true, false>;
 
-#define RAFT_INST_ALL_IDX_T(OutT, LutT) \
-  RAFT_INST(uint64_t, OutT, LutT)       \
-  RAFT_INST(int64_t, OutT, LutT)        \
-  RAFT_INST(uint32_t, OutT, LutT)
-
-#define RAFT_INST_ALL_OUT_T(LutT)  \
-  RAFT_INST_ALL_IDX_T(float, LutT) \
-  RAFT_INST_ALL_IDX_T(half, LutT)
+#define RAFT_INST_ALL_OUT_T(LutT) \
+  RAFT_INST(float, LutT)          \
+  RAFT_INST(half, LutT)
 
 RAFT_INST_ALL_OUT_T(float)
 RAFT_INST_ALL_OUT_T(half)
