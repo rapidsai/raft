@@ -477,6 +477,7 @@ inline auto enum_variety() -> test_cases_t
   });
   ADD_CASE({
     x.search_params.internal_distance_dtype = CUDA_R_16F;
+    x.search_params.lut_dtype               = CUDA_R_16F;
     x.min_recall                            = 0.86;
   });
 
