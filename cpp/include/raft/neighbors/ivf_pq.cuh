@@ -94,7 +94,7 @@ inline auto build(raft::device_resources const& handle,
 template <typename T, typename IdxT = uint32_t>
 inline auto build(raft::device_resources const& handle,
                   const index_params& params,
-                  const raft::device_matrix_view<const T, IdxT>& dataset) -> index<IdxT>
+                  const raft::device_matrix_view<const T, IdxT, row_major>& dataset) -> index<IdxT>
 {
   IdxT n_rows = dataset.extent(0);
   IdxT dim    = dataset.extent(1);
@@ -167,10 +167,13 @@ inline auto extend(raft::device_resources const& handle,
 template <typename T, typename IdxT>
 inline auto extend(raft::device_resources const& handle,
                    const index<IdxT>& orig_index,
-                   const raft::device_matrix_view<const T, IdxT>& new_vectors,
-                   const raft::device_matrix_view<const IdxT, IdxT>& new_indices) -> index<IdxT>
+                   const raft::device_matrix_view<const T, IdxT, row_major>& new_vectors,
+                   const raft::device_matrix_view<const IdxT, IdxT, row_major>& new_indices)
+  -> index<IdxT>
 {
   IdxT n_rows = new_vectors.extent(0);
+  ASSERT(n_rows == new_indices.extent(0),
+         "new_vectors and new_indices have different number of rows");
   return raft::spatial::knn::ivf_pq::detail::extend(
     handle, orig_index, new_vectors.data_handle(), new_indices.data_handle(), n_rows);
 }
@@ -215,8 +218,8 @@ inline void extend(raft::device_resources const& handle,
 template <typename T, typename IdxT>
 inline void extend(raft::device_resources const& handle,
                    index<IdxT>* index,
-                   const raft::device_matrix_view<const T, IdxT>& new_vectors,
-                   const raft::device_matrix_view<const IdxT, IdxT>& new_indices)
+                   const raft::device_matrix_view<const T, IdxT, row_major>& new_vectors,
+                   const raft::device_matrix_view<const IdxT, IdxT, row_major>& new_indices)
 {
   *index = extend(handle, *index, new_vectors, new_indices);
 }
@@ -310,13 +313,16 @@ template <typename T, typename IdxT>
 inline void search(raft::device_resources const& handle,
                    const search_params& params,
                    const index<IdxT>& index,
-                   const raft::device_matrix_view<const T, IdxT>& queries,
+                   const raft::device_matrix_view<const T, IdxT, row_major>& queries,
                    uint32_t k,
-                   const raft::device_matrix_view<IdxT, IdxT>& neighbors,
-                   const raft::device_matrix_view<float, IdxT>& distances,
+                   const raft::device_matrix_view<IdxT, IdxT, row_major>& neighbors,
+                   const raft::device_matrix_view<float, IdxT, row_major>& distances,
                    rmm::mr::device_memory_resource* mr = nullptr)
 {
-  IdxT n_queries = queries.extent(0);
+  IdxT n_queries    = queries.extent(0);
+  bool check_n_rows = (n_queries == neighbors.extent(0)) && (n_queries == distances.extent(0));
+  ASSERT(check_n_rows,
+         "queries, neighbors and distances parameters have inconsistent number of rows");
   return raft::spatial::knn::ivf_pq::detail::search(handle,
                                                     params,
                                                     index,
