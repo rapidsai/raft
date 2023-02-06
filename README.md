@@ -1,7 +1,5 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools</div>
 
-[![Build Status](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/raft/job/branches/job/raft-branch-pipeline/badge/icon)](https://gpuci.gpuopenanalytics.com/job/rapidsai/job/gpuci/job/raft/job/branches/job/raft-branch-pipeline/)
-
 ## Resources
 
 - [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
@@ -13,9 +11,9 @@
 
 ## Overview
 
-RAFT contains fundamental widely-used algorithms and primitives for data science and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
+RAFT contains fundamental widely-used algorithms and primitives for data science and machine learning. The algorithms are CUDA-accelerated and form building blocks for rapidly composing analytics.
 
-By taking a primitives-based approach to algorithm development, RAFT 
+By taking a primitives-based approach to algorithm development, RAFT
 - accelerates algorithm construction time
 - reduces the maintenance burden by maximizing reuse across projects, and
 - centralizes core reusable computations, allowing future optimizations to benefit all algorithms that use them.
@@ -48,7 +46,7 @@ RAFT relies heavily on RMM which eases the burden of configuring different alloc
 
 ### Multi-dimensional Arrays
 
-The APIs in RAFT currently accept raw pointers to device memory and we are in the process of simplifying the APIs with the [mdspan](https://arxiv.org/abs/2010.06474) multi-dimensional array view for representing data in higher dimensions similar to the `ndarray` in the Numpy Python library. RAFT also contains the corresponding owning `mdarray` structure, which simplifies the allocation and management of multi-dimensional data in both host and device (GPU) memory. 
+The APIs in RAFT currently accept raw pointers to device memory and we are in the process of simplifying the APIs with the [mdspan](https://arxiv.org/abs/2010.06474) multi-dimensional array view for representing data in higher dimensions similar to the `ndarray` in the Numpy Python library. RAFT also contains the corresponding owning `mdarray` structure, which simplifies the allocation and management of multi-dimensional data in both host and device (GPU) memory.
 
 The `mdarray` forms a convenience layer over RMM and can be constructed in RAFT using a number of different helper functions:
 
@@ -188,7 +186,7 @@ pairwise_distance(in1, in2, out=output, metric="euclidean")
 
 ## Installing
 
-RAFT itself can be installed through conda, [Cmake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), pip, or by building the repository from source. Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on installing and building RAFT and using it in downstream projects.
+RAFT itself can be installed through conda, [CMake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), pip, or by building the repository from source. Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on installing and building RAFT and using it in downstream projects.
 
 ### Conda
 
@@ -216,9 +214,9 @@ pip install pylibraft-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
 pip install raft-dask-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
 ```
 
-### Cmake & CPM
+### CMake & CPM
 
-RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS CMake provides a convenience layer around CPM. 
+RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS CMake provides a convenience layer around CPM.
 
 After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will make available several targets to add to configure the link libraries for your artifacts.
 
@@ -292,14 +290,14 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
 
 - `ci`: Scripts for running CI in PRs
 - `conda`: Conda recipes and development conda environments
-- `cpp`: Source code for C++ libraries. 
+- `cpp`: Source code for C++ libraries.
   - `bench`: Benchmarks source code
-  - `cmake`: Cmake modules and templates
+  - `cmake`: CMake modules and templates
   - `doxygen`: Doxygen configuration
   - `include`: The C++ API headers are fully-contained here (deprecated directories are excluded from the listing below)
     - `cluster`: Basic clustering primitives and algorithms.
     - `comms`: A multi-node multi-GPU communications abstraction layer for NCCL+UCX and MPI+NCCL, which can be deployed in Dask clusters using the `raft-dask` Python package.
-    - `core`: Core API headers which require minimal dependencies aside from RMM and Cudatoolkit. These are safe to expose on public APIs and do not require `nvcc` to build. This is the same for any headers in RAFT which have the suffix `*_types.hpp`. 
+    - `core`: Core API headers which require minimal dependencies aside from RMM and Cudatoolkit. These are safe to expose on public APIs and do not require `nvcc` to build. This is the same for any headers in RAFT which have the suffix `*_types.hpp`.
     - `distance`: Distance primitives
     - `linalg`: Dense linear algebra
     - `matrix`: Dense matrix operations
@@ -327,17 +325,17 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
 
 ## Contributing
 
-If you are interested in contributing to the RAFT project, please read our [Contributing guidelines](docs/source/contributing.md). Refer to the [Developer Guide](docs/source/developer_guide.md) for details on the developer guidelines, workflows, and principals. 
+If you are interested in contributing to the RAFT project, please read our [Contributing guidelines](docs/source/contributing.md). Refer to the [Developer Guide](docs/source/developer_guide.md) for details on the developer guidelines, workflows, and principals.
 
 ## References
 
 When citing RAFT generally, please consider referencing this Github project.
 ```bibtex
-@misc{rapidsai, 
+@misc{rapidsai,
   title={Rapidsai/raft: RAFT contains fundamental widely-used algorithms and primitives for data science, Graph and machine learning.},
-  url={https://github.com/rapidsai/raft}, 
-  journal={GitHub}, 
-  publisher={Nvidia RAPIDS}, 
+  url={https://github.com/rapidsai/raft},
+  journal={GitHub},
+  publisher={Nvidia RAPIDS},
   author={Rapidsai},
   year={2022}
 }
