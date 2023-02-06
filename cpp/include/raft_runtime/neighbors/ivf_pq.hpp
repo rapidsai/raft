@@ -24,6 +24,16 @@ namespace raft::runtime::neighbors::ivf_pq {
   void search(raft::device_resources const&,                  \
               const raft::neighbors::ivf_pq::search_params&,  \
               const raft::neighbors::ivf_pq::index<IdxT>&,    \
+              const T*,                                       \
+              uint32_t,                                       \
+              uint32_t,                                       \
+              IdxT*,                                          \
+              float*,                                         \
+              rmm::mr::device_memory_resource*);              \
+                                                              \
+  void search(raft::device_resources const&,                  \
+              const raft::neighbors::ivf_pq::search_params&,  \
+              const raft::neighbors::ivf_pq::index<IdxT>&,    \
               const raft::device_matrix_view<const T, IdxT>&, \
               uint32_t,                                       \
               const raft::device_matrix_view<IdxT, IdxT>&,    \
@@ -40,6 +50,32 @@ RAFT_INST_SEARCH(uint8_t, uint64_t);
 // wrappers, where exception handling is not compatible with return type that has nontrivial
 // constructor.
 #define RAFT_INST_BUILD_EXTEND(T, IdxT)                                      \
+  auto build(raft::device_resources const& handle,                           \
+             const raft::neighbors::ivf_pq::index_params& params,            \
+             const T* dataset,                                               \
+             IdxT n_rows,                                                    \
+             uint32_t dim)                                                   \
+    ->raft::neighbors::ivf_pq::index<IdxT>;                                  \
+                                                                             \
+  auto extend(raft::device_resources const& handle,                          \
+              const raft::neighbors::ivf_pq::index<IdxT>& orig_index,        \
+              const T* new_vectors,                                          \
+              const IdxT* new_indices,                                       \
+              IdxT n_rows)                                                   \
+    ->raft::neighbors::ivf_pq::index<IdxT>;                                  \
+                                                                             \
+  void build(raft::device_resources const& handle,                           \
+             const raft::neighbors::ivf_pq::index_params& params,            \
+             const T* dataset,                                               \
+             IdxT n_rows,                                                    \
+             uint32_t dim,                                                   \
+             raft::neighbors::ivf_pq::index<IdxT>* idx);                     \
+                                                                             \
+  void extend(raft::device_resources const& handle,                          \
+              raft::neighbors::ivf_pq::index<IdxT>* idx,                     \
+              const T* new_vectors,                                          \
+              const IdxT* new_indices,                                       \
+              IdxT n_rows);                                                  \
   auto build(raft::device_resources const& handle,                           \
              const raft::neighbors::ivf_pq::index_params& params,            \
              const raft::device_matrix_view<const T, IdxT>& dataset)         \
