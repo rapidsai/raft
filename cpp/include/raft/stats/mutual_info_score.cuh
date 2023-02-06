@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ double mutual_info_score(const T* firstClusterArray,
  * @return the mutual information score
  */
 template <typename value_t, typename idx_t>
-double mutual_info_score(const raft::handle_t& handle,
+double mutual_info_score(raft::device_resources const& handle,
                          raft::device_vector_view<const value_t, idx_t> first_cluster_array,
                          raft::device_vector_view<const value_t, idx_t> second_cluster_array,
                          value_t lower_label_range,

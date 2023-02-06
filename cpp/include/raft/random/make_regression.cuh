@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ namespace raft::random {
  * @param[in]   type            Random generator type
  */
 template <typename DataT, typename IdxT>
-void make_regression(const raft::handle_t& handle,
+void make_regression(raft::device_resources const& handle,
                      DataT* out,
                      DataT* values,
                      IdxT n_rows,
@@ -138,7 +138,7 @@ void make_regression(const raft::handle_t& handle,
  * @param[in]   type            Random generator type
  */
 template <typename DataT, typename IdxT>
-void make_regression(const raft::handle_t& handle,
+void make_regression(raft::device_resources const& handle,
                      raft::device_matrix_view<DataT, IdxT, raft::row_major> out,
                      raft::device_matrix_view<DataT, IdxT, raft::row_major> values,
                      IdxT n_informative,

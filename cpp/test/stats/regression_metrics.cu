@@ -106,7 +106,7 @@ class RegressionTest : public ::testing::TestWithParam<RegressionInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   RegressionInputs<T> params;
   cudaStream_t stream           = 0;
   double mean_abs_error         = 0;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <raft/cluster/kmeans.cuh>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/specializations.cuh>
 #include <raft/linalg/norm.cuh>
@@ -23,7 +23,7 @@
 namespace raft::runtime::cluster::kmeans {
 
 template <typename DataT, typename IndexT>
-void update_centroids(raft::handle_t const& handle,
+void update_centroids(raft::device_resources const& handle,
                       const DataT* X,
                       int n_samples,
                       int n_features,

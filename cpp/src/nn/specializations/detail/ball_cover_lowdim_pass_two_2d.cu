@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ namespace knn {
 namespace detail {
 
 template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t, 2>(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   const BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
   const std::uint32_t n_query_rows,

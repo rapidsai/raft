@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -24,6 +24,7 @@
 #include <rmm/device_uvector.hpp>
 
 #include <raft/cluster/single_linkage_types.hpp>
+#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
@@ -39,7 +40,7 @@ namespace raft::cluster::detail {
 
 template <raft::cluster::LinkageDistance dist_type, typename value_idx, typename value_t>
 struct distance_graph_impl {
-  void run(const raft::handle_t& handle,
+  void run(raft::device_resources const& handle,
            const value_t* X,
            size_t m,
            size_t n,
@@ -57,7 +58,7 @@ struct distance_graph_impl {
  */
 template <typename value_idx, typename value_t>
 struct distance_graph_impl<raft::cluster::LinkageDistance::KNN_GRAPH, value_idx, value_t> {
-  void run(const raft::handle_t& handle,
+  void run(raft::device_resources const& handle,
            const value_t* X,
            size_t m,
            size_t n,
@@ -103,6 +104,98 @@ struct distance_graph_impl<raft::cluster::LinkageDistance::KNN_GRAPH, value_idx,
   }
 };
 
+template <typename value_idx>
+__global__ void fill_indices2(value_idx* indices, size_t m, size_t nnz)
+{
+  value_idx tid = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (tid >= nnz) return;
+  value_idx v  = tid % m;
+  indices[tid] = v;
+}
+
+/**
+ * Compute connected CSR of pairwise distances
+ * @tparam value_idx
+ * @tparam value_t
+ * @param handle
+ * @param X
+ * @param m
+ * @param n
+ * @param metric
+ * @param[out] indptr
+ * @param[out] indices
+ * @param[out] data
+ */
+template <typename value_idx, typename value_t>
+void pairwise_distances(const raft::device_resources& handle,
+                        const value_t* X,
+                        size_t m,
+                        size_t n,
+                        raft::distance::DistanceType metric,
+                        value_idx* indptr,
+                        value_idx* indices,
+                        value_t* data)
+{
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
+
+  value_idx nnz = m * m;
+
+  value_idx blocks = raft::ceildiv(nnz, (value_idx)256);
+  fill_indices2<value_idx><<<blocks, 256, 0, stream>>>(indices, m, nnz);
+
+  thrust::sequence(exec_policy, indptr, indptr + m, 0, (int)m);
+
+  raft::update_device(indptr + m, &nnz, 1, stream);
+
+  // TODO: It would ultimately be nice if the MST could accept
+  // dense inputs directly so we don't need to double the memory
+  // usage to hand it a sparse array here.
+  distance::pairwise_distance<value_t, value_idx>(handle, X, X, data, m, m, n, metric);
+  // self-loops get max distance
+  auto transform_in =
+    thrust::make_zip_iterator(thrust::make_tuple(thrust::make_counting_iterator(0), data));
+
+  thrust::transform(exec_policy,
+                    transform_in,
+                    transform_in + nnz,
+                    data,
+                    [=] __device__(const thrust::tuple<value_idx, value_t>& tup) {
+                      value_idx idx  = thrust::get<0>(tup);
+                      bool self_loop = idx % m == idx / m;
+                      return (self_loop * std::numeric_limits<value_t>::max()) +
+                             (!self_loop * thrust::get<1>(tup));
+                    });
+}
+
+/**
+ * Connectivities specialization for pairwise distances
+ * @tparam value_idx
+ * @tparam value_t
+ */
+template <typename value_idx, typename value_t>
+struct distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, value_idx, value_t> {
+  void run(const raft::device_resources& handle,
+           const value_t* X,
+           size_t m,
+           size_t n,
+           raft::distance::DistanceType metric,
+           rmm::device_uvector<value_idx>& indptr,
+           rmm::device_uvector<value_idx>& indices,
+           rmm::device_uvector<value_t>& data,
+           int c)
+  {
+    auto stream = handle.get_stream();
+
+    size_t nnz = m * m;
+
+    indices.resize(nnz, stream);
+    data.resize(nnz, stream);
+
+    pairwise_distances(handle, X, m, n, metric, indptr.data(), indices.data(), data.data());
+  }
+};
+
 /**
  * Returns a CSR connectivities graph based on the given linkage distance.
  * @tparam value_idx
@@ -120,7 +213,7 @@ struct distance_graph_impl<raft::cluster::LinkageDistance::KNN_GRAPH, value_idx,
  *             which will guarantee k <= log(n) + c
  */
 template <typename value_idx, typename value_t, raft::cluster::LinkageDistance dist_type>
-void get_distance_graph(const raft::handle_t& handle,
+void get_distance_graph(raft::device_resources const& handle,
                         const value_t* X,
                         size_t m,
                         size_t n,

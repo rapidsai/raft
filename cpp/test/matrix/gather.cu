@@ -121,7 +121,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
 
     // map transform op (used only when MapTransform is true)
     auto transform_op =
-      raft::compose_op(raft::modulo_const_op<IdxT>(params.nrows), raft::add_const_op<IdxT>(10));
+      raft::compose_op(raft::mod_const_op<IdxT>(params.nrows), raft::add_const_op<IdxT>(10));
 
     // expected and actual output matrix setup
     h_out.resize(map_length * params.ncols);
@@ -163,7 +163,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream = 0;
   GatherInputs<IdxT> params;
   std::vector<MatrixT> h_in, h_out, h_stencil;

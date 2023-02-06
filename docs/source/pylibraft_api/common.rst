@@ -12,7 +12,7 @@ This page provides `pylibraft` class references for the publicly-exposed element
 Basic Vocabulary
 ################
 
-.. autoclass:: pylibraft.common.Handle
+.. autoclass:: pylibraft.common.DeviceResources
     :members:
 
 .. autoclass:: pylibraft.common.Stream

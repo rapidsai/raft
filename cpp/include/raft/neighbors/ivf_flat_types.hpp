@@ -223,7 +223,7 @@ struct index : ann::index {
   ~index()                          = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle,
+  index(raft::device_resources const& handle,
         raft::distance::DistanceType metric,
         uint32_t n_lists,
         bool adaptive_centers,
@@ -243,7 +243,7 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle, const index_params& params, uint32_t dim)
+  index(raft::device_resources const& handle, const index_params& params, uint32_t dim)
     : index(handle, params.metric, params.n_lists, params.adaptive_centers, dim)
   {
   }
@@ -252,7 +252,7 @@ struct index : ann::index {
    * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
    * of data.
    */
-  void allocate(const handle_t& handle, IdxT index_size)
+  void allocate(raft::device_resources const& handle, IdxT index_size)
   {
     data_    = make_device_mdarray<T>(handle, make_extents<IdxT>(index_size, dim()));
     indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 
-#include "refine_helper.cuh"
+#include <raft_internal/neighbors/refine_helper.cuh>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/refine.cuh>
@@ -31,8 +31,8 @@
 
 #include <gtest/gtest.h>
 
-#if defined RAFT_NN_COMPILED
-#include <raft/neighbors/specializations.cuh>
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/neighbors/specializations/refine.cuh>
 #endif
 
 #include <vector>
@@ -40,11 +40,11 @@
 namespace raft::neighbors {
 
 template <typename DataT, typename DistanceT, typename IdxT>
-class RefineTest : public ::testing::TestWithParam<detail::RefineInputs<IdxT>> {
+class RefineTest : public ::testing::TestWithParam<RefineInputs<IdxT>> {
  public:
   RefineTest()
     : stream_(handle_.get_stream()),
-      data(handle_, ::testing::TestWithParam<detail::RefineInputs<IdxT>>::GetParam())
+      data(handle_, ::testing::TestWithParam<RefineInputs<IdxT>>::GetParam())
   {
   }
 
@@ -102,31 +102,31 @@ class RefineTest : public ::testing::TestWithParam<detail::RefineInputs<IdxT>> {
   }
 
  public:
-  raft::handle_t handle_;
+  raft::device_resources handle_;
   rmm::cuda_stream_view stream_;
-  detail::RefineHelper<DataT, DistanceT, IdxT> data;
+  RefineHelper<DataT, DistanceT, IdxT> data;
 };
 
-const std::vector<detail::RefineInputs<int64_t>> inputs =
-  raft::util::itertools::product<detail::RefineInputs<int64_t>>(
-    {137},
-    {1000},
-    {16},
-    {1, 10, 33},
-    {33},
+const std::vector<RefineInputs<uint64_t>> inputs =
+  raft::util::itertools::product<RefineInputs<uint64_t>>(
+    {static_cast<uint64_t>(137)},
+    {static_cast<uint64_t>(1000)},
+    {static_cast<uint64_t>(16)},
+    {static_cast<uint64_t>(1), static_cast<uint64_t>(10), static_cast<uint64_t>(33)},
+    {static_cast<uint64_t>(33)},
     {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
     {false, true});
 
-typedef RefineTest<float, float, std::int64_t> RefineTestF;
+typedef RefineTest<float, float, std::uint64_t> RefineTestF;
 TEST_P(RefineTestF, AnnRefine) { this->testRefine(); }
 
 INSTANTIATE_TEST_CASE_P(RefineTest, RefineTestF, ::testing::ValuesIn(inputs));
 
-typedef RefineTest<uint8_t, float, std::int64_t> RefineTestF_uint8;
+typedef RefineTest<uint8_t, float, std::uint64_t> RefineTestF_uint8;
 TEST_P(RefineTestF_uint8, AnnRefine) { this->testRefine(); }
 INSTANTIATE_TEST_CASE_P(RefineTest, RefineTestF_uint8, ::testing::ValuesIn(inputs));
 
-typedef RefineTest<int8_t, float, std::int64_t> RefineTestF_int8;
+typedef RefineTest<int8_t, float, std::uint64_t> RefineTestF_int8;
 TEST_P(RefineTestF_int8, AnnRefine) { this->testRefine(); }
 INSTANTIATE_TEST_CASE_P(RefineTest, RefineTestF_int8, ::testing::ValuesIn(inputs));
 }  // namespace raft::neighbors

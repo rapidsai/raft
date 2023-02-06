@@ -397,7 +397,7 @@ void distanceLauncher(DataType* x,
                       cudaStream_t stream,
                       DataType metric_arg = 2.0f)
 {
-  raft::handle_t handle(stream);
+  raft::device_resources handle(stream);
 
   auto x_v    = make_device_matrix_view<DataType, int, layout>(x, m, k);
   auto y_v    = make_device_matrix_view<DataType, int, layout>(y, n, k);
@@ -483,7 +483,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   DistanceInputs<DataType> params;
@@ -519,7 +519,7 @@ class BigMatrixDistanceTest : public ::testing::Test {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   int m = 48000;
   int n = 48000;
   int k = 1;

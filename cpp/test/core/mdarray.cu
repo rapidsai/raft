@@ -340,7 +340,7 @@ void test_factory_methods()
     ASSERT_EQ(h_vec.extent(0), n);
   }
   {
-    raft::handle_t handle{};
+    raft::device_resources handle{};
     // device mdarray
     auto d_matrix = make_device_matrix<float>(handle, n, n);
     ASSERT_EQ(d_matrix.extent(0), n);
@@ -353,7 +353,7 @@ void test_factory_methods()
   }
 
   {
-    raft::handle_t handle{};
+    raft::device_resources handle{};
     // device scalar
     auto d_scalar = make_device_scalar<double>(handle, 17.0);
     static_assert(d_scalar.rank() == 1);
@@ -385,7 +385,7 @@ void test_factory_methods()
 
   // managed
   {
-    raft::handle_t handle{};
+    raft::device_resources handle{};
     auto mda = make_device_vector<int>(handle, 10);
 
     auto mdv = make_managed_mdspan(mda.data_handle(), raft::vector_extent<int>{10});
@@ -416,7 +416,7 @@ void check_matrix_layout(device_matrix_view<T, Index, LayoutPolicy> in)
 
 TEST(MDArray, FuncArg)
 {
-  raft::handle_t handle{};
+  raft::device_resources handle{};
   {
     auto d_matrix = make_device_matrix<float>(handle, 10, 10);
     check_matrix_layout(d_matrix.view());
@@ -918,7 +918,7 @@ void test_mdarray_unravel()
   }
 
   {
-    handle_t handle;
+    raft::device_resources handle;
     auto m   = make_device_matrix<float, size_t>(handle, 7, 6);
     auto m_v = m.view();
     thrust::for_each_n(handle.get_thrust_policy(),
