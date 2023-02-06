@@ -223,9 +223,9 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   {
     {
       auto index = build_index();
-      raft::spatial::knn::ivf_pq::detail::save<IdxT>(handle_, "ivf_pq_index", index);
+      raft::spatial::knn::ivf_pq::detail::serialize<IdxT>(handle_, "ivf_pq_index", index);
     }
-    auto index = raft::spatial::knn::ivf_pq::detail::load<IdxT>(handle_, "ivf_pq_index");
+    auto index = raft::spatial::knn::ivf_pq::detail::deserialize<IdxT>(handle_, "ivf_pq_index");
 
     size_t queries_size = ps.num_queries * ps.k;
     std::vector<IdxT> indices_ivf_pq(queries_size);

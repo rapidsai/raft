@@ -113,9 +113,9 @@ RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t)
  * @param[in] index IVF-PQ index
  *
  */
-void save(raft::device_resources const& handle,
-          const std::string& filename,
-          const raft::neighbors::ivf_pq::index<uint64_t>& index);
+void serialize(raft::device_resources const& handle,
+               const std::string& filename,
+               const raft::neighbors::ivf_pq::index<uint64_t>& index);
 
 /**
  * Load index from file.
@@ -127,8 +127,8 @@ void save(raft::device_resources const& handle,
  * @param[in] index IVF-PQ index
  *
  */
-void load(raft::device_resources const& handle,
-          const std::string& filename,
-          raft::neighbors::ivf_pq::index<uint64_t>* index);
+void deserialize(raft::device_resources const& handle,
+                 const std::string& filename,
+                 raft::neighbors::ivf_pq::index<uint64_t>* index);
 
 }  // namespace raft::runtime::neighbors::ivf_pq
