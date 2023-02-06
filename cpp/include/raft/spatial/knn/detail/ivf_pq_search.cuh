@@ -1445,6 +1445,20 @@ struct ivfpq_search {
   }
 
  private:
+  template <typename ScoreT, typename LutT>
+  static auto filter_reasonable_instances(const search_params& params) -> fun_t
+  {
+    if constexpr (sizeof(ScoreT) >= sizeof(LutT)) {
+      return ivfpq_search_worker<ScoreT, LutT, IdxT>;
+    } else {
+      RAFT_FAIL(
+        "Unexpected lut_dtype / internal_distance_dtype combination (%d, %d). "
+        "Size of the internal_distance_dtype should be not smaller than the size of the lut_dtype.",
+        int(params.lut_dtype),
+        int(params.internal_distance_dtype));
+    }
+  }
+
   template <typename ScoreT>
   static auto fun_try_lut_t(const search_params& params, distance::DistanceType metric) -> fun_t
   {
@@ -1455,14 +1469,14 @@ struct ivfpq_search {
     }
 
     switch (params.lut_dtype) {
-      case CUDA_R_32F: return ivfpq_search_worker<ScoreT, float, IdxT>;
-      case CUDA_R_16F: return ivfpq_search_worker<ScoreT, half, IdxT>;
+      case CUDA_R_32F: return filter_reasonable_instances<ScoreT, float>(params);
+      case CUDA_R_16F: return filter_reasonable_instances<ScoreT, half>(params);
       case CUDA_R_8U:
       case CUDA_R_8I:
         if (signed_metric) {
-          return ivfpq_search_worker<float, fp_8bit<5, true>, IdxT>;
+          return filter_reasonable_instances<ScoreT, fp_8bit<5, true>>(params);
         } else {
-          return ivfpq_search_worker<float, fp_8bit<5, false>, IdxT>;
+          return filter_reasonable_instances<ScoreT, fp_8bit<5, false>>(params);
         }
       default: RAFT_FAIL("Unexpected lut_dtype (%d)", int(params.lut_dtype));
     }
