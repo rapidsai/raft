@@ -89,7 +89,8 @@ void svdQR(raft::device_resources const& handle,
                                     stream));
 
   // Transpose the right singular vector back
-  if (trans_right) raft::linalg::transpose(right_sing_vecs, n_cols, stream);
+  if (trans_right && right_sing_vecs != nullptr)
+    raft::linalg::transpose(right_sing_vecs, n_cols, stream);
 
   RAFT_CUDA_TRY(cudaGetLastError());
 

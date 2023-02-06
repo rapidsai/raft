@@ -39,7 +39,6 @@ template <typename LabelT, typename DataT>
 struct KVPMinReduceImpl {
   typedef raft::KeyValuePair<LabelT, DataT> KVP;
   DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
-  DI KVP operator()(const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
 
 };  // KVPMinReduce
 

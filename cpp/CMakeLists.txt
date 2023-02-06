@@ -305,18 +305,23 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/refine_h_uint64_t_float.cu
     src/distance/neighbors/specializations/refine_h_uint64_t_int8_t.cu
     src/distance/neighbors/specializations/refine_h_uint64_t_uint8_t.cu
-    src/distance/neighbors/ivfpq_search.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu
-    src/distance/distance/specializations/detail/canberra.cu
-    src/distance/distance/specializations/detail/chebyshev.cu
-    src/distance/distance/specializations/detail/correlation.cu
-    src/distance/distance/specializations/detail/cosine.cu
-    src/distance/distance/specializations/detail/cosine.cu
-    src/distance/distance/specializations/detail/hamming_unexpanded.cu
-    src/distance/distance/specializations/detail/hellinger_expanded.cu
+    src/distance/cluster/kmeans_init_plus_plus_double.cu
+    src/distance/cluster/kmeans_init_plus_plus_float.cu
+    src/distance/distance/specializations/detail/canberra_double_double_double_int.cu
+    src/distance/distance/specializations/detail/canberra_float_float_float_int.cu
+    src/distance/distance/specializations/detail/chebyshev_double_double_double_int.cu
+    src/distance/distance/specializations/detail/chebyshev_float_float_float_int.cu
+    src/distance/distance/specializations/detail/correlation_double_double_double_int.cu
+    src/distance/distance/specializations/detail/correlation_float_float_float_int.cu
+    src/distance/distance/specializations/detail/cosine_double_double_double_int.cu
+    src/distance/distance/specializations/detail/cosine_float_float_float_int.cu
+    src/distance/distance/specializations/detail/hamming_unexpanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/hamming_unexpanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/hellinger_expanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/hellinger_expanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
-    src/distance/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
     src/distance/distance/specializations/detail/kernels/gram_matrix_base_double.cu
     src/distance/distance/specializations/detail/kernels/gram_matrix_base_float.cu
@@ -328,34 +333,31 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/detail/kernels/tanh_kernel_double.cu
     src/distance/distance/specializations/detail/kernels/tanh_kernel_float.cu
     src/distance/distance/specializations/detail/kl_divergence_float_float_float_int.cu
-    src/distance/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/kl_divergence_double_double_double_int.cu
     src/distance/distance/specializations/detail/l1_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l1_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l1_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_expanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_expanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_expanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_sqrt_expanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_sqrt_expanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_sqrt_expanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
-    src/distance/distance/specializations/detail/l2_unexpanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
-    src/distance/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/russel_rao_double_double_double_int.cu
-    src/distance/distance/specializations/detail/russel_rao_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/russel_rao_float_float_float_int.cu
     src/distance/distance/specializations/fused_l2_nn_double_int.cu
     src/distance/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/distance/specializations/fused_l2_nn_float_int64.cu
     src/distance/neighbors/ivfpq_build.cu
+    src/distance/neighbors/ivfpq_deserialize.cu
+    src/distance/neighbors/ivfpq_serialize.cu
+    src/distance/neighbors/ivfpq_search_float_uint64_t.cu
+    src/distance/neighbors/ivfpq_search_int8_t_uint64_t.cu
+    src/distance/neighbors/ivfpq_search_uint8_t_uint64_t.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fast.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
@@ -427,16 +429,21 @@ set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 if(RAFT_COMPILE_NN_LIBRARY)
   add_library(
     raft_nn_lib
-    src/nn/specializations/ball_cover.cu
     src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
     src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
     src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
     src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
+    src/nn/specializations/ball_cover_all_knn_query.cu
+    src/nn/specializations/ball_cover_build_index.cu
+    src/nn/specializations/ball_cover_knn_query.cu
     src/nn/specializations/fused_l2_knn_long_float_true.cu
     src/nn/specializations/fused_l2_knn_long_float_false.cu
     src/nn/specializations/fused_l2_knn_int_float_true.cu
     src/nn/specializations/fused_l2_knn_int_float_false.cu
-    src/nn/specializations/knn.cu
+    src/nn/specializations/brute_force_knn_long_float_int.cu
+    src/nn/specializations/brute_force_knn_long_float_uint.cu
+    src/nn/specializations/brute_force_knn_uint32_t_float_int.cu
+    src/nn/specializations/brute_force_knn_uint32_t_float_uint.cu
   )
   set_target_properties(
     raft_nn_lib
