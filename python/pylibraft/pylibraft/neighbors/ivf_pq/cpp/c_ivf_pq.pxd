@@ -86,8 +86,7 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
               uint32_t n_lists,
               uint32_t dim,
               uint32_t pq_bits,
-              uint32_t pq_dim,
-              uint32_t n_nonempty_lists)
+              uint32_t pq_dim)
 
         IdxT size()
         uint32_t dim()

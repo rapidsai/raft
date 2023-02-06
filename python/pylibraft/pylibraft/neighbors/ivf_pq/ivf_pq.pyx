@@ -264,7 +264,6 @@ cdef class Index:
             <uint32_t>1,
             <uint32_t>4,
             <uint32_t>8,
-            <uint32_t>0,
             <uint32_t>0)
 
     def __dealloc__(self):
