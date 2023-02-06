@@ -24,5 +24,9 @@ rapids-logger "ls conda-bld/*libraft*/"
 
 ls -al /opt/conda/conda-bld/*libraft*/**/*
 
+UPLOAD_NAME=cpp_cuda${RAPIDS_CUDA_VERSION%%.*}_$(arch).ninja_log
+FILE=/opt/conda/conda-bld/*libraft-split*/cpp/build/.ninja_log
+rapids-upload-to-s3 "${UPLOAD_NAME}" "${FILE}"
+
 # stop the CI pipeline here to preserve resources
 exit 1
