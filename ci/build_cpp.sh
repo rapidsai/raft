@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -22,11 +22,17 @@ ls -al /opt/conda/conda-bld/
 
 rapids-logger "ls conda-bld/*libraft*/"
 
-ls -al /opt/conda/conda-bld/*libraft*/**/*
+BUILD_PATH=/opt/conda/conda-bld/*libraft-split*/cpp/build/
+DIST_FILE=libraft.distance.ninja_log
+NN_FILE=libraft.nn.ninja_log
+TESTS_FILE=libraft.tests.ninja_log
 
-UPLOAD_NAME=cpp_cuda${RAPIDS_CUDA_VERSION%%.*}_$(arch).ninja_log
-FILE=$(echo /opt/conda/conda-bld/*libraft-split*/cpp/build/.ninja_log)
-rapids-upload-to-s3 "${UPLOAD_NAME}" "${FILE}"
+UPLOAD_NAME=cpp_cuda${RAPIDS_CUDA_VERSION%%.*}_$(arch)
+DIST_UPLOAD_NAME=${UPLOAD_NAME}.${DIST_FILE}
+NN_UPLOAD_NAME=${UPLOAD_NAME}.${NN_FILE}
+TESTS_UPLOAD_NAME=${UPLOAD_NAME}.${TESTS_FILE}
 
-# stop the CI pipeline here to preserve resources
-exit 1
+rapids-upload-to-s3 "${DIST_UPLOAD_NAME}" "${BUILD_PATH}.${DIST_FILE}"
+rapids-upload-to-s3 "${NN_UPLOAD_NAME}" "${BUILD_PATH}.${NN_FILE}"
+rapids-upload-to-s3 "${TESTS_UPLOAD_NAME}" "${BUILD_PATH}.${TESTS_FILE}"
+
