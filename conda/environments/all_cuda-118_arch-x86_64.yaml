@@ -37,7 +37,6 @@ dependencies:
 - libfaiss>=1.7.1=cuda*
 - ninja
 - numpydoc
-- pip
 - pydata-sphinx-theme
 - pytest
 - pytest-cov
