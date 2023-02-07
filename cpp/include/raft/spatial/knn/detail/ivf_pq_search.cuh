@@ -316,7 +316,7 @@ struct calc_chunk_indices {
  * ordered number of one of such vectors. This function looks up to which chunk it belongs,
  * and returns the index within the chunk (which is also an index within a cluster).
  *
- * @param[in/out] sample_ix
+ * @param[inout] sample_ix
  *   input: the offset of the sample in the batch;
  *   output: the offset inside the chunk (probe) / selected cluster.
  * @param[in] n_probes number of probes
