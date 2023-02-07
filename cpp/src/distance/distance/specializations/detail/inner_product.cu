@@ -20,7 +20,7 @@ namespace raft {
 namespace distance {
 namespace detail {
 template void distance<raft::distance::DistanceType::InnerProduct, float, float, float, int>(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const float* x,
   const float* y,
   float* dist,
@@ -33,7 +33,7 @@ template void distance<raft::distance::DistanceType::InnerProduct, float, float,
   float metric_arg);
 
 template void distance<raft::distance::DistanceType::InnerProduct, double, double, double, int>(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const double* x,
   const double* y,
   double* dist,

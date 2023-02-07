@@ -23,7 +23,7 @@ namespace distance {
 namespace detail {
 extern template void
 distance<raft::distance::DistanceType::HammingUnexpanded, float, float, float, int>(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const float* x,
   const float* y,
   float* dist,
@@ -37,7 +37,7 @@ distance<raft::distance::DistanceType::HammingUnexpanded, float, float, float, i
 
 extern template void
 distance<raft::distance::DistanceType::HammingUnexpanded, double, double, double, int>(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const double* x,
   const double* y,
   double* dist,

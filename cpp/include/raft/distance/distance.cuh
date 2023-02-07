@@ -18,7 +18,8 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
@@ -64,7 +65,7 @@ template <raft::distance::DistanceType distanceType,
           typename OutType,
           typename FinalLambda,
           typename Index_ = int>
-void distance(raft::device_resources const& handle,
+void distance(raft::resources const& handle,
               const InType* x,
               const InType* y,
               OutType* dist,
@@ -107,7 +108,7 @@ template <raft::distance::DistanceType distanceType,
           typename AccType,
           typename OutType,
           typename Index_ = int>
-void distance(raft::device_resources const& handle,
+void distance(raft::resources const& handle,
               const InType* x,
               const InType* y,
               OutType* dist,
@@ -199,7 +200,7 @@ template <raft::distance::DistanceType distanceType,
           typename AccType,
           typename OutType,
           typename Index_ = int>
-void distance(raft::device_resources const& handle,
+void distance(raft::resources const& handle,
               const InType* x,
               const InType* y,
               OutType* dist,
@@ -209,7 +210,7 @@ void distance(raft::device_resources const& handle,
               bool isRowMajor   = true,
               InType metric_arg = 2.0f)
 {
-  auto stream = handle.get_stream();
+  auto stream = raft::resource::get_cuda_stream(handle);
   rmm::device_uvector<char> workspace(0, stream);
   auto worksize = getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(x, y, m, n, k);
   workspace.resize(worksize, stream);
@@ -236,7 +237,7 @@ void distance(raft::device_resources const& handle,
  * @param metric_arg metric argument (used for Minkowski distance)
  */
 template <typename Type, typename Index_ = int>
-void pairwise_distance(raft::device_resources const& handle,
+void pairwise_distance(raft::resources const& handle,
                        const Type* x,
                        const Type* y,
                        Type* dist,
@@ -335,7 +336,7 @@ void pairwise_distance(raft::device_resources const& handle,
  * @param metric_arg metric argument (used for Minkowski distance)
  */
 template <typename Type, typename Index_ = int>
-void pairwise_distance(raft::device_resources const& handle,
+void pairwise_distance(raft::resources const& handle,
                        const Type* x,
                        const Type* y,
                        Type* dist,
@@ -346,7 +347,8 @@ void pairwise_distance(raft::device_resources const& handle,
                        bool isRowMajor = true,
                        Type metric_arg = 2.0f)
 {
-  rmm::device_uvector<char> workspace(0, handle.get_stream());
+  auto stream = raft::resource::get_cuda_stream(handle);
+  rmm::device_uvector<char> workspace(0, stream);
   pairwise_distance<Type, Index_>(
     handle, x, y, dist, m, n, k, workspace, metric, isRowMajor, metric_arg);
 }
@@ -400,7 +402,7 @@ template <raft::distance::DistanceType distanceType,
           typename OutType,
           typename layout = raft::layout_c_contiguous,
           typename Index_ = int>
-void distance(raft::device_resources const& handle,
+void distance(raft::resources const& handle,
               raft::device_matrix_view<InType, Index_, layout> const x,
               raft::device_matrix_view<InType, Index_, layout> const y,
               raft::device_matrix_view<OutType, Index_, layout> dist,
@@ -443,7 +445,7 @@ void distance(raft::device_resources const& handle,
  * @param metric_arg metric argument (used for Minkowski distance)
  */
 template <typename Type, typename layout = layout_c_contiguous, typename Index_ = int>
-void pairwise_distance(raft::device_resources const& handle,
+void pairwise_distance(raft::resources const& handle,
                        device_matrix_view<Type, Index_, layout> const x,
                        device_matrix_view<Type, Index_, layout> const y,
                        device_matrix_view<Type, Index_, layout> dist,
@@ -464,7 +466,8 @@ void pairwise_distance(raft::device_resources const& handle,
 
   constexpr auto rowmajor = std::is_same_v<layout, layout_c_contiguous>;
 
-  rmm::device_uvector<char> workspace(0, handle.get_stream());
+  auto stream = raft::resource::get_cuda_stream(handle);
+  rmm::device_uvector<char> workspace(0, stream);
 
   pairwise_distance(handle,
                     x.data_handle(),
