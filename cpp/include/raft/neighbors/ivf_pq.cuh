@@ -138,7 +138,7 @@ inline void extend(raft::device_resources const& handle,
                    const IdxT* new_indices,
                    IdxT n_rows)
 {
-  *index = extend(handle, *index, new_vectors, new_indices, n_rows);
+  raft::spatial::knn::ivf_pq::detail::extend(handle, index, new_vectors, new_indices, n_rows);
 }
 
 /**
