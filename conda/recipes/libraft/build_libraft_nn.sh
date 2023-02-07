@@ -3,4 +3,4 @@
 
 export SCCACHE_RECACHE=1
 
-./build.sh libraft -v --allgpuarch --compile-nn --no-nvtx
+./build.sh libraft --allgpuarch --compile-nn --no-nvtx

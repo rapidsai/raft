@@ -3,5 +3,5 @@
 
 export SCCACHE_RECACHE=1
 
-./build.sh tests bench -v --allgpuarch --no-nvtx
+./build.sh tests bench --allgpuarch --no-nvtx
 cmake --install cpp/build --component testing
