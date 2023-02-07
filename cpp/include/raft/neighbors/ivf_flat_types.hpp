@@ -65,6 +65,35 @@ struct search_params : ann::search_params {
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);
 
+/** The data for a single list (cluster). */
+template <typename T, typename IdxT = uint32_t>
+struct list_data {
+  /** Cluster data. */
+  device_mdarray<T, extent_2d<IdxT>, row_major> data;
+  /** Source indices. */
+  device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices;
+  /** The actual size of the content. */
+  std::atomic<IdxT> size;
+
+  list_data(raft::device_resources const& handle, IdxT n_rows, uint32_t dim)
+    : size{n_rows}
+  {
+    auto capacity = round_up_safe<IdxT>(bound_by_power_of_two<IdxT>(size), kIndexGroupSize);
+    try {
+      data = make_device_mdarray<T>(handle, make_extents<IdxT>(capacity, dim));
+      indices = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(capacity));
+    } catch (std::bad_alloc& e) {
+      RAFT_FAIL(
+        "ivf-flat: failed to allocate a big enough index list to hold all data "
+        "(requested size: %zu records, selected capacity: %zu records). "
+        "Allocator exception: %s",
+        size_t(size),
+        size_t(capacity),
+        e.what());
+    }
+  }
+};
+
 /**
  * @brief IVF-flat index.
  *
@@ -78,6 +107,12 @@ struct index : ann::index {
                 "IdxT must be able to represent all values of uint32_t");
 
  public:
+  /**
+   * Default value filled in the `indices()` array.
+   * One may encounter it trying to access a record within a cluster that is outside of the
+   * `list_sizes()` bound (due to the record alignment `kIndexGroupSize`).
+   */
+  constexpr static IdxT kInvalidRecord = std::numeric_limits<IdxT>::max() - 1;
   /**
    * Vectorized load/store size in elements, determines the size of interleaved data chunks.
    *
@@ -252,8 +287,60 @@ struct index : ann::index {
    * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
    * of data.
    */
-  void allocate(raft::device_resources const& handle, IdxT index_size)
+  void resize_list(raft::device_resources const& handle, uint32_t label, uint32_t list_size)
   {
+    uint32_t prev_size = 0;
+    auto& list         = lists()(label);
+    bool skip_resize   = false;
+    if (list) {
+      copy(&prev_size, &list_sizes()(label), 1, handle.get_stream());
+      handle.sync_stream();
+      if (list_size <= list->indices.extent(0)) {
+        auto shared_list_size = prev_size;
+        if (list_size <= prev_size ||
+            list->size.compare_exchange_strong(shared_list_size, list_size)) {
+          // We don't need to resize the list if:
+          //  1. The list exists
+          //  2. The new size fits in the list
+          //  3. The list doesn't grow or no-one else has grown it yet
+          skip_resize = true;
+        }
+      }
+    }
+    // Sic! We're writing the min(list_size, prev_size)
+    //       to keep the number of _valid_ records after update
+    const auto new_list_size = std::min(list_size, prev_size);
+    raft::copy(&list_sizes()(label), &new_list_size, 1, handle.get_stream());
+    if (skip_resize) { return; }
+    auto new_list = new list_data<T, IdxT>(handle, list_size, dim());
+    if (prev_size > 0) {
+      auto copied_data_extents = make_extents<size_t>(prev_size, dim());
+      auto copied_view         = make_mdspan<T, size_t, row_major, false, true>(
+        new_list->data.data_handle(), copied_data_extents);
+      copy(copied_view.data_handle(),
+           list->data.data_handle(),
+           copied_view.size(),
+           handle.get_stream());
+      copy(new_list->indices.data_handle(),
+           list->indices.data_handle(),
+           prev_size,
+           handle.get_stream());
+    }
+    // swap the shared pointer content with the new list
+    list.reset(new_list);
+    // fill unused index spaces with placeholder values for easier debugging
+    thrust::fill_n(handle.get_thrust_policy(),
+                   list->indices.data_handle() + prev_size,
+                   list->indices.size() - prev_size,
+                   kInvalidRecord);
+    // keep the device pointers updated
+    const auto new_data_ptr = list->data.data_handle();
+    copy(&(data_ptrs()(label)), &new_data_ptr, 1, handle.get_stream());
+    const auto new_inds_ptr = list->indices.data_handle();
+    copy(&(inds_ptrs()(label)), &new_inds_ptr, 1, handle.get_stream());
+
+
+
     data_    = make_device_mdarray<T>(handle, make_extents<IdxT>(index_size, dim()));
     indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
 
@@ -278,12 +365,18 @@ struct index : ann::index {
   uint32_t veclen_;
   raft::distance::DistanceType metric_;
   bool adaptive_centers_;
-  device_mdarray<T, extent_2d<IdxT>, row_major> data_;
-  device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
-  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
-  device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
+  host_mdarray<std::shared_ptr<list_data<T, IdxT>, extent_1d<uint32_t>, row_major> lists_;
+  //device_mdarray<T, extent_2d<IdxT>, row_major> data_;
+  //device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
+  //device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
+  //device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
   device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
   std::optional<device_mdarray<float, extent_1d<uint32_t>, row_major>> center_norms_;
+
+  // Computed members
+  device_mdarray<T*, extent_1d<uint32_t>, row_major> data_ptrs_;
+  device_mdarray<IdxT*, extent_1d<uint32_t>, row_major> inds_ptrs_;
+  host_mdarray<IdxT, extent_1d<uint32_t>, row_major> accum_sorted_sizes_;
 
   /** Throw an error if the index content is inconsistent. */
   void check_consistency()
