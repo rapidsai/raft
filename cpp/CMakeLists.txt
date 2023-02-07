@@ -307,7 +307,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/refine_h_uint64_t_uint8_t.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu
-    src/distance/distance/specializations/detail/inner_product.cu
+    src/distance/cluster/kmeans_init_plus_plus_double.cu
+    src/distance/cluster/kmeans_init_plus_plus_float.cu
     src/distance/distance/specializations/detail/canberra_double_double_double_int.cu
     src/distance/distance/specializations/detail/canberra_float_float_float_int.cu
     src/distance/distance/specializations/detail/chebyshev_double_double_double_int.cu
@@ -320,6 +321,7 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/detail/hamming_unexpanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/hellinger_expanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/hellinger_expanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/inner_product.cu
     src/distance/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
     src/distance/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
     src/distance/distance/specializations/detail/kernels/gram_matrix_base_double.cu
