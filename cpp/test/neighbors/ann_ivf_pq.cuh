@@ -270,11 +270,11 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       for (uint32_t k = 0; k < ps.k; k++) {
         auto flat_i   = query_ix * ps.k + k;
         auto found_ix = indices_ivf_pq[flat_i];
-        if (found_ix == ivf_pq::index<IdxT>::kOutOfBoundsRecord) {
+        if (found_ix == ivf_pq::kOutOfBoundsRecord<IdxT>) {
           found_oob++;
           continue;
         }
-        ASSERT_NE(found_ix, ivf_pq::index<IdxT>::kInvalidRecord)
+        ASSERT_NE(found_ix, ivf_pq::kInvalidRecord<IdxT>)
           << "got an invalid record at query_ix = " << query_ix << ", k = " << k
           << " (distance = " << distances_ivf_pq[flat_i] << ")";
         ASSERT_LT(found_ix, ps.num_db_vecs)
@@ -283,7 +283,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       }
     }
     ASSERT_LE(found_oob, max_oob)
-      << "got too many records out-of-bounds (see ivf_pq::index<IdxT>::kOutOfBoundsRecord).";
+      << "got too many records out-of-bounds (see ivf_pq::kOutOfBoundsRecord<IdxT>).";
     if (found_oob > 0) {
       RAFT_LOG_WARN(
         "Got %zu results out-of-bounds because of large top-k (%zu) and small n_probes (%u) and "

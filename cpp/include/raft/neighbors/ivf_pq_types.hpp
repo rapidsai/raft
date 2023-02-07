@@ -142,6 +142,22 @@ constexpr static uint32_t kIndexGroupSize = 32;
 /** Stride of the interleaved group for vectorized loads. */
 constexpr static uint32_t kIndexGroupVecLen = 16;
 
+/**
+ * Default value filled in the `indices()` array.
+ * One may encounter it trying to access a record within a cluster that is outside of the
+ * `list_sizes()` bound (due to the record alignment `kIndexGroupSize`).
+ */
+template <typename IdxT>
+constexpr static IdxT kInvalidRecord = std::numeric_limits<IdxT>::max() - 1;
+
+/**
+ * Default value returned by `search` when the `n_probes` is too small and top-k is too large.
+ * One may encounter it if the combined size of probed clusters is smaller than the requested
+ * number of results per query.
+ */
+template <typename IdxT>
+constexpr static IdxT kOutOfBoundsRecord = std::numeric_limits<IdxT>::max();
+
 /** PQ-encoded data stored in the interleaved format:
  *
  *    [ ceildiv(list_size, kIndexGroupSize)
@@ -177,14 +193,14 @@ struct list_data {
   /** The actual size of the content. */
   std::atomic<SizeT> size;
 
-  list_data(raft::device_resources const& handle, SizeT n_rows, uint32_t pq_bits, uint32_t pq_dim)
+  /** Allocate a new list capable of holding at least `n_rows` data records and indices. */
+  list_data(raft::device_resources const& res, SizeT n_rows, uint32_t pq_bits, uint32_t pq_dim)
     : size{n_rows}
   {
     auto capacity = round_up_safe<SizeT>(bound_by_power_of_two<SizeT>(size), kIndexGroupSize);
     try {
-      data =
-        make_device_mdarray<uint8_t>(handle, make_list_extents<SizeT>(capacity, pq_bits, pq_dim));
-      indices = make_device_mdarray<IdxT>(handle, make_extents<SizeT>(capacity));
+      data = make_device_mdarray<uint8_t>(res, make_list_extents<SizeT>(capacity, pq_bits, pq_dim));
+      indices = make_device_mdarray<IdxT>(res, make_extents<SizeT>(capacity));
     } catch (std::bad_alloc& e) {
       RAFT_FAIL(
         "ivf-pq: failed to allocate a big enough index list to hold all data "
@@ -194,6 +210,9 @@ struct list_data {
         size_t(capacity),
         e.what());
     }
+    // Fill the index buffer with a pre-defined marker for easier debugging
+    thrust::fill_n(
+      res.get_thrust_policy(), indices.data_handle(), indices.size(), ivf_pq::kInvalidRecord<IdxT>);
   }
 };
 
@@ -248,19 +267,6 @@ struct index : ann::index {
                 "IdxT must be able to represent all values of uint32_t");
 
  public:
-  /**
-   * Default value filled in the `indices()` array.
-   * One may encounter it trying to access a record within a cluster that is outside of the
-   * `list_sizes()` bound (due to the record alignment `kIndexGroupSize`).
-   */
-  constexpr static IdxT kInvalidRecord = std::numeric_limits<IdxT>::max() - 1;
-  /**
-   * Default value returned by `search` when the `n_probes` is too small and top-k is too large.
-   * One may encounter it if the combined size of probed clusters is smaller than the requested
-   * number of results per query.
-   */
-  constexpr static IdxT kOutOfBoundsRecord = std::numeric_limits<IdxT>::max();
-
   /** Total length of the index. */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
   {
@@ -365,73 +371,6 @@ struct index : ann::index {
             params.pq_bits,
             params.pq_dim)
   {
-  }
-
-  /**
-   * Resize a list by the given id, so that it can contain the given number of records;
-   * possibly, copy the data.
-   *
-   * Besides resizing the corresponding list_data, this function updates the device pointers
-   *   data_ptrs, inds_ptrs, and the list_sizes if necessary.
-   *
-   * The new `list_sizes(label)` represents the number of valid records in the index;
-   * it can be `list_size` if the previous size was not smaller; otherwise it's not updated.
-   *
-   * @param[in] handle
-   * @param[in] label list id
-   * @param[in] list_size the minimum size the list should grow.
-   */
-  void resize_list(raft::device_resources const& handle, uint32_t label, uint32_t list_size)
-  {
-    uint32_t prev_size = 0;
-    auto& list         = lists()(label);
-    bool skip_resize   = false;
-    if (list) {
-      copy(&prev_size, &list_sizes()(label), 1, handle.get_stream());
-      handle.sync_stream();
-      if (list_size <= list->indices.extent(0)) {
-        auto shared_list_size = prev_size;
-        if (list_size <= prev_size ||
-            list->size.compare_exchange_strong(shared_list_size, list_size)) {
-          // We don't need to resize the list if:
-          //  1. The list exists
-          //  2. The new size fits in the list
-          //  3. The list doesn't grow or no-one else has grown it yet
-          skip_resize = true;
-        }
-      }
-    }
-    // Sic! We're writing the min(list_size, prev_size)
-    //       to keep the number of _valid_ records after update
-    const auto new_list_size = std::min(list_size, prev_size);
-    raft::copy(&list_sizes()(label), &new_list_size, 1, handle.get_stream());
-    if (skip_resize) { return; }
-    auto new_list = new list_data<IdxT>(handle, list_size, pq_bits(), pq_dim());
-    if (prev_size > 0) {
-      auto copied_data_extents = make_list_extents<size_t>(prev_size, pq_bits(), pq_dim());
-      auto copied_view         = make_mdspan<uint8_t, size_t, row_major, false, true>(
-        new_list->data.data_handle(), copied_data_extents);
-      copy(copied_view.data_handle(),
-           list->data.data_handle(),
-           copied_view.size(),
-           handle.get_stream());
-      copy(new_list->indices.data_handle(),
-           list->indices.data_handle(),
-           prev_size,
-           handle.get_stream());
-    }
-    // swap the shared pointer content with the new list
-    list.reset(new_list);
-    // fill unused index spaces with placeholder values for easier debugging
-    thrust::fill_n(handle.get_thrust_policy(),
-                   list->indices.data_handle() + prev_size,
-                   list->indices.size() - prev_size,
-                   kInvalidRecord);
-    // keep the device pointers updated
-    const auto new_data_ptr = list->data.data_handle();
-    copy(&(data_ptrs()(label)), &new_data_ptr, 1, handle.get_stream());
-    const auto new_inds_ptr = list->indices.data_handle();
-    copy(&(inds_ptrs()(label)), &new_inds_ptr, 1, handle.get_stream());
   }
 
   using pq_centers_extents =

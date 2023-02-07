@@ -364,8 +364,8 @@ __launch_bounds__(BlockDim) __global__
   uint32_t data_ix        = neighbors_in[k];
   const uint32_t chunk_ix = find_chunk_ix(data_ix, n_probes, chunk_indices);
   const bool valid        = chunk_ix < n_probes;
-  neighbors_out[k] =
-    valid ? db_indices[clusters_to_probe[chunk_ix]][data_ix] : index<IdxT>::kOutOfBoundsRecord;
+  neighbors_out[k]        = valid ? db_indices[clusters_to_probe[chunk_ix]][data_ix]
+                                  : raft::neighbors::ivf_pq::kOutOfBoundsRecord<IdxT>;
 }
 
 /**

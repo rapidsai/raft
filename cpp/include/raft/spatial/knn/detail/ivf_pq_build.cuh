@@ -831,6 +831,53 @@ void recompute_internal_state(const raft::device_resources& res, index<IdxT>& in
   }
 }
 
+/**
+ * Resize a list by the given id, so that it can contain the given number of records;
+ * copy the data if necessary.
+ */
+template <typename IdxT, typename SizeT>
+void resize_list(raft::device_resources const& res,
+                 std::shared_ptr<list_data<IdxT, SizeT>>& orig_list,  // NOLINT
+                 SizeT new_used_size,
+                 SizeT old_used_size,
+                 uint32_t pq_bits,
+                 uint32_t pq_dim)
+{
+  bool skip_resize = false;
+  if (orig_list) {
+    if (new_used_size <= orig_list->indices.extent(0)) {
+      auto shared_list_size = old_used_size;
+      if (new_used_size <= old_used_size ||
+          orig_list->size.compare_exchange_strong(shared_list_size, new_used_size)) {
+        // We don't need to resize the list if:
+        //  1. The list exists
+        //  2. The new size fits in the list
+        //  3. The list doesn't grow or no-one else has grown it yet
+        skip_resize = true;
+      }
+    }
+  } else {
+    old_used_size = 0;
+  }
+  if (skip_resize) { return; }
+  auto new_list = std::make_shared<list_data<IdxT>>(res, new_used_size, pq_bits, pq_dim);
+  if (old_used_size > 0) {
+    auto copied_data_extents = make_list_extents<size_t>(old_used_size, pq_bits, pq_dim);
+    auto copied_view         = make_mdspan<uint8_t, size_t, row_major, false, true>(
+      new_list->data.data_handle(), copied_data_extents);
+    copy(copied_view.data_handle(),
+         orig_list->data.data_handle(),
+         copied_view.size(),
+         res.get_stream());
+    copy(new_list->indices.data_handle(),
+         orig_list->indices.data_handle(),
+         old_used_size,
+         res.get_stream());
+  }
+  // swap the shared pointer content with the new list
+  new_list.swap(orig_list);
+}
+
 /** Copy the state of an index into a new index, but share the list data among the two. */
 template <typename IdxT>
 auto clone(const raft::device_resources& res, const index<IdxT>& source) -> index<IdxT>
@@ -1017,29 +1064,47 @@ void extend(raft::device_resources const& handle,
     }
   }
 
-  // Get the combined cluster sizes and allocate the lists
+  auto list_sizes = index->list_sizes().data_handle();
+  // store the current cluster sizes, because we'll need them later
+  rmm::device_uvector<uint32_t> orig_list_sizes(n_clusters, stream, device_memory);
+  copy(orig_list_sizes.data(), list_sizes, n_clusters, stream);
+
+  // Get the combined cluster sizes
+  raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
+                                         reinterpret_cast<int32_t*>(list_sizes),
+                                         IdxT(n_clusters),
+                                         new_data_labels.data(),
+                                         n_rows,
+                                         1,
+                                         stream);
+  linalg::add(list_sizes, list_sizes, orig_list_sizes.data(), n_clusters, stream);
+
+  // Allocate the lists to fit the new data
   {
-    rmm::device_uvector<uint32_t> ext_cluster_sizes_buf(n_clusters, stream, &managed_memory);
-    auto ext_cluster_sizes = ext_cluster_sizes_buf.data();
-
-    raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
-                                           reinterpret_cast<int32_t*>(ext_cluster_sizes),
-                                           IdxT(n_clusters),
-                                           new_data_labels.data(),
-                                           n_rows,
-                                           1,
-                                           stream);
-    linalg::add(
-      ext_cluster_sizes, ext_cluster_sizes, index->list_sizes().data_handle(), n_clusters, stream);
+    std::vector<uint32_t> new_cluster_sizes(n_clusters);
+    std::vector<uint32_t> old_cluster_sizes(n_clusters);
+    copy(new_cluster_sizes.data(), list_sizes, n_clusters, stream);
+    copy(old_cluster_sizes.data(), orig_list_sizes.data(), n_clusters, stream);
     handle.sync_stream();
-
-    // Reuse or allocate+copy the index content
+    auto lists = index->lists();
     for (uint32_t label = 0; label < n_clusters; label++) {
-      index->resize_list(handle, label, ext_cluster_sizes[label]);
+      resize_list(handle,
+                  lists(label),
+                  new_cluster_sizes[label],
+                  old_cluster_sizes[label],
+                  index->pq_bits(),
+                  index->pq_dim());
     }
   }
 
-  // fill the extended index with the new data (possibly, in batches)
+  // Update the pointers and the sizes
+  recompute_internal_state(handle, *index);
+
+  // Recover old cluster sizes: they are used as counters in the fill-codes kernel
+  copy(list_sizes, orig_list_sizes.data(), n_clusters, stream);
+
+  // By this point, the index state is updated and valid except it doesn't contain the new data
+  // Fill the extended index with the new data (possibly, in batches)
   utils::batch_load_iterator<IdxT> idx_batches(
     new_indices, n_rows, 1, max_batch_size, stream, batches_mr);
   for (const auto& vec_batch : vec_batches) {
@@ -1054,10 +1119,6 @@ void extend(raft::device_resources const& handle,
                            IdxT(vec_batch.size()),
                            batches_mr);
   }
-
-  // Although the list data/index pointers should be intact by this point, we still need to
-  // recompute the accum_sorted_sizes
-  recompute_internal_state(handle, *index);
 }
 
 /**
@@ -1371,12 +1432,8 @@ void deserialize_list(const raft::device_resources& handle,
   deserialize_mdspan(handle, is, data_array.view());
   deserialize_mdspan(handle, is, inds_array.view());
   copy(ld->data.data_handle(), data_array.data_handle(), data_array.size(), handle.get_stream());
-  copy(ld->indices.data_handle(), inds_array.data_handle(), inds_array.size(), handle.get_stream());
-  // fill unused index spaces with placeholder values for easier debugging
-  thrust::fill_n(handle.get_thrust_policy(),
-                 ld->indices.data_handle() + size,
-                 ld->indices.size() - size,
-                 index<IdxT>::kInvalidRecord);
+  // NB: copying exactly 'size' indices to leave the rest 'kInvalidRecord' intact.
+  copy(ld->indices.data_handle(), inds_array.data_handle(), size, handle.get_stream());
 }
 
 /**
