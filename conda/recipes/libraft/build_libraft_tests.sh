@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright (c) 2022-2023, NVIDIA CORPORATION.
 
-./build.sh tests bench -v --allgpuarch --no-nvtx
+./build.sh tests bench --allgpuarch --no-nvtx
 cmake --install cpp/build --component testing
 
 BUILD_PATH=$(expand /opt/conda/conda-bld/*libraft-split*/cpp/build/)
