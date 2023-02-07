@@ -200,16 +200,19 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
 
       // calculate the top-k elements for the current tile, by calculating the
       // full pairwise distance for the tile - and then selecting the top-k from that
-      distance::pairwise_distance<ElementType, IndexType>(handle,
-                                                          search + i * d,
-                                                          index + j * d,
-                                                          temp_distances.data(),
-                                                          current_query_size,
-                                                          current_centroid_size,
-                                                          d,
-                                                          metric,
-                                                          true,
-                                                          metric_arg);
+      // note: we're using a int32 IndexType here on purpose in order to
+      // use the pairwise_distance specializations. Since the tile size will ensure
+      // that the total memory is < 1GB per tile, this will not cause any issues
+      distance::pairwise_distance<ElementType, int>(handle,
+                                                    search + i * d,
+                                                    index + j * d,
+                                                    temp_distances.data(),
+                                                    current_query_size,
+                                                    current_centroid_size,
+                                                    d,
+                                                    metric,
+                                                    true,
+                                                    metric_arg);
 
       detail::select_k<IndexType, ElementType>(temp_distances.data(),
                                                nullptr,
