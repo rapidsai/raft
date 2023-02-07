@@ -4,4 +4,4 @@
 ./build.sh tests bench -v --allgpuarch --no-nvtx
 cmake --install cpp/build --component testing
 
-cp /opt/conda/conda-bld/*libraft-split*/cpp/build/.ninja_log /opt/conda/conda-bld/*libraft-split*/cpp/build/libraft.tests.ninja_log
+cp ${BUILD_PATH}.ninja_log ${BUILD_PATH}${TESTS_FILE}
