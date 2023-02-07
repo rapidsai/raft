@@ -16,7 +16,7 @@
 
 #include <raft/neighbors/specializations/detail/ivf_pq_search.cuh>
 
-namespace raft::spatial::knn::ivf_pq::detail {
+namespace raft::neighbors::ivf_pq::detail {
 
 template void search<float, uint64_t>(const raft::device_resources&,
                                       const search_params&,
@@ -28,4 +28,4 @@ template void search<float, uint64_t>(const raft::device_resources&,
                                       float*,
                                       rmm::mr::device_memory_resource*);
 
-}  // namespace raft::spatial::knn::ivf_pq::detail
+}  // namespace raft::neighbors::ivf_pq::detail

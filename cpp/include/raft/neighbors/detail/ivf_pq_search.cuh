@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "ann_utils.cuh"
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/neighbors/ivf_pq_types.hpp>
 
@@ -47,7 +47,7 @@
 
 #include <cuda_fp16.h>
 
-namespace raft::spatial::knn::ivf_pq::detail {
+namespace raft::neighbors::ivf_pq::detail {
 
 /**
  * Maximum value of k for the fused calculate & select in ivfpq.
@@ -60,12 +60,6 @@ static_assert((kMaxCapacity >= 32) && !(kMaxCapacity & (kMaxCapacity - 1)),
               "kMaxCapacity must be a power of two, not smaller than the WarpSize.");
 
 using namespace raft::spatial::knn::detail;  // NOLINT
-
-using raft::neighbors::ivf_pq::codebook_gen;
-using raft::neighbors::ivf_pq::index;
-using raft::neighbors::ivf_pq::kIndexGroupSize;
-using raft::neighbors::ivf_pq::kIndexGroupVecLen;
-using raft::neighbors::ivf_pq::search_params;
 
 /** 8-bit floating-point storage type.
  *
@@ -364,8 +358,8 @@ __launch_bounds__(BlockDim) __global__
   uint32_t data_ix        = neighbors_in[k];
   const uint32_t chunk_ix = find_chunk_ix(data_ix, n_probes, chunk_indices);
   const bool valid        = chunk_ix < n_probes;
-  neighbors_out[k]        = valid ? db_indices[clusters_to_probe[chunk_ix]][data_ix]
-                                  : raft::neighbors::ivf_pq::kOutOfBoundsRecord<IdxT>;
+  neighbors_out[k] =
+    valid ? db_indices[clusters_to_probe[chunk_ix]][data_ix] : ivf_pq::kOutOfBoundsRecord<IdxT>;
 }
 
 /**
@@ -1666,4 +1660,4 @@ inline void search(raft::device_resources const& handle,
   }
 }
 
-}  // namespace raft::spatial::knn::ivf_pq::detail
+}  // namespace raft::neighbors::ivf_pq::detail

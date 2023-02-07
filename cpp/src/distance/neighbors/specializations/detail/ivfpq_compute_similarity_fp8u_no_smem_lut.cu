@@ -18,9 +18,9 @@
 
 #include <cuda_fp16.h>
 
-namespace raft::spatial::knn::ivf_pq::detail {
+namespace raft::neighbors::ivf_pq::detail {
 
 template struct ivfpq_compute_similarity<float, fp_8bit<5, false>>::configured<true, false>;
 template struct ivfpq_compute_similarity<half, fp_8bit<5, false>>::configured<true, false>;
 
-}  // namespace raft::spatial::knn::ivf_pq::detail
+}  // namespace raft::neighbors::ivf_pq::detail

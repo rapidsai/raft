@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/spatial/knn/detail/ivf_pq_search.cuh>
+#include <raft/neighbors/detail/ivf_pq_search.cuh>
 
 #include <cuda_fp16.h>
 
-namespace raft::spatial::knn::ivf_pq::detail {
+namespace raft::neighbors::ivf_pq::detail {
 
 namespace {
 using fp8s_t = fp_8bit<5, true>;
@@ -62,4 +62,4 @@ RAFT_INST(float, uint64_t);
 
 #undef RAFT_INST
 
-}  // namespace raft::spatial::knn::ivf_pq::detail
+}  // namespace raft::neighbors::ivf_pq::detail

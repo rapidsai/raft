@@ -212,8 +212,8 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
 
   auto build_serialize()
   {
-    raft::spatial::knn::ivf_pq::detail::serialize<IdxT>(handle_, "ivf_pq_index", build_only());
-    return raft::spatial::knn::ivf_pq::detail::deserialize<IdxT>(handle_, "ivf_pq_index");
+    ivf_pq::detail::serialize<IdxT>(handle_, "ivf_pq_index", build_only());
+    return ivf_pq::detail::deserialize<IdxT>(handle_, "ivf_pq_index");
   }
 
   template <typename BuildIndex>
