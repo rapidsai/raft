@@ -54,7 +54,7 @@ extensions = [
 
 breathe_default_project = "RAFT"
 breathe_projects = {
-    "RAFT": "../../cpp/build/xml/",
+    "RAFT": "../../cpp/doxygen/_xml/",
 }
 ipython_mplbackend = "str"
 
