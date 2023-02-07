@@ -66,6 +66,16 @@ void fit(raft::device_resources const& handle,
          raft::host_scalar_view<double, int> inertia,
          raft::host_scalar_view<int, int> n_iter);
 
+void init_plus_plus(raft::device_resources const& handle,
+                    const raft::cluster::kmeans::KMeansParams& params,
+                    raft::device_matrix_view<const float, int, row_major> X,
+                    raft::device_matrix_view<float, int, row_major> centroids);
+
+void init_plus_plus(raft::device_resources const& handle,
+                    const raft::cluster::kmeans::KMeansParams& params,
+                    raft::device_matrix_view<const double, int, row_major> X,
+                    raft::device_matrix_view<double, int, row_major> centroids);
+
 void cluster_cost(raft::device_resources const& handle,
                   const float* X,
                   int n_samples,
