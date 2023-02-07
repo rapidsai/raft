@@ -6,10 +6,10 @@ set -euo pipefail
 source rapids-env-update
 
 export CMAKE_GENERATOR=Ninja
-export BUILD_PATH=/opt/conda/conda-bld/*libraft-split*/cpp/build/
-export DIST_FILE=libraft.distance.ninja_log
-export NN_FILE=libraft.nn.ninja_log
-export TESTS_FILE=libraft.tests.ninja_log
+BUILD_PATH=/opt/conda/conda-bld/*libraft-split*/cpp/build/
+DIST_FILE=libraft.distance.ninja_log
+NN_FILE=libraft.nn.ninja_log
+TESTS_FILE=libraft.tests.ninja_log
 
 rapids-print-env
 
