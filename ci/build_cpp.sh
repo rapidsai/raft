@@ -6,7 +6,7 @@ set -euo pipefail
 source rapids-env-update
 
 export CMAKE_GENERATOR=Ninja
-BUILD_PATH=$(expand /opt/conda/conda-bld/*libraft-split*/cpp/build/)
+BUILD_PATH=/opt/conda/conda-bld/*libraft-split*/cpp/build/
 DIST_FILE=libraft.distance.ninja_log
 NN_FILE=libraft.nn.ninja_log
 TESTS_FILE=libraft.tests.ninja_log
@@ -26,7 +26,7 @@ DIST_UPLOAD_NAME=${UPLOAD_NAME}.${DIST_FILE}
 NN_UPLOAD_NAME=${UPLOAD_NAME}.${NN_FILE}
 TESTS_UPLOAD_NAME=${UPLOAD_NAME}.${TESTS_FILE}
 
-rapids-upload-to-s3 "${DIST_UPLOAD_NAME}" "${BUILD_PATH}${DIST_FILE}"
-rapids-upload-to-s3 "${NN_UPLOAD_NAME}" "${BUILD_PATH}${NN_FILE}"
-rapids-upload-to-s3 "${TESTS_UPLOAD_NAME}" "${BUILD_PATH}${TESTS_FILE}"
+rapids-upload-to-s3 "$(echo ${DIST_UPLOAD_NAME})" "$(echo ${BUILD_PATH}${DIST_FILE})"
+rapids-upload-to-s3 "$(echo ${NN_UPLOAD_NAME})" "$(echo ${BUILD_PATH}${NN_FILE})"
+rapids-upload-to-s3 "$(echo ${TESTS_UPLOAD_NAME})" "$(echo ${BUILD_PATH}${TESTS_FILE})"
 
