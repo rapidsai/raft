@@ -11,14 +11,8 @@ rapids-dependency-file-generator \
   --file_key docs \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
 
-rapids-dependency-file-generator \
-  --output requirements \
-  --file_key docs \
-  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee requirements.txt
-  
 rapids-mamba-retry env create --force -f env.yaml -n docs
 conda activate docs
-pip install -r requirements.txt
 
 rapids-print-env
 
@@ -37,15 +31,20 @@ rapids-mamba-retry install \
   raft-dask
 
 
-# Build CPP docs
-rapids-logger "Build CPP docs"
-#pushd docs
-#sphinx-build -b dirhtml source build -W
-#popd
-./build.sh docs -v -n
+rapids-logger "Build Doxygen docs"
+pushd cpp/doxygen
+doxygen Doxyfile
+popd
+
+rapids-logger "Build Sphinx docs"
+pushd docs
+sphinx-build -b dirhtml source _html
+sphinx-build -b text source _text
+popd
 
 
 if [[ ${RAPIDS_BUILD_TYPE} == "branch" ]]; then
   rapids-logger "Upload Docs to S3"
-  aws s3 sync --delete docs/build "s3://rapidsai-docs/raft/${VERSION_NUMBER}/build"
+  aws s3 sync --delete docs/_html "s3://rapidsai-docs/raft/${VERSION_NUMBER}/html"
+  aws s3 sync --delete docs/_text "s3://rapidsai-docs/raft/${VERSION_NUMBER}/txt"
 fi
