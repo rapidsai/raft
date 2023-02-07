@@ -20,8 +20,8 @@
 
 #include "cublas_wrappers.hpp"
 
-#include <raft/core/resources.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 namespace linalg {

@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include <raft/core/resources.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
