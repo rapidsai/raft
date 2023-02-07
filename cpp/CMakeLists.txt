@@ -294,6 +294,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/refine_h_uint64_t_uint8_t.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu
+    src/distance/cluster/kmeans_init_plus_plus_double.cu
+    src/distance/cluster/kmeans_init_plus_plus_float.cu
     src/distance/distance/specializations/detail/canberra_double_double_double_int.cu
     src/distance/distance/specializations/detail/canberra_float_float_float_int.cu
     src/distance/distance/specializations/detail/chebyshev_double_double_double_int.cu
