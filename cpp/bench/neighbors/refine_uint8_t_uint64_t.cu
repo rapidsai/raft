@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,21 @@
  * limitations under the License.
  */
 
-#ifndef __KNN_SPECIALIZATIONS_H
-#define __KNN_SPECIALIZATIONS_H
+#include "refine.cuh"
+#include <common/benchmark.hpp>
 
-#pragma once
-
-#include <raft/neighbors/specializations/ball_cover.cuh>
-#include <raft/neighbors/specializations/fused_l2_knn.cuh>
-#include <raft/neighbors/specializations/ivf_pq_build.cuh>
-#include <raft/neighbors/specializations/knn.cuh>
-
-#include <raft/neighbors/specializations/detail/ivf_pq_search.cuh>
-
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations/refine.cuh>
 #endif
+
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
+
+using namespace raft::neighbors;
+
+namespace raft::bench::neighbors {
+using refine_uint8_int64 = RefineAnn<uint8_t, float, uint64_t>;
+RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs<uint64_t>());
+}  // namespace raft::bench::neighbors
