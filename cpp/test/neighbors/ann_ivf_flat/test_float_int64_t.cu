@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 
-#include "../knn.cuh"
+#include <gtest/gtest.h>
 
-namespace raft::bench::spatial {
+#include "../ann_ivf_flat.cuh"
 
-KNN_REGISTER(float, uint32_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#include <raft/cluster/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
+#endif
 
-}  // namespace raft::bench::spatial
+namespace raft::neighbors::ivf_flat {
+
+typedef AnnIVFFlatTest<float, float, std::int64_t> AnnIVFFlatTestF;
+TEST_P(AnnIVFFlatTestF, AnnIVFFlat) { this->testIVFFlat(); }
+
+INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF, ::testing::ValuesIn(inputs));
+
+}  // namespace raft::neighbors::ivf_flat

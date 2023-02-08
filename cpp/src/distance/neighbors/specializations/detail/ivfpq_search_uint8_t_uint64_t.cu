@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/specializations/detail/ivf_pq_search.cuh>
+#include <raft/spatial/knn/detail/ivf_pq_search.cuh>
 
 namespace raft::spatial::knn::ivf_pq::detail {
 
 template void search<uint8_t, uint64_t>(const raft::device_resources&,
                                         const search_params&,
                                         const index<uint64_t>&,
-                                        const float*,
+                                        const uint8_t*,
                                         uint32_t,
                                         uint32_t,
                                         uint64_t*,
