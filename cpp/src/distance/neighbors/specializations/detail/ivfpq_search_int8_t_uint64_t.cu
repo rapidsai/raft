@@ -18,13 +18,13 @@
 
 namespace raft::spatial::knn::ivf_pq::detail {
 
-template void search<float, uint32_t>(const raft::device_resources&,
+template void search<float, uint64_t>(const raft::device_resources&,
                                       const search_params&,
-                                      const index<uint32_t>&,
+                                      const index<uint64_t>&,
                                       const float*,
                                       uint32_t,
                                       uint32_t,
-                                      uint32_t*,
+                                      uint64_t*,
                                       float*,
                                       rmm::mr::device_memory_resource*);
 
