@@ -24,7 +24,7 @@ namespace raft::distance::detail {
 /**
  * @brief Compress 2D boolean matrix to bitfield
  *
- * Utility kernel for maskedL2NN.
+ * Utility kernel for masked_l2_nn.
  *
  * @tparam T
  *
@@ -85,7 +85,7 @@ __global__ void compress_to_bits_kernel(
 /**
  * @brief Compress 2D boolean matrix to bitfield
  *
- * Utility kernel for maskedL2NN.
+ * Utility kernel for masked_l2_nn.
  *
  * @tparam T
  *

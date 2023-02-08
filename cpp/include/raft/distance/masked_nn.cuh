@@ -34,7 +34,7 @@ namespace distance {
  */
 
 /**
- * @brief Parameter struct for maskedL2NN function
+ * @brief Parameter struct for masked_l2_nn function
  *
  * @tparam ReduceOpT    Type of reduction operator in the epilogue.
  * @tparam KVPReduceOpT Type of Reduction operation on key value pairs.
@@ -47,7 +47,7 @@ namespace distance {
  * using DataT       = float;
  * using RedOpT      = raft::distance::MinAndDistanceReduceOp<IdxT, DataT>;
  * using PairRedOpT  = raft::distance::KVPMinReduce<IdxT, DataT>;
- * using ParamT      = raft::distance::MaskedL2NNParams<RedOpT, PairRedOpT>;
+ * using ParamT      = raft::distance::masked_l2_nn_params<RedOpT, PairRedOpT>;
  *
  * bool init_out = true;
  * bool sqrt     = false;
@@ -64,7 +64,7 @@ namespace distance {
  * (`sqrt`) and whether to initialize the output buffer (`initOutBuffer`).
  */
 template <typename ReduceOpT, typename KVPReduceOpT>
-struct MaskedL2NNParams {
+struct masked_l2_nn_params {
   /** Reduction operator in the epilogue */
   ReduceOpT redOp;
   /** Reduction operation on key value pairs */
@@ -106,12 +106,12 @@ struct MaskedL2NNParams {
  *
  * [SDDMM](https://ieeexplore.ieee.org/document/8638042) (sampled dense-dense
  * matrix multiplication) is a matrix-matrix multiplication where only part of
- * the output is computed. Compared to maskedL2NN, there are a few differences:
+ * the output is computed. Compared to masked_l2_nn, there are a few differences:
  *
- * - The output of maskedL2NN is a single vector (of nearest neighbors) and not
+ * - The output of masked_l2_nn is a single vector (of nearest neighbors) and not
  *   a sparse matrix.
  *
- * - The sampling in maskedL2NN is expressed through intermediate "groups"
+ * - The sampling in masked_l2_nn is expressed through intermediate "groups"
      rather than a CSR format.
  *
  * @tparam DataT     data type
@@ -145,15 +145,15 @@ struct MaskedL2NNParams {
  *                           (on device)
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
-void maskedL2NN(raft::device_resources const& handle,
-                raft::distance::MaskedL2NNParams<ReduceOpT, KVPReduceOpT> params,
-                raft::device_matrix_view<const DataT, IdxT, raft::layout_c_contiguous> x,
-                raft::device_matrix_view<const DataT, IdxT, raft::layout_c_contiguous> y,
-                raft::device_vector_view<const DataT, IdxT, raft::layout_c_contiguous> x_norm,
-                raft::device_vector_view<const DataT, IdxT, raft::layout_c_contiguous> y_norm,
-                raft::device_matrix_view<const bool, IdxT, raft::layout_c_contiguous> adj,
-                raft::device_vector_view<const IdxT, IdxT, raft::layout_c_contiguous> group_idxs,
-                raft::device_vector_view<OutT, IdxT, raft::layout_c_contiguous> out)
+void masked_l2_nn(raft::device_resources const& handle,
+                  raft::distance::masked_l2_nn_params<ReduceOpT, KVPReduceOpT> params,
+                  raft::device_matrix_view<const DataT, IdxT, raft::layout_c_contiguous> x,
+                  raft::device_matrix_view<const DataT, IdxT, raft::layout_c_contiguous> y,
+                  raft::device_vector_view<const DataT, IdxT, raft::layout_c_contiguous> x_norm,
+                  raft::device_vector_view<const DataT, IdxT, raft::layout_c_contiguous> y_norm,
+                  raft::device_matrix_view<const bool, IdxT, raft::layout_c_contiguous> adj,
+                  raft::device_vector_view<const IdxT, IdxT, raft::layout_c_contiguous> group_idxs,
+                  raft::device_vector_view<OutT, IdxT, raft::layout_c_contiguous> out)
 {
   IdxT m          = x.extent(0);
   IdxT n          = y.extent(0);
@@ -173,22 +173,22 @@ void maskedL2NN(raft::device_resources const& handle,
   // If there is no work to be done, return immediately.
   if (m == 0 || n == 0 || k == 0 || num_groups == 0) { return; }
 
-  detail::maskedL2NNImpl<DataT, OutT, IdxT, ReduceOpT>(handle,
-                                                       out.data_handle(),
-                                                       x.data_handle(),
-                                                       y.data_handle(),
-                                                       x_norm.data_handle(),
-                                                       y_norm.data_handle(),
-                                                       adj.data_handle(),
-                                                       group_idxs.data_handle(),
-                                                       num_groups,
-                                                       m,
-                                                       n,
-                                                       k,
-                                                       params.redOp,
-                                                       params.pairRedOp,
-                                                       params.sqrt,
-                                                       params.initOutBuffer);
+  detail::masked_l2_nn_impl<DataT, OutT, IdxT, ReduceOpT>(handle,
+                                                          out.data_handle(),
+                                                          x.data_handle(),
+                                                          y.data_handle(),
+                                                          x_norm.data_handle(),
+                                                          y_norm.data_handle(),
+                                                          adj.data_handle(),
+                                                          group_idxs.data_handle(),
+                                                          num_groups,
+                                                          m,
+                                                          n,
+                                                          k,
+                                                          params.redOp,
+                                                          params.pairRedOp,
+                                                          params.sqrt,
+                                                          params.initOutBuffer);
 }
 
 /** @} */
