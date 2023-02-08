@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,19 @@
  * limitations under the License.
  */
 
-#include "../ann_ivf_pq.cuh"
+#include <raft/neighbors/ivf_pq.cuh>
 
 namespace raft::neighbors::ivf_pq {
 
-using f32_f32_u32 = ivf_pq_test<float, float, uint32_t>;
+#define RAFT_INST_BUILD_EXTEND(T, IdxT)                              \
+  template auto build<T, IdxT>(raft::device_resources const& handle, \
+                               const index_params& params,           \
+                               const T* dataset,                     \
+                               IdxT n_rows,                          \
+                               uint32_t dim)                         \
+    ->index<IdxT>;
+RAFT_INST_BUILD_EXTEND(float, uint64_t);
 
-TEST_BUILD_SEARCH(f32_f32_u32)
-INSTANTIATE(f32_f32_u32, defaults() + var_n_probes() + var_k() + special_cases());
+#undef RAFT_INST_BUILD_EXTEND
 
 }  // namespace raft::neighbors::ivf_pq

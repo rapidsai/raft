@@ -61,9 +61,9 @@ RAFT_INST_ALL_OUT_T(fp8u_t)
                                        float*,                        \
                                        rmm::mr::device_memory_resource*);
 
-RAFT_INST(float, int64_t);
-RAFT_INST(float, uint32_t);
 RAFT_INST(float, uint64_t);
+RAFT_INST(int8_t, uint64_t);
+RAFT_INST(uint8_t, uint64_t);
 
 #undef RAFT_INST
 
