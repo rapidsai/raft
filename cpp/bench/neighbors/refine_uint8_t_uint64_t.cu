@@ -14,13 +14,21 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/specializations/detail/ivf_pq_compute_similarity.cuh>
+#include "refine.cuh"
+#include <common/benchmark.hpp>
 
-#include <cuda_fp16.h>
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations/refine.cuh>
+#endif
 
-namespace raft::neighbors::ivf_pq::detail {
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
 
-template struct ivfpq_compute_similarity<float, fp_8bit<5, true>>::configured<true, true>;
-template struct ivfpq_compute_similarity<half, fp_8bit<5, true>>::configured<true, true>;
+using namespace raft::neighbors;
 
-}  // namespace raft::neighbors::ivf_pq::detail
+namespace raft::bench::neighbors {
+using refine_uint8_int64 = RefineAnn<uint8_t, float, uint64_t>;
+RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs<uint64_t>());
+}  // namespace raft::bench::neighbors

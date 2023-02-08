@@ -45,21 +45,4 @@ RAFT_INST_ALL_OUT_T(fp8u_t)
 #undef RAFT_INST_ALL_IDX_T
 #undef RAFT_INST_ALL_OUT_T
 
-#define RAFT_INST(T, IdxT)                                            \
-  extern template void search<T, IdxT>(raft::device_resources const&, \
-                                       const search_params&,          \
-                                       const index<IdxT>&,            \
-                                       const T*,                      \
-                                       uint32_t,                      \
-                                       uint32_t,                      \
-                                       IdxT*,                         \
-                                       float*,                        \
-                                       rmm::mr::device_memory_resource*);
-
-RAFT_INST(float, int64_t);
-RAFT_INST(float, uint32_t);
-RAFT_INST(float, uint64_t);
-
-#undef RAFT_INST
-
 }  // namespace raft::neighbors::ivf_pq::detail

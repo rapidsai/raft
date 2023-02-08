@@ -14,13 +14,20 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/specializations/detail/ivf_pq_compute_similarity.cuh>
+#include <gtest/gtest.h>
 
-#include <cuda_fp16.h>
+#include "../ann_ivf_flat.cuh"
 
-namespace raft::neighbors::ivf_pq::detail {
+#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#include <raft/cluster/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
+#endif
 
-template struct ivfpq_compute_similarity<float, fp_8bit<5, true>>::configured<true, true>;
-template struct ivfpq_compute_similarity<half, fp_8bit<5, true>>::configured<true, true>;
+namespace raft::neighbors::ivf_flat {
 
-}  // namespace raft::neighbors::ivf_pq::detail
+typedef AnnIVFFlatTest<float, uint8_t, std::int64_t> AnnIVFFlatTestF_uint8;
+TEST_P(AnnIVFFlatTestF_uint8, AnnIVFFlat) { this->testIVFFlat(); }
+
+INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF_uint8, ::testing::ValuesIn(inputs));
+
+}  // namespace raft::neighbors::ivf_flat

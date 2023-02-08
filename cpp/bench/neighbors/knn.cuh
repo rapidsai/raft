@@ -26,14 +26,11 @@
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 #if defined RAFT_NN_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/cluster/specializations.cuh>
-#include <raft/neighbors/specializations.cuh>
-#endif
 #endif
 
 #include <rmm/mr/device/managed_memory_resource.hpp>
