@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <memory>
 #include <raft/core/device_mdspan.hpp>
@@ -72,13 +72,13 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
                                 false);
   }
 
+  const raft::device_resources handle;
   EpsInputs<T, IdxT> param;
   cudaStream_t stream = 0;
   rmm::device_uvector<T> data;
   rmm::device_uvector<bool> adj;
   rmm::device_uvector<IdxT> labels, vd;
   IdxT batchSize;
-  const raft::handle_t handle;
 };  // class EpsNeighTest
 
 const std::vector<EpsInputs<float, int>> inputsfi = {

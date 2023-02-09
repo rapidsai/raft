@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,6 +94,11 @@ void colWeightedMean(
 }
 
 /**
+ * @defgroup stats_weighted_mean Weighted Mean
+ * @{
+ */
+
+/**
  * @brief Compute the weighted mean of the input matrix with a
  * vector of weights, along rows or along columns
  *
@@ -107,7 +112,7 @@ void colWeightedMean(
  * @param[in]  along_rows whether to reduce along rows or columns
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void weighted_mean(const raft::handle_t& handle,
+void weighted_mean(raft::device_resources const& handle,
                    raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                    raft::device_vector_view<const value_t, idx_t> weights,
                    raft::device_vector_view<value_t, idx_t> mu,
@@ -149,7 +154,7 @@ void weighted_mean(const raft::handle_t& handle,
  * @param[out] mu the output mean vector of size nrows
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void row_weighted_mean(const raft::handle_t& handle,
+void row_weighted_mean(raft::device_resources const& handle,
                        raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                        raft::device_vector_view<const value_t, idx_t> weights,
                        raft::device_vector_view<value_t, idx_t> mu)
@@ -170,13 +175,16 @@ void row_weighted_mean(const raft::handle_t& handle,
  * @param[out] mu the output mean vector of size ncols
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void col_weighted_mean(const raft::handle_t& handle,
+void col_weighted_mean(raft::device_resources const& handle,
                        raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                        raft::device_vector_view<const value_t, idx_t> weights,
                        raft::device_vector_view<value_t, idx_t> mu)
 {
   weighted_mean(handle, data, weights, mu, false);
 }
+
+/** @} */  // end group stats_weighted_mean
+
 };  // end namespace stats
 };  // end namespace raft
 

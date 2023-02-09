@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,15 +28,14 @@ from pylibraft.common.handle import auto_sync_handle
 
 from libcpp cimport bool
 
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle cimport device_resources
+from pylibraft.random.cpp.rng_state cimport RngState
 
-from .rng_state cimport RngState
 
+cdef extern from "raft_runtime/random/rmat_rectangular_generator.hpp" \
+        namespace "raft::runtime::random" nogil:
 
-cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
-        namespace "raft::random::runtime":
-
-    cdef void rmat_rectangular_gen(const handle_t &handle,
+    cdef void rmat_rectangular_gen(const device_resources &handle,
                                    int* out,
                                    int* out_src,
                                    int* out_dst,
@@ -46,7 +45,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int n_edges,
                                    RngState& r) except +
 
-    cdef void rmat_rectangular_gen(const handle_t &handle,
+    cdef void rmat_rectangular_gen(const device_resources &handle,
                                    int64_t* out,
                                    int64_t* out_src,
                                    int64_t* out_dst,
@@ -56,7 +55,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int64_t n_edges,
                                    RngState& r) except +
 
-    cdef void rmat_rectangular_gen(const handle_t &handle,
+    cdef void rmat_rectangular_gen(const device_resources &handle,
                                    int* out,
                                    int* out_src,
                                    int* out_dst,
@@ -66,7 +65,7 @@ cdef extern from "raft_distance/random/rmat_rectangular_generator.hpp" \
                                    int n_edges,
                                    RngState& r) except +
 
-    cdef void rmat_rectangular_gen(const handle_t &handle,
+    cdef void rmat_rectangular_gen(const device_resources &handle,
                                    int64_t* out,
                                    int64_t* out_src,
                                    int64_t* out_dst,
@@ -98,30 +97,28 @@ def rmat(out, theta, r_scale, c_scale, seed=12345, handle=None):
     Examples
     --------
 
-    .. code-block:: python
+    >>> import cupy as cp
 
-        import cupy as cp
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.random import rmat
 
-        from pylibraft.common import Handle
-        from pylibraft.random import rmat
+    >>> n_edges = 5000
+    >>> r_scale = 16
+    >>> c_scale = 14
+    >>> theta_len = max(r_scale, c_scale) * 4
 
-        n_edges = 5000
-        r_scale = 16
-        c_scale = 14
-        theta_len = max(r_scale, c_scale) * 4
+    >>> out = cp.empty((n_edges, 2), dtype=cp.int32)
+    >>> theta = cp.random.random_sample(theta_len, dtype=cp.float32)
 
-        out = cp.empty((n_edges, 2), dtype=cp.int32)
-        theta = cp.random.random_sample(theta_len, dtype=cp.float32)
+    >>> # A single RAFT handle can optionally be reused across
+    >>> # pylibraft functions.
+    >>> handle = Handle()
 
-        # A single RAFT handle can optionally be reused across
-        # pylibraft functions.
-        handle = Handle()
-        ...
-        rmat(out, theta, r_scale, c_scale, handle=handle)
-        ...
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
+    >>> rmat(out, theta, r_scale, c_scale, handle=handle)
+
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
    """
 
     if theta is None:
@@ -141,7 +138,7 @@ def rmat(out, theta, r_scale, c_scale, seed=12345, handle=None):
     cdef RngState *rng = new RngState(seed)
 
     handle = handle if handle is not None else Handle()
-    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
     if out_dt == np.int32 and theta_dt == np.float32:
         rmat_rectangular_gen(deref(h),

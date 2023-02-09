@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,7 @@
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
 
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuIndexFlat.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
+#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
 
 namespace raft {
 namespace spatial {
@@ -55,9 +50,14 @@ __global__ void select_k_kernel(const key_t* inK,
   __shared__ key_t smemK[kNumWarps * warp_q];
   __shared__ payload_t smemV[kNumWarps * warp_q];
 
-  faiss::gpu::
-    BlockSelect<key_t, payload_t, select_min, faiss::gpu::Comparator<key_t>, warp_q, thread_q, tpb>
-      heap(initK, initV, smemK, smemV, k);
+  faiss_select::BlockSelect<key_t,
+                            payload_t,
+                            select_min,
+                            faiss_select::Comparator<key_t>,
+                            warp_q,
+                            thread_q,
+                            tpb>
+    heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
   int row = blockIdx.x;

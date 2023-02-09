@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,21 @@
 
 #pragma once
 
-#include "ivf_pq_types.hpp"
+#include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/spatial/knn/detail/ivf_pq_build.cuh>
 #include <raft/spatial/knn/detail/ivf_pq_search.cuh>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
 namespace raft::neighbors::ivf_pq {
+
+/**
+ * @defgroup ivf_pq IVF PQ Algorithm
+ * @{
+ */
 
 /**
  * @brief Build the index from the dataset for efficient search.
@@ -60,9 +65,11 @@ namespace raft::neighbors::ivf_pq {
  * @return the constructed ivf-pq index
  */
 template <typename T, typename IdxT = uint32_t>
-inline auto build(
-  const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
-  -> index<IdxT>
+inline auto build(raft::device_resources const& handle,
+                  const index_params& params,
+                  const T* dataset,
+                  IdxT n_rows,
+                  uint32_t dim) -> index<IdxT>
 {
   return raft::spatial::knn::ivf_pq::detail::build(handle, params, dataset, n_rows, dim);
 }
@@ -100,7 +107,7 @@ inline auto build(
  * @return the constructed extended ivf-pq index
  */
 template <typename T, typename IdxT>
-inline auto extend(const handle_t& handle,
+inline auto extend(raft::device_resources const& handle,
                    const index<IdxT>& orig_index,
                    const T* new_vectors,
                    const IdxT* new_indices,
@@ -125,7 +132,7 @@ inline auto extend(const handle_t& handle,
  * @param n_rows the number of samples
  */
 template <typename T, typename IdxT>
-inline void extend(const handle_t& handle,
+inline void extend(raft::device_resources const& handle,
                    index<IdxT>* index,
                    const T* new_vectors,
                    const IdxT* new_indices,
@@ -177,7 +184,7 @@ inline void extend(const handle_t& handle,
  *           memory pool here to avoid memory allocations within search).
  */
 template <typename T, typename IdxT>
-inline void search(const handle_t& handle,
+inline void search(raft::device_resources const& handle,
                    const search_params& params,
                    const index<IdxT>& index,
                    const T* queries,
@@ -190,5 +197,7 @@ inline void search(const handle_t& handle,
   return raft::spatial::knn::ivf_pq::detail::search(
     handle, params, index, queries, n_queries, k, neighbors, distances, mr);
 }
+
+/** @} */  // end group ivf_pq
 
 }  // namespace raft::neighbors::ivf_pq

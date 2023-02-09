@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/transpose.cuh>
@@ -117,7 +117,7 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream = 0;
 
   MakeRegressionInputs<T> params;
@@ -127,6 +127,9 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
 
 typedef MakeRegressionTest<float> MakeRegressionTestF;
 const std::vector<MakeRegressionInputs<float>> inputsf_t = {
+  {0.01f, 256, 32, 16, 1, -1, 0.f, true, raft::random::GenPC, 1234ULL},
+  {0.01f, 1000, 100, 47, 4, 65, 4.2f, true, raft::random::GenPC, 1234ULL},
+  {0.01f, 20000, 500, 450, 13, -1, -3.f, false, raft::random::GenPC, 1234ULL},
   {0.01f, 256, 32, 16, 1, -1, 0.f, true, raft::random::GenPhilox, 1234ULL},
   {0.01f, 1000, 100, 47, 4, 65, 4.2f, true, raft::random::GenPhilox, 1234ULL},
   {0.01f, 20000, 500, 450, 13, -1, -3.f, false, raft::random::GenPhilox, 1234ULL}};
@@ -147,6 +150,9 @@ INSTANTIATE_TEST_CASE_P(MakeRegressionTests, MakeRegressionTestF, ::testing::Val
 
 typedef MakeRegressionTest<double> MakeRegressionTestD;
 const std::vector<MakeRegressionInputs<double>> inputsd_t = {
+  {0.01, 256, 32, 16, 1, -1, 0.0, true, raft::random::GenPC, 1234ULL},
+  {0.01, 1000, 100, 47, 4, 65, 4.2, true, raft::random::GenPC, 1234ULL},
+  {0.01, 20000, 500, 450, 13, -1, -3.0, false, raft::random::GenPC, 1234ULL},
   {0.01, 256, 32, 16, 1, -1, 0.0, true, raft::random::GenPhilox, 1234ULL},
   {0.01, 1000, 100, 47, 4, 65, 4.2, true, raft::random::GenPhilox, 1234ULL},
   {0.01, 20000, 500, 450, 13, -1, -3.0, false, raft::random::GenPhilox, 1234ULL}};
@@ -245,7 +251,7 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
 
  private:
   MakeRegressionInputs<T> params{::testing::TestWithParam<MakeRegressionInputs<T>>::GetParam()};
-  raft::handle_t handle;
+  raft::device_resources handle;
   rmm::device_uvector<T> values_ret{params.n_samples * params.n_targets, handle.get_stream()};
   rmm::device_uvector<T> values_prod{params.n_samples * params.n_targets, handle.get_stream()};
   int zero_count = -1;

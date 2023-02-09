@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,21 @@
 #pragma once
 
 #include "ann_utils.cuh"
-#include "topk.cuh"
-#include "topk/warpsort_topk.cuh"
 
 #include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/detail/select_k.cuh>
+#include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/device_loads_stores.cuh>
@@ -129,11 +132,11 @@ struct fp_8bit {
  * Select the clusters to probe and, as a side-effect, translate the queries type `T -> float`
  *
  * Assuming the number of clusters is not that big (a few thousands), we do a plain GEMM
- * followed by select_topk to select the clusters to probe. There's no need to return the similarity
+ * followed by select_k to select the clusters to probe. There's no need to return the similarity
  * scores here.
  */
 template <typename T>
-void select_clusters(const handle_t& handle,
+void select_clusters(raft::device_resources const& handle,
                      uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                      float* float_queries,         // [n_queries, dim_ext]
                      uint32_t n_queries,
@@ -147,7 +150,6 @@ void select_clusters(const handle_t& handle,
                      rmm::mr::device_memory_resource* mr)
 {
   auto stream = handle.get_stream();
-  rmm::device_uvector<float> qc_distances(n_queries * n_lists, stream, mr);
   /* NOTE[qc_distances]
 
   We compute query-center distances to choose the clusters to probe.
@@ -157,37 +159,38 @@ void select_clusters(const handle_t& handle,
       cluster_centers[i, dim()] contains the squared norm of the center vector i;
       we extend the dimension K of the GEMM to compute it together with all the dot products:
 
-      `cq_distances[i, j] = |cluster_centers[j]|^2 - 2 * (queries[i], cluster_centers[j])`
+      `qc_distances[i, j] = |cluster_centers[j]|^2 - 2 * (queries[i], cluster_centers[j])`
 
       This is a monotonous mapping of the proper L2 distance.
 
     IP distance:
-      `cq_distances[i, j] = - (queries[i], cluster_centers[j])`
+      `qc_distances[i, j] = - (queries[i], cluster_centers[j])`
 
       This is a negative inner-product distance. We minimize it to find the similar clusters.
 
-      NB: cq_distances is NOT used further in ivfpq_search.
+      NB: qc_distances is NOT used further in ivfpq_search.
  */
   float norm_factor;
   switch (metric) {
+    case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded: norm_factor = 1.0 / -2.0; break;
     case raft::distance::DistanceType::InnerProduct: norm_factor = 0.0; break;
     default: RAFT_FAIL("Unsupported distance type %d.", int(metric));
   }
-  linalg::writeOnlyUnaryOp(
-    float_queries,
-    dim_ext * n_queries,
-    [queries, dim, dim_ext, norm_factor] __device__(float* out, uint32_t ix) {
+  auto float_queries_view =
+    raft::make_device_vector_view<float, uint32_t>(float_queries, dim_ext * n_queries);
+  linalg::map_offset(
+    handle, float_queries_view, [queries, dim, dim_ext, norm_factor] __device__(uint32_t ix) {
       uint32_t col = ix % dim_ext;
       uint32_t row = ix / dim_ext;
-      *out         = col < dim ? utils::mapping<float>{}(queries[col + dim * row]) : norm_factor;
-    },
-    stream);
+      return col < dim ? utils::mapping<float>{}(queries[col + dim * row]) : norm_factor;
+    });
 
   float alpha;
   float beta;
   uint32_t gemm_k = dim;
   switch (metric) {
+    case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded: {
       alpha  = -2.0;
       beta   = 0.0;
@@ -200,6 +203,7 @@ void select_clusters(const handle_t& handle,
     } break;
     default: RAFT_FAIL("Unsupported distance type %d.", int(metric));
   }
+  rmm::device_uvector<float> qc_distances(n_queries * n_lists, stream, mr);
   linalg::gemm(handle,
                true,
                false,
@@ -218,16 +222,16 @@ void select_clusters(const handle_t& handle,
 
   // Select neighbor clusters for each query.
   rmm::device_uvector<float> cluster_dists(n_queries * n_probes, stream, mr);
-  select_topk<float, uint32_t>(qc_distances.data(),
-                               nullptr,
-                               n_queries,
-                               n_lists,
-                               n_probes,
-                               cluster_dists.data(),
-                               clusters_to_probe,
-                               true,
-                               stream,
-                               mr);
+  matrix::detail::select_k<float, uint32_t>(qc_distances.data(),
+                                            nullptr,
+                                            n_queries,
+                                            n_lists,
+                                            n_probes,
+                                            cluster_dists.data(),
+                                            clusters_to_probe,
+                                            true,
+                                            stream,
+                                            mr);
 }
 
 /**
@@ -418,14 +422,12 @@ void postprocess_distances(float* out,        // [n_queries, topk]
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        [scaling_factor] __device__(ScoreT x) -> float {
-          return scaling_factor * scaling_factor * float(x);
-        },
-        stream);
+      linalg::unaryOp(out,
+                      in,
+                      len,
+                      raft::compose_op(raft::mul_const_op<float>{scaling_factor * scaling_factor},
+                                       raft::cast_op<float>{}),
+                      stream);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
@@ -433,18 +435,17 @@ void postprocess_distances(float* out,        // [n_queries, topk]
         out,
         in,
         len,
-        [scaling_factor] __device__(ScoreT x) -> float { return scaling_factor * sqrtf(float(x)); },
+        raft::compose_op{
+          raft::mul_const_op<float>{scaling_factor}, raft::sqrt_op{}, raft::cast_op<float>{}},
         stream);
     } break;
     case distance::DistanceType::InnerProduct: {
-      linalg::unaryOp(
-        out,
-        in,
-        len,
-        [scaling_factor] __device__(ScoreT x) -> float {
-          return -scaling_factor * scaling_factor * float(x);
-        },
-        stream);
+      linalg::unaryOp(out,
+                      in,
+                      len,
+                      raft::compose_op(raft::mul_const_op<float>{-scaling_factor * scaling_factor},
+                                       raft::cast_op<float>{}),
+                      stream);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }
@@ -452,14 +453,15 @@ void postprocess_distances(float* out,        // [n_queries, topk]
 
 template <typename T, typename IdxT>
 struct dummy_block_sort_t {
-  using queue_t = topk::warp_sort_distributed<WarpSize, true, T, IdxT>;
+  using queue_t = matrix::detail::select::warpsort::warp_sort_distributed<WarpSize, true, T, IdxT>;
   template <typename... Args>
-  __device__ dummy_block_sort_t(int k, uint8_t* smem_buf, Args...){};
+  __device__ dummy_block_sort_t(int k, Args...){};
 };
 
 template <int Capacity, typename T, typename IdxT>
 struct pq_block_sort {
-  using type = topk::block_sort<topk::warp_sort_distributed, Capacity, true, T, IdxT>;
+  using type = matrix::detail::select::warpsort::
+    block_sort<matrix::detail::select::warpsort::warp_sort_distributed, Capacity, true, T, IdxT>;
 };
 
 template <typename T, typename IdxT>
@@ -712,6 +714,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     if constexpr (PrecompBaseDiff) {
       // Reduce number of memory reads later by pre-computing parts of the score
       switch (metric) {
+        case distance::DistanceType::L2SqrtExpanded:
         case distance::DistanceType::L2Expanded: {
           for (uint32_t i = threadIdx.x; i < dim; i += blockDim.x) {
             base_diff[i] = query[i] - cluster_center[i];
@@ -745,6 +748,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
           float pq_c = *cur_pq_center;
           cur_pq_center += PqShift;
           switch (metric) {
+            case distance::DistanceType::L2SqrtExpanded:
             case distance::DistanceType::L2Expanded: {
               float diff;
               if constexpr (PrecompBaseDiff) {
@@ -806,11 +810,12 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     constexpr OutT kDummy = upper_bound<OutT>();
     OutT query_kth        = kDummy;
     if constexpr (kManageLocalTopK) { query_kth = OutT(query_kths[query_ix]); }
-    local_topk_t block_topk(topk, smem_buf, query_kth);
+    local_topk_t block_topk(topk, nullptr, query_kth);
     OutT early_stop_limit = kDummy;
     switch (metric) {
       // If the metric is non-negative, we can use the query_kth approximation as an early stop
       // threshold to skip some iterations when computing the score. Add such metrics here.
+      case distance::DistanceType::L2SqrtExpanded:
       case distance::DistanceType::L2Expanded: {
         early_stop_limit = query_kth;
       } break;
@@ -842,7 +847,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     if constexpr (kManageLocalTopK) {
       // sync threads before the topk merging operation, because we reuse smem_buf
       __syncthreads();
-      block_topk.done();
+      block_topk.done(smem_buf);
       block_topk.store(out_scores, out_indices);
       if (threadIdx.x == 0) { atomicMin(query_kths + query_ix, float(out_scores[topk - 1])); }
     } else {
@@ -1052,9 +1057,11 @@ struct ivfpq_compute_similarity {
 
       [[nodiscard]] auto operator()(uint32_t n_threads) const -> size_t
       {
-        return manage_local_topk ? topk::template calc_smem_size_for_block_wide<OutT, IdxT>(
-                                     n_threads / subwarp_size, topk)
-                                 : 0;
+        return manage_local_topk
+                 ? matrix::detail::select::warpsort::template calc_smem_size_for_block_wide<OutT,
+                                                                                            IdxT>(
+                     n_threads / subwarp_size, topk)
+                 : 0;
       }
     } ltk_mem{manage_local_topk, topk};
 
@@ -1173,7 +1180,13 @@ struct ivfpq_compute_similarity {
               // If we don't have enough repeating probes (locality_hint < tmp.blocks_per_sm),
               // the locality is not going to improve with increasing the number of blocks per SM.
               // Hence, the only metric here is the occupancy.
-              select_it = tmp.occupancy > cur.occupancy;
+              bool improves_occupancy = tmp.occupancy > cur.occupancy;
+              // Otherwise, the performance still improves with a smaller block size,
+              // given there is enough work to do
+              bool improves_parallelism =
+                tmp.occupancy == cur.occupancy &&
+                7u * tmp.blocks_per_sm * dev_props.multiProcessorCount <= n_blocks;
+              select_it = improves_occupancy || improves_parallelism;
             } else {
               // If we don't use shared memory for the lookup table, increasing the number of blocks
               // is very taxing on the global memory usage.
@@ -1249,7 +1262,7 @@ inline auto is_local_topk_feasible(uint32_t k, uint32_t n_probes, uint32_t n_que
  *      is guaranteed to fit into GPU memory.
  */
 template <typename ScoreT, typename LutT, typename IdxT>
-void ivfpq_search_worker(const handle_t& handle,
+void ivfpq_search_worker(raft::device_resources const& handle,
                          const index<IdxT>& index,
                          uint32_t max_samples,
                          uint32_t n_probes,
@@ -1403,16 +1416,16 @@ void ivfpq_search_worker(const handle_t& handle,
 
   // Select topk vectors for each query
   rmm::device_uvector<ScoreT> topk_dists(n_queries * topK, stream, mr);
-  select_topk<ScoreT, IdxT>(distances_buf.data(),
-                            neighbors_ptr,
-                            n_queries,
-                            topk_len,
-                            topK,
-                            topk_dists.data(),
-                            neighbors,
-                            true,
-                            stream,
-                            mr);
+  matrix::detail::select_k<ScoreT, IdxT>(distances_buf.data(),
+                                         neighbors_ptr,
+                                         n_queries,
+                                         topk_len,
+                                         topK,
+                                         topk_dists.data(),
+                                         neighbors,
+                                         true,
+                                         stream,
+                                         mr);
 
   // Postprocessing
   postprocess_distances(
@@ -1515,11 +1528,7 @@ inline auto get_max_batch_size(uint32_t k,
   };
   constexpr uint64_t kMaxWsSize = 1024 * 1024 * 1024;
   if (ws_size(max_batch_size) > kMaxWsSize) {
-    uint32_t smaller_batch_size = 1;
-    // take powers of two for better alignment
-    while (smaller_batch_size * 2 <= max_batch_size) {
-      smaller_batch_size <<= 1;
-    }
+    uint32_t smaller_batch_size = bound_by_power_of_two(max_batch_size);
     // gradually reduce the batch size until we fit into the max size limit.
     while (smaller_batch_size > 1 && ws_size(smaller_batch_size) > kMaxWsSize) {
       smaller_batch_size >>= 1;
@@ -1531,7 +1540,7 @@ inline auto get_max_batch_size(uint32_t k,
 
 /** See raft::spatial::knn::ivf_pq::search docs */
 template <typename T, typename IdxT>
-inline void search(const handle_t& handle,
+inline void search(raft::device_resources const& handle,
                    const search_params& params,
                    const index<IdxT>& index,
                    const T* queries,

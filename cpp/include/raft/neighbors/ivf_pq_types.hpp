@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,11 @@
 #include <type_traits>
 
 namespace raft::neighbors::ivf_pq {
+
+/**
+ * @ingroup ivf_pq
+ * @{
+ */
 
 /** A type for specifying how PQ codebooks are created. */
 enum class codebook_gen {  // NOLINT
@@ -258,7 +263,7 @@ struct index : ann::index {
   ~index()                          = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle,
+  index(raft::device_resources const& handle,
         raft::distance::DistanceType metric,
         codebook_gen codebook_kind,
         uint32_t n_lists,
@@ -290,7 +295,7 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle,
+  index(raft::device_resources const& handle,
         const index_params& params,
         uint32_t dim,
         uint32_t n_nonempty_lists = 0)
@@ -309,10 +314,18 @@ struct index : ann::index {
    * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
    * of data.
    */
-  void allocate(const handle_t& handle, IdxT index_size)
+  void allocate(raft::device_resources const& handle, IdxT index_size)
   {
-    pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));
-    indices_    = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    try {
+      pq_dataset_ = make_device_mdarray<uint8_t>(handle, make_pq_dataset_extents(index_size));
+      indices_    = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
+    } catch (std::bad_alloc& e) {
+      RAFT_FAIL(
+        "ivf-pq: failed to allocate a big enough index to hold all data (size: %zu). "
+        "Allocator exception: %s",
+        size_t(index_size),
+        e.what());
+    }
     if (index_size > 0) {
       thrust::fill_n(
         handle.get_thrust_policy(), indices_.data_handle(), index_size, kInvalidRecord);
@@ -429,7 +442,7 @@ struct index : ann::index {
 
   /** A helper function to determine the extents of an array enough to hold a given amount of data.
    */
-  auto make_pq_dataset_extents(IdxT n_rows) -> pq_dataset_extents
+  auto make_pq_dataset_extents(IdxT n_rows) const -> pq_dataset_extents
   {
     // how many elems of pq_dim fit into one kIndexGroupVecLen-byte chunk
     auto pq_chunk = (kIndexGroupVecLen * 8u) / pq_bits();
@@ -496,5 +509,7 @@ struct index : ann::index {
     return r;
   }
 };
+
+/** @} */
 
 }  // namespace raft::neighbors::ivf_pq

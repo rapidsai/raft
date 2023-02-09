@@ -8,12 +8,20 @@ distances have been highly optimized and support a wide assortment of different 
    :language: c++
    :class: highlight
 
+Distance Types
+--------------
 
-Distance
-########
+``#include <raft/distance/distance_types.hpp>``
 
-Header: `raft/distance/distance.cuh`
+namespace *raft::distance*
 
-.. doxygennamespace:: raft::distance
-    :project: RAFT
-    :members:
+.. doxygenenum:: raft::distance::DistanceType
+   :project: RAFT
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   distance_pairwise.rst
+   distance_1nn.rst

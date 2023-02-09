@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <cmath>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -65,7 +65,7 @@ enum Correlation : unsigned char {
 template <typename T>
 struct MVGInputs {
   T tolerance;
-  typename multi_variable_gaussian<T>::Decomposer method;
+  typename detail::multi_variable_gaussian<T>::Decomposer method;
   Correlation corr;
   int dim, nPoints;
   unsigned long long int seed;
@@ -79,9 +79,10 @@ template <typename T>
 
 template <typename T>
 class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
- protected:
+ public:
   MVGTest()
-    : workspace_d(0, handle.get_stream()),
+    : params(::testing::TestWithParam<MVGInputs<T>>::GetParam()),
+      workspace_d(0, handle.get_stream()),
       P_d(0, handle.get_stream()),
       x_d(0, handle.get_stream()),
       X_d(0, handle.get_stream()),
@@ -90,6 +91,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
   {
   }
 
+ protected:
   void SetUp() override
   {
     // getting params
@@ -139,7 +141,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     raft::update_device(x_d.data(), x.data(), dim, stream);
 
     // initializing the mvg
-    mvg           = new multi_variable_gaussian<T>(handle, dim, method);
+    mvg           = new detail::multi_variable_gaussian<T>(handle, dim, method);
     std::size_t o = mvg->get_workspace_size();
 
     // give the workspace area to mvg
@@ -195,32 +197,32 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
   }
 
  protected:
+  raft::device_resources handle;
   MVGInputs<T> params;
-  std::vector<T> P, x, X;
   rmm::device_uvector<T> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
+  std::vector<T> P, x, X;
   int dim, nPoints;
-  typename multi_variable_gaussian<T>::Decomposer method;
+  typename detail::multi_variable_gaussian<T>::Decomposer method;
   Correlation corr;
-  multi_variable_gaussian<T>* mvg = NULL;
+  detail::multi_variable_gaussian<T>* mvg = NULL;
   T tolerance;
-  raft::handle_t handle;
 };  // end of MVGTest class
 
 template <typename T>
 class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
  private:
-  static auto old_enum_to_new_enum(typename multi_variable_gaussian<T>::Decomposer method)
+  static auto old_enum_to_new_enum(typename detail::multi_variable_gaussian<T>::Decomposer method)
   {
-    if (method == multi_variable_gaussian<T>::chol_decomp) {
+    if (method == detail::multi_variable_gaussian<T>::chol_decomp) {
       return multi_variable_gaussian_decomposition_method::CHOLESKY;
-    } else if (method == multi_variable_gaussian<T>::jacobi) {
+    } else if (method == detail::multi_variable_gaussian<T>::jacobi) {
       return multi_variable_gaussian_decomposition_method::JACOBI;
     } else {
       return multi_variable_gaussian_decomposition_method::QR;
     }
   }
 
- protected:
+ public:
   MVGMdspanTest()
     : workspace_d(0, handle.get_stream()),
       P_d(0, handle.get_stream()),
@@ -280,7 +282,7 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
 
     rmm::mr::device_memory_resource* mem_resource_ptr = rmm::mr::get_current_device_resource();
     ASSERT_TRUE(mem_resource_ptr != nullptr);
-    raft::random::compute_multi_variable_gaussian(
+    raft::random::multi_variable_gaussian(
       handle, *mem_resource_ptr, x_view, P_view, X_view, method);
 
     // saving the mean of the randoms in Rand_mean
@@ -323,73 +325,79 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
   }
 
  protected:
+  raft::device_resources handle;
+
   MVGInputs<T> params;
   std::vector<T> P, x, X;
   rmm::device_uvector<T> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
   int dim, nPoints;
   Correlation corr;
   T tolerance;
-  raft::handle_t handle;
 };  // end of MVGTest class
 
 ///@todo find out the reason that Un-correlated covs are giving problems (in qr)
 // Declare your inputs
 const std::vector<MVGInputs<float>> inputsf = {
   {0.3f,
-   multi_variable_gaussian<float>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<float>::Decomposer::chol_decomp,
    Correlation::CORRELATED,
    5,
    30000,
    6ULL},
   {0.1f,
-   multi_variable_gaussian<float>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<float>::Decomposer::chol_decomp,
    Correlation::UNCORRELATED,
    5,
    30000,
    6ULL},
   {0.25f,
-   multi_variable_gaussian<float>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<float>::Decomposer::jacobi,
    Correlation::CORRELATED,
    5,
    30000,
    6ULL},
   {0.1f,
-   multi_variable_gaussian<float>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<float>::Decomposer::jacobi,
    Correlation::UNCORRELATED,
    5,
    30000,
    6ULL},
-  {0.2f, multi_variable_gaussian<float>::Decomposer::qr, Correlation::CORRELATED, 5, 30000, 6ULL},
+  {0.2f,
+   detail::multi_variable_gaussian<float>::Decomposer::qr,
+   Correlation::CORRELATED,
+   5,
+   30000,
+   6ULL},
   // { 0.2f,          multi_variable_gaussian<float>::Decomposer::qr,
   // Correlation::UNCORRELATED, 5, 30000, 6ULL}
 };
 const std::vector<MVGInputs<double>> inputsd = {
   {0.25,
-   multi_variable_gaussian<double>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<double>::Decomposer::chol_decomp,
    Correlation::CORRELATED,
    10,
    3000000,
    6ULL},
   {0.1,
-   multi_variable_gaussian<double>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<double>::Decomposer::chol_decomp,
    Correlation::UNCORRELATED,
    10,
    3000000,
    6ULL},
   {0.25,
-   multi_variable_gaussian<double>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<double>::Decomposer::jacobi,
    Correlation::CORRELATED,
    10,
    3000000,
    6ULL},
   {0.1,
-   multi_variable_gaussian<double>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<double>::Decomposer::jacobi,
    Correlation::UNCORRELATED,
    10,
    3000000,
    6ULL},
   {0.2,
-   multi_variable_gaussian<double>::Decomposer::qr,
+   detail::multi_variable_gaussian<double>::Decomposer::qr,
    Correlation::CORRELATED,
    10,
    3000000,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
 #pragma once
 
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
@@ -41,8 +41,7 @@ namespace linalg {
 template <typename in_t, typename out_t = in_t, typename IdxType = int>
 void powerScalar(out_t* out, const in_t* in, const in_t scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(
-    out, in, len, [scalar] __device__(in_t in) { return raft::myPow(in, scalar); }, stream);
+  raft::linalg::unaryOp(out, in, len, raft::pow_const_op<in_t>(scalar), stream);
 }
 /** @} */
 
@@ -61,8 +60,7 @@ void powerScalar(out_t* out, const in_t* in, const in_t scalar, IdxType len, cud
 template <typename in_t, typename out_t = in_t, typename IdxType = int>
 void power(out_t* out, const in_t* in1, const in_t* in2, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::binaryOp(
-    out, in1, in2, len, [] __device__(in_t a, in_t b) { return raft::myPow(a, b); }, stream);
+  raft::linalg::binaryOp(out, in1, in2, len, raft::pow_op(), stream);
 }
 /** @} */
 
@@ -75,7 +73,7 @@ void power(out_t* out, const in_t* in1, const in_t* in2, IdxType len, cudaStream
  * @brief Elementwise power operation on the input buffers
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in1    First Input
  * @param[in] in2    Second Input
  * @param[out] out    Output
@@ -84,7 +82,7 @@ template <typename InType,
           typename OutType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void power(const raft::handle_t& handle, InType in1, InType in2, OutType out)
+void power(raft::device_resources const& handle, InType in1, InType in2, OutType out)
 {
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
@@ -115,7 +113,7 @@ void power(const raft::handle_t& handle, InType in1, InType in2, OutType out)
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in    Input
  * @param[out] out    Output
  * @param[in] scalar    raft::host_scalar_view
@@ -126,7 +124,7 @@ template <typename InType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
 void power_scalar(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   InType in,
   OutType out,
   const raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)

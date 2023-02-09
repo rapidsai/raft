@@ -38,20 +38,15 @@ def cuda_interruptible():
 
     Use this on a long-running C++ function imported via cython:
 
-    .. code-block:: python
-
-        with cuda_interruptible():
-            my_long_running_function(...)
+    >>> with cuda_interruptible():
+    >>>     my_long_running_function(...)
 
     It's also recommended to release the GIL during the call, to
     make sure the handler has a chance to run:
 
-    .. code-block:: python
-
-        with cuda_interruptible():
-            with nogil:
-                my_long_running_function(...)
-
+    >>> with cuda_interruptible():
+    >>>     with nogil:
+    >>>         my_long_running_function(...)
     '''
     cdef shared_ptr[interruptible] token = get_token()
 
@@ -59,11 +54,17 @@ def cuda_interruptible():
         with nogil:
             dereference(token).cancel()
 
-    oldhr = signal.signal(signal.SIGINT, newhr)
+    try:
+        oldhr = signal.signal(signal.SIGINT, newhr)
+    except ValueError:
+        # the signal creation would fail if this is not the main thread
+        # That's fine! The feature is disabled.
+        oldhr = None
     try:
         yield
     finally:
-        signal.signal(signal.SIGINT, oldhr)
+        if oldhr is not None:
+            signal.signal(signal.SIGINT, oldhr)
 
 
 def synchronize(stream: Stream):

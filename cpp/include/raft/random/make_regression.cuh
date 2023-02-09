@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ namespace raft::random {
  * @param[in]   type            Random generator type
  */
 template <typename DataT, typename IdxT>
-void make_regression(const raft::handle_t& handle,
+void make_regression(raft::device_resources const& handle,
                      DataT* out,
                      DataT* values,
                      IdxT n_rows,
@@ -82,7 +82,7 @@ void make_regression(const raft::handle_t& handle,
                      DataT noise         = (DataT)0.0,
                      bool shuffle        = true,
                      uint64_t seed       = 0ULL,
-                     GeneratorType type  = GenPhilox)
+                     GeneratorType type  = GenPC)
 {
   detail::make_regression_caller(handle,
                                  out,
@@ -101,6 +101,11 @@ void make_regression(const raft::handle_t& handle,
                                  seed,
                                  type);
 }
+
+/**
+ * @defgroup make_regression Generate Dataset for Regression Model
+ * @{
+ */
 
 /**
  * @brief GPU-equivalent of sklearn.datasets.make_regression as documented at:
@@ -133,7 +138,7 @@ void make_regression(const raft::handle_t& handle,
  * @param[in]   type            Random generator type
  */
 template <typename DataT, typename IdxT>
-void make_regression(const raft::handle_t& handle,
+void make_regression(raft::device_resources const& handle,
                      raft::device_matrix_view<DataT, IdxT, raft::row_major> out,
                      raft::device_matrix_view<DataT, IdxT, raft::row_major> values,
                      IdxT n_informative,
@@ -144,7 +149,7 @@ void make_regression(const raft::handle_t& handle,
                      DataT noise         = DataT{},
                      bool shuffle        = true,
                      uint64_t seed       = 0ULL,
-                     GeneratorType type  = GenPhilox)
+                     GeneratorType type  = GenPC)
 {
   const auto n_samples = out.extent(0);
   assert(values.extent(0) == n_samples);
@@ -176,6 +181,8 @@ void make_regression(const raft::handle_t& handle,
                                  seed,
                                  type);
 }
+
+/** @} */  // end group make_regression
 
 }  // namespace raft::random
 

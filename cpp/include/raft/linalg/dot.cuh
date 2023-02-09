@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,19 @@
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 
 namespace raft::linalg {
+
+/**
+ * @defgroup dot BLAS dot routine
+ * @{
+ */
+
 /**
  * @brief Computes the dot product of two vectors.
- * @param[in] handle   raft::handle_t
+ * @param[in] handle   raft::device_resources
  * @param[in] x        First input vector
  * @param[in] y        Second input vector
  * @param[out] out     The output dot product between the x and y vectors.
@@ -37,7 +43,7 @@ template <typename ElementType,
           typename ScalarIndexType,
           typename LayoutPolicy1,
           typename LayoutPolicy2>
-void dot(const raft::handle_t& handle,
+void dot(raft::device_resources const& handle,
          raft::device_vector_view<const ElementType, IndexType, LayoutPolicy1> x,
          raft::device_vector_view<const ElementType, IndexType, LayoutPolicy2> y,
          raft::device_scalar_view<ElementType, ScalarIndexType> out)
@@ -57,7 +63,7 @@ void dot(const raft::handle_t& handle,
 
 /**
  * @brief Computes the dot product of two vectors.
- * @param[in] handle   raft::handle_t
+ * @param[in] handle   raft::device_resources
  * @param[in] x        First input vector
  * @param[in] y        Second input vector
  * @param[out] out     The output dot product between the x and y vectors.
@@ -67,7 +73,7 @@ template <typename ElementType,
           typename ScalarIndexType,
           typename LayoutPolicy1,
           typename LayoutPolicy2>
-void dot(const raft::handle_t& handle,
+void dot(raft::device_resources const& handle,
          raft::device_vector_view<const ElementType, IndexType, LayoutPolicy1> x,
          raft::device_vector_view<const ElementType, IndexType, LayoutPolicy2> y,
          raft::host_scalar_view<ElementType, ScalarIndexType> out)
@@ -84,5 +90,8 @@ void dot(const raft::handle_t& handle,
                                     out.data_handle(),
                                     handle.get_stream()));
 }
+
+/** @} */  // end of group dot
+
 }  // namespace raft::linalg
 #endif

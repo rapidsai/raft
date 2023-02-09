@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/stats/detail/scores.cuh>
 
@@ -54,6 +54,11 @@ void regression_metrics(const T* predictions,
 }
 
 /**
+ * @defgroup stats_regression_metrics Regression Metrics
+ * @{
+ */
+
+/**
  * @brief Compute regression metrics mean absolute error, mean squared error, median absolute error
  * @tparam value_t the data type for predictions (e.g., float or double for regression).
  * @tparam idx_t index type
@@ -68,7 +73,7 @@ void regression_metrics(const T* predictions,
  * ref_predictions[i]| for i in [0, n).
  */
 template <typename value_t, typename idx_t>
-void regression_metrics(const raft::handle_t& handle,
+void regression_metrics(raft::device_resources const& handle,
                         raft::device_vector_view<const value_t, idx_t> predictions,
                         raft::device_vector_view<const value_t, idx_t> ref_predictions,
                         raft::host_scalar_view<double> mean_abs_error,
@@ -92,6 +97,9 @@ void regression_metrics(const raft::handle_t& handle,
                              *mean_squared_error.data_handle(),
                              *median_abs_error.data_handle());
 }
+
+/** @} */  // end group stats_regression_metrics
+
 }  // namespace stats
 }  // namespace raft
 

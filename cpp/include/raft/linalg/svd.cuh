@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ namespace linalg {
  * @param stream cuda stream
  */
 template <typename T>
-void svdQR(const raft::handle_t& handle,
+void svdQR(raft::device_resources const& handle,
            T* in,
            int n_rows,
            int n_cols,
@@ -66,14 +66,14 @@ void svdQR(const raft::handle_t& handle,
                 stream);
 }
 
-template <typename T>
-void svdEig(const raft::handle_t& handle,
-            T* in,
-            int n_rows,
-            int n_cols,
-            T* S,
-            T* U,
-            T* V,
+template <typename math_t, typename idx_t>
+void svdEig(raft::device_resources const& handle,
+            math_t* in,
+            idx_t n_rows,
+            idx_t n_cols,
+            math_t* S,
+            math_t* U,
+            math_t* V,
             bool gen_left_vec,
             cudaStream_t stream)
 {
@@ -98,7 +98,7 @@ void svdEig(const raft::handle_t& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void svdJacobi(const raft::handle_t& handle,
+void svdJacobi(raft::device_resources const& handle,
                math_t* in,
                int n_rows,
                int n_cols,
@@ -139,7 +139,7 @@ void svdJacobi(const raft::handle_t& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void svdReconstruction(const raft::handle_t& handle,
+void svdReconstruction(raft::device_resources const& handle,
                        math_t* U,
                        math_t* S,
                        math_t* V,
@@ -167,7 +167,7 @@ void svdReconstruction(const raft::handle_t& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-bool evaluateSVDByL2Norm(const raft::handle_t& handle,
+bool evaluateSVDByL2Norm(raft::device_resources const& handle,
                          math_t* A_d,
                          math_t* U,
                          math_t* S_vec,
@@ -195,7 +195,7 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
  * U_in
  * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
  * V_in
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] sing_vals singular values raft::device_vector_view of shape (K)
  * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
@@ -204,7 +204,7 @@ bool evaluateSVDByL2Norm(const raft::handle_t& handle,
  * layout raft::col_major and dimensions (n, n)
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
-void svd_qr(const raft::handle_t& handle,
+void svd_qr(raft::device_resources const& handle,
             raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
             raft::device_vector_view<ValueType, IndexType> sing_vals,
             UType&& U_in,
@@ -258,7 +258,7 @@ void svd_qr(Args... args)
  * U_in
  * @tparam VType std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> @c
  * V_in
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] sing_vals singular values raft::device_vector_view of shape (K)
  * @param[out] U_in std::optional left singular values of raft::device_matrix_view with layout
@@ -268,7 +268,7 @@ void svd_qr(Args... args)
  */
 template <typename ValueType, typename IndexType, typename UType, typename VType>
 void svd_qr_transpose_right_vec(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
   raft::device_vector_view<ValueType, IndexType> sing_vals,
   UType&& U_in,
@@ -316,7 +316,7 @@ void svd_qr_transpose_right_vec(Args... args)
 /**
  * @brief singular value decomposition (SVD) on a column major
  * matrix using Eigen decomposition. A square symmetric covariance matrix is constructed for the SVD
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in input raft::device_matrix_view with layout raft::col_major of shape (M, N)
  * @param[out] S singular values raft::device_vector_view of shape (K)
  * @param[out] V right singular values of raft::device_matrix_view with layout
@@ -326,7 +326,7 @@ void svd_qr_transpose_right_vec(Args... args)
  */
 template <typename ValueType, typename IndexType>
 void svd_eig(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const ValueType, IndexType, raft::col_major> in,
   raft::device_vector_view<ValueType, IndexType> S,
   raft::device_matrix_view<ValueType, IndexType, raft::col_major> V,
@@ -352,7 +352,7 @@ void svd_eig(
 /**
  * @brief reconstruct a matrix use left and right singular vectors and
  * singular values
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] U left singular values of raft::device_matrix_view with layout
  * raft::col_major and dimensions (m, k)
  * @param[in] S singular values raft::device_vector_view of shape (k, k)
@@ -361,7 +361,7 @@ void svd_eig(
  * @param[out] out output raft::device_matrix_view with layout raft::col_major of shape (m, n)
  */
 template <typename ValueType, typename IndexType>
-void svd_reconstruction(const raft::handle_t& handle,
+void svd_reconstruction(raft::device_resources const& handle,
                         raft::device_matrix_view<const ValueType, IndexType, raft::col_major> U,
                         raft::device_vector_view<const ValueType, IndexType> S,
                         raft::device_matrix_view<const ValueType, IndexType, raft::col_major> V,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,54 +14,76 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/itertools.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
 
-template <typename MatrixIteratorT, typename MapIteratorT>
-void naiveGatherImpl(
-  MatrixIteratorT in, int D, int N, MapIteratorT map, int map_length, MatrixIteratorT out)
+template <bool Conditional,
+          bool MapTransform,
+          typename InputIteratorT,
+          typename MapIteratorT,
+          typename StencilIteratorT,
+          typename UnaryPredicateOp,
+          typename MapTransformOp,
+          typename OutputIteratorT,
+          typename IdxT>
+void naiveGather(InputIteratorT in,
+                 IdxT D,
+                 IdxT N,
+                 MapIteratorT map,
+                 StencilIteratorT stencil,
+                 IdxT map_length,
+                 OutputIteratorT out,
+                 UnaryPredicateOp pred_op,
+                 MapTransformOp transform_op)
 {
-  for (int outRow = 0; outRow < map_length; ++outRow) {
+  for (IdxT outRow = 0; outRow < map_length; ++outRow) {
+    if constexpr (Conditional) {
+      auto stencil_val = stencil[outRow];
+      if (!pred_op(stencil_val)) continue;
+    }
     typename std::iterator_traits<MapIteratorT>::value_type map_val = map[outRow];
-    int inRowStart                                                  = map_val * D;
-    int outRowStart                                                 = outRow * D;
-    for (int i = 0; i < D; ++i) {
+    IdxT transformed_val;
+    if constexpr (MapTransform) {
+      transformed_val = transform_op(map_val);
+    } else {
+      transformed_val = map_val;
+    }
+    IdxT inRowStart  = transformed_val * D;
+    IdxT outRowStart = outRow * D;
+    for (IdxT i = 0; i < D; ++i) {
       out[outRowStart + i] = in[inRowStart + i];
     }
   }
 }
 
-template <typename MatrixIteratorT, typename MapIteratorT>
-void naiveGather(
-  MatrixIteratorT in, int D, int N, MapIteratorT map, int map_length, MatrixIteratorT out)
-{
-  naiveGatherImpl(in, D, N, map, map_length, out);
-}
-
+template <typename IdxT>
 struct GatherInputs {
-  uint32_t nrows;
-  uint32_t ncols;
-  uint32_t map_length;
+  IdxT nrows;
+  IdxT ncols;
+  IdxT map_length;
   unsigned long long int seed;
 };
 
-template <typename MatrixT, typename MapT>
-class GatherTest : public ::testing::TestWithParam<GatherInputs> {
+template <bool Conditional, bool MapTransform, typename MatrixT, typename MapT, typename IdxT>
+class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
  protected:
   GatherTest()
     : stream(handle.get_stream()),
-      params(::testing::TestWithParam<GatherInputs>::GetParam()),
+      params(::testing::TestWithParam<GatherInputs<IdxT>>::GetParam()),
       d_in(0, stream),
       d_out_exp(0, stream),
       d_out_act(0, stream),
+      d_stencil(0, stream),
       d_map(0, stream)
   {
   }
@@ -71,86 +93,118 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     raft::random::RngState r(params.seed);
     raft::random::RngState r_int(params.seed);
 
-    uint32_t nrows      = params.nrows;
-    uint32_t ncols      = params.ncols;
-    uint32_t map_length = params.map_length;
-    uint32_t len        = nrows * ncols;
+    IdxT map_length = params.map_length;
+    IdxT len        = params.nrows * params.ncols;
 
     // input matrix setup
-    d_in.resize(nrows * ncols, stream);
-    h_in.resize(nrows * ncols);
+    d_in.resize(params.nrows * params.ncols, stream);
+    h_in.resize(params.nrows * params.ncols);
     raft::random::uniform(handle, r, d_in.data(), len, MatrixT(-1.0), MatrixT(1.0));
     raft::update_host(h_in.data(), d_in.data(), len, stream);
 
     // map setup
     d_map.resize(map_length, stream);
     h_map.resize(map_length);
-    raft::random::uniformInt(handle, r_int, d_map.data(), map_length, (MapT)0, nrows);
+    raft::random::uniformInt(handle, r_int, d_map.data(), map_length, (MapT)0, (MapT)params.nrows);
     raft::update_host(h_map.data(), d_map.data(), map_length, stream);
 
+    // stencil setup
+    if (Conditional) {
+      d_stencil.resize(map_length, stream);
+      h_stencil.resize(map_length);
+      raft::random::uniform(handle, r, d_stencil.data(), map_length, MatrixT(-1.0), MatrixT(1.0));
+      raft::update_host(h_stencil.data(), d_stencil.data(), map_length, stream);
+    }
+
+    // unary predicate op (used only when Conditional is true)
+    auto pred_op = raft::plug_const_op(MatrixT(0.0), raft::greater_op());
+
+    // map transform op (used only when MapTransform is true)
+    auto transform_op =
+      raft::compose_op(raft::mod_const_op<IdxT>(params.nrows), raft::add_const_op<IdxT>(10));
+
     // expected and actual output matrix setup
-    h_out.resize(map_length * ncols);
-    d_out_exp.resize(map_length * ncols, stream);
-    d_out_act.resize(map_length * ncols, stream);
+    h_out.resize(map_length * params.ncols);
+    d_out_exp.resize(map_length * params.ncols, stream);
+    d_out_act.resize(map_length * params.ncols, stream);
 
     // launch gather on the host and copy the results to device
-    naiveGather(h_in.data(), ncols, nrows, h_map.data(), map_length, h_out.data());
-    raft::update_device(d_out_exp.data(), h_out.data(), map_length * ncols, stream);
+    naiveGather<Conditional, MapTransform>(h_in.data(),
+                                           params.ncols,
+                                           params.nrows,
+                                           h_map.data(),
+                                           h_stencil.data(),
+                                           map_length,
+                                           h_out.data(),
+                                           pred_op,
+                                           transform_op);
+    raft::update_device(d_out_exp.data(), h_out.data(), map_length * params.ncols, stream);
 
-    auto in_view = raft::make_device_matrix_view<const MatrixT, std::uint32_t, row_major>(
-      d_in.data(), nrows, ncols);
-    auto out_view =
-      raft::make_device_matrix_view<MatrixT, std::uint32_t>(d_out_act.data(), map_length, ncols);
-    auto map_view =
-      raft::make_device_vector_view<const MapT, std::uint32_t, row_major>(d_map.data(), map_length);
+    auto in_view = raft::make_device_matrix_view<const MatrixT, IdxT, row_major>(
+      d_in.data(), params.nrows, params.ncols);
+    auto out_view = raft::make_device_matrix_view<MatrixT, IdxT, row_major>(
+      d_out_act.data(), map_length, params.ncols);
+    auto map_view = raft::make_device_vector_view<const MapT, IdxT>(d_map.data(), map_length);
+    auto stencil_view =
+      raft::make_device_vector_view<const MatrixT, IdxT>(d_stencil.data(), map_length);
 
-    raft::matrix::gather(handle, in_view, map_view, out_view);
-
-    //      // launch device version of the kernel
-    //    gatherLaunch(
-    //      handle, d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
+    if (Conditional && MapTransform) {
+      raft::matrix::gather_if(
+        handle, in_view, out_view, map_view, stencil_view, pred_op, transform_op);
+    } else if (Conditional) {
+      raft::matrix::gather_if(handle, in_view, out_view, map_view, stencil_view, pred_op);
+    } else if (MapTransform) {
+      raft::matrix::gather(handle, in_view, map_view, out_view, transform_op);
+    } else {
+      raft::matrix::gather(handle, in_view, map_view, out_view);
+    }
 
     handle.sync_stream(stream);
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream = 0;
-  GatherInputs params;
-  std::vector<MatrixT> h_in, h_out;
+  GatherInputs<IdxT> params;
+  std::vector<MatrixT> h_in, h_out, h_stencil;
   std::vector<MapT> h_map;
-  rmm::device_uvector<MatrixT> d_in, d_out_exp, d_out_act;
+  rmm::device_uvector<MatrixT> d_in, d_out_exp, d_out_act, d_stencil;
   rmm::device_uvector<MapT> d_map;
 };
 
-const std::vector<GatherInputs> inputs = {{1024, 32, 128, 1234ULL},
-                                          {1024, 32, 256, 1234ULL},
-                                          {1024, 32, 512, 1234ULL},
-                                          {1024, 32, 1024, 1234ULL},
-                                          {1024, 64, 128, 1234ULL},
-                                          {1024, 64, 256, 1234ULL},
-                                          {1024, 64, 512, 1234ULL},
-                                          {1024, 64, 1024, 1234ULL},
-                                          {1024, 128, 128, 1234ULL},
-                                          {1024, 128, 256, 1234ULL},
-                                          {1024, 128, 512, 1234ULL},
-                                          {1024, 128, 1024, 1234ULL}};
+#define GATHER_TEST(test_type, test_name, test_inputs)       \
+  typedef RAFT_DEPAREN(test_type) test_name;                 \
+  TEST_P(test_name, Result)                                  \
+  {                                                          \
+    ASSERT_TRUE(devArrMatch(d_out_exp.data(),                \
+                            d_out_act.data(),                \
+                            params.map_length* params.ncols, \
+                            raft::Compare<float>()));        \
+  }                                                          \
+  INSTANTIATE_TEST_CASE_P(GatherTests, test_name, ::testing::ValuesIn(test_inputs))
 
-typedef GatherTest<float, uint32_t> GatherTestF;
-TEST_P(GatherTestF, Result)
-{
-  ASSERT_TRUE(devArrMatch(
-    d_out_exp.data(), d_out_act.data(), params.map_length * params.ncols, raft::Compare<float>()));
-}
+const std::vector<GatherInputs<int>> inputs_i32 =
+  raft::util::itertools::product<GatherInputs<int>>({25, 2000}, {6, 31, 129}, {11, 999}, {1234ULL});
+const std::vector<GatherInputs<int64_t>> inputs_i64 =
+  raft::util::itertools::product<GatherInputs<int64_t>>(
+    {25, 2000}, {6, 31, 129}, {11, 999}, {1234ULL});
 
-typedef GatherTest<double, uint32_t> GatherTestD;
-TEST_P(GatherTestD, Result)
-{
-  ASSERT_TRUE(devArrMatch(
-    d_out_exp.data(), d_out_act.data(), params.map_length * params.ncols, raft::Compare<double>()));
-}
-
-INSTANTIATE_TEST_CASE_P(GatherTests, GatherTestF, ::testing::ValuesIn(inputs));
-INSTANTIATE_TEST_CASE_P(GatherTests, GatherTestD, ::testing::ValuesIn(inputs));
+GATHER_TEST((GatherTest<false, false, float, uint32_t, int>), GatherTestFU32I32, inputs_i32);
+GATHER_TEST((GatherTest<false, true, float, uint32_t, int>),
+            GatherTransformTestFU32I32,
+            inputs_i32);
+GATHER_TEST((GatherTest<true, false, float, uint32_t, int>), GatherIfTestFU32I32, inputs_i32);
+GATHER_TEST((GatherTest<true, true, float, uint32_t, int>),
+            GatherIfTransformTestFU32I32,
+            inputs_i32);
+GATHER_TEST((GatherTest<true, true, double, uint32_t, int>),
+            GatherIfTransformTestDU32I32,
+            inputs_i32);
+GATHER_TEST((GatherTest<true, true, float, uint32_t, int64_t>),
+            GatherIfTransformTestFU32I64,
+            inputs_i64);
+GATHER_TEST((GatherTest<true, true, float, int64_t, int64_t>),
+            GatherIfTransformTestFI64I64,
+            inputs_i64);
 
 }  // end namespace raft

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 #include <raft/linalg/transpose.cuh>
 
 #include <raft/common/nvtx.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -36,7 +36,7 @@ namespace linalg {
 namespace detail {
 
 template <typename T>
-void svdQR(const raft::handle_t& handle,
+void svdQR(raft::device_resources const& handle,
            T* in,
            int n_rows,
            int n_cols,
@@ -101,14 +101,14 @@ void svdQR(const raft::handle_t& handle,
          "This usually occurs when some of the features do not vary enough.");
 }
 
-template <typename T>
-void svdEig(const raft::handle_t& handle,
-            T* in,
-            int n_rows,
-            int n_cols,
-            T* S,
-            T* U,
-            T* V,
+template <typename math_t, typename idx_t>
+void svdEig(raft::device_resources const& handle,
+            math_t* in,
+            idx_t n_rows,
+            idx_t n_cols,
+            math_t* S,
+            math_t* U,
+            math_t* V,
             bool gen_left_vec,
             cudaStream_t stream)
 {
@@ -117,11 +117,11 @@ void svdEig(const raft::handle_t& handle,
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH       = handle.get_cublas_handle();
 
-  int len = n_cols * n_cols;
-  rmm::device_uvector<T> in_cross_mult(len, stream);
+  auto len = n_cols * n_cols;
+  rmm::device_uvector<math_t> in_cross_mult(len, stream);
 
-  T alpha = T(1);
-  T beta  = T(0);
+  math_t alpha = math_t(1);
+  math_t beta  = math_t(0);
   raft::linalg::gemm(handle,
                      in,
                      n_rows,
@@ -139,7 +139,7 @@ void svdEig(const raft::handle_t& handle,
   raft::linalg::eigDC(handle, in_cross_mult.data(), n_cols, n_cols, V, S, stream);
 
   raft::matrix::colReverse(V, n_cols, n_cols, stream);
-  raft::matrix::rowReverse(S, n_cols, 1, stream);
+  raft::matrix::rowReverse(S, n_cols, idx_t(1), stream);
 
   raft::matrix::seqRoot(S, S, alpha, n_cols, stream, true);
 
@@ -162,7 +162,7 @@ void svdEig(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void svdJacobi(const raft::handle_t& handle,
+void svdJacobi(raft::device_resources const& handle,
                math_t* in,
                int n_rows,
                int n_cols,
@@ -232,7 +232,7 @@ void svdJacobi(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void svdReconstruction(const raft::handle_t& handle,
+void svdReconstruction(raft::device_resources const& handle,
                        math_t* U,
                        math_t* S,
                        math_t* V,
@@ -263,7 +263,7 @@ void svdReconstruction(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-bool evaluateSVDByL2Norm(const raft::handle_t& handle,
+bool evaluateSVDByL2Norm(raft::device_resources const& handle,
                          math_t* A_d,
                          math_t* U,
                          math_t* S_vec,

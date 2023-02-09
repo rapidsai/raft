@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <raft/core/operators.hpp>
 #include <raft/linalg/contractions.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/util/cuda_utils.cuh>

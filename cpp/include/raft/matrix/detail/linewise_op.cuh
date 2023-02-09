@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -796,7 +796,8 @@ struct MatrixLinewiseOp {
                   "layout for in and out must be either padded row or col major");
 
     // also statically assert padded matrix alignment == 2^i*VecBytes
-    assert(raft::Pow2<VecBytes>::areSameAlignOffsets(in, out));
+    RAFT_EXPECTS(raft::Pow2<VecBytes>::areSameAlignOffsets(in.data_handle(), out.data_handle()),
+                 "The matrix views in and out does not have correct alignment");
 
     if (alongLines)
       return matrixLinewiseVecRowsSpan<Type,

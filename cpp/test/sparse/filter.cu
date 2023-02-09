@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/util/cudart_utils.hpp>
 
@@ -50,7 +50,7 @@ const std::vector<SparseFilterInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
 typedef SparseFilterTests<float> COORemoveZeros;
 TEST_P(COORemoveZeros, Result)
 {
-  raft::handle_t h;
+  raft::device_resources h;
   auto stream = h.get_stream();
   params      = ::testing::TestWithParam<SparseFilterInputs<float>>::GetParam();
 

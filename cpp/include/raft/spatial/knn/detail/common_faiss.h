@@ -19,7 +19,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <faiss/gpu/GpuDistance.h>
+#include <faiss/MetricType.h>
 #include <raft/distance/distance_types.hpp>
 
 namespace raft {

@@ -2,7 +2,7 @@
 
 repos:
       - repo: https://github.com/PyCQA/isort
-        rev: 5.10.1
+        rev: 5.12.0
         hooks:
               - id: isort
                 # Use the config file specific to each subproject so that each
@@ -97,6 +97,8 @@ repos:
         rev: v2.1.0
         hooks:
               - id: codespell
+                exclude: (?x)^(^CHANGELOG.md$)
+
 
 default_language_version:
       python: python3

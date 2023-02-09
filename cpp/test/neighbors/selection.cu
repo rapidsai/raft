@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 #include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/knn.cuh>
@@ -49,10 +49,11 @@ std::ostream& operator<<(std::ostream& os, const SelectTestSpec& ss)
 }
 
 template <typename IdxT>
-auto gen_simple_ids(int n_inputs, int input_len) -> std::vector<IdxT>
+auto gen_simple_ids(int n_inputs, int input_len, const raft::device_resources& handle)
+  -> std::vector<IdxT>
 {
   std::vector<IdxT> out(n_inputs * input_len);
-  auto s = rmm::cuda_stream_default;
+  auto s = handle.get_stream();
   rmm::device_uvector<IdxT> out_d(out.size(), s);
   iota_fill(out_d.data(), IdxT(n_inputs), IdxT(input_len), s);
   update_host(out.data(), out_d.data(), out.size(), s);
@@ -65,14 +66,16 @@ struct SelectInOutSimple {
  public:
   bool not_supported = false;
 
-  SelectInOutSimple(const SelectTestSpec& spec,
+  SelectInOutSimple(std::shared_ptr<raft::device_resources> handle,
+                    const SelectTestSpec& spec,
                     const std::vector<KeyT>& in_dists,
                     const std::vector<KeyT>& out_dists,
                     const std::vector<IdxT>& out_ids)
     : in_dists_(in_dists),
-      in_ids_(gen_simple_ids<IdxT>(spec.n_inputs, spec.input_len)),
+      in_ids_(gen_simple_ids<IdxT>(spec.n_inputs, spec.input_len, *handle.get())),
       out_dists_(out_dists),
-      out_ids_(out_ids)
+      out_ids_(out_ids),
+      handle_(handle)
   {
   }
 
@@ -82,6 +85,7 @@ struct SelectInOutSimple {
   auto get_out_ids() -> std::vector<IdxT>& { return out_ids_; }
 
  private:
+  std::shared_ptr<raft::device_resources> handle_;
   std::vector<KeyT> in_dists_;
   std::vector<IdxT> in_ids_;
   std::vector<KeyT> out_dists_;
@@ -93,19 +97,22 @@ struct SelectInOutComputed {
  public:
   bool not_supported = false;
 
-  SelectInOutComputed(const SelectTestSpec& spec,
+  SelectInOutComputed(std::shared_ptr<raft::device_resources> handle,
+                      const SelectTestSpec& spec,
                       knn::SelectKAlgo algo,
                       const std::vector<KeyT>& in_dists,
                       const std::optional<std::vector<IdxT>>& in_ids = std::nullopt)
-    : in_dists_(in_dists),
-      in_ids_(in_ids.value_or(gen_simple_ids<IdxT>(spec.n_inputs, spec.input_len))),
+    : handle_(handle),
+      in_dists_(in_dists),
+      in_ids_(in_ids.value_or(gen_simple_ids<IdxT>(spec.n_inputs, spec.input_len, *handle.get()))),
       out_dists_(spec.n_inputs * spec.k),
       out_ids_(spec.n_inputs * spec.k)
+
   {
     // check if the size is supported by the algorithm
     switch (algo) {
       case knn::SelectKAlgo::WARP_SORT:
-        if (spec.k > raft::spatial::knn::detail::topk::kMaxCapacity) {
+        if (spec.k > raft::matrix::detail::select::warpsort::kMaxCapacity) {
           not_supported = true;
           return;
         }
@@ -119,7 +126,7 @@ struct SelectInOutComputed {
       default: break;
     }
 
-    auto stream = rmm::cuda_stream_default;
+    auto stream = handle_.get()->get_stream();
 
     rmm::device_uvector<KeyT> in_dists_d(in_dists_.size(), stream);
     rmm::device_uvector<IdxT> in_ids_d(in_ids_.size(), stream);
@@ -156,6 +163,7 @@ struct SelectInOutComputed {
   auto get_out_ids() -> std::vector<IdxT>& { return out_ids_; }
 
  private:
+  std::shared_ptr<raft::device_resources> handle_;
   std::vector<KeyT> in_dists_;
   std::vector<IdxT> in_ids_;
   std::vector<KeyT> out_dists_;
@@ -205,11 +213,13 @@ struct SelectInOutComputed {
 };
 
 template <typename InOut>
-using Params = std::tuple<SelectTestSpec, knn::SelectKAlgo, InOut>;
+using Params =
+  std::tuple<SelectTestSpec, knn::SelectKAlgo, InOut, std::shared_ptr<raft::device_resources>>;
 
 template <typename KeyT, typename IdxT, template <typename, typename> typename ParamsReader>
 class SelectionTest : public testing::TestWithParam<typename ParamsReader<KeyT, IdxT>::ParamsIn> {
  protected:
+  std::shared_ptr<raft::device_resources> handle_;
   const SelectTestSpec spec;
   const knn::SelectKAlgo algo;
 
@@ -218,10 +228,11 @@ class SelectionTest : public testing::TestWithParam<typename ParamsReader<KeyT, 
 
  public:
   explicit SelectionTest(Params<typename ParamsReader<KeyT, IdxT>::InOut> ps)
-    : spec(std::get<0>(ps)),
+    : handle_(std::get<3>(ps)),
+      spec(std::get<0>(ps)),
       algo(std::get<1>(ps)),
       ref(std::get<2>(ps)),
-      res(spec, algo, ref.get_in_dists(), ref.get_in_ids())
+      res(handle_, spec, algo, ref.get_in_dists(), ref.get_in_ids())
   {
   }
 
@@ -238,12 +249,13 @@ class SelectionTest : public testing::TestWithParam<typename ParamsReader<KeyT, 
   void run()
   {
     if (ref.not_supported || res.not_supported) { GTEST_SKIP(); }
-    ASSERT_TRUE(hostVecMatch(ref.get_out_dists(), res.get_out_dists(), Compare<KeyT>()));
 
+    ASSERT_TRUE(hostVecMatch(ref.get_out_dists(), res.get_out_dists(), Compare<KeyT>()));
     // If the dists (keys) are the same, different corresponding ids may end up in the selection due
     // to non-deterministic nature of some implementations.
-    auto& in_ids     = ref.get_in_ids();
-    auto& in_dists   = ref.get_in_dists();
+    auto& in_ids   = ref.get_in_ids();
+    auto& in_dists = ref.get_in_dists();
+
     auto compare_ids = [&in_ids, &in_dists](const IdxT& i, const IdxT& j) {
       if (i == j) return true;
       auto ix_i = size_t(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
@@ -265,17 +277,20 @@ struct params_simple {
   using InOut = SelectInOutSimple<KeyT, IdxT>;
   using Inputs =
     std::tuple<SelectTestSpec, std::vector<KeyT>, std::vector<KeyT>, std::vector<IdxT>>;
-  using ParamsIn = std::tuple<Inputs, knn::SelectKAlgo>;
+  using Handle   = std::shared_ptr<raft::device_resources>;
+  using ParamsIn = std::tuple<Inputs, knn::SelectKAlgo, Handle>;
 
   static auto read(ParamsIn ps) -> Params<InOut>
   {
-    auto ins  = std::get<0>(ps);
-    auto algo = std::get<1>(ps);
+    auto ins    = std::get<0>(ps);
+    auto algo   = std::get<1>(ps);
+    auto handle = std::get<2>(ps);
     return std::make_tuple(
       std::get<0>(ins),
       algo,
       SelectInOutSimple<KeyT, IdxT>(
-        std::get<0>(ins), std::get<1>(ins), std::get<2>(ins), std::get<3>(ins)));
+        handle, std::get<0>(ins), std::get<1>(ins), std::get<2>(ins), std::get<3>(ins)),
+      handle);
   }
 };
 
@@ -339,38 +354,43 @@ auto inputs_simple_f = testing::Values(
 
 typedef SelectionTest<float, int, params_simple> SimpleFloatInt;
 TEST_P(SimpleFloatInt, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(SelectionTest,
-                        SimpleFloatInt,
-                        testing::Combine(inputs_simple_f,
-                                         testing::Values(knn::SelectKAlgo::FAISS,
-                                                         knn::SelectKAlgo::RADIX_8_BITS,
-                                                         knn::SelectKAlgo::RADIX_11_BITS,
-                                                         knn::SelectKAlgo::WARP_SORT)));
+INSTANTIATE_TEST_CASE_P(
+  SelectionTest,
+  SimpleFloatInt,
+  testing::Combine(inputs_simple_f,
+                   testing::Values(knn::SelectKAlgo::FAISS,
+                                   knn::SelectKAlgo::RADIX_8_BITS,
+                                   knn::SelectKAlgo::RADIX_11_BITS,
+                                   knn::SelectKAlgo::WARP_SORT),
+                   testing::Values(std::make_shared<raft::device_resources>())));
 
 template <knn::SelectKAlgo RefAlgo>
 struct with_ref {
   template <typename KeyT, typename IdxT>
   struct params_random {
     using InOut    = SelectInOutComputed<KeyT, IdxT>;
-    using ParamsIn = std::tuple<SelectTestSpec, knn::SelectKAlgo>;
+    using Handle   = std::shared_ptr<raft::device_resources>;
+    using ParamsIn = std::tuple<SelectTestSpec, knn::SelectKAlgo, Handle>;
 
     static auto read(ParamsIn ps) -> Params<InOut>
     {
-      auto spec = std::get<0>(ps);
-      auto algo = std::get<1>(ps);
+      auto spec   = std::get<0>(ps);
+      auto algo   = std::get<1>(ps);
+      auto handle = std::get<2>(ps);
+
       std::vector<KeyT> dists(spec.input_len * spec.n_inputs);
 
-      raft::handle_t handle;
       {
-        auto s = handle.get_stream();
+        auto s = (*handle.get()).get_stream();
         rmm::device_uvector<KeyT> dists_d(spec.input_len * spec.n_inputs, s);
         raft::random::RngState r(42);
-        normal(handle, r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0));
+        normal(*(handle.get()), r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0));
         update_host(dists.data(), dists_d.data(), dists_d.size(), s);
         s.synchronize();
       }
 
-      return std::make_tuple(spec, algo, SelectInOutComputed<KeyT, IdxT>(spec, RefAlgo, dists));
+      return std::make_tuple(
+        spec, algo, SelectInOutComputed<KeyT, IdxT>(handle, spec, RefAlgo, dists), handle);
     }
   };
 };
@@ -416,11 +436,11 @@ auto inputs_random_largesize = testing::Values(SelectTestSpec{100, 100000, 1, tr
                                                SelectTestSpec{100, 100000, 100, true, false},
                                                SelectTestSpec{100, 100000, 200, true},
                                                SelectTestSpec{100000, 100, 100, false},
-                                               SelectTestSpec{1, 1000000000, 1, true},
-                                               SelectTestSpec{1, 1000000000, 16, false, false},
-                                               SelectTestSpec{1, 1000000000, 64, false},
-                                               SelectTestSpec{1, 1000000000, 128, true, false},
-                                               SelectTestSpec{1, 1000000000, 256, false, false});
+                                               SelectTestSpec{1, 100000000, 1, true},
+                                               SelectTestSpec{1, 100000000, 16, false, false},
+                                               SelectTestSpec{1, 100000000, 64, false},
+                                               SelectTestSpec{1, 100000000, 128, true, false},
+                                               SelectTestSpec{1, 100000000, 256, false, false});
 
 auto inputs_random_largek = testing::Values(SelectTestSpec{100, 100000, 1000, true},
                                             SelectTestSpec{100, 100000, 2000, true},
@@ -431,30 +451,36 @@ auto inputs_random_largek = testing::Values(SelectTestSpec{100, 100000, 1000, tr
 typedef SelectionTest<float, int, with_ref<knn::SelectKAlgo::FAISS>::params_random>
   ReferencedRandomFloatInt;
 TEST_P(ReferencedRandomFloatInt, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(SelectionTest,
-                        ReferencedRandomFloatInt,
-                        testing::Combine(inputs_random_longlist,
-                                         testing::Values(knn::SelectKAlgo::RADIX_8_BITS,
-                                                         knn::SelectKAlgo::RADIX_11_BITS,
-                                                         knn::SelectKAlgo::WARP_SORT)));
+INSTANTIATE_TEST_CASE_P(
+  SelectionTest,
+  ReferencedRandomFloatInt,
+  testing::Combine(inputs_random_longlist,
+                   testing::Values(knn::SelectKAlgo::RADIX_8_BITS,
+                                   knn::SelectKAlgo::RADIX_11_BITS,
+                                   knn::SelectKAlgo::WARP_SORT),
+                   testing::Values(std::make_shared<raft::device_resources>())));
 
 typedef SelectionTest<double, size_t, with_ref<knn::SelectKAlgo::FAISS>::params_random>
   ReferencedRandomDoubleSizeT;
 TEST_P(ReferencedRandomDoubleSizeT, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(SelectionTest,
-                        ReferencedRandomDoubleSizeT,
-                        testing::Combine(inputs_random_longlist,
-                                         testing::Values(knn::SelectKAlgo::RADIX_8_BITS,
-                                                         knn::SelectKAlgo::RADIX_11_BITS,
-                                                         knn::SelectKAlgo::WARP_SORT)));
+INSTANTIATE_TEST_CASE_P(
+  SelectionTest,
+  ReferencedRandomDoubleSizeT,
+  testing::Combine(inputs_random_longlist,
+                   testing::Values(knn::SelectKAlgo::RADIX_8_BITS,
+                                   knn::SelectKAlgo::RADIX_11_BITS,
+                                   knn::SelectKAlgo::WARP_SORT),
+                   testing::Values(std::make_shared<raft::device_resources>())));
 
 typedef SelectionTest<double, int, with_ref<knn::SelectKAlgo::FAISS>::params_random>
   ReferencedRandomDoubleInt;
 TEST_P(ReferencedRandomDoubleInt, LargeSize) { run(); }
-INSTANTIATE_TEST_CASE_P(SelectionTest,
-                        ReferencedRandomDoubleInt,
-                        testing::Combine(inputs_random_largesize,
-                                         testing::Values(knn::SelectKAlgo::WARP_SORT)));
+INSTANTIATE_TEST_CASE_P(
+  SelectionTest,
+  ReferencedRandomDoubleInt,
+  testing::Combine(inputs_random_largesize,
+                   testing::Values(knn::SelectKAlgo::WARP_SORT),
+                   testing::Values(std::make_shared<raft::device_resources>())));
 
 /** TODO: Fix test failure in RAFT CI
  *

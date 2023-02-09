@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ struct kmeans_solver_t {
   {
   }
 
-  std::pair<value_type_t, index_type_t> solve(handle_t const& handle,
+  std::pair<value_type_t, index_type_t> solve(raft::device_resources const& handle,
                                               size_type_t n_obs_vecs,
                                               size_type_t dim,
                                               value_type_t const* __restrict__ obs,

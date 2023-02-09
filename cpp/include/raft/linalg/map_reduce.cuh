@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,6 @@
 #include <raft/core/device_mdspan.hpp>
 
 namespace raft::linalg {
-
-/**
- * @defgroup map_reduce Map-Reduce ops
- * @{
- */
 
 /**
  * @brief CUDA version of map and then generic reduction operation
@@ -68,6 +63,10 @@ void mapReduce(OutType* out,
 }
 
 /**
+ * @defgroup map_reduce Map-Reduce ops
+ * @{
+ */
+/**
  * @brief CUDA version of map and then generic reduction operation
  * @tparam InValueType the data-type of the input
  * @tparam MapOp the device-lambda performing the actual map operation
@@ -76,7 +75,7 @@ void mapReduce(OutType* out,
  * @tparam OutValueType the data-type of the output
  * @tparam ScalarIdxType index type of scalar
  * @tparam Args additional parameters
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in the input of type raft::device_vector_view
  * @param[in] neutral The neutral element of the reduction operation. For example:
  *    0 for sum, 1 for multiply, +Inf for Min, -Inf for Max
@@ -92,7 +91,7 @@ template <typename InValueType,
           typename OutValueType,
           typename ScalarIdxType,
           typename... Args>
-void map_reduce(const raft::handle_t& handle,
+void map_reduce(raft::device_resources const& handle,
                 raft::device_vector_view<const InValueType, IndexType> in,
                 raft::device_scalar_view<OutValueType, ScalarIdxType> out,
                 OutValueType neutral,

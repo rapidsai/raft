@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
  */
 
 #include "../linalg/matrix_vector_op.cuh"
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/linewise_op.cuh>
 #include <raft/random/rng.cuh>
@@ -42,8 +43,8 @@ struct LinewiseTestParams {
 
 template <typename T, typename I, typename ParamsReader>
 struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Params> {
+  const raft::device_resources handle;
   const LinewiseTestParams params;
-  const raft::handle_t handle;
   rmm::cuda_stream_view stream;
 
   LinewiseTest()
@@ -58,7 +59,6 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
   template <typename layout>
   void runLinewiseSum(T* out, const T* in, const I lineLen, const I nLines, const T* vec)
   {
-    auto f                  = [] __device__(T a, T b) -> T { return a + b; };
     constexpr auto rowmajor = std::is_same_v<layout, row_major>;
 
     I m = rowmajor ? lineLen : nLines;
@@ -68,7 +68,8 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
     auto out_view = raft::make_device_matrix_view<T, I, layout>(out, n, m);
 
     auto vec_view = raft::make_device_vector_view<const T>(vec, lineLen);
-    matrix::linewise_op(handle, in_view, out_view, raft::is_row_major(in_view), f, vec_view);
+    matrix::linewise_op(
+      handle, in_view, out_view, raft::is_row_major(in_view), raft::add_op{}, vec_view);
   }
 
   template <typename layout>
@@ -107,9 +108,8 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
                             const bool alongLines,
                             const T* vec)
   {
-    auto f        = [] __device__(T a, T b) -> T { return a + b; };
     auto vec_view = raft::make_device_vector_view<const T, I>(vec, alongLines ? lineLen : nLines);
-    matrix::linewise_op(handle, in, out, alongLines, f, vec_view);
+    matrix::linewise_op(handle, in, out, alongLines, raft::add_op{}, vec_view);
   }
 
   /**

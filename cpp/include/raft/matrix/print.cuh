@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_print Matrix print operations
+ * @{
+ */
+
+/**
  * @brief Prints the data stored in GPU memory
  * @tparam m_t type of matrix elements
  * @tparam idx_t integer type used for indexing
@@ -33,7 +38,7 @@ namespace raft::matrix {
  * @param[in] separators: horizontal and vertical separator characters
  */
 template <typename m_t, typename idx_t>
-void print(const raft::handle_t& handle,
+void print(raft::device_resources const& handle,
            raft::device_matrix_view<const m_t, idx_t, col_major> in,
            print_separators& separators)
 {
@@ -44,4 +49,6 @@ void print(const raft::handle_t& handle,
                 separators.vertical,
                 handle.get_stream());
 }
+
+/** @} */  // end group matrix_print
 }  // namespace raft::matrix
