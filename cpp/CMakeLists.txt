@@ -307,6 +307,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/refine_h_uint64_t_uint8_t.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu
+    src/distance/cluster/kmeans_init_plus_plus_double.cu
+    src/distance/cluster/kmeans_init_plus_plus_float.cu
     src/distance/distance/specializations/detail/canberra_double_double_double_int.cu
     src/distance/distance/specializations/detail/canberra_float_float_float_int.cu
     src/distance/distance/specializations/detail/chebyshev_double_double_double_int.cu
@@ -356,6 +358,12 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/ivfpq_search_float_uint64_t.cu
     src/distance/neighbors/ivfpq_search_int8_t_uint64_t.cu
     src/distance/neighbors/ivfpq_search_uint8_t_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_build_float_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_build_int8_t_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_build_uint8_t_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_extend_float_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_extend_int8_t_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_extend_uint8_uint64_t.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fast.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
@@ -368,9 +376,9 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_fast.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
-    src/distance/neighbors/specializations/detail/ivfpq_search_float_int64_t.cu
+    src/distance/neighbors/specializations/detail/ivfpq_search_uint8_t_uint64_t.cu
     src/distance/neighbors/specializations/detail/ivfpq_search_float_uint64_t.cu
-    src/distance/neighbors/specializations/detail/ivfpq_search_float_uint32_t.cu
+    src/distance/neighbors/specializations/detail/ivfpq_search_int8_t_uint64_t.cu
     src/distance/random/rmat_rectangular_generator_int_double.cu
     src/distance/random/rmat_rectangular_generator_int64_double.cu
     src/distance/random/rmat_rectangular_generator_int_float.cu
