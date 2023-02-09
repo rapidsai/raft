@@ -94,7 +94,7 @@ void minkowskiUnExpImpl(const DataT* x,
     }
   };
 
-  if (isRowMajor) {
+  if constexpr (isRowMajor) {
     auto minkowskiUnExpRowMajor = pairwiseDistanceMatKernel<false,
                                                             DataT,
                                                             AccT,
@@ -151,10 +151,7 @@ void minkowskiUnExp(IdxT m,
 {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
-  if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    minkowskiUnExpImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream, metric_arg);
-  } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
+  if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
     minkowskiUnExpImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream, metric_arg);
   } else {
