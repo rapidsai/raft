@@ -21,4 +21,4 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/handle.hpp>
