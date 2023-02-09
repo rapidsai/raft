@@ -14,15 +14,20 @@
  * limitations under the License.
  */
 
-#include "../ann_ivf_pq.cuh"
+#include <raft/neighbors/ivf_pq.cuh>
 
 namespace raft::neighbors::ivf_pq {
 
-using f32_f32_i64 = ivf_pq_test<float, float, int64_t>;
+#define RAFT_INST_BUILD_EXTEND(T, IdxT)                              \
+  template auto build<T, IdxT>(raft::device_resources const& handle, \
+                               const index_params& params,           \
+                               const T* dataset,                     \
+                               IdxT n_rows,                          \
+                               uint32_t dim)                         \
+    ->index<IdxT>;
 
-TEST_BUILD_SEARCH(f32_f32_i64)
-TEST_BUILD_EXTEND_SEARCH(f32_f32_i64)
-INSTANTIATE(f32_f32_i64,
-            enum_variety_l2() + enum_variety_ip() + big_dims_small_lut() + enum_variety_l2sqrt());
+RAFT_INST_BUILD_EXTEND(int8_t, uint64_t);
+
+#undef RAFT_INST_BUILD_EXTEND
 
 }  // namespace raft::neighbors::ivf_pq
