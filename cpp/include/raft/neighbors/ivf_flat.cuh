@@ -252,7 +252,7 @@ void extend(raft::device_resources const& handle,
             const IdxT* new_indices,
             IdxT n_rows)
 {
-  *index = extend(handle, *index, new_vectors, new_indices, n_rows);
+  raft::spatial::knn::ivf_flat::detail::extend(handle, index, new_vectors, new_indices, n_rows);
 }
 
 /**
@@ -293,11 +293,11 @@ void extend(raft::device_resources const& handle,
             raft::device_matrix_view<const value_t, idx_t, row_major> new_vectors,
             std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
 {
-  *index = extend(handle,
-                  *index,
-                  new_vectors.data_handle(),
-                  new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
-                  static_cast<idx_t>(new_vectors.extent(0)));
+  extend(handle,
+         index,
+         new_vectors.data_handle(),
+         new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
+         static_cast<idx_t>(new_vectors.extent(0)));
 }
 
 /** @} */

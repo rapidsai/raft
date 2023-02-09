@@ -169,7 +169,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         auto half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), half_of_data, ps.dim);
 
-        auto index_2 = ivf_flat::extend(handle_, index, half_of_data_view);
+        ivf_flat::extend(handle_, &index, half_of_data_view);
 
         auto new_half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
           database.data() + half_of_data * ps.dim, IdxT(ps.num_db_vecs) - half_of_data, ps.dim);
@@ -178,7 +178,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           vector_indices.data() + half_of_data, IdxT(ps.num_db_vecs) - half_of_data);
 
         ivf_flat::extend(handle_,
-                         &index_2,
+                         &index,
                          new_half_of_data_view,
                          std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(
                            new_half_of_data_indices_view));
@@ -189,7 +189,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           indices_ivfflat_dev.data(), ps.num_queries, ps.k);
         auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
           distances_ivfflat_dev.data(), ps.num_queries, ps.k);
-        raft::spatial::knn::ivf_flat::detail::serialize(handle_, "ivf_flat_index", index_2);
+        raft::spatial::knn::ivf_flat::detail::serialize(handle_, "ivf_flat_index", index);
 
         auto index_loaded =
           raft::spatial::knn::ivf_flat::detail::deserialize<DataT, IdxT>(handle_, "ivf_flat_index");
@@ -207,30 +207,30 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         handle_.sync_stream(stream_);
 
         // Test the centroid invariants
-        if (index_2.adaptive_centers()) {
+        if (index.adaptive_centers()) {
           // The centers must be up-to-date with the corresponding data
-          std::vector<uint32_t> list_sizes(index_2.n_lists());
-          std::vector<IdxT> list_offsets(index_2.n_lists());
+          std::vector<uint32_t> list_sizes(index.n_lists());
+          //std::vector<IdxT> list_offsets(index.n_lists());
           rmm::device_uvector<float> centroid(ps.dim, stream_);
           raft::copy(
-            list_sizes.data(), index_2.list_sizes().data_handle(), index_2.n_lists(), stream_);
-          raft::copy(
-            list_offsets.data(), index_2.list_offsets().data_handle(), index_2.n_lists(), stream_);
+            list_sizes.data(), index.list_sizes().data_handle(), index.n_lists(), stream_);
+          //raft::copy(
+          //  list_offsets.data(), index.list_offsets().data_handle(), index.n_lists(), stream_);
           handle_.sync_stream(stream_);
-          for (uint32_t l = 0; l < index_2.n_lists(); l++) {
+          for (uint32_t l = 0; l < index.n_lists(); l++) {
             rmm::device_uvector<float> cluster_data(list_sizes[l] * ps.dim, stream_);
             raft::spatial::knn::detail::utils::copy_selected<float>(
               (IdxT)list_sizes[l],
               (IdxT)ps.dim,
               database.data(),
-              index_2.indices().data_handle() + list_offsets[l],
+              index.inds_ptrs()(l),
               (IdxT)ps.dim,
               cluster_data.data(),
               (IdxT)ps.dim,
               stream_);
             raft::stats::mean<float, uint32_t>(
               centroid.data(), cluster_data.data(), ps.dim, list_sizes[l], false, true, stream_);
-            ASSERT_TRUE(raft::devArrMatch(index_2.centers().data_handle() + ps.dim * l,
+            ASSERT_TRUE(raft::devArrMatch(index.centers().data_handle() + ps.dim * l,
                                           centroid.data(),
                                           ps.dim,
                                           raft::CompareApprox<float>(0.001),
@@ -238,9 +238,9 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           }
         } else {
           // The centers must be immutable
-          ASSERT_TRUE(raft::devArrMatch(index_2.centers().data_handle(),
+          ASSERT_TRUE(raft::devArrMatch(index.centers().data_handle(),
                                         index.centers().data_handle(),
-                                        index_2.centers().size(),
+                                        index.centers().size(),
                                         raft::Compare<float>(),
                                         stream_));
         }

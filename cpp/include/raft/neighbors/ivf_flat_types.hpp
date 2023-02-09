@@ -19,10 +19,13 @@
 #include "ann_types.hpp"
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/mdspan_types.hpp>
 #include <raft/core/error.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
+#include <memory>
 #include <optional>
 #include <type_traits>
 
@@ -284,16 +287,16 @@ struct index : ann::index {
     auto stream  = res.get_stream();
 
     // Actualize the list pointers
-    auto lists     = lists();
-    auto data_ptrs = data_ptrs();
-    auto inds_ptrs = inds_ptrs();
+    auto this_lists     = lists();
+    auto this_data_ptrs = data_ptrs();
+    auto this_inds_ptrs = inds_ptrs();
     IdxT recompute_total_size = 0;
-    for (uint32_t label = 0; label < lists.size(); label++) {
-      const auto data_ptr = lists(label) ? lists(label)->data.data_handle() : nullptr;
-      const auto inds_ptr = lists(label) ? lists(label)->indices.data_handle() : nullptr;
-      const auto list_size = lists(label) ? lists(label)->size() : 0;
-      copy(&data_ptrs(label), &data_ptr, 1, stream);
-      copy(&inds_ptrs(label), &inds_ptr, 1, stream);
+    for (uint32_t label = 0; label < this_lists.size(); label++) {
+      const auto data_ptr = this_lists(label) ? this_lists(label)->data.data_handle() : nullptr;
+      const auto inds_ptr = this_lists(label) ? this_lists(label)->indices.data_handle() : nullptr;
+      const auto list_size = this_lists(label) ? IdxT(this_lists(label)->size) : 0;
+      copy(&this_data_ptrs(label), &data_ptr, 1, stream);
+      copy(&this_inds_ptrs(label), &inds_ptr, 1, stream);
       recompute_total_size += list_size;
     }
     total_size_ = recompute_total_size;
