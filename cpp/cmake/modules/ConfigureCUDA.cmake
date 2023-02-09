@@ -21,6 +21,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
   list(APPEND RAFT_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
 endif()
 
+list(APPEND RAFT_CUDA_FLAGS "--time=nvcc_compile_log.csv")
 list(APPEND RAFT_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 list(APPEND RAFT_CXX_FLAGS "-DCUDA_API_PER_THREAD_DEFAULT_STREAM")
 list(APPEND RAFT_CUDA_FLAGS "-DCUDA_API_PER_THREAD_DEFAULT_STREAM")
