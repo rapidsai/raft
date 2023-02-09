@@ -14,6 +14,8 @@ set -e
 NUMARGS=$#
 ARGS=$*
 
+export SCCACHE_RECACHE=1
+
 # NOTE: ensure all dir changes are relative to the location of this
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
