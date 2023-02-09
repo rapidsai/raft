@@ -271,10 +271,10 @@ void flat_compute_residuals(
   raft::device_resources const& handle,
   float* residuals,  // [n_rows, rot_dim]
   IdxT n_rows,
-  device_mdspan<const float, extent_2d<uint32_t>, row_major> rotation_matrix,  // [rot_dim, dim]
-  device_mdspan<const float, extent_2d<uint32_t>, row_major> centers,          // [n_lists, dim_ext]
-  const T* dataset,                                                            // [n_rows, dim]
-  const uint32_t* labels,                                                      // [n_rows]
+  device_matrix_view<const float, uint32_t, row_major> rotation_matrix,  // [rot_dim, dim]
+  device_matrix_view<const float, uint32_t, row_major> centers,          // [n_lists, dim_ext]
+  const T* dataset,                                                      // [n_rows, dim]
+  const uint32_t* labels,                                                // [n_rows]
   rmm::mr::device_memory_resource* device_memory)
 {
   auto stream  = handle.get_stream();
@@ -625,12 +625,12 @@ __device__ auto compute_pq_code(
 
 template <uint32_t BlockSize, uint32_t PqBits, typename IdxT>
 __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
-  device_mdspan<const float, extent_2d<IdxT>, row_major> new_vectors,
+  device_matrix_view<const float, IdxT, row_major> new_vectors,
   std::variant<IdxT, const IdxT*> src_offset_or_indices,
   const uint32_t* new_labels,
-  device_mdspan<uint32_t, extent_1d<uint32_t>, row_major> list_sizes,
-  device_mdspan<IdxT*, extent_1d<uint32_t>, row_major> inds_ptrs,
-  device_mdspan<uint8_t*, extent_1d<uint32_t>, row_major> data_ptrs,
+  device_vector_view<uint32_t, uint32_t, row_major> list_sizes,
+  device_vector_view<IdxT*, uint32_t, row_major> inds_ptrs,
+  device_vector_view<uint8_t*, uint32_t, row_major> data_ptrs,
   device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
   codebook_gen codebook_kind)
 {
