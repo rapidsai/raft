@@ -21,6 +21,5 @@
 namespace raft::neighbors::ivf_pq::detail {
 
 template struct ivfpq_compute_similarity<float, float>::configured<true, false>;
-template struct ivfpq_compute_similarity<half, float>::configured<true, false>;
 
 }  // namespace raft::neighbors::ivf_pq::detail

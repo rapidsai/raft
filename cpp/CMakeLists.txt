@@ -367,18 +367,27 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/ivfpq_search_float_uint64_t.cu
     src/distance/neighbors/specializations/ivfpq_search_int8_t_uint64_t.cu
     src/distance/neighbors/specializations/ivfpq_search_uint8_t_uint64_t.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fast.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8s_fast.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8s_no_basediff.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8s_no_smem_lut.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8u_fast.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8u_no_basediff.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_fp8u_no_smem_lut.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_fast.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
-    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_float_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_float_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_float_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fp8s_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fp8s_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fp8s_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fp8u_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fp8u_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fp8u_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_half_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_half_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_half_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_fp8s_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_fp8s_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_fp8s_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_fp8u_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_fp8u_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_fp8u_no_smem_lut.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_half_fast.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_half_no_basediff.cu
+    src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_half_no_smem_lut.cu
     src/distance/random/rmat_rectangular_generator_int_double.cu
     src/distance/random/rmat_rectangular_generator_int64_double.cu
     src/distance/random/rmat_rectangular_generator_int_float.cu
