@@ -50,6 +50,15 @@ from pylibraft.common.handle cimport device_resources
 
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.input_validation import is_c_contiguous
+from pylibraft.common.cpp.mdspan cimport (
+    device_matrix_view,
+    make_device_matrix_view,
+    row_major,
+    get_device_matrix_view_float,
+    get_device_matrix_view_uint64,
+    get_device_matrix_view_uint8,
+    get_device_matrix_view_int8
+)
 
 from rmm._lib.memory_resource cimport (
     DeviceMemoryResource,
@@ -377,7 +386,6 @@ def build(IndexParams index_params, dataset, handle=None):
     dataset_dt = dataset_cai.dtype
     _check_input_array(dataset_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')])
-    cdef uintptr_t dataset_ptr = dataset_cai.data
 
     cdef uint64_t n_rows = dataset_cai.shape[0]
     cdef uint32_t dim = dataset_cai.shape[1]
@@ -393,27 +401,21 @@ def build(IndexParams index_params, dataset, handle=None):
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
                            index_params.params,
-                           <float*> dataset_ptr,
-                           n_rows,
-                           dim,
+                           get_device_matrix_view_float(dataset_cai),
                            idx.index)
         idx.trained = True
     elif dataset_dt == np.byte:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
                            index_params.params,
-                           <int8_t*> dataset_ptr,
-                           n_rows,
-                           dim,
+                           get_device_matrix_view_int8(dataset_cai),
                            idx.index)
         idx.trained = True
     elif dataset_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
                            index_params.params,
-                           <uint8_t*> dataset_ptr,
-                           n_rows,
-                           dim,
+                           get_device_matrix_view_uint8(dataset_cai),
                            idx.index)
         idx.trained = True
     else:
@@ -505,30 +507,24 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
 
-    cdef uintptr_t vecs_ptr = vecs_cai.data
-    cdef uintptr_t idx_ptr = idx_cai.data
-
     if vecs_dt == np.float32:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
-                            <float*>vecs_ptr,
-                            <uint64_t*> idx_ptr,
-                            <uint64_t> n_rows)
+                            get_device_matrix_view_float(vecs_cai),
+                            get_device_matrix_view_uint64(idx_cai, check_shape=False))
     elif vecs_dt == np.int8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
-                            <int8_t*>vecs_ptr,
-                            <uint64_t*> idx_ptr,
-                            <uint64_t> n_rows)
+                            get_device_matrix_view_int8(vecs_cai),
+                            get_device_matrix_view_uint64(idx_cai, check_shape=False))
     elif vecs_dt == np.uint8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
-                            <uint8_t*>vecs_ptr,
-                            <uint64_t*> idx_ptr,
-                            <uint64_t> n_rows)
+                            get_device_matrix_view_uint8(vecs_cai),
+                            get_device_matrix_view_uint64(idx_cai, check_shape=False))
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
@@ -705,7 +701,6 @@ def search(SearchParams search_params,
 
     cdef c_ivf_pq.search_params params = search_params.params
 
-    cdef uintptr_t queries_ptr = queries_cai.data
     cdef uintptr_t neighbors_ptr = neighbors_cai.data
     cdef uintptr_t distances_ptr = distances_cai.data
     # TODO(tfeher) pass mr_ptr arg
@@ -718,34 +713,28 @@ def search(SearchParams search_params,
             c_ivf_pq.search(deref(handle_),
                             params,
                             deref(index.index),
-                            <float*>queries_ptr,
-                            <uint32_t> n_queries,
+                            get_device_matrix_view_float(queries_cai),
                             <uint32_t> k,
-                            <uint64_t*> neighbors_ptr,
-                            <float*> distances_ptr,
-                            mr_ptr)
+                            get_device_matrix_view_uint64(neighbors_cai),
+                            get_device_matrix_view_float(distances_cai))
     elif queries_dt == np.byte:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
                             params,
                             deref(index.index),
-                            <int8_t*>queries_ptr,
-                            <uint32_t> n_queries,
+                            get_device_matrix_view_int8(queries_cai),
                             <uint32_t> k,
-                            <uint64_t*> neighbors_ptr,
-                            <float*> distances_ptr,
-                            mr_ptr)
+                            get_device_matrix_view_uint64(neighbors_cai),
+                            get_device_matrix_view_float(distances_cai))
     elif queries_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
                             params,
                             deref(index.index),
-                            <uint8_t*>queries_ptr,
-                            <uint32_t> n_queries,
+                            get_device_matrix_view_uint8(queries_cai),
                             <uint32_t> k,
-                            <uint64_t*> neighbors_ptr,
-                            <float*> distances_ptr,
-                            mr_ptr)
+                            get_device_matrix_view_uint64(neighbors_cai),
+                            get_device_matrix_view_float(distances_cai))
     else:
         raise ValueError("query dtype %s not supported" % queries_dt)
 

@@ -144,3 +144,51 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
     X2 = np.load(f)
     assert np.all(X.shape == X2.shape)
     assert np.all(X == X2)
+
+
+cdef device_matrix_view[float, uint64_t, row_major] \
+        get_device_matrix_view_float(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.float32:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[float, uint64_t, row_major](
+        <float*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[uint64_t, uint64_t, row_major] \
+        get_device_matrix_view_uint64(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.uint64:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[uint64_t, uint64_t, row_major](
+        <uint64_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[uint8_t, uint64_t, row_major] \
+        get_device_matrix_view_uint8(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.uint8:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[uint8_t, uint64_t, row_major](
+        <uint8_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[int8_t, uint64_t, row_major] \
+        get_device_matrix_view_int8(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.int8:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[int8_t, uint64_t, row_major](
+        <int8_t*><uintptr_t>cai.data, shape[0], shape[1])

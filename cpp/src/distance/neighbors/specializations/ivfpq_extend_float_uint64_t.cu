@@ -18,18 +18,18 @@
 
 namespace raft::neighbors::ivf_pq {
 
-#define RAFT_INST_BUILD_EXTEND(T, IdxT)                               \
-  template auto extend<T, IdxT>(raft::device_resources const& handle, \
-                                const index<IdxT>& orig_index,        \
-                                const T* new_vectors,                 \
-                                const IdxT* new_indices,              \
-                                IdxT n_rows)                          \
-    ->index<IdxT>;                                                    \
-  template void extend<T, IdxT>(raft::device_resources const& handle, \
-                                index<IdxT>* index,                   \
-                                const T* new_vectors,                 \
-                                const IdxT* new_indices,              \
-                                IdxT n_rows);
+#define RAFT_INST_BUILD_EXTEND(T, IdxT)                                       \
+  template auto extend<T, IdxT>(                                              \
+    raft::device_resources const& handle,                                     \
+    const index<IdxT>& orig_index,                                            \
+    const raft::device_matrix_view<const T, IdxT, row_major>& new_vectors,    \
+    const raft::device_matrix_view<const IdxT, IdxT, row_major>& new_indices) \
+    ->index<IdxT>;                                                            \
+  template void extend<T, IdxT>(                                              \
+    raft::device_resources const& handle,                                     \
+    index<IdxT>* index,                                                       \
+    const raft::device_matrix_view<const T, IdxT, row_major>& new_vectors,    \
+    const raft::device_matrix_view<const IdxT, IdxT, row_major>& new_indices);
 
 RAFT_INST_BUILD_EXTEND(float, uint64_t);
 

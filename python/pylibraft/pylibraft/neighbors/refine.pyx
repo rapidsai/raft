@@ -58,6 +58,10 @@ from pylibraft.common.cpp.mdspan cimport (
     make_device_matrix_view,
     make_host_matrix_view,
     row_major,
+    get_device_matrix_view_float,
+    get_device_matrix_view_uint64,
+    get_device_matrix_view_uint8,
+    get_device_matrix_view_int8
 )
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params,
@@ -123,50 +127,6 @@ cdef extern from "raft_runtime/neighbors/refine.hpp" \
         host_matrix_view[uint64_t, uint64_t, row_major] indices,
         host_matrix_view[float, uint64_t, row_major] distances,
         DistanceType metric) except +
-
-
-cdef device_matrix_view[float, uint64_t, row_major] \
-        get_device_matrix_view_float(array) except *:
-    cai = cai_wrapper(array)
-    if cai.dtype != np.float32:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    return make_device_matrix_view[float, uint64_t, row_major](
-        <float*><uintptr_t>cai.data, cai.shape[0], cai.shape[1])
-
-
-cdef device_matrix_view[uint64_t, uint64_t, row_major] \
-        get_device_matrix_view_uint64(array) except *:
-    cai = cai_wrapper(array)
-    if cai.dtype != np.uint64:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    return make_device_matrix_view[uint64_t, uint64_t, row_major](
-        <uint64_t*><uintptr_t>cai.data, cai.shape[0], cai.shape[1])
-
-
-cdef device_matrix_view[uint8_t, uint64_t, row_major] \
-        get_device_matrix_view_uint8(array) except *:
-    cai = cai_wrapper(array)
-    if cai.dtype != np.uint8:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    return make_device_matrix_view[uint8_t, uint64_t, row_major](
-        <uint8_t*><uintptr_t>cai.data, cai.shape[0], cai.shape[1])
-
-
-cdef device_matrix_view[int8_t, uint64_t, row_major] \
-        get_device_matrix_view_int8(array) except *:
-    cai = cai_wrapper(array)
-    if cai.dtype != np.int8:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    return make_device_matrix_view[int8_t, uint64_t, row_major](
-        <int8_t*><uintptr_t>cai.data, cai.shape[0], cai.shape[1])
 
 
 def _get_array_params(array_interface, check_dtype=None):

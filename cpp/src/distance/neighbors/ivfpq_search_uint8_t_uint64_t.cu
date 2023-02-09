@@ -27,11 +27,10 @@ namespace raft::runtime::neighbors::ivf_pq {
               const raft::device_matrix_view<const T, IdxT, row_major>& queries, \
               uint32_t k,                                                        \
               const raft::device_matrix_view<IdxT, IdxT, row_major>& neighbors,  \
-              const raft::device_matrix_view<float, IdxT, row_major>& distances, \
-              rmm::mr::device_memory_resource* mr)                               \
+              const raft::device_matrix_view<float, IdxT, row_major>& distances) \
   {                                                                              \
     raft::neighbors::ivf_pq::search<T, IdxT>(                                    \
-      handle, params, idx, queries, k, neighbors, distances, mr);                \
+      handle, params, idx, queries, k, neighbors, distances);                    \
   }
 
 RAFT_SEARCH_INST(uint8_t, uint64_t);

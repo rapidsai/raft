@@ -18,12 +18,10 @@
 
 namespace raft::neighbors::ivf_pq {
 
-#define RAFT_INST_BUILD_EXTEND(T, IdxT)                              \
-  template auto build<T, IdxT>(raft::device_resources const& handle, \
-                               const index_params& params,           \
-                               const T* dataset,                     \
-                               IdxT n_rows,                          \
-                               uint32_t dim)                         \
+#define RAFT_INST_BUILD_EXTEND(T, IdxT)                                                           \
+  template auto build<T, IdxT>(raft::device_resources const& handle,                              \
+                               const index_params& params,                                        \
+                               const raft::device_matrix_view<const T, IdxT, row_major>& dataset) \
     ->index<IdxT>;
 
 RAFT_INST_BUILD_EXTEND(int8_t, uint64_t);
