@@ -23,9 +23,8 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/matrix/init.cuh>
 #include <raft/util/integer_utils.hpp>
-
-#include <thrust/fill.h>
 
 #include <memory>
 #include <type_traits>
@@ -211,8 +210,7 @@ struct list_data {
         e.what());
     }
     // Fill the index buffer with a pre-defined marker for easier debugging
-    thrust::fill_n(
-      res.get_thrust_policy(), indices.data_handle(), indices.size(), ivf_pq::kInvalidRecord<IdxT>);
+    matrix::fill(res, indices.view(), ivf_pq::kInvalidRecord<IdxT>);
   }
 };
 
@@ -393,45 +391,47 @@ struct index : ann::index {
 
   /** Lists' data and indices. */
   inline auto lists() noexcept
-    -> host_mdspan<std::shared_ptr<list_data<IdxT>>, extent_1d<uint32_t>, row_major>
+    -> host_vector_view<std::shared_ptr<list_data<IdxT>>, uint32_t, row_major>
   {
     return lists_.view();
   }
   [[nodiscard]] inline auto lists() const noexcept
-    -> host_mdspan<const std::shared_ptr<list_data<IdxT>>, extent_1d<uint32_t>, row_major>
+    -> host_vector_view<const std::shared_ptr<list_data<IdxT>>, uint32_t, row_major>
   {
     return lists_.view();
   }
 
   /** Pointers to the inverted lists (clusters) data  [n_lists]. */
-  inline auto data_ptrs() noexcept -> device_mdspan<uint8_t*, extent_1d<uint32_t>, row_major>
+  inline auto data_ptrs() noexcept -> device_vector_view<uint8_t*, uint32_t, row_major>
   {
     return data_ptrs_.view();
   }
   [[nodiscard]] inline auto data_ptrs() const noexcept
-    -> device_mdspan<uint8_t* const, extent_1d<uint32_t>, row_major>
+    -> device_vector_view<const uint8_t* const, uint32_t, row_major>
   {
-    return data_ptrs_.view();
+    return make_mdspan<const uint8_t* const, uint32_t, row_major, false, true>(
+      data_ptrs_.data_handle(), data_ptrs_.extents());
   }
 
   /** Pointers to the inverted lists (clusters) indices  [n_lists]. */
-  inline auto inds_ptrs() noexcept -> device_mdspan<IdxT*, extent_1d<uint32_t>, row_major>
+  inline auto inds_ptrs() noexcept -> device_vector_view<IdxT*, uint32_t, row_major>
   {
     return inds_ptrs_.view();
   }
   [[nodiscard]] inline auto inds_ptrs() const noexcept
-    -> device_mdspan<IdxT* const, extent_1d<uint32_t>, row_major>
+    -> device_vector_view<const IdxT* const, uint32_t, row_major>
   {
-    return inds_ptrs_.view();
+    return make_mdspan<const IdxT* const, uint32_t, row_major, false, true>(
+      inds_ptrs_.data_handle(), inds_ptrs_.extents());
   }
 
   /** The transform matrix (original space -> rotated padded space) [rot_dim, dim] */
-  inline auto rotation_matrix() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  inline auto rotation_matrix() noexcept -> device_matrix_view<float, uint32_t, row_major>
   {
     return rotation_matrix_.view();
   }
   [[nodiscard]] inline auto rotation_matrix() const noexcept
-    -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
+    -> device_matrix_view<const float, uint32_t, row_major>
   {
     return rotation_matrix_.view();
   }
@@ -445,45 +445,45 @@ struct index : ann::index {
    *
    * This span is used during search to estimate the maximum size of the workspace.
    */
-  inline auto accum_sorted_sizes() noexcept -> host_mdspan<IdxT, extent_1d<uint32_t>, row_major>
+  inline auto accum_sorted_sizes() noexcept -> host_vector_view<IdxT, uint32_t, row_major>
   {
     return accum_sorted_sizes_.view();
   }
   [[nodiscard]] inline auto accum_sorted_sizes() const noexcept
-    -> host_mdspan<const IdxT, extent_1d<uint32_t>, row_major>
+    -> host_vector_view<const IdxT, uint32_t, row_major>
   {
     return accum_sorted_sizes_.view();
   }
 
   /** Sizes of the lists [n_lists]. */
-  inline auto list_sizes() noexcept -> device_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+  inline auto list_sizes() noexcept -> device_vector_view<uint32_t, uint32_t, row_major>
   {
     return list_sizes_.view();
   }
   [[nodiscard]] inline auto list_sizes() const noexcept
-    -> device_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
+    -> device_vector_view<const uint32_t, uint32_t, row_major>
   {
     return list_sizes_.view();
   }
 
   /** Cluster centers corresponding to the lists in the original space [n_lists, dim_ext] */
-  inline auto centers() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  inline auto centers() noexcept -> device_matrix_view<float, uint32_t, row_major>
   {
     return centers_.view();
   }
   [[nodiscard]] inline auto centers() const noexcept
-    -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
+    -> device_matrix_view<const float, uint32_t, row_major>
   {
     return centers_.view();
   }
 
   /** Cluster centers corresponding to the lists in the rotated space [n_lists, rot_dim] */
-  inline auto centers_rot() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  inline auto centers_rot() noexcept -> device_matrix_view<float, uint32_t, row_major>
   {
     return centers_rot_.view();
   }
   [[nodiscard]] inline auto centers_rot() const noexcept
-    -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
+    -> device_matrix_view<const float, uint32_t, row_major>
   {
     return centers_rot_.view();
   }
@@ -496,17 +496,17 @@ struct index : ann::index {
   uint32_t pq_dim_;
 
   // Primary data members
-  host_mdarray<std::shared_ptr<list_data<IdxT>>, extent_1d<uint32_t>, row_major> lists_;
-  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
+  host_vector<std::shared_ptr<list_data<IdxT>>, uint32_t, row_major> lists_;
+  device_vector<uint32_t, uint32_t, row_major> list_sizes_;
   device_mdarray<float, pq_centers_extents, row_major> pq_centers_;
-  device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
-  device_mdarray<float, extent_2d<uint32_t>, row_major> centers_rot_;
-  device_mdarray<float, extent_2d<uint32_t>, row_major> rotation_matrix_;
+  device_matrix<float, uint32_t, row_major> centers_;
+  device_matrix<float, uint32_t, row_major> centers_rot_;
+  device_matrix<float, uint32_t, row_major> rotation_matrix_;
 
   // Computed members for accelerating search.
-  device_mdarray<uint8_t*, extent_1d<uint32_t>, row_major> data_ptrs_;
-  device_mdarray<IdxT*, extent_1d<uint32_t>, row_major> inds_ptrs_;
-  host_mdarray<IdxT, extent_1d<uint32_t>, row_major> accum_sorted_sizes_;
+  device_vector<uint8_t*, uint32_t, row_major> data_ptrs_;
+  device_vector<IdxT*, uint32_t, row_major> inds_ptrs_;
+  host_vector<IdxT, uint32_t, row_major> accum_sorted_sizes_;
 
   /** Throw an error if the index content is inconsistent. */
   void check_consistency()
