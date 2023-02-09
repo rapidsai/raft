@@ -26,6 +26,7 @@
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations/ivf_pq_build.cuh>
 #endif
 
 #if defined RAFT_NN_COMPILED
