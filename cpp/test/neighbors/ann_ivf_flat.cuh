@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
@@ -346,20 +347,5 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
    raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
    raft::distance::DistanceType::InnerProduct,
    false}};
-
-typedef AnnIVFFlatTest<float, float, std::int64_t> AnnIVFFlatTestF;
-TEST_P(AnnIVFFlatTestF, AnnIVFFlat) { this->testIVFFlat(); }
-
-INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF, ::testing::ValuesIn(inputs));
-
-typedef AnnIVFFlatTest<float, uint8_t, std::int64_t> AnnIVFFlatTestF_uint8;
-TEST_P(AnnIVFFlatTestF_uint8, AnnIVFFlat) { this->testIVFFlat(); }
-
-INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF_uint8, ::testing::ValuesIn(inputs));
-
-typedef AnnIVFFlatTest<float, int8_t, std::int64_t> AnnIVFFlatTestF_int8;
-TEST_P(AnnIVFFlatTestF_int8, AnnIVFFlat) { this->testIVFFlat(); }
-
-INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF_int8, ::testing::ValuesIn(inputs));
 
 }  // namespace raft::neighbors::ivf_flat
