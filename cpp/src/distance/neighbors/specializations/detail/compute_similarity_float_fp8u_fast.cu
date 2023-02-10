@@ -20,6 +20,8 @@
 
 namespace raft::neighbors::ivf_pq::detail {
 
-template struct ivfpq_compute_similarity<float, fp_8bit<5, false>>::configured<false, true>;
+template auto get_compute_similarity_kernel<float, fp_8bit<5, false>, true, true>(uint32_t,
+                                                                                  uint32_t)
+  -> compute_similarity_kernel_t<float, fp_8bit<5, false>>;
 
 }  // namespace raft::neighbors::ivf_pq::detail

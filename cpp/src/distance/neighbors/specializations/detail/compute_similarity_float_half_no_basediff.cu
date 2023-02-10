@@ -20,7 +20,7 @@
 
 namespace raft::neighbors::ivf_pq::detail {
 
-template auto get_compute_similarity_kernel<float, half, true, false>(uint32_t, uint32_t)
+template auto get_compute_similarity_kernel<float, half, false, true>(uint32_t, uint32_t)
   -> compute_similarity_kernel_t<float, half>;
 
 }  // namespace raft::neighbors::ivf_pq::detail

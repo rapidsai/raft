@@ -602,26 +602,26 @@ template <typename OutT,
           int Capacity,
           bool PrecompBaseDiff,
           bool EnableSMemLut>
-__global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
-                                                uint32_t dim,
-                                                uint32_t n_probes,
-                                                uint32_t pq_dim,
-                                                uint32_t n_queries,
-                                                distance::DistanceType metric,
-                                                codebook_gen codebook_kind,
-                                                uint32_t topk,
-                                                uint32_t max_samples,
-                                                const float* cluster_centers,
-                                                const float* pq_centers,
-                                                const uint8_t* const* pq_dataset,
-                                                const uint32_t* cluster_labels,
-                                                const uint32_t* _chunk_indices,
-                                                const float* queries,
-                                                const uint32_t* index_list,
-                                                float* query_kths,
-                                                LutT* lut_scores,
-                                                OutT* _out_scores,
-                                                uint32_t* _out_indices)
+__global__ void compute_similarity_kernel(uint32_t n_rows,
+                                          uint32_t dim,
+                                          uint32_t n_probes,
+                                          uint32_t pq_dim,
+                                          uint32_t n_queries,
+                                          distance::DistanceType metric,
+                                          codebook_gen codebook_kind,
+                                          uint32_t topk,
+                                          uint32_t max_samples,
+                                          const float* cluster_centers,
+                                          const float* pq_centers,
+                                          const uint8_t* const* pq_dataset,
+                                          const uint32_t* cluster_labels,
+                                          const uint32_t* _chunk_indices,
+                                          const float* queries,
+                                          const uint32_t* index_list,
+                                          float* query_kths,
+                                          LutT* lut_scores,
+                                          OutT* _out_scores,
+                                          uint32_t* _out_indices)
 {
   /* Shared memory:
 
@@ -840,6 +840,57 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
   }
 }
 
+// The signature of the kernel defined by a minimal set of template parameters
+template <typename OutT, typename LutT>
+using compute_similarity_kernel_t =
+  decltype(&compute_similarity_kernel<OutT, LutT, 8, 0, true, true>);
+
+// The config struct lifts the runtime parameters to the template parameters
+template <typename OutT, typename LutT, bool PrecompBaseDiff, bool EnableSMemLut>
+struct compute_similarity_kernel_config {
+ public:
+  static auto get(uint32_t pq_bits, uint32_t k_max) -> compute_similarity_kernel_t<OutT, LutT>
+  {
+    return kernel_choose_bits(pq_bits, k_max);
+  }
+
+ private:
+  static auto kernel_choose_bits(uint32_t pq_bits, uint32_t k_max)
+    -> compute_similarity_kernel_t<OutT, LutT>
+  {
+    switch (pq_bits) {
+      case 4: return kernel_try_capacity<4, kMaxCapacity>(k_max);
+      case 5: return kernel_try_capacity<5, kMaxCapacity>(k_max);
+      case 6: return kernel_try_capacity<6, kMaxCapacity>(k_max);
+      case 7: return kernel_try_capacity<7, kMaxCapacity>(k_max);
+      case 8: return kernel_try_capacity<8, kMaxCapacity>(k_max);
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }
+
+  template <uint32_t PqBits, int Capacity>
+  static auto kernel_try_capacity(uint32_t k_max) -> compute_similarity_kernel_t<OutT, LutT>
+  {
+    if constexpr (Capacity > 0) {
+      if (k_max == 0 || k_max > Capacity) { return kernel_try_capacity<PqBits, 0>(k_max); }
+    }
+    if constexpr (Capacity > 1) {
+      if (k_max * 2 <= Capacity) { return kernel_try_capacity<PqBits, (Capacity / 2)>(k_max); }
+    }
+    return compute_similarity_kernel<OutT, LutT, PqBits, Capacity, PrecompBaseDiff, EnableSMemLut>;
+  }
+};
+
+// A standalone accessor function is neccessary to make sure template specializations work correctly
+// (we "extern template" this function)
+template <typename OutT, typename LutT, bool PrecompBaseDiff, bool EnableSMemLut>
+auto get_compute_similarity_kernel(uint32_t pq_bits, uint32_t k_max)
+  -> compute_similarity_kernel_t<OutT, LutT>
+{
+  return compute_similarity_kernel_config<OutT, LutT, PrecompBaseDiff, EnableSMemLut>::get(pq_bits,
+                                                                                           k_max);
+}
+
 /**
  * An approximation to the number of times each cluster appears in a batched sample.
  *
@@ -903,52 +954,9 @@ constexpr inline auto estimate_carveout(double shmem_fraction,
   return (size_t(100 * s * m * shmem_fraction) - (m - 1) * r) / (s * (m + r));
 }
 
-/**
- * This structure selects configurable template parameters (instance) based on
- * the search/index parameters at runtime.
- *
- * This is done by means of recursively iterating through a small set of possible
- * values for every parameter.
- */
+/** Select an appropriate kernel instance and launch parameters. */
 template <typename OutT, typename LutT>
-struct ivfpq_compute_similarity {
-  using kernel_t = decltype(&ivfpq_compute_similarity_kernel<OutT, LutT, 8, 0, true, true>);
-
-  template <bool PrecompBaseDiff, bool EnableSMemLut>
-  struct configured {
-   public:
-    /** Select a proper kernel instance based on the runtime parameters. */
-    static auto kernel(uint32_t pq_bits, uint32_t k_max) -> kernel_t
-    {
-      switch (pq_bits) {
-        case 4: return kernel_try_capacity<4, kMaxCapacity>(k_max);
-        case 5: return kernel_try_capacity<5, kMaxCapacity>(k_max);
-        case 6: return kernel_try_capacity<6, kMaxCapacity>(k_max);
-        case 7: return kernel_try_capacity<7, kMaxCapacity>(k_max);
-        case 8: return kernel_try_capacity<8, kMaxCapacity>(k_max);
-        default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
-      }
-    }
-
-   private:
-    template <uint32_t PqBits, int Capacity>
-    static auto kernel_try_capacity(uint32_t k_max) -> kernel_t
-    {
-      if constexpr (Capacity > 0) {
-        if (k_max == 0 || k_max > Capacity) { return kernel_try_capacity<PqBits, 0>(k_max); }
-      }
-      if constexpr (Capacity > 1) {
-        if (k_max * 2 <= Capacity) { return kernel_try_capacity<PqBits, (Capacity / 2)>(k_max); }
-      }
-      return ivfpq_compute_similarity_kernel<OutT,
-                                             LutT,
-                                             PqBits,
-                                             Capacity,
-                                             PrecompBaseDiff,
-                                             EnableSMemLut>;
-    }
-  };
-
+struct compute_similarity {
   /** Estimate the occupancy for the given kernel on the given device. */
   struct occupancy_t {
     using shmem_unit = Pow2<128>;
@@ -960,7 +968,7 @@ struct ivfpq_compute_similarity {
     inline occupancy_t() = default;
     inline occupancy_t(size_t smem,
                        uint32_t n_threads,
-                       kernel_t kernel,
+                       compute_similarity_kernel_t<OutT, LutT> kernel,
                        const cudaDeviceProp& dev_props)
     {
       RAFT_CUDA_TRY(
@@ -972,7 +980,7 @@ struct ivfpq_compute_similarity {
   };
 
   struct selected {
-    kernel_t kernel;
+    compute_similarity_kernel_t<OutT, LutT> kernel;
     dim3 grid_dim;
     dim3 block_dim;
     size_t smem_size;
@@ -1080,14 +1088,14 @@ struct ivfpq_compute_similarity {
      the minimum number of blocks (just one, really). Then, we tweak the `n_threads` to further
      optimize occupancy and data locality for the L1 cache.
      */
-    using conf_fast        = configured<true, true>;
-    using conf_no_basediff = configured<false, true>;
-    using conf_no_smem_lut = configured<true, false>;
-    auto topk_or_zero      = manage_local_topk ? topk : 0u;
+    auto conf_fast        = get_compute_similarity_kernel<OutT, LutT, true, true>;
+    auto conf_no_basediff = get_compute_similarity_kernel<OutT, LutT, false, true>;
+    auto conf_no_smem_lut = get_compute_similarity_kernel<OutT, LutT, true, false>;
+    auto topk_or_zero     = manage_local_topk ? topk : 0u;
     std::array candidates{
-      std::make_tuple(conf_fast::kernel(pq_bits, topk_or_zero), lut_mem + bdf_mem, true),
-      std::make_tuple(conf_no_basediff::kernel(pq_bits, topk_or_zero), lut_mem, true),
-      std::make_tuple(conf_no_smem_lut::kernel(pq_bits, topk_or_zero), bdf_mem, false)};
+      std::make_tuple(conf_fast(pq_bits, topk_or_zero), lut_mem + bdf_mem, true),
+      std::make_tuple(conf_no_basediff(pq_bits, topk_or_zero), lut_mem, true),
+      std::make_tuple(conf_no_smem_lut(pq_bits, topk_or_zero), bdf_mem, false)};
 
     // we may allow slightly lower than 100% occupancy;
     constexpr double kTargetOccupancy = 0.75;
@@ -1350,17 +1358,16 @@ void ivfpq_search_worker(raft::device_resources const& handle,
     } break;
   }
 
-  auto search_instance =
-    ivfpq_compute_similarity<ScoreT, LutT>::select(handle.get_device_properties(),
-                                                   manage_local_topk,
-                                                   coresidency,
-                                                   preferred_shmem_carveout,
-                                                   index.pq_bits(),
-                                                   index.pq_dim(),
-                                                   precomp_data_count,
-                                                   n_queries,
-                                                   n_probes,
-                                                   topK);
+  auto search_instance = compute_similarity<ScoreT, LutT>::select(handle.get_device_properties(),
+                                                                  manage_local_topk,
+                                                                  coresidency,
+                                                                  preferred_shmem_carveout,
+                                                                  index.pq_bits(),
+                                                                  index.pq_dim(),
+                                                                  precomp_data_count,
+                                                                  n_queries,
+                                                                  n_probes,
+                                                                  topK);
 
   rmm::device_uvector<LutT> device_lut(search_instance.device_lut_size, stream, mr);
   rmm::device_uvector<float> query_kths(0, stream, mr);
