@@ -15,99 +15,101 @@
  */
 #pragma once
 
-#include <cstdio>
-#include <utility>
-#include <raft/linalg/contractions.cuh>
-#include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
 #include "kernel_sm60.cuh"
+#include <cstdio>
+#include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
+#include <raft/linalg/contractions.cuh>
+#include <utility>
 
 namespace raft::distance::detail {
 
+/**
+ * @brief: Computes minimal alignment of row starting elements in 2D array
+ *
+ * The 2D matrix x is assumed to be row-major. This function computes the
+ * minimal alignment in bytes of the first elements of each row.
+ * Output can be 16, 8, 4, 2, 1.
+ *
+ * @param x        Base pointer of row-major input matrix
+ * @param stride   Stride in number of element between consecutive rows.
+ */
 template <typename DataT>
-struct params_dispatch {
-  int vectorized_load_num_elem = 1;
-  bool row_major               = true;
+size_t alignment_of_2d_array(const DataT* x, size_t stride)
+{
+  auto base           = reinterpret_cast<uintptr_t>(x);
+  size_t stride_bytes = sizeof(DataT) * stride;
 
-  template <int vl, bool rm>
-  struct params_constexpr {
-    static constexpr int vec_len = vl;
-    static constexpr bool is_row_major = rm;
-  };
+  for (int align = 16; align >= 0; align /= 2) {
+    bool base_aligned   = base % align == 0;
+    bool stride_aligned = stride_bytes % align == 0;
+    if (base_aligned && stride_aligned) { return align; }
+  }
+  return 1;
+}
 
-  // Turn run-time parameters into compile-time parameters.
-  // Call the provided function f with these compile-time parameters.
-  // Returns false if dispatch fails, i.e., if there is no implementation
-  // for the given runtime parameters.
-  template <typename F>
-  bool dispatch_with_compile_time_params(F&& f) const
+template <int n>
+struct alignment_tag {
+  static constexpr int value = n;
+};
+
+struct alignment_dispatch {
+  size_t byte_alignment = 0;
+
+  template <typename DataT>
+  alignment_dispatch(const DataT* x, const DataT* y, size_t ldx, size_t ldy)
   {
-    return convert_vectorized_load_num_elem(f);
+    size_t align_x = alignment_of_2d_array(x, ldx);
+    size_t align_y = alignment_of_2d_array(y, ldy);
+
+    byte_alignment = min(align_x, align_y);
   }
 
-  // Step 1: convert alignment into a compile time constant
   template <typename F>
-  bool convert_vectorized_load_num_elem(F&& f) const
+  auto operator()(F&& f) const
   {
-    bool fail = false;
-    switch (vectorized_load_num_elem) {
-      case 1: return layout<1>(f);
-      case 2: return layout<2>(f);
-      case 4: return layout<4>(f);
-      default: return fail;
-    };
-  }
-
-  // Step 2: convert layout into a compile time constant
-  template <int vec_len, typename F>
-  bool layout(F&& f) const
-  {
-    if (row_major) {
-      return to_compile_time_params<vec_len, true>(f);
-    } else {
-      return to_compile_time_params<vec_len, false>(f);
+    switch (byte_alignment) {
+      case 16: f(alignment_tag<16>()); break;
+      case 8: f(alignment_tag<8>()); break;
+      case 4: f(alignment_tag<4>()); break;
+      case 2: f(alignment_tag<2>()); break;
+      default: f(alignment_tag<1>()); break;
     }
-  }
-
-  // Step 3: convert compile-time constant into compile-time parameter struct and invoke
-  // function f with these compile time parameters.
-  template <int vec_len, bool is_row_major, typename F>
-  bool to_compile_time_params(F&& f) const
-  {
-    // Create compile-time parameter type and instantiate a struct;
-    using ct_params_T = params_constexpr<vec_len, is_row_major>;
-    ct_params_T compile_time_params{};
-
-    // Dispatch to f
-    f(compile_time_params);
-
-    bool dispatch_success = true;
-    return dispatch_success;
   }
 };
 
-// Determine the largest number of elements that can be loaded in one
-// instruction without causing misalignment errors.
-template <typename DataT, typename IdxT>
-int vectorized_load_num_elem(const DataT* x, const DataT* y, IdxT ldx, IdxT ldy)
-{
-  auto base_x     = reinterpret_cast<uintptr_t>(x);
-  auto base_y     = reinterpret_cast<uintptr_t>(y);
-  size_t stride_X = sizeof(DataT) * ldx;  // stride in bytes
-  size_t stride_Y = sizeof(DataT) * ldy;  // stride in bytes
+template <bool rm>
+struct row_major_tag {
+  static constexpr int value = rm;
+};
 
-  bool base_16B_aligned = base_x % 16 == 0 && base_y % 16 == 0;
-  bool base_8B_aligned  = base_x % 8 == 0 && base_y % 8 == 0;
+struct row_major_dispatch {
+  bool is_row_major_;
+  row_major_dispatch(bool row_major) : is_row_major_(row_major) {}
 
-  bool stride_16B_aligned = stride_X % 16 == 0 && stride_Y % 16 == 0;
-  bool stride_8B_aligned  = stride_X % 8 == 0 && stride_Y % 8 == 0;
-
-  if (16 % sizeof(DataT) == 0 && base_16B_aligned && stride_16B_aligned) {
-    return 16 / sizeof(DataT);
-  } else if (8 % sizeof(DataT) == 0 && base_8B_aligned && stride_8B_aligned) {
-    return 8 / sizeof(DataT);
-  } else {
-    return 1;
+  template <typename F>
+  auto operator()(F&& f) const
+  {
+    if (is_row_major_) {
+      f(row_major_tag<true>());
+    } else {
+      f(row_major_tag<false>());
+    }
   }
+};
+
+template <typename F1, typename F2>
+auto join_dispatch(F1&& f1, F2&& f2)
+{
+  const auto lam = [f1, f2](auto f) {
+    f1([f, f2](auto... args1) { f2([f, args1...](auto... args2) { f(args1..., args2...); }); });
+  };
+  return lam;
+}
+
+template <typename F1, typename F2, typename... Fs>
+auto join_dispatch(F1 f1, F2 f2, Fs... fs)
+{
+  return join_dispatch(join_dispatch(f1, f2), std::forward<Fs>(fs)...);
 }
 
 template <typename opT,
@@ -142,58 +144,30 @@ void distance_matrix_dispatch(opT distance_op,
     ldx = m, ldy = n, ld_out = n;
   }
 
-  // Create run-time parameter struct that does the dispatching.
-  //
-  // In addition to the template parameters of this function (IdxT, DataT,
-  // etc..), we explicitly dispatch based on:
-  params_dispatch<DataT> run_time_params{
-    vectorized_load_num_elem(x, y, ldx, ldy),   // 1. num array elements per load instruction
-    is_row_major                                // 2. the layout of x, y, and out
-  };
+  alignment_dispatch d_align(x, y, ldx, ldy);
+  row_major_dispatch d_row_major(is_row_major);
+  auto dispatch = join_dispatch(d_align, d_row_major);
 
-  // Turn run-time parameters into compile-time parameters.
-  bool dispatch_success = run_time_params.dispatch_with_compile_time_params(
-    // We pass a lambda that receives the compile-time parameters and can use these
-    // to call the correct kernel.
-    [&](auto p) {
-      // p has two constexpr members:
-      // - vec_len
-      // - is_row_major
+  dispatch([&](auto alignment_tag, auto row_major_tag) {
+    // Compute number of elements that can be loaded in one instruction
+    // without causing misalignent errors.
+    constexpr int vec_len_ideal =
+      (alignment_tag.value % sizeof(DataT) == 0) ? alignment_tag.value / sizeof(DataT) : 1;
 
-      // There is no instruction to load 4 doubles, so we catch this situation
-      // and load 2 doubles.
-      constexpr bool load_4_doubles = sizeof(DataT) > 4 && p.vec_len == 4;
-      constexpr int vec_len = (load_4_doubles) ? 2 : p.vec_len;
+    // To keep compile times in check, we only specialize on veclen > 1 when
+    // the inner loop is relatively cheap (< 5 flops).
+    constexpr int vec_len = distance_op.expensive_inner_loop ? 1 : vec_len_ideal;
 
-      // Determine kernel policy using vec_len and layout
-      typedef typename raft::linalg::Policy4x4<DataT, vec_len>::Policy RowPolicy;
-      typedef typename raft::linalg::Policy4x4<DataT, vec_len>::ColPolicy ColPolicy;
-      typedef typename std::conditional<p.is_row_major, RowPolicy, ColPolicy>::type Policy;
+    typedef typename raft::linalg::Policy4x4<DataT, vec_len>::Policy RowPolicy;
+    typedef typename raft::linalg::Policy4x4<DataT, vec_len>::ColPolicy ColPolicy;
+    typedef typename std::conditional<row_major_tag.value, RowPolicy, ColPolicy>::type Policy;
 
-      // Create compile-time template parameter
-      using KP_T = kernel_params_T<DataT, AccT, OutT, IdxT, Policy, opT, FinOpT, p.is_row_major>;
+    // Create compile-time template parameter
+    using KP_T = kernel_params_T<DataT, AccT, OutT, IdxT, Policy, opT, FinOpT, row_major_tag.value>;
 
-      return pairwise_matrix<KP_T>(
-        distance_op,
-        fin_op,
-        x,
-        y,
-        x_norm,
-        y_norm,
-        m,
-        n,
-        k,
-        ldx,
-        ldy,
-        ld_out,
-        out,
-        stream);
-    });
-
-  if (!dispatch_success) {
-    std::printf("Dispatch error(!)\n");
-    // TODO
-  }
+    return pairwise_matrix<KP_T>(
+      distance_op, fin_op, x, y, x_norm, y_norm, m, n, k, ldx, ldy, ld_out, out, stream);
+  });
 }
 
 template <typename opT,
@@ -227,25 +201,18 @@ void distance_matrix_cutlass_dispatch(opT cutlass_op,
     ldx = m, ldy = n, ld_out = n;
   }
 
-  params_dispatch<DataT> run_time_params{
-    vectorized_load_num_elem(x, y, ldx, ldy),
-    is_row_major
-  };
+  alignment_dispatch d_align(x, y, ldx, ldy);
+  row_major_dispatch d_row_major(is_row_major);
 
-  bool dispatch_success = run_time_params.dispatch_with_compile_time_params(
-    [&](auto p) {
-      // Prevent loading 4 doubles in one instruction.
-      constexpr bool load_4_doubles = sizeof(DataT) > 4 && p.vec_len == 4;
-      constexpr int vec_len = (load_4_doubles) ? 2 : p.vec_len;
+  auto dispatch = join_dispatch(d_align, d_row_major);
 
-      cutlassDistanceKernel<DataT, AccT, OutT, IdxT, vec_len, FinOpT, opT, p.is_row_major>(
-        x, y, x_norm, y_norm, m, n, k, ldx, ldy, ld_out, out, fin_op, cutlass_op, stream);
-    });
+  dispatch([&](auto alignment_tag, auto row_major_tag) {
+    constexpr int vec_len =
+      (alignment_tag.value % sizeof(DataT) == 0) ? alignment_tag.value / sizeof(DataT) : 1;
 
-  if (!dispatch_success) {
-    std::printf("Dispatch error(!)\n");
-    // TODO
-  }
+    cutlassDistanceKernel<DataT, AccT, OutT, IdxT, vec_len, FinOpT, opT, row_major_tag.value>(
+      x, y, x_norm, y_norm, m, n, k, ldx, ldy, ld_out, out, fin_op, cutlass_op, stream);
+  });
 }
 
 };  // namespace raft::distance::detail
