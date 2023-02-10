@@ -29,6 +29,9 @@ struct template_distance_op {
 
   // Load norms of input data
   static constexpr bool use_norms = TODO;
+  // Whether the core function requires so many instructions that it makes sense
+  // to reduce loop unrolling, etc. We do this to keep compile times in check.
+  static constexpr bool expensive_inner_loop = false;
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
