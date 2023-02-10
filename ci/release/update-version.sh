@@ -17,7 +17,6 @@ CURRENT_MAJOR=$(echo $CURRENT_TAG | awk '{split($0, a, "."); print a[1]}')
 CURRENT_MINOR=$(echo $CURRENT_TAG | awk '{split($0, a, "."); print a[2]}')
 CURRENT_PATCH=$(echo $CURRENT_TAG | awk '{split($0, a, "."); print a[3]}')
 CURRENT_SHORT_TAG=${CURRENT_MAJOR}.${CURRENT_MINOR}
-CURRENT_UCX_PY_VERSION="$(curl -sL https://version.gpuci.io/rapids/${CURRENT_SHORT_TAG}).*"
 
 #Get <major>.<minor> for next version
 NEXT_MAJOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[1]}')
