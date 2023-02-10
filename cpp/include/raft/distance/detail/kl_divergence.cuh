@@ -65,14 +65,14 @@ void klDivergenceImpl(int m,
 {
   auto unaryOp_lambda = [] __device__(DataT input) {
   const bool x_zero = (input == 0);
-  return (!x_zero) * raft::myLog(input + x_zero);  };
+  return (!x_zero) * raft::log(input + x_zero);  };
 
   auto unaryOp_lambda_reverse = [] __device__(DataT input) {
   // reverse previous log (x) back to x using (e ^ log(x))
   const bool x_zero = (input == 0);
-  return (!x_zero) * raft::myExp(input);  };
+  return (!x_zero) * raft::exp(input);  };
 
-  // This op takes some shortcuts when x equals y. So it behavior changes based
+  // This op takes some shortcuts when x equals y. So its behavior changes based
   // on this.
   ops::kl_divergence_op kl_divergence{is_row_major, x == y};
 
