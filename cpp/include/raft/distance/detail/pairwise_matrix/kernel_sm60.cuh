@@ -17,8 +17,6 @@
 
 #include <cstddef>
 #include <raft/core/operators.hpp>
-#include <raft/util/cudart_utils.hpp> // TODO: remove
-
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 
 namespace raft::distance::detail {
@@ -75,9 +73,7 @@ __global__ __launch_bounds__(KP_T::PolicyT::Nthreads, 2)
 
   // Wrap operator back into lambdas. This is temporary and should be removed. (TODO)
   auto core_op = [distance_op] __device__(AccT & acc, DataT & x, DataT & y) {
-    // use .template to disambiguate (See:
-    // https://en.cppreference.com/w/cpp/language/dependent_name)
-    distance_op.template core<AccT, DataT>(acc, x, y);
+    distance_op.core(acc, x, y);
   };
   auto epilog_op = [distance_op] __device__(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                                             DataT * regxn,
@@ -90,6 +86,7 @@ __global__ __launch_bounds__(KP_T::PolicyT::Nthreads, 2)
 
   // No support for row_epilog_op.
   auto row_epilog_op = raft::void_op();
+
   // Always write output
   constexpr bool write_out = true;
   constexpr bool use_norms = distance_op.use_norms;
