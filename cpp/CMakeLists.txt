@@ -52,6 +52,7 @@ option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
 )
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
+option(CUDA_LOG_COMPILE_TIME "Write a log of compilation times to nvcc_compile_log.csv" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
