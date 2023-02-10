@@ -26,11 +26,11 @@ install_requires = [
     "numpy",
     "numba>=0.49",
     "joblib>=0.11",
-    "dask-cuda==23.2.*",
-    "dask>=2022.12.0",
-    f"ucx-py{cuda_suffix}==0.30.*",
-    "distributed>=2022.12.0",
-    f"pylibraft{cuda_suffix}==23.2.*",
+    "dask-cuda==23.4.*",
+    "dask==2023.1.1",
+    f"ucx-py{cuda_suffix}==0.31.*",
+    "distributed==2023.1.1",
+    f"pylibraft{cuda_suffix}==23.4.*",
 ]
 
 extras_require = {

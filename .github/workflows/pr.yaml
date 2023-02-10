@@ -22,39 +22,39 @@ jobs:
       - wheel-build-raft-dask
       - wheel-tests-raft-dask
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@branch-23.04
   checks:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.04
   conda-cpp-build:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.04
     with:
       build_type: pull-request
       node_type: cpu16
   conda-cpp-tests:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.04
     with:
       build_type: pull-request
   conda-python-build:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-build.yaml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-build.yaml@branch-23.04
     with:
       build_type: pull-request
   conda-python-tests:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.04
     with:
       build_type: pull-request
   wheel-build-pylibraft:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.04
     with:
       build_type: pull-request
       package-name: pylibraft
@@ -63,7 +63,7 @@ jobs:
   wheel-tests-pylibraft:
     needs: wheel-build-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.04
     with:
       build_type: pull-request
       package-name: pylibraft
@@ -75,7 +75,7 @@ jobs:
   wheel-build-raft-dask:
     needs: wheel-tests-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.04
     with:
       build_type: pull-request
       package-name: raft_dask
@@ -85,12 +85,12 @@ jobs:
   wheel-tests-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.04
     with:
       build_type: pull-request
       package-name: raft_dask
       # Always want to test against latest dask/distributed.
-      test-before-amd64: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02"
-      test-before-arm64: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02"
+      test-before-amd64: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@2023.1.1 git+https://github.com/dask/distributed.git@2023.1.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
+      test-before-arm64: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@2023.1.1 git+https://github.com/dask/distributed.git@2023.1.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
       test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"
       test-smoketest: "python ./ci/wheel_smoke_test_raft_dask.py"

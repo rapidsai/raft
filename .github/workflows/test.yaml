@@ -16,7 +16,7 @@ on:
 jobs:
   conda-cpp-tests:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.04
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -24,7 +24,7 @@ jobs:
       sha: ${{ inputs.sha }}
   conda-python-tests:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.04
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -32,7 +32,7 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-tests-pylibraft:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.04
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -44,13 +44,13 @@ jobs:
       test-unittest: "python -m pytest -v ./python/pylibraft/pylibraft/test"
   wheel-tests-raft-dask:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.02
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.04
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       package-name: raft_dask
-      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02"
-      test-before-arm64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.02"
+      test-before-amd64: "pip install git+https://github.com/dask/dask.git@2023.1.1 git+https://github.com/dask/distributed.git@2023.1.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
+      test-before-arm64: "pip install git+https://github.com/dask/dask.git@2023.1.1 git+https://github.com/dask/distributed.git@2023.1.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
       test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"
