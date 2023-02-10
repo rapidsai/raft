@@ -48,25 +48,21 @@ size_t alignment_of_2d_array(const DataT* x, size_t stride)
 }
 
 template <int n>
-using align_constant = std::integral_constant<size_t, n>;
+using vec_len_constant = std::integral_constant<int, n>;
 
 template <typename F>
-inline void dispatch(bool row_major, size_t byte_alignment, F&& f) {
+inline void dispatch(bool row_major, int vec_len, F&& f) {
   if (row_major) {
-    switch (byte_alignment) {
-      case 16: f(std::bool_constant<true>(), align_constant<16>()); break;
-      case 8: f(std::bool_constant<true>(), align_constant<8>()); break;
-      case 4: f(std::bool_constant<true>(), align_constant<4>()); break;
-      case 2: f(std::bool_constant<true>(), align_constant<2>()); break;
-      default: f(std::bool_constant<true>(), align_constant<1>()); break;
+    switch (vec_len) {
+      case 4: f(std::bool_constant<true>(), vec_len_constant<4>()); break;
+      case 2: f(std::bool_constant<true>(), vec_len_constant<2>()); break;
+      default: f(std::bool_constant<true>(), vec_len_constant<1>()); break;
     }
   } else {
-    switch (byte_alignment) {
-      case 16: f(std::bool_constant<false>(), align_constant<16>()); break;
-      case 8: f(std::bool_constant<false>(), align_constant<8>()); break;
-      case 4: f(std::bool_constant<false>(), align_constant<4>()); break;
-      case 2: f(std::bool_constant<false>(), align_constant<2>()); break;
-      default: f(std::bool_constant<false>(), align_constant<1>()); break;
+    switch (vec_len) {
+      case 4: f(std::bool_constant<false>(), vec_len_constant<4>()); break;
+      case 2: f(std::bool_constant<false>(), vec_len_constant<2>()); break;
+      default: f(std::bool_constant<false>(), vec_len_constant<1>()); break;
     }
   }
 }
@@ -107,39 +103,38 @@ void distance_matrix_dispatch(opT distance_op,
   size_t align_y = alignment_of_2d_array(y, ldy);
   size_t byte_alignment = min(align_x, align_y);
 
+  // Since alignment is in bytes, it could be smaller than sizeof(DataT).
+  // Handle this (unlikely) case here.
+  RAFT_EXPECTS(sizeof(DataT) <= byte_alignment, "Input matrix must be aligned to size of elements.");
+
+  // Compute number of elements that can be loaded in one instruction
+  // without causing misalignent errors.
+  int vec_len_aligned = (byte_alignment % sizeof(DataT) == 0) ? byte_alignment / sizeof(DataT) : 1;
+
   dispatch(
     is_row_major,
-    byte_alignment,
-    [&](auto row_major, auto alignment) {
-      // row_major and alignment are std::integral_constants of type bool and
-      // size_t respectively.
-
-      // Since alignment is in bytes, it could be smaller than sizeof(DataT).
-      // Handle this (unlikely) case here.
-      if constexpr (alignment() < sizeof(DataT)) {
-        RAFT_EXPECTS(sizeof(DataT) <= alignment(), "Input matrix must be aligned to size of elements.");
-        return;
-      }
-
-      // Compute number of elements that can be loaded in one instruction
-      // without causing misalignent errors.
-      constexpr int vec_len_aligned =
-        (alignment() % sizeof(DataT) == 0) ? alignment() / sizeof(DataT) : 1;
+    vec_len_aligned,
+    [&](auto row_major, auto vec_len_aligned) {
+      // row_major and vec_len are std::integral_constants of type bool and int
+      // respectively.
 
       // To keep compile times in check, we only specialize on veclen > 1 when
       // the inner loop is relatively cheap (< 5 flops).
-      constexpr int vec_len = distance_op.expensive_inner_loop ? 1 : vec_len_aligned;
+      constexpr int vec_len_op = distance_op.expensive_inner_loop ? 1 : vec_len_aligned();
+
+      // Prevent double, vec_len=4 combination (this is not supported)
+      constexpr int vec_len = std::min(vec_len_op, static_cast<int>(16 / sizeof(DataT)));
 
       typedef typename raft::linalg::Policy4x4<DataT, vec_len>::Policy RowPolicy;
       typedef typename raft::linalg::Policy4x4<DataT, vec_len>::ColPolicy ColPolicy;
       typedef typename std::conditional<row_major(), RowPolicy, ColPolicy>::type Policy;
 
-    // Create compile-time template parameter
-    using KP_T = kernel_params_T<DataT, AccT, OutT, IdxT, Policy, opT, FinOpT, row_major()>;
+      // Create compile-time template parameter
+      using KP_T = kernel_params_T<DataT, AccT, OutT, IdxT, Policy, opT, FinOpT, row_major()>;
 
-    return pairwise_matrix<KP_T>(
-      distance_op, fin_op, x, y, x_norm, y_norm, m, n, k, ldx, ldy, ld_out, out, stream);
-  });
+      return pairwise_matrix<KP_T>(
+        distance_op, fin_op, x, y, x_norm, y_norm, m, n, k, ldx, ldy, ld_out, out, stream);
+    });
 }
 
 template <typename opT,
@@ -177,24 +172,23 @@ void distance_matrix_cutlass_dispatch(opT cutlass_op,
   size_t align_y = alignment_of_2d_array(y, ldy);
   size_t byte_alignment = min(align_x, align_y);
 
+  // Since alignment is in bytes, it could be smaller than sizeof(DataT).
+  // Handle this (unlikely) case here.
+  RAFT_EXPECTS(sizeof(DataT) <= byte_alignment, "Input matrix must be aligned to size of elements.");
+
+  // Compute number of elements that can be loaded in one instruction
+  // without causing misalignent errors.
+  int vec_len_aligned = (byte_alignment % sizeof(DataT) == 0) ? byte_alignment / sizeof(DataT) : 1;
 
   dispatch(
     is_row_major,
-    byte_alignment,
-    [&](auto row_major, auto alignment) {
-      // row_major and alignment are std::integral_constants of type bool and
-      // size_t respectively.
+    vec_len_aligned,
+    [&](auto row_major, auto vec_len_aligned) {
+      // row_major and vec_len are std::integral_constants of type bool and int
+      // respectively.
 
-      // Since alignment is in bytes, it could be smaller than sizeof(DataT).
-      // Handle this (unlikely) case here.
-      if constexpr (alignment() < sizeof(DataT)) {
-        RAFT_EXPECTS(sizeof(DataT) <= alignment(), "Input matrix must be aligned to size of elements.");
-        return;
-      }
-
-      // Compute number of elements that can be loaded in one instruction
-      // without causing misalignent errors.
-      constexpr int vec_len = (alignment() % sizeof(DataT) == 0) ? alignment() / sizeof(DataT) : 1;
+      // Prevent double, vec_len=4 combination (this is not supported)
+      constexpr int vec_len = std::min(vec_len_aligned, static_cast<int>(16 / sizeof(DataT)));
 
       cutlassDistanceKernel<DataT, AccT, OutT, IdxT, vec_len, FinOpT, opT, row_major()>(
         x, y, x_norm, y_norm, m, n, k, ldx, ldy, ld_out, out, fin_op, cutlass_op, stream);
