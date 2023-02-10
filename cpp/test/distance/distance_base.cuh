@@ -123,6 +123,28 @@ __global__ void naiveCosineDistanceKernel(
 }
 
 template <typename DataType>
+__global__ void naiveInnerProductKernel(
+  DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
+{
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) { return; }
+
+  DataType acc_ab = DataType(0);
+
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a   = x[xidx];
+    auto b   = y[yidx];
+    acc_ab += a * b;
+  }
+
+  int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc_ab;
+}
+
+template <typename DataType>
 __global__ void naiveHellingerDistanceKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
@@ -347,6 +369,9 @@ void naiveDistance(DataType* dist,
     case raft::distance::DistanceType::HammingUnexpanded:
       naiveHammingDistanceKernel<DataType>
         <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
+    case raft::distance::DistanceType::InnerProduct:
+      naiveInnerProductKernel<DataType><<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::JensenShannon:
       naiveJensenShannonDistanceKernel<DataType>

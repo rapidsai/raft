@@ -21,8 +21,8 @@ from pylibraft.common import DeviceResources, Stream, device_ndarray
 from pylibraft.distance import pairwise_distance
 
 
-@pytest.mark.parametrize("n_rows", [100])
-@pytest.mark.parametrize("n_cols", [100])
+@pytest.mark.parametrize("n_rows", [32, 100])
+@pytest.mark.parametrize("n_cols", [40, 100])
 @pytest.mark.parametrize(
     "metric",
     [

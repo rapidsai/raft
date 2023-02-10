@@ -261,8 +261,8 @@ struct DistanceImpl<raft::distance::DistanceType::InnerProduct,
                        m,
                        n,
                        k,
-                       isRowMajor,
-                       !isRowMajor,  // transpose
+                       !isRowMajor,
+                       !isRowMajor,
                        isRowMajor,
                        stream);
   }
