@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,7 @@
 namespace raft::spatial::knn::ivf_pq::detail {
 
 template struct ivfpq_compute_similarity<uint64_t, float, float>::configured<false, true>;
-template struct ivfpq_compute_similarity<int64_t, float, float>::configured<false, true>;
-template struct ivfpq_compute_similarity<uint32_t, float, float>::configured<false, true>;
 
 template struct ivfpq_compute_similarity<uint64_t, half, float>::configured<false, true>;
-template struct ivfpq_compute_similarity<int64_t, half, float>::configured<false, true>;
-template struct ivfpq_compute_similarity<uint32_t, half, float>::configured<false, true>;
 
 }  // namespace raft::spatial::knn::ivf_pq::detail
