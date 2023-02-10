@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "../ivf_flat_types.hpp"
 #include "ann_utils.cuh"
 
 #include <raft/core/cudart_utils.hpp>
@@ -30,6 +29,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
+#include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_loads_stores.cuh>
 #include <raft/util/integer_utils.hpp>
@@ -42,6 +42,12 @@
 namespace raft::spatial::knn::ivf_flat::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
+using namespace raft::neighbors::ivf_flat;   // NOLINT
+
+using raft::neighbors::ivf_flat::index;
+using raft::neighbors::ivf_flat::index_params;
+using raft::neighbors::ivf_flat::kIndexGroupSize;
+using raft::neighbors::ivf_flat::search_params;
 
 constexpr int kThreadsPerBlock = 128;
 
@@ -673,10 +679,10 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
                           const uint32_t query_smem_elems,
                           const T* query,
                           const uint32_t* coarse_index,
-                          const IdxT* list_indices,
-                          const T* list_data,
+                          const IdxT* const* list_indices_ptrs, // const IdxT* list_indices
+                          const T* const* list_data_ptrs, // const T* list_data
                           const uint32_t* list_sizes,
-                          const IdxT* list_offsets,
+                          //const IdxT* list_offsets,
                           const uint32_t n_probes,
                           const uint32_t k,
                           const uint32_t dim,
@@ -723,7 +729,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
     // Every CUDA block scans one cluster at a time.
     for (int probe_id = blockIdx.x; probe_id < n_probes; probe_id += gridDim.x) {
       const uint32_t list_id   = coarse_index[probe_id];  // The id of cluster(list)
-      const size_t list_offset = list_offsets[list_id];
+      //const size_t list_offset = list_offsets[list_id];
 
       // The number of vectors in each cluster(list); [nlist]
       const uint32_t list_length = list_sizes[list_id];
@@ -741,7 +747,8 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
            group_id += kNumWarps) {
         AccT dist = 0;
         // This is where this warp begins reading data (start position of an interleaved group)
-        const T* data = list_data + (list_offset + group_id * kIndexGroupSize) * dim;
+        //const T* data = list_data + (list_offset + group_id * kIndexGroupSize) * dim;
+        const T* data = list_data_ptrs[list_id] + (group_id * kIndexGroupSize) * dim;
 
         // This is the vector a given lane/thread handles
         const uint32_t vec_id = group_id * WarpSize + lane_id;
@@ -778,7 +785,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
 
         // Enqueue one element per thread
         const float val  = valid ? static_cast<float>(dist) : block_sort_t::queue_t::kDummy;
-        const size_t idx = valid ? static_cast<size_t>(list_indices[list_offset + vec_id]) : 0;
+        const size_t idx = valid ? static_cast<size_t>(list_indices_ptrs[list_id][vec_id]) : 0;
         queue.add(val, idx);
       }
     }
@@ -819,7 +826,7 @@ template <int Capacity,
           typename PostLambda>
 void launch_kernel(Lambda lambda,
                    PostLambda post_process,
-                   const ivf_flat::index<T, IdxT>& index,
+                   const index<T, IdxT>& index,
                    const T* queries,
                    const uint32_t* coarse_index,
                    const uint32_t num_queries,
@@ -869,10 +876,10 @@ void launch_kernel(Lambda lambda,
                                                         query_smem_elems,
                                                         queries,
                                                         coarse_index,
-                                                        index.indices().data_handle(),
-                                                        index.data().data_handle(),
-                                                        index.list_sizes().data_handle(),
-                                                        index.list_offsets().data_handle(),
+                                                        index.inds_ptrs().data_handle(),//indices().data_handle(),
+                                                        index.data_ptrs().data_handle(),//data().data_handle(),
+                                                        index.list_sizes().data_handle(),// TODO
+                                                        //index.list_offsets().data_handle(),
                                                         n_probes,
                                                         k,
                                                         index.dim(),
@@ -1056,7 +1063,7 @@ struct select_interleaved_scan_kernel {
  * @param stream
  */
 template <typename T, typename AccT, typename IdxT>
-void ivfflat_interleaved_scan(const ivf_flat::index<T, IdxT>& index,
+void ivfflat_interleaved_scan(const index<T, IdxT>& index,
                               const T* queries,
                               const uint32_t* coarse_query_results,
                               const uint32_t n_queries,
