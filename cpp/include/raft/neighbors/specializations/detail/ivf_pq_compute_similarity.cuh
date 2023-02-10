@@ -27,10 +27,13 @@ using fp8s_t = fp_8bit<5, true>;
 using fp8u_t = fp_8bit<5, false>;
 }  // namespace
 
-#define RAFT_INST(OutT, LutT)                                                           \
-  extern template struct ivfpq_compute_similarity<OutT, LutT>::configured<true, true>;  \
-  extern template struct ivfpq_compute_similarity<OutT, LutT>::configured<false, true>; \
-  extern template struct ivfpq_compute_similarity<OutT, LutT>::configured<true, false>;
+#define RAFT_INST(OutT, LutT)                                                                     \
+  extern template auto get_compute_similarity_kernel<OutT, LutT, true, true>(uint32_t, uint32_t)  \
+    ->compute_similarity_kernel_t<OutT, LutT>;                                                    \
+  extern template auto get_compute_similarity_kernel<OutT, LutT, true, false>(uint32_t, uint32_t) \
+    ->compute_similarity_kernel_t<OutT, LutT>;                                                    \
+  extern template auto get_compute_similarity_kernel<OutT, LutT, false, true>(uint32_t, uint32_t) \
+    ->compute_similarity_kernel_t<OutT, LutT>;
 
 #define RAFT_INST_ALL_OUT_T(LutT) \
   RAFT_INST(float, LutT)          \
@@ -42,7 +45,6 @@ RAFT_INST_ALL_OUT_T(fp8s_t)
 RAFT_INST_ALL_OUT_T(fp8u_t)
 
 #undef RAFT_INST
-#undef RAFT_INST_ALL_IDX_T
 #undef RAFT_INST_ALL_OUT_T
 
 }  // namespace raft::neighbors::ivf_pq::detail
