@@ -83,7 +83,7 @@ static void canberraImpl(const DataT* x,
   // epilogue operation lambda for final value calculation
   auto epilog_lambda = raft::void_op();
 
-  if (isRowMajor) {
+  if constexpr (isRowMajor) {
     auto canberraRowMajor = pairwiseDistanceMatKernel<false,
                                                       DataT,
                                                       AccT,
@@ -137,16 +137,8 @@ void canberra(IdxT m,
 {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
-  if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    canberraImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
-  } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    canberraImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
-  } else {
-    canberraImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
-  }
+  canberraImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
+    x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
 }
 
 /**
