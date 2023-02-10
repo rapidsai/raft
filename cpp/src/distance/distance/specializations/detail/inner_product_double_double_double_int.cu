@@ -19,19 +19,6 @@
 namespace raft {
 namespace distance {
 namespace detail {
-template void distance<raft::distance::DistanceType::InnerProduct, float, float, float, int>(
-  raft::resources const& handle,
-  const float* x,
-  const float* y,
-  float* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  std::size_t worksize,
-  bool isRowMajor,
-  float metric_arg);
-
 template void distance<raft::distance::DistanceType::InnerProduct, double, double, double, int>(
   raft::resources const& handle,
   const double* x,
