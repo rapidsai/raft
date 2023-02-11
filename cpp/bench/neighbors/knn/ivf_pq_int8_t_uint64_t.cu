@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,6 @@
 
 namespace raft::bench::spatial {
 
-KNN_REGISTER(float, int64_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
+KNN_REGISTER(int8_t, uint64_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
 
 }  // namespace raft::bench::spatial
