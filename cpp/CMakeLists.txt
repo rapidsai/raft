@@ -57,7 +57,11 @@ option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
-option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" OFF)
+set(RAFT_COMPILE_LIBRARIES_DEFAULT OFF)
+if(BUILD_TESTS OR BUILD_BENCH)
+  set(RAFT_COMPILE_LIBRARIES_DEFAULT ON)
+endif()
+option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${RAFT_COMPILE_LIBRARIES_DEFAULT})
 option(
   RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations"
   ${RAFT_COMPILE_LIBRARIES}

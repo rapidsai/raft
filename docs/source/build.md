@@ -164,7 +164,7 @@ RAFT's cmake has the following configurable flags available:.
 | BUILD_TESTS | ON, OFF | ON | Compile Googletests |
 | BUILD_BENCH | ON, OFF | OFF | Compile benchmarks |
 | raft_FIND_COMPONENTS | nn distance | | Configures the optional components as a space-separated list |
-| RAFT_COMPILE_LIBRARIES | ON, OFF | OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
+| RAFT_COMPILE_LIBRARIES | ON, OFF | ON if either BUILD_TESTS or BUILD_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
 | RAFT_COMPILE_NN_LIBRARY | ON, OFF | OFF | Compiles the `libraft-nn` shared library |
 | RAFT_COMPILE_DIST_LIBRARY | ON, OFF | OFF | Compiles the `libraft-distance` shared library |
 | RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. Needed for `raft::spatial::knn` |
