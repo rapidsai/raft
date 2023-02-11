@@ -32,14 +32,9 @@ using fp8u_t = fp_8bit<5, false>;
   extern template struct ivfpq_compute_similarity<IdxT, OutT, LutT>::configured<false, true>; \
   extern template struct ivfpq_compute_similarity<IdxT, OutT, LutT>::configured<true, false>;
 
-#define RAFT_INST_ALL_IDX_T(OutT, LutT) \
-  RAFT_INST(uint64_t, OutT, LutT)       \
-  RAFT_INST(int64_t, OutT, LutT)        \
-  RAFT_INST(uint32_t, OutT, LutT)
-
 #define RAFT_INST_ALL_OUT_T(LutT)  \
-  RAFT_INST_ALL_IDX_T(float, LutT) \
-  RAFT_INST_ALL_IDX_T(half, LutT)
+  RAFT_INST(uint64_t, float, LutT) \
+  RAFT_INST(uint64_t, half, LutT)
 
 RAFT_INST_ALL_OUT_T(float)
 RAFT_INST_ALL_OUT_T(half)
@@ -47,7 +42,6 @@ RAFT_INST_ALL_OUT_T(fp8s_t)
 RAFT_INST_ALL_OUT_T(fp8u_t)
 
 #undef RAFT_INST
-#undef RAFT_INST_ALL_IDX_T
 #undef RAFT_INST_ALL_OUT_T
 
 #define RAFT_INST(T, IdxT)                                            \
