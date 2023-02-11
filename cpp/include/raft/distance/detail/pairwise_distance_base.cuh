@@ -59,6 +59,7 @@ namespace detail {
  * @param core_op the core accumulation operation lambda
  * @param epilog_op the epilog operation lambda
  * @param fin_op the final gemm epilogue lambda
+ * @param rowEpilog_op epilog lambda that executes when a full row has been processed
  */
 
 template <bool useNorms,
@@ -86,6 +87,11 @@ struct PairwiseDistances : public BaseClass {
   EpilogueLambda epilog_op;
   FinalLambda fin_op;
   rowEpilogueLambda rowEpilog_op;
+
+  const IdxT grid_stride_m;
+  const IdxT grid_stride_n;
+  const IdxT grid_offset_m;
+  const IdxT grid_offset_n;
 
   AccT acc[P::AccRowsPerTh][P::AccColsPerTh];
 
@@ -116,67 +122,76 @@ struct PairwiseDistances : public BaseClass {
       core_op(_core_op),
       epilog_op(_epilog_op),
       fin_op(_fin_op),
-      rowEpilog_op(_rowEpilog_op)
+      rowEpilog_op(_rowEpilog_op),
+      grid_stride_m(P::Mblk * gridDim.y),
+      grid_stride_n(P::Nblk * gridDim.x),
+      grid_offset_m(P::Mblk * blockIdx.y),
+      grid_offset_n(P::Nblk * blockIdx.x)
   {
   }
 
   DI void run()
   {
-    for (auto gridStrideY = blockIdx.y * P::Mblk; gridStrideY < this->m;
-         gridStrideY += P::Mblk * gridDim.y) {
-      for (auto gridStrideX = blockIdx.x * P::Nblk; gridStrideX < this->n;
-           gridStrideX += P::Nblk * gridDim.x) {
-        prolog(gridStrideX, gridStrideY);
-        loop();
-        epilog(gridStrideX, gridStrideY);
+    for (auto tile_idx_m = grid_offset_m; tile_idx_m < this->m; tile_idx_m += grid_stride_m) {
+      this->ldgXY(tile_idx_m, grid_offset_n, 0);
+      for (auto tile_idx_n = grid_offset_n; tile_idx_n < this->n; tile_idx_n += grid_stride_n) {
+        // Prolog:
+        reset_accumulator();
+        this->stsXY();
+        __syncthreads();
+        this->switch_write_buffer();
+
+        // Main loop:
+        for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
+          this->ldgXY(tile_idx_m, tile_idx_n, kidx);
+          // Process all data in shared memory (previous k-block) and
+          // accumulate in registers.
+          accumulate();
+          this->stsXY();
+          __syncthreads();
+          this->switch_write_buffer();
+          this->switch_read_buffer();
+        }
+        accumulate();  // last iteration
+        // The pre-condition for the loop over tile_idx_n is that write_buffer
+        // and read_buffer point to the same buffer. This flips read_buffer back
+        // so that it satisfies the pre-condition of this loop.
+        this->switch_read_buffer();
+
+        // Epilog:
+        if (useNorms) {
+          DataT regxn[P::AccRowsPerTh], regyn[P::AccColsPerTh];
+          load_norms(tile_idx_m, tile_idx_n, regxn, regyn);
+          // Overlap ldg with epilog computation
+          ldgNextGridStride(tile_idx_m, tile_idx_n);
+          epilog_op(acc, regxn, regyn, tile_idx_n, tile_idx_m);
+        } else {
+          // Overlap ldg with epilog computation
+          ldgNextGridStride(tile_idx_m, tile_idx_n);
+          epilog_op(acc, nullptr, nullptr, tile_idx_n, tile_idx_m);
+        }
+        if (writeOut) { store_output(tile_idx_m, tile_idx_n); }
       }
-      rowEpilog_op(gridStrideY);
+      rowEpilog_op(tile_idx_m);
     }
   }
 
  private:
-  DI void updateIndicesY()
-  {
-    const auto stride = P::Nblk * gridDim.x;
-    if (isRowMajor) {
-      this->y += stride * this->ldb;
-    } else {
-      this->y += stride;
-    }
-    this->yrowid += stride;
-  }
-
-  DI void updateIndicesXY()
-  {
-    const auto stride = P::Mblk * gridDim.y;
-    if (isRowMajor) {
-      this->x += stride * this->lda;
-      this->yrowid = IdxT(blockIdx.x) * P::Nblk + this->srowid;
-      this->y      = yBase + this->yrowid * this->ldb;
-    } else {
-      this->x += stride;
-      this->yrowid = IdxT(blockIdx.x) * P::Nblk;
-      this->y      = yBase + this->yrowid + this->srowid * this->ldb;
-    }
-    this->xrowid += stride;
-  }
-
-  DI void ldgNextGridStride(IdxT gridStrideX, IdxT gridStrideY)
+  DI void ldgNextGridStride(IdxT tile_idx_m, IdxT tile_idx_n)
   {
     // Fetch next grid stride ldg if within range
-    if ((gridStrideX + gridDim.x * P::Nblk) < this->n) {
-      updateIndicesY();
-      this->ldgXY(0);
-    } else if ((gridStrideY + gridDim.y * P::Mblk) < this->m) {
-      updateIndicesXY();
-      this->ldgXY(0);
+    const auto next_tile_tile_idx_n = tile_idx_n + grid_stride_n;
+    const auto next_tile_tile_idx_m = tile_idx_m + grid_stride_m;
+    if ((next_tile_tile_idx_n) < this->n) {
+      this->ldgXY(tile_idx_m, next_tile_tile_idx_n, 0);
+    } else if ((next_tile_tile_idx_m) < this->m) {
+      this->ldgXY(next_tile_tile_idx_m, grid_offset_n, 0);
     }
   }
 
-  DI void prolog(IdxT gridStrideX, IdxT gridStrideY)
+  DI void reset_accumulator()
   {
-    if (gridStrideX == blockIdx.x * P::Nblk) { this->ldgXY(0); }
-
+    // Reset accumulator registers to zero.
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -184,28 +199,6 @@ struct PairwiseDistances : public BaseClass {
         acc[i][j] = BaseClass::Zero;
       }
     }
-
-    this->stsXY();
-    __syncthreads();
-    this->pageWr ^= 1;
-  }
-
-  DI void loop()
-  {
-    for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgXY(kidx);
-      accumulate();  // on the previous k-block
-      this->stsXY();
-      __syncthreads();
-      this->pageWr ^= 1;
-      this->pageRd ^= 1;
-    }
-    accumulate();  // last iteration
-    // This is needed for making sure next grid stride of
-    // non-norm based metrics uses previously accumulated buffer so
-    // it doesn't make shmem dirty until previous iteration
-    // is complete.
-    this->pageRd ^= 1;
   }
 
   DI void accumulate()
@@ -226,60 +219,52 @@ struct PairwiseDistances : public BaseClass {
     }
   }
 
-  DI void epilog(IdxT gridStrideX, IdxT gridStrideY)
+  DI void load_norms(IdxT tile_idx_m,
+                     IdxT tile_idx_n,
+                     DataT (&regxn)[P::AccRowsPerTh],
+                     DataT (&regyn)[P::AccColsPerTh])
   {
-    if (useNorms) {
-      DataT* sxNorm = (DataT*)(&smem[P::SmemSize]);
-      DataT* syNorm = (&sxNorm[P::Mblk]);
+    DataT* sxNorm = (DataT*)(&smem[P::SmemSize]);
+    DataT* syNorm = (&sxNorm[P::Mblk]);
 
-      // Load x & y norms required by this threadblock in shmem buffer
-      if (gridStrideX == blockIdx.x * P::Nblk) {
-        for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
-          auto idx  = gridStrideY + i;
-          sxNorm[i] = idx < this->m ? xn[idx] : 0;
-        }
+    // Load x & y norms required by this threadblock in shmem buffer
+    if (tile_idx_n == blockIdx.x * P::Nblk) {
+      for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
+        auto idx  = tile_idx_m + i;
+        sxNorm[i] = idx < this->m ? xn[idx] : 0;
       }
-
-      for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
-        auto idx  = gridStrideX + i;
-        syNorm[i] = idx < this->n ? yn[idx] : 0;
-      }
-
-      __syncthreads();
-
-      DataT regxn[P::AccRowsPerTh], regyn[P::AccColsPerTh];
-#pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        regxn[i] = sxNorm[i * P::AccThRows + (threadIdx.x / P::AccThCols)];
-      }
-#pragma unroll
-      for (int i = 0; i < P::AccColsPerTh; ++i) {
-        regyn[i] = syNorm[i * P::AccThCols + (threadIdx.x % P::AccThCols)];
-      }
-
-      // Overlap ldg with epilog computation
-      ldgNextGridStride(gridStrideX, gridStrideY);
-      epilog_op(acc, regxn, regyn, gridStrideX, gridStrideY);
-    } else {
-      // Overlap ldg with epilog computation
-      ldgNextGridStride(gridStrideX, gridStrideY);
-      epilog_op(acc, nullptr, nullptr, gridStrideX, gridStrideY);
     }
 
-    if (writeOut) {
-      IdxT starty = gridStrideY + this->accrowid;
-      IdxT startx = gridStrideX + this->acccolid;
+    for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
+      auto idx  = tile_idx_n + i;
+      syNorm[i] = idx < this->n ? yn[idx] : 0;
+    }
+    __syncthreads();
 
 #pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        auto rowId = starty + i * P::AccThRows;
+    for (int i = 0; i < P::AccRowsPerTh; ++i) {
+      regxn[i] = sxNorm[i * P::AccThRows + (threadIdx.x / P::AccThCols)];
+    }
 #pragma unroll
-        for (int j = 0; j < P::AccColsPerTh; ++j) {
-          auto colId = startx + j * P::AccThCols;
-          if (rowId < this->m && colId < this->n) {
-            // Promote to 64 bit index for final write, as output array can be > 2^31
-            dOutput[std::size_t(rowId) * this->n + colId] = fin_op(acc[i][j], 0);
-          }
+    for (int i = 0; i < P::AccColsPerTh; ++i) {
+      regyn[i] = syNorm[i * P::AccThCols + (threadIdx.x % P::AccThCols)];
+    }
+  }
+
+  DI void store_output(IdxT tile_idx_m, IdxT tile_idx_n)
+  {
+    IdxT starty = tile_idx_m + this->accrowid;
+    IdxT startx = tile_idx_n + this->acccolid;
+
+#pragma unroll
+    for (int i = 0; i < P::AccRowsPerTh; ++i) {
+      auto rowId = starty + i * P::AccThRows;
+#pragma unroll
+      for (int j = 0; j < P::AccColsPerTh; ++j) {
+        auto colId = startx + j * P::AccThCols;
+        if (rowId < this->m && colId < this->n) {
+          // Promote to 64 bit index for final write, as output array can be > 2^31
+          dOutput[std::size_t(rowId) * this->n + colId] = fin_op(acc[i][j], 0);
         }
       }
     }
