@@ -870,12 +870,10 @@ void kmeans_fit(raft::device_resources const& handle,
   if (sample_weight.has_value())
     raft::copy(weight.data_handle(), sample_weight.value().data_handle(), n_samples, stream);
   else {
-    printf("About to call fill\n");
     thrust::fill(
       handle.get_thrust_policy(), weight.data_handle(), weight.data_handle() + weight.size(), 1);
 
     handle.sync_stream();
-    printf("Done.\n");
   }
 
   // check if weights sum up to n_samples
@@ -1214,7 +1212,7 @@ void kmeans_transform(raft::device_resources const& handle,
   // n_clusters]
   for (IndexT dIdx = 0; dIdx < (IndexT)n_samples; dIdx += dataBatchSize) {
     // # of samples for the current batch
-    auto ns = std::min((IndexT)dataBatchSize, (IndexT)n_samples - dIdx);
+    auto ns = std::min(static_cast<IndexT>(dataBatchSize), static_cast<IndexT>(n_samples - dIdx));
 
     // datasetView [ns x n_features] - view representing the current batch of
     // input dataset
