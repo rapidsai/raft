@@ -869,12 +869,9 @@ void kmeans_fit(raft::device_resources const& handle,
   auto weight = raft::make_device_vector<DataT>(handle, n_samples);
   if (sample_weight.has_value())
     raft::copy(weight.data_handle(), sample_weight.value().data_handle(), n_samples, stream);
-  else {
+  else
     thrust::fill(
       handle.get_thrust_policy(), weight.data_handle(), weight.data_handle() + weight.size(), 1);
-
-    handle.sync_stream();
-  }
 
   // check if weights sum up to n_samples
   checkWeight<DataT>(handle, weight.view(), workspace);
