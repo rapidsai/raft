@@ -369,7 +369,6 @@ class RBFKernel : public GramMatrixBase<math_t> {
                                       NULL,
                                       0,
                                       fin_op,
-                                      stream,
                                       is_row_major);
   }
 };
