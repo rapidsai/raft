@@ -1209,7 +1209,7 @@ void kmeans_transform(raft::device_resources const& handle,
   // n_clusters]
   for (IndexT dIdx = 0; dIdx < (IndexT)n_samples; dIdx += dataBatchSize) {
     // # of samples for the current batch
-    auto ns = std::min(dataBatchSize, n_samples - dIdx);
+    auto ns = std::min(static_cast<IndexT>(dataBatchSize), static_cast<IndexT>(n_samples - dIdx));
 
     // datasetView [ns x n_features] - view representing the current batch of
     // input dataset
