@@ -122,6 +122,8 @@ if(BUILD_TESTS)
     test/distance/dist_l1.cu
     test/distance/dist_minkowski.cu
     test/distance/dist_russell_rao.cu
+    test/distance/masked_nn.cu
+    test/distance/masked_nn_compress_to_bits.cu
     test/distance/fused_l2_nn.cu
     test/distance/gram.cu
     OPTIONAL
@@ -241,9 +243,9 @@ if(BUILD_TESTS)
     NAME
     NEIGHBORS_TEST
     PATH
-    test/neighbors/ann_ivf_flat.cu
-    test/neighbors/ann_ivf_pq/test_float_int64_t.cu
-    test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
+    test/neighbors/ann_ivf_flat/test_float_int64_t.cu
+    test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
+    test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
     test/neighbors/ann_ivf_pq/test_float_uint64_t.cu
     test/neighbors/ann_ivf_pq/test_int8_t_uint64_t.cu
     test/neighbors/ann_ivf_pq/test_uint8_t_uint64_t.cu
