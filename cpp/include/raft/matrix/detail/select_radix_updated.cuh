@@ -16,9 +16,11 @@
 
 #pragma once
 
-#include <raft/core/cudart_utils.hpp>
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/operators.hpp>
+#include <raft/linalg/map.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
@@ -164,14 +166,39 @@ _RAFT_DEVICE void vectorized_process(const T* in, IdxT len, Func f)
 
 template <typename T, typename IdxT>
 struct alignas(128) Counter {
+  // We are processing the values in multiple passes, from most significant to least significant. In
+  // each pass, we keep the length of input (`len`) and the `k` of current pass, and update them at
+  // the end of the pass.
   IdxT k;
   IdxT len;
+
+  //  `previous_len` is the length of input in previous pass. Note that `previous_len` rather
+  //  than `len` is used for the filtering step because filtering is indeed for previous pass (see
+  //  comments before `radix_kernel`).
   IdxT previous_len;
+
+  // We determine the bits of the k_th value inside the mask processed by the pass. The
+  // already known bits are stored in `kth_value_bits`. It's used to discriminate a element is a
+  // result (written to `out`), a candidate for next pass (written to `out_buf`), or not useful
+  // (discarded). The bits that are not yet processed do not matter for this purpose.
   typename cub::Traits<T>::UnsignedBits kth_value_bits;
 
+  // Record how many elements have passed filtering. It's used to determine the position in the
+  // `out_buf` where an element should be written to.
   alignas(128) IdxT filter_cnt;
+
+  // For a row inside a batch, we may launch multiple thread blocks. This counter is used to
+  // determine if the current block is the last running block. If so, this block will execute scan()
+  // and choose_bucket().
   alignas(128) unsigned int finished_block_cnt;
+
+  // Record how many elements have been written to the front of `out`. Elements less (if
+  // select_min==true) than the k-th value are written from front to back.
   alignas(128) IdxT out_cnt;
+
+  // Record how many elements have been written to the back of `out`. Elements equal to the k-th
+  // value are written from back to front. We need to keep count of them separately because the
+  // number of elements that <= the k-th value might exceed k.
   alignas(128) IdxT out_back_cnt;
 };
 
@@ -370,7 +397,7 @@ _RAFT_DEVICE void last_filter(const T* out_buf,
       IdxT pos = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
       out[pos] = value;
       // For one-block version, `out_idx_buf` could be nullptr at pass 0.
-      // And for adaptive version, `out_idx_buf` could be nullptr if `out_buf` is `in`
+      // And for adaptive mode, `out_idx_buf` could be nullptr if `out_buf` is `in`
       out_idx[pos] = out_idx_buf ? out_idx_buf[i] : i;
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
@@ -383,7 +410,7 @@ _RAFT_DEVICE void last_filter(const T* out_buf,
   }
 }
 
-// used only for adaptive version
+// used only for adaptive mode
 template <typename T, typename IdxT, int BitsPerPass>
 __global__ void last_filter_kernel(const T* in,
                                    const IdxT* in_idx,
@@ -475,6 +502,12 @@ __global__ void last_filter_kernel(const T* in,
  *
  * In the implementation, the filtering step is delayed to the next pass so the filtering and
  * histogram computation are fused. In this way, inputs are read once rather than twice.
+ *
+ * For the adaptive mode, we don't write candidates (elements in bucket j) to `out_buf` in the
+ * filtering step if the number of candidates is relatively large (this could happen when the
+ * leading bits of input values are almost the same). And in the next pass, inputs are read from
+ * `in` rather than from `in_buf`. The benefit is that we can save the cost of writing candidates
+ * and their indices.
  */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool adaptive>
 __global__ void radix_kernel(const T* in,
@@ -568,7 +601,7 @@ __global__ void radix_kernel(const T* in,
   if (__syncthreads_or(isLastBlock)) {
     if (early_stop) {
       if (threadIdx.x == 0) {
-        // last_filter_kernel from the adaptive version requires setting previous_len
+        // last_filter_kernel from the adaptive mode requires setting previous_len
         counter->previous_len = 0;
         counter->len          = 0;
       }
@@ -593,8 +626,8 @@ __global__ void radix_kernel(const T* in,
       counter->filter_cnt = 0;
     }
 
-    // For non-adaptive version, we do the last filtering using the last thread block.
-    // For adaptive version, we'll use a multi-block kernel (last_filter_kernel).
+    // For non-adaptive mode, we do the last filtering using the last thread block.
+    // For adaptive mode, we'll use a multi-block kernel (last_filter_kernel).
     if constexpr (!adaptive) {
       if (pass == num_passes - 1) {
         last_filter<T, IdxT, BitsPerPass>(
@@ -620,14 +653,13 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool adaptive)
 
   IdxT best_num_blocks         = 0;
   float best_tail_wave_penalty = 1.0f;
-  const IdxT max_num_blocks    = (len - 1) / (VECTORIZED_READ_SIZE / sizeof(T) * BlockSize) + 1;
+  const IdxT max_num_blocks    = ceildiv<IdxT>(len, VECTORIZED_READ_SIZE / sizeof(T) * BlockSize);
   for (int num_waves = 1;; ++num_waves) {
     IdxT num_blocks = std::min(
       max_num_blocks, static_cast<IdxT>(std::max(num_waves * active_blocks / batch_size, 1)));
-    IdxT items_per_thread = (len - 1) / (num_blocks * BlockSize) + 1;
-    items_per_thread      = (items_per_thread - 1) / (VECTORIZED_READ_SIZE / sizeof(T)) + 1;
-    items_per_thread *= VECTORIZED_READ_SIZE / sizeof(T);
-    num_blocks             = (len - 1) / (items_per_thread * BlockSize) + 1;
+    IdxT items_per_thread  = ceildiv<IdxT>(len, num_blocks * BlockSize);
+    items_per_thread       = alignTo<IdxT>(items_per_thread, VECTORIZED_READ_SIZE / sizeof(T));
+    num_blocks             = ceildiv<IdxT>(len, items_per_thread * BlockSize);
     float actual_num_waves = static_cast<float>(num_blocks) * batch_size / active_blocks;
     float tail_wave_penalty =
       (ceilf(actual_num_waves) - actual_num_waves) / ceilf(actual_num_waves);
@@ -645,6 +677,42 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool adaptive)
     if (num_blocks == max_num_blocks) { break; }
   }
   return best_num_blocks;
+}
+
+template <typename T, typename IdxT>
+_RAFT_HOST_DEVICE void set_buf_pointers(int pass,
+                                        const T* in,
+                                        const IdxT* in_idx,
+                                        T* buf1,
+                                        IdxT* idx_buf1,
+                                        T* buf2,
+                                        IdxT* idx_buf2,
+                                        const T*& in_buf,
+                                        const IdxT*& in_idx_buf,
+                                        T*& out_buf,
+                                        IdxT*& out_idx_buf)
+{
+  if (pass == 0) {
+    in_buf      = in;
+    in_idx_buf  = nullptr;
+    out_buf     = nullptr;
+    out_idx_buf = nullptr;
+  } else if (pass == 1) {
+    in_buf      = in;
+    in_idx_buf  = in_idx;
+    out_buf     = buf1;
+    out_idx_buf = idx_buf1;
+  } else if (pass % 2 == 0) {
+    in_buf      = buf1;
+    in_idx_buf  = idx_buf1;
+    out_buf     = buf2;
+    out_idx_buf = idx_buf2;
+  } else {
+    in_buf      = buf2;
+    in_idx_buf  = idx_buf2;
+    out_buf     = buf1;
+    out_idx_buf = idx_buf1;
+  }
 }
 
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
@@ -713,27 +781,17 @@ void radix_topk(const T* in,
   constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
 
   for (int pass = 0; pass < num_passes; ++pass) {
-    if (pass == 0) {
-      in_buf      = in;
-      in_idx_buf  = nullptr;
-      out_buf     = nullptr;
-      out_idx_buf = nullptr;
-    } else if (pass == 1) {
-      in_buf      = in;
-      in_idx_buf  = in_idx;
-      out_buf     = buf1.data();
-      out_idx_buf = idx_buf1.data();
-    } else if (pass % 2 == 0) {
-      in_buf      = buf1.data();
-      in_idx_buf  = idx_buf1.data();
-      out_buf     = buf2.data();
-      out_idx_buf = idx_buf2.data();
-    } else {
-      in_buf      = buf2.data();
-      in_idx_buf  = idx_buf2.data();
-      out_buf     = buf1.data();
-      out_idx_buf = idx_buf1.data();
-    }
+    set_buf_pointers(pass,
+                     in,
+                     in_idx,
+                     buf1.data(),
+                     idx_buf1.data(),
+                     buf2.data(),
+                     idx_buf2.data(),
+                     in_buf,
+                     in_idx_buf,
+                     out_buf,
+                     out_idx_buf);
 
     if (!adaptive) {
       radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>
@@ -768,18 +826,19 @@ void radix_topk(const T* in,
                                            select_min,
                                            pass);
     }
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   if (adaptive) {
-    dim3 blocks((len / (VECTORIZED_READ_SIZE / sizeof(T)) - 1) / BlockSize + 1, batch_size);
+    dim3 blocks(ceildiv<IdxT>(len, VECTORIZED_READ_SIZE / sizeof(T) * BlockSize), batch_size);
     last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(
       in, in_idx, out_buf, out_idx_buf, out, out_idx, len, k, counters.data(), select_min);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }
 
 // The following a few functions are for the one-block version, which uses single thread block for
-// each row of a batch. It's used when len is relatively small, so intermediate data, like counters
-// and histograms, can be kept in shared memory and cheap sync operations can be used.
+// each row of a batch.
 template <typename T, typename IdxT, int BitsPerPass>
 _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
                                                      const IdxT* in_idx_buf,
@@ -879,27 +938,8 @@ __global__ void radix_topk_one_block_kernel(const T* in,
 
   constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
   for (int pass = 0; pass < num_passes; ++pass) {
-    if (pass == 0) {
-      in_buf      = in;
-      in_idx_buf  = nullptr;
-      out_buf     = nullptr;
-      out_idx_buf = nullptr;
-    } else if (pass == 1) {
-      in_buf      = in;
-      in_idx_buf  = in_idx;
-      out_buf     = buf1;
-      out_idx_buf = idx_buf1;
-    } else if (pass % 2 == 0) {
-      in_buf      = buf1;
-      in_idx_buf  = idx_buf1;
-      out_buf     = buf2;
-      out_idx_buf = idx_buf2;
-    } else {
-      in_buf      = buf2;
-      in_idx_buf  = idx_buf2;
-      out_buf     = buf1;
-      out_idx_buf = idx_buf1;
-    }
+    set_buf_pointers(
+      pass, in, in_idx, buf1, idx_buf1, buf2, idx_buf2, in_buf, in_idx_buf, out_buf, out_idx_buf);
     IdxT current_len = counter.len;
     IdxT current_k   = counter.k;
 
@@ -937,6 +977,10 @@ __global__ void radix_topk_one_block_kernel(const T* in,
   }
 }
 
+// radix_topk() might use multiple thread blocks for one row of a batch. In contrast, the following
+// one-block version uses single thread block for one row of a batch, so intermediate data, like
+// counters and global histograms, can be kept in shared memory and cheap sync operations can be
+// used. It's used when len is relatively small.
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 void radix_topk_one_block(const T* in,
                           const IdxT* in_idx,
@@ -979,16 +1023,6 @@ void radix_topk_one_block(const T* in,
                                            idx_buf1.data(),
                                            buf2.data(),
                                            idx_buf2.data());
-}
-
-template <typename IdxT>
-__global__ void fill_idx_kernel(int batch_size, IdxT len, IdxT* out_idx)
-{
-  const int batch_i = blockIdx.y;
-  const int stride  = blockDim.x * gridDim.x;
-  for (IdxT i = blockIdx.x * blockDim.x + threadIdx.x; i < len; i += stride) {
-    out_idx[batch_i * len + i] = i;
-  }
 }
 
 }  // namespace impl
@@ -1034,7 +1068,7 @@ __global__ void fill_idx_kernel(int batch_size, IdxT len, IdxT* out_idx)
  * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
  * @param adaptive
- *   whether to use the adaptive implementation, which is preferable when the most significant bits
+ *   whether to use the adaptive mode, which is preferable when the most significant bits
  *   of input data are almost the same. That is, when the value range of input data is narrow.
  * @param stream
  * @param mr an optional memory resource to use across the calls (you can provide a large enough
@@ -1060,9 +1094,10 @@ void select_k_updated(const T* in,
       RAFT_CUDA_TRY(cudaMemcpyAsync(
         out_idx, in_idx, sizeof(IdxT) * batch_size * len, cudaMemcpyDeviceToDevice, stream));
     } else {
-      constexpr int block_dim = 256;
-      dim3 grid_dim((len - 1) / block_dim + 1, batch_size, 1);
-      impl::fill_idx_kernel<<<grid_dim, block_dim, 0, stream>>>(batch_size, len, out_idx);
+      auto out_idx_view =
+        raft::make_device_vector_view(out_idx, static_cast<size_t>(len) * batch_size);
+      raft::device_resources handle(stream);
+      raft::linalg::map_offset(handle, out_idx_view, raft::mod_const_op<IdxT>(len));
     }
     return;
   }
