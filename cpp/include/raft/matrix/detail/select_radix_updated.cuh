@@ -122,17 +122,18 @@ _RAFT_DEVICE bool use_lazy_writing(IdxT original_len, IdxT len)
  * @tparam IdxT indexing type
  * @tparam Func void (T x, IdxT idx)
  *
+ * @param thread_rank rank of the calling thread among all participated threads
+ * @param num_threads number of the threads that participate in processing
  * @param in the input data
  * @param len the number of elements to read
  * @param f the lambda taking two arguments (T x, IdxT idx)
  */
 template <typename T, typename IdxT, typename Func>
-_RAFT_DEVICE void vectorized_process(const T* in, IdxT len, Func f)
+_RAFT_DEVICE void vectorized_process(
+  IdxT thread_rank, IdxT num_threads, const T* in, IdxT len, Func f)
 {
-  const IdxT stride = blockDim.x * gridDim.x;
-  const int tid     = blockIdx.x * blockDim.x + threadIdx.x;
   if constexpr (sizeof(T) >= VECTORIZED_READ_SIZE || VECTORIZED_READ_SIZE % sizeof(T) != 0) {
-    for (IdxT i = tid; i < len; i += stride) {
+    for (IdxT i = thread_rank; i < len; i += num_threads) {
       f(in[i], i);
     }
   } else {
@@ -145,8 +146,8 @@ _RAFT_DEVICE void vectorized_process(const T* in, IdxT len, Func f)
     const IdxT skip_cnt_left = std::min<IdxT>((IdxT)(align_bytes::roundUp(in) - in), len);
 
     // The main loop: process all aligned data
-    for (IdxT i = tid * wide_t::Ratio + skip_cnt_left; i + wide_t::Ratio <= len;
-         i += stride * wide_t::Ratio) {
+    for (IdxT i = thread_rank * wide_t::Ratio + skip_cnt_left; i + wide_t::Ratio <= len;
+         i += num_threads * wide_t::Ratio) {
       wide.load(in, i);
 #pragma unroll
       for (int j = 0; j < wide_t::Ratio; ++j) {
@@ -156,10 +157,10 @@ _RAFT_DEVICE void vectorized_process(const T* in, IdxT len, Func f)
 
     static_assert(WarpSize >= wide_t::Ratio);
     // Processes the skipped elements on the left
-    if (tid < skip_cnt_left) { f(in[tid], tid); }
+    if (thread_rank < skip_cnt_left) { f(in[thread_rank], thread_rank); }
     // Processes the skipped elements on the right
     const IdxT skip_cnt_right = align_elems::mod(len - skip_cnt_left);
-    const IdxT remain_i       = len - skip_cnt_right + tid;
+    const IdxT remain_i       = len - skip_cnt_right + thread_rank;
     if (remain_i < len) { f(in[remain_i], remain_i); }
   }
 }
@@ -238,7 +239,12 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
       int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
       atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
     };
-    vectorized_process(in_buf, previous_len, f);
+    vectorized_process(static_cast<IdxT>(blockIdx.x) * static_cast<IdxT>(blockDim.x) +
+                         static_cast<IdxT>(threadIdx.x),
+                       static_cast<IdxT>(blockDim.x) * static_cast<IdxT>(gridDim.x),
+                       in_buf,
+                       previous_len,
+                       f);
   } else {
     IdxT* p_filter_cnt           = &counter->filter_cnt;
     IdxT* p_out_cnt              = &counter->out_cnt;
@@ -289,7 +295,12 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
         out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
       }
     };
-    vectorized_process(in_buf, previous_len, f);
+    vectorized_process(static_cast<IdxT>(blockIdx.x) * static_cast<IdxT>(blockDim.x) +
+                         static_cast<IdxT>(threadIdx.x),
+                       static_cast<IdxT>(blockDim.x) * static_cast<IdxT>(gridDim.x),
+                       in_buf,
+                       previous_len,
+                       f);
   }
   if (early_stop) { return; }
   __syncthreads();
@@ -471,7 +482,12 @@ __global__ void last_filter_kernel(const T* in,
     }
   };
 
-  vectorized_process(in_buf, previous_len, f);
+  vectorized_process(
+    static_cast<IdxT>(blockIdx.x) * static_cast<IdxT>(blockDim.x) + static_cast<IdxT>(threadIdx.x),
+    static_cast<IdxT>(blockDim.x) * static_cast<IdxT>(gridDim.x),
+    in_buf,
+    previous_len,
+    f);
 }
 
 /**
@@ -864,14 +880,14 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
   const IdxT previous_len = counter->previous_len;
 
   if (pass == 0) {
-    // Could not use vectorized_process() as in filter_and_histogram() because
-    // vectorized_process() assumes multi-block, e.g. uses gridDim.x
-    for (IdxT i = threadIdx.x; i < previous_len; i += blockDim.x) {
-      T value    = in_buf[i];
+    auto f = [histogram, select_min, start_bit, mask](T value, IdxT) {
       int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
       atomicAdd(histogram + bucket, static_cast<IdxT>(1));
-    }
+    };
+    vectorized_process(
+      static_cast<IdxT>(threadIdx.x), static_cast<IdxT>(blockDim.x), in_buf, previous_len, f);
   } else {
+    // not use vectorized_process here because it increases #registers a lot
     IdxT* p_out_cnt              = &counter->out_cnt;
     const auto kth_value_bits    = counter->kth_value_bits;
     const int previous_start_bit = calc_start_bit<T, BitsPerPass>(pass - 1);
