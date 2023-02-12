@@ -653,6 +653,20 @@ __global__ void radix_kernel(const T* in,
   }
 }
 
+template <typename T, typename IdxT, int BlockSize, typename Kernel>
+int calc_chunk_size(int batch_size, IdxT len, int sm_cnt, Kernel kernel)
+{
+  int active_blocks;
+  RAFT_CUDA_TRY(
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&active_blocks, kernel, BlockSize, 0));
+
+  constexpr int items_per_thread = 32;
+  constexpr int num_waves        = 10;
+  int chunk_size =
+    std::max<int>(1, num_waves * sm_cnt * active_blocks * BlockSize * items_per_thread / len);
+  return std::min(chunk_size, batch_size);
+}
+
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool adaptive)
 {
@@ -696,13 +710,13 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool adaptive)
 }
 
 template <typename T, typename IdxT>
-_RAFT_HOST_DEVICE void set_buf_pointers(int pass,
-                                        const T* in,
+_RAFT_HOST_DEVICE void set_buf_pointers(const T* in,
                                         const IdxT* in_idx,
                                         T* buf1,
                                         IdxT* idx_buf1,
                                         T* buf2,
                                         IdxT* idx_buf2,
+                                        int pass,
                                         const T*& in_buf,
                                         const IdxT*& in_idx_buf,
                                         T*& out_buf,
@@ -742,6 +756,7 @@ void radix_topk(const T* in,
                 bool select_min,
                 bool adaptive,
                 unsigned grid_dim,
+                int sm_cnt,
                 rmm::cuda_stream_view stream,
                 rmm::mr::device_memory_resource* mr)
 {
@@ -749,8 +764,17 @@ void radix_topk(const T* in,
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
 
-  size_t req_aux = batch_size * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
-  size_t req_buf = batch_size * len * 2 * (sizeof(T) + sizeof(IdxT));
+  auto kernel              = adaptive ? radix_kernel<T, IdxT, BitsPerPass, BlockSize, true>
+                                      : radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
+  const int max_chunk_size = calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
+  if (max_chunk_size != batch_size) {
+    grid_dim =
+      calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(max_chunk_size, len, sm_cnt, adaptive);
+  }
+
+  size_t req_aux =
+    static_cast<size_t>(max_chunk_size) * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
+  size_t req_buf = static_cast<size_t>(max_chunk_size) * len * 2 * (sizeof(T) + sizeof(IdxT));
   size_t mem_req = req_aux + req_buf;
   size_t mem_free, mem_total;
   RAFT_CUDA_TRY(cudaMemGetInfo(&mem_free, &mem_total));
@@ -770,79 +794,76 @@ void radix_topk(const T* in,
   }
   if (mr_buf == nullptr) { mr_buf = mr; }
 
-  rmm::device_uvector<Counter<T, IdxT>> counters(batch_size, stream, mr);
-  rmm::device_uvector<IdxT> histograms(batch_size * num_buckets, stream, mr);
-  rmm::device_uvector<T> buf1(batch_size * len, stream, mr_buf);
-  rmm::device_uvector<IdxT> idx_buf1(batch_size * len, stream, mr_buf);
-  rmm::device_uvector<T> buf2(batch_size * len, stream, mr_buf);
-  rmm::device_uvector<IdxT> idx_buf2(batch_size * len, stream, mr_buf);
+  rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> histograms(max_chunk_size * num_buckets, stream, mr);
+  rmm::device_uvector<T> buf1(max_chunk_size * len, stream, mr_buf);
+  rmm::device_uvector<IdxT> idx_buf1(max_chunk_size * len, stream, mr_buf);
+  rmm::device_uvector<T> buf2(max_chunk_size * len, stream, mr_buf);
+  rmm::device_uvector<IdxT> idx_buf2(max_chunk_size * len, stream, mr_buf);
 
-  RAFT_CUDA_TRY(
-    cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(histograms.data(), 0, histograms.size() * sizeof(IdxT), stream));
+  for (int offset = 0; offset < batch_size; offset += max_chunk_size) {
+    int chunk_size = std::min(max_chunk_size, batch_size - offset);
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(histograms.data(), 0, histograms.size() * sizeof(IdxT), stream));
 
-  const T* in_buf        = nullptr;
-  const IdxT* in_idx_buf = nullptr;
-  T* out_buf             = nullptr;
-  IdxT* out_idx_buf      = nullptr;
+    const T* chunk_in        = in + offset * len;
+    const IdxT* chunk_in_idx = in_idx ? (in_idx + offset * len) : nullptr;
+    T* chunk_out             = out + offset * k;
+    IdxT* chunk_out_idx      = out_idx + offset * k;
 
-  dim3 blocks(grid_dim, batch_size);
-  constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
+    const T* in_buf        = nullptr;
+    const IdxT* in_idx_buf = nullptr;
+    T* out_buf             = nullptr;
+    IdxT* out_idx_buf      = nullptr;
 
-  for (int pass = 0; pass < num_passes; ++pass) {
-    set_buf_pointers(pass,
-                     in,
-                     in_idx,
-                     buf1.data(),
-                     idx_buf1.data(),
-                     buf2.data(),
-                     idx_buf2.data(),
-                     in_buf,
-                     in_idx_buf,
-                     out_buf,
-                     out_idx_buf);
+    dim3 blocks(grid_dim, chunk_size);
+    constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
 
-    if (!adaptive) {
-      radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>
-        <<<blocks, BlockSize, 0, stream>>>(in,
-                                           in_idx,
-                                           in_buf,
-                                           in_idx_buf,
-                                           out_buf,
-                                           out_idx_buf,
-                                           out,
-                                           out_idx,
-                                           counters.data(),
-                                           histograms.data(),
-                                           len,
-                                           k,
-                                           select_min,
-                                           pass);
-    } else {
-      radix_kernel<T, IdxT, BitsPerPass, BlockSize, true>
-        <<<blocks, BlockSize, 0, stream>>>(in,
-                                           in_idx,
-                                           in_buf,
-                                           in_idx_buf,
-                                           out_buf,
-                                           out_idx_buf,
-                                           out,
-                                           out_idx,
-                                           counters.data(),
-                                           histograms.data(),
-                                           len,
-                                           k,
-                                           select_min,
-                                           pass);
+    for (int pass = 0; pass < num_passes; ++pass) {
+      set_buf_pointers(chunk_in,
+                       chunk_in_idx,
+                       buf1.data(),
+                       idx_buf1.data(),
+                       buf2.data(),
+                       idx_buf2.data(),
+                       pass,
+                       in_buf,
+                       in_idx_buf,
+                       out_buf,
+                       out_idx_buf);
+
+      kernel<<<blocks, BlockSize, 0, stream>>>(chunk_in,
+                                               chunk_in_idx,
+                                               in_buf,
+                                               in_idx_buf,
+                                               out_buf,
+                                               out_idx_buf,
+                                               chunk_out,
+                                               chunk_out_idx,
+                                               counters.data(),
+                                               histograms.data(),
+                                               len,
+                                               k,
+                                               select_min,
+                                               pass);
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
-  }
 
-  if (adaptive) {
-    dim3 blocks(ceildiv<IdxT>(len, VECTORIZED_READ_SIZE / sizeof(T) * BlockSize), batch_size);
-    last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(
-      in, in_idx, out_buf, out_idx_buf, out, out_idx, len, k, counters.data(), select_min);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    if (adaptive) {
+      dim3 blocks(ceildiv<IdxT>(len, VECTORIZED_READ_SIZE / sizeof(T) * BlockSize), chunk_size);
+      last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(chunk_in,
+                                                                                 chunk_in_idx,
+                                                                                 out_buf,
+                                                                                 out_idx_buf,
+                                                                                 chunk_out,
+                                                                                 chunk_out_idx,
+                                                                                 len,
+                                                                                 k,
+                                                                                 counters.data(),
+                                                                                 select_min);
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+    }
   }
 }
 
@@ -948,7 +969,8 @@ __global__ void radix_topk_one_block_kernel(const T* in,
   constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
   for (int pass = 0; pass < num_passes; ++pass) {
     set_buf_pointers(
-      pass, in, in_idx, buf1, idx_buf1, buf2, idx_buf2, in_buf, in_idx_buf, out_buf, out_idx_buf);
+      in, in_idx, buf1, idx_buf1, buf2, idx_buf2, pass, in_buf, in_idx_buf, out_buf, out_idx_buf);
+
     IdxT current_len = counter.len;
     IdxT current_k   = counter.k;
 
@@ -999,39 +1021,43 @@ void radix_topk_one_block(const T* in,
                           T* out,
                           IdxT* out_idx,
                           bool select_min,
+                          int sm_cnt,
                           rmm::cuda_stream_view stream,
                           rmm::mr::device_memory_resource* mr)
 {
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
 
-  auto pool_guard =
-    raft::get_pool_memory_resource(mr,
-                                   batch_size * (sizeof(T) * len * 2       // T bufs
-                                                 + sizeof(IdxT) * len * 2  // IdxT bufs
-                                                 ) +
-                                     256 * 4);  // might need extra memory for alignment
+  auto kernel              = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>;
+  const int max_chunk_size = calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
+
+  auto pool_guard = raft::get_pool_memory_resource(
+    mr,
+    static_cast<size_t>(max_chunk_size) * len * 2 * (sizeof(T) + sizeof(IdxT)) +
+      256 * 4);  // might need extra memory for alignment
   if (pool_guard) {
     RAFT_LOG_DEBUG("radix::select_k: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
   }
 
-  rmm::device_uvector<T> buf1(len * batch_size, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf1(len * batch_size, stream, mr);
-  rmm::device_uvector<T> buf2(len * batch_size, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf2(len * batch_size, stream, mr);
+  rmm::device_uvector<T> buf1(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf1(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<T> buf2(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf2(len * max_chunk_size, stream, mr);
 
-  radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>
-    <<<batch_size, BlockSize, 0, stream>>>(in,
-                                           in_idx,
-                                           len,
-                                           k,
-                                           out,
-                                           out_idx,
-                                           select_min,
-                                           buf1.data(),
-                                           idx_buf1.data(),
-                                           buf2.data(),
-                                           idx_buf2.data());
+  for (int offset = 0; offset < batch_size; offset += max_chunk_size) {
+    int chunk_size = std::min(max_chunk_size, batch_size - offset);
+    kernel<<<chunk_size, BlockSize, 0, stream>>>(in + offset * len,
+                                                 in_idx ? (in_idx + offset * len) : nullptr,
+                                                 len,
+                                                 k,
+                                                 out + offset * k,
+                                                 out_idx + offset * k,
+                                                 select_min,
+                                                 buf1.data(),
+                                                 idx_buf1.data(),
+                                                 buf2.data(),
+                                                 idx_buf2.data());
+  }
 }
 
 }  // namespace impl
@@ -1111,26 +1137,38 @@ void select_k_updated(const T* in,
     return;
   }
 
+  int sm_cnt;
+  {
+    int dev;
+    RAFT_CUDA_TRY(cudaGetDevice(&dev));
+    RAFT_CUDA_TRY(cudaDeviceGetAttribute(&sm_cnt, cudaDevAttrMultiProcessorCount, dev));
+  }
+
   constexpr int items_per_thread = 32;
 
   if (len <= BlockSize * items_per_thread) {
     impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
+      in, in_idx, batch_size, len, k, out, out_idx, select_min, sm_cnt, stream, mr);
   } else {
-    int sm_cnt;
-    {
-      int dev;
-      RAFT_CUDA_TRY(cudaGetDevice(&dev));
-      RAFT_CUDA_TRY(cudaDeviceGetAttribute(&sm_cnt, cudaDevAttrMultiProcessorCount, dev));
-    }
     unsigned grid_dim =
       impl::calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt, adaptive);
     if (grid_dim == 1) {
       impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
+        in, in_idx, batch_size, len, k, out, out_idx, select_min, sm_cnt, stream, mr);
     } else {
-      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, adaptive, grid_dim, stream, mr);
+      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize>(in,
+                                                        in_idx,
+                                                        batch_size,
+                                                        len,
+                                                        k,
+                                                        out,
+                                                        out_idx,
+                                                        select_min,
+                                                        adaptive,
+                                                        grid_dim,
+                                                        sm_cnt,
+                                                        stream,
+                                                        mr);
     }
   }
 }
