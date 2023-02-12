@@ -439,10 +439,16 @@ inline void fill_refinement_index(raft::device_resources const& handle,
 //             compatible fashion.
 constexpr int serialization_version = 2;
 
-/* TODO
-static_assert(sizeof(index<double, std::uint64_t>) == 408,
-              "The size of the index struct has changed since the last update; "
-              "paste in the new size and consider updating the save/load logic");*/
+// NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
+// message.
+template <size_t RealSize, size_t ExpectedSize>
+struct check_index_layout {
+  static_assert(RealSize == ExpectedSize,
+                "The size of the index struct has changed since the last update; "
+                "paste in the new size and consider updating the serialization logic");
+};
+
+template struct check_index_layout<sizeof(index<double, std::uint64_t>), 376>;
 
 /**
  * Save the index to file.

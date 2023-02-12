@@ -23,6 +23,7 @@
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/error.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/matrix/init.cuh>
 #include <raft/util/integer_utils.hpp>
 
 #include <memory>
@@ -37,6 +38,14 @@ namespace raft::neighbors::ivf_flat {
 
 /** Size of the interleaved group (see `index::data` description). */
 constexpr static uint32_t kIndexGroupSize = 32;
+
+/**
+ * Default value filled in the `indices()` array.
+ * One may encounter it trying to access a record within a cluster that is outside of the
+ * `list_sizes()` bound (due to the record alignment `kIndexGroupSize`).
+ */
+template <typename IdxT>
+constexpr static IdxT kInvalidRecord = std::numeric_limits<IdxT>::max() - 1;
 
 struct index_params : ann::index_params {
   /** The number of inverted lists (clusters) */
@@ -72,19 +81,19 @@ static_assert(std::is_aggregate_v<search_params>);
 template <typename T, typename IdxT, typename SizeT = uint32_t>
 struct list_data {
   /** Cluster data. */
-  device_mdarray<T, extent_2d<SizeT>, row_major> data;
+  device_matrix<T, SizeT, row_major> data;
   /** Source indices. */
-  device_mdarray<IdxT, extent_1d<SizeT>, row_major> indices;
+  device_vector<IdxT, SizeT> indices;
   /** The actual size of the content. */
   std::atomic<SizeT> size;
 
-  list_data(raft::device_resources const& handle, SizeT n_rows, uint32_t dim)
+  list_data(raft::device_resources const& res, SizeT n_rows, uint32_t dim)
     : size{n_rows}
   {
     auto capacity = round_up_safe<SizeT>(bound_by_power_of_two<SizeT>(size), kIndexGroupSize);
     try {
-      data = make_device_mdarray<T>(handle, make_extents<SizeT>(capacity, dim));
-      indices = make_device_mdarray<IdxT>(handle, make_extents<SizeT>(capacity));
+      data = make_device_matrix<T, SizeT, row_major>(res, capacity, dim);
+      indices = make_device_vector<IdxT, SizeT>(res, capacity);
     } catch (std::bad_alloc& e) {
       RAFT_FAIL(
         "ivf-flat: failed to allocate a big enough index list to hold all data "
@@ -94,6 +103,8 @@ struct list_data {
         size_t(capacity),
         e.what());
     }
+    // Fill the index buffer with a pre-defined marker for easier debugging
+    matrix::fill(res, indices.view(), ivf_flat::kInvalidRecord<IdxT>);
   }
 };
 
@@ -110,12 +121,6 @@ struct index : ann::index {
                 "IdxT must be able to represent all values of uint32_t");
 
  public:
-  /**
-   * Default value filled in the `indices()` array.
-   * One may encounter it trying to access a record within a cluster that is outside of the
-   * `list_sizes()` bound (due to the record alignment `kIndexGroupSize`).
-   */
-  constexpr static IdxT kInvalidRecord = std::numeric_limits<IdxT>::max() - 1;
   /**
    * Vectorized load/store size in elements, determines the size of interleaved data chunks.
    *
@@ -157,23 +162,23 @@ struct index : ann::index {
    *
    */
   /** Sizes of the lists (clusters) [n_lists] */
-  inline auto list_sizes() noexcept -> device_mdspan<uint32_t, extent_1d<uint32_t>, row_major>
+  inline auto list_sizes() noexcept -> device_vector_view<uint32_t, uint32_t>
   {
     return list_sizes_.view();
   }
   [[nodiscard]] inline auto list_sizes() const noexcept
-    -> device_mdspan<const uint32_t, extent_1d<uint32_t>, row_major>
+    -> device_vector_view<const uint32_t, uint32_t>
   {
     return list_sizes_.view();
   }
 
   /** k-means cluster centers corresponding to the lists [n_lists, dim] */
-  inline auto centers() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  inline auto centers() noexcept -> device_matrix_view<float, uint32_t, row_major>
   {
     return centers_.view();
   }
   [[nodiscard]] inline auto centers() const noexcept
-    -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
+    -> device_matrix_view<const float, uint32_t, row_major>
   {
     return centers_.view();
   }
@@ -185,20 +190,20 @@ struct index : ann::index {
    * calculation.
    */
   inline auto center_norms() noexcept
-    -> std::optional<device_mdspan<float, extent_1d<uint32_t>, row_major>>
+    -> std::optional<device_vector_view<float, uint32_t>>
   {
     if (center_norms_.has_value()) {
-      return std::make_optional<device_mdspan<float, extent_1d<uint32_t>, row_major>>(
+      return std::make_optional<device_vector_view<float, uint32_t>>(
         center_norms_->view());
     } else {
       return std::nullopt;
     }
   }
   [[nodiscard]] inline auto center_norms() const noexcept
-    -> std::optional<device_mdspan<const float, extent_1d<uint32_t>, row_major>>
+    -> std::optional<device_vector_view<const float, uint32_t>>
   {
     if (center_norms_.has_value()) {
-      return std::make_optional<device_mdspan<const float, extent_1d<uint32_t>, row_major>>(
+      return std::make_optional<device_vector_view<const float, uint32_t>>(
         center_norms_->view());
     } else {
       return std::nullopt;
@@ -229,7 +234,7 @@ struct index : ann::index {
   ~index()                          = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::device_resources const& handle,
+  index(raft::device_resources const& res,
         raft::distance::DistanceType metric,
         uint32_t n_lists,
         bool adaptive_centers,
@@ -238,12 +243,12 @@ struct index : ann::index {
       veclen_(calculate_veclen(dim)),
       metric_(metric),
       adaptive_centers_(adaptive_centers),
-      centers_(make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists, dim))),
+      centers_(make_device_matrix<float, uint32_t>(res, n_lists, dim)),
       center_norms_(std::nullopt),
-      lists_{make_host_mdarray<std::shared_ptr<list_data<T, IdxT>>>(make_extents<uint32_t>(n_lists))},
-      list_sizes_{make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(n_lists))},
-      data_ptrs_{make_device_mdarray<T*>(handle, make_extents<uint32_t>(n_lists))},
-      inds_ptrs_{make_device_mdarray<IdxT*>(handle, make_extents<uint32_t>(n_lists))}
+      lists_{make_host_vector<std::shared_ptr<list_data<T, IdxT>>, uint32_t>(n_lists)},
+      list_sizes_{make_device_vector<uint32_t, uint32_t>(res, n_lists)},
+      data_ptrs_{make_device_vector<T*, uint32_t>(res, n_lists)},
+      inds_ptrs_{make_device_vector<IdxT*, uint32_t>(res, n_lists)}
   {
     check_consistency();
     for (uint32_t i = 0; i < n_lists; i++) {
@@ -252,29 +257,29 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::device_resources const& handle, const index_params& params, uint32_t dim)
-    : index(handle, params.metric, params.n_lists, params.adaptive_centers, dim)
+  index(raft::device_resources const& res, const index_params& params, uint32_t dim)
+    : index(res, params.metric, params.n_lists, params.adaptive_centers, dim)
   {
   }
 
   /** Pointers to the inverted lists (clusters) data  [n_lists]. */
-  inline auto data_ptrs() noexcept -> device_mdspan<T*, extent_1d<uint32_t>, row_major>
+  inline auto data_ptrs() noexcept -> device_vector_view<T*, uint32_t>
   {
     return data_ptrs_.view();
   }
   [[nodiscard]] inline auto data_ptrs() const noexcept
-    -> device_mdspan<T* const, extent_1d<uint32_t>, row_major>
+    -> device_vector_view<T* const, uint32_t>
   {
     return data_ptrs_.view();
   }
 
   /** Pointers to the inverted lists (clusters) indices  [n_lists]. */
-  inline auto inds_ptrs() noexcept -> device_mdspan<IdxT*, extent_1d<uint32_t>, row_major>
+  inline auto inds_ptrs() noexcept -> device_vector_view<IdxT*, uint32_t>
   {
     return inds_ptrs_.view();
   }
   [[nodiscard]] inline auto inds_ptrs() const noexcept
-    -> device_mdspan<IdxT* const, extent_1d<uint32_t>, row_major>
+    -> device_vector_view<IdxT* const, uint32_t>
   {
     return inds_ptrs_.view();
   }
@@ -304,12 +309,12 @@ struct index : ann::index {
 
   /** Lists' data and indices. */
   inline auto lists() noexcept
-    -> host_mdspan<std::shared_ptr<list_data<T, IdxT>>, extent_1d<uint32_t>, row_major>
+    -> host_vector_view<std::shared_ptr<list_data<T, IdxT>>, uint32_t>
   {
     return lists_.view();
   }
   [[nodiscard]] inline auto lists() const noexcept
-    -> host_mdspan<const std::shared_ptr<list_data<T, IdxT>>, extent_1d<uint32_t>, row_major>
+    -> host_vector_view<const std::shared_ptr<list_data<T, IdxT>>, uint32_t>
   {
     return lists_.view();
   }
@@ -322,17 +327,14 @@ struct index : ann::index {
   uint32_t veclen_;
   raft::distance::DistanceType metric_;
   bool adaptive_centers_;
-  host_mdarray<std::shared_ptr<list_data<T, IdxT>>, extent_1d<uint32_t>, row_major> lists_;
-  //device_mdarray<T, extent_2d<IdxT>, row_major> data_;
-  //device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
-  device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
-  //device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
-  device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
-  std::optional<device_mdarray<float, extent_1d<uint32_t>, row_major>> center_norms_;
+  host_vector<std::shared_ptr<list_data<T, IdxT>>, uint32_t> lists_;
+  device_vector<uint32_t, uint32_t> list_sizes_;
+  device_matrix<float, uint32_t, row_major> centers_;
+  std::optional<device_vector<float, uint32_t>> center_norms_;
 
   // Computed members
-  device_mdarray<T*, extent_1d<uint32_t>, row_major> data_ptrs_;
-  device_mdarray<IdxT*, extent_1d<uint32_t>, row_major> inds_ptrs_;
+  device_vector<T*, uint32_t> data_ptrs_;
+  device_vector<IdxT*, uint32_t> inds_ptrs_;
   IdxT total_size_;
 
   /** Throw an error if the index content is inconsistent. */
@@ -347,8 +349,6 @@ struct index : ann::index {
       (centers_.extent(0) == list_sizes_.extent(0)) &&          //
         (!center_norms_.has_value() || centers_.extent(0) == center_norms_->extent(0)),
       "inconsistent number of lists (clusters)");
-    //RAFT_EXPECTS(reinterpret_cast<size_t>(data_.data_handle()) % (veclen_ * sizeof(T)) == 0,
-    //             "The data storage pointer is not aligned to the vector length");
   }
 
   static auto calculate_veclen(uint32_t dim) -> uint32_t
