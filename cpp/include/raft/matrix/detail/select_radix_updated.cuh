@@ -103,13 +103,15 @@ _RAFT_DEVICE int calc_bucket(T x, int start_bit, unsigned mask, bool select_min)
 }
 
 template <typename T, typename IdxT>
-_RAFT_DEVICE bool use_lazy_writing(IdxT original_len, IdxT len)
+_RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len, bool adaptive)
 {
-  // When using lazy writing, only read `in`(type T).
-  // When not using it, read `in_buf`(T) and `in_idx_buf`(IdxT), and write `out_buf`(T) and
-  // `out_idx_buf`(IdxT).
+  if (!adaptive) { return len; }
+  // When writing is skipped in adaptive mode, only read `in`(type T).
+  // When writing is not skipped, read `in_buf`(T) and `in_idx_buf`(IdxT), and write `out_buf`(T)
+  // and `out_idx_buf`(IdxT).
+  // The ratio between these cases determines whether to skip writing and hence the buffer size.
   constexpr float ratio = 2 + sizeof(IdxT) * 2.0 / sizeof(T);
-  return len * ratio > original_len;
+  return len / ratio;
 }
 
 /**
@@ -439,14 +441,15 @@ __global__ void last_filter_kernel(const T* in,
   Counter<T, IdxT>* counter = counters + batch_id;
   IdxT previous_len         = counter->previous_len;
   if (previous_len == 0) { return; }
-  if (use_lazy_writing<T>(len, previous_len)) {
+  const IdxT buf_len = calc_buf_len<T>(len, true);
+  if (previous_len > buf_len) {
     in_buf       = in;
     in_idx_buf   = in_idx;
     previous_len = len;
   }
 
-  in_buf += batch_id * len;
-  if (in_idx_buf) { in_idx_buf += batch_id * len; }
+  in_buf += batch_id * (in_buf == in ? len : buf_len);
+  if (in_idx_buf) { in_idx_buf += batch_id * (in_idx_buf == in_idx ? len : buf_len); }
   out += batch_id * k;
   out_idx += batch_id * k;
 
@@ -570,24 +573,25 @@ __global__ void radix_kernel(const T* in,
 
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   constexpr int num_passes  = calc_num_passes<T, BitsPerPass>();
+  const IdxT buf_len        = calc_buf_len<T>(len, adaptive);
 
   if constexpr (adaptive) {
     // Figure out if the previous pass writes buffer
-    if (use_lazy_writing<T>(len, previous_len)) {
+    if (previous_len > buf_len) {
       previous_len = len;
       in_buf       = in;
       in_idx_buf   = in_idx;
     }
     // Figure out if this pass need to write buffer
-    if (use_lazy_writing<T>(len, current_len)) {
+    if (current_len > buf_len) {
       out_buf     = nullptr;
       out_idx_buf = nullptr;
     }
   }
-  in_buf += batch_id * len;
-  if (in_idx_buf) { in_idx_buf += batch_id * len; }
-  if (out_buf) { out_buf += batch_id * len; }
-  if (out_idx_buf) { out_idx_buf += batch_id * len; }
+  in_buf += batch_id * (in_buf == in ? len : buf_len);
+  if (in_idx_buf) { in_idx_buf += batch_id * (in_idx_buf == in_idx ? len : buf_len); }
+  if (out_buf) { out_buf += batch_id * buf_len; }
+  if (out_idx_buf) { out_idx_buf += batch_id * buf_len; }
   if (out) {
     out += batch_id * k;
     out_idx += batch_id * k;
@@ -771,10 +775,11 @@ void radix_topk(const T* in,
     grid_dim =
       calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(max_chunk_size, len, sm_cnt, adaptive);
   }
+  const IdxT buf_len = calc_buf_len<T>(len, adaptive);
 
   size_t req_aux =
     static_cast<size_t>(max_chunk_size) * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
-  size_t req_buf = static_cast<size_t>(max_chunk_size) * len * 2 * (sizeof(T) + sizeof(IdxT));
+  size_t req_buf = static_cast<size_t>(max_chunk_size) * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
   size_t mem_req = req_aux + req_buf;
   size_t mem_free, mem_total;
   RAFT_CUDA_TRY(cudaMemGetInfo(&mem_free, &mem_total));
@@ -796,10 +801,10 @@ void radix_topk(const T* in,
 
   rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
   rmm::device_uvector<IdxT> histograms(max_chunk_size * num_buckets, stream, mr);
-  rmm::device_uvector<T> buf1(max_chunk_size * len, stream, mr_buf);
-  rmm::device_uvector<IdxT> idx_buf1(max_chunk_size * len, stream, mr_buf);
-  rmm::device_uvector<T> buf2(max_chunk_size * len, stream, mr_buf);
-  rmm::device_uvector<IdxT> idx_buf2(max_chunk_size * len, stream, mr_buf);
+  rmm::device_uvector<T> buf1(max_chunk_size * buf_len, stream, mr_buf);
+  rmm::device_uvector<IdxT> idx_buf1(max_chunk_size * buf_len, stream, mr_buf);
+  rmm::device_uvector<T> buf2(max_chunk_size * buf_len, stream, mr_buf);
+  rmm::device_uvector<IdxT> idx_buf2(max_chunk_size * buf_len, stream, mr_buf);
 
   for (int offset = 0; offset < batch_size; offset += max_chunk_size) {
     int chunk_size = std::min(max_chunk_size, batch_size - offset);
