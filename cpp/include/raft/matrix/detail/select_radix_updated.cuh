@@ -741,6 +741,7 @@ void radix_topk(const T* in,
                 IdxT* out_idx,
                 bool select_min,
                 bool adaptive,
+                unsigned grid_dim,
                 rmm::cuda_stream_view stream,
                 rmm::mr::device_memory_resource* mr)
 {
@@ -785,15 +786,7 @@ void radix_topk(const T* in,
   T* out_buf             = nullptr;
   IdxT* out_idx_buf      = nullptr;
 
-  int sm_cnt;
-  {
-    int dev;
-    RAFT_CUDA_TRY(cudaGetDevice(&dev));
-    RAFT_CUDA_TRY(cudaDeviceGetAttribute(&sm_cnt, cudaDevAttrMultiProcessorCount, dev));
-  }
-  dim3 blocks(calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt, adaptive),
-              batch_size);
-
+  dim3 blocks(grid_dim, batch_size);
   constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
 
   for (int pass = 0; pass < num_passes; ++pass) {
@@ -1124,8 +1117,21 @@ void select_k_updated(const T* in,
     impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
       in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
   } else {
-    impl::radix_topk<T, IdxT, BitsPerPass, BlockSize>(
-      in, in_idx, batch_size, len, k, out, out_idx, select_min, adaptive, stream, mr);
+    int sm_cnt;
+    {
+      int dev;
+      RAFT_CUDA_TRY(cudaGetDevice(&dev));
+      RAFT_CUDA_TRY(cudaDeviceGetAttribute(&sm_cnt, cudaDevAttrMultiProcessorCount, dev));
+    }
+    unsigned grid_dim =
+      impl::calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt, adaptive);
+    if (grid_dim == 1) {
+      impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
+        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream, mr);
+    } else {
+      impl::radix_topk<T, IdxT, BitsPerPass, BlockSize>(
+        in, in_idx, batch_size, len, k, out, out_idx, select_min, adaptive, grid_dim, stream, mr);
+    }
   }
 }
 
