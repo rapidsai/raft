@@ -247,9 +247,9 @@ struct DistanceImpl<raft::distance::DistanceType::InnerProduct,
            Index_ m,
            Index_ n,
            Index_ k,
-           void* workspace,
-           size_t worksize,
-           FinalLambda fin_op,
+           void*,
+           size_t,
+           FinalLambda,
            bool isRowMajor,
            InType)
   {
