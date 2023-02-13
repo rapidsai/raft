@@ -19,20 +19,8 @@
 namespace raft {
 namespace distance {
 namespace detail {
-template void distance<raft::distance::DistanceType::Canberra, float, float, float, int>(
-  const float* x,
-  const float* y,
-  float* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  size_t worksize,
-  cudaStream_t stream,
-  bool isRowMajor,
-  float metric_arg);
-
 template void distance<raft::distance::DistanceType::Canberra, double, double, double, int>(
+  raft::resources const& handle,
   const double* x,
   const double* y,
   double* dist,
@@ -41,10 +29,8 @@ template void distance<raft::distance::DistanceType::Canberra, double, double, d
   int k,
   void* workspace,
   size_t worksize,
-  cudaStream_t stream,
   bool isRowMajor,
   double metric_arg);
-
 }  // namespace detail
 }  // namespace distance
 }  // namespace raft

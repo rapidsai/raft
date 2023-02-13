@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include <raft/distance/detail/distance.cuh>
 
 namespace raft {
 namespace distance {
 namespace detail {
-extern template void
-distance<raft::distance::DistanceType::CorrelationExpanded, float, float, float, int>(
+template void distance<raft::distance::DistanceType::InnerProduct, float, float, float, int>(
   raft::resources const& handle,
   const float* x,
   const float* y,
@@ -31,23 +28,9 @@ distance<raft::distance::DistanceType::CorrelationExpanded, float, float, float,
   int n,
   int k,
   void* workspace,
-  size_t worksize,
+  std::size_t worksize,
   bool isRowMajor,
   float metric_arg);
-
-extern template void
-distance<raft::distance::DistanceType::CorrelationExpanded, double, double, double, int>(
-  raft::resources const& handle,
-  const double* x,
-  const double* y,
-  double* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  size_t worksize,
-  bool isRowMajor,
-  double metric_arg);
 }  // namespace detail
 }  // namespace distance
 }  // namespace raft

@@ -321,6 +321,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/detail/hamming_unexpanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/hellinger_expanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/hellinger_expanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/inner_product_float_float_float_int.cu
+    src/distance/distance/specializations/detail/inner_product_double_double_double_int.cu
     src/distance/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
     src/distance/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
     src/distance/distance/specializations/detail/kernels/gram_matrix_base_double.cu
