@@ -51,6 +51,6 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       package-name: raft_dask
-      test-before-amd64: "pip install git+https://github.com/dask/dask.git@2023.1.1 git+https://github.com/dask/distributed.git@2023.1.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
-      test-before-arm64: "pip install git+https://github.com/dask/dask.git@2023.1.1 git+https://github.com/dask/distributed.git@2023.1.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
+      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
+      test-before-arm64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
       test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"
