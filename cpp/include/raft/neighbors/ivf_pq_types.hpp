@@ -23,8 +23,9 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/matrix/init.cuh>
 #include <raft/util/integer_utils.hpp>
+
+#include <thrust/fill.h>
 
 #include <memory>
 #include <type_traits>
@@ -210,7 +211,8 @@ struct list_data {
         e.what());
     }
     // Fill the index buffer with a pre-defined marker for easier debugging
-    matrix::fill(res, indices.view(), ivf_pq::kInvalidRecord<IdxT>);
+    thrust::fill_n(
+      res.get_thrust_policy(), indices.data_handle(), indices.size(), ivf_pq::kInvalidRecord<IdxT>);
   }
 };
 
