@@ -46,9 +46,9 @@ requirements:
   run:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - cuda-python >=11.7.1,<12.0
-    - dask ==2023.1.1
+    - dask >=2023.1.1
     - dask-cuda ={{ minor_version }}
-    - distributed ==2023.1.1
+    - distributed >=2023.1.1
     - joblib >=0.11
     - nccl >=2.9.9
     - pylibraft {{ version }}
@@ -58,12 +58,11 @@ requirements:
     - ucx-proc=*=gpu
     - ucx-py {{ ucx_py_version }}
 
-# TODO: Remove the linux64 tags on tests after disabling gpuCI / Jenkins
-tests:                                 # [linux64]
-  requirements:                        # [linux64]
-    - cudatoolkit ={{ cuda_version }}  # [linux64]
-  imports:                             # [linux64]
-    - raft_dask                        # [linux64]
+tests:
+  requirements:
+    - cudatoolkit ={{ cuda_version }}
+  imports:
+    - raft_dask
 
 about:
   home: https://rapids.ai/
