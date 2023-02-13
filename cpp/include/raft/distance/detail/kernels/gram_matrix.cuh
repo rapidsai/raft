@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -212,7 +212,7 @@ class GramMatrixBase {
                         int ld_out)
   {
     raft::distance::distance<raft::distance::DistanceType::L2Unexpanded, math_t, math_t, math_t>(
-      x1, x2, out, n1, n2, n_cols, stream, is_row_major);
+      raft::device_resources(stream), x1, x2, out, n1, n2, n_cols, is_row_major);
   }
 };
 };  // end namespace raft::distance::kernels::detail
