@@ -49,7 +49,8 @@ struct distance : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     loop_on_state(state, [this]() {
-      raft::distance::distance<DType, T, T, T>(x.data(),
+      raft::distance::distance<DType, T, T, T>(handle,
+                                               x.data(),
                                                y.data(),
                                                out.data(),
                                                params.m,
@@ -57,7 +58,6 @@ struct distance : public fixture {
                                                params.k,
                                                (void*)workspace.data(),
                                                worksize,
-                                               stream,
                                                params.isRowMajor);
     });
   }
