@@ -23,11 +23,11 @@
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/error.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/matrix/init.cuh>
 #include <raft/util/integer_utils.hpp>
 
 #include <memory>
 #include <optional>
+#include <thrust/fill.h>
 #include <type_traits>
 
 namespace raft::neighbors::ivf_flat {
@@ -90,7 +90,7 @@ struct list_data {
   list_data(raft::device_resources const& res, SizeT n_rows, uint32_t dim)
     : size{n_rows}
   {
-    auto capacity = round_up_safe<SizeT>(bound_by_power_of_two<SizeT>(size), kIndexGroupSize);
+    auto capacity = round_up_safe<SizeT>(n_rows, kIndexGroupSize);
     try {
       data = make_device_matrix<T, SizeT, row_major>(res, capacity, dim);
       indices = make_device_vector<IdxT, SizeT>(res, capacity);
@@ -99,12 +99,13 @@ struct list_data {
         "ivf-flat: failed to allocate a big enough index list to hold all data "
         "(requested size: %zu records, selected capacity: %zu records). "
         "Allocator exception: %s",
-        size_t(size),
+        size_t(n_rows),
         size_t(capacity),
         e.what());
     }
     // Fill the index buffer with a pre-defined marker for easier debugging
-    matrix::fill(res, indices.view(), ivf_flat::kInvalidRecord<IdxT>);
+    thrust::fill_n(
+      res.get_thrust_policy(), indices.data_handle(), indices.size(), kInvalidRecord<IdxT>);
   }
 };
 

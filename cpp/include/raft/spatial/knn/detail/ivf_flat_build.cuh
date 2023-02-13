@@ -274,8 +274,8 @@ void extend(raft::device_resources const& handle,
   build_index_kernel<<<grid_dim, block_dim, 0, stream>>>(new_labels.data_handle(),
                                                          new_vectors,
                                                          new_indices,
-                                                         index->data_ptrs().data_handle(),//ext_index.data().data_handle(),
-                                                         index->inds_ptrs().data_handle(),//ext_index.indices().data_handle(),
+                                                         index->data_ptrs().data_handle(),
+                                                         index->inds_ptrs().data_handle(),
                                                          list_sizes_ptr,
                                                          n_rows,
                                                          dim,
@@ -432,12 +432,12 @@ inline void fill_refinement_index(raft::device_resources const& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-// Serialization version 2
+// Serialization version 3
 // No backward compatibility yet; that is, can't add additional fields without breaking
 // backward compatibility.
 // TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
 //             compatible fashion.
-constexpr int serialization_version = 2;
+constexpr int serialization_version = 3;
 
 // NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
 // message.
@@ -449,6 +449,59 @@ struct check_index_layout {
 };
 
 template struct check_index_layout<sizeof(index<double, std::uint64_t>), 376>;
+
+
+template <typename T, typename IdxT, typename SizeT>
+void serialize_list(const raft::device_resources& handle,
+                    std::ostream& os,
+                    const list_data<T, IdxT, SizeT>& ld,
+                    std::optional<SizeT> size_override = std::nullopt)
+{
+  auto size = size_override.value_or(ld.size.load());
+  serialize_scalar(handle, os, size);
+  if (size == 0) { return; }
+
+  auto data_extents = make_extents<SizeT>(size, ld.data.extent(1));
+  auto data_array   = make_host_mdarray<T, SizeT, row_major>(data_extents);
+  auto inds_array   = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
+  copy(data_array.data_handle(), ld.data.data_handle(), data_array.size(), handle.get_stream());
+  copy(inds_array.data_handle(), ld.indices.data_handle(), inds_array.size(), handle.get_stream());
+  handle.sync_stream();
+  serialize_mdspan(handle, os, data_array.view());
+  serialize_mdspan(handle, os, inds_array.view());
+}
+
+template <typename T, typename IdxT, typename SizeT>
+void serialize_list(const raft::device_resources& handle,
+                    std::ostream& os,
+                    const std::shared_ptr<const list_data<T, IdxT, SizeT>>& ld,
+                    std::optional<SizeT> size_override = std::nullopt)
+{
+  if (ld) {
+    return serialize_list(handle, os, *ld, size_override);
+  } else {
+    return serialize_scalar(handle, os, SizeT{0});
+  }
+}
+
+template <typename T, typename IdxT, typename SizeT>
+void deserialize_list(const raft::device_resources& handle,
+                      std::istream& is,
+                      std::shared_ptr<list_data<T, IdxT, SizeT>>& ld,
+                      uint32_t dim)
+{
+  auto size = deserialize_scalar<SizeT>(handle, is);
+  if (size == 0) { return ld.reset(); }
+  std::make_shared<list_data<IdxT, SizeT>>(handle, size, dim).swap(ld);
+  auto data_extents = make_extents<SizeT>(size, ld->data.extent(1));
+  auto data_array   = make_host_mdarray<T, SizeT, row_major>(data_extents);
+  auto inds_array   = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
+  deserialize_mdspan(handle, is, data_array.view());
+  deserialize_mdspan(handle, is, inds_array.view());
+  copy(ld->data.data_handle(), data_array.data_handle(), data_array.size(), handle.get_stream());
+  // NB: copying exactly 'size' indices to leave the rest 'kInvalidRecord' intact.
+  copy(ld->indices.data_handle(), inds_array.data_handle(), size, handle.get_stream());
+}
 
 /**
  * Save the index to file.
@@ -469,8 +522,8 @@ void serialize(raft::device_resources const& handle,
   if (!of) { RAFT_FAIL("Cannot open %s", filename.c_str()); }
 
   RAFT_LOG_DEBUG(
-    "Saving IVF-PQ index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
-  /* TODO
+    "Saving IVF-Flat index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
+
   serialize_scalar(handle, of, serialization_version);
   serialize_scalar(handle, of, index_.size());
   serialize_scalar(handle, of, index_.dim());
@@ -478,10 +531,7 @@ void serialize(raft::device_resources const& handle,
   serialize_scalar(handle, of, index_.metric());
   serialize_scalar(handle, of, index_.veclen());
   serialize_scalar(handle, of, index_.adaptive_centers());
-  serialize_mdspan(handle, of, index_.data());
-  serialize_mdspan(handle, of, index_.indices());
   serialize_mdspan(handle, of, index_.list_sizes());
-  serialize_mdspan(handle, of, index_.list_offsets());
   serialize_mdspan(handle, of, index_.centers());
   if (index_.center_norms()) {
     bool has_norms = true;
@@ -490,7 +540,17 @@ void serialize(raft::device_resources const& handle,
   } else {
     bool has_norms = false;
     serialize_scalar(handle, of, has_norms);
-  }*/
+  }
+  auto sizes_host = make_host_vector<uint32_t, uint32_t>(index_.list_sizes().extent(0));
+  copy(sizes_host.data_handle(),
+       index_.list_sizes().data_handle(),
+       sizes_host.size(),
+       handle.get_stream());
+  handle.sync_stream();
+  serialize_mdspan(handle, of, sizes_host.view());
+  for (uint32_t label = 0; label < index_.n_lists(); label++) {
+    serialize_list<T, IdxT, uint32_t>(handle, of, index_.lists()(label), sizes_host(label));
+  }
   of.close();
   if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
 }
@@ -541,7 +601,9 @@ auto deserialize(raft::device_resources const& handle, const std::string& filena
       auto center_norms = *index_.center_norms();
       deserialize_mdspan(handle, infile, center_norms);
     }
-  }*/
+  }
+  index_.recompute_internal_state(handle);
+  */
   infile.close();
   return index_;
 }
