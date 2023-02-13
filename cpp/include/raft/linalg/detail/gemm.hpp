@@ -20,7 +20,8 @@
 
 #include "cublas_wrappers.hpp"
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 namespace linalg {
@@ -49,7 +50,7 @@ namespace detail {
  * @param [in] stream
  */
 template <typename math_t, bool DevicePointerMode = false>
-void gemm(raft::device_resources const& handle,
+void gemm(raft::resources const& handle,
           const bool trans_a,
           const bool trans_b,
           const int m,
@@ -65,7 +66,7 @@ void gemm(raft::device_resources const& handle,
           const int ldc,
           cudaStream_t stream)
 {
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  auto cublas_h = raft::resource::get_cublas_handle(handle);
   cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
   RAFT_CUBLAS_TRY(cublasgemm(cublas_h,
                              trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
@@ -103,7 +104,7 @@ void gemm(raft::device_resources const& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void gemm(raft::device_resources const& handle,
+void gemm(raft::resources const& handle,
           const math_t* a,
           int n_rows_a,
           int n_cols_a,
@@ -117,7 +118,7 @@ void gemm(raft::device_resources const& handle,
           math_t beta,
           cudaStream_t stream)
 {
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  auto cublas_h = raft::resource::get_cublas_handle(handle);
 
   int m   = n_rows_c;
   int n   = n_cols_c;
@@ -130,7 +131,7 @@ void gemm(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void gemm(raft::device_resources const& handle,
+void gemm(raft::resources const& handle,
           const math_t* a,
           int n_rows_a,
           int n_cols_a,
@@ -149,7 +150,7 @@ void gemm(raft::device_resources const& handle,
 }
 
 template <typename T, bool DevicePointerMode = false>
-void gemm(raft::device_resources const& handle,
+void gemm(raft::resources const& handle,
           T* z,
           T* x,
           T* y,
@@ -163,7 +164,7 @@ void gemm(raft::device_resources const& handle,
           T* alpha,
           T* beta)
 {
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  auto cublas_h = raft::resource::get_cublas_handle(handle);
   cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
 
   cublasOperation_t trans_a, trans_b;
