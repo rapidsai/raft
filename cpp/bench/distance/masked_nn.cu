@@ -24,8 +24,8 @@
 #include <limits>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/distance/masked_nn.cuh>
-#include <raft/handle.hpp>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
