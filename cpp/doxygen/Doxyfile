@@ -887,18 +887,18 @@ EXCLUDE                = ../include/raft/sparse/linalg/symmetrize.hpp \
                          ../include/raft/sparse/csr.hpp \
                          ../include/raft/linalg/lanczos.cuh \
                          ../include/raft/linalg/lanczos.hpp \
-                         ../include/raft/cuda_utils.cuh \
-                         ../include/raft/cudart_utils.h \
+                         ../include/raft/util/cuda_utils.cuh \
+                         ../include/raft/util/cudart_utils.hpp \
                          ../include/raft/util/device_atomics.cuh \
-                         ../include/raft/device_utils.cuh \
-                         ../include/raft/error.hpp \
-                         ../include/raft/handle.hpp \
-                         ../include/raft/integer_utils.h \
-                         ../include/raft/interruptible.hpp \
-                         ../include/raft/mdarray.hpp \
-                         ../include/raft/pow2_utils.cuh \
-                         ../include/raft/span.hpp \
-                         ../include/raft/vectorized.cuh \
+                         ../include/raft/util/device_utils.cuh \
+                         ../include/raft/core/error.hpp \
+                         ../include/raft/core/handle.hpp \
+                         ../include/raft/util/integer_utils.hpp \
+                         ../include/raft/core/interruptible.hpp \
+                         ../include/raft/core/mdarray.hpp \
+                         ../include/raft/util/pow2_utils.cuh \
+                         ../include/raft/core/span.hpp \
+                         ../include/raft/util/vectorized.cuh \
                          ../include/raft/raft.hpp \
                          ../include/raft/core/cudart_utils.hpp \
                          ../include/raft/matrix/math.cuh \
