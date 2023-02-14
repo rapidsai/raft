@@ -32,7 +32,7 @@
 #include <raft/spatial/knn/detail/faiss_select/key_value_block_select.cuh>
 
 #include <raft/matrix/matrix.cuh>
-#include <raft/neighbors/detail/knn_brute_force.cuh>
+#include <raft/neighbors/brute_force.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/convert/csr.cuh>
 
@@ -178,23 +178,15 @@ void k_closest_landmarks(raft::device_resources const& handle,
                          value_idx* R_knn_inds,
                          value_t* R_knn_dists)
 {
-  // TODO: Add const to the brute-force knn inputs
-  std::vector<value_t*> input  = {const_cast<value_t*>(index.get_R().data_handle())};
-  std::vector<value_int> sizes = {index.n_landmarks};
+  std::vector<raft::device_matrix_view<const value_t, value_int>> inputs = {index.get_R()};
 
-  raft::neighbors::detail::brute_force_knn_impl<value_int, value_idx>(
+  raft::neighbors::brute_force::knn<value_idx, value_t, value_int>(
     handle,
-    input,
-    sizes,
-    index.n,
-    const_cast<value_t*>(query_pts),
-    n_query_pts,
-    R_knn_inds,
-    R_knn_dists,
+    inputs,
+    make_device_matrix_view(query_pts, n_query_pts, inputs[0].extent(1)),
+    make_device_matrix_view(R_knn_inds, n_query_pts, k),
+    make_device_matrix_view(R_knn_dists, n_query_pts, k),
     k,
-    true,
-    true,
-    nullptr,
     index.get_metric());
 }
 
