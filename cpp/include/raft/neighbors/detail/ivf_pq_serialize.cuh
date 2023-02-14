@@ -29,7 +29,7 @@
 
 namespace raft::neighbors::ivf_pq::detail {
 
-// Serialization version 3
+// Serialization version
 // No backward compatibility yet; that is, can't add additional fields without breaking
 // backward compatibility.
 // TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
@@ -87,11 +87,14 @@ void deserialize_list(const raft::device_resources& handle,
                       std::istream& is,
                       std::shared_ptr<list_data<IdxT, SizeT>>& ld,
                       uint32_t pq_bits,
-                      uint32_t pq_dim)
+                      uint32_t pq_dim,
+                      bool conservative_memory_allocation)
 {
   auto size = deserialize_scalar<SizeT>(handle, is);
   if (size == 0) { return ld.reset(); }
-  std::make_shared<list_data<IdxT, SizeT>>(handle, size, pq_bits, pq_dim).swap(ld);
+  std::make_shared<list_data<IdxT, SizeT>>(
+    handle, size, pq_bits, pq_dim, conservative_memory_allocation)
+    .swap(ld);
   auto data_extents = make_extents<SizeT>(div_rounding_up_safe<SizeT>(size, kIndexGroupSize),
                                           ld->data.extent(1),
                                           ld->data.extent(2),
@@ -134,6 +137,7 @@ void serialize(raft::device_resources const& handle_,
   serialize_scalar(handle_, of, index.dim());
   serialize_scalar(handle_, of, index.pq_bits());
   serialize_scalar(handle_, of, index.pq_dim());
+  serialize_scalar(handle_, of, index.conservative_memory_allocation());
 
   serialize_scalar(handle_, of, index.metric());
   serialize_scalar(handle_, of, index.codebook_kind());
@@ -185,6 +189,7 @@ auto deserialize(raft::device_resources const& handle_, const std::string& filen
   auto dim     = deserialize_scalar<std::uint32_t>(handle_, infile);
   auto pq_bits = deserialize_scalar<std::uint32_t>(handle_, infile);
   auto pq_dim  = deserialize_scalar<std::uint32_t>(handle_, infile);
+  auto cma     = deserialize_scalar<bool>(handle_, infile);
 
   auto metric        = deserialize_scalar<raft::distance::DistanceType>(handle_, infile);
   auto codebook_kind = deserialize_scalar<raft::neighbors::ivf_pq::codebook_gen>(handle_, infile);
@@ -198,7 +203,7 @@ auto deserialize(raft::device_resources const& handle_, const std::string& filen
                  static_cast<int>(n_lists));
 
   auto index = raft::neighbors::ivf_pq::index<IdxT>(
-    handle_, metric, codebook_kind, n_lists, dim, pq_bits, pq_dim);
+    handle_, metric, codebook_kind, n_lists, dim, pq_bits, pq_dim, cma);
 
   deserialize_mdspan(handle_, infile, index.pq_centers());
   deserialize_mdspan(handle_, infile, index.centers());
@@ -207,7 +212,7 @@ auto deserialize(raft::device_resources const& handle_, const std::string& filen
   deserialize_mdspan(handle_, infile, index.list_sizes());
   auto lists = index.lists();
   for (uint32_t label = 0; label < index.n_lists(); label++) {
-    deserialize_list<IdxT, uint32_t>(handle_, infile, lists(label), pq_bits, pq_dim);
+    deserialize_list<IdxT, uint32_t>(handle_, infile, lists(label), pq_bits, pq_dim, cma);
   }
 
   handle_.sync_stream();

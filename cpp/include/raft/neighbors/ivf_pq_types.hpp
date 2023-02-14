@@ -93,6 +93,15 @@ struct index_params : ann::index_params {
    * regardless of the values of `dim` and `pq_dim`.
    */
   bool force_random_rotation = false;
+  /**
+   * By default, the algorithm allocates more space than necessary for individual clusters
+   * (`list_data`). This allows to amortize the cost of memory allocation and reduce the number of
+   * data copies during repeated calls to `extend` (extending the database).
+   *
+   * To disable this behavior and use as little GPU memory for the database as possible, set this
+   * flat to `true`.
+   */
+  bool conservative_memory_allocation = false;
 };
 
 struct search_params : ann::search_params {
@@ -194,10 +203,20 @@ struct list_data {
   std::atomic<SizeT> size;
 
   /** Allocate a new list capable of holding at least `n_rows` data records and indices. */
-  list_data(raft::device_resources const& res, SizeT n_rows, uint32_t pq_bits, uint32_t pq_dim)
+  list_data(raft::device_resources const& res,
+            SizeT n_rows,
+            uint32_t pq_bits,
+            uint32_t pq_dim,
+            bool conservative_memory_allocation)
     : size{n_rows}
   {
-    auto capacity = round_up_safe<SizeT>(bound_by_power_of_two<SizeT>(size), kIndexGroupSize);
+    constexpr SizeT kMaxSensibleSize = 1024;
+    auto amortized_size = bound_by_power_of_two<SizeT>(std::max<SizeT>(n_rows, kIndexGroupSize));
+    if (amortized_size > kMaxSensibleSize) {
+      amortized_size = round_up_safe<SizeT>(amortized_size, kMaxSensibleSize);
+    }
+    const auto capacity = round_up_safe<SizeT>(
+      conservative_memory_allocation ? n_rows : amortized_size, kIndexGroupSize);
     try {
       data = make_device_mdarray<uint8_t>(res, make_list_extents<SizeT>(capacity, pq_bits, pq_dim));
       indices = make_device_mdarray<IdxT>(res, make_extents<SizeT>(capacity));
@@ -319,6 +338,14 @@ struct index : ann::index {
   {
     return lists_.extent(0);
   }
+  /**
+   * Whether to use convervative memory allocation when extending the list (cluster) data
+   * (see index_params.conservative_memory_allocation).
+   */
+  [[nodiscard]] constexpr inline auto conservative_memory_allocation() const noexcept -> bool
+  {
+    return conservative_memory_allocation_;
+  }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
   index(const index&) = delete;
@@ -333,14 +360,16 @@ struct index : ann::index {
         codebook_gen codebook_kind,
         uint32_t n_lists,
         uint32_t dim,
-        uint32_t pq_bits = 8,
-        uint32_t pq_dim  = 0)
+        uint32_t pq_bits                    = 8,
+        uint32_t pq_dim                     = 0,
+        bool conservative_memory_allocation = false)
     : ann::index(),
       metric_(metric),
       codebook_kind_(codebook_kind),
       dim_(dim),
       pq_bits_(pq_bits),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
+      conservative_memory_allocation_(conservative_memory_allocation),
       pq_centers_{make_device_mdarray<float>(handle, make_pq_centers_extents())},
       lists_{make_host_mdarray<std::shared_ptr<list_data<IdxT>>>(make_extents<uint32_t>(n_lists))},
       rotation_matrix_{
@@ -369,7 +398,8 @@ struct index : ann::index {
             params.n_lists,
             dim,
             params.pq_bits,
-            params.pq_dim)
+            params.pq_dim,
+            params.conservative_memory_allocation)
   {
   }
 
@@ -496,6 +526,7 @@ struct index : ann::index {
   uint32_t dim_;
   uint32_t pq_bits_;
   uint32_t pq_dim_;
+  bool conservative_memory_allocation_;
 
   // Primary data members
   host_vector<std::shared_ptr<list_data<IdxT>>, uint32_t, row_major> lists_;

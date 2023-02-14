@@ -827,7 +827,8 @@ void resize_list(raft::device_resources const& res,
                  SizeT new_used_size,
                  SizeT old_used_size,
                  uint32_t pq_bits,
-                 uint32_t pq_dim)
+                 uint32_t pq_dim,
+                 bool conservative_memory_allocation)
 {
   bool skip_resize = false;
   if (orig_list) {
@@ -846,7 +847,8 @@ void resize_list(raft::device_resources const& res,
     old_used_size = 0;
   }
   if (skip_resize) { return; }
-  auto new_list = std::make_shared<list_data<IdxT>>(res, new_used_size, pq_bits, pq_dim);
+  auto new_list = std::make_shared<list_data<IdxT>>(
+    res, new_used_size, pq_bits, pq_dim, conservative_memory_allocation);
   if (old_used_size > 0) {
     auto copied_data_extents = make_list_extents<size_t>(old_used_size, pq_bits, pq_dim);
     auto copied_view         = make_mdspan<uint8_t, size_t, row_major, false, true>(
@@ -957,7 +959,8 @@ void extend(raft::device_resources const& handle,
     handle,
     n_rows + (kIndexGroupSize - 1) * std::min<IdxT>(n_clusters, n_rows),
     index->pq_bits(),
-    index->pq_dim());
+    index->pq_dim(),
+    index->conservative_memory_allocation());
 
   // Available device memory
   size_t free_mem, total_mem;
@@ -1079,7 +1082,8 @@ void extend(raft::device_resources const& handle,
                   new_cluster_sizes[label],
                   old_cluster_sizes[label],
                   index->pq_bits(),
-                  index->pq_dim());
+                  index->pq_dim(),
+                  index->conservative_memory_allocation());
     }
   }
 
