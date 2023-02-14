@@ -22,8 +22,8 @@
 #include "detail/strided_reduction.cuh"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/operators.hpp>
-#include <raft/handle.hpp>
 
 #include <type_traits>
 

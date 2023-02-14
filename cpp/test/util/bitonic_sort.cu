@@ -16,10 +16,9 @@
 
 #include "../test_utils.cuh"
 
+#include <raft/random/rng.cuh>
 #include <raft/util/bitonic_sort.cuh>
-
-#include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
 
