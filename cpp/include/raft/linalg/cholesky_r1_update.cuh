@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ namespace linalg {
 
 /**
  * @brief Rank 1 update of Cholesky decomposition.
+ * NOTE: The new mdspan-based API will not be provided for this function.
  *
  * This method is useful if an algorithm iteratively builds up matrix A, and
  * the Cholesky decomposition of A is required at each step.
@@ -41,14 +42,14 @@ namespace linalg {
  * On exit L contains the Cholesky decomposition of A'. In practice the elements
  * of A_new are overwritten with new row/column of the L matrix.
  *
- * The uplo paramater is used to select the matrix layout.
+ * The uplo parameter is used to select the matrix layout.
  * If (uplo != CUBLAS_FILL_MODE_UPPER) then the input arg L stores the
  * lower triangular matrix L, so that A = L * L.T. Otherwise the input arg L
  * stores an upper triangular matrix U: A = U.T * U.
  *
  * On exit L will be updated to store the Cholesky decomposition of A'.
  *
- * If the matrix is not positive definit, or very ill conditioned then the new
+ * If the matrix is not positive definite, or very ill conditioned then the new
  * diagonal element of L would be NaN. In such a case an exception is thrown.
  * The eps argument can be used to override this behavior: if eps >= 0 then
  * the diagonal element is replaced by eps in case the diagonal is NaN or
@@ -105,11 +106,11 @@ namespace linalg {
  * // Now U stores the Cholesky decomposition of A: A = U.T * U
  * @endcode
  *
- * @param handle RAFT handle (used to retrive cuBLAS handles).
+ * @param handle RAFT handle (used to retrieve cuBLAS handles).
  * @param L device array for to store the triangular matrix L, and the new
  *     column of A in column major format, size [n*n]
  * @param n number of elements in the new row.
- * @param ld stride of colums in L
+ * @param ld stride of columns in L
  * @param workspace device pointer to workspace shall be nullptr ar an array
  *    of size [n_bytes].
  * @param n_bytes size of workspace is returned here if workspace==nullptr.
@@ -120,7 +121,7 @@ namespace linalg {
  *    conditioned systems. Negative values mean no regularizaton.
  */
 template <typename math_t>
-void choleskyRank1Update(const raft::handle_t& handle,
+void choleskyRank1Update(raft::device_resources const& handle,
                          math_t* L,
                          int n,
                          int ld,
@@ -132,6 +133,7 @@ void choleskyRank1Update(const raft::handle_t& handle,
 {
   detail::choleskyRank1Update(handle, L, n, ld, workspace, n_bytes, uplo, stream, eps);
 }
+
 };  // namespace linalg
 };  // namespace raft
 

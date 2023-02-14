@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <common/benchmark.hpp>
-#include <raft/random/make_blobs.hpp>
+#include <raft/random/make_blobs.cuh>
 #include <rmm/device_uvector.hpp>
 #include <vector>
 
@@ -24,6 +24,12 @@ struct make_blobs_inputs {
   int rows, cols, clusters;
   bool row_major;
 };  // struct make_blobs_inputs
+
+inline auto operator<<(std::ostream& os, const make_blobs_inputs& p) -> std::ostream&
+{
+  os << p.rows << "#" << p.cols << "#" << p.clusters << "#" << p.row_major;
+  return os;
+}
 
 template <typename T>
 struct make_blobs : public fixture {
@@ -34,6 +40,10 @@ struct make_blobs : public fixture {
 
   void run_benchmark(::benchmark::State& state) override
   {
+    std::ostringstream label_stream;
+    label_stream << params;
+    state.SetLabel(label_stream.str());
+
     loop_on_state(state, [this]() {
       raft::random::make_blobs(data.data(),
                                labels.data(),

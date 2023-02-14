@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
 #include <raft/random/rng_state.hpp>
+#include <raft/util/cuda_utils.cuh>
 
 #include <curand_kernel.h>
 
@@ -143,10 +143,10 @@ DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type
 {
   constexpr Type twoPi  = Type(2.0) * Type(3.141592654);
   constexpr Type minus2 = -Type(2.0);
-  Type R                = raft::mySqrt(minus2 * raft::myLog(val1));
+  Type R                = raft::sqrt(minus2 * raft::log(val1));
   Type theta            = twoPi * val2;
   Type s, c;
-  raft::mySinCos(theta, s, c);
+  raft::sincos(theta, &s, &c);
   val1 = R * c * sigma1 + mu1;
   val2 = R * s * sigma2 + mu2;
 }
@@ -323,7 +323,7 @@ DI void custom_next(
     gen.next(res);
   } while (res == OutType(0.0));
 
-  *val = params.mu - params.beta * raft::myLog(-raft::myLog(res));
+  *val = params.mu - params.beta * raft::log(-raft::log(res));
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -340,8 +340,8 @@ DI void custom_next(GenType& gen,
 
   gen.next(res2);
   box_muller_transform<OutType>(res1, res2, params.sigma, params.mu);
-  *val       = raft::myExp(res1);
-  *(val + 1) = raft::myExp(res2);
+  *val       = raft::exp(res1);
+  *(val + 1) = raft::exp(res2);
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -358,7 +358,7 @@ DI void custom_next(GenType& gen,
   } while (res == OutType(0.0));
 
   constexpr OutType one = (OutType)1.0;
-  *val                  = params.mu - params.scale * raft::myLog(one / res - one);
+  *val                  = params.mu - params.scale * raft::log(one / res - one);
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -371,7 +371,7 @@ DI void custom_next(GenType& gen,
   OutType res;
   gen.next(res);
   constexpr OutType one = (OutType)1.0;
-  *val                  = -raft::myLog(one - res) / params.lambda;
+  *val                  = -raft::log(one - res) / params.lambda;
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -386,7 +386,7 @@ DI void custom_next(GenType& gen,
 
   constexpr OutType one = (OutType)1.0;
   constexpr OutType two = (OutType)2.0;
-  *val                  = raft::mySqrt(-two * raft::myLog(one - res)) * params.sigma;
+  *val                  = raft::sqrt(-two * raft::log(one - res)) * params.sigma;
 }
 
 template <typename GenType, typename OutType, typename LenType>
@@ -409,9 +409,9 @@ DI void custom_next(GenType& gen,
   // The <= comparison here means, number of samples going in `if` branch are more by 1 than `else`
   // branch. However it does not matter as for 0.5 both branches evaluate to same result.
   if (res <= oneHalf) {
-    out = params.mu + params.scale * raft::myLog(two * res);
+    out = params.mu + params.scale * raft::log(two * res);
   } else {
-    out = params.mu - params.scale * raft::myLog(two * (one - res));
+    out = params.mu - params.scale * raft::log(two * (one - res));
   }
   *val = out;
 }
@@ -424,7 +424,7 @@ DI void custom_next(
   gen.next(res);
   params.inIdxPtr[idx]  = idx;
   constexpr OutType one = (OutType)1.0;
-  auto exp              = -raft::myLog(one - res);
+  auto exp              = -raft::log(one - res);
   if (params.wts != nullptr) {
     *val = exp / params.wts[idx];
   } else {
@@ -560,6 +560,7 @@ struct PCGenerator {
     next(discard);
     pcg_state += rng_state.seed;
     next(discard);
+    skipahead(subsequence);
   }
 
   // Based on "Random Number Generation with Arbitrary Strides" F. B. Brown
@@ -666,7 +667,7 @@ __global__ void rngKernel(DeviceState<GenType> rng_state,
                           LenType len,
                           ParamType params)
 {
-  LenType tid = threadIdx.x + blockIdx.x * blockDim.x;
+  LenType tid = threadIdx.x + static_cast<LenType>(blockIdx.x) * blockDim.x;
   GenType gen(rng_state, (uint64_t)tid);
   const LenType stride = gridDim.x * blockDim.x;
   for (LenType idx = tid; idx < len; idx += stride * ITEMS_PER_CALL) {
@@ -680,6 +681,40 @@ __global__ void rngKernel(DeviceState<GenType> rng_state,
   return;
 }
 
+template <typename GenType, typename OutType, typename WeightType, typename IdxType>
+__global__ void sample_with_replacement_kernel(DeviceState<GenType> rng_state,
+                                               OutType* out,
+                                               const WeightType* weights_csum,
+                                               IdxType sampledLen,
+                                               IdxType len)
+{
+  // todo(lsugy): warp-collaborative binary search
+
+  IdxType tid = threadIdx.x + static_cast<IdxType>(blockIdx.x) * blockDim.x;
+  GenType gen(rng_state, static_cast<uint64_t>(tid));
+
+  if (tid < sampledLen) {
+    WeightType val_01;
+    gen.next(val_01);
+    WeightType val_search = val_01 * weights_csum[len - 1];
+
+    // Binary search of the first index for which the cumulative sum of weights is larger than the
+    // generated value
+    IdxType idx_start = 0;
+    IdxType idx_end   = len;
+    while (idx_end > idx_start) {
+      IdxType idx_middle    = (idx_start + idx_end) / 2;
+      WeightType val_middle = weights_csum[idx_middle];
+      if (val_search <= val_middle) {
+        idx_end = idx_middle;
+      } else {
+        idx_start = idx_middle + 1;
+      }
+    }
+    out[tid] = static_cast<OutType>(min(idx_start, len - 1));
+  }
+}
+
 /**
  * This kernel is deprecated and should be removed in a future release
  */
@@ -691,7 +726,7 @@ template <typename OutType,
 __global__ void fillKernel(
   uint64_t seed, uint64_t adv_subs, uint64_t offset, OutType* ptr, LenType len, ParamType params)
 {
-  LenType tid = threadIdx.x + blockIdx.x * blockDim.x;
+  LenType tid = threadIdx.x + static_cast<LenType>(blockIdx.x) * blockDim.x;
   GenType gen(seed, adv_subs + (uint64_t)tid, offset);
   const LenType stride = gridDim.x * blockDim.x;
   for (LenType idx = tid; idx < len; idx += stride * ITEMS_PER_CALL) {

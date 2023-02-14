@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,13 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/pow2_utils.cuh>
 
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
-
-#include <raft/distance/distance_type.hpp>
-#include <raft/handle.hpp>
-#include <raft/spatial/knn/faiss_mr.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
 
 namespace raft {
 namespace spatial {
@@ -37,11 +32,11 @@ namespace detail {
 template <typename value_t>
 DI value_t compute_haversine(value_t x1, value_t y1, value_t x2, value_t y2)
 {
-  value_t sin_0 = sin(0.5 * (x1 - y1));
-  value_t sin_1 = sin(0.5 * (x2 - y2));
-  value_t rdist = sin_0 * sin_0 + cos(x1) * cos(y1) * sin_1 * sin_1;
+  value_t sin_0 = raft::sin(0.5 * (x1 - y1));
+  value_t sin_1 = raft::sin(0.5 * (x2 - y2));
+  value_t rdist = sin_0 * sin_0 + raft::cos(x1) * raft::cos(y1) * sin_1 * sin_1;
 
-  return 2 * asin(sqrt(rdist));
+  return 2 * raft::asin(raft::sqrt(rdist));
 }
 
 /**
@@ -65,17 +60,21 @@ __global__ void haversine_knn_kernel(value_idx* out_inds,
                                      size_t n_index_rows,
                                      int k)
 {
-  constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+  constexpr int kNumWarps = tpb / WarpSize;
 
   __shared__ value_t smemK[kNumWarps * warp_q];
   __shared__ value_idx smemV[kNumWarps * warp_q];
 
-  faiss::gpu::
-    BlockSelect<value_t, value_idx, false, faiss::gpu::Comparator<value_t>, warp_q, thread_q, tpb>
-      heap(faiss::gpu::Limits<value_t>::getMax(), -1, smemK, smemV, k);
+  faiss_select::
+    BlockSelect<value_t, value_idx, false, faiss_select::Comparator<value_t>, warp_q, thread_q, tpb>
+      heap(std::numeric_limits<value_t>::max(),
+           std::numeric_limits<value_idx>::max(),
+           smemK,
+           smemV,
+           k);
 
   // Grid is exactly sized to rows available
-  int limit = faiss::gpu::utils::roundDown(n_index_rows, faiss::gpu::kWarpSize);
+  int limit = Pow2<WarpSize>::roundDown(n_index_rows);
 
   const value_t* query_ptr = query + (blockIdx.x * 2);
   value_t x1               = query_ptr[0];

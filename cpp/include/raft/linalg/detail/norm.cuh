@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,13 @@
 
 #pragma once
 
+#include <raft/core/operators.hpp>
+#include <raft/linalg/norm_types.hpp>
 #include <raft/linalg/reduce.cuh>
 
 namespace raft {
 namespace linalg {
 namespace detail {
-
-/** different types of norms supported on the input buffers */
-enum NormType { L1Norm = 0, L2Norm };
 
 template <typename Type, typename IdxType, typename Lambda>
 void rowNormCaller(Type* dots,
@@ -37,34 +36,48 @@ void rowNormCaller(Type* dots,
 {
   switch (type) {
     case L1Norm:
-      raft::linalg::reduce(dots,
-                           data,
-                           D,
-                           N,
-                           (Type)0,
-                           rowMajor,
-                           true,
-                           stream,
-                           false,
-                           raft::L1Op<Type, IdxType>(),
-                           raft::Sum<Type>(),
-                           fin_op);
+      raft::linalg::reduce<Type, Type, IdxType>(dots,
+                                                data,
+                                                D,
+                                                N,
+                                                (Type)0,
+                                                rowMajor,
+                                                true,
+                                                stream,
+                                                false,
+                                                raft::abs_op(),
+                                                raft::add_op(),
+                                                fin_op);
       break;
     case L2Norm:
-      raft::linalg::reduce(dots,
-                           data,
-                           D,
-                           N,
-                           (Type)0,
-                           rowMajor,
-                           true,
-                           stream,
-                           false,
-                           raft::L2Op<Type>(),
-                           raft::Sum<Type>(),
-                           fin_op);
+      raft::linalg::reduce<Type, Type, IdxType>(dots,
+                                                data,
+                                                D,
+                                                N,
+                                                (Type)0,
+                                                rowMajor,
+                                                true,
+                                                stream,
+                                                false,
+                                                raft::sq_op(),
+                                                raft::add_op(),
+                                                fin_op);
       break;
-    default: ASSERT(false, "Invalid norm type passed! [%d]", type);
+    case LinfNorm:
+      raft::linalg::reduce<Type, Type, IdxType>(dots,
+                                                data,
+                                                D,
+                                                N,
+                                                (Type)0,
+                                                rowMajor,
+                                                true,
+                                                stream,
+                                                false,
+                                                raft::abs_op(),
+                                                raft::max_op(),
+                                                fin_op);
+      break;
+    default: THROW("Unsupported norm type: %d", type);
   };
 }
 
@@ -80,34 +93,48 @@ void colNormCaller(Type* dots,
 {
   switch (type) {
     case L1Norm:
-      raft::linalg::reduce(dots,
-                           data,
-                           D,
-                           N,
-                           (Type)0,
-                           rowMajor,
-                           false,
-                           stream,
-                           false,
-                           raft::L1Op<Type, IdxType>(),
-                           raft::Sum<Type>(),
-                           fin_op);
+      raft::linalg::reduce<Type, Type, IdxType>(dots,
+                                                data,
+                                                D,
+                                                N,
+                                                (Type)0,
+                                                rowMajor,
+                                                false,
+                                                stream,
+                                                false,
+                                                raft::abs_op(),
+                                                raft::add_op(),
+                                                fin_op);
       break;
     case L2Norm:
-      raft::linalg::reduce(dots,
-                           data,
-                           D,
-                           N,
-                           (Type)0,
-                           rowMajor,
-                           false,
-                           stream,
-                           false,
-                           raft::L2Op<Type, IdxType>(),
-                           raft::Sum<Type>(),
-                           fin_op);
+      raft::linalg::reduce<Type, Type, IdxType>(dots,
+                                                data,
+                                                D,
+                                                N,
+                                                (Type)0,
+                                                rowMajor,
+                                                false,
+                                                stream,
+                                                false,
+                                                raft::sq_op(),
+                                                raft::add_op(),
+                                                fin_op);
       break;
-    default: ASSERT(false, "Invalid norm type passed! [%d]", type);
+    case LinfNorm:
+      raft::linalg::reduce<Type, Type, IdxType>(dots,
+                                                data,
+                                                D,
+                                                N,
+                                                (Type)0,
+                                                rowMajor,
+                                                false,
+                                                stream,
+                                                false,
+                                                raft::abs_op(),
+                                                raft::max_op(),
+                                                fin_op);
+      break;
+    default: THROW("Unsupported norm type: %d", type);
   };
 }
 

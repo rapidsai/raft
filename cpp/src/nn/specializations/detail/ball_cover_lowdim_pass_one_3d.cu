@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 
 #include <cstdint>
+#include <raft/neighbors/specializations/detail/ball_cover_lowdim.hpp>
 #include <raft/spatial/knn/detail/ball_cover/registers.cuh>
-#include <raft/spatial/knn/specializations/detail/ball_cover_lowdim.hpp>
 
 namespace raft {
 namespace spatial {
@@ -24,8 +24,8 @@ namespace knn {
 namespace detail {
 
 template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t, 3>(
-  const raft::handle_t& handle,
-  BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
+  raft::device_resources const& handle,
+  const BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
   const std::uint32_t n_query_rows,
   std::uint32_t k,
@@ -37,19 +37,6 @@ template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t, 3>(
   float weight,
   std::uint32_t* dists_counter);
 
-template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t, 3>(
-  const raft::handle_t& handle,
-  BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
-  const float* query,
-  const std::uint32_t n_query_rows,
-  std::uint32_t k,
-  const std::int64_t* R_knn_inds,
-  const float* R_knn_dists,
-  DistFunc<float, std::uint32_t>& dfunc,
-  std::int64_t* inds,
-  float* dists,
-  float weight,
-  std::uint32_t* post_dists_counter);
 };  // namespace detail
 };  // namespace knn
 };  // namespace spatial

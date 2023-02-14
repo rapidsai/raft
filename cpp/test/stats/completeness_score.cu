@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
 #include <raft/stats/completeness_score.cuh>
 #include <raft/stats/entropy.cuh>
 #include <raft/stats/mutual_info_score.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random>
 
 namespace raft {
@@ -40,6 +40,8 @@ template <typename T>
 class completenessTest : public ::testing::TestWithParam<completenessParam> {
  protected:
   // the constructor
+  completenessTest() : stream(handle.get_stream()) {}
+
   void SetUp() override
   {
     // getting the parameters
@@ -64,9 +66,6 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     }
 
     // allocating and initializing memory to the GPU
-
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
     raft::update_device(truthClusterArray.data(), arr1.data(), (int)nElements, stream);
@@ -92,18 +91,16 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     if (nElements == 0) truthCompleteness = 1.0;
 
     // calling the completeness CUDA implementation
-    computedCompleteness = raft::stats::completeness_score(truthClusterArray.data(),
-                                                           predClusterArray.data(),
-                                                           nElements,
-                                                           lowerLabelRange,
-                                                           upperLabelRange,
-                                                           stream);
+    computedCompleteness = raft::stats::completeness_score(
+      handle,
+      raft::make_device_vector_view<const T>(truthClusterArray.data(), nElements),
+      raft::make_device_vector_view<const T>(predClusterArray.data(), nElements),
+      lowerLabelRange,
+      upperLabelRange);
   }
 
-  // the destructor
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
   // declaring the data values
+  raft::device_resources handle;
   completenessParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements               = 0;

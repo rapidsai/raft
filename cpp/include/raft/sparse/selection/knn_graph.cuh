@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,51 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef __KNN_GRAPH_H
-#define __KNN_GRAPH_H
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+/**
+ * DISCLAIMER: this file is deprecated: use knn_graph.cuh instead
+ */
 
 #pragma once
 
-#include <raft/distance/distance_type.hpp>
-#include <raft/sparse/coo.hpp>
-#include <raft/sparse/selection/detail/knn_graph.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the sparse/spatial version instead.")
 
-#include <cstdint>
+#include <raft/sparse/neighbors/knn_graph.cuh>
 
-namespace raft {
-namespace sparse {
-namespace selection {
-
-/**
- * Constructs a (symmetrized) knn graph edge list from
- * dense input vectors.
- *
- * Note: The resulting KNN graph is not guaranteed to be connected.
- *
- * @tparam value_idx
- * @tparam value_t
- * @param[in] handle raft handle
- * @param[in] X dense matrix of input data samples and observations
- * @param[in] m number of data samples (rows) in X
- * @param[in] n number of observations (columns) in X
- * @param[in] metric distance metric to use when constructing neighborhoods
- * @param[out] out output edge list
- * @param c
- */
-template <typename value_idx = int, typename value_t = float>
-void knn_graph(const handle_t& handle,
-               const value_t* X,
-               std::size_t m,
-               std::size_t n,
-               raft::distance::DistanceType metric,
-               raft::sparse::COO<value_t, value_idx>& out,
-               int c = 15)
-{
-  detail::knn_graph(handle, X, m, n, metric, out, c);
+namespace raft::sparse::selection {
+using raft::sparse::neighbors::knn_graph;
 }
-
-};  // namespace selection
-};  // namespace sparse
-};  // end namespace raft
-
-#endif

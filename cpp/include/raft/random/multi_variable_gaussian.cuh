@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,44 +20,42 @@
 #pragma once
 
 #include "detail/multi_variable_gaussian.cuh"
+#include <raft/random/random_types.hpp>
 
 namespace raft::random {
 
-template <typename T>
-class multi_variable_gaussian : public detail::multi_variable_gaussian_impl<T> {
- public:
-  // using Decomposer = typename detail::multi_variable_gaussian_impl<T>::Decomposer;
-  // using detail::multi_variable_gaussian_impl<T>::Decomposer::chol_decomp;
-  // using detail::multi_variable_gaussian_impl<T>::Decomposer::jacobi;
-  // using detail::multi_variable_gaussian_impl<T>::Decomposer::qr;
+/**
+ * \defgroup multi_variable_gaussian Compute multi-variable Gaussian
+ * @{
+ */
 
-  multi_variable_gaussian() = delete;
-  multi_variable_gaussian(const raft::handle_t& handle,
-                          const int dim,
-                          typename detail::multi_variable_gaussian_impl<T>::Decomposer method)
-    : detail::multi_variable_gaussian_impl<T>{handle, dim, method}
-  {
-  }
+template <typename ValueType>
+void multi_variable_gaussian(raft::device_resources const& handle,
+                             rmm::mr::device_memory_resource& mem_resource,
+                             std::optional<raft::device_vector_view<const ValueType, int>> x,
+                             raft::device_matrix_view<ValueType, int, raft::col_major> P,
+                             raft::device_matrix_view<ValueType, int, raft::col_major> X,
+                             const multi_variable_gaussian_decomposition_method method)
+{
+  detail::compute_multi_variable_gaussian_impl(handle, mem_resource, x, P, X, method);
+}
 
-  std::size_t get_workspace_size()
-  {
-    return detail::multi_variable_gaussian_impl<T>::get_workspace_size();
-  }
+template <typename ValueType>
+void multi_variable_gaussian(raft::device_resources const& handle,
+                             std::optional<raft::device_vector_view<const ValueType, int>> x,
+                             raft::device_matrix_view<ValueType, int, raft::col_major> P,
+                             raft::device_matrix_view<ValueType, int, raft::col_major> X,
+                             const multi_variable_gaussian_decomposition_method method)
+{
+  rmm::mr::device_memory_resource* mem_resource_ptr = rmm::mr::get_current_device_resource();
+  RAFT_EXPECTS(mem_resource_ptr != nullptr,
+               "compute_multi_variable_gaussian: "
+               "rmm::mr::get_current_device_resource() returned null; "
+               "please report this bug to the RAPIDS RAFT developers.");
+  detail::compute_multi_variable_gaussian_impl(handle, *mem_resource_ptr, x, P, X, method);
+}
 
-  void set_workspace(T* workarea)
-  {
-    detail::multi_variable_gaussian_impl<T>::set_workspace(workarea);
-  }
-
-  void give_gaussian(const int nPoints, T* P, T* X, const T* x = 0)
-  {
-    detail::multi_variable_gaussian_impl<T>::give_gaussian(nPoints, P, X, x);
-  }
-
-  void deinit() { detail::multi_variable_gaussian_impl<T>::deinit(); }
-
-  ~multi_variable_gaussian() { deinit(); }
-};  // end of multi_variable_gaussian
+/** @} */
 
 };  // end of namespace raft::random
 

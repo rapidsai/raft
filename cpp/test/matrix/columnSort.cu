@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <numeric>
-#include <raft/cudart_utils.h>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/matrix/col_wise_sort.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -55,12 +56,11 @@ template <typename T>
 class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
  protected:
   ColumnSort()
-    : keyIn(0, stream),
-      keySorted(0, stream),
-      keySortGolden(0, stream),
-      valueOut(0, stream),
-      goldenValOut(0, stream),
-      workspacePtr(0, stream)
+    : keyIn(0, handle.get_stream()),
+      keySorted(0, handle.get_stream()),
+      keySortGolden(0, handle.get_stream()),
+      valueOut(0, handle.get_stream()),
+      goldenValOut(0, handle.get_stream())
   {
   }
 
@@ -68,13 +68,12 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
   {
     params  = ::testing::TestWithParam<columnSort<T>>::GetParam();
     int len = params.n_row * params.n_col;
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-    keyIn.resize(len, stream);
-    valueOut.resize(len, stream);
-    goldenValOut.resize(len, stream);
+    keyIn.resize(len, handle.get_stream());
+    valueOut.resize(len, handle.get_stream());
+    goldenValOut.resize(len, handle.get_stream());
     if (params.testKeys) {
-      keySorted.resize(len, stream);
-      keySortGolden.resize(len, stream);
+      keySorted.resize(len, handle.get_stream());
+      keySortGolden.resize(len, handle.get_stream());
     }
 
     std::vector<T> vals(len);
@@ -97,45 +96,30 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
       }
     }
 
-    raft::update_device(keyIn.data(), &vals[0], len, stream);
-    raft::update_device(goldenValOut.data(), &cValGolden[0], len, stream);
+    raft::update_device(keyIn.data(), &vals[0], len, handle.get_stream());
+    raft::update_device(goldenValOut.data(), &cValGolden[0], len, handle.get_stream());
 
-    if (params.testKeys) raft::update_device(keySortGolden.data(), &cKeyGolden[0], len, stream);
+    if (params.testKeys)
+      raft::update_device(keySortGolden.data(), &cKeyGolden[0], len, handle.get_stream());
 
-    bool needWorkspace   = false;
-    size_t workspaceSize = 0;
-    // Remove this branch once the implementation of descending sort is fixed.
-    sort_cols_per_row(keyIn.data(),
-                      valueOut.data(),
-                      params.n_row,
-                      params.n_col,
-                      needWorkspace,
-                      NULL,
-                      workspaceSize,
-                      stream,
-                      keySorted.data());
-    if (needWorkspace) {
-      workspacePtr.resize(workspaceSize, stream);
-      sort_cols_per_row(keyIn.data(),
-                        valueOut.data(),
-                        params.n_row,
-                        params.n_col,
-                        needWorkspace,
-                        workspacePtr.data(),
-                        workspaceSize,
-                        stream,
-                        keySorted.data());
-    }
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
+    auto key_in_view = raft::make_device_matrix_view<const T, int, row_major>(
+      keyIn.data(), params.n_row, params.n_col);
+    auto value_out_view = raft::make_device_matrix_view<int, int, row_major>(
+      valueOut.data(), params.n_row, params.n_col);
+    auto key_sorted_view = raft::make_device_matrix_view<T, int, row_major>(
+      keySorted.data(), params.n_row, params.n_col);
+
+    raft::matrix::sort_cols_per_row(
+      handle, key_in_view, value_out_view, std::make_optional(key_sorted_view));
+
+    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 
  protected:
-  cudaStream_t stream = 0;
+  raft::device_resources handle;
   columnSort<T> params;
   rmm::device_uvector<T> keyIn, keySorted, keySortGolden;
   rmm::device_uvector<int> valueOut, goldenValOut;  // valueOut are indexes
-  rmm::device_uvector<char> workspacePtr;
 };
 
 const std::vector<columnSort<float>> inputsf1 = {{0.000001f, 503, 2000, false},

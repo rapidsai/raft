@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@
  */
 #pragma once
 
+#ifndef __RAFT_RT_LOGGER
+#define __RAFT_RT_LOGGER
+
 #include <stdarg.h>
 
 #include <algorithm>
@@ -28,7 +31,8 @@
 #include <stdarg.h>
 
 #define SPDLOG_HEADER_ONLY
-#include <raft/common/detail/callback_sink.hpp>
+#include <raft/core/detail/callback_sink.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT
 #include <spdlog/spdlog.h>                    // NOLINT
 
@@ -50,13 +54,15 @@
 /** @} */
 
 #if !defined(RAFT_ACTIVE_LEVEL)
-#define RAFT_ACTIVE_LEVEL RAFT_LEVEL_DEBUG
+#define RAFT_ACTIVE_LEVEL RAFT_LEVEL_INFO
 #endif
 
 namespace raft {
 
 static const std::string RAFT_NAME = "raft";
 static const std::string default_log_pattern("[%L] [%H:%M:%S.%f] %v");
+
+namespace detail {
 
 /**
  * @defgroup CStringFormat Expand a C-style format string
@@ -70,14 +76,18 @@ static const std::string default_log_pattern("[%L] [%H:%M:%S.%f] %v");
  *
  * @{
  */
-std::string format(const char* fmt, va_list& vl)
+inline std::string format(const char* fmt, va_list& vl)
 {
-  char buf[4096];
-  vsnprintf(buf, sizeof(buf), fmt, vl);
-  return std::string(buf);
+  va_list vl_copy;
+  va_copy(vl_copy, vl);
+  int length = std::vsnprintf(nullptr, 0, fmt, vl_copy);
+  assert(length >= 0);
+  std::vector<char> buf(length + 1);
+  std::vsnprintf(buf.data(), length + 1, fmt, vl);
+  return std::string(buf.data());
 }
 
-std::string format(const char* fmt, ...)
+inline std::string format(const char* fmt, ...)
 {
   va_list vl;
   va_start(vl, fmt);
@@ -87,11 +97,13 @@ std::string format(const char* fmt, ...)
 }
 /** @} */
 
-int convert_level_to_spdlog(int level)
+inline int convert_level_to_spdlog(int level)
 {
   level = std::max(RAFT_LEVEL_OFF, std::min(RAFT_LEVEL_TRACE, level));
   return RAFT_LEVEL_TRACE - level;
 }
+
+}  // namespace detail
 
 /**
  * @brief The main Logging class for raft library.
@@ -112,7 +124,7 @@ class logger {
       cur_pattern()
   {
     set_pattern(default_log_pattern);
-    set_level(RAFT_LEVEL_INFO);
+    set_level(RAFT_ACTIVE_LEVEL);
   }
   /**
    * @brief Singleton method to get the underlying logger object
@@ -140,7 +152,7 @@ class logger {
    */
   void set_level(int level)
   {
-    level = convert_level_to_spdlog(level);
+    level = raft::detail::convert_level_to_spdlog(level);
     spdlogger->set_level(static_cast<spdlog::level::level_enum>(level));
   }
 
@@ -179,7 +191,7 @@ class logger {
    */
   bool should_log_for(int level) const
   {
-    level        = convert_level_to_spdlog(level);
+    level        = raft::detail::convert_level_to_spdlog(level);
     auto level_e = static_cast<spdlog::level::level_enum>(level);
     return spdlogger->should_log(level_e);
   }
@@ -209,13 +221,13 @@ class logger {
    */
   void log(int level, const char* fmt, ...)
   {
-    level        = convert_level_to_spdlog(level);
+    level        = raft::detail::convert_level_to_spdlog(level);
     auto level_e = static_cast<spdlog::level::level_enum>(level);
     // explicit check to make sure that we only expand messages when required
     if (spdlogger->should_log(level_e)) {
       va_list vl;
       va_start(vl, fmt);
-      auto msg = format(fmt, vl);
+      auto msg = raft::detail::format(fmt, vl);
       va_end(vl);
       spdlogger->log(level_e, msg);
     }
@@ -256,12 +268,24 @@ class logger {
 #define RAFT_LOG_TRACE(fmt, ...) void(0)
 #endif
 
+#if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_TRACE)
+#define RAFT_LOG_TRACE_VEC(ptr, len)                                      \
+  do {                                                                    \
+    std::stringstream ss;                                                 \
+    ss << raft::detail::format("%s:%d ", __FILE__, __LINE__);             \
+    print_vector(#ptr, ptr, len, ss);                                     \
+    raft::logger::get(RAFT_NAME).log(RAFT_LEVEL_TRACE, ss.str().c_str()); \
+  } while (0)
+#else
+#define RAFT_LOG_TRACE_VEC(ptr, len) void(0)
+#endif
+
 #if (RAFT_ACTIVE_LEVEL >= RAFT_LEVEL_DEBUG)
 #define RAFT_LOG_DEBUG(fmt, ...)                                          \
   do {                                                                    \
     std::stringstream ss;                                                 \
-    ss << raft::format("%s:%d ", __FILE__, __LINE__);                     \
-    ss << raft::format(fmt, ##__VA_ARGS__);                               \
+    ss << raft::detail::format("%s:%d ", __FILE__, __LINE__);             \
+    ss << raft::detail::format(fmt, ##__VA_ARGS__);                       \
     raft::logger::get(RAFT_NAME).log(RAFT_LEVEL_DEBUG, ss.str().c_str()); \
   } while (0)
 #else
@@ -296,3 +320,5 @@ class logger {
 #define RAFT_LOG_CRITICAL(fmt, ...) void(0)
 #endif
 /** @} */
+
+#endif

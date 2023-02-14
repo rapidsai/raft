@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 namespace raft {
 namespace sparse {
@@ -24,7 +24,7 @@ namespace distance {
 
 template <typename value_idx, typename value_t>
 struct distances_config_t {
-  distances_config_t(const raft::handle_t& handle_) : handle(handle_) {}
+  distances_config_t(raft::device_resources const& handle_) : handle(handle_) {}
 
   // left side
   value_idx a_nrows;
@@ -42,7 +42,7 @@ struct distances_config_t {
   value_idx* b_indices;
   value_t* b_data;
 
-  const raft::handle_t& handle;
+  raft::device_resources const& handle;
 };
 
 template <typename value_t>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
 #include <raft/stats/homogeneity_score.cuh>
 #include <raft/stats/mutual_info_score.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random>
 
 namespace raft {
@@ -47,6 +47,7 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     nElements       = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
     upperLabelRange = params.upperLabelRange;
+    stream          = handle.get_stream();
 
     // generating random value test input
     std::vector<int> arr1(nElements, 0);
@@ -63,9 +64,6 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     }
 
     // allocating and initializing memory to the GPU
-
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
     raft::update_device(truthClusterArray.data(), &arr1[0], (int)nElements, stream);
@@ -91,16 +89,16 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     if (nElements == 0) truthHomogeneity = 1.0;
 
     // calling the homogeneity CUDA implementation
-    computedHomogeneity = raft::stats::homogeneity_score(truthClusterArray.data(),
-                                                         predClusterArray.data(),
-                                                         nElements,
-                                                         lowerLabelRange,
-                                                         upperLabelRange,
-                                                         stream);
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
+    computedHomogeneity = raft::stats::homogeneity_score(
+      handle,
+      raft::make_device_vector_view<const T>(truthClusterArray.data(), nElements),
+      raft::make_device_vector_view<const T>(predClusterArray.data(), nElements),
+      lowerLabelRange,
+      upperLabelRange);
   }
 
   // declaring the data values
+  raft::device_resources handle;
   homogeneityParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements              = 0;

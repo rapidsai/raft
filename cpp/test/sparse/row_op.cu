@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/op/row_op.cuh>
 
-#include "../test_utils.h"
-#include <raft/cudart_utils.h>
+#include "../test_utils.cuh"
+#include <raft/util/cudart_utils.hpp>
 
 #include <iostream>
 #include <limits>
@@ -82,7 +82,7 @@ class CSRRowOpTest : public ::testing::TestWithParam<CSRRowOpInputs<Type_f, Inde
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   CSRRowOpInputs<Type_f, Index_> params;

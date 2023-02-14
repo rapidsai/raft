@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,18 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/matrix/matrix.cuh>
+#include <raft/core/device_mdarray.hpp>
+
+#include <raft/matrix/copy.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/counting_iterator.h>
 
 namespace raft {
 namespace matrix {
@@ -57,17 +63,24 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     int len = params.n_row * params.n_col;
     uniform(handle, r, in1.data(), len, T(-1.0), T(1.0));
 
-    copy(in1.data(), in2.data(), params.n_row, params.n_col, stream);
+    auto in1_view = raft::make_device_matrix_view<const T, int, col_major>(
+      in1.data(), params.n_row, params.n_col);
+    auto in2_view =
+      raft::make_device_matrix_view<T, int, col_major>(in2.data(), params.n_row, params.n_col);
+
+    copy<T, int>(handle, in1_view, in2_view);
     // copy(in1, in1_revr, params.n_row, params.n_col);
     // colReverse(in1_revr, params.n_row, params.n_col);
 
     rmm::device_uvector<T> outTrunc(6, stream);
-    truncZeroOrigin(in1.data(), params.n_row, outTrunc.data(), 3, 2, stream);
+
+    auto out_trunc_view = raft::make_device_matrix_view<T, int, col_major>(outTrunc.data(), 3, 2);
+    trunc_zero_origin<T, int>(handle, in1_view, out_trunc_view);
     handle.sync_stream(stream);
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   MatrixInputs<T> params;
@@ -124,30 +137,31 @@ class MatrixCopyRowsTest : public ::testing::Test {
 
   void testCopyRows()
   {
-    copyRows(input.data(),
-             n_rows,
-             n_cols,
-             output.data(),
-             indices.data(),
-             n_selected,
-             handle.get_stream(),
-             false);
+    auto input_view = raft::make_device_matrix_view<const math_t, idx_array_t, col_major>(
+      input.data(), n_rows, n_cols);
+    auto output_view = raft::make_device_matrix_view<math_t, idx_array_t, col_major>(
+      output.data(), n_selected, n_cols);
+
+    auto indices_view =
+      raft::make_device_vector_view<idx_array_t, idx_array_t>(indices.data(), n_selected);
+
+    raft::matrix::copy_rows(handle, input_view, output_view, indices_view);
+
     EXPECT_TRUE(raft::devArrMatchHost(
       output_exp_colmajor, output.data(), n_selected * n_cols, raft::Compare<math_t>(), stream));
-    copyRows(input.data(),
-             n_rows,
-             n_cols,
-             output.data(),
-             indices.data(),
-             n_selected,
-             handle.get_stream(),
-             true);
+
+    auto input_row_view = raft::make_device_matrix_view<const math_t, idx_array_t, row_major>(
+      input.data(), n_rows, n_cols);
+    auto output_row_view = raft::make_device_matrix_view<math_t, idx_array_t, row_major>(
+      output.data(), n_selected, n_cols);
+
+    raft::matrix::copy_rows(handle, input_row_view, output_row_view, indices_view);
     EXPECT_TRUE(raft::devArrMatchHost(
       output_exp_rowmajor, output.data(), n_selected * n_cols, raft::Compare<math_t>(), stream));
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   int n_rows     = 10;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,28 +19,28 @@
 #pragma once
 
 #include "detail/norm.cuh"
+#include "linalg_types.hpp"
+
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/operators.hpp>
+#include <raft/linalg/norm_types.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
-
-/** different types of norms supported on the input buffers */
-using detail::L1Norm;
-using detail::L2Norm;
-using detail::NormType;
 
 /**
  * @brief Compute row-wise norm of the input matrix and perform fin_op lambda
  *
  * Row-wise norm is useful while computing pairwise distance matrix, for
  * example.
- * This is used in many clustering algos like knn, kmeans, dbscan, etc... The
- * current implementation is optimized only for bigger values of 'D'.
+ * This is used in many clustering algos like knn, kmeans, dbscan, etc...
  *
  * @tparam Type the data type
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of row-wise dot products
- * @param data the input matrix (currently assumed to be row-major)
+ * @param data the input matrix
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
@@ -48,7 +48,7 @@ using detail::NormType;
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
 void rowNorm(Type* dots,
              const Type* data,
              IdxType D,
@@ -56,7 +56,7 @@ void rowNorm(Type* dots,
              NormType type,
              bool rowMajor,
              cudaStream_t stream,
-             Lambda fin_op = raft::Nop<Type, IdxType>())
+             Lambda fin_op = raft::identity_op())
 {
   detail::rowNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
 }
@@ -67,7 +67,7 @@ void rowNorm(Type* dots,
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of column-wise dot products
- * @param data the input matrix (currently assumed to be row-major)
+ * @param data the input matrix
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
@@ -75,7 +75,7 @@ void rowNorm(Type* dots,
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
 void colNorm(Type* dots,
              const Type* data,
              IdxType D,
@@ -83,10 +83,72 @@ void colNorm(Type* dots,
              NormType type,
              bool rowMajor,
              cudaStream_t stream,
-             Lambda fin_op = raft::Nop<Type, IdxType>())
+             Lambda fin_op = raft::identity_op())
 {
   detail::colNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
 }
+
+/**
+ * @defgroup norm Row- or Col-norm computation
+ * @{
+ */
+
+/**
+ * @brief Compute norm of the input matrix and perform fin_op
+ * @tparam ElementType Input/Output data type
+ * @tparam LayoutPolicy the layout of input (raft::row_major or raft::col_major)
+ * @tparam IdxType Integer type used to for addressing
+ * @tparam Lambda device final lambda
+ * @param[in] handle raft::device_resources
+ * @param[in] in the input raft::device_matrix_view
+ * @param[out] out the output raft::device_vector_view
+ * @param[in] type the type of norm to be applied
+ * @param[in] apply Whether to apply the norm along rows (raft::linalg::Apply::ALONG_ROWS)
+                    or along columns (raft::linalg::Apply::ALONG_COLUMNS)
+ * @param[in] fin_op the final lambda op
+ */
+template <typename ElementType,
+          typename LayoutPolicy,
+          typename IndexType,
+          typename Lambda = raft::identity_op>
+void norm(raft::device_resources const& handle,
+          raft::device_matrix_view<const ElementType, IndexType, LayoutPolicy> in,
+          raft::device_vector_view<ElementType, IndexType> out,
+          NormType type,
+          Apply apply,
+          Lambda fin_op = raft::identity_op())
+{
+  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
+
+  auto constexpr row_major = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
+  auto along_rows          = apply == Apply::ALONG_ROWS;
+
+  if (along_rows) {
+    RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(0),
+                 "Output should be equal to number of rows in Input");
+    rowNorm(out.data_handle(),
+            in.data_handle(),
+            in.extent(1),
+            in.extent(0),
+            type,
+            row_major,
+            handle.get_stream(),
+            fin_op);
+  } else {
+    RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(1),
+                 "Output should be equal to number of columns in Input");
+    colNorm(out.data_handle(),
+            in.data_handle(),
+            in.extent(1),
+            in.extent(0),
+            type,
+            row_major,
+            handle.get_stream(),
+            fin_op);
+  }
+}
+
+/** @} */
 
 };  // end namespace linalg
 };  // end namespace raft

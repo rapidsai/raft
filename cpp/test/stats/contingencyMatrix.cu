@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/stats/contingency_matrix.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 
@@ -40,7 +40,7 @@ template <typename T>
 class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixParam> {
  protected:
   ContingencyMatrixTest()
-    : pWorkspace(0, stream),
+    : stream(handle.get_stream()),
       dY(0, stream),
       dYHat(0, stream),
       dComputedOutput(0, stream),
@@ -80,7 +80,6 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
       std::replace(y_hat.begin(), y_hat.end(), y2, y2_R);
     }
 
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     dY.resize(numElements, stream);
     dYHat.resize(numElements, stream);
 
@@ -88,7 +87,11 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     raft::update_device(dY.data(), &y[0], numElements, stream);
 
     if (params.calcCardinality) {
-      raft::stats::getInputClassCardinality(dY.data(), numElements, stream, minLabel, maxLabel);
+      raft::stats::get_input_class_cardinality(
+        handle,
+        raft::make_device_vector_view<const T>(dY.data(), numElements),
+        raft::make_host_scalar_view(&minLabel),
+        raft::make_host_scalar_view(&maxLabel));
     } else {
       minLabel = lowerLabelRange;
       maxLabel = upperLabelRange;
@@ -111,27 +114,19 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
 
     raft::update_device(
       dGoldenOutput.data(), hGoldenOutput.data(), numUniqueClasses * numUniqueClasses, stream);
-
-    workspaceSz = raft::stats::getContingencyMatrixWorkspaceSize(
-      numElements, dY.data(), stream, minLabel, maxLabel);
-    pWorkspace.resize(workspaceSz, stream);
     raft::interruptible::synchronize(stream);
   }
-
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   void RunTest()
   {
     int numElements = params.nElements;
-    raft::stats::contingencyMatrix(dY.data(),
-                                   dYHat.data(),
-                                   numElements,
-                                   dComputedOutput.data(),
-                                   stream,
-                                   (void*)pWorkspace.data(),
-                                   workspaceSz,
-                                   minLabel,
-                                   maxLabel);
+    raft::stats::contingency_matrix(
+      handle,
+      raft::make_device_vector_view<const T>(dY.data(), numElements),
+      raft::make_device_vector_view<const T>(dYHat.data(), numElements),
+      raft::make_device_matrix_view(dComputedOutput.data(), numUniqueClasses, numUniqueClasses),
+      std::make_optional(minLabel),
+      std::make_optional(maxLabel));
 
     raft::interruptible::synchronize(stream);
     ASSERT_TRUE(raft::devArrMatch(dComputedOutput.data(),
@@ -140,12 +135,11 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
                                   raft::Compare<T>()));
   }
 
+  raft::device_resources handle;
   ContingencyMatrixParam params;
   int numUniqueClasses = -1;
   T minLabel, maxLabel;
   cudaStream_t stream = 0;
-  size_t workspaceSz;
-  rmm::device_uvector<char> pWorkspace;
   rmm::device_uvector<T> dY, dYHat;
   rmm::device_uvector<int> dComputedOutput, dGoldenOutput;
 };

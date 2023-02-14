@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+/**
+ * This file is deprecated and will be removed in a future release.
+ * Please use versions in individual header files instead.
+ */
+
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use versions in individual header files instead.")
+
 #ifndef __MATRIX_H
 #define __MATRIX_H
 
@@ -21,6 +30,7 @@
 
 #include "detail/linewise_op.cuh"
 #include "detail/matrix.cuh"
+#include <raft/core/device_mdspan.hpp>
 
 #include <raft/common/nvtx.hpp>
 
@@ -69,6 +79,24 @@ template <typename m_t, typename idx_t = int>
 void copy(const m_t* in, m_t* out, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
   raft::copy_async(out, in, n_rows * n_cols, stream);
+}
+
+/**
+ * @brief copy matrix operation for column major matrices.
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix
+ * @param[out] out: output matrix
+ */
+template <typename m_t, typename idx_t = int, typename matrix_idx_t>
+void copy(raft::device_resources const& handle,
+          raft::device_matrix_view<const m_t, matrix_idx_t, col_major> in,
+          raft::device_matrix_view<m_t, matrix_idx_t, col_major> out)
+{
+  RAFT_EXPECTS(in.extent(0) == out.extent(0) && in.extent(1) == out.extent(1),
+               "Input and output matrix shapes must match.");
+
+  raft::copy_async(
+    out.data_handle(), in.data_handle(), in.extent(0) * out.extent(1), handle.get_stream());
 }
 
 /**
@@ -224,7 +252,7 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-m_t getL2Norm(const raft::handle_t& handle, m_t* in, idx_t size, cudaStream_t stream)
+m_t getL2Norm(raft::device_resources const& handle, m_t* in, idx_t size, cudaStream_t stream)
 {
   return detail::getL2Norm(handle, in, size, stream);
 }
@@ -261,7 +289,7 @@ void linewiseOp(m_t* out,
                 const bool alongLines,
                 Lambda op,
                 cudaStream_t stream,
-                Vecs... vecs)
+                const Vecs*... vecs)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("linewiseOp-%c-%zu (%zu, %zu)",
                                                             alongLines ? 'l' : 'x',

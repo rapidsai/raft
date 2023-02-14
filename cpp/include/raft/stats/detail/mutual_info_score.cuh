@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,11 +27,11 @@
 
 #include <cub/cub.cuh>
 #include <math.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/linalg/reduce.cuh>
 #include <raft/stats/contingency_matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -48,7 +48,7 @@ namespace detail {
  * cluster array
  * @param numUniqueClasses: number of unique classes
  * @param size: the size of array a and b (size of the contingency matrix is (size x size))
- * @param d_MI: pointer to the device memory that stores the aggreggate mutual information
+ * @param d_MI: pointer to the device memory that stores the aggregate mutual information
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void mutual_info_kernel(const int* dContingencyMatrix,

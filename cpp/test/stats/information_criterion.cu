@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <test_utils.h>
+#include "../test_utils.cuh"
 
 #include <raft/stats/information_criterion.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <gtest/gtest.h>
@@ -89,13 +89,13 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
     raft::update_device(loglike_d.data(), loglike_h.data(), params.batch_size, stream);
 
     // Compute the tested results
-    information_criterion_batched(res_d.data(),
-                                  loglike_d.data(),
-                                  params.ic_type,
-                                  params.n_params,
-                                  params.batch_size,
-                                  params.n_samples,
-                                  stream);
+    information_criterion_batched(
+      handle,
+      raft::make_device_vector_view<const T>(loglike_d.data(), params.batch_size),
+      raft::make_device_vector_view(res_d.data(), params.batch_size),
+      params.ic_type,
+      params.n_params,
+      params.n_samples);
 
     // Compute the expected results
     naive_ic(res_h.data(),
@@ -109,7 +109,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream = 0;
   BatchedICInputs<T> params;
   rmm::device_uvector<T> res_d;

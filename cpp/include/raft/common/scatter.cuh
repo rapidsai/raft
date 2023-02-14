@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,56 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+/**
+ * DISCLAIMER: this file is deprecated: use lap.cuh instead
+ */
 
 #pragma once
 
-#include <raft/common/detail/scatter.cuh>
-#include <raft/cuda_utils.cuh>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the raft/matrix version instead.")
 
-namespace raft {
-
-/**
- * @brief Performs scatter operation based on the input indexing array
- * @tparam DataT data type whose array gets scattered
- * @tparam IdxT indexing type
- * @tparam TPB threads-per-block in the final kernel launched
- * @tparam Lambda the device-lambda performing a unary operation on the loaded
- * data before it gets scattered
- * @param out the output array
- * @param in the input array
- * @param idx the indexing array
- * @param len number of elements in the input array
- * @param stream cuda stream where to launch work
- * @param op the device-lambda with signature `DataT func(DataT, IdxT);`. This
- * will be applied to every element before scattering it to the right location.
- * The second param in this method will be the destination index.
- */
-template <typename DataT, typename IdxT, typename Lambda = raft::Nop<DataT, IdxT>, int TPB = 256>
-void scatter(DataT* out,
-             const DataT* in,
-             const IdxT* idx,
-             IdxT len,
-             cudaStream_t stream,
-             Lambda op = raft::Nop<DataT, IdxT>())
-{
-  if (len <= 0) return;
-  constexpr size_t DataSize   = sizeof(DataT);
-  constexpr size_t IdxSize    = sizeof(IdxT);
-  constexpr size_t MaxPerElem = DataSize > IdxSize ? DataSize : IdxSize;
-  size_t bytes                = len * MaxPerElem;
-  if (16 / MaxPerElem && bytes % 16 == 0) {
-    detail::scatterImpl<DataT, 16 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
-  } else if (8 / MaxPerElem && bytes % 8 == 0) {
-    detail::scatterImpl<DataT, 8 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
-  } else if (4 / MaxPerElem && bytes % 4 == 0) {
-    detail::scatterImpl<DataT, 4 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
-  } else if (2 / MaxPerElem && bytes % 2 == 0) {
-    detail::scatterImpl<DataT, 2 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
-  } else if (1 / MaxPerElem) {
-    detail::scatterImpl<DataT, 1 / MaxPerElem, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
-  } else {
-    detail::scatterImpl<DataT, 1, Lambda, IdxT, TPB>(out, in, idx, len, op, stream);
-  }
-}
-
-}  // namespace raft
+#include <raft/util/scatter.cuh>

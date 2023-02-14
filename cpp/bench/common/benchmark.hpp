@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,12 @@
 
 #include <memory>
 
-#include <raft/core/handle.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
+#include <raft/core/detail/macros.hpp>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/interruptible.hpp>
+#include <raft/random/make_blobs.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <benchmark/benchmark.h>
 
@@ -40,7 +43,7 @@ struct using_pool_memory_res {
  private:
   rmm::mr::device_memory_resource* orig_res_;
   rmm::mr::cuda_memory_resource cuda_res_;
-  rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_res_;
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_res_;
 
  public:
   using_pool_memory_res(size_t initial_size, size_t max_size)
@@ -50,8 +53,9 @@ struct using_pool_memory_res {
     rmm::mr::set_current_device_resource(&pool_res_);
   }
 
-  using_pool_memory_res() : using_pool_memory_res(size_t(1) << size_t(30), size_t(16) << size_t(30))
+  using_pool_memory_res() : orig_res_(rmm::mr::get_current_device_resource()), pool_res_(&cuda_res_)
   {
+    rmm::mr::set_current_device_resource(&pool_res_);
   }
 
   ~using_pool_memory_res() { rmm::mr::set_current_device_resource(orig_res_); }
@@ -106,7 +110,7 @@ class fixture {
   rmm::device_buffer scratch_buf_;
 
  public:
-  raft::handle_t handle;
+  raft::device_resources handle;
   rmm::cuda_stream_view stream;
 
   fixture() : stream{handle.get_stream()}
@@ -115,12 +119,23 @@ class fixture {
     int device_id     = 0;
     RAFT_CUDA_TRY(cudaGetDevice(&device_id));
     RAFT_CUDA_TRY(cudaDeviceGetAttribute(&l2_cache_size, cudaDevAttrL2CacheSize, device_id));
-    scratch_buf_ = rmm::device_buffer(l2_cache_size, stream);
+    scratch_buf_ = rmm::device_buffer(l2_cache_size * 3, stream);
   }
 
   // every benchmark should be overriding this
   virtual void run_benchmark(::benchmark::State& state) = 0;
   virtual void generate_metrics(::benchmark::State& state) {}
+  virtual void allocate_data(const ::benchmark::State& state) {}
+  virtual void deallocate_data(const ::benchmark::State& state) {}
+  virtual void allocate_temp_buffers(const ::benchmark::State& state) {}
+  virtual void deallocate_temp_buffers(const ::benchmark::State& state) {}
+
+ protected:
+  /** The helper that writes zeroes to some buffer in GPU memory to flush the L2 cache.  */
+  void flush_L2_cache()
+  {
+    RAFT_CUDA_TRY(cudaMemsetAsync(scratch_buf_.data(), 0, scratch_buf_.size(), stream));
+  }
 
   /**
    * The helper to be used inside `run_benchmark`, to loop over the state and record time using the
@@ -130,13 +145,63 @@ class fixture {
   void loop_on_state(::benchmark::State& state, Lambda benchmark_func, bool flush_L2 = true)
   {
     for (auto _ : state) {
-      if (flush_L2) {
-        RAFT_CUDA_TRY(cudaMemsetAsync(scratch_buf_.data(), 0, scratch_buf_.size(), stream));
-      }
+      if (flush_L2) { flush_L2_cache(); }
       cuda_event_timer timer(state, stream);
       benchmark_func();
     }
   }
+};
+
+/** Indicates the dataset size. */
+struct DatasetParams {
+  size_t rows;
+  size_t cols;
+  bool row_major;
+};
+
+/** Holds params needed to generate blobs dataset */
+struct BlobsParams {
+  int n_clusters;
+  double cluster_std;
+  bool shuffle;
+  double center_box_min, center_box_max;
+  uint64_t seed;
+};
+
+/** Fixture for cluster benchmarks using make_blobs */
+template <typename T, typename IndexT = int>
+class BlobsFixture : public fixture {
+ public:
+  BlobsFixture(const DatasetParams dp, const BlobsParams bp) : data_params(dp), blobs_params(bp) {}
+
+  virtual void run_benchmark(::benchmark::State& state) = 0;
+
+  void allocate_data(const ::benchmark::State& state) override
+  {
+    auto labels_ref = raft::make_device_vector<IndexT, IndexT>(this->handle, data_params.rows);
+    X = raft::make_device_matrix<T, IndexT>(this->handle, data_params.rows, data_params.cols);
+
+    raft::random::make_blobs<T, IndexT>(X.data_handle(),
+                                        labels_ref.data_handle(),
+                                        (IndexT)data_params.rows,
+                                        (IndexT)data_params.cols,
+                                        (IndexT)blobs_params.n_clusters,
+                                        stream,
+                                        data_params.row_major,
+                                        nullptr,
+                                        nullptr,
+                                        (T)blobs_params.cluster_std,
+                                        blobs_params.shuffle,
+                                        (T)blobs_params.center_box_min,
+                                        (T)blobs_params.center_box_max,
+                                        blobs_params.seed);
+    this->handle.sync_stream(stream);
+  }
+
+ protected:
+  DatasetParams data_params;
+  BlobsParams blobs_params;
+  raft::device_matrix<T, IndexT> X;
 };
 
 namespace internal {
@@ -147,9 +212,9 @@ class Fixture : public ::benchmark::Fixture {
 
  public:
   explicit Fixture(const std::string name, const Params&... params)
-    : ::benchmark::Fixture(), params_(params...)
+    : ::benchmark::Fixture(), params_(params...), name_(name)
   {
-    SetName(name.c_str());
+    SetName(name_.c_str());
   }
   Fixture() = delete;
 
@@ -157,14 +222,24 @@ class Fixture : public ::benchmark::Fixture {
   {
     fixture_ =
       std::apply([](const Params&... ps) { return std::make_unique<Class>(ps...); }, params_);
+    fixture_->allocate_data(state);
+    fixture_->allocate_temp_buffers(state);
   }
-  void TearDown(const State& state) override { fixture_.reset(); }
+
+  void TearDown(const State& state) override
+  {
+    fixture_->deallocate_temp_buffers(state);
+    fixture_->deallocate_data(state);
+    fixture_.reset();
+  }
+
   void SetUp(State& st) override { SetUp(const_cast<const State&>(st)); }
   void TearDown(State& st) override { TearDown(const_cast<const State&>(st)); }
 
  private:
   std::unique_ptr<Class> fixture_;
   std::tuple<Params...> params_;
+  const std::string name_;
 
  protected:
   void BenchmarkCase(State& state) override
@@ -242,6 +317,10 @@ struct registrar {
 
 };  // namespace internal
 
+#define RAFT_BENCH_REGISTER_INTERNAL(TestClass, ...)                                    \
+  static raft::bench::internal::registrar<TestClass> BENCHMARK_PRIVATE_NAME(registrar)( \
+    RAFT_STRINGIFY(TestClass), __VA_ARGS__)
+
 /**
  * This is the entry point macro for all benchmarks. This needs to be called
  * for the set of benchmarks to be registered so that the main harness inside
@@ -256,8 +335,7 @@ struct registrar {
  *                    empty string
  * @param params...   zero or more lists of params upon which to benchmark.
  */
-#define RAFT_BENCH_REGISTER(TestClass, ...)                                             \
-  static raft::bench::internal::registrar<TestClass> BENCHMARK_PRIVATE_NAME(registrar)( \
-    #TestClass, __VA_ARGS__)
+#define RAFT_BENCH_REGISTER(TestClass, ...) \
+  RAFT_BENCH_REGISTER_INTERNAL(RAFT_DEPAREN(TestClass), __VA_ARGS__)
 
 }  // namespace raft::bench

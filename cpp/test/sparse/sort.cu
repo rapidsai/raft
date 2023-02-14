@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/sparse/op/sort.cuh>
 
 #include <iostream>
+#include <memory>
 
 namespace raft {
 namespace sparse {
@@ -50,7 +51,7 @@ TEST_P(COOSort, Result)
 {
   params = ::testing::TestWithParam<SparseSortInput<float>>::GetParam();
   raft::random::RngState r(params.seed);
-  raft::handle_t h;
+  raft::device_resources h;
   auto stream = h.get_stream();
 
   rmm::device_uvector<int> in_rows(params.nnz, stream);
@@ -60,9 +61,9 @@ TEST_P(COOSort, Result)
 
   uniform(h, r, in_vals.data(), params.nnz, float(-1.0), float(1.0));
 
-  int* in_rows_h = (int*)malloc(params.nnz * sizeof(int));
-  int* in_cols_h = (int*)malloc(params.nnz * sizeof(int));
-  int* verify_h  = (int*)malloc(params.nnz * sizeof(int));
+  auto in_rows_h = std::make_unique<int[]>(params.nnz);
+  auto in_cols_h = std::make_unique<int[]>(params.nnz);
+  auto verify_h  = std::make_unique<int[]>(params.nnz);
 
   for (int i = 0; i < params.nnz; i++) {
     in_rows_h[i] = params.nnz - i - 1;
@@ -70,20 +71,16 @@ TEST_P(COOSort, Result)
     in_cols_h[i] = i;
   }
 
-  raft::update_device(in_rows.data(), in_rows_h, params.nnz, stream);
+  raft::update_device(in_rows.data(), in_rows_h.get(), params.nnz, stream);
 
-  raft::update_device(in_cols.data(), in_cols_h, params.nnz, stream);
-  raft::update_device(verify.data(), verify_h, params.nnz, stream);
+  raft::update_device(in_cols.data(), in_cols_h.get(), params.nnz, stream);
+  raft::update_device(verify.data(), verify_h.get(), params.nnz, stream);
 
   op::coo_sort(
     params.m, params.n, params.nnz, in_rows.data(), in_cols.data(), in_vals.data(), stream);
 
   ASSERT_TRUE(raft::devArrMatch<int>(
     verify.data(), in_rows.data(), params.nnz, raft::Compare<int>(), stream));
-
-  delete[] in_rows_h;
-  delete[] in_cols_h;
-  delete[] verify_h;
 }
 
 INSTANTIATE_TEST_CASE_P(SparseSortTest, COOSort, ::testing::ValuesIn(inputsf));

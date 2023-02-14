@@ -1,0 +1,71 @@
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+
+# Usage:
+#   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
+{% set py_version = environ['CONDA_PY'] %}
+{% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
+{% set cuda_major = cuda_version.split('.')[0] %}
+{% set date_string = environ['RAPIDS_DATE_STRING'] %}
+
+package:
+  name: raft-dask
+  version: {{ version }}
+
+source:
+  git_url: ../../..
+
+build:
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  string: cuda{{ cuda_major }}_py{{ py_version }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  ignore_run_exports_from:
+    - {{ compiler('cuda') }}
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('cuda') }} {{ cuda_version }}
+    - cmake {{ cmake_version }}
+    - ninja
+    - sysroot_{{ target_platform }} {{ sysroot_version }}
+  host:
+    - cuda-python >=11.7.1,<12.0
+    - cudatoolkit ={{ cuda_version }}
+    - cython >=0.29,<0.30
+    - nccl >=2.9.9
+    - pylibraft {{ version }}
+    - python x.x
+    - rmm ={{ minor_version }}
+    - scikit-build >=0.13.1
+    - setuptools
+    - ucx {{ ucx_version }}
+    - ucx-proc=*=gpu
+    - ucx-py {{ ucx_py_version }}
+  run:
+    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+    - cuda-python >=11.7.1,<12.0
+    - dask >=2023.1.1
+    - dask-cuda ={{ minor_version }}
+    - distributed >=2023.1.1
+    - joblib >=0.11
+    - nccl >=2.9.9
+    - pylibraft {{ version }}
+    - python x.x
+    - rmm ={{ minor_version }}
+    - ucx >={{ ucx_version }}
+    - ucx-proc=*=gpu
+    - ucx-py {{ ucx_py_version }}
+
+tests:
+  requirements:
+    - cudatoolkit ={{ cuda_version }}
+  imports:
+    - raft_dask
+
+about:
+  home: https://rapids.ai/
+  license: Apache-2.0
+  # license_file: LICENSE
+  summary: raft-dask library

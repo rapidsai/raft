@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,28 +17,38 @@
 #pragma once
 
 #include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
-#include <raft/vectorized.cuh>
+#include <raft/core/device_resources.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/vectorized.cuh>
 
 namespace raft {
 namespace linalg {
 namespace detail {
 
-template <typename InType, typename OutType, typename MapOp, int TPB, typename... Args>
-__global__ void mapKernel(OutType* out, size_t len, MapOp map, const InType* in, Args... args)
+template <typename InType,
+          typename OutType,
+          typename IdxType,
+          typename MapOp,
+          int TPB,
+          typename... Args>
+__global__ void mapKernel(OutType* out, IdxType len, MapOp map, const InType* in, Args... args)
 {
   auto idx = (threadIdx.x + (blockIdx.x * blockDim.x));
 
   if (idx < len) { out[idx] = map(in[idx], args[idx]...); }
 }
 
-template <typename InType, typename OutType, typename MapOp, int TPB, typename... Args>
+template <typename InType,
+          typename OutType,
+          typename IdxType,
+          typename MapOp,
+          int TPB,
+          typename... Args>
 void mapImpl(
-  OutType* out, size_t len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
+  OutType* out, IdxType len, MapOp map, cudaStream_t stream, const InType* in, Args... args)
 {
-  const int nblks = raft::ceildiv(len, (size_t)TPB);
-  mapKernel<InType, OutType, MapOp, TPB, Args...>
+  const int nblks = raft::ceildiv(len, (IdxType)TPB);
+  mapKernel<InType, OutType, IdxType, MapOp, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, map, in, args...);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

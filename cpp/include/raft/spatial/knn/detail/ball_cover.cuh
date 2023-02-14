@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,11 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
-#include "../ball_cover_common.h"
+#include "../ball_cover_types.hpp"
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
-#include "block_select_faiss.cuh"
 #include "haversine_distance.cuh"
 #include "knn_brute_force_faiss.cuh"
 #include "selection_faiss.cuh"
@@ -29,7 +28,9 @@
 #include <cstdint>
 #include <limits.h>
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
+
+#include <raft/spatial/knn/detail/faiss_select/key_value_block_select.cuh>
 
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/rng.cuh>
@@ -38,14 +39,15 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
-
+#include <thrust/fill.h>
+#include <thrust/for_each.h>
 #include <thrust/functional.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
+#include <thrust/tuple.h>
 
 namespace raft {
 namespace spatial {
@@ -62,7 +64,7 @@ namespace detail {
  * @param index
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void sample_landmarks(const raft::handle_t& handle,
+void sample_landmarks(raft::device_resources const& handle,
                       BallCoverIndex<value_idx, value_t, value_int>& index)
 {
   rmm::device_uvector<value_idx> R_1nn_cols2(index.n_landmarks, handle.get_stream());
@@ -70,8 +72,8 @@ void sample_landmarks(const raft::handle_t& handle,
   rmm::device_uvector<value_idx> R_indices(index.n_landmarks, handle.get_stream());
 
   thrust::sequence(handle.get_thrust_policy(),
-                   index.get_R_1nn_cols(),
-                   index.get_R_1nn_cols() + index.m,
+                   index.get_R_1nn_cols().data_handle(),
+                   index.get_R_1nn_cols().data_handle() + index.m,
                    (value_idx)0);
 
   thrust::fill(
@@ -88,15 +90,15 @@ void sample_landmarks(const raft::handle_t& handle,
                                          rng_state,
                                          R_indices.data(),
                                          R_1nn_cols2.data(),
-                                         index.get_R_1nn_cols(),
+                                         index.get_R_1nn_cols().data_handle(),
                                          R_1nn_ones.data(),
                                          (value_idx)index.n_landmarks,
                                          (value_idx)index.m);
 
-  raft::matrix::copyRows<value_t, value_idx, size_t>(index.get_X(),
+  raft::matrix::copyRows<value_t, value_idx, size_t>(index.get_X().data_handle(),
                                                      index.m,
                                                      index.n,
-                                                     index.get_R(),
+                                                     index.get_R().data_handle(),
                                                      R_1nn_cols2.data(),
                                                      index.n_landmarks,
                                                      handle.get_stream(),
@@ -114,7 +116,7 @@ void sample_landmarks(const raft::handle_t& handle,
  * @param index
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void construct_landmark_1nn(const raft::handle_t& handle,
+void construct_landmark_1nn(raft::device_resources const& handle,
                             const value_idx* R_knn_inds_ptr,
                             const value_t* R_knn_dists_ptr,
                             value_int k,
@@ -128,7 +130,7 @@ void construct_landmark_1nn(const raft::handle_t& handle,
                std::numeric_limits<value_idx>::max());
 
   value_idx* R_1nn_inds_ptr = R_1nn_inds.data();
-  value_t* R_1nn_dists_ptr  = index.get_R_1nn_dists();
+  value_t* R_1nn_dists_ptr  = index.get_R_1nn_dists().data_handle();
 
   auto idxs = thrust::make_counting_iterator<value_idx>(0);
   thrust::for_each(handle.get_thrust_policy(), idxs, idxs + index.m, [=] __device__(value_idx i) {
@@ -136,16 +138,22 @@ void construct_landmark_1nn(const raft::handle_t& handle,
     R_1nn_dists_ptr[i] = R_knn_dists_ptr[i * k];
   });
 
-  auto keys =
-    thrust::make_zip_iterator(thrust::make_tuple(R_1nn_inds.data(), index.get_R_1nn_dists()));
+  auto keys = thrust::make_zip_iterator(
+    thrust::make_tuple(R_1nn_inds.data(), index.get_R_1nn_dists().data_handle()));
 
   // group neighborhoods for each reference landmark and sort each group by distance
-  thrust::sort_by_key(
-    handle.get_thrust_policy(), keys, keys + index.m, index.get_R_1nn_cols(), NNComp());
+  thrust::sort_by_key(handle.get_thrust_policy(),
+                      keys,
+                      keys + index.m,
+                      index.get_R_1nn_cols().data_handle(),
+                      NNComp());
 
   // convert to CSR for fast lookup
-  raft::sparse::convert::sorted_coo_to_csr(
-    R_1nn_inds.data(), index.m, index.get_R_indptr(), index.n_landmarks + 1, handle.get_stream());
+  raft::sparse::convert::sorted_coo_to_csr(R_1nn_inds.data(),
+                                           index.m,
+                                           index.get_R_indptr().data_handle(),
+                                           index.n_landmarks + 1,
+                                           handle.get_stream());
 }
 
 /**
@@ -162,16 +170,17 @@ void construct_landmark_1nn(const raft::handle_t& handle,
  * @param R_knn_dists
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void k_closest_landmarks(const raft::handle_t& handle,
-                         BallCoverIndex<value_idx, value_t, value_int>& index,
+void k_closest_landmarks(raft::device_resources const& handle,
+                         const BallCoverIndex<value_idx, value_t, value_int>& index,
                          const value_t* query_pts,
                          value_int n_query_pts,
                          value_int k,
                          value_idx* R_knn_inds,
                          value_t* R_knn_dists)
 {
-  std::vector<value_t*> input      = {index.get_R()};
-  std::vector<std::uint32_t> sizes = {index.n_landmarks};
+  // TODO: Add const to the brute-force knn inputs
+  std::vector<value_t*> input  = {const_cast<value_t*>(index.get_R().data_handle())};
+  std::vector<value_int> sizes = {index.n_landmarks};
 
   brute_force_knn_impl<value_int, value_idx>(handle,
                                              input,
@@ -185,7 +194,7 @@ void k_closest_landmarks(const raft::handle_t& handle,
                                              true,
                                              true,
                                              nullptr,
-                                             index.metric);
+                                             index.get_metric());
 }
 
 /**
@@ -197,14 +206,14 @@ void k_closest_landmarks(const raft::handle_t& handle,
  * @param index
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void compute_landmark_radii(const raft::handle_t& handle,
+void compute_landmark_radii(raft::device_resources const& handle,
                             BallCoverIndex<value_idx, value_t, value_int>& index)
 {
   auto entries = thrust::make_counting_iterator<value_idx>(0);
 
-  const value_idx* R_indptr_ptr  = index.get_R_indptr();
-  const value_t* R_1nn_dists_ptr = index.get_R_1nn_dists();
-  value_t* R_radius_ptr          = index.get_R_radius();
+  const value_idx* R_indptr_ptr  = index.get_R_indptr().data_handle();
+  const value_t* R_1nn_dists_ptr = index.get_R_1nn_dists().data_handle();
+  value_t* R_radius_ptr          = index.get_R_radius().data_handle();
   thrust::for_each(handle.get_thrust_policy(),
                    entries,
                    entries + index.n_landmarks,
@@ -228,8 +237,8 @@ template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
           typename dist_func>
-void perform_rbc_query(const raft::handle_t& handle,
-                       BallCoverIndex<value_idx, value_t, value_int>& index,
+void perform_rbc_query(raft::device_resources const& handle,
+                       const BallCoverIndex<value_idx, value_t, value_int>& index,
                        const value_t* query,
                        value_int n_query_pts,
                        std::uint32_t k,
@@ -330,7 +339,7 @@ template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_build_index(const raft::handle_t& handle,
+void rbc_build_index(raft::device_resources const& handle,
                      BallCoverIndex<value_idx, value_t, value_int>& index,
                      distance_func dfunc)
 {
@@ -345,8 +354,8 @@ void rbc_build_index(const raft::handle_t& handle,
                R_knn_inds.end(),
                std::numeric_limits<value_idx>::max());
   thrust::fill(handle.get_thrust_policy(),
-               index.get_R_closest_landmark_dists(),
-               index.get_R_closest_landmark_dists() + index.m,
+               index.get_R_closest_landmark_dists().data_handle(),
+               index.get_R_closest_landmark_dists().data_handle() + index.m,
                std::numeric_limits<value_t>::max());
 
   /**
@@ -360,11 +369,11 @@ void rbc_build_index(const raft::handle_t& handle,
   value_int k = 1;
   k_closest_landmarks(handle,
                       index,
-                      index.get_X(),
+                      index.get_X().data_handle(),
                       index.m,
                       k,
                       R_knn_inds.data(),
-                      index.get_R_closest_landmark_dists());
+                      index.get_R_closest_landmark_dists().data_handle());
 
   /**
    * 3. Create L_r = knn[:,0].T (CSR)
@@ -372,7 +381,8 @@ void rbc_build_index(const raft::handle_t& handle,
    * Slice closest neighboring R
    * Secondary sort by (R_knn_inds, R_knn_dists)
    */
-  construct_landmark_1nn(handle, R_knn_inds.data(), index.get_R_closest_landmark_dists(), k, index);
+  construct_landmark_1nn(
+    handle, R_knn_inds.data(), index.get_R_closest_landmark_dists().data_handle(), k, index);
 
   /**
    * Compute radius of each R for filtering: p(q, r) <= p(q, q_r) + radius(r)
@@ -388,7 +398,7 @@ template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_all_knn_query(const raft::handle_t& handle,
+void rbc_all_knn_query(raft::device_resources const& handle,
                        BallCoverIndex<value_idx, value_t, value_int>& index,
                        value_int k,
                        value_idx* inds,
@@ -427,7 +437,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
   sample_landmarks<value_idx, value_t>(handle, index);
 
   k_closest_landmarks(
-    handle, index, index.get_X(), index.m, k, R_knn_inds.data(), R_knn_dists.data());
+    handle, index, index.get_X().data_handle(), index.m, k, R_knn_inds.data(), R_knn_dists.data());
 
   construct_landmark_1nn(handle, R_knn_inds.data(), R_knn_dists.data(), k, index);
 
@@ -435,7 +445,7 @@ void rbc_all_knn_query(const raft::handle_t& handle,
 
   perform_rbc_query(handle,
                     index,
-                    index.get_X(),
+                    index.get_X().data_handle(),
                     index.m,
                     k,
                     R_knn_inds.data(),
@@ -457,8 +467,8 @@ template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_knn_query(const raft::handle_t& handle,
-                   BallCoverIndex<value_idx, value_t, value_int>& index,
+void rbc_knn_query(raft::device_resources const& handle,
+                   const BallCoverIndex<value_idx, value_t, value_int>& index,
                    value_int k,
                    const value_t* query,
                    value_int n_query_pts,

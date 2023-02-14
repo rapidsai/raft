@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/adjusted_rand_index.cuh>
-#include <raft/stats/contingency_matrix.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random>
 
 namespace raft {
@@ -40,11 +40,13 @@ struct adjustedRandIndexParam {
 template <typename T, typename MathT = int>
 class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexParam> {
  protected:
-  adjustedRandIndexTest() : firstClusterArray(0, stream), secondClusterArray(0, stream) {}
+  adjustedRandIndexTest()
+    : stream(handle.get_stream()), firstClusterArray(0, stream), secondClusterArray(0, stream)
+  {
+  }
 
   void SetUp() override
   {
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     params    = ::testing::TestWithParam<adjustedRandIndexParam>::GetParam();
     nElements = params.nElements;
 
@@ -62,10 +64,10 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     }
     // allocating and initializing memory to the GPU
     computed_adjusted_rand_index = adjusted_rand_index<T, MathT>(
-      firstClusterArray.data(), secondClusterArray.data(), nElements, stream);
+      handle,
+      raft::make_device_vector_view<const T>(firstClusterArray.data(), nElements),
+      raft::make_device_vector_view<const T>(secondClusterArray.data(), nElements));
   }
-
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
 
   void SetUpDifferentArrays()
   {
@@ -135,6 +137,8 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     truth_adjusted_rand_index = 1.0;
   }
 
+  raft::device_resources handle;
+  cudaStream_t stream = 0;
   adjustedRandIndexParam params;
   T lowerLabelRange, upperLabelRange;
   rmm::device_uvector<T> firstClusterArray;
@@ -142,7 +146,6 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
   int nElements                       = 0;
   double truth_adjusted_rand_index    = 0;
   double computed_adjusted_rand_index = 0;
-  cudaStream_t stream                 = 0;
 };
 
 const std::vector<adjustedRandIndexParam> inputs = {

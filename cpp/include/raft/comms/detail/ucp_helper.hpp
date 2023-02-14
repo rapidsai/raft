@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include <dlfcn.h>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 #include <stdio.h>
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
@@ -25,23 +24,6 @@
 namespace raft {
 namespace comms {
 namespace detail {
-
-typedef void (*dlsym_print_info)(ucp_ep_h, FILE*);
-
-typedef void (*dlsym_rec_free)(void*);
-
-typedef int (*dlsym_worker_progress)(ucp_worker_h);
-
-typedef ucs_status_ptr_t (*dlsym_send)(
-  ucp_ep_h, const void*, size_t, ucp_datatype_t, ucp_tag_t, ucp_send_callback_t);
-
-typedef ucs_status_ptr_t (*dlsym_recv)(ucp_worker_h,
-                                       void*,
-                                       size_t count,
-                                       ucp_datatype_t datatype,
-                                       ucp_tag_t,
-                                       ucp_tag_t,
-                                       ucp_tag_recv_callback_t);
 
 /**
  * Standard UCX request object that will be passed
@@ -69,7 +51,7 @@ class ucp_request {
 };
 
 // by default, match the whole tag
-static const ucp_tag_t default_tag_mask = -1;
+static const ucp_tag_t default_tag_mask = (ucp_tag_t)-1;
 
 /**
  * @brief Asynchronous send callback sets request to completed
@@ -90,79 +72,10 @@ static void recv_callback(void* request, ucs_status_t status, ucp_tag_recv_info_
 }
 
 /**
- * Helper class for managing `dlopen` state and
- * interacting with ucp.
+ * Helper class for interacting with ucp.
  */
 class comms_ucp_handler {
- public:
-  comms_ucp_handler()
-  {
-    load_ucp_handle();
-    load_send_func();
-    load_recv_func();
-    load_free_req_func();
-    load_print_info_func();
-    load_worker_progress_func();
-  }
-
-  ~comms_ucp_handler() { dlclose(ucp_handle); }
-
  private:
-  void* ucp_handle;
-
-  dlsym_print_info print_info_func;
-  dlsym_rec_free req_free_func;
-  dlsym_worker_progress worker_progress_func;
-  dlsym_send send_func;
-  dlsym_recv recv_func;
-
-  void load_ucp_handle()
-  {
-    ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NOLOAD | RTLD_NODELETE);
-    if (!ucp_handle) {
-      ucp_handle = dlopen("libucp.so", RTLD_LAZY | RTLD_NODELETE);
-      ASSERT(ucp_handle, "Cannot open UCX library: %s\n", dlerror());
-    }
-    // Reset any potential error
-    dlerror();
-  }
-
-  void assert_dlerror()
-  {
-    char* error = dlerror();
-    ASSERT(error == NULL, "Error loading function symbol: %s\n", error);
-  }
-
-  void load_send_func()
-  {
-    send_func = (dlsym_send)dlsym(ucp_handle, "ucp_tag_send_nb");
-    assert_dlerror();
-  }
-
-  void load_free_req_func()
-  {
-    req_free_func = (dlsym_rec_free)dlsym(ucp_handle, "ucp_request_free");
-    assert_dlerror();
-  }
-
-  void load_print_info_func()
-  {
-    print_info_func = (dlsym_print_info)dlsym(ucp_handle, "ucp_ep_print_info");
-    assert_dlerror();
-  }
-
-  void load_worker_progress_func()
-  {
-    worker_progress_func = (dlsym_worker_progress)dlsym(ucp_handle, "ucp_worker_progress");
-    assert_dlerror();
-  }
-
-  void load_recv_func()
-  {
-    recv_func = (dlsym_recv)dlsym(ucp_handle, "ucp_tag_recv_nb");
-    assert_dlerror();
-  }
-
   ucp_tag_t build_message_tag(int rank, int tag) const
   {
     // keeping the rank in the lower bits enables debugging.
@@ -170,8 +83,6 @@ class comms_ucp_handler {
   }
 
  public:
-  int ucp_progress(ucp_worker_h worker) const { return (*(worker_progress_func))(worker); }
-
   /**
    * @brief Frees any memory underlying the given ucp request object
    */
@@ -179,7 +90,7 @@ class comms_ucp_handler {
   {
     if (request->needs_release) {
       request->req->completed = 0;
-      (*(req_free_func))(request->req);
+      ucp_request_free(request->req);
     }
     free(request);
   }
@@ -198,7 +109,7 @@ class comms_ucp_handler {
     ucp_tag_t ucp_tag = build_message_tag(rank, tag);
 
     ucs_status_ptr_t send_result =
-      (*(send_func))(ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_callback);
+      ucp_tag_send_nb(ep_ptr, buf, size, ucp_dt_make_contig(1), ucp_tag, send_callback);
     struct ucx_context* ucp_req = (struct ucx_context*)send_result;
 
     if (UCS_PTR_IS_ERR(send_result)) {
@@ -240,7 +151,7 @@ class comms_ucp_handler {
     ucp_tag_t ucp_tag = build_message_tag(sender_rank, tag);
 
     ucs_status_ptr_t recv_result =
-      (*(recv_func))(worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_callback);
+      ucp_tag_recv_nb(worker, buf, size, ucp_dt_make_contig(1), ucp_tag, tag_mask, recv_callback);
 
     struct ucx_context* ucp_req = (struct ucx_context*)recv_result;
 

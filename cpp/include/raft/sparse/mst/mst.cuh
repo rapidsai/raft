@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,44 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef __MST_H
-#define __MST_H
 
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 #pragma once
 
-#include "mst_solver.cuh"
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use the raft/sparse/solver version instead.")
 
-namespace raft {
-namespace mst {
+#include <raft/sparse/mst/mst_solver.cuh>
+#include <raft/sparse/solver/mst.cuh>
 
-template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t = weight_t>
-raft::Graph_COO<vertex_t, edge_t, weight_t> mst(const raft::handle_t& handle,
-                                                edge_t const* offsets,
-                                                vertex_t const* indices,
-                                                weight_t const* weights,
-                                                vertex_t const v,
-                                                edge_t const e,
-                                                vertex_t* color,
-                                                cudaStream_t stream,
-                                                bool symmetrize_output = true,
-                                                bool initialize_colors = true,
-                                                int iterations         = 0)
-{
-  MST_solver<vertex_t, edge_t, weight_t, alteration_t> mst_solver(handle,
-                                                                  offsets,
-                                                                  indices,
-                                                                  weights,
-                                                                  v,
-                                                                  e,
-                                                                  color,
-                                                                  stream,
-                                                                  symmetrize_output,
-                                                                  initialize_colors,
-                                                                  iterations);
-  return mst_solver.solve();
+namespace raft::mst {
+using raft::sparse::solver::mst;
 }
-
-}  // namespace mst
-}  // namespace raft
-
-#endif

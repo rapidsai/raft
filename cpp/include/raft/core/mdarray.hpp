@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,118 +24,14 @@
 
 #include <stddef.h>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/detail/macros.hpp>
+#include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
-#include <raft/detail/mdarray.hpp>
+#include <raft/core/mdspan_types.hpp>
+#include <raft/core/memory_type.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft {
-/**
- * @\brief Dimensions extents for raft::host_mdspan or raft::device_mdspan
- */
-template <size_t... ExtentsPack>
-using extents = std::experimental::extents<ExtentsPack...>;
-
-/**
- * @\brief C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.
- */
-using layout_c_contiguous = detail::stdex::layout_right;
-
-/**
- * @\brief F-Contiguous layout for mdarray and mdspan. Implies column-major and contiguous memory.
- */
-using layout_f_contiguous = detail::stdex::layout_left;
-
-/**
- * @\brief Template checks and helpers to determine if type T is an std::mdspan
- *         or a derived type
- */
-
-template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void __takes_an_mdspan_ptr(
-  detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
-
-template <typename T, typename = void>
-struct __is_mdspan : std::false_type {
-};
-
-template <typename T>
-struct __is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
-  : std::true_type {
-};
-
-template <typename T>
-using __is_mdspan_t = __is_mdspan<std::remove_const_t<T>>;
-
-template <typename T>
-inline constexpr bool __is_mdspan_v = __is_mdspan_t<T>::value;
-
-template <typename ElementType,
-        typename Extents,
-        typename LayoutPolicy   = layout_c_contiguous,
-        typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using mdspan = detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>
-
-/**
- * @brief stdex::mdspan with device tag to avoid accessing incorrect memory location.
- */
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using device_mdspan = detail::stdex::
-  mdspan<ElementType, Extents, LayoutPolicy, detail::device_accessor<AccessorPolicy>>;
-
-/**
- * @brief stdex::mdspan with host tag to avoid accessing incorrect memory location.
- */
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = detail::stdex::default_accessor<ElementType>>
-using host_mdspan =
-  detail::stdex::mdspan<ElementType, Extents, LayoutPolicy, detail::host_accessor<AccessorPolicy>>;
-
-template <typename T, bool B>
-struct __is_device_mdspan : std::false_type {
-};
-
-template <typename T>
-struct __is_device_mdspan<T, true> : std::bool_constant<not T::accessor_type::is_host_type::value> {
-};
-
-/**
- * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
- */
-template <typename T>
-inline constexpr bool is_device_mdspan_v = __is_device_mdspan<T, __is_mdspan_v<T>>::value;
-
-template <typename T, bool B>
-struct __is_host_mdspan : std::false_type {
-};
-
-template <typename T>
-struct __is_host_mdspan<T, true> : T::accessor_type::is_host_type {
-};
-
-/**
- * @\brief Boolean to determine if template type T is either raft::host_mdspan or a derived type
- */
-template <typename T>
-inline constexpr bool is_host_mdspan_v = __is_host_mdspan<T, __is_mdspan_v<T>>::value;
-
-/**
- * @\brief Boolean to determine if template type T is either raft::host_mdspan/raft::device_mdspan
- *         or their derived types
- *         This is structured such that it will short-circuit if the type is not std::mdspan
- *         or a derived type, and otherwise it will check whether it is a raft::device_mdspan
- *         or raft::host_mdspan assuming the type was found to be std::mdspan or a derived type
- */
-template <typename T>
-inline constexpr bool is_mdspan_v =
-  std::conjunction_v<__is_mdspan_t<T>,
-                     std::disjunction<__is_device_mdspan<T, true>, __is_host_mdspan<T, true>>>;
-
 /**
  * @brief Interface to implement an owning multi-dimensional array
  *
@@ -158,14 +54,17 @@ class array_interface {
   auto view() const noexcept { return static_cast<Base*>(this)->view(); }
 };
 
+namespace detail {
 template <typename T, typename = void>
-struct __is_array_interface : std::false_type {
+struct is_array_interface : std::false_type {
+};
+template <typename T>
+struct is_array_interface<T, std::void_t<decltype(std::declval<T>().view())>>
+  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {
 };
 
 template <typename T>
-struct __is_array_interface<T, std::void_t<decltype(std::declval<T>().view())>>
-  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {
-};
+using is_array_interface_t = is_array_interface<std::remove_const_t<T>>;
 
 /**
  * @\brief Boolean to determine if template type T is raft::array_interface or derived type
@@ -173,7 +72,27 @@ struct __is_array_interface<T, std::void_t<decltype(std::declval<T>().view())>>
  *         raft::host_mdspan or raft::device_mdspan
  */
 template <typename T>
-inline constexpr bool is_array_interface_v = __is_array_interface<std::remove_const_t<T>>::value;
+inline constexpr bool is_array_interface_v = is_array_interface<std::remove_const_t<T>>::value;
+}  // namespace detail
+
+template <typename...>
+struct is_array_interface : std::true_type {
+};
+template <typename T1>
+struct is_array_interface<T1> : detail::is_array_interface_t<T1> {
+};
+template <typename T1, typename... Tn>
+struct is_array_interface<T1, Tn...> : std::conditional_t<detail::is_array_interface_v<T1>,
+                                                          is_array_interface<Tn...>,
+                                                          std::false_type> {
+};
+/**
+ * @\brief Boolean to determine if variadic template types Tn are raft::array_interface
+ *         or derived type or any type that has a member function `view()` that returns either
+ *         raft::host_mdspan or raft::device_mdspan
+ */
+template <typename... Tn>
+inline constexpr bool is_array_interface_v = is_array_interface<Tn...>::value;
 
 /**
  * @brief Modified from the c++ mdarray proposal
@@ -184,7 +103,7 @@ inline constexpr bool is_array_interface_v = __is_array_interface<std::remove_co
  * are some inconsistencies in between them.  We have made some modificiations to fit our
  * needs, which are listed below.
  *
- * - Layout policy is different, the mdarray in raft uses `stdex::extent` directly just
+ * - Layout policy is different, the mdarray in raft uses `std::experimental::extent` directly just
  *   like `mdspan`, while the `mdarray` in the reference implementation uses varidic
  *   template.
  *
@@ -217,8 +136,10 @@ class mdarray
   using element_type = ElementType;
 
   using value_type      = std::remove_cv_t<element_type>;
-  using index_type      = std::size_t;
+  using index_type      = typename extents_type::index_type;
   using difference_type = std::ptrdiff_t;
+  using rank_type       = typename extents_type::rank_type;
+
   // Naming: ref impl: container_policy_type, proposal: container_policy
   using container_policy_type = ContainerPolicy;
   using container_type        = typename container_policy_type::container_type;
@@ -235,9 +156,10 @@ class mdarray
                                  typename container_policy_type::const_accessor_policy,
                                  typename container_policy_type::accessor_policy>>
   using view_type_impl =
-    std::conditional_t<container_policy_type::is_host_type::value,
-                       host_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>,
-                       device_mdspan<E, extents_type, layout_type, ViewAccessorPolicy>>;
+    mdspan<E,
+           extents_type,
+           layout_type,
+           host_device_accessor<ViewAccessorPolicy, container_policy_type::mem_type>>;
 
  public:
   /**
@@ -304,10 +226,10 @@ class mdarray
     return const_view_type(c_.data(), map_, cp_.make_accessor_policy());
   }
 
-  [[nodiscard]] constexpr auto size() const noexcept -> index_type { return this->view().size(); }
+  [[nodiscard]] constexpr auto size() const noexcept -> std::size_t { return this->view().size(); }
 
-  [[nodiscard]] auto data() noexcept -> pointer { return c_.data(); }
-  [[nodiscard]] constexpr auto data() const noexcept -> const_pointer { return c_.data(); }
+  [[nodiscard]] auto data_handle() noexcept -> pointer { return c_.data(); }
+  [[nodiscard]] constexpr auto data_handle() const noexcept -> const_pointer { return c_.data(); }
 
   /**
    * @brief Indexing operator, use it sparingly since it triggers a device<->host copy.
@@ -316,8 +238,7 @@ class mdarray
   auto operator()(IndexType&&... indices)
     -> std::enable_if_t<sizeof...(IndexType) == extents_type::rank() &&
                           (std::is_convertible_v<IndexType, index_type> && ...) &&
-                          std::is_constructible_v<extents_type, IndexType...> &&
-                          std::is_constructible_v<mapping_type, extents_type>,
+                          std::is_constructible_v<extents_type, IndexType...>,
                         /* device policy is not default constructible due to requirement for CUDA
                            stream. */
                         /* std::is_default_constructible_v<container_policy_type> */
@@ -344,61 +265,61 @@ class mdarray
   }
 
   // basic_mdarray observers of the domain multidimensional index space (also in basic_mdspan)
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto rank() noexcept -> index_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto rank() noexcept -> rank_type
   {
     return extents_type::rank();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto rank_dynamic() noexcept -> index_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto rank_dynamic() noexcept -> rank_type
   {
     return extents_type::rank_dynamic();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto static_extent(size_t r) noexcept
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto static_extent(size_t r) noexcept
     -> index_type
   {
     return extents_type::static_extent(r);
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto extents() const noexcept -> extents_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto extents() const noexcept -> extents_type
   {
     return map_.extents();
   }
   /**
    * @brief the extent of rank r
    */
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto extent(size_t r) const noexcept -> index_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto extent(size_t r) const noexcept -> index_type
   {
     return map_.extents().extent(r);
   }
   // mapping
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto mapping() const noexcept -> mapping_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto mapping() const noexcept -> mapping_type
   {
     return map_;
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_unique() const noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto is_unique() const noexcept -> bool
   {
     return map_.is_unique();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_contiguous() const noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto is_exhaustive() const noexcept -> bool
   {
-    return map_.is_contiguous();
+    return map_.is_exhaustive();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto is_strided() const noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto is_strided() const noexcept -> bool
   {
     return map_.is_strided();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION constexpr auto stride(size_t r) const -> index_type
+  [[nodiscard]] RAFT_INLINE_FUNCTION constexpr auto stride(size_t r) const -> index_type
   {
     return map_.stride(r);
   }
 
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_unique() noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto is_always_unique() noexcept -> bool
   {
     return mapping_type::is_always_unique();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_contiguous() noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto is_always_exhaustive() noexcept -> bool
   {
-    return mapping_type::is_always_contiguous();
+    return mapping_type::is_always_exhaustive();
   }
-  [[nodiscard]] MDSPAN_INLINE_FUNCTION static constexpr auto is_always_strided() noexcept -> bool
+  [[nodiscard]] RAFT_INLINE_FUNCTION static constexpr auto is_always_strided() noexcept -> bool
   {
     return mapping_type::is_always_strided();
   }
@@ -412,381 +333,6 @@ class mdarray
   mapping_type map_;
   container_type c_;
 };
-
-/**
- * @brief mdarray with host container policy
- * @tparam ElementType the data type of the elements
- * @tparam Extents defines the shape
- * @tparam LayoutPolicy policy for indexing strides and layout ordering
- * @tparam ContainerPolicy storage and accessor policy
- */
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::host_vector_policy<ElementType>>
-using host_mdarray =
-  mdarray<ElementType, Extents, LayoutPolicy, detail::host_accessor<ContainerPolicy>>;
-
-/**
- * @brief mdarray with device container policy
- * @tparam ElementType the data type of the elements
- * @tparam Extents defines the shape
- * @tparam LayoutPolicy policy for indexing strides and layout ordering
- * @tparam ContainerPolicy storage and accessor policy
- */
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::device_uvector_policy<ElementType>>
-using device_mdarray =
-  mdarray<ElementType, Extents, LayoutPolicy, detail::device_accessor<ContainerPolicy>>;
-
-/**
- * @brief Shorthand for 0-dim host mdarray (scalar).
- * @tparam ElementType the data type of the scalar element
- */
-template <typename ElementType>
-using host_scalar = host_mdarray<ElementType, detail::scalar_extent>;
-
-/**
- * @brief Shorthand for 0-dim host mdarray (scalar).
- * @tparam ElementType the data type of the scalar element
- */
-template <typename ElementType>
-using device_scalar = device_mdarray<ElementType, detail::scalar_extent>;
-
-/**
- * @brief Shorthand for 1-dim host mdarray.
- * @tparam ElementType the data type of the vector elements
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using host_vector = host_mdarray<ElementType, detail::vector_extent, LayoutPolicy>;
-
-/**
- * @brief Shorthand for 1-dim device mdarray.
- * @tparam ElementType the data type of the vector elements
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using device_vector = device_mdarray<ElementType, detail::vector_extent, LayoutPolicy>;
-
-/**
- * @brief Shorthand for c-contiguous host matrix.
- * @tparam ElementType the data type of the matrix elements
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using host_matrix = host_mdarray<ElementType, detail::matrix_extent, LayoutPolicy>;
-
-/**
- * @brief Shorthand for c-contiguous device matrix.
- * @tparam ElementType the data type of the matrix elements
- * @tparam LayoutPolicy policy for strides and layout ordering
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using device_matrix = device_mdarray<ElementType, detail::matrix_extent, LayoutPolicy>;
-
-/**
- * @brief Shorthand for 0-dim host mdspan (scalar).
- * @tparam ElementType the data type of the scalar element
- */
-template <typename ElementType>
-using host_scalar_view = host_mdspan<ElementType, detail::scalar_extent>;
-
-/**
- * @brief Shorthand for 0-dim host mdspan (scalar).
- * @tparam ElementType the data type of the scalar element
- */
-template <typename ElementType>
-using device_scalar_view = device_mdspan<ElementType, detail::scalar_extent>;
-
-/**
- * @brief Shorthand for 1-dim host mdspan.
- * @tparam ElementType the data type of the vector elements
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using host_vector_view = host_mdspan<ElementType, detail::vector_extent, LayoutPolicy>;
-
-/**
- * @brief Shorthand for 1-dim device mdspan.
- * @tparam ElementType the data type of the vector elements
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using device_vector_view = device_mdspan<ElementType, detail::vector_extent, LayoutPolicy>;
-
-/**
- * @brief Shorthand for c-contiguous host matrix view.
- * @tparam ElementType the data type of the matrix elements
- * @tparam LayoutPolicy policy for strides and layout ordering
- *
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using host_matrix_view = host_mdspan<ElementType, detail::matrix_extent, LayoutPolicy>;
-
-/**
- * @brief Shorthand for c-contiguous device matrix view.
- * @tparam ElementType the data type of the matrix elements
- * @tparam LayoutPolicy policy for strides and layout ordering
- *
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-using device_matrix_view = device_mdspan<ElementType, detail::matrix_extent, LayoutPolicy>;
-
-/**
- * @brief Create a 0-dim (scalar) mdspan instance for host value.
- *
- * @tparam ElementType the data type of the matrix elements
- * @param[in] ptr on device to wrap
- */
-template <typename ElementType>
-auto make_host_scalar_view(ElementType* ptr)
-{
-  detail::scalar_extent extents;
-  return host_scalar_view<ElementType>{ptr, extents};
-}
-
-/**
- * @brief Create a 0-dim (scalar) mdspan instance for device value.
- *
- * @tparam ElementType the data type of the matrix elements
- * @param[in] ptr on device to wrap
- */
-template <typename ElementType>
-auto make_device_scalar_view(ElementType* ptr)
-{
-  detail::scalar_extent extents;
-  return device_scalar_view<ElementType>{ptr, extents};
-}
-
-/**
- * @brief Create a 2-dim c-contiguous mdspan instance for host pointer. It's
- *        expected that the given layout policy match the layout of the underlying
- *        pointer.
- * @tparam ElementType the data type of the matrix elements
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] ptr on host to wrap
- * @param[in] n_rows number of rows in pointer
- * @param[in] n_cols number of columns in pointer
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_host_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
-{
-  detail::matrix_extent extents{n_rows, n_cols};
-  return host_matrix_view<ElementType, LayoutPolicy>{ptr, extents};
-}
-/**
- * @brief Create a 2-dim c-contiguous mdspan instance for device pointer. It's
- *        expected that the given layout policy match the layout of the underlying
- *        pointer.
- * @tparam ElementType the data type of the matrix elements
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] ptr on device to wrap
- * @param[in] n_rows number of rows in pointer
- * @param[in] n_cols number of columns in pointer
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_device_matrix_view(ElementType* ptr, size_t n_rows, size_t n_cols)
-{
-  detail::matrix_extent extents{n_rows, n_cols};
-  return device_matrix_view<ElementType, LayoutPolicy>{ptr, extents};
-}
-
-/**
- * @brief Create a 1-dim mdspan instance for host pointer.
- * @tparam ElementType the data type of the vector elements
- * @param[in] ptr on host to wrap
- * @param[in] n number of elements in pointer
- * @return raft::host_vector_view
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_host_vector_view(ElementType* ptr, size_t n)
-{
-  detail::vector_extent extents{n};
-  return host_vector_view<ElementType, LayoutPolicy>{ptr, extents};
-}
-
-/**
- * @brief Create a 1-dim mdspan instance for device pointer.
- * @tparam ElementType the data type of the vector elements
- * @param[in] ptr on device to wrap
- * @param[in] n number of elements in pointer
- * @return raft::device_vector_view
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_device_vector_view(ElementType* ptr, size_t n)
-{
-  detail::vector_extent extents{n};
-  return device_vector_view<ElementType, LayoutPolicy>{ptr, extents};
-}
-
-/**
- * @brief Create a 2-dim c-contiguous host mdarray.
- * @tparam ElementType the data type of the matrix elements
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] n_rows number or rows in matrix
- * @param[in] n_cols number of columns in matrix
- * @return raft::host_matrix
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_host_matrix(size_t n_rows, size_t n_cols)
-{
-  detail::matrix_extent extents{n_rows, n_cols};
-  using policy_t = typename host_matrix<ElementType>::container_policy_type;
-  policy_t policy;
-  return host_matrix<ElementType, LayoutPolicy>{extents, policy};
-}
-
-/**
- * @brief Create a 2-dim c-contiguous device mdarray.
- * @tparam ElementType the data type of the matrix elements
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] n_rows number or rows in matrix
- * @param[in] n_cols number of columns in matrix
- * @param[in] stream cuda stream for ordering events
- * @return raft::device_matrix
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_device_matrix(size_t n_rows, size_t n_cols, rmm::cuda_stream_view stream)
-{
-  detail::matrix_extent extents{n_rows, n_cols};
-  using policy_t = typename device_matrix<ElementType>::container_policy_type;
-  policy_t policy{stream};
-  return device_matrix<ElementType, LayoutPolicy>{extents, policy};
-}
-
-/**
- * @brief Create a 2-dim c-contiguous device mdarray.
- *
- * @tparam ElementType the data type of the matrix elements
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] handle raft handle for managing expensive resources
- * @param[in] n_rows number or rows in matrix
- * @param[in] n_cols number of columns in matrix
- * @return raft::device_matrix
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_device_matrix(raft::handle_t const& handle, size_t n_rows, size_t n_cols)
-{
-  return make_device_matrix<ElementType, LayoutPolicy>(n_rows, n_cols, handle.get_stream());
-}
-
-/**
- * @brief Create a host scalar from v.
- *
- * @tparam ElementType the data type of the scalar element
- * @param[in] v scalar type to wrap
- * @return raft::host_scalar
- */
-template <typename ElementType>
-auto make_host_scalar(ElementType const& v)
-{
-  // FIXME(jiamingy): We can optimize this by using std::array as container policy, which
-  // requires some more compile time dispatching. This is enabled in the ref impl but
-  // hasn't been ported here yet.
-  detail::scalar_extent extents;
-  using policy_t = typename host_scalar<ElementType>::container_policy_type;
-  policy_t policy;
-  auto scalar = host_scalar<ElementType>{extents, policy};
-  scalar(0)   = v;
-  return scalar;
-}
-
-/**
- * @brief Create a device scalar from v.
- *
- * @tparam ElementType the data type of the scalar element
- * @param[in] v scalar type to wrap on device
- * @param[in] stream the cuda stream for ordering events
- * @return raft::device_scalar
- */
-template <typename ElementType>
-auto make_device_scalar(ElementType const& v, rmm::cuda_stream_view stream)
-{
-  detail::scalar_extent extents;
-  using policy_t = typename device_scalar<ElementType>::container_policy_type;
-  policy_t policy{stream};
-  auto scalar = device_scalar<ElementType>{extents, policy};
-  scalar(0)   = v;
-  return scalar;
-}
-
-/**
- * @brief Create a device scalar from v.
- *
- * @tparam ElementType the data type of the scalar element
- * @param[in] handle raft handle for managing expensive cuda resources
- * @param[in] v scalar to wrap on device
- * @return raft::device_scalar
- */
-template <typename ElementType>
-auto make_device_scalar(raft::handle_t const& handle, ElementType const& v)
-{
-  return make_device_scalar<ElementType>(v, handle.get_stream());
-}
-
-/**
- * @brief Create a 1-dim host mdarray.
- * @tparam ElementType the data type of the vector elements
- * @param[in] n number of elements in vector
- * @return raft::host_vector
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_host_vector(size_t n)
-{
-  detail::vector_extent extents{n};
-  using policy_t = typename host_vector<ElementType, LayoutPolicy>::container_policy_type;
-  policy_t policy;
-  return host_vector<ElementType, LayoutPolicy>{extents, policy};
-}
-
-/**
- * @brief Create a 1-dim device mdarray.
- * @tparam ElementType the data type of the vector elements
- * @param[in] n number of elements in vector
- * @param[in] stream the cuda stream for ordering events
- * @return raft::device_vector
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_device_vector(size_t n, rmm::cuda_stream_view stream)
-{
-  detail::vector_extent extents{n};
-  using policy_t = typename device_vector<ElementType, LayoutPolicy>::container_policy_type;
-  policy_t policy{stream};
-  return device_vector<ElementType, LayoutPolicy>{extents, policy};
-}
-
-/**
- * @brief Create a 1-dim device mdarray.
- * @tparam ElementType the data type of the vector elements
- * @param[in] handle raft handle for managing expensive cuda resources
- * @param[in] n number of elements in vector
- * @return raft::device_vector
- */
-template <typename ElementType, typename LayoutPolicy = layout_c_contiguous>
-auto make_device_vector(raft::handle_t const& handle, size_t n)
-{
-  return make_device_vector<ElementType, LayoutPolicy>(n, handle.get_stream());
-}
-
-/**
- * @brief Flatten raft::host_mdspan or raft::device_mdspan into a 1-dim array view
- *
- * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
- * @param mds raft::host_mdspan or raft::device_mdspan object
- * @return raft::host_mdspan or raft::device_mdspan with vector_extent
- *         depending on AccessoryPolicy
- */
-template <typename mdspan_type, std::enable_if_t<is_mdspan_v<mdspan_type>>* = nullptr>
-auto flatten(mdspan_type mds)
-{
-  RAFT_EXPECTS(mds.is_contiguous(), "Input must be contiguous.");
-
-  detail::vector_extent ext{mds.size()};
-
-  return detail::stdex::mdspan<typename mdspan_type::element_type,
-                               detail::vector_extent,
-                               typename mdspan_type::layout_type,
-                               typename mdspan_type::accessor_type>(mds.data(), ext);
-}
 
 /**
  * @brief Flatten object implementing raft::array_interface into a 1-dim array view
@@ -804,47 +350,21 @@ auto flatten(const array_interface_type& mda)
 }
 
 /**
- * @brief Reshape raft::host_mdspan or raft::device_mdspan
- *
- * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
- * @tparam Extents raft::extents for dimensions
- * @param mds raft::host_mdspan or raft::device_mdspan object
- * @param new_shape Desired new shape of the input
- * @return raft::host_mdspan or raft::device_mdspan, depending on AccessorPolicy
- */
-template <typename mdspan_type,
-          size_t... Extents,
-          std::enable_if_t<is_mdspan_v<mdspan_type>>* = nullptr>
-auto reshape(mdspan_type mds, extents<Extents...> new_shape)
-{
-  RAFT_EXPECTS(mds.is_contiguous(), "Input must be contiguous.");
-
-  size_t new_size = 1;
-  for (size_t i = 0; i < new_shape.rank(); ++i) {
-    new_size *= new_shape.extent(i);
-  }
-  RAFT_EXPECTS(new_size == mds.size(), "Cannot reshape array with size mismatch");
-
-  return detail::stdex::mdspan<typename mdspan_type::element_type,
-                               decltype(new_shape),
-                               typename mdspan_type::layout_type,
-                               typename mdspan_type::accessor_type>(mds.data(), new_shape);
-}
-
-/**
  * @brief Reshape object implementing raft::array_interface
  *
  * @tparam array_interface_type Expected type implementing raft::array_interface
  * @tparam Extents raft::extents for dimensions
+ * @tparam IndexType the index type of the extents
  * @param mda raft::array_interace implementing object
  * @param new_shape Desired new shape of the input
  * @return raft::host_mdspan or raft::device_mdspan, depending on the underlying
  *         ContainerPolicy
  */
 template <typename array_interface_type,
+          typename IndexType = std::uint32_t,
           size_t... Extents,
           std::enable_if_t<is_array_interface_v<array_interface_type>>* = nullptr>
-auto reshape(const array_interface_type& mda, extents<Extents...> new_shape)
+auto reshape(const array_interface_type& mda, extents<IndexType, Extents...> new_shape)
 {
   return reshape(mda.view(), new_shape);
 }

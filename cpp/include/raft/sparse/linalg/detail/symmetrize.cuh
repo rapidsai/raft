@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@
 
 #include <cusparse_v2.h>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <raft/device_atomics.cuh>
 #include <raft/sparse/op/sort.cuh>
+#include <raft/util/device_atomics.cuh>
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 
@@ -325,7 +325,7 @@ void from_knn_symmetrize_matrix(const value_idx* __restrict__ knn_indices,
  * Symmetrizes a COO matrix
  */
 template <typename value_idx, typename value_t>
-void symmetrize(const raft::handle_t& handle,
+void symmetrize(raft::device_resources const& handle,
                 const value_idx* rows,
                 const value_idx* cols,
                 const value_t* vals,

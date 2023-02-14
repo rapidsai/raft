@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,20 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
+#include <raft/util/cudart_utils.hpp>
 
+#include <thrust/device_ptr.h>
 #include <thrust/fill.h>
+#include <thrust/for_each.h>
+#include <thrust/functional.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
+#include <thrust/tuple.h>
 
 #include <algorithm>
 
@@ -66,7 +72,7 @@ static __global__ void scale_obs_kernel(index_type_t m, index_type_t n, value_ty
 
   // scale by alpha
   alpha = __shfl_sync(warp_full_mask(), alpha, blockDim.x - 1, blockDim.x);
-  alpha = std::sqrt(alpha);
+  alpha = raft::sqrt(alpha);
   for (j = threadIdx.y + blockIdx.y * blockDim.y; j < n; j += blockDim.y * gridDim.y) {
     for (i = threadIdx.x; i < m; i += blockDim.x) {  // blockDim.x=32
       index      = i + j * m;
@@ -110,7 +116,10 @@ cudaError_t scale_obs(index_type_t m, index_type_t n, value_type_t* obs)
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs, weight_t* eigVecs)
+void transform_eigen_matrix(raft::device_resources const& handle,
+                            edge_t n,
+                            vertex_t nEigVecs,
+                            weight_t* eigVecs)
 {
   auto stream             = handle.get_stream();
   auto cublas_h           = handle.get_cublas_handle();
@@ -154,7 +163,7 @@ void transform_eigen_matrix(handle_t const& handle, edge_t n, vertex_t nEigVecs,
   // Transpose eigenvector matrix
   //   TODO: in-place transpose
   {
-    vector_t<weight_t> work(handle, nEigVecs * n);
+    raft::spectral::matrix::vector_t<weight_t> work(handle, nEigVecs * n);
     // TODO: Call from public API when ready
     RAFT_CUBLAS_TRY(
       raft::linalg::detail::cublassetpointermode(cublas_h, CUBLAS_POINTER_MODE_HOST, stream));
@@ -201,7 +210,7 @@ struct equal_to_i_op {
 // Construct indicator vector for ith partition
 //
 template <typename vertex_t, typename edge_t, typename weight_t>
-bool construct_indicator(handle_t const& handle,
+bool construct_indicator(raft::device_resources const& handle,
                          edge_t index,
                          edge_t n,
                          weight_t& clustersize,

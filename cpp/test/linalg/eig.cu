@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/eig.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -93,52 +93,55 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
     raft::update_device(eig_vectors_ref.data(), eig_vectors_ref_h, len, stream);
     raft::update_device(eig_vals_ref.data(), eig_vals_ref_h, params.n_col, stream);
 
-    eigDC(handle,
-          cov_matrix.data(),
-          params.n_row,
-          params.n_col,
-          eig_vectors.data(),
-          eig_vals.data(),
-          stream);
+    auto cov_matrix_view = raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
+      cov_matrix.data(), params.n_row, params.n_col);
+    auto eig_vectors_view = raft::make_device_matrix_view<T, std::uint32_t, raft::col_major>(
+      eig_vectors.data(), params.n_row, params.n_col);
+    auto eig_vals_view =
+      raft::make_device_vector_view<T, std::uint32_t>(eig_vals.data(), params.n_row);
+
+    auto eig_vectors_jacobi_view = raft::make_device_matrix_view<T, std::uint32_t, raft::col_major>(
+      eig_vectors_jacobi.data(), params.n_row, params.n_col);
+    auto eig_vals_jacobi_view =
+      raft::make_device_vector_view<T, std::uint32_t>(eig_vals_jacobi.data(), params.n_row);
+
+    eig_dc(handle, cov_matrix_view, eig_vectors_view, eig_vals_view);
 
     T tol      = 1.e-7;
     int sweeps = 15;
-    eigJacobi(handle,
-              cov_matrix.data(),
-              params.n_row,
-              params.n_col,
-              eig_vectors_jacobi.data(),
-              eig_vals_jacobi.data(),
-              stream,
-              tol,
-              sweeps);
+    eig_jacobi(handle, cov_matrix_view, eig_vectors_jacobi_view, eig_vals_jacobi_view, tol, sweeps);
 
     // test code for comparing two methods
     len = params.n * params.n;
 
     uniform(handle, r, cov_matrix_large.data(), len, T(-1.0), T(1.0));
 
-    eigDC(handle,
-          cov_matrix_large.data(),
-          params.n,
-          params.n,
-          eig_vectors_large.data(),
-          eig_vals_large.data(),
-          stream);
-    eigJacobi(handle,
-              cov_matrix_large.data(),
-              params.n,
-              params.n,
-              eig_vectors_jacobi_large.data(),
-              eig_vals_jacobi_large.data(),
-              stream,
-              tol,
-              sweeps);
+    auto cov_matrix_large_view =
+      raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
+        cov_matrix_large.data(), params.n, params.n);
+    auto eig_vectors_large_view = raft::make_device_matrix_view<T, std::uint32_t, raft::col_major>(
+      eig_vectors_large.data(), params.n, params.n);
+    auto eig_vals_large_view =
+      raft::make_device_vector_view<T, std::uint32_t>(eig_vals_large.data(), params.n);
+
+    auto eig_vectors_jacobi_large_view =
+      raft::make_device_matrix_view<T, std::uint32_t, raft::col_major>(
+        eig_vectors_jacobi_large.data(), params.n, params.n);
+    auto eig_vals_jacobi_large_view =
+      raft::make_device_vector_view<T, std::uint32_t>(eig_vals_jacobi_large.data(), params.n);
+
+    eig_dc(handle, cov_matrix_large_view, eig_vectors_large_view, eig_vals_large_view);
+    eig_jacobi(handle,
+               cov_matrix_large_view,
+               eig_vectors_jacobi_large_view,
+               eig_vals_jacobi_large_view,
+               tol,
+               sweeps);
     handle.sync_stream(stream);
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   EigInputs<T> params;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/detail/lstsq.cuh>
 namespace raft {
 namespace linalg {
@@ -37,7 +37,7 @@ namespace linalg {
  * @param[in] stream cuda stream for ordering operations
  */
 template <typename math_t>
-void lstsqSvdQR(const raft::handle_t& handle,
+void lstsqSvdQR(raft::device_resources const& handle,
                 math_t* A,
                 const int n_rows,
                 const int n_cols,
@@ -62,7 +62,7 @@ void lstsqSvdQR(const raft::handle_t& handle,
  * @param[in] stream cuda stream for ordering operations
  */
 template <typename math_t>
-void lstsqSvdJacobi(const raft::handle_t& handle,
+void lstsqSvdJacobi(raft::device_resources const& handle,
                     math_t* A,
                     const int n_rows,
                     const int n_cols,
@@ -78,7 +78,7 @@ void lstsqSvdJacobi(const raft::handle_t& handle,
  *  (`w = (A^T A)^-1  A^T b`)
  */
 template <typename math_t>
-void lstsqEig(const raft::handle_t& handle,
+void lstsqEig(raft::device_resources const& handle,
               const math_t* A,
               const int n_rows,
               const int n_cols,
@@ -104,7 +104,7 @@ void lstsqEig(const raft::handle_t& handle,
  * @param[in] stream cuda stream for ordering operations
  */
 template <typename math_t>
-void lstsqQR(const raft::handle_t& handle,
+void lstsqQR(raft::device_resources const& handle,
              math_t* A,
              const int n_rows,
              const int n_cols,
@@ -114,6 +114,135 @@ void lstsqQR(const raft::handle_t& handle,
 {
   detail::lstsqQR(handle, A, n_rows, n_cols, b, w, stream);
 }
+
+/**
+ * @defgroup lstsq Least Squares Methods
+ * @{
+ */
+
+/**
+ * @brief Solves the linear ordinary least squares problem `Aw = b`
+ * Via SVD decomposition of `A = U S Vt`.
+ *
+ * @tparam ValueType the data-type of input/output
+ * @param[in] handle raft::device_resources
+ * @param[inout] A input raft::device_matrix_view
+ *            Warning: the content of this matrix is modified.
+ * @param[inout] b input target raft::device_vector_view
+ *            Warning: the content of this vector is modified.
+ * @param[out] w output coefficient raft::device_vector_view
+ */
+template <typename ValueType, typename IndexType>
+void lstsq_svd_qr(raft::device_resources const& handle,
+                  raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
+                  raft::device_vector_view<const ValueType, IndexType> b,
+                  raft::device_vector_view<ValueType, IndexType> w)
+{
+  RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
+  RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
+
+  lstsqSvdQR(handle,
+             const_cast<ValueType*>(A.data_handle()),
+             A.extent(0),
+             A.extent(1),
+             const_cast<ValueType*>(b.data_handle()),
+             w.data_handle(),
+             handle.get_stream());
+}
+
+/**
+ * @brief Solves the linear ordinary least squares problem `Aw = b`
+ *  Via SVD decomposition of `A = U S V^T` using Jacobi iterations.
+ *
+ * @tparam ValueType the data-type of input/output
+ * @param[in] handle raft::device_resources
+ * @param[inout] A input raft::device_matrix_view
+ *            Warning: the content of this matrix is modified.
+ * @param[inout] b input target raft::device_vector_view
+ *            Warning: the content of this vector is modified.
+ * @param[out] w output coefficient raft::device_vector_view
+ */
+template <typename ValueType, typename IndexType>
+void lstsq_svd_jacobi(raft::device_resources const& handle,
+                      raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
+                      raft::device_vector_view<const ValueType, IndexType> b,
+                      raft::device_vector_view<ValueType, IndexType> w)
+{
+  RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
+  RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
+
+  lstsqSvdJacobi(handle,
+                 const_cast<ValueType*>(A.data_handle()),
+                 A.extent(0),
+                 A.extent(1),
+                 const_cast<ValueType*>(b.data_handle()),
+                 w.data_handle(),
+                 handle.get_stream());
+}
+
+/**
+ * @brief Solves the linear ordinary least squares problem `Aw = b`
+ *  via eigenvalue decomposition of `A^T * A` (covariance matrix for dataset A).
+ *  (`w = (A^T A)^-1  A^T b`)
+ *
+ * @tparam ValueType the data-type of input/output
+ * @param[in] handle raft::device_resources
+ * @param[inout] A input raft::device_matrix_view
+ *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ * @param[inout] b input target raft::device_vector_view
+ *            Warning: the content of this vector is modified by the cuSOLVER routines.
+ * @param[out] w output coefficient raft::device_vector_view
+ */
+template <typename ValueType, typename IndexType>
+void lstsq_eig(raft::device_resources const& handle,
+               raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
+               raft::device_vector_view<const ValueType, IndexType> b,
+               raft::device_vector_view<ValueType, IndexType> w)
+{
+  RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
+  RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
+
+  lstsqEig(handle,
+           const_cast<ValueType*>(A.data_handle()),
+           A.extent(0),
+           A.extent(1),
+           const_cast<ValueType*>(b.data_handle()),
+           w.data_handle(),
+           handle.get_stream());
+}
+
+/**
+ * @brief Solves the linear ordinary least squares problem `Aw = b`
+ *  via QR decomposition of `A = QR`.
+ *  (triangular system of equations `Rw = Q^T b`)
+ *
+ * @tparam ValueType the data-type of input/output
+ * @param[in] handle raft::device_resources
+ * @param[inout] A input raft::device_matrix_view
+ *            Warning: the content of this matrix is modified.
+ * @param[inout] b input target raft::device_vector_view
+ *            Warning: the content of this vector is modified.
+ * @param[out] w output coefficient raft::device_vector_view
+ */
+template <typename ValueType, typename IndexType>
+void lstsq_qr(raft::device_resources const& handle,
+              raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
+              raft::device_vector_view<const ValueType, IndexType> b,
+              raft::device_vector_view<ValueType, IndexType> w)
+{
+  RAFT_EXPECTS(A.extent(1) == w.size(), "Size mismatch between A and w");
+  RAFT_EXPECTS(A.extent(0) == b.size(), "Size mismatch between A and b");
+
+  lstsqQR(handle,
+          const_cast<ValueType*>(A.data_handle()),
+          A.extent(0),
+          A.extent(1),
+          const_cast<ValueType*>(b.data_handle()),
+          w.data_handle(),
+          handle.get_stream());
+}
+
+/** @} */  // end of lstsq
 
 };  // namespace linalg
 };  // namespace raft

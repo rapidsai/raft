@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -211,8 +211,8 @@ def modifiedFiles(pathFilter=None):
     If inside a CI-env (ie. TARGET_BRANCH and COMMIT_HASH are defined, and
     current branch is "current-pr-branch"), then lists out all files modified
     between these 2 branches. Locally, TARGET_BRANCH will try to be determined
-    from the current repo version and finding a coresponding branch named
-    'branch-{major}.{minor}'. If this fails, this functino will list out all
+    from the current repo version and finding a corresponding branch named
+    'branch-{major}.{minor}'. If this fails, this function will list out all
     the uncommitted files in the current branch.
 
     Such utility function is helpful while putting checker scripts as part of

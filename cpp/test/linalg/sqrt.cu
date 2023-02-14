@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/sqrt.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -27,7 +27,7 @@ template <typename Type>
 __global__ void naiveSqrtElemKernel(Type* out, const Type* in1, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = raft::mySqrt(in1[idx]); }
+  if (idx < len) { out[idx] = raft::sqrt(in1[idx]); }
 }
 
 template <typename Type>
@@ -72,14 +72,17 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
     uniform(handle, r, in1.data(), len, T(1.0), T(2.0));
 
     naiveSqrtElem(out_ref.data(), in1.data(), len);
+    auto out_view = raft::make_device_vector_view(out.data(), len);
+    auto in_view  = raft::make_device_vector_view<const T>(in1.data(), len);
+    auto in2_view = raft::make_device_vector_view(in1.data(), len);
 
-    sqrt(out.data(), in1.data(), len, stream);
-    sqrt(in1.data(), in1.data(), len, stream);
+    sqrt(handle, in_view, out_view);
+    sqrt(handle, in_view, in2_view);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   SqrtInputs<T> params;
   rmm::device_uvector<T> in1, out_ref, out;
   int device_count = 0;

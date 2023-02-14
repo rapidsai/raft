@@ -55,7 +55,7 @@ struct TestLayoutCtors<std::tuple<
   std::integer_sequence<size_t, DynamicSizes...>
 >> : public ::testing::Test {
   using mapping_type = Mapping;
-  using extents_type = decltype(std::declval<mapping_type>().extents());
+  using extents_type = typename mapping_type::extents_type;
   Mapping map = { extents_type{ DynamicSizes... } };
 };
 
@@ -73,18 +73,18 @@ using test_right_type = std::tuple<
 
 using layout_test_types =
   ::testing::Types<
-    test_left_type<stdex::extents<10>>,
-    test_right_type<stdex::extents<10>>,
+    test_left_type<stdex::extents<size_t,10>>,
+    test_right_type<stdex::extents<size_t,10>>,
     //----------
-    test_left_type<stdex::extents<dyn>, 10>,
-    test_right_type<stdex::extents<dyn>, 10>,
+    test_left_type<stdex::extents<size_t,dyn>, 10>,
+    test_right_type<stdex::extents<size_t,dyn>, 10>,
     //----------
-    test_left_type<stdex::extents<dyn, 10>, 5>,
-    test_left_type<stdex::extents<5, dyn>, 10>,
-    test_left_type<stdex::extents<5, 10>>,
-    test_right_type<stdex::extents<dyn, 10>, 5>,
-    test_right_type<stdex::extents<5, dyn>, 10>,
-    test_right_type<stdex::extents<5, 10>>
+    test_left_type<stdex::extents<size_t,dyn, 10>, 5>,
+    test_left_type<stdex::extents<size_t,5, dyn>, 10>,
+    test_left_type<stdex::extents<size_t,5, 10>>,
+    test_right_type<stdex::extents<size_t,dyn, 10>, 5>,
+    test_right_type<stdex::extents<size_t,5, dyn>, 10>,
+    test_right_type<stdex::extents<size_t,5, 10>>
   >;
 
 TYPED_TEST_SUITE(TestLayoutCtors, layout_test_types);
@@ -108,8 +108,8 @@ struct TestLayoutCompatCtors<std::tuple<
 >> : public ::testing::Test {
   using mapping_type1 = Mapping;
   using mapping_type2 = Mapping2;
-  using extents_type1 = decltype(std::declval<mapping_type1>().extents());
-  using extents_type2 = decltype(std::declval<mapping_type2>().extents());
+  using extents_type1 = std::remove_reference_t<decltype(std::declval<mapping_type1>().extents())>;
+  using extents_type2 = std::remove_reference_t<decltype(std::declval<mapping_type2>().extents())>;
   Mapping map1 = { extents_type1{ DynamicSizes... } };
   Mapping2 map2 = { extents_type2{ DynamicSizes2... } };
 };
@@ -127,7 +127,7 @@ using test_right_type_compatible = std::tuple<
 template <size_t... Ds>
 using _sizes = std::integer_sequence<size_t, Ds...>;
 template <size_t... Ds>
-using _exts = stdex::extents<Ds...>;
+using _exts = stdex::extents<size_t,Ds...>;
 
 template <template <class, class, class, class> class _test_case_type>
 using compatible_layout_test_types =
@@ -220,14 +220,14 @@ TYPED_TEST(TestLayoutRightCompatCtors, compatible_assign_2) {
 }
 
 TEST(TestLayoutLeftListInitialization, test_layout_left_extent_initialization) {
-  stdex::layout_left::mapping<stdex::extents<dyn, dyn>> m{stdex::dextents<2>{16, 32}};
+  stdex::layout_left::mapping<stdex::extents<size_t,dyn, dyn>> m{stdex::dextents<size_t,2>{16, 32}};
   ASSERT_EQ(m.extents().rank(), 2);
   ASSERT_EQ(m.extents().rank_dynamic(), 2);
   ASSERT_EQ(m.extents().extent(0), 16);
   ASSERT_EQ(m.extents().extent(1), 32);
   ASSERT_EQ(m.stride(0), 1);
   ASSERT_EQ(m.stride(1), 16);
-  ASSERT_TRUE(m.is_contiguous());
+  ASSERT_TRUE(m.is_exhaustive());
 }
 
 #if defined(_MDSPAN_USE_CLASS_TEMPLATE_ARGUMENT_DEDUCTION)
@@ -239,19 +239,19 @@ TEST(TestLayoutLeftCTAD, test_layout_left_ctad) {
   ASSERT_EQ(m.extents().extent(1), 32);
   ASSERT_EQ(m.stride(0), 1);
   ASSERT_EQ(m.stride(1), 16);
-  ASSERT_TRUE(m.is_contiguous());
+  ASSERT_TRUE(m.is_exhaustive());
 }
 #endif
 
 TEST(TestLayoutRightListInitialization, test_layout_right_extent_initialization) {
-  stdex::layout_right::mapping<stdex::extents<dyn, dyn>> m{stdex::dextents<2>{16, 32}};
+  stdex::layout_right::mapping<stdex::extents<size_t,dyn, dyn>> m{stdex::dextents<size_t,2>{16, 32}};
   ASSERT_EQ(m.extents().rank(), 2);
   ASSERT_EQ(m.extents().rank_dynamic(), 2);
   ASSERT_EQ(m.extents().extent(0), 16);
   ASSERT_EQ(m.extents().extent(1), 32);
   ASSERT_EQ(m.stride(0), 32);
   ASSERT_EQ(m.stride(1), 1);
-  ASSERT_TRUE(m.is_contiguous());
+  ASSERT_TRUE(m.is_exhaustive());
 }
 
 #if defined(_MDSPAN_USE_CLASS_TEMPLATE_ARGUMENT_DEDUCTION)
@@ -263,6 +263,6 @@ TEST(TestLayoutRightCTAD, test_layout_right_ctad) {
   ASSERT_EQ(m.extents().extent(1), 32);
   ASSERT_EQ(m.stride(0), 32);
   ASSERT_EQ(m.stride(1), 1);
-  ASSERT_TRUE(m.is_contiguous());
+  ASSERT_TRUE(m.is_exhaustive());
 }
 #endif

@@ -3,43 +3,18 @@ Sparse
 
 This page provides C++ class references for the publicly-exposed elements of the sparse package.
 
+.. role:: py(code)
+   :language: c++
+   :class: highlight
 
 
-Conversion
-##########
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-.. doxygennamespace:: raft::sparse::convert
-    :project: RAFT
-    :members:
+   sparse_distance.rst
+   sparse_linalg.rst
+   sparse_matrix.rst
+   sparse_neighbors.rst
+   sparse_solver.rst
 
-Distance
-########
-
-.. doxygennamespace:: raft::sparse::distance
-    :project: RAFT
-    :members:
-
-Linear Algebra
-##############
-
-.. doxygennamespace:: raft::sparse::linalg
-    :project: RAFT
-    :members:
-
-Misc Operations
-###############
-
-.. doxygennamespace:: raft::sparse::op
-    :project: RAFT
-    :members:
-
-Selection
-#########
-
-.. doxygennamespace:: raft::sparse::selection
-    :project: RAFT
-    :members:
-
-.. doxygennamespace:: raft::linkage
-    :project: RAFT
-    :members:

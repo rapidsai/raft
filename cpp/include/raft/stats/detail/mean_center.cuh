@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/vectorized.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/vectorized.cuh>
 
 namespace raft {
 namespace stats {
@@ -49,15 +49,7 @@ void meanCenter(Type* out,
                 cudaStream_t stream)
 {
   raft::linalg::matrixVectorOp(
-    out,
-    data,
-    mu,
-    D,
-    N,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a - b; },
-    stream);
+    out, data, mu, D, N, rowMajor, bcastAlongRows, raft::sub_op{}, stream);
 }
 
 /**
@@ -85,15 +77,7 @@ void meanAdd(Type* out,
              cudaStream_t stream)
 {
   raft::linalg::matrixVectorOp(
-    out,
-    data,
-    mu,
-    D,
-    N,
-    rowMajor,
-    bcastAlongRows,
-    [] __device__(Type a, Type b) { return a + b; },
-    stream);
+    out, data, mu, D, N, rowMajor, bcastAlongRows, raft::add_op{}, stream);
 }
 
 };  // end namespace detail

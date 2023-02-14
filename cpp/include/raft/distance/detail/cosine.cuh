@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,23 @@
 #pragma once
 
 #include <raft/distance/detail/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace distance {
 namespace detail {
+
+template <typename DataT, typename AccT>
+struct CosineOp {
+  __device__ CosineOp() noexcept {}
+  __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
+  {
+    return static_cast<AccT>(1.0) - (AccT)(accVal / (aNorm * bNorm));
+  }
+  __device__ AccT operator()(DataT aData) const noexcept { return aData; }
+};
 
 /**
  * @brief the cosine distance matrix calculation implementer
@@ -71,61 +83,74 @@ void cosineImpl(const DataT* x,
                 FinalLambda fin_op,
                 cudaStream_t stream)
 {
-  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
-  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
+#if (__CUDACC_VER_MAJOR__ < 12)
+  const auto deviceVersion = getComputeCapability();
+  if (deviceVersion.first >= 8) {
+    using CosineOp_ = CosineOp<DataT, AccT>;
+    CosineOp_ cosine_dist_op;
 
-  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+    cutlassDistanceKernel<DataT, AccT, OutT, IdxT, VecLen, FinalLambda, CosineOp_, isRowMajor>(
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, cosine_dist_op, stream);
 
-  dim3 blk(KPolicy::Nthreads);
+  } else
+#endif
+  {
+    typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
+    typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
-  // Accumulation operation lambda
-  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) { acc += x * y; };
+    typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
 
-  // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                     DataT * regxn,
-                                     DataT * regyn,
-                                     IdxT gridStrideX,
-                                     IdxT gridStrideY) {
+    dim3 blk(KPolicy::Nthreads);
+
+    // Accumulation operation lambda
+    auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) { acc += x * y; };
+
+    // epilogue operation lambda for final value calculation
+    auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
+                                       DataT * regxn,
+                                       DataT * regyn,
+                                       IdxT gridStrideX,
+                                       IdxT gridStrideY) {
 #pragma unroll
-    for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
+      for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
-      for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-        acc[i][j] = acc[i][j] / (regxn[i] * regyn[j]);
+        for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
+          acc[i][j] = 1.0 - (acc[i][j] / (regxn[i] * regyn[j]));
+        }
       }
-    }
-  };
+    };
 
-  constexpr size_t shmemSize =
-    KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
-  if (isRowMajor) {
-    auto cosineRowMajor = pairwiseDistanceMatKernel<true,
-                                                    DataT,
-                                                    AccT,
-                                                    OutT,
-                                                    IdxT,
-                                                    KPolicy,
-                                                    decltype(core_lambda),
-                                                    decltype(epilog_lambda),
-                                                    FinalLambda,
-                                                    true>;
-    dim3 grid           = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineRowMajor);
-    cosineRowMajor<<<grid, blk, shmemSize, stream>>>(
-      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
-  } else {
-    auto cosineColMajor = pairwiseDistanceMatKernel<true,
-                                                    DataT,
-                                                    AccT,
-                                                    OutT,
-                                                    IdxT,
-                                                    KPolicy,
-                                                    decltype(core_lambda),
-                                                    decltype(epilog_lambda),
-                                                    FinalLambda,
-                                                    false>;
-    dim3 grid           = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineColMajor);
-    cosineColMajor<<<grid, blk, shmemSize, stream>>>(
-      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
+    constexpr size_t shmemSize =
+      KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
+    if (isRowMajor) {
+      auto cosineRowMajor = pairwiseDistanceMatKernelPriorToAmpere<true,
+                                                                   DataT,
+                                                                   AccT,
+                                                                   OutT,
+                                                                   IdxT,
+                                                                   KPolicy,
+                                                                   decltype(core_lambda),
+                                                                   decltype(epilog_lambda),
+                                                                   FinalLambda,
+                                                                   true>;
+      dim3 grid           = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineRowMajor);
+      cosineRowMajor<<<grid, blk, shmemSize, stream>>>(
+        x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
+    } else {
+      auto cosineColMajor = pairwiseDistanceMatKernelPriorToAmpere<true,
+                                                                   DataT,
+                                                                   AccT,
+                                                                   OutT,
+                                                                   IdxT,
+                                                                   KPolicy,
+                                                                   decltype(core_lambda),
+                                                                   decltype(epilog_lambda),
+                                                                   FinalLambda,
+                                                                   false>;
+      dim3 grid           = launchConfigGenerator<KPolicy>(m, n, shmemSize, cosineColMajor);
+      cosineColMajor<<<grid, blk, shmemSize, stream>>>(
+        x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
+    }
   }
 
   RAFT_CUDA_TRY(cudaGetLastError());
@@ -205,15 +230,11 @@ void cosineAlgo1(Index_ m,
                  cudaStream_t stream,
                  bool isRowMajor)
 {
-  auto norm_op = [] __device__(AccType in) { return raft::mySqrt(in); };
-
-  // Wrap fin_op to allow computing 1 - pA before calling fin_op
-  auto wrapped_fin_op = [fin_op] __device__(AccType d_val, Index_ g_d_idx) {
-    return fin_op(static_cast<AccType>(1.0) - d_val, g_d_idx);
-  };
-
-  typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type CosOutType;
+  // raft distance support inputs as float/double and output as uint8_t/float/double.
+  static_assert(!((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
+                "OutType can be uint8_t, float, double,"
+                "if sizeof(OutType) > 1 then sizeof(AccType) == sizeof(OutType).");
+  typedef typename std::conditional<sizeof(OutType) == 1, OutType, AccType>::type CosOutType;
   CosOutType* pDcast = reinterpret_cast<CosOutType*>(pD);
 
   ASSERT(
@@ -226,20 +247,23 @@ void cosineAlgo1(Index_ m,
   InType* row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
-    raft::linalg::rowNorm(row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+    raft::linalg::rowNorm(
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::sqrt_op{});
+    raft::linalg::rowNorm(
+      row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::sqrt_op{});
   } else {
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+    raft::linalg::rowNorm(
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::sqrt_op{});
   }
 
   if (isRowMajor) {
     lda = k, ldb = k, ldd = n;
-    cosine<InType, AccType, CosOutType, Index_, decltype(wrapped_fin_op), true>(
-      m, n, k, lda, ldb, ldd, pA, pB, col_vec, row_vec, pDcast, wrapped_fin_op, stream);
+    cosine<InType, AccType, CosOutType, Index_, FinalLambda, true>(
+      m, n, k, lda, ldb, ldd, pA, pB, col_vec, row_vec, pDcast, fin_op, stream);
   } else {
     lda = n, ldb = m, ldd = m;
-    cosine<InType, AccType, CosOutType, Index_, decltype(wrapped_fin_op), false>(
-      n, m, k, lda, ldb, ldd, pB, pA, row_vec, col_vec, pDcast, wrapped_fin_op, stream);
+    cosine<InType, AccType, CosOutType, Index_, FinalLambda, false>(
+      n, m, k, lda, ldb, ldd, pB, pA, row_vec, col_vec, pDcast, fin_op, stream);
   }
 }
 

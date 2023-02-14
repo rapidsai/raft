@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -49,7 +49,7 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
       rows(params.rows),
       cols(params.cols),
       data(rows * cols, stream),
-      mean_act(rows * cols, stream)
+      mean_act(cols, stream)
   {
   }
 
@@ -65,11 +65,23 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
   void meanSGtest(T* data, cudaStream_t stream)
   {
     int rows = params.rows, cols = params.cols;
-    mean(mean_act.data(), data, cols, rows, params.sample, params.rowMajor, stream);
+    if (params.rowMajor) {
+      using layout = raft::row_major;
+      mean(handle,
+           raft::make_device_matrix_view<const T, int, layout>(data, rows, cols),
+           raft::make_device_vector_view<T, int>(mean_act.data(), cols),
+           params.sample);
+    } else {
+      using layout = raft::col_major;
+      mean(handle,
+           raft::make_device_matrix_view<const T, int, layout>(data, rows, cols),
+           raft::make_device_vector_view<T, int>(mean_act.data(), cols),
+           params.sample);
+    }
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   MeanInputs<T> params;

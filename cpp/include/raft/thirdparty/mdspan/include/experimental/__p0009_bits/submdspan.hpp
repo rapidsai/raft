@@ -174,18 +174,20 @@ struct preserve_layout_analysis<layout_left>
 //--------------------------------------------------------------------------------
 
 template <
+  class _IndexT,
   class _PreserveLayoutAnalysis,
-  class _OffsetsArray=__partially_static_sizes<>,
-  class _ExtsArray=__partially_static_sizes<>,
-  class _StridesArray=__partially_static_sizes<>,
-  class=make_index_sequence<_OffsetsArray::__size>,
-  class=make_index_sequence<_ExtsArray::__size>,
-  class=make_index_sequence<_StridesArray::__size>
+  class _OffsetsArray=__partially_static_sizes<_IndexT, size_t>,
+  class _ExtsArray=__partially_static_sizes<_IndexT, size_t>,
+  class _StridesArray=__partially_static_sizes<_IndexT, size_t>,
+  class = make_index_sequence<_OffsetsArray::__size>,
+  class = make_index_sequence<_ExtsArray::__size>,
+  class = make_index_sequence<_StridesArray::__size>
 >
 struct __assign_op_slice_handler;
 
 /* clang-format: off */
 template <
+  class _IndexT,
   class _PreserveLayoutAnalysis,
   size_t... _Offsets,
   size_t... _Exts,
@@ -194,10 +196,11 @@ template <
   size_t... _ExtIdxs,
   size_t... _StrideIdxs>
 struct __assign_op_slice_handler<
+  _IndexT,
   _PreserveLayoutAnalysis,
-  __partially_static_sizes<_Offsets...>,
-  __partially_static_sizes<_Exts...>,
-  __partially_static_sizes<_Strides...>,
+  __partially_static_sizes<_IndexT, size_t, _Offsets...>,
+  __partially_static_sizes<_IndexT, size_t, _Exts...>,
+  __partially_static_sizes<_IndexT, size_t, _Strides...>,
   integer_sequence<size_t, _OffsetIdxs...>,
   integer_sequence<size_t, _ExtIdxs...>,
   integer_sequence<size_t, _StrideIdxs...>>
@@ -212,9 +215,9 @@ struct __assign_op_slice_handler<
     " "
   );
 
-  using __offsets_storage_t = __partially_static_sizes<_Offsets...>;
-  using __extents_storage_t = __partially_static_sizes<_Exts...>;
-  using __strides_storage_t = __partially_static_sizes<_Strides...>;
+  using __offsets_storage_t = __partially_static_sizes<_IndexT, size_t, _Offsets...>;
+  using __extents_storage_t = __partially_static_sizes<_IndexT, size_t, _Exts...>;
+  using __strides_storage_t = __partially_static_sizes<_IndexT, size_t, _Strides...>;
   __offsets_storage_t __offsets;
   __extents_storage_t __exts;
   __strides_storage_t __strides;
@@ -236,7 +239,7 @@ struct __assign_op_slice_handler<
 
 // Don't define this unless we need it; they have a cost to compile
 #ifndef _MDSPAN_USE_RETURN_TYPE_DEDUCTION
-  using __extents_type = ::std::experimental::extents<_Exts...>;
+  using __extents_type = ::std::experimental::extents<_IndexT, _Exts...>;
 #endif
 
   // For size_t slice, skip the extent and stride, but add an offset corresponding to the value
@@ -245,12 +248,13 @@ struct __assign_op_slice_handler<
   _MDSPAN_CONSTEXPR_14 auto
   operator=(__slice_wrap<_OldStaticExtent, _OldStaticStride, size_t>&& __slice) noexcept
     -> __assign_op_slice_handler<
+         _IndexT,
          typename _PreserveLayoutAnalysis::encounter_scalar,
-         __partially_static_sizes<_Offsets..., dynamic_extent>,
-         __partially_static_sizes<_Exts...>,
-         __partially_static_sizes<_Strides...>/* intentional space here to work around ICC bug*/> {
+         __partially_static_sizes<_IndexT, size_t, _Offsets..., dynamic_extent>,
+         __partially_static_sizes<_IndexT, size_t, _Exts...>,
+         __partially_static_sizes<_IndexT, size_t, _Strides...>/* intentional space here to work around ICC bug*/> {
     return {
-      __partially_static_sizes<_Offsets..., dynamic_extent>(
+      __partially_static_sizes<_IndexT, size_t, _Offsets..., dynamic_extent>(
         __construct_psa_from_all_exts_values_tag,
         __offsets.template __get_n<_OffsetIdxs>()..., __slice.slice),
       ::std::move(__exts),
@@ -264,18 +268,19 @@ struct __assign_op_slice_handler<
   _MDSPAN_CONSTEXPR_14 auto
   operator=(__slice_wrap<_OldStaticExtent, _OldStaticStride, full_extent_t>&& __slice) noexcept
     -> __assign_op_slice_handler<
+         _IndexT,
          typename _PreserveLayoutAnalysis::encounter_all,
-         __partially_static_sizes<_Offsets..., 0>,
-         __partially_static_sizes<_Exts..., _OldStaticExtent>,
-         __partially_static_sizes<_Strides..., _OldStaticStride>/* intentional space here to work around ICC bug*/> {
+         __partially_static_sizes<_IndexT, size_t, _Offsets..., 0>,
+         __partially_static_sizes<_IndexT, size_t, _Exts..., _OldStaticExtent>,
+         __partially_static_sizes<_IndexT, size_t, _Strides..., _OldStaticStride>/* intentional space here to work around ICC bug*/> {
     return {
-      __partially_static_sizes<_Offsets..., 0>(
+      __partially_static_sizes<_IndexT, size_t, _Offsets..., 0>(
         __construct_psa_from_all_exts_values_tag,
         __offsets.template __get_n<_OffsetIdxs>()..., size_t(0)),
-      __partially_static_sizes<_Exts..., _OldStaticExtent>(
+      __partially_static_sizes<_IndexT, size_t, _Exts..., _OldStaticExtent>(
         __construct_psa_from_all_exts_values_tag,
         __exts.template __get_n<_ExtIdxs>()..., __slice.old_extent),
-      __partially_static_sizes<_Strides..., _OldStaticStride>(
+      __partially_static_sizes<_IndexT, size_t, _Strides..., _OldStaticStride>(
         __construct_psa_from_all_exts_values_tag,
         __strides.template __get_n<_StrideIdxs>()..., __slice.old_stride)
     };
@@ -287,18 +292,19 @@ struct __assign_op_slice_handler<
   _MDSPAN_CONSTEXPR_14 auto
   operator=(__slice_wrap<_OldStaticExtent, _OldStaticStride, tuple<size_t, size_t>>&& __slice) noexcept
     -> __assign_op_slice_handler<
+         _IndexT,
          typename _PreserveLayoutAnalysis::encounter_pair,
-         __partially_static_sizes<_Offsets..., dynamic_extent>,
-         __partially_static_sizes<_Exts..., dynamic_extent>,
-         __partially_static_sizes<_Strides..., _OldStaticStride>/* intentional space here to work around ICC bug*/> {
+         __partially_static_sizes<_IndexT, size_t, _Offsets..., dynamic_extent>,
+         __partially_static_sizes<_IndexT, size_t, _Exts..., dynamic_extent>,
+         __partially_static_sizes<_IndexT, size_t, _Strides..., _OldStaticStride>/* intentional space here to work around ICC bug*/> {
     return {
-      __partially_static_sizes<_Offsets..., dynamic_extent>(
+      __partially_static_sizes<_IndexT, size_t, _Offsets..., dynamic_extent>(
         __construct_psa_from_all_exts_values_tag,
         __offsets.template __get_n<_OffsetIdxs>()..., ::std::get<0>(__slice.slice)),
-      __partially_static_sizes<_Exts..., dynamic_extent>(
+      __partially_static_sizes<_IndexT, size_t, _Exts..., dynamic_extent>(
         __construct_psa_from_all_exts_values_tag,
         __exts.template __get_n<_ExtIdxs>()..., ::std::get<1>(__slice.slice) - ::std::get<0>(__slice.slice)),
-      __partially_static_sizes<_Strides..., _OldStaticStride>(
+      __partially_static_sizes<_IndexT, size_t, _Strides..., _OldStaticStride>(
         __construct_psa_from_all_exts_values_tag,
         __strides.template __get_n<_StrideIdxs>()..., __slice.old_stride)
     };
@@ -321,8 +327,8 @@ struct __assign_op_slice_handler<
     ),
     (
       /* not layout stride, so don't pass dynamic_strides */
-      /* return */ typename NewLayout::template mapping<::std::experimental::extents<_Exts...>>(
-        experimental::extents<_Exts...>::__make_extents_impl(::std::move(__exts))
+      /* return */ typename NewLayout::template mapping<::std::experimental::extents<_IndexT, _Exts...>>(
+        experimental::extents<_IndexT, _Exts...>::__make_extents_impl(::std::move(__exts))
       ) /* ; */
     )
   )
@@ -334,7 +340,7 @@ struct __assign_op_slice_handler<
       _make_layout_mapping_impl(layout_stride) noexcept
     ),
     (
-      /* return */ layout_stride::template mapping<::std::experimental::extents<_Exts...>>
+      /* return */ layout_stride::template mapping<::std::experimental::extents<_IndexT, _Exts...>>
         ::__make_mapping(::std::move(__exts), ::std::move(__strides)) /* ; */
     )
   )
@@ -356,23 +362,25 @@ struct __assign_op_slice_handler<
 
 #if _MDSPAN_USE_RETURN_TYPE_DEDUCTION
 // Forking this because the C++11 version will be *completely* unreadable
-template <class ET, size_t... Exts, class LP, class AP, class... SliceSpecs, size_t... Idxs>
+template <class ET, class ST, size_t... Exts, class LP, class AP, class... SliceSpecs, size_t... Idxs>
 MDSPAN_INLINE_FUNCTION
 constexpr auto _submdspan_impl(
   integer_sequence<size_t, Idxs...>,
-  mdspan<ET, std::experimental::extents<Exts...>, LP, AP> const& src,
+  mdspan<ET, std::experimental::extents<ST, Exts...>, LP, AP> const& src,
   SliceSpecs&&... slices
 ) noexcept
 {
+  using _IndexT = ST;
   auto _handled =
     _MDSPAN_FOLD_ASSIGN_LEFT(
       (
         detail::__assign_op_slice_handler<
+          _IndexT,
           detail::preserve_layout_analysis<LP>
         >{
-          __partially_static_sizes<>{},
-          __partially_static_sizes<>{},
-          __partially_static_sizes<>{}
+          __partially_static_sizes<_IndexT, size_t>{},
+          __partially_static_sizes<_IndexT, size_t>{},
+          __partially_static_sizes<_IndexT, size_t>{}
         }
       ),
         /* = ... = */
@@ -380,16 +388,17 @@ constexpr auto _submdspan_impl(
         Exts, dynamic_extent
       >(
         slices, src.extents().template __extent<Idxs>(),
-        src.mapping().template __stride<Idxs>()
+        src.mapping().stride(Idxs)
       )
     );
 
   size_t offset_size = src.mapping()(_handled.__offsets.template __get_n<Idxs>()...);
-  auto offset_ptr = src.accessor().offset(src.data(), offset_size);
+  auto offset_ptr = src.accessor().offset(src.data_handle(), offset_size);
   auto map = _handled.make_layout_mapping(src.mapping());
   auto acc_pol = typename AP::offset_policy(src.accessor());
   return mdspan<
-    ET, decltype(map.extents()), typename decltype(_handled)::layout_type, decltype(acc_pol)
+    ET, remove_const_t<remove_reference_t<decltype(map.extents())>>,
+        typename decltype(_handled)::layout_type, remove_const_t<remove_reference_t<decltype(acc_pol)>>
   >(
     std::move(offset_ptr), std::move(map), std::move(acc_pol)
   );
@@ -403,19 +412,19 @@ auto _submdspan_impl_helper(Src&& src, Handled&& h, std::integer_sequence<size_t
      >
 {
   return {
-    src.accessor().offset(src.data(), src.mapping()(h.__offsets.template __get_n<Idxs>()...)),
+    src.accessor().offset(src.data_handle(), src.mapping()(h.__offsets.template __get_n<Idxs>()...)),
     h.make_layout_mapping(src.mapping()),
     typename AP::offset_policy(src.accessor())
   };
 }
 
-template <class ET, size_t... Exts, class LP, class AP, class... SliceSpecs, size_t... Idxs>
+template <class ET, class ST, size_t... Exts, class LP, class AP, class... SliceSpecs, size_t... Idxs>
 MDSPAN_INLINE_FUNCTION
 _MDSPAN_DEDUCE_RETURN_TYPE_SINGLE_LINE(
   (
     constexpr /* auto */ _submdspan_impl(
       std::integer_sequence<size_t, Idxs...> seq,
-      mdspan<ET, std::experimental::extents<Exts...>, LP, AP> const& src,
+      mdspan<ET, std::experimental::extents<ST, Exts...>, LP, AP> const& src,
       SliceSpecs&&... slices
     ) noexcept
   ),
@@ -425,11 +434,12 @@ _MDSPAN_DEDUCE_RETURN_TYPE_SINGLE_LINE(
       _MDSPAN_FOLD_ASSIGN_LEFT(
         (
           detail::__assign_op_slice_handler<
+            size_t,
             detail::preserve_layout_analysis<LP>
           >{
-            __partially_static_sizes<>{},
-            __partially_static_sizes<>{},
-            __partially_static_sizes<>{}
+            __partially_static_sizes<ST, size_t>{},
+            __partially_static_sizes<ST, size_t>{},
+            __partially_static_sizes<ST, size_t>{}
           }
         ),
         /* = ... = */
@@ -458,7 +468,7 @@ struct _is_layout_stride<
 //==============================================================================
 
 MDSPAN_TEMPLATE_REQUIRES(
-  class ET, size_t... Exts, class LP, class AP, class... SliceSpecs,
+  class ET, class EXT, class LP, class AP, class... SliceSpecs,
   /* requires */ (
     (
       _MDSPAN_TRAIT(is_same, LP, layout_left)
@@ -470,14 +480,14 @@ MDSPAN_TEMPLATE_REQUIRES(
         || _MDSPAN_TRAIT(is_convertible, SliceSpecs, tuple<size_t, size_t>)
         || _MDSPAN_TRAIT(is_convertible, SliceSpecs, full_extent_t)
     ) /* && ... */) &&
-    sizeof...(SliceSpecs) == sizeof...(Exts)
+    sizeof...(SliceSpecs) == EXT::rank()
   )
 )
 MDSPAN_INLINE_FUNCTION
 _MDSPAN_DEDUCE_RETURN_TYPE_SINGLE_LINE(
   (
     constexpr submdspan(
-      mdspan<ET, std::experimental::extents<Exts...>, LP, AP> const& src, SliceSpecs... slices
+      mdspan<ET, EXT, LP, AP> const& src, SliceSpecs... slices
     ) noexcept
   ),
   (

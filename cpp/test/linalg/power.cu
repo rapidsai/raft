@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/power.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -27,7 +27,7 @@ template <typename Type>
 __global__ void naivePowerElemKernel(Type* out, const Type* in1, const Type* in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = raft::myPow(in1[idx], in2[idx]); }
+  if (idx < len) { out[idx] = raft::pow(in1[idx], in2[idx]); }
 }
 
 template <typename Type>
@@ -43,7 +43,7 @@ template <typename Type>
 __global__ void naivePowerScalarKernel(Type* out, const Type* in1, const Type in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) { out[idx] = raft::myPow(in1[idx], in2); }
+  if (idx < len) { out[idx] = raft::pow(in1[idx], in2); }
 }
 
 template <typename Type>
@@ -97,16 +97,23 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
     naivePowerElem(out_ref.data(), in1.data(), in2.data(), len, stream);
     naivePowerScalar(out_ref.data(), out_ref.data(), T(2), len, stream);
 
-    power(out.data(), in1.data(), in2.data(), len, stream);
-    powerScalar(out.data(), out.data(), T(2), len, stream);
-    power(in1.data(), in1.data(), in2.data(), len, stream);
-    powerScalar(in1.data(), in1.data(), T(2), len, stream);
+    auto out_view       = raft::make_device_vector_view(out.data(), len);
+    auto in1_view       = raft::make_device_vector_view(in1.data(), len);
+    auto const_out_view = raft::make_device_vector_view<const T>(out.data(), len);
+    auto const_in1_view = raft::make_device_vector_view<const T>(in1.data(), len);
+    auto const_in2_view = raft::make_device_vector_view<const T>(in2.data(), len);
+    const auto scalar   = static_cast<T>(2);
+    auto scalar_view    = raft::make_host_scalar_view(&scalar);
+    power(handle, const_in1_view, const_in2_view, out_view);
+    power_scalar(handle, const_out_view, out_view, scalar_view);
+    power(handle, const_in1_view, const_in2_view, in1_view);
+    power_scalar(handle, const_in1_view, in1_view, scalar_view);
 
     handle.sync_stream();
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   PowerInputs<T> params;
   rmm::device_uvector<T> in1, in2, out_ref, out;
   int device_count = 0;

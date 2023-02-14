@@ -120,8 +120,8 @@ constexpr int cols = 3;
 
 int main() {
   {
-    using span_2d_dynamic = stdex::mdspan<int, stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>, stdex::layout_right>;
-    using span_2d_dynamic_left = stdex::mdspan<int, stdex::extents<stdex::dynamic_extent, stdex::dynamic_extent>, stdex::layout_left>;
+    using span_2d_dynamic = stdex::mdspan<int, stdex::dextents<size_t, 2>, stdex::layout_right>;
+    using span_2d_dynamic_left = stdex::mdspan<int, stdex::dextents<size_t, 2>, stdex::layout_left>;
 
     auto data_a = std::make_unique<int[]>(rows * cols);
     auto data_b = std::make_unique<int[]>(rows * cols);
@@ -135,8 +135,8 @@ int main() {
   }
 
   {
-    using span_2d_10_10 = stdex::mdspan<int, stdex::extents<rows, cols>, stdex::layout_right>;
-    using span_2d_10_10_left = stdex::mdspan<int, stdex::extents<rows, cols>, stdex::layout_right>;
+    using span_2d_10_10 = stdex::mdspan<int, stdex::extents<size_t, rows, cols>, stdex::layout_right>;
+    using span_2d_10_10_left = stdex::mdspan<int, stdex::extents<size_t, rows, cols>, stdex::layout_right>;
 
     auto data_a = std::make_unique<int[]>(100);
     auto data_b = std::make_unique<int[]>(100);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cusparse.h>
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 ///@todo: enable this once logging is enabled
 //#include <cuml/common/logger.hpp>
 
@@ -38,6 +38,11 @@
 namespace raft {
 
 /**
+ * @ingroup error_handling
+ * @{
+ */
+
+/**
  * @brief Exception thrown when a cuSparse error is encountered.
  */
 struct cusparse_error : public raft::exception {
@@ -45,6 +50,9 @@ struct cusparse_error : public raft::exception {
   explicit cusparse_error(std::string const& message) : raft::exception(message) {}
 };
 
+/**
+ * @}
+ */
 namespace sparse {
 namespace detail {
 
@@ -74,6 +82,11 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
 #undef _CUSPARSE_ERR_TO_STR
 
 /**
+ * @ingroup assertion
+ * @{
+ */
+
+/**
  * @brief Error checking macro for cuSparse runtime API functions.
  *
  * Invokes a cuSparse runtime API function call, if the call does not return
@@ -94,6 +107,10 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
     }                                                                        \
   } while (0)
 
+/**
+ * @}
+ */
+
 // FIXME: Remove after consumer rename
 #ifndef CUSPARSE_TRY
 #define CUSPARSE_TRY(call) RAFT_CUSPARSE_TRY(call)
@@ -104,6 +121,10 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
 #define CUSPARSE_CHECK(call) CUSPARSE_TRY(call)
 #endif
 
+/**
+ * @ingroup assertion
+ * @{
+ */
 //@todo: use logger here once logging is enabled
 /** check for cusparse runtime API errors but do not assert */
 #define RAFT_CUSPARSE_TRY_NO_THROW(call)                           \
@@ -116,6 +137,10 @@ inline const char* cusparse_error_to_string(cusparseStatus_t err)
              raft::sparse::detail::cusparse_error_to_string(err)); \
     }                                                              \
   } while (0)
+
+/**
+ * @}
+ */
 
 // FIXME: Remove after consumer rename
 #ifndef CUSPARSE_CHECK_NO_THROW

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,16 @@
 #include <cassert>
 #include <cinttypes>  // size_t
 #include <cstddef>    // std::byte
-#include <raft/detail/span.hpp>
+#include <raft/core/mdspan_types.hpp>
+
+#include <raft/core/detail/macros.hpp>
+#include <raft/core/detail/span.hpp>
+
+// TODO (cjnolet): Remove thrust dependencies here so host_span can be used without CUDA Toolkit
+// being installed. Reference: https://github.com/rapidsai/raft/issues/812.
+#include <thrust/distance.h>
 #include <thrust/functional.h>
-#include <thrust/host_vector.h>  // __host__ __device__
+#include <thrust/host_vector.h>  // _RAFT_HOST_DEVICE
 #include <thrust/iterator/reverse_iterator.h>
 #include <type_traits>
 
@@ -107,22 +114,22 @@ class span {
 
   constexpr auto cend() const noexcept -> const_iterator { return data() + size(); }
 
-  __host__ __device__ constexpr auto rbegin() const noexcept -> reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto rbegin() const noexcept -> reverse_iterator
   {
     return reverse_iterator{end()};
   }
 
-  __host__ __device__ constexpr auto rend() const noexcept -> reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto rend() const noexcept -> reverse_iterator
   {
     return reverse_iterator{begin()};
   }
 
-  __host__ __device__ constexpr auto crbegin() const noexcept -> const_reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto crbegin() const noexcept -> const_reverse_iterator
   {
     return const_reverse_iterator{cend()};
   }
 
-  __host__ __device__ constexpr auto crend() const noexcept -> const_reverse_iterator
+  _RAFT_HOST_DEVICE constexpr auto crend() const noexcept -> const_reverse_iterator
   {
     return const_reverse_iterator{cbegin()};
   }
@@ -199,18 +206,6 @@ class span {
  private:
   detail::span_storage<T, Extent> storage_;
 };
-
-/**
- * @brief A span class for host pointer.
- */
-template <typename T, size_t extent = dynamic_extent>
-using host_span = span<T, false, extent>;
-
-/**
- * @brief A span class for device pointer.
- */
-template <typename T, size_t extent = dynamic_extent>
-using device_span = span<T, true, extent>;
 
 template <class T, std::size_t X, class U, std::size_t Y, bool is_device>
 constexpr auto operator==(span<T, is_device, X> l, span<U, is_device, Y> r) -> bool

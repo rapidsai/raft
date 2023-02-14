@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,14 +24,15 @@
 
 #pragma once
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/stats/detail/adjusted_rand_index.cuh>
 
 namespace raft {
 namespace stats {
 
 /**
- * @brief Function to calculate Adjusted RandIndex as described
- *        <a href="https://en.wikipedia.org/wiki/Rand_index">here</a>
+ * @brief Function to calculate Adjusted RandIndex
+ * @see https://en.wikipedia.org/wiki/Rand_index
  * @tparam T data-type for input label arrays
  * @tparam MathT integral data-type used for computing n-choose-r
  * @param firstClusterArray: the array of classes
@@ -47,6 +48,39 @@ double adjusted_rand_index(const T* firstClusterArray,
 {
   return detail::compute_adjusted_rand_index(firstClusterArray, secondClusterArray, size, stream);
 }
+
+/**
+ * @defgroup stats_adj_rand_index Adjusted Rand Index
+ * @{
+ */
+
+/**
+ * @brief Function to calculate Adjusted RandIndex
+ * @see https://en.wikipedia.org/wiki/Rand_index
+ * @tparam value_t data-type for input label arrays
+ * @tparam math_t integral data-type used for computing n-choose-r
+ * @tparam idx_t Index type of matrix extent.
+ * @param[in] handle: the raft handle.
+ * @param[in] first_cluster_array: the array of classes
+ * @param[in] second_cluster_array: the array of classes
+ * @return the Adjusted RandIndex
+ */
+template <typename value_t, typename math_t, typename idx_t>
+double adjusted_rand_index(raft::device_resources const& handle,
+                           raft::device_vector_view<const value_t, idx_t> first_cluster_array,
+                           raft::device_vector_view<const value_t, idx_t> second_cluster_array)
+{
+  RAFT_EXPECTS(first_cluster_array.size() == second_cluster_array.size(), "Size mismatch");
+  RAFT_EXPECTS(first_cluster_array.is_exhaustive(), "first_cluster_array must be contiguous");
+  RAFT_EXPECTS(second_cluster_array.is_exhaustive(), "second_cluster_array must be contiguous");
+
+  return detail::compute_adjusted_rand_index<value_t, math_t>(first_cluster_array.data_handle(),
+                                                              second_cluster_array.data_handle(),
+                                                              first_cluster_array.extent(0),
+                                                              handle.get_stream());
+}
+
+/** @} */  // end group stats_adj_rand_index
 
 };  // end namespace stats
 };  // end namespace raft

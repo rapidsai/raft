@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
 
 #pragma once
 
-#include "detail/sum.cuh"
-
-#include <raft/cudart_utils.h>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/stats/detail/sum.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace stats {
@@ -45,6 +45,44 @@ void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, c
 {
   detail::sum(output, input, D, N, rowMajor, stream);
 }
+
+/**
+ * @defgroup stats_sum Sum
+ * @{
+ */
+
+/**
+ * @brief Compute sum of the input matrix
+ *
+ * Sum operation is assumed to be performed on a given column.
+ *
+ * @tparam value_t the data type
+ * @tparam idx_t Integer type used to for addressing
+ * @tparam layout_t Layout type of the input matrix.
+ * @param[in]  handle the raft handle
+ * @param[in]  input the input matrix
+ * @param[out] output the output mean vector
+ */
+template <typename value_t, typename idx_t, typename layout_t>
+void sum(raft::device_resources const& handle,
+         raft::device_matrix_view<const value_t, idx_t, layout_t> input,
+         raft::device_vector_view<value_t, idx_t> output)
+{
+  constexpr bool is_row_major = std::is_same_v<layout_t, raft::row_major>;
+  constexpr bool is_col_major = std::is_same_v<layout_t, raft::col_major>;
+  static_assert(is_row_major || is_col_major,
+                "sum: Layout must be either "
+                "raft::row_major or raft::col_major (or one of their aliases)");
+  RAFT_EXPECTS(input.extent(1) == output.extent(0), "Size mismatch between input and output");
+  detail::sum(output.data_handle(),
+              input.data_handle(),
+              input.extent(1),
+              input.extent(0),
+              is_row_major,
+              handle.get_stream());
+}
+
+/** @} */  // end group stats_sum
 
 };  // end namespace stats
 };  // end namespace raft

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 
 #include "cusolver_wrappers.hpp"
 #include <cuda_runtime_api.h>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -29,7 +29,7 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void eigDC_legacy(const raft::handle_t& handle,
+void eigDC_legacy(raft::device_resources const& handle,
                   const math_t* in,
                   std::size_t n_rows,
                   std::size_t n_cols,
@@ -74,7 +74,7 @@ void eigDC_legacy(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void eigDC(const raft::handle_t& handle,
+void eigDC(raft::device_resources const& handle,
            const math_t* in,
            std::size_t n_rows,
            std::size_t n_cols,
@@ -137,11 +137,11 @@ void eigDC(const raft::handle_t& handle,
 enum EigVecMemUsage { OVERWRITE_INPUT, COPY_INPUT };
 
 template <typename math_t>
-void eigSelDC(const raft::handle_t& handle,
+void eigSelDC(raft::device_resources const& handle,
               math_t* in,
-              int n_rows,
-              int n_cols,
-              int n_eig_vals,
+              std::size_t n_rows,
+              std::size_t n_cols,
+              std::size_t n_eig_vals,
               math_t* eig_vectors,
               math_t* eig_vals,
               EigVecMemUsage memUsage,
@@ -156,13 +156,13 @@ void eigSelDC(const raft::handle_t& handle,
                                                 CUSOLVER_EIG_MODE_VECTOR,
                                                 CUSOLVER_EIG_RANGE_I,
                                                 CUBLAS_FILL_MODE_UPPER,
-                                                n_rows,
+                                                static_cast<int64_t>(n_rows),
                                                 in,
-                                                n_cols,
+                                                static_cast<int64_t>(n_cols),
                                                 math_t(0.0),
                                                 math_t(0.0),
-                                                n_cols - n_eig_vals + 1,
-                                                n_cols,
+                                                static_cast<int64_t>(n_cols - n_eig_vals + 1),
+                                                static_cast<int64_t>(n_cols),
                                                 &h_meig,
                                                 eig_vals,
                                                 &lwork));
@@ -176,13 +176,13 @@ void eigSelDC(const raft::handle_t& handle,
                                        CUSOLVER_EIG_MODE_VECTOR,
                                        CUSOLVER_EIG_RANGE_I,
                                        CUBLAS_FILL_MODE_UPPER,
-                                       n_rows,
+                                       static_cast<int64_t>(n_rows),
                                        in,
-                                       n_cols,
+                                       static_cast<int64_t>(n_cols),
                                        math_t(0.0),
                                        math_t(0.0),
-                                       n_cols - n_eig_vals + 1,
-                                       n_cols,
+                                       static_cast<int64_t>(n_cols - n_eig_vals + 1),
+                                       static_cast<int64_t>(n_cols),
                                        &h_meig,
                                        eig_vals,
                                        d_work.data(),
@@ -197,13 +197,13 @@ void eigSelDC(const raft::handle_t& handle,
                                        CUSOLVER_EIG_MODE_VECTOR,
                                        CUSOLVER_EIG_RANGE_I,
                                        CUBLAS_FILL_MODE_UPPER,
-                                       n_rows,
+                                       static_cast<int64_t>(n_rows),
                                        eig_vectors,
-                                       n_cols,
+                                       static_cast<int64_t>(n_cols),
                                        math_t(0.0),
                                        math_t(0.0),
-                                       n_cols - n_eig_vals + 1,
-                                       n_cols,
+                                       static_cast<int64_t>(n_cols - n_eig_vals + 1),
+                                       static_cast<int64_t>(n_cols),
                                        &h_meig,
                                        eig_vals,
                                        d_work.data(),
@@ -228,10 +228,10 @@ void eigSelDC(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void eigJacobi(const raft::handle_t& handle,
+void eigJacobi(raft::device_resources const& handle,
                const math_t* in,
-               int n_rows,
-               int n_cols,
+               std::size_t n_rows,
+               std::size_t n_cols,
                math_t* eig_vectors,
                math_t* eig_vals,
                cudaStream_t stream,
@@ -249,9 +249,9 @@ void eigJacobi(const raft::handle_t& handle,
   RAFT_CUSOLVER_TRY(cusolverDnsyevj_bufferSize(cusolverH,
                                                CUSOLVER_EIG_MODE_VECTOR,
                                                CUBLAS_FILL_MODE_UPPER,
-                                               n_rows,
+                                               static_cast<int64_t>(n_rows),
                                                eig_vectors,
-                                               n_cols,
+                                               static_cast<int64_t>(n_cols),
                                                eig_vals,
                                                &lwork,
                                                syevj_params));
@@ -264,9 +264,9 @@ void eigJacobi(const raft::handle_t& handle,
   RAFT_CUSOLVER_TRY(cusolverDnsyevj(cusolverH,
                                     CUSOLVER_EIG_MODE_VECTOR,
                                     CUBLAS_FILL_MODE_UPPER,
-                                    n_rows,
+                                    static_cast<int64_t>(n_rows),
                                     eig_vectors,
-                                    n_cols,
+                                    static_cast<int64_t>(n_cols),
                                     eig_vals,
                                     d_work.data(),
                                     lwork,

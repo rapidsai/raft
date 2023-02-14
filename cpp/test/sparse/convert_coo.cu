@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/csr.hpp>
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 #include <iostream>
 #include <limits>
@@ -66,7 +66,7 @@ class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   CSRtoCOOInputs<Index_> params;

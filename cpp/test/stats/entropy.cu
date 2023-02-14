@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/stats/entropy.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 
@@ -38,6 +38,8 @@ template <typename T>
 class entropyTest : public ::testing::TestWithParam<entropyParam> {
  protected:
   // the constructor
+  entropyTest() : stream(handle.get_stream()) {}
+
   void SetUp() override
   {
     // getting the parameters
@@ -74,17 +76,19 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
     }
 
     // allocating and initializing memory to the GPU
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
     rmm::device_uvector<T> clusterArray(nElements, stream);
     raft::update_device(clusterArray.data(), &arr1[0], (int)nElements, stream);
 
     raft::interruptible::synchronize(stream);
     // calling the entropy CUDA implementation
-    computedEntropy = raft::stats::entropy(
-      clusterArray.data(), nElements, lowerLabelRange, upperLabelRange, stream);
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
+    computedEntropy =
+      raft::stats::entropy(handle,
+                           raft::make_device_vector_view<const T>(clusterArray.data(), nElements),
+                           lowerLabelRange,
+                           upperLabelRange);
   }
 
+  raft::device_resources handle;
   // declaring the data values
   entropyParam params;
   T lowerLabelRange, upperLabelRange;

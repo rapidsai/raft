@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,23 @@
  */
 
 #include <common/benchmark.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
+#include <raft/distance/distance.cuh>
+#include <raft/util/cudart_utils.hpp>
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/specializations.cuh>
 #endif
 #include <rmm/device_uvector.hpp>
 
 namespace raft::bench::distance {
 
-struct distance_inputs {
+struct distance_params {
   int m, n, k;
   bool isRowMajor;
-};  // struct distance_inputs
+};  // struct distance_params
 
 template <typename T, raft::distance::DistanceType DType>
 struct distance : public fixture {
-  distance(const distance_inputs& p)
+  distance(const distance_params& p)
     : params(p),
       x(p.m * p.k, stream),
       y(p.n * p.k, stream),
@@ -49,7 +49,8 @@ struct distance : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     loop_on_state(state, [this]() {
-      raft::distance::distance<DType, T, T, T>(x.data(),
+      raft::distance::distance<DType, T, T, T>(handle,
+                                               x.data(),
                                                y.data(),
                                                out.data(),
                                                params.m,
@@ -57,19 +58,18 @@ struct distance : public fixture {
                                                params.k,
                                                (void*)workspace.data(),
                                                worksize,
-                                               stream,
                                                params.isRowMajor);
     });
   }
 
  private:
-  distance_inputs params;
+  distance_params params;
   rmm::device_uvector<T> x, y, out;
   rmm::device_uvector<char> workspace;
   size_t worksize;
 };  // struct Distance
 
-const std::vector<distance_inputs> dist_input_vecs{
+const std::vector<distance_params> dist_input_vecs{
   {32, 16384, 16384, true},    {64, 16384, 16384, true},    {128, 16384, 16384, true},
   {256, 16384, 16384, true},   {512, 16384, 16384, true},   {1024, 16384, 16384, true},
   {16384, 32, 16384, true},    {16384, 64, 16384, true},    {16384, 128, 16384, true},

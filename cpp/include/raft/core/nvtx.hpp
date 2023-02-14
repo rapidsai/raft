@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #pragma once
 
 #include <optional>
-#include <raft/common/detail/nvtx.hpp>
+#include <raft/core/detail/nvtx.hpp>
 
 /**
  * \section Usage
@@ -32,7 +32,7 @@
  * \code{.cpp}
  * #include <raft/common/nvtx.hpp>
  * void some_function(int k){
- *   // Begins a NVTX range with the messsage "some_function_{k}"
+ *   // Begins a NVTX range with the message "some_function_{k}"
  *   // The range ends when some_function() returns
  *   common::nvtx::range fun_scope( r{"some_function_%d", k};
  *

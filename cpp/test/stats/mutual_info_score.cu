@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
-#include <raft/stats/contingency_matrix.cuh>
+#include <raft/core/device_resources.hpp>
 #include <raft/stats/mutual_info_score.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random>
 
 namespace raft {
@@ -104,7 +104,7 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
     truthmutualInfo /= nElements;
 
     // allocating and initializing memory to the GPU
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    stream = handle.get_stream();
 
     rmm::device_uvector<T> firstClusterArray(nElements, stream);
     rmm::device_uvector<T> secondClusterArray(nElements, stream);
@@ -117,18 +117,16 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
     raft::update_device(secondClusterArray.data(), &arr2[0], (int)nElements, stream);
 
     // calling the mutualInfo CUDA implementation
-    computedmutualInfo = raft::stats::mutual_info_score(firstClusterArray.data(),
-                                                        secondClusterArray.data(),
-                                                        nElements,
-                                                        lowerLabelRange,
-                                                        upperLabelRange,
-                                                        stream);
+    computedmutualInfo = raft::stats::mutual_info_score(
+      handle,
+      raft::make_device_vector_view<const T>(firstClusterArray.data(), nElements),
+      raft::make_device_vector_view<const T>(secondClusterArray.data(), nElements),
+      lowerLabelRange,
+      upperLabelRange);
   }
 
-  // the destructor
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
   // declaring the data values
+  raft::device_resources handle;
   mutualInfoParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements             = 0;

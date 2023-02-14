@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <iostream>
+#include <raft/core/device_resources.hpp>
 #include <raft/stats/rand_index.cuh>
 #include <random>
 
@@ -77,7 +78,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     truthRandIndex      = (double)(((double)(a_truth + b_truth)) / (double)nChooseTwo);
 
     // allocating and initializing memory to the GPU
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    stream = handle.get_stream();
 
     rmm::device_uvector<T> firstClusterArray(size, stream);
     rmm::device_uvector<T> secondClusterArray(size, stream);
@@ -90,14 +91,14 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     raft::update_device(secondClusterArray.data(), &arr2[0], (int)size, stream);
 
     // calling the rand_index CUDA implementation
-    computedRandIndex =
-      raft::stats::rand_index(firstClusterArray.data(), secondClusterArray.data(), size, stream);
+    computedRandIndex = raft::stats::rand_index(
+      handle,
+      raft::make_device_vector_view<const T>(firstClusterArray.data(), size),
+      raft::make_device_vector_view<const T>(secondClusterArray.data(), size));
   }
 
-  // the destructor
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
   // declaring the data values
+  raft::device_resources handle;
   randIndexParam params;
   int lowerLabelRange = 0, upperLabelRange = 2;
   uint64_t size            = 0;

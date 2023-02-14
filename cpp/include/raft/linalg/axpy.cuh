@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,9 @@
 
 #include "detail/axpy.cuh"
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdspan.hpp>
+
 namespace raft::linalg {
 
 /**
@@ -38,7 +41,7 @@ namespace raft::linalg {
  * @param [in] stream
  */
 template <typename T, bool DevicePointerMode = false>
-void axpy(const raft::handle_t& handle,
+void axpy(raft::device_resources const& handle,
           const int n,
           const T* alpha,
           const T* x,
@@ -49,6 +52,74 @@ void axpy(const raft::handle_t& handle,
 {
   detail::axpy<T, DevicePointerMode>(handle, n, alpha, x, incx, y, incy, stream);
 }
+
+/**
+ * @defgroup axpy axpy routine
+ * @{
+ */
+
+/**
+ * @brief axpy function
+ *  It computes the following equation: y = alpha * x + y
+ *
+ * @param [in] handle raft::device_resources
+ * @param [in] alpha raft::device_scalar_view
+ * @param [in] x Input vector
+ * @param [inout] y Output vector
+ */
+template <typename ElementType,
+          typename IndexType,
+          typename InLayoutPolicy,
+          typename OutLayoutPolicy,
+          typename ScalarIdxType>
+void axpy(raft::device_resources const& handle,
+          raft::device_scalar_view<const ElementType, ScalarIdxType> alpha,
+          raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
+          raft::device_vector_view<ElementType, IndexType, OutLayoutPolicy> y)
+{
+  RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input");
+
+  axpy<ElementType, true>(handle,
+                          y.size(),
+                          alpha.data_handle(),
+                          x.data_handle(),
+                          x.stride(0),
+                          y.data_handle(),
+                          y.stride(0),
+                          handle.get_stream());
+}
+
+/**
+ * @brief axpy function
+ *  It computes the following equation: y = alpha * x + y
+ * @param [in] handle raft::device_resources
+ * @param [in] alpha raft::device_scalar_view
+ * @param [in] x Input vector
+ * @param [inout] y Output vector
+ */
+template <typename ElementType,
+          typename IndexType,
+          typename InLayoutPolicy,
+          typename OutLayoutPolicy,
+          typename ScalarIdxType>
+void axpy(raft::device_resources const& handle,
+          raft::host_scalar_view<const ElementType, ScalarIdxType> alpha,
+          raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
+          raft::device_vector_view<ElementType, IndexType, OutLayoutPolicy> y)
+{
+  RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input");
+
+  axpy<ElementType, false>(handle,
+                           y.size(),
+                           alpha.data_handle(),
+                           x.data_handle(),
+                           x.stride(0),
+                           y.data_handle(),
+                           y.stride(0),
+                           handle.get_stream());
+}
+
+/** @} */  // end of group axpy
 
 }  // namespace raft::linalg
 

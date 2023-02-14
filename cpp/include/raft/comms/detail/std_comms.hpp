@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@
 #include <raft/comms/detail/ucp_helper.hpp>
 #include <raft/comms/detail/util.hpp>
 
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
 #include <cuda_runtime.h>
 
@@ -88,7 +88,7 @@ class std_comms : public comms_iface {
 
   /**
    * @brief constructor for collective-only operation
-   * @param nccl_comm initilized nccl communicator
+   * @param nccl_comm initialized nccl communicator
    * @param num_ranks size of the cluster
    * @param rank rank of the current worker
    * @param stream stream for ordering collective operations
@@ -266,7 +266,7 @@ class std_comms : public comms_iface {
         bool restart = false;  // resets the timeout when any progress was made
 
         // Causes UCP to progress through the send/recv message queue
-        while (ucp_handler_.ucp_progress(ucp_worker_) != 0) {
+        while (ucp_worker_progress(ucp_worker_) != 0) {
           restart = true;
         }
 
@@ -508,6 +508,10 @@ class std_comms : public comms_iface {
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
   }
+
+  void group_start() const { RAFT_NCCL_TRY(ncclGroupStart()); }
+
+  void group_end() const { RAFT_NCCL_TRY(ncclGroupEnd()); }
 
  private:
   ncclComm_t nccl_comm_;

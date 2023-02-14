@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,17 @@
 #pragma once
 
 #include <limits.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
+#include <raft/core/operators.cuh>
+#include <raft/core/operators.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/detail/coo_spmv.cuh>
-#include <raft/sparse/distance/detail/operators.cuh>
 #include <raft/sparse/linalg/transpose.cuh>
 #include <rmm/device_uvector.hpp>
 
@@ -63,8 +64,12 @@ class ip_distances_t : public distances_t<value_t> {
     /**
      * Compute pairwise distances and return dense matrix in row-major format
      */
-    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
-      out_distances, *config_, coo_rows_b.data(), Product(), Sum(), AtomicAdd());
+    balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(out_distances,
+                                                               *config_,
+                                                               coo_rows_b.data(),
+                                                               raft::mul_op(),
+                                                               raft::add_op(),
+                                                               raft::atomic_add_op());
   }
 
   value_idx* b_rows_coo() { return coo_rows_b.data(); }

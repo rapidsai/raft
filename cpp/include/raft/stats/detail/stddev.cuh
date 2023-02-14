@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <cub/cub.cuh>
 
@@ -63,7 +63,7 @@ __global__ void stddevKernelColMajor(
     thread_data += diff * diff;
   }
   Type acc = BlockReduce(temp_storage).Sum(thread_data);
-  if (threadIdx.x == 0) { std[blockIdx.x] = raft::mySqrt(acc / N); }
+  if (threadIdx.x == 0) { std[blockIdx.x] = raft::sqrt(acc / N); }
 }
 
 template <typename Type, typename IdxType, int TPB>
@@ -126,7 +126,7 @@ void stddev(Type* std,
       std,
       mu,
       D,
-      [ratio] __device__(Type a, Type b) { return raft::mySqrt(a * ratio - b * b); },
+      [ratio] __device__(Type a, Type b) { return raft::sqrt(a * ratio - b * b); },
       stream);
   } else {
     stddevKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(std, data, mu, D, N);

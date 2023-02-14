@@ -86,9 +86,9 @@ namespace _impl {
 template <class, class T>
 T&& _repeated_with(T&& v) noexcept { return std::forward<T>(v); }
 
-template <class T, class... Rest, class RNG, class Dist>
+template <class T, class SizeT, class... Rest, class RNG, class Dist>
 void _do_fill_random(
-  std::experimental::mdspan<T, std::experimental::extents<>, Rest...> s,
+  std::experimental::mdspan<T, std::experimental::extents<SizeT>, Rest...> s,
   RNG& gen,
   Dist& dist
 )
@@ -96,14 +96,14 @@ void _do_fill_random(
   s() = dist(gen);
 }
 
-template <class T, size_t E, size_t... Es, class... Rest, class RNG, class Dist>
+template <class T, class SizeT, size_t E, size_t... Es, class... Rest, class RNG, class Dist>
 void _do_fill_random(
-  std::experimental::mdspan<T, std::experimental::extents<E, Es...>, Rest...> s,
+  std::experimental::mdspan<T, std::experimental::extents<SizeT, E, Es...>, Rest...> s,
   RNG& gen,
   Dist& dist
 )
 {
-  for(size_t i = 0; i < s.extent(0); ++i) {
+  for(SizeT i = 0; i < s.extent(0); ++i) {
     _do_fill_random(std::experimental::submdspan(s, i, _repeated_with<decltype(Es)>(std::experimental::full_extent)...), gen, dist);
   }
 }
@@ -124,7 +124,7 @@ void fill_random(std::experimental::mdspan<T, E, Rest...> s, long long seed = 12
 
 #define MDSPAN_BENCHMARK_ALL_3D(bench_template, prefix, md_template, X, Y, Z) \
 BENCHMARK_CAPTURE( \
-  bench_template, prefix##fixed_##X##_##Y##_##Z, md_template<int, X, Y, Z>{} \
+  bench_template, prefix##fixed_##X##_##Y##_##Z, md_template<int, X, Y, Z>{nullptr} \
 ); \
 BENCHMARK_CAPTURE( \
   bench_template, prefix##dyn_##X##_##Y##_d##Z, md_template<int, X, Y, stdex::dynamic_extent>{}, Z \
@@ -150,7 +150,7 @@ BENCHMARK_CAPTURE( \
 
 #define MDSPAN_BENCHMARK_ALL_3D_MANUAL(bench_template, prefix, md_template, X, Y, Z) \
 BENCHMARK_CAPTURE( \
-  bench_template, prefix##fixed_##X##_##Y##_##Z, md_template<int, X, Y, Z>{} \
+  bench_template, prefix##fixed_##X##_##Y##_##Z, md_template<int, X, Y, Z>{nullptr} \
 )->UseManualTime(); \
 BENCHMARK_CAPTURE( \
   bench_template, prefix##dyn_##X##_##Y##_d##Z, md_template<int, X, Y, stdex::dynamic_extent>{}, Z \
@@ -176,7 +176,7 @@ BENCHMARK_CAPTURE( \
 
 #define MDSPAN_BENCHMARK_ALL_3D_REAL_TIME(bench_template, prefix, md_template, X, Y, Z) \
 BENCHMARK_CAPTURE( \
-  bench_template, prefix##fixed_##X##_##Y##_##Z, md_template<int, X, Y, Z>{} \
+  bench_template, prefix##fixed_##X##_##Y##_##Z, md_template<int, X, Y, Z>{nullptr} \
 )->UseRealTime(); \
 BENCHMARK_CAPTURE( \
   bench_template, prefix##dyn_##X##_##Y##_d##Z, md_template<int, X, Y, stdex::dynamic_extent>{}, Z \

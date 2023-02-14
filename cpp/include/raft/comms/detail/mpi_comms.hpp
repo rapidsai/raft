@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@
 
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/util.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/error.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/error.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
 
@@ -418,6 +418,10 @@ class mpi_comms : public comms_iface {
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
   }
+
+  void group_start() const { RAFT_NCCL_TRY(ncclGroupStart()); }
+
+  void group_end() const { RAFT_NCCL_TRY(ncclGroupEnd()); }
 
  private:
   bool owns_mpi_comm_;

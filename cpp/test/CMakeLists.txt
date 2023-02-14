@@ -1,25 +1,112 @@
-#=============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# =============================================================================
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License. You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#=============================================================================
+# Unless required by applicable law or agreed to in writing, software distributed under the License
+# is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+# or implied. See the License for the specific language governing permissions and limitations under
+# the License.
+# =============================================================================
 
-# keep the files in alphabetical order!
-add_executable(test_raft
-    test/common/logger.cpp
-    test/common/seive.cu
-    test/cudart_utils.cpp
-    test/cluster_solvers.cu
+# ##################################################################################################
+# * compiler function -----------------------------------------------------------------------------
+
+function(ConfigureTest)
+
+  set(options OPTIONAL DIST NN)
+  set(oneValueArgs NAME)
+  set(multiValueArgs PATH TARGETS CONFIGURATIONS)
+
+  cmake_parse_arguments(ConfigureTest "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+  set(TEST_NAME ${ConfigureTest_NAME})
+
+  add_executable(${TEST_NAME} ${ConfigureTest_PATH})
+
+  message("TEST PATH: ${ConfigureTest_PATH}")
+
+  target_link_libraries(
+    ${TEST_NAME}
+    PRIVATE raft::raft
+            raft_internal
+            $<$<BOOL:${ConfigureTest_DIST}>:raft::distance>
+            $<$<BOOL:${ConfigureTest_NN}>:raft::nn>
+            GTest::gtest
+            GTest::gtest_main
+            Threads::Threads
+            $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+            $<TARGET_NAME_IF_EXISTS:conda_env>
+  )
+
+  add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+
+  set_target_properties(
+    ${TEST_NAME}
+    PROPERTIES # set target compile options
+               INSTALL_RPATH "\$ORIGIN/../../../lib"
+               CXX_STANDARD 17
+               CXX_STANDARD_REQUIRED ON
+               CUDA_STANDARD 17
+               CUDA_STANDARD_REQUIRED ON
+  )
+
+  target_compile_options(
+    ${TEST_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+                         "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+  )
+
+  target_include_directories(${TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>")
+
+  install(
+    TARGETS ${TEST_NAME}
+    COMPONENT testing
+    DESTINATION bin/gtests/libraft
+    EXCLUDE_FROM_ALL
+  )
+endfunction()
+
+# ##################################################################################################
+# test sources ##################################################################################
+# ##################################################################################################
+
+# ##################################################################################################
+# * distance tests -------------------------------------------------------------------------
+
+if(BUILD_TESTS)
+  ConfigureTest(
+    NAME CLUSTER_TEST PATH test/cluster/kmeans.cu test/cluster/kmeans_balanced.cu
+    test/cluster/cluster_solvers.cu test/cluster/linkage.cu OPTIONAL DIST NN
+  )
+
+  ConfigureTest(
+    NAME
+    CORE_TEST
+    PATH
+    test/core/logger.cpp
+    test/core/math_device.cu
+    test/core/math_host.cpp
+    test/core/operators_device.cu
+    test/core/operators_host.cpp
+    test/core/handle.cpp
+    test/core/interruptible.cu
+    test/core/nvtx.cpp
+    test/core/mdarray.cu
+    test/core/mdspan_utils.cu
+    test/core/numpy_serializer.cu
+    test/core/memory_type.cpp
+    test/core/span.cpp
+    test/core/span.cu
+    test/test.cpp
+  )
+
+  ConfigureTest(
+    NAME
+    DISTANCE_TEST
+    PATH
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu
     test/distance/dist_chebyshev.cu
@@ -27,37 +114,48 @@ add_executable(test_raft
     test/distance/dist_cos.cu
     test/distance/dist_euc_exp.cu
     test/distance/dist_euc_unexp.cu
+    test/distance/dist_eucsqrt_exp.cu
     test/distance/dist_hamming.cu
     test/distance/dist_hellinger.cu
+    test/distance/dist_inner_product.cu
     test/distance/dist_jensen_shannon.cu
     test/distance/dist_kl_divergence.cu
     test/distance/dist_l1.cu
     test/distance/dist_minkowski.cu
     test/distance/dist_russell_rao.cu
+    test/distance/masked_nn.cu
+    test/distance/masked_nn_compress_to_bits.cu
     test/distance/fused_l2_nn.cu
-    test/eigen_solvers.cu
-    test/handle.cpp
-    test/integer_utils.cpp
-    test/interruptible.cu
-    test/nvtx.cpp
-    test/pow2_utils.cu
-    test/label/label.cu
-    test/label/merge_labels.cu
-    test/lap/lap.cu
+    test/distance/gram.cu
+    OPTIONAL
+    DIST
+  )
+
+  ConfigureTest(NAME LABEL_TEST PATH test/label/label.cu test/label/merge_labels.cu)
+
+  ConfigureTest(
+    NAME
+    LINALG_TEST
+    PATH
     test/linalg/add.cu
+    test/linalg/axpy.cu
     test/linalg/binary_op.cu
     test/linalg/cholesky_r1.cu
     test/linalg/coalesced_reduction.cu
     test/linalg/divide.cu
+    test/linalg/dot.cu
     test/linalg/eig.cu
     test/linalg/eig_sel.cu
     test/linalg/gemm_layout.cu
     test/linalg/gemv.cu
     test/linalg/map.cu
     test/linalg/map_then_reduce.cu
+    test/linalg/matrix_vector.cu
     test/linalg/matrix_vector_op.cu
+    test/linalg/mean_squared_error.cu
     test/linalg/multiply.cu
     test/linalg/norm.cu
+    test/linalg/normalize.cu
     test/linalg/power.cu
     test/linalg/reduce.cu
     test/linalg/reduce_cols_by_key.cu
@@ -70,49 +168,106 @@ add_executable(test_raft
     test/linalg/ternary_op.cu
     test/linalg/transpose.cu
     test/linalg/unary_op.cu
+  )
+
+  ConfigureTest(
+    NAME
+    MATRIX_TEST
+    PATH
+    test/matrix/argmax.cu
+    test/matrix/argmin.cu
+    test/matrix/columnSort.cu
+    test/matrix/diagonal.cu
+    test/matrix/gather.cu
+    test/matrix/linewise_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
-    test/matrix/columnSort.cu
-    test/matrix/linewise_op.cu
-    test/mdarray.cu
-    test/mdspan_utils.cu
-    test/mst.cu
+    test/matrix/norm.cu
+    test/matrix/reverse.cu
+    test/matrix/select_k.cu
+    test/matrix/slice.cu
+    test/matrix/triangular.cu
+    test/sparse/spectral_matrix.cu
+  )
+
+  ConfigureTest(
+    NAME
+    RANDOM_TEST
+    PATH
     test/random/make_blobs.cu
     test/random/make_regression.cu
     test/random/multi_variable_gaussian.cu
     test/random/permute.cu
     test/random/rng.cu
+    test/random/rng_discrete.cu
     test/random/rng_int.cu
+    test/random/rmat_rectangular_generator.cu
     test/random/sample_without_replacement.cu
-    test/span.cpp
-    test/span.cu
+  )
+
+  ConfigureTest(
+    NAME SOLVERS_TEST PATH test/cluster/cluster_solvers_deprecated.cu test/linalg/eigen_solvers.cu
+    test/lap/lap.cu test/sparse/mst.cu OPTIONAL DIST
+  )
+
+  ConfigureTest(
+    NAME
+    SPARSE_TEST
+    PATH
     test/sparse/add.cu
     test/sparse/convert_coo.cu
     test/sparse/convert_csr.cu
-    test/sparse/connect_components.cu
     test/sparse/csr_row_slice.cu
     test/sparse/csr_to_dense.cu
     test/sparse/csr_transpose.cu
     test/sparse/degree.cu
-    test/sparse/dist_coo_spmv.cu
-    test/sparse/distance.cu
     test/sparse/filter.cu
-    test/sparse/knn.cu
-    test/sparse/knn_graph.cu
-    test/sparse/linkage.cu
     test/sparse/norm.cu
     test/sparse/reduce.cu
     test/sparse/row_op.cu
     test/sparse/sort.cu
+    test/sparse/spgemmi.cu
     test/sparse/symmetrize.cu
-    test/spatial/knn.cu
-    test/spatial/fused_l2_knn.cu
-    test/spatial/haversine.cu
-    test/spatial/ball_cover.cu
-    test/spatial/epsilon_neighborhood.cu
-    test/spatial/faiss_mr.cu
-    test/spatial/selection.cu
-    test/spectral_matrix.cu
+  )
+
+  ConfigureTest(
+    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu OPTIONAL DIST
+    NN
+  )
+
+  ConfigureTest(
+    NAME SPARSE_NEIGHBORS_TEST PATH test/sparse/neighbors/connect_components.cu
+    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL DIST NN
+  )
+
+  ConfigureTest(
+    NAME
+    NEIGHBORS_TEST
+    PATH
+    test/neighbors/ann_ivf_flat/test_float_int64_t.cu
+    test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
+    test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_float_uint64_t.cu
+    test/neighbors/ann_ivf_pq/test_int8_t_uint64_t.cu
+    test/neighbors/ann_ivf_pq/test_uint8_t_uint64_t.cu
+    test/neighbors/knn.cu
+    test/neighbors/fused_l2_knn.cu
+    test/neighbors/haversine.cu
+    test/neighbors/ball_cover.cu
+    test/neighbors/epsilon_neighborhood.cu
+    test/neighbors/faiss_mr.cu
+    test/neighbors/refine.cu
+    test/neighbors/selection.cu
+    OPTIONAL
+    DIST
+    NN
+  )
+
+  ConfigureTest(
+    NAME
+    STATS_TEST
+    PATH
+    test/stats/accuracy.cu
     test/stats/adjusted_rand_index.cu
     test/stats/completeness_score.cu
     test/stats/contingencyMatrix.cu
@@ -128,52 +283,22 @@ add_executable(test_raft
     test/stats/mean_center.cu
     test/stats/minmax.cu
     test/stats/mutual_info_score.cu
+    test/stats/r2_score.cu
     test/stats/rand_index.cu
+    test/stats/regression_metrics.cu
     test/stats/silhouette_score.cu
     test/stats/stddev.cu
     test/stats/sum.cu
     test/stats/trustworthiness.cu
     test/stats/weighted_mean.cu
     test/stats/v_measure.cu
-    test/test.cpp
-)
+    OPTIONAL
+    DIST
+    NN
+  )
 
-set_target_properties(test_raft
-        PROPERTIES BUILD_RPATH                         "\$ORIGIN"
-        # set target compile options
-        CXX_STANDARD                        17
-        CXX_STANDARD_REQUIRED               ON
-        CUDA_STANDARD                       17
-        CUDA_STANDARD_REQUIRED              ON
-        POSITION_INDEPENDENT_CODE           ON
-        INTERFACE_POSITION_INDEPENDENT_CODE ON
-        INSTALL_RPATH "\$ORIGIN/../../../lib"
-        )
-
-target_compile_options(test_raft
-        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-        "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-        )
-
-target_include_directories(test_raft
-        PUBLIC  "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>"
-        )
-
-
-target_link_libraries(test_raft
-        PRIVATE
-        raft::raft
-        raft::distance
-        raft::nn
-        GTest::gtest
-        GTest::gtest_main
-        Threads::Threads
-        $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-        $<TARGET_NAME_IF_EXISTS:conda_env>)
-
-install(
-        TARGETS test_raft
-        COMPONENT testing
-        DESTINATION bin/libraft/gtests
-        EXCLUDE_FROM_ALL
-)
+  ConfigureTest(
+    NAME UTILS_TEST PATH test/core/seive.cu test/util/bitonic_sort.cu test/util/cudart_utils.cpp
+    test/util/device_atomics.cu test/util/integer_utils.cpp test/util/pow2_utils.cu
+  )
+endif()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@
 
 #include <cusparse_v2.h>
 
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/util/cudart_utils.hpp>
 
 #include <raft/sparse/distance/distance.cuh>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 namespace raft {
 namespace sparse {
@@ -129,7 +129,7 @@ class SparseDistanceTest
                   dist_config.handle.get_stream());
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
 
   // input data
   rmm::device_uvector<value_idx> indptr, indices;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,24 +30,19 @@ using size_type = int;  // for now; TODO: move it in appropriate header
 // specifies type of algorithm used
 // for SpMv:
 //
-using sparse_mv_alg_t = detail::sparse_mv_alg_t;
+using detail::sparse_mv_alg_t;
 
 // Vector "view"-like aggregate for linear algebra purposes
 //
-template <typename value_type>
-using vector_view_t = detail::vector_view_t<value_type>;
+using detail::vector_view_t;
 
-template <typename value_type>
-using vector_t = detail::vector_t<value_type>;
+using detail::vector_t;
 
-template <typename index_type, typename value_type>
-using sparse_matrix_t = detail::sparse_matrix_t<index_type, value_type>;
+using detail::sparse_matrix_t;
 
-template <typename index_type, typename value_type>
-using laplacian_matrix_t = detail::laplacian_matrix_t<index_type, value_type>;
+using detail::laplacian_matrix_t;
 
-template <typename index_type, typename value_type>
-using modularity_matrix_t = detail::modularity_matrix_t<index_type, value_type>;
+using detail::modularity_matrix_t;
 
 }  // namespace matrix
 }  // namespace spectral

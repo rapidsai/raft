@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,13 @@
 #pragma once
 
 #include "../silhouette_score.cuh"
-#include <raft/cuda_utils.cuh>
-#include <raft/device_atomics.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/device_atomics.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 #include <thrust/device_vector.h>
+#include <thrust/fill.h>
+#include <thrust/reduce.h>
 
 namespace raft {
 namespace stats {
@@ -109,8 +111,8 @@ __global__ void compute_chunked_a_b_kernel(value_t* a,
 }
 
 template <typename value_idx, typename label_idx>
-rmm::device_uvector<value_idx> get_cluster_counts(const raft::handle_t& handle,
-                                                  label_idx* y,
+rmm::device_uvector<value_idx> get_cluster_counts(raft::device_resources const& handle,
+                                                  const label_idx* y,
                                                   value_idx& n_rows,
                                                   label_idx& n_labels)
 {
@@ -126,9 +128,9 @@ rmm::device_uvector<value_idx> get_cluster_counts(const raft::handle_t& handle,
 }
 
 template <typename value_t, typename value_idx>
-rmm::device_uvector<value_t> get_pairwise_distance(const raft::handle_t& handle,
-                                                   value_t* left_begin,
-                                                   value_t* right_begin,
+rmm::device_uvector<value_t> get_pairwise_distance(raft::device_resources const& handle,
+                                                   const value_t* left_begin,
+                                                   const value_t* right_begin,
                                                    value_idx& n_left_rows,
                                                    value_idx& n_right_rows,
                                                    value_idx& n_cols,
@@ -144,7 +146,7 @@ rmm::device_uvector<value_t> get_pairwise_distance(const raft::handle_t& handle,
 }
 
 template <typename value_t, typename value_idx, typename label_idx>
-void compute_chunked_a_b(const raft::handle_t& handle,
+void compute_chunked_a_b(raft::device_resources const& handle,
                          value_t* a,
                          value_t* b,
                          value_idx& row_offset,
@@ -167,11 +169,11 @@ void compute_chunked_a_b(const raft::handle_t& handle,
 
 template <typename value_t, typename value_idx, typename label_idx>
 value_t silhouette_score(
-  const raft::handle_t& handle,
-  value_t* X,
+  raft::device_resources const& handle,
+  const value_t* X,
   value_idx n_rows,
   value_idx n_cols,
-  label_idx* y,
+  const label_idx* y,
   label_idx n_labels,
   value_t* scores,
   value_idx chunk,
@@ -219,8 +221,8 @@ value_t silhouette_score(
 
       auto chunk_stream = handle.get_next_usable_stream(i + chunk * j);
 
-      auto* left_begin  = X + (i * n_cols);
-      auto* right_begin = X + (j * n_cols);
+      const auto* left_begin  = X + (i * n_cols);
+      const auto* right_begin = X + (j * n_cols);
 
       auto n_left_rows  = (i + chunk) < n_rows ? chunk : (n_rows - i);
       auto n_right_rows = (j + chunk) < n_rows ? chunk : (n_rows - j);
@@ -247,19 +249,18 @@ value_t silhouette_score(
 
   // calculating row-wise minimum in b
   // this prim only supports int indices for now
-  raft::linalg::
-    reduce<value_t, value_t, value_idx, raft::Nop<value_t>, raft::stats::detail::MinOp<value_t>>(
-      b_ptr,
-      b_ptr,
-      n_labels,
-      n_rows,
-      std::numeric_limits<value_t>::max(),
-      true,
-      true,
-      stream,
-      false,
-      raft::Nop<value_t>(),
-      raft::stats::detail::MinOp<value_t>());
+  raft::linalg::reduce<value_t, value_t, value_idx, raft::identity_op, raft::min_op>(
+    b_ptr,
+    b_ptr,
+    n_labels,
+    n_rows,
+    std::numeric_limits<value_t>::max(),
+    true,
+    true,
+    stream,
+    false,
+    raft::identity_op(),
+    raft::min_op());
 
   // calculating the silhouette score per sample
   raft::linalg::binaryOp<value_t, raft::stats::detail::SilOp<value_t>, value_t, value_idx>(

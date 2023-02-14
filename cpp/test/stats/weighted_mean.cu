@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
+#include <cstdint>
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/weighted_mean.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
@@ -87,18 +89,30 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     thrust::host_vector<T> hexp(rows);
 
     // compute naive result & copy to GPU
-    naiveRowWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, true);
-    dexp = hexp;
+    naiveRowWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, params.row_major);
+    dexp        = hexp;
+    auto output = raft::make_device_vector_view<T, std::uint32_t>(dact.data().get(), rows);
+    auto weights =
+      raft::make_device_vector_view<const T, std::uint32_t>(dweights.data().get(), cols);
 
-    // compute result
-    rowWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(), cols, rows, stream);
+    if (params.row_major) {
+      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::row_major>(
+        din.data().get(), rows, cols);
+      // compute result
+      row_weighted_mean(handle, input, weights, output);
+    } else {
+      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
+        din.data().get(), rows, cols);
+      // compute result
+      row_weighted_mean(handle, input, weights, output);
+    }
 
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   WeightedMeanInputs<T> params;
   thrust::host_vector<T> hin, hweights;
   thrust::device_vector<T> din, dweights, dexp, dact;
@@ -150,18 +164,29 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     thrust::host_vector<T> hexp(cols);
 
     // compute naive result & copy to GPU
-    naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, true);
+    naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, params.row_major);
     dexp = hexp;
 
-    // compute result
-    colWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(), cols, rows, stream);
-
+    auto output = raft::make_device_vector_view<T, std::uint32_t>(dact.data().get(), cols);
+    auto weights =
+      raft::make_device_vector_view<const T, std::uint32_t>(dweights.data().get(), rows);
+    if (params.row_major) {
+      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::row_major>(
+        din.data().get(), rows, cols);
+      // compute result
+      col_weighted_mean(handle, input, weights, output);
+    } else {
+      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
+        din.data().get(), rows, cols);
+      // compute result
+      col_weighted_mean(handle, input, weights, output);
+    }
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.M;
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   WeightedMeanInputs<T> params;
   thrust::host_vector<T> hin, hweights;
   thrust::device_vector<T> din, dweights, dexp, dact;
@@ -200,22 +225,26 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
       naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols, params.row_major);
     dexp = hexp;
 
-    // compute result
-    weightedMean(dact.data().get(),
-                 din.data().get(),
-                 dweights.data().get(),
-                 cols,
-                 rows,
-                 params.row_major,
-                 params.along_rows,
-                 stream);
-
+    auto output = raft::make_device_vector_view<T, std::uint32_t>(dact.data().get(), mean_size);
+    auto weights =
+      raft::make_device_vector_view<const T, std::uint32_t>(dweights.data().get(), weight_size);
+    if (params.row_major) {
+      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::row_major>(
+        din.data().get(), rows, cols);
+      // compute result
+      weighted_mean(handle, input, weights, output, params.along_rows);
+    } else {
+      auto input = raft::make_device_matrix_view<const T, std::uint32_t, raft::col_major>(
+        din.data().get(), rows, cols);
+      // compute result
+      weighted_mean(handle, input, weights, output, params.along_rows);
+    }
     // adjust tolerance to account for round-off accumulation
     params.tolerance *= params.N;
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   WeightedMeanInputs<T> params;
   thrust::host_vector<T> hin, hweights;
   thrust::device_vector<T> din, dweights, dexp, dact;
@@ -226,6 +255,10 @@ static const float tolF  = 128 * std::numeric_limits<float>::epsilon();
 static const double tolD = 256 * std::numeric_limits<double>::epsilon();
 
 const std::vector<WeightedMeanInputs<float>> inputsf = {{tolF, 4, 4, 1234, true, true},
+                                                        {tolF, 32, 32, 1234, true, false},
+                                                        {tolF, 32, 64, 1234, false, false},
+                                                        {tolF, 32, 256, 1234, true, true},
+                                                        {tolF, 32, 256, 1234, false, false},
                                                         {tolF, 1024, 32, 1234, true, false},
                                                         {tolF, 1024, 64, 1234, true, true},
                                                         {tolF, 1024, 128, 1234, true, false},
@@ -236,6 +269,10 @@ const std::vector<WeightedMeanInputs<float>> inputsf = {{tolF, 4, 4, 1234, true,
                                                         {tolF, 1024, 256, 1234, false, true}};
 
 const std::vector<WeightedMeanInputs<double>> inputsd = {{tolD, 4, 4, 1234, true, true},
+                                                         {tolD, 32, 32, 1234, true, false},
+                                                         {tolD, 32, 64, 1234, false, false},
+                                                         {tolD, 32, 256, 1234, true, true},
+                                                         {tolD, 32, 256, 1234, false, false},
                                                          {tolD, 1024, 32, 1234, true, false},
                                                          {tolD, 1024, 64, 1234, true, true},
                                                          {tolD, 1024, 128, 1234, true, false},
@@ -280,16 +317,20 @@ INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestD, ::testing::Va
 using WeightedMeanTestF = WeightedMeanTest<float>;
 TEST_P(WeightedMeanTestF, Result)
 {
+  auto mean_size = params.along_rows ? params.M : params.N;
   ASSERT_TRUE(devArrMatch(
-    dexp.data().get(), dact.data().get(), params.N, raft::CompareApprox<float>(params.tolerance)));
+    dexp.data().get(), dact.data().get(), mean_size, raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(WeightedMeanTest, WeightedMeanTestF, ::testing::ValuesIn(inputsf));
 
 using WeightedMeanTestD = WeightedMeanTest<double>;
 TEST_P(WeightedMeanTestD, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    dexp.data().get(), dact.data().get(), params.N, raft::CompareApprox<double>(params.tolerance)));
+  auto mean_size = params.along_rows ? params.M : params.N;
+  ASSERT_TRUE(devArrMatch(dexp.data().get(),
+                          dact.data().get(),
+                          mean_size,
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(WeightedMeanTest, WeightedMeanTestD, ::testing::ValuesIn(inputsd));
 

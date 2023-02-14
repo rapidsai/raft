@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
 #include <raft/stats/homogeneity_score.cuh>
 #include <raft/stats/v_measure.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random>
 
 namespace raft {
@@ -65,7 +65,7 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
 
     // allocating and initializing memory to the GPU
 
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    stream = handle.get_stream();
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
     raft::update_device(truthClusterArray.data(), &arr1[0], (int)nElements, stream);
@@ -93,19 +93,17 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
       truthVMeasure = ((1 + params.beta) * truthHomogeity * truthCompleteness /
                        (params.beta * truthHomogeity + truthCompleteness));
     // calling the v_measure CUDA implementation
-    computedVMeasure = raft::stats::v_measure(truthClusterArray.data(),
-                                              predClusterArray.data(),
-                                              nElements,
-                                              lowerLabelRange,
-                                              upperLabelRange,
-                                              stream,
-                                              params.beta);
+    computedVMeasure = raft::stats::v_measure(
+      handle,
+      raft::make_device_vector_view<const T>(truthClusterArray.data(), nElements),
+      raft::make_device_vector_view<const T>(predClusterArray.data(), nElements),
+      lowerLabelRange,
+      upperLabelRange,
+      params.beta);
   }
 
-  // the destructor
-  void TearDown() override { RAFT_CUDA_TRY(cudaStreamDestroy(stream)); }
-
   // declaring the data values
+  raft::device_resources handle;
   vMeasureParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements           = 0;

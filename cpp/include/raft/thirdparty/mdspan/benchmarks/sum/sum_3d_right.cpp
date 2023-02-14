@@ -51,10 +51,12 @@
 
 //================================================================================
 
+using index_type = int;
+
 template <class T, size_t... Es>
-using lmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_left>;
+using lmdspan = stdex::mdspan<T, stdex::extents<int, Es...>, stdex::layout_left>;
 template <class T, size_t... Es>
-using rmdspan = stdex::mdspan<T, stdex::extents<Es...>, stdex::layout_right>;
+using rmdspan = stdex::mdspan<T, stdex::extents<int, Es...>, stdex::layout_right>;
 
 //================================================================================
 
@@ -71,11 +73,11 @@ void BM_MDSpan_Sum_3D_right(benchmark::State& state, MDSpan, DynSizes... dyn) {
 
   for (auto _ : state) {
     benchmark::DoNotOptimize(s);
-    benchmark::DoNotOptimize(s.data());
+    benchmark::DoNotOptimize(s.data_handle());
     value_type sum = 0;
-    for(size_t i = 0; i < s.extent(0); ++i) {
-      for (size_t j = 0; j < s.extent(1); ++j) {
-        for (size_t k = 0; k < s.extent(2); ++k) {
+    for(index_type i = 0; i < s.extent(0); ++i) {
+      for (index_type j = 0; j < s.extent(1); ++j) {
+        for (index_type k = 0; k < s.extent(2); ++k) {
           sum += s(i, j, k);
         }
       }

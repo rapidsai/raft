@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,9 @@
 
 #include "unary_op.cuh"
 #include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <type_traits>
 
 namespace raft {
@@ -107,9 +108,9 @@ __global__ void stridedReductionKernel(OutType* dots,
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void stridedReduction(OutType* dots,
                       const InType* data,
                       IdxType D,
@@ -117,15 +118,13 @@ void stridedReduction(OutType* dots,
                       OutType init,
                       cudaStream_t stream,
                       bool inplace           = false,
-                      MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                      ReduceLambda reduce_op = raft::Sum<OutType>(),
-                      FinalLambda final_op   = raft::Nop<OutType>())
+                      MainLambda main_op     = raft::identity_op(),
+                      ReduceLambda reduce_op = raft::add_op(),
+                      FinalLambda final_op   = raft::identity_op())
 {
   ///@todo: this extra should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
-  if (!inplace)
-    raft::linalg::unaryOp(
-      dots, dots, D, [init] __device__(OutType a) { return init; }, stream);
+  if (!inplace) raft::linalg::unaryOp(dots, dots, D, raft::const_op(init), stream);
 
   // Arbitrary numbers for now, probably need to tune
   const dim3 thrds(32, 16);
@@ -137,7 +136,7 @@ void stridedReduction(OutType* dots,
 
   ///@todo: this complication should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
-  if constexpr (std::is_same<ReduceLambda, raft::Sum<OutType>>::value &&
+  if constexpr (std::is_same<ReduceLambda, raft::add_op>::value &&
                 std::is_same<InType, OutType>::value)
     stridedSummationKernel<InType>
       <<<nblks, thrds, shmemSize, stream>>>(dots, data, D, N, init, main_op);
@@ -148,7 +147,7 @@ void stridedReduction(OutType* dots,
   ///@todo: this complication should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
   // Perform final op on output data
-  if (!std::is_same<FinalLambda, raft::Nop<OutType>>::value)
+  if (!std::is_same<FinalLambda, raft::identity_op>::value)
     raft::linalg::unaryOp(dots, dots, D, final_op, stream);
 }
 

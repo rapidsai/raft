@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 
 #include <cooperative_groups.h>
 #include <memory>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/vectorized.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/vectorized.cuh>
 
 namespace raft::random {
 namespace detail {
@@ -35,7 +35,7 @@ __global__ void permuteKernel(
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
   // having shuffled input indices and coalesced output indices appears
-  // to be preferrable to the reverse, especially for column major
+  // to be preferable to the reverse, especially for column major
   IntType inIdx  = ((a * int64_t(tid)) + b) % N;
   IntType outIdx = tid;
 

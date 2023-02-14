@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,39 +28,74 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
+/**
+ * @brief Calculate the QR decomposition and get matrix Q in place of the input.
+ *
+ * Subject to the algorithm constraint `n_rows >= n_cols`.
+ *
+ * @param handle
+ * @param[inout] Q device pointer to input matrix and the output matrix Q,
+ *                 both column-major and of size [n_rows, n_cols].
+ * @param n_rows
+ * @param n_cols
+ * @param stream
+ */
 template <typename math_t>
-void qrGetQ(const raft::handle_t& handle,
+void qrGetQ_inplace(
+  raft::device_resources const& handle, math_t* Q, int n_rows, int n_cols, cudaStream_t stream)
+{
+  RAFT_EXPECTS(n_rows >= n_cols, "QR decomposition expects n_rows >= n_cols.");
+  cusolverDnHandle_t cusolver = handle.get_cusolver_dn_handle();
+
+  rmm::device_uvector<math_t> tau(n_cols, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * n_cols, stream));
+
+  rmm::device_scalar<int> dev_info(stream);
+  int ws_size;
+
+  RAFT_CUSOLVER_TRY(cusolverDngeqrf_bufferSize(cusolver, n_rows, n_cols, Q, n_rows, &ws_size));
+  rmm::device_uvector<math_t> workspace(ws_size, stream);
+  RAFT_CUSOLVER_TRY(cusolverDngeqrf(cusolver,
+                                    n_rows,
+                                    n_cols,
+                                    Q,
+                                    n_rows,
+                                    tau.data(),
+                                    workspace.data(),
+                                    ws_size,
+                                    dev_info.data(),
+                                    stream));
+
+  RAFT_CUSOLVER_TRY(
+    cusolverDnorgqr_bufferSize(cusolver, n_rows, n_cols, n_cols, Q, n_rows, tau.data(), &ws_size));
+  workspace.resize(ws_size, stream);
+  RAFT_CUSOLVER_TRY(cusolverDnorgqr(cusolver,
+                                    n_rows,
+                                    n_cols,
+                                    n_cols,
+                                    Q,
+                                    n_rows,
+                                    tau.data(),
+                                    workspace.data(),
+                                    ws_size,
+                                    dev_info.data(),
+                                    stream));
+}
+
+template <typename math_t>
+void qrGetQ(raft::device_resources const& handle,
             const math_t* M,
             math_t* Q,
             int n_rows,
             int n_cols,
             cudaStream_t stream)
 {
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
-
-  int m = n_rows, n = n_cols;
-  int k = std::min(m, n);
-  RAFT_CUDA_TRY(cudaMemcpyAsync(Q, M, sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
-
-  rmm::device_uvector<math_t> tau(k, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * k, stream));
-
-  rmm::device_scalar<int> devInfo(stream);
-  int Lwork;
-
-  RAFT_CUSOLVER_TRY(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
-  rmm::device_uvector<math_t> workspace(Lwork, stream);
-  RAFT_CUSOLVER_TRY(cusolverDngeqrf(
-    cusolverH, m, n, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
-
-  RAFT_CUSOLVER_TRY(cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
-  workspace.resize(Lwork, stream);
-  RAFT_CUSOLVER_TRY(cusolverDnorgqr(
-    cusolverH, m, n, k, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
+  raft::copy(Q, M, n_rows * n_cols, stream);
+  qrGetQ_inplace(handle, Q, n_rows, n_cols, stream);
 }
 
 template <typename math_t>
-void qrGetQR(const raft::handle_t& handle,
+void qrGetQR(raft::device_resources const& handle,
              math_t* M,
              math_t* Q,
              math_t* R,

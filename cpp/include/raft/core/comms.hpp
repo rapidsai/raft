@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,18 @@
 
 #pragma once
 
+#include <cuda_runtime.h>
 #include <memory>
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 #include <vector>
 
 namespace raft {
 namespace comms {
+
+/**
+ * @defgroup comms_types Common mnmg comms types
+ * @{
+ */
 
 typedef unsigned int request_t;
 enum class datatype_t { CHAR, UINT8, INT32, UINT32, INT64, UINT64, FLOAT32, FLOAT64 };
@@ -32,7 +38,7 @@ enum class op_t { SUM, PROD, MIN, MAX };
  */
 enum class status_t {
   SUCCESS,  // Synchronization successful
-  ERROR,    // An error occured querying sync status
+  ERROR,    // An error occurred querying sync status
   ABORT     // A failure occurred in sync, queued operations aborted
 };
 
@@ -104,6 +110,15 @@ get_type<double>()
 {
   return datatype_t::FLOAT64;
 }
+
+/**
+ * @}
+ */
+
+/**
+ * @defgroup comms_iface MNMG Communicator Interface
+ * @{
+ */
 
 class comms_iface {
  public:
@@ -209,7 +224,20 @@ class comms_iface {
                                          std::vector<size_t> const& recvoffsets,
                                          std::vector<int> const& sources,
                                          cudaStream_t stream) const = 0;
+
+  virtual void group_start() const = 0;
+
+  virtual void group_end() const = 0;
 };
+
+/**
+ * @}
+ */
+
+/**
+ * @defgroup comms_t Base Communicator Proxy
+ * @{
+ */
 
 class comms_t {
  public:
@@ -625,9 +653,27 @@ class comms_t {
                                      stream);
   }
 
+  /**
+   * Multiple collectives & device send/receive operations placed between group_start() and
+   * group_end() are merged into one big operation. Internally, this function is a wrapper for
+   * ncclGroupStart().
+   */
+  void group_start() const { impl_->group_start(); }
+
+  /**
+   * Multiple collectives & device send/receive operations placed between group_start() and
+   * group_end() are merged into one big operation. Internally, this function is a wrapper for
+   * ncclGroupEnd().
+   */
+  void group_end() const { impl_->group_end(); }
+
  private:
   std::unique_ptr<comms_iface> impl_;
 };
+
+/**
+ * @}
+ */
 
 }  // namespace comms
 }  // namespace raft

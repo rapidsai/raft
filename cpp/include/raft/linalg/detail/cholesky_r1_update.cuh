@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/binary_op.cuh>
 
 namespace raft {
@@ -26,7 +26,7 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void choleskyRank1Update(const raft::handle_t& handle,
+void choleskyRank1Update(raft::device_resources const& handle,
                          math_t* L,
                          int n,
                          int ld,
@@ -44,7 +44,7 @@ void choleskyRank1Update(const raft::handle_t& handle,
   // - A_21[j] = A_12.T[j] = A_new[j] j=0..n-2, vector with (n-1) elements
   // - A_22 = A_new[n-1] scalar.
   //
-  // Instead of caclulating the Cholelsky decomposition of A' from scratch,
+  // Instead of calculating the Cholelsky decomposition of A' from scratch,
   // we just update L with the new row. The new Cholesky decomposition will be
   // calculated as:
   // L' = [[L_11,    0]
@@ -114,7 +114,7 @@ void choleskyRank1Update(const raft::handle_t& handle,
   handle.sync_stream(stream);
   L_22_host = std::sqrt(L_22_host - s_host);
 
-  // Check for numeric error with sqrt. If the matrix is not positive definit or
+  // Check for numeric error with sqrt. If the matrix is not positive definite or
   // the system is very ill conditioned then the A_22 - L_12 * L_12 can be
   // negative, which would result L_22 = NaN. A small positive eps parameter
   // can be used to prevent this.

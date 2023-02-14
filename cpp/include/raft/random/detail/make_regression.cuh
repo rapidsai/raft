@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,7 @@
 
 #include <algorithm>
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/init.cuh>
@@ -32,6 +31,7 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft::random {
@@ -44,15 +44,15 @@ static __global__ void _singular_profile_kernel(DataT* out, IdxT n, DataT tail_s
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
     DataT sval     = static_cast<DataT>(tid) / rank;
-    DataT low_rank = ((DataT)1.0 - tail_strength) * raft::myExp(-sval * sval);
-    DataT tail     = tail_strength * raft::myExp((DataT)-0.1 * sval);
+    DataT low_rank = ((DataT)1.0 - tail_strength) * raft::exp(-sval * sval);
+    DataT tail     = tail_strength * raft::exp((DataT)-0.1 * sval);
     out[tid]       = low_rank + tail;
   }
 }
 
 /* Internal auxiliary function to generate a low-rank matrix */
 template <typename DataT, typename IdxT>
-static void _make_low_rank_matrix(const raft::handle_t& handle,
+static void _make_low_rank_matrix(raft::device_resources const& handle,
                                   DataT* out,
                                   IdxT n_rows,
                                   IdxT n_cols,
@@ -143,7 +143,7 @@ static __global__ void _gather2d_kernel(
 }
 
 template <typename DataT, typename IdxT>
-void make_regression_caller(const raft::handle_t& handle,
+void make_regression_caller(raft::device_resources const& handle,
                             DataT* out,
                             DataT* values,
                             IdxT n_rows,
@@ -158,7 +158,7 @@ void make_regression_caller(const raft::handle_t& handle,
                             DataT noise                      = (DataT)0.0,
                             bool shuffle                     = true,
                             uint64_t seed                    = 0ULL,
-                            raft::random::GeneratorType type = raft::random::GenPhilox)
+                            raft::random::GeneratorType type = raft::random::GenPC)
 {
   n_informative = std::min(n_informative, n_cols);
 

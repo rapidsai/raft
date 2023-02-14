@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/detail/spectral_util.cuh>
 #include <raft/spectral/eigen_solvers.cuh>
+#include <raft/spectral/matrix_wrappers.hpp>
 
 namespace raft {
 namespace spectral {
@@ -62,7 +63,7 @@ namespace detail {
  */
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> partition(
-  handle_t const& handle,
+  raft::device_resources const& handle,
   spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
@@ -91,7 +92,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
 
   // Initialize Laplacian
   /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
+  spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
 
   auto eigen_config = eigen_solver.get_config();
   auto nEigVecs     = eigen_config.n_eigVecs;
@@ -130,7 +131,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
  *  @return error flag.
  */
 template <typename vertex_t, typename weight_t>
-void analyzePartition(handle_t const& handle,
+void analyzePartition(raft::device_resources const& handle,
                       spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                       vertex_t nClusters,
                       const vertex_t* __restrict__ clusters,
@@ -148,8 +149,8 @@ void analyzePartition(handle_t const& handle,
   weight_t partEdgesCut, clustersize;
 
   // Device memory
-  vector_t<weight_t> part_i(handle, n);
-  vector_t<weight_t> Lx(handle, n);
+  spectral::matrix::vector_t<weight_t> part_i(handle, n);
+  spectral::matrix::vector_t<weight_t> Lx(handle, n);
 
   // Initialize cuBLAS
   RAFT_CUBLAS_TRY(
@@ -157,7 +158,7 @@ void analyzePartition(handle_t const& handle,
 
   // Initialize Laplacian
   /// sparse_matrix_t<vertex_t, weight_t> A{handle, graph};
-  laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
+  spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> L{handle, csr_m};
 
   // Initialize output
   cost    = 0;

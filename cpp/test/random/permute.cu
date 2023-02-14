@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <vector>
 
 namespace raft {
@@ -40,6 +40,9 @@ template <typename T>
 
 template <typename T>
 class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
+ public:
+  using test_data_type = T;
+
  protected:
   PermTest()
     : in(0, handle.get_stream()), out(0, handle.get_stream()), outPerms(0, handle.get_stream())
@@ -72,7 +75,90 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
+  PermInputs<T> params;
+  rmm::device_uvector<T> in, out;
+  T* in_ptr  = nullptr;
+  T* out_ptr = nullptr;
+  rmm::device_uvector<int> outPerms;
+  int* outPerms_ptr = nullptr;
+};
+
+template <typename T>
+class PermMdspanTest : public ::testing::TestWithParam<PermInputs<T>> {
+ public:
+  using test_data_type = T;
+
+ protected:
+  PermMdspanTest()
+    : in(0, handle.get_stream()), out(0, handle.get_stream()), outPerms(0, handle.get_stream())
+  {
+  }
+
+ private:
+  using index_type = int;
+
+  template <class ElementType, class Layout>
+  using matrix_view_t = raft::device_matrix_view<ElementType, index_type, Layout>;
+
+  template <class ElementType>
+  using vector_view_t = raft::device_vector_view<ElementType, index_type>;
+
+ protected:
+  void SetUp() override
+  {
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<PermInputs<T>>::GetParam();
+    // forcefully set needPerms, since we need it for unit-testing!
+    if (params.needShuffle) { params.needPerms = true; }
+    raft::random::RngState r(params.seed);
+    int N   = params.N;
+    int D   = params.D;
+    int len = N * D;
+    if (params.needPerms) {
+      outPerms.resize(N, stream);
+      outPerms_ptr = outPerms.data();
+    }
+    if (params.needShuffle) {
+      in.resize(len, stream);
+      out.resize(len, stream);
+      in_ptr  = in.data();
+      out_ptr = out.data();
+      uniform(handle, r, in_ptr, len, T(-1.0), T(1.0));
+    }
+
+    auto set_up_views_and_test = [&](auto layout) {
+      using layout_type = std::decay_t<decltype(layout)>;
+
+      matrix_view_t<const T, layout_type> in_view(in_ptr, N, D);
+      std::optional<matrix_view_t<T, layout_type>> out_view;
+      if (out_ptr != nullptr) { out_view.emplace(out_ptr, N, D); }
+      std::optional<vector_view_t<index_type>> outPerms_view;
+      if (outPerms_ptr != nullptr) { outPerms_view.emplace(outPerms_ptr, N); }
+
+      permute(handle, in_view, outPerms_view, out_view);
+
+      // None of these three permute calls should have an effect.
+      // The point is to test whether the function can deduce the
+      // element type of outPerms if given nullopt.
+      std::optional<matrix_view_t<T, layout_type>> out_view_empty;
+      std::optional<vector_view_t<index_type>> outPerms_view_empty;
+      permute(handle, in_view, std::nullopt, out_view_empty);
+      permute(handle, in_view, outPerms_view_empty, std::nullopt);
+      permute(handle, in_view, std::nullopt, std::nullopt);
+    };
+
+    if (params.rowMajor) {
+      set_up_views_and_test(raft::row_major{});
+    } else {
+      set_up_views_and_test(raft::col_major{});
+    }
+
+    handle.sync_stream();
+  }
+
+ protected:
+  raft::device_resources handle;
   PermInputs<T> params;
   rmm::device_uvector<T> in, out;
   T* in_ptr  = nullptr;
@@ -169,18 +255,37 @@ const std::vector<PermInputs<float>> inputsf = {
   {100000, 32, true, true, false, 1234567890ULL},
   {100001, 33, true, true, false, 1234567890ULL}};
 
-typedef PermTest<float> PermTestF;
+#define _PERMTEST_BODY(DATA_TYPE)                                                     \
+  do {                                                                                \
+    if (params.needPerms) {                                                           \
+      ASSERT_TRUE(devArrMatchRange(outPerms_ptr, params.N, 0, raft::Compare<int>())); \
+    }                                                                                 \
+    if (params.needShuffle) {                                                         \
+      ASSERT_TRUE(devArrMatchShuffle(outPerms_ptr,                                    \
+                                     out_ptr,                                         \
+                                     in_ptr,                                          \
+                                     params.D,                                        \
+                                     params.N,                                        \
+                                     params.rowMajor,                                 \
+                                     raft::Compare<DATA_TYPE>()));                    \
+    }                                                                                 \
+  } while (false)
+
+using PermTestF = PermTest<float>;
 TEST_P(PermTestF, Result)
 {
-  if (params.needPerms) {
-    ASSERT_TRUE(devArrMatchRange(outPerms_ptr, params.N, 0, raft::Compare<int>()));
-  }
-  if (params.needShuffle) {
-    ASSERT_TRUE(devArrMatchShuffle(
-      outPerms_ptr, out_ptr, in_ptr, params.D, params.N, params.rowMajor, raft::Compare<float>()));
-  }
+  using test_data_type = PermTestF::test_data_type;
+  _PERMTEST_BODY(test_data_type);
 }
 INSTANTIATE_TEST_CASE_P(PermTests, PermTestF, ::testing::ValuesIn(inputsf));
+
+using PermMdspanTestF = PermMdspanTest<float>;
+TEST_P(PermMdspanTestF, Result)
+{
+  using test_data_type = PermTestF::test_data_type;
+  _PERMTEST_BODY(test_data_type);
+}
+INSTANTIATE_TEST_CASE_P(PermMdspanTests, PermMdspanTestF, ::testing::ValuesIn(inputsf));
 
 const std::vector<PermInputs<double>> inputsd = {
   // only generate permutations
@@ -219,18 +324,22 @@ const std::vector<PermInputs<double>> inputsd = {
   {100000, 32, true, true, false, 1234ULL},
   {100000, 32, true, true, false, 1234567890ULL},
   {100001, 33, true, true, false, 1234567890ULL}};
-typedef PermTest<double> PermTestD;
+
+using PermTestD = PermTest<double>;
 TEST_P(PermTestD, Result)
 {
-  if (params.needPerms) {
-    ASSERT_TRUE(devArrMatchRange(outPerms_ptr, params.N, 0, raft::Compare<int>()));
-  }
-  if (params.needShuffle) {
-    ASSERT_TRUE(devArrMatchShuffle(
-      outPerms_ptr, out_ptr, in_ptr, params.D, params.N, params.rowMajor, raft::Compare<double>()));
-  }
+  using test_data_type = PermTestF::test_data_type;
+  _PERMTEST_BODY(test_data_type);
 }
 INSTANTIATE_TEST_CASE_P(PermTests, PermTestD, ::testing::ValuesIn(inputsd));
+
+using PermMdspanTestD = PermMdspanTest<double>;
+TEST_P(PermMdspanTestD, Result)
+{
+  using test_data_type = PermTestF::test_data_type;
+  _PERMTEST_BODY(test_data_type);
+}
+INSTANTIATE_TEST_CASE_P(PermMdspanTests, PermMdspanTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace random
 }  // end namespace raft

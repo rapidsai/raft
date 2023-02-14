@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,20 +18,21 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/detail/distance.cuh>
-#include <raft/distance/distance_type.hpp>
-#include <raft/handle.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <raft/mdarray.hpp>
-
-/**
- * @defgroup pairwise_distance pairwise distance prims
- * @{
- */
+#include <raft/core/device_mdspan.hpp>
 
 namespace raft {
 namespace distance {
+
+/**
+ * @defgroup pairwise_distance pointer-based pairwise distance prims
+ * @{
+ */
 
 /**
  * @brief Evaluate pairwise distances with the user epilogue lamba allowed
@@ -50,7 +51,6 @@ namespace distance {
  * @param workspace temporary workspace needed for computations
  * @param worksize number of bytes of the workspace
  * @param fin_op the final gemm epilogue lambda
- * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
  * @param metric_arg metric argument (used for Minkowski distance)
  *
@@ -65,7 +65,8 @@ template <raft::distance::DistanceType distanceType,
           typename OutType,
           typename FinalLambda,
           typename Index_ = int>
-void distance(const InType* x,
+void distance(raft::resources const& handle,
+              const InType* x,
               const InType* y,
               OutType* dist,
               Index_ m,
@@ -74,12 +75,11 @@ void distance(const InType* x,
               void* workspace,
               size_t worksize,
               FinalLambda fin_op,
-              cudaStream_t stream,
               bool isRowMajor   = true,
               InType metric_arg = 2.0f)
 {
   detail::distance<distanceType, InType, AccType, OutType, FinalLambda, Index_>(
-    x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor, metric_arg);
+    handle, x, y, dist, m, n, k, workspace, worksize, fin_op, isRowMajor, metric_arg);
 }
 
 /**
@@ -97,7 +97,6 @@ void distance(const InType* x,
  * @param k dimensionality
  * @param workspace temporary workspace needed for computations
  * @param worksize number of bytes of the workspace
- * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
  * @param metric_arg metric argument (used for Minkowski distance)
  *
@@ -109,7 +108,8 @@ template <raft::distance::DistanceType distanceType,
           typename AccType,
           typename OutType,
           typename Index_ = int>
-void distance(const InType* x,
+void distance(raft::resources const& handle,
+              const InType* x,
               const InType* y,
               OutType* dist,
               Index_ m,
@@ -117,12 +117,11 @@ void distance(const InType* x,
               Index_ k,
               void* workspace,
               size_t worksize,
-              cudaStream_t stream,
               bool isRowMajor   = true,
               InType metric_arg = 2.0f)
 {
   detail::distance<distanceType, InType, AccType, OutType, Index_>(
-    x, y, dist, m, n, k, workspace, worksize, stream, isRowMajor, metric_arg);
+    handle, x, y, dist, m, n, k, workspace, worksize, isRowMajor, metric_arg);
 }
 
 /**
@@ -193,7 +192,6 @@ size_t getWorkspaceSize(const raft::device_matrix_view<InType, layout> x,
  * @param m number of points in x
  * @param n number of points in y
  * @param k dimensionality
- * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
  * @param metric_arg metric argument (used for Minkowski distance)
  */
@@ -202,73 +200,22 @@ template <raft::distance::DistanceType distanceType,
           typename AccType,
           typename OutType,
           typename Index_ = int>
-void distance(const InType* x,
+void distance(raft::resources const& handle,
+              const InType* x,
               const InType* y,
               OutType* dist,
               Index_ m,
               Index_ n,
               Index_ k,
-              cudaStream_t stream,
               bool isRowMajor   = true,
               InType metric_arg = 2.0f)
 {
+  auto stream = raft::resource::get_cuda_stream(handle);
   rmm::device_uvector<char> workspace(0, stream);
   auto worksize = getWorkspaceSize<distanceType, InType, AccType, OutType, Index_>(x, y, m, n, k);
   workspace.resize(worksize, stream);
   detail::distance<distanceType, InType, AccType, OutType, Index_>(
-    x, y, dist, m, n, k, workspace.data(), worksize, stream, isRowMajor, metric_arg);
-}
-
-/**
- * @brief Evaluate pairwise distances for the simple use case.
- *
- * Note: Only contiguous row- or column-major layouts supported currently.
- *
- * @tparam DistanceType which distance to evaluate
- * @tparam InType input argument type
- * @tparam AccType accumulation type
- * @tparam OutType output type
- * @tparam Index_ Index type
- * @param handle raft handle for managing expensive resources
- * @param x first set of points (size n*k)
- * @param y second set of points (size m*k)
- * @param dist output distance matrix (size n*m)
- * @param metric_arg metric argument (used for Minkowski distance)
- */
-template <raft::distance::DistanceType distanceType,
-          typename InType,
-          typename AccType,
-          typename OutType,
-          typename Index_ = int,
-          typename layout = raft::layout_c_contiguous>
-void distance(raft::handle_t const& handle,
-              raft::device_matrix_view<InType, layout> const x,
-              raft::device_matrix_view<InType, layout> const y,
-              raft::device_matrix_view<OutType, layout> dist,
-              InType metric_arg = 2.0f)
-{
-  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
-  RAFT_EXPECTS(dist.extent(0) == x.extent(0),
-               "Number of rows in output must be equal to "
-               "number of rows in X");
-  RAFT_EXPECTS(dist.extent(1) == y.extent(0),
-               "Number of columns in output must be equal to "
-               "number of rows in Y");
-
-  RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
-  RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
-
-  constexpr auto is_rowmajor = std::is_same_v<layout, layout_c_contiguous>;
-
-  distance<distanceType, InType, AccType, OutType, Index_>(x.data(),
-                                                           y.data(),
-                                                           dist.data(),
-                                                           x.extent(0),
-                                                           y.extent(0),
-                                                           x.extent(1),
-                                                           handle.get_stream(),
-                                                           is_rowmajor,
-                                                           metric_arg);
+    handle, x, y, dist, m, n, k, workspace.data(), worksize, isRowMajor, metric_arg);
 }
 
 /**
@@ -290,7 +237,7 @@ void distance(raft::handle_t const& handle,
  * @param metric_arg metric argument (used for Minkowski distance)
  */
 template <typename Type, typename Index_ = int>
-void pairwise_distance(const raft::handle_t& handle,
+void pairwise_distance(raft::resources const& handle,
                        const Type* x,
                        const Type* y,
                        Type* dist,
@@ -305,64 +252,68 @@ void pairwise_distance(const raft::handle_t& handle,
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L2Expanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtExpanded:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L2SqrtExpanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::CosineExpanded:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::CosineExpanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::L1:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L1>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::L2Unexpanded:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L2Unexpanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L2SqrtUnexpanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::Linf:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::Linf>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::HellingerExpanded:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::HellingerExpanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::LpUnexpanded:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::LpUnexpanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor, metric_arg);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor, metric_arg);
       break;
     case raft::distance::DistanceType::Canberra:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::Canberra>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::HammingUnexpanded:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::HammingUnexpanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::JensenShannon:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::JensenShannon>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::RusselRaoExpanded:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::RusselRaoExpanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::KLDivergence:
       detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::KLDivergence>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     case raft::distance::DistanceType::CorrelationExpanded:
       detail::
         pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::CorrelationExpanded>(
-          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+          handle, x, y, dist, m, n, k, workspace, isRowMajor);
+      break;
+    case raft::distance::DistanceType::InnerProduct:
+      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::InnerProduct>(
+        handle, x, y, dist, m, n, k, workspace, isRowMajor);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };
@@ -385,7 +336,7 @@ void pairwise_distance(const raft::handle_t& handle,
  * @param metric_arg metric argument (used for Minkowski distance)
  */
 template <typename Type, typename Index_ = int>
-void pairwise_distance(const raft::handle_t& handle,
+void pairwise_distance(raft::resources const& handle,
                        const Type* x,
                        const Type* y,
                        Type* dist,
@@ -396,9 +347,89 @@ void pairwise_distance(const raft::handle_t& handle,
                        bool isRowMajor = true,
                        Type metric_arg = 2.0f)
 {
-  rmm::device_uvector<char> workspace(0, handle.get_stream());
+  auto stream = raft::resource::get_cuda_stream(handle);
+  rmm::device_uvector<char> workspace(0, stream);
   pairwise_distance<Type, Index_>(
     handle, x, y, dist, m, n, k, workspace, metric, isRowMajor, metric_arg);
+}
+
+/** @} */
+
+/**
+ * \defgroup distance_mdspan Pairwise distance functions
+ * @{
+ */
+
+/**
+ * @brief Evaluate pairwise distances for the simple use case.
+ *
+ * Note: Only contiguous row- or column-major layouts supported currently.
+ *
+ * Usage example:
+ * @code{.cpp}
+ * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/device_mdarray.hpp>
+ * #include <raft/random/make_blobs.cuh>
+ * #include <raft/distance/distance.cuh>
+ *
+ * raft::raft::device_resources handle;
+ * int n_samples = 5000;
+ * int n_features = 50;
+ *
+ * auto input = raft::make_device_matrix<float>(handle, n_samples, n_features);
+ * auto labels = raft::make_device_vector<int>(handle, n_samples);
+ * auto output = raft::make_device_matrix<float>(handle, n_samples, n_samples);
+ *
+ * raft::random::make_blobs(handle, input.view(), labels.view());
+ * auto metric = raft::distance::DistanceType::L2SqrtExpanded;
+ * raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
+ * @endcode
+ *
+ * @tparam DistanceType which distance to evaluate
+ * @tparam InType input argument type
+ * @tparam AccType accumulation type
+ * @tparam OutType output type
+ * @tparam Index_ Index type
+ * @param handle raft handle for managing expensive resources
+ * @param x first set of points (size n*k)
+ * @param y second set of points (size m*k)
+ * @param dist output distance matrix (size n*m)
+ * @param metric_arg metric argument (used for Minkowski distance)
+ */
+template <raft::distance::DistanceType distanceType,
+          typename InType,
+          typename AccType,
+          typename OutType,
+          typename layout = raft::layout_c_contiguous,
+          typename Index_ = int>
+void distance(raft::resources const& handle,
+              raft::device_matrix_view<InType, Index_, layout> const x,
+              raft::device_matrix_view<InType, Index_, layout> const y,
+              raft::device_matrix_view<OutType, Index_, layout> dist,
+              InType metric_arg = 2.0f)
+{
+  RAFT_EXPECTS(x.extent(1) == y.extent(1), "Number of columns must be equal.");
+  RAFT_EXPECTS(dist.extent(0) == x.extent(0),
+               "Number of rows in output must be equal to "
+               "number of rows in X");
+  RAFT_EXPECTS(dist.extent(1) == y.extent(0),
+               "Number of columns in output must be equal to "
+               "number of rows in Y");
+
+  RAFT_EXPECTS(x.is_exhaustive(), "Input x must be contiguous.");
+  RAFT_EXPECTS(y.is_exhaustive(), "Input y must be contiguous.");
+
+  constexpr auto is_rowmajor = std::is_same_v<layout, layout_c_contiguous>;
+
+  distance<distanceType, InType, AccType, OutType, Index_>(handle,
+                                                           x.data_handle(),
+                                                           y.data_handle(),
+                                                           dist.data_handle(),
+                                                           x.extent(0),
+                                                           y.extent(0),
+                                                           x.extent(1),
+                                                           is_rowmajor,
+                                                           metric_arg);
 }
 
 /**
@@ -413,11 +444,11 @@ void pairwise_distance(const raft::handle_t& handle,
  * @param metric distance metric
  * @param metric_arg metric argument (used for Minkowski distance)
  */
-template <typename Type, typename Index_ = int, typename layout = layout_c_contiguous>
-void pairwise_distance(raft::handle_t const& handle,
-                       device_matrix_view<Type, layout> const x,
-                       device_matrix_view<Type, layout> const y,
-                       device_matrix_view<Type, layout> dist,
+template <typename Type, typename layout = layout_c_contiguous, typename Index_ = int>
+void pairwise_distance(raft::resources const& handle,
+                       device_matrix_view<Type, Index_, layout> const x,
+                       device_matrix_view<Type, Index_, layout> const y,
+                       device_matrix_view<Type, Index_, layout> dist,
                        raft::distance::DistanceType metric,
                        Type metric_arg = 2.0f)
 {
@@ -429,18 +460,19 @@ void pairwise_distance(raft::handle_t const& handle,
                "Number of columns in output must be equal to "
                "number of rows in Y");
 
-  RAFT_EXPECTS(x.is_contiguous(), "Input x must be contiguous.");
-  RAFT_EXPECTS(y.is_contiguous(), "Input y must be contiguous.");
-  RAFT_EXPECTS(dist.is_contiguous(), "Output must be contiguous.");
+  RAFT_EXPECTS(x.is_exhaustive(), "Input x must be contiguous.");
+  RAFT_EXPECTS(y.is_exhaustive(), "Input y must be contiguous.");
+  RAFT_EXPECTS(dist.is_exhaustive(), "Output must be contiguous.");
 
   constexpr auto rowmajor = std::is_same_v<layout, layout_c_contiguous>;
 
-  rmm::device_uvector<char> workspace(0, handle.get_stream());
+  auto stream = raft::resource::get_cuda_stream(handle);
+  rmm::device_uvector<char> workspace(0, stream);
 
   pairwise_distance(handle,
-                    x.data(),
-                    y.data(),
-                    dist.data(),
+                    x.data_handle(),
+                    y.data_handle(),
+                    dist.data_handle(),
                     x.extent(0),
                     y.extent(0),
                     x.extent(1),
@@ -449,9 +481,9 @@ void pairwise_distance(raft::handle_t const& handle,
                     metric_arg);
 }
 
+/** @} */
+
 };  // namespace distance
 };  // namespace raft
-
-/** @} */
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "binary_op.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -29,11 +30,17 @@ namespace linalg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename InType, typename IdxType, typename OutType>
-void binaryOpLaunch(
-  OutType* out, const InType* in1, const InType* in2, IdxType len, cudaStream_t stream)
+void binaryOpLaunch(const raft::device_resources& handle,
+                    OutType* out,
+                    const InType* in1,
+                    const InType* in2,
+                    IdxType len)
 {
-  binaryOp(
-    out, in1, in2, len, [] __device__(InType a, InType b) { return a + b; }, stream);
+  auto out_view = raft::make_device_vector_view(out, len);
+  auto in1_view = raft::make_device_vector_view(in1, len);
+  auto in2_view = raft::make_device_vector_view(in2, len);
+
+  binary_op(handle, in1_view, in2_view, out_view, raft::add_op{});
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
@@ -57,12 +64,12 @@ class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxT
     uniform(handle, r, in1.data(), len, InType(-1.0), InType(1.0));
     uniform(handle, r, in2.data(), len, InType(-1.0), InType(1.0));
     naiveAdd(out_ref.data(), in1.data(), in2.data(), len);
-    binaryOpLaunch(out.data(), in1.data(), in2.data(), len, stream);
+    binaryOpLaunch(handle, out.data(), in1.data(), in2.data(), len);
     handle.sync_stream(stream);
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   BinaryOpInputs<InType, IdxType, OutType> params;
@@ -135,15 +142,10 @@ class BinaryOpAlignment : public ::testing::Test {
     RAFT_CUDA_TRY(cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), stream));
     raft::linalg::binaryOp(
-      z.data() + 9,
-      x.data() + 137,
-      y.data() + 19,
-      256,
-      [] __device__(math_t x, math_t y) { return x + y; },
-      handle.get_stream());
+      z.data() + 9, x.data() + 137, y.data() + 19, 256, raft::add_op{}, handle.get_stream());
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
 };
 typedef ::testing::Types<float, double> FloatTypes;
 TYPED_TEST_CASE(BinaryOpAlignment, FloatTypes);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
-#include <raft/vectorized.cuh>
+#include <raft/core/device_resources.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/vectorized.cuh>
 
 namespace raft {
 namespace linalg {
@@ -48,12 +48,13 @@ __device__ void reduce(OutType* out, const InType acc, ReduceLambda op)
 
 template <typename InType,
           typename OutType,
+          typename IdxType,
           typename MapOp,
           typename ReduceLambda,
           int TPB,
           typename... Args>
 __global__ void mapThenReduceKernel(OutType* out,
-                                    size_t len,
+                                    IdxType len,
                                     OutType neutral,
                                     MapOp map,
                                     ReduceLambda op,
@@ -72,12 +73,13 @@ __global__ void mapThenReduceKernel(OutType* out,
 
 template <typename InType,
           typename OutType,
+          typename IdxType,
           typename MapOp,
           typename ReduceLambda,
           int TPB,
           typename... Args>
 void mapThenReduceImpl(OutType* out,
-                       size_t len,
+                       IdxType len,
                        OutType neutral,
                        MapOp map,
                        ReduceLambda op,
@@ -86,8 +88,8 @@ void mapThenReduceImpl(OutType* out,
                        Args... args)
 {
   raft::update_device(out, &neutral, 1, stream);
-  const int nblks = raft::ceildiv(len, (size_t)TPB);
-  mapThenReduceKernel<InType, OutType, MapOp, ReduceLambda, TPB, Args...>
+  const int nblks = raft::ceildiv(len, IdxType(TPB));
+  mapThenReduceKernel<InType, OutType, IdxType, MapOp, ReduceLambda, TPB, Args...>
     <<<nblks, TPB, 0, stream>>>(out, len, neutral, map, op, in, args...);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/detail/reduce.cuh>
 
@@ -34,7 +34,7 @@ namespace op {
  *
  * Note that this function always marks the first value as 0 so that
  * a cumulative sum can be performed as a follow-on. However, even
- * if the mask is used direclty, any duplicates should always have a
+ * if the mask is used directly, any duplicates should always have a
  * 1 when first encountered so it can be assumed that the first element
  * is always a 1 otherwise.
  *
@@ -69,7 +69,7 @@ void compute_duplicates_mask(
  * @param[in] n number of columns in COO input matrix
  */
 template <typename value_idx, typename value_t>
-void max_duplicates(const raft::handle_t& handle,
+void max_duplicates(raft::device_resources const& handle,
                     raft::sparse::COO<value_t, value_idx>& out,
                     const value_idx* rows,
                     const value_idx* cols,

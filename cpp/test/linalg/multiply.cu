@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/multiply.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -44,12 +44,15 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
     int len = params.len;
     uniform(handle, r, in.data(), len, T(-1.0), T(1.0));
     naiveScale(out_ref.data(), in.data(), params.scalar, len, stream);
-    multiplyScalar(out.data(), in.data(), params.scalar, len, stream);
+    auto out_view    = raft::make_device_vector_view(out.data(), len);
+    auto in_view     = raft::make_device_vector_view<const T>(in.data(), len);
+    auto scalar_view = raft::make_host_scalar_view<const T>(&params.scalar);
+    multiply_scalar(handle, in_view, out_view, scalar_view);
     handle.sync_stream(stream);
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   UnaryOpInputs<T> params;

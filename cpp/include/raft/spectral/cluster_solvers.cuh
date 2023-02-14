@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ struct kmeans_solver_t {
   {
   }
 
-  std::pair<value_type_t, index_type_t> solve(handle_t const& handle,
+  std::pair<value_type_t, index_type_t> solve(raft::device_resources const& handle,
                                               size_type_t n_obs_vecs,
                                               size_type_t dim,
                                               value_type_t const* __restrict__ obs,
@@ -57,18 +57,30 @@ struct kmeans_solver_t {
     RAFT_EXPECTS(codes != nullptr, "Null codes buffer.");
     value_type_t residual{};
     index_type_t iters{};
+    raft::cluster::KMeansParams km_params;
+    km_params.n_clusters     = config_.n_clusters;
+    km_params.tol            = config_.tol;
+    km_params.max_iter       = config_.maxIter;
+    km_params.rng_state.seed = config_.seed;
 
-    raft::cluster::kmeans(handle,
-                          n_obs_vecs,
-                          dim,
-                          config_.n_clusters,
-                          config_.tol,
-                          config_.maxIter,
-                          obs,
-                          codes,
-                          residual,
-                          iters,
-                          config_.seed);
+    auto X      = raft::make_device_matrix_view<const value_type_t>(obs, n_obs_vecs, dim);
+    auto labels = raft::make_device_vector_view<index_type_t>(codes, n_obs_vecs);
+    auto centroids =
+      raft::make_device_matrix<value_type_t, index_type_t>(handle, config_.n_clusters, dim);
+    auto weight = raft::make_device_vector<value_type_t, index_type_t>(handle, n_obs_vecs);
+    thrust::fill(
+      handle.get_thrust_policy(), weight.data_handle(), weight.data_handle() + n_obs_vecs, 1);
+
+    auto sw = std::make_optional((raft::device_vector_view<const value_type_t>)weight.view());
+    raft::cluster::kmeans_fit_predict<value_type_t, index_type_t>(
+      handle,
+      km_params,
+      X,
+      sw,
+      centroids.view(),
+      labels,
+      raft::make_host_scalar_view(&residual),
+      raft::make_host_scalar_view(&iters));
     return std::make_pair(residual, iters);
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,18 @@
 
 #pragma once
 
-#include "functional.cuh"
+#include <raft/core/host_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/unary_op.cuh>
 
 namespace raft {
 namespace linalg {
 namespace detail {
 
-template <typename math_t, typename IdxType = int>
-void divideScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+template <typename InT, typename OutT = InT, typename IdxType = int>
+void divideScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, divides_scalar<math_t>(scalar), stream);
+  raft::linalg::unaryOp(out, in, len, raft::div_const_op<InT>(scalar), stream);
 }
 
 };  // end namespace detail

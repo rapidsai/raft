@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/rsvd.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <algorithm>
@@ -64,7 +64,7 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
 
   void SetUp() override
   {
-    raft::handle_t handle;
+    raft::device_resources handle;
     stream = handle.get_stream();
 
     params = ::testing::TestWithParam<RsvdInputs<T>>::GetParam();
@@ -124,41 +124,29 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     RAFT_CUDA_TRY(cudaMemsetAsync(S.data(), 0, S.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(V.data(), 0, V.size() * sizeof(T), stream));
 
+    auto A_view = raft::make_device_matrix_view<const T, int, raft::col_major>(A.data(), m, n);
+    std::optional<raft::device_matrix_view<T, int, raft::col_major>> U_view =
+      raft::make_device_matrix_view<T, int, raft::col_major>(U.data(), m, params.k);
+    std::optional<raft::device_matrix_view<T, int, raft::col_major>> V_view =
+      raft::make_device_matrix_view<T, int, raft::col_major>(V.data(), params.k, n);
+    auto S_vec_view = raft::make_device_vector_view(S.data(), params.k);
+
     // RSVD tests
     if (params.k == 0) {  // Test with PC and upsampling ratio
-      rsvdPerc(handle,
-               A.data(),
-               m,
-               n,
-               S.data(),
-               U.data(),
-               V.data(),
-               params.PC_perc,
-               params.UpS_perc,
-               params.use_bbt,
-               true,
-               true,
-               false,
-               eig_svd_tol,
-               max_sweeps,
-               stream);
+      if (params.use_bbt) {
+        rsvd_perc_symmetric(
+          handle, A_view, S_vec_view, params.PC_perc, params.UpS_perc, U_view, V_view);
+      } else {
+        rsvd_perc(handle, A_view, S_vec_view, params.PC_perc, params.UpS_perc, U_view, V_view);
+      }
     } else {  // Test with directly given fixed rank
-      rsvdFixedRank(handle,
-                    A.data(),
-                    m,
-                    n,
-                    S.data(),
-                    U.data(),
-                    V.data(),
-                    params.k,
-                    params.p,
-                    params.use_bbt,
-                    true,
-                    true,
-                    true,
-                    eig_svd_tol,
-                    max_sweeps,
-                    stream);
+      if (params.use_bbt) {
+        rsvd_fixed_rank_symmetric_jacobi(
+          handle, A_view, S_vec_view, params.p, eig_svd_tol, max_sweeps, U_view, V_view);
+      } else {
+        rsvd_fixed_rank_jacobi(
+          handle, A_view, S_vec_view, params.p, eig_svd_tol, max_sweeps, U_view, V_view);
+      }
     }
     raft::update_device(A.data(), A_backup_cpu.data(), m * n, stream);
   }
@@ -284,7 +272,7 @@ TEST_P(RsvdSanityCheckRightVecD, Result)
 typedef RsvdTest<float> RsvdTestSquareMatrixNormF;
 TEST_P(RsvdTestSquareMatrixNormF, Result)
 {
-  raft::handle_t handle;
+  raft::device_resources handle;
 
   ASSERT_TRUE(raft::linalg::evaluateSVDByL2Norm(handle,
                                                 A.data(),
@@ -301,7 +289,7 @@ TEST_P(RsvdTestSquareMatrixNormF, Result)
 typedef RsvdTest<double> RsvdTestSquareMatrixNormD;
 TEST_P(RsvdTestSquareMatrixNormD, Result)
 {
-  raft::handle_t handle;
+  raft::device_resources handle;
 
   ASSERT_TRUE(raft::linalg::evaluateSVDByL2Norm(handle,
                                                 A.data(),

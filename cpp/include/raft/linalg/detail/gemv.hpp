@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,14 +20,14 @@
 
 #include "cublas_wrappers.hpp"
 
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 namespace raft {
 namespace linalg {
 namespace detail {
 
 template <typename math_t, bool DevicePointerMode = false>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const bool trans_a,
           const int m,
           const int n,
@@ -59,7 +59,7 @@ void gemv(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const math_t* A,
           const int n_rows,
           const int n_cols,
@@ -76,7 +76,7 @@ void gemv(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -91,7 +91,7 @@ void gemv(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -107,7 +107,7 @@ void gemv(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -126,7 +126,7 @@ void gemv(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,

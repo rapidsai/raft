@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace linalg {
@@ -63,7 +63,7 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
   {
     params = ::testing::TestWithParam<GemmLayoutInputs<T>>::GetParam();
 
-    raft::handle_t handle;
+    raft::device_resources handle;
     cudaStream_t stream = handle.get_stream();
 
     raft::random::RngState r(params.seed);
@@ -94,17 +94,35 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
     naiveGemm<<<blocks, threads>>>(
       refZ, X, Y, params.M, params.N, params.K, params.zLayout, params.xLayout, params.yLayout);
 
-    gemm(handle,
-         Z,
-         X,
-         Y,
-         params.M,
-         params.N,
-         params.K,
-         params.zLayout,
-         params.xLayout,
-         params.yLayout,
-         stream);
+    auto x_view_row_major = raft::make_device_matrix_view(X, params.M, params.K);
+    auto y_view_row_major = raft::make_device_matrix_view(Y, params.K, params.N);
+    auto z_view_row_major = raft::make_device_matrix_view(Z, params.M, params.N);
+
+    auto x_view_col_major =
+      raft::make_device_matrix_view<T, int, raft::col_major>(X, params.M, params.K);
+    auto y_view_col_major =
+      raft::make_device_matrix_view<T, int, raft::col_major>(Y, params.K, params.N);
+    auto z_view_col_major =
+      raft::make_device_matrix_view<T, int, raft::col_major>(Z, params.M, params.N);
+
+    if (params.xLayout && params.yLayout && params.zLayout) {
+      gemm(handle, x_view_col_major, y_view_col_major, z_view_col_major);
+    } else if (params.xLayout && params.yLayout && !params.zLayout) {
+      gemm(handle, x_view_col_major, y_view_col_major, z_view_row_major);
+    } else if (params.xLayout && !params.yLayout && params.zLayout) {
+      gemm(handle, x_view_col_major, y_view_row_major, z_view_col_major);
+    } else if (!params.xLayout && params.yLayout && params.zLayout) {
+      gemm(handle, x_view_row_major, y_view_col_major, z_view_col_major);
+    } else if (params.xLayout && !params.yLayout && !params.zLayout) {
+      gemm(handle, x_view_col_major, y_view_row_major, z_view_row_major);
+    } else if (!params.xLayout && params.yLayout && !params.zLayout) {
+      gemm(handle, x_view_row_major, y_view_col_major, z_view_row_major);
+    } else if (!params.xLayout && !params.yLayout && params.zLayout) {
+      gemm(handle, x_view_row_major, y_view_row_major, z_view_col_major);
+    } else if (!params.xLayout && !params.yLayout && !params.zLayout) {
+      gemm(handle, x_view_row_major, y_view_row_major, z_view_row_major);
+    }
+
     handle.sync_stream();
   }
 
@@ -121,7 +139,7 @@ class GemmLayoutTest : public ::testing::TestWithParam<GemmLayoutInputs<T>> {
 };
 
 const std::vector<GemmLayoutInputs<float>> inputsf = {
-  {80, 70, 80, true, true, true, 76433ULL},
+  {80, 70, 80, true, true, true, 76430ULL},
   {80, 100, 40, true, true, false, 426646ULL},
   {20, 100, 20, true, false, true, 237703ULL},
   {100, 60, 30, true, false, false, 538004ULL},

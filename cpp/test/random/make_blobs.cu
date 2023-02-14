@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/mdarray.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace random {
@@ -80,8 +80,8 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   MakeBlobsTest()
     : params(::testing::TestWithParam<MakeBlobsInputs<T>>::GetParam()),
       stream(handle.get_stream()),
-      mu_vec(make_device_matrix<T, layout>(handle, params.n_clusters, params.cols)),
-      mean_var(make_device_vector<T>(handle, 2 * params.n_clusters * params.cols))
+      mu_vec(make_device_matrix<T, int, layout>(handle, params.n_clusters, params.cols)),
+      mean_var(make_device_vector<T, int>(handle, 2 * params.n_clusters * params.cols))
   {
   }
 
@@ -94,16 +94,16 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     auto len  = params.rows * params.cols;
     raft::random::RngState r(params.seed, params.gtype);
 
-    auto data   = make_device_matrix<T, layout>(handle, params.rows, params.cols);
-    auto labels = make_device_vector<int>(handle, params.rows);
-    auto stats  = make_device_vector<T>(handle, 2 * params.n_clusters * params.cols);
-    auto lens   = make_device_vector<int>(handle, params.n_clusters);
+    auto data   = make_device_matrix<T, int, layout>(handle, params.rows, params.cols);
+    auto labels = make_device_vector<int, int>(handle, params.rows);
+    auto stats  = make_device_vector<T, int>(handle, 2 * params.n_clusters * params.cols);
+    auto lens   = make_device_vector<int, int>(handle, params.n_clusters);
 
-    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data(), 0, stats.extent(0) * sizeof(T), stream));
-    RAFT_CUDA_TRY(cudaMemsetAsync(lens.data(), 0, lens.extent(0) * sizeof(int), stream));
-    RAFT_CUDA_TRY(cudaMemsetAsync(mean_var.data(), 0, mean_var.size() * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(stats.data_handle(), 0, stats.extent(0) * sizeof(T), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(lens.data_handle(), 0, lens.extent(0) * sizeof(int), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(mean_var.data_handle(), 0, mean_var.size() * sizeof(T), stream));
 
-    uniform(handle, r, mu_vec.data(), params.cols * params.n_clusters, T(-10.0), T(10.0));
+    uniform(handle, r, mu_vec.data_handle(), params.cols * params.n_clusters, T(-10.0), T(10.0));
 
     make_blobs<T, int, layout>(handle,
                                data.view(),
@@ -120,34 +120,39 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
 
     bool row_major           = std::is_same<layout, raft::layout_c_contiguous>::value;
     static const int threads = 128;
-    meanKernel<T><<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data(),
-                                                                       lens.data(),
-                                                                       data.data(),
-                                                                       labels.data(),
+    meanKernel<T><<<raft::ceildiv(len, threads), threads, 0, stream>>>(stats.data_handle(),
+                                                                       lens.data_handle(),
+                                                                       data.data_handle(),
+                                                                       labels.data_handle(),
                                                                        params.rows,
                                                                        params.cols,
                                                                        params.n_clusters,
                                                                        row_major);
     int len1 = params.n_clusters * params.cols;
-    compute_mean_var<T><<<raft::ceildiv(len1, threads), threads, 0, stream>>>(
-      mean_var.data(), stats.data(), lens.data(), params.n_clusters, params.cols, row_major);
+    compute_mean_var<T>
+      <<<raft::ceildiv(len1, threads), threads, 0, stream>>>(mean_var.data_handle(),
+                                                             stats.data_handle(),
+                                                             lens.data_handle(),
+                                                             params.n_clusters,
+                                                             params.cols,
+                                                             row_major);
   }
 
   void check()
   {
     int len      = params.n_clusters * params.cols;
     auto compare = raft::CompareApprox<T>(num_sigma * params.tolerance);
-    ASSERT_TRUE(raft::devArrMatch(mu_vec.data(), mean_var.data(), len, compare));
-    ASSERT_TRUE(raft::devArrMatch(params.std, mean_var.data() + len, len, compare));
+    ASSERT_TRUE(raft::devArrMatch(mu_vec.data_handle(), mean_var.data_handle(), len, compare));
+    ASSERT_TRUE(raft::devArrMatch(params.std, mean_var.data_handle() + len, len, compare));
   }
 
  protected:
+  raft::device_resources handle;
   MakeBlobsInputs<T> params;
-  raft::handle_t handle;
   cudaStream_t stream = 0;
 
-  device_vector<T> mean_var;
-  device_matrix<T, layout> mu_vec;
+  device_vector<T, int> mean_var;
+  device_matrix<T, int, layout> mu_vec;
   int num_sigma;
 };
 

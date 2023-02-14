@@ -1,0 +1,79 @@
+/*
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include <raft/core/device_mdspan.hpp>
+#include <raft/matrix/detail/matrix.cuh>
+
+namespace raft::matrix {
+
+/**
+ * @defgroup matrix_slice Matrix slicing
+ * @{
+ */
+
+template <typename idx_t>
+struct slice_coordinates {
+  idx_t row1;  ///< row coordinate of the top-left point of the wanted area (0-based)
+  idx_t col1;  ///< column coordinate of the top-left point of the wanted area (0-based)
+  idx_t row2;  ///< row coordinate of the bottom-right point of the wanted area (1-based)
+  idx_t col2;  ///< column coordinate of the bottom-right point of the wanted area (1-based)
+
+  slice_coordinates(idx_t row1_, idx_t col1_, idx_t row2_, idx_t col2_)
+    : row1(row1_), col1(col1_), row2(row2_), col2(col2_)
+  {
+  }
+};
+
+/**
+ * @brief Slice a matrix (in-place)
+ * @tparam m_t type of matrix elements
+ * @tparam idx_t integer type used for indexing
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix (column-major)
+ * @param[out] out: output matrix (column-major)
+ * @param[in] coords: coordinates of the wanted slice
+ * example: Slice the 2nd and 3rd columns of a 4x3 matrix: slice(handle, in, out, {0, 1, 4, 3});
+ */
+template <typename m_t, typename idx_t>
+void slice(raft::device_resources const& handle,
+           raft::device_matrix_view<const m_t, idx_t, col_major> in,
+           raft::device_matrix_view<m_t, idx_t, col_major> out,
+           slice_coordinates<idx_t> coords)
+{
+  RAFT_EXPECTS(coords.row2 > coords.row1, "row2 must be > row1");
+  RAFT_EXPECTS(coords.col2 > coords.col1, "col2 must be > col1");
+  RAFT_EXPECTS(coords.row1 >= 0, "row1 must be >= 0");
+  RAFT_EXPECTS(coords.row2 <= in.extent(0), "row2 must be <= number of rows in the input matrix");
+  RAFT_EXPECTS(coords.col1 >= 0, "col1 must be >= 0");
+  RAFT_EXPECTS(coords.col2 <= in.extent(1),
+               "col2 must be <= number of columns in the input matrix");
+
+  detail::sliceMatrix(in.data_handle(),
+                      in.extent(0),
+                      in.extent(1),
+                      out.data_handle(),
+                      coords.row1,
+                      coords.col1,
+                      coords.row2,
+                      coords.col2,
+                      handle.get_stream());
+}
+
+/** @} */  // end group matrix_slice
+
+}  // namespace raft::matrix

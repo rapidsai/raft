@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 # This file helps to compute a version number in source trees obtained from
 # git-archive tarball (such as those provided by githubs download-from-tag
 # feature). Distribution tarballs (built by setup.py sdist) and build
@@ -70,7 +70,7 @@ def register_vcs_handler(vcs, method):  # decorator
 
 
 def run_command(
-        commands, args, cwd=None, verbose=False, hide_stderr=False, env=None
+    commands, args, cwd=None, verbose=False, hide_stderr=False, env=None
 ):
     """Call the given command(s)."""
     assert isinstance(commands, list)
@@ -85,7 +85,7 @@ def run_command(
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=(subprocess.PIPE if hide_stderr else None),
-                )
+            )
             break
         except EnvironmentError:
             e = sys.exc_info()[1]
@@ -123,7 +123,7 @@ def versions_from_parentdir(parentdir_prefix, root, verbose):
         dirname = os.path.basename(root)
         if dirname.startswith(parentdir_prefix):
             return {
-                "version": dirname[len(parentdir_prefix):],
+                "version": dirname[len(parentdir_prefix) :],
                 "full-revisionid": None,
                 "dirty": False,
                 "error": None,
@@ -193,7 +193,7 @@ def git_versions_from_keywords(keywords, tag_prefix, verbose):
     # starting in git-1.8.3, tags are listed as "tag: foo-1.0" instead of
     # just "foo-1.0". If we see a "tag: " prefix, prefer those.
     TAG = "tag: "
-    tags = set([r[len(TAG):] for r in refs if r.startswith(TAG)])
+    tags = set([r[len(TAG) :] for r in refs if r.startswith(TAG)])
     if not tags:
         # Either we're using git < 1.8.3, or there really are no tags. We use
         # a heuristic: assume all version tags have a digit. The old git %d
@@ -210,7 +210,7 @@ def git_versions_from_keywords(keywords, tag_prefix, verbose):
     for ref in sorted(tags):
         # sorting will prefer e.g. "2.0" over "2.0rc1"
         if ref.startswith(tag_prefix):
-            r = ref[len(tag_prefix):]
+            r = ref[len(tag_prefix) :]
             if verbose:
                 print("picking %s" % r)
             return {
@@ -264,7 +264,7 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
             "--long",
             "--match",
             "%s*" % tag_prefix,
-            ],
+        ],
         cwd=root,
     )
     # --long was added in git-1.5.5
@@ -299,7 +299,7 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
         if not mo:
             # unparseable. Maybe git-describe is misbehaving?
             pieces["error"] = (
-                    "unable to parse git-describe output: '%s'" % describe_out
+                "unable to parse git-describe output: '%s'" % describe_out
             )
             return pieces
 
@@ -314,7 +314,7 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
                 tag_prefix,
             )
             return pieces
-        pieces["closest-tag"] = full_tag[len(tag_prefix):]
+        pieces["closest-tag"] = full_tag[len(tag_prefix) :]
 
         # distance: number of commits since tag
         pieces["distance"] = int(mo.group(2))

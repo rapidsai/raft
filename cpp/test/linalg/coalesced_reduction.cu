@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "reduce.cuh"
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace linalg {
@@ -42,11 +43,16 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void coalescedReductionLaunch(
-  T* dots, const T* data, int cols, int rows, cudaStream_t stream, bool inplace = false)
+void coalescedReductionLaunch(const raft::device_resources& handle,
+                              T* dots,
+                              const T* data,
+                              int cols,
+                              int rows,
+                              bool inplace = false)
 {
-  coalescedReduction(
-    dots, data, cols, rows, (T)0, stream, inplace, [] __device__(T in, int i) { return in * in; });
+  auto dots_view = raft::make_device_vector_view(dots, rows);
+  auto data_view = raft::make_device_matrix_view(data, rows, cols);
+  coalesced_reduction(handle, data_view, dots_view, (T)0, inplace, raft::sq_op{});
 }
 
 template <typename T>
@@ -68,18 +74,38 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     uniform(handle, r, data.data(), len, T(-1.0), T(1.0));
-    naiveCoalescedReduction(dots_exp.data(), data.data(), cols, rows, stream);
 
-    // Perform reduction with default inplace = false first
-    coalescedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream);
-    // Add to result with inplace = true next
-    coalescedReductionLaunch(dots_act.data(), data.data(), cols, rows, stream, true);
+    // Perform reduction with default inplace = false first and inplace = true next
+
+    naiveCoalescedReduction(dots_exp.data(),
+                            data.data(),
+                            cols,
+                            rows,
+                            stream,
+                            T(0),
+                            false,
+                            raft::sq_op{},
+                            raft::add_op{},
+                            raft::identity_op{});
+    naiveCoalescedReduction(dots_exp.data(),
+                            data.data(),
+                            cols,
+                            rows,
+                            stream,
+                            T(0),
+                            true,
+                            raft::sq_op{},
+                            raft::add_op{},
+                            raft::identity_op{});
+
+    coalescedReductionLaunch(handle, dots_act.data(), data.data(), cols, rows);
+    coalescedReductionLaunch(handle, dots_act.data(), data.data(), cols, rows, true);
 
     handle.sync_stream(stream);
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   coalescedReductionInputs<T> params;

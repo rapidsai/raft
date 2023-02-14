@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <cmath>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
 #include <raft/random/multi_variable_gaussian.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <random>
 #include <rmm/device_uvector.hpp>
 
-// mvg.h takes in matrices that are colomn major (as in fortan)
+// mvg.h takes in column-major matrices (as in Fortran)
 #define IDX2C(i, j, ld) (j * ld + i)
 
 namespace raft::random {
@@ -65,7 +65,7 @@ enum Correlation : unsigned char {
 template <typename T>
 struct MVGInputs {
   T tolerance;
-  typename multi_variable_gaussian<T>::Decomposer method;
+  typename detail::multi_variable_gaussian<T>::Decomposer method;
   Correlation corr;
   int dim, nPoints;
   unsigned long long int seed;
@@ -79,9 +79,10 @@ template <typename T>
 
 template <typename T>
 class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
- protected:
+ public:
   MVGTest()
-    : workspace_d(0, handle.get_stream()),
+    : params(::testing::TestWithParam<MVGInputs<T>>::GetParam()),
+      workspace_d(0, handle.get_stream()),
       P_d(0, handle.get_stream()),
       x_d(0, handle.get_stream()),
       X_d(0, handle.get_stream()),
@@ -90,6 +91,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
   {
   }
 
+ protected:
   void SetUp() override
   {
     // getting params
@@ -138,8 +140,8 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     raft::update_device(P_d.data(), P.data(), dim * dim, stream);
     raft::update_device(x_d.data(), x.data(), dim, stream);
 
-    // initilizing the mvg
-    mvg           = new multi_variable_gaussian<T>(handle, dim, method);
+    // initializing the mvg
+    mvg           = new detail::multi_variable_gaussian<T>(handle, dim, method);
     std::size_t o = mvg->get_workspace_size();
 
     // give the workspace area to mvg
@@ -195,75 +197,207 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
   }
 
  protected:
+  raft::device_resources handle;
+  MVGInputs<T> params;
+  rmm::device_uvector<T> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
+  std::vector<T> P, x, X;
+  int dim, nPoints;
+  typename detail::multi_variable_gaussian<T>::Decomposer method;
+  Correlation corr;
+  detail::multi_variable_gaussian<T>* mvg = NULL;
+  T tolerance;
+};  // end of MVGTest class
+
+template <typename T>
+class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
+ private:
+  static auto old_enum_to_new_enum(typename detail::multi_variable_gaussian<T>::Decomposer method)
+  {
+    if (method == detail::multi_variable_gaussian<T>::chol_decomp) {
+      return multi_variable_gaussian_decomposition_method::CHOLESKY;
+    } else if (method == detail::multi_variable_gaussian<T>::jacobi) {
+      return multi_variable_gaussian_decomposition_method::JACOBI;
+    } else {
+      return multi_variable_gaussian_decomposition_method::QR;
+    }
+  }
+
+ public:
+  MVGMdspanTest()
+    : workspace_d(0, handle.get_stream()),
+      P_d(0, handle.get_stream()),
+      x_d(0, handle.get_stream()),
+      X_d(0, handle.get_stream()),
+      Rand_cov(0, handle.get_stream()),
+      Rand_mean(0, handle.get_stream())
+  {
+  }
+
+  void SetUp() override
+  {
+    params      = ::testing::TestWithParam<MVGInputs<T>>::GetParam();
+    dim         = params.dim;
+    nPoints     = params.nPoints;
+    auto method = old_enum_to_new_enum(params.method);
+    corr        = params.corr;
+    tolerance   = params.tolerance;
+
+    auto cublasH   = handle.get_cublas_handle();
+    auto cusolverH = handle.get_cusolver_dn_handle();
+    auto stream    = handle.get_stream();
+
+    P.resize(dim * dim);
+    x.resize(dim);
+    X.resize(dim * nPoints);
+    P_d.resize(dim * dim, stream);
+    X_d.resize(nPoints * dim, stream);
+    x_d.resize(dim, stream);
+    Rand_cov.resize(dim * dim, stream);
+    Rand_mean.resize(dim, stream);
+
+    srand(params.seed);
+    for (int j = 0; j < dim; j++)
+      x.data()[j] = rand() % 100 + 5.0f;
+
+    std::default_random_engine generator(params.seed);
+    std::uniform_real_distribution<T> distribution(0.0, 1.0);
+
+    // P (symmetric positive definite matrix)
+    for (int j = 0; j < dim; j++) {
+      for (int i = 0; i < j + 1; i++) {
+        T k = distribution(generator);
+        if (corr == UNCORRELATED) k = 0.0;
+        P.data()[IDX2C(i, j, dim)] = k;
+        P.data()[IDX2C(j, i, dim)] = k;
+        if (i == j) P.data()[IDX2C(i, j, dim)] += dim;
+      }
+    }
+
+    raft::update_device(P_d.data(), P.data(), dim * dim, stream);
+    raft::update_device(x_d.data(), x.data(), dim, stream);
+
+    std::optional<raft::device_vector_view<const T, int>> x_view(std::in_place, x_d.data(), dim);
+    raft::device_matrix_view<T, int, raft::col_major> P_view(P_d.data(), dim, dim);
+    raft::device_matrix_view<T, int, raft::col_major> X_view(X_d.data(), dim, nPoints);
+
+    rmm::mr::device_memory_resource* mem_resource_ptr = rmm::mr::get_current_device_resource();
+    ASSERT_TRUE(mem_resource_ptr != nullptr);
+    raft::random::multi_variable_gaussian(
+      handle, *mem_resource_ptr, x_view, P_view, X_view, method);
+
+    // saving the mean of the randoms in Rand_mean
+    //@todo can be swapped with a API that calculates mean
+    RAFT_CUDA_TRY(cudaMemset(Rand_mean.data(), 0, dim * sizeof(T)));
+    dim3 block = (64);
+    dim3 grid  = (raft::ceildiv(nPoints * dim, (int)block.x));
+    En_KF_accumulate<<<grid, block, 0, stream>>>(nPoints, dim, X_d.data(), Rand_mean.data());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    grid = (raft::ceildiv(dim, (int)block.x));
+    En_KF_normalize<<<grid, block, 0, stream>>>(nPoints, dim, Rand_mean.data());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+    // storing the error wrt random point mean in X_d
+    grid = (raft::ceildiv(dim * nPoints, (int)block.x));
+    En_KF_dif<<<grid, block, 0, stream>>>(nPoints, dim, X_d.data(), Rand_mean.data(), X_d.data());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+    // finding the cov matrix, placing in Rand_cov
+    T alfa = 1.0 / (nPoints - 1), beta = 0.0;
+
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublasH,
+                                                     CUBLAS_OP_N,
+                                                     CUBLAS_OP_T,
+                                                     dim,
+                                                     dim,
+                                                     nPoints,
+                                                     &alfa,
+                                                     X_d.data(),
+                                                     dim,
+                                                     X_d.data(),
+                                                     dim,
+                                                     &beta,
+                                                     Rand_cov.data(),
+                                                     dim,
+                                                     stream));
+
+    // restoring cov provided into P_d
+    raft::update_device(P_d.data(), P.data(), dim * dim, stream);
+  }
+
+ protected:
+  raft::device_resources handle;
+
   MVGInputs<T> params;
   std::vector<T> P, x, X;
   rmm::device_uvector<T> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
   int dim, nPoints;
-  typename multi_variable_gaussian<T>::Decomposer method;
   Correlation corr;
-  multi_variable_gaussian<T>* mvg = NULL;
   T tolerance;
-  raft::handle_t handle;
 };  // end of MVGTest class
 
 ///@todo find out the reason that Un-correlated covs are giving problems (in qr)
 // Declare your inputs
 const std::vector<MVGInputs<float>> inputsf = {
   {0.3f,
-   multi_variable_gaussian<float>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<float>::Decomposer::chol_decomp,
    Correlation::CORRELATED,
    5,
    30000,
    6ULL},
   {0.1f,
-   multi_variable_gaussian<float>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<float>::Decomposer::chol_decomp,
    Correlation::UNCORRELATED,
    5,
    30000,
    6ULL},
   {0.25f,
-   multi_variable_gaussian<float>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<float>::Decomposer::jacobi,
    Correlation::CORRELATED,
    5,
    30000,
    6ULL},
   {0.1f,
-   multi_variable_gaussian<float>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<float>::Decomposer::jacobi,
    Correlation::UNCORRELATED,
    5,
    30000,
    6ULL},
-  {0.2f, multi_variable_gaussian<float>::Decomposer::qr, Correlation::CORRELATED, 5, 30000, 6ULL},
+  {0.2f,
+   detail::multi_variable_gaussian<float>::Decomposer::qr,
+   Correlation::CORRELATED,
+   5,
+   30000,
+   6ULL},
   // { 0.2f,          multi_variable_gaussian<float>::Decomposer::qr,
   // Correlation::UNCORRELATED, 5, 30000, 6ULL}
 };
 const std::vector<MVGInputs<double>> inputsd = {
   {0.25,
-   multi_variable_gaussian<double>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<double>::Decomposer::chol_decomp,
    Correlation::CORRELATED,
    10,
    3000000,
    6ULL},
   {0.1,
-   multi_variable_gaussian<double>::Decomposer::chol_decomp,
+   detail::multi_variable_gaussian<double>::Decomposer::chol_decomp,
    Correlation::UNCORRELATED,
    10,
    3000000,
    6ULL},
   {0.25,
-   multi_variable_gaussian<double>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<double>::Decomposer::jacobi,
    Correlation::CORRELATED,
    10,
    3000000,
    6ULL},
   {0.1,
-   multi_variable_gaussian<double>::Decomposer::jacobi,
+   detail::multi_variable_gaussian<double>::Decomposer::jacobi,
    Correlation::UNCORRELATED,
    10,
    3000000,
    6ULL},
   {0.2,
-   multi_variable_gaussian<double>::Decomposer::qr,
+   detail::multi_variable_gaussian<double>::Decomposer::qr,
    Correlation::CORRELATED,
    10,
    3000000,
@@ -273,8 +407,8 @@ const std::vector<MVGInputs<double>> inputsd = {
 };
 
 // make the tests
-typedef MVGTest<float> MVGTestF;
-typedef MVGTest<double> MVGTestD;
+using MVGTestF = MVGTest<float>;
+using MVGTestD = MVGTest<double>;
 TEST_P(MVGTestF, MeanIsCorrectF)
 {
   EXPECT_TRUE(raft::devArrMatch(
@@ -308,8 +442,47 @@ TEST_P(MVGTestD, CovIsCorrectD)
     << " in CovIsCorrect";
 }
 
+using MVGMdspanTestF = MVGMdspanTest<float>;
+using MVGMdspanTestD = MVGMdspanTest<double>;
+TEST_P(MVGMdspanTestF, MeanIsCorrectF)
+{
+  EXPECT_TRUE(raft::devArrMatch(
+    x_d.data(), Rand_mean.data(), dim, raft::CompareApprox<float>(tolerance), handle.get_stream()))
+    << " in MeanIsCorrect";
+}
+TEST_P(MVGMdspanTestF, CovIsCorrectF)
+{
+  EXPECT_TRUE(raft::devArrMatch(P_d.data(),
+                                Rand_cov.data(),
+                                dim,
+                                dim,
+                                raft::CompareApprox<float>(tolerance),
+                                handle.get_stream()))
+    << " in CovIsCorrect";
+}
+TEST_P(MVGMdspanTestD, MeanIsCorrectD)
+{
+  EXPECT_TRUE(raft::devArrMatch(
+    x_d.data(), Rand_mean.data(), dim, raft::CompareApprox<double>(tolerance), handle.get_stream()))
+    << " in MeanIsCorrect";
+}
+TEST_P(MVGMdspanTestD, CovIsCorrectD)
+{
+  EXPECT_TRUE(raft::devArrMatch(P_d.data(),
+                                Rand_cov.data(),
+                                dim,
+                                dim,
+                                raft::CompareApprox<double>(tolerance),
+                                handle.get_stream()))
+    << " in CovIsCorrect";
+}
+
 // call the tests
 INSTANTIATE_TEST_CASE_P(MVGTests, MVGTestF, ::testing::ValuesIn(inputsf));
 INSTANTIATE_TEST_CASE_P(MVGTests, MVGTestD, ::testing::ValuesIn(inputsd));
+
+// call the tests
+INSTANTIATE_TEST_CASE_P(MVGMdspanTests, MVGMdspanTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(MVGMdspanTests, MVGMdspanTestD, ::testing::ValuesIn(inputsd));
 
 };  // end of namespace raft::random

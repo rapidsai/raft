@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 
-#ifndef __ANN_H
-#define __ANN_H
-
 #pragma once
 
 #include "ann_common.h"
-#include "detail/ann_quantized_faiss.cuh"
+#include "detail/ann_quantized.cuh"
 
-#include <faiss/gpu/GpuIndex.h>
-#include <raft/spatial/knn/faiss_mr.hpp>
+#include <raft/core/nvtx.hpp>
 
-namespace raft {
-namespace spatial {
-namespace knn {
+namespace raft::spatial::knn {
 
 /**
  * @brief Flat C++ API function to build an approximate nearest neighbors index
@@ -42,16 +36,19 @@ namespace knn {
  * @param[in] n number of rows in the index array
  * @param[in] D the dimensionality of the index array
  */
-template <typename value_idx = int>
-inline void approx_knn_build_index(raft::handle_t& handle,
-                                   raft::spatial::knn::knnIndex* index,
-                                   knnIndexParam* params,
-                                   raft::distance::DistanceType metric,
-                                   float metricArg,
-                                   float* index_array,
-                                   value_idx n,
-                                   value_idx D)
+template <typename T = float, typename value_idx = int>
+[[deprecated("Consider using new-style raft::spatial::knn::*::build functions")]] inline void
+approx_knn_build_index(raft::device_resources& handle,
+                       raft::spatial::knn::knnIndex* index,
+                       knnIndexParam* params,
+                       raft::distance::DistanceType metric,
+                       float metricArg,
+                       T* index_array,
+                       value_idx n,
+                       value_idx D)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "legacy approx_knn_build_index(n_rows = %u, dim = %u)", n, D);
   detail::approx_knn_build_index(handle, index, params, metric, metricArg, index_array, n, D);
 }
 
@@ -68,20 +65,19 @@ inline void approx_knn_build_index(raft::handle_t& handle,
  * @param[in] query_array the query to perform a search with
  * @param[in] n number of rows in the query array
  */
-template <typename value_idx = int>
-inline void approx_knn_search(raft::handle_t& handle,
-                              float* distances,
-                              int64_t* indices,
-                              raft::spatial::knn::knnIndex* index,
-                              value_idx k,
-                              float* query_array,
-                              value_idx n)
+template <typename T = float, typename value_idx = int>
+[[deprecated("Consider using new-style raft::spatial::knn::*::search functions")]] inline void
+approx_knn_search(raft::device_resources& handle,
+                  float* distances,
+                  int64_t* indices,
+                  raft::spatial::knn::knnIndex* index,
+                  value_idx k,
+                  T* query_array,
+                  value_idx n)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "legacy approx_knn_search(k = %u, n_queries = %u)", k, n);
   detail::approx_knn_search(handle, distances, indices, index, k, query_array, n);
 }
 
-}  // namespace knn
-}  // namespace spatial
-}  // namespace raft
-
-#endif
+}  // namespace raft::spatial::knn

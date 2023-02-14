@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
-#include <raft/cuda_utils.cuh>
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/partition.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/convert/csr.cuh>
@@ -31,7 +31,7 @@ namespace spectral {
 namespace detail {
 
 template <typename T>
-void fit_embedding(const raft::handle_t& handle,
+void fit_embedding(raft::device_resources const& handle,
                    int* rows,
                    int* cols,
                    T* vals,
@@ -88,7 +88,7 @@ void fit_embedding(const raft::handle_t& handle,
     using size_type_t  = index_type;
     using value_type_t = value_type;
 
-    std::pair<value_type_t, index_type_t> solve(handle_t const& handle,
+    std::pair<value_type_t, index_type_t> solve(raft::device_resources const& handle,
                                                 size_type_t n_obs_vecs,
                                                 size_type_t dim,
                                                 value_type_t const* __restrict__ obs,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/histogram.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace stats {
@@ -84,13 +84,54 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     RAFT_CUDA_TRY(
       cudaMemsetAsync(ref_bins.data(), 0, sizeof(int) * params.nbins * params.ncols, stream));
     naiveHist(ref_bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
+    histogram(handle,
+              params.type,
+              raft::make_device_matrix_view<const int, int, raft::col_major>(
+                in.data(), params.nrows, params.ncols),
+              raft::make_device_matrix_view<int, int, raft::col_major>(
+                bins.data(), params.nbins, params.ncols));
+    handle.sync_stream();
+  }
+
+ protected:
+  raft::device_resources handle;
+  HistInputs params;
+  rmm::device_uvector<int> in, bins, ref_bins;
+};
+
+class HistMdspanTest : public ::testing::TestWithParam<HistInputs> {
+ protected:
+  HistMdspanTest()
+    : in(0, handle.get_stream()), bins(0, handle.get_stream()), ref_bins(0, handle.get_stream())
+  {
+  }
+
+  void SetUp() override
+  {
+    params = ::testing::TestWithParam<HistInputs>::GetParam();
+    raft::random::RngState r(params.seed);
+    auto stream = handle.get_stream();
+    int len     = params.nrows * params.ncols;
+    in.resize(len, stream);
+
+    raft::device_vector_view<int, int> in_view(in.data(), in.size());
+    if (params.isNormal) {
+      normalInt(handle, r, in_view, params.start, params.end);
+    } else {
+      uniformInt(handle, r, in_view, params.start, params.end);
+    }
+    bins.resize(params.nbins * params.ncols, stream);
+    ref_bins.resize(params.nbins * params.ncols, stream);
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(ref_bins.data(), 0, sizeof(int) * params.nbins * params.ncols, stream));
+    naiveHist(ref_bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
     histogram<int>(
       params.type, bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
     handle.sync_stream();
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   HistInputs params;
   rmm::device_uvector<int> in, bins, ref_bins;
 };
@@ -252,12 +293,20 @@ const std::vector<HistInputs> inputs = {
   {oneM + 2, 21, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
   {oneM + 2, 21, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
 };
+
 TEST_P(HistTest, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(
     ref_bins.data(), bins.data(), params.nbins * params.ncols, raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(HistTests, HistTest, ::testing::ValuesIn(inputs));
+
+TEST_P(HistMdspanTest, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(
+    ref_bins.data(), bins.data(), params.nbins * params.ncols, raft::Compare<int>()));
+}
+INSTANTIATE_TEST_CASE_P(HistMdspanTests, HistMdspanTest, ::testing::ValuesIn(inputs));
 
 }  // end namespace stats
 }  // end namespace raft

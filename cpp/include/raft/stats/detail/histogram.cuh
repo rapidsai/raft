@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <raft/common/seive.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/stats/common.hpp>
-#include <raft/vectorized.cuh>
+#include <raft/stats/stats_types.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/seive.hpp>
+#include <raft/util/vectorized.cuh>
 #include <stdint.h>
 
 // This file is a shameless amalgamation of independent works done by
@@ -31,6 +31,12 @@
 namespace raft {
 namespace stats {
 namespace detail {
+
+/** Default mapper which just returns the value of the data itself */
+template <typename DataT, typename IdxT>
+struct IdentityBinner {
+  DI int operator()(DataT val, IdxT row, IdxT col) { return int(val); }
+};
 
 static const int ThreadsPerBlock = 256;
 
@@ -465,7 +471,7 @@ HistType selectBestHistAlgo(IdxT nbins)
  * @param nbins number of bins
  * @param data input data (length = ncols * nrows)
  * @param nrows data array length in each column (or batch)
- * @param ncols number of columsn (or batch size)
+ * @param ncols number of columns (or batch size)
  * @param stream cuda stream
  * @param binner the operation that computes the bin index of the input data
  *

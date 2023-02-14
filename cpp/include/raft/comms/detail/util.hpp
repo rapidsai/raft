@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 
 #include <nccl.h>
-#include <raft/error.hpp>
+#include <raft/core/error.hpp>
 #include <string>
 
 /**
@@ -65,9 +65,7 @@ namespace raft {
 namespace comms {
 namespace detail {
 
-constexpr size_t
-
-get_datatype_size(const datatype_t datatype)
+constexpr size_t get_datatype_size(const datatype_t datatype)
 {
   switch (datatype) {
     case datatype_t::CHAR: return sizeof(char);
@@ -82,9 +80,7 @@ get_datatype_size(const datatype_t datatype)
   }
 }
 
-constexpr ncclDataType_t
-
-get_nccl_datatype(const datatype_t datatype)
+constexpr ncclDataType_t get_nccl_datatype(const datatype_t datatype)
 {
   switch (datatype) {
     case datatype_t::CHAR: return ncclChar;
@@ -99,9 +95,7 @@ get_nccl_datatype(const datatype_t datatype)
   }
 }
 
-constexpr ncclRedOp_t
-
-get_nccl_op(const op_t op)
+constexpr ncclRedOp_t get_nccl_op(const op_t op)
 {
   switch (op) {
     case op_t::SUM: return ncclSum;
@@ -112,7 +106,7 @@ get_nccl_op(const op_t op)
   }
 }
 
-status_t nccl_sync_stream(ncclComm_t comm, cudaStream_t stream)
+inline status_t nccl_sync_stream(ncclComm_t comm, cudaStream_t stream)
 {
   cudaError_t cudaErr;
   ncclResult_t ncclErr, ncclAsyncErr;

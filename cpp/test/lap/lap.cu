@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +28,7 @@
 
 #include <iostream>
 #include <omp.h>
-#include <raft/lap/lap.cuh>
+#include <raft/solver/linear_assignment.cuh>
 #include <random>
 
 #define PROBLEMSIZE  1000  // Number of rows/columns
@@ -66,7 +66,7 @@ void hungarian_test(int problemsize,
                     weight_t epsilon,
                     bool verbose = false)
 {
-  raft::handle_t handle;
+  raft::device_resources handle;
 
   weight_t* h_cost = new weight_t[batchsize * problemsize * problemsize];
 
@@ -85,7 +85,7 @@ void hungarian_test(int problemsize,
       float start = omp_get_wtime();
 
       // Create an instance of LinearAssignmentProblem using problem size, number of subproblems
-      raft::lap::LinearAssignmentProblem<vertex_t, weight_t> lpx(
+      raft::solver::LinearAssignmentProblem<vertex_t, weight_t> lpx(
         handle, problemsize, batchsize, epsilon);
 
       // Solve LAP(s) for given cost matrix

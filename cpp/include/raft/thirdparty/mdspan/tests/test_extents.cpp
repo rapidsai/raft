@@ -55,18 +55,18 @@ template <class> struct TestExtents;
 template <size_t... Extents, size_t... DynamicSizes>
 struct TestExtents<
   std::tuple<
-    stdex::extents<Extents...>,
+    stdex::extents<size_t, Extents...>,
     std::integer_sequence<size_t, DynamicSizes...>
   >
 > : public ::testing::Test {
-  using extents_type = stdex::extents<Extents...>;
+  using extents_type = stdex::extents<size_t,Extents...>;
   // Double Braces here to make it work with GCC 5
   // Otherwise: "error: array must be initialized with a brace-enclosed initializer"
   const std::array<size_t, sizeof...(Extents)> static_sizes {{ Extents... }};
   const std::array<size_t, sizeof...(DynamicSizes)> dyn_sizes {{ DynamicSizes... }};
   extents_type exts { DynamicSizes... };
   using Fixture = TestExtents< std::tuple<
-                    stdex::extents<Extents...>,
+                    stdex::extents<size_t,Extents...>,
                     std::integer_sequence<size_t, DynamicSizes...>
                   >>;
 
@@ -75,7 +75,9 @@ struct TestExtents<
 
     dispatch([=] _MDSPAN_HOST_DEVICE () {
       extents_type _exts(DynamicSizes...);
-      result[0] = _exts.rank();
+      // Silencing an unused warning in nvc++ the condition will never be true
+      size_t dyn_val = exts.rank()>0?static_cast<size_t>(_exts.extent(0)):1;
+      result[0] = dyn_val > 1e9 ? dyn_val : _exts.rank();
       result[1] = _exts.rank_dynamic();
       // Some compilers warn about unused _exts since the functions are all static constexpr
       (void) _exts;
@@ -91,12 +93,15 @@ struct TestExtents<
 
     dispatch([=] _MDSPAN_HOST_DEVICE () {
       extents_type _exts(DynamicSizes...);
-      for(int r=0; r<_exts.rank(); r++)
-        result[r] = _exts.static_extent(r);
+      for(size_t r=0; r<_exts.rank(); r++) {
+        // Silencing an unused warning in nvc++ the condition will never be true
+        size_t dyn_val = static_cast<size_t>(_exts.extent(r));
+        result[r] = dyn_val > 1e9 ? dyn_val : _exts.static_extent(r);
+      }
       // Some compilers warn about unused _exts since the functions are all static constexpr
       (void) _exts;
     });
-    for(int r=0; r<extents_type::rank(); r++) {
+    for(size_t r=0; r<extents_type::rank(); r++) {
       EXPECT_EQ(result[r], static_sizes[r]);
     }
 
@@ -108,13 +113,13 @@ struct TestExtents<
 
     dispatch([=] _MDSPAN_HOST_DEVICE () {
       extents_type _exts(DynamicSizes...);
-      for(int r=0; r<_exts.rank(); r++ )
+      for(size_t r=0; r<_exts.rank(); r++ )
         result[r] = _exts.extent(r);
       // Some compilers warn about unused _exts since the functions are all static constexpr
       (void) _exts;
     });
     int dyn_count = 0;
-    for(int r=0; r<extents_type::rank(); r++) {
+    for(size_t r=0; r<extents_type::rank(); r++) {
       bool is_dynamic = static_sizes[r] == stdex::dynamic_extent;
       auto expected = is_dynamic ? dyn_sizes[dyn_count++] : static_sizes[r];
       EXPECT_EQ(result[r], expected);
@@ -127,7 +132,7 @@ struct TestExtents<
 template <size_t... Ds>
 using _sizes = std::integer_sequence<size_t, Ds...>;
 template <size_t... Ds>
-using _exts = stdex::extents<Ds...>;
+using _exts = stdex::extents<size_t,Ds...>;
 
 using extents_test_types =
   ::testing::Types<
@@ -191,14 +196,14 @@ struct _BoolPairDeducer {
 template <class> struct TestExtentsCompatCtors;
 template <size_t... Extents, size_t... DynamicSizes, size_t... Extents2, size_t... DynamicSizes2, bool ImplicitExts1ToExts2, bool ImplicitExts2ToExts1>
 struct TestExtentsCompatCtors<std::tuple<
-  stdex::extents<Extents...>,
+  stdex::extents<size_t,Extents...>,
   std::integer_sequence<size_t, DynamicSizes...>,
-  stdex::extents<Extents2...>,
+  stdex::extents<size_t,Extents2...>,
   std::integer_sequence<size_t, DynamicSizes2...>,
   _BoolPairDeducer<ImplicitExts1ToExts2,ImplicitExts2ToExts1>
 >> : public ::testing::Test {
-  using extents_type1 = stdex::extents<Extents...>;
-  using extents_type2 = stdex::extents<Extents2...>;
+  using extents_type1 = stdex::extents<size_t,Extents...>;
+  using extents_type2 = stdex::extents<size_t,Extents2...>;
   extents_type1 exts1 { DynamicSizes... };
   extents_type2 exts2 { DynamicSizes2... };
   static constexpr bool implicit_exts1_to_exts2 = ImplicitExts1ToExts2;
@@ -355,36 +360,48 @@ TYPED_TEST(TestExtentsCompatCtors, implicit_construct_1) {
 
 TEST(TestExtentsCtorStdArrayConvertibleToSizeT, test_extents_ctor_std_array_convertible_to_size_t) {
   std::array<int, 2> i{2, 2};
-  stdex::dextents<2> e{i};
+  stdex::dextents<size_t,2> e{i};
   ASSERT_EQ(e.rank(), 2);
   ASSERT_EQ(e.rank_dynamic(), 2);
   ASSERT_EQ(e.extent(0), 2);
   ASSERT_EQ(e.extent(1), 2);
 }
 
+#ifdef __cpp_lib_span
+TEST(TestExtentsCtorStdArrayConvertibleToSizeT, test_extents_ctor_std_span_convertible_to_size_t) {
+  std::array<int, 2> i{2, 2};
+  std::span<int ,2> s(i.data(),2);
+  stdex::dextents<size_t,2> e{s};
+  ASSERT_EQ(e.rank(), 2);
+  ASSERT_EQ(e.rank_dynamic(), 2);
+  ASSERT_EQ(e.extent(0), 2);
+  ASSERT_EQ(e.extent(1), 2);
+}
+#endif
+
 TYPED_TEST(TestExtentsCompatCtors, construct_from_dynamic_sizes) {
   using e1_t = typename TestFixture::extents_type1;
   constexpr bool e1_last_ext_static = e1_t::rank()>0?e1_t::static_extent(e1_t::rank()-1)!=stdex::dynamic_extent:true;
   e1_t e1 = TestFixture::template make_extents<e1_t,e1_t::rank(),false,e1_last_ext_static>::construct();
-  for(int r=0; r<e1.rank(); r++)
+  for(size_t r=0; r<e1.rank(); r++)
     ASSERT_EQ(e1.extent(r), (r+1)*5);
 
   using e2_t = typename TestFixture::extents_type2;
   constexpr bool e2_last_ext_static = e2_t::rank()>0?e2_t::static_extent(e2_t::rank()-1)!=stdex::dynamic_extent:true;
   e2_t e2 = TestFixture::template make_extents<e2_t,e2_t::rank(),false,e2_last_ext_static>::construct();
-  for(int r=0; r<e2.rank(); r++)
+  for(size_t r=0; r<e2.rank(); r++)
     ASSERT_EQ(e2.extent(r), (r+1)*5);
 }
 
 TYPED_TEST(TestExtentsCompatCtors, construct_from_all_sizes) {
   using e1_t = typename TestFixture::extents_type1;
   e1_t e1 = TestFixture::template make_extents<e1_t,e1_t::rank(),true,true>::construct();
-  for(int r=0; r<e1.rank(); r++)
+  for(size_t r=0; r<e1.rank(); r++)
     ASSERT_EQ(e1.extent(r), (r+1)*5);
 
   using e2_t = typename TestFixture::extents_type2;
   e2_t e2 = TestFixture::template make_extents<e2_t,e1_t::rank(),true,true>::construct();
-  for(int r=0; r<e2.rank(); r++)
+  for(size_t r=0; r<e2.rank(); r++)
     ASSERT_EQ(e2.extent(r), (r+1)*5);
 }
 
@@ -393,28 +410,28 @@ TYPED_TEST(TestExtentsCompatCtors, construct_from_dynamic_array) {
   std::array<int, e1_t::rank_dynamic()> ext1_array_dynamic;
 
   int dyn_idx = 0;
-  for(int r=0; r<e1_t::rank(); r++) {
+  for(size_t r=0; r<e1_t::rank(); r++) {
     if(e1_t::static_extent(r)==stdex::dynamic_extent) {
-      ext1_array_dynamic[dyn_idx] = (r+1)*5;
+      ext1_array_dynamic[dyn_idx] = static_cast<int>((r+1)*5);
       dyn_idx++;
     }
   }
   e1_t e1(ext1_array_dynamic);
-  for(int r=0; r<e1.rank(); r++)
+  for(size_t r=0; r<e1.rank(); r++)
     ASSERT_EQ(e1.extent(r), (r+1)*5);
 
   using e2_t = typename TestFixture::extents_type2;
   std::array<int, e2_t::rank_dynamic()> ext2_array_dynamic;
 
   dyn_idx = 0;
-  for(int r=0; r<e2_t::rank(); r++) {
+  for(size_t r=0; r<e2_t::rank(); r++) {
     if(e2_t::static_extent(r)==stdex::dynamic_extent) {
-      ext2_array_dynamic[dyn_idx] = (r+1)*5;
+      ext2_array_dynamic[dyn_idx] = static_cast<int>((r+1)*5);
       dyn_idx++;
     }
   }
   e2_t e2(ext2_array_dynamic);
-  for(int r=0; r<e2.rank(); r++)
+  for(size_t r=0; r<e2.rank(); r++)
     ASSERT_EQ(e2.extent(r), (r+1)*5);
 }
 
@@ -422,17 +439,17 @@ TYPED_TEST(TestExtentsCompatCtors, construct_from_all_array) {
   using e1_t = typename TestFixture::extents_type1;
   std::array<int, e1_t::rank()> ext1_array_all;
 
-  for(int r=0; r<e1_t::rank(); r++) ext1_array_all[r] = (r+1)*5;
+  for(size_t r=0; r<e1_t::rank(); r++) ext1_array_all[r] = static_cast<int>((r+1)*5);
   e1_t e1(ext1_array_all);
-  for(int r=0; r<e1.rank(); r++)
+  for(size_t r=0; r<e1.rank(); r++)
     ASSERT_EQ(e1.extent(r), (r+1)*5);
 
   using e2_t = typename TestFixture::extents_type2;
   std::array<int, e2_t::rank()> ext2_array_all;
 
-  for(int r=0; r<e2_t::rank(); r++) ext2_array_all[r] = (r+1)*5;
+  for(size_t r=0; r<e2_t::rank(); r++) ext2_array_all[r] = static_cast<int>((r+1)*5);
   e2_t e2(ext2_array_all);
-  for(int r=0; r<e2.rank(); r++)
+  for(size_t r=0; r<e2.rank(); r++)
     ASSERT_EQ(e2.extent(r), (r+1)*5);
 }
 

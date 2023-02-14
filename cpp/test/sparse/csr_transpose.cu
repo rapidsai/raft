@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,18 +18,17 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/linalg/transpose.cuh>
+#include <raft/util/cudart_utils.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 namespace raft {
 namespace sparse {
 
 using namespace raft;
-using namespace raft::sparse;
 
 template <typename value_idx, typename value_t>
 struct CSRTransposeInputs {
@@ -102,7 +101,7 @@ class CSRTransposeTest : public ::testing::TestWithParam<CSRTransposeInputs<valu
 
   void SetUp() override
   {
-    raft::handle_t handle;
+    raft::device_resources handle;
 
     make_data();
 
@@ -136,7 +135,7 @@ class CSRTransposeTest : public ::testing::TestWithParam<CSRTransposeInputs<valu
   }
 
  protected:
-  raft::handle_t raft_handle;
+  raft::device_resources raft_handle;
   cudaStream_t stream;
 
   cusparseHandle_t handle;

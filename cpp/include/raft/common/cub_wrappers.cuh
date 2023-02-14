@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,41 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
+
+/**
+ * DISCLAIMER: this file is deprecated: use lanczos.cuh instead
+ */
 
 #pragma once
 
-#include <cub/cub.cuh>
-#include <rmm/device_uvector.hpp>
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please note that there is no equivalent in RAFT's public API"
+                " so this file will eventually be removed altogether.")
 
-namespace raft {
-
-/**
- * @brief Convenience wrapper over cub's SortPairs method
- * @tparam KeyT key type
- * @tparam ValueT value type
- * @param workspace workspace buffer which will get resized if not enough space
- * @param inKeys input keys array
- * @param outKeys output keys array
- * @param inVals input values array
- * @param outVals output values array
- * @param len array length
- * @param stream cuda stream
- */
-template <typename KeyT, typename ValueT>
-void sortPairs(rmm::device_uvector<char>& workspace,
-               const KeyT* inKeys,
-               KeyT* outKeys,
-               const ValueT* inVals,
-               ValueT* outVals,
-               int len,
-               cudaStream_t stream)
-{
-  size_t worksize;
-  cub::DeviceRadixSort::SortPairs(
-    nullptr, worksize, inKeys, outKeys, inVals, outVals, len, 0, sizeof(KeyT) * 8, stream);
-  workspace.resize(worksize, stream);
-  cub::DeviceRadixSort::SortPairs(
-    workspace.data(), worksize, inKeys, outKeys, inVals, outVals, len, 0, sizeof(KeyT) * 8, stream);
-}
-
-}  // namespace raft
+#include <raft/util/detail/cub_wrappers.cuh>

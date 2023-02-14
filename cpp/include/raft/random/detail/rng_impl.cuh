@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,16 @@
 
 #pragma once
 
-#include <raft/common/cub_wrappers.cuh>
-#include <raft/common/scatter.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/detail/macros.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/detail/cub_wrappers.cuh>
+#include <raft/util/scatter.cuh>
 
 namespace raft {
 namespace random {
 namespace detail {
-
-/**
- * Some macro magic to remove optional parentheses of a macro argument.
- * See https://stackoverflow.com/a/62984543
- */
-#define RAFT_DEPAREN(X)      RAFT_DEPAREN_H2(RAFT_DEPAREN_H1 X)
-#define RAFT_DEPAREN_H1(...) RAFT_DEPAREN_H1 __VA_ARGS__
-#define RAFT_DEPAREN_H2(...) RAFT_DEPAREN_H3(__VA_ARGS__)
-#define RAFT_DEPAREN_H3(...) RAFT_DEPAREN_MAGIC##__VA_ARGS__
-#define RAFT_DEPAREN_MAGICRAFT_DEPAREN_H1
 
 /**
  * This macro will invoke function `func` with the correct instantiation of
@@ -67,7 +58,7 @@ namespace detail {
       RAFT_DEPAREN(func)(r_pc, ##__VA_ARGS__);                                      \
       break;                                                                        \
     }                                                                               \
-    default: RAFT_FAIL("Unepxected generator type '%d'", int((rng_state).type));    \
+    default: RAFT_FAIL("Unexpected generator type '%d'", int((rng_state).type));    \
   }
 
 template <int ITEMS_PER_CALL, typename GenType, typename... ArgsT>
@@ -241,6 +232,50 @@ void laplace(
   params.mu    = mu;
   params.scale = scale;
   RAFT_CALL_RNG_FUNC(rng_state, call_rng_kernel<1>, rng_state, stream, ptr, len, params);
+}
+
+template <typename GenType, typename OutType, typename WeightType, typename IdxType>
+void call_sample_with_replacement_kernel(DeviceState<GenType> const& dev_state,
+                                         RngState& rng_state,
+                                         cudaStream_t stream,
+                                         OutType* out,
+                                         const WeightType* weights_csum,
+                                         IdxType sampledLen,
+                                         IdxType len)
+{
+  IdxType n_threads = 256;
+  IdxType n_blocks  = raft::ceildiv(sampledLen, n_threads);
+  sample_with_replacement_kernel<<<n_blocks, n_threads, 0, stream>>>(
+    dev_state, out, weights_csum, sampledLen, len);
+  rng_state.advance(uint64_t(n_blocks) * n_threads, 1);
+}
+
+template <typename OutType, typename WeightType, typename IndexType = OutType>
+std::enable_if_t<std::is_integral_v<OutType>> discrete(RngState& rng_state,
+                                                       OutType* ptr,
+                                                       const WeightType* weights,
+                                                       IndexType sampledLen,
+                                                       IndexType len,
+                                                       cudaStream_t stream)
+{
+  // Compute the cumulative sums of the weights
+  size_t temp_storage_bytes = 0;
+  rmm::device_uvector<WeightType> weights_csum(len, stream);
+  cub::DeviceScan::InclusiveSum(
+    nullptr, temp_storage_bytes, weights, weights_csum.data(), len, stream);
+  rmm::device_uvector<uint8_t> temp_storage(temp_storage_bytes, stream);
+  cub::DeviceScan::InclusiveSum(
+    temp_storage.data(), temp_storage_bytes, weights, weights_csum.data(), len, stream);
+
+  // Sample indices with replacement
+  RAFT_CALL_RNG_FUNC(rng_state,
+                     call_sample_with_replacement_kernel,
+                     rng_state,
+                     stream,
+                     ptr,
+                     weights_csum.data(),
+                     sampledLen,
+                     len);
 }
 
 template <typename DataT, typename WeightsT, typename IdxT = int>

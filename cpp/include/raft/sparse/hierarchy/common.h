@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,39 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * This file is deprecated and will be removed in release 22.06.
+ * Please use the cuh version instead.
+ */
 
 #pragma once
 
-namespace raft {
-namespace hierarchy {
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use raft/cluster/single_linkage_types.hpp instead.")
 
-enum LinkageDistance { PAIRWISE = 0, KNN_GRAPH = 1 };
+#include <raft/cluster/single_linkage_types.hpp>
 
-/**
- * Simple POCO for consolidating linkage results. This closely
- * mirrors the trained instance variables populated in
- * Scikit-learn's AgglomerativeClustering estimator.
- * @tparam value_idx
- * @tparam value_t
- */
-template <typename value_idx, typename value_t>
-class linkage_output {
- public:
-  value_idx m;
-  value_idx n_clusters;
-
-  value_idx n_leaves;
-  value_idx n_connected_components;
-
-  value_idx* labels;  // size: m
-
-  value_idx* children;  // size: (m-1, 2)
-};
-
-class linkage_output_int_float : public linkage_output<int, float> {
-};
-class linkage_output__int64_float : public linkage_output<int64_t, float> {
-};
-
-};  // namespace hierarchy
-};  // namespace raft
+namespace raft::hierarchy {
+using raft::cluster::linkage_output;
+using raft::cluster::linkage_output_int;
+using raft::cluster::linkage_output_int64;
+using raft::cluster::LinkageDistance;
+}  // namespace raft::hierarchy

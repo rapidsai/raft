@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,19 +18,17 @@
 
 #include "common.cuh"
 
-#include "../../ball_cover_common.h"
-#include "../block_select_faiss.cuh"
+#include "../../ball_cover_types.hpp"
+#include "../faiss_select/key_value_block_select.cuh"
 #include "../haversine_distance.cuh"
 #include "../selection_faiss.cuh"
 
 #include <cstdint>
 #include <limits.h>
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
+#include <thrust/fill.h>
 
 namespace raft {
 namespace spatial {
@@ -171,10 +169,10 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
                                               dist_func dfunc,
                                               value_int* dist_counter)
 {
-  static constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+  static constexpr int kNumWarps = tpb / WarpSize;
 
   __shared__ value_t shared_memK[kNumWarps * warp_q];
-  __shared__ faiss::gpu::KeyValuePair<value_t, value_idx> shared_memV[kNumWarps * warp_q];
+  __shared__ KeyValuePair<value_t, value_idx> shared_memV[kNumWarps * warp_q];
 
   const value_t* x_ptr = X + (n_cols * blockIdx.x);
   value_t local_x_ptr[col_q];
@@ -182,21 +180,21 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
     local_x_ptr[j] = x_ptr[j];
   }
 
-  faiss::gpu::KeyValueBlockSelect<value_t,
-                                  value_idx,
-                                  false,
-                                  faiss::gpu::Comparator<value_t>,
-                                  warp_q,
-                                  thread_q,
-                                  tpb>
-    heap(faiss::gpu::Limits<value_t>::getMax(),
-         faiss::gpu::Limits<value_t>::getMax(),
+  faiss_select::KeyValueBlockSelect<value_t,
+                                    value_idx,
+                                    false,
+                                    faiss_select::Comparator<value_t>,
+                                    warp_q,
+                                    thread_q,
+                                    tpb>
+    heap(std::numeric_limits<value_t>::max(),
+         std::numeric_limits<value_t>::max(),
          -1,
          shared_memK,
          shared_memV,
          k);
 
-  const value_int n_k = faiss::gpu::utils::roundDown(k, faiss::gpu::kWarpSize);
+  const value_int n_k = Pow2<WarpSize>::roundDown(k);
   value_int i         = threadIdx.x;
   for (; i < n_k; i += tpb) {
     value_idx ind = knn_inds[blockIdx.x * k + i];
@@ -223,7 +221,7 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
       // Round R_size to the nearest warp threads so they can
       // all be computing in parallel.
 
-      const value_int limit = faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
+      const value_int limit = Pow2<WarpSize>::roundDown(R_size);
 
       i = threadIdx.x;
       for (; i < limit; i += tpb) {
@@ -329,14 +327,14 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
                                            value_idx* out_inds,
                                            value_t* out_dists,
                                            value_int* dist_counter,
-                                           value_t* R_radius,
+                                           const value_t* R_radius,
                                            distance_func dfunc,
                                            float weight = 1.0)
 {
-  static constexpr value_int kNumWarps = tpb / faiss::gpu::kWarpSize;
+  static constexpr value_int kNumWarps = tpb / WarpSize;
 
   __shared__ value_t shared_memK[kNumWarps * warp_q];
-  __shared__ faiss::gpu::KeyValuePair<value_t, value_idx> shared_memV[kNumWarps * warp_q];
+  __shared__ KeyValuePair<value_t, value_idx> shared_memV[kNumWarps * warp_q];
 
   // TODO: Separate kernels for different widths:
   // 1. Very small (between 3 and 32) just use registers for columns of "blockIdx.x"
@@ -351,15 +349,15 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
   }
 
   // Each warp works on 1 R
-  faiss::gpu::KeyValueBlockSelect<value_t,
-                                  value_idx,
-                                  false,
-                                  faiss::gpu::Comparator<value_t>,
-                                  warp_q,
-                                  thread_q,
-                                  tpb>
-    heap(faiss::gpu::Limits<value_t>::getMax(),
-         faiss::gpu::Limits<value_t>::getMax(),
+  faiss_select::KeyValueBlockSelect<value_t,
+                                    value_idx,
+                                    false,
+                                    faiss_select::Comparator<value_t>,
+                                    warp_q,
+                                    thread_q,
+                                    tpb>
+    heap(std::numeric_limits<value_t>::max(),
+         std::numeric_limits<value_t>::max(),
          -1,
          shared_memK,
          shared_memV,
@@ -389,7 +387,7 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
 
     value_idx R_size = R_stop_offset - R_start_offset;
 
-    value_int limit = faiss::gpu::utils::roundDown(R_size, faiss::gpu::kWarpSize);
+    value_int limit = Pow2<WarpSize>::roundDown(R_size);
     value_int i     = threadIdx.x;
     for (; i < limit; i += tpb) {
       // Index and distance of current candidate's nearest landmark
@@ -469,8 +467,8 @@ template <typename value_idx,
           typename value_int = std::uint32_t,
           int dims           = 2,
           typename dist_func>
-void rbc_low_dim_pass_one(const raft::handle_t& handle,
-                          BallCoverIndex<value_idx, value_t, value_int>& index,
+void rbc_low_dim_pass_one(raft::device_resources const& handle,
+                          const BallCoverIndex<value_idx, value_t, value_int>& index,
                           const value_t* query,
                           const value_int n_query_rows,
                           value_int k,
@@ -484,114 +482,114 @@ void rbc_low_dim_pass_one(const raft::handle_t& handle,
 {
   if (k <= 32)
     block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, dims, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X().data_handle(),
                                                       query,
                                                       index.n,
                                                       R_knn_inds,
                                                       R_knn_dists,
                                                       index.m,
                                                       k,
-                                                      index.get_R_indptr(),
-                                                      index.get_R_1nn_cols(),
-                                                      index.get_R_1nn_dists(),
+                                                      index.get_R_indptr().data_handle(),
+                                                      index.get_R_1nn_cols().data_handle(),
+                                                      index.get_R_1nn_dists().data_handle(),
                                                       inds,
                                                       dists,
                                                       dists_counter,
-                                                      index.get_R_radius(),
+                                                      index.get_R_radius().data_handle(),
                                                       dfunc,
                                                       weight);
 
   else if (k <= 64)
     block_rbc_kernel_registers<value_idx, value_t, 64, 3, 128, 2, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X().data_handle(),
                                                       query,
                                                       index.n,
                                                       R_knn_inds,
                                                       R_knn_dists,
                                                       index.m,
                                                       k,
-                                                      index.get_R_indptr(),
-                                                      index.get_R_1nn_cols(),
-                                                      index.get_R_1nn_dists(),
+                                                      index.get_R_indptr().data_handle(),
+                                                      index.get_R_1nn_cols().data_handle(),
+                                                      index.get_R_1nn_dists().data_handle(),
                                                       inds,
                                                       dists,
                                                       dists_counter,
-                                                      index.get_R_radius(),
+                                                      index.get_R_radius().data_handle(),
                                                       dfunc,
                                                       weight);
   else if (k <= 128)
     block_rbc_kernel_registers<value_idx, value_t, 128, 3, 128, dims, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X().data_handle(),
                                                       query,
                                                       index.n,
                                                       R_knn_inds,
                                                       R_knn_dists,
                                                       index.m,
                                                       k,
-                                                      index.get_R_indptr(),
-                                                      index.get_R_1nn_cols(),
-                                                      index.get_R_1nn_dists(),
+                                                      index.get_R_indptr().data_handle(),
+                                                      index.get_R_1nn_cols().data_handle(),
+                                                      index.get_R_1nn_dists().data_handle(),
                                                       inds,
                                                       dists,
                                                       dists_counter,
-                                                      index.get_R_radius(),
+                                                      index.get_R_radius().data_handle(),
                                                       dfunc,
                                                       weight);
 
   else if (k <= 256)
     block_rbc_kernel_registers<value_idx, value_t, 256, 4, 128, dims, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
+      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X().data_handle(),
                                                       query,
                                                       index.n,
                                                       R_knn_inds,
                                                       R_knn_dists,
                                                       index.m,
                                                       k,
-                                                      index.get_R_indptr(),
-                                                      index.get_R_1nn_cols(),
-                                                      index.get_R_1nn_dists(),
+                                                      index.get_R_indptr().data_handle(),
+                                                      index.get_R_1nn_cols().data_handle(),
+                                                      index.get_R_1nn_dists().data_handle(),
                                                       inds,
                                                       dists,
                                                       dists_counter,
-                                                      index.get_R_radius(),
+                                                      index.get_R_radius().data_handle(),
                                                       dfunc,
                                                       weight);
 
   else if (k <= 512)
     block_rbc_kernel_registers<value_idx, value_t, 512, 8, 64, dims, value_int>
-      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
+      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X().data_handle(),
                                                      query,
                                                      index.n,
                                                      R_knn_inds,
                                                      R_knn_dists,
                                                      index.m,
                                                      k,
-                                                     index.get_R_indptr(),
-                                                     index.get_R_1nn_cols(),
-                                                     index.get_R_1nn_dists(),
+                                                     index.get_R_indptr().data_handle(),
+                                                     index.get_R_1nn_cols().data_handle(),
+                                                     index.get_R_1nn_dists().data_handle(),
                                                      inds,
                                                      dists,
                                                      dists_counter,
-                                                     index.get_R_radius(),
+                                                     index.get_R_radius().data_handle(),
                                                      dfunc,
                                                      weight);
 
   else if (k <= 1024)
     block_rbc_kernel_registers<value_idx, value_t, 1024, 8, 64, dims, value_int>
-      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
+      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X().data_handle(),
                                                      query,
                                                      index.n,
                                                      R_knn_inds,
                                                      R_knn_dists,
                                                      index.m,
                                                      k,
-                                                     index.get_R_indptr(),
-                                                     index.get_R_1nn_cols(),
-                                                     index.get_R_1nn_dists(),
+                                                     index.get_R_indptr().data_handle(),
+                                                     index.get_R_1nn_cols().data_handle(),
+                                                     index.get_R_1nn_dists().data_handle(),
                                                      inds,
                                                      dists,
                                                      dists_counter,
-                                                     index.get_R_radius(),
+                                                     index.get_R_radius().data_handle(),
                                                      dfunc,
                                                      weight);
 }
@@ -601,8 +599,8 @@ template <typename value_idx,
           typename value_int = std::uint32_t,
           int dims           = 2,
           typename dist_func>
-void rbc_low_dim_pass_two(const raft::handle_t& handle,
-                          BallCoverIndex<value_idx, value_t, value_int>& index,
+void rbc_low_dim_pass_two(raft::device_resources const& handle,
+                          const BallCoverIndex<value_idx, value_t, value_int>& index,
                           const value_t* query,
                           const value_int n_query_rows,
                           value_int k,
@@ -625,8 +623,8 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
       index.n,
       R_knn_inds,
       R_knn_dists,
-      index.get_R_radius(),
-      index.get_R(),
+      index.get_R_radius().data_handle(),
+      index.get_R().data_handle(),
       index.n_landmarks,
       bitset_size,
       k,
@@ -643,22 +641,22 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   32,
                                   2,
                                   128,
-                                  dims>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
-                                                      query,
-                                                      index.n,
-                                                      bitset.data(),
-                                                      bitset_size,
-                                                      index.get_R_closest_landmark_dists(),
-                                                      index.get_R_indptr(),
-                                                      index.get_R_1nn_cols(),
-                                                      index.get_R_1nn_dists(),
-                                                      inds,
-                                                      dists,
-                                                      index.n_landmarks,
-                                                      k,
-                                                      dfunc,
-                                                      post_dists_counter);
+                                  dims><<<n_query_rows, 128, 0, handle.get_stream()>>>(
+      index.get_X().data_handle(),
+      query,
+      index.n,
+      bitset.data(),
+      bitset_size,
+      index.get_R_closest_landmark_dists().data_handle(),
+      index.get_R_indptr().data_handle(),
+      index.get_R_1nn_cols().data_handle(),
+      index.get_R_1nn_dists().data_handle(),
+      inds,
+      dists,
+      index.n_landmarks,
+      k,
+      dfunc,
+      post_dists_counter);
   else if (k <= 64)
     compute_final_dists_registers<value_idx,
                                   value_t,
@@ -668,22 +666,22 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   64,
                                   3,
                                   128,
-                                  dims>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
-                                                      query,
-                                                      index.n,
-                                                      bitset.data(),
-                                                      bitset_size,
-                                                      index.get_R_closest_landmark_dists(),
-                                                      index.get_R_indptr(),
-                                                      index.get_R_1nn_cols(),
-                                                      index.get_R_1nn_dists(),
-                                                      inds,
-                                                      dists,
-                                                      index.n_landmarks,
-                                                      k,
-                                                      dfunc,
-                                                      post_dists_counter);
+                                  dims><<<n_query_rows, 128, 0, handle.get_stream()>>>(
+      index.get_X().data_handle(),
+      query,
+      index.n,
+      bitset.data(),
+      bitset_size,
+      index.get_R_closest_landmark_dists().data_handle(),
+      index.get_R_indptr().data_handle(),
+      index.get_R_1nn_cols().data_handle(),
+      index.get_R_1nn_dists().data_handle(),
+      inds,
+      dists,
+      index.n_landmarks,
+      k,
+      dfunc,
+      post_dists_counter);
   else if (k <= 128)
     compute_final_dists_registers<value_idx,
                                   value_t,
@@ -693,22 +691,22 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   128,
                                   3,
                                   128,
-                                  dims>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
-                                                      query,
-                                                      index.n,
-                                                      bitset.data(),
-                                                      bitset_size,
-                                                      index.get_R_closest_landmark_dists(),
-                                                      index.get_R_indptr(),
-                                                      index.get_R_1nn_cols(),
-                                                      index.get_R_1nn_dists(),
-                                                      inds,
-                                                      dists,
-                                                      index.n_landmarks,
-                                                      k,
-                                                      dfunc,
-                                                      post_dists_counter);
+                                  dims><<<n_query_rows, 128, 0, handle.get_stream()>>>(
+      index.get_X().data_handle(),
+      query,
+      index.n,
+      bitset.data(),
+      bitset_size,
+      index.get_R_closest_landmark_dists().data_handle(),
+      index.get_R_indptr().data_handle(),
+      index.get_R_1nn_cols().data_handle(),
+      index.get_R_1nn_dists().data_handle(),
+      inds,
+      dists,
+      index.n_landmarks,
+      k,
+      dfunc,
+      post_dists_counter);
   else if (k <= 256)
     compute_final_dists_registers<value_idx,
                                   value_t,
@@ -718,22 +716,22 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   256,
                                   4,
                                   128,
-                                  dims>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X(),
-                                                      query,
-                                                      index.n,
-                                                      bitset.data(),
-                                                      bitset_size,
-                                                      index.get_R_closest_landmark_dists(),
-                                                      index.get_R_indptr(),
-                                                      index.get_R_1nn_cols(),
-                                                      index.get_R_1nn_dists(),
-                                                      inds,
-                                                      dists,
-                                                      index.n_landmarks,
-                                                      k,
-                                                      dfunc,
-                                                      post_dists_counter);
+                                  dims><<<n_query_rows, 128, 0, handle.get_stream()>>>(
+      index.get_X().data_handle(),
+      query,
+      index.n,
+      bitset.data(),
+      bitset_size,
+      index.get_R_closest_landmark_dists().data_handle(),
+      index.get_R_indptr().data_handle(),
+      index.get_R_1nn_cols().data_handle(),
+      index.get_R_1nn_dists().data_handle(),
+      inds,
+      dists,
+      index.n_landmarks,
+      k,
+      dfunc,
+      post_dists_counter);
   else if (k <= 512)
     compute_final_dists_registers<value_idx,
                                   value_t,
@@ -743,22 +741,22 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   512,
                                   8,
                                   64,
-                                  dims>
-      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
-                                                     query,
-                                                     index.n,
-                                                     bitset.data(),
-                                                     bitset_size,
-                                                     index.get_R_closest_landmark_dists(),
-                                                     index.get_R_indptr(),
-                                                     index.get_R_1nn_cols(),
-                                                     index.get_R_1nn_dists(),
-                                                     inds,
-                                                     dists,
-                                                     index.n_landmarks,
-                                                     k,
-                                                     dfunc,
-                                                     post_dists_counter);
+                                  dims><<<n_query_rows, 64, 0, handle.get_stream()>>>(
+      index.get_X().data_handle(),
+      query,
+      index.n,
+      bitset.data(),
+      bitset_size,
+      index.get_R_closest_landmark_dists().data_handle(),
+      index.get_R_indptr().data_handle(),
+      index.get_R_1nn_cols().data_handle(),
+      index.get_R_1nn_dists().data_handle(),
+      inds,
+      dists,
+      index.n_landmarks,
+      k,
+      dfunc,
+      post_dists_counter);
   else if (k <= 1024)
     compute_final_dists_registers<value_idx,
                                   value_t,
@@ -768,22 +766,22 @@ void rbc_low_dim_pass_two(const raft::handle_t& handle,
                                   1024,
                                   8,
                                   64,
-                                  dims>
-      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X(),
-                                                     query,
-                                                     index.n,
-                                                     bitset.data(),
-                                                     bitset_size,
-                                                     index.get_R_closest_landmark_dists(),
-                                                     index.get_R_indptr(),
-                                                     index.get_R_1nn_cols(),
-                                                     index.get_R_1nn_dists(),
-                                                     inds,
-                                                     dists,
-                                                     index.n_landmarks,
-                                                     k,
-                                                     dfunc,
-                                                     post_dists_counter);
+                                  dims><<<n_query_rows, 64, 0, handle.get_stream()>>>(
+      index.get_X().data_handle(),
+      query,
+      index.n,
+      bitset.data(),
+      bitset_size,
+      index.get_R_closest_landmark_dists().data_handle(),
+      index.get_R_indptr().data_handle(),
+      index.get_R_1nn_cols().data_handle(),
+      index.get_R_1nn_dists().data_handle(),
+      inds,
+      dists,
+      index.n_landmarks,
+      k,
+      dfunc,
+      post_dists_counter);
 }
 
 };  // namespace detail

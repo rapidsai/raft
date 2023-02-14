@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,26 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/kvp.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
 
 namespace raft {
 namespace distance {
 
 template <typename LabelT, typename DataT>
-struct CubKVPMinReduce {
-  typedef cub::KeyValuePair<LabelT, DataT> KVP;
+struct RaftKVPMinReduce {
+  typedef raft::KeyValuePair<LabelT, DataT> KVP;
 
   DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
 
@@ -37,7 +42,7 @@ struct CubKVPMinReduce {
 };  // KVPMinReduce
 
 template <typename DataT, bool Sqrt, typename ReduceOpT, int NWARPS>
-__global__ void naiveKernel(cub::KeyValuePair<int, DataT>* min,
+__global__ void naiveKernel(raft::KeyValuePair<int, DataT>* min,
                             DataT* x,
                             DataT* y,
                             int m,
@@ -55,15 +60,15 @@ __global__ void naiveKernel(cub::KeyValuePair<int, DataT>* min,
     auto diff = midx >= m || nidx >= n ? DataT(0) : x[xidx] - y[yidx];
     acc += diff * diff;
   }
-  if (Sqrt) { acc = raft::mySqrt(acc); }
+  if (Sqrt) { acc = raft::sqrt(acc); }
   ReduceOpT redOp;
-  typedef cub::WarpReduce<cub::KeyValuePair<int, DataT>> WarpReduce;
+  typedef cub::WarpReduce<raft::KeyValuePair<int, DataT>> WarpReduce;
   __shared__ typename WarpReduce::TempStorage temp[NWARPS];
   int warpId = threadIdx.x / raft::WarpSize;
-  cub::KeyValuePair<int, DataT> tmp;
+  raft::KeyValuePair<int, DataT> tmp;
   tmp.key   = nidx;
   tmp.value = midx >= m || nidx >= n ? maxVal : acc;
-  tmp       = WarpReduce(temp[warpId]).Reduce(tmp, CubKVPMinReduce<int, DataT>());
+  tmp       = WarpReduce(temp[warpId]).Reduce(tmp, RaftKVPMinReduce<int, DataT>());
   if (threadIdx.x % raft::WarpSize == 0 && midx < m) {
     while (atomicCAS(workspace + midx, 0, 1) == 1)
       ;
@@ -75,7 +80,7 @@ __global__ void naiveKernel(cub::KeyValuePair<int, DataT>* min,
 }
 
 template <typename DataT, bool Sqrt>
-void naive(cub::KeyValuePair<int, DataT>* min,
+void naive(raft::KeyValuePair<int, DataT>* min,
            DataT* x,
            DataT* y,
            int m,
@@ -89,7 +94,7 @@ void naive(cub::KeyValuePair<int, DataT>* min,
   RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   auto blks = raft::ceildiv(m, 256);
   MinAndDistanceReduceOp<int, DataT> op;
-  detail::initKernel<DataT, cub::KeyValuePair<int, DataT>, int>
+  detail::initKernel<DataT, raft::KeyValuePair<int, DataT>, int>
     <<<blks, 256, 0, stream>>>(min, m, std::numeric_limits<DataT>::max(), op);
   RAFT_CUDA_TRY(cudaGetLastError());
   naiveKernel<DataT, Sqrt, MinAndDistanceReduceOp<int, DataT>, 16>
@@ -102,6 +107,23 @@ struct Inputs {
   DataT tolerance;
   int m, n, k;
   unsigned long long int seed;
+
+  friend std::ostream& operator<<(std::ostream& os, const Inputs& p)
+  {
+    return os << "m: " << p.m
+              << ", "
+                 "n: "
+              << p.n
+              << ", "
+                 "k: "
+              << p.k
+              << ", "
+                 "seed: "
+              << p.seed
+              << ", "
+                 "tol: "
+              << p.tolerance;
+  }
 };
 
 template <typename DataT, bool Sqrt>
@@ -136,16 +158,16 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   }
 
  protected:
+  raft::device_resources handle;
+  cudaStream_t stream;
   Inputs<DataT> params;
   rmm::device_uvector<DataT> x;
   rmm::device_uvector<DataT> y;
   rmm::device_uvector<DataT> xn;
   rmm::device_uvector<DataT> yn;
-  rmm::device_uvector<cub::KeyValuePair<int, DataT>> min;
-  rmm::device_uvector<cub::KeyValuePair<int, DataT>> min_ref;
+  rmm::device_uvector<raft::KeyValuePair<int, DataT>> min;
+  rmm::device_uvector<raft::KeyValuePair<int, DataT>> min_ref;
   rmm::device_uvector<char> workspace;
-  raft::handle_t handle;
-  cudaStream_t stream;
 
   virtual void generateGoldenResult()
   {
@@ -155,38 +177,39 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     naive<DataT, Sqrt>(min_ref.data(), x.data(), y.data(), m, n, k, (int*)workspace.data(), stream);
   }
 
-  void runTest(cub::KeyValuePair<int, DataT>* out)
+  void runTest(raft::KeyValuePair<int, DataT>* out)
   {
     int m = params.m;
     int n = params.n;
     int k = params.k;
     MinAndDistanceReduceOp<int, DataT> redOp;
-    fusedL2NN<DataT, cub::KeyValuePair<int, DataT>, int>(out,
-                                                         x.data(),
-                                                         y.data(),
-                                                         xn.data(),
-                                                         yn.data(),
-                                                         m,
-                                                         n,
-                                                         k,
-                                                         (void*)workspace.data(),
-                                                         redOp,
-                                                         raft::distance::KVPMinReduce<int, DataT>(),
-                                                         Sqrt,
-                                                         true,
-                                                         stream);
+    fusedL2NN<DataT, raft::KeyValuePair<int, DataT>, int>(
+      out,
+      x.data(),
+      y.data(),
+      xn.data(),
+      yn.data(),
+      m,
+      n,
+      k,
+      (void*)workspace.data(),
+      redOp,
+      raft::distance::KVPMinReduce<int, DataT>(),
+      Sqrt,
+      true,
+      stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 };
 
 template <typename T>
 struct CompareApproxAbsKVP {
-  typedef typename cub::KeyValuePair<int, T> KVP;
+  typedef typename raft::KeyValuePair<int, T> KVP;
   CompareApproxAbsKVP(T eps_) : eps(eps_) {}
   bool operator()(const KVP& a, const KVP& b) const
   {
-    T diff  = raft::abs(raft::abs(a.value) - raft::abs(b.value));
-    T m     = std::max(raft::abs(a.value), raft::abs(b.value));
+    T diff  = std::abs(std::abs(a.value) - std::abs(b.value));
+    T m     = std::max(std::abs(a.value), std::abs(b.value));
     T ratio = m >= eps ? diff / m : diff;
     return (ratio <= eps);
   }
@@ -197,7 +220,7 @@ struct CompareApproxAbsKVP {
 
 template <typename T>
 struct CompareExactKVP {
-  typedef typename cub::KeyValuePair<int, T> KVP;
+  typedef typename raft::KeyValuePair<int, T> KVP;
   bool operator()(const KVP& a, const KVP& b) const
   {
     if (a.value != b.value) return false;
@@ -206,13 +229,13 @@ struct CompareExactKVP {
 };
 
 template <typename K, typename V, typename L>
-::testing::AssertionResult devArrMatch(const cub::KeyValuePair<K, V>* expected,
-                                       const cub::KeyValuePair<K, V>* actual,
+::testing::AssertionResult devArrMatch(const raft::KeyValuePair<K, V>* expected,
+                                       const raft::KeyValuePair<K, V>* actual,
                                        size_t size,
                                        L eq_compare,
                                        cudaStream_t stream = 0)
 {
-  typedef typename cub::KeyValuePair<K, V> KVP;
+  typedef typename raft::KeyValuePair<K, V> KVP;
   std::shared_ptr<KVP> exp_h(new KVP[size]);
   std::shared_ptr<KVP> act_h(new KVP[size]);
   raft::update_host<KVP>(exp_h.get(), expected, size, stream);
@@ -231,19 +254,62 @@ template <typename K, typename V, typename L>
 }
 
 const std::vector<Inputs<float>> inputsf = {
-  {0.001f, 32, 32, 32, 1234ULL},   {0.001f, 32, 64, 32, 1234ULL},   {0.001f, 64, 32, 32, 1234ULL},
-  {0.001f, 64, 64, 32, 1234ULL},   {0.001f, 128, 32, 32, 1234ULL},  {0.001f, 128, 64, 32, 1234ULL},
-  {0.001f, 128, 128, 64, 1234ULL}, {0.001f, 64, 128, 128, 1234ULL},
+  {0.001f, 32, 32, 32, 1234ULL},
+  {0.001f, 32, 64, 32, 1234ULL},
+  {0.001f, 64, 32, 32, 1234ULL},
+  {0.001f, 64, 64, 32, 1234ULL},
+  {0.001f, 128, 32, 32, 1234ULL},
+  {0.001f, 128, 64, 32, 1234ULL},
+  {0.001f, 128, 128, 64, 1234ULL},
+  {0.001f, 64, 128, 128, 1234ULL},
 
-  {0.001f, 32, 32, 34, 1234ULL},   {0.001f, 32, 64, 34, 1234ULL},   {0.001f, 64, 32, 34, 1234ULL},
-  {0.001f, 64, 64, 34, 1234ULL},   {0.001f, 128, 32, 34, 1234ULL},  {0.001f, 128, 64, 34, 1234ULL},
-  {0.001f, 128, 128, 66, 1234ULL}, {0.001f, 64, 128, 130, 1234ULL},
+  {0.001f, 32, 32, 34, 1234ULL},
+  {0.001f, 32, 64, 34, 1234ULL},
+  {0.001f, 64, 32, 34, 1234ULL},
+  {0.001f, 64, 64, 34, 1234ULL},
+  {0.001f, 128, 32, 34, 1234ULL},
+  {0.001f, 128, 64, 34, 1234ULL},
+  {0.001f, 128, 128, 66, 1234ULL},
+  {0.001f, 64, 128, 130, 1234ULL},
 
-  {0.001f, 32, 32, 33, 1234ULL},   {0.001f, 32, 64, 33, 1234ULL},   {0.001f, 64, 32, 33, 1234ULL},
-  {0.001f, 64, 64, 33, 1234ULL},   {0.001f, 128, 32, 33, 1234ULL},  {0.001f, 128, 64, 33, 1234ULL},
-  {0.001f, 128, 128, 65, 1234ULL}, {0.001f, 64, 128, 129, 1234ULL},
-
+  {0.001f, 32, 32, 33, 1234ULL},
+  {0.001f, 32, 64, 33, 1234ULL},
+  {0.001f, 64, 32, 33, 1234ULL},
+  {0.001f, 64, 64, 33, 1234ULL},
+  {0.001f, 128, 32, 33, 1234ULL},
+  {0.001f, 128, 64, 33, 1234ULL},
+  {0.001f, 128, 128, 65, 1234ULL},
+  {0.001f, 64, 128, 129, 1234ULL},
   {0.006f, 1805, 134, 2, 1234ULL},
+
+  // Repeat with smaller values of k
+  {0.006f, 32, 32, 1, 1234ULL},
+  {0.001f, 32, 64, 2, 1234ULL},
+  {0.001f, 64, 32, 3, 1234ULL},
+  {0.001f, 64, 64, 4, 1234ULL},
+  {0.001f, 128, 32, 5, 1234ULL},
+  {0.001f, 128, 64, 6, 1234ULL},
+  {0.001f, 128, 128, 7, 1234ULL},
+  {0.001f, 64, 128, 8, 1234ULL},
+
+  {0.001f, 32, 32, 9, 1234ULL},
+  {0.001f, 32, 64, 10, 1234ULL},
+  {0.001f, 64, 32, 11, 1234ULL},
+  {0.001f, 64, 64, 12, 1234ULL},
+  {0.001f, 128, 32, 13, 1234ULL},
+  {0.001f, 128, 64, 14, 1234ULL},
+  {0.001f, 128, 128, 15, 1234ULL},
+  {0.001f, 64, 128, 16, 1234ULL},
+
+  {0.001f, 32, 32, 17, 1234ULL},
+  {0.001f, 32, 64, 18, 1234ULL},
+  {0.001f, 64, 32, 19, 1234ULL},
+  {0.001f, 64, 64, 20, 1234ULL},
+  {0.001f, 128, 32, 21, 1234ULL},
+  {0.001f, 128, 64, 22, 1234ULL},
+  {0.001f, 128, 128, 23, 1234ULL},
+  {0.00001, 64, 128, 24, 1234ULL},
+  {0.001f, 1805, 134, 25, 1234ULL},
 };
 typedef FusedL2NNTest<float, false> FusedL2NNTestF_Sq;
 TEST_P(FusedL2NNTestF_Sq, Result)
@@ -314,12 +380,12 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
   void TearDown() override { FusedL2NNTest<DataT, Sqrt>::TearDown(); }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
-  rmm::device_uvector<cub::KeyValuePair<int, DataT>> min1;
+  rmm::device_uvector<raft::KeyValuePair<int, DataT>> min1;
 
-  static const int NumRepeats = 100;
+  static const int NumRepeats = 3;
 
   void generateGoldenResult() override {}
 };

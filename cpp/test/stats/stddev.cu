@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <raft/matrix/math.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace stats {
@@ -73,19 +73,48 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
   {
     int rows = params.rows, cols = params.cols;
 
-    mean(mean_act.data(), data, cols, rows, params.sample, params.rowMajor, stream);
+    if (params.rowMajor) {
+      using layout_t = raft::row_major;
+      mean(handle,
+           raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+           raft::make_device_vector_view<T, int>(mean_act.data(), cols),
+           params.sample);
 
-    stddev(
-      stddev_act.data(), data, mean_act.data(), cols, rows, params.sample, params.rowMajor, stream);
+      stddev(handle,
+             raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+             raft::make_device_vector_view<const T, int>(mean_act.data(), cols),
+             raft::make_device_vector_view<T, int>(stddev_act.data(), cols),
+             params.sample);
 
-    vars(
-      vars_act.data(), data, mean_act.data(), cols, rows, params.sample, params.rowMajor, stream);
+      vars(handle,
+           raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+           raft::make_device_vector_view<const T, int>(mean_act.data(), cols),
+           raft::make_device_vector_view<T, int>(vars_act.data(), cols),
+           params.sample);
+    } else {
+      using layout_t = raft::col_major;
+      mean(handle,
+           raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+           raft::make_device_vector_view<T>(mean_act.data(), cols),
+           params.sample);
 
+      stddev(handle,
+             raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+             raft::make_device_vector_view<const T, int>(mean_act.data(), cols),
+             raft::make_device_vector_view<T, int>(stddev_act.data(), cols),
+             params.sample);
+
+      vars(handle,
+           raft::make_device_matrix_view<const T, int, layout_t>(data, rows, cols),
+           raft::make_device_vector_view<const T, int>(mean_act.data(), cols),
+           raft::make_device_vector_view<T, int>(vars_act.data(), cols),
+           params.sample);
+    }
     raft::matrix::seqRoot(vars_act.data(), T(1), cols, stream);
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   StdDevInputs<T> params;

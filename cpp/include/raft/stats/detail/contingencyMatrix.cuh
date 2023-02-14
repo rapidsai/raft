@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
 #include <thrust/reduce.h>
 
 #include <cub/cub.cuh>
@@ -234,7 +236,7 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
 }
 
 /**
- * @brief contruct contingency matrix given input ground truth and prediction
+ * @brief construct contingency matrix given input ground truth and prediction
  *        labels. Users should call function getInputClassCardinality to find
  *        and allocate memory for output. Similarly workspace requirements
  *        should be checked using function getContingencyMatrixWorkspaceSize
@@ -270,7 +272,7 @@ void contingencyMatrix(const T* groundTruth,
   // Output matrix will still have empty rows for label value {3,4}
   // Users can use "make_monotonic" to convert their discontinuous input label
   // range to a monotonically increasing one  //
-  // this also serves as way to measure co-occurence/joint counts for NLP tasks which
+  // this also serves as way to measure co-occurrence/joint counts for NLP tasks which
   // can be used to then compute pointwise mutual information and mutual information
   if (minLabel == std::numeric_limits<T>::max() || maxLabel == std::numeric_limits<T>::max()) {
     getInputClassCardinality<T>(groundTruth, nSamples, stream, minLabel, maxLabel);

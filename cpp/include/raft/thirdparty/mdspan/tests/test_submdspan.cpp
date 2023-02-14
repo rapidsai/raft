@@ -51,7 +51,7 @@ _MDSPAN_INLINE_VARIABLE constexpr auto dyn = stdex::dynamic_extent;
 
 TEST(TestSubmdspanLayoutRightStaticSizedRankReducing3Dto1D, test_submdspan_layout_right_static_sized_rank_reducing_3d_to_1d) {
   std::vector<int> d(2 * 3 * 4, 0);
-  stdex::mdspan<int, stdex::extents<2, 3, 4>> m(d.data());
+  stdex::mdspan<int, stdex::extents<size_t,2, 3, 4>> m(d.data());
   __MDSPAN_OP(m, 1, 1, 1) = 42;
   auto sub0 = stdex::submdspan(m, 1, 1, stdex::full_extent);
   ASSERT_EQ(sub0.rank(),         1);
@@ -62,7 +62,7 @@ TEST(TestSubmdspanLayoutRightStaticSizedRankReducing3Dto1D, test_submdspan_layou
 
 TEST(TestSubmdspanLayoutLeftStaticSizedRankReducing3Dto1D, test_submdspan_layout_left_static_sized_rank_reducing_3d_to_1d) {
   std::vector<int> d(2 * 3 * 4, 0);
-  stdex::mdspan<int, stdex::extents<2, 3, 4>, stdex::layout_left> m(d.data());
+  stdex::mdspan<int, stdex::extents<size_t,2, 3, 4>, stdex::layout_left> m(d.data());
   __MDSPAN_OP(m, 1, 1, 1) = 42;
   auto sub0 = stdex::submdspan(m, 1, 1, stdex::full_extent);
   ASSERT_EQ(sub0.rank(),         1);
@@ -73,7 +73,7 @@ TEST(TestSubmdspanLayoutLeftStaticSizedRankReducing3Dto1D, test_submdspan_layout
 
 TEST(TestSubmdspanLayoutRightStaticSizedRankReducingNested3Dto0D, test_submdspan_layout_right_static_sized_rank_reducing_nested_3d_to_0d) {
   std::vector<int> d(2 * 3 * 4, 0);
-  stdex::mdspan<int, stdex::extents<2, 3, 4>> m(d.data());
+  stdex::mdspan<int, stdex::extents<size_t,2, 3, 4>> m(d.data());
   __MDSPAN_OP(m, 1, 1, 1) = 42;
   auto sub0 = stdex::submdspan(m, 1, stdex::full_extent, stdex::full_extent);
   ASSERT_EQ(sub0.rank(),         2);
@@ -94,7 +94,7 @@ TEST(TestSubmdspanLayoutRightStaticSizedRankReducingNested3Dto0D, test_submdspan
 
 TEST(TestSubmdspanLayoutRightStaticSizedPairs, test_submdspan_layout_right_static_sized_pairs) {
   std::vector<int> d(2 * 3 * 4, 0);
-  stdex::mdspan<int, stdex::extents<2, 3, 4>> m(d.data());
+  stdex::mdspan<int, stdex::extents<size_t,2, 3, 4>> m(d.data());
   __MDSPAN_OP(m, 1, 1, 1) = 42;
   auto sub0 = stdex::submdspan(m, std::pair<int,int>{1, 2}, std::pair<int,int>{1, 3}, std::pair<int,int>{1, 4});
   ASSERT_EQ(sub0.rank(),         3);
@@ -107,7 +107,7 @@ TEST(TestSubmdspanLayoutRightStaticSizedPairs, test_submdspan_layout_right_stati
 
 TEST(TestSubmdspanLayoutRightStaticSizedTuples, test_submdspan_layout_right_static_sized_tuples) {
   std::vector<int> d(2 * 3 * 4, 0);
-  stdex::mdspan<int, stdex::extents<2, 3, 4>> m(d.data());
+  stdex::mdspan<int, stdex::extents<size_t,2, 3, 4>> m(d.data());
   __MDSPAN_OP(m, 1, 1, 1) = 42;
   auto sub0 = stdex::submdspan(m, std::tuple<int,int>{1, 2}, std::tuple<int,int>{1, 3}, std::tuple<int,int>{1, 4});
   ASSERT_EQ(sub0.rank(),         3);
@@ -125,49 +125,49 @@ TEST(TestSubmdspanLayoutRightStaticSizedTuples, test_submdspan_layout_right_stat
 using submdspan_test_types =
   ::testing::Types<
       // LayoutLeft to LayoutLeft
-      std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<1>,stdex::dextents<1>, stdex::full_extent_t>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<1>,stdex::dextents<1>, std::pair<int,int>>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<1>,stdex::dextents<0>, int>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<2>,stdex::dextents<2>, stdex::full_extent_t, stdex::full_extent_t>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<2>,stdex::dextents<2>, stdex::full_extent_t, std::pair<int,int>>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<2>,stdex::dextents<1>, stdex::full_extent_t, int>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<3>,stdex::dextents<3>, stdex::full_extent_t, stdex::full_extent_t, std::pair<int,int>>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<3>,stdex::dextents<2>, stdex::full_extent_t, std::pair<int,int>, int>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<3>,stdex::dextents<1>, stdex::full_extent_t, int, int>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<3>,stdex::dextents<1>, std::pair<int,int>, int, int>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<6>,stdex::dextents<3>, stdex::full_extent_t, stdex::full_extent_t, std::pair<int,int>, int, int, int>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<6>,stdex::dextents<2>, stdex::full_extent_t, std::pair<int,int>, int, int, int, int>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<6>,stdex::dextents<1>, stdex::full_extent_t, int, int, int ,int, int>
-    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<6>,stdex::dextents<1>, std::pair<int,int>, int, int, int, int, int>
+      std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,1>,stdex::dextents<size_t,1>, stdex::full_extent_t>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,1>,stdex::dextents<size_t,1>, std::pair<int,int>>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,1>,stdex::dextents<size_t,0>, int>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,2>,stdex::dextents<size_t,2>, stdex::full_extent_t, stdex::full_extent_t>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,2>,stdex::dextents<size_t,2>, stdex::full_extent_t, std::pair<int,int>>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,2>,stdex::dextents<size_t,1>, stdex::full_extent_t, int>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,3>,stdex::dextents<size_t,3>, stdex::full_extent_t, stdex::full_extent_t, std::pair<int,int>>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,3>,stdex::dextents<size_t,2>, stdex::full_extent_t, std::pair<int,int>, int>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,3>,stdex::dextents<size_t,1>, stdex::full_extent_t, int, int>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,3>,stdex::dextents<size_t,1>, std::pair<int,int>, int, int>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,6>,stdex::dextents<size_t,3>, stdex::full_extent_t, stdex::full_extent_t, std::pair<int,int>, int, int, int>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,6>,stdex::dextents<size_t,2>, stdex::full_extent_t, std::pair<int,int>, int, int, int, int>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,6>,stdex::dextents<size_t,1>, stdex::full_extent_t, int, int, int ,int, int>
+    , std::tuple<stdex::layout_left, stdex::layout_left, stdex::dextents<size_t,6>,stdex::dextents<size_t,1>, std::pair<int,int>, int, int, int, int, int>
     // LayoutRight to LayoutRight
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<1>,stdex::dextents<1>, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<1>,stdex::dextents<1>, std::pair<int,int>>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<1>,stdex::dextents<0>, int>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<2>,stdex::dextents<2>, stdex::full_extent_t, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<2>,stdex::dextents<2>, std::pair<int,int>, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<2>,stdex::dextents<1>, int, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<3>,stdex::dextents<3>, std::pair<int,int>, stdex::full_extent_t, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<3>,stdex::dextents<2>, int, std::pair<int,int>, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<3>,stdex::dextents<1>, int, int, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<6>,stdex::dextents<3>, int, int, int, std::pair<int,int>, stdex::full_extent_t, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<6>,stdex::dextents<2>, int, int, int, int, std::pair<int,int>, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<6>,stdex::dextents<1>, int, int, int, int, int, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,1>,stdex::dextents<size_t,1>, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,1>,stdex::dextents<size_t,1>, std::pair<int,int>>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,1>,stdex::dextents<size_t,0>, int>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,2>,stdex::dextents<size_t,2>, stdex::full_extent_t, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,2>,stdex::dextents<size_t,2>, std::pair<int,int>, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,2>,stdex::dextents<size_t,1>, int, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,3>,stdex::dextents<size_t,3>, std::pair<int,int>, stdex::full_extent_t, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,3>,stdex::dextents<size_t,2>, int, std::pair<int,int>, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,3>,stdex::dextents<size_t,1>, int, int, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,6>,stdex::dextents<size_t,3>, int, int, int, std::pair<int,int>, stdex::full_extent_t, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,6>,stdex::dextents<size_t,2>, int, int, int, int, std::pair<int,int>, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::dextents<size_t,6>,stdex::dextents<size_t,1>, int, int, int, int, int, stdex::full_extent_t>
     // LayoutRight to LayoutRight Check Extents Preservation
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1>,stdex::extents<1>, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1>,stdex::extents<dyn>, std::pair<int,int>>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1>,stdex::extents<>, int>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1,2>,stdex::extents<1,2>, stdex::full_extent_t, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1,2>,stdex::extents<dyn,2>, std::pair<int,int>, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1,2>,stdex::extents<2>, int, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1,2,3>,stdex::extents<dyn,2,3>, std::pair<int,int>, stdex::full_extent_t, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1,2,3>,stdex::extents<dyn,3>, int, std::pair<int,int>, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1,2,3>,stdex::extents<3>, int, int, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1,2,3,4,5,6>,stdex::extents<dyn,5,6>, int, int, int, std::pair<int,int>, stdex::full_extent_t, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1,2,3,4,5,6>,stdex::extents<dyn,6>, int, int, int, int, std::pair<int,int>, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<1,2,3,4,5,6>,stdex::extents<6>, int, int, int, int, int, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1>,stdex::extents<size_t,1>, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1>,stdex::extents<size_t,dyn>, std::pair<int,int>>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1>,stdex::extents<size_t>, int>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1,2>,stdex::extents<size_t,1,2>, stdex::full_extent_t, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1,2>,stdex::extents<size_t,dyn,2>, std::pair<int,int>, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1,2>,stdex::extents<size_t,2>, int, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1,2,3>,stdex::extents<size_t,dyn,2,3>, std::pair<int,int>, stdex::full_extent_t, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1,2,3>,stdex::extents<size_t,dyn,3>, int, std::pair<int,int>, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1,2,3>,stdex::extents<size_t,3>, int, int, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1,2,3,4,5,6>,stdex::extents<size_t,dyn,5,6>, int, int, int, std::pair<int,int>, stdex::full_extent_t, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1,2,3,4,5,6>,stdex::extents<size_t,dyn,6>, int, int, int, int, std::pair<int,int>, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_right, stdex::extents<size_t,1,2,3,4,5,6>,stdex::extents<size_t,6>, int, int, int, int, int, stdex::full_extent_t>
 
-    , std::tuple<stdex::layout_right, stdex::layout_stride, stdex::extents<1,2,3,4,5,6>,stdex::extents<1,dyn,6>, stdex::full_extent_t, int, std::pair<int,int>, int, int, stdex::full_extent_t>
-    , std::tuple<stdex::layout_right, stdex::layout_stride, stdex::extents<1,2,3,4,5,6>,stdex::extents<2,dyn,5>, int, stdex::full_extent_t, std::pair<int,int>, int, stdex::full_extent_t, int>
+    , std::tuple<stdex::layout_right, stdex::layout_stride, stdex::extents<size_t,1,2,3,4,5,6>,stdex::extents<size_t,1,dyn,6>, stdex::full_extent_t, int, std::pair<int,int>, int, int, stdex::full_extent_t>
+    , std::tuple<stdex::layout_right, stdex::layout_stride, stdex::extents<size_t,1,2,3,4,5,6>,stdex::extents<size_t,2,dyn,5>, int, stdex::full_extent_t, std::pair<int,int>, int, stdex::full_extent_t, int>
     >;
 
 template<class T> struct TestSubMDSpan;
@@ -183,8 +183,9 @@ struct TestSubMDSpan<
 
   using mds_org_t = stdex::mdspan<int, ExtentsOrg, LayoutOrg>;
   using mds_sub_t = stdex::mdspan<int, ExtentsSub, LayoutSub>;
+  using map_t = typename mds_org_t::mapping_type;
 
-  using mds_sub_deduced_t = decltype(stdex::submdspan(mds_org_t(), SubArgs()...));
+  using mds_sub_deduced_t = decltype(stdex::submdspan(mds_org_t(nullptr, map_t()), SubArgs()...));
   using sub_args_t = std::tuple<SubArgs...>;
 
 };

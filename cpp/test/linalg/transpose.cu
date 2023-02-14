@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
+#include <raft/core/device_mdspan.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -70,7 +71,7 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   TranposeInputs<T> params;
@@ -113,5 +114,150 @@ INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValF, ::testing::ValuesIn(
 
 INSTANTIATE_TEST_SUITE_P(TransposeTests, TransposeTestValD, ::testing::ValuesIn(inputsd2));
 
+namespace {
+/**
+ * We hide these functions in tests for now until we have a heterogeneous mdarray
+ * implementation.
+ */
+
+/**
+ * @brief Transpose a matrix. The output has same layout policy as the input.
+ *
+ * @tparam T Data type of input matrix elements.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ *
+ * @param[in] handle raft handle for managing expensive cuda resources.
+ * @param[in] in     Input matrix.
+ *
+ * @return The transposed matrix.
+ */
+template <typename T, typename IndexType, typename LayoutPolicy>
+[[nodiscard]] auto transpose(raft::device_resources const& handle,
+                             device_matrix_view<T, IndexType, LayoutPolicy> in)
+  -> std::enable_if_t<std::is_floating_point_v<T> &&
+                        (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
+                         std::is_same_v<LayoutPolicy, layout_f_contiguous>),
+                      device_matrix<T, IndexType, LayoutPolicy>>
+{
+  auto out = make_device_matrix<T, IndexType, LayoutPolicy>(handle, in.extent(1), in.extent(0));
+  ::raft::linalg::transpose(handle, in, out.view());
+  return out;
+}
+
+/**
+ * @brief Transpose a matrix. The output has same layout policy as the input.
+ *
+ * @tparam T Data type of input matrix elements.
+ * @tparam LayoutPolicy Layout type of the input matrix. When layout is strided, it can
+ *                      be a submatrix of a larger matrix. Arbitrary stride is not supported.
+ *
+ * @param[in] handle raft handle for managing expensive cuda resources.
+ * @param[in] in     Input matrix.
+ *
+ * @return The transposed matrix.
+ */
+template <typename T, typename IndexType>
+[[nodiscard]] auto transpose(raft::device_resources const& handle,
+                             device_matrix_view<T, IndexType, layout_stride> in)
+  -> std::enable_if_t<std::is_floating_point_v<T>, device_matrix<T, IndexType, layout_stride>>
+{
+  matrix_extent<size_t> exts{in.extent(1), in.extent(0)};
+  using policy_type =
+    typename raft::device_matrix<T, IndexType, layout_stride>::container_policy_type;
+  policy_type policy(handle.get_stream());
+
+  RAFT_EXPECTS(in.stride(0) == 1 || in.stride(1) == 1, "Unsupported matrix layout.");
+  if (in.stride(1) == 1) {
+    // row-major submatrix
+    std::array<size_t, 2> strides{in.extent(0), 1};
+    auto layout = layout_stride::mapping<matrix_extent<size_t>>{exts, strides};
+    raft::device_matrix<T, IndexType, layout_stride> out{layout, policy};
+    ::raft::linalg::transpose(handle, in, out.view());
+    return out;
+  } else {
+    // col-major submatrix
+    std::array<size_t, 2> strides{1, in.extent(1)};
+    auto layout = layout_stride::mapping<matrix_extent<size_t>>{exts, strides};
+    raft::device_matrix<T, IndexType, layout_stride> out{layout, policy};
+    ::raft::linalg::transpose(handle, in, out.view());
+    return out;
+  }
+}
+
+template <typename T, typename LayoutPolicy>
+void test_transpose_with_mdspan()
+{
+  raft::device_resources handle;
+  auto v = make_device_matrix<T, size_t, LayoutPolicy>(handle, 32, 3);
+  T k{0};
+  for (size_t i = 0; i < v.extent(0); ++i) {
+    for (size_t j = 0; j < v.extent(1); ++j) {
+      v(i, j) = k++;
+    }
+  }
+  auto out = transpose(handle, v.view());
+  static_assert(std::is_same_v<LayoutPolicy, typename decltype(out)::layout_type>);
+  ASSERT_EQ(out.extent(0), v.extent(1));
+  ASSERT_EQ(out.extent(1), v.extent(0));
+
+  k = 0;
+  for (size_t i = 0; i < out.extent(1); ++i) {
+    for (size_t j = 0; j < out.extent(0); ++j) {
+      ASSERT_EQ(out(j, i), k++);
+    }
+  }
+}
+}  // namespace
+
+TEST(TransposeTest, MDSpan)
+{
+  test_transpose_with_mdspan<float, layout_c_contiguous>();
+  test_transpose_with_mdspan<double, layout_c_contiguous>();
+
+  test_transpose_with_mdspan<float, layout_f_contiguous>();
+  test_transpose_with_mdspan<double, layout_f_contiguous>();
+}
+
+namespace {
+template <typename T, typename LayoutPolicy>
+void test_transpose_submatrix()
+{
+  raft::device_resources handle;
+  auto v = make_device_matrix<T, size_t, LayoutPolicy>(handle, 32, 33);
+  T k{0};
+  size_t row_beg{3}, row_end{13}, col_beg{2}, col_end{11};
+  for (size_t i = row_beg; i < row_end; ++i) {
+    for (size_t j = col_beg; j < col_end; ++j) {
+      v(i, j) = k++;
+    }
+  }
+
+  auto vv     = v.view();
+  auto submat = std::experimental::submdspan(
+    vv, std::make_tuple(row_beg, row_end), std::make_tuple(col_beg, col_end));
+  static_assert(std::is_same_v<typename decltype(submat)::layout_type, layout_stride>);
+
+  auto out = transpose(handle, submat);
+  ASSERT_EQ(out.extent(0), submat.extent(1));
+  ASSERT_EQ(out.extent(1), submat.extent(0));
+
+  k = 0;
+  for (size_t i = 0; i < out.extent(1); ++i) {
+    for (size_t j = 0; j < out.extent(0); ++j) {
+      ASSERT_EQ(out(j, i), k++);
+    }
+  }
+}
+}  // namespace
+
+TEST(TransposeTest, SubMatrix)
+{
+  test_transpose_submatrix<float, layout_c_contiguous>();
+  test_transpose_submatrix<double, layout_c_contiguous>();
+
+  test_transpose_submatrix<float, layout_f_contiguous>();
+  test_transpose_submatrix<double, layout_f_contiguous>();
+}
 }  // end namespace linalg
 }  // end namespace raft

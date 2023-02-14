@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
 #include <raft/distance/distance.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
 #include <raft/stats/specializations.cuh>
@@ -31,6 +31,9 @@ namespace raft {
 namespace stats {
 
 class TrustworthinessScoreTest : public ::testing::Test {
+ public:
+  TrustworthinessScoreTest() : d_X(0, handle.get_stream()), d_X_embedded(0, handle.get_stream()) {}
+
  protected:
   void basicTest()
   {
@@ -311,19 +314,23 @@ class TrustworthinessScoreTest : public ::testing::Test {
       -0.02323332, 0.04292452,  0.39291084,  -0.94897962, -0.63863206, -0.16546988, 0.23698957,
       -0.30633628};
 
-    raft::handle_t handle;
+    auto stream = handle.get_stream();
 
-    cudaStream_t stream = handle.get_stream();
-
-    rmm::device_uvector<float> d_X(X.size(), stream);
-    rmm::device_uvector<float> d_X_embedded(X_embedded.size(), stream);
-
+    d_X.resize(X.size(), stream);
+    d_X_embedded.resize(X_embedded.size(), stream);
     raft::update_device(d_X.data(), X.data(), X.size(), stream);
     raft::update_device(d_X_embedded.data(), X_embedded.data(), X_embedded.size(), stream);
+    auto n_sample            = 50;
+    auto n_features_origin   = 30;
+    auto n_features_embedded = 8;
 
     // euclidean test
-    score = trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
-      handle, d_X.data(), d_X_embedded.data(), 50, 30, 8, 5);
+    score = trustworthiness_score<raft::distance::DistanceType::L2SqrtUnexpanded, float>(
+      handle,
+      raft::make_device_matrix_view<const float>(d_X.data(), n_sample, n_features_origin),
+      raft::make_device_matrix_view<const float>(
+        d_X_embedded.data(), n_sample, n_features_embedded),
+      5);
   }
 
   void SetUp() override { basicTest(); }
@@ -331,6 +338,11 @@ class TrustworthinessScoreTest : public ::testing::Test {
   void TearDown() override {}
 
  protected:
+  raft::device_resources handle;
+
+  rmm::device_uvector<float> d_X;
+  rmm::device_uvector<float> d_X_embedded;
+
   double score;
 };
 

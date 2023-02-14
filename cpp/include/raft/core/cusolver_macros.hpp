@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 #include <cusolverSp.h>
 ///@todo: enable this once logging is enabled
 //#include <cuml/common/logger.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 #include <type_traits>
 
 #define _CUSOLVER_ERR_TO_STR(err) \
@@ -32,12 +32,21 @@
 namespace raft {
 
 /**
+ * @ingroup error_handling
+ * @{
+ */
+
+/**
  * @brief Exception thrown when a cuSOLVER error is encountered.
  */
 struct cusolver_error : public raft::exception {
   explicit cusolver_error(char const* const message) : raft::exception(message) {}
   explicit cusolver_error(std::string const& message) : raft::exception(message) {}
 };
+
+/**
+ * @}
+ */
 
 namespace linalg {
 namespace detail {
@@ -64,6 +73,11 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
 }  // namespace raft
 
 #undef _CUSOLVER_ERR_TO_STR
+
+/**
+ * @ingroup assertion
+ * @{
+ */
 
 /**
  * @brief Error checking macro for cuSOLVER runtime API functions.
@@ -106,6 +120,10 @@ inline const char* cusolver_error_to_string(cusolverStatus_t err)
              raft::linalg::detail::cusolver_error_to_string(status));  \
     }                                                                  \
   } while (0)
+
+/**
+ * @}
+ */
 
 // FIXME: remove after cuml rename
 #ifndef CUSOLVER_CHECK

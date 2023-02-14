@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,9 +54,9 @@
 
 #include <cub/cub.cuh>
 #include <math.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -125,8 +125,8 @@ __global__ void computeTheNumerator(
  * @param stream: the cudaStream object
  */
 template <typename T>
-double compute_rand_index(T* firstClusterArray,
-                          T* secondClusterArray,
+double compute_rand_index(const T* firstClusterArray,
+                          const T* secondClusterArray,
                           uint64_t size,
                           cudaStream_t stream)
 {

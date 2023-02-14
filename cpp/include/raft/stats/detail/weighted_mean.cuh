@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/reduce.hpp>
-#include <raft/stats/sum.hpp>
+#include <raft/linalg/reduce.cuh>
+#include <raft/stats/sum.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace stats {
@@ -66,8 +67,8 @@ void weightedMean(Type* mu,
     stream,
     false,
     [weights] __device__(Type v, IdxType i) { return v * weights[i]; },
-    [] __device__(Type a, Type b) { return a + b; },
-    [WS] __device__(Type v) { return v / WS; });
+    raft::add_op{},
+    raft::div_const_op<Type>(WS));
 }
 };  // end namespace detail
 };  // end namespace stats

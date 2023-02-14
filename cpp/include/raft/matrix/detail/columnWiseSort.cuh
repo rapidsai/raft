@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <cub/cub.cuh>
 #include <limits>
 #include <map>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #define INST_BLOCK_SORT(keyIn, keyOut, valueInOut, rows, columns, blockSize, elemPT, stream)     \
   devKeyValSortColumnPerRow<InType, OutType, blockSize, elemPT><<<rows, blockSize, 0, stream>>>( \
@@ -229,7 +229,7 @@ void sortColumnsPerRow(const InType* in,
     // will give better perf than below deviceWide Sort for even larger dims
     int numSegments = n_rows + 1;
 
-    // need auxillary storage: cub sorting + keys (if user not passing) +
+    // need auxiliary storage: cub sorting + keys (if user not passing) +
     // staging for values out + segment partition
     if (workspaceSize == 0 || !workspacePtr) {
       OutType* tmpValIn    = nullptr;

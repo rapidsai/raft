@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,12 @@
 #pragma once
 
 #include "detail/gemm.hpp"
+
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/host_mdspan.hpp>
+#include <raft/util/input_validation.hpp>
 
 namespace raft {
 namespace linalg {
@@ -46,7 +52,7 @@ namespace linalg {
  * @param [in] stream
  */
 template <typename math_t, bool DevicePointerMode = false>
-void gemm(const raft::handle_t& handle,
+void gemm(raft::resources const& handle,
           const bool trans_a,
           const bool trans_b,
           const int m,
@@ -58,7 +64,7 @@ void gemm(const raft::handle_t& handle,
           const math_t* B,
           const int ldb,
           const math_t* beta,
-          const math_t* C,
+          math_t* C,
           const int ldc,
           cudaStream_t stream)
 {
@@ -85,7 +91,7 @@ void gemm(const raft::handle_t& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void gemm(const raft::handle_t& handle,
+void gemm(raft::resources const& handle,
           const math_t* a,
           int n_rows_a,
           int n_cols_a,
@@ -120,7 +126,7 @@ void gemm(const raft::handle_t& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void gemm(const raft::handle_t& handle,
+void gemm(raft::resources const& handle,
           const math_t* a,
           int n_rows_a,
           int n_cols_a,
@@ -145,7 +151,7 @@ void gemm(const raft::handle_t& handle,
  * @param x input matrix of size M rows x K columns
  * @param y input matrix of size K rows x N columns
  * @param _M number of rows of X and Z
- * @param _N number of rows of Y and columns of Z
+ * @param _N number of columns of Y and columns of Z
  * @param _K number of columns of X and rows of Y
  * @param isZColMajor Storage layout of Z. true = col major, false = row major
  * @param isXColMajor Storage layout of X. true = col major, false = row major
@@ -155,7 +161,7 @@ void gemm(const raft::handle_t& handle,
  * @param beta scalar
  */
 template <typename T>
-void gemm(const raft::handle_t& handle,
+void gemm(raft::resources const& handle,
           T* z,
           T* x,
           T* y,
@@ -170,8 +176,101 @@ void gemm(const raft::handle_t& handle,
           T beta  = T(0.0))
 {
   detail::gemm(
-    handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor, isYColMajor, stream, alpha, beta);
+    handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor, isYColMajor, stream, &alpha, &beta);
 }
+
+/**
+ * @defgroup gemm Matrix-Matrix Multiplication
+ * @{
+ */
+
+/**
+ * @brief GEMM function designed for handling all possible
+ * combinations of operand layouts (raft::row_major or raft::col_major)
+ * with scalars alpha and beta on the host or device
+ * It computes the following equation: Z = alpha . X * Y + beta . Z
+ * If alpha is not provided, it is assumed to be 1.0
+ * If beta is not provided, it is assumed to be 0.0
+ * @tparam ValueType Data type of input/output matrices (float/double)
+ * @tparam IndexType Type of index
+ * @tparam LayoutPolicyX layout of X
+ * @tparam LayoutPolicyY layout of Y
+ * @tparam LayoutPolicyZ layout of Z
+ * @param[in] handle raft handle
+ * @param[in] x input raft::device_matrix_view of size M rows x K columns
+ * @param[in] y input raft::device_matrix_view of size K rows x N columns
+ * @param[out] z output raft::device_matrix_view of size M rows x N columns
+ * @param[in] alpha optional raft::host_scalar_view or raft::device_scalar_view, default 1.0
+ * @param[in] beta optional raft::host_scalar_view or raft::device_scalar_view, default 0.0
+ */
+template <typename ValueType,
+          typename IndexType,
+          typename LayoutPolicyX,
+          typename LayoutPolicyY,
+          typename LayoutPolicyZ,
+          typename ScalarIdxType  = std::uint32_t,
+          typename ScalarViewType = raft::host_scalar_view<ValueType, ScalarIdxType>,
+          typename                = std::enable_if_t<std::disjunction_v<
+            std::is_same<ScalarViewType, raft::host_scalar_view<ValueType, ScalarIdxType>>,
+            std::is_same<ScalarViewType, raft::device_scalar_view<ValueType, ScalarIdxType>>>>>
+void gemm(raft::device_resources const& handle,
+          raft::device_matrix_view<ValueType, IndexType, LayoutPolicyX> x,
+          raft::device_matrix_view<ValueType, IndexType, LayoutPolicyY> y,
+          raft::device_matrix_view<ValueType, IndexType, LayoutPolicyZ> z,
+          std::optional<ScalarViewType> alpha = std::nullopt,
+          std::optional<ScalarViewType> beta  = std::nullopt)
+{
+  RAFT_EXPECTS(raft::is_row_or_column_major(x), "X is not contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(y), "Y is not contiguous");
+  RAFT_EXPECTS(raft::is_row_or_column_major(z), "Z is not contiguous");
+
+  RAFT_EXPECTS(x.extent(0) == z.extent(0), "Number of rows of X and Z should be equal");
+  RAFT_EXPECTS(y.extent(1) == z.extent(1), "Number of columns of Y and Z should be equal");
+  RAFT_EXPECTS(x.extent(1) == y.extent(0), "Number of columns of X and rows of Y should be equal");
+
+  constexpr auto is_x_col_major =
+    std::is_same_v<typename decltype(x)::layout_type, raft::col_major>;
+  constexpr auto is_y_col_major =
+    std::is_same_v<typename decltype(y)::layout_type, raft::col_major>;
+  constexpr auto is_z_col_major =
+    std::is_same_v<typename decltype(z)::layout_type, raft::col_major>;
+
+  constexpr auto device_mode =
+    std::is_same_v<ScalarViewType, raft::device_scalar_view<ValueType, ScalarIdxType>>;
+
+  ValueType alpha_value = 1;
+  ValueType beta_value  = 0;
+
+  auto alpha_device = raft::make_device_scalar(handle, alpha_value);
+  auto beta_device  = raft::make_device_scalar(handle, beta_value);
+
+  auto alpha_host = raft::make_host_scalar(alpha_value);
+  auto beta_host  = raft::make_host_scalar(beta_value);
+
+  if constexpr (device_mode) {
+    if (!alpha) { alpha = alpha_device.view(); }
+    if (!beta) { beta = beta_device.view(); }
+  } else {
+    if (!alpha) { alpha = alpha_host.view(); }
+    if (!beta) { beta = beta_host.view(); }
+  }
+
+  detail::gemm<ValueType, device_mode>(handle,
+                                       z.data_handle(),
+                                       x.data_handle(),
+                                       y.data_handle(),
+                                       x.extent(0),
+                                       y.extent(1),
+                                       x.extent(1),
+                                       is_z_col_major,
+                                       is_x_col_major,
+                                       is_y_col_major,
+                                       handle.get_stream(),
+                                       alpha.value().data_handle(),
+                                       beta.value().data_handle());
+}
+
+/** @} */  // end of gemm
 
 }  // end namespace linalg
 }  // end namespace raft

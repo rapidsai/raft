@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ void meanSquaredError(
     math_t diff = a - b;
     return diff * diff * weight / len;
   };
-  raft::linalg::mapThenSumReduce<math_t, decltype(sq_diff), TPB>(out, len, sq_diff, stream, A, B);
+  raft::linalg::mapThenSumReduce<math_t, decltype(sq_diff)>(out, len, sq_diff, stream, A, B);
 }
 
 };  // end namespace detail

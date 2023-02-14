@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: sudo apt-get install python3
-      - run: ./make_single_header.py ./include/experimental/mdspan > /tmp/mdspan.hpp
+      - run: ./make_single_header.py ./include/experimental/mdarray > /tmp/mdspan.hpp
       - uses: actions/checkout@v2
         with:
           ref: single-header
