@@ -21,9 +21,9 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/random/make_blobs.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <benchmark/benchmark.h>
 
