@@ -18,10 +18,8 @@
 #include <raft/neighbors/ball_cover_types.hpp>
 
 // Ignore upstream specializations to avoid unnecessary recompiling
-#ifdef RAFT_DISTANCE_COMPILED
+static_assert(RAFT_DISTANCE_COMPILED, "Requires distance specializations");
 #include <raft/distance/specializations.cuh>
-#endif
-
 #include <raft/neighbors/specializations/detail/ball_cover_lowdim.hpp>
 #include <raft/neighbors/specializations/fused_l2_knn.cuh>
 #include <raft/neighbors/specializations/knn.cuh>
