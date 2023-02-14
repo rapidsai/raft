@@ -363,8 +363,11 @@ __launch_bounds__(BlockDim) __global__
 }
 
 /**
- * Transform found neighbor indices into the corresponding database indices
+ * Transform found sample indices into the corresponding database indices
  * (as stored in index.indices()).
+ * The sample indices are the record indices as they appear in the database view formed by the
+ * probed clusters / defined by the `chunk_indices`.
+ * We assume the searched sample sizes (for a single query) fit into `uint32_t`.
  */
 template <typename IdxT>
 void postprocess_neighbors(IdxT* neighbors_out,                // [n_queries, topk]
@@ -594,6 +597,9 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  *   [n_queries, max_samples] or [n_queries, n_probes, topk].
  * @param _out_indices
  *   The device pointer to the output indices [n_queries, n_probes, topk].
+ *   These are the indices of the records as they appear in the database view formed by the probed
+ *   clusters / defined by the `_chunk_indices`.
+ *   The indices can have values within the range [0, max_samples).
  *   Ignored  when `Capacity == 0`.
  */
 template <typename OutT,
