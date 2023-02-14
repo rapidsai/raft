@@ -219,7 +219,7 @@ struct list_data {
       conservative_memory_allocation ? n_rows : amortized_size, kIndexGroupSize);
     try {
       data = make_device_mdarray<uint8_t>(res, make_list_extents<SizeT>(capacity, pq_bits, pq_dim));
-      indices = make_device_mdarray<IdxT>(res, make_extents<SizeT>(capacity));
+      indices = make_device_vector<IdxT, SizeT>(res, capacity);
     } catch (std::bad_alloc& e) {
       RAFT_FAIL(
         "ivf-pq: failed to allocate a big enough index list to hold all data "
@@ -371,17 +371,14 @@ struct index : ann::index {
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
       conservative_memory_allocation_(conservative_memory_allocation),
       pq_centers_{make_device_mdarray<float>(handle, make_pq_centers_extents())},
-      lists_{make_host_mdarray<std::shared_ptr<list_data<IdxT>>>(make_extents<uint32_t>(n_lists))},
-      rotation_matrix_{
-        make_device_mdarray<float>(handle, make_extents<uint32_t>(this->rot_dim(), this->dim()))},
-      list_sizes_{make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(n_lists))},
-      centers_{
-        make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists, this->dim_ext()))},
-      centers_rot_{
-        make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists, this->rot_dim()))},
-      data_ptrs_{make_device_mdarray<uint8_t*>(handle, make_extents<uint32_t>(n_lists))},
-      inds_ptrs_{make_device_mdarray<IdxT*>(handle, make_extents<uint32_t>(n_lists))},
-      accum_sorted_sizes_{make_host_mdarray<IdxT>(make_extents<uint32_t>(n_lists + 1))}
+      lists_{make_host_vector<std::shared_ptr<list_data<IdxT>>, uint32_t>(n_lists)},
+      rotation_matrix_{make_device_matrix<float, uint32_t>(handle, this->rot_dim(), this->dim())},
+      list_sizes_{make_device_vector<uint32_t, uint32_t>(handle, n_lists)},
+      centers_{make_device_matrix<float, uint32_t>(handle, n_lists, this->dim_ext())},
+      centers_rot_{make_device_matrix<float, uint32_t>(handle, n_lists, this->rot_dim())},
+      data_ptrs_{make_device_vector<uint8_t*, uint32_t>(handle, n_lists)},
+      inds_ptrs_{make_device_vector<IdxT*, uint32_t>(handle, n_lists)},
+      accum_sorted_sizes_{make_host_vector<IdxT, uint32_t>(n_lists + 1)}
   {
     check_consistency();
     for (uint32_t i = 0; i < n_lists; i++) {
