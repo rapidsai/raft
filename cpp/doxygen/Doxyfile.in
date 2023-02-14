@@ -887,18 +887,18 @@ EXCLUDE                = @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/linalg/s
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/csr.hpp \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/linalg/lanczos.cuh \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/linalg/lanczos.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/cuda_utils.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/cudart_utils.h \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/cuda_utils.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/cudart_utils.hpp \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/device_atomics.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/device_utils.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/error.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/handle.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/integer_utils.h \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/interruptible.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/mdarray.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/pow2_utils.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/span.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/vectorized.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/device_utils.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/error.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/handle.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/integer_utils.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/interruptible.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/mdarray.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/pow2_utils.cuh \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/span.hpp \
+                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/vectorized.cuh \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/raft.hpp \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/cudart_utils.hpp \
                          @CMAKE_CURRENT_SOURCE_DIR@/include/raft/matrix/math.cuh \
