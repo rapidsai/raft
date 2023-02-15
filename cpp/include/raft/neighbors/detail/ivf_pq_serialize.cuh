@@ -106,6 +106,8 @@ void deserialize_list(const raft::device_resources& handle,
   copy(ld->data.data_handle(), data_array.data_handle(), data_array.size(), handle.get_stream());
   // NB: copying exactly 'size' indices to leave the rest 'kInvalidRecord' intact.
   copy(ld->indices.data_handle(), inds_array.data_handle(), size, handle.get_stream());
+  // Make sure the data is copied from host to device before the host arrays get out of the scope.
+  handle.sync_stream();
 }
 
 /**
