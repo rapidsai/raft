@@ -98,6 +98,7 @@ if(BUILD_TESTS)
     test/core/mdspan_utils.cu
     test/core/numpy_serializer.cu
     test/core/memory_type.cpp
+    test/core/sparse_matrix.cu
     test/core/span.cpp
     test/core/span.cu
     test/test.cpp
