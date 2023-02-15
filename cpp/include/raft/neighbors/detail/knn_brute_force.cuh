@@ -378,18 +378,6 @@ void brute_force_knn_impl(
     id_ranges = translations;
   }
 
-  // perform preprocessing
-  std::unique_ptr<MetricProcessor<value_t>> query_metric_processor =
-    create_processor<value_t>(metric, n, D, k, rowMajorQuery, userStream);
-  query_metric_processor->preprocess(search_items);
-
-  std::vector<std::unique_ptr<MetricProcessor<value_t>>> metric_processors(input.size());
-  for (size_t i = 0; i < input.size(); i++) {
-    metric_processors[i] =
-      create_processor<value_t>(metric, sizes[i], D, k, rowMajorQuery, userStream);
-    metric_processors[i]->preprocess(input[i]);
-  }
-
   int device;
   RAFT_CUDA_TRY(cudaGetDevice(&device));
 
@@ -476,6 +464,7 @@ void brute_force_knn_impl(
   }
 
   // Perform necessary post-processing
+  // TODO: is this only really necessary for fusedL2Knn code?
   if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
       metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
       metric == raft::distance::DistanceType::LpUnexpanded) {
@@ -490,12 +479,6 @@ void brute_force_knn_impl(
       n * k,
       [p] __device__(float input) { return powf(fabsf(input), p); },
       userStream);
-  }
-
-  query_metric_processor->revert(search_items);
-  query_metric_processor->postprocess(out_D);
-  for (size_t i = 0; i < input.size(); i++) {
-    metric_processors[i]->revert(input[i]);
   }
 
   if (translations == nullptr) delete id_ranges;

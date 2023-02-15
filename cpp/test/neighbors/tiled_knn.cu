@@ -111,6 +111,7 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
                                              params_.col_tiles);
 
     // verify.
+    std::cout << "testing out " << metric << std::endl;
     ASSERT_TRUE(knn::devArrMatchKnnPair(ref_indices_.data(),
                                         raft_indices_.data(),
                                         ref_distances_.data(),
@@ -154,6 +155,18 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
 
 const std::vector<TiledKNNInputs> random_inputs = {
   {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2Expanded},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2Unexpanded},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2SqrtExpanded},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2SqrtUnexpanded},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L1},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::Linf},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::InnerProduct},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::CorrelationExpanded},
+  // JensenShannon produces incorrect results
+  // {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::JensenShannon},
+  // BrayCurtis isn't currently supported by pairwise_distance api
+  // {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::BrayCurtis},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::Canberra},
   {10000, 40000, 32, 30, 512, 1024, raft::distance::DistanceType::L2Expanded},
   {345, 1023, 16, 128, 512, 1024, raft::distance::DistanceType::CosineExpanded},
   {789, 20516, 64, 256, 512, 4096, raft::distance::DistanceType::L2SqrtExpanded},
