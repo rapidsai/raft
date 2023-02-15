@@ -278,13 +278,13 @@ auto make_csr_matrix_view(
  * @param sparsity_
  * @return
  */
-template <typename ElementType, typename RowType, typename ColType, typename NZType>
+template <typename RowType, typename ColType, typename NZType>
 auto make_coordinate_structure(raft::device_resources const& handle,
                                RowType n_rows,
                                ColType n_cols,
                                NZType nnz = 0)
 {
-  using coordinate_structure_t = device_coordinate_structure<ElementType, RowType, ColType, NZType>;
+  using coordinate_structure_t = device_coordinate_structure<RowType, ColType, NZType>;
   return coordinate_structure_t(handle, n_rows, n_cols, nnz);
 }
 
@@ -300,12 +300,11 @@ auto make_coordinate_structure(raft::device_resources const& handle,
  * @param sparsity_
  * @return
  */
-template <typename ElementType, typename RowType, typename ColType, typename NZType>
+template <typename RowType, typename ColType, typename NZType>
 auto make_coordinate_structure_view(
   RowType* rows, ColType* cols, RowType n_rows, ColType n_cols, NZType nnz)
 {
-  using coordinate_structure_view_t =
-    device_coordinate_structure_view<ElementType, RowType, ColType, NZType>;
+  using coordinate_structure_view_t = device_coordinate_structure_view<RowType, ColType, NZType>;
   return coordinate_structure_view_t(
     raft::device_span<RowType>(rows, nnz), raft::device_span<ColType>(cols, nnz), n_rows, n_cols);
 }
@@ -322,14 +321,13 @@ auto make_coordinate_structure_view(
  * @param sparsity_
  * @return
  */
-template <typename ElementType, typename RowType, typename ColType, typename NZType>
+template <typename RowType, typename ColType, typename NZType>
 auto make_coordinate_structure_view(raft::device_span<RowType> rows,
                                     raft::device_span<ColType> cols,
                                     RowType n_rows,
                                     ColType n_cols)
 {
-  using coordinate_structure_view_t =
-    device_coordinate_structure_view<ElementType, RowType, ColType, NZType>;
+  using coordinate_structure_view_t = device_coordinate_structure_view<RowType, ColType, NZType>;
   return coordinate_structure_view_t(rows, cols, n_rows, n_cols);
 }
 
@@ -345,15 +343,14 @@ auto make_coordinate_structure_view(raft::device_span<RowType> rows,
  * @param sparsity_
  * @return
  */
-template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
+template <typename IndptrType, typename IndicesType, typename NZType>
 auto make_compressed_structure(raft::device_resources const& handle,
                                IndptrType n_rows,
                                IndicesType n_cols,
                                NZType nnz = 0)
 {
-  using compressed_structure_t =
-    device_compressed_structure<ElementType, IndptrType, IndicesType, NZType>;
-    return compressed_structure_t(handle, n_rows, n_cols, nnz));
+  using compressed_structure_t = device_compressed_structure<IndptrType, IndicesType, NZType>;
+  return compressed_structure_t(handle, n_rows, n_cols, nnz);
 }
 
 /**
@@ -368,12 +365,14 @@ auto make_compressed_structure(raft::device_resources const& handle,
  * @param sparsity_
  * @return
  */
-template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-auto make_compressed_structure_view(IndptrType* indptr, IndicesType* indices, NZType nnz)
+template <typename IndptrType, typename IndicesType, typename NZType>
+auto make_compressed_structure_view(
+  IndptrType* indptr, IndicesType* indices, IndptrType n_rows, IndicesType n_cols, NZType nnz)
 {
-  using compressed_structure_t =
-    device_compressed_structure_view<ElementType, IndptrType, IndicesType, NZType>;
-    return compressed_structure_t(raft::device_span<IndptrType>(indptr, n_rows+1), raft::device_span<IndicesType>(indices, nnz), n_cols));
+  using compressed_structure_t = device_compressed_structure_view<IndptrType, IndicesType, NZType>;
+  return compressed_structure_t(raft::device_span<IndptrType>(indptr, n_rows + 1),
+                                raft::device_span<IndicesType>(indices, nnz),
+                                n_cols);
 }
 
 /**
@@ -388,14 +387,13 @@ auto make_compressed_structure_view(IndptrType* indptr, IndicesType* indices, NZ
  * @param sparsity_
  * @return
  */
-template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
+template <typename IndptrType, typename IndicesType, typename NZType>
 auto make_compressed_structure_view(raft::device_span<IndptrType> indptr,
                                     raft::device_span<IndicesType> indices,
                                     IndicesType n_cols)
 {
-  using compressed_structure_t =
-    device_compressed_structure_view<ElementType, IndptrType, IndicesType, NZType>;
-    return compressed_structure_t(indptr, indices, n_cols));
+  using compressed_structure_t = device_compressed_structure_view<IndptrType, IndicesType, NZType>;
+  return compressed_structure_t(indptr, indices, n_cols);
 }
 
 };  // namespace raft

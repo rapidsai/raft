@@ -20,12 +20,28 @@
 namespace raft {
 
 // just simple integration test, main tests are in mdspan ref implementation.
-void test_mdspan()
+void test_sparse_matrix()
 {
   raft::device_resources handle;
   auto mat = raft::make_coo_matrix<float, int, int, int>(handle, 5, 5);
+
+  auto structure_view = mat.structure_view();
+  //  auto sparse_view = mat.view();
+
+  ASSERT_EQ(structure_view.get_n_cols(), 5);
+  ASSERT_EQ(structure_view.get_n_rows(), 5);
+  ASSERT_EQ(structure_view.get_nnz(), 0);
+
+  mat.initialize_sparsity(5);
+
+  auto structure_view2 = mat.structure_view();
+  //  auto sparse_view2 = mat.view();
+
+  ASSERT_EQ(structure_view2.get_n_cols(), 5);
+  ASSERT_EQ(structure_view2.get_n_rows(), 5);
+  ASSERT_EQ(structure_view2.get_nnz(), 5);
 }
 
-TEST(MDSpan, Basic) { test_mdspan(); }
+TEST(SparseMatrix, Basic) { test_sparse_matrix(); }
 
 }  // namespace raft
