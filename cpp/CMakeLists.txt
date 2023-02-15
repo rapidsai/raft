@@ -455,7 +455,7 @@ if(RAFT_COMPILE_NN_LIBRARY)
 
   target_link_libraries(
     raft_nn_lib
-    PUBLIC raft::raft raft::raft_distance_lib
+    PUBLIC raft::raft
     PRIVATE nvidia::cutlass::cutlass
   )
   target_compile_options(
