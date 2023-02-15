@@ -121,11 +121,12 @@ class compressed_structure : public sparse_structure<IndptrType, IndicesType, NZ
     IndptrType n_rows,
     IndicesType n_cols,
     NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<indptr_container_type>)
-    : handle_{handle},
+    : sparse_structure_type{n_rows, n_cols, nnz},
+      handle_{handle},
       cp_indptr_{handle.get_stream()},
       cp_indices_{handle.get_stream()},
-      c_indptr_{cp_indptr_.create(0)},
-      c_indices_{cp_indices_.create(0), n_rows_(n_rows), n_cols_(n_cols), nnz_(nnz)} {};
+      c_indptr_{cp_indptr_.create(n_rows + 1)},
+      c_indices_{cp_indices_.create(nnz)} {};
 
   compressed_structure(compressed_structure const&) noexcept(
     std::is_nothrow_copy_constructible_v<indptr_container_type>) = default;
@@ -148,7 +149,7 @@ class compressed_structure : public sparse_structure<IndptrType, IndicesType, NZ
         "Cannot create compressed_structure.view() because it has not been initialized (sparsity "
         "is 0)");
     }
-    auto indptr_span  = raft::span<IndptrType, is_device>(c_indptr_.data(), this->get_nnz());
+    auto indptr_span  = raft::span<IndptrType, is_device>(c_indptr_.data(), this->get_n_rows() + 1);
     auto indices_span = raft::span<IndicesType, is_device>(c_indices_.data(), this->get_nnz());
     return view_type(indptr_span, indices_span, this->get_n_cols());
   }
@@ -549,19 +550,6 @@ class sparsity_owning_coo_matrix
     ColType n_cols,
     NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type{handle, n_rows, n_cols, nnz} {};
-
-  //    sparsity_owning_csr_matrix(
-  //            raft::device_resources const& handle,
-  //            IndptrType n_rows,
-  //            IndicesType n_cols,
-  //            NZType nnz=0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
-  //            : sparse_matrix<ElementType,
-  //                    compressed_structure<IndptrType, IndicesType, NZType, is_device>,
-  //                    csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, is_device>,
-  //                    is_device,
-  //                    ContainerPolicy>(handle, n_rows, n_cols, nnz){};
-  //
-
   structure_view_type structure_view() { return this->structure_.get()->view(); }
 
   void initialize_sparsity(NZType nnz)
