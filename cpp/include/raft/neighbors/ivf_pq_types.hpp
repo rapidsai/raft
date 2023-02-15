@@ -99,7 +99,7 @@ struct index_params : ann::index_params {
    * data copies during repeated calls to `extend` (extending the database).
    *
    * To disable this behavior and use as little GPU memory for the database as possible, set this
-   * flat to `true`.
+   * flag to `true`.
    */
   bool conservative_memory_allocation = false;
 };
