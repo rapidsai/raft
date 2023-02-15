@@ -69,9 +69,9 @@ class compressed_structure_view
 
   compressed_structure_view(span<indptr_type, is_device> indptr,
                             span<indices_type, is_device> indices,
-                            row_type n_rows,
                             col_type n_cols)
-    : sparse_structure<IndptrType, IndicesType, NZType, is_device>(n_rows, n_cols, indices.size()),
+    : sparse_structure<IndptrType, IndicesType, NZType, is_device>(
+        indptr.size() - 1, n_cols, indices.size()),
       indptr_(indptr),
       indices_(indices)
   {
@@ -118,16 +118,10 @@ class compressed_structure : public sparse_structure<IndptrType, IndicesType, NZ
     raft::handle_t const& handle,
     row_type n_rows,
     col_type n_cols,
-    nnz_type nnz) noexcept(std::is_nothrow_default_constructible_v<container_type>)
+    nnz_type nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
     : cp_{rmm::cuda_stream_default},
       c_rows_{cp_.create(0)},
       c_cols_{cp_.create(0), n_rows_(n_rows), n_cols_(n_cols), nnz_(nnz)} {};
-
-  constexpr compressed_structure(row_type n_rows, col_type n_cols) noexcept(
-    std::is_nothrow_default_constructible_v<container_type>)
-    : cp_{rmm::cuda_stream_default},
-      c_rows_{cp_.create(0)},
-      c_cols_{cp_.create(0), n_rows_(n_rows), n_cols_(n_cols), nnz_(0)} {};
 
   constexpr compressed_structure(compressed_structure const&) noexcept(
     std::is_nothrow_copy_constructible_v<container_type>) = default;
@@ -142,9 +136,12 @@ class compressed_structure : public sparse_structure<IndptrType, IndicesType, NZ
   ~compressed_structure() noexcept(std::is_nothrow_destructible<container_type>::value) = default;
   view_type view()
   {
+    RAFT_EXPECTS(structure_.get_nnz() > 0,
+                 "Cannot create compressed_structure.view() because it has not been initialized "
+                 "(sparsity is 0)");
     auto indptr_span  = raft::span<row_type, is_device>(c_indptr_.data(), nnz_);
     auto indices_span = raft::span<col_type, is_device>(c_indices_.data(), nnz_);
-    return view_type(row_span, col_span, n_rows_, n_cols_);
+    return view_type(row_span, col_span, n_cols_);
   }
 
   void resize(nnz_type nnz)
@@ -180,7 +177,7 @@ class coordinate_structure_view : public sparse_structure<RowType, ColType, NZTy
   using col_type = sparse_structure<RowType, ColType, NZType, is_device>::col_type;
   using nnz_type = sparse_structure<RowType, ColType, NZType, is_device>::nnz_type;
 
-  compressed_structure_view(span<row_type, is_device> rows,
+  coordinate_structure_view(span<row_type, is_device> rows,
                             span<col_type, is_device> cols,
                             row_type n_rows,
                             col_type n_cols)
@@ -231,7 +228,7 @@ class coordinate_structure : sparse_structure<RowType, ColType, NZType, is_devic
   using container_policy_type = ContainerPolicy;
   using container_type        = typename container_policy_type::container_type;
 
-  constexpr coordinate_structure(row_type n_rows, col_type n_cols, nnz_type nnz) noexcept(
+  constexpr coordinate_structure(row_type n_rows, col_type n_cols, nnz_type nnz = 0) noexcept(
     std::is_nothrow_default_constructible_v<container_type>)
     : sparse_structure<RowType, ColType, NZType, is_device>(n_rows, n_cols, nnz),
       cp_{rmm::cuda_stream_default},
@@ -250,6 +247,9 @@ class coordinate_structure : sparse_structure<RowType, ColType, NZType, is_devic
   ~coordinate_structure() noexcept(std::is_nothrow_destructible<container_type>::value) = default;
   view_type view()
   {
+    RAFT_EXPECTS(structure_.get_nnz() > 0,
+                 "Cannot create coordinate_structure.view() because it has not been initialized "
+                 "(sparsity is 0)");
     auto row_span = raft::span<row_type, is_device>(c_rows_.data(), get_nnz());
     auto col_span = raft::span<col_type, is_device>(c_cols_.data(), get_nnz());
     return view_type(row_span, col_span, get_n_rows(), get_n_cols());
@@ -365,9 +365,10 @@ class sparse_matrix {
 
   void resize(nnz_type nnz) { c_elements_.resize(nnz); };
 
+  virtual structure_type::view_type structure_view() = 0;
   view_type view()
   {
-    auto structure_view = structure_.view();
+    auto structure_view = structure_view();
     auto element_span =
       raft::span<ElementType, is_device>(c_elements_.data(), structure_view.get_nnz());
     return view_type(element_span, structure_view);
@@ -403,7 +404,7 @@ template <typename ElementType,
           typename NZType,
           bool is_device,
           typename ContainerPolicy>
-class structure_owning_csr_matrix
+class sparsity_owning_csr_matrix
   : sparse_matrix<ElementType,
                   compressed_structure<IndptrType, IndicesType, NZType, is_device, ContainerPolicy>,
                   csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, is_device>,
@@ -412,7 +413,7 @@ class structure_owning_csr_matrix
   using container_type = ContainerPolicy::container_type;
 
   // Constructor that owns both data and structure
-  constexpr structure_owning_csr_matrix(
+  constexpr sparsity_owning_csr_matrix(
     raft::device_resources const& handle,
     row_type n_rows,
     col_type n_cols,
@@ -424,7 +425,7 @@ class structure_owning_csr_matrix
                     ContainerPolicy>(handle, n_rows, n_cols, nnz){};
 
   // Constructor that owns both data and structure
-  constexpr structure_owning_csr_matrix(
+  constexpr sparsity_owning_csr_matrix(
     raft::device_resources const& handle,
     row_type n_rows,
     col_type n_cols) noexcept(std::is_nothrow_default_constructible_v<container_type>)
@@ -449,7 +450,7 @@ template <typename ElementType,
           typename NZType,
           bool is_device,
           typename ContainerPolicy>
-class structure_preserving_csr_matrix
+class sparsity_preserving_csr_matrix
   : sparse_matrix<ElementType,
                   compressed_structure_view<IndptrType, IndicesType, NZType, is_device>,
                   csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, is_device>,
@@ -458,7 +459,7 @@ class structure_preserving_csr_matrix
   using container_type = ContainerPolicy::container_type;
 
   // Constructor that owns both data and structure
-  constexpr structure_preserving_csr_matrix(
+  constexpr sparsity_preserving_csr_matrix(
     raft::device_resources const& handle,
     std::shared_ptr<compressed_structure_view<IndptrType, IndicesType, NZType, is_device>>
       structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
@@ -496,14 +497,14 @@ template <typename ElementType,
           typename NZType,
           bool is_device,
           typename ContainerPolicy>
-class structure_owning_coo_matrix
+class sparsity_owning_coo_matrix
   : sparse_matrix<ElementType,
                   compressed_structure<RowType, ColType, is_device, ContainerPolicy>,
                   coo_matrix_view<ElementType, RowType, ColType, is_device>,
                   ContainerPolicy,
                   is_device> {
   using container_type = ContainerPolicy::container_type;
-  constexpr structure_owning_coo_matrix(
+  constexpr sparsity_owning_coo_matrix(
     raft::device_resources const& handle,
     RowType n_rows,
     ColType n_cols,
@@ -514,7 +515,7 @@ class structure_owning_coo_matrix
                     ContainerPolicy,
                     is_device>(handle, n_rows, n_cols, nnz){};
 
-  constexpr structure_owning_coo_matrix(
+  constexpr sparsity_owning_coo_matrix(
     raft::device_resources const& handle,
     RowType n_rows,
     ColType n_cols) noexcept(std::is_nothrow_default_constructible_v<container_type>)
@@ -539,7 +540,7 @@ template <typename ElementType,
           typename NZType,
           bool is_device,
           typename ContainerPolicy>
-class structure_preserving_coo_matrix
+class sparsity_preserving_coo_matrix
   : sparse_matrix<ElementType,
                   compressed_structure_view<RowType, ColType, is_device>,
                   coo_matrix_view<ElementType, RowType, ColType, is_device>,
@@ -548,7 +549,7 @@ class structure_preserving_coo_matrix
   using container_type = ContainerPolicy::container_type;
 
   // Constructor that owns both data and structure
-  constexpr structure_preserving_coo_matrix(
+  constexpr sparsity_preserving_coo_matrix(
     raft::device_resources const& handle,
     std::shared_ptr<coordinate_structure_view<IndptrType, IndicesType, NZType, is_device>>
       structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
