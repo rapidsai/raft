@@ -21,6 +21,13 @@
 
 namespace raft {
 
+/**
+ * Maintains metadata about the structure and sparsity of a sparse matrix.
+ * @tparam RowType
+ * @tparam ColType
+ * @tparam NZType
+ * @tparam is_device
+ */
 template <typename RowType, typename ColType, typename NZType, int is_device>
 class sparse_structure {
  public:
@@ -28,16 +35,45 @@ class sparse_structure {
   using col_type = ColType;
   using nnz_type = NZType;
 
+  /**
+   * Constructor when sparsity is already known
+   * @param n_rows total number of rows in matrix
+   * @param n_cols total number of columns in matrix
+   * @param nnz sparsity of matrix
+   */
   sparse_structure(row_type n_rows, col_type n_cols, nnz_type nnz)
     : n_rows_(n_rows), n_cols_(n_cols), nnz_(nnz){};
 
+  /**
+   * Constructor when sparsity is not yet known
+   * @param n_rows total number of rows in matrix
+   * @param n_cols total number of columns in matrix
+   */
   sparse_structure(row_type n_rows, col_type n_cols) : n_rows_(n_rows), n_cols_(n_cols), nnz_(0) {}
+
+  /**
+   * Return the sparsity of the matrix (this will be 0 when sparsity is not yet known)
+   * @return sparsity of matrix
+   */
   nnz_type get_nnz() { return nnz_; }
 
+  /**
+   * Return the total number of rows in the matrix
+   * @return total number of rows in the matriz
+   */
   row_type get_n_rows() { return n_rows_; }
 
+  /**
+   * Return the total number of columns in the matrix
+   * @return total number of columns
+   */
   col_type get_n_cols() { return n_cols_; }
 
+  /**
+   * Initialize the matrix sparsity when it was not known
+   * upon construction.
+   * @param nnz
+   */
   virtual void initialize_sparsity(nnz_type nnz) { nnz_ = nnz; }
 
  protected:
@@ -75,11 +111,29 @@ class compressed_structure_view
   {
   }
 
+  /**
+   * Return span containing underlying indptr array
+   * @return span containing underlying indptr array
+   */
   span<indptr_type, is_device> get_indptr() { return indptr_; }
+
+  /**
+   * Return span containing underlying indices array
+   * @return span containing underlying indices array
+   */
   span<indices_type, is_device> get_indices() { return indices_; }
 
+  /**
+   * Create a view from this view. Note that this is for interface compatibility
+   * @return
+   */
   view_type view() { return view_type(indptr_, indices_, this->n_rows_, this->n_cols_); }
 
+  /**
+   * Initialize sparsity when it was not known upon construction.
+   *
+   * Note: A view is sparsity-preserving so the sparsity cannot be mutated.
+   */
   void initialize_sparsity(NZType)
   {
     RAFT_FAIL("The sparsity of structure-preserving sparse formats cannot be changed");
@@ -142,6 +196,13 @@ class compressed_structure : public sparse_structure<IndptrType, IndicesType, NZ
 
   ~compressed_structure() noexcept(std::is_nothrow_destructible<indptr_container_type>::value) =
     default;
+
+  /**
+   * Return a view of the compressed structure. Structural views are sparsity-preserving
+   * so while the structural elements can be updated in a non-const view, the sparsity
+   * itself (number of nonzeros) cannot be changed.
+   * @return compressed structure view
+   */
   view_type view()
   {
     if (this->get_nnz() > 0) {
@@ -154,6 +215,11 @@ class compressed_structure : public sparse_structure<IndptrType, IndicesType, NZ
     return view_type(indptr_span, indices_span, this->get_n_cols());
   }
 
+  /**
+   * Change the sparsity of the current compressed structure. This will
+   * resize the underlying data arrays.
+   * @param nnz new sparsity
+   */
   void initialize_sparsity(NZType nnz)
   {
     sparse_structure_type::initialize_sparsity(nnz);
@@ -196,14 +262,32 @@ class coordinate_structure_view : public sparse_structure<RowType, ColType, NZTy
   {
   }
 
+  /**
+   * Create a view from this view. Note that this is for interface compatibility
+   * @return
+   */
   view_type view() { return view_type(rows_, cols_, this->get_n_rows(), this->get_n_cols()); }
 
+  /**
+   * Initialize sparsity when it was not known upon construction.
+   *
+   * Note: A view is sparsity-preserving so the sparsity cannot be mutated.
+   */
   void initialize_sparsity(nnz_type)
   {
     RAFT_FAIL("The sparsity of structure-preserving sparse formats cannot be changed");
   }
 
+  /**
+   * Return span containing underlying rows array
+   * @return span containing underlying rows array
+   */
   span<row_type, is_device> get_rows() { return rows_; }
+
+  /**
+   * Return span containing underlying cols array
+   * @return span containing underlying cols array
+   */
   span<col_type, is_device> get_cols() { return cols_; }
 
  protected:
@@ -265,6 +349,13 @@ class coordinate_structure : public sparse_structure<RowType, ColType, NZType, i
 
   ~coordinate_structure() noexcept(std::is_nothrow_destructible<row_container_type>::value) =
     default;
+
+  /**
+   * Return a view of the coordinate structure. Structural views are sparsity-preserving
+   * so while the structural elements can be updated in a non-const view, the sparsity
+   * itself (number of nonzeros) cannot be changed.
+   * @return coordinate structure view
+   */
   view_type view()
   {
     if (this->get_nnz() > 0) {
@@ -277,6 +368,11 @@ class coordinate_structure : public sparse_structure<RowType, ColType, NZType, i
     return view_type(row_span, col_span, this->get_n_rows(), this->get_n_cols());
   }
 
+  /**
+   * Change the sparsity of the current compressed structure. This will
+   * resize the underlying data arrays.
+   * @param nnz new sparsity
+   */
   void initialize_sparsity(nnz_type nnz)
   {
     sparse_structure_type::initialize_sparsity(nnz);
@@ -312,8 +408,16 @@ class sparse_matrix_view {
     // FIXME: Validate structure sizes match span size.
   }
 
+  /**
+   * Return a view of the structure underlying this matrix
+   * @return
+   */
   structure_view_type get_structure() { return structure_view_; }
 
+  /**
+   * Return a span of the nonzero elements of the matrix
+   * @return span of the nonzero elements of the matrix
+   */
   span<element_type, is_device> get_elements() { return element_span_; }
 
  protected:
@@ -390,7 +494,16 @@ class sparse_matrix {
 
   void initialize_sparsity(nnz_type nnz) { c_elements_.resize(nnz, this->handle_.get_stream()); };
 
+  /**
+   * Return a view of the structure underlying this matrix
+   * @return
+   */
   virtual structure_view_type structure_view() = 0;
+
+  /**
+   * Return a sparsity-preserving view of this sparse matrix
+   * @return view of this sparse matrix
+   */
   view_type view()
   {
     auto struct_view = structure_view();
@@ -458,12 +571,21 @@ class sparsity_owning_csr_matrix
     NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, n_rows, n_cols, nnz){};
 
+  /**
+   * Initialize the sparsity on this instance if it was not known upon construction
+   * Please note this will resize the underlying memory buffers
+   * @param nnz new sparsity to initialize.
+   */
   void initialize_sparsity(NZType nnz)
   {
     sparse_matrix_type::initialize_sparsity(nnz);
     this->structure_.get()->initialize_sparsity(nnz);
   }
 
+  /**
+   * Return a view of the structure underlying this matrix
+   * @return
+   */
   structure_view_type structure_view() { return this->structure_.get()->view(); }
 };
 
@@ -497,8 +619,16 @@ class sparsity_preserving_csr_matrix
       structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, structure){};
 
+  /**
+   * Return a view of the structure underlying this matrix
+   * @return
+   */
   structure_view_type structure_view() { return (*this->structure_.get()); }
 
+  /**
+   * Initialize the sparsity on this instance if it was not known upon construction
+   * Note: Sparsity can not be adjusted in sparsity-preserving matrices
+   */
   void initialize_sparsity(NZType)
   {
     RAFT_FAIL("The sparsity of structure-preserving sparse formats cannot be changed");
@@ -517,7 +647,6 @@ class coo_matrix_view
                          coordinate_structure_view<RowType, ColType, NZType, is_device>,
                          is_device>(element_span, structure_view)
   {
-    // FIXME: Validate structure sizes match span size.
   }
 };
 
@@ -550,8 +679,18 @@ class sparsity_owning_coo_matrix
     ColType n_cols,
     NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type{handle, n_rows, n_cols, nnz} {};
+
+  /**
+   * Return a view of the structure underlying this matrix
+   * @return
+   */
   structure_view_type structure_view() { return this->structure_.get()->view(); }
 
+  /**
+   * Initialize the sparsity on this instance if it was not known upon construction
+   * Please note this will resize the underlying memory buffers
+   * @param nnz new sparsity to initialize.
+   */
   void initialize_sparsity(NZType nnz)
   {
     sparse_matrix_type::initialize_sparsity(nnz);
@@ -589,11 +728,19 @@ class sparsity_preserving_coo_matrix
       structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, structure){};
 
+  /**
+   * Initialize the sparsity on this instance if it was not known upon construction
+   * Note: Sparsity can not be adjusted in sparsity-preserving matrices
+   */
   void initialize_sparsity(NZType)
   {
     RAFT_FAIL("The sparsity of structure-preserving sparse formats cannot be changed");
   }
 
+  /**
+   * Return a view of the structure underlying this matrix
+   * @return
+   */
   structure_view_type structure_view() override { return (*this->structure_.get()); }
 };
 
