@@ -21,8 +21,8 @@ from pylibraft.common import DeviceResources, Stream, device_ndarray
 from pylibraft.distance import pairwise_distance
 
 
-@pytest.mark.parametrize("n_rows", [100])
-@pytest.mark.parametrize("n_cols", [100])
+@pytest.mark.parametrize("n_rows", [32, 100])
+@pytest.mark.parametrize("n_cols", [40, 100])
 @pytest.mark.parametrize(
     "metric",
     [
@@ -36,6 +36,7 @@ from pylibraft.distance import pairwise_distance
         "russellrao",
         "cosine",
         "sqeuclidean",
+        "inner_product",
     ],
 )
 @pytest.mark.parametrize("inplace", [True, False])
@@ -57,7 +58,10 @@ def test_distance(n_rows, n_cols, inplace, metric, order, dtype):
 
     output = np.zeros((n_rows, n_rows), dtype=dtype)
 
-    expected = cdist(input1, input1, metric)
+    if metric == "inner_product":
+        expected = np.matmul(input1, input1.T)
+    else:
+        expected = cdist(input1, input1, metric)
 
     expected[expected <= 1e-5] = 0.0
 

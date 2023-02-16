@@ -21,6 +21,7 @@ namespace distance {
 namespace detail {
 
 template void distance<raft::distance::DistanceType::Linf, double, double, double, int>(
+  raft::resources const& handle,
   const double* x,
   const double* y,
   double* dist,
@@ -29,7 +30,6 @@ template void distance<raft::distance::DistanceType::Linf, double, double, doubl
   int k,
   void* workspace,
   std::size_t worksize,
-  cudaStream_t stream,
   bool isRowMajor,
   double metric_arg);
 
