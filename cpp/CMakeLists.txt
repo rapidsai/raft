@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -218,6 +218,15 @@ target_link_libraries(
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 
+# Endian detection
+include(TestBigEndian)
+test_big_endian(BIG_ENDIAN)
+if(BIG_ENDIAN)
+  target_compile_definitions(raft INTERFACE RAFT_SYSTEM_LITTLE_ENDIAN=0)
+else()
+  target_compile_definitions(raft INTERFACE RAFT_SYSTEM_LITTLE_ENDIAN=1)
+endif()
+
 if(RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
   file(
     WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
@@ -284,8 +293,18 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/cluster/update_centroids_double.cu
     src/distance/cluster/cluster_cost_float.cu
     src/distance/cluster/cluster_cost_double.cu
-    src/distance/neighbors/refine.cu
-    src/distance/neighbors/ivfpq_search.cu
+    src/distance/neighbors/refine_d_uint64_t_float.cu
+    src/distance/neighbors/refine_d_uint64_t_int8_t.cu
+    src/distance/neighbors/refine_d_uint64_t_uint8_t.cu
+    src/distance/neighbors/refine_h_uint64_t_float.cu
+    src/distance/neighbors/refine_h_uint64_t_int8_t.cu
+    src/distance/neighbors/refine_h_uint64_t_uint8_t.cu
+    src/distance/neighbors/specializations/refine_d_uint64_t_float.cu
+    src/distance/neighbors/specializations/refine_d_uint64_t_int8_t.cu
+    src/distance/neighbors/specializations/refine_d_uint64_t_uint8_t.cu
+    src/distance/neighbors/specializations/refine_h_uint64_t_float.cu
+    src/distance/neighbors/specializations/refine_h_uint64_t_int8_t.cu
+    src/distance/neighbors/specializations/refine_h_uint64_t_uint8_t.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu
     src/distance/distance/specializations/detail/canberra.cu
@@ -336,6 +355,11 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/distance/specializations/fused_l2_nn_float_int64.cu
     src/distance/neighbors/ivfpq_build.cu
+    src/distance/neighbors/ivfpq_deserialize.cu
+    src/distance/neighbors/ivfpq_serialize.cu
+    src/distance/neighbors/ivfpq_search_float_uint64_t.cu
+    src/distance/neighbors/ivfpq_search_int8_t_uint64_t.cu
+    src/distance/neighbors/ivfpq_search_uint8_t_uint64_t.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fast.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
@@ -407,16 +431,21 @@ set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
 if(RAFT_COMPILE_NN_LIBRARY)
   add_library(
     raft_nn_lib
-    src/nn/specializations/ball_cover.cu
     src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
     src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
     src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
     src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
+    src/nn/specializations/ball_cover_all_knn_query.cu
+    src/nn/specializations/ball_cover_build_index.cu
+    src/nn/specializations/ball_cover_knn_query.cu
     src/nn/specializations/fused_l2_knn_long_float_true.cu
     src/nn/specializations/fused_l2_knn_long_float_false.cu
     src/nn/specializations/fused_l2_knn_int_float_true.cu
     src/nn/specializations/fused_l2_knn_int_float_false.cu
-    src/nn/specializations/knn.cu
+    src/nn/specializations/brute_force_knn_long_float_int.cu
+    src/nn/specializations/brute_force_knn_long_float_uint.cu
+    src/nn/specializations/brute_force_knn_uint32_t_float_int.cu
+    src/nn/specializations/brute_force_knn_uint32_t_float_uint.cu
   )
   set_target_properties(
     raft_nn_lib
@@ -664,6 +693,13 @@ raft_export(
   BUILD raft EXPORT_SET raft-exports COMPONENTS nn distance distributed GLOBAL_TARGETS raft
   distance distributed nn DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
 )
+
+# ##################################################################################################
+# * shared test/bench headers ------------------------------------------------
+
+if(BUILD_TESTS OR BUILD_BENCH)
+  include(internal/CMakeLists.txt)
+endif()
 
 # ##################################################################################################
 # * build test executable ----------------------------------------------------

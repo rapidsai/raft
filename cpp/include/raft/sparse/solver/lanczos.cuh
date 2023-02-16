@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ namespace raft::sparse::solver {
  */
 template <typename index_type_t, typename value_type_t>
 int computeSmallestEigenvectors(
-  handle_t const& handle,
+  raft::device_resources const& handle,
   raft::spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
   index_type_t nEigVecs,
   index_type_t maxIter,
@@ -130,7 +130,7 @@ int computeSmallestEigenvectors(
  */
 template <typename index_type_t, typename value_type_t>
 int computeLargestEigenvectors(
-  handle_t const& handle,
+  raft::device_resources const& handle,
   raft::spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
   index_type_t nEigVecs,
   index_type_t maxIter,

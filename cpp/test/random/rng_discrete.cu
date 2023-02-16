@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <cmath>
 #include <gtest/gtest.h>
@@ -166,7 +166,7 @@ class RngDiscreteTest : public ::testing::TestWithParam<RngDiscreteInputs<IdxT>>
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   RngDiscreteInputs<IdxT> params;
@@ -178,16 +178,16 @@ class RngDiscreteTest : public ::testing::TestWithParam<RngDiscreteInputs<IdxT>>
 };
 
 const std::vector<RngDiscreteInputs<int>> inputs_i32 = {
-  {1, 10000, 5, 5, GenPhilox, 123ULL},
-  {1, 10000, 10, 7, GenPhilox, 456ULL},
-  {1000, 100, 10000, 20, GenPhilox, 123ULL},
-  {1, 10000, 5, 5, GenPC, 1234ULL},
+  {1, 10000, 5, 5, GenPC, 123ULL},
+  {1, 10000, 10, 7, GenPC, 456ULL},
+  {1000, 100, 10000, 20, GenPC, 123ULL},
+  {1, 10000, 5, 5, GenPhilox, 1234ULL},
 };
 const std::vector<RngDiscreteInputs<int64_t>> inputs_i64 = {
-  {1, 10000, 5, 5, GenPhilox, 123ULL},
-  {1, 10000, 10, 7, GenPhilox, 456ULL},
-  {1000, 100, 10000, 20, GenPhilox, 123ULL},
-  {1, 10000, 5, 5, GenPC, 1234ULL},
+  {1, 10000, 5, 5, GenPC, 123ULL},
+  {1, 10000, 10, 7, GenPC, 456ULL},
+  {1000, 100, 10000, 20, GenPC, 123ULL},
+  {1, 10000, 5, 5, GenPhilox, 1234ULL},
 };
 
 #define RNG_DISCRETE_TEST(test_type, test_name, test_inputs)       \

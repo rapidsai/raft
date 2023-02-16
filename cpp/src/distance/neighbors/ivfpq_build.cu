@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 namespace raft::runtime::neighbors::ivf_pq {
 
 #define RAFT_INST_BUILD_EXTEND(T, IdxT)                                                      \
-  auto build(const handle_t& handle,                                                         \
+  auto build(raft::device_resources const& handle,                                           \
              const raft::neighbors::ivf_pq::index_params& params,                            \
              const T* dataset,                                                               \
              IdxT n_rows,                                                                    \
@@ -29,7 +29,7 @@ namespace raft::runtime::neighbors::ivf_pq {
   {                                                                                          \
     return raft::neighbors::ivf_pq::build<T, IdxT>(handle, params, dataset, n_rows, dim);    \
   }                                                                                          \
-  auto extend(const handle_t& handle,                                                        \
+  auto extend(raft::device_resources const& handle,                                          \
               const raft::neighbors::ivf_pq::index<IdxT>& orig_index,                        \
               const T* new_vectors,                                                          \
               const IdxT* new_indices,                                                       \
@@ -40,7 +40,7 @@ namespace raft::runtime::neighbors::ivf_pq {
       handle, orig_index, new_vectors, new_indices, n_rows);                                 \
   }                                                                                          \
                                                                                              \
-  void build(const handle_t& handle,                                                         \
+  void build(raft::device_resources const& handle,                                           \
              const raft::neighbors::ivf_pq::index_params& params,                            \
              const T* dataset,                                                               \
              IdxT n_rows,                                                                    \
@@ -49,7 +49,7 @@ namespace raft::runtime::neighbors::ivf_pq {
   {                                                                                          \
     *idx = raft::neighbors::ivf_pq::build<T, IdxT>(handle, params, dataset, n_rows, dim);    \
   }                                                                                          \
-  void extend(const handle_t& handle,                                                        \
+  void extend(raft::device_resources const& handle,                                          \
               raft::neighbors::ivf_pq::index<IdxT>* idx,                                     \
               const T* new_vectors,                                                          \
               const IdxT* new_indices,                                                       \

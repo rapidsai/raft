@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,15 @@
 #pragma once
 
 #include <raft/distance/distance_types.hpp>
+#include <raft/matrix/detail/select_k.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
-#include <raft/spatial/knn/detail/topk.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 
 namespace raft::neighbors {
@@ -103,90 +103,6 @@ inline auto operator<<(std::ostream& os, const print_metric& p) -> std::ostream&
   return os;
 }
 
-template <typename EvalT, typename DataT, typename IdxT>
-__global__ void naive_distance_kernel(EvalT* dist,
-                                      const DataT* x,
-                                      const DataT* y,
-                                      IdxT m,
-                                      IdxT n,
-                                      IdxT k,
-                                      raft::distance::DistanceType type)
-{
-  IdxT midx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (midx >= m) return;
-  for (IdxT nidx = threadIdx.y + blockIdx.y * blockDim.y; nidx < n;
-       nidx += blockDim.y * gridDim.y) {
-    EvalT acc = EvalT(0);
-    for (IdxT i = 0; i < k; ++i) {
-      IdxT xidx = i + midx * k;
-      IdxT yidx = i + nidx * k;
-      EvalT xv  = (EvalT)x[xidx];
-      EvalT yv  = (EvalT)y[yidx];
-      if (type == raft::distance::DistanceType::InnerProduct) {
-        acc += xv * yv;
-      } else {
-        EvalT diff = xv - yv;
-        acc += diff * diff;
-      }
-    }
-    if (type == raft::distance::DistanceType::L2SqrtExpanded ||
-        type == raft::distance::DistanceType::L2SqrtUnexpanded)
-      acc = raft::mySqrt(acc);
-    dist[midx * n + nidx] = acc;
-  }
-}
-
-/**
- * TODO: either replace this with brute_force_knn or with distance+select_k
- *       when either distance or brute_force_knn support 8-bit int inputs.
- */
-template <typename EvalT, typename DataT, typename IdxT>
-void naiveBfKnn(EvalT* dist_topk,
-                IdxT* indices_topk,
-                const DataT* x,
-                const DataT* y,
-                size_t n_inputs,
-                size_t input_len,
-                size_t dim,
-                uint32_t k,
-                raft::distance::DistanceType type,
-                rmm::cuda_stream_view stream)
-{
-  rmm::mr::device_memory_resource* mr = nullptr;
-  auto pool_guard                     = raft::get_pool_memory_resource(mr, 1024 * 1024);
-
-  dim3 block_dim(16, 32, 1);
-  // maximum reasonable grid size in `y` direction
-  auto grid_y =
-    static_cast<uint16_t>(std::min<size_t>(raft::ceildiv<size_t>(input_len, block_dim.y), 32768));
-
-  // bound the memory used by this function
-  size_t max_batch_size =
-    std::min<size_t>(n_inputs, raft::ceildiv<size_t>(size_t(1) << size_t(27), input_len));
-  rmm::device_uvector<EvalT> dist(max_batch_size * input_len, stream, mr);
-
-  for (size_t offset = 0; offset < n_inputs; offset += max_batch_size) {
-    size_t batch_size = std::min(max_batch_size, n_inputs - offset);
-    dim3 grid_dim(raft::ceildiv<size_t>(batch_size, block_dim.x), grid_y, 1);
-
-    naive_distance_kernel<EvalT, DataT, IdxT><<<grid_dim, block_dim, 0, stream>>>(
-      dist.data(), x + offset * dim, y, batch_size, input_len, dim, type);
-
-    spatial::knn::detail::select_topk<EvalT, IdxT>(
-      dist.data(),
-      nullptr,
-      batch_size,
-      input_len,
-      static_cast<int>(k),
-      dist_topk + offset * k,
-      indices_topk + offset * k,
-      type != raft::distance::DistanceType::InnerProduct,
-      stream,
-      mr);
-  }
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-}
-
 template <typename IdxT, typename DistT, typename CompareDist>
 struct idx_dist_pair {
   IdxT idx;
@@ -232,18 +148,18 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
     }
   }
   double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
-  RAFT_LOG_INFO("Recall = %f (%zu/%zu)", actual_recall, match_count, total_count);
+  double error_margin  = (actual_recall - min_recall) / std::max(1.0 - min_recall, eps);
+  RAFT_LOG_INFO("Recall = %f (%zu/%zu), the error is %2.1f%% %s the threshold (eps = %f).",
+                actual_recall,
+                match_count,
+                total_count,
+                std::abs(error_margin * 100.0),
+                error_margin < 0 ? "above" : "below",
+                eps);
   if (actual_recall < min_recall - eps) {
-    if (actual_recall < min_recall * min_recall - eps) {
-      RAFT_LOG_ERROR("Recall is much lower than the minimum (%f < %f)", actual_recall, min_recall);
-    } else {
-      RAFT_LOG_WARN("Recall is suspiciously too low (%f < %f)", actual_recall, min_recall);
-    }
-    if (match_count == 0 || actual_recall < min_recall * std::min(min_recall, 0.5) - eps) {
-      return testing::AssertionFailure()
-             << "actual recall (" << actual_recall
-             << ") is much smaller than the minimum expected recall (" << min_recall << ").";
-    }
+    return testing::AssertionFailure()
+           << "actual recall (" << actual_recall << ") is lower than the minimum expected recall ("
+           << min_recall << "); eps = " << eps << ". ";
   }
   return testing::AssertionSuccess();
 }

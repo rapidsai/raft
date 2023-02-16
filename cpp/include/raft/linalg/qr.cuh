@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ namespace linalg {
  * @param stream cuda stream
  */
 template <typename math_t>
-void qrGetQ(const raft::handle_t& handle,
+void qrGetQ(raft::device_resources const& handle,
             const math_t* M,
             math_t* Q,
             int n_rows,
@@ -54,7 +54,7 @@ void qrGetQ(const raft::handle_t& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void qrGetQR(const raft::handle_t& handle,
+void qrGetQR(raft::device_resources const& handle,
              math_t* M,
              math_t* Q,
              math_t* R,
@@ -72,12 +72,12 @@ void qrGetQR(const raft::handle_t& handle,
 
 /**
  * @brief Compute the QR decomposition of matrix M and return only the Q matrix.
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] M Input raft::device_matrix_view
  * @param[out] Q Output raft::device_matrix_view
  */
 template <typename ElementType, typename IndexType>
-void qr_get_q(const raft::handle_t& handle,
+void qr_get_q(raft::device_resources const& handle,
               raft::device_matrix_view<const ElementType, IndexType, raft::col_major> M,
               raft::device_matrix_view<ElementType, IndexType, raft::col_major> Q)
 {
@@ -88,13 +88,13 @@ void qr_get_q(const raft::handle_t& handle,
 
 /**
  * @brief Compute the QR decomposition of matrix M and return both the Q and R matrices.
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] M Input raft::device_matrix_view
  * @param[in] Q Output raft::device_matrix_view
  * @param[out] R Output raft::device_matrix_view
  */
 template <typename ElementType, typename IndexType>
-void qr_get_qr(const raft::handle_t& handle,
+void qr_get_qr(raft::device_resources const& handle,
                raft::device_matrix_view<const ElementType, IndexType, raft::col_major> M,
                raft::device_matrix_view<ElementType, IndexType, raft::col_major> Q,
                raft::device_matrix_view<ElementType, IndexType, raft::col_major> R)

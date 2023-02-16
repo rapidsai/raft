@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ namespace stats {
  */
 template <typename DataT, typename LabelT>
 DataT silhouette_score(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   DataT* X_in,
   int nRows,
   int nCols,
@@ -60,7 +60,7 @@ DataT silhouette_score(
 
 template <typename value_t, typename value_idx, typename label_idx>
 value_t silhouette_score_batched(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   value_t* X,
   value_idx n_rows,
   value_idx n_cols,
@@ -98,7 +98,7 @@ value_t silhouette_score_batched(
  */
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_in,
   raft::device_vector_view<const label_t, idx_t> labels,
   std::optional<raft::device_vector_view<value_t, idx_t>> silhouette_score_per_sample,
@@ -144,7 +144,7 @@ value_t silhouette_score(
  */
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score_batched(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X,
   raft::device_vector_view<const label_t, idx_t> labels,
   std::optional<raft::device_vector_view<value_t, idx_t>> silhouette_score_per_sample,
@@ -187,7 +187,7 @@ value_t silhouette_score_batched(
  */
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_in,
   raft::device_vector_view<const label_t, idx_t> labels,
   std::nullopt_t silhouette_score_per_sample,
@@ -207,7 +207,7 @@ value_t silhouette_score(
  */
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score_batched(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X,
   raft::device_vector_view<const label_t, idx_t> labels,
   std::nullopt_t silhouette_score_per_sample,

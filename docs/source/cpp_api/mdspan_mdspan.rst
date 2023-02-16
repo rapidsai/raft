@@ -1,8 +1,6 @@
 mdspan: Multi-dimensional Non-owning View
 ==========================================
 
-This page provides C++ class references for the RAFT's 1d span and multi-dimensional owning (mdarray) and non-owning (mdspan) APIs. These headers can be found in the `raft/core` directory.
-
 .. role:: py(code)
    :language: c++
    :class: highlight
@@ -22,6 +20,9 @@ This page provides C++ class references for the RAFT's 1d span and multi-dimensi
     :project: RAFT
 
 .. doxygenfunction:: raft::unravel_index
+    :project: RAFT
+
+.. doxygenfunction:: raft::make_const_mdspan(mdspan_type mds)
     :project: RAFT
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,15 @@
  */
 
 #include <raft/cluster/kmeans.cuh>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
-#include <raft/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft::runtime::cluster::kmeans {
 template <typename ElementType, typename IndexType>
-void cluster_cost(const raft::handle_t& handle,
+void cluster_cost(raft::device_resources const& handle,
                   const ElementType* X,
                   IndexType n_samples,
                   IndexType n_features,
@@ -59,20 +61,18 @@ void cluster_cost(const raft::handle_t& handle,
                                      handle.get_stream());
 
   auto distances = raft::make_device_vector<ElementType, IndexType>(handle, n_samples);
-  thrust::transform(
-    handle.get_thrust_policy(),
-    min_cluster_distance.data_handle(),
-    min_cluster_distance.data_handle() + n_samples,
-    distances.data_handle(),
-    [] __device__(const raft::KeyValuePair<IndexType, ElementType>& a) { return a.value; });
+  thrust::transform(handle.get_thrust_policy(),
+                    min_cluster_distance.data_handle(),
+                    min_cluster_distance.data_handle() + n_samples,
+                    distances.data_handle(),
+                    raft::value_op{});
 
   rmm::device_scalar<ElementType> device_cost(0, handle.get_stream());
-  raft::cluster::kmeans::cluster_cost(
-    handle,
-    distances.view(),
-    workspace,
-    make_device_scalar_view<ElementType>(device_cost.data()),
-    [] __device__(const ElementType& a, const ElementType& b) { return a + b; });
+  raft::cluster::kmeans::cluster_cost(handle,
+                                      distances.view(),
+                                      workspace,
+                                      make_device_scalar_view<ElementType>(device_cost.data()),
+                                      raft::add_op{});
 
   raft::update_host(cost, device_cost.data(), 1, handle.get_stream());
 }

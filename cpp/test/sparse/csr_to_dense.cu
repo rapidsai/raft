@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <cusparse_v2.h>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
@@ -24,7 +24,7 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 namespace raft {
 namespace sparse {
@@ -116,7 +116,7 @@ class CSRToDenseTest : public ::testing::TestWithParam<CSRToDenseInputs<value_id
   }
 
  protected:
-  raft::handle_t raft_handle;
+  raft::device_resources raft_handle;
   cudaStream_t stream;
 
   cusparseHandle_t handle;

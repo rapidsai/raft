@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,10 +32,11 @@ from libc.stdint cimport (
     uintptr_t,
 )
 from libcpp cimport bool, nullptr
+from libcpp.string cimport string
 
 from rmm._lib.memory_resource cimport device_memory_resource
 
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle cimport device_resources
 from pylibraft.distance.distance_type cimport DistanceType
 
 
@@ -79,7 +80,7 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         bool force_random_rotation
 
     cdef cppclass index[IdxT](ann_index):
-        index(const handle_t& handle,
+        index(const device_resources& handle,
               DistanceType metric,
               codebook_gen codebook_kind,
               uint32_t n_lists,
@@ -107,46 +108,46 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
 cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
         namespace "raft::runtime::neighbors::ivf_pq" nogil:
 
-    cdef void build(const handle_t& handle,
+    cdef void build(const device_resources& handle,
                     const index_params& params,
                     const float* dataset,
                     uint64_t n_rows,
                     uint32_t dim,
                     index[uint64_t]* index) except +
 
-    cdef void build(const handle_t& handle,
+    cdef void build(const device_resources& handle,
                     const index_params& params,
                     const int8_t* dataset,
                     uint64_t n_rows,
                     uint32_t dim,
                     index[uint64_t]* index) except +
 
-    cdef void build(const handle_t& handle,
+    cdef void build(const device_resources& handle,
                     const index_params& params,
                     const uint8_t* dataset,
                     uint64_t n_rows,
                     uint32_t dim,
                     index[uint64_t]* index) except +
 
-    cdef void extend(const handle_t& handle,
+    cdef void extend(const device_resources& handle,
                      index[uint64_t]* index,
                      const float* new_vectors,
                      const uint64_t* new_indices,
                      uint64_t n_rows) except +
 
-    cdef void extend(const handle_t& handle,
+    cdef void extend(const device_resources& handle,
                      index[uint64_t]* index,
                      const int8_t* new_vectors,
                      const uint64_t* new_indices,
                      uint64_t n_rows) except +
 
-    cdef void extend(const handle_t& handle,
+    cdef void extend(const device_resources& handle,
                      index[uint64_t]* index,
                      const uint8_t* new_vectors,
                      const uint64_t* new_indices,
                      uint64_t n_rows) except +
 
-    cdef void search(const handle_t& handle,
+    cdef void search(const device_resources& handle,
                      const search_params& params,
                      const index[uint64_t]& index,
                      const float* queries,
@@ -156,7 +157,7 @@ cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
                      float* distances,
                      device_memory_resource* mr) except +
 
-    cdef void search(const handle_t& handle,
+    cdef void search(const device_resources& handle,
                      const search_params& params,
                      const index[uint64_t]& index,
                      const int8_t* queries,
@@ -166,7 +167,7 @@ cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
                      float* distances,
                      device_memory_resource* mr) except +
 
-    cdef void search(const handle_t& handle,
+    cdef void search(const device_resources& handle,
                      const search_params& params,
                      const index[uint64_t]& index,
                      const uint8_t* queries,
@@ -175,3 +176,11 @@ cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
                      uint64_t* neighbors,
                      float* distances,
                      device_memory_resource* mr) except +
+
+    cdef void serialize(const device_resources& handle,
+                        const string& filename,
+                        const index[uint64_t]& index) except +
+
+    cdef void deserialize(const device_resources& handle,
+                          const string& filename,
+                          index[uint64_t]* index) except +

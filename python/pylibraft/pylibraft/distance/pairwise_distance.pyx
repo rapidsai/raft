@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,15 +29,15 @@ from .distance_type cimport DistanceType
 from pylibraft.common import Handle
 from pylibraft.common.handle import auto_sync_handle
 
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle cimport device_resources
 
-from pylibraft.common import cai_wrapper, device_ndarray
+from pylibraft.common import auto_convert_output, cai_wrapper, device_ndarray
 
 
 cdef extern from "raft_runtime/distance/pairwise_distance.hpp" \
         namespace "raft::runtime::distance" nogil:
 
-    cdef void pairwise_distance(const handle_t &handle,
+    cdef void pairwise_distance(const device_resources &handle,
                                 float *x,
                                 float *y,
                                 float *dists,
@@ -48,7 +48,7 @@ cdef extern from "raft_runtime/distance/pairwise_distance.hpp" \
                                 bool isRowMajor,
                                 float metric_arg) except +
 
-    cdef void pairwise_distance(const handle_t &handle,
+    cdef void pairwise_distance(const device_resources &handle,
                                 double *x,
                                 double *y,
                                 double *dists,
@@ -89,6 +89,7 @@ SUPPORTED_DISTANCES = ["euclidean", "l1", "cityblock", "l2", "inner_product",
 
 
 @auto_sync_handle
+@auto_convert_output
 def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
     """
     Compute pairwise distances between X and Y
@@ -195,7 +196,7 @@ def distance(X, Y, out=None, metric="euclidean", p=2.0, handle=None):
     d_ptr = <uintptr_t>dists_cai.data
 
     handle = handle if handle is not None else Handle()
-    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
     d_dt = dists_cai.dtype
 

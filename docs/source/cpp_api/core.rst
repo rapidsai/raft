@@ -10,65 +10,13 @@ expose in public APIs.
    :language: c++
    :class: highlight
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-handle_t
-########
-
-#include <raft/core/handle.hpp>
-
-.. doxygenclass:: raft::handle_t
-    :project: RAFT
-    :members:
-
-
-Interruptible
-#############
-
-``#include <raft/core/interupptible.hpp>``
-
-.. doxygenclass:: raft::interruptible
-    :project: RAFT
-    :members:
-
-
-NVTX
-####
-
-``#include <raft/core/nvtx.hpp>``
-
-.. doxygennamespace:: raft::common::nvtx
-    :project: RAFT
-    :members:
-    :content-only:
-
-
-Key-Value Pair
-##############
-
-``#include <raft/core/kvp.hpp>``
-
-.. doxygenstruct:: raft::KeyValuePair
-    :project: RAFT
-    :members:
-
-
-logger
-######
-
-``#include <raft/core/logger.hpp>``
-
-.. doxygenclass:: raft::logger
-    :project: RAFT
-    :members:
-
-
-Multi-node Multi-GPU
-####################
-
-``#include <raft/core/comms.hpp>``
-
-.. doxygennamespace:: raft::comms
-    :project: RAFT
-    :members:
-    :content-only:
-
+   core_resources.rst
+   core_logger.rst
+   core_kvp.rst
+   core_nvtx.rst
+   core_interruptible.rst
+   core_operators.rst

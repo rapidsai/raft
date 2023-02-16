@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,6 @@
 
 namespace raft {
 namespace linalg {
-
-using detail::adds_scalar;
 
 /**
  * @ingroup arithmetic
@@ -97,7 +95,7 @@ void addDevScalar(
  * @brief Elementwise add operation
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in1    First Input
  * @param[in] in2    Second Input
  * @param[out] out    Output
@@ -106,7 +104,7 @@ template <typename InType,
           typename OutType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void add(const raft::handle_t& handle, InType in1, InType in2, OutType out)
+void add(raft::device_resources const& handle, InType in1, InType in2, OutType out)
 {
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
@@ -137,7 +135,7 @@ void add(const raft::handle_t& handle, InType in1, InType in2, OutType out)
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in    Input
  * @param[in] scalar    raft::device_scalar_view
  * @param[in] out    Output
@@ -147,7 +145,7 @@ template <typename InType,
           typename ScalarIdxType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void add_scalar(const raft::handle_t& handle,
+void add_scalar(raft::device_resources const& handle,
                 InType in,
                 OutType out,
                 raft::device_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)
@@ -179,7 +177,7 @@ void add_scalar(const raft::handle_t& handle,
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in    Input
  * @param[in] scalar    raft::host_scalar_view
  * @param[in] out    Output
@@ -189,7 +187,7 @@ template <typename InType,
           typename ScalarIdxType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void add_scalar(const raft::handle_t& handle,
+void add_scalar(raft::device_resources const& handle,
                 const InType in,
                 OutType out,
                 raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)

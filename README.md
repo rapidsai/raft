@@ -25,8 +25,8 @@ While not exhaustive, the following general categories help summarize the accele
 | Category | Examples |
 | --- | --- |
 | **Data Formats** | sparse & dense, conversions, data generation |
-| **Dense Operations** | linear algebra, matrix and vector operations, slicing, norms, factorization, least squares, svd & eigenvalue problems |
-| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, symmetrization, components & labeling |
+| **Dense Operations** | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
+| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling |
 | **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
 | **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
 | **Solvers** | combinatorial optimization, iterative solvers |
@@ -37,7 +37,7 @@ While not exhaustive, the following general categories help summarize the accele
 All of RAFT's C++ APIs can be accessed header-only and optional pre-compiled shared libraries can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
 
 In addition to the C++ library, RAFT also provides 2 Python libraries:
-- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessible APIs.
+- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessible "runtime" APIs.
 - `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
 
 ## Getting started
@@ -65,17 +65,17 @@ auto matrix = raft::make_device_matrix<float>(handle, n_rows, n_cols);
 
 ### C++ Example
 
-Most of the primitives in RAFT accept a `raft::handle_t` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.
+Most of the primitives in RAFT accept a `raft::device_resources` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.
 
 The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
 pairwise Euclidean distances:
 ```c++
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/distance/distance.cuh>
 
-raft::handle_t handle;
+raft::device_resources handle;
 
 int n_samples = 5000;
 int n_features = 50;
@@ -93,12 +93,12 @@ raft::distance::pairwise_distance(handle, input.view(), input.view(), output.vie
 It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information:
 
 ```c++
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/distance/distance.cuh>
 
-raft::handle_t handle;
+raft::device_resources handle;
 
 int n_samples = 5000;
 int n_features = 50;
@@ -142,7 +142,7 @@ in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 output = pairwise_distance(in1, in2, metric="euclidean")
 ```
 
-The `output` array supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) so it is interoperable with other libraries like CuPy, Numba, and PyTorch that also support it. 
+The `output` array in the above example is of type `raft.common.device_ndarray`, which supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) making it interoperable with other libraries like CuPy, Numba, and PyTorch that also support it. CuPy supports DLPack, which also enables zero-copy conversion from `raft.common.device_ndarray` to JAX and Tensorflow.
 
 Below is an example of converting the output `pylibraft.device_ndarray` to a CuPy array:
 ```python
@@ -154,6 +154,18 @@ And converting to a PyTorch tensor:
 import torch
 
 torch_tensor = torch.as_tensor(output, device='cuda')
+```
+
+When the corresponding library has been installed and available in your environment, this conversion can also be done automatically by all RAFT compute APIs by setting a global configuration option:
+```python
+import pylibraft.config
+pylibraft.config.set_output_as("cupy")  # All compute APIs will return cupy arrays
+pylibraft.config.set_output_as("torch") # All compute APIs will return torch tensors
+```
+
+You can also specify a `callable` that accepts a `pylibraft.common.device_ndarray` and performs a custom conversion. The following example converts all output to `numpy` arrays:
+```python
+pylibraft.config.set_output_as(lambda device_ndarray: return device_ndarray.copy_to_host())
 ```
 
 `pylibraft` also supports writing to a pre-allocated output array so any `__cuda_array_interface__` supported array can be written to in-place:
@@ -257,14 +269,15 @@ Several CMake targets can be made available by adding components in the table be
 | --- | --- | --- | --- |
 | n/a | `raft::raft` | Full RAFT header library | CUDA toolkit library, RMM, Thrust (optional), NVTools (optional) |
 | distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::raft, cuCollections (optional)  |
-| nn | `raft::nn` | Pre-compiled template specializations for raft::spatial::knn | raft::raft, FAISS (optional) |
+| nn | `raft::nn` | Pre-compiled template specializations for raft::neighbors | raft::raft, FAISS (optional) |
+| distributed | `raft::distributed` | No specializations | raft::raft, UCX, NCCL |
 
 ### Source
 
 The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository:
 1. Create an environment with the needed dependencies:
 ```
-mamba env create --name raft_dev_env -f conda/environments/all_cuda-115_arch-x86_64.yaml
+mamba env create --name raft_dev_env -f conda/environments/all_cuda-118_arch-x86_64.yaml
 mamba activate raft_dev_env
 ```
 ```
@@ -302,6 +315,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
       - `solver`: Sparse solvers for optimization and approximation
     - `stats`: Moments, summary statistics, model performance measures
     - `util`: Various reusable tools and utilities for accelerated algorithm development
+  - `internal`: A private header-only component that hosts the code shared between benchmarks and tests.
   - `scripts`: Helpful scripts for development
   - `src`: Compiled APIs and template specializations for the shared libraries
   - `test`: Googletests source code

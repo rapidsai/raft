@@ -3,16 +3,30 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.5"]
+      cuda: ["11.8"]
       arch: [x86_64]
     includes:
       - build
       - cudatoolkit
       - develop
       - doc
-      - notebook
       - run
       - test_python
+  test_cpp:
+    output: none
+    includes:
+      - cudatoolkit
+  test_python:
+    output: none
+    includes:
+      - cudatoolkit
+      - py_version
+      - test_python
+  checks:
+    output: none
+    includes:
+      - checks
+      - py_version
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -33,20 +47,24 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - rapids-build-env=23.02.*
     specific:
       - output_types: conda
         matrices:
           - matrix:
               arch: x86_64
             packages:
-              - gcc_linux-64=9.*
+              - gcc_linux-64=9
               - sysroot_linux-64==2.17
           - matrix:
               arch: aarch64
             packages:
-              - gcc_linux-aarch64=9.*
+              - gcc_linux-aarch64=9
               - sysroot_linux-aarch64==2.17
+  checks:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - pre-commit
   develop:
     common:
       - output_types: [conda, requirements]
@@ -60,17 +78,59 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              cuda: "11.2"
+              cuda: "11.8"
             packages:
-              - cudatoolkit=11.2
-          - matrix:
-              cuda: "11.4"
-            packages:
-              - cudatoolkit=11.4
+              - cudatoolkit=11.8
+              - cuda-profiler-api=11.8.86
+              - libcublas-dev=11.11.3.6
+              - libcublas=11.11.3.6
+              - libcurand-dev=10.3.0.86
+              - libcurand=10.3.0.86
+              - libcusolver-dev=11.4.1.48
+              - libcusolver=11.4.1.48
+              - libcusparse-dev=11.7.5.86
+              - libcusparse=11.7.5.86
           - matrix:
               cuda: "11.5"
             packages:
               - cudatoolkit=11.5
+              - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
+              - libcublas-dev>=11.7.3.1,<=11.7.4.6
+              - libcublas>=11.7.3.1,<=11.7.4.6
+              - libcurand-dev>=10.2.6.48,<=10.2.7.107
+              - libcurand>=10.2.6.48,<=10.2.7.107
+              - libcusolver-dev>=11.2.1.48,<=11.3.2.107
+              - libcusolver>=11.2.1.48,<=11.3.2.107
+              - libcusparse-dev>=11.7.0.31,<=11.7.0.107
+              - libcusparse>=11.7.0.31,<=11.7.0.107
+          - matrix:
+              cuda: "11.4"
+            packages:
+              - cudatoolkit=11.4
+              - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
+              - &libcublas_dev114 libcublas-dev>=11.5.2.43,<=11.6.5.2
+              - &libcublas114 libcublas>=11.5.2.43,<=11.6.5.2
+              - &libcurand_dev114 libcurand-dev>=10.2.5.43,<=10.2.5.120
+              - &libcurand114 libcurand>=10.2.5.43,<=10.2.5.120
+              - &libcusolver_dev114 libcusolver-dev>=11.2.0.43,<=11.2.0.120
+              - &libcusolver114 libcusolver>=11.2.0.43,<=11.2.0.120
+              - &libcusparse_dev114 libcusparse-dev>=11.6.0.43,<=11.6.0.120
+              - &libcusparse114 libcusparse>=11.6.0.43,<=11.6.0.120
+          - matrix:
+              cuda: "11.2"
+            packages:
+              - cudatoolkit=11.2
+              - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
+              # The NVIDIA channel doesn't publish pkgs older than 11.4 for these libs,
+              # so 11.2 uses 11.4 packages (the oldest available).
+              - *libcublas_dev114
+              - *libcublas114
+              - *libcurand_dev114
+              - *libcurand114
+              - *libcusolver_dev114
+              - *libcusolver114
+              - *libcusparse_dev114
+              - *libcusparse114
   doc:
     common:
       - output_types: [conda, requirements]
@@ -82,13 +142,7 @@ dependencies:
       - output_types: [conda]
         packages:
           - doxygen>=1.8.20
-          - rapids-doc-env=23.02.*
           - sphinx-markdown-tables
-  notebook:
-    common:
-      - output_types: [conda]
-        packages:
-          - rapids-notebook-env=23.02.*
   py_version:
     specific:
       - output_types: conda
@@ -102,23 +156,31 @@ dependencies:
             packages:
               - python=3.9
           - matrix:
+              py: "3.10"
             packages:
-              - python>=3.8,<3.10
+              - python=3.10
+          - matrix:
+            packages:
+              - python>=3.8,<3.11
   run:
     common:
       - output_types: [conda]
         packages:
-          - rmm=23.02.*
-          - dask==2022.11.1
-          - distributed==2022.11.1
+          - rmm=23.02
+          - dask==2023.1.1
+          - distributed==2023.1.1
           - ucx>=1.13.0
-          - ucx-py=0.30.*
+          - ucx-py=0.30
           - ucx-proc=*=gpu
-          - libfaiss>=1.7.0
+          - libfaiss>=1.7.1=cuda*
           - faiss-proc=*=cuda
-          - dask-cuda=23.02.*
+          - dask-cuda=23.02
   test_python:
     common:
       - output_types: [conda, requirements]
         packages:
+          - cupy
           - pytest
+          - pytest-cov
+          - scikit-learn
+          - scipy

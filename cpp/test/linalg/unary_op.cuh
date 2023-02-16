@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -29,7 +29,7 @@ __global__ void naiveScaleKernel(OutType* out, const InType* in, InType scalar, 
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * (IdxType)blockDim.x);
   if (idx < len) {
     if (in == nullptr) {
-      // used for testing writeOnlyUnaryOp
+      // used for testing write_only_unary_op
       out[idx] = static_cast<OutType>(scalar * idx);
     } else {
       out[idx] = static_cast<OutType>(scalar * in[idx]);

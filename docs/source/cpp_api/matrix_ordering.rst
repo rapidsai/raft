@@ -1,9 +1,6 @@
 Matrix Ordering
 ===============
 
-This page provides C++ class references for the publicly-exposed elements of the `raft/matrix` headers. The `raft/matrix`
-headers cover many operations on matrices that are otherwise not covered by `raft/linalg`.
-
 .. role:: py(code)
    :language: c++
    :class: highlight
@@ -28,6 +25,18 @@ Argmin
 namespace *raft::matrix*
 
 .. doxygengroup:: argmin
+    :project: RAFT
+    :members:
+    :content-only:
+
+Select-K
+--------
+
+``#include <raft/matrix/select_k.cuh>``
+
+namespace *raft::matrix*
+
+.. doxygengroup:: select_k
     :project: RAFT
     :members:
     :content-only:

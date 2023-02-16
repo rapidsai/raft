@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,17 +58,14 @@ def check_distances(dataset, queries, metric, out_idx, out_dist, eps=None):
     for i in range(queries.shape[0]):
         X = queries[np.newaxis, i, :]
         Y = dataset[out_idx[i, :], :]
-        if metric == "l2_expanded":
+        if metric == "sqeuclidean":
+            dist[i, :] = pairwise_distances(X, Y, "sqeuclidean")
+        elif metric == "euclidean":
             dist[i, :] = pairwise_distances(X, Y, "euclidean")
         elif metric == "inner_product":
             dist[i, :] = np.matmul(X, Y.T)
         else:
             raise ValueError("Invalid metric")
-
-    # Note: raft l2 metric does not include the square root operation like
-    # sklearn's euclidean.
-    if metric == "l2_expanded":
-        dist = np.power(dist, 2)
 
     dist_eps = abs(dist)
     dist_eps[dist < 1e-3] = 1e-3
@@ -97,6 +94,7 @@ def run_ivf_pq_build_search_test(
     kmeans_n_iters=20,
     compare=True,
     inplace=True,
+    array_type="device",
 ):
     dataset = generate_data((n_rows, n_cols), dtype)
     if metric == "inner_product":
@@ -115,7 +113,10 @@ def run_ivf_pq_build_search_test(
         add_data_on_build=add_data_on_build,
     )
 
-    index = ivf_pq.build(build_params, dataset_device)
+    if array_type == "device":
+        index = ivf_pq.build(build_params, dataset_device)
+    else:
+        index = ivf_pq.build(build_params, dataset)
 
     assert index.trained
     if pq_dim != 0:
@@ -125,14 +126,20 @@ def run_ivf_pq_build_search_test(
     assert index.n_lists == build_params.n_lists
 
     if not add_data_on_build:
-        dataset_1_device = device_ndarray(dataset[: n_rows // 2, :])
-        dataset_2_device = device_ndarray(dataset[n_rows // 2 :, :])
+        dataset_1 = dataset[: n_rows // 2, :]
+        dataset_2 = dataset[n_rows // 2 :, :]
         indices_1 = np.arange(n_rows // 2, dtype=np.uint64)
-        indices_1_device = device_ndarray(indices_1)
         indices_2 = np.arange(n_rows // 2, n_rows, dtype=np.uint64)
-        indices_2_device = device_ndarray(indices_2)
-        index = ivf_pq.extend(index, dataset_1_device, indices_1_device)
-        index = ivf_pq.extend(index, dataset_2_device, indices_2_device)
+        if array_type == "device":
+            dataset_1_device = device_ndarray(dataset_1)
+            dataset_2_device = device_ndarray(dataset_2)
+            indices_1_device = device_ndarray(indices_1)
+            indices_2_device = device_ndarray(indices_2)
+            index = ivf_pq.extend(index, dataset_1_device, indices_1_device)
+            index = ivf_pq.extend(index, dataset_2_device, indices_2_device)
+        else:
+            index = ivf_pq.extend(index, dataset_1, indices_1)
+            index = ivf_pq.extend(index, dataset_2, indices_2)
 
     assert index.size >= n_rows
 
@@ -169,9 +176,11 @@ def run_ivf_pq_build_search_test(
     out_dist = out_dist_device.copy_to_host()
 
     # Calculate reference values with sklearn
-    skl_metric = {"l2_expanded": "euclidean", "inner_product": "cosine"}[
-        metric
-    ]
+    skl_metric = {
+        "sqeuclidean": "sqeuclidean",
+        "inner_product": "cosine",
+        "euclidean": "euclidean",
+    }[metric]
     nn_skl = NearestNeighbors(
         n_neighbors=k, algorithm="brute", metric=skl_metric
     )
@@ -190,18 +199,22 @@ def run_ivf_pq_build_search_test(
 @pytest.mark.parametrize("n_queries", [100])
 @pytest.mark.parametrize("n_lists", [100])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
-def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype, inplace):
+@pytest.mark.parametrize("array_type", ["host", "device"])
+def test_ivf_pq_dtypes(
+    n_rows, n_cols, n_queries, n_lists, dtype, inplace, array_type
+):
     # Note that inner_product tests use normalized input which we cannot
-    # represent in int8, therefore we test only l2_expanded metric here.
+    # represent in int8, therefore we test only sqeuclidean metric here.
     run_ivf_pq_build_search_test(
         n_rows=n_rows,
         n_cols=n_cols,
         n_queries=n_queries,
         k=10,
         n_lists=n_lists,
-        metric="l2_expanded",
+        metric="sqeuclidean",
         dtype=dtype,
         inplace=inplace,
+        array_type=array_type,
     )
 
 
@@ -218,7 +231,7 @@ def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype, inplace):
             },
             marks=pytest.mark.xfail(reason="empty dataset"),
         ),
-        {"n_rows": 1, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 10},
+        {"n_rows": 1, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 1},
         {"n_rows": 10, "n_cols": 1, "n_queries": 10, "k": 10, "n_lists": 10},
         # {"n_rows": 999, "n_cols": 42, "n_queries": 453, "k": 137,
         #  "n_lists": 53},
@@ -233,13 +246,15 @@ def test_ivf_pq_n(params):
         n_queries=params["n_queries"],
         k=params["k"],
         n_lists=params["n_lists"],
-        metric="l2_expanded",
+        metric="sqeuclidean",
         dtype=np.float32,
         compare=False,
     )
 
 
-@pytest.mark.parametrize("metric", ["l2_expanded", "inner_product"])
+@pytest.mark.parametrize(
+    "metric", ["sqeuclidean", "inner_product", "euclidean"]
+)
 @pytest.mark.parametrize("dtype", [np.float32])
 @pytest.mark.parametrize("codebook_kind", ["subspace", "cluster"])
 @pytest.mark.parametrize("rotation", [True, False])
@@ -283,7 +298,7 @@ def test_ivf_pq_params(params):
         n_queries=1000,
         k=10,
         n_lists=params["n_lists"],
-        metric="l2_expanded",
+        metric="sqeuclidean",
         dtype=np.float32,
         pq_bits=params["pq_bits"],
         pq_dim=params["pq_dims"],
@@ -329,7 +344,7 @@ def test_ivf_pq_search_params(params):
         k=params["k"],
         n_lists=100,
         n_probes=params["n_probes"],
-        metric="l2_expanded",
+        metric="sqeuclidean",
         dtype=np.float32,
         lut_dtype=params["lut"],
         internal_distance_dtype=params["idd"],
@@ -337,16 +352,18 @@ def test_ivf_pq_search_params(params):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
-def test_extend(dtype):
+@pytest.mark.parametrize("array_type", ["host", "device"])
+def test_extend(dtype, array_type):
     run_ivf_pq_build_search_test(
         n_rows=10000,
         n_cols=10,
         n_queries=100,
         k=10,
         n_lists=100,
-        metric="l2_expanded",
+        metric="sqeuclidean",
         dtype=dtype,
         add_data_on_build=False,
+        array_type=array_type,
     )
 
 
@@ -358,7 +375,7 @@ def test_build_assertions():
             n_queries=100,
             k=10,
             n_lists=100,
-            metric="l2_expanded",
+            metric="sqeuclidean",
             dtype=np.float64,
         )
 
@@ -371,7 +388,7 @@ def test_build_assertions():
 
     index_params = ivf_pq.IndexParams(
         n_lists=50,
-        metric="l2_expanded",
+        metric="sqeuclidean",
         kmeans_n_iters=20,
         kmeans_trainset_fraction=1,
         add_data_on_build=False,
@@ -465,7 +482,7 @@ def test_search_inputs(params):
     out_dist_device = device_ndarray(out_dist)
 
     index_params = ivf_pq.IndexParams(
-        n_lists=50, metric="l2_expanded", add_data_on_build=True
+        n_lists=50, metric="sqeuclidean", add_data_on_build=True
     )
 
     dataset = generate_data((n_rows, n_cols), dtype)
@@ -483,3 +500,51 @@ def test_search_inputs(params):
             out_idx_device,
             out_dist_device,
         )
+
+
+def test_save_load():
+    n_rows = 10000
+    n_cols = 50
+    n_queries = 1000
+    dtype = np.float32
+
+    dataset = generate_data((n_rows, n_cols), dtype)
+    dataset_device = device_ndarray(dataset)
+
+    build_params = ivf_pq.IndexParams(n_lists=100, metric="sqeuclidean")
+    index = ivf_pq.build(build_params, dataset_device)
+
+    assert index.trained
+    filename = "my_index.bin"
+    ivf_pq.save(filename, index)
+    loaded_index = ivf_pq.load(filename)
+
+    assert index.pq_dim == loaded_index.pq_dim
+    assert index.pq_bits == loaded_index.pq_bits
+    assert index.metric == loaded_index.metric
+    assert index.n_lists == loaded_index.n_lists
+    assert index.size == loaded_index.size
+
+    queries = generate_data((n_queries, n_cols), dtype)
+
+    queries_device = device_ndarray(queries)
+    search_params = ivf_pq.SearchParams(n_probes=100)
+    k = 10
+
+    distance_dev, neighbors_dev = ivf_pq.search(
+        search_params, index, queries_device, k
+    )
+
+    neighbors = neighbors_dev.copy_to_host()
+    dist = distance_dev.copy_to_host()
+    del index
+
+    distance_dev, neighbors_dev = ivf_pq.search(
+        search_params, loaded_index, queries_device, k
+    )
+
+    neighbors2 = neighbors_dev.copy_to_host()
+    dist2 = distance_dev.copy_to_host()
+
+    assert np.all(neighbors == neighbors2)
+    assert np.allclose(dist, dist2, rtol=1e-6)

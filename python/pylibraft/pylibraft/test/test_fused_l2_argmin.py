@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 from scipy.spatial.distance import cdist
 
-from pylibraft.common import Handle, device_ndarray
+from pylibraft.common import DeviceResources, device_ndarray
 from pylibraft.distance import fused_l2_nn_argmin
 
 
@@ -42,7 +42,7 @@ def test_fused_l2_nn_minarg(n_rows, n_cols, n_clusters, dtype, inplace):
     input2_device = device_ndarray(input2)
     output_device = device_ndarray(output) if inplace else None
 
-    handle = Handle()
+    handle = DeviceResources()
     ret_output = fused_l2_nn_argmin(
         input1_device, input2_device, output_device, True, handle=handle
     )

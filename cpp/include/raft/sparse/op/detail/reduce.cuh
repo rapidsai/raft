@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -124,7 +124,7 @@ void compute_duplicates_mask(
  * @param[in] stream cuda ops will be ordered wrt this stream
  */
 template <typename value_idx, typename value_t>
-void max_duplicates(const raft::handle_t& handle,
+void max_duplicates(raft::device_resources const& handle,
                     raft::sparse::COO<value_t, value_idx>& out,
                     const value_idx* rows,
                     const value_idx* cols,

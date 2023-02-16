@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ from rmm._lib.cuda_stream_pool cimport cuda_stream_pool
 from rmm._lib.cuda_stream_view cimport cuda_stream_view
 
 
+# Keeping `handle_t` around for backwards compatibility at the
+# cython layer but users are encourage to switch to device_resources
 cdef extern from "raft/core/handle.hpp" namespace "raft" nogil:
     cdef cppclass handle_t:
         handle_t() except +
@@ -35,7 +37,17 @@ cdef extern from "raft/core/handle.hpp" namespace "raft" nogil:
         cuda_stream_view get_stream() except +
         void sync_stream() except +
 
-cdef class Handle:
-    cdef unique_ptr[handle_t] c_obj
+
+cdef extern from "raft/core/device_resources.hpp" namespace "raft" nogil:
+    cdef cppclass device_resources:
+        device_resources() except +
+        device_resources(cuda_stream_view stream_view) except +
+        device_resources(cuda_stream_view stream_view,
+                         shared_ptr[cuda_stream_pool] stream_pool) except +
+        cuda_stream_view get_stream() except +
+        void sync_stream() except +
+
+cdef class DeviceResources:
+    cdef unique_ptr[device_resources] c_obj
     cdef shared_ptr[cuda_stream_pool] stream_pool
     cdef int n_streams

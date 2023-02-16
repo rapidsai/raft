@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #include <raft/distance/specializations.cuh>
 #endif
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
@@ -170,7 +170,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
       gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f)));
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream = 0;
   GramMatrixInputs params;
 

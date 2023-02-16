@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 #pragma once
 
 #include "permute.cuh"
-#include <raft/linalg/unary_op.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/random/rng_device.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -39,16 +40,16 @@ void generate_labels(IdxT* labels,
                      raft::random::RngState& r,
                      cudaStream_t stream)
 {
+  raft::handle_t handle(stream);
   IdxT a, b;
   raft::random::affine_transform_params(r, n_clusters, a, b);
-  auto op = [=] __device__(IdxT * ptr, IdxT idx) {
-    if (shuffle) { idx = IdxT((a * int64_t(idx)) + b); }
+  auto op = [=] __device__(IdxT idx) {
+    if (shuffle) { idx = static_cast<IdxT>((a * int64_t(idx)) + b); }
     idx %= n_clusters;
-    // in the unlikely case of n_clusters > n_rows, make sure that the writes
-    // do not go out-of-bounds
-    if (idx < n_rows) { *ptr = idx; }
+    return idx;
   };
-  raft::linalg::writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op, stream);
+  auto labels_view = raft::make_device_vector_view<IdxT, IdxT>(labels, n_rows);
+  linalg::map_offset(handle, labels_view, op);
 }
 
 template <typename DataT, typename IdxT>
@@ -156,8 +157,10 @@ void generate_data(DataT* out,
                    const DataT cluster_std_scalar,
                    raft::random::RngState& rng_state)
 {
-  IdxT items   = n_rows * n_cols;
-  IdxT nBlocks = (items + 127) / 128;
+  constexpr IdxT block_size = 128;
+  IdxT items                = n_rows * n_cols;
+  // Choose a grid size so that each thread can write two output values.
+  IdxT nBlocks = ceildiv<IdxT>(items, 2 * block_size);
   // parentheses needed here for kernel, otherwise macro interprets the arguments
   // of triple chevron notation as macro arguments
   RAFT_CALL_RNG_FUNC(rng_state,
