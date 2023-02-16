@@ -89,9 +89,9 @@ include(CMakeDependentOption)
 cmake_dependent_option(
   RAFT_USE_FAISS_STATIC
   "Build and statically link the FAISS library for nearest neighbors search on GPU"
-  ON
-  RAFT_COMPILE_LIBRARIES
   OFF
+  RAFT_COMPILE_LIBRARIES
+  ON
 )
 
 message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
