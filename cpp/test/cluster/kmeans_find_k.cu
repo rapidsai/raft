@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 
 #include <raft/cluster/kmeans.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -86,7 +86,7 @@ class KmeansFindKTest : public ::testing::TestWithParam<KmeansFindKInputs<T>> {
   void SetUp() override { basicTest(); }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
   KmeansFindKInputs<T> testparams;
   raft::host_scalar<int> best_k;

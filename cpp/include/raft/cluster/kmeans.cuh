@@ -303,7 +303,7 @@ void transform(raft::device_resources const& handle,
  * @param tol tolerance for early stopping convergence
  */
 template <typename idx_t, typename value_t>
-void find_k(const raft::handle_t& handle,
+void find_k(raft::device_resources const& handle,
             raft::device_matrix_view<const value_t, idx_t> X,
             raft::host_scalar_view<idx_t> best_k,
             raft::host_scalar_view<value_t> inertia,

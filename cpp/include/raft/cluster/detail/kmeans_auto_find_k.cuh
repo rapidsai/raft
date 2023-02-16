@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,13 +25,13 @@
 
 #include <raft/core/error.hpp>
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/stats/dispersion.cuh>
 
 namespace raft::cluster::detail {
 
 template <typename idx_t, typename value_t>
-void find_k(raft::handle_t const& handle,
+void find_k(raft::device_resources const& handle,
             raft::device_matrix_view<const value_t, idx_t> X,
             raft::host_scalar_view<idx_t> best_k,
             raft::host_scalar_view<value_t> residual,
