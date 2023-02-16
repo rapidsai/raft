@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.02")
-set(RAFT_VERSION "23.02.00")
+set(RAPIDS_VERSION "23.04")
+set(RAFT_VERSION "23.04.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -57,7 +57,11 @@ option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
-option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
+set(RAFT_COMPILE_LIBRARIES_DEFAULT OFF)
+if(BUILD_TESTS OR BUILD_BENCH)
+  set(RAFT_COMPILE_LIBRARIES_DEFAULT ON)
+endif()
+option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${RAFT_COMPILE_LIBRARIES_DEFAULT})
 option(
   RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations"
   ${RAFT_COMPILE_LIBRARIES}
@@ -66,7 +70,7 @@ option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library in
        ${RAFT_COMPILE_LIBRARIES}
 )
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss"
-       ${RAFT_COMPILE_LIBRARIES}
+       ${RAFT_COMPILE_NN_LIBRARY}
 )
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
@@ -307,15 +311,23 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/refine_h_uint64_t_uint8_t.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu
-    src/distance/distance/specializations/detail/canberra.cu
-    src/distance/distance/specializations/detail/chebyshev.cu
-    src/distance/distance/specializations/detail/correlation.cu
-    src/distance/distance/specializations/detail/cosine.cu
-    src/distance/distance/specializations/detail/cosine.cu
-    src/distance/distance/specializations/detail/hamming_unexpanded.cu
-    src/distance/distance/specializations/detail/hellinger_expanded.cu
+    src/distance/cluster/kmeans_init_plus_plus_double.cu
+    src/distance/cluster/kmeans_init_plus_plus_float.cu
+    src/distance/distance/specializations/detail/canberra_double_double_double_int.cu
+    src/distance/distance/specializations/detail/canberra_float_float_float_int.cu
+    src/distance/distance/specializations/detail/chebyshev_double_double_double_int.cu
+    src/distance/distance/specializations/detail/chebyshev_float_float_float_int.cu
+    src/distance/distance/specializations/detail/correlation_double_double_double_int.cu
+    src/distance/distance/specializations/detail/correlation_float_float_float_int.cu
+    src/distance/distance/specializations/detail/cosine_double_double_double_int.cu
+    src/distance/distance/specializations/detail/cosine_float_float_float_int.cu
+    src/distance/distance/specializations/detail/hamming_unexpanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/hamming_unexpanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/hellinger_expanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/hellinger_expanded_double_double_double_int.cu
+    src/distance/distance/specializations/detail/inner_product_float_float_float_int.cu
+    src/distance/distance/specializations/detail/inner_product_double_double_double_int.cu
     src/distance/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
-    src/distance/distance/specializations/detail/jensen_shannon_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
     src/distance/distance/specializations/detail/kernels/gram_matrix_base_double.cu
     src/distance/distance/specializations/detail/kernels/gram_matrix_base_float.cu
@@ -327,28 +339,20 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/detail/kernels/tanh_kernel_double.cu
     src/distance/distance/specializations/detail/kernels/tanh_kernel_float.cu
     src/distance/distance/specializations/detail/kl_divergence_float_float_float_int.cu
-    src/distance/distance/specializations/detail/kl_divergence_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/kl_divergence_double_double_double_int.cu
     src/distance/distance/specializations/detail/l1_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l1_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l1_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_expanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_expanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_expanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_sqrt_expanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_sqrt_expanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_sqrt_expanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
-    src/distance/distance/specializations/detail/l2_unexpanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
-    src/distance/distance/specializations/detail/lp_unexpanded_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/russel_rao_double_double_double_int.cu
-    src/distance/distance/specializations/detail/russel_rao_float_float_float_uint32.cu
     src/distance/distance/specializations/detail/russel_rao_float_float_float_int.cu
     src/distance/distance/specializations/fused_l2_nn_double_int.cu
     src/distance/distance/specializations/fused_l2_nn_double_int64.cu
@@ -360,6 +364,12 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/ivfpq_search_float_uint64_t.cu
     src/distance/neighbors/ivfpq_search_int8_t_uint64_t.cu
     src/distance/neighbors/ivfpq_search_uint8_t_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_build_float_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_build_int8_t_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_build_uint8_t_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_extend_float_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_extend_int8_t_uint64_t.cu
+    src/distance/neighbors/specializations/ivfpq_extend_uint8_uint64_t.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_fast.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_basediff.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_float_no_smem_lut.cu
@@ -372,9 +382,9 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_fast.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_no_basediff.cu
     src/distance/neighbors/specializations/detail/ivfpq_compute_similarity_half_no_smem_lut.cu
-    src/distance/neighbors/specializations/detail/ivfpq_search_float_int64_t.cu
+    src/distance/neighbors/specializations/detail/ivfpq_search_uint8_t_uint64_t.cu
     src/distance/neighbors/specializations/detail/ivfpq_search_float_uint64_t.cu
-    src/distance/neighbors/specializations/detail/ivfpq_search_float_uint32_t.cu
+    src/distance/neighbors/specializations/detail/ivfpq_search_int8_t_uint64_t.cu
     src/distance/random/rmat_rectangular_generator_int_double.cu
     src/distance/random/rmat_rectangular_generator_int64_double.cu
     src/distance/random/rmat_rectangular_generator_int_float.cu
