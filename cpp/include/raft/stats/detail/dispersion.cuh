@@ -18,7 +18,7 @@
 
 #include <cub/cub.cuh>
 #include <memory>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>

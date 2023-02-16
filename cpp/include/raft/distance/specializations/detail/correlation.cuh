@@ -23,6 +23,7 @@ namespace distance {
 namespace detail {
 extern template void
 distance<raft::distance::DistanceType::CorrelationExpanded, float, float, float, int>(
+  raft::resources const& handle,
   const float* x,
   const float* y,
   float* dist,
@@ -31,12 +32,12 @@ distance<raft::distance::DistanceType::CorrelationExpanded, float, float, float,
   int k,
   void* workspace,
   size_t worksize,
-  cudaStream_t stream,
   bool isRowMajor,
   float metric_arg);
 
 extern template void
 distance<raft::distance::DistanceType::CorrelationExpanded, double, double, double, int>(
+  raft::resources const& handle,
   const double* x,
   const double* y,
   double* dist,
@@ -45,10 +46,8 @@ distance<raft::distance::DistanceType::CorrelationExpanded, double, double, doub
   int k,
   void* workspace,
   size_t worksize,
-  cudaStream_t stream,
   bool isRowMajor,
   double metric_arg);
-
 }  // namespace detail
 }  // namespace distance
 }  // namespace raft

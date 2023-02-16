@@ -82,6 +82,7 @@ if(BUILD_BENCH)
     bench/distance/distance_l1.cu
     bench/distance/distance_unexp_l2.cu
     bench/distance/fused_l2_nn.cu
+    bench/distance/masked_nn.cu
     bench/distance/kernels.cu
     bench/main.cpp
     OPTIONAL
@@ -122,14 +123,13 @@ if(BUILD_BENCH)
     bench/neighbors/knn/brute_force_float_int64_t.cu
     bench/neighbors/knn/brute_force_float_uint32_t.cu
     bench/neighbors/knn/ivf_flat_float_int64_t.cu
-    bench/neighbors/knn/ivf_flat_float_uint32_t.cu
     bench/neighbors/knn/ivf_flat_int8_t_int64_t.cu
-    bench/neighbors/knn/ivf_flat_uint8_t_uint32_t.cu
-    bench/neighbors/knn/ivf_pq_float_int64_t.cu
-    bench/neighbors/knn/ivf_pq_float_uint32_t.cu
-    bench/neighbors/knn/ivf_pq_int8_t_int64_t.cu
-    bench/neighbors/knn/ivf_pq_uint8_t_uint32_t.cu
-    bench/neighbors/refine.cu
+    bench/neighbors/knn/ivf_flat_uint8_t_int64_t.cu
+    bench/neighbors/knn/ivf_pq_float_uint64_t.cu
+    bench/neighbors/knn/ivf_pq_int8_t_uint64_t.cu
+    bench/neighbors/knn/ivf_pq_uint8_t_uint64_t.cu
+    bench/neighbors/refine_float_uint64_t.cu
+    bench/neighbors/refine_uint8_t_uint64_t.cu
     bench/main.cpp
     OPTIONAL
     DIST
