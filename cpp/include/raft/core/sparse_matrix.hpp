@@ -82,6 +82,50 @@ class sparse_structure {
   nnz_type nnz_;
 };
 
+template <typename IndptrType, typename IndicesType, typename NZType, int is_device>
+class compressed_structure_t : public sparse_structure<IndptrType, IndicesType, NZType, is_device> {
+ public:
+  /**
+   * Constructor when sparsity is already known
+   * @param n_rows total number of rows in matrix
+   * @param n_cols total number of columns in matrix
+   * @param nnz sparsity of matrix
+   */
+  compressed_structure_t(IndptrType n_rows, IndicesType n_cols, NZType nnz)
+    : sparse_structure<IndptrType, IndicesType, NZType, is_device>(n_rows, n_cols, nnz){};
+
+  /**
+   * Return span containing underlying indptr array
+   * @return span containing underlying indptr array
+   */
+  virtual span<IndptrType, is_device> get_indptr() = 0;
+
+  /**
+   * Return span containing underlying indices array
+   * @return span containing underlying indices array
+   */
+  virtual span<IndicesType, is_device> get_indices() = 0;
+};
+
+template <typename RowType, typename ColType, typename NZType, int is_device>
+class coordinate_structure_t : public sparse_structure<RowType, ColType, NZType, is_device> {
+ public:
+  coordinate_structure_t(RowType n_rows, ColType n_cols, NZType nnz)
+    : sparse_structure<RowType, ColType, NZType, is_device>(n_rows, n_cols, nnz){};
+
+  /**
+   * Return span containing underlying rows array
+   * @return span containing underlying rows array
+   */
+  virtual span<RowType, is_device> get_rows() = 0;
+
+  /**
+   * Return span containing underlying cols array
+   * @return span containing underlying cols array
+   */
+  virtual span<ColType, is_device> get_cols() = 0;
+};
+
 /**
  * A non-owning view into a compressed sparse structure
  *
@@ -93,7 +137,7 @@ class sparse_structure {
  */
 template <typename IndptrType, typename IndicesType, typename NZType, bool is_device>
 class compressed_structure_view
-  : public sparse_structure<IndptrType, IndicesType, NZType, is_device> {
+  : public compressed_structure_t<IndptrType, IndicesType, NZType, is_device> {
  public:
   using view_type = compressed_structure_view<IndptrType, IndicesType, NZType, is_device>;
   using indptr_type =
@@ -104,7 +148,7 @@ class compressed_structure_view
   compressed_structure_view(span<indptr_type, is_device> indptr,
                             span<indices_type, is_device> indices,
                             indices_type n_cols)
-    : sparse_structure<IndptrType, IndicesType, NZType, is_device>(
+    : compressed_structure_t<IndptrType, IndicesType, NZType, is_device>(
         indptr.size() - 1, n_cols, indices.size()),
       indptr_(indptr),
       indices_(indices)
@@ -115,13 +159,13 @@ class compressed_structure_view
    * Return span containing underlying indptr array
    * @return span containing underlying indptr array
    */
-  span<indptr_type, is_device> get_indptr() { return indptr_; }
+  span<indptr_type, is_device> get_indptr() override { return indptr_; }
 
   /**
    * Return span containing underlying indices array
    * @return span containing underlying indices array
    */
-  span<indices_type, is_device> get_indices() { return indices_; }
+  span<indices_type, is_device> get_indices() override { return indices_; }
 
   /**
    * Create a view from this view. Note that this is for interface compatibility
@@ -161,9 +205,10 @@ template <typename IndptrType,
           bool is_device,
           template <typename T>
           typename ContainerPolicy>
-class compressed_structure : public sparse_structure<IndptrType, IndicesType, NZType, is_device> {
+class compressed_structure
+  : public compressed_structure_t<IndptrType, IndicesType, NZType, is_device> {
  public:
-  using sparse_structure_type = sparse_structure<IndptrType, IndicesType, NZType, is_device>;
+  using sparse_structure_type = compressed_structure_t<IndptrType, IndicesType, NZType, is_device>;
   using view_type = compressed_structure_view<IndptrType, IndicesType, NZType, is_device>;
   using indptr_container_policy_type  = ContainerPolicy<IndptrType>;
   using indices_container_policy_type = ContainerPolicy<IndicesType>;
@@ -193,6 +238,27 @@ class compressed_structure : public sparse_structure<IndptrType, IndicesType, NZ
   constexpr auto operator    =(compressed_structure&&) noexcept(
     std::is_nothrow_move_assignable<indptr_container_type>::value)
     -> compressed_structure& = default;
+
+  /**
+   * Return span containing underlying indptr array
+   * @return span containing underlying indptr array
+   */
+  span<IndptrType, is_device> get_indptr() override
+  {
+    return raft::span<IndptrType, is_device>(c_indptr_.data(), this->get_n_rows() + 1);
+  }
+
+  /**
+   * Return span containing underlying indices array
+   * @return span containing underlying indices array
+   */
+  span<IndicesType, is_device> get_indices() override
+  {
+    if (this->get_nnz() == 0) {
+      RAFT_LOG_WARN("Indices requested for structure that has uninitialized sparsity.");
+    }
+    return raft::span<IndicesType, is_device>(c_indices_.data(), this->get_nnz());
+  }
 
   ~compressed_structure() noexcept(std::is_nothrow_destructible<indptr_container_type>::value) =
     default;
@@ -245,7 +311,8 @@ class compressed_structure : public sparse_structure<IndptrType, IndicesType, NZ
  * @tparam ColType
  */
 template <typename RowType, typename ColType, typename NZType, bool is_device>
-class coordinate_structure_view : public sparse_structure<RowType, ColType, NZType, is_device> {
+class coordinate_structure_view
+  : public coordinate_structure_t<RowType, ColType, NZType, is_device> {
  public:
   using view_type = coordinate_structure_view<RowType, ColType, NZType, is_device>;
   using row_type  = typename sparse_structure<RowType, ColType, NZType, is_device>::row_type;
@@ -256,7 +323,7 @@ class coordinate_structure_view : public sparse_structure<RowType, ColType, NZTy
                             span<col_type, is_device> cols,
                             row_type n_rows,
                             col_type n_cols)
-    : sparse_structure<RowType, ColType, NZType, is_device>(n_rows, n_cols, rows.size()),
+    : coordinate_structure_t<RowType, ColType, NZType, is_device>(n_rows, n_cols, rows.size()),
       rows_{rows},
       cols_{cols}
   {
@@ -282,13 +349,13 @@ class coordinate_structure_view : public sparse_structure<RowType, ColType, NZTy
    * Return span containing underlying rows array
    * @return span containing underlying rows array
    */
-  span<row_type, is_device> get_rows() { return rows_; }
+  span<row_type, is_device> get_rows() override { return rows_; }
 
   /**
    * Return span containing underlying cols array
    * @return span containing underlying cols array
    */
-  span<col_type, is_device> get_cols() { return cols_; }
+  span<col_type, is_device> get_cols() override { return cols_; }
 
  protected:
   raft::span<row_type, is_device> rows_;
@@ -312,9 +379,9 @@ template <typename RowType,
           bool is_device,
           template <typename T>
           typename ContainerPolicy>
-class coordinate_structure : public sparse_structure<RowType, ColType, NZType, is_device> {
+class coordinate_structure : public coordinate_structure_t<RowType, ColType, NZType, is_device> {
  public:
-  using sparse_structure_type = sparse_structure<RowType, ColType, NZType, is_device>;
+  using sparse_structure_type = coordinate_structure_t<RowType, ColType, NZType, is_device>;
   using row_type              = typename sparse_structure_type::row_type;
   using col_type              = typename sparse_structure_type::col_type;
   using nnz_type              = typename sparse_structure_type::nnz_type;
@@ -330,7 +397,7 @@ class coordinate_structure : public sparse_structure<RowType, ColType, NZType, i
     row_type n_rows,
     col_type n_cols,
     nnz_type nnz = 0) noexcept(std::is_nothrow_default_constructible_v<row_container_type>)
-    : sparse_structure<RowType, ColType, NZType, is_device>(n_rows, n_cols, nnz),
+    : coordinate_structure_t<RowType, ColType, NZType, is_device>(n_rows, n_cols, nnz),
       handle_{handle},
       cp_rows_{handle.get_stream()},
       cp_cols_{handle.get_stream()},
@@ -366,6 +433,24 @@ class coordinate_structure : public sparse_structure<RowType, ColType, NZType, i
     auto row_span = raft::span<row_type, is_device>(c_rows_.data(), this->get_nnz());
     auto col_span = raft::span<col_type, is_device>(c_cols_.data(), this->get_nnz());
     return view_type(row_span, col_span, this->get_n_rows(), this->get_n_cols());
+  }
+
+  /**
+   * Return span containing underlying rows array
+   * @return span containing underlying rows array
+   */
+  span<row_type, is_device> get_rows() override
+  {
+    return raft::span<row_type, is_device>(c_rows_.data(), this->get_n_rows());
+  }
+
+  /**
+   * Return span containing underlying cols array
+   * @return span containing underlying cols array
+   */
+  span<col_type, is_device> get_cols() override
+  {
+    return raft::span<col_type, is_device>(c_cols_.data(), this->get_n_cols());
   }
 
   /**
@@ -494,6 +579,11 @@ class sparse_matrix {
 
   void initialize_sparsity(nnz_type nnz) { c_elements_.resize(nnz, this->handle_.get_stream()); };
 
+  raft::span<ElementType, is_device> get_elements()
+  {
+    return raft::span<ElementType, is_device>(c_elements_.data(), structure_view().get_nnz());
+  }
+
   /**
    * Return a view of the structure underlying this matrix
    * @return
@@ -541,98 +631,36 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
+          typename StructureType,
           bool is_device,
           template <typename T>
           typename ContainerPolicy>
-class sparsity_owning_csr_matrix
-  : public sparse_matrix<
-      ElementType,
-      compressed_structure<IndptrType, IndicesType, NZType, is_device, ContainerPolicy>,
-      csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, is_device>,
-      is_device,
-      ContainerPolicy> {
- public:
-  using sparse_matrix_type =
-    sparse_matrix<ElementType,
-                  compressed_structure<IndptrType, IndicesType, NZType, is_device, ContainerPolicy>,
-                  csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, is_device>,
-                  is_device,
-                  ContainerPolicy>;
-  using container_type = typename ContainerPolicy<ElementType>::container_type;
-  using structure_view_type =
-    typename compressed_structure<IndptrType, IndicesType, NZType, is_device, ContainerPolicy>::
-      view_type;
-
-  // Constructor that owns both data and structure
-  sparsity_owning_csr_matrix(
-    raft::device_resources const& handle,
-    IndptrType n_rows,
-    IndicesType n_cols,
-    NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
-    : sparse_matrix_type(handle, n_rows, n_cols, nnz){};
-
-  /**
-   * Initialize the sparsity on this instance if it was not known upon construction
-   * Please note this will resize the underlying memory buffers
-   * @param nnz new sparsity to initialize.
-   */
-  void initialize_sparsity(NZType nnz)
-  {
-    sparse_matrix_type::initialize_sparsity(nnz);
-    this->structure_.get()->initialize_sparsity(nnz);
-  }
-
-  /**
-   * Return a view of the structure underlying this matrix
-   * @return
-   */
-  structure_view_type structure_view() { return this->structure_.get()->view(); }
-};
-
-template <typename ElementType,
-          typename IndptrType,
-          typename IndicesType,
-          typename NZType,
-          bool is_device,
-          template <typename T>
-          typename ContainerPolicy>
-class sparsity_preserving_csr_matrix
+class csr_matrix
   : public sparse_matrix<ElementType,
-                         compressed_structure_view<IndptrType, IndicesType, NZType, is_device>,
+                         StructureType,
                          csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, is_device>,
                          is_device,
                          ContainerPolicy> {
  public:
   using sparse_matrix_type =
     sparse_matrix<ElementType,
-                  compressed_structure<IndptrType, IndicesType, NZType, is_device, ContainerPolicy>,
+                  StructureType,
                   csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, is_device>,
                   is_device,
                   ContainerPolicy>;
-  using container_type      = typename ContainerPolicy<ElementType>::container_type;
-  using structure_view_type = compressed_structure_view<IndptrType, IndicesType, NZType, is_device>;
+  using structure_type = StructureType;
+  using container_type = typename ContainerPolicy<ElementType>::container_type;
+  csr_matrix(raft::device_resources const& handle,
+             IndptrType n_rows,
+             IndicesType n_cols,
+             NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
+    : sparse_matrix_type(handle, n_rows, n_cols, nnz){};
 
-  // Constructor that owns both data and structure
-  sparsity_preserving_csr_matrix(
-    raft::device_resources const& handle,
-    std::shared_ptr<structure_view_type>
-      structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
+  // Constructor that owns the data but not the structure
+  csr_matrix(raft::device_resources const& handle,
+             std::shared_ptr<structure_type>
+               structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, structure){};
-
-  /**
-   * Return a view of the structure underlying this matrix
-   * @return
-   */
-  structure_view_type structure_view() { return (*this->structure_.get()); }
-
-  /**
-   * Initialize the sparsity on this instance if it was not known upon construction
-   * Note: Sparsity can not be adjusted in sparsity-preserving matrices
-   */
-  void initialize_sparsity(NZType)
-  {
-    RAFT_FAIL("The sparsity of structure-preserving sparse formats cannot be changed");
-  }
 };
 
 template <typename ElementType, typename RowType, typename ColType, typename NZType, bool is_device>
@@ -654,22 +682,168 @@ template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
+          typename StructureType,
           bool is_device,
           template <typename T>
           typename ContainerPolicy>
-class sparsity_owning_coo_matrix
+class coo_matrix
   : public sparse_matrix<ElementType,
-                         coordinate_structure<RowType, ColType, NZType, is_device, ContainerPolicy>,
+                         StructureType,
                          coo_matrix_view<ElementType, RowType, ColType, NZType, is_device>,
                          is_device,
                          ContainerPolicy> {
  public:
+  using structure_type = StructureType;
+  using container_type = typename ContainerPolicy<ElementType>::container_type;
   using sparse_matrix_type =
     sparse_matrix<ElementType,
-                  coordinate_structure<RowType, ColType, NZType, is_device, ContainerPolicy>,
+                  StructureType,
                   coo_matrix_view<ElementType, RowType, ColType, NZType, is_device>,
                   is_device,
                   ContainerPolicy>;
+  coo_matrix(raft::device_resources const& handle,
+             RowType n_rows,
+             ColType n_cols,
+             NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
+    : sparse_matrix_type(handle, n_rows, n_cols, nnz){};
+
+  // Constructor that owns the data but not the structure
+  coo_matrix(raft::device_resources const& handle,
+             std::shared_ptr<structure_type>
+               structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
+    : sparse_matrix_type(handle, structure){};
+};
+
+template <typename ElementType,
+          typename IndptrType,
+          typename IndicesType,
+          typename NZType,
+          bool is_device,
+          template <typename T>
+          typename ContainerPolicy>
+class sparsity_owning_csr_matrix
+  : public csr_matrix<
+      ElementType,
+      IndptrType,
+      IndicesType,
+      NZType,
+      compressed_structure<IndptrType, IndicesType, NZType, is_device, ContainerPolicy>,
+      is_device,
+      ContainerPolicy> {
+ public:
+  using csr_matrix_type =
+    csr_matrix<ElementType,
+               IndptrType,
+               IndicesType,
+               NZType,
+               compressed_structure<IndptrType, IndicesType, NZType, is_device, ContainerPolicy>,
+               is_device,
+               ContainerPolicy>;
+  using container_type = typename ContainerPolicy<ElementType>::container_type;
+  using structure_view_type =
+    typename compressed_structure<IndptrType, IndicesType, NZType, is_device, ContainerPolicy>::
+      view_type;
+
+  // Constructor that owns both data and structure
+  sparsity_owning_csr_matrix(
+    raft::device_resources const& handle,
+    IndptrType n_rows,
+    IndicesType n_cols,
+    NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
+    : csr_matrix_type(handle, n_rows, n_cols, nnz){};
+
+  /**
+   * Initialize the sparsity on this instance if it was not known upon construction
+   * Please note this will resize the underlying memory buffers
+   * @param nnz new sparsity to initialize.
+   */
+  void initialize_sparsity(NZType nnz)
+  {
+    csr_matrix_type::initialize_sparsity(nnz);
+    this->structure_.get()->initialize_sparsity(nnz);
+  }
+
+  /**
+   * Return a view of the structure underlying this matrix
+   * @return
+   */
+  structure_view_type structure_view() { return this->structure_.get()->view(); }
+};
+
+template <typename ElementType,
+          typename IndptrType,
+          typename IndicesType,
+          typename NZType,
+          bool is_device,
+          template <typename T>
+          typename ContainerPolicy>
+class sparsity_preserving_csr_matrix
+  : public csr_matrix<ElementType,
+                      IndptrType,
+                      IndicesType,
+                      NZType,
+                      compressed_structure_view<IndptrType, IndicesType, NZType, is_device>,
+                      is_device,
+                      ContainerPolicy> {
+ public:
+  using csr_matrix_type =
+    csr_matrix<ElementType,
+               IndptrType,
+               IndicesType,
+               NZType,
+               compressed_structure_view<IndptrType, IndicesType, NZType, is_device>,
+               is_device,
+               ContainerPolicy>;
+  using container_type      = typename ContainerPolicy<ElementType>::container_type;
+  using structure_view_type = compressed_structure_view<IndptrType, IndicesType, NZType, is_device>;
+
+  // Constructor that owns both data and structure
+  sparsity_preserving_csr_matrix(
+    raft::device_resources const& handle,
+    std::shared_ptr<structure_view_type>
+      structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
+    : csr_matrix_type(handle, structure){};
+
+  /**
+   * Return a view of the structure underlying this matrix
+   * @return
+   */
+  structure_view_type structure_view() { return (*this->structure_.get()); }
+
+  /**
+   * Initialize the sparsity on this instance if it was not known upon construction
+   * Note: Sparsity can not be adjusted in sparsity-preserving matrices
+   */
+  void initialize_sparsity(NZType)
+  {
+    RAFT_FAIL("The sparsity of structure-preserving sparse formats cannot be changed");
+  }
+};
+
+template <typename ElementType,
+          typename RowType,
+          typename ColType,
+          typename NZType,
+          bool is_device,
+          template <typename T>
+          typename ContainerPolicy>
+class sparsity_owning_coo_matrix
+  : public coo_matrix<ElementType,
+                      RowType,
+                      ColType,
+                      NZType,
+                      coordinate_structure<RowType, ColType, NZType, is_device, ContainerPolicy>,
+                      is_device,
+                      ContainerPolicy> {
+ public:
+  using coo_matrix_type =
+    coo_matrix<ElementType,
+               RowType,
+               ColType,
+               NZType,
+               coordinate_structure<RowType, ColType, NZType, is_device, ContainerPolicy>,
+               is_device,
+               ContainerPolicy>;
   using container_type = typename ContainerPolicy<ElementType>::container_type;
   using structure_view_type =
     typename coordinate_structure<RowType, ColType, NZType, is_device, ContainerPolicy>::view_type;
@@ -678,7 +852,7 @@ class sparsity_owning_coo_matrix
     RowType n_rows,
     ColType n_cols,
     NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
-    : sparse_matrix_type{handle, n_rows, n_cols, nnz} {};
+    : coo_matrix_type{handle, n_rows, n_cols, nnz} {};
 
   /**
    * Return a view of the structure underlying this matrix
@@ -693,7 +867,7 @@ class sparsity_owning_coo_matrix
    */
   void initialize_sparsity(NZType nnz)
   {
-    sparse_matrix_type::initialize_sparsity(nnz);
+    coo_matrix_type::initialize_sparsity(nnz);
     this->structure_.get()->initialize_sparsity(nnz);
   }
 };
@@ -706,18 +880,21 @@ template <typename ElementType,
           template <typename T>
           typename ContainerPolicy>
 class sparsity_preserving_coo_matrix
-  : public sparse_matrix<ElementType,
-                         compressed_structure_view<RowType, ColType, NZType, is_device>,
-                         coo_matrix_view<ElementType, RowType, ColType, NZType, is_device>,
-                         is_device,
-                         ContainerPolicy> {
+  : public coo_matrix<ElementType,
+                      RowType,
+                      ColType,
+                      NZType,
+                      compressed_structure_view<RowType, ColType, NZType, is_device>,
+                      is_device,
+                      ContainerPolicy> {
  public:
-  using sparse_matrix_type =
-    sparse_matrix<ElementType,
-                  coordinate_structure_view<RowType, ColType, NZType, is_device>,
-                  coo_matrix_view<ElementType, RowType, ColType, NZType, is_device>,
-                  is_device,
-                  ContainerPolicy>;
+  using coo_matrix_type     = coo_matrix<ElementType,
+                                     RowType,
+                                     ColType,
+                                     NZType,
+                                     compressed_structure_view<RowType, ColType, NZType, is_device>,
+                                     is_device,
+                                     ContainerPolicy>;
   using container_type      = typename ContainerPolicy<ElementType>::container_type;
   using structure_view_type = compressed_structure_view<RowType, ColType, NZType, is_device>;
 
@@ -726,7 +903,7 @@ class sparsity_preserving_coo_matrix
     raft::device_resources const& handle,
     std::shared_ptr<structure_view_type>
       structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
-    : sparse_matrix_type(handle, structure){};
+    : coo_matrix_type(handle, structure){};
 
   /**
    * Initialize the sparsity on this instance if it was not known upon construction

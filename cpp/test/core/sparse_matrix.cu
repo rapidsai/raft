@@ -19,11 +19,22 @@
 
 namespace raft {
 
+/**
+ * Example of accepting a value-owning matrix type which doesn't need to adjust sparsity
+ */
+template <typename ElementType, typename R, typename C, typename NZType, typename StructureType>
+bool test_csr_ref(device_csr_matrix<ElementType, R, C, StructureType, NZType>& mat)
+{
+  std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
+  mat.structure_view();
+  return true;
+}
+
 // just simple integration test, main tests are in mdspan ref implementation.
 void test_coo_matrix()
 {
   raft::device_resources handle;
-  auto mat = raft::make_coo_matrix<float, int, int, int>(handle, 5, 5);
+  auto mat = raft::make_device_coo_matrix<float, int, int, int>(handle, 5, 5);
 
   auto structure_view = mat.structure_view();
   //  auto sparse_view = mat.view();
@@ -45,7 +56,7 @@ void test_coo_matrix()
 void test_csr_matrix()
 {
   raft::device_resources handle;
-  auto mat = raft::make_csr_matrix<float, int, int, int>(handle, 5, 5);
+  auto mat = raft::make_device_csr_matrix<float, int, int, int>(handle, 5, 5);
 
   auto structure_view = mat.structure_view();
   //  auto sparse_view = mat.view();
@@ -58,6 +69,10 @@ void test_csr_matrix()
 
   auto structure_view2 = mat.structure_view();
   //  auto sparse_view2 = mat.view();
+
+  std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
+
+  test_csr_ref(mat);
 
   ASSERT_EQ(structure_view2.get_n_cols(), 5);
   ASSERT_EQ(structure_view2.get_n_rows(), 5);

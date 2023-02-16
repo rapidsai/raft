@@ -19,8 +19,28 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/device_span.hpp>
 #include <raft/core/sparse_matrix.hpp>
+#include <raft/core/sparse_matrix_types.hpp>
 
 namespace raft {
+
+template <typename ElementType,
+          typename IndptrType,
+          typename IndicesType,
+          typename NZType,
+          typename StructureType,
+          template <typename T> typename ContainerPolicy = detail::device_uvector_policy>
+using device_csr_matrix =
+  csr_matrix<ElementType, IndptrType, IndicesType, NZType, StructureType, true, ContainerPolicy>;
+
+template <typename ElementType,
+          typename RowType,
+          typename ColType,
+          typename NZType,
+          typename StructureType,
+          template <typename T>
+          typename ContainerPolicy>
+using device_coo_matrix =
+  coo_matrix<ElementType, RowType, ColType, NZType, StructureType, true, ContainerPolicy>;
 
 /**
  * Specialization for a sparsity-owning csr matrix which uses device memory
@@ -128,14 +148,13 @@ using device_compressed_structure_view =
  * @return a sparsity-owning sparse matrix in compressed (csr) format
  */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-auto make_csr_matrix(raft::device_resources const& handle,
-                     IndptrType n_rows,
-                     IndicesType n_cols,
-                     NZType nnz = 0)
+auto make_device_csr_matrix(raft::device_resources const& handle,
+                            IndptrType n_rows,
+                            IndicesType n_cols,
+                            NZType nnz = 0)
 {
-  using csr_matrix_t =
-    device_sparsity_owning_csr_matrix<ElementType, IndptrType, IndicesType, NZType>;
-  return csr_matrix_t(handle, n_rows, n_cols, nnz);
+  return device_sparsity_owning_csr_matrix<ElementType, IndptrType, IndicesType, NZType>(
+    handle, n_rows, n_cols, nnz);
 }
 
 /**
@@ -152,12 +171,12 @@ auto make_csr_matrix(raft::device_resources const& handle,
  * @return a sparsity-preserving sparse matrix in compressed (csr) format
  */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-auto make_csr_matrix(raft::device_resources const& handle,
-                     device_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
+auto make_device_csr_matrix(
+  raft::device_resources const& handle,
+  device_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
 {
-  using csr_matrix_t =
-    device_sparsity_preserving_csr_matrix<ElementType, IndptrType, IndicesType, NZType>;
-  return csr_matrix_t(handle, std::make_shared(structure_));
+  return device_sparsity_preserving_csr_matrix<ElementType, IndptrType, IndicesType, NZType>(
+    handle, std::make_shared(structure_));
 }
 
 /**
@@ -176,13 +195,13 @@ auto make_csr_matrix(raft::device_resources const& handle,
  * @return a sparsity-owning sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-auto make_coo_matrix(raft::device_resources const& handle,
-                     RowType n_rows,
-                     ColType n_cols,
-                     NZType nnz = 0)
+auto make_device_coo_matrix(raft::device_resources const& handle,
+                            RowType n_rows,
+                            ColType n_cols,
+                            NZType nnz = 0)
 {
-  using coo_matrix_t = device_sparsity_owning_coo_matrix<ElementType, RowType, ColType, NZType>;
-  return coo_matrix_t(handle, n_rows, n_cols, nnz);
+  return device_sparsity_owning_coo_matrix<ElementType, RowType, ColType, NZType>(
+    handle, n_rows, n_cols, nnz);
 }
 
 /**
@@ -199,11 +218,11 @@ auto make_coo_matrix(raft::device_resources const& handle,
  * @return a sparsity-preserving sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-auto make_coo_matrix(raft::device_resources const& handle,
-                     device_coordinate_structure_view<RowType, ColType, NZType> structure_)
+auto make_device_coo_matrix(raft::device_resources const& handle,
+                            device_coordinate_structure_view<RowType, ColType, NZType> structure_)
 {
-  using coo_matrix_t = device_sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType>;
-  return coo_matrix_t(handle, std::make_shared(structure_));
+  return device_sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType>(
+    handle, std::make_shared(structure_));
 }
 
 /**
@@ -219,12 +238,11 @@ auto make_coo_matrix(raft::device_resources const& handle,
  * @return a sparsity-preserving sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-auto make_coo_matrix_view(ElementType* ptr,
-                          device_coordinate_structure_view<RowType, ColType, NZType> structure_)
+auto make_device_coo_matrix_view(
+  ElementType* ptr, device_coordinate_structure_view<RowType, ColType, NZType> structure_)
 {
-  using coo_matrix_view_t = device_coo_matrix_view<ElementType, RowType, ColType, NZType>;
-  return coo_matrix_t(raft::device_span<ElementType>(ptr, structure_.get_nnz()),
-                      std::make_shared(structure_));
+  return device_coo_matrix_view<ElementType, RowType, ColType, NZType>(
+    raft::device_span<ElementType>(ptr, structure_.get_nnz()), std::make_shared(structure_));
 }
 
 /**
@@ -240,13 +258,14 @@ auto make_coo_matrix_view(ElementType* ptr,
  * @return
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-auto make_coo_matrix_view(raft::device_span<ElementType> elements,
-                          device_coordinate_structure_view<RowType, ColType, NZType> structure_)
+auto make_device_coo_matrix_view(
+  raft::device_span<ElementType> elements,
+  device_coordinate_structure_view<RowType, ColType, NZType> structure_)
 {
   RAFT_EXPECTS(elements.size() == structure_.get_nnz(),
                "Size of elements must be equal to the nnz from the structure");
-  using coo_matrix_view_t = device_coo_matrix_view<ElementType, RowType, ColType, NZType>;
-  return coo_matrix_t(elements, std::make_shared(structure_));
+  return device_coo_matrix_view<ElementType, RowType, ColType, NZType>(
+    elements, std::make_shared(structure_));
 }
 
 /**
@@ -262,12 +281,11 @@ auto make_coo_matrix_view(raft::device_span<ElementType> elements,
  * @return a sparsity-preserving csr matrix view
  */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-auto make_csr_matrix_view(
+auto make_device_csr_matrix_view(
   ElementType* ptr, device_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
 {
-  using csr_matrix_view_t = device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>;
-  return csr_matrix_t(raft::device_span<ElementType>(ptr, structure_.get_nnz()),
-                      std::make_shared(structure_));
+  return device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>(
+    raft::device_span<ElementType>(ptr, structure_.get_nnz()), std::make_shared(structure_));
 }
 
 /**
@@ -283,14 +301,14 @@ auto make_csr_matrix_view(
  * @return a sparsity-preserving csr matrix view
  */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-auto make_csr_matrix_view(
+auto make_device_csr_matrix_view(
   raft::device_span<ElementType> elements,
   device_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
 {
   RAFT_EXPECTS(elements.size() == structure_.get_nnz(),
                "Size of elements must be equal to the nnz from the structure");
-  using csr_matrix_view_t = device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>;
-  return csr_matrix_t(elements, std::make_shared(structure_));
+  return device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>(
+    elements, std::make_shared(structure_));
 }
 
 /**
@@ -312,8 +330,7 @@ auto make_coordinate_structure(raft::device_resources const& handle,
                                ColType n_cols,
                                NZType nnz = 0)
 {
-  using coordinate_structure_t = device_coordinate_structure<RowType, ColType, NZType>;
-  return coordinate_structure_t(handle, n_rows, n_cols, nnz);
+  return device_coordinate_structure<RowType, ColType, NZType>(handle, n_rows, n_cols, nnz);
 }
 
 /**
@@ -331,11 +348,10 @@ auto make_coordinate_structure(raft::device_resources const& handle,
  * @return a sparsity-preserving coordinate structural view
  */
 template <typename RowType, typename ColType, typename NZType>
-auto make_coordinate_structure_view(
+auto make_device_coo_structure_view(
   RowType* rows, ColType* cols, RowType n_rows, ColType n_cols, NZType nnz)
 {
-  using coordinate_structure_view_t = device_coordinate_structure_view<RowType, ColType, NZType>;
-  return coordinate_structure_view_t(
+  return device_coordinate_structure_view<RowType, ColType, NZType>(
     raft::device_span<RowType>(rows, nnz), raft::device_span<ColType>(cols, nnz), n_rows, n_cols);
 }
 
@@ -353,13 +369,12 @@ auto make_coordinate_structure_view(
  * @return a sparsity-preserving coordinate structural view
  */
 template <typename RowType, typename ColType, typename NZType>
-auto make_coordinate_structure_view(raft::device_span<RowType> rows,
+auto make_device_coo_structure_view(raft::device_span<RowType> rows,
                                     raft::device_span<ColType> cols,
                                     RowType n_rows,
                                     ColType n_cols)
 {
-  using coordinate_structure_view_t = device_coordinate_structure_view<RowType, ColType, NZType>;
-  return coordinate_structure_view_t(rows, cols, n_rows, n_cols);
+  return device_coordinate_structure_view<RowType, ColType, NZType>(rows, cols, n_rows, n_cols);
 }
 
 /**
@@ -380,8 +395,7 @@ auto make_compressed_structure(raft::device_resources const& handle,
                                IndicesType n_cols,
                                NZType nnz = 0)
 {
-  using compressed_structure_t = device_compressed_structure<IndptrType, IndicesType, NZType>;
-  return compressed_structure_t(handle, n_rows, n_cols, nnz);
+  return device_compressed_structure<IndptrType, IndicesType, NZType>(handle, n_rows, n_cols, nnz);
 }
 
 /**
@@ -400,13 +414,13 @@ auto make_compressed_structure(raft::device_resources const& handle,
  * @return a sparsity-preserving compressed structural view
  */
 template <typename IndptrType, typename IndicesType, typename NZType>
-auto make_compressed_structure_view(
+auto make_device_csr_structure_view(
   IndptrType* indptr, IndicesType* indices, IndptrType n_rows, IndicesType n_cols, NZType nnz)
 {
-  using compressed_structure_t = device_compressed_structure_view<IndptrType, IndicesType, NZType>;
-  return compressed_structure_t(raft::device_span<IndptrType>(indptr, n_rows + 1),
-                                raft::device_span<IndicesType>(indices, nnz),
-                                n_cols);
+  return device_compressed_structure_view<IndptrType, IndicesType, NZType>(
+    raft::device_span<IndptrType>(indptr, n_rows + 1),
+    raft::device_span<IndicesType>(indices, nnz),
+    n_cols);
 }
 
 /**
@@ -423,12 +437,11 @@ auto make_compressed_structure_view(
  *
  */
 template <typename IndptrType, typename IndicesType, typename NZType>
-auto make_compressed_structure_view(raft::device_span<IndptrType> indptr,
+auto make_device_csr_structure_view(raft::device_span<IndptrType> indptr,
                                     raft::device_span<IndicesType> indices,
                                     IndicesType n_cols)
 {
-  using compressed_structure_t = device_compressed_structure_view<IndptrType, IndicesType, NZType>;
-  return compressed_structure_t(indptr, indices, n_cols);
+  return device_compressed_structure_view<IndptrType, IndicesType, NZType>(indptr, indices, n_cols);
 }
 
 };  // namespace raft
