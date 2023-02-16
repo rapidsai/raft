@@ -23,7 +23,7 @@ namespace raft {
  * Example of accepting a value-owning matrix type which doesn't need to adjust sparsity
  */
 template <typename ElementType, typename R, typename C, typename NZType, typename StructureType>
-bool test_csr_ref(device_csr_matrix<ElementType, R, C, StructureType, NZType>& mat)
+bool test_csr_ref(device_csr_matrix<ElementType, R, C, NZType, StructureType>& mat)
 {
   std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
   mat.structure_view();
