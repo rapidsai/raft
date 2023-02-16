@@ -58,6 +58,15 @@ struct AnnIvfFlatInputs {
   bool adaptive_centers;
 };
 
+template <typename IdxT>
+::std::ostream& operator<<(::std::ostream& os, const AnnIvfFlatInputs<IdxT>& p)
+{
+  os << "{ " << p.num_queries << ", " << p.num_db_vecs << ", " << p.dim << ", " << p.k << ", "
+     << p.nprobe << ", " << p.nlist << ", " << static_cast<int>(p.metric) << ", "
+     << p.adaptive_centers << '}' << std::endl;
+  return os;
+}
+
 template <typename T, typename DataT, typename IdxT>
 class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
  public:
@@ -210,24 +219,19 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         if (index.adaptive_centers()) {
           // The centers must be up-to-date with the corresponding data
           std::vector<uint32_t> list_sizes(index.n_lists());
-          //std::vector<IdxT> list_offsets(index.n_lists());
           rmm::device_uvector<float> centroid(ps.dim, stream_);
-          raft::copy(
-            list_sizes.data(), index.list_sizes().data_handle(), index.n_lists(), stream_);
-          //raft::copy(
-          //  list_offsets.data(), index.list_offsets().data_handle(), index.n_lists(), stream_);
+          raft::copy(list_sizes.data(), index.list_sizes().data_handle(), index.n_lists(), stream_);
           handle_.sync_stream(stream_);
           for (uint32_t l = 0; l < index.n_lists(); l++) {
             rmm::device_uvector<float> cluster_data(list_sizes[l] * ps.dim, stream_);
-            raft::spatial::knn::detail::utils::copy_selected<float>(
-              (IdxT)list_sizes[l],
-              (IdxT)ps.dim,
-              database.data(),
-              index.inds_ptrs()(l),
-              (IdxT)ps.dim,
-              cluster_data.data(),
-              (IdxT)ps.dim,
-              stream_);
+            raft::spatial::knn::detail::utils::copy_selected<float>((IdxT)list_sizes[l],
+                                                                    (IdxT)ps.dim,
+                                                                    database.data(),
+                                                                    index.inds_ptrs()(l),
+                                                                    (IdxT)ps.dim,
+                                                                    cluster_data.data(),
+                                                                    (IdxT)ps.dim,
+                                                                    stream_);
             raft::stats::mean<float, uint32_t>(
               centroid.data(), cluster_data.data(), ps.dim, list_sizes[l], false, true, stream_);
             ASSERT_TRUE(raft::devArrMatch(index.centers().data_handle() + ps.dim * l,

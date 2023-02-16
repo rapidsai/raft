@@ -679,10 +679,9 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
                           const uint32_t query_smem_elems,
                           const T* query,
                           const uint32_t* coarse_index,
-                          const IdxT* const* list_indices_ptrs, // const IdxT* list_indices
-                          const T* const* list_data_ptrs, // const T* list_data
+                          const IdxT* const* list_indices_ptrs,  // const IdxT* list_indices
+                          const T* const* list_data_ptrs,        // const T* list_data
                           const uint32_t* list_sizes,
-                          //const IdxT* list_offsets,
                           const uint32_t n_probes,
                           const uint32_t k,
                           const uint32_t dim,
@@ -728,8 +727,7 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
 
     // Every CUDA block scans one cluster at a time.
     for (int probe_id = blockIdx.x; probe_id < n_probes; probe_id += gridDim.x) {
-      const uint32_t list_id   = coarse_index[probe_id];  // The id of cluster(list)
-      //const size_t list_offset = list_offsets[list_id];
+      const uint32_t list_id = coarse_index[probe_id];  // The id of cluster(list)
 
       // The number of vectors in each cluster(list); [nlist]
       const uint32_t list_length = list_sizes[list_id];
@@ -747,7 +745,6 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
            group_id += kNumWarps) {
         AccT dist = 0;
         // This is where this warp begins reading data (start position of an interleaved group)
-        //const T* data = list_data + (list_offset + group_id * kIndexGroupSize) * dim;
         const T* data = list_data_ptrs[list_id] + (group_id * kIndexGroupSize) * dim;
 
         // This is the vector a given lane/thread handles

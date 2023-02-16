@@ -45,24 +45,24 @@ using namespace raft::neighbors::ivf_flat;   // NOLINT
 using raft::neighbors::ivf_flat::index;
 using raft::neighbors::ivf_flat::index_params;
 using raft::neighbors::ivf_flat::kIndexGroupSize;
-using raft::neighbors::ivf_flat::search_params;
 using raft::neighbors::ivf_flat::list_data;
+using raft::neighbors::ivf_flat::search_params;
 /**
-  * Resize a list by the given id, so that it can contain the given number of records;
-  * possibly, copy the data.
-  *
-  * Besides resizing the corresponding list_data, this function updates the device pointers
-  *   data_ptrs, inds_ptrs, and the list_sizes if necessary.
-  *
-  * The new `list_sizes(label)` represents the number of valid records in the index;
-  * it can be `list_size` if the previous size was not smaller; otherwise it's not updated.
-  *
-  * @param[in] handle
-  * @param[in] label list id
-  * @param[in] list_size the minimum size the list should grow.
-  */
+ * Resize a list by the given id, so that it can contain the given number of records;
+ * possibly, copy the data.
+ *
+ * Besides resizing the corresponding list_data, this function updates the device pointers
+ *   data_ptrs, inds_ptrs, and the list_sizes if necessary.
+ *
+ * The new `list_sizes(label)` represents the number of valid records in the index;
+ * it can be `list_size` if the previous size was not smaller; otherwise it's not updated.
+ *
+ * @param[in] handle
+ * @param[in] label list id
+ * @param[in] list_size the minimum size the list should grow.
+ */
 template <typename T, typename IdxT, typename SizeT = uint32_t>
-void resize_list(raft::device_resources const& handle, 
+void resize_list(raft::device_resources const& handle,
                  std::shared_ptr<list_data<T, IdxT, SizeT>>& orig_list,
                  SizeT new_used_size,
                  SizeT old_used_size,
@@ -89,8 +89,8 @@ void resize_list(raft::device_resources const& handle,
   auto new_list = std::make_shared<list_data<T, IdxT>>(handle, new_used_size, dim);
   if (old_used_size > 0) {
     auto copied_data_extents = make_extents<SizeT>(old_used_size, dim);
-    auto copied_view         = make_mdspan<T, SizeT, row_major, false, true>(
-      new_list->data.data_handle(), copied_data_extents);
+    auto copied_view = make_mdspan<T, SizeT, row_major, false, true>(new_list->data.data_handle(),
+                                                                     copied_data_extents);
     copy(copied_view.data_handle(),
          orig_list->data.data_handle(),
          copied_view.size(),
@@ -102,6 +102,44 @@ void resize_list(raft::device_resources const& handle,
   }
   // swap the shared pointer content with the new list
   new_list.swap(orig_list);
+}
+
+template <typename T, typename IdxT>
+auto clone(const raft::device_resources& res, const index<T, IdxT>& source) -> index<T, IdxT>
+{
+  auto stream = res.get_stream();
+
+  // Allocate the new index
+  index<T, IdxT> target(
+    res, source.metric(), source.n_lists(), source.adaptive_centers(), source.dim());
+
+  // Copy the independent parts
+  copy(target.list_sizes().data_handle(),
+       source.list_sizes().data_handle(),
+       source.list_sizes().size(),
+       stream);
+  copy(target.centers().data_handle(),
+       source.centers().data_handle(),
+       source.centers().size(),
+       stream);
+  if (source.center_norms().has_value())
+    copy(target.center_norms().value.data_handle(),
+         source.center_norms().value.data_handle(),
+         source.center_norms().value.size(),
+         stream);
+  // Copy shared pointers
+  {
+    auto source_lists = source.lists();
+    auto target_lists = target.lists();
+    for (uint32_t label = 0; label < source_lists.size(); label++) {
+      target_lists(label) = source_lists(label);
+    }
+  }
+
+  // Make sure the device pointers point to the new lists
+  target.recompute_internal_state(res);
+
+  return target;
 }
 
 /**
@@ -137,7 +175,7 @@ void resize_list(raft::device_resources const& handle,
  */
 template <typename T, typename IdxT, typename LabelT, bool gather_src = false>
 __global__ void build_index_kernel(const LabelT* labels,
-                                   //const IdxT* list_offsets,
+                                   // const IdxT* list_offsets,
                                    const T* source_vecs,
                                    const IdxT* source_ixs,
                                    T** list_data_ptrs,
@@ -203,10 +241,10 @@ void extend(raft::device_resources const& handle,
 
   auto new_labels = raft::make_device_vector<LabelT, IdxT>(handle, n_rows);
   raft::cluster::kmeans_balanced_params kmeans_params;
-  kmeans_params.metric     = index->metric();
-  auto new_vectors_view    = raft::make_device_matrix_view<const T, IdxT>(new_vectors, n_rows, dim);
-  auto orig_centroids_view = raft::make_device_matrix_view<const float, IdxT>(
-    index->centers().data_handle(), n_lists, dim);
+  kmeans_params.metric  = index->metric();
+  auto new_vectors_view = raft::make_device_matrix_view<const T, IdxT>(new_vectors, n_rows, dim);
+  auto orig_centroids_view =
+    raft::make_device_matrix_view<const float, IdxT>(index->centers().data_handle(), n_lists, dim);
   raft::cluster::kmeans_balanced::predict(handle,
                                           kmeans_params,
                                           new_vectors_view,
@@ -214,13 +252,14 @@ void extend(raft::device_resources const& handle,
                                           new_labels.view(),
                                           utils::mapping<float>{});
 
-  auto* list_sizes_ptr   = index->list_sizes().data_handle();
-  auto old_list_sizes_dev =  raft::make_device_vector<uint32_t, IdxT>(handle, n_lists);
+  auto* list_sizes_ptr    = index->list_sizes().data_handle();
+  auto old_list_sizes_dev = raft::make_device_vector<uint32_t, IdxT>(handle, n_lists);
   copy(old_list_sizes_dev.data_handle(), list_sizes_ptr, n_lists, stream);
 
   // Calculate the centers and sizes on the new data, starting from the original values
   if (index->adaptive_centers()) {
-    auto centroids_view = raft::make_device_matrix_view<float, IdxT>(index->centers().data_handle(), index->centers().extent(0), index->centers().extent(1));
+    auto centroids_view = raft::make_device_matrix_view<float, IdxT>(
+      index->centers().data_handle(), index->centers().extent(0), index->centers().extent(1));
     auto list_sizes_view =
       raft::make_device_vector_view<std::remove_pointer_t<decltype(list_sizes_ptr)>, IdxT>(
         list_sizes_ptr, n_lists);
@@ -253,20 +292,15 @@ void extend(raft::device_resources const& handle,
     handle.sync_stream();
     auto lists = index->lists();
     for (uint32_t label = 0; label < n_lists; label++) {
-      resize_list(handle,
-                  lists(label),
-                  new_list_sizes[label],
-                  old_list_sizes[label],
-                  index->dim());
-      }
+      resize_list(handle, lists(label), new_list_sizes[label], old_list_sizes[label], index->dim());
+    }
   }
   // Update the pointers and the sizes
   index->recompute_internal_state(handle);
 
   // Copy the old sizes, so we can start from the current state of the index;
   // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
-  raft::copy(
-    list_sizes_ptr, old_list_sizes_dev.data_handle(), n_lists, stream);
+  raft::copy(list_sizes_ptr, old_list_sizes_dev.data_handle(), n_lists, stream);
 
   // Kernel to insert the new vectors
   const dim3 block_dim(256);
@@ -307,7 +341,6 @@ auto extend(raft::device_resources const& handle,
   extend(handle, &ext_index, new_vectors, new_indices, n_rows);
   return ext_index;
 }
-
 
 /** See raft::spatial::knn::ivf_flat::build docs */
 template <typename T, typename IdxT>
@@ -402,17 +435,13 @@ inline void fill_refinement_index(raft::device_resources const& handle,
     new_labels_view,
     raft::compose_op(raft::cast_op<LabelT>(), raft::div_const_op<IdxT>(n_candidates)));
 
-  auto list_sizes_ptr   = refinement_index->list_sizes().data_handle();
+  auto list_sizes_ptr = refinement_index->list_sizes().data_handle();
   // We do not fill centers and center norms, since we will not run coarse search.
 
   // Allocate new memory
   auto lists = refinement_index->lists();
   for (uint32_t label = 0; label < n_lists; label++) {
-    resize_list(handle,
-                lists(label),
-                n_candidates,
-                uint32_t(0),
-                refinement_index->dim());
+    resize_list(handle, lists(label), n_candidates, uint32_t(0), refinement_index->dim());
   }
 
   RAFT_CUDA_TRY(cudaMemsetAsync(list_sizes_ptr, 0, n_lists * sizeof(uint32_t), stream));
@@ -449,7 +478,6 @@ struct check_index_layout {
 };
 
 template struct check_index_layout<sizeof(index<double, std::uint64_t>), 376>;
-
 
 template <typename T, typename IdxT, typename SizeT>
 void serialize_list(const raft::device_resources& handle,
@@ -492,7 +520,7 @@ void deserialize_list(const raft::device_resources& handle,
 {
   auto size = deserialize_scalar<SizeT>(handle, is);
   if (size == 0) { return ld.reset(); }
-  std::make_shared<list_data<IdxT, SizeT>>(handle, size, dim).swap(ld);
+  std::make_shared<list_data<T, IdxT, SizeT>>(handle, size, dim).swap(ld);
   auto data_extents = make_extents<SizeT>(size, ld->data.extent(1));
   auto data_array   = make_host_mdarray<T, SizeT, row_major>(data_extents);
   auto inds_array   = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
@@ -531,7 +559,6 @@ void serialize(raft::device_resources const& handle,
   serialize_scalar(handle, of, index_.metric());
   serialize_scalar(handle, of, index_.veclen());
   serialize_scalar(handle, of, index_.adaptive_centers());
-  serialize_mdspan(handle, of, index_.list_sizes());
   serialize_mdspan(handle, of, index_.centers());
   if (index_.center_norms()) {
     bool has_norms = true;
@@ -583,15 +610,8 @@ auto deserialize(raft::device_resources const& handle, const std::string& filena
   auto veclen           = deserialize_scalar<std::uint32_t>(handle, infile);
   bool adaptive_centers = deserialize_scalar<bool>(handle, infile);
 
-  index<T, IdxT> index_ =
-    index<T, IdxT>(handle, metric, n_lists, adaptive_centers, dim);
-  /* TODO
-  index_.allocate(handle, n_rows);
-  auto data = index_.data();
-  deserialize_mdspan(handle, infile, data);
-  deserialize_mdspan(handle, infile, index_.indices());
-  deserialize_mdspan(handle, infile, index_.list_sizes());
-  deserialize_mdspan(handle, infile, index_.list_offsets());
+  index<T, IdxT> index_ = index<T, IdxT>(handle, metric, n_lists, adaptive_centers, dim);
+
   deserialize_mdspan(handle, infile, index_.centers());
   bool has_norms = deserialize_scalar<bool>(handle, infile);
   if (has_norms) {
@@ -602,9 +622,15 @@ auto deserialize(raft::device_resources const& handle, const std::string& filena
       deserialize_mdspan(handle, infile, center_norms);
     }
   }
-  index_.recompute_internal_state(handle);
-  */
+  deserialize_mdspan(handle, infile, index_.list_sizes());
+  for (uint32_t label = 0; label < index_.n_lists(); label++) {
+    deserialize_list<T, IdxT, uint32_t>(handle, infile, index_.lists()(label), index_.dim());
+  }
+  handle.sync_stream();
   infile.close();
+
+  index_.recompute_internal_state(handle);
+
   return index_;
 }
 }  // namespace raft::spatial::knn::ivf_flat::detail

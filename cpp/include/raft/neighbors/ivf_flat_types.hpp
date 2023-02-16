@@ -19,9 +19,9 @@
 #include "ann_types.hpp"
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
-#include <raft/core/error.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
@@ -87,12 +87,11 @@ struct list_data {
   /** The actual size of the content. */
   std::atomic<SizeT> size;
 
-  list_data(raft::device_resources const& res, SizeT n_rows, uint32_t dim)
-    : size{n_rows}
+  list_data(raft::device_resources const& res, SizeT n_rows, uint32_t dim) : size{n_rows}
   {
     auto capacity = round_up_safe<SizeT>(n_rows, kIndexGroupSize);
     try {
-      data = make_device_matrix<T, SizeT, row_major>(res, capacity, dim);
+      data    = make_device_matrix<T, SizeT, row_major>(res, capacity, dim);
       indices = make_device_vector<IdxT, SizeT>(res, capacity);
     } catch (std::bad_alloc& e) {
       RAFT_FAIL(
@@ -190,12 +189,10 @@ struct index : ann::index {
    * NB: this may be empty if the index is empty or if the metric does not require the center norms
    * calculation.
    */
-  inline auto center_norms() noexcept
-    -> std::optional<device_vector_view<float, uint32_t>>
+  inline auto center_norms() noexcept -> std::optional<device_vector_view<float, uint32_t>>
   {
     if (center_norms_.has_value()) {
-      return std::make_optional<device_vector_view<float, uint32_t>>(
-        center_norms_->view());
+      return std::make_optional<device_vector_view<float, uint32_t>>(center_norms_->view());
     } else {
       return std::nullopt;
     }
@@ -204,18 +201,14 @@ struct index : ann::index {
     -> std::optional<device_vector_view<const float, uint32_t>>
   {
     if (center_norms_.has_value()) {
-      return std::make_optional<device_vector_view<const float, uint32_t>>(
-        center_norms_->view());
+      return std::make_optional<device_vector_view<const float, uint32_t>>(center_norms_->view());
     } else {
       return std::nullopt;
     }
   }
 
   /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
-  {
-    return total_size_;
-  }
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return total_size_; }
   /** Dimensionality of the data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t
   {
@@ -249,12 +242,22 @@ struct index : ann::index {
       lists_{make_host_vector<std::shared_ptr<list_data<T, IdxT>>, uint32_t>(n_lists)},
       list_sizes_{make_device_vector<uint32_t, uint32_t>(res, n_lists)},
       data_ptrs_{make_device_vector<T*, uint32_t>(res, n_lists)},
-      inds_ptrs_{make_device_vector<IdxT*, uint32_t>(res, n_lists)}
+      inds_ptrs_{make_device_vector<IdxT*, uint32_t>(res, n_lists)},
+      total_size_{0}
   {
-    check_consistency();
     for (uint32_t i = 0; i < n_lists; i++) {
       lists_(i) = std::shared_ptr<list_data<T, IdxT>>();
     }
+    switch (metric_) {
+      case raft::distance::DistanceType::L2Expanded:
+      case raft::distance::DistanceType::L2SqrtExpanded:
+      case raft::distance::DistanceType::L2Unexpanded:
+      case raft::distance::DistanceType::L2SqrtUnexpanded:
+        center_norms_ = make_device_vector<float, uint32_t>(res, n_lists);
+        break;
+      default: center_norms_ = std::nullopt;
+    }
+    check_consistency();
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
@@ -264,12 +267,8 @@ struct index : ann::index {
   }
 
   /** Pointers to the inverted lists (clusters) data  [n_lists]. */
-  inline auto data_ptrs() noexcept -> device_vector_view<T*, uint32_t>
-  {
-    return data_ptrs_.view();
-  }
-  [[nodiscard]] inline auto data_ptrs() const noexcept
-    -> device_vector_view<T* const, uint32_t>
+  inline auto data_ptrs() noexcept -> device_vector_view<T*, uint32_t> { return data_ptrs_.view(); }
+  [[nodiscard]] inline auto data_ptrs() const noexcept -> device_vector_view<T* const, uint32_t>
   {
     return data_ptrs_.view();
   }
@@ -279,8 +278,7 @@ struct index : ann::index {
   {
     return inds_ptrs_.view();
   }
-  [[nodiscard]] inline auto inds_ptrs() const noexcept
-    -> device_vector_view<IdxT* const, uint32_t>
+  [[nodiscard]] inline auto inds_ptrs() const noexcept -> device_vector_view<IdxT* const, uint32_t>
   {
     return inds_ptrs_.view();
   }
@@ -290,27 +288,27 @@ struct index : ann::index {
    */
   void recompute_internal_state(raft::device_resources const& res)
   {
-    auto stream  = res.get_stream();
+    auto stream = res.get_stream();
 
     // Actualize the list pointers
-    auto this_lists     = lists();
-    auto this_data_ptrs = data_ptrs();
-    auto this_inds_ptrs = inds_ptrs();
+    auto this_lists           = lists();
+    auto this_data_ptrs       = data_ptrs();
+    auto this_inds_ptrs       = inds_ptrs();
     IdxT recompute_total_size = 0;
     for (uint32_t label = 0; label < this_lists.size(); label++) {
-      const auto data_ptr = this_lists(label) ? this_lists(label)->data.data_handle() : nullptr;
-      const auto inds_ptr = this_lists(label) ? this_lists(label)->indices.data_handle() : nullptr;
+      const auto data_ptr  = this_lists(label) ? this_lists(label)->data.data_handle() : nullptr;
+      const auto inds_ptr  = this_lists(label) ? this_lists(label)->indices.data_handle() : nullptr;
       const auto list_size = this_lists(label) ? IdxT(this_lists(label)->size) : 0;
       copy(&this_data_ptrs(label), &data_ptr, 1, stream);
       copy(&this_inds_ptrs(label), &inds_ptr, 1, stream);
       recompute_total_size += list_size;
     }
     total_size_ = recompute_total_size;
+    check_consistency();
   }
 
   /** Lists' data and indices. */
-  inline auto lists() noexcept
-    -> host_vector_view<std::shared_ptr<list_data<T, IdxT>>, uint32_t>
+  inline auto lists() noexcept -> host_vector_view<std::shared_ptr<list_data<T, IdxT>>, uint32_t>
   {
     return lists_.view();
   }
@@ -346,8 +344,8 @@ struct index : ann::index {
     RAFT_EXPECTS(list_sizes_.extent(0) == n_lists, "inconsistent list size");
     RAFT_EXPECTS(data_ptrs_.extent(0) == n_lists, "inconsistent list size");
     RAFT_EXPECTS(inds_ptrs_.extent(0) == n_lists, "inconsistent list size");
-    RAFT_EXPECTS(                                               //
-      (centers_.extent(0) == list_sizes_.extent(0)) &&          //
+    RAFT_EXPECTS(                                       //
+      (centers_.extent(0) == list_sizes_.extent(0)) &&  //
         (!center_norms_.has_value() || centers_.extent(0) == center_norms_->extent(0)),
       "inconsistent number of lists (clusters)");
   }
