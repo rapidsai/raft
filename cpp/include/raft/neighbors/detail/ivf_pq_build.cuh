@@ -773,12 +773,12 @@ void recompute_internal_state(const raft::device_resources& res, index<IdxT>& in
   rmm::device_uvector<uint32_t> sorted_sizes(index.n_lists(), stream, tmp_res);
 
   // Actualize the list pointers
-  auto lists     = index.lists();
   auto data_ptrs = index.data_ptrs();
   auto inds_ptrs = index.inds_ptrs();
-  for (uint32_t label = 0; label < lists.size(); label++) {
-    const auto data_ptr = lists(label) ? lists(label)->data.data_handle() : nullptr;
-    const auto inds_ptr = lists(label) ? lists(label)->indices.data_handle() : nullptr;
+  for (uint32_t label = 0; label < index.n_lists(); label++) {
+    auto& list          = index.lists()[label];
+    const auto data_ptr = list ? list->data.data_handle() : nullptr;
+    const auto inds_ptr = list ? list->indices.data_handle() : nullptr;
     copy(&data_ptrs(label), &data_ptr, 1, stream);
     copy(&inds_ptrs(label), &inds_ptr, 1, stream);
   }
@@ -904,13 +904,7 @@ auto clone(const raft::device_resources& res, const index<IdxT>& source) -> inde
        stream);
 
   // Copy shared pointers
-  {
-    auto source_lists = source.lists();
-    auto target_lists = target.lists();
-    for (uint32_t label = 0; label < source_lists.size(); label++) {
-      target_lists(label) = source_lists(label);
-    }
-  }
+  target.lists() = source.lists();
 
   // Make sure the device pointers point to the new lists
   recompute_internal_state(res, target);
@@ -1075,10 +1069,9 @@ void extend(raft::device_resources const& handle,
     copy(new_cluster_sizes.data(), list_sizes, n_clusters, stream);
     copy(old_cluster_sizes.data(), orig_list_sizes.data(), n_clusters, stream);
     handle.sync_stream();
-    auto lists = index->lists();
     for (uint32_t label = 0; label < n_clusters; label++) {
       resize_list(handle,
-                  lists(label),
+                  index->lists()[label],
                   new_cluster_sizes[label],
                   old_cluster_sizes[label],
                   index->pq_bits(),

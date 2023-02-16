@@ -44,7 +44,7 @@ struct check_index_layout {
                 "The size of the index struct has changed since the last update; "
                 "paste in the new size and consider updating the serialization logic");
 };
-template struct check_index_layout<sizeof(index<std::uint64_t>), 544>;
+template struct check_index_layout<sizeof(index<std::uint64_t>), 536>;
 
 template <typename IdxT, typename SizeT>
 void serialize_list(const raft::device_resources& handle,
@@ -158,7 +158,7 @@ void serialize(raft::device_resources const& handle_,
   handle_.sync_stream();
   serialize_mdspan(handle_, of, sizes_host.view());
   for (uint32_t label = 0; label < index.n_lists(); label++) {
-    serialize_list<IdxT, uint32_t>(handle_, of, index.lists()(label), sizes_host(label));
+    serialize_list<IdxT, uint32_t>(handle_, of, index.lists()[label], sizes_host(label));
   }
 
   of.close();
@@ -212,9 +212,8 @@ auto deserialize(raft::device_resources const& handle_, const std::string& filen
   deserialize_mdspan(handle_, infile, index.centers_rot());
   deserialize_mdspan(handle_, infile, index.rotation_matrix());
   deserialize_mdspan(handle_, infile, index.list_sizes());
-  auto lists = index.lists();
-  for (uint32_t label = 0; label < index.n_lists(); label++) {
-    deserialize_list<IdxT, uint32_t>(handle_, infile, lists(label), pq_bits, pq_dim, cma);
+  for (auto list : index.lists()) {
+    deserialize_list<IdxT, uint32_t>(handle_, infile, list, pq_bits, pq_dim, cma);
   }
 
   handle_.sync_stream();

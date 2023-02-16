@@ -334,10 +334,7 @@ struct index : ann::index {
     return codebook_kind_;
   }
   /** Number of clusters/inverted lists (first level quantization). */
-  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t
-  {
-    return lists_.extent(0);
-  }
+  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t { return lists_.size(); }
   /**
    * Whether to use convervative memory allocation when extending the list (cluster) data
    * (see index_params.conservative_memory_allocation).
@@ -371,7 +368,7 @@ struct index : ann::index {
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
       conservative_memory_allocation_(conservative_memory_allocation),
       pq_centers_{make_device_mdarray<float>(handle, make_pq_centers_extents())},
-      lists_{make_host_vector<std::shared_ptr<list_data<IdxT>>, uint32_t>(n_lists)},
+      lists_{n_lists},
       rotation_matrix_{make_device_matrix<float, uint32_t>(handle, this->rot_dim(), this->dim())},
       list_sizes_{make_device_vector<uint32_t, uint32_t>(handle, n_lists)},
       centers_{make_device_matrix<float, uint32_t>(handle, n_lists, this->dim_ext())},
@@ -381,9 +378,6 @@ struct index : ann::index {
       accum_sorted_sizes_{make_host_vector<IdxT, uint32_t>(n_lists + 1)}
   {
     check_consistency();
-    for (uint32_t i = 0; i < n_lists; i++) {
-      lists_(i) = std::shared_ptr<list_data<IdxT>>();
-    }
     accum_sorted_sizes_(n_lists) = 0;
   }
 
@@ -419,15 +413,11 @@ struct index : ann::index {
   }
 
   /** Lists' data and indices. */
-  inline auto lists() noexcept
-    -> host_vector_view<std::shared_ptr<list_data<IdxT>>, uint32_t, row_major>
-  {
-    return lists_.view();
-  }
+  inline auto lists() noexcept -> std::vector<std::shared_ptr<list_data<IdxT>>>& { return lists_; }
   [[nodiscard]] inline auto lists() const noexcept
-    -> host_vector_view<const std::shared_ptr<list_data<IdxT>>, uint32_t, row_major>
+    -> const std::vector<std::shared_ptr<list_data<IdxT>>>&
   {
-    return lists_.view();
+    return lists_;
   }
 
   /** Pointers to the inverted lists (clusters) data  [n_lists]. */
@@ -526,7 +516,7 @@ struct index : ann::index {
   bool conservative_memory_allocation_;
 
   // Primary data members
-  host_vector<std::shared_ptr<list_data<IdxT>>, uint32_t, row_major> lists_;
+  std::vector<std::shared_ptr<list_data<IdxT>>> lists_;
   device_vector<uint32_t, uint32_t, row_major> list_sizes_;
   device_mdarray<float, pq_centers_extents, row_major> pq_centers_;
   device_matrix<float, uint32_t, row_major> centers_;
