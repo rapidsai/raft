@@ -212,7 +212,7 @@ auto deserialize(raft::device_resources const& handle_, const std::string& filen
   deserialize_mdspan(handle_, infile, index.centers_rot());
   deserialize_mdspan(handle_, infile, index.rotation_matrix());
   deserialize_mdspan(handle_, infile, index.list_sizes());
-  for (auto list : index.lists()) {
+  for (auto& list : index.lists()) {
     deserialize_list<IdxT, uint32_t>(handle_, infile, list, pq_bits, pq_dim, cma);
   }
 
