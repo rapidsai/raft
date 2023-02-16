@@ -79,7 +79,7 @@ DISTANCE_TYPES = {
     "kl_divergence": DistanceType.KLDivergence,
     "minkowski": DistanceType.LpUnexpanded,
     "russellrao": DistanceType.RusselRaoExpanded,
-    "dice": DistanceType.DiceExpanded
+    "dice": DistanceType.DiceExpanded,
 }
 
 SUPPORTED_DISTANCES = ["euclidean", "l1", "cityblock", "l2", "inner_product",

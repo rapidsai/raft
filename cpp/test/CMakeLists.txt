@@ -117,11 +117,14 @@ if(BUILD_TESTS)
     test/distance/dist_eucsqrt_exp.cu
     test/distance/dist_hamming.cu
     test/distance/dist_hellinger.cu
+    test/distance/dist_inner_product.cu
     test/distance/dist_jensen_shannon.cu
     test/distance/dist_kl_divergence.cu
     test/distance/dist_l1.cu
     test/distance/dist_minkowski.cu
     test/distance/dist_russell_rao.cu
+    test/distance/masked_nn.cu
+    test/distance/masked_nn_compress_to_bits.cu
     test/distance/fused_l2_nn.cu
     test/distance/gram.cu
     OPTIONAL
