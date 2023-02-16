@@ -435,10 +435,10 @@ void brute_force_knn_impl(
           break;
         default:
           tiled_brute_force_knn<value_t, IdxType>(handle,
-                                                  input[i],
                                                   search_items,
-                                                  sizes[i],
+                                                  input[i],
                                                   n,
+                                                  sizes[i],
                                                   D,
                                                   k,
                                                   out_d_ptr,
