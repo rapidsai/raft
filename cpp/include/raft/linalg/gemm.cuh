@@ -52,7 +52,7 @@ namespace linalg {
  * @param [in] stream
  */
 template <typename math_t, bool DevicePointerMode = false>
-void gemm(raft::device_resources const& handle,
+void gemm(raft::resources const& handle,
           const bool trans_a,
           const bool trans_b,
           const int m,
@@ -91,7 +91,7 @@ void gemm(raft::device_resources const& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void gemm(raft::device_resources const& handle,
+void gemm(raft::resources const& handle,
           const math_t* a,
           int n_rows_a,
           int n_cols_a,
@@ -126,7 +126,7 @@ void gemm(raft::device_resources const& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void gemm(raft::device_resources const& handle,
+void gemm(raft::resources const& handle,
           const math_t* a,
           int n_rows_a,
           int n_cols_a,
@@ -161,7 +161,7 @@ void gemm(raft::device_resources const& handle,
  * @param beta scalar
  */
 template <typename T>
-void gemm(raft::device_resources const& handle,
+void gemm(raft::resources const& handle,
           T* z,
           T* x,
           T* y,

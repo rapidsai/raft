@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ namespace raft {
 namespace distance {
 namespace detail {
 template void distance<raft::distance::DistanceType::L1, double, double, double, int>(
+  raft::resources const& handle,
   const double* x,
   const double* y,
   double* dist,
@@ -28,7 +29,6 @@ template void distance<raft::distance::DistanceType::L1, double, double, double,
   int k,
   void* workspace,
   std::size_t worksize,
-  cudaStream_t stream,
   bool isRowMajor,
   double metric_arg);
 
