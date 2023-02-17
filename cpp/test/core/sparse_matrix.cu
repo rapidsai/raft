@@ -36,7 +36,7 @@ namespace raft {
 template <typename S, typename = std::enable_if_t<is_device_csr_matrix_v<S>>>
 bool test_csr_owning_ref(S& mat)
 {
-  std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
+  std::cout << "csr owning: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
   mat.structure_view();
   return true;
 }
@@ -44,7 +44,8 @@ bool test_csr_owning_ref(S& mat)
 template <typename S, typename = std::enable_if_t<is_device_csr_sparsity_owning_v<S>>>
 bool test_csr_sparsity_owning_ref(S& mat)
 {
-  std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
+  std::cout << "Sparsity owning value address: " << static_cast<void*>(mat.get_elements().data())
+            << std::endl;
   mat.structure_view();
   return true;
 }
@@ -52,7 +53,8 @@ bool test_csr_sparsity_owning_ref(S& mat)
 template <typename S, typename = std::enable_if_t<is_device_csr_sparsity_preserving_v<S>>>
 bool test_csr_sparsity_preserving_ref(S& mat)
 {
-  std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
+  std::cout << "Sparsity preserving value address: "
+            << static_cast<void*>(mat.get_elements().data()) << std::endl;
   mat.structure_view();
   return true;
 }
@@ -85,7 +87,7 @@ void test_csr_matrix()
   raft::device_resources handle;
   auto sparsity_owning = raft::make_device_csr_matrix<float, int, int, int>(handle, 5, 5);
 
-  auto comp_struct = raft::make_compressed_structure(handle, 5, 5);
+  auto comp_struct = raft::make_compressed_structure(handle, 5, 5, 5);
   auto sparsity_preserving =
     raft::make_device_csr_matrix<float, int, int>(handle, comp_struct.view());
 
