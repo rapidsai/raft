@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <raft/distance/specializations/detail/cosine.cuh>
 #include <raft/distance/specializations/detail/hamming_unexpanded.cuh>
 #include <raft/distance/specializations/detail/hellinger_expanded.cuh>
+#include <raft/distance/specializations/detail/inner_product.cuh>
 #include <raft/distance/specializations/detail/jensen_shannon.cuh>
 #include <raft/distance/specializations/detail/kernels.cuh>
 #include <raft/distance/specializations/detail/kl_divergence.cuh>

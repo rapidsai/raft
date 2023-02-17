@@ -16,7 +16,7 @@
 
 #include <common/benchmark.hpp>
 #include <raft/cluster/kmeans.cuh>
-#include <raft/cluster/kmeans_params.hpp>
+#include <raft/cluster/kmeans_types.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>

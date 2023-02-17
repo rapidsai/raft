@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * This file is deprecated and will be removed in release 22.06.
- * Please use the cuh version instead.
- */
 
-/**
- * DISCLAIMER: this file is deprecated: use trustworthiness_score.cuh instead
- */
+#include <raft/distance/detail/distance.cuh>
 
-#pragma once
+namespace raft {
+namespace distance {
+namespace detail {
+template void distance<raft::distance::DistanceType::InnerProduct, double, double, double, int>(
+  raft::resources const& handle,
+  const double* x,
+  const double* y,
+  double* dist,
+  int m,
+  int n,
+  int k,
+  void* workspace,
+  std::size_t worksize,
+  bool isRowMajor,
+  double metric_arg);
 
-#pragma message(__FILE__                                                  \
-                " is deprecated and will be removed in a future release." \
-                " Please use the cuh version instead.")
-
-#include "trustworthiness_score.cuh"
+}  // namespace detail
+}  // namespace distance
+}  // namespace raft
