@@ -50,15 +50,6 @@ from pylibraft.common.handle cimport device_resources
 
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.input_validation import is_c_contiguous
-from pylibraft.common.cpp.mdspan cimport (
-    device_matrix_view,
-    make_device_matrix_view,
-    row_major,
-    get_device_matrix_view_float,
-    get_device_matrix_view_uint64,
-    get_device_matrix_view_uint8,
-    get_device_matrix_view_int8
-)
 
 from rmm._lib.memory_resource cimport (
     DeviceMemoryResource,
@@ -66,6 +57,15 @@ from rmm._lib.memory_resource cimport (
 )
 
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
+from pylibraft.common.cpp.mdspan cimport (
+    device_matrix_view,
+    get_device_matrix_view_float,
+    get_device_matrix_view_int8,
+    get_device_matrix_view_uint8,
+    get_device_matrix_view_uint64,
+    make_device_matrix_view,
+    row_major,
+)
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params,
     search_params,
@@ -512,19 +512,22 @@ def extend(Index index, new_vectors, new_indices, handle=None):
             c_ivf_pq.extend(deref(handle_),
                             index.index,
                             get_device_matrix_view_float(vecs_cai),
-                            get_device_matrix_view_uint64(idx_cai, check_shape=False))
+                            get_device_matrix_view_uint64(idx_cai,
+                                                          check_shape=False))
     elif vecs_dt == np.int8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
                             get_device_matrix_view_int8(vecs_cai),
-                            get_device_matrix_view_uint64(idx_cai, check_shape=False))
+                            get_device_matrix_view_uint64(idx_cai,
+                                                          check_shape=False))
     elif vecs_dt == np.uint8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
                             get_device_matrix_view_uint8(vecs_cai),
-                            get_device_matrix_view_uint64(idx_cai, check_shape=False))
+                            get_device_matrix_view_uint64(idx_cai,
+                                                          check_shape=False))
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
