@@ -36,6 +36,9 @@ namespace raft {
 template <typename S, typename = std::enable_if_t<is_device_csr_matrix_v<S>>>
 bool test_csr_owning_ref(S& mat)
 {
+  using IndptrType = typename S::structure_type::indptr_type;
+
+  IndptrType indptr_t = 50;
   std::cout << "csr owning: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
   mat.structure_view();
   return true;

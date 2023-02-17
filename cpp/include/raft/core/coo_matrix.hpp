@@ -127,8 +127,7 @@ class coordinate_structure : public coordinate_structure_t<RowType, ColType, NZT
   using row_type              = typename sparse_structure_type::row_type;
   using col_type              = typename sparse_structure_type::col_type;
   using nnz_type              = typename sparse_structure_type::nnz_type;
-
-  using view_type = coordinate_structure_view<row_type, col_type, nnz_type, is_device>;
+  using view_type             = coordinate_structure_view<row_type, col_type, nnz_type, is_device>;
   using row_container_policy_type = ContainerPolicy<RowType>;
   using col_container_policy_type = ContainerPolicy<ColType>;
   using row_container_type        = typename row_container_policy_type::container_type;
@@ -249,6 +248,7 @@ class coo_matrix
                          is_device,
                          ContainerPolicy> {
  public:
+  using element_type        = ElementType;
   using structure_view_type = typename structure_type::view_type;
   using container_type      = typename ContainerPolicy<ElementType>::container_type;
   using sparse_matrix_type =
