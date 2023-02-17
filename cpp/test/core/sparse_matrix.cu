@@ -20,11 +20,20 @@
 
 namespace raft {
 
+// template <typename T>
+// struct is_device_csr_matrix : std::false_type {};
+//
+// template <typename... Args>
+// struct is_device_csr_matrix<device_csr_matrix<Args...>> : std::true_type {};
+//
+// template <typename T>
+// constexpr bool is_device_csr_matrix_v = std::bool_constant<is_device_csr_matrix<T>>::value;
+
 /**
  * Example of accepting a value-owning matrix type which doesn't need to adjust sparsity
  */
-template <typename ElementType, typename R, typename C, typename NZType>
-bool test_csr_ref(device_csr_matrix<ElementType, R, C, NZType>& mat)
+template <typename S, typename = std::enable_if_t<is_device_csr_matrix_v<StructureType>>>
+bool test_csr_ref(S& mat)
 {
   std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
   mat.structure_view();

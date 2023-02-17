@@ -49,12 +49,6 @@ template <typename ElementType,
 using device_sparsity_owning_coo_matrix =
   coo_matrix<ElementType, RowType, ColType, NZType, true, ContainerPolicy>;
 
-/**
- * Specialization for a csr matrix view which uses device memory
- */
-template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-using device_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, true>;
-
 template <typename ElementType,
           typename RowType,
           typename ColType,
