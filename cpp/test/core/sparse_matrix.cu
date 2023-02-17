@@ -17,6 +17,7 @@
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_resources.hpp>
+#include <type_traits>
 
 namespace raft {
 
@@ -32,7 +33,7 @@ namespace raft {
 /**
  * Example of accepting a value-owning matrix type which doesn't need to adjust sparsity
  */
-template <typename S, typename = std::enable_if_t<is_device_csr_matrix_v<StructureType>>>
+template <typename S, typename = std::enable_if_t<is_device_csr_matrix_v<S>>>
 bool test_csr_ref(S& mat)
 {
   std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
