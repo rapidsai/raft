@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include "ann_types.hpp"
+#include <raft/neighbors/ann_types.hpp>
+#include <raft/neighbors/ivf_list_types.hpp>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
@@ -98,8 +99,9 @@ struct index_params : ann::index_params {
    * (`list_data`). This allows to amortize the cost of memory allocation and reduce the number of
    * data copies during repeated calls to `extend` (extending the database).
    *
-   * To disable this behavior and use as little GPU memory for the database as possible, set this
-   * flag to `true`.
+   * The alternative is the conservative allocation behavior; when enabled, the algorithm always
+   * allocates the minimum amount of memory required to store the given number of records. Set this
+   * flag to `true` if you prefer to use as little GPU memory for the database as possible.
    */
   bool conservative_memory_allocation = false;
 };
@@ -152,14 +154,6 @@ constexpr static uint32_t kIndexGroupSize = 32;
 constexpr static uint32_t kIndexGroupVecLen = 16;
 
 /**
- * Default value filled in the `indices()` array.
- * One may encounter it trying to access a record within a cluster that is outside of the
- * `list_sizes()` bound (due to the record alignment `kIndexGroupSize`).
- */
-template <typename IdxT>
-constexpr static IdxT kInvalidRecord = std::numeric_limits<IdxT>::max() - 1;
-
-/**
  * Default value returned by `search` when the `n_probes` is too small and top-k is too large.
  * One may encounter it if the combined size of probed clusters is smaller than the requested
  * number of results per query.
@@ -167,73 +161,57 @@ constexpr static IdxT kInvalidRecord = std::numeric_limits<IdxT>::max() - 1;
 template <typename IdxT>
 constexpr static IdxT kOutOfBoundsRecord = std::numeric_limits<IdxT>::max();
 
-/** PQ-encoded data stored in the interleaved format:
- *
- *    [ ceildiv(list_size, kIndexGroupSize)
- *    , ceildiv(pq_dim, (kIndexGroupVecLen * 8u) / pq_bits)
- *    , kIndexGroupSize
- *    , kIndexGroupVecLen
- *    ].
- */
 template <typename SizeT = uint32_t>
-using list_extents =
-  extents<SizeT, dynamic_extent, dynamic_extent, kIndexGroupSize, kIndexGroupVecLen>;
+struct list_spec {
+  using value_type = uint8_t;
+  /** PQ-encoded data stored in the interleaved format:
+   *
+   *    [ ceildiv(list_size, kIndexGroupSize)
+   *    , ceildiv(pq_dim, (kIndexGroupVecLen * 8u) / pq_bits)
+   *    , kIndexGroupSize
+   *    , kIndexGroupVecLen
+   *    ].
+   */
+  using list_extents =
+    extents<SizeT, dynamic_extent, dynamic_extent, kIndexGroupSize, kIndexGroupVecLen>;
 
-/** Determine the extents of an array enough to hold a given amount of data. */
-template <typename SizeT = uint32_t>
-constexpr auto make_list_extents(SizeT n_rows, uint32_t pq_bits, uint32_t pq_dim)
-  -> list_extents<SizeT>
-{
-  // how many elems of pq_dim fit into one kIndexGroupVecLen-byte chunk
-  auto pq_chunk = (kIndexGroupVecLen * 8u) / pq_bits;
-  return make_extents<SizeT>(div_rounding_up_safe<SizeT>(n_rows, kIndexGroupSize),
-                             div_rounding_up_safe<SizeT>(pq_dim, pq_chunk),
-                             kIndexGroupSize,
-                             kIndexGroupVecLen);
-}
+  SizeT align_max;
+  SizeT align_min;
+  uint32_t pq_bits;
+  uint32_t pq_dim;
 
-/** The data for a single list (cluster). */
-template <typename IdxT, typename SizeT = uint32_t>
-struct list_data {
-  /** PQ-encoded interleaved data. */
-  device_mdarray<uint8_t, list_extents<SizeT>, row_major> data;
-  /** Source indices. */
-  device_mdarray<IdxT, extent_1d<SizeT>, row_major> indices;
-  /** The actual size of the content. */
-  std::atomic<SizeT> size;
-
-  /** Allocate a new list capable of holding at least `n_rows` data records and indices. */
-  list_data(raft::device_resources const& res,
-            SizeT n_rows,
-            uint32_t pq_bits,
-            uint32_t pq_dim,
-            bool conservative_memory_allocation)
-    : size{n_rows}
+  constexpr list_spec(uint32_t pq_bits, uint32_t pq_dim, bool conservative_memory_allocation)
+    : pq_bits(pq_bits),
+      pq_dim(pq_dim),
+      align_min(kIndexGroupSize),
+      align_max(conservative_memory_allocation ? kIndexGroupSize : 1024)
   {
-    constexpr SizeT kMaxSensibleSize = 1024;
-    auto amortized_size = bound_by_power_of_two<SizeT>(std::max<SizeT>(n_rows, kIndexGroupSize));
-    if (amortized_size > kMaxSensibleSize) {
-      amortized_size = round_up_safe<SizeT>(amortized_size, kMaxSensibleSize);
-    }
-    const auto capacity = round_up_safe<SizeT>(
-      conservative_memory_allocation ? n_rows : amortized_size, kIndexGroupSize);
-    try {
-      data = make_device_mdarray<uint8_t>(res, make_list_extents<SizeT>(capacity, pq_bits, pq_dim));
-      indices = make_device_vector<IdxT, SizeT>(res, capacity);
-    } catch (std::bad_alloc& e) {
-      RAFT_FAIL(
-        "ivf-pq: failed to allocate a big enough index list to hold all data "
-        "(requested size: %zu records, selected capacity: %zu records). "
-        "Allocator exception: %s",
-        size_t(size),
-        size_t(capacity),
-        e.what());
-    }
-    // Fill the index buffer with a pre-defined marker for easier debugging
-    thrust::fill_n(
-      res.get_thrust_policy(), indices.data_handle(), indices.size(), ivf_pq::kInvalidRecord<IdxT>);
+  }
+
+  // Allow casting between different size-types (for safer size and offset calculations)
+  template <typename OtherSizeT>
+  constexpr explicit list_spec(const list_spec<OtherSizeT>& other_spec)
+    : pq_bits{other_spec.pq_bits},
+      pq_dim{other_spec.pq_dim},
+      align_min{other_spec.align_min},
+      align_max{other_spec.align_max}
+  {
+  }
+
+  /** Determine the extents of an array enough to hold a given amount of data. */
+  constexpr auto make_list_extents(SizeT n_rows) const -> list_extents
+  {
+    // how many elems of pq_dim fit into one kIndexGroupVecLen-byte chunk
+    auto pq_chunk = (kIndexGroupVecLen * 8u) / pq_bits;
+    return make_extents<SizeT>(div_rounding_up_safe<SizeT>(n_rows, kIndexGroupSize),
+                               div_rounding_up_safe<SizeT>(pq_dim, pq_chunk),
+                               kIndexGroupSize,
+                               kIndexGroupVecLen);
   }
 };
+
+template <typename IdxT, typename SizeT = uint32_t>
+using list_data = ivf::list<list_spec, IdxT, SizeT>;
 
 /**
  * @brief IVF-PQ index.

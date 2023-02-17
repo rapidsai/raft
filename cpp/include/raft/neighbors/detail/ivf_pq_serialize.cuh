@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
+#include <raft/neighbors/ivf_list.hpp>
 #include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/core/device_resources.hpp>
@@ -45,70 +46,6 @@ struct check_index_layout {
                 "paste in the new size and consider updating the serialization logic");
 };
 template struct check_index_layout<sizeof(index<std::uint64_t>), 536>;
-
-template <typename IdxT, typename SizeT>
-void serialize_list(const raft::device_resources& handle,
-                    std::ostream& os,
-                    const list_data<IdxT, SizeT>& ld,
-                    std::optional<SizeT> size_override = std::nullopt)
-{
-  auto size = size_override.value_or(ld.size.load());
-  serialize_scalar(handle, os, size);
-  if (size == 0) { return; }
-
-  auto data_extents = make_extents<SizeT>(div_rounding_up_safe<SizeT>(size, kIndexGroupSize),
-                                          ld.data.extent(1),
-                                          ld.data.extent(2),
-                                          ld.data.extent(3));
-  auto data_array   = make_host_mdarray<uint8_t, SizeT, row_major>(data_extents);
-  auto inds_array   = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
-  copy(data_array.data_handle(), ld.data.data_handle(), data_array.size(), handle.get_stream());
-  copy(inds_array.data_handle(), ld.indices.data_handle(), inds_array.size(), handle.get_stream());
-  handle.sync_stream();
-  serialize_mdspan(handle, os, data_array.view());
-  serialize_mdspan(handle, os, inds_array.view());
-}
-
-template <typename IdxT, typename SizeT>
-void serialize_list(const raft::device_resources& handle,
-                    std::ostream& os,
-                    const std::shared_ptr<const list_data<IdxT, SizeT>>& ld,
-                    std::optional<SizeT> size_override = std::nullopt)
-{
-  if (ld) {
-    return serialize_list(handle, os, *ld, size_override);
-  } else {
-    return serialize_scalar(handle, os, SizeT{0});
-  }
-}
-
-template <typename IdxT, typename SizeT>
-void deserialize_list(const raft::device_resources& handle,
-                      std::istream& is,
-                      std::shared_ptr<list_data<IdxT, SizeT>>& ld,
-                      uint32_t pq_bits,
-                      uint32_t pq_dim,
-                      bool conservative_memory_allocation)
-{
-  auto size = deserialize_scalar<SizeT>(handle, is);
-  if (size == 0) { return ld.reset(); }
-  std::make_shared<list_data<IdxT, SizeT>>(
-    handle, size, pq_bits, pq_dim, conservative_memory_allocation)
-    .swap(ld);
-  auto data_extents = make_extents<SizeT>(div_rounding_up_safe<SizeT>(size, kIndexGroupSize),
-                                          ld->data.extent(1),
-                                          ld->data.extent(2),
-                                          ld->data.extent(3));
-  auto data_array   = make_host_mdarray<uint8_t, SizeT, row_major>(data_extents);
-  auto inds_array   = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
-  deserialize_mdspan(handle, is, data_array.view());
-  deserialize_mdspan(handle, is, inds_array.view());
-  copy(ld->data.data_handle(), data_array.data_handle(), data_array.size(), handle.get_stream());
-  // NB: copying exactly 'size' indices to leave the rest 'kInvalidRecord' intact.
-  copy(ld->indices.data_handle(), inds_array.data_handle(), size, handle.get_stream());
-  // Make sure the data is copied from host to device before the host arrays get out of the scope.
-  handle.sync_stream();
-}
 
 /**
  * Save the index to file.
@@ -157,8 +94,10 @@ void serialize(raft::device_resources const& handle_,
        handle_.get_stream());
   handle_.sync_stream();
   serialize_mdspan(handle_, of, sizes_host.view());
+  auto list_store_spec = list_spec<uint32_t>{index.pq_bits(), index.pq_dim(), true};
   for (uint32_t label = 0; label < index.n_lists(); label++) {
-    serialize_list<IdxT, uint32_t>(handle_, of, index.lists()[label], sizes_host(label));
+    ivf::serialize_list<list_spec, IdxT, uint32_t>(
+      handle_, of, index.lists()[label], list_store_spec, sizes_host(label));
   }
 
   of.close();
@@ -212,8 +151,11 @@ auto deserialize(raft::device_resources const& handle_, const std::string& filen
   deserialize_mdspan(handle_, infile, index.centers_rot());
   deserialize_mdspan(handle_, infile, index.rotation_matrix());
   deserialize_mdspan(handle_, infile, index.list_sizes());
+  auto list_device_spec = list_spec<uint32_t>{pq_bits, pq_dim, cma};
+  auto list_store_spec  = list_spec<uint32_t>{pq_bits, pq_dim, true};
   for (auto& list : index.lists()) {
-    deserialize_list<IdxT, uint32_t>(handle_, infile, list, pq_bits, pq_dim, cma);
+    ivf::deserialize_list<list_spec, IdxT, uint32_t>(
+      handle_, infile, list, list_store_spec, list_device_spec);
   }
 
   handle_.sync_stream();

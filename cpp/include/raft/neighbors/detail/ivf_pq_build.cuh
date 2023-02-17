@@ -19,6 +19,7 @@
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/neighbors/ivf_list.hpp>
 
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/device_mdarray.hpp>
@@ -662,7 +663,7 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
   const uint32_t pq_len     = pq_centers.extent(1);
   const uint32_t pq_dim     = new_vectors.extent(1) / pq_len;
 
-  auto pq_extents = make_list_extents<uint32_t>(out_ix + 1, PqBits, pq_dim);
+  auto pq_extents = list_spec<uint32_t>{PqBits, pq_dim, true}.make_list_extents(out_ix + 1);
   auto pq_extents_vectorized =
     make_extents<uint32_t>(pq_extents.extent(0), pq_extents.extent(1), pq_extents.extent(2));
   auto pq_dataset = make_mdspan<pq_vec_t, uint32_t, row_major, false, true>(
@@ -817,55 +818,6 @@ void recompute_internal_state(const raft::device_resources& res, index<IdxT>& in
   }
 }
 
-/**
- * Resize a list by the given id, so that it can contain the given number of records;
- * copy the data if necessary.
- */
-template <typename IdxT, typename SizeT>
-void resize_list(raft::device_resources const& res,
-                 std::shared_ptr<list_data<IdxT, SizeT>>& orig_list,  // NOLINT
-                 SizeT new_used_size,
-                 SizeT old_used_size,
-                 uint32_t pq_bits,
-                 uint32_t pq_dim,
-                 bool conservative_memory_allocation)
-{
-  bool skip_resize = false;
-  if (orig_list) {
-    if (new_used_size <= orig_list->indices.extent(0)) {
-      auto shared_list_size = old_used_size;
-      if (new_used_size <= old_used_size ||
-          orig_list->size.compare_exchange_strong(shared_list_size, new_used_size)) {
-        // We don't need to resize the list if:
-        //  1. The list exists
-        //  2. The new size fits in the list
-        //  3. The list doesn't grow or no-one else has grown it yet
-        skip_resize = true;
-      }
-    }
-  } else {
-    old_used_size = 0;
-  }
-  if (skip_resize) { return; }
-  auto new_list = std::make_shared<list_data<IdxT>>(
-    res, new_used_size, pq_bits, pq_dim, conservative_memory_allocation);
-  if (old_used_size > 0) {
-    auto copied_data_extents = make_list_extents<size_t>(old_used_size, pq_bits, pq_dim);
-    auto copied_view         = make_mdspan<uint8_t, size_t, row_major, false, true>(
-      new_list->data.data_handle(), copied_data_extents);
-    copy(copied_view.data_handle(),
-         orig_list->data.data_handle(),
-         copied_view.size(),
-         res.get_stream());
-    copy(new_list->indices.data_handle(),
-         orig_list->indices.data_handle(),
-         old_used_size,
-         res.get_stream());
-  }
-  // swap the shared pointer content with the new list
-  new_list.swap(orig_list);
-}
-
 /** Copy the state of an index into a new index, but share the list data among the two. */
 template <typename IdxT>
 auto clone(const raft::device_resources& res, const index<IdxT>& source) -> index<IdxT>
@@ -945,16 +897,16 @@ void extend(raft::device_resources const& handle,
   rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
     &managed_memory_upstream, 1024 * 1024);
 
+  // The spec defines how the clusters look like
+  auto spec = list_spec{index->pq_bits(), index->pq_dim(), index->conservative_memory_allocation()};
   // Try to allocate an index with the same parameters and the projected new size
   // (which can be slightly larger than index->size() + n_rows, due to padding).
   // If this fails, the index would be too big to fit in the device anyway.
   std::optional<list_data<IdxT, size_t>> placeholder_list(
     std::in_place_t{},
     handle,
-    n_rows + (kIndexGroupSize - 1) * std::min<IdxT>(n_clusters, n_rows),
-    index->pq_bits(),
-    index->pq_dim(),
-    index->conservative_memory_allocation());
+    list_spec<size_t>(spec),
+    n_rows + (kIndexGroupSize - 1) * std::min<IdxT>(n_clusters, n_rows));
 
   // Available device memory
   size_t free_mem, total_mem;
@@ -1070,13 +1022,8 @@ void extend(raft::device_resources const& handle,
     copy(old_cluster_sizes.data(), orig_list_sizes.data(), n_clusters, stream);
     handle.sync_stream();
     for (uint32_t label = 0; label < n_clusters; label++) {
-      resize_list(handle,
-                  index->lists()[label],
-                  new_cluster_sizes[label],
-                  old_cluster_sizes[label],
-                  index->pq_bits(),
-                  index->pq_dim(),
-                  index->conservative_memory_allocation());
+      ivf::resize_list(
+        handle, index->lists()[label], spec, new_cluster_sizes[label], old_cluster_sizes[label]);
     }
   }
 
