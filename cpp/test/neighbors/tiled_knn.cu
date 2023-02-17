@@ -162,8 +162,11 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
 
     unsigned long long int seed = 1234ULL;
     raft::random::RngState r(seed);
-    uniform(handle_, r, database.data(), num_db_vecs * dim, T(-1.0), T(1.0));
-    uniform(handle_, r, search_queries.data(), num_queries * dim, T(-1.0), T(1.0));
+
+    // JensenShannon distance requires positive values
+    T min_val = metric == raft::distance::DistanceType::JensenShannon ? T(0.0) : T(-1.0);
+    uniform(handle_, r, database.data(), num_db_vecs * dim, min_val, T(1.0));
+    uniform(handle_, r, search_queries.data(), num_queries * dim, min_val, T(1.0));
   }
 
  private:
@@ -194,8 +197,7 @@ const std::vector<TiledKNNInputs> random_inputs = {
   {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::CorrelationExpanded},
   {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::CosineExpanded},
   {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::LpUnexpanded},
-  // JensenShannon produces incorrect results
-  // {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::JensenShannon},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::JensenShannon},
   // BrayCurtis isn't currently supported by pairwise_distance api
   // {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::BrayCurtis},
   {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::Canberra},
