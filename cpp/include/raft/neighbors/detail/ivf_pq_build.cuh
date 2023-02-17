@@ -18,8 +18,8 @@
 
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
-#include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
+#include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/device_mdarray.hpp>
