@@ -39,7 +39,7 @@ void find_k(raft::device_resources const& handle,
             idx_t kmax,
             idx_t kmin    = 1,
             idx_t maxiter = 100,
-            value_t tol   = 1e-3)
+            value_t tol   = 1e-2)
 {
   idx_t n = X.extent(0);
   idx_t d = X.extent(1);
@@ -72,7 +72,7 @@ void find_k(raft::device_resources const& handle,
   // Perform k-means in binary search
   int left   = kmin;  // must be at least 2
   int right  = kmax;  // int(floor(len(data)/2)) #assumption of clusters of size 2 at least
-  int mid    = int(floor((right + left) / 2));
+  int mid    = ((unsigned int)left + (unsigned int)right) >> 1;
   int oldmid = mid;
   int tests  = 0;
   value_t objective[3];     // 0= left of mid, 1= right of mid
@@ -191,7 +191,7 @@ void find_k(raft::device_resources const& handle,
       left = mid;
     }
     oldmid = mid;
-    mid    = int(floor((right + left) / 2));
+    mid    = ((unsigned int)right + (unsigned int)left) >> 1;
   }
 
   best_k[0]    = right;
