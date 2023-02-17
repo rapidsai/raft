@@ -44,6 +44,25 @@ template <typename ElementType,
 using device_sparsity_owning_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy>;
 
+template <typename T>
+struct is_device_csr_matrix : std::false_type {
+};
+
+template <typename ElementType,
+          typename IndptrType,
+          typename IndicesType,
+          typename NZType,
+          template <typename T>
+          typename ContainerPolicy,
+          SparsityType type_enum>
+struct is_device_csr_matrix<
+  device_csr_matrix<ElementType, IndptrType, IndicesType, NZType, ContainerPolicy, type_enum>>
+  : std::true_type {
+};
+
+template <typename T>
+constexpr bool is_device_csr_matrix_v = is_device_csr_matrix<T>::value;
+
 /**
  * Specialization for a csr matrix view which uses device memory
  */
@@ -245,16 +264,5 @@ auto make_device_csr_structure_view(raft::device_span<IndptrType> indptr,
 {
   return device_compressed_structure_view<IndptrType, IndicesType, NZType>(indptr, indices, n_cols);
 }
-
-template <typename T>
-struct is_device_csr_matrix : std::false_type {
-};
-
-template <typename... Args>
-struct is_device_csr_matrix<device_csr_matrix<Args...>> : std::true_type {
-};
-
-template <typename T>
-bool constexpr is_device_csr_matrix_v = is_device_csr_matrix<T>::value;
 
 };  // namespace raft
