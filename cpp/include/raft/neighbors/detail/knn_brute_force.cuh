@@ -411,7 +411,8 @@ void brute_force_knn_impl(
         (metric == raft::distance::DistanceType::L2Unexpanded ||
          metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
          metric == raft::distance::DistanceType::L2Expanded ||
-         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+         metric == raft::distance::DistanceType::L2SqrtExpanded ||
+         metric == raft::distance::DistanceType::LpUnexpanded)) {
       fusedL2Knn(D,
                  out_i_ptr,
                  out_d_ptr,
@@ -424,6 +425,20 @@ void brute_force_knn_impl(
                  rowMajorQuery,
                  stream,
                  metric);
+
+      // Perform necessary post-processing
+      if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
+          metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+          metric == raft::distance::DistanceType::LpUnexpanded) {
+        float p = 0.5;  // standard l2
+        if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
+        raft::linalg::unaryOp<float>(
+          res_D,
+          res_D,
+          n * k,
+          [p] __device__(float input) { return powf(fabsf(input), p); },
+          userStream);
+      }
     } else {
       switch (metric) {
         case raft::distance::DistanceType::Haversine:
@@ -461,24 +476,6 @@ void brute_force_knn_impl(
     // This is necessary for proper index translations. If there are
     // no translations or partitions to combine, it can be skipped.
     knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream, trans.data());
-  }
-
-  // Perform necessary post-processing
-  // TODO: is this only really necessary for fusedL2Knn code?
-  if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
-      metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
-      metric == raft::distance::DistanceType::LpUnexpanded) {
-    /**
-     * post-processing
-     */
-    float p = 0.5;  // standard l2
-    if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
-    raft::linalg::unaryOp<float>(
-      res_D,
-      res_D,
-      n * k,
-      [p] __device__(float input) { return powf(fabsf(input), p); },
-      userStream);
   }
 
   if (translations == nullptr) delete id_ranges;
