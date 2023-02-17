@@ -41,7 +41,7 @@ struct list {
   using value_type   = typename SpecT<SizeT>::value_type;
   using list_extents = typename SpecT<SizeT>::list_extents;
 
-  /** Possibly enconded data; it's layout is defined by `SpecT`. */
+  /** Possibly encoded data; it's layout is defined by `SpecT`. */
   device_mdarray<value_type, list_extents, row_major> data;
   /** Source indices. */
   device_mdarray<IdxT, extent_1d<SizeT>, row_major> indices;
