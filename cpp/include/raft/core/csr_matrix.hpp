@@ -60,14 +60,12 @@ template <typename IndptrType, typename IndicesType, typename NZType, bool is_de
 class compressed_structure_view
   : public compressed_structure_t<IndptrType, IndicesType, NZType, is_device> {
  public:
-  static constexpr SparsityType type_enum = SparsityType::PRESERVING;
   using view_type = compressed_structure_view<IndptrType, IndicesType, NZType, is_device>;
   using indptr_type =
     typename sparse_structure<IndptrType, IndicesType, NZType, is_device>::row_type;
   using indices_type =
     typename sparse_structure<IndptrType, IndicesType, NZType, is_device>::col_type;
 
-  constexpr auto get_type_enum() { return type_enum; }
   compressed_structure_view(span<indptr_type, is_device> indptr,
                             span<indices_type, is_device> indices,
                             indices_type n_cols)
@@ -131,7 +129,6 @@ template <typename IndptrType,
 class compressed_structure
   : public compressed_structure_t<IndptrType, IndicesType, NZType, is_device> {
  public:
-  static constexpr SparsityType type_enum = SparsityType::OWNING;
   using sparse_structure_type = compressed_structure_t<IndptrType, IndicesType, NZType, is_device>;
   using view_type = compressed_structure_view<IndptrType, IndicesType, NZType, is_device>;
   using indptr_container_policy_type  = ContainerPolicy<IndptrType>;
@@ -139,7 +136,6 @@ class compressed_structure
   using indptr_container_type         = typename indptr_container_policy_type::container_type;
   using indices_container_type        = typename indices_container_policy_type::container_type;
 
-  constexpr auto get_type_enum() { return type_enum; }
   constexpr compressed_structure(
     raft::device_resources const& handle,
     IndptrType n_rows,
@@ -250,7 +246,7 @@ template <typename ElementType,
           bool is_device,
           template <typename T>
           typename ContainerPolicy,
-          SparsityType type_enum  = OWNING,
+          SparsityType type_enum  = SparsityType::OWNING,
           typename structure_type = std::conditional_t<
             type_enum == SparsityType::OWNING,
             compressed_structure<IndptrType, IndicesType, NZType, is_device, ContainerPolicy>,
@@ -263,7 +259,7 @@ class csr_matrix
                          ContainerPolicy> {
  public:
   using structure_view_type = typename structure_type::view_type;
-
+  static constexpr auto get_type_enum() { return type_enum; }
   using sparse_matrix_type =
     sparse_matrix<ElementType,
                   structure_type,

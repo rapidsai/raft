@@ -107,7 +107,7 @@ void test_csr_matrix()
   test_csr_owning_ref(sparsity_owning);
   test_csr_owning_ref(sparsity_preserving);
 
-  //    test_csr_sparsity_owning_ref(sparsity_owning);
+  test_csr_sparsity_owning_ref(sparsity_owning);
   test_csr_sparsity_preserving_ref(sparsity_preserving);
 
   ASSERT_EQ(structure_view2.get_n_cols(), 5);

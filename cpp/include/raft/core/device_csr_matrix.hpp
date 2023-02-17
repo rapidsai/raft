@@ -65,11 +65,11 @@ constexpr bool is_device_csr_matrix_v = is_device_csr_matrix<T>::value;
 
 template <typename T>
 constexpr bool is_device_csr_sparsity_owning_v =
-  is_device_csr_matrix<T>::value and T::type_enum == OWNING;
+  is_device_csr_matrix<T>::value and T::get_type_enum() == OWNING;
 
 template <typename T>
 constexpr bool is_device_csr_sparsity_preserving_v =
-  is_device_csr_matrix<T>::value and T::type_enum == PRESERVING;
+  is_device_csr_matrix<T>::value and T::get_type_enum() == PRESERVING;
 
 /**
  * Specialization for a csr matrix view which uses device memory
