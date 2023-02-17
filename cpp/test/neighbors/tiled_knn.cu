@@ -104,7 +104,7 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
                           num_db_vecs,
                           ref_distances_.data(),
                           ref_indices_.data(),
-                          true,
+                          raft::distance::is_min_close(metric),
                           k_,
                           stream_);
 

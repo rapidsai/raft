@@ -191,6 +191,8 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   rmm::device_uvector<ElementType> temp_out_distances(tile_rows * temp_out_cols, stream);
   rmm::device_uvector<IndexType> temp_out_indices(tile_rows * temp_out_cols, stream);
 
+  bool select_min = raft::distance::is_min_close(metric);
+
   for (size_t i = 0; i < m; i += tile_rows) {
     size_t current_query_size = std::min(tile_rows, m - i);
 
@@ -220,7 +222,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                                                current_centroid_size,
                                                distances + i * k,
                                                indices + i * k,
-                                               true,
+                                               select_min,
                                                current_k,
                                                stream);
 
@@ -260,7 +262,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                                                temp_out_cols,
                                                distances + i * k,
                                                indices + i * k,
-                                               true,
+                                               select_min,
                                                k,
                                                stream);
     }
