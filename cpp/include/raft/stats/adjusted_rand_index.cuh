@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
- * @file adjusted_rand_index.hpp
+ * @file adjusted_rand_index.cuh
  * @brief The adjusted Rand index is the corrected-for-chance version of the Rand index.
  * Such a correction for chance establishes a baseline by using the expected similarity
  * of all pair-wise comparisons between clusterings specified by a random model.

@@ -57,7 +57,11 @@ option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
-option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${BUILD_TESTS})
+set(RAFT_COMPILE_LIBRARIES_DEFAULT OFF)
+if(BUILD_TESTS OR BUILD_BENCH)
+  set(RAFT_COMPILE_LIBRARIES_DEFAULT ON)
+endif()
+option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations" ${RAFT_COMPILE_LIBRARIES_DEFAULT})
 option(
   RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations"
   ${RAFT_COMPILE_LIBRARIES}
@@ -66,7 +70,7 @@ option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library in
        ${RAFT_COMPILE_LIBRARIES}
 )
 option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss"
-       ${RAFT_COMPILE_LIBRARIES}
+       ${RAFT_COMPILE_NN_LIBRARY}
 )
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
@@ -720,11 +724,3 @@ endif()
 if(BUILD_BENCH)
   include(bench/CMakeLists.txt)
 endif()
-
-# ##################################################################################################
-# * doxygen targets ----------------------------------------------------------
-include(cmake/doxygen.cmake)
-add_doxygen_target(
-  IN_DOXYFILE doxygen/Doxyfile.in OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile CWD
-  ${CMAKE_CURRENT_BINARY_DIR}
-)
