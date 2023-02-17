@@ -201,10 +201,9 @@ const std::vector<TiledKNNInputs> random_inputs = {
   {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::Canberra},
   {10000, 40000, 32, 30, 512, 1024, raft::distance::DistanceType::L2Expanded},
   {345, 1023, 16, 128, 512, 1024, raft::distance::DistanceType::CosineExpanded},
-  // TODO: next two tests are failing (and definitely used to work)
-  // {789, 20516, 64, 256, 512, 4096, raft::distance::DistanceType::L2SqrtExpanded},
+  {789, 20516, 64, 256, 512, 4096, raft::distance::DistanceType::L2SqrtExpanded},
   // Test where the final column tile has < K items:
-  // {4, 12, 32, 6, 4, 8, raft::distance::DistanceType::L2Expanded},
+  {4, 12, 32, 6, 4, 8, raft::distance::DistanceType::L2Expanded},
   // Test where passing column_tiles < K
   {1, 40, 32, 30, 1, 8, raft::distance::DistanceType::L2Expanded},
   // Passing tile sizes of 0 means to use the public api (instead of the
