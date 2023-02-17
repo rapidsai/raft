@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+#include <raft/core/device_coo_matrix.hpp>
+#include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_resources.hpp>
-#include <raft/core/device_sparse_matrix.hpp>
 
 namespace raft {
 
