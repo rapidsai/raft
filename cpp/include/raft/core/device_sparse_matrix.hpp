@@ -27,20 +27,19 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          typename StructureType,
-          template <typename T> typename ContainerPolicy = detail::device_uvector_policy>
+          template <typename T> typename ContainerPolicy = detail::device_uvector_policy,
+          SparsityType type_enum                         = SparsityType::OWNING>
 using device_csr_matrix =
-  csr_matrix<ElementType, IndptrType, IndicesType, NZType, StructureType, true, ContainerPolicy>;
+  csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy, type_enum>;
 
 template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          typename StructureType,
-          template <typename T>
-          typename ContainerPolicy>
+          template <typename T> typename ContainerPolicy = detail::device_uvector_policy,
+          SparsityType type_enum                         = SparsityType::OWNING>
 using device_coo_matrix =
-  coo_matrix<ElementType, RowType, ColType, NZType, StructureType, true, ContainerPolicy>;
+  coo_matrix<ElementType, RowType, ColType, NZType, true, ContainerPolicy, type_enum>;
 
 /**
  * Specialization for a sparsity-owning csr matrix which uses device memory
@@ -51,7 +50,7 @@ template <typename ElementType,
           typename NZType,
           template <typename T> typename ContainerPolicy = detail::device_uvector_policy>
 using device_sparsity_owning_csr_matrix =
-  sparsity_owning_csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy>;
+  csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy>;
 
 /**
  * Specialization for a sparsity-preserving csr matrix which uses device memory
@@ -61,12 +60,19 @@ template <typename ElementType,
           typename IndicesType,
           typename NZType,
           template <typename T> typename ContainerPolicy = detail::device_uvector_policy>
-using device_sparsity_preserving_csr_matrix = sparsity_preserving_csr_matrix<ElementType,
-                                                                             IndptrType,
-                                                                             IndicesType,
-                                                                             NZType,
-                                                                             true,
-                                                                             ContainerPolicy>;
+using device_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
+                                                         IndptrType,
+                                                         IndicesType,
+                                                         NZType,
+                                                         true,
+                                                         ContainerPolicy,
+                                                         SparsityType::PRESERVING>;
+
+/**
+ * Specialization for a coo matrix view which uses device memory
+ */
+template <typename ElementType, typename RowType, typename ColType, typename NZType>
+using device_coo_matrix_view = coo_matrix_view<ElementType, RowType, ColType, NZType, true>;
 
 /**
  * Specialization for a sparsity-owning coo matrix which uses device memory
@@ -77,13 +83,7 @@ template <typename ElementType,
           typename NZType,
           template <typename T> typename ContainerPolicy = detail::device_uvector_policy>
 using device_sparsity_owning_coo_matrix =
-  sparsity_owning_coo_matrix<ElementType, RowType, ColType, NZType, true, ContainerPolicy>;
-
-/**
- * Specialization for a coo matrix view which uses device memory
- */
-template <typename ElementType, typename RowType, typename ColType, typename NZType>
-using device_coo_matrix_view = coo_matrix_view<ElementType, RowType, ColType, NZType, true>;
+  coo_matrix<ElementType, RowType, ColType, NZType, true, ContainerPolicy>;
 
 /**
  * Specialization for a csr matrix view which uses device memory
@@ -96,8 +96,13 @@ template <typename ElementType,
           typename ColType,
           typename NZType,
           template <typename T> typename ContainerPolicy = detail::device_uvector_policy>
-using device_sparsity_preserving_coo_matrix =
-  sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType, true, ContainerPolicy>;
+using device_sparsity_preserving_coo_matrix = coo_matrix<ElementType,
+                                                         RowType,
+                                                         ColType,
+                                                         NZType,
+                                                         true,
+                                                         ContainerPolicy,
+                                                         SparsityType::PRESERVING>;
 
 /**
  * Specialization for a sparsity-owning coordinate structure which uses device memory

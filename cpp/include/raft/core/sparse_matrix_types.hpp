@@ -19,4 +19,5 @@
 
 namespace raft {
 
+enum SparsityType { OWNING, PRESERVING };
 };
