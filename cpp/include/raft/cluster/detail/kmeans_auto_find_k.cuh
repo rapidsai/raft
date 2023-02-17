@@ -92,14 +92,14 @@ void find_k(raft::device_resources const& handle,
     raft::make_device_vector_view<const idx_t, idx_t>(clusterSizes_ptr, left);
 
   params.n_clusters = left;
-  kmeans_fit_predict<value_t, idx_t>(handle,
-                                     params,
-                                     X,
-                                     std::nullopt,
-                                     std::make_optional(centroids_view),
-                                     labels.view(),
-                                     residual,
-                                     n_iter);
+  raft::cluster::detail::kmeans_fit_predict<value_t, idx_t>(handle,
+                                                            params,
+                                                            X,
+                                                            std::nullopt,
+                                                            std::make_optional(centroids_view),
+                                                            labels.view(),
+                                                            residual,
+                                                            n_iter);
 
   detail::countLabels(handle, labels.data_handle(), clusterSizes.data_handle(), n, left, workspace);
   resultsView[left] = residual[0];
@@ -117,14 +117,14 @@ void find_k(raft::device_resources const& handle,
     cluster_sizes_view = raft::make_device_vector_view<const idx_t, idx_t>(clusterSizes_ptr, right);
 
     params.n_clusters = right;
-    kmeans_fit_predict<value_t, idx_t>(handle,
-                                       params,
-                                       X,
-                                       std::nullopt,
-                                       std::make_optional(centroids_view),
-                                       labels.view(),
-                                       residual,
-                                       n_iter);
+    raft::cluster::detail::kmeans_fit_predict<value_t, idx_t>(handle,
+                                                              params,
+                                                              X,
+                                                              std::nullopt,
+                                                              std::make_optional(centroids_view),
+                                                              labels.view(),
+                                                              residual,
+                                                              n_iter);
 
     detail::countLabels(
       handle, labels.data_handle(), clusterSizes.data_handle(), n, right, workspace);
@@ -151,14 +151,14 @@ void find_k(raft::device_resources const& handle,
 
       params.n_clusters = mid;
 
-      kmeans_fit_predict<value_t, idx_t>(handle,
-                                         params,
-                                         X,
-                                         std::nullopt,
-                                         std::make_optional(centroids_view),
-                                         labels.view(),
-                                         residual,
-                                         n_iter);
+      raft::cluster::detail::kmeans_fit_predict<value_t, idx_t>(handle,
+                                                                params,
+                                                                X,
+                                                                std::nullopt,
+                                                                std::make_optional(centroids_view),
+                                                                labels.view(),
+                                                                residual,
+                                                                n_iter);
 
       detail::countLabels(
         handle, labels.data_handle(), clusterSizes.data_handle(), n, mid, workspace);
@@ -206,14 +206,14 @@ void find_k(raft::device_resources const& handle,
       raft::make_device_matrix_view<value_t, idx_t>(centroids.data_handle(), best_k[0], d);
 
     params.n_clusters = best_k[0];
-    kmeans_fit_predict<value_t, idx_t>(handle,
-                                       params,
-                                       X,
-                                       std::nullopt,
-                                       std::make_optional(centroids_view),
-                                       labels.view(),
-                                       residual,
-                                       n_iter);
+    raft::cluster::detail::kmeans_fit_predict<value_t, idx_t>(handle,
+                                                              params,
+                                                              X,
+                                                              std::nullopt,
+                                                              std::make_optional(centroids_view),
+                                                              labels.view(),
+                                                              residual,
+                                                              n_iter);
   }
 }
 }  // namespace raft::cluster::detail
