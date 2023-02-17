@@ -34,7 +34,23 @@ namespace raft {
  * Example of accepting a value-owning matrix type which doesn't need to adjust sparsity
  */
 template <typename S, typename = std::enable_if_t<is_device_csr_matrix_v<S>>>
-bool test_csr_ref(S& mat)
+bool test_csr_owning_ref(S& mat)
+{
+  std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
+  mat.structure_view();
+  return true;
+}
+
+template <typename S, typename = std::enable_if_t<is_device_csr_sparsity_owning_v<S>>>
+bool test_csr_sparsity_owning_ref(S& mat)
+{
+  std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
+  mat.structure_view();
+  return true;
+}
+
+template <typename S, typename = std::enable_if_t<is_device_csr_sparsity_preserving_v<S>>>
+bool test_csr_sparsity_preserving_ref(S& mat)
 {
   std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
   mat.structure_view();
@@ -67,23 +83,32 @@ void test_coo_matrix()
 void test_csr_matrix()
 {
   raft::device_resources handle;
-  auto mat = raft::make_device_csr_matrix<float, int, int, int>(handle, 5, 5);
+  auto sparsity_owning = raft::make_device_csr_matrix<float, int, int, int>(handle, 5, 5);
 
-  auto structure_view = mat.structure_view();
+  auto comp_struct = raft::make_compressed_structure(handle, 5, 5);
+  auto sparsity_preserving =
+    raft::make_device_csr_matrix<float, int, int>(handle, comp_struct.view());
+
+  auto structure_view = sparsity_owning.structure_view();
   //  auto sparse_view = mat.view();
 
   ASSERT_EQ(structure_view.get_n_cols(), 5);
   ASSERT_EQ(structure_view.get_n_rows(), 5);
   ASSERT_EQ(structure_view.get_nnz(), 0);
 
-  mat.initialize_sparsity(5);
+  sparsity_owning.initialize_sparsity(5);
 
-  auto structure_view2 = mat.structure_view();
+  auto structure_view2 = sparsity_owning.structure_view();
   //  auto sparse_view2 = mat.view();
 
-  std::cout << "Value address: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
+  std::cout << "Value address: " << static_cast<void*>(sparsity_owning.get_elements().data())
+            << std::endl;
 
-  test_csr_ref(mat);
+  test_csr_owning_ref(sparsity_owning);
+  test_csr_owning_ref(sparsity_preserving);
+
+  //    test_csr_sparsity_owning_ref(sparsity_owning);
+  test_csr_sparsity_preserving_ref(sparsity_preserving);
 
   ASSERT_EQ(structure_view2.get_n_cols(), 5);
   ASSERT_EQ(structure_view2.get_n_rows(), 5);

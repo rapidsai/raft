@@ -94,14 +94,14 @@ class compressed_structure_view
    * Create a view from this view. Note that this is for interface compatibility
    * @return
    */
-  view_type view() { return view_type(indptr_, indices_, this->n_rows_, this->n_cols_); }
+  view_type view() { return view_type(indptr_, indices_, this->get_n_cols()); }
 
   /**
    * Initialize sparsity when it was not known upon construction.
    *
    * Note: A view is sparsity-preserving so the sparsity cannot be mutated.
    */
-  void initialize_sparsity(NZType)
+  void initialize_sparsity(NZType) override
   {
     RAFT_FAIL("The sparsity of structure-preserving sparse formats cannot be changed");
   }
@@ -211,7 +211,7 @@ class compressed_structure
    * resize the underlying data arrays.
    * @param nnz new sparsity
    */
-  void initialize_sparsity(NZType nnz)
+  void initialize_sparsity(NZType nnz) override
   {
     sparse_structure_type::initialize_sparsity(nnz);
     c_indptr_.resize(this->get_n_rows() + 1, handle_.get_stream());
@@ -292,7 +292,7 @@ class csr_matrix
    * Please note this will resize the underlying memory buffers
    * @param nnz new sparsity to initialize.
    */
-  template <typename = std::enable_if_t<type_enum == SparsityType::OWNING>>
+  template <typename = std::enable_if<type_enum == SparsityType::OWNING>>
   void initialize_sparsity(NZType nnz)
   {
     sparse_matrix_type::initialize_sparsity(nnz);

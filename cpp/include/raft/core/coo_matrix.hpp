@@ -282,7 +282,7 @@ class coo_matrix
    * Please note this will resize the underlying memory buffers
    * @param nnz new sparsity to initialize.
    */
-  template <typename = std::enable_if_t<type_enum == SparsityType::OWNING>>
+  template <typename = std::enable_if<type_enum == SparsityType::OWNING>>
   void initialize_sparsity(NZType nnz)
   {
     sparse_matrix_type::initialize_sparsity(nnz);
