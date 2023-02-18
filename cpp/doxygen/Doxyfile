@@ -38,7 +38,7 @@ PROJECT_NAME           = "RAFT C++ API"
 # could be handy for archiving the generated documentation or if some version
 # control system is used.
 
-PROJECT_NUMBER         = @RAFT_VERSION@
+PROJECT_NUMBER         = "23.04"
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer a
@@ -58,7 +58,7 @@ PROJECT_LOGO           =
 # entered, it will be relative to the location where doxygen was started. If
 # left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@
+OUTPUT_DIRECTORY       =
 
 # If the CREATE_SUBDIRS tag is set to YES then doxygen will create 4096 sub-
 # directories (in 2 levels) under the output directory of each output format and
@@ -835,8 +835,8 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/doxygen/main_page.md \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include
+INPUT                  = main_page.md \
+                         ../include
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -879,30 +879,30 @@ RECURSIVE              = YES
 # Note that relative paths are relative to the directory from which doxygen is
 # run.
 
-EXCLUDE                = @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/linalg/symmetrize.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/cache \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/common \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/lap \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/selection \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/sparse/csr.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/linalg/lanczos.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/linalg/lanczos.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/cuda_utils.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/cudart_utils.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/device_atomics.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/device_utils.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/error.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/handle.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/integer_utils.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/interruptible.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/mdarray.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/pow2_utils.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/span.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/util/vectorized.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/raft.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/core/cudart_utils.hpp \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/matrix/math.cuh \
-                         @CMAKE_CURRENT_SOURCE_DIR@/include/raft/matrix/matrix.cuh
+EXCLUDE                = ../include/raft/sparse/linalg/symmetrize.hpp \
+                         ../include/raft/cache \
+                         ../include/raft/common \
+                         ../include/raft/lap \
+                         ../include/raft/sparse/selection \
+                         ../include/raft/sparse/csr.hpp \
+                         ../include/raft/linalg/lanczos.cuh \
+                         ../include/raft/linalg/lanczos.hpp \
+                         ../include/raft/util/cuda_utils.cuh \
+                         ../include/raft/util/cudart_utils.hpp \
+                         ../include/raft/util/device_atomics.cuh \
+                         ../include/raft/util/device_utils.cuh \
+                         ../include/raft/core/error.hpp \
+                         ../include/raft/core/handle.hpp \
+                         ../include/raft/util/integer_utils.hpp \
+                         ../include/raft/core/interruptible.hpp \
+                         ../include/raft/core/mdarray.hpp \
+                         ../include/raft/util/pow2_utils.cuh \
+                         ../include/raft/core/span.hpp \
+                         ../include/raft/util/vectorized.cuh \
+                         ../include/raft/raft.hpp \
+                         ../include/raft/core/cudart_utils.hpp \
+                         ../include/raft/matrix/math.cuh \
+                         ../include/raft/matrix/matrix.cuh
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
@@ -1013,7 +1013,7 @@ FILTER_SOURCE_PATTERNS =
 # (index.html). This can be useful if you have a project on for instance GitHub
 # and want to reuse the introduction page also for the doxygen output.
 
-USE_MDFILE_AS_MAINPAGE = @CMAKE_CURRENT_SOURCE_DIR@/doxygen/main_page.md
+USE_MDFILE_AS_MAINPAGE = main_page.md
 
 #---------------------------------------------------------------------------
 # Configuration options related to source browsing
@@ -1134,7 +1134,7 @@ IGNORE_PREFIX          =
 # If the GENERATE_HTML tag is set to YES, doxygen will generate HTML output
 # The default value is: YES.
 
-GENERATE_HTML          = YES
+GENERATE_HTML          = NO
 
 # The HTML_OUTPUT tag is used to specify where the HTML docs will be put. If a
 # relative path is entered the value of OUTPUT_DIRECTORY will be put in front of
@@ -1169,7 +1169,7 @@ HTML_FILE_EXTENSION    = .html
 # of the possible markers and block names see the documentation.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-HTML_HEADER            = @CMAKE_CURRENT_SOURCE_DIR@/doxygen/header.html
+HTML_HEADER            = header.html
 
 # The HTML_FOOTER tag can be used to specify a user-defined HTML footer for each
 # generated HTML page. If the tag is left blank doxygen will generate a standard
@@ -2018,7 +2018,7 @@ GENERATE_XML           = YES
 # The default directory is: xml.
 # This tag requires that the tag GENERATE_XML is set to YES.
 
-XML_OUTPUT             = xml
+XML_OUTPUT             = _xml
 
 # If the XML_PROGRAMLISTING tag is set to YES, doxygen will dump the program
 # listings (including syntax highlighting and cross-referencing information) to
@@ -2270,7 +2270,7 @@ HIDE_UNDOC_RELATIONS   = YES
 # set to NO
 # The default value is: NO.
 
-HAVE_DOT               = @DOXYGEN_DOT_FOUND@
+HAVE_DOT               =
 
 # The DOT_NUM_THREADS specifies the number of dot invocations doxygen is allowed
 # to run in parallel. When set to 0 doxygen will base this on the number of
@@ -2448,7 +2448,7 @@ INTERACTIVE_SVG        = NO
 # found. If left blank, it is assumed the dot tool can be found in the path.
 # This tag requires that the tag HAVE_DOT is set to YES.
 
-DOT_PATH               = @DOXYGEN_DOT_EXECUTABLE@
+DOT_PATH               =
 
 # The DOTFILE_DIRS tag can be used to specify one or more directories that
 # contain dot files that are included in the documentation (see the \dotfile

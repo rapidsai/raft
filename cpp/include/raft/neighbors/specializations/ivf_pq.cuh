@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/ivf_flat_types.hpp>
+#pragma once
+
 #include <raft/neighbors/ivf_pq.cuh>
+#include <raft/neighbors/specializations/detail/ivf_pq_compute_similarity.cuh>
 
 namespace raft::neighbors::ivf_pq {
 
@@ -36,8 +38,16 @@ namespace raft::neighbors::ivf_pq {
                                        index<IdxT>* index,                   \
                                        const T* new_vectors,                 \
                                        const IdxT* new_indices,              \
-                                       IdxT n_rows);
-
+                                       IdxT n_rows);                         \
+  extern template void search<T, IdxT>(raft::device_resources const&,        \
+                                       const search_params&,                 \
+                                       const index<IdxT>&,                   \
+                                       const T*,                             \
+                                       uint32_t,                             \
+                                       uint32_t,                             \
+                                       IdxT*,                                \
+                                       float*,                               \
+                                       rmm::mr::device_memory_resource*);
 RAFT_INST(float, uint64_t);
 RAFT_INST(int8_t, uint64_t);
 RAFT_INST(uint8_t, uint64_t);
