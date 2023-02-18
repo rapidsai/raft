@@ -487,7 +487,7 @@ INSTANTIATE_TEST_CASE_P(
  *  SelectionTest/ReferencedRandomFloatSizeT.LargeK/0
  *  Indicices do not match! ref[91628] = 131.359 != res[36504] = 158.438
  *  Actual: false (actual=36504 != expected=91628 @38999;
-*/
+ */
 typedef SelectionTest<float, size_t, with_ref<knn::SelectKAlgo::RADIX_11_BITS>::params_random>
   ReferencedRandomFloatSizeT;
 TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }
