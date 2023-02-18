@@ -230,6 +230,7 @@ auto make_device_csr_matrix_view(
  * @param[in] handle raft handle for managing expensive device resources
  * @param[in] n_rows total number of rows
  * @param[in] n_cols total number of cols
+ * @param[in] nnz total number of nonzeros, if known
  * @return a sparsity-owning compressed structure instance
  */
 template <typename IndptrType, typename IndicesType, typename NZType = uint64_t>
